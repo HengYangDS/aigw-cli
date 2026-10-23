@@ -118,7 +118,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
@@ -144,7 +144,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
@@ -209,7 +209,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
@@ -242,7 +242,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
@@ -273,7 +273,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
@@ -393,7 +393,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
@@ -527,7 +527,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@fc42bcc7ddbf51124c30f95a877a0c5168a3bfde
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}

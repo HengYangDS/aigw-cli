@@ -9,19 +9,19 @@ importers:
   .:
     dependencies:
       npm:
-        specifier: 12.2.0
-        version: 12.2.0
+        specifier: 12.2.1
+        version: 12.2.1
 
 packages:
 
-  npm@12.2.0:
-    resolution: {integrity: sha512-ZsJjKpTnlmSXOLLXiU1xDCzC4Wlok4IwZmh/aw2KUuXytU7q6qMv/cUT7MoeSf95Slwuw/lRXYefGzGCspHPNQ==}
+  npm@12.2.1:
+    resolution: {integrity: sha512-bKCmFRVT/BB+YPEYbZwQ1XUI3N5t4xKSpU1MxOjo7z3iWzKBJ0ZXRC1xFdEN+TC7N5TdywaBzf2dMXGJq/e2PQ==}
     engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
     hasBin: true
 
 snapshots:
 
-  npm@12.2.0:
+  npm@12.2.1:
     bundledDependencies:
       - '@isaacs/string-locale-compare'
       - '@npmcli/arborist'
