@@ -14,6 +14,10 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+## [0.4.13] - 2026-10-23
+
+History: [GitLab][0.4.13-gitlab] · [GitHub][0.4.13-github]
+
 ### Fixed
 
 - Human output aligns each group of rows on one value column set by its
@@ -1555,8 +1559,10 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
-[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.12...main
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.12...main
+[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.13...main
+[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.13...main
+[0.4.13-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.12...v0.4.13
+[0.4.13-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.12...v0.4.13
 [0.4.12-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.11...v0.4.12
 [0.4.12-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.11...v0.4.12
 [0.4.11-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.10...v0.4.11
