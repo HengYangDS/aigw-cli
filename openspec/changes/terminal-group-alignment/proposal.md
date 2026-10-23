@@ -40,9 +40,10 @@ line and indents help options two cells deeper than every other section.
 
 ### Modified Capabilities
 
-- `product-quality`: the requirement "Terminal layout follows semantic fields
-  and display width" states group-wide value columns, hanging continuation,
-  width-independent note indentation and space-only wrapping.
+- `product-quality`: gains the requirement "Human output groups share one
+  value column", which states group-wide value columns, hanging continuation,
+  width-independent note indentation, space-only wrapping and the help option
+  indentation.
 
 ## Impact
 
