@@ -26,7 +26,7 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Point the dependency-acceptance fixture at braces 3.0.2 and
+- [x] 3.1 Point the dependency-acceptance fixture at braces 3.0.2 and
       GHSA-grv7-fg5c-xmjg, because OSV withdrew GHSA-vfj7-8cjw-p6xm for braces
       3.0.3 on October 23; the network gate passes.
 - [ ] 3.2 `mise run check` and the full proof of the lane head pass.

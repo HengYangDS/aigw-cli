@@ -19,14 +19,15 @@ func TestNativeDependencyEvidenceRetainsFindings(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(policy, []byte("[[PackageOverrides]]\nname='example.invalid/dependency'\nversion='1.0.0'\necosystem='Go'\nlicense.override=['MIT']\n[[PackageOverrides]]\nname='braces'\nversion='3.0.3'\necosystem='npm'\nlicense.override=['MIT']\n"), 0o600); err != nil {
+	if err := os.WriteFile(policy, []byte("[[PackageOverrides]]\nname='example.invalid/dependency'\nversion='1.0.0'\necosystem='Go'\nlicense.override=['MIT']\n[[PackageOverrides]]\nname='braces'\nversion='3.0.2'\necosystem='npm'\nlicense.override=['MIT']\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	// npm records a registry package's resolved URL; OSV Scanner 2.7 treats an
 	// entry without one as a local package and queries no advisory for it.
+	// braces 3.0.2 carries GHSA-grv7-fg5c-xmjg (CVE-2024-4068), fixed in 3.0.3.
 	for path, value := range map[string]string{
 		"go.mod":            "module example.invalid/fixture\ngo 1.27.1\nrequire example.invalid/dependency v1.0.0\n",
-		"package-lock.json": `{"name":"fixture","lockfileVersion":3,"packages":{"node_modules/braces":{"version":"3.0.3","resolved":"https://registry.npmjs.org/braces/-/braces-3.0.3.tgz","dev":true}}}`,
+		"package-lock.json": `{"name":"fixture","lockfileVersion":3,"packages":{"node_modules/braces":{"version":"3.0.2","resolved":"https://registry.npmjs.org/braces/-/braces-3.0.2.tgz","dev":true}}}`,
 	} {
 		if err := os.WriteFile(filepath.Join(root, path), []byte(value), 0o600); err != nil {
 			t.Fatal(err)
@@ -50,7 +51,7 @@ func TestNativeDependencyEvidenceRetainsFindings(t *testing.T) {
 			t.Fatalf("native evidence %s is unavailable or invalid: %v", name, err)
 		}
 		if name != "licenses.json" {
-			if !bytes.Contains(content, []byte("GHSA-vfj7-8cjw-p6xm")) {
+			if !bytes.Contains(content, []byte("GHSA-grv7-fg5c-xmjg")) {
 				t.Fatalf("native evidence %s lost the selected advisory", name)
 			}
 		} else {
