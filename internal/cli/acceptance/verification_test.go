@@ -51,6 +51,12 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	if strings.Contains(message, "one minimal model request") || !strings.Contains(message, "may make multiple provider requests") {
 		t.Fatalf("verify misstates provider request count: %s", out.String())
 	}
+	_, section, _ := strings.Cut(out.String(), "Native client verification\n")
+	section, _, _ = strings.Cut(section, "\n\n")
+	row := strings.Index(section, "  ✓ Claude ")
+	if row < 0 || strings.Contains(section[:row], "\n"+strings.Repeat(" ", 23)) || !strings.Contains(section[row:], "\n"+strings.Repeat(" ", 23)) {
+		t.Fatalf("verify did not print the client's details under its row:\n%s", section)
+	}
 }
 
 func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {

@@ -14,6 +14,22 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Fixed
+
+- Human output aligns each group of rows on one value column set by its
+  longest label, so a long `aigw doctor` check label no longer pushes its value
+  out of line. Wrapped values and details continue under that column, a group
+  stacks as a whole only when the terminal leaves too little room, and notes
+  keep one indentation whether output goes to a terminal or a pipe.
+- Wrapped text breaks only at spaces, so identifiers such as `claude-desktop`
+  stay whole; a wrapped success line continues under its text; and help options
+  share the indentation of the other help sections.
+- The `aigw sync --dry-run` preview gives a pending credential entrypoint, the
+  Client Bindings and the projection targets their own sections, and
+  `aigw use --dry-run` separates its selection from its targets. That preview
+  and the configuration import preview end with a success line, as the other
+  previews do, and `aigw verify` prints each client's details after its row.
+
 ## [0.4.12] - 2026-10-22
 
 History: [GitLab][0.4.12-gitlab] · [GitHub][0.4.12-github]

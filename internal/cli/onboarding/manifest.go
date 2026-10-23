@@ -167,35 +167,41 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("Configuration catalogue imported")
 	r.Section("Imported capability")
-	r.Row("Accounts", strings.Join(result.Imported.Accounts, ", "))
-	r.Row("Routes", strings.Join(result.Imported.Routes, ", "))
-	r.Row("Connected accounts", fmt.Sprintf("%d of %d", len(result.ConnectedAccounts), len(result.Imported.Accounts)))
+	r.Rows(
+		presentation.Field{Label: "Accounts", Value: strings.Join(result.Imported.Accounts, ", ")},
+		presentation.Field{Label: "Routes", Value: strings.Join(result.Imported.Routes, ", ")},
+		presentation.Field{Label: "Connected accounts", Value: fmt.Sprintf("%d of %d", len(result.ConnectedAccounts), len(result.Imported.Accounts))},
+	)
 	r.Section("Account connections")
+	connections := make([]presentation.Field, 0, len(result.Imported.Accounts))
 	for _, account := range result.Imported.Accounts {
+		connection := presentation.Field{State: presentation.Info, Label: account, Value: "Deferred"}
 		if slices.Contains(result.ConnectedAccounts, account) {
-			r.Status(presentation.OK, account, "Connected")
-		} else {
-			r.Status(presentation.Info, account, "Deferred")
+			connection.State, connection.Value = presentation.OK, "Connected"
 		}
+		connections = append(connections, connection)
 	}
+	r.Rows(connections...)
 	r.Section("Selected Client Bindings")
+	bindings := make([]presentation.Field, 0, len(configuration.AdmittedClientSpecs()))
 	for _, spec := range configuration.AdmittedClientSpecs() {
-		route, selected := result.SelectedBindings[spec.ID]
-		if !selected {
-			r.Status(presentation.Info, spec.Label, "Deferred")
-			continue
+		binding := presentation.Field{State: presentation.Info, Label: spec.Label, Value: "Deferred"}
+		if route, selected := result.SelectedBindings[spec.ID]; selected {
+			binding.State, binding.Value = presentation.OK, route
 		}
-		r.Status(presentation.OK, spec.Label, route)
+		bindings = append(bindings, binding)
 	}
+	r.Rows(bindings...)
 	r.Section("Projected clients")
+	projected := make([]presentation.Field, 0, len(result.ProjectedClients)+2)
 	if len(result.ProjectedClients) == 0 {
-		r.Status(presentation.Info, "None", "Deferred")
+		projected = append(projected, presentation.Field{State: presentation.Info, Label: "None", Value: "Deferred"})
 	}
 	for _, client := range result.ProjectedClients {
 		spec, _ := configuration.ClientSpecFor(client)
-		r.Status(presentation.OK, spec.Label, "Projected")
+		projected = append(projected, presentation.Field{State: presentation.OK, Label: spec.Label, Value: "Projected"})
 	}
-	r.Status(presentation.Info, "Online verification", "Not checked")
+	r.Rows(append(projected, presentation.Field{State: presentation.Info, Label: "Online verification", Value: "Not checked"})...)
 	r.Success("Reviewed Accounts and Routes are available; Tokens remain outside configuration")
 	for _, detail := range result.DeferredActions {
 		if detail != result.NextAction {

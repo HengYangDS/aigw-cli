@@ -120,21 +120,26 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		} else {
 			r.ProductTitle("Configuration manifest imported")
 		}
-		r.Row("Routes", fmt.Sprintf("%d", result.ImportedRoutes))
-		r.Row("Accounts", fmt.Sprintf("%d", result.ImportedAccounts))
+		rows := []presentation.Field{
+			{Label: "Routes", Value: fmt.Sprintf("%d", result.ImportedRoutes)},
+			{Label: "Accounts", Value: fmt.Sprintf("%d", result.ImportedAccounts)},
+		}
 		if len(keeping) > 0 {
-			r.Row("Kept Accounts", strings.Join(result.KeptAccounts, ", "))
+			rows = append(rows, presentation.Field{Label: "Kept Accounts", Value: strings.Join(result.KeptAccounts, ", ")})
 		}
 		if len(retiring) > 0 {
-			r.Row("Retired Routes", strings.Join(result.RetiredRoutes, ", "))
+			rows = append(rows, presentation.Field{Label: "Retired Routes", Value: strings.Join(result.RetiredRoutes, ", ")})
 		}
 		if dryRun {
 			candidates := "none"
 			if len(result.ProjectionCandidates) > 0 {
 				candidates = strings.Join(result.ProjectionCandidates, ", ")
 			}
-			r.Row("Potential client projections", candidates)
-			r.Detail("No configuration, Token, or client projection was changed")
+			rows = append(rows, presentation.Field{Label: "Potential client projections", Value: candidates})
+		}
+		r.Rows(rows...)
+		if dryRun {
+			r.Success("No configuration, Token, or client projection was changed")
 		}
 		r.Next(result.NextAction)
 		return nil

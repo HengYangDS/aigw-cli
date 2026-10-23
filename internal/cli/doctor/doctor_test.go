@@ -470,6 +470,50 @@ func TestCommandConstructorExposesStableName(t *testing.T) {
 	}
 }
 
+func TestHumanChecksShareOneValueColumn(t *testing.T) {
+	deps, out, secretStore := doctorDependencies(t, validDoctorConfig())
+	if err := secretStore.Set("team", "token"); err != nil {
+		t.Fatal(err)
+	}
+	deps.Env = []string{"OPENAI_API_KEY=secret"}
+	checks := executeJSON(t, deps, out).Checks
+	longest := 0
+	for _, check := range checks {
+		longest = max(longest, presentation.DisplayWidth("✓ "+Label(check.Name)))
+	}
+	for _, width := range []int{0, 72, 100} {
+		out.Reset()
+		deps.Width = width
+		if err := executeDoctorCommand(NewCommand(deps)); err == nil {
+			t.Fatal("doctor accepted a global client token environment variable")
+		}
+		_, section, _ := strings.Cut(out.String(), "\nChecks\n")
+		section, _, _ = strings.Cut(section, "\n\n")
+		column := -1
+		for line := range strings.SplitSeq(section, "\n") {
+			text := strings.TrimLeft(line, " ")
+			if symbol, rest, classified := strings.Cut(text, " "); classified && (symbol == "✓" || symbol == "✗") {
+				for _, check := range checks {
+					if label := Label(check.Name); strings.HasPrefix(rest, label+" ") {
+						text = strings.TrimLeft(strings.TrimPrefix(rest, label), " ")
+						break
+					}
+				}
+			}
+			start := presentation.DisplayWidth(line) - presentation.DisplayWidth(text)
+			if column < 0 {
+				column = start
+			}
+			if start != column || column < 2+longest+2 {
+				t.Fatalf("width=%d: check text starts at column %d, want one column of at least %d:\n%s", width, start, 2+longest+2, section)
+			}
+		}
+		if !strings.Contains(section, "Fix: Remove the variables above") {
+			t.Fatalf("width=%d: the failing check lost its fix:\n%s", width, section)
+		}
+	}
+}
+
 func TestHumanDoctorNamesNativeClaudeModelPreferenceAndVerification(t *testing.T) {
 	var output bytes.Buffer
 	renderer := presentation.NewWithWidth(&output, false, 100)

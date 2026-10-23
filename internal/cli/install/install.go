@@ -36,16 +36,21 @@ func NewInspectionCommand(runtime invocation.Context) *cobra.Command {
 			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Portable installation")
-			render.Row("Version", result.Version)
-			render.Row("Command", result.CommandPath)
-			render.Row("Payload", result.Payload.Path)
-			render.Row("SHA-256", result.Payload.SHA256)
-			if result.Rollback == nil {
-				render.Row("Rollback", "No retained predecessor")
-			} else {
-				render.Row("Rollback", result.Rollback.Path)
-				render.Row("SHA-256", result.Rollback.SHA256)
+			rows := []presentation.Field{
+				{Label: "Version", Value: result.Version},
+				{Label: "Command", Value: result.CommandPath},
+				{Label: "Payload", Value: result.Payload.Path},
+				{Label: "SHA-256", Value: result.Payload.SHA256},
 			}
+			if result.Rollback == nil {
+				rows = append(rows, presentation.Field{Label: "Rollback", Value: "No retained predecessor"})
+			} else {
+				rows = append(rows,
+					presentation.Field{Label: "Rollback", Value: result.Rollback.Path},
+					presentation.Field{Label: "SHA-256", Value: result.Rollback.SHA256},
+				)
+			}
+			render.Rows(rows...)
 			return render.Err()
 		},
 	}

@@ -171,7 +171,7 @@ func TestDeprecatedCatalogEntryDoesNotPresentAsAdmitted(t *testing.T) {
 
 func TestDefaultCatalogRenderingKeepsDeprecatedRoutesSeparateFromCandidates(t *testing.T) {
 	out := new(bytes.Buffer)
-	renderCatalogObservation(renderer(Dependencies{Out: out, Width: 120}), catalogObservation{
+	renderCatalogObservation(renderer(Dependencies{Out: out, Width: 120}), nil, catalogObservation{
 		Models: []catalogModel{
 			{ID: "current", State: catalogAdmitted, Routes: []catalogRoute{{ID: "current-route"}}},
 			{ID: "legacy", State: catalogDeprecated, Routes: []catalogRoute{{ID: "legacy-route"}}},

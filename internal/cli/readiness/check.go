@@ -381,18 +381,15 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		clients := checkedClientStatuses(runtime, cfg, &activation, evaluation, selected)
 		action, clientID := failedCheckContinuation(&activation, evaluation, clients)
 		if client, found := evaluation.client(clientID); found {
-			_, _, err := renderCheckedClient(runtime, invocation.Renderer(runtime), client, action)
+			field, _, _, err := checkedClientField(runtime, client, action)
 			if err != nil {
 				return err
 			}
+			invocation.Renderer(runtime).Rows(field)
 		}
 		return invocation.Problem(runtime, "Enabled client check failed", "At least one enabled client did not pass its applicable check scope.", "All-client readiness was not established.", action, fmt.Errorf("enabled client check failed"))
 	}
-	renderer := invocation.Renderer(runtime)
-	renderer.ProductTitle("Health check")
-	renderer.Section("Configuration")
-	renderer.Status(presentation.OK, "Configuration file", "Healthy")
-	renderer.Section("Client")
+	rows := []presentation.Field{}
 	verificationCommands := []string{}
 	inferenceUnverified := false
 	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
@@ -401,19 +398,26 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		}
 		adapter := cfg.Clients[client]
 		if !adapter.Enabled {
-			renderer.Status(presentation.Info, invocation.Title(client), "Disabled")
+			rows = append(rows, presentation.Field{State: presentation.Info, Label: invocation.Title(client), Value: "Disabled"})
 			continue
 		}
 		result, _ := evaluation.client(client)
-		command, unchecked, err := renderCheckedClient(runtime, renderer, result, "")
+		field, command, unchecked, err := checkedClientField(runtime, result, "")
 		if err != nil {
 			return err
 		}
+		rows = append(rows, field)
 		if command != "" {
 			verificationCommands = append(verificationCommands, command)
 		}
 		inferenceUnverified = inferenceUnverified || unchecked
 	}
+	renderer := invocation.Renderer(runtime)
+	renderer.ProductTitle("Health check")
+	renderer.Section("Configuration")
+	renderer.Rows(presentation.Field{State: presentation.OK, Label: "Configuration file", Value: "Healthy"})
+	renderer.Section("Client")
+	renderer.Rows(rows...)
 	renderer.Section("Result")
 	// Passing this command establishes only the scopes reported per client.
 	if selected == "" {
@@ -431,7 +435,10 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	return nil
 }
 
-func renderCheckedClient(runtime invocation.Context, renderer *presentation.Renderer, result evaluatedClient, overrideAction string) (string, bool, error) {
+// checkedClientField presents one enabled client's check as a row of the Client
+// group, returning its explicit verification command and whether model
+// inference remains unverified, or the Problem that stops the check.
+func checkedClientField(runtime invocation.Context, result evaluatedClient, overrideAction string) (presentation.Field, string, bool, error) {
 	client := result.client
 	recommendedAction := func(fallback string) string {
 		if overrideAction != "" {
@@ -440,14 +447,14 @@ func renderCheckedClient(runtime invocation.Context, renderer *presentation.Rend
 		return fallback
 	}
 	if result.resolveErr != nil {
-		return "", false, invocation.Problem(runtime, invocation.Title(client)+" binding cannot be resolved", result.resolveErr.Error(), invocation.Title(client)+" cannot determine which Route to use.", recommendedAction("aigw use --for "+client+" <route>"), result.resolveErr)
+		return presentation.Field{}, "", false, invocation.Problem(runtime, invocation.Title(client)+" binding cannot be resolved", result.resolveErr.Error(), invocation.Title(client)+" cannot determine which Route to use.", recommendedAction("aigw use --for "+client+" <route>"), result.resolveErr)
 	}
 	if result.credentialErr != nil {
 		evidence := "Account " + result.runtime.AccountID + " has no available Token."
 		if result.credentialState == domainreadiness.Unavailable {
 			evidence = "The selected credential backend could not return Account " + result.runtime.AccountID + "'s Token; its presence cannot be inferred."
 		}
-		return "", false, invocation.Problem(
+		return presentation.Field{}, "", false, invocation.Problem(
 			runtime,
 			invocation.Title(client)+" "+result.issue,
 			evidence,
@@ -458,16 +465,17 @@ func renderCheckedClient(runtime invocation.Context, renderer *presentation.Rend
 	}
 	if !result.adapter {
 		impact := invocation.Title(client) + " cannot receive its AIGW Route, Token, or configuration projection."
-		return "", false, invocation.Problem(runtime, invocation.Title(client)+" projection is not ready", result.issue, impact, recommendedAction(result.fix), fmt.Errorf("%s projection not ready", client))
+		return presentation.Field{}, "", false, invocation.Problem(runtime, invocation.Title(client)+" projection is not ready", result.issue, impact, recommendedAction(result.fix), fmt.Errorf("%s projection not ready", client))
 	}
 	if !result.runtime.UsesAIGWCredentialStore() {
-		renderer.Status(presentation.OK, invocation.Title(client), result.runtime.RouteLabel+" · Local projection checked")
 		detail := "Client-owned authentication requires an explicit live verification"
 		if result.runtime.CredentialCommand != "" {
 			detail = "External credential helper requires an explicit live verification"
 		}
-		renderer.Detail(detail)
-		return result.fix, true, nil
+		return presentation.Field{
+			State: presentation.OK, Label: invocation.Title(client), Value: result.runtime.RouteLabel + " · Local projection checked",
+			Details: []string{detail},
+		}, result.fix, true, nil
 	}
 	diagnostic := result.diagnostic
 	if diagnostic.Kind != diagnostics.Healthy {
@@ -482,7 +490,7 @@ func renderCheckedClient(runtime invocation.Context, renderer *presentation.Rend
 			// AIGW selects the endpoint; it neither runs nor restarts it.
 			impact += " AIGW owns this configuration, not the endpoint's lifecycle."
 		}
-		return "", false, invocation.Problem(runtime, diagnostic.Summary, evidence, impact, recommendedAction(diagnostic.Fix), fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
+		return presentation.Field{}, "", false, invocation.Problem(runtime, diagnostic.Summary, evidence, impact, recommendedAction(diagnostic.Fix), fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
 	}
 	label := "Endpoint checked"
 	inferenceUnverified := true
@@ -490,14 +498,14 @@ func renderCheckedClient(runtime invocation.Context, renderer *presentation.Rend
 		label = "Inference checked"
 		inferenceUnverified = false
 	}
-	renderer.Status(presentation.OK, invocation.Title(client), result.runtime.RouteLabel+" · "+label)
+	field := presentation.Field{State: presentation.OK, Label: invocation.Title(client), Value: result.runtime.RouteLabel + " · " + label}
 	command := ""
 	if result.nativeModelOverride {
-		renderer.Detail("Claude Code uses a native model preference; this endpoint check does not verify that model")
+		field.Details = append(field.Details, "Claude Code uses a native model preference; this endpoint check does not verify that model")
 		command = "aigw verify --for claude"
 	}
 	if endpointTransport(result.runtime.Endpoint) == endpointTransportExternalLoopback {
-		renderer.Detail(invocation.Title(client) + " uses a loopback endpoint; AIGW does not manage the endpoint runtime")
+		field.Details = append(field.Details, invocation.Title(client)+" uses a loopback endpoint; AIGW does not manage the endpoint runtime")
 	}
-	return command, inferenceUnverified, nil
+	return field, command, inferenceUnverified, nil
 }

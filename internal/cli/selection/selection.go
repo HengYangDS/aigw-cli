@@ -129,28 +129,32 @@ func renderUse(runtime invocation.Context, cfg configuration.Config, selected co
 	r := invocation.Renderer(runtime)
 	r.ProductTitle(title)
 	r.Section("Current selection")
-	r.Row("Route", selected.RouteLabel)
+	rows := []presentation.Field{{Label: "Route", Value: selected.RouteLabel}}
 	if purpose := strings.TrimSpace(cfg.Routes[selected.RouteID].Purpose); purpose != "" {
-		r.Row("Purpose", purpose)
+		rows = append(rows, presentation.Field{Label: "Purpose", Value: purpose})
 	}
-	r.Row("Client", spec.Label)
-	r.Row("Protocol", string(selected.Protocol))
-	r.Row("Endpoint", selected.Endpoint)
+	rows = append(rows,
+		presentation.Field{Label: "Client", Value: spec.Label},
+		presentation.Field{Label: "Protocol", Value: string(selected.Protocol)},
+		presentation.Field{Label: "Endpoint", Value: selected.Endpoint},
+	)
 	if selected.Endpoint != selected.UpstreamEndpoint {
-		r.Row("Account upstream", selected.UpstreamEndpoint)
+		rows = append(rows, presentation.Field{Label: "Account upstream", Value: selected.UpstreamEndpoint})
 	}
 	if result.ProjectionDeferred {
 		if tokenStored {
-			r.Row("Account Token", "Validated and stored")
+			rows = append(rows, presentation.Field{Label: "Account Token", Value: "Validated and stored"})
 		}
-		r.Row("Projection", "Deferred; native client projection is unavailable")
+		rows = append(rows, presentation.Field{Label: "Projection", Value: "Deferred; native client projection is unavailable"})
+		r.Rows(rows...)
 		r.Next(result.NextAction)
 		return r.Err()
 	}
-	r.Success(detail)
 	if result.RestartRequired {
-		r.Row("Activation", "Restart required")
+		rows = append(rows, presentation.Field{Label: "Activation", Value: "Restart required"})
 	}
+	r.Rows(rows...)
+	r.Success(detail)
 	r.Next(result.NextAction)
 	return r.Err()
 }
@@ -190,14 +194,22 @@ func previewUse(runtime invocation.Context, cfg configuration.Config, selected c
 	}
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("Selection preview")
-	r.Row("Client", selected.Client)
-	r.Row("Route", selected.RouteLabel)
-	r.Row("Endpoint", selected.Endpoint)
-	r.Row("Account upstream", selected.UpstreamEndpoint)
-	for _, plan := range plans {
-		r.Row(plan.Target, plan.Action)
+	r.Section("Selection")
+	r.Rows(
+		presentation.Field{Label: "Client", Value: selected.Client},
+		presentation.Field{Label: "Route", Value: selected.RouteLabel},
+		presentation.Field{Label: "Endpoint", Value: selected.Endpoint},
+		presentation.Field{Label: "Account upstream", Value: selected.UpstreamEndpoint},
+	)
+	if len(plans) > 0 {
+		r.Section("Projection targets")
+		targets := make([]presentation.Field, 0, len(plans))
+		for _, plan := range plans {
+			targets = append(targets, presentation.Field{Label: plan.Target, Value: plan.Action})
+		}
+		r.Rows(targets...)
 	}
-	r.Detail("Credentials, configuration and client files were unchanged")
+	r.Success("Credentials, configuration and client files were unchanged")
 	return r.Err()
 }
 

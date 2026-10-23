@@ -31,14 +31,15 @@ func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Client discovery")
 		r.Section("Installed clients")
+		rows := make([]presentation.Field, 0, len(configuration.AdmittedClientSpecs()))
 		for _, spec := range configuration.AdmittedClientSpecs() {
-			path := discovered.Executable(spec.ID)
-			if path == "" {
-				r.Status(presentation.Info, spec.Label, "Not found")
-				continue
+			row := presentation.Field{State: presentation.OK, Label: spec.Label, Value: discovered.Executable(spec.ID)}
+			if row.Value == "" {
+				row.State, row.Value = presentation.Info, "Not found"
 			}
-			r.Status(presentation.OK, spec.Label, path)
+			rows = append(rows, row)
 		}
+		r.Rows(rows...)
 		return nil
 	}}
 }
@@ -124,7 +125,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		if !ok || !binding.Enabled {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Client projections")
-			r.Status(presentation.Info, spec.Label, "Already disabled")
+			r.Rows(presentation.Field{State: presentation.Info, Label: spec.Label, Value: "Already disabled"})
 			return nil
 		}
 		if err := invocation.Synchronizer(runtime).Withdraw(&cfg, client); err != nil {
@@ -144,26 +145,30 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func renderEnabled(r *presentation.Renderer, spec configuration.ClientSpec) {
+	rows := []presentation.Field{
+		{Label: "Client", Value: spec.Label},
+		{State: presentation.OK, Label: "Projection", Value: "Configured"},
+	}
 	if !spec.RestartAfterProjection {
 		r.ProductTitle("Client enabled")
-		r.Row("Client", spec.Label)
-		r.Status(presentation.OK, "Projection", "Configured")
+		r.Rows(rows...)
 		r.Next("aigw check")
 		return
 	}
 	r.ProductTitle("Client configured")
-	r.Row("Client", spec.Label)
-	r.Status(presentation.OK, "Projection", "Configured")
-	r.Status(presentation.Info, "Activation", "Restart required")
+	r.Rows(append(rows, presentation.Field{State: presentation.Info, Label: "Activation", Value: "Restart required"})...)
 	r.Next(fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label))
 }
 
 func renderDisabled(r *presentation.Renderer, spec configuration.ClientSpec) {
 	r.ProductTitle("Client disabled")
-	r.Row("Client", spec.Label)
+	rows := []presentation.Field{{Label: "Client", Value: spec.Label}}
+	if spec.RestartAfterProjection {
+		rows = append(rows, presentation.Field{State: presentation.Info, Label: "Deactivation", Value: "Restart required"})
+	}
+	r.Rows(rows...)
 	r.Success("All AIGW-owned projections were safely removed")
 	if spec.RestartAfterProjection {
-		r.Status(presentation.Info, "Deactivation", "Restart required")
 		r.Next(fmt.Sprintf("Restart %s to finish deactivation", spec.Label))
 	}
 }

@@ -13,8 +13,8 @@ import (
 func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 	var out bytes.Buffer
 	r := presentation.NewWithWidth(&out, false, 24)
-	r.Row("Current route", "GPT-5.6 Terra")
-	r.Status(presentation.OK, "Precise balance", "Disabled until connected")
+	r.Rows(presentation.Field{Label: "Current route", Value: "GPT-5.6 Terra"})
+	r.Rows(presentation.Field{State: presentation.OK, Label: "Precise balance", Value: "Disabled until connected"})
 	r.Detail("Run aigw account diagnostics enable team-gateway")
 	r.Command("aigw config import configuration.toml")
 
@@ -54,8 +54,9 @@ func TestExplanatoryElementsBoundLongAndMultilineContent(t *testing.T) {
 			value := "https://example.test/a/very/long/unbroken/path\nSecond line"
 			r.Title(label, value)
 			r.Section(label)
-			r.Row(label, value)
-			r.Status(presentation.Warn, label, value)
+			r.Rows(presentation.Field{Label: label, Value: value, Details: []string{value}})
+			r.Rows(presentation.Field{State: presentation.Warn, Label: label, Value: value})
+			r.Rows(presentation.Field{Label: "Short", Value: value, Details: []string{value}})
 			r.StatusLine(presentation.Info, label, value)
 			r.Text(value)
 			r.Detail(value)

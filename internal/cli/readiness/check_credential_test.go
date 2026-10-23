@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/diagnostics"
 	domainreadiness "aigw-cli/internal/readiness"
@@ -72,7 +71,7 @@ func TestCheckReportsUnresolvedBindingsBeforeCredentialOrNetworkAccess(t *testin
 	})
 	cfg.SetSelectedRoute(configuration.ClientCodex, "missing", "")
 	result := evaluateClient(NewCheckCommand(runtime), runtime, cfg, configuration.ClientCodex)
-	command, unchecked, err := renderCheckedClient(runtime, invocation.Renderer(runtime), result, "")
+	_, command, unchecked, err := checkedClientField(runtime, result, "")
 	if err == nil || !errors.Is(err, result.resolveErr) || command != "" || unchecked {
 		t.Fatalf("unresolved binding was reported as checked: %q, %t, %v", command, unchecked, err)
 	}
@@ -102,7 +101,7 @@ func TestCheckReportsAnUnsentInferenceRequestWithoutClaimingEndpointFailure(t *t
 	})
 	diagnostic := diagnostics.Probe(t.Context(), runtime.HTTP, selected, "fixture-token", diagnostics.ScopeInference)
 	result := evaluatedClient{client: configuration.ClientCodex, runtime: selected, adapter: true, diagnostic: diagnostic}
-	command, unchecked, err := renderCheckedClient(runtime, invocation.Renderer(runtime), result, "")
+	_, command, unchecked, err := checkedClientField(runtime, result, "")
 	if err == nil || command != "" || unchecked || diagnostic.Kind != diagnostics.ModelUnresolved {
 		t.Fatalf("unsent inference was reported as checked: %q, %t, %v", command, unchecked, err)
 	}

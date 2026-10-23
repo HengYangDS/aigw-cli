@@ -83,10 +83,14 @@ stdout carries only the requested credential, never root-level diagnostics.
 
 ## Layout
 
-- Wide terminals use one aligned value column.
-- Narrow terminals put the label and wrapped value on separate lines.
+- Each group of rows shares one value column set by its longest label; wrapped
+  values and details continue under that column.
+- When too little width remains for values, the whole group puts each label
+  and its wrapped value on separate lines.
 - Display width, not byte length, controls alignment.
-- Words and paths are not split merely to fill a line.
+- Words and paths are not split merely to fill a line, and identifiers keep
+  their hyphens.
+- Notes keep one indentation at every width.
 - Color is optional and never carries meaning.
 - Unknown output width uses a stable unbounded layout.
 

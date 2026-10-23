@@ -21,12 +21,15 @@ func TestRendererProducesAlignedHumanReadableLayout(t *testing.T) {
 	r := presentation.New(&out, false)
 	r.Title("AIGW", "Health check")
 	r.Section("Configuration")
-	r.Row("Configuration file", "Healthy")
-	r.Row("Current Account", "DMXAPI")
+	r.Rows(
+		presentation.Field{Label: "Configuration file", Value: "Healthy"},
+		presentation.Field{Label: "Current Account", Value: "DMXAPI"},
+	)
 	r.Section("Connection")
-	r.Status(presentation.OK, "API Token", "Healthy")
-	r.Status(presentation.Warn, "Precise balance", "Disabled")
-	r.Detail("aigw account diagnostics enable")
+	r.Rows(
+		presentation.Field{State: presentation.OK, Label: "API Token", Value: "Healthy"},
+		presentation.Field{State: presentation.Warn, Label: "Precise balance", Value: "Disabled", Details: []string{"aigw account diagnostics enable"}},
+	)
 	r.Section("Result")
 	r.Success("Everything is healthy")
 	r.Next("aigw balance")
@@ -58,35 +61,165 @@ func TestRendererRecordsOutputWriteFailure(t *testing.T) {
 	}
 }
 
-func TestRowsAndStatusesShareValueColumnAndRetainSeparator(t *testing.T) {
-	var out bytes.Buffer
-	r := presentation.New(&out, false)
-	r.Row("Configuration file", "VALUE")
-	r.Row("Current Account", "VALUE")
-	r.Status(presentation.OK, "Configuration file", "VALUE")
-	r.Status(presentation.OK, "API Token", "VALUE")
-	r.Status(presentation.Warn, "Precise balance", "VALUE")
-	for index, line := range strings.Split(strings.TrimRight(out.String(), "\n"), "\n") {
-		prefix, _, ok := strings.Cut(line, "VALUE")
-		if !ok {
-			t.Fatalf("line lacks value: %q", line)
+// valueColumns returns the display column at which each value or detail starts, keyed by that text.
+func valueColumns(t *testing.T, output string, texts ...string) map[string]int {
+	t.Helper()
+	columns := map[string]int{}
+	lines := strings.Split(ansi.Strip(output), "\n")
+	for _, text := range texts {
+		for _, line := range lines {
+			if prefix, _, found := strings.Cut(line, text); found {
+				columns[text] = presentation.DisplayWidth(prefix)
+				break
+			}
 		}
-		if got := presentation.DisplayWidth(prefix); got != 23 {
-			t.Fatalf("line %d value column = %d, want 23: %q", index, got, line)
+		if _, found := columns[text]; !found {
+			t.Fatalf("output lacks %q:\n%s", text, output)
 		}
 	}
-	if !strings.Contains(out.String(), "✓ Configuration file VALUE\n") {
-		t.Fatalf("status output joined a full-width label to its value: %q", out.String())
+	return columns
+}
+
+func TestGroupDerivesOneValueColumnFromItsLongestLabel(t *testing.T) {
+	checks := []presentation.Field{
+		{State: presentation.OK, Label: "Client token environment", Value: "No global client token environment variables detected"},
+		{State: presentation.OK, Label: "Local configuration", Value: "Configuration is valid"},
+		{State: presentation.OK, Label: "Account Token", Value: "dmxapi · available"},
+		{State: presentation.Fail, Label: "Codex configuration target 1", Value: "Differs from the current binding", Details: []string{"Fix: aigw repair"}},
+		{Label: "Unclassified row", Value: "Plain value"},
+	}
+	texts := []string{"No global client", "Configuration is valid", "dmxapi · available", "Differs from", "Fix: aigw repair", "Plain value"}
+	for _, width := range []int{0, 100} {
+		for _, color := range []bool{false, true} {
+			var out bytes.Buffer
+			presentation.NewWithWidth(&out, color, width).Rows(checks...)
+			// "✗ Codex configuration target 1" occupies 30 cells after the two-cell indent, then a two-cell gap.
+			for text, column := range valueColumns(t, out.String(), texts...) {
+				if column != 34 {
+					t.Fatalf("width=%d color=%t: %q starts at column %d, want 34:\n%s", width, color, text, column, out.String())
+				}
+			}
+			plain := ansi.Strip(out.String())
+			for _, prefix := range []string{"  ✓ Client token environment ", "  ✗ Codex configuration target 1  Differs", "  Unclassified row "} {
+				if !strings.Contains(plain, prefix) {
+					t.Fatalf("width=%d color=%t: output lacks %q:\n%s", width, color, prefix, plain)
+				}
+			}
+		}
 	}
 }
 
-func TestStatusKeepsLongLabelsOnOneLine(t *testing.T) {
+func TestGroupKeepsTheDefaultColumnForShortLabels(t *testing.T) {
 	var out bytes.Buffer
-	r := presentation.New(&out, false)
-	r.Status(presentation.OK, "environment:client-token", "Healthy")
-	got := out.String()
-	if strings.Count(got, "\n") != 1 || strings.Contains(got, "environment:client\n-token") {
-		t.Fatalf("long status label wrapped: %q", got)
+	presentation.New(&out, false).Rows(
+		presentation.Field{Label: "Configuration file", Value: "VALUE"},
+		presentation.Field{State: presentation.OK, Label: "API Token", Value: "VALUE"},
+		presentation.Field{State: presentation.Warn, Label: "Precise balance", Value: "VALUE"},
+	)
+	for index, line := range strings.Split(strings.TrimRight(out.String(), "\n"), "\n") {
+		prefix, _, ok := strings.Cut(line, "VALUE")
+		if !ok || presentation.DisplayWidth(prefix) != 23 {
+			t.Fatalf("line %d value column differs from 23: %q", index, line)
+		}
+	}
+}
+
+func TestValuesAndDetailsContinueUnderTheValueColumn(t *testing.T) {
+	var out bytes.Buffer
+	presentation.NewWithWidth(&out, false, 60).Rows(
+		presentation.Field{
+			State:   presentation.Info,
+			Label:   "Claude",
+			Value:   "Configured · Claude Code uses a native model preference; its AIGW endpoint and credential helper remain configured",
+			Details: []string{"Verify the native model: aigw verify --for claude"},
+		},
+		presentation.Field{State: presentation.Info, Label: "Claude Desktop", Value: "Configured"},
+	)
+	want := "  · Claude             Configured · Claude Code uses a\n" +
+		"                       native model preference; its AIGW\n" +
+		"                       endpoint and credential helper remain\n" +
+		"                       configured\n" +
+		"                       Verify the native model: aigw verify\n" +
+		"                       --for claude\n" +
+		"  · Claude Desktop     Configured\n"
+	if out.String() != want {
+		t.Fatalf("continuation layout mismatch\n--- want ---\n%s--- got ---\n%s", want, out.String())
+	}
+}
+
+func TestGroupKeepsMultilineValuesUnderTheValueColumn(t *testing.T) {
+	var out bytes.Buffer
+	presentation.New(&out, false).Rows(
+		presentation.Field{Label: "Schema", Value: "6 → 6"},
+		presentation.Field{Label: "Recommendations", Value: "claude=team-claude\ncodex=team-gpt"},
+	)
+	want := "  Schema               6 → 6\n" +
+		"  Recommendations      claude=team-claude\n" +
+		"                       codex=team-gpt\n"
+	if out.String() != want {
+		t.Fatalf("multiline layout mismatch\n--- want ---\n%s--- got ---\n%s", want, out.String())
+	}
+}
+
+func TestGroupStacksOnlyWhenValuesLackRoom(t *testing.T) {
+	fields := []presentation.Field{
+		{Label: "Account", Value: "team-gateway"},
+		{State: presentation.OK, Label: "Token", Value: "Validated and securely stored"},
+	}
+	for _, tc := range []struct {
+		width int
+		want  string
+	}{
+		{width: 30, want: "  Account\n    team-gateway\n  ✓ Token\n    Validated and securely\n    stored\n"},
+		{width: 43, want: "  Account              team-gateway\n  ✓ Token              Validated and\n                       securely stored\n"},
+		{width: 60, want: "  Account              team-gateway\n  ✓ Token              Validated and securely stored\n"},
+	} {
+		var out bytes.Buffer
+		presentation.NewWithWidth(&out, false, tc.width).Rows(fields...)
+		if out.String() != tc.want {
+			t.Fatalf("width=%d layout mismatch\n--- want ---\n%s--- got ---\n%s", tc.width, tc.want, out.String())
+		}
+	}
+
+	var fitting bytes.Buffer
+	presentation.NewWithWidth(&fitting, false, 30).Rows(presentation.Field{Label: "Label", Value: "Value"})
+	if want := "  Label                Value\n"; fitting.String() != want {
+		t.Fatalf("a value that fits stacked: %q, want %q", fitting.String(), want)
+	}
+}
+
+func TestNotesKeepOneIndentAtEveryWidth(t *testing.T) {
+	note := "Local diagnostics passed; no client endpoint or model was checked"
+	for _, width := range []int{0, 80, 120} {
+		var out bytes.Buffer
+		r := presentation.NewWithWidth(&out, false, width)
+		r.Success("No problems found")
+		r.Detail(note)
+		if want := "  ✓ No problems found\n    " + note + "\n"; out.String() != want {
+			t.Fatalf("width=%d note = %q, want %q", width, out.String(), want)
+		}
+	}
+}
+
+func TestSuccessContinuesUnderItsText(t *testing.T) {
+	var out bytes.Buffer
+	presentation.NewWithWidth(&out, false, 30).Success("Preview did not write configuration or client files")
+	if want := "  ✓ Preview did not write\n    configuration or client\n    files\n"; out.String() != want {
+		t.Fatalf("wrapped success = %q, want %q", out.String(), want)
+	}
+}
+
+func TestWrappingKeepsHyphenatedIdentifiersWhole(t *testing.T) {
+	var out bytes.Buffer
+	r := presentation.NewWithWidth(&out, false, 26)
+	r.Text("Clients claude, claude-desktop, hermes")
+	r.Text("https://example.test/a/very/long/path")
+	want := "  Clients claude,\n" +
+		"  claude-desktop, hermes\n" +
+		"  https://example.test/a/v\n" +
+		"  ery/long/path\n"
+	if out.String() != want {
+		t.Fatalf("wrapped text mismatch\n--- want ---\n%s--- got ---\n%s", want, out.String())
 	}
 }
 
@@ -102,15 +235,24 @@ func TestDisplayWidthTreatsWideUnicodeAsTwoColumnsAndANSICodesAsZero(t *testing.
 }
 
 func TestRendererColorIsOptionalAndNeverAffectsSpacing(t *testing.T) {
-	var plain, colored bytes.Buffer
-	presentation.New(&plain, false).Status(presentation.OK, "Token", "Healthy")
-	presentation.New(&colored, true).Status(presentation.OK, "Token", "Healthy")
-	if strings.Contains(plain.String(), "\x1b[") {
-		t.Fatalf("plain output contains ANSI: %q", plain.String())
+	render := func(color bool) string {
+		var out bytes.Buffer
+		r := presentation.NewWithWidth(&out, color, 40)
+		r.Rows(
+			presentation.Field{State: presentation.OK, Label: "Token", Value: "Healthy"},
+			presentation.Field{State: presentation.Warn, Label: "Precise balance", Value: "Disabled until a diagnostic credential is connected", Details: []string{"aigw account diagnostics enable team-gateway"}},
+		)
+		r.Success("Client configuration is aligned; authentication was unchanged")
+		r.StatusLine(presentation.Info, "Route", "team-gateway-claude")
+		r.Detail("Team Gateway · Claude · Available")
+		return out.String()
 	}
-	stripped := ansi.Strip(colored.String())
-	if stripped != plain.String() {
-		t.Fatalf("color changed layout: plain=%q color=%q stripped=%q", plain.String(), colored.String(), stripped)
+	plain, colored := render(false), render(true)
+	if strings.Contains(plain, "\x1b[") {
+		t.Fatalf("plain output contains ANSI: %q", plain)
+	}
+	if stripped := ansi.Strip(colored); stripped != plain {
+		t.Fatalf("color changed layout:\nplain:\n%s\nstripped:\n%s", plain, stripped)
 	}
 }
 
@@ -148,7 +290,7 @@ func TestRendererStopsAfterFirstLineWriteFailure(t *testing.T) {
 	renderer := presentation.New(failingWriter{err: want}, false)
 	renderer.Section("First")
 	renderer.Section("Second")
-	renderer.Row("Label", "Value")
+	renderer.Rows(presentation.Field{Label: "Label", Value: "Value"})
 
 	if !errors.Is(renderer.Err(), want) {
 		t.Fatalf("Renderer.Err() = %v, want %v", renderer.Err(), want)
@@ -158,8 +300,8 @@ func TestRendererStopsAfterFirstLineWriteFailure(t *testing.T) {
 func TestRendererWritesNonCompactRowsAtConfiguredWidth(t *testing.T) {
 	var out bytes.Buffer
 	renderer := presentation.NewWithWidth(&out, false, 30)
-	renderer.Row("Label", "Value")
-	renderer.Status(presentation.Info, "State", "Value")
+	renderer.Rows(presentation.Field{Label: "Label", Value: "Value"})
+	renderer.Rows(presentation.Field{State: presentation.Info, Label: "State", Value: "Value"})
 	renderer.StatusLine(presentation.Warn, "State", "Value")
 	renderer.Text("short")
 	renderer.Command("aigw ok")

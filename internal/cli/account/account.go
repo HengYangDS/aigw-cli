@@ -66,12 +66,14 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Account connected")
 			r.Section("Selection")
-			r.Row("Account", label)
-			r.Row("Account ID", name)
-			r.Row("Route ID", name)
-			r.Row("Client", invocation.Title(client))
-			r.Row("Model", route.Model)
-			r.Status(presentation.OK, "Token", "Securely stored")
+			r.Rows(
+				presentation.Field{Label: "Account", Value: label},
+				presentation.Field{Label: "Account ID", Value: name},
+				presentation.Field{Label: "Route ID", Value: name},
+				presentation.Field{Label: "Client", Value: invocation.Title(client)},
+				presentation.Field{Label: "Model", Value: route.Model},
+				presentation.Field{State: presentation.OK, Label: "Token", Value: "Securely stored"},
+			)
 			r.Next("aigw check")
 			return nil
 		},
@@ -128,7 +130,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Account updated")
-			r.Row("Account", args[0])
+			r.Rows(presentation.Field{Label: "Account", Value: args[0]})
 			r.Success("Routes using this account now use the same endpoints; token was not changed")
 			r.Next("aigw check")
 			return nil
@@ -197,9 +199,11 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Token updated")
 			r.Section("Account")
-			r.Row("Account", account.Label)
-			r.Row("Account ID", accountName)
-			r.Status(presentation.OK, "Account Token", "Validated and securely stored")
+			r.Rows(
+				presentation.Field{Label: "Account", Value: account.Label},
+				presentation.Field{Label: "Account ID", Value: accountName},
+				presentation.Field{State: presentation.OK, Label: "Account Token", Value: "Validated and securely stored"},
+			)
 			r.Success("Credential helpers read the new Token when next invoked; clients control their refresh timing")
 			r.Next(clientactivation.NextActionAfterAccountConnection(cfg, accountName))
 			return nil
@@ -270,9 +274,11 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Account diagnostics enabled")
 		r.Section("Account")
-		r.Row("Account", providerAccount.Label)
-		r.Row("Account ID", accountName)
-		r.Status(presentation.OK, "Diagnostic credential", "Securely stored")
+		r.Rows(
+			presentation.Field{Label: "Account", Value: providerAccount.Label},
+			presentation.Field{Label: "Account ID", Value: accountName},
+			presentation.Field{State: presentation.OK, Label: "Diagnostic credential", Value: "Securely stored"},
+		)
 		r.Next("aigw balance")
 		return nil
 	}}
@@ -336,9 +342,11 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Accounts")
 			render.Section("Configured endpoints")
+			rows := make([]presentation.Field, 0, len(result.Accounts))
 			for _, account := range result.Accounts {
-				render.Row(account.ID, account.Label)
+				rows = append(rows, presentation.Field{Label: account.ID, Value: account.Label})
 			}
+			render.Rows(rows...)
 			render.Next("aigw route list")
 			return render.Err()
 		},
@@ -414,18 +422,22 @@ func NewBalanceCommand(runtime invocation.Context) *cobra.Command {
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Account and quota")
 		r.Section("Account")
-		r.Row("Account", providerAccount.Label)
-		r.Row("Account balance", fmt.Sprintf("$%.4f", report.AccountBalance))
+		r.Rows(
+			presentation.Field{Label: "Account", Value: providerAccount.Label},
+			presentation.Field{Label: "Account balance", Value: fmt.Sprintf("$%.4f", report.AccountBalance)},
+		)
 		r.Section("Current API token")
-		r.Row("Name", report.TokenName)
 		state := presentation.OK
 		if report.TokenStatus != "enabled" {
 			state = presentation.Fail
 		}
-		r.Status(state, "Token status", status)
-		r.Row("Quota used", fmt.Sprintf("$%.4f", report.TokenUsed))
-		r.Row("Remaining quota", remaining)
-		r.Row("Remaining requests", count)
+		r.Rows(
+			presentation.Field{Label: "Name", Value: report.TokenName},
+			presentation.Field{State: state, Label: "Token status", Value: status},
+			presentation.Field{Label: "Quota used", Value: fmt.Sprintf("$%.4f", report.TokenUsed)},
+			presentation.Field{Label: "Remaining quota", Value: remaining},
+			presentation.Field{Label: "Remaining requests", Value: count},
+		)
 		r.Next("aigw check")
 		return nil
 	}}

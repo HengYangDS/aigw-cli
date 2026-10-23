@@ -449,7 +449,8 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 		}
 		r.Rows(rows...)
 	}
-	optionWidth := max(presentation.PresentationWidth(app.Out, environmentMap(app.Env))-2, 0)
+	// pflag owns the option layout and indents every line by the two-cell section indentation.
+	optionWidth := presentation.PresentationWidth(app.Out, environmentMap(app.Env))
 	for _, group := range []struct {
 		title string
 		flags *pflag.FlagSet
@@ -462,7 +463,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 		}
 		r.Section(group.title)
 		for line := range strings.SplitSeq(strings.TrimRight(group.flags.FlagUsagesWrapped(optionWidth), "\n"), "\n") {
-			r.Text(strings.TrimRight(line, " \t"))
+			r.Text(strings.TrimPrefix(strings.TrimRight(line, " \t"), "  "))
 		}
 	}
 }

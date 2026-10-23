@@ -56,7 +56,7 @@ func NewModelsCommand(deps Dependencies) *cobra.Command {
 			rows := modelRows(cfg, discoverCatalog(cmd.Context(), deps, cfg))
 			r := renderer(deps)
 			r.ProductTitle("Configured model catalog")
-			r.Detail("Catalog membership does not prove protocol capabilities, inference, or client readiness.")
+			r.Text("Catalog membership does not prove protocol capabilities, inference, or client readiness.")
 			r.Section("Routes")
 			for _, row := range rows {
 				state := presentation.Warn
@@ -132,7 +132,7 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 		}
 		r := renderer(deps)
 		r.ProductTitle("Authenticated model catalog")
-		r.Detail("Each observation proves catalogue membership only for its named protocol source.")
+		r.Text("Each observation proves catalogue membership only for its named protocol source.")
 		for _, observation := range result.Observations {
 			title := observation.Label + " · " + observation.Account
 			if observation.Source.Protocol != "" {
@@ -140,15 +140,17 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 			}
 			r.Section(title)
 			if observation.Status != catalogOK {
-				r.Status(presentation.Warn, "Catalog", catalogStatusText(observation.Status))
+				r.Rows(presentation.Field{State: presentation.Warn, Label: "Catalog", Value: catalogStatusText(observation.Status)})
 				continue
 			}
-			r.Row("Observation", observation.ObservationID)
-			r.Row("Source", observation.Source.Endpoint)
+			rows := []presentation.Field{
+				{Label: "Observation", Value: observation.ObservationID},
+				{Label: "Source", Value: observation.Source.Endpoint},
+			}
 			if len(observation.Models) == 0 {
-				r.Status(presentation.Info, "model", "Upstream returned an empty catalog")
+				r.Rows(append(rows, presentation.Field{State: presentation.Info, Label: "model", Value: "Upstream returned an empty catalog"})...)
 			} else {
-				renderCatalogObservation(r, observation, all)
+				renderCatalogObservation(r, rows, observation, all)
 			}
 			renderMissingRoutes(r, observation.MissingRoutes)
 		}
@@ -160,7 +162,9 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 	return cmd
 }
 
-func renderCatalogObservation(r *presentation.Renderer, observation catalogObservation, all bool) {
+// renderCatalogObservation completes an observation's group with its counts and
+// visible models, then notes the candidates that compact output omits.
+func renderCatalogObservation(r *presentation.Renderer, rows []presentation.Field, observation catalogObservation, all bool) {
 	visible := make([]catalogModel, 0, len(observation.Models))
 	admitted, deprecated, candidates := 0, 0, 0
 	for _, model := range observation.Models {
@@ -175,19 +179,21 @@ func renderCatalogObservation(r *presentation.Renderer, observation catalogObser
 			candidates++
 		}
 	}
-	r.Row("Models", fmt.Sprintf("%d observed", len(observation.Models)))
-	r.Row("Admitted", fmt.Sprintf("%d admitted", admitted))
+	rows = append(rows,
+		presentation.Field{Label: "Models", Value: fmt.Sprintf("%d observed", len(observation.Models))},
+		presentation.Field{Label: "Admitted", Value: fmt.Sprintf("%d admitted", admitted)},
+	)
 	if deprecated > 0 {
-		r.Row("Deprecated", fmt.Sprintf("%d deprecated", deprecated))
+		rows = append(rows, presentation.Field{Label: "Deprecated", Value: fmt.Sprintf("%d deprecated", deprecated)})
 	}
 	if all {
 		visible = observation.Models
 	}
 	for _, model := range visible {
 		state, detail := catalogModelDisplay(model)
-		r.Status(state, "model", model.ID)
-		r.Detail(detail)
+		rows = append(rows, presentation.Field{State: state, Label: "model", Value: model.ID, Details: []string{detail}})
 	}
+	r.Rows(rows...)
 	if !all && candidates > 0 {
 		r.Detail(fmt.Sprintf("%d candidate models require qualification; full catalog: aigw catalog --all", candidates))
 	}

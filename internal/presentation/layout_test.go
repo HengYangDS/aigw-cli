@@ -8,14 +8,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func TestFixedLabelPreservesLongLabel(t *testing.T) {
-	renderer := New(nil, false)
-	label := "this label is longer than the fixed column"
-	if got, want := renderer.fixedLabel(renderer.styles.rowKey, label, rowKeyWidth), label+" "; got != want {
-		t.Fatalf("fixedLabel() = %q, want %q", got, want)
-	}
-}
-
 func TestRowsShareOneLayoutForLongUnicodeAndMultilineFields(t *testing.T) {
 	fields := []Field{
 		{Label: "short", Value: "First description"},
@@ -26,24 +18,19 @@ func TestRowsShareOneLayoutForLongUnicodeAndMultilineFields(t *testing.T) {
 		var out bytes.Buffer
 		renderer := NewWithWidth(&out, color, 100)
 		renderer.Rows(fields...)
-		column := -1
 		for index, line := range strings.Split(strings.TrimSuffix(ansi.Strip(out.String()), "\n"), "\n") {
 			prefix, _, found := strings.Cut(line, fields[index].Value)
-			if !found || (column >= 0 && DisplayWidth(prefix) != column) {
+			// The longest label occupies 31 cells after the two-cell indent, followed by a two-cell gap.
+			if !found || DisplayWidth(prefix) != 35 {
 				t.Fatalf("group columns differ: %q", out.String())
 			}
-			column = DisplayWidth(prefix)
 		}
 		out.Reset()
 		fields[1].Value = "Second description\nContinuation"
 		renderer.Rows(fields...)
-		for _, field := range fields {
-			if !strings.Contains(ansi.Strip(out.String()), "  "+field.Label+"\n    ") {
-				t.Fatalf("multiline row did not select one compact group layout: %q", out.String())
-			}
-		}
-		if !strings.Contains(ansi.Strip(out.String()), "    Continuation\n") {
-			t.Fatal("multiline continuation lost its indentation")
+		continued := "  configuration-with-a-long-label  Second description\n" + strings.Repeat(" ", 35) + "Continuation\n"
+		if !strings.Contains(ansi.Strip(out.String()), continued) {
+			t.Fatalf("multiline value did not continue under its value column: %q", out.String())
 		}
 		fields[1].Value = "Second description"
 	}

@@ -74,15 +74,18 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Model route added")
-			r.Row("Route", routeName)
-			r.Row("Account", accountName)
-			r.Row("Model", model)
+			rows := []presentation.Field{
+				{Label: "Route", Value: routeName},
+				{Label: "Account", Value: accountName},
+				{Label: "Model", Value: model},
+			}
 			if upstreamModel != "" && upstreamModel != model {
-				r.Row("Upstream model", upstreamModel)
+				rows = append(rows, presentation.Field{Label: "Upstream model", Value: upstreamModel})
 			}
 			if purpose := strings.TrimSpace(purpose); purpose != "" {
-				r.Row("Purpose", purpose)
+				rows = append(rows, presentation.Field{Label: "Purpose", Value: purpose})
 			}
+			r.Rows(rows...)
 			r.Success("Reused the existing Account; no client selection was changed")
 			r.Next("aigw use --for <client> " + routeName)
 			return nil
@@ -198,23 +201,28 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Route details")
 			r.Section("Route")
-			r.Row("Route ID", args[0])
-			r.Row("Name", cfg.RouteLabel(args[0]))
-			if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
-				r.Row("Purpose", purpose)
+			rows := []presentation.Field{
+				{Label: "Route ID", Value: args[0]},
+				{Label: "Name", Value: cfg.RouteLabel(args[0])},
 			}
-			r.Row("Account", accountName)
-			r.Row("Model", route.Model)
-			r.Row("Protocol clients", strings.Join(compatible, ", "))
+			if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
+				rows = append(rows, presentation.Field{Label: "Purpose", Value: purpose})
+			}
+			rows = append(rows,
+				presentation.Field{Label: "Account", Value: accountName},
+				presentation.Field{Label: "Model", Value: route.Model},
+				presentation.Field{Label: "Protocol clients", Value: strings.Join(compatible, ", ")},
+			)
 			if len(selected) > 0 {
-				r.Row("Selected for", strings.Join(selected, ", "))
+				rows = append(rows, presentation.Field{Label: "Selected for", Value: strings.Join(selected, ", ")})
 			}
 			if account.Endpoints.OpenAIResponses != "" {
-				r.Row("OpenAI", account.Endpoints.OpenAIResponses)
+				rows = append(rows, presentation.Field{Label: "OpenAI", Value: account.Endpoints.OpenAIResponses})
 			}
 			if account.Endpoints.Anthropic != "" {
-				r.Row("Anthropic", account.Endpoints.Anthropic)
+				rows = append(rows, presentation.Field{Label: "Anthropic", Value: account.Endpoints.Anthropic})
 			}
+			r.Rows(rows...)
 			return nil
 		},
 	}
@@ -257,7 +265,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Route updated")
-			r.Row("Route", args[0])
+			r.Rows(presentation.Field{Label: "Route", Value: args[0]})
 			r.Success("Route metadata saved")
 			r.Next("aigw check")
 			return nil
@@ -316,8 +324,10 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Route removed")
-			r.Row("Route", name)
-			r.Row("Account", route.Account)
+			r.Rows(
+				presentation.Field{Label: "Route", Value: name},
+				presentation.Field{Label: "Account", Value: route.Account},
+			)
 			r.Success("The account and token remain in place")
 			return nil
 		},

@@ -66,18 +66,22 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Live protocol verification")
 			r.Section("Native client verification")
-			r.Detail("Each selected client runs a bounded verification session and may make multiple provider requests. AIGW does not modify client configuration or restart clients.")
+			r.Text("Each selected client runs a bounded verification session and may make multiple provider requests. AIGW does not modify client configuration or restart clients.")
 			for _, target := range clients {
 				clientRuntime := clientRuntimes[target]
 				result, err := synchronizer.Verify(cmd.Context(), cfg, target, clientRuntime, routeName)
 				if err != nil {
 					return err
 				}
+				// Each client is a group of one, rendered as its result arrives.
+				row := presentation.Field{State: presentation.OK, Label: invocation.Title(target), Value: clientRuntime.RouteID + " · Completed"}
 				if result.Version != "" || result.SHA256 != "" {
-					r.Detail(fmt.Sprintf("%s client: %s · SHA-256 %s", invocation.Title(target), result.Version, result.SHA256))
+					row.Details = append(row.Details, fmt.Sprintf("%s client: %s · SHA-256 %s", invocation.Title(target), result.Version, result.SHA256))
 				}
-				r.Detail(result.Scope)
-				r.Status(presentation.OK, invocation.Title(target), clientRuntime.RouteID+" · Completed")
+				if result.Scope != "" {
+					row.Details = append(row.Details, result.Scope)
+				}
+				r.Rows(row)
 			}
 			if client == "all" {
 				if err := runtime.Config.SaveVerifiedCheckpoint(cmd.Context(), cfg, clients); err != nil {

@@ -97,15 +97,17 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Connectivity test")
-			r.Detail("Endpoint HTTP observation, not model inference or native-client verification.")
+			r.Text("Endpoint HTTP observation, not model inference or native-client verification.")
 			r.Section("Endpoints")
+			rows := make([]presentation.Field, 0, len(results))
 			for _, result := range results {
 				value := fmt.Sprintf("%s · HTTP %d", result.routeID, result.status)
 				if result.detail != "" {
 					value += " · " + result.detail
 				}
-				r.Status(presentation.OK, invocation.Title(result.client), value)
+				rows = append(rows, presentation.Field{State: presentation.OK, Label: invocation.Title(result.client), Value: value})
 			}
+			r.Rows(rows...)
 			r.Next("aigw check")
 			return nil
 		},

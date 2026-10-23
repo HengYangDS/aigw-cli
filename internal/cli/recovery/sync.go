@@ -92,18 +92,33 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			} else {
 				r.ProductTitle("Synchronization completed")
 			}
+			outcome := []presentation.Field{}
 			for _, client := range configuration.AdmittedClientIDs() {
 				if route, ok := result.AdoptedSelections[client]; ok {
-					r.Status(presentation.Info, "Adopted selection", invocation.Title(client)+" now uses "+after.RouteLabel(route)+", chosen in "+invocation.Title(client))
+					outcome = append(outcome, presentation.Field{
+						State: presentation.Info, Label: "Adopted selection",
+						Value: invocation.Title(client) + " now uses " + after.RouteLabel(route) + ", chosen in " + invocation.Title(client),
+					})
 				}
 			}
-			if result.EnabledClients == 0 {
+			switch {
+			case result.EnabledClients == 0:
 				// The activation decision names the continuation for the current backend.
-				r.Status(presentation.Info, "Client activation", "No client is enabled")
-				r.Detail("Authentication was unchanged")
-			} else if activation.State == domainreadiness.Deferred {
-				r.Status(presentation.Info, "Client activation", "Selected client projection is deferred")
-			} else if !dryRun {
+				outcome = append(outcome, presentation.Field{
+					State: presentation.Info, Label: "Client activation", Value: "No client is enabled",
+					Details: []string{"Authentication was unchanged"},
+				})
+			case activation.State == domainreadiness.Deferred:
+				outcome = append(outcome, presentation.Field{State: presentation.Info, Label: "Client activation", Value: "Selected client projection is deferred"})
+			}
+			if len(outcome) > 0 && dryRun {
+				r.Section("Activation")
+			}
+			r.Rows(outcome...)
+			switch {
+			case dryRun:
+				r.Success("Preview did not write configuration, state files, authentication, or conversations")
+			case result.EnabledClients != 0 && activation.State != domainreadiness.Deferred:
 				r.Success("Client configuration is aligned; authentication was unchanged")
 			}
 			r.Next(result.NextAction)
@@ -153,25 +168,28 @@ func planCredentialEntrypoint(synchronizer synchronization.Synchronizer, after c
 func renderSyncPreview(r *presentation.Renderer, after configuration.Config, result syncResult) {
 	r.ProductTitle("Synchronization preview")
 	if result.CredentialEntrypoint != nil {
-		r.Row("Credential entrypoint", result.CredentialEntrypoint.humanAction())
+		// The entrypoint path is too long to share the target column.
+		r.Section("Credential entrypoint")
+		r.Text(result.CredentialEntrypoint.humanAction())
 	}
+	r.Section("Client Bindings")
 	bindings := make([]presentation.Field, 0, len(configuration.AdmittedClientIDs()))
 	for _, client := range configuration.AdmittedClientIDs() {
 		bindings = append(bindings, presentation.Field{Label: "Client · " + client, Value: after.SelectedRoute(client)})
 	}
 	r.Rows(bindings...)
-	if len(result.Targets) == 0 && result.EnabledClients != 0 && result.State == string(domainreadiness.Deferred) {
-		r.Status(presentation.Info, "Projection", "No selected client can be projected yet")
-	} else if len(result.Targets) == 0 {
-		r.Status(presentation.OK, "Projection", "No client configuration needs changing")
-	} else {
-		targets := make([]presentation.Field, 0, len(result.Targets))
-		for _, plan := range result.Targets {
-			targets = append(targets, presentation.Field{Label: plan.Target, Value: plan.Action})
-		}
-		r.Rows(targets...)
+	r.Section("Projection targets")
+	targets := make([]presentation.Field, 0, len(result.Targets)+1)
+	switch {
+	case len(result.Targets) == 0 && result.EnabledClients != 0 && result.State == string(domainreadiness.Deferred):
+		targets = append(targets, presentation.Field{State: presentation.Info, Label: "Projection", Value: "No selected client can be projected yet"})
+	case len(result.Targets) == 0:
+		targets = append(targets, presentation.Field{State: presentation.OK, Label: "Projection", Value: "No client configuration needs changing"})
 	}
-	r.Success("Preview did not write configuration, state files, authentication, or conversations")
+	for _, plan := range result.Targets {
+		targets = append(targets, presentation.Field{Label: plan.Target, Value: plan.Action})
+	}
+	r.Rows(targets...)
 }
 
 // rollbackFailureImpact reports the configuration outcome that a failed
@@ -242,7 +260,7 @@ func NewRollbackCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Rolled back safely")
 			r.Section("Restore source")
-			r.Row("Configuration", source)
+			r.Rows(presentation.Field{Label: "Configuration", Value: source})
 			r.Success("Client selections and projections were restored; clients were not restarted.")
 			r.Next("aigw doctor")
 			return nil

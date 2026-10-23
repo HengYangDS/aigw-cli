@@ -84,16 +84,18 @@ func NewCommand(deps Dependencies) *cobra.Command {
 			r.ProductTitle("Detailed diagnostics")
 			renderClients(r, result.Clients)
 			r.Section("Checks")
+			checks := make([]presentation.Field, 0, len(result.Checks))
 			for _, check := range result.Checks {
-				state := presentation.OK
+				field := presentation.Field{State: presentation.OK, Label: Label(check.Name), Value: Detail(check)}
 				if !check.OK {
-					state = presentation.Fail
+					field.State = presentation.Fail
 				}
-				r.Status(state, Label(check.Name), Detail(check))
 				if check.Fix != "" {
-					r.Detail("Fix: " + Fix(check))
+					field.Details = []string{"Fix: " + Fix(check)}
 				}
+				checks = append(checks, field)
 			}
+			r.Rows(checks...)
 			if !result.OK {
 				r.Next(result.NextAction)
 				if err := r.Err(); err != nil {
@@ -110,8 +112,10 @@ func NewCommand(deps Dependencies) *cobra.Command {
 				case result.State == domainreadiness.Deferred:
 					message = "Selected client projection is deferred"
 				}
-				r.Status(presentation.Info, "Client activation", message)
-				r.Detail("Local diagnostics passed; no client endpoint or model was checked")
+				r.Rows(presentation.Field{
+					State: presentation.Info, Label: "Client activation", Value: message,
+					Details: []string{"Local diagnostics passed; no client endpoint or model was checked"},
+				})
 				r.Next(result.NextAction)
 				return r.Err()
 			}
@@ -208,6 +212,7 @@ func renderClients(renderer *presentation.Renderer, clients map[string]domainrea
 		return
 	}
 	renderer.Section("Clients")
+	rows := make([]presentation.Field, 0, len(clients))
 	for _, spec := range configuration.AdmittedClientSpecs() {
 		client, ok := clients[spec.ID]
 		if !ok {
@@ -229,11 +234,13 @@ func renderClients(renderer *presentation.Renderer, clients map[string]domainrea
 		if client.NativeModelOverride {
 			message += " · " + client.Detail
 		}
-		renderer.Status(state, spec.Label, message)
+		row := presentation.Field{State: state, Label: spec.Label, Value: message}
 		if client.NativeModelOverride && client.NextAction != "" {
-			renderer.Detail("Verify the native model: " + client.NextAction)
+			row.Details = []string{"Verify the native model: " + client.NextAction}
 		}
+		rows = append(rows, row)
 	}
+	renderer.Rows(rows...)
 }
 
 func renderWriter(deps Dependencies) io.Writer {

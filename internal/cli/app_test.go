@@ -253,8 +253,8 @@ func TestCommandHelpIncludesNativeFlagMetadataAndExamples(t *testing.T) {
 				}
 			}
 			if columns == "48" {
-				for line := range strings.SplitSeq(strings.TrimRight(command.NonInheritedFlags().FlagUsagesWrapped(46), "\n"), "\n") {
-					if !strings.Contains(out.String(), "  "+strings.TrimRight(line, " \t")+"\n") {
+				for line := range strings.SplitSeq(strings.TrimRight(command.NonInheritedFlags().FlagUsagesWrapped(48), "\n"), "\n") {
+					if !strings.Contains(out.String(), "\n"+strings.TrimRight(line, " \t")+"\n") {
 						t.Fatalf("help changed native narrow option layout: %q\n%s", line, &out)
 					}
 				}
@@ -263,6 +263,9 @@ func TestCommandHelpIncludesNativeFlagMetadataAndExamples(t *testing.T) {
 						t.Fatalf("help line exceeds available width: %q", line)
 					}
 				}
+			}
+			if !strings.Contains(out.String(), "\n  -a, --attempts") || strings.Contains(out.String(), "\n    -a, --attempts") {
+				t.Fatalf("option lines do not share the section indentation:\n%s", &out)
 			}
 			out.Reset()
 			command.Example = "service connect --target 'a-long-path-with-two  spaces'\nservice connect --region 'tab\tvalue'"
@@ -370,6 +373,9 @@ func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
 					column = position
 				}
 			}
+		}
+		if longest := presentation.DisplayWidth(command.Name() + " use --for <client> <route>"); test.width >= 80 && column < 2+longest+2 {
+			t.Fatalf("width=%d descriptions start at column %d, less than two cells after the longest command:\n%s", test.width, column, help)
 		}
 		if strings.Contains(help, "#") {
 			t.Fatalf("help embeds explanations as executable shell comments: %q", help)

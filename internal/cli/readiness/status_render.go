@@ -29,8 +29,10 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 		if result.EnabledClients != 0 {
 			message = "Selected client projection is deferred"
 		}
-		r.Status(presentation.Info, "Client activation", message)
-		r.Detail("The catalogue is available, but no client endpoint or model has been checked")
+		r.Rows(presentation.Field{
+			State: presentation.Info, Label: "Client activation", Value: message,
+			Details: []string{"The catalogue is available, but no client endpoint or model has been checked"},
+		})
 	}
 	renderTransportStatus(r, result, clientIDs)
 	renderDiagnosticStatus(runtime, r, cfg)
@@ -39,6 +41,7 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 
 func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {
 	r.Section("Clients")
+	rows := make([]presentation.Field, 0, len(clientIDs))
 	for _, client := range clientIDs {
 		spec, _ := configuration.ClientSpecFor(client)
 		clientStatus := result.Clients[client]
@@ -62,58 +65,58 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 		if len(clientStatus.QualifiedModes) > 0 && len(clientStatus.QualifiedPlatforms) > 0 {
 			message += " · Qualified: " + strings.Join(clientStatus.QualifiedModes, ", ") + " · " + strings.Join(clientStatus.QualifiedPlatforms, ", ")
 		}
-
-		r.Status(state, spec.Label, message)
+		rows = append(rows, presentation.Field{State: state, Label: spec.Label, Value: message})
 	}
+	r.Rows(rows...)
 }
 
 func renderTransportStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {
-	shown := false
+	rows := []presentation.Field{}
 	for _, client := range clientIDs {
-		if result.Clients[client].Transport != endpointTransportExternalLoopback {
-			continue
+		if result.Clients[client].Transport == endpointTransportExternalLoopback {
+			rows = append(rows, presentation.Field{State: presentation.Info, Label: invocation.Title(client), Value: "Loopback endpoint"})
 		}
-		if !shown {
-			r.Section("Transport")
-			shown = true
-		}
-		r.Status(presentation.Info, invocation.Title(client), "Loopback endpoint")
 	}
-	if shown {
-		r.Detail("Endpoint runtime identity and availability are not inferred from the address")
-		r.Detail("AIGW does not start, stop, or configure the endpoint runtime")
+	if len(rows) == 0 {
+		return
 	}
+	r.Section("Transport")
+	r.Rows(rows...)
+	r.Detail("Endpoint runtime identity and availability are not inferred from the address")
+	r.Detail("AIGW does not start, stop, or configure the endpoint runtime")
 }
 
 func renderDiagnosticStatus(runtime invocation.Context, r *presentation.Renderer, cfg configuration.Config) {
 	r.Section("Optional diagnostics")
 	accountIDs := cfg.SelectedAccountIDs()
 	if len(accountIDs) == 0 {
-		r.Status(presentation.Info, "Precise balance", "No selected account")
+		r.Rows(presentation.Field{State: presentation.Info, Label: "Precise balance", Value: "No selected account"})
 		return
 	}
+	rows := make([]presentation.Field, 0, len(accountIDs))
 	for _, accountName := range accountIDs {
 		account := cfg.Accounts[accountName]
 		if account.AccountProbe == nil {
-			r.Status(presentation.Info, accountName, "Provider does not expose a balance probe")
+			rows = append(rows, presentation.Field{State: presentation.Info, Label: accountName, Value: "Provider does not expose a balance probe"})
 			continue
 		}
 		if !providers.Supports(account.AccountProbe.Kind) {
-			r.Status(presentation.Info, accountName, "Provider diagnostics unavailable in this version")
+			rows = append(rows, presentation.Field{State: presentation.Info, Label: accountName, Value: "Provider diagnostics unavailable in this version"})
 			continue
 		}
 		available, err := runtime.Accounts.Exists(accountName)
 		switch {
 		case err != nil:
-			r.Status(presentation.Warn, accountName, "Credential metadata unavailable · aigw doctor")
+			rows = append(rows, presentation.Field{State: presentation.Warn, Label: accountName, Value: "Credential metadata unavailable · aigw doctor"})
 		case available:
-			r.Status(presentation.Info, accountName, "Diagnostic credential present · content not verified")
+			rows = append(rows, presentation.Field{State: presentation.Info, Label: accountName, Value: "Diagnostic credential present · content not verified"})
 		default:
 			action := "aigw account diagnostics enable " + accountName
 			if secrets.IsReadOnly(runtime.Secrets) {
 				action = "set `" + secrets.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secrets.DiagnosticUserIDEnvironmentKey(accountName) + "`"
 			}
-			r.Status(presentation.Warn, accountName, "Precise balance not ready · "+action)
+			rows = append(rows, presentation.Field{State: presentation.Warn, Label: accountName, Value: "Precise balance not ready · " + action})
 		}
 	}
+	r.Rows(rows...)
 }

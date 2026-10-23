@@ -67,10 +67,11 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 		title = "Configuration migration rolled back"
 	}
 	renderer.ProductTitle(title)
-	renderer.Row("Schema", fmt.Sprintf("%d → %d", result.FromVersion, result.ToVersion))
-	renderer.Row("Accounts", fmt.Sprintf("%d", len(result.Accounts)))
-	renderer.Row("Routes", fmt.Sprintf("%d", len(result.Routes)))
-	renderMigrationClients(renderer, result.Clients)
+	rows := append([]presentation.Field{
+		{Label: "Schema", Value: fmt.Sprintf("%d → %d", result.FromVersion, result.ToVersion)},
+		{Label: "Accounts", Value: fmt.Sprintf("%d", len(result.Accounts))},
+		{Label: "Routes", Value: fmt.Sprintf("%d", len(result.Routes))},
+	}, migrationClientRows(result.Clients)...)
 	if len(result.Recommendations) > 0 {
 		recommendations := make([]string, 0, len(result.Recommendations))
 		for _, client := range configuration.AdmittedClientIDs() {
@@ -78,8 +79,9 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 				recommendations = append(recommendations, client+"="+recommendation.Primary.Route)
 			}
 		}
-		renderer.Row("Recommendations", strings.Join(recommendations, ", "))
+		rows = append(rows, presentation.Field{Label: "Recommendations", Value: strings.Join(recommendations, ", ")})
 	}
+	renderer.Rows(rows...)
 	switch {
 	case result.DryRun:
 		renderer.Success("Preview did not write configuration, credentials, client files, or sessions")
@@ -92,7 +94,8 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 	return renderer.Err()
 }
 
-func renderMigrationClients(renderer *presentation.Renderer, bindings map[string]configuration.ClientBinding) {
+func migrationClientRows(bindings map[string]configuration.ClientBinding) []presentation.Field {
+	rows := make([]presentation.Field, 0, len(bindings))
 	for _, client := range configuration.AdmittedClientIDs() {
 		binding, exists := bindings[client]
 		if !exists {
@@ -108,6 +111,7 @@ func renderMigrationClients(renderer *presentation.Renderer, bindings map[string
 		if len(binding.Targets) > 0 {
 			detail += fmt.Sprintf(" · %d native target(s)", len(binding.Targets))
 		}
-		renderer.Row(invocation.Title(client), detail)
+		rows = append(rows, presentation.Field{Label: invocation.Title(client), Value: detail})
 	}
+	return rows
 }

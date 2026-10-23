@@ -11,6 +11,7 @@ import (
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 )
@@ -72,7 +73,7 @@ func TestRendererUsesTheBoundRenderWriter(t *testing.T) {
 	var out bytes.Buffer
 	runtime := Context{Out: &bytes.Buffer{}, RenderOut: &out, Width: 80}
 
-	Renderer(runtime).Row("Account", "team-gateway")
+	Renderer(runtime).Rows(presentation.Field{Label: "Account", Value: "team-gateway"})
 
 	if got := out.String(); !strings.Contains(got, "team-gateway") {
 		t.Fatalf("Renderer() output = %q, want bound render writer", got)
@@ -81,11 +82,11 @@ func TestRendererUsesTheBoundRenderWriter(t *testing.T) {
 
 func TestRendererFallsBackToOutputAndDiscard(t *testing.T) {
 	var out bytes.Buffer
-	Renderer(Context{Out: &out, Width: 80}).Row("Route", "portable")
+	Renderer(Context{Out: &out, Width: 80}).Rows(presentation.Field{Label: "Route", Value: "portable"})
 	if !strings.Contains(out.String(), "portable") {
 		t.Fatalf("Renderer() output = %q, want output fallback", out.String())
 	}
-	Renderer(Context{}).Row("Route", "discarded")
+	Renderer(Context{}).Rows(presentation.Field{Label: "Route", Value: "discarded"})
 }
 
 func TestDiscoverRequiresAndUsesTheBoundDiscoverer(t *testing.T) {

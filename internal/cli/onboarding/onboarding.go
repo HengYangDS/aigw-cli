@@ -216,27 +216,31 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("First-time setup")
 	r.Section("Account")
-	r.Row("Account", plan.request.Account)
-	r.Row("Route", plan.request.Route)
-	r.Row("Model", plan.route.Model)
-	r.Status(presentation.OK, "API Token", "Validated")
+	r.Rows(
+		presentation.Field{Label: "Account", Value: plan.request.Account},
+		presentation.Field{Label: "Route", Value: plan.request.Route},
+		presentation.Field{Label: "Model", Value: plan.route.Model},
+		presentation.Field{State: presentation.OK, Label: "API Token", Value: "Validated"},
+	)
 }
 
 func renderSetupClients(runtime invocation.Context, cfg configuration.Config, selectedClient string) {
 	r := invocation.Renderer(runtime)
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	r.Section("Clients")
+	rows := make([]presentation.Field, 0, len(configuration.AdmittedClientSpecs()))
 	for _, spec := range configuration.AdmittedClientSpecs() {
 		binding := cfg.Clients[spec.ID]
 		switch {
 		case !binding.Enabled:
-			r.Status(presentation.Info, spec.Label, "Not configured")
+			rows = append(rows, presentation.Field{State: presentation.Info, Label: spec.Label, Value: "Not configured"})
 		case activation.ProjectionPrerequisites[spec.ID] != "":
-			r.Status(presentation.Info, spec.Label, "Selected; projection deferred")
+			rows = append(rows, presentation.Field{State: presentation.Info, Label: spec.Label, Value: "Selected; projection deferred"})
 		default:
-			r.Status(presentation.OK, spec.Label, "Projection configured")
+			rows = append(rows, presentation.Field{State: presentation.OK, Label: spec.Label, Value: "Projection configured"})
 		}
 	}
+	r.Rows(rows...)
 	if action := activation.ProjectionPrerequisites[selectedClient]; action != "" {
 		r.Success("Account and Route are ready; selected client activation is deferred.")
 		r.Next(action)

@@ -121,8 +121,10 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 	} else {
 		r.ProductTitle("Repair completed")
 		r.Section("Results")
-		r.Status(presentation.OK, "Client", "Rediscovered")
-		r.Status(presentation.OK, "Configuration", "Synchronized")
+		r.Rows(
+			presentation.Field{State: presentation.OK, Label: "Client", Value: "Rediscovered"},
+			presentation.Field{State: presentation.OK, Label: "Configuration", Value: "Synchronized"},
+		)
 	}
 	r.Next(result.NextAction)
 	return nil
