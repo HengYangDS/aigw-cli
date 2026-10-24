@@ -84,6 +84,15 @@ user-owned files without copying or owning them.
 - **AND** the catalog and the operator's configuration SHALL stay unchanged, and
   AIGW SHALL NOT take ownership of the catalog.
 
+#### Scenario: A rooted Windows catalog reference keeps its drive
+
+- **WHEN** on Windows the operator's own `model_catalog_json` is rooted without
+  a drive, such as `\catalogs\models.json`
+- **THEN** the verification projection SHALL name that path on the drive of the
+  configuration that names it
+- **AND** a reference that names a drive without a root, such as
+  `D:models.json`, SHALL stay unchanged.
+
 ### Requirement: Ambiguous or incompatible selection fails closed
 
 AIGW SHALL NOT infer a client, protocol, capability, canonical Model, or Route
