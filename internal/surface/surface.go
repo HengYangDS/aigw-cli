@@ -14,6 +14,10 @@ const (
 	CodexHomeDefault ID = "codex-home-default"
 	// ClaudeDesktopLibrary identifies Claude Desktop's per-user third-party configuration library.
 	ClaudeDesktopLibrary ID = "claude-desktop-config-library"
+	// ClaudeSettings identifies Claude Code's user settings file.
+	ClaudeSettings ID = "claude-settings"
+	// HermesHomeDefault identifies the configuration of the Hermes home.
+	HermesHomeDefault ID = "hermes-home-default"
 
 	// AuthorityAIGW identifies a surface whose bounded projection is owned by AIGW.
 	AuthorityAIGW Authority = "aigw"

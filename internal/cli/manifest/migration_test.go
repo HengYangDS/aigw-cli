@@ -14,6 +14,40 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
+func TestMigrationPreviewNamesClientsAndProtocolsByLabel(t *testing.T) {
+	out := &bytes.Buffer{}
+	plan := configuration.MigrationPlan{
+		Required: true, FromVersion: 5, ToVersion: 6, Accounts: []string{"gateway"}, Routes: []string{"messages", "responses"},
+		Clients: map[string]configuration.ClientBinding{
+			configuration.ClientClaudeDesktop: {Route: "messages", Protocol: configuration.ProtocolAnthropic, Targets: []string{"/library"}},
+			configuration.ClientCodex:         {Route: "responses", Protocol: configuration.ProtocolOpenAIResponses, Targets: []string{"/a", "/b"}},
+		},
+		Recommendations: map[string]configuration.ClientRecommendation{
+			configuration.ClientClaudeDesktop: {Primary: configuration.ClientSelection{Route: "messages"}},
+		},
+	}
+	if err := renderMigration(invocation.Context{Out: out, RenderOut: out}, migrationOutput{DryRun: true, MigrationPlan: plan, NextAction: "aigw config migrate"}); err != nil {
+		t.Fatal(err)
+	}
+	text := out.String()
+	for _, want := range []string{
+		"\nClient Bindings\n",
+		"  Claude Desktop       messages · Anthropic Messages · 1 native target\n",
+		"  Codex                responses · OpenAI Responses · 2 native targets\n",
+		"\nRecommendations\n",
+		"  Claude Desktop       messages\n",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("migration preview lacks %q:\n%s", want, text)
+		}
+	}
+	for _, forbidden := range []string{"Claude-desktop", "claude-desktop", "(s)", "openai_responses", "="} {
+		if strings.Contains(text, forbidden) {
+			t.Fatalf("migration preview contains %q:\n%s", forbidden, text)
+		}
+	}
+}
+
 func TestMigrationPreviewAndApplyPreserveCredentialsAndClientFiles(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	target := filepath.Join(t.TempDir(), "client-settings")

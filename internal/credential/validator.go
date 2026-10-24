@@ -74,10 +74,10 @@ func validateEndpoint(ctx context.Context, httpClient HTTPDoer, client, endpoint
 		return err
 	}
 	if status == http.StatusUnauthorized || status == http.StatusForbidden {
-		return fmt.Errorf("%s authentication was rejected (HTTP %d)", title(client), status)
+		return fmt.Errorf("%s authentication was rejected (HTTP %d)", configuration.ClientLabel(client), status)
 	}
 	if status < http.StatusOK || status >= http.StatusMultipleChoices {
-		return fmt.Errorf("%s endpoint returned HTTP %d", title(client), status)
+		return fmt.Errorf("%s endpoint returned HTTP %d", configuration.ClientLabel(client), status)
 	}
 	return nil
 }
@@ -94,14 +94,14 @@ func ProbeStatus(ctx context.Context, httpClient HTTPDoer, client, endpoint, tok
 	}
 	response, err := DoProbe(httpClient, request)
 	if err != nil {
-		return 0, fmt.Errorf("%s endpoint is unreachable: %w", title(client), err)
+		return 0, fmt.Errorf("%s endpoint is unreachable: %w", configuration.ClientLabel(client), err)
 	}
 	if _, err := io.Copy(io.Discard, response.Body); err != nil {
 		_ = response.Body.Close()
-		return 0, fmt.Errorf("read %s endpoint response: %w", title(client), err)
+		return 0, fmt.Errorf("read %s endpoint response: %w", configuration.ClientLabel(client), err)
 	}
 	if err := response.Body.Close(); err != nil {
-		return 0, fmt.Errorf("close %s endpoint response: %w", title(client), err)
+		return 0, fmt.Errorf("close %s endpoint response: %w", configuration.ClientLabel(client), err)
 	}
 	return response.StatusCode, nil
 }
@@ -179,11 +179,4 @@ func modelsEndpoint(endpoint string, protocol configuration.EndpointProtocol) st
 		return endpoint + "/v1/models"
 	}
 	return endpoint + "/models"
-}
-
-func title(value string) string {
-	if value == "" {
-		return value
-	}
-	return strings.ToUpper(value[:1]) + value[1:]
 }

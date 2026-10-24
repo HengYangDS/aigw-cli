@@ -60,7 +60,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 				status := synchronizer.Inspect(cmd.Context(), cfg, target, clientRuntime)
 				if !status.Ready {
-					return fmt.Errorf("Full verification requires a ready %s adapter: %s; run `%s`", invocation.Title(target), status.Issue, status.RepairAction)
+					return fmt.Errorf("Full verification requires a ready %s adapter: %s; run `%s`", configuration.ClientLabel(target), status.Issue, status.RepairAction)
 				}
 			}
 			r := invocation.Renderer(runtime)
@@ -74,9 +74,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 				// Each client is a group of one, rendered as its result arrives.
-				row := presentation.Field{State: presentation.OK, Label: invocation.Title(target), Value: clientRuntime.RouteID + " · Completed"}
+				row := presentation.Field{State: presentation.OK, Label: configuration.ClientLabel(target), Value: clientRuntime.RouteID + " · Completed"}
 				if result.Version != "" || result.SHA256 != "" {
-					row.Details = append(row.Details, fmt.Sprintf("%s client: %s · SHA-256 %s", invocation.Title(target), result.Version, result.SHA256))
+					row.Details = append(row.Details, fmt.Sprintf("%s client: %s · SHA-256 %s", configuration.ClientLabel(target), result.Version, result.SHA256))
 				}
 				if result.Scope != "" {
 					row.Details = append(row.Details, result.Scope)
@@ -93,7 +93,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Client whose selected Route to verify: "+configuration.AdmittedClientLabelUsage("all")+"; all means enabled clients")
+	cmd.Flags().StringVar(&client, "for", "", "Client whose selected Route to verify: "+configuration.AdmittedClientUsage("all")+"; all means enabled clients")
 	cmd.Flags().StringVar(&routeName, "route", "", "Verify this Route for the explicit client without changing its binding")
 	return cmd
 }

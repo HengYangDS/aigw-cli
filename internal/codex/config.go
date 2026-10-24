@@ -69,11 +69,13 @@ const (
 )
 
 // ProjectionPlan is a non-secret, read-only rendering of one target's
-// proposed configuration projection. It never includes configuration content,
-// credentials, or state bodies.
+// proposed configuration projection, with the identity of the surface that
+// owns the target. It never includes configuration content, credentials, or
+// state bodies.
 type ProjectionPlan struct {
-	Target string           `json:"target"`
-	Action ProjectionAction `json:"action"`
+	Target    string           `json:"target"`
+	Action    ProjectionAction `json:"action"`
+	SurfaceID string           `json:"-"`
 }
 
 // ChangesState reports whether applying the plan changes an owned target.

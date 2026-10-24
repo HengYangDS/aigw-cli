@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -47,10 +48,13 @@ func TestUseForwardingPreviewIsCredentialFreeAndDoesNotWrite(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, value := range []string{"Selection preview", "Client", "codex", "Route", result.RouteLabel, "Endpoint", result.Endpoint, "Account upstream", result.UpstreamEndpoint, "Credentials, configuration and client files were unchanged"} {
+	for _, value := range []string{"Selection preview", "Client", "Route", result.RouteLabel, "Endpoint", result.Endpoint, "Account upstream", result.UpstreamEndpoint, "Credentials, configuration and client files were unchanged"} {
 		if !strings.Contains(out.String(), value) {
 			t.Fatalf("human preview omitted %q: %s", value, out.String())
 		}
+	}
+	if !regexp.MustCompile(`(?m)^  Client +Codex$`).MatchString(out.String()) {
+		t.Fatalf("human preview did not name the client by its label: %s", out.String())
 	}
 	after, err := runtime.Config.CaptureSnapshot()
 	if err != nil || !reflect.DeepEqual(before, after) {
@@ -317,7 +321,7 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 		want        []string
 		forbid      string
 	}{
-		{name: "restart", installed: true, want: []string{"Route selected", "Restart required", "Restart Claude Desktop, then run `aigw check`"}},
+		{name: "restart", installed: true, want: []string{"Route selected", "Restart required", "Restart Claude Desktop, then run `aigw check`", "Anthropic Messages"}, forbid: "anthropic"},
 		{name: "deferred", want: []string{"Route selected", "Projection", "Deferred; native client projection is unavailable", "Install Claude Desktop if needed, then run `aigw sync`"}, forbid: "Restart required"},
 		{name: "restart-json", installed: true, want: []string{"\"projection_changed\": true", "restart_required", "Restart Claude Desktop, then run `aigw check`"}},
 		{name: "preselected-restart", installed: true, preselected: true, want: []string{"Route already selected", "Restart required", "Restart Claude Desktop, then run `aigw check`"}},

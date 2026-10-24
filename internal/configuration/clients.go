@@ -72,14 +72,13 @@ func AdmittedClientUsage(extra ...string) string {
 	return naturalChoices(append(AdmittedClientIDs(), extra...))
 }
 
-// AdmittedClientLabelUsage renders presentation labels while preserving
-// command-local extra values such as "all".
-func AdmittedClientLabelUsage(extra ...string) string {
-	labels := make([]string, 0, len(admittedClientSpecs)+len(extra))
-	for _, spec := range admittedClientSpecs {
-		labels = append(labels, spec.Label)
+// ClientLabel returns the presentation label that human output uses for an
+// admitted client, or the identifier itself for any other value.
+func ClientLabel(id string) string {
+	if spec, admitted := ClientSpecFor(id); admitted {
+		return spec.Label
 	}
-	return naturalChoices(append(labels, extra...))
+	return id
 }
 
 func naturalChoices(choices []string) string {

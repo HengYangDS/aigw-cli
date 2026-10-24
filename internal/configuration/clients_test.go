@@ -101,8 +101,19 @@ func TestAdmittedClientUsageIsDerivedFromRegistry(t *testing.T) {
 	if got := AdmittedClientUsage("all"); got != "claude, claude-desktop, codex, hermes, or all" {
 		t.Fatalf("usage with extra choice = %q", got)
 	}
-	if got := AdmittedClientLabelUsage("all"); got != "Claude, Claude Desktop, Codex, Hermes, or all" {
-		t.Fatalf("label usage = %q", got)
+}
+
+func TestClientLabelNamesEachClientByItsRegistryLabel(t *testing.T) {
+	for id, want := range map[string]string{
+		ClientClaude:        "Claude",
+		ClientClaudeDesktop: "Claude Desktop",
+		ClientCodex:         "Codex",
+		ClientHermes:        "Hermes",
+		"future":            "future",
+	} {
+		if got := ClientLabel(id); got != want {
+			t.Fatalf("ClientLabel(%q) = %q, want %q", id, got, want)
+		}
 	}
 }
 

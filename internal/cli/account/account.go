@@ -70,7 +70,7 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 				presentation.Field{Label: "Account", Value: label},
 				presentation.Field{Label: "Account ID", Value: name},
 				presentation.Field{Label: "Route ID", Value: name},
-				presentation.Field{Label: "Client", Value: invocation.Title(client)},
+				presentation.Field{Label: "Client", Value: configuration.ClientLabel(client)},
 				presentation.Field{Label: "Model", Value: route.Model},
 				presentation.Field{State: presentation.OK, Label: "Token", Value: "Securely stored"},
 			)

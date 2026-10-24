@@ -302,7 +302,7 @@ func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 						t.Fatalf("client status = %+v", state)
 					}
 				}
-				if !strings.Contains(strings.ToLower(problemDetail), "projection") || problemAction != "Install "+invocation.Title(client)+" if needed, then run `aigw sync`" {
+				if !strings.Contains(strings.ToLower(problemDetail), "projection") || problemAction != "Install "+configuration.ClientLabel(client)+" if needed, then run `aigw sync`" {
 					t.Fatalf("projection recovery was lost: detail=%q action=%q", problemDetail, problemAction)
 				}
 			})

@@ -11,6 +11,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -169,7 +170,8 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 		t.Fatalf("render sync preview after setting one environment Token: %v", err)
 	}
 	for client, route := range wantRoutes {
-		if !strings.Contains(out.String(), "Client · "+client) || !strings.Contains(out.String(), route) {
+		row := regexp.MustCompile(`(?m)^  ` + regexp.QuoteMeta(configuration.ClientLabel(client)) + ` +` + regexp.QuoteMeta(route) + `$`)
+		if !row.MatchString(out.String()) {
 			t.Fatalf("sync preview omitted %s route %s:\n%s", client, route, out.String())
 		}
 	}

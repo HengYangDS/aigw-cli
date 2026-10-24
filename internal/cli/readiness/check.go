@@ -49,7 +49,7 @@ func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 			return RunCheck(cmd, runtime)
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Check one enabled client: "+configuration.AdmittedClientLabelUsage()+"; omit for all")
+	cmd.Flags().StringVar(&client, "for", "", "Check one enabled client: "+configuration.AdmittedClientUsage()+"; omit for all")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
 	cmd.Flags().Bool("endpoint-only", false, "Use model-free endpoint authentication instead of inference")
 	return cmd
@@ -133,7 +133,7 @@ func checkConfigurationFor(cfg configuration.Config, client string) (configurati
 		if route := cfg.SelectedRoute(client); route != "" {
 			action = "aigw use --for " + client + " " + route
 		}
-		return cfg, action, fmt.Errorf("%s is not enabled", invocation.Title(client))
+		return cfg, action, fmt.Errorf("%s is not enabled", configuration.ClientLabel(client))
 	}
 	scoped := cfg.Clone()
 	for id, binding := range scoped.Clients {
@@ -398,7 +398,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		}
 		adapter := cfg.Clients[client]
 		if !adapter.Enabled {
-			rows = append(rows, presentation.Field{State: presentation.Info, Label: invocation.Title(client), Value: "Disabled"})
+			rows = append(rows, presentation.Field{State: presentation.Info, Label: configuration.ClientLabel(client), Value: "Disabled"})
 			continue
 		}
 		result, _ := evaluation.client(client)
@@ -447,7 +447,7 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 		return fallback
 	}
 	if result.resolveErr != nil {
-		return presentation.Field{}, "", false, invocation.Problem(runtime, invocation.Title(client)+" binding cannot be resolved", result.resolveErr.Error(), invocation.Title(client)+" cannot determine which Route to use.", recommendedAction("aigw use --for "+client+" <route>"), result.resolveErr)
+		return presentation.Field{}, "", false, invocation.Problem(runtime, configuration.ClientLabel(client)+" binding cannot be resolved", result.resolveErr.Error(), configuration.ClientLabel(client)+" cannot determine which Route to use.", recommendedAction("aigw use --for "+client+" <route>"), result.resolveErr)
 	}
 	if result.credentialErr != nil {
 		evidence := "Account " + result.runtime.AccountID + " has no available Token."
@@ -456,16 +456,16 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 		}
 		return presentation.Field{}, "", false, invocation.Problem(
 			runtime,
-			invocation.Title(client)+" "+result.issue,
+			configuration.ClientLabel(client)+" "+result.issue,
 			evidence,
-			invocation.Title(client)+" cannot authenticate to its selected endpoint.",
+			configuration.ClientLabel(client)+" cannot authenticate to its selected endpoint.",
 			recommendedAction(result.fix),
 			fmt.Errorf("%s account token unavailable: %w", client, result.credentialErr),
 		)
 	}
 	if !result.adapter {
-		impact := invocation.Title(client) + " cannot receive its AIGW Route, Token, or configuration projection."
-		return presentation.Field{}, "", false, invocation.Problem(runtime, invocation.Title(client)+" projection is not ready", result.issue, impact, recommendedAction(result.fix), fmt.Errorf("%s projection not ready", client))
+		impact := configuration.ClientLabel(client) + " cannot receive its AIGW Route, Token, or configuration projection."
+		return presentation.Field{}, "", false, invocation.Problem(runtime, configuration.ClientLabel(client)+" projection is not ready", result.issue, impact, recommendedAction(result.fix), fmt.Errorf("%s projection not ready", client))
 	}
 	if !result.runtime.UsesAIGWCredentialStore() {
 		detail := "Client-owned authentication requires an explicit live verification"
@@ -473,7 +473,7 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 			detail = "External credential helper requires an explicit live verification"
 		}
 		return presentation.Field{
-			State: presentation.OK, Label: invocation.Title(client), Value: result.runtime.RouteLabel + " · Local projection checked",
+			State: presentation.OK, Label: configuration.ClientLabel(client), Value: result.runtime.RouteLabel + " · Local projection checked",
 			Details: []string{detail},
 		}, result.fix, true, nil
 	}
@@ -485,7 +485,7 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 		} else if diagnostic.Attempts == 0 {
 			evidence = "No request was sent"
 		}
-		impact := invocation.Title(client) + " is unavailable."
+		impact := configuration.ClientLabel(client) + " is unavailable."
 		if diagnostic.Kind == diagnostics.NetworkFailure {
 			// AIGW selects the endpoint; it neither runs nor restarts it.
 			impact += " AIGW owns this configuration, not the endpoint's lifecycle."
@@ -498,14 +498,14 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 		label = "Inference checked"
 		inferenceUnverified = false
 	}
-	field := presentation.Field{State: presentation.OK, Label: invocation.Title(client), Value: result.runtime.RouteLabel + " · " + label}
+	field := presentation.Field{State: presentation.OK, Label: configuration.ClientLabel(client), Value: result.runtime.RouteLabel + " · " + label}
 	command := ""
 	if result.nativeModelOverride {
 		field.Details = append(field.Details, "Claude Code uses a native model preference; this endpoint check does not verify that model")
 		command = "aigw verify --for claude"
 	}
 	if endpointTransport(result.runtime.Endpoint) == endpointTransportExternalLoopback {
-		field.Details = append(field.Details, invocation.Title(client)+" uses a loopback endpoint; AIGW does not manage the endpoint runtime")
+		field.Details = append(field.Details, configuration.ClientLabel(client)+" uses a loopback endpoint; AIGW does not manage the endpoint runtime")
 	}
 	return field, command, inferenceUnverified, nil
 }

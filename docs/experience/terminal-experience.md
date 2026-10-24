@@ -91,6 +91,9 @@ stdout carries only the requested credential, never root-level diagnostics.
 - Words and paths are not split merely to fill a line, and identifiers keep
   their hyphens.
 - Notes keep one indentation at every width.
+- Clients and protocols appear under their labels, such as `Claude Desktop`
+  and `OpenAI Responses`; help, flags and copyable commands keep the
+  identifiers you type, such as `claude-desktop`.
 - Color is optional and never carries meaning.
 - Unknown output width uses a stable unbounded layout.
 

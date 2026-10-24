@@ -13,12 +13,13 @@ import (
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	hermesconfig "aigw-cli/internal/hermes/configuration"
+	surfaceidentity "aigw-cli/internal/surface"
 	"aigw-cli/internal/transaction"
 )
 
 type hermesAdapter struct{}
 
-const hermesSurface = "hermes-home-default"
+const hermesSurface = string(surfaceidentity.HermesHomeDefault)
 
 func (hermesAdapter) Spec() configuration.ClientSpec {
 	return mustClientSpec(configuration.ClientHermes)
@@ -299,7 +300,7 @@ func (hermesAdapter) Plan(deps Dependencies, before, after configuration.Config)
 	}
 	result := make([]ProjectionPlan, 0, len(plans))
 	for index, plan := range plans {
-		result = append(result, ProjectionPlan{Client: configuration.ClientHermes, Target: targets[index], Action: plan.Action, ChangesState: plan.ChangesState()})
+		result = append(result, ProjectionPlan{Client: configuration.ClientHermes, Target: targets[index], Action: plan.Action, Surface: hermesSurface, ChangesState: plan.ChangesState()})
 	}
 	return result, nil
 }

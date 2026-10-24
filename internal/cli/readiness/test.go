@@ -85,13 +85,13 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 				if status == http.StatusUnauthorized || status == http.StatusForbidden {
-					return fmt.Errorf("%s authentication was rejected (HTTP %d); %s", invocation.Title(target), status, instruction)
+					return fmt.Errorf("%s authentication was rejected (HTTP %d); %s", configuration.ClientLabel(target), status, instruction)
 				}
 				detail := ""
 				if status == http.StatusNotFound && target == configuration.ClientClaude {
 					detail = "Endpoint is reachable; model discovery is unavailable and credential acceptance is unverified"
 				} else if status < http.StatusOK || status >= http.StatusMultipleChoices {
-					return fmt.Errorf("%s endpoint returned HTTP %d", invocation.Title(target), status)
+					return fmt.Errorf("%s endpoint returned HTTP %d", configuration.ClientLabel(target), status)
 				}
 				results = append(results, endpointTestResult{client: target, routeID: clientRuntime.RouteID, status: status, detail: detail})
 			}
@@ -105,14 +105,14 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				if result.detail != "" {
 					value += " · " + result.detail
 				}
-				rows = append(rows, presentation.Field{State: presentation.OK, Label: invocation.Title(result.client), Value: value})
+				rows = append(rows, presentation.Field{State: presentation.OK, Label: configuration.ClientLabel(result.client), Value: value})
 			}
 			r.Rows(rows...)
 			r.Next("aigw check")
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Client whose selected Route to test: "+configuration.AdmittedClientLabelUsage())
+	cmd.Flags().StringVar(&client, "for", "", "Client whose selected Route to test: "+configuration.AdmittedClientUsage())
 	cmd.Flags().StringVar(&routeName, "route", "", "Test this Route for the explicit client without changing its binding")
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one bounded Token through EOF for this request only; never store it")
 	cmd.Flags().StringVar(&tokenFormat, "token-format", "raw", "Explicit stdin encoding: raw or go-keyring-base64")

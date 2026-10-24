@@ -2,7 +2,6 @@ package manifest
 
 import (
 	"fmt"
-	"strings"
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/configuration"
@@ -67,21 +66,25 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 		title = "Configuration migration rolled back"
 	}
 	renderer.ProductTitle(title)
-	rows := append([]presentation.Field{
-		{Label: "Schema", Value: fmt.Sprintf("%d → %d", result.FromVersion, result.ToVersion)},
-		{Label: "Accounts", Value: fmt.Sprintf("%d", len(result.Accounts))},
-		{Label: "Routes", Value: fmt.Sprintf("%d", len(result.Routes))},
-	}, migrationClientRows(result.Clients)...)
+	renderer.Rows(
+		presentation.Field{Label: "Schema", Value: fmt.Sprintf("%d → %d", result.FromVersion, result.ToVersion)},
+		presentation.Field{Label: "Accounts", Value: fmt.Sprintf("%d", len(result.Accounts))},
+		presentation.Field{Label: "Routes", Value: fmt.Sprintf("%d", len(result.Routes))},
+	)
+	if bindings := migrationClientRows(result.Clients); len(bindings) > 0 {
+		renderer.Section("Client Bindings")
+		renderer.Rows(bindings...)
+	}
 	if len(result.Recommendations) > 0 {
-		recommendations := make([]string, 0, len(result.Recommendations))
+		recommendations := make([]presentation.Field, 0, len(result.Recommendations))
 		for _, client := range configuration.AdmittedClientIDs() {
 			if recommendation, exists := result.Recommendations[client]; exists {
-				recommendations = append(recommendations, client+"="+recommendation.Primary.Route)
+				recommendations = append(recommendations, presentation.Field{Label: configuration.ClientLabel(client), Value: recommendation.Primary.Route})
 			}
 		}
-		rows = append(rows, presentation.Field{Label: "Recommendations", Value: strings.Join(recommendations, ", ")})
+		renderer.Section("Recommendations")
+		renderer.Rows(recommendations...)
 	}
-	renderer.Rows(rows...)
 	switch {
 	case result.DryRun:
 		renderer.Success("Preview did not write configuration, credentials, client files, or sessions")
@@ -106,12 +109,15 @@ func migrationClientRows(bindings map[string]configuration.ClientBinding) []pres
 			detail = "disabled"
 		}
 		if binding.Protocol != "" {
-			detail += " · " + string(binding.Protocol)
+			detail += " · " + configuration.ProtocolLabel(binding.Protocol)
 		}
-		if len(binding.Targets) > 0 {
-			detail += fmt.Sprintf(" · %d native target(s)", len(binding.Targets))
+		switch targets := len(binding.Targets); {
+		case targets == 1:
+			detail += " · 1 native target"
+		case targets > 1:
+			detail += fmt.Sprintf(" · %d native targets", targets)
 		}
-		rows = append(rows, presentation.Field{Label: invocation.Title(client), Value: detail})
+		rows = append(rows, presentation.Field{Label: configuration.ClientLabel(client), Value: detail})
 	}
 	return rows
 }

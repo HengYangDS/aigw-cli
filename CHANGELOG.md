@@ -16,6 +16,21 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Fixed
 
+- Human output names every client by its label, such as `Claude Desktop`,
+  where check, test, verify, migration, account and credential messages said
+  `Claude-desktop` and the sync preview, route list and selection preview
+  printed `claude-desktop`. Protocols appear as `OpenAI Responses` or
+  `Anthropic Messages` instead of `openai_responses` or `anthropic`.
+- `aigw check --help`, `aigw test --help` and `aigw verify --help` list the
+  `--for` values the flag accepts, such as `claude-desktop`, instead of labels
+  it refused.
+- `aigw repair --dry-run` reports each projection's own surface:
+  `claude-desktop-config-library` for Claude Desktop, `hermes-home-default`
+  for Hermes and the full identity of an explicit Codex home, where it reported
+  `claude-settings` for every projection that was not Codex's.
+- The configuration migration preview shows Client Bindings and
+  Recommendations in their own sections and counts native targets in words that
+  agree with the number.
 - `aigw verify --for hermes` keeps its disposable Hermes home until the
   gateway that its chat starts has exited. That gateway ends after 2 idle
   seconds and keeps its locks inside the home; if it outlives the wait,
