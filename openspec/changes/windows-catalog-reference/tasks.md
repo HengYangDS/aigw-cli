@@ -13,5 +13,5 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` passes, and `GOOS=windows` lint passes.
-- [ ] 2.2 The full proof of the lane head passes.
+- [x] 2.1 `mise run check` passes, and `GOOS=windows` lint passes.
+- [x] 2.2 The full proof of the lane head passes.
