@@ -19,5 +19,5 @@
 ## 3. Verification
 
 - [x] 3.1 Record the change in `CHANGELOG.md`.
-- [ ] 3.2 Run the Hermes native client journey with the installed Hermes.
-- [ ] 3.3 `mise run check` and the full proof of the lane head pass.
+- [x] 3.2 Run the Hermes native client journey with the installed Hermes.
+- [x] 3.3 `mise run check` and the full proof of the lane head pass.
