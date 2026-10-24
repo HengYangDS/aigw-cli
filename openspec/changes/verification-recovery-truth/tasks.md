@@ -53,5 +53,5 @@
 ## 7. Verification
 
 - [x] 7.1 Record the changes in `CHANGELOG.md`.
-- [ ] 7.2 `mise run check` passes on the lane head.
-- [ ] 7.3 The full proof of the lane head passes.
+- [x] 7.2 `mise run check` passes on the lane head.
+- [x] 7.3 The full proof of the lane head passes.
