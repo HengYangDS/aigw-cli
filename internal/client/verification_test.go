@@ -292,7 +292,9 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	const userCatalog = `model_catalog_json = "/owned/catalog.json"`
+	// An absolute reference on every platform: a rooted Windows path without a
+	// drive is rebased onto the configuration's drive, which would change the line.
+	userCatalog := "model_catalog_json = '" + filepath.Join(t.TempDir(), "owned", "catalog.json") + "'"
 	if err := os.WriteFile(target, append([]byte(userCatalog+"\n"), base...), 0o600); err != nil {
 		t.Fatal(err)
 	}

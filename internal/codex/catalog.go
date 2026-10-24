@@ -94,8 +94,9 @@ func rebaseCopiedCodexCatalog(source, target string, config, attribution transac
 // rebaseUserCatalogReference keeps a user-owned catalog reachable from a copy
 // in another Codex home. Codex resolves a relative model_catalog_json from the
 // directory of the configuration that names it, so the copy names the same file
-// by its absolute path. A reference that starts with ~ stays as it is: the copy
-// keeps HOME, and whether Codex expands it is unproved.
+// by its absolute path; resolveCatalogReference holds the platform's rules. A
+// reference that starts with ~ stays as it is: the copy keeps HOME, and whether
+// Codex expands it is unproved.
 func rebaseUserCatalogReference(source string, config transaction.FileSnapshot) (transaction.FileSnapshot, error) {
 	line, err := codexSelectionLine(string(config.Data), "model_catalog_json")
 	if err != nil || line == "" {
@@ -109,7 +110,7 @@ func rebaseUserCatalogReference(source string, config transaction.FileSnapshot) 
 	if reference == "" || filepath.IsAbs(reference) || strings.HasPrefix(reference, "~") {
 		return config, nil
 	}
-	quoted, err := codexTOMLString(filepath.Join(filepath.Dir(source), reference))
+	quoted, err := codexTOMLString(resolveCatalogReference(filepath.Dir(source), reference))
 	if err != nil {
 		return config, err
 	}
