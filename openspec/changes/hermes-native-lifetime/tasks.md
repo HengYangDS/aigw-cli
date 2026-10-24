@@ -26,10 +26,10 @@
 - [x] 3.1 Create the journey's Hermes session once, resume it by its stored
       identifier without frozen creation options, and stop the journey gateway
       before its home is removed.
-- [ ] 3.2 Run the repaired Hermes native client journey with the installed
+- [x] 3.2 Run the repaired Hermes native client journey with the installed
       Hermes.
 
 ## 4. Verification
 
 - [x] 4.1 Record the change in `CHANGELOG.md`.
-- [ ] 4.2 `mise run check` and the full proof of the lane head pass.
+- [x] 4.2 `mise run check` and the full proof of the lane head pass.
