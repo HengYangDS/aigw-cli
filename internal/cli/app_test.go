@@ -431,6 +431,12 @@ func TestPublicCommandTreeCarriesOneCoherentMetadataContract(t *testing.T) {
 }
 
 func TestPublicCommandHelpFitsDeclaredTerminalWidths(t *testing.T) {
+	// Start-path commands keep their logical line instead; the terminal
+	// soft-wraps them (see TestRootHelpKeepsStartCommandsWhole).
+	copyable := map[string]bool{}
+	for _, field := range startPath("aigw") {
+		copyable[field.Label] = true
+	}
 	for _, width := range []int{24, 48, 80, 120} {
 		for _, color := range []bool{false, true} {
 			var out bytes.Buffer
@@ -447,7 +453,7 @@ func TestPublicCommandHelpFitsDeclaredTerminalWidths(t *testing.T) {
 					t.Fatalf("%s width=%d color=%t changed help content", command.CommandPath(), width, color)
 				}
 				for line := range strings.SplitSeq(out.String(), "\n") {
-					if got := presentation.DisplayWidth(line); got > width {
+					if got := presentation.DisplayWidth(line); got > width && !copyable[strings.TrimSpace(ansi.Strip(line))] {
 						t.Fatalf("%s width=%d color=%t overflow=%d: %q", command.CommandPath(), width, color, got, line)
 					}
 				}

@@ -62,7 +62,7 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if exportedTeam.Recommendations[ClientClaude].Primary.Route != "personal-claude" || exportedTeam.Recommendations[ClientCodex].Primary.Route != "team-codex" {
+	if exportedTeam.Recommendations[ClientClaude].Primary.Route != "team-claude" || exportedTeam.Recommendations[ClientCodex].Primary.Route != "team-codex" {
 		t.Fatalf("exported recommendations = %#v", exportedTeam.Recommendations)
 	}
 }

@@ -3,6 +3,7 @@
 package account
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -355,6 +356,32 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 	return command
 }
 
+// diagnosticCredentialProblem explains why precise balance cannot run and names
+// a recovery the selected credential backend can perform. The read-only
+// environment backend cannot store diagnostics, so it names their variables.
+func diagnosticCredentialProblem(store secrets.Store, accountName string, err error) error {
+	environment := ""
+	if secrets.IsReadOnly(store) {
+		environment = "Set both `" + secrets.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secrets.DiagnosticUserIDEnvironmentKey(accountName) + "` in the parent environment, then retry."
+	}
+	if !errors.Is(err, secrets.ErrNotFound) {
+		return presentation.ProblemError(
+			"Cannot read provider diagnostic credential",
+			"AIGW could not read a usable provider diagnostic credential for "+accountName+"; this does not establish that it is missing.",
+			"No balance request was sent; the Account Token and diagnostic credential were not changed.",
+			cmp.Or(environment, "Run `aigw doctor` to inspect the selected credential backend; if it is available, explicitly re-enable diagnostics with `aigw account diagnostics enable "+accountName+"`."),
+			err,
+		)
+	}
+	return presentation.ProblemError(
+		"Precise balance diagnostics are not enabled",
+		"Missing "+accountName+" provider platform diagnostic credential; the Account Token is stored separately in the selected credential backend.",
+		"Cannot distinguish account balance, remaining token quota, disabled token state, and request limits.",
+		cmp.Or(environment, "aigw account diagnostics enable "+accountName),
+		err,
+	)
+}
+
 // NewBalanceCommand constructs the explicit provider-account diagnostic command.
 func NewBalanceCommand(runtime invocation.Context) *cobra.Command {
 	return &cobra.Command{Use: "balance [account]", Short: "Show account balance and token quota", Args: cobra.MaximumNArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
@@ -378,26 +405,7 @@ func NewBalanceCommand(runtime invocation.Context) *cobra.Command {
 		}
 		credential, err := runtime.Accounts.Get(accountName)
 		if err != nil {
-			if !errors.Is(err, secrets.ErrNotFound) {
-				action := "Run `aigw doctor` to inspect the selected credential backend; if it is available, explicitly re-enable diagnostics with `aigw account diagnostics enable " + accountName + "`."
-				if secrets.IsReadOnly(runtime.Secrets) {
-					action = "Set both `" + secrets.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secrets.DiagnosticUserIDEnvironmentKey(accountName) + "` in the parent environment, then retry."
-				}
-				return presentation.ProblemError(
-					"Cannot read provider diagnostic credential",
-					"AIGW could not read a usable provider diagnostic credential for "+accountName+"; this does not establish that it is missing.",
-					"No balance request was sent; the Account Token and diagnostic credential were not changed.",
-					action,
-					err,
-				)
-			}
-			return presentation.ProblemError(
-				"Precise balance diagnostics are not enabled",
-				"Missing "+accountName+" provider platform diagnostic credential; the Account Token is stored separately in the selected credential backend.",
-				"Cannot distinguish account balance, remaining token quota, disabled token state, and request limits.",
-				"aigw account diagnostics enable "+accountName,
-				err,
-			)
+			return diagnosticCredentialProblem(runtime.Secrets, accountName, err)
 		}
 		apiToken, err := runtime.Secrets.Get(accountName)
 		if err != nil {

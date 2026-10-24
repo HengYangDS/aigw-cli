@@ -305,21 +305,14 @@ func equalInterfaces(left, right map[EndpointProtocol][]Capability) bool {
 	return true
 }
 
-// Export projects configuration into the canonical credential-free team manifest form.
+// Export projects configuration into the canonical credential-free team manifest
+// form. Recommendations are the declared team preference and stay as declared;
+// Client Bindings are the operator's own choices and stay local.
 func Export(cfg Config) ([]byte, error) {
 	cfg = cfg.Clone()
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
-	}
-	recommendations := make(map[string]ClientRecommendation, len(cfg.Recommendations)+len(cfg.Clients))
-	maps.Copy(recommendations, cfg.Recommendations)
-	for client, binding := range cfg.Clients {
-		if binding.Route != "" {
-			recommendation := recommendations[client]
-			recommendation.Primary = binding.selection()
-			recommendations[client] = recommendation
-		}
 	}
 	for routeID, route := range cfg.Routes {
 		derived := routeLabel(Route{Account: route.Account, Model: route.Model}, cfg.Accounts[route.Account], cfg.Models[route.Model])
@@ -328,7 +321,7 @@ func Export(cfg Config) ([]byte, error) {
 			cfg.Routes[routeID] = route
 		}
 	}
-	data, err := toml.Marshal(Manifest{Version: currentVersion, Recommendations: recommendations, Accounts: cfg.Accounts, Models: cfg.Models, Routes: cfg.Routes})
+	data, err := toml.Marshal(Manifest{Version: currentVersion, Recommendations: cfg.Recommendations, Accounts: cfg.Accounts, Models: cfg.Models, Routes: cfg.Routes})
 	if err != nil {
 		return nil, err
 	}

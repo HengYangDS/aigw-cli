@@ -131,7 +131,7 @@ func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
 			body:        `{}`,
 			wantKind:    diagnostics.InvalidToken,
 			wantSummary: "Account Token is invalid or does not belong to the configured endpoint",
-			wantFix:     "Run `aigw rotate dmx` to enter the token again, and confirm that the configured endpoint belongs to this Account",
+			wantFix:     "Run `aigw rotate dmx` to replace the Token, and confirm that the configured endpoint belongs to this Account",
 		},
 		{
 			name:        "quota exhausted",
@@ -195,6 +195,19 @@ func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
 				t.Fatalf("endpoint-neutral result mentions gateway: %#v", result)
 			}
 		})
+	}
+}
+
+// Only a rejected Token takes the credential backend's replacement advice.
+func TestRejectedTokenAdviceFollowsTheCredentialBackend(t *testing.T) {
+	rejected := diagnostics.Result{Kind: diagnostics.InvalidToken, Fix: "Run `aigw rotate dmx` to replace the Token"}
+	want := "Set environment variable AIGW_TOKEN_DMX to replace the Token, and confirm that the configured endpoint belongs to this Account"
+	if got := rejected.WithTokenRecovery("set environment variable AIGW_TOKEN_DMX").Fix; got != want {
+		t.Fatalf("environment recovery = %q, want %q", got, want)
+	}
+	exhausted := diagnostics.Result{Kind: diagnostics.QuotaExhausted, Fix: "Increase the Token quota"}
+	if got := exhausted.WithTokenRecovery("set environment variable AIGW_TOKEN_DMX").Fix; got != exhausted.Fix {
+		t.Fatalf("quota advice took Token recovery: %q", got)
 	}
 }
 

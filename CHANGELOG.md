@@ -14,6 +14,31 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Changed
+
+- **Breaking:** `aigw config export` writes the declared recommendations as
+  they are. Client bindings chosen with `aigw use` stay local and no longer
+  become the exported primary recommendation, so a configuration that declares
+  no recommendations now exports none.
+
+### Fixed
+
+- `aigw verify --for codex` resolves a relative `model_catalog_json` that you
+  own from your Codex configuration, as Codex does, instead of failing before
+  inference in its private copy.
+- A failed `aigw verify --for <client> --route <route>`, and `aigw test --route`
+  when it defers to `aigw verify`, name a retry that keeps `--route`.
+- `aigw catalog` and `aigw models` treat a provider model list that is null, or
+  that repeats the list or an item's identifier, as a failed observation instead
+  of an empty or last-value listing; `aigw models` no longer reports such Routes
+  as "Not listed".
+- Root help keeps each start command, such as `aigw use --for <client> <route>`,
+  on one line at narrow widths, so it can be copied whole.
+- With the environment credential backend, `aigw check` answers a rejected Token
+  with its `AIGW_TOKEN_<ACCOUNT>` variable instead of `aigw rotate`, and
+  `aigw account balance` names both diagnostic variables instead of
+  `aigw account diagnostics enable`; that backend refuses both commands.
+
 ## [0.4.15] - 2026-10-24
 
 History: [GitLab][0.4.15-gitlab] · [GitHub][0.4.15-github]

@@ -109,7 +109,8 @@ func TestExportWritesASecretFreeRoundTripManifest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse exported manifest: %v\n%s", err, data)
 	}
-	if parsed.Recommendations[configuration.ClientCodex].Primary.Route != "local" || parsed.Routes["local"].Account != "local" {
+	// The local Codex binding stays local; the manifest carries Accounts and Routes.
+	if len(parsed.Recommendations) != 0 || parsed.Routes["local"].Account != "local" {
 		t.Fatalf("exported manifest = %#v", parsed)
 	}
 }

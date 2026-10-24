@@ -457,10 +457,11 @@ func TestExportRejectsInvalidConfiguration(t *testing.T) {
 	}
 }
 
-func TestExportOmitsSecretsAndAdaptersAndPublishesRouteRecommendations(t *testing.T) {
+func TestExportOmitsSecretsAndAdaptersAndPublishesDeclaredRecommendations(t *testing.T) {
 	cfg := NewConfig()
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["team"] = testRoute("Team", "team", "claude-team", ProtocolAnthropic)
+	cfg.Recommendations[ClientClaude] = ClientRecommendation{Primary: ClientSelection{Route: "team"}}
 	cfg.SetSelectedRoute(ClientClaude, "team", "")
 	binding := cfg.Clients[ClientClaude]
 	binding.Enabled = true

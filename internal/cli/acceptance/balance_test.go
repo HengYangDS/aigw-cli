@@ -194,6 +194,31 @@ func TestBalanceReportsIncompleteEnvironmentDiagnosticPair(t *testing.T) {
 	}
 }
 
+// The environment backend refuses `aigw account diagnostics enable`, so absent
+// diagnostics name the two variables that supply them.
+func TestBalanceNamesEnvironmentVariablesForAbsentDiagnostics(t *testing.T) {
+	app, out, _, _, httpClient := testApp(t, "")
+	saveProbeRoute(t, app.Config)
+	backend := secrets.NewEnvironmentStore(func(string) string { return "" })
+	accounts, err := secrets.NewDiagnosticCredentialStore(backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.Secrets, app.Accounts = backend, accounts
+
+	if err := cli.Execute(app, []string{"balance"}); err == nil {
+		t.Fatal("absent diagnostics produced a balance")
+	}
+	for _, want := range []string{"Precise balance diagnostics are not enabled", secrets.DiagnosticSystemTokenEnvironmentKey("dmx"), secrets.DiagnosticUserIDEnvironmentKey("dmx")} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("balance output lacks %q: %s", want, out.String())
+		}
+	}
+	if strings.Contains(out.String(), "aigw account diagnostics enable") || httpClient.calls != 0 {
+		t.Fatalf("balance recommended a refused command or sent %d requests: %s", httpClient.calls, out.String())
+	}
+}
+
 func TestAccountDiagnosticsEnableStoresSeparateCredentialAndBalanceShowsDetails(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	accountStore := app.Accounts

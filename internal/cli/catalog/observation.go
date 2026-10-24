@@ -1,9 +1,11 @@
 package catalog
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -230,18 +232,26 @@ func FetchIDs(parent context.Context, client HTTPDoer, endpoint string, protocol
 }
 
 // ParseIDs accepts unambiguous common model item shapes and preserves exact IDs.
+// The model list must be one array, and each item may name its identifier
+// once: encoding/json would read null as an empty list and keep the last of
+// repeated members, turning an ambiguous response into a confident observation.
 func ParseIDs(data []byte) ([]string, error) {
-	var payload struct {
-		Data json.RawMessage `json:"data"`
+	if !json.Valid(data) {
+		return nil, fmt.Errorf("model catalog response is not valid JSON")
 	}
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return nil, err
+	members, err := catalogMembers(data, "data")
+	if errors.Is(err, errNotObject) {
+		return nil, fmt.Errorf("model catalog response is not a JSON object")
 	}
-	if len(payload.Data) == 0 {
+	if err != nil {
+		return nil, fmt.Errorf("model catalog response %w", err)
+	}
+	list, present := members["data"]
+	if !present {
 		return nil, fmt.Errorf("model catalog response is missing the data field")
 	}
 	var items []json.RawMessage
-	if err := json.Unmarshal(payload.Data, &items); err != nil {
+	if list = bytes.TrimSpace(list); len(list) == 0 || list[0] != '[' || json.Unmarshal(list, &items) != nil {
 		return nil, fmt.Errorf("model catalog response data field is not an array")
 	}
 	ids := []string{}
@@ -269,13 +279,16 @@ func parseCatalogID(data json.RawMessage) (string, error) {
 		return direct, nil
 	}
 
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(data, &object); err != nil || object == nil {
+	members, err := catalogMembers(data, "id", "model", "name")
+	if errors.Is(err, errNotObject) {
 		return "", fmt.Errorf("expected a string or object identifier")
+	}
+	if err != nil {
+		return "", err
 	}
 	identifiers := map[string]bool{}
 	for _, key := range []string{"id", "model", "name"} {
-		raw, exists := object[key]
+		raw, exists := members[key]
 		if !exists {
 			continue
 		}
@@ -298,4 +311,36 @@ func parseCatalogID(data json.RawMessage) (string, error) {
 		return identifier, nil
 	}
 	panic("unreachable")
+}
+
+var errNotObject = errors.New("not a JSON object")
+
+// catalogMembers decodes one valid JSON object and returns the named members,
+// refusing a repeated one. Other members are provider extensions; they are
+// skipped unread, repeated or not.
+func catalogMembers(data []byte, names ...string) (map[string]json.RawMessage, error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	if token, err := decoder.Token(); err != nil || token != json.Delim('{') {
+		return nil, errNotObject
+	}
+	members := map[string]json.RawMessage{}
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		name, _ := token.(string)
+		var value json.RawMessage
+		if err := decoder.Decode(&value); err != nil {
+			return nil, err
+		}
+		if !slices.Contains(names, name) {
+			continue
+		}
+		if _, repeated := members[name]; repeated {
+			return nil, fmt.Errorf("repeats the %s member", name)
+		}
+		members[name] = value
+	}
+	return members, nil
 }

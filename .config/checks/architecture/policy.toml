@@ -316,6 +316,9 @@ allowed_import_edges."internal/cli/readiness" = [
   "internal/activation",
   "internal/cli/invocation",
   "internal/client",
+  # aigw test defers a Route it cannot probe to the verify command that
+  # verification owns.
+  "internal/client/verification",
   "internal/configuration",
   "internal/credential",
   "internal/diagnostics",

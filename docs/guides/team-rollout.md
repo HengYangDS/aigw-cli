@@ -72,10 +72,12 @@ The `-cc` Route is a separate channel whose `model` remains the base logical
 Model and whose `upstream_model` carries `-cc`.
 
 Use the native `aigw config export` layout: version, recommendations, Accounts,
-Models, then Routes. Map keys follow stable lexical order and fields follow
-schema order. Export omits a stored Route label when it equals the derived
-Account and Model label. Manifest tests check the display behavior and
-byte-identical native export without another formatter or model-name registry.
+Models, then Routes. Export writes the declared recommendations as they are; a
+member's own `aigw use` selections stay local and never become recommendations.
+Map keys follow stable lexical order and fields follow schema order. Export
+omits a stored Route label when it equals the derived Account and Model label.
+Manifest tests check the display behavior and byte-identical native export
+without another formatter or model-name registry.
 
 Optional nonnegative Account and Model `order` values govern presentation, not
 routing. The team view groups DMXAPI, UCloud, then AIHubMix; within each Account,

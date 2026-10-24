@@ -31,3 +31,23 @@ func TestRootHelpKeepsCommandGroupsInColumns(t *testing.T) {
 		}
 	}
 }
+
+// Root help starts with commands to copy. Each keeps one logical line at every
+// width; only its description wraps.
+func TestRootHelpKeepsStartCommandsWhole(t *testing.T) {
+	for _, width := range []int{0, 24, 32, 48, 100} {
+		var out bytes.Buffer
+		app := &App{Out: &out, Err: &out, Env: []string{"COLUMNS=" + strconv.Itoa(width)}}
+		renderCommandHelp(app, NewRoot(app))
+		lines := strings.Split(out.String(), "\n")
+		for _, command := range []string{"aigw setup", "aigw use --for <client> <route>", "aigw check"} {
+			whole := false
+			for _, line := range lines {
+				whole = whole || line == "  "+command || strings.HasPrefix(line, "  "+command+"  ")
+			}
+			if !whole {
+				t.Fatalf("width=%d split the command %q:\n%s", width, command, out.String())
+			}
+		}
+	}
+}

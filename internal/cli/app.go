@@ -398,6 +398,16 @@ func appVersion(app *App) string {
 	return Version
 }
 
+// startPath is the journey root help begins with. Each label is a command to
+// copy, so it stays whole at every width.
+func startPath(root string) []presentation.Field {
+	return []presentation.Field{
+		{Label: root + " setup", Value: "Connect the first account", Command: true},
+		{Label: root + " use --for <client> <route>", Value: "Select one Route for one client", Command: true},
+		{Label: root + " check", Value: "Check enabled clients (may use quota)", Command: true},
+	}
+}
+
 func renderCommandHelp(app *App, command *cobra.Command) {
 	r := app.Renderer()
 	title := "Command help"
@@ -414,11 +424,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 	}
 	if command.Parent() == nil {
 		r.Section("Start with one path")
-		r.Rows(
-			presentation.Field{Label: command.CommandPath() + " setup", Value: "Connect the first account"},
-			presentation.Field{Label: command.CommandPath() + " use --for <client> <route>", Value: "Select one Route for one client"},
-			presentation.Field{Label: command.CommandPath() + " check", Value: "Check enabled clients (may use quota)"},
-		)
+		r.Rows(startPath(command.CommandPath())...)
 	}
 	r.Section("Usage")
 	if command.Runnable() {
@@ -445,7 +451,7 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 		r.Section(group.Title)
 		rows := make([]presentation.Field, 0, len(groups[group.ID]))
 		for _, child := range groups[group.ID] {
-			rows = append(rows, presentation.Field{Label: child.Name(), Value: child.Short})
+			rows = append(rows, presentation.Field{Label: child.Name(), Value: child.Short, Command: true})
 		}
 		r.Rows(rows...)
 	}

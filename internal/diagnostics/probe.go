@@ -141,7 +141,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 		result = classifySuccessfulResponse(result, runtime.Protocol, body)
 	case resp.StatusCode == http.StatusUnauthorized:
 		result.Kind, result.Summary = InvalidToken, "Account Token is invalid or does not belong to the configured endpoint"
-		result.Fix = "Run `aigw rotate " + runtime.AccountID + "` to enter the token again, and confirm that the configured endpoint belongs to this Account"
+		result.Fix = invalidTokenFix("run `aigw rotate " + runtime.AccountID + "`")
 	case isHardQuotaFailure(resp.StatusCode, lower):
 		result.Kind, result.Summary = QuotaExhausted, "Token quota is exhausted"
 		result.Fix = "Increase the Token quota for Account " + runtime.AccountID + " in the provider console"
@@ -169,6 +169,21 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 		result.Fix = "Run `aigw doctor` for detailed status"
 	}
 	return result
+}
+
+// WithTokenRecovery replaces the advice for a rejected Account Token with the
+// instruction of the credential backend that holds it, such as an environment
+// variable that AIGW cannot rotate. The probe classifies HTTP responses; the
+// caller knows the backend.
+func (result Result) WithTokenRecovery(instruction string) Result {
+	if result.Kind == InvalidToken && instruction != "" {
+		result.Fix = invalidTokenFix(instruction)
+	}
+	return result
+}
+
+func invalidTokenFix(instruction string) string {
+	return strings.ToUpper(instruction[:1]) + instruction[1:] + " to replace the Token, and confirm that the configured endpoint belongs to this Account"
 }
 
 func providerErrorMessage(body []byte) string {

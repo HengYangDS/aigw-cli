@@ -14,6 +14,7 @@ import (
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/transaction"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/rogpeppe/go-internal/robustio"
 )
 
@@ -72,7 +73,7 @@ func rebaseCopiedCodexCatalog(source, target string, config, attribution transac
 		return config, err
 	}
 	if state.CatalogHash == "" {
-		return config, nil
+		return rebaseUserCatalogReference(source, config)
 	}
 	canonical, err := canonicalCodexTargetPath(target)
 	if err != nil {
@@ -83,6 +84,36 @@ func rebaseCopiedCodexCatalog(source, target string, config, attribution transac
 		return config, err
 	}
 	projected, err := setCodexSelection(string(config.Data), "model_catalog_json", "model_catalog_json = "+quoted+" # managed by AIGW")
+	if err != nil {
+		return config, err
+	}
+	config.Data = []byte(projected)
+	return config, nil
+}
+
+// rebaseUserCatalogReference keeps a user-owned catalog reachable from a copy
+// in another Codex home. Codex resolves a relative model_catalog_json from the
+// directory of the configuration that names it, so the copy names the same file
+// by its absolute path. A reference that starts with ~ stays as it is: the copy
+// keeps HOME, and whether Codex expands it is unproved.
+func rebaseUserCatalogReference(source string, config transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+	line, err := codexSelectionLine(string(config.Data), "model_catalog_json")
+	if err != nil || line == "" {
+		return config, err
+	}
+	var selection map[string]any
+	if err := toml.Unmarshal([]byte(line), &selection); err != nil {
+		return config, fmt.Errorf("parse Codex config catalog reference: %w", err)
+	}
+	reference, _ := selection["model_catalog_json"].(string)
+	if reference == "" || filepath.IsAbs(reference) || strings.HasPrefix(reference, "~") {
+		return config, nil
+	}
+	quoted, err := codexTOMLString(filepath.Join(filepath.Dir(source), reference))
+	if err != nil {
+		return config, err
+	}
+	projected, err := setCodexSelection(string(config.Data), "model_catalog_json", "model_catalog_json = "+quoted)
 	if err != nil {
 		return config, err
 	}

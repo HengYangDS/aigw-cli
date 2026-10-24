@@ -34,7 +34,8 @@ var removeCodexWorkspace = robustio.RemoveAll
 
 // VerifyCodexInvocation proves a native file-reading tool and exact-session
 // recall with the selected projection in a disposable, operation-owned home.
-func VerifyCodexInvocation(ctx context.Context, runner process.VerificationRunner, cfg configuration.Config, clientRuntime configuration.Runtime) (_ codex.ExecutableIdentity, result error) {
+// explicitRoute is the invocation's --route, which its retry advice repeats.
+func VerifyCodexInvocation(ctx context.Context, runner process.VerificationRunner, cfg configuration.Config, clientRuntime configuration.Runtime, explicitRoute string) (_ codex.ExecutableIdentity, result error) {
 	adapter := cfg.Clients[configuration.ClientCodex]
 	if !adapter.Enabled {
 		return codex.ExecutableIdentity{}, fmt.Errorf("Codex adapter is disabled; run `aigw repair`")
@@ -100,7 +101,7 @@ func VerifyCodexInvocation(ctx context.Context, runner process.VerificationRunne
 		if err != nil {
 			return codex.ExecutableIdentity{}, err
 		}
-		session, err = verifyCodexTurn(ctx, runner, plan, outputPath, session, marker)
+		session, err = verifyCodexTurn(ctx, runner, plan, outputPath, session, marker, explicitRoute)
 		if err != nil {
 			return codex.ExecutableIdentity{}, err
 		}
@@ -108,7 +109,7 @@ func VerifyCodexInvocation(ctx context.Context, runner process.VerificationRunne
 	return identity, nil
 }
 
-func verifyCodexTurn(ctx context.Context, runner process.VerificationRunner, plan process.Plan, outputPath, sessionID, marker string) (string, error) {
+func verifyCodexTurn(ctx context.Context, runner process.VerificationRunner, plan process.Plan, outputPath, sessionID, marker, explicitRoute string) (string, error) {
 	if err := os.Remove(outputPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("remove preceding Codex final response: %w", err)
 	}
@@ -126,7 +127,7 @@ func verifyCodexTurn(ctx context.Context, runner process.VerificationRunner, pla
 				diagnostic = fmt.Appendf(diagnostic, "\n%s\n%s", event.Message, event.Error.Message)
 			}
 		}
-		return "", verificationFailure("Codex", configuration.ClientCodex, diagnostic, err)
+		return "", verificationFailure("Codex", configuration.ClientCodex, explicitRoute, diagnostic, err)
 	}
 	if process.DiagnosticFailure(diagnostic) {
 		return "", verificationDiagnostic("Codex", diagnostic)
@@ -241,8 +242,9 @@ func readBoundedFile(path string, limit int64) ([]byte, error) {
 	return data, nil
 }
 
-// VerifyClaudeRuntime performs one bounded Claude CLI request.
-func VerifyClaudeRuntime(ctx context.Context, runner process.VerificationRunner, executable, settingsPath string, clientRuntime configuration.Runtime, token string) error {
+// VerifyClaudeRuntime performs one bounded Claude CLI request. explicitRoute is
+// the invocation's --route, which its retry advice repeats.
+func VerifyClaudeRuntime(ctx context.Context, runner process.VerificationRunner, executable, settingsPath string, clientRuntime configuration.Runtime, token, explicitRoute string) error {
 	if clientRuntime.Model == "" {
 		return fmt.Errorf("Route %q has no Claude model", clientRuntime.RouteID)
 	}
@@ -257,9 +259,9 @@ func VerifyClaudeRuntime(ctx context.Context, runner process.VerificationRunner,
 	result, resultErr := readClaudeResult(output)
 	if err != nil {
 		if result.status != 0 && errors.Is(err, context.DeadlineExceeded) {
-			return requestFailureError{message: fmt.Sprintf("Claude minimal verification request failed: client verification timed out after endpoint HTTP %d; run `aigw verify --for claude`", result.status), cause: err}
+			return requestFailureError{message: fmt.Sprintf("Claude minimal verification request failed: client verification timed out after endpoint HTTP %d; run `%s`", result.status, Command(configuration.ClientClaude, explicitRoute)), cause: err}
 		}
-		return verificationFailure("Claude", configuration.ClientClaude, bytes.Join([][]byte{diagnostic, output}, []byte("\n")), err, token)
+		return verificationFailure("Claude", configuration.ClientClaude, explicitRoute, bytes.Join([][]byte{diagnostic, output}, []byte("\n")), err, token)
 	}
 	if process.DiagnosticFailure(diagnostic) {
 		return verificationDiagnostic("Claude", diagnostic)
@@ -268,7 +270,7 @@ func VerifyClaudeRuntime(ctx context.Context, runner process.VerificationRunner,
 		return resultErr
 	}
 	if result.failed {
-		return verificationFailure("Claude", configuration.ClientClaude, output, errors.New("native Claude result reports an error"), token)
+		return verificationFailure("Claude", configuration.ClientClaude, explicitRoute, output, errors.New("native Claude result reports an error"), token)
 	}
 	if strings.TrimSpace(result.response) != responseSentinel {
 		return fmt.Errorf("Claude model response did not return the expected AIGW_OK verification marker")
@@ -341,13 +343,23 @@ func (failure requestFailureError) Error() string { return failure.message }
 
 func (failure requestFailureError) Unwrap() error { return failure.cause }
 
-func verificationFailure(label, client string, diagnostic []byte, cause error, secrets ...string) error {
+func verificationFailure(label, client, explicitRoute string, diagnostic []byte, cause error, secrets ...string) error {
 	detail := verificationFailureSummary(client, diagnostic, cause, secrets...)
-	next := "aigw verify --for " + client
 	return requestFailureError{
-		message: fmt.Sprintf("%s minimal verification request failed: %s; run `%s`", label, detail, next),
+		message: fmt.Sprintf("%s minimal verification request failed: %s; run `%s`", label, detail, Command(client, explicitRoute)),
 		cause:   cause,
 	}
+}
+
+// Command returns the verify invocation for one client. An explicit Route stays
+// in it: verification of an explicit Route takes its own isolated path, so a
+// retry without --route would verify another target.
+func Command(client, explicitRoute string) string {
+	command := "aigw verify --for " + client
+	if explicitRoute != "" {
+		command += " --route " + explicitRoute
+	}
+	return command
 }
 
 func verificationFailureSummary(client string, diagnostic []byte, cause error, secrets ...string) string {

@@ -287,6 +287,43 @@ func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testi
 	}
 }
 
+// When aigw test cannot probe a Route itself, it defers to aigw verify for the
+// same client and Route; dropping --route would verify the selected Route.
+func TestEndpointTestDefersToVerifyForTheSameRoute(t *testing.T) {
+	helper := filepath.Join(t.TempDir(), "credential-helper")
+	for _, test := range []struct {
+		name      string
+		configure func(*configuration.ClientBinding)
+	}{
+		{name: "client-owned authentication", configure: func(binding *configuration.ClientBinding) {
+			binding.ModelProvider = "amazon-bedrock"
+			binding.Authentication = configuration.AuthenticationClientNative
+		}},
+		{name: "external credential helper", configure: func(binding *configuration.ClientBinding) { binding.CredentialCommand = helper }},
+	} {
+		for _, args := range [][]string{{"--for", "codex"}, {"--for", "codex", "--route", "codex"}} {
+			t.Run(test.name+" "+strings.Join(args, " "), func(t *testing.T) {
+				runtime, cfg, _ := configuredReadinessRuntime(t)
+				binding := cfg.Clients[configuration.ClientCodex]
+				test.configure(&binding)
+				cfg.Clients[configuration.ClientCodex] = binding
+				if err := runtime.Config.Save(cfg); err != nil {
+					t.Fatal(err)
+				}
+				runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
+					return nil, errors.New("a deferred Route must not be probed")
+				})
+				command := NewTestCommand(runtime)
+				command.SetArgs(args)
+				want := "`aigw verify " + strings.Join(args, " ") + "`"
+				if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), want) {
+					t.Fatalf("deferral = %v, want %s", err, want)
+				}
+			})
+		}
+	}
+}
+
 func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 	t.Run("route overrides the explicit client selection", func(t *testing.T) {
 		runtime, _, _ := configuredReadinessRuntime(t)

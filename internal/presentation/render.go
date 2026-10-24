@@ -44,6 +44,9 @@ type Field struct {
 	Label   string
 	Value   string
 	Details []string
+	// Command marks a label that is executable text. It is written whole at
+	// every width, so a copy keeps the command; the terminal soft-wraps it.
+	Command bool
 }
 
 // ProductName is the sole human-facing product identity used in rendered output.
@@ -164,7 +167,8 @@ func (r *Renderer) Section(title string) {
 // Rows renders one semantic group. Its values share one column after the
 // group's longest label and state symbol, and values and details continue
 // under that column. The whole group stacks when a label spans lines or the
-// width leaves too little room for a value that does not fit.
+// width leaves too little room for a value that does not fit; a stacked
+// command label stays whole.
 func (r *Renderer) Rows(fields ...Field) {
 	column := labelColumn
 	for _, field := range fields {
@@ -175,19 +179,22 @@ func (r *Renderer) Rows(fields ...Field) {
 	for _, field := range fields {
 		cell := r.labelCell(field)
 		switch {
+		case stacked && field.Command:
+			r.printf("  %s\n", cell)
 		case stacked:
 			r.writeHanging("  ", cell, 2+DisplayWidth(cell)-DisplayWidth(field.Label), lipgloss.NewStyle())
-			for _, text := range append([]string{field.Value}, field.Details...) {
-				if text != "" {
-					r.writeWrapped(text, noteIndent, r.styles.dim)
-				}
-			}
 		case field.Value == "":
 			r.printf("  %s\n", cell)
 		default:
 			r.writeHanging("  "+cell+strings.Repeat(" ", column-DisplayWidth(cell)), field.Value, valueColumn, lipgloss.NewStyle())
 		}
-		if !stacked {
+		if stacked {
+			for _, text := range append([]string{field.Value}, field.Details...) {
+				if text != "" {
+					r.writeWrapped(text, noteIndent, r.styles.dim)
+				}
+			}
+		} else {
 			for _, detail := range field.Details {
 				r.writeHanging(strings.Repeat(" ", valueColumn), detail, valueColumn, r.styles.dim)
 			}

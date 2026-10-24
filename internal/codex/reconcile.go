@@ -46,7 +46,8 @@ type ReconciliationReceipt struct {
 }
 
 // CopyProjection copies one complete AIGW-owned Codex projection to a private
-// target, rebasing only the owned catalog reference that is tied to its path.
+// target, rebasing only the catalog reference that is tied to its path: the
+// owned catalog, or a user-owned catalog named relative to the configuration.
 // The copy keeps the operator's settings and leaves out its MCP servers,
 // plugins, hooks, memories and notifications, so a verification home never
 // starts extensions it cannot authorize.

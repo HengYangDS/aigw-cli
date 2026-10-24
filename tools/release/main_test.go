@@ -106,7 +106,7 @@ func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
 	}
 	cfg := configuration.Config{}
 	cfg.SetClientActivation(configuration.ClientCodex, true, executable, []string{target})
-	if _, err := clientverification.VerifyCodexInvocation(t.Context(), process.Runner{}, cfg, selected); err != nil {
+	if _, err := clientverification.VerifyCodexInvocation(t.Context(), process.Runner{}, cfg, selected, ""); err != nil {
 		t.Fatalf("copied Codex fixture cannot satisfy the current verifier: %v", err)
 	}
 }

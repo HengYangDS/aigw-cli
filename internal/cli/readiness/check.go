@@ -201,6 +201,8 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg configur
 		scope = diagnostics.ScopeEndpoint
 	}
 	result.diagnostic = diagnostics.ProbeBounded(cmd.Context(), runtime.HTTP, clientRuntime, token, scope)
+	instruction, _ := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
+	result.diagnostic = result.diagnostic.WithTokenRecovery(instruction)
 	if result.diagnostic.Kind != diagnostics.Healthy {
 		result.issue = result.diagnostic.Summary
 		result.fix = result.diagnostic.Fix

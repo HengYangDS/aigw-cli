@@ -3,11 +3,14 @@ package cli_test
 import (
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
 )
 
@@ -45,5 +48,36 @@ func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
 	}
 	if httpClient.calls != 0 {
 		t.Fatalf("unreadable credential sent %d provider requests", httpClient.calls)
+	}
+}
+
+// The environment backend cannot rotate a Token, so a rejected Token names the
+// variable that supplies it, in human and JSON output alike.
+func TestCheckNamesTheEnvironmentTokenForARejectedToken(t *testing.T) {
+	app, out, _, _, httpClient := testApp(t, "")
+	cfg := configuration.NewConfig()
+	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
+	cfg.SetSelectedRoute(configuration.ClientClaude, "dmx", "")
+	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	synchronizeClaudeProjection(t, app, cfg)
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	variable := secrets.EnvironmentKey("dmx")
+	app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
+		if key == variable {
+			return "rejected-fixture-token"
+		}
+		return ""
+	})
+	httpClient.handler = func(req *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusUnauthorized, Body: io.NopCloser(strings.NewReader(`{"message":"invalid token"}`)), Request: req}, nil
+	}
+	for _, args := range [][]string{{"check", "--endpoint-only"}, {"check", "--endpoint-only", "--json"}} {
+		out.Reset()
+		_ = cli.Execute(app, args)
+		if !strings.Contains(out.String(), variable) || strings.Contains(out.String(), "aigw rotate") || strings.Contains(out.String(), "rejected-fixture-token") {
+			t.Fatalf("%v recovery does not follow the environment backend:\n%s", args, out.String())
+		}
 	}
 }

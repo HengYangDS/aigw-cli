@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
+	clientverification "aigw-cli/internal/client/verification"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
@@ -60,14 +61,14 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				}
 				if !clientRuntime.RequiresAccountToken() {
 					return fmt.Errorf(
-						"route %q uses client-owned authentication; run `aigw verify --for %s` to test it through %s",
+						"route %q uses client-owned authentication; run `%s` to test it through %s",
 						clientRuntime.RouteID,
-						spec.ID,
+						clientverification.Command(spec.ID, routeName),
 						spec.Label,
 					)
 				}
 				if clientRuntime.CredentialCommand != "" && !tokenStdin {
-					return fmt.Errorf("route %q uses an external credential helper; run `aigw verify --for %s` or provide an explicit test Token on stdin", clientRuntime.RouteID, spec.ID)
+					return fmt.Errorf("route %q uses an external credential helper; run `%s` or provide an explicit test Token on stdin", clientRuntime.RouteID, clientverification.Command(spec.ID, routeName))
 				}
 				resolved[spec.ID] = clientRuntime
 			}

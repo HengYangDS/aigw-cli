@@ -2,6 +2,7 @@ package presentation_test
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
 
@@ -68,6 +69,34 @@ func TestExplanatoryElementsBoundLongAndMultilineContent(t *testing.T) {
 			}
 			if !strings.Contains(ansi.Strip(out.String()), "Second") {
 				t.Fatal("multiline content was lost")
+			}
+		}
+	}
+}
+
+// A label that is executable text keeps one logical line however narrow the
+// terminal: the terminal soft-wraps it, and a copy keeps the command. Its
+// description is explanatory and still wraps within the width.
+func TestCommandLabelsStayWholeInNarrowGroups(t *testing.T) {
+	commands := []string{"aigw setup", "aigw use --for <client> <route>"}
+	for _, width := range []int{8, 24, 32} {
+		for _, color := range []bool{false, true} {
+			var out bytes.Buffer
+			r := presentation.NewWithWidth(&out, color, width)
+			r.Rows(
+				presentation.Field{Label: commands[0], Value: "Connect the first account", Command: true},
+				presentation.Field{Label: commands[1], Value: "Select one Route for one client", Command: true},
+			)
+			lines := strings.Split(strings.TrimSuffix(ansi.Strip(out.String()), "\n"), "\n")
+			for _, command := range commands {
+				if !slices.Contains(lines, "  "+command) {
+					t.Fatalf("width=%d color=%t split the command %q:\n%s", width, color, command, out.String())
+				}
+			}
+			for _, line := range lines {
+				if !slices.Contains(commands, strings.TrimSpace(line)) && presentation.DisplayWidth(line) > width {
+					t.Fatalf("width=%d color=%t description overflow: %q", width, color, line)
+				}
 			}
 		}
 	}
