@@ -7,6 +7,9 @@
       stay unchanged; it fails before the change.
 - [x] 1.2 Rebase relative user catalog references in
       `rebaseCopiedCodexCatalog`; the test passes.
+- [x] 1.3 Cover a relative user catalog in the Codex native client journey,
+      using the installed Codex's own catalogue as the user's file; both
+      verification paths pass with the installed Codex.
 
 ## 2. Route-Keeping Retry
 
