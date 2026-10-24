@@ -1132,8 +1132,9 @@ operating system and SHALL NOT access a network share to construct its name.
 `aigw catalog` and `aigw models` SHALL share one Account catalogue observation
 path. Route comparison SHALL distinguish listed, not listed, and an unobserved
 catalogue with its reason. These commands MUST NOT describe catalogue membership
-as inference reachability or native-client readiness. An incomplete or oversized
-HTTP response SHALL produce a failed catalogue observation, not partial success.
+as inference reachability or native-client readiness. An incomplete, oversized
+or ambiguous HTTP response SHALL produce a failed catalogue observation, not
+partial success.
 
 #### Scenario: A configured model appears in the catalogue
 
@@ -1152,6 +1153,15 @@ HTTP response SHALL produce a failed catalogue observation, not partial success.
   fails, or the response is incomplete or oversized
 - **THEN** the affected Account has no established model membership
 - **AND** its observation reason remains visible without blocking other Accounts.
+
+#### Scenario: A catalogue response is ambiguous
+
+- **WHEN** a successful HTTP response has a null model list, repeats that list,
+  or repeats an identifier member within one item
+- **THEN** the affected Account has no established model membership, and
+  `models` SHALL NOT report its Routes as not listed
+- **AND** an empty list, the supported identifier shapes and other provider
+  fields SHALL still produce a successful observation.
 
 ### Requirement: Control-plane convergence is client-scoped and monotonic
 
