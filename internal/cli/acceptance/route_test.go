@@ -511,7 +511,7 @@ func TestRouteListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T) 
 		t.Fatal(err)
 	}
 	text := out.String()
-	for _, want := range []string{"Routes", "Available routes", "Route  gpt", "GPT Test · native Codex picker-aligned daily default · Selected for codex · Account team · Clients codex"} {
+	for _, want := range []string{"Routes", "Available routes", "Route  gpt", "GPT Test · native Codex picker-aligned daily default · Selected for Codex · Account team · Clients Codex"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("route list lacks %q:\n%s", want, text)
 		}

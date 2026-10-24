@@ -308,7 +308,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 		action = ProjectionActionInitialProject
 	}
 	return codexPreparedTarget{
-		plan:      ProjectionPlan{Target: target.ref.Path, Action: action},
+		plan:      ProjectionPlan{Target: target.ref.Path, Action: action, SurfaceID: target.ref.SurfaceID},
 		artifacts: codexArtifactsForDesiredState(target.ref, configSnapshot, projected, stateSnapshot, stateData, catalogSnapshot, catalogDesired),
 	}, nil
 }
@@ -341,7 +341,7 @@ func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalo
 
 func prepareCodexRestoreTransition(target TargetRef, configSnapshot, stateSnapshot, catalogSnapshot transaction.FileSnapshot, previous configuration.Runtime, replaceRootSelections bool) (codexPreparedTarget, error) {
 	if !stateSnapshot.Exists {
-		return codexPreparedTarget{plan: ProjectionPlan{Target: target.Path, Action: ProjectionActionAlreadyRestored}}, nil
+		return codexPreparedTarget{plan: ProjectionPlan{Target: target.Path, Action: ProjectionActionAlreadyRestored, SurfaceID: target.SurfaceID}}, nil
 	}
 	state, err := codexStateForTarget(stateSnapshot)
 	if err != nil {
@@ -365,7 +365,7 @@ func prepareCodexRestoreTransition(target TargetRef, configSnapshot, stateSnapsh
 		}
 	}
 	return codexPreparedTarget{
-		plan:      ProjectionPlan{Target: target.Path, Action: ProjectionActionRestoreExternal},
+		plan:      ProjectionPlan{Target: target.Path, Action: ProjectionActionRestoreExternal, SurfaceID: target.SurfaceID},
 		artifacts: artifacts,
 	}, nil
 }

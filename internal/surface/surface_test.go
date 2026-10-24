@@ -10,6 +10,8 @@ func TestStableIdentities(t *testing.T) {
 	}{
 		{name: "default Codex Home", got: string(CodexHomeDefault), want: "codex-home-default"},
 		{name: "Claude Desktop library", got: string(ClaudeDesktopLibrary), want: "claude-desktop-config-library"},
+		{name: "Claude settings", got: string(ClaudeSettings), want: "claude-settings"},
+		{name: "default Hermes home", got: string(HermesHomeDefault), want: "hermes-home-default"},
 		{name: "AIGW authority", got: string(AuthorityAIGW), want: "aigw"},
 	}
 	for _, tt := range tests {

@@ -129,24 +129,6 @@ func TestProblemFallsBackToCause(t *testing.T) {
 	}
 }
 
-func TestTitle(t *testing.T) {
-	for _, test := range []struct {
-		name  string
-		value string
-		want  string
-	}{
-		{name: "empty", value: "", want: ""},
-		{name: "lowercase", value: "codex", want: "Codex"},
-		{name: "already uppercase", value: "Claude", want: "Claude"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if got := Title(test.value); got != test.want {
-				t.Fatalf("Title(%q) = %q, want %q", test.value, got, test.want)
-			}
-		})
-	}
-}
-
 func TestSynchronizerPreservesInvocationCapabilities(t *testing.T) {
 	config := configuration.NewStore("configuration.toml")
 	secretStore := secrets.NewMemoryStore()

@@ -97,7 +97,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				if route, ok := result.AdoptedSelections[client]; ok {
 					outcome = append(outcome, presentation.Field{
 						State: presentation.Info, Label: "Adopted selection",
-						Value: invocation.Title(client) + " now uses " + after.RouteLabel(route) + ", chosen in " + invocation.Title(client),
+						Value: configuration.ClientLabel(client) + " now uses " + after.RouteLabel(route) + ", chosen in " + configuration.ClientLabel(client),
 					})
 				}
 			}
@@ -175,7 +175,11 @@ func renderSyncPreview(r *presentation.Renderer, after configuration.Config, res
 	r.Section("Client Bindings")
 	bindings := make([]presentation.Field, 0, len(configuration.AdmittedClientIDs()))
 	for _, client := range configuration.AdmittedClientIDs() {
-		bindings = append(bindings, presentation.Field{Label: "Client · " + client, Value: after.SelectedRoute(client)})
+		route := after.SelectedRoute(client)
+		if route == "" {
+			route = "Not selected"
+		}
+		bindings = append(bindings, presentation.Field{Label: configuration.ClientLabel(client), Value: route})
 	}
 	r.Rows(bindings...)
 	r.Section("Projection targets")

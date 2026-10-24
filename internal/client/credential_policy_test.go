@@ -76,6 +76,15 @@ func TestCredentialPolicyControlsProjectionAndSurvivesDiscovery(t *testing.T) {
 			if err != nil || len(plans) != 1 {
 				t.Fatalf("projection plan = %v, %v", plans, err)
 			}
+			wantSurface := map[string]string{
+				configuration.ClientClaude:        "claude-settings",
+				configuration.ClientClaudeDesktop: "claude-desktop-config-library",
+				configuration.ClientCodex:         "codex-home-default",
+				configuration.ClientHermes:        "hermes-home-default",
+			}[id]
+			if plans[0].Surface != wantSurface {
+				t.Fatalf("projection surface = %q, want %q", plans[0].Surface, wantSurface)
+			}
 			if _, _, err := registry.Apply(context.Background(), deps, before, converged, id); err != nil {
 				t.Fatal(err)
 			}

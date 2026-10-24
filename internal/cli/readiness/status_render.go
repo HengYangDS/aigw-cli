@@ -74,7 +74,7 @@ func renderTransportStatus(r *presentation.Renderer, result statusOutput, client
 	rows := []presentation.Field{}
 	for _, client := range clientIDs {
 		if result.Clients[client].Transport == endpointTransportExternalLoopback {
-			rows = append(rows, presentation.Field{State: presentation.Info, Label: invocation.Title(client), Value: "Loopback endpoint"})
+			rows = append(rows, presentation.Field{State: presentation.Info, Label: configuration.ClientLabel(client), Value: "Loopback endpoint"})
 		}
 	}
 	if len(rows) == 0 {

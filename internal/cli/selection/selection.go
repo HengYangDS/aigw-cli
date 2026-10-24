@@ -135,7 +135,7 @@ func renderUse(runtime invocation.Context, cfg configuration.Config, selected co
 	}
 	rows = append(rows,
 		presentation.Field{Label: "Client", Value: spec.Label},
-		presentation.Field{Label: "Protocol", Value: string(selected.Protocol)},
+		presentation.Field{Label: "Protocol", Value: configuration.ProtocolLabel(selected.Protocol)},
 		presentation.Field{Label: "Endpoint", Value: selected.Endpoint},
 	)
 	if selected.Endpoint != selected.UpstreamEndpoint {
@@ -196,7 +196,7 @@ func previewUse(runtime invocation.Context, cfg configuration.Config, selected c
 	r.ProductTitle("Selection preview")
 	r.Section("Selection")
 	r.Rows(
-		presentation.Field{Label: "Client", Value: selected.Client},
+		presentation.Field{Label: "Client", Value: configuration.ClientLabel(selected.Client)},
 		presentation.Field{Label: "Route", Value: selected.RouteLabel},
 		presentation.Field{Label: "Endpoint", Value: selected.Endpoint},
 		presentation.Field{Label: "Account upstream", Value: selected.UpstreamEndpoint},

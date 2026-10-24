@@ -145,6 +145,7 @@ func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 		{name: "unauthorized", account: account, client: configuration.ClientCodex, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Codex authentication was rejected (HTTP 401)"},
 		{name: "forbidden", account: account, client: configuration.ClientCodex, doer: staticResponse(http.StatusForbidden, http.NoBody), want: "Codex authentication was rejected (HTTP 403)"},
 		{name: "unexpected status", account: account, client: configuration.ClientCodex, doer: staticResponse(http.StatusBadGateway, http.NoBody), want: "Codex endpoint returned HTTP 502"},
+		{name: "multi-word client label", account: configuration.Account{ID: "team", Endpoints: configuration.Endpoints{Anthropic: "https://anthropic.test"}}, client: configuration.ClientClaudeDesktop, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Claude Desktop authentication was rejected (HTTP 401)"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -277,9 +278,6 @@ func TestCredentialHelpers(t *testing.T) {
 	}
 	if err != nil || !called {
 		t.Fatalf("non-HTTP doer call: called=%v error=%v", called, err)
-	}
-	if got := title(""); got != "" {
-		t.Fatalf("empty title = %q", got)
 	}
 }
 

@@ -13,6 +13,8 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
+
+	"github.com/spf13/cobra"
 )
 
 func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
@@ -58,6 +60,42 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"protocol_clients"`) || strings.Contains(out.String(), `"compatible_clients"`) {
 		t.Fatalf("route detail implied native client qualification: %s", out)
+	}
+}
+
+func TestRouteHumanOutputNamesClientsByLabel(t *testing.T) {
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["messages"] = configuration.Route{
+		Account: "gateway", Model: "model-a",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+	}
+	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "messages", "")
+	if err := store.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	out := &bytes.Buffer{}
+	runtime := invocation.Context{Config: store, Out: out, RenderOut: out}
+	for _, command := range []*cobra.Command{newListCommand(runtime), newShowCommand(runtime)} {
+		out.Reset()
+		if command.Name() == "show" {
+			command.SetArgs([]string{"messages"})
+		} else {
+			command.SetArgs([]string{})
+		}
+		if err := command.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		text := strings.Join(strings.Fields(out.String()), " ")
+		for _, want := range []string{"Selected for Claude Desktop", "Claude, Claude Desktop, Hermes"} {
+			if !strings.Contains(text, want) {
+				t.Fatalf("route %s output lacks %q:\n%s", command.Name(), want, out.String())
+			}
+		}
+		if strings.Contains(out.String(), "claude-desktop") {
+			t.Fatalf("route %s output named a client by its identifier:\n%s", command.Name(), out.String())
+		}
 	}
 }
 

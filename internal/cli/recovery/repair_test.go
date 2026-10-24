@@ -23,21 +23,25 @@ type staticDiscovery struct{ result discovery.Result }
 
 func (candidate staticDiscovery) Discover() discovery.Result { return candidate.result }
 
-func TestRenderRepairPreviewIncludesKnownAndExplicitSurfaces(t *testing.T) {
+func TestRenderRepairPreviewNamesEachClientAndItsSurface(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Out: out, RenderOut: out, Width: 120}
-	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: "/known", Present: true}}}
+	explicit := string(surfaceidentity.CodexHomeExplicit("0123456789ab"))
 	plans := []client.ProjectionPlan{
-		{Client: configuration.ClientCodex, Target: "/known", Action: "update"},
-		{Client: configuration.ClientCodex, Target: "/explicit", Action: "create"},
+		{Client: configuration.ClientCodex, Target: "/known", Action: "update", Surface: string(surfaceidentity.CodexHomeDefault)},
+		{Client: configuration.ClientCodex, Target: "/explicit", Action: "create", Surface: explicit},
+		{Client: configuration.ClientClaudeDesktop, Target: "/library", Action: "update", Surface: string(surfaceidentity.ClaudeDesktopLibrary)},
 	}
-	if err := renderRepairResult(runtime, true, false, true, discovered, plans, nil); err != nil {
+	if err := renderRepairResult(runtime, true, false, true, plans, nil); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Repair preview", "update", string(surfaceidentity.CodexHomeDefault), "codex-home-explicit", "create"} {
+	for _, want := range []string{"Repair preview", "Codex · " + string(surfaceidentity.CodexHomeDefault), "Codex · " + explicit, "Claude Desktop · " + string(surfaceidentity.ClaudeDesktopLibrary), "create"} {
 		if !bytes.Contains(out.Bytes(), []byte(want)) {
 			t.Fatalf("output lacks %q: %s", want, out.String())
 		}
+	}
+	if bytes.Contains(out.Bytes(), []byte("claude-settings")) {
+		t.Fatalf("output names another client's surface: %s", out.String())
 	}
 	column := -1
 	for line := range strings.SplitSeq(out.String(), "\n") {
@@ -50,21 +54,30 @@ func TestRenderRepairPreviewIncludesKnownAndExplicitSurfaces(t *testing.T) {
 	}
 }
 
-func TestRenderRepairPreviewJSONReportsTheSameSemanticPlan(t *testing.T) {
+func TestRenderRepairPreviewJSONReportsEachPlannedSurface(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Out: out}
-	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: "/known"}}}
-	plans := []client.ProjectionPlan{{Client: configuration.ClientCodex, Target: "/known", Action: "update", ChangesState: true}}
+	plans := []client.ProjectionPlan{
+		{Client: configuration.ClientClaude, Target: "/settings.json", Action: "update", ChangesState: true, Surface: string(surfaceidentity.ClaudeSettings)},
+		{Client: configuration.ClientClaudeDesktop, Target: "/library", Action: "unchanged", Surface: string(surfaceidentity.ClaudeDesktopLibrary)},
+		{Client: configuration.ClientCodex, Target: "/known", Action: "update", ChangesState: true, Surface: string(surfaceidentity.CodexHomeDefault)},
+		{Client: configuration.ClientHermes, Target: "/hermes/config.yaml", Action: "unchanged", Surface: string(surfaceidentity.HermesHomeDefault)},
+	}
 
-	if err := renderRepairResult(runtime, true, true, false, discovered, plans, nil); err != nil {
+	if err := renderRepairResult(runtime, true, true, false, plans, nil); err != nil {
 		t.Fatal(err)
 	}
 	var got repairResult
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if !got.DryRun || got.ConfigurationAction != "already-converged" || got.NextAction != "aigw repair" || len(got.Projections) != 1 || got.Projections[0].Client != configuration.ClientCodex || got.Projections[0].SurfaceID != string(surfaceidentity.CodexHomeDefault) {
+	if !got.DryRun || got.ConfigurationAction != "already-converged" || got.NextAction != "aigw repair" || len(got.Projections) != len(plans) {
 		t.Fatalf("preview = %#v", got)
+	}
+	for index, plan := range plans {
+		if projection := got.Projections[index]; projection.Client != plan.Client || projection.SurfaceID != plan.Surface {
+			t.Fatalf("projection %d = %#v, want client %s on surface %s", index, projection, plan.Client, plan.Surface)
+		}
 	}
 }
 

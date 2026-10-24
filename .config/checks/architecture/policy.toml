@@ -268,7 +268,6 @@ allowed_import_edges."internal/cli/recovery" = [
   "internal/cli/invocation",
   "internal/client",
   "internal/configuration",
-  "internal/discovery",
   "internal/presentation",
   "internal/readiness",
   "internal/secrets",

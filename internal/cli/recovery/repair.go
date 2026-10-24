@@ -10,7 +10,6 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
-	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
 
 	"github.com/spf13/cobra"
@@ -51,7 +50,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 		return presentation.ProblemError("Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	synchronizer := invocation.Synchronizer(runtime)
-	after, discovered, err := synchronizer.DesiredClientConfiguration(before)
+	after, _, err := synchronizer.DesiredClientConfiguration(before)
 	if err != nil {
 		return invocation.Problem(
 			runtime,
@@ -76,10 +75,10 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	} else if err := synchronizer.CommitProjection(ctx, before, after, "repair"); err != nil {
 		return err
 	}
-	return renderRepairResult(runtime, dryRun, jsonMode, !reflect.DeepEqual(before, after), discovered, plans, entrypoint)
+	return renderRepairResult(runtime, dryRun, jsonMode, !reflect.DeepEqual(before, after), plans, entrypoint)
 }
 
-func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, discovered discovery.Result, plans []client.ProjectionPlan, entrypoint *credentialEntrypointPlan) error {
+func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, plans []client.ProjectionPlan, entrypoint *credentialEntrypointPlan) error {
 	result := repairResult{DryRun: dryRun, ConfigurationAction: "already-converged", CredentialEntrypoint: entrypoint, NextAction: "aigw check"}
 	if dryRun && configurationChanged {
 		result.NextAction = "aigw repair"
@@ -94,14 +93,7 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 		if dryRun && plan.ChangesState {
 			result.NextAction = "aigw repair"
 		}
-		surfaceID := "claude-settings"
-		if plan.Client == configuration.ClientCodex {
-			surfaceID = "codex-home-explicit"
-			if surface, ok := discovered.SurfaceForConfigPath(plan.Target); ok {
-				surfaceID = surface.ID
-			}
-		}
-		result.Projections = append(result.Projections, repairProjectionPreview{Client: plan.Client, SurfaceID: surfaceID, Action: plan.Action})
+		result.Projections = append(result.Projections, repairProjectionPreview{Client: plan.Client, SurfaceID: plan.Surface, Action: plan.Action})
 	}
 	if jsonMode {
 		return presentation.WriteJSON(runtime.Out, result)
@@ -111,12 +103,14 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 		r.ProductTitle("Repair preview")
 		rows := []presentation.Field{{Label: "Configuration", Value: result.ConfigurationAction}}
 		for _, plan := range result.Projections {
-			rows = append(rows, presentation.Field{Label: plan.Client + " · " + plan.SurfaceID, Value: plan.Action})
-		}
-		if entrypoint != nil {
-			rows = append(rows, presentation.Field{Label: "Credential entrypoint", Value: entrypoint.humanAction()})
+			rows = append(rows, presentation.Field{Label: configuration.ClientLabel(plan.Client) + " · " + plan.SurfaceID, Value: plan.Action})
 		}
 		r.Rows(rows...)
+		if entrypoint != nil {
+			// The entrypoint path is too long to share the projection column.
+			r.Section("Credential entrypoint")
+			r.Text(entrypoint.humanAction())
+		}
 		r.Success("Preview did not write configuration, state files, authentication, client executables, or conversations")
 	} else {
 		r.ProductTitle("Repair completed")

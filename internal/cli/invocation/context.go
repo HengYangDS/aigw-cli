@@ -141,14 +141,6 @@ func Problem(runtime Context, title, evidence, impact, fix string, cause error) 
 	return cause
 }
 
-// Title capitalizes a stable client identifier for presentation.
-func Title(value string) string {
-	if value == "" {
-		return value
-	}
-	return strings.ToUpper(value[:1]) + value[1:]
-}
-
 // Synchronizer assembles the synchronization domain from invocation
 // capabilities without leaking CLI composition details into domain packages.
 func Synchronizer(runtime Context) synchronization.Synchronizer {
