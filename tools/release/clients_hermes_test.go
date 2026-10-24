@@ -64,11 +64,11 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 	target := j.clientProjectionPaths(configuration.ClientHermes)[0]
 	j.runWith(executable, "config", "set", "model.default", alternative.Model)
 	nativeBefore, stateBefore := readFile(j.testing, target), readFile(j.testing, target+".aigw-state.json")
-	ctx, cancel := context.WithTimeout(j.testing.Context(), clientverification.ProtocolTimeout)
-	defer cancel()
-	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: j.binary, Args: []string{"sync", "--dry-run", "--json"}, Env: j.environment})
-	if err == nil || !strings.Contains(string(append(stdout, stderr...)), "managed Hermes settings changed outside AIGW") {
-		j.testing.Fatal("ordinary synchronization did not refuse the native selection change")
+	var adoption struct {
+		AdoptedSelections map[string]string `json:"adopted_selections"`
+	}
+	if err := json.Unmarshal(j.run("sync", "--dry-run", "--json"), &adoption); err != nil || adoption.AdoptedSelections[configuration.ClientHermes] != alternative.RouteID {
+		j.testing.Fatalf("synchronization preview did not adopt the native selection: %v, %v", adoption.AdoptedSelections, err)
 	}
 	args := []string{"use", "--for", configuration.ClientHermes, "--protocol", string(alternative.Protocol), alternative.RouteID}
 	j.run(append(slices.Clone(args), "--dry-run", "--json")...)
@@ -301,7 +301,10 @@ func (recorder *hermesSessionRecorder) fileReadVerified() bool {
 
 // requireHermesContinuedTurn creates the journey's Hermes session when session
 // is empty and otherwise resumes it by its stored identifier. Hermes freezes a
-// session's creation options, so a resume repeats none of them.
+// session's creation options and refuses them on a resume. The session is
+// created with a title because Hermes otherwise asks the model for one in the
+// background, a request that is not part of the turn; a titled creation is
+// itself a resume of the new session, so no turn passes a frozen option.
 func (j *journeyFixture) requireHermesContinuedTurn(executable string, recorder *hermesSessionRecorder, completions *atomic.Int64, previousItems int, session string) (int, string) {
 	j.testing.Helper()
 	before := len(recorder.inputCounts())
@@ -319,8 +322,8 @@ func (j *journeyFixture) requireHermesContinuedTurn(executable string, recorder 
 		recorder.expectReadFile(filePath, fileMarker, sessionMarker)
 		prompt = fmt.Sprintf("Session marker %q. Use read_file to read %q, then reply with exactly: AIGW_OK\n", sessionMarker, filePath)
 		args = []string{
-			"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "2", "--run-budget", "45",
-			"--ignore-rules", "--source", "tool",
+			"chat", "--quiet", "--query-file", "-", "--oneshot", "--source", "tool",
+			"--continue", "aigw-native-lifecycle-continuity", "--create-if-missing",
 		}
 	}
 	recorder.requireToolHistory(true)

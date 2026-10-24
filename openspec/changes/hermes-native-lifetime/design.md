@@ -64,11 +64,31 @@ the classifier is shared and the defect is the symbol class, not one message.
 
 ### The release journey creates once and resumes by identifier
 
-The first lifecycle turn creates the session with `--oneshot`, its turn limit
-and `--ignore-rules`, and reads the `session_id:` line Hermes prints. Later
-turns pass `--resume <id>` with only the options the session was created
-with that Hermes does not freeze. The journey stops its gateway natively and
-waits for the lock before its temporary home is removed.
+The first lifecycle turn creates a titled session with
+`--continue <title> --create-if-missing` and `--oneshot`, and reads the
+`session_id:` line Hermes prints. Hermes creates a titled session first and
+then treats the turn as its resume, so it refuses `--max-turns` and
+`--ignore-rules` there as well; the journey passes no frozen option on any
+turn. An untitled session was rejected: Hermes then asks the model for a
+title in a background request that is not part of the turn. Later turns pass
+`--resume <id>`. The journey stops its gateway natively and waits for the
+lock before its temporary home is removed.
+
+### A retained Hermes session keeps its creation route
+
+Hermes 0.22.5 freezes the whole profile configuration of a CLI session when
+it creates the session; only Bot Chat and migrated sessions follow the
+profile. After `aigw use --forwarding-endpoint`, a new session uses the
+forwarding endpoint, while the retained journey session keeps its original
+route and credential reference. The journey therefore requires the retained
+session to keep completing after the selection and its rollback, as the
+forwarding requirement's retained-client scenario states, and no longer
+requires it to switch endpoints. Rewriting the frozen session was rejected:
+AIGW manages new-session defaults, not a native session's route.
+
+The journey's native-selection step also still expected `aigw sync` to refuse
+a model chosen in Hermes, although synchronization has adopted such a choice
+since 0.4.2; the step now expects the dry run to report the adopted Route.
 
 ## Risks / Trade-offs
 
