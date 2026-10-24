@@ -25,4 +25,4 @@
 
 - [x] 3.1 Record the change in `CHANGELOG.md` and the naming rule in
       `docs/experience/terminal-experience.md`.
-- [ ] 3.2 `mise run check` and the full proof of the lane head pass.
+- [x] 3.2 `mise run check` and the full proof of the lane head pass.
