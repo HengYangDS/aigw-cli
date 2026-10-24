@@ -42,7 +42,7 @@ func verifyIsolated(ctx context.Context, deps Dependencies, configured configura
 	}
 	environment = append(environment, "HERMES_HOME="+home, "HERMES_DISABLE_LAZY_INSTALLS=1", "HERMES_GATEWAY_LOCK_DIR="+hermesconfig.GatewayLockDirectory(home))
 	defer func() {
-		releaseVerificationGateway(deps.Runner, process.Plan{Executable: configured.Executable, Directory: home, Env: environment, Args: []string{"gateway", "stop"}})
+		releaseVerificationGateway(ctx, deps.Runner, process.Plan{Executable: configured.Executable, Directory: home, Env: environment, Args: []string{"gateway", "stop"}})
 		result = errors.Join(result, cleanup())
 	}()
 	if err := os.WriteFile(filepath.Join(home, "config.yaml"), data, 0o600); err != nil {
@@ -87,12 +87,14 @@ func verifyIsolated(ctx context.Context, deps Dependencies, configured configura
 // releaseVerificationGateway waits for the verification gateway to exit on
 // idle and, when it outlives that bound, asks it once to stop through the
 // native command, which refuses an active turn. It never signals the gateway;
-// the home's remover decides deletion from the gateway lock it leaves.
-func releaseVerificationGateway(runner process.VerificationRunner, stop process.Plan) {
+// the home's remover decides deletion from the gateway lock it leaves. The
+// stop outlives a canceled verification, so an interrupted run still releases
+// its home within the bounds.
+func releaseVerificationGateway(ctx context.Context, runner process.VerificationRunner, stop process.Plan) {
 	if hermesconfig.AwaitGatewayAbsence(stop.Directory, hermesGatewayIdleWait, hermesGatewayPoll) {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), clientverification.ProtocolTimeout)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), clientverification.ProtocolTimeout)
 	defer cancel()
 	_, _, _ = runner.RunCaptureStreams(ctx, stop)
 	hermesconfig.AwaitGatewayAbsence(stop.Directory, hermesGatewayStopWait, hermesGatewayPoll)
