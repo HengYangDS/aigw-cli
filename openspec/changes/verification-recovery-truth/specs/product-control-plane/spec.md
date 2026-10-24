@@ -7,8 +7,7 @@ path. Route comparison SHALL distinguish listed, not listed, and an unobserved
 catalogue with its reason. These commands MUST NOT describe catalogue membership
 as inference reachability or native-client readiness. An incomplete, oversized
 or ambiguous HTTP response SHALL produce a failed catalogue observation, not
-partial success. A response is ambiguous when its model list is not an array or
-when it repeats the model list or an identifier member of one item.
+partial success.
 
 #### Scenario: A configured model appears in the catalogue
 

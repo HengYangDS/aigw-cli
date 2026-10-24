@@ -5,10 +5,9 @@
 `aigw test` SHALL test selected client endpoints without changing bindings.
 `aigw verify` SHALL perform a real bounded client request. An explicit `--route`
 override SHALL require exactly one explicit client and SHALL NOT mutate its
-stored binding. A retry or follow-up `aigw verify` command that either command
-names after a failure SHALL target the same client and Route. A private
-verification projection SHALL reach the user-owned files that the operator's
-configuration references, without copying or taking ownership of them.
+stored binding. A retry that either command names SHALL keep the same client
+and Route. A private verification projection SHALL reach the operator's
+user-owned files without copying or owning them.
 
 #### Scenario: Test an explicit Route
 
@@ -62,9 +61,9 @@ A recommendation MAY order compatible Routes for an unselected Client Binding.
 The order SHALL be declared, stable, and visible. A Route absent from that
 recommendation remains available to explicit client-scoped selection but SHALL
 NOT enter automatic onboarding selection. An explicit selection SHALL outrank
-all recommendations until its owner changes it. A configuration export SHALL
-publish the declared recommendations unchanged and SHALL NOT derive a
-recommendation from a Client Binding; bindings stay in the local configuration.
+all recommendations until its owner changes it. Export SHALL publish the
+declared recommendations unchanged and SHALL NOT derive one from a Client
+Binding.
 
 #### Scenario: A preferred Account is unavailable before activation
 
