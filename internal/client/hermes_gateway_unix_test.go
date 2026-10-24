@@ -3,7 +3,9 @@
 package client
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -85,6 +87,45 @@ func TestHermesVerificationDeletesItsHomeOnlyAfterItsGatewayExits(t *testing.T) 
 	}
 	if len(runner.plans) != 2 {
 		t.Fatalf("an idle gateway was stopped natively: %#v", runner.plans[2:])
+	}
+}
+
+func TestHermesVerificationWaitsForItsGatewayProcessAfterTheLock(t *testing.T) {
+	cfg, selected, deps := hermesVerificationFixture(t)
+	shortenHermesGatewayWaits(t, 5*time.Second, time.Second)
+	holder := &gatewayLockHolder{}
+	// The gateway's exit tail: its process outlives the lock it already released.
+	tail := exec.Command("sleep", "1")
+	exited := make(chan time.Time, 1)
+	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
+	runner.observe = func(plan process.Plan) {
+		if plan.Args[0] != "chat" {
+			return
+		}
+		holder.take(t, plan.Directory)
+		if err := tail.Start(); err != nil {
+			t.Fatal(err)
+		}
+		go func() {
+			_ = tail.Wait()
+			exited <- time.Now()
+		}()
+		state := fmt.Sprintf(`{"pid": %d, "kind": "gateway", "gateway_state": "running"}`, tail.Process.Pid)
+		if err := os.WriteFile(filepath.Join(plan.Directory, "gateway_state.json"), []byte(state), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		time.AfterFunc(100*time.Millisecond, holder.release)
+	}
+	deps.Runner = runner
+	if _, err := (hermesAdapter{}).Verify(t.Context(), deps, cfg, selected, ""); err != nil {
+		t.Fatal(err)
+	}
+	finished := time.Now()
+	if processExit := <-exited; processExit.After(finished) {
+		t.Fatal("verification deleted its home while the gateway process still ran")
+	}
+	if _, err := os.Lstat(runner.plans[1].Directory); !os.IsNotExist(err) {
+		t.Fatalf("verification home survived after its gateway process exited: %v", err)
 	}
 }
 

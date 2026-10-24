@@ -27,8 +27,11 @@ type ClientSpec struct {
 	Label                  string
 	EndpointProtocols      []EndpointProtocol
 	RestartAfterProjection bool
-	QualifiedModes         []string
-	QualifiedPlatforms     []string
+	// SessionsKeepRoute marks a client whose existing sessions keep the route
+	// they were created with, so a projection change reaches new sessions only.
+	SessionsKeepRoute  bool
+	QualifiedModes     []string
+	QualifiedPlatforms []string
 }
 
 var admittedClientSpecs = []ClientSpec{
@@ -42,7 +45,12 @@ var admittedClientSpecs = []ClientSpec{
 		QualifiedPlatforms:     []string{"macOS"},
 	},
 	{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
-	{ID: ClientHermes, Label: "Hermes", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions}},
+	{
+		ID:                ClientHermes,
+		Label:             "Hermes",
+		EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions},
+		SessionsKeepRoute: true,
+	},
 }
 
 // AdmittedClientSpecs returns an independent copy of every supported client contract.

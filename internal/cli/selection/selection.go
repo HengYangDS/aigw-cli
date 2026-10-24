@@ -153,11 +153,18 @@ func renderUse(runtime invocation.Context, cfg configuration.Config, selected co
 	if result.RestartRequired {
 		rows = append(rows, presentation.Field{Label: "Activation", Value: "Restart required"})
 	}
+	if spec.SessionsKeepRoute && projectionChanged {
+		rows = append(rows, existingSessionsField)
+	}
 	r.Rows(rows...)
 	r.Success(detail)
 	r.Next(result.NextAction)
 	return r.Err()
 }
+
+// existingSessionsField tells users of a client whose sessions keep the route
+// they were created with that a projection change reaches new sessions only.
+var existingSessionsField = presentation.Field{Label: "Existing sessions", Value: "Keep the route they started with; new sessions use this selection"}
 
 type useResult struct {
 	DryRun             bool   `json:"dry_run"`
@@ -195,12 +202,17 @@ func previewUse(runtime invocation.Context, cfg configuration.Config, selected c
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("Selection preview")
 	r.Section("Selection")
-	r.Rows(
-		presentation.Field{Label: "Client", Value: configuration.ClientLabel(selected.Client)},
-		presentation.Field{Label: "Route", Value: selected.RouteLabel},
-		presentation.Field{Label: "Endpoint", Value: selected.Endpoint},
-		presentation.Field{Label: "Account upstream", Value: selected.UpstreamEndpoint},
-	)
+	rows := []presentation.Field{
+		{Label: "Client", Value: configuration.ClientLabel(selected.Client)},
+		{Label: "Route", Value: selected.RouteLabel},
+		{Label: "Endpoint", Value: selected.Endpoint},
+		{Label: "Account upstream", Value: selected.UpstreamEndpoint},
+	}
+	if spec, _ := configuration.ClientSpecFor(selected.Client); spec.SessionsKeepRoute &&
+		slices.ContainsFunc(plans, func(plan client.ProjectionPlan) bool { return plan.ChangesState }) {
+		rows = append(rows, existingSessionsField)
+	}
+	r.Rows(rows...)
 	if len(plans) > 0 {
 		r.Section("Projection targets")
 		targets := make([]presentation.Field, 0, len(plans))

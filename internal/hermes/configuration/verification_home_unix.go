@@ -3,6 +3,7 @@
 package configuration
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -15,11 +16,21 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-// GatewayAbsent reports whether no process holds the home's gateway lock. A
-// running Hermes gateway holds an exclusive lock on <home>/gateway.lock, and
-// Hermes treats that lock as its own authority; a missing lock file means no
-// gateway started for the home.
+// GatewayAbsent reports whether no Hermes gateway runs for the home: no process
+// holds <home>/gateway.lock, Hermes's own authority on a running gateway, and
+// the gateway process that <home>/gateway_state.json records has exited. A
+// gateway releases its lock before it writes its exit records and logs into the
+// home, and Hermes keeps the state file after the gateway stops, so the free
+// lock alone does not prove that the process ended. Missing files mean that no
+// gateway started or recorded a run.
 func GatewayAbsent(home string) (bool, error) {
+	if free, err := gatewayLockFree(home); err != nil || !free {
+		return false, err
+	}
+	return recordedGatewayExited(home)
+}
+
+func gatewayLockFree(home string) (bool, error) {
 	lock, err := os.Open(filepath.Join(home, "gateway.lock"))
 	if errors.Is(err, os.ErrNotExist) {
 		return true, nil
@@ -34,6 +45,35 @@ func GatewayAbsent(home string) (bool, error) {
 		return false, err
 	}
 	return true, syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
+}
+
+// recordedGatewayExited tests the recorded process with signal 0, which
+// delivers nothing and only reports whether the process exists.
+func recordedGatewayExited(home string) (bool, error) {
+	data, err := os.ReadFile(filepath.Join(home, "gateway_state.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var state struct {
+		PID int `json:"pid"`
+	}
+	if err := json.Unmarshal(data, &state); err != nil {
+		return false, fmt.Errorf("read the Hermes gateway state: %w", err)
+	}
+	if state.PID <= 0 {
+		return true, nil
+	}
+	switch err := syscall.Kill(state.PID, 0); {
+	case errors.Is(err, syscall.ESRCH):
+		return true, nil
+	case err == nil, errors.Is(err, syscall.EPERM):
+		return false, nil
+	default:
+		return false, err
+	}
 }
 
 // CreateVerificationHome borrows committed dependencies, not their mutable boot

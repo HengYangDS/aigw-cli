@@ -10,8 +10,8 @@ import (
 // Hermes creates it owner-only when a gateway first needs it.
 func GatewayLockDirectory(home string) string { return filepath.Join(home, "gateway-locks") }
 
-// AwaitGatewayAbsence checks GatewayAbsent every poll until no gateway holds
-// the home's lock or the bound passes, and reports whether it is absent.
+// AwaitGatewayAbsence checks GatewayAbsent every poll until the home's gateway
+// is gone or the bound passes, and reports whether it is absent.
 func AwaitGatewayAbsence(home string, bound, poll time.Duration) bool {
 	deadline := time.Now().Add(bound)
 	for {

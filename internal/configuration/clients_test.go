@@ -22,7 +22,7 @@ func TestAdmittedClientRegistryIsTheSingleProtocolBoundary(t *testing.T) {
 			QualifiedPlatforms:     []string{"macOS"},
 		},
 		{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
-		{ID: ClientHermes, Label: "Hermes", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions}},
+		{ID: ClientHermes, Label: "Hermes", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions}, SessionsKeepRoute: true},
 	}
 	if got := AdmittedClientSpecs(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("client specs = %#v, want %#v", got, want)

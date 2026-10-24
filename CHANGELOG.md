@@ -14,6 +14,20 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Added
+
+- `aigw use --for hermes` and its preview say that existing Hermes sessions
+  keep the route they started with and new sessions use the selection, when the
+  Hermes projection changes. Hermes freezes a session's model and endpoint when
+  it creates the session.
+
+### Fixed
+
+- `aigw verify --for hermes` deletes its disposable home only after the
+  gateway process that the home records has exited, not as soon as its lock is
+  free. Hermes releases the lock before it writes its exit records and logs into
+  the home; a process that outlives the wait keeps the home, named in the error.
+
 ## [0.4.14] - 2026-10-24
 
 History: [GitLab][0.4.14-gitlab] · [GitHub][0.4.14-github]
