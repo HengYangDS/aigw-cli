@@ -14,6 +14,10 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+## [0.4.15] - 2026-10-24
+
+History: [GitLab][0.4.15-gitlab] · [GitHub][0.4.15-github]
+
 ### Added
 
 - `aigw use --for hermes` and its preview say that existing Hermes sessions
@@ -1606,8 +1610,10 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
-[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.14...main
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.14...main
+[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.15...main
+[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.15...main
+[0.4.15-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.14...v0.4.15
+[0.4.15-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.14...v0.4.15
 [0.4.14-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.13...v0.4.14
 [0.4.14-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.13...v0.4.14
 [0.4.13-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.12...v0.4.13
