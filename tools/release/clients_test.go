@@ -91,6 +91,7 @@ func TestNativeClientInputs(t *testing.T) {
 		}
 	})
 	t.Run("hermes-offline-version-preflight", testHermesNativeClientInputs)
+	t.Run("hermes-session-identifier", testHermesSessionIdentifier)
 }
 
 func TestNativeClientJourney(t *testing.T) {
@@ -165,11 +166,10 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	before := journey.preserveClientFiles(client)
 	steps := p.clientLifecycle(journey, client)
 	hermesSessionItems := 0
-	hermesSessionTurns := 0
+	hermesSessionID := ""
 	continueClient := func() {
 		if hermesSession != nil {
-			hermesSessionItems = journey.requireHermesContinuedTurn(executable, hermesSession, &completions, hermesSessionItems, hermesSessionTurns == 0)
-			hermesSessionTurns++
+			hermesSessionItems, hermesSessionID = journey.requireHermesContinuedTurn(executable, hermesSession, &completions, hermesSessionItems, hermesSessionID)
 		}
 	}
 	for _, step := range steps {
@@ -383,12 +383,15 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 		if err != nil {
 			return err
 		}
-		j.testing.Cleanup(func() {
+		t := j.testing
+		t.Cleanup(func() {
+			j.stopHermesGateway(executable, profile)
 			if err := cleanup(); err != nil {
-				j.testing.Errorf("remove native Hermes acceptance profile: %v", err)
+				t.Errorf("remove native Hermes acceptance profile: %v", err)
 			}
 		})
 		j.setEnvironment("HERMES_HOME", profile)
+		j.setEnvironment("HERMES_GATEWAY_LOCK_DIR", hermesconfig.GatewayLockDirectory(profile))
 	}
 	preferences := map[string]string{
 		// This journey owns client inference and projection, not marketplace synchronization.

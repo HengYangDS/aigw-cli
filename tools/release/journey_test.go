@@ -360,6 +360,14 @@ func (j *journeyFixture) runWithInput(binary, input string, args ...string) []by
 
 func (j *journeyFixture) runWithContext(parent context.Context, binary, input string, args ...string) []byte {
 	j.testing.Helper()
+	stdout, _ := j.runStreamsWithContext(parent, binary, input, args...)
+	return stdout
+}
+
+// runStreamsWithContext also returns the diagnostics stream, where native
+// clients report session identities.
+func (j *journeyFixture) runStreamsWithContext(parent context.Context, binary, input string, args ...string) ([]byte, []byte) {
+	j.testing.Helper()
 	if input != "" {
 		j.sensitiveInputs = append(j.sensitiveInputs, input)
 	}
@@ -377,7 +385,7 @@ func (j *journeyFixture) runWithContext(parent context.Context, binary, input st
 			redaction.Text(strings.Join(args, " "), j.sensitiveInputs...), err,
 			redaction.Text(string(stdout), j.sensitiveInputs...), redaction.Text(string(stderr), j.sensitiveInputs...))
 	}
-	return stdout
+	return stdout, stderr
 }
 
 func (j *journeyFixture) requireConfigContains(values ...string) {

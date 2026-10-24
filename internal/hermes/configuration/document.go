@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strconv"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -106,9 +107,13 @@ func encode(root *yaml.Node) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-// PrepareVerification preserves native settings in an isolated projection and
+// VerificationGatewayIdleExitSeconds bounds how long the gateway that a
+// verification chat auto-starts stays up without clients or work.
+const VerificationGatewayIdleExitSeconds = 2
+
+// PrepareVerification preserves native settings in an isolated projection,
 // disables dependency installation, passive software-update checks and launcher
-// publication.
+// publication, and bounds the idle life of the gateway a chat starts.
 func (plan *Plan) PrepareVerification() ([]byte, error) {
 	if !plan.configBefore.Exists {
 		return nil, errors.New("Hermes native configuration is missing; run aigw sync")
@@ -121,10 +126,11 @@ func (plan *Plan) PrepareVerification() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, policy := range []struct{ section, setting string }{
-		{"security", "allow_lazy_installs"},
-		{"updates", "check"},
-		{"cli", "expose_on_path"},
+	for _, policy := range []struct{ section, setting, tag, value string }{
+		{"security", "allow_lazy_installs", "!!bool", "false"},
+		{"updates", "check", "!!bool", "false"},
+		{"cli", "expose_on_path", "!!bool", "false"},
+		{"gateway", "unmanaged_idle_exit_seconds", "!!int", strconv.Itoa(VerificationGatewayIdleExitSeconds)},
 	} {
 		section := field(root, policy.section)
 		if section == nil {
@@ -134,7 +140,7 @@ func (plan *Plan) PrepareVerification() ([]byte, error) {
 		if section.Kind != yaml.MappingNode || section.Anchor != "" {
 			return nil, fmt.Errorf("Hermes %s must be an independent mapping for verification", policy.section)
 		}
-		setField(section, policy.setting, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: "false"})
+		setField(section, policy.setting, &yaml.Node{Kind: yaml.ScalarNode, Tag: policy.tag, Value: policy.value})
 	}
 	// Dependency-only profiles retain the native member union; the probe itself
 	// must not activate operator plugins or their credential-backed providers.

@@ -14,6 +14,20 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Fixed
+
+- `aigw verify --for hermes` keeps its disposable Hermes home until the
+  gateway that its chat starts has exited. That gateway ends after 2 idle
+  seconds and keeps its locks inside the home; if it outlives the wait,
+  verification stops it once with `hermes gateway stop`, and a home whose
+  gateway still runs is kept and named in the error.
+- A client line that starts with a warning or error symbol, such as Hermes's
+  `⚠ install out of sync`, counts as a native warning, so verification no
+  longer passes over it.
+- The Hermes release journey resumes its session with `--resume` and the stored
+  session identifier instead of repeating options that Hermes fixes at
+  creation, and stops its gateway before removing its home.
+
 ## [0.4.13] - 2026-10-23
 
 History: [GitLab][0.4.13-gitlab] · [GitHub][0.4.13-github]

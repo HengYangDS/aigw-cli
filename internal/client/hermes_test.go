@@ -284,6 +284,7 @@ func hermesVerificationFixture(t *testing.T) (configuration.Config, configuratio
 
 func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
 	cfg, selected, deps := hermesVerificationFixture(t)
+	t.Setenv("HERMES_GATEWAY_LOCK_DIR", filepath.Join(t.TempDir(), "operator-gateway-locks"))
 	root := filepath.Dir(cfg.Clients[configuration.ClientHermes].Targets[0])
 	environment := os.Environ()
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes Agent v1\n"), []byte("AIGW_OK\n")}}
@@ -377,6 +378,10 @@ func requireHermesVerificationHome(t *testing.T, plan process.Plan, root string,
 		!slices.Contains(plan.Env, "HERMES_DISABLE_LAZY_INSTALLS=1") || slices.Contains(plan.Env, "HERMES_DISABLE_LAZY_INSTALLS=0") {
 		t.Fatal("verification must isolate Hermes settings without changing the OS installation home")
 	}
+	locks := slices.DeleteFunc(slices.Clone(plan.Env), func(entry string) bool { return !strings.HasPrefix(entry, "HERMES_GATEWAY_LOCK_DIR=") })
+	if !slices.Equal(locks, []string{"HERMES_GATEWAY_LOCK_DIR=" + filepath.Join(plan.Directory, "gateway-locks")}) {
+		t.Fatalf("verification gateway host locks = %v, want only the verification home's own", locks)
+	}
 	tools, err := os.Readlink(filepath.Join(plan.Directory, "tools"))
 	if err != nil || tools != filepath.Join(root, "tools") {
 		t.Fatalf("verification does not borrow the installed tools: %v", err)
@@ -397,9 +402,13 @@ func requireHermesVerificationSettings(t *testing.T, plan process.Plan) map[stri
 		Security map[string]*bool `yaml:"security"`
 		Updates  map[string]*bool `yaml:"updates"`
 		CLI      map[string]*bool `yaml:"cli"`
+		Gateway  map[string]int   `yaml:"gateway"`
 	}
 	if err := yaml.Unmarshal(data, &projected); err != nil {
 		t.Fatal(err)
+	}
+	if projected.Gateway["unmanaged_idle_exit_seconds"] != 2 {
+		t.Fatalf("isolated Hermes verification keeps its gateway idle for %d seconds, want 2", projected.Gateway["unmanaged_idle_exit_seconds"])
 	}
 	if value := projected.Security["allow_lazy_installs"]; value == nil || *value {
 		t.Fatal("isolated Hermes verification permits runtime dependency installation")

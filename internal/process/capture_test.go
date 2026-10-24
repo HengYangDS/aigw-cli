@@ -26,10 +26,20 @@ func TestDiagnosticFailureUsesNativeMarkers(t *testing.T) {
 		{"ERROR client_core: failed\n", true},
 		{"Traceback (most recent call last):\n", true},
 		{"fatal: failed startup\n", true},
+		{"⚠ install out of sync (venv: out of sync with uv.lock) — run hermes pm install\n", true},
+		{"  \x1b[33m⚠️\x1b[0m model metadata unavailable\n", true},
+		{"✗ tool call failed\n", true},
+		{"✖ 2 problems\n", true},
+		{"✘ request rejected\n", true},
+		{"❌ provider unavailable\n", true},
 		{"2026-10-03T05:00:00Z INFO client initialized\n", false},
 		{"warning_count=0\n", false},
 		{"error_count=0\n", false},
 		{"OpenAI Codex\nmodel: gpt-test\n", false},
+		{"session_id: local-6f9b2d7f\n", false},
+		{"✓ Completed\n", false},
+		{"↻ Resumed session local-6f9b2d7f (1 user message, 4 total messages)\n", false},
+		{"note: the ⚠ glyph marks warnings\n", false},
 	} {
 		t.Run(test.text, func(t *testing.T) {
 			if got := DiagnosticFailure([]byte(test.text)); got != test.want {

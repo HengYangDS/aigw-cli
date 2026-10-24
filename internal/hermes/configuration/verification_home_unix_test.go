@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 func TestVerificationHomePreservesTheNativeRoot(t *testing.T) {
@@ -229,6 +231,67 @@ func TestVerificationHomesHaveIndependentCleanup(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestVerificationHomeRetainsItselfWhileItsGatewayLockIsHeld(t *testing.T) {
+	home, cleanup, err := CreateVerificationHome(filepath.Join(t.TempDir(), "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if locks := GatewayLockDirectory(home); filepath.Dir(locks) != home {
+		t.Fatalf("verification gateway locks %q are outside the home", locks)
+	}
+	if absent, err := GatewayAbsent(home); err != nil || !absent {
+		t.Fatalf("home whose gateway never started: absent=%t err=%v", absent, err)
+	}
+	release := holdGatewayLock(t, home)
+	if absent, err := GatewayAbsent(home); err != nil || absent {
+		t.Fatalf("held gateway lock: absent=%t err=%v", absent, err)
+	}
+	if AwaitGatewayAbsence(home, 20*time.Millisecond, time.Millisecond) {
+		t.Fatal("awaiting a held gateway lock reported its gateway absent")
+	}
+	if err := cleanup(); err == nil || !strings.Contains(err.Error(), home) {
+		t.Fatalf("cleanup under a live gateway = %v, want an error naming the retained home", err)
+	}
+	if _, err := os.Stat(home); err != nil {
+		t.Fatalf("cleanup deleted a home whose gateway still runs: %v", err)
+	}
+	release()
+	if !AwaitGatewayAbsence(home, 0, 0) {
+		t.Fatal("released gateway lock was not observed as absent")
+	}
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(home); !os.IsNotExist(err) {
+		t.Fatalf("verification home survived cleanup after its gateway exited: %v", err)
+	}
+}
+
+// holdGatewayLock takes the per-home gateway lock the way a running Hermes
+// gateway holds it, until the returned release runs.
+func holdGatewayLock(t *testing.T, home string) func() {
+	t.Helper()
+	lock, err := os.OpenFile(filepath.Join(home, "gateway.lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		t.Fatal(err)
+	}
+	released := false
+	release := func() {
+		if released {
+			return
+		}
+		released = true
+		if err := lock.Close(); err != nil {
+			t.Error(err)
+		}
+	}
+	t.Cleanup(release)
+	return release
 }
 
 func TestVerificationHomeCleanupAcceptsAWithdrawnParent(t *testing.T) {

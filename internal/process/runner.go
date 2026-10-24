@@ -14,6 +14,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/x/ansi"
 )
@@ -38,10 +40,18 @@ type VerificationRunner interface {
 	RunCaptureStreams(ctx context.Context, plan Plan) ([]byte, []byte, error)
 }
 
+// nativeDiagnosticSymbols are the warning and error signs that native clients
+// print at the start of a diagnostic line.
+const nativeDiagnosticSymbols = "⚠✗✖✘❌"
+
 // DiagnosticFailure reports explicit native warning or error markers, not
-// ordinary stderr progress or arbitrary response text.
+// ordinary stderr progress or arbitrary response text. A marker is a warning or
+// error word, or a warning or error sign that begins a line.
 func DiagnosticFailure(diagnostic []byte) bool {
 	for line := range strings.SplitSeq(strings.ToLower(ansi.Strip(string(diagnostic))), "\n") {
+		if sign, _ := utf8.DecodeRuneInString(strings.TrimLeftFunc(line, unicode.IsSpace)); strings.ContainsRune(nativeDiagnosticSymbols, sign) {
+			return true
+		}
 		fields := strings.FieldsFunc(line, func(r rune) bool {
 			return r <= ' ' || strings.ContainsRune("[]():", r)
 		})

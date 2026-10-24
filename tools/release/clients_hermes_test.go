@@ -20,9 +20,11 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
+	hermesconfig "aigw-cli/internal/hermes/configuration"
 	"aigw-cli/internal/process"
 
 	"go.yaml.in/yaml/v3"
@@ -440,12 +442,16 @@ func TestHermesSessionRecorderRequiresReadFileOutputInRetainedInput(t *testing.T
 	}
 }
 
-func (j *journeyFixture) requireHermesContinuedTurn(executable string, recorder *hermesSessionRecorder, completions *atomic.Int64, previousItems int, first bool) int {
+// requireHermesContinuedTurn creates the journey's Hermes session when session
+// is empty and otherwise resumes it by its stored identifier. Hermes freezes a
+// session's creation options, so a resume repeats none of them.
+func (j *journeyFixture) requireHermesContinuedTurn(executable string, recorder *hermesSessionRecorder, completions *atomic.Int64, previousItems int, session string) (int, string) {
 	j.testing.Helper()
 	before := len(recorder.inputCounts())
 	completed := completions.Load()
-	maxTurns := "1"
+	first := session == ""
 	prompt := "Reply with exactly: AIGW_OK\n"
+	args := []string{"chat", "--quiet", "--query-file", "-", "--source", "tool", "--resume", session}
 	if first {
 		filePath := filepath.Join(j.root, "home", "hermes-read-file.txt")
 		fileMarker := fmt.Sprintf("AIGW_HERMES_READ_FILE_%s", filepath.Base(j.root))
@@ -454,22 +460,23 @@ func (j *journeyFixture) requireHermesContinuedTurn(executable string, recorder 
 			j.testing.Fatal(err)
 		}
 		recorder.expectReadFile(filePath, fileMarker, sessionMarker)
-		maxTurns = "2"
 		prompt = fmt.Sprintf("Session marker %q. Use read_file to read %q, then reply with exactly: AIGW_OK\n", sessionMarker, filePath)
+		args = []string{
+			"chat", "--quiet", "--query-file", "-", "--oneshot", "--max-turns", "2", "--run-budget", "45",
+			"--ignore-rules", "--source", "tool",
+		}
 	}
 	recorder.requireToolHistory(true)
 	defer recorder.requireToolHistory(false)
-	args := []string{
-		"chat", "--quiet", "--query-file", "-", "--max-turns", maxTurns, "--run-budget", "45",
-		"--ignore-rules", "--source", "tool", "--continue", "aigw-native-lifecycle-continuity",
-	}
-	if first {
-		args = append(args, "--create-if-missing")
-	}
-	output := j.runWithInput(executable, prompt, args...)
+	output, diagnostics := j.runStreamsWithContext(j.testing.Context(), executable, prompt, args...)
 	if !strings.Contains(string(output), "AIGW_OK") {
 		j.testing.Fatal("Hermes lifecycle turn did not return the model marker")
 	}
+	reported := reportedHermesSession(diagnostics)
+	if reported == "" || !first && reported != session {
+		j.testing.Fatalf("Hermes lifecycle turn reported session %q, want the stored session", reported)
+	}
+	session = reported
 	inputs := recorder.inputCounts()
 	requestCount := 1
 	finalInput := before
@@ -491,7 +498,46 @@ func (j *journeyFixture) requireHermesContinuedTurn(executable string, recorder 
 	if first && !recorder.fileReadVerified() {
 		j.testing.Fatal("Hermes lifecycle session did not return the matching read_file result")
 	}
-	return inputs[finalInput]
+	return inputs[finalInput], session
+}
+
+// reportedHermesSession reads the identifier on the session_id: line that
+// quiet Hermes chats write to their diagnostics stream.
+func reportedHermesSession(diagnostics []byte) string {
+	session := ""
+	for line := range strings.Lines(string(diagnostics)) {
+		if id, found := strings.CutPrefix(strings.TrimSpace(line), "session_id:"); found {
+			session = strings.TrimSpace(id)
+		}
+	}
+	return session
+}
+
+// stopHermesGateway stops the gateway that the journey's chats started in its
+// Hermes home through the native command, which refuses an active turn, and
+// waits until the gateway releases the home's lock.
+func (j *journeyFixture) stopHermesGateway(executable, home string) {
+	if hermesconfig.AwaitGatewayAbsence(home, 0, 0) {
+		return
+	}
+	environment := environmentWith(j.environment, map[string]string{
+		"HERMES_HOME": home, "HERMES_GATEWAY_LOCK_DIR": hermesconfig.GatewayLockDirectory(home),
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), clientverification.ProtocolTimeout)
+	defer cancel()
+	_, _, _ = (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: executable, Directory: home, Env: environment, Args: []string{"gateway", "stop"}})
+	hermesconfig.AwaitGatewayAbsence(home, 15*time.Second, 250*time.Millisecond)
+}
+
+func testHermesSessionIdentifier(t *testing.T) {
+	for _, test := range []struct{ diagnostics, want string }{
+		{"\nsession_id: local-0123abc\n", "local-0123abc"},
+		{"Hermes ready\n", ""},
+	} {
+		if got := reportedHermesSession([]byte(test.diagnostics)); got != test.want {
+			t.Fatalf("session from %q = %q, want %q", test.diagnostics, got, test.want)
+		}
+	}
 }
 
 func testHermesNativeClientInputs(t *testing.T) {

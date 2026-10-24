@@ -4,17 +4,41 @@ package configuration
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 
 	"github.com/rogpeppe/go-internal/robustio"
 	"go.yaml.in/yaml/v3"
 )
 
+// GatewayAbsent reports whether no process holds the home's gateway lock. A
+// running Hermes gateway holds an exclusive lock on <home>/gateway.lock, and
+// Hermes treats that lock as its own authority; a missing lock file means no
+// gateway started for the home.
+func GatewayAbsent(home string) (bool, error) {
+	lock, err := os.Open(filepath.Join(home, "gateway.lock"))
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = lock.Close() }()
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); errors.Is(err, syscall.EWOULDBLOCK) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	return true, syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
+}
+
 // CreateVerificationHome borrows committed dependencies, not their mutable boot
 // state. Native dependency leases remain Hermes-owned and expire on process exit.
+// Its remover deletes the home only while no gateway holds the home's lock.
 func CreateVerificationHome(target string) (string, func() error, error) {
 	root := filepath.Dir(target)
 	if filepath.Base(filepath.Dir(root)) == "profiles" {
@@ -24,7 +48,16 @@ func CreateVerificationHome(target string) (string, func() error, error) {
 	if err != nil {
 		return "", nil, errors.New("cannot create an isolated Hermes verification home")
 	}
-	cleanup := func() error { return robustio.RemoveAll(home) }
+	cleanup := func() error {
+		absent, err := GatewayAbsent(home)
+		switch {
+		case err != nil:
+			return fmt.Errorf("cannot confirm that the Hermes verification gateway exited; retained %s: %w", home, err)
+		case !absent:
+			return fmt.Errorf("the Hermes verification gateway is still running; retained %s", home)
+		}
+		return robustio.RemoveAll(home)
+	}
 	fail := func(err error) (string, func() error, error) {
 		return "", nil, errors.Join(err, cleanup())
 	}

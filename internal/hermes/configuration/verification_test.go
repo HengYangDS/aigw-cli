@@ -54,6 +54,9 @@ func TestVerificationProjectsAnotherModelWithoutChangingOwnedFiles(t *testing.T)
 	if enabled, ok := configMap(t, result, "plugins")["enabled"].([]any); !ok || len(enabled) != 0 {
 		t.Fatal("verification could activate operator plugins")
 	}
+	if idle := configMap(t, result, "gateway")["unmanaged_idle_exit_seconds"]; idle != VerificationGatewayIdleExitSeconds {
+		t.Fatalf("verification gateway idle exit = %#v, want %d seconds", idle, VerificationGatewayIdleExitSeconds)
+	}
 	if memory := configMap(t, result, "memory"); memory["provider"] != nil || memory["enabled"] != true {
 		t.Fatal("verification activated operator memory or lost unrelated preferences")
 	}
@@ -66,7 +69,7 @@ func TestVerificationProjectsAnotherModelWithoutChangingOwnedFiles(t *testing.T)
 }
 
 func TestVerificationRejectsAmbiguousNativePolicy(t *testing.T) {
-	for _, content := range []string{"security: [invalid]", "updates: &policy {}", "security: *missing", "model: [invalid]"} {
+	for _, content := range []string{"security: [invalid]", "updates: &policy {}", "security: *missing", "model: [invalid]", "gateway: [invalid]", "gateway: &gateway {}"} {
 		t.Run(content, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.yaml")
 			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
