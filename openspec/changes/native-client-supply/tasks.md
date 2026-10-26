@@ -5,6 +5,13 @@
 - [x] 1.2 Make `ci native-clients` supply, for its own host, the clients that
       the release owner declares, at the pinned official releases. Keep their
       state confined and prove its retirement. The client tests pass.
+- [x] 1.3 Run every `ci` command through the native process owner, so that a
+      signal to the supplier stops its running installer and every process the
+      installer started before the supply is removed. A real blocking installer
+      that ignores SIGTERM passes (BLOCK `54dfadb0`).
+- [x] 1.4 Give the official Hermes installer a declared environment, with its
+      tool store, `HERMES_RUNTIME_DIR`, inside the supply. A job's
+      `HERMES_RUNTIME_DIR` no longer reaches it (BLOCK `5296f324`).
 
 ## 2. Pipeline
 

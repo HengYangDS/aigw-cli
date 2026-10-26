@@ -20,8 +20,12 @@ import (
 // TestMain keeps the runner's release-tag selection out of these tests; a tag
 // push would otherwise select that tag for every candidate under test. Tests
 // that need a selected tag set it explicitly. gitfixture keeps host Git hooks
-// and templates out of fixture repositories.
+// and templates out of fixture repositories. A process that the supply
+// interruption test starts under a tool name serves that tool instead.
 func TestMain(m *testing.M) {
+	if record := os.Getenv(testInstallerRecord); record != "" {
+		os.Exit(serveTestTool(filepath.Base(os.Args[0]), record))
+	}
 	for _, name := range []string{"AIGW_CHANGELOG_RELEASE_TAG", "GITHUB_REF_TYPE", "GITHUB_REF_NAME", "CI_COMMIT_TAG"} {
 		_ = os.Unsetenv(name)
 	}

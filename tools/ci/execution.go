@@ -9,17 +9,30 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"time"
 )
 
 type command struct {
-	Name    string
-	Args    []string
-	Env     []string
-	Dir     string
-	Input   string
-	Timeout time.Duration
+	Name string
+	Args []string
+	// Env extends this process's environment, unless the command is Isolated:
+	// an isolated command receives exactly Env.
+	Env      []string
+	Isolated bool
+	Dir      string
+	Input    string
+	Timeout  time.Duration
+}
+
+// environment is the complete environment that call's process receives.
+func (call command) environment() []string {
+	if call.Isolated {
+		return slices.Clone(call.Env)
+	}
+	inherited := exec.Cmd{Dir: call.Dir}
+	return append(inherited.Environ(), call.Env...)
 }
 
 const commandDiagnosticLimit = 64 * 1024
@@ -58,23 +71,29 @@ func systemOutputRunner(call command) (output []byte, err error) {
 	defer func() {
 		err = errors.Join(err, os.Remove(capture.Name()))
 	}()
+	// Native file descriptors preserve diagnostics from tools that exit before
+	// their asynchronous pipe writes drain.
+	runErr := runOwned(call, capture, capture)
+	closeErr := capture.Close()
+	output, readErr := os.ReadFile(capture.Name())
+	return output, errors.Join(runErr, closeErr, readErr)
+}
+
+// runOwned runs call through the native process owner: in its own process
+// group or Job, stopped when this process is interrupted or the call's timeout
+// expires, and with every remaining descendant reclaimed before return.
+func runOwned(call command, stdout, stderr io.Writer) error {
 	ctx := context.Background()
 	if call.Timeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, call.Timeout)
 		defer cancel()
 	}
-	environment := exec.Cmd{Dir: call.Dir}
 	plan := nativeprocess.Plan{
 		Executable: call.Name, Args: call.Args, Directory: call.Dir,
-		Env: append(environment.Environ(), call.Env...), Stdin: call.Input,
+		Env: call.environment(), Stdin: call.Input,
 	}
-	// Native file descriptors preserve diagnostics from tools that exit before
-	// their asynchronous pipe writes drain.
-	runErr := (nativeprocess.Runner{}).RunStream(ctx, plan, capture, capture)
-	closeErr := capture.Close()
-	output, readErr := os.ReadFile(capture.Name())
-	return output, errors.Join(runErr, closeErr, readErr, ctx.Err())
+	return errors.Join((nativeprocess.Runner{}).RunStream(ctx, plan, stdout, stderr), ctx.Err())
 }
 
 func runCommands(commands []command, stdout io.Writer, runner commandRunner) error {
@@ -97,15 +116,9 @@ func systemRunner(call command) (err error) {
 	defer func() {
 		err = errors.Join(err, capture.Close(), os.Remove(capture.Name()))
 	}()
-	process := exec.Command(call.Name, call.Args...)
-	process.Dir = call.Dir
-	process.Env = append(process.Environ(), call.Env...)
-	process.Stdin = strings.NewReader(call.Input)
-	process.Stdout = os.Stdout
 	// A native descriptor preserves diagnostic writes before immediate exit;
 	// standard output remains live and diagnostics replay without a memory limit.
-	process.Stderr = capture
-	runErr := process.Run()
+	runErr := runOwned(call, os.Stdout, capture)
 	var failureOutput diagnosticCapture
 	_, seekErr := capture.Seek(0, io.SeekStart)
 	var readErr error

@@ -31,7 +31,16 @@ rather than narrow the journey.
 
 - **WHEN** an installation step fails, a pinned identity does not match, or the
   job is interrupted during supply
-- **THEN** the supply SHALL export no client and SHALL remove its directory.
+- **THEN** the supply SHALL stop the running installer and every process it
+  started, without their cooperation
+- **AND** it SHALL export no client and SHALL remove its directory.
+
+#### Scenario: The job environment names other client state
+
+- **WHEN** the job environment sets a client's home or tool directory, such as
+  `HERMES_RUNTIME_DIR`
+- **THEN** the official installer SHALL still keep its homes, tools, caches and
+  launcher inside the supply.
 
 #### Scenario: The job retires its supply
 

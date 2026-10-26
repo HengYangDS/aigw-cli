@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -20,6 +22,43 @@ import (
 )
 
 var fixtureHermesInstaller = []byte("#!/bin/sh\n# official installer fixture\n")
+
+// testInstallerRecord names the file in which the supply interruption test's
+// fake installers record their process IDs. A test process started with it
+// serves the tool its invocation names.
+const testInstallerRecord = "AIGW_CI_TEST_INSTALLER_RECORD"
+
+// serveTestTool runs this test binary as the `ci` command or as a fake
+// installer. The fake `mise` starts a fake `npm`, as the real one does; both
+// ignore termination requests and block, as a stalled download can, so only
+// their owner's forced cleanup stops them.
+func serveTestTool(name, record string) int {
+	switch name {
+	case "ci":
+		if err := run(os.Args[1:], os.Stdout, systemRunner); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		return 0
+	case "mise", "npm":
+		signal.Ignore(os.Interrupt, syscall.SIGTERM)
+		if name == "mise" {
+			if err := exec.Command(filepath.Join(filepath.Dir(os.Args[0]), "npm")).Start(); err != nil {
+				return 2
+			}
+		}
+		file, err := os.OpenFile(record, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+		if err != nil {
+			return 2
+		}
+		if _, err := fmt.Fprintln(file, os.Getpid()); err != nil || file.Close() != nil {
+			return 2
+		}
+		time.Sleep(time.Minute)
+		return 3
+	}
+	return 2
+}
 
 func fixtureRelease() clientRelease {
 	return clientRelease{codex: "0.163.0", claude: "2.1.302", hermesCommit: strings.Repeat("b", 40),
@@ -153,6 +192,10 @@ func TestClientSupplyRequiresExactReleasePins(t *testing.T) {
 func TestHermesSupplyRunsOnlyThePinnedOfficialInstaller(t *testing.T) {
 	root := t.TempDir()
 	windowsClientTools(t, root)
+	// Job settings that the official installer would otherwise follow.
+	t.Setenv("HERMES_RUNTIME_DIR", filepath.Join(root, "job", "tools"))
+	t.Setenv("HERMES_REPO_URL", "https://example.invalid/fork.git")
+	t.Setenv("HTTPS_PROXY", "http://proxy.invalid:3128")
 	layout := clientLayouts["linux/amd64"]
 	var calls []command
 	githubEnvironment := filepath.Join(root, "github-env")
@@ -175,18 +218,32 @@ func TestHermesSupplyRunsOnlyThePinnedOfficialInstaller(t *testing.T) {
 	if !slices.Equal(calls[install].Args, wantArguments) {
 		t.Fatalf("Hermes installation = %q, want %q", calls[install].Args, wantArguments)
 	}
-	for _, key := range []string{"HOME", "TMPDIR", "GIT_CONFIG_GLOBAL", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_BIN_HOME"} {
+	for _, key := range []string{"HOME", "TMPDIR", "GIT_CONFIG_GLOBAL", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_BIN_HOME", "HERMES_RUNTIME_DIR"} {
 		index := slices.IndexFunc(calls[install].Env, func(entry string) bool { return strings.HasPrefix(entry, key+"=") })
 		if index < 0 || !strings.HasPrefix(strings.TrimPrefix(calls[install].Env[index], key+"="), supply+string(filepath.Separator)) {
 			t.Fatalf("Hermes installation %s escapes the supply: %q", key, calls[install].Env)
 		}
 	}
-	if !slices.Contains(calls[install].Env, "HOME="+home) {
-		t.Fatalf("Hermes installation home = %q", calls[install].Env)
+	if !slices.Contains(calls[install].Env, "HOME="+home) || !slices.Contains(calls[install].Env, "HERMES_RUNTIME_DIR="+filepath.Join(supply, "hermes", "tools")) {
+		t.Fatalf("Hermes installation home and tool store = %q", calls[install].Env)
+	}
+	// The installer receives exactly its private settings and the host's tool
+	// path and network settings; no other job setting reaches it.
+	private := []string{"HOME", "TMPDIR", "GIT_CONFIG_GLOBAL", "GIT_TERMINAL_PROMPT", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_BIN_HOME", "HERMES_RUNTIME_DIR"}
+	var keys []string
+	for _, entry := range calls[install].Env {
+		key, _, _ := strings.Cut(entry, "=")
+		if slices.Contains(keys, key) || (!slices.Contains(private, key) && !slices.Contains(installerHostSettings, key)) {
+			t.Fatalf("Hermes installation receives job setting %s: %q", key, calls[install].Env)
+		}
+		keys = append(keys, key)
+	}
+	if !calls[install].Isolated || !slices.Contains(calls[install].Env, "PATH="+os.Getenv("PATH")) || !slices.Contains(calls[install].Env, "HTTPS_PROXY=http://proxy.invalid:3128") {
+		t.Fatalf("Hermes installation host settings = isolated %v, %q", calls[install].Isolated, calls[install].Env)
 	}
 	verified := 0
 	for _, item := range calls[install+1:] {
-		if item.Name == "git" && slices.Contains(item.Args, filepath.Join(supply, "hermes", "hermes-agent")) {
+		if item.Name == "git" && slices.Contains(item.Args, filepath.Join(supply, "hermes", "hermes-agent")) && item.Isolated && slices.Equal(item.Env, calls[install].Env) {
 			verified++
 		}
 	}

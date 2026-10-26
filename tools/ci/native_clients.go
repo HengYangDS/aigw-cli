@@ -50,6 +50,12 @@ var (
 	exactSHA256    = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	exactCommit    = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	exactRelease   = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
+	// installerHostSettings are the only host settings that the official
+	// Hermes installer receives: where the host's tools are and how the host
+	// reaches the network.
+	installerHostSettings = []string{
+		"PATH", "HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR",
+	}
 )
 
 func (layout clientLayout) codexRoot() string {
@@ -222,8 +228,9 @@ func runNativeClients(arguments []string, stdout io.Writer, runner commandRunner
 	if err := flags.Parse(arguments[1:]); err != nil || flags.NArg() != 0 || *root == "" || *githubEnvironment == "" {
 		return errors.New(usage)
 	}
-	// An interrupted job still retires its partial supply: the signal reaches
-	// the running installer, and this process outlives it to remove the supply.
+	// An interrupted job still retires its partial supply: the process owner
+	// stops the running installer and every process it started, and this
+	// process outlives them to remove the supply.
 	interrupted := make(chan os.Signal, 1)
 	signal.Notify(interrupted, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(interrupted)
@@ -248,9 +255,11 @@ func supplyClients(host, root, githubEnvironment string, release clientRelease, 
 	if err != nil {
 		return err
 	}
+	// A failure names a signal that stopped the running step before the
+	// step's own error.
 	defer func() {
 		if err != nil {
-			err = errors.Join(err, robustio.RemoveAll(supply))
+			err = errors.Join(interruption(interrupted), err, robustio.RemoveAll(supply))
 		}
 	}()
 	if err := appendGitHubEnvironment(githubEnvironment, "AIGW_NATIVE_CLIENT_SUPPLY="+supply); err != nil {
@@ -328,14 +337,22 @@ func installHermes(supply string, release clientRelease, stdout io.Writer, runne
 	if digest, err := fileSHA256(installer); err != nil || digest != release.hermesInstaller {
 		return errors.Join(errors.New("official Hermes installer checksum mismatch"), err)
 	}
+	// The installer receives a declared environment rather than the job's, so
+	// a job setting such as HERMES_RUNTIME_DIR cannot move its state outside
+	// the supply. Its tool store is bound to the installer's own default place.
 	private := []string{
 		"HOME=" + home, "TMPDIR=" + temporary, "GIT_CONFIG_GLOBAL=" + filepath.Join(supply, "gitconfig"), "GIT_TERMINAL_PROMPT=0",
 		"XDG_CONFIG_HOME=" + filepath.Join(home, ".config"), "XDG_CACHE_HOME=" + filepath.Join(home, ".cache"),
 		"XDG_DATA_HOME=" + filepath.Join(home, ".local", "share"), "XDG_STATE_HOME=" + filepath.Join(home, ".local", "state"),
-		"XDG_BIN_HOME=" + filepath.Join(home, ".local", "bin"),
+		"XDG_BIN_HOME=" + filepath.Join(home, ".local", "bin"), "HERMES_RUNTIME_DIR=" + filepath.Join(hermesHome, "tools"),
+	}
+	for _, name := range installerHostSettings {
+		if value, found := os.LookupEnv(name); found {
+			private = append(private, name+"="+value)
+		}
 	}
 	install := command{Name: "bash", Args: []string{installer, "--commit", release.hermesCommit, "--dir", checkout, "--hermes-home", hermesHome,
-		"--non-interactive", "--skip-browser", "--skip-computer-use"}, Env: private}
+		"--non-interactive", "--skip-browser", "--skip-computer-use"}, Env: private, Isolated: true}
 	if err := runCommands([]command{install}, stdout, runner); err != nil {
 		return fmt.Errorf("install the official Hermes release: %w", err)
 	}
@@ -346,7 +363,7 @@ func installHermes(supply string, release clientRelease, stdout io.Writer, runne
 		{"-C", checkout, "merge-base", "--is-ancestor", release.hermesCommit, "HEAD"},
 		{"-C", checkout, "diff", "--quiet", "HEAD", "--"},
 	} {
-		if err := runner(command{Name: "git", Args: arguments, Env: private}); err != nil {
+		if err := runner(command{Name: "git", Args: arguments, Env: private, Isolated: true}); err != nil {
 			return fmt.Errorf("official Hermes checkout is not the unmodified pinned release: %w", err)
 		}
 	}

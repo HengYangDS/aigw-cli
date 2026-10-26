@@ -26,7 +26,11 @@ journey with real clients, so that acceptance on those hosts is unproved
   exports `CLAUDE_CODE_GIT_BASH_PATH`.
 - All supply state lives in one job-owned directory:
   - homes, caches, temporary files and the Hermes launcher are inside it;
-  - a failed or interrupted supply removes it;
+  - the Hermes installer receives a declared environment, so a job setting
+    such as `HERMES_RUNTIME_DIR` cannot move its tools elsewhere
+    (BLOCK `5296f324`);
+  - a failed or interrupted supply stops its installers and every process they
+    started, then removes it (BLOCK `54dfadb0`);
   - retirement removes only that recorded directory and proves it absent;
   - on Linux and macOS, retirement keeps a directory that a live process still
     uses and fails the job.
@@ -50,8 +54,10 @@ journey with real clients, so that acceptance on those hosts is unproved
 
 ## Impact
 
-`tools/ci` client supply and retirement, the CUE pipeline model, both generated
-Forge projections, their projection tests and `CONTRIBUTING.md` change. The
+`tools/ci` command execution, client supply and retirement, the CUE pipeline
+model, both generated Forge projections, their projection tests and
+`CONTRIBUTING.md` change. Every `ci` command now runs through the existing
+native process owner, which `ci` already used for captured commands. The
 architecture policy declares that `tools/ci` reads the client identities in
 `internal/configuration`. Manual GitHub dispatches that used `windows_clients`
 must use `native_clients`.

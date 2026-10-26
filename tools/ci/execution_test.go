@@ -408,6 +408,19 @@ func TestCommandRunnersHonorExecutionContextWithoutCreatingArtifacts(t *testing.
 	}
 }
 
+func TestIsolatedCommandsReceiveOnlyTheirDeclaredEnvironment(t *testing.T) {
+	t.Setenv("AIGW_CI_TEST_INHERITED", "job value")
+	declared := []string{"AIGW_CI_TEST_DECLARED=supply value"}
+	inherited := command{Env: declared}.environment()
+	if !slices.Contains(inherited, "AIGW_CI_TEST_INHERITED=job value") || inherited[len(inherited)-1] != declared[0] {
+		t.Fatalf("inheriting environment = %q", inherited)
+	}
+	isolated := command{Env: declared, Isolated: true, Dir: t.TempDir()}
+	if got := isolated.environment(); !slices.Equal(got, declared) {
+		t.Fatalf("isolated environment = %q, want %q", got, declared)
+	}
+}
+
 func TestWorkflowGateQualifiesNativeLargeShellInputAndRefusesShellDefects(t *testing.T) {
 	t.Chdir(repositoryRoot(t))
 	gate := slices.IndexFunc(qualityCommands, func(call command) bool { return slices.Contains(call.Args, "check-workflows") })

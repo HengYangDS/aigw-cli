@@ -66,6 +66,15 @@ browser and computer-use tool packs skipped. `HOME`, the XDG directories,
 `TMPDIR` and the Git global configuration point inside the supply, so the
 launcher and the shell profile edits also stay inside it.
 
+The installer receives a declared environment, not the job's: those private
+settings, `HERMES_RUNTIME_DIR` at the installer's own default tool store under
+the private Hermes home, and only the host's `PATH`, proxy and TLS trust
+settings. The installer reads `HERMES_RUNTIME_DIR`, `HERMES_REPO_URL` and
+`HERMES_INSTALL_CHANNEL` from its environment, so an inherited job value could
+otherwise move its uv and Python outside the supply or change its source.
+Removing those names one by one was rejected, because any other inherited
+setting that the installer or its tools read would remain open.
+
 Afterwards the checkout must be the pinned commit, by mutual ancestry, with no
 tracked change, and the launcher must exist. Rejected alternatives:
 
@@ -80,9 +89,13 @@ adds no shell or PowerShell script.
 ### Cleanup is owned and proved
 
 The supply records its directory in `GITHUB_ENV` before any installation. A
-failed step removes the directory. A SIGINT or SIGTERM is caught, so the
-running installer receives the signal and the supply removes the directory
-before the next step starts.
+failed step removes the directory. Every `ci` command runs through the native
+process owner, in its own process group on POSIX hosts and its own Job on
+Windows. A SIGINT or SIGTERM to the supplier is caught: the owner kills the
+running installer and every process it started, and the supply removes the
+directory before it fails. A job cancellation signals only the supplier, so
+forwarding the signal to the installer and waiting was rejected; an installer
+that ignores it would keep the job alive.
 
 Retirement removes only an absolute recorded path with the supply prefix, and
 proves the path is gone. On Linux and macOS it first lists processes. A
