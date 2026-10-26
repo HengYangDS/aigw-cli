@@ -35,22 +35,22 @@ evidence = "GitHub verify.yml native-linux job at d02033e0 installed the Secret 
 [[step]]
 file = ".github/workflows/verify.yml"
 jobs = ["native-linux"]
-sha256 = "906ff28f6ac90c2acba301696773a0a0d3f542abd14ed0f775d84e7e805eee4d"
+sha256 = "ca980c6ab965111911c2b314eba715264e1fb90c332e3a69ef15e8c3457dc343"
 class = "operating-system-glue"
 owner = "CI pipeline model (.config/ci/pipeline.cue linuxSecretService.session)"
 reason = "A private dbus-run-session isolates the Secret Service under test; the wrapper only aliases the session collection, then runs one native Go test."
 platforms = ["linux"]
-evidence = "GitHub verify.yml native-linux job at d02033e0 passed TestNativeProductJourney/system_credential_store in this session"
+evidence = "GitHub verify.yml native-linux job at d02033e0 passed TestNativeProductJourney/system_credential_store in this session; the wrapped command now forwards --clients from native_clients"
 
 [[step]]
 file = ".github/workflows/verify.yml"
 jobs = ["native-linux"]
-sha256 = "0bd562c6bc231c7c7d0b07ec3eb4350fb47eb34a75f7868d30291d43af7a0827"
+sha256 = "7413d45159e9e974cbc9af0cb239c88ec8728f27f85267a3ed5d9744c4812bfc"
 class = "operating-system-glue"
 owner = "CI pipeline model (.config/ci/pipeline.cue linuxSecretService.session)"
 reason = "The same private D-Bus session wraps the second native credential journey."
 platforms = ["linux"]
-evidence = "GitHub verify.yml native-linux job at d02033e0 ran this session step"
+evidence = "GitHub verify.yml native-linux job at d02033e0 ran this session step; the wrapped command now forwards --clients from native_clients"
 
 [[step]]
 file = ".gitlab-ci.yml"

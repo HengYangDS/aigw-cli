@@ -489,27 +489,9 @@ GitHub manual `candidate_tag`/`baseline_tag` selects that peer's same bytes, wit
 different SHA but must declare the candidate version; signed provenance still
 binds execution to the selected source.
 
-`ci native-clients supply` installs, for its own host, the clients that
-`NativeAcceptanceClients` declares, at the releases pinned once in
-`.config/ci/pipeline.cue`:
-
-- Codex and Claude Code come from their official npm platform packages, and
-  `npm audit signatures` checks them.
-- On Linux and macOS, Hermes comes from its official release. The release's
-  own installer runs only after its pinned SHA-256 matches. The checkout must
-  then be the unmodified pinned commit with its published launcher.
-
-Homes, caches, temporary files and the launcher stay in one job-owned
-directory:
-
-- The supply records the directory before installing anything, and removes it
-  after a failed or interrupted step.
-- `ci native-clients retire` removes only that recorded directory and proves it
-  absent.
-- On Linux and macOS, retirement first fails, keeping the directory, while a
-  process still names it.
-
-An unsupported host or an inexact pin fails before any installation.
+`ci native-clients supply` installs the clients its host declares, at the releases pinned in `.config/ci/pipeline.cue`, into one
+job-owned directory: npm platform packages, and on Linux and macOS Hermes through its release's checksum-pinned installer.
+A failed or interrupted supply removes it; `retire` removes only that directory, proves it absent and fails while a process still uses it.
 
 #### Disposable Linux clients
 
