@@ -2,6 +2,8 @@ module aigw-cli
 
 go 1.27.3
 
+ignore ./build
+
 require (
 	charm.land/huh/v2 v2.0.3
 	charm.land/lipgloss/v2 v2.0.6
