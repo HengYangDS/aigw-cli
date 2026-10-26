@@ -350,7 +350,7 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 		filepath.Join(workspace, "mise.toml"):                             "[env]\nAIGW_PARENT_PROBE = 'foreign'\n",
 		filepath.Join(workspace, "global", "config.toml"):                 "[env]\nAIGW_GLOBAL_PROBE = 'foreign'\n",
 		filepath.Join(workspace, "system", "config.toml"):                 "[env]\nAIGW_SYSTEM_PROBE = 'foreign'\n",
-		filepath.Join(root, ".config", "mise", "config.toml"):             "[env]\nAIGW_PROJECT_PROBE = 'owned'\n[tasks.probe]\nrun = 'go env GOMOD'\n",
+		filepath.Join(root, ".config", "mise", "config.toml"):             fmt.Sprintf("[tools]\ngo = '%s'\n[env]\nAIGW_PROJECT_PROBE = 'owned'\n[tasks.probe]\nrun = 'go env GOMOD'\n", strings.TrimPrefix(runtime.Version(), "go")),
 		filepath.Join(root, "go.mod"):                                     "module fixture\n",
 		filepath.Join(root, ".config", "mise", "external", "config.toml"): "[env]\nAIGW_GLOBAL_PROBE = 'foreign'\nAIGW_SYSTEM_PROBE = 'foreign'\n",
 		filepath.Join(root, ".config", "miserc.toml"):                     string(earlyConfig),
