@@ -341,7 +341,10 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	workspace := t.TempDir()
+	workspace, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	root := filepath.Join(workspace, "checkout with spaces")
 	inputs := map[string]string{
 		filepath.Join(workspace, "mise.toml"):                             "[env]\nAIGW_PARENT_PROBE = 'foreign'\n",
