@@ -182,3 +182,79 @@ func TestRetryPolicyComponentsRefuseInvalidIdentityOrContent(t *testing.T) {
 		})
 	}
 }
+
+// A retry declaration in the canonical file must agree with the component that
+// recorded it, and rollback admission, snapshots and loads refuse a component
+// or catalogue that cannot be read as written.
+func TestRetryPolicyAdmissionRefusesConflictingOrUnreadableComponents(t *testing.T) {
+	zero, two := uint64(0), uint64(2)
+	declared := func(t *testing.T) (Store, Config) {
+		t.Helper()
+		store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+		cfg := validConfig()
+		binding := cfg.Clients[ClientCodex]
+		binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &zero}
+		cfg.Clients[ClientCodex] = binding
+		if err := store.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		return store, cfg
+	}
+	t.Run("conflicting declaration", func(t *testing.T) {
+		store, cfg := declared(t)
+		admission, err := store.RollbackConfiguration()
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The canonical file now declares zero while the component records two.
+		if err := os.WriteFile(store.Path(), admission, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		binding := cfg.Clients[ClientCodex]
+		binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &two}
+		cfg.Clients[ClientCodex] = binding
+		data, err := encodeRetryPolicies(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(store.retriesPath(), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.Load(); err == nil || !strings.Contains(err.Error(), "conflicts with its recorded declaration") {
+			t.Fatalf("conflicting retry declaration = %v", err)
+		}
+	})
+	t.Run("corrupt component", func(t *testing.T) {
+		store, _ := declared(t)
+		if err := os.WriteFile(store.retriesPath(), []byte("["), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.RollbackConfiguration(); err == nil || !strings.Contains(err.Error(), "parse client retry policies") {
+			t.Fatalf("rollback admission with a corrupt retry component = %v", err)
+		}
+	})
+	t.Run("invalid catalogue", func(t *testing.T) {
+		store, _ := declared(t)
+		if err := os.WriteFile(store.catalogPath(), []byte("["), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.RollbackConfiguration(); err == nil {
+			t.Fatal("rollback admission accepted an invalid catalogue")
+		}
+	})
+	t.Run("unreadable component", func(t *testing.T) {
+		store, _ := declared(t)
+		if err := os.Remove(store.retriesPath()); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(store.retriesPath(), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.CaptureSnapshot(); err == nil {
+			t.Fatal("snapshot read a directory as the retry component")
+		}
+		if _, err := store.Load(); err == nil {
+			t.Fatal("load read a directory as the retry component")
+		}
+	})
+}

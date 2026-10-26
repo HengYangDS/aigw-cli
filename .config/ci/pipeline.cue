@@ -329,10 +329,10 @@ _graphOrder: {
 	}
 }
 
-miseImage:                        "docker.io/jdxcode/mise:2026.10.15-debian@sha256:329c5517b4ce4e63cfbe619b4d49b4a4ffefa546d7c1d99d59f54043c38191bf"
+miseImage:                        "docker.io/jdxcode/mise:2026.10.19-debian@sha256:9b8995abd457c975a4f5150b423f6569ee5a01960662ffa4c06c859867e59a21"
 miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
-miseWindowsArm64ExecutableSHA256: "7a7abd2f66fd6619a14cb340eda3889923b5599d0d75e2d098d086e49ed72ce6"
-miseWindowsArm64ShimSHA256:       "9a39151763eac654f280ce950f6dd8ddfbcf1043211c9460f7a9e1e77307623b"
+miseWindowsArm64ExecutableSHA256: "5059645075ef762be24d584178aafe6c586fd8647de61d276aa48b6ca94e7240"
+miseWindowsArm64ShimSHA256:       "a7b0a3c92ab03690addabbe2103acfe7f15f05215fe2f1ac93d4fff5299729d1"
 windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 
 // Official native clients for real-client acceptance, pinned once. Each GitHub
