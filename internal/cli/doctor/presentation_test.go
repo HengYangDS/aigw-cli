@@ -4,6 +4,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -13,7 +14,7 @@ func TestHumanProjectionFailsClosedForFutureChecks(t *testing.T) {
 		{Name: "future:internal", OK: true, Detail: "internal success detail"},
 		{Name: "future:internal", Detail: "internal failure detail", Fix: "internal repair instruction"},
 	} {
-		if got := Label(check.Name); got != "Other check" {
+		if got := Label(check); got != "Other check" {
 			t.Fatalf("label = %q, want Other check", got)
 		}
 		want := "Check failed"
@@ -58,7 +59,7 @@ func TestHumanFormattingBranches(t *testing.T) {
 		"codex:target-7":           "Codex configuration target 7",
 	}
 	for name, want := range labels {
-		if got := Label(name); got != want {
+		if got := Label(Check{Name: name}); got != want {
 			t.Errorf("Label(%q) = %q, want %q", name, got, want)
 		}
 	}
@@ -108,6 +109,49 @@ func TestHumanFormattingBranches(t *testing.T) {
 	}
 	if got := strings.Join(ForbiddenClientTokenEnvironment([]string{"malformed", "OPENAI_API_KEY=one", "OPENAI_API_KEY=two"}), ","); got != "OPENAI_API_KEY" {
 		t.Fatalf("forbidden environment names = %q", got)
+	}
+}
+
+func TestCodexTargetLabelNamesOnlyFilesUnderHome(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	inside := filepath.Join(home, ".codex", "config.toml")
+	outside := filepath.Join(root, "work", "codex", "config.toml")
+	homeRelative := filepath.Join("~", ".codex", "config.toml")
+	for _, test := range []struct {
+		path, home, target string
+		outside            bool
+	}{
+		{inside, home, homeRelative, false},
+		{outside, home, "", true},
+		{inside, "", "", false},
+		{"relative.toml", home, "", false},
+	} {
+		target, outside := publicTarget(test.path, test.home)
+		if target != test.target || outside != test.outside {
+			t.Errorf("publicTarget(%q, %q) = %q, %v; want %q, %v", test.path, test.home, target, outside, test.target, test.outside)
+		}
+	}
+	for _, test := range []struct {
+		check Check
+		want  string
+	}{
+		{Check{Name: "codex:target-1", Target: homeRelative}, "Codex configuration " + homeRelative},
+		{Check{Name: "codex:target-2", outsideHome: true}, "Codex configuration target 2 (outside the home directory)"},
+		{Check{Name: "codex:target-3"}, "Codex configuration target 3"},
+	} {
+		if got := Label(test.check); got != test.want {
+			t.Errorf("Label(%+v) = %q, want %q", test.check, got, test.want)
+		}
+	}
+	for env, want := range map[string]string{
+		"PATH=/bin\x00USERPROFILE=" + home:   home,
+		"HOME=" + home + "\x00USERPROFILE=x": home,
+		"HOME=\x00PATH=/bin":                 "",
+	} {
+		if got := homeDirectory(strings.Split(env, "\x00")); got != want {
+			t.Errorf("homeDirectory(%q) = %q, want %q", env, got, want)
+		}
 	}
 }
 
@@ -161,7 +205,7 @@ func TestAllOKAndNextActionBranches(t *testing.T) {
 
 func TestUnknownCheckProjectionFailsClosed(t *testing.T) {
 	check := Check{Name: "future:internal", Detail: "private implementation detail", Fix: "private repair"}
-	if got := Label(check.Name); got != "Other check" {
+	if got := Label(check); got != "Other check" {
 		t.Fatalf("Label() = %q, want Other check", got)
 	}
 	if got := Detail(check); got != "Check failed" {

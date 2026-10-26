@@ -14,6 +14,39 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+## [0.4.17] - 2026-10-26
+
+History: [GitLab][0.4.17-gitlab] · [GitHub][0.4.17-github]
+
+### Added
+
+- `aigw use --for codex <route>` declares Codex's native retry budgets for
+  that connection with `--request-max-retries` and `--stream-max-retries`,
+  where zero disables that retry, and `--native-retries` returns to Codex's
+  defaults. A model-only change keeps the budgets; changing the Account,
+  authentication, protocol or endpoint requires stating them again. AIGW writes
+  the declaration into Codex's configuration; it does not retry requests itself
+  or promise exactly-once inference.
+
+### Changed
+
+- `aigw route list`, `aigw catalog`, `aigw models` and the Route choices of
+  `aigw use` group each Account's Routes by service (Anthropic, OpenAI
+  Responses, then Chat Completions) before Model, and Claude Desktop and Hermes
+  list their models in the same order.
+
+### Fixed
+
+- `aigw doctor` names each Codex configuration file that it checks by its path
+  under your home directory, such as `~/.codex/config.toml`, instead of only
+  its position. A file outside the home directory is still not named.
+- A Codex provider table that conflicts with the fields AIGW manages is
+  reported as a projection conflict instead of a TOML syntax error with a line
+  and column.
+- `aigw update --rollback` stops before it touches credentials when the
+  retained program cannot read the current configuration, such as declared
+  retry budgets, and says that the program and configuration are unchanged.
+
 ## [0.4.16] - 2026-10-25
 
 History: [GitLab][0.4.16-gitlab] · [GitHub][0.4.16-github]
@@ -1639,8 +1672,10 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
-[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.16...main
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.16...main
+[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.17...main
+[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.17...main
+[0.4.17-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.16...v0.4.17
+[0.4.17-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.16...v0.4.17
 [0.4.16-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.15...v0.4.16
 [0.4.16-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.15...v0.4.16
 [0.4.15-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.14...v0.4.15

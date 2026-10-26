@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -32,12 +33,18 @@ type Dependencies struct {
 	RenderOut io.Writer
 }
 
-// Check is one machine-readable diagnostic result.
+// Check is one machine-readable diagnostic result. Target names the native file
+// the check inspected relative to the home directory; it is omitted for a file
+// outside the home directory, so diagnostics never expose a private path.
 type Check struct {
 	Name   string `json:"name"`
 	OK     bool   `json:"ok"`
 	Detail string `json:"detail"`
 	Fix    string `json:"fix,omitempty"`
+	Target string `json:"target,omitempty"`
+	// outsideHome records that the inspected file lies outside the home
+	// directory, so the human label says so instead of naming the file.
+	outsideHome bool
 }
 
 const credentialBackendUnavailable = "credential backend is unavailable"
@@ -86,7 +93,7 @@ func NewCommand(deps Dependencies) *cobra.Command {
 			r.Section("Checks")
 			checks := make([]presentation.Field, 0, len(result.Checks))
 			for _, check := range result.Checks {
-				field := presentation.Field{State: presentation.OK, Label: Label(check.Name), Value: Detail(check)}
+				field := presentation.Field{State: presentation.OK, Label: Label(check), Value: Detail(check)}
 				if !check.OK {
 					field.State = presentation.Fail
 				}
@@ -269,17 +276,17 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 	}
 	cfg, err := deps.Config.Load()
 	if err != nil {
-		return append(checks, Check{"config", false, "cannot read or validate configuration", "inspect or restore the local configuration file"})
+		return append(checks, Check{Name: "config", Detail: "cannot read or validate configuration", Fix: "inspect or restore the local configuration file"})
 	}
 	if len(cfg.Routes) == 0 {
-		checks = append(checks, Check{"config", false, "not configured", "run `aigw setup`"})
+		checks = append(checks, Check{Name: "config", Detail: "not configured", Fix: "run `aigw setup`"})
 	} else {
-		checks = append(checks, Check{"config", true, "valid", ""})
+		checks = append(checks, Check{Name: "config", OK: true, Detail: "valid"})
 	}
 	for _, name := range cfg.RequiredAccountTokenIDs() {
 		ok, observationErr := deps.Secrets.Exists(name)
 		if observationErr != nil {
-			checks = append(checks, Check{"secret:" + name, false, credentialBackendUnavailable, "inspect the selected credential backend"})
+			checks = append(checks, Check{Name: "secret:" + name, Detail: credentialBackendUnavailable, Fix: "inspect the selected credential backend"})
 			continue
 		}
 		fix := ""
@@ -290,13 +297,13 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 		if ok {
 			detail = "available"
 		}
-		checks = append(checks, Check{"secret:" + name, ok, detail, fix})
+		checks = append(checks, Check{Name: "secret:" + name, OK: ok, Detail: detail, Fix: fix})
 	}
-	checks = append(checks, adapterChecks(ctx, deps.Clients, cfg)...)
+	checks = append(checks, adapterChecks(ctx, deps.Clients, cfg, homeDirectory(deps.Env))...)
 	return checks
 }
 
-func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cfg configuration.Config) []Check {
+func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cfg configuration.Config, home string) []Check {
 	checks := make([]Check, 0)
 	projectionPrerequisites := clientactivation.ProjectionPrerequisites(cfg)
 	for _, clientID := range clients.ClientIDs() {
@@ -324,9 +331,10 @@ func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cf
 		}
 		checks = append(checks, Check{Name: "adapter:" + clientID, OK: adapterReady, Detail: detail, Fix: fix})
 		for _, observation := range status.Checks {
+			target, outside := publicTarget(observation.Target, home)
 			checks = append(checks, Check{
 				Name: observation.ID, OK: observation.Ready, Detail: observation.Detail,
-				Fix: commandFix(observation.RepairAction),
+				Fix: commandFix(observation.RepairAction), Target: target, outsideHome: outside,
 			})
 		}
 	}
@@ -340,8 +348,10 @@ func commandFix(action string) string {
 	return "run `" + action + "`"
 }
 
-// Label maps a diagnostic identity to a stable human label.
-func Label(name string) string {
+// Label maps a diagnostic to a stable human label. A check about one native
+// file under the home directory names that file.
+func Label(check Check) string {
+	name := check.Name
 	if clientID, ok := strings.CutPrefix(name, "adapter:"); ok {
 		if spec, admitted := configuration.ClientSpecFor(clientID); admitted {
 			return spec.Label + " adapter"
@@ -362,10 +372,46 @@ func Label(name string) string {
 	case strings.HasPrefix(name, "secret:"):
 		return "Account Token"
 	case strings.HasPrefix(name, "codex:target-"):
-		return "Codex configuration target " + strings.TrimPrefix(name, "codex:target-")
+		position := strings.TrimPrefix(name, "codex:target-")
+		switch {
+		case check.Target != "":
+			return "Codex configuration " + check.Target
+		case check.outsideHome:
+			return "Codex configuration target " + position + " (outside the home directory)"
+		}
+		return "Codex configuration target " + position
 	default:
 		return "Other check"
 	}
+}
+
+// publicTarget names a file under home relative to "~", as a shell prompt does.
+// A file elsewhere is not named, so diagnostics never expose a private path;
+// outside reports whether the file is known to lie outside home.
+func publicTarget(path, home string) (target string, outside bool) {
+	if path == "" || home == "" {
+		return "", false
+	}
+	relative, err := filepath.Rel(home, path)
+	switch {
+	case err != nil || relative == ".":
+		return "", false
+	case relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)):
+		return "", true
+	}
+	return filepath.Join("~", relative), false
+}
+
+// homeDirectory reads the user's home directory from the command environment.
+func homeDirectory(env []string) string {
+	for _, name := range []string{"HOME", "USERPROFILE"} {
+		for _, entry := range env {
+			if value, ok := strings.CutPrefix(entry, name+"="); ok && value != "" {
+				return value
+			}
+		}
+	}
+	return ""
 }
 
 // Detail maps machine diagnostics to non-sensitive human text.
