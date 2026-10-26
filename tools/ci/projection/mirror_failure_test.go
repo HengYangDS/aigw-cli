@@ -17,6 +17,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestGitLabUnixMiseMirrorFailureStaysOnSelectedPeer(t *testing.T) {
@@ -104,22 +106,47 @@ func testGitLabUnixMiseMirrorFailure(t *testing.T, metadata bool) {
 
 func assertMirrorFailureDiagnostics(t *testing.T, output string, metadata bool, assetAPI, assetURL string) {
 	t.Helper()
+	output = ansi.Strip(output)
 	if !strings.Contains(output, "404 Not Found") || !strings.Contains(output, "installed 0 tools") {
 		t.Errorf("missing mirror must report bounded 404 with zero tools installed: %s", output)
 	}
-	warnings := 0
-	for line := range strings.SplitSeq(output, "\n") {
-		if !strings.Contains(line, "mise WARN") {
-			continue
-		}
-		warnings++
-		want := "mise WARN  could not confirm GitHub release asset " + assetAPI + " is " + assetURL + ": HTTP status client error (404"
-		if metadata || !strings.HasPrefix(strings.TrimSpace(line), want) {
+	warnings := mirrorWarnings(output)
+	want := "mise WARN  could not confirm GitHub release asset " + assetAPI + " is " + assetURL + ": HTTP status client error (404"
+	for _, line := range warnings {
+		if metadata || !strings.HasPrefix(line, want) {
 			t.Errorf("unexpected native mirror diagnostic: %s", line)
 		}
 	}
-	if !metadata && warnings != 1 {
+	if !metadata && len(warnings) != 1 {
 		t.Errorf("absent asset metadata must retain its one native warning: %s", output)
+	}
+}
+
+// mirrorWarnings returns the Mise warning lines of output by their text.
+// Hosted runners color diagnostics, which the native diagnostic classifier
+// also strips before it reads a line.
+func mirrorWarnings(output string) []string {
+	var warnings []string
+	for line := range strings.SplitSeq(ansi.Strip(output), "\n") {
+		if strings.Contains(line, "mise WARN") {
+			warnings = append(warnings, strings.TrimSpace(line))
+		}
+	}
+	return warnings
+}
+
+// Hosted runners color Mise's diagnostics word by word; the recorded hosted
+// output must yield the same one warning as an uncolored terminal.
+func TestMirrorWarningsAreReadAsText(t *testing.T) {
+	const warning = "could not confirm GitHub release asset https://api.github.com/repos/anchore/syft/releases/assets/657153873 is " +
+		"https://github.com/anchore/syft/releases/download/v1.55.0/syft_1.55.0_linux_amd64.tar.gz: HTTP status client error (404 Not Found)"
+	colored := "\x1b[2mmise\x1b[0m \x1b[2mby @jdx\x1b[0m – installing 1 tool\n" +
+		"\x1b[33mmise\x1b[0m \x1b[33mWARN\x1b[0m  " + warning + "\n" +
+		"\x1b[2mmise\x1b[0m \x1b[38;5;9m✗\x1b[0m \x1b[34mgithub:anchore/syft\x1b[0m@1.55.0  20ms · failed\n"
+	for name, output := range map[string]string{"colored": colored, "plain": "mise WARN  " + warning + "\n"} {
+		if got := mirrorWarnings(output); !slices.Equal(got, []string{"mise WARN  " + warning}) {
+			t.Errorf("%s Mise warnings = %q", name, got)
+		}
 	}
 }
 
