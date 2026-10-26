@@ -23,9 +23,10 @@
 - [x] 3.1 Run the changed public-command journey with a private configuration
       and the actual Codex consumer; `native-retry-rollback-corrected-20261026.out` records
       Codex 0.164.0, retained-reader rollback refusal and exact cleanup.
-- [ ] 3.2 Pass focused sibling tests, native formatting, full source checks and
-      introduced-object signature verification; final source and native gates
-      remain pending for the authorized retry and toolchain repairs.
+- [x] 3.2 Pass focused sibling tests, native formatting, full source checks and
+      introduced-object signature verification; `source-check-accepted-20261026.out`,
+      `source-native-accepted-20261026.out` and
+      `source-gate-introduced-signatures-20261026.out` qualify the local repair.
 
 ## Workflow follow-up
 
