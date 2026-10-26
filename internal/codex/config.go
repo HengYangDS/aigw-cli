@@ -354,6 +354,10 @@ func projectCodex(original, block, model, catalogPath, provider string) (string,
 func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 	provider := codexRuntimeProvider(runtime)
 	projection := codexProviderProjection{BaseURL: endpoint, WireAPI: "responses"}
+	if runtime.RetryPolicy != nil {
+		projection.RequestMaxRetries = runtime.RetryPolicy.RequestMaxRetries
+		projection.StreamMaxRetries = runtime.RetryPolicy.StreamMaxRetries
+	}
 	if provider == configuration.ModelProviderAIGW {
 		name := "AIGW: " + runtime.RouteLabel
 		projection.Name = &name

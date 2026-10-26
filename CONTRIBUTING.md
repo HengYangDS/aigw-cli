@@ -52,6 +52,21 @@ rules and formatter success do not prove prevention.
 
 ### Bounded TDD journey
 
+From the repository root, select Mise's native configuration discovery before
+starting it. CI projects the same boundary from `.config/ci/pipeline.cue`:
+
+```bash
+export MISE_CONFIG_DIR="$PWD/.config/mise/external"
+export MISE_GLOBAL_CONFIG_FILE="$MISE_CONFIG_DIR/config.toml"
+export MISE_SYSTEM_CONFIG_DIR="$MISE_CONFIG_DIR"
+export MISE_IGNORED_CONFIG_PATHS="$MISE_CONFIG_DIR"
+```
+
+These process-local inputs ignore one external configuration tier; no file or
+directory is created there. Native project discovery and task working directories
+stay unchanged, and operator settings are not edited. The project `miserc.toml` limits parent discovery but
+cannot retroactively exclude global or system configuration read at startup.
+
 1. Select the [requirement](openspec/) and semantic owner.
 2. Confirm a distinguishing regression's intended RED.
 3. Make the smallest complete repair; retire the replaced path.
@@ -59,14 +74,8 @@ rules and formatter success do not prove prevention.
 5. Verify the [introduced signed commit range](docs/operations/forge-operations.md#verify-local-objects); preserve native and delivery obligations.
 
 Formatter-only work uses native format/structure checks, not invented behavioral
-failures. Codebase-memory is optional navigation: select the exact root, inspect
-`check_index_coverage`, and use `index_repository` with `mode: full` and
-`persistence: false` when coverage/file metadata is absent or stale. Recheck
-coverage afterward; HEAD and `ready` alone do not prove freshness. Verify uncertain
-edges against source. Codebase-memory applies its default exclusions, which may
-omit the authored coverage tooling under `tools/coverage/` and
-`.config/checks/coverage/`; read those directly. Indexes are neither release
-inputs nor proof.
+failures. Optional indexes aid navigation, not proof: check their exact-root
+coverage and freshness, then verify uncertain or excluded inputs against source.
 
 ### Analyzer isolation
 
@@ -152,10 +161,6 @@ runs `npm ci --include=dev --ignore-scripts`. Development dependencies remain
 required despite caller `NODE_ENV=production` or `omit=dev`; user settings do not
 change. Tidy prepares dependency-test inputs without rewriting [go.mod](go.mod) or [go.sum](go.sum).
 
-Plain `mise run native` runs source tests and native resource acceptance once in
-the same canonical Go coverage invocation. Signed/prebuilt artifacts, a published
-predecessor, real clients and performance remain separate release-owned
-`accept-native` scopes; source coverage does not qualify those delivered bytes.
 Linux source acceptance requires `dbus-x11`, `gnome-keyring` and `libglib2.0-bin`.
 It owns a private D-Bus session and disposable native store; the independent
 Secret Service job qualifies released-product behavior rather than repeating
@@ -179,11 +184,9 @@ over Node's bundled npm. Commit Mise-generated `.config/mise/locks/` sidecars wi
 lock digest, without reformatting or manually translating fields. These are the
 tool producer's dependency inputs, not another application manifest.
 
-The native [mise discovery policy](.config/miserc.toml) excludes parent/global
-configuration before `.config/mise/config.toml` is read. Do not duplicate that boundary in tasks
-or CUE. Run a deliberate tool upgrade through its native resolver, then restore
-locked operation; the [dependency policy](docs/governance/change-and-release-policy.md#dependency-maintenance)
-owns freshness, age admission and reproducibility.
+The [dependency policy](docs/governance/change-and-release-policy.md#dependency-maintenance)
+owns freshness, age admission and reproducibility. Use native resolution for a
+reviewed upgrade, then restore locked operation; preserve the startup boundary above.
 
 Root placement follows native discovery, not a file-count target. Git, editor
 and analyzer entrypoints, package manifests and paired locks, Forge projections,
@@ -266,11 +269,12 @@ mise exec --locked -- go run ./tools/ci check-secrets .
 
 ### Native upgrade acceptance
 
-`mise run native` runs source behavior, builds current-host archives through
-GoReleaser and exercises install, upgrade, invalid-successor rejection, rollback
-and uninstall in owned temporary state. It neither publishes nor needs signing
-credentials. Complete tool qualification replaces the Go-only check, not adds
-a duplicate invocation:
+`mise run native` runs source/resource tests in one canonical coverage invocation,
+builds current-host archives through GoReleaser and exercises install, upgrade,
+invalid-successor rejection, rollback and uninstall in owned temporary state.
+It neither publishes nor needs signing credentials. Signed artifacts, published
+predecessors, real clients and performance remain separate `accept-native` scopes.
+Complete tool qualification replaces, rather than repeats, the Go-only check:
 
 ```bash
 mise exec --locked -- go run ./tools/ci native --full-quality
@@ -406,7 +410,26 @@ backend cannot qualify tool execution. This test-only setting neither changes
 operator configuration nor chooses a production sandbox mode. Denied tool output
 remains a failure even when Codex returns the final marker.
 
-This explicit build-tagged journey requires all three declared executable paths:
+For focused retry-policy source acceptance, supply an explicit source-built
+program, a portable predecessor fixture and the actual Codex distribution:
+
+```bash
+AIGW_ACCEPTANCE_RETRY_PROGRAM=/absolute/path/to/source-built/aigw \
+AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/retained/portable/aigw \
+AIGW_ACCEPTANCE_CODEX=/absolute/path/to/codex \
+AIGW_ACCEPTANCE_CLIENT_PATH=/usr/bin:/bin \
+  mise exec --locked -- go test -tags=client_acceptance ./tools/release \
+  -run '^TestNativeCodexConnectionRetriesSource$' -count=1 -timeout=2m -v
+```
+
+This exercises public preview, selection, cached predecessor credentials,
+native budget admission, retained-reader rollback refusal, one unknown-outcome
+request and native-default reset
+in private homes with synthetic environment credentials. It does not qualify
+package-manager cutover, release artifacts or Desktop behavior. The same case
+runs as `codex-connection-retries` in the complete release journey.
+
+The complete build-tagged journey requires all three declared executable paths:
 `AIGW_ACCEPTANCE_CODEX`, `AIGW_ACCEPTANCE_CLAUDE` and `AIGW_ACCEPTANCE_HERMES`.
 Hermes also requires `AIGW_ACCEPTANCE_HERMES_HOME` for its native installation.
 Missing clients fail, not skip. See [Adapter admission](docs/governance/adapter-admission.md)
@@ -430,13 +453,8 @@ Published 0.3.1 also cannot check the successor's projection until sync.
 Uninstall preserves unowned settings and removes only the test installation.
 No-token and actual Provider tests remain different observations.
 
-```bash
-mise exec --locked -- go run ./tools/release accept-native --clients \
-  --artifacts /absolute/path/to/candidate-dist --candidate \
-  --baseline-artifacts /absolute/path/to/published-baseline --baseline-tag v0.3.1
-```
-
-Omitting artifacts deliberately builds once; on macOS that explicit build needs
+Use the signed-candidate command above with `--clients`. Omitting artifacts
+deliberately builds once; on macOS that explicit build needs
 [release identity inputs](docs/decisions/dr-0011-single-portable-token-backend.md#consequences-and-boundary).
 One retained candidate serves lifecycle and client tests; stop at first failure.
 Quality jobs still run input/envelope/preservation regressions without real clients.
@@ -580,16 +598,12 @@ GitLab API/project/tag/Job Token and GitHub `GITHUB_API_URL`, `GITHUB_REPOSITORY
 remain peer execution inputs, not product defaults or shared credential authority.
 Use [Forge Operations](docs/operations/forge-operations.md) for publication commands.
 
-After all uploads complete, explicitly dispatch GitHub **Release** with its exact
-`tag` and GitLab on that same tag. Release-record creation may precede assets:
-verification must not race uploads. No extra operator dialog is required.
-
-Each `release-assets` job downloads only its own peer's assets with locked gh/glab
-and runs the same complete signature/source/provenance verifier. GitHub grants
-read-only contents; GitLab uses [native CI authentication](https://docs.gitlab.com/cli/authentication/).
-Missing trust/assets/authentication fail. Tag source CI, asset readback, native
-released-byte execution and installation remain separate. See [native published
-verification](docs/operations/forge-operations.md#verify-published-bytes-on-a-native-host).
+After complete uploads, dispatch each selected peer's **Release** on the exact
+tag; verification must not race assets. Each `release-assets` job uses locked
+gh/glab and that peer's read-only/native authentication to run the same complete
+signature/source/provenance verifier. Missing trust, assets or authentication
+fail. Source CI, asset readback, [native released-byte execution](docs/operations/forge-operations.md#verify-published-bytes-on-a-native-host)
+and installation remain separate acceptance boundaries.
 
 ### Source and publication identity
 

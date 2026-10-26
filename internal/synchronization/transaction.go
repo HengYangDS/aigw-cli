@@ -14,19 +14,22 @@ import (
 // projections. Failures compensate owned writes without changing native credentials.
 func (s Synchronizer) Commit(ctx context.Context, before, after configuration.Config, subject string) error {
 	clients := s.registry().ChangedClients(before, after)
-	_, err := s.commit(ctx, before, after, subject, len(clients) > 0, clients...)
+	_, err := s.commit(ctx, before, after, subject, len(clients) > 0, configuration.ConnectionChange{}, clients...)
 	return err
 }
 
 // CommitProjection persists configuration and reconciles every client projection,
 // including missing or out-of-date projections of unchanged configuration.
 func (s Synchronizer) CommitProjection(ctx context.Context, before, after configuration.Config, subject string, clientIDs ...string) error {
-	_, err := s.commit(ctx, before, after, subject, true, clientIDs...)
+	_, err := s.commit(ctx, before, after, subject, true, configuration.ConnectionChange{}, clientIDs...)
 	return err
 }
 
-func (s Synchronizer) commit(ctx context.Context, before, after configuration.Config, subject string, reconcileProjection bool, clientIDs ...string) (bool, error) {
+func (s Synchronizer) commit(ctx context.Context, before, after configuration.Config, subject string, reconcileProjection bool, connection configuration.ConnectionChange, clientIDs ...string) (bool, error) {
 	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	if err := s.validateRetryTransition(before, after, connection); err != nil {
 		return false, err
 	}
 	configBefore, err := s.Config.CaptureSnapshot()

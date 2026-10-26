@@ -121,7 +121,7 @@ func TestMiseGoEnvironmentIsBoundToThisRepository(t *testing.T) {
 	command := exec.Command("mise", "-C", root, "exec", "--locked", "--", "go", "env", "-json", "GOENV", "GOWORK", "GOTOOLCHAIN", "GOFLAGS", "GOMOD", "GOVERSION")
 	// The assertion exercises repository [env]; Mise safe mode deliberately
 	// suppresses that declaration in an outer proof runner.
-	command.Env = append(os.Environ(), "MISE_SAFE=0")
+	command.Env = append(miseProbeEnvironment(t, root), "MISE_SAFE=0")
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("observe repository Go environment: %v\n%s", err, output)
@@ -211,7 +211,7 @@ func TestMiseNpmEnvironmentIsBoundToThisRepository(t *testing.T) {
 			defer cancel()
 			start := time.Now()
 			err = (nativeprocess.Runner{}).RunStream(ctx, nativeprocess.Plan{
-				Executable: "mise", Directory: root, Env: append(os.Environ(), "MISE_SAFE=0"),
+				Executable: "mise", Directory: root, Env: append(miseProbeEnvironment(t, root), "MISE_SAFE=0"),
 				Args: []string{"-C", root, "exec", "--locked", "--", "npm", "config", "get", "registry", "userconfig", "globalconfig", "cache"},
 			}, stdout, stderr)
 			elapsed, deadline := time.Since(start), ctx.Err()

@@ -10,7 +10,29 @@ import (
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
+	"go.yaml.in/yaml/v3"
 )
+
+func miseProbeEnvironment(t *testing.T, root string) []string {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "verify.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Env map[string]string `yaml:"env"`
+	}
+	if err := yaml.Unmarshal(content, &workflow); err != nil {
+		t.Fatal(err)
+	}
+	environment := os.Environ()
+	for name, value := range workflow.Env {
+		if strings.HasPrefix(name, "MISE_") {
+			environment = append(environment, name+"="+strings.ReplaceAll(value, "${{ github.workspace }}", root))
+		}
+	}
+	return environment
+}
 
 type miseToolProbe struct {
 	arguments []string
@@ -104,6 +126,7 @@ func TestMiseToolExecutablesMatchDeclaredVersions(t *testing.T) {
 				t.Fatalf("declared tool %s has no executable version probe", name)
 			}
 			command := exec.Command("mise", append([]string{"-C", root, "exec", "--locked", "--"}, probe.arguments...)...)
+			command.Env = miseProbeEnvironment(t, root)
 			output, err := command.CombinedOutput()
 			if err != nil {
 				t.Fatalf("execute locked tool %s: %v\n%s", name, err, output)

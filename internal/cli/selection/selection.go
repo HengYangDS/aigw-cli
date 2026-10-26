@@ -24,6 +24,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 	var client string
 	var protocol string
 	var forwardingEndpoint string
+	var retries retryOptions
 	var direct, dryRun, jsonMode bool
 	cmd := &cobra.Command{
 		Use:   "use <route>",
@@ -48,6 +49,10 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			connection, err := retries.connection(cmd, forwarding)
+			if err != nil {
+				return err
+			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
@@ -58,19 +63,19 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			selected, err := resolveUseRuntime(operation, cfg, client, name, configuration.EndpointProtocol(protocol), forwarding)
+			selected, err := resolveUseRuntime(operation, cfg, client, name, configuration.EndpointProtocol(protocol), connection)
 			if err != nil {
 				return err
 			}
 			if dryRun {
-				return previewUse(operation, cfg, selected, forwarding, jsonMode)
+				return previewUse(operation, cfg, selected, connection, jsonMode)
 			}
 			token, err := selectionToken(cmd.Context(), operation, cfg, selected)
 			if err != nil {
 				return err
 			}
 			synchronizer := invocation.Synchronizer(operation)
-			configurationChanged, projectionChanged, binding, err := synchronizer.SelectRoute(cmd.Context(), cfg, client, name, selected.Protocol, forwarding, token)
+			configurationChanged, projectionChanged, binding, err := synchronizer.SelectRoute(cmd.Context(), cfg, client, name, selected.Protocol, connection, token)
 			if err != nil {
 				return err
 			}
@@ -83,6 +88,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&protocol, "protocol", "", "Endpoint protocol for a multi-protocol Route")
 	cmd.Flags().StringVar(&forwardingEndpoint, "forwarding-endpoint", "", "Explicit client destination; the Account upstream remains unchanged")
 	cmd.Flags().BoolVar(&direct, "direct", false, "Connect this client directly to its Account upstream")
+	retries.bind(cmd)
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview the selection without reading credentials or writing files")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the selection preview or result as JSON")
 	return cmd
@@ -141,6 +147,9 @@ func renderUse(runtime invocation.Context, cfg configuration.Config, selected co
 	if selected.Endpoint != selected.UpstreamEndpoint {
 		rows = append(rows, presentation.Field{Label: "Account upstream", Value: selected.UpstreamEndpoint})
 	}
+	if selected.Client == configuration.ClientCodex {
+		rows = append(rows, retryFields(selected.RetryPolicy)...)
+	}
 	if result.ProjectionDeferred {
 		if tokenStored {
 			rows = append(rows, presentation.Field{Label: "Account Token", Value: "Validated and stored"})
@@ -177,10 +186,10 @@ type useResult struct {
 	Targets []client.ProjectionPlan `json:"targets,omitempty"`
 }
 
-func previewUse(runtime invocation.Context, cfg configuration.Config, selected configuration.Runtime, forwarding *string, jsonMode bool) error {
+func previewUse(runtime invocation.Context, cfg configuration.Config, selected configuration.Runtime, connection configuration.ConnectionChange, jsonMode bool) error {
 	synchronizer := invocation.Synchronizer(runtime)
 	synchronizer.AuthorizedSelectionClient = selected.Client
-	proposed, _, err := synchronizer.PrepareSelection(cfg, selected.Client, selected.RouteID, selected.Protocol, forwarding)
+	proposed, _, err := synchronizer.PrepareSelection(cfg, selected.Client, selected.RouteID, selected.Protocol, connection)
 	if err != nil {
 		return err
 	}
@@ -208,6 +217,9 @@ func previewUse(runtime invocation.Context, cfg configuration.Config, selected c
 		{Label: "Endpoint", Value: selected.Endpoint},
 		{Label: "Account upstream", Value: selected.UpstreamEndpoint},
 	}
+	if selected.Client == configuration.ClientCodex {
+		rows = append(rows, retryFields(selected.RetryPolicy)...)
+	}
 	if spec, _ := configuration.ClientSpecFor(selected.Client); spec.SessionsKeepRoute &&
 		slices.ContainsFunc(plans, func(plan client.ProjectionPlan) bool { return plan.ChangesState }) {
 		rows = append(rows, existingSessionsField)
@@ -225,8 +237,8 @@ func previewUse(runtime invocation.Context, cfg configuration.Config, selected c
 	return r.Err()
 }
 
-func resolveUseRuntime(runtime invocation.Context, cfg configuration.Config, client, routeID string, requested configuration.EndpointProtocol, forwarding *string) (configuration.Runtime, error) {
-	_, selected, err := invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, requested, forwarding)
+func resolveUseRuntime(runtime invocation.Context, cfg configuration.Config, client, routeID string, requested configuration.EndpointProtocol, connection configuration.ConnectionChange) (configuration.Runtime, error) {
+	_, selected, err := invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, requested, connection)
 	if err == nil || requested != "" {
 		return selected, err
 	}
@@ -253,7 +265,7 @@ func resolveUseRuntime(runtime invocation.Context, cfg configuration.Config, cli
 	if err != nil {
 		return configuration.Runtime{}, err
 	}
-	_, selected, err = invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, configuration.EndpointProtocol(choice), forwarding)
+	_, selected, err = invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, configuration.EndpointProtocol(choice), connection)
 	return selected, err
 }
 

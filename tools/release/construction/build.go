@@ -177,6 +177,11 @@ func buildArchives(request buildRequest, workspace string, run toolRunner) (stri
 	if err != nil {
 		return "", err
 	}
+	gitEnvironment, err := goReleaserGitEnvironment(request.Root, environment, run)
+	if err != nil {
+		return "", err
+	}
+	environment = append(environment, gitEnvironment...)
 	args := []string{"release", "--snapshot", "--clean", "--skip=publish", "--config", config}
 	if request.TargetOS == "windows" {
 		args = append(args, "--skip=homebrew")

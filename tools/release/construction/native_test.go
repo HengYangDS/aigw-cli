@@ -126,6 +126,10 @@ func TestNativeClientSourceAcceptanceSelectsOneHostBuild(t *testing.T) {
 	var stage string
 	calls := 0
 	err := acceptNative(request, "", os.Getenv("AIGW_ACCEPTANCE_BASELINE"), NativeAcceptance{Clients: true}, func(call toolCall) error {
+		if call.Name == "git" {
+			_, err := call.Stdout.Write([]byte("HEAD\n"))
+			return err
+		}
 		calls++
 		if calls == 1 {
 			if call.Name != "goreleaser" || !slices.Contains(call.Env, "AIGW_BUILD_OS="+runtime.GOOS) || !slices.Contains(call.Env, "GH_TOKEN=") || !slices.Contains(call.Env, "CI_JOB_TOKEN=") {
@@ -189,13 +193,17 @@ func TestNativeBuildNeedsNoPublisherCredentials(t *testing.T) {
 			t.Setenv("AIGW_MACOS_SIGNING_IDENTITY", strings.Repeat("a", 40))
 			calls := 0
 			_, err := buildArchives(request, t.TempDir(), func(call toolCall) error {
-				calls++
 				if !slices.Contains(call.Env, "AIGW_MACOS_SIGNING_IDENTITY=") {
 					t.Fatal("native build inherited publisher identity")
 				}
 				if !slices.Contains(call.Env, "AIGW_BUILD_OS="+platform) {
 					t.Fatal("build selection was not passed to GoReleaser")
 				}
+				if call.Name == "git" {
+					_, err := call.Stdout.Write([]byte("HEAD\n"))
+					return err
+				}
+				calls++
 
 				if slices.Contains(call.Args, "--skip=homebrew") != (platform == "windows") {
 					t.Fatalf("Homebrew generation does not match target %q: %v", platform, call.Args)

@@ -21,7 +21,7 @@ func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	}
 	credentials := setupTokenStore(t, "existing-token")
 	syncer := Synchronizer{Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
-	changed, _, _, err := syncer.SelectRoute(t.Context(), before, configuration.ClientClaude, "next", "", nil, "")
+	changed, _, _, err := syncer.SelectRoute(t.Context(), before, configuration.ClientClaude, "next", "", configuration.ConnectionChange{}, "")
 	if err != nil || !changed {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
 	}
@@ -33,7 +33,7 @@ func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changed, _, _, err = syncer.SelectRoute(t.Context(), current, configuration.ClientClaude, "next", "", nil, "")
+	changed, _, _, err = syncer.SelectRoute(t.Context(), current, configuration.ClientClaude, "next", "", configuration.ConnectionChange{}, "")
 	if err != nil || changed || credentials.writes != 0 {
 		t.Fatalf("repeated selection = %t, %v; credential writes=%d", changed, err, credentials.writes)
 	}
@@ -69,7 +69,7 @@ func TestRouteSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 			if err := cfg.Validate(); err != nil {
 				t.Fatal(err)
 			}
-			proposed, selected, err := (Synchronizer{}).PrepareSelection(cfg, configuration.ClientHermes, test.route, test.protocol, test.forwarding)
+			proposed, selected, err := (Synchronizer{}).PrepareSelection(cfg, configuration.ClientHermes, test.route, test.protocol, configuration.ConnectionChange{ForwardingEndpoint: test.forwarding})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -103,7 +103,7 @@ func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 				syncer.Discovery = setupDiscovery(cancel)
 				failure = context.Canceled
 			}
-			_, _, _, err := syncer.SelectRoute(ctx, before, configuration.ClientClaude, "claude", "", nil, "new-token")
+			_, _, _, err := syncer.SelectRoute(ctx, before, configuration.ClientClaude, "claude", "", configuration.ConnectionChange{}, "new-token")
 			if !errors.Is(err, failure) {
 				t.Fatalf("selection error = %v, want %v", err, failure)
 			}
@@ -132,7 +132,7 @@ func TestRouteSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 			if route == "native" {
 				client = configuration.ClientCodex
 			}
-			_, _, _, err := (Synchronizer{Config: store, Secrets: credentials}).SelectRoute(t.Context(), cfg, client, route, "", nil, "token")
+			_, _, _, err := (Synchronizer{Config: store, Secrets: credentials}).SelectRoute(t.Context(), cfg, client, route, "", configuration.ConnectionChange{}, "token")
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid selection reached credential mutation: writes=%d, error=%v", credentials.writes, err)
 			}

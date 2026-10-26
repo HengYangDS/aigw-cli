@@ -215,6 +215,12 @@ func localizedErrorMessage(err error) string {
 }
 
 func typedErrorMessage(err error) (string, bool) {
+	if conflict, ok := errors.AsType[interface {
+		error
+		ProjectionConflict() bool
+	}](err); ok && conflict.ProjectionConflict() {
+		return conflict.Error(), true
+	}
 	if mismatch, ok := errors.AsType[*configuration.RuntimeRouteClientMismatchError](err); ok {
 		return fmt.Sprintf("route %q is for %s, not %s", mismatch.RouteID, mismatch.ExpectedClient, mismatch.ActualClient), true
 	}
