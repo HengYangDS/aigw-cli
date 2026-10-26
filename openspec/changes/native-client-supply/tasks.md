@@ -30,10 +30,12 @@
 
 - [x] 3.1 `mise run check` passes on the lane head (`72302989`, statement
       coverage 95.19%).
-- [ ] 3.2 Dispatch GitHub Verify on the proposal head with
+- [x] 3.2 Dispatch GitHub Verify on the proposal head with
       `native_platform=linux`, `native_clients=true` and a published baseline
       and candidate. The retained-predecessor journey passes with Claude, Codex
-      and Hermes, and retirement proves the supply absent.
-- [ ] 3.3 The same dispatch passes on macOS with all three clients, and on
-      Windows with Claude and Codex.
+      and Hermes, and retirement proves the supply absent (run `40418580826`
+      at `690d3376`, v0.4.16 to v0.4.17, no skip).
+- [x] 3.3 The same dispatch passes on macOS with all three clients, and on
+      Windows with Claude and Codex (runs `40418594141` and `40418607327` at
+      `690d3376`, no skip).
 - [ ] 3.4 The full proof of the lane head passes.
