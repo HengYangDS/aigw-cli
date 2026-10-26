@@ -137,3 +137,16 @@ func TestRetryConnectionTransitionAccountAddAdmission(t *testing.T) {
 		t.Fatalf("new connection admission err=%v acquired=%v", err, acquired)
 	}
 }
+
+func TestPrepareSelectionRefusesNativeAndExplicitRetriesTogether(t *testing.T) {
+	cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
+	before := cfg.Clone()
+	zero := uint64(0)
+	change := configuration.ConnectionChange{NativeRetries: true, RetryPolicy: &configuration.RetryPolicy{RequestMaxRetries: &zero}}
+	if _, _, err := (Synchronizer{}).PrepareSelection(cfg, configuration.ClientCodex, "gpt", "", change); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("contradictory retry intent = %v", err)
+	}
+	if !reflect.DeepEqual(cfg, before) {
+		t.Fatal("refused selection mutated its input")
+	}
+}

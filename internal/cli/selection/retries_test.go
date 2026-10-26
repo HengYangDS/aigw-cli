@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -32,6 +33,40 @@ func TestUseRetryPolicyPreviewIsExplicitAndCredentialFree(t *testing.T) {
 	after, err := runtime.Config.CaptureSnapshot()
 	if err != nil || !reflect.DeepEqual(before, after) {
 		t.Fatalf("preview changed configuration: %v", err)
+	}
+}
+
+// The human preview states each declared budget, so an operator sees what the
+// selection writes before confirming it.
+func TestUseRetryPolicyHumanPreviewNamesEachDeclaredBudget(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		args []string
+		want []*regexp.Regexp
+		omit string
+	}{
+		{"both budgets", []string{"--request-max-retries", "0", "--stream-max-retries", "3"},
+			[]*regexp.Regexp{regexp.MustCompile(`Request retries\s+0\b`), regexp.MustCompile(`Stream retries\s+3\b`)}, "Client native defaults"},
+		{"request budget only", []string{"--request-max-retries", "2"},
+			[]*regexp.Regexp{regexp.MustCompile(`Request retries\s+2\b`)}, "Stream retries"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runtime, _, out := configuredRuntime(t)
+			command := NewUseCommand(runtime)
+			command.SilenceErrors, command.SilenceUsage = true, true
+			command.SetArgs(append([]string{"--for", "codex", "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run"}, test.args...))
+			if err := command.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range test.want {
+				if !want.Match(out.Bytes()) {
+					t.Errorf("human preview lacks %q: %s", want, out.Bytes())
+				}
+			}
+			if strings.Contains(out.String(), test.omit) {
+				t.Errorf("human preview names %q: %s", test.omit, out.Bytes())
+			}
+		})
 	}
 }
 

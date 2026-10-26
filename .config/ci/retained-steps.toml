@@ -112,12 +112,12 @@ evidence = "GitLab pipelines 11691, 11692, 11696 and 11699 (release-assets) at b
 [[step]]
 file = ".gitlab-ci.yml"
 jobs = ["native-windows", "native-windows-review"]
-sha256 = "8104d5319cfe03ea595f923b31059bd58f8b6d6296ba1478d32beb3a5ff0da95"
+sha256 = "9f54236f5c5e3a4456d139ffd954a995a7e40db2eb5b67b44de08492c9ef8099"
 class = "operating-system-glue"
 owner = "CI pipeline model (.config/ci/pipeline.cue #NativeGitLabJob windows _prepareMise)"
 reason = "Before Mise runs, PowerShell creates the ACL-restricted job directory and Mise state, verifies the runner-owned Mise executable and shim digests and version, and sets the peer tool supply."
 platforms = ["windows"]
-evidence = "GitLab pipelines 11691 and 11692 at b327be43 ran this preparation on native-windows with one more line, the tool selection that the job's rules variables now own"
+evidence = "GitLab pipelines 11691 and 11692 at b327be43 ran this preparation on native-windows; the Mise 2026.10.19 identities replace only the pinned version and digests, and the runner's executable must be replaced before its next job"
 
 [[step]]
 file = ".gitlab-ci.yml"
