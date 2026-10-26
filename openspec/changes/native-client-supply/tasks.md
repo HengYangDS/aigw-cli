@@ -28,7 +28,8 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `mise run check` passes on the lane head.
+- [x] 3.1 `mise run check` passes on the lane head (`72302989`, statement
+      coverage 95.19%).
 - [ ] 3.2 Dispatch GitHub Verify on the proposal head with
       `native_platform=linux`, `native_clients=true` and a published baseline
       and candidate. The retained-predecessor journey passes with Claude, Codex
