@@ -14,5 +14,5 @@
 
 - [x] 3.1 Run affected package tests and the original formatting/validation
       commands with no regressions or unintended input changes.
-- [ ] 3.2 Pass the complete source gate and exact-HEAD proof of the signed
+- [x] 3.2 Pass the complete source gate and exact-HEAD proof of the signed
       source candidate.
