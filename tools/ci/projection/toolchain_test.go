@@ -1,6 +1,7 @@
 package projection
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -342,13 +344,15 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 	workspace := t.TempDir()
 	root := filepath.Join(workspace, "checkout with spaces")
 	inputs := map[string]string{
-		filepath.Join(workspace, "mise.toml"):                 "[env]\nAIGW_PARENT_PROBE = 'foreign'\n",
-		filepath.Join(workspace, "global", "config.toml"):     "[env]\nAIGW_GLOBAL_PROBE = 'foreign'\n",
-		filepath.Join(workspace, "system", "config.toml"):     "[env]\nAIGW_SYSTEM_PROBE = 'foreign'\n",
-		filepath.Join(root, ".config", "mise", "config.toml"): "[env]\nAIGW_PROJECT_PROBE = 'owned'\n",
-		filepath.Join(root, ".config", "miserc.toml"):         string(earlyConfig),
-		filepath.Join(root, ".config", "ci", ".keep"):         "",
-		filepath.Join(root, "nested", ".keep"):                "",
+		filepath.Join(workspace, "mise.toml"):                             "[env]\nAIGW_PARENT_PROBE = 'foreign'\n",
+		filepath.Join(workspace, "global", "config.toml"):                 "[env]\nAIGW_GLOBAL_PROBE = 'foreign'\n",
+		filepath.Join(workspace, "system", "config.toml"):                 "[env]\nAIGW_SYSTEM_PROBE = 'foreign'\n",
+		filepath.Join(root, ".config", "mise", "config.toml"):             "[env]\nAIGW_PROJECT_PROBE = 'owned'\n[tasks.probe]\nrun = 'go env GOMOD'\n",
+		filepath.Join(root, "go.mod"):                                     "module fixture\n",
+		filepath.Join(root, ".config", "mise", "external", "config.toml"): "[env]\nAIGW_GLOBAL_PROBE = 'foreign'\nAIGW_SYSTEM_PROBE = 'foreign'\n",
+		filepath.Join(root, ".config", "miserc.toml"):                     string(earlyConfig),
+		filepath.Join(root, ".config", "ci", ".keep"):                     "",
+		filepath.Join(root, "nested", ".keep"):                            "",
 	}
 	for path, content := range inputs {
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -368,7 +372,11 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 		"MISE_SYSTEM_CONFIG_DIR="+filepath.Join(workspace, "system"),
 		"MISE_TRUSTED_CONFIG_PATHS="+workspace,
 	)
-	projections = append(projections, projection{Path: "local", Content: "{}"})
+	local, err := projectionCommand(repository, `{env: #MiseConfigurationEnvironment & {_root: "$AIGW_PROJECT_ROOT"}}`).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	projections = append(projections, projection{Path: "local", Content: string(local)})
 	for _, projection := range projections {
 		t.Run(projection.Path, func(t *testing.T) {
 			var config struct {
@@ -384,36 +392,48 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 			projectedEnvironment := slices.Clone(environment)
 			for name, value := range projected {
 				if strings.HasPrefix(name, "MISE_") {
-					value = strings.NewReplacer("$CI_PROJECT_DIR", root, "${{ github.workspace }}", root).Replace(value)
+					value = strings.NewReplacer("$CI_PROJECT_DIR", root, "${{ github.workspace }}", root, "$AIGW_PROJECT_ROOT", root).Replace(value)
 					projectedEnvironment = append(projectedEnvironment, name+"="+value)
 				}
 			}
 			for _, directory := range []string{root, filepath.Join(root, "nested")} {
-				command := exec.Command("mise", "env", "--json")
-				command.Dir = directory
-				command.Env = projectedEnvironment
-				output, err := command.Output()
-				if err != nil {
-					t.Fatalf("native mise configuration discovery: %v", err)
-				}
-				var observed map[string]string
-				if err := json.Unmarshal(output, &observed); err != nil {
-					t.Fatal(err)
-				}
-				for name, want := range map[string]string{
-					"AIGW_PROJECT_PROBE": "owned", "AIGW_PARENT_PROBE": "",
-					"AIGW_GLOBAL_PROBE": "", "AIGW_SYSTEM_PROBE": "",
-				} {
-					if observed[name] != want {
-						t.Errorf("%s from %s = %q, want %q", name, directory, observed[name], want)
-					}
-				}
+				assertMiseConfigurationBoundary(t, root, directory, projectedEnvironment)
 			}
 		})
 	}
 	for path, want := range inputs {
 		if got, err := os.ReadFile(path); err != nil || string(got) != want {
 			t.Errorf("configuration discovery modified %s: %v", path, err)
+		}
+	}
+}
+
+func assertMiseConfigurationBoundary(t *testing.T, root, directory string, environment []string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, "mise", "env", "--json")
+	command.Dir, command.Env = directory, environment
+	output, err := command.Output()
+	if err != nil {
+		t.Fatalf("native mise configuration discovery: %v", err)
+	}
+	var observed map[string]string
+	if err := json.Unmarshal(output, &observed); err != nil {
+		t.Fatal(err)
+	}
+	probe := exec.CommandContext(ctx, "mise", "run", "probe")
+	probe.Dir, probe.Env = directory, environment
+	module, probeErr := probe.Output()
+	if probeErr != nil || filepath.Clean(strings.TrimSpace(string(module))) != filepath.Join(root, "go.mod") {
+		t.Fatalf("native task left the project root: %q, %v", module, probeErr)
+	}
+	for name, want := range map[string]string{
+		"AIGW_PROJECT_PROBE": "owned", "AIGW_PARENT_PROBE": "",
+		"AIGW_GLOBAL_PROBE": "", "AIGW_SYSTEM_PROBE": "",
+	} {
+		if observed[name] != want {
+			t.Errorf("%s from %s = %q, want %q", name, directory, observed[name], want)
 		}
 	}
 }

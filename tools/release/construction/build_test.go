@@ -55,11 +55,13 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 	if err := buildRelease(t.Context(), request, runner); err != nil {
 		t.Fatal(err)
 	}
-	names := make([]string, len(calls))
-	for index, call := range calls {
-		names[index] = call.Name
+	var names []string
+	for _, call := range calls {
+		if call.Name != "git" {
+			names = append(names, call.Name)
+		}
 	}
-	if !slices.Equal(names, []string{"git", "osv-scanner", "goreleaser", "syft", "git", "git", "ssh-keygen"}) {
+	if !slices.Equal(names, []string{"osv-scanner", "goreleaser", "syft", "ssh-keygen"}) {
 		t.Fatalf("calls = %#v", calls)
 	}
 	osv := calls[slices.IndexFunc(calls, func(call toolCall) bool { return call.Name == "osv-scanner" })]

@@ -52,6 +52,21 @@ rules and formatter success do not prove prevention.
 
 ### Bounded TDD journey
 
+From the repository root, select Mise's native configuration discovery before
+starting it. CI projects the same boundary from `.config/ci/pipeline.cue`:
+
+```bash
+export MISE_CONFIG_DIR="$PWD/.config/mise/external"
+export MISE_GLOBAL_CONFIG_FILE="$MISE_CONFIG_DIR/config.toml"
+export MISE_SYSTEM_CONFIG_DIR="$MISE_CONFIG_DIR"
+export MISE_IGNORED_CONFIG_PATHS="$MISE_CONFIG_DIR"
+```
+
+These process-local inputs ignore one external configuration tier; no file or
+directory is created there. Native project discovery and task working directories
+stay unchanged, and operator settings are not edited. The project `miserc.toml` limits parent discovery but
+cannot retroactively exclude global or system configuration read at startup.
+
 1. Select the [requirement](openspec/) and semantic owner.
 2. Confirm a distinguishing regression's intended RED.
 3. Make the smallest complete repair; retire the replaced path.

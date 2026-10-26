@@ -8,7 +8,8 @@
 - [x] 1.2 Implement optional connection budgets, immutable resolution and
       clone/persistence semantics; pass focused declaration and recovery tests.
 - [x] 1.3 Expose explicit selection and native-default restoration, preserving
-      connection identity and unrelated bindings; pass CLI tests and update help.
+      connection identity and unrelated bindings; `transition-green-20261026.jsonl`
+      also covers Account mutation admission before writes or Token acquisition.
 
 ## 2. Projection and recovery
 
@@ -23,9 +24,8 @@
       and the actual Codex consumer; `native-retry-rollback-corrected-20261026.out` records
       Codex 0.164.0, retained-reader rollback refusal and exact cleanup.
 - [ ] 3.2 Pass focused sibling tests, native formatting, full source checks and
-      introduced-object signature verification; full source acceptance awaits
-      the release/Forge fixture failures in `source-check-final-20261026.out`
-      and `coverage-final-20261026.out`.
+      introduced-object signature verification; final source and native gates
+      remain pending for the authorized retry and toolchain repairs.
 
 ## Workflow follow-up
 

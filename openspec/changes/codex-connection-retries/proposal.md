@@ -14,6 +14,8 @@ errors, hiding the actual recovery boundary.
 - Project only declared budgets into Codex's native provider table; retain
   undeclared native defaults, unrelated bindings and all existing ownership guards.
 - Reuse native persistence, guarded synchronization, compensation and rollback.
+- Repair the diagnosed source-acceptance owners: native Mise startup isolation,
+  GoReleaser existing-peer metadata selection and both mirror refusal fixtures.
 - Preserve semantic provider-conflict diagnostics and reject unsupported client
   declarations before credential access or mutation.
 - Reject incompatible program rollback using the retained reader's actual

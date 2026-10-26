@@ -144,8 +144,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			if errors.Is(err, upgrade.ErrRollbackConfiguration) {
 				return invocation.Problem(runtime,
-					"Program rollback is incompatible with the current configuration",
-					"The retained program could not read an isolated copy of the current configuration.",
+					"Program rollback did not complete",
+					"The retained program did not complete the isolated configuration-read check.",
 					"The active program, retained program and configuration remain unchanged.",
 					"Keep a compatible program, or use `aigw rollback` to restore the accepted configuration before retrying; do not delete policy fields manually.", err)
 			}

@@ -36,8 +36,8 @@ func (Synchronizer) PrepareSelection(cfg configuration.Config, client, routeID s
 		return configuration.Config{}, configuration.Runtime{}, err
 	}
 	sameConnection := previousErr == nil && previous.ConnectionFingerprint() == runtime.ConnectionFingerprint()
-	if binding.RetryPolicy != nil && !sameConnection && connection.RetryPolicy == nil && !connection.NativeRetries {
-		return configuration.Config{}, configuration.Runtime{}, fmt.Errorf("client %q connection changed with a selected retry policy; declare retry budgets or pass --native-retries", client)
+	if err := validateRetryConnectionChange(cfg, selected, client, connection); err != nil {
+		return configuration.Config{}, configuration.Runtime{}, err
 	}
 	if connection.RetryPolicy != nil {
 		policy := binding.RetryPolicy.Clone()
@@ -67,6 +67,31 @@ func (Synchronizer) PrepareSelection(cfg configuration.Config, client, routeID s
 	return selected, runtime, nil
 }
 
+func validateRetryConnectionChange(before, after configuration.Config, client string, connection configuration.ConnectionChange) error {
+	if before.Clients[client].RetryPolicy == nil || after.Clients[client].Route == "" || connection.NativeRetries || connection.RetryPolicy != nil {
+		return nil
+	}
+	previous, previousErr := before.ResolveRuntime(client, "")
+	current, currentErr := after.ResolveRuntime(client, "")
+	if previousErr == nil && currentErr == nil && previous.ConnectionFingerprint() == current.ConnectionFingerprint() {
+		return nil
+	}
+	return fmt.Errorf("client %q connection changed with a selected retry policy; declare budgets with `aigw use --for %s`, or select --native-retries on the current connection first", client, client)
+}
+
+func (s Synchronizer) validateRetryTransition(before, after configuration.Config, connection configuration.ConnectionChange) error {
+	for _, client := range s.ClientIDs() {
+		intent := configuration.ConnectionChange{}
+		if client == s.AuthorizedSelectionClient {
+			intent = connection
+		}
+		if err := validateRetryConnectionChange(before, after, client, intent); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // SelectRoute commits one client's Route selection and projection, optionally storing
 // its validated Account Token. Failure compensates owned credential writes;
 // success leaves no rollback obligation with the caller. The result reports
@@ -77,18 +102,14 @@ func (s Synchronizer) SelectRoute(ctx context.Context, before configuration.Conf
 	if err != nil {
 		return false, false, configuration.ClientBinding{}, err
 	}
-	return s.selectRoute(ctx, before, after, client, routeID, protocol, token)
+	return s.selectRoute(ctx, before, after, client, connection, token)
 }
 
-func (s Synchronizer) selectRoute(ctx context.Context, before, after configuration.Config, client, routeID string, protocol configuration.EndpointProtocol, token string) (changed, projectionChanged bool, binding configuration.ClientBinding, resultErr error) {
+func (s Synchronizer) selectRoute(ctx context.Context, before, after configuration.Config, client string, connection configuration.ConnectionChange, token string) (changed, projectionChanged bool, binding configuration.ClientBinding, resultErr error) {
 	if err := ctx.Err(); err != nil {
 		return false, false, configuration.ClientBinding{}, err
 	}
-	_, exists := after.Routes[routeID]
-	if !exists {
-		return false, false, configuration.ClientBinding{}, fmt.Errorf("unknown route %q", routeID)
-	}
-	after, selected, err := s.PrepareSelection(after, client, routeID, protocol, configuration.ConnectionChange{})
+	selected, err := after.ResolveRuntime(client, "")
 	if err != nil {
 		return false, false, configuration.ClientBinding{}, err
 	}
@@ -98,7 +119,7 @@ func (s Synchronizer) selectRoute(ctx context.Context, before, after configurati
 	var tokens map[string]string
 	if token != "" {
 		if !selected.RequiresAccountToken() {
-			return false, false, configuration.ClientBinding{}, fmt.Errorf("route %q uses client-owned authentication; Account Token storage is not part of selection", routeID)
+			return false, false, configuration.ClientBinding{}, fmt.Errorf("route %q uses client-owned authentication; Account Token storage is not part of selection", binding.Route)
 		}
 		tokens = map[string]string{selected.AccountID: token}
 	}
@@ -121,7 +142,7 @@ func (s Synchronizer) selectRoute(ctx context.Context, before, after configurati
 	binding = after.Clients[client]
 	selector := s
 	selector.AuthorizedSelectionClient = client
-	projectionChanged, err = selector.commit(ctx, before, after, "client selection", true, client)
+	projectionChanged, err = selector.commit(ctx, before, after, "client selection", true, connection, client)
 	if err != nil {
 		return false, false, configuration.ClientBinding{}, err
 	}

@@ -34,11 +34,8 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.C
 		after.Models[route.Model] = configuration.Model{Label: route.Model}
 	}
 	after.Routes[name] = route
-	binding := after.Clients[client]
-	binding.Route = name
-	binding.Enabled = true
-	after.Clients[client] = binding
-	if err := after.Validate(); err != nil {
+	after, _, err := s.PrepareSelection(after, client, name, "", configuration.ConnectionChange{})
+	if err != nil {
 		return err
 	}
 	token, err := acquireToken()
@@ -48,6 +45,6 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.C
 	if strings.TrimSpace(token) == "" {
 		return fmt.Errorf("Account connection requires a non-empty Token")
 	}
-	_, _, _, err = s.selectRoute(ctx, before, after, client, name, "", token)
+	_, _, _, err = s.selectRoute(ctx, before, after, client, configuration.ConnectionChange{}, token)
 	return err
 }

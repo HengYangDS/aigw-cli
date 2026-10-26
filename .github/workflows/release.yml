@@ -5,6 +5,10 @@ env:
   GIT_CONFIG_VALUE_0: main
   GIT_CONFIG_KEY_1: core.longpaths
   GIT_CONFIG_VALUE_1: "true"
+  MISE_CONFIG_DIR: ${{ github.workspace }}/.config/mise/external
+  MISE_GLOBAL_CONFIG_FILE: ${{ github.workspace }}/.config/mise/external/config.toml
+  MISE_SYSTEM_CONFIG_DIR: ${{ github.workspace }}/.config/mise/external
+  MISE_IGNORED_CONFIG_PATHS: ${{ github.workspace }}/.config/mise/external
 "on":
   workflow_dispatch:
     inputs:

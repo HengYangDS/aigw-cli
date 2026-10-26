@@ -24,6 +24,17 @@ import (
 // Keep this transport choice in the installer process, not product execution.
 installationEnvironment: GODEBUG: "http2client=0"
 
+// Native startup ignores one explicit external tier; project discovery stays native.
+// A project settings file cannot exclude globals already read during startup.
+#MiseConfigurationEnvironment: {
+	_root:                     string
+	MISE_CONFIG_DIR:           "\(_root)/.config/mise/external"
+	MISE_GLOBAL_CONFIG_FILE:   "\(_root)/.config/mise/external/config.toml"
+	MISE_SYSTEM_CONFIG_DIR:    "\(_root)/.config/mise/external"
+	MISE_IGNORED_CONFIG_PATHS: "\(_root)/.config/mise/external"
+	...
+}
+
 // Git source acquisition must admit the same paths as native tool caches.
 gitEnvironment: {
 	GIT_CONFIG_COUNT:   "2"
@@ -720,7 +731,7 @@ _gitlabControlJob: {
 }
 
 gitlab: {
-	variables: gitEnvironment & {
+	variables: gitEnvironment & (#MiseConfigurationEnvironment & {_root: "$CI_PROJECT_DIR"}) & {
 		GIT_DEPTH:                  "0"
 		FF_GIT_URLS_WITHOUT_TOKENS: "true"
 		GOPROXY:                    "https://goproxy.cn|https://proxy.golang.org|direct"
@@ -868,7 +879,7 @@ gitlab: {
 githubVerify: {
 	name: "Verify"
 	defaults: run: shell: "bash"
-	env: gitEnvironment
+	env: gitEnvironment & (#MiseConfigurationEnvironment & {_root: "${{ github.workspace }}"})
 	"on": {
 		push: {branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch], tags: ["v*"]}
 		"pull_request": branches: [lifecycle.acceptedBranch, lifecycle.releaseBranch]
@@ -1049,7 +1060,7 @@ githubVerify: {
 
 githubRelease: {
 	name: "Release"
-	env:  gitEnvironment
+	env: gitEnvironment & (#MiseConfigurationEnvironment & {_root: "${{ github.workspace }}"})
 	"on": {
 		"workflow_dispatch": inputs: {
 			tool_source: toolSourceInput

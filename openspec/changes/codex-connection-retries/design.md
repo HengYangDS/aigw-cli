@@ -41,8 +41,21 @@ Use a meaningful connection-change value for destination and retry intent,
 replacing the existing forwarding-only selection argument. CLI budget flags
 merge only supplied fields; `--native-retries` explicitly removes the policy.
 Changing the upstream identity or effective destination with an existing policy
-requires explicit retry intent. Model-only changes preserve it. Runtime overrides
+requires explicit retry intent. The shared transaction checks Account edits and
+setup as well as selection; Account creation admits the connection before Token
+acquisition. Model-only changes preserve it. Runtime overrides
 for a different connection do not inherit the selected connection's policy.
+
+### Native source acceptance repairs its diagnosed owners
+
+The user authorized the three gate repairs in this same lane. Mise startup
+ignores the external configuration tier through native process inputs while
+retaining project discovery and task working directories; one CUE
+contract projects both Forge environments. GoReleaser receives invocation-local
+Git selection for an existing peer without changing remotes or persisted Git
+configuration. Mirror fixtures preserve both complete-mirror and asset-only
+absence, including the native metadata warning when the whole mirror is absent.
+Neither warnings nor missing checksums are suppressed to obtain a green gate.
 
 ### Projection and compensation retain their existing owners
 
@@ -62,7 +75,9 @@ retained reader supplied, Homebrew rollback preparation refuses before credentia
 custody rather than assert unproved capability. A refusal preserves program,
 configuration and policy;
 recovery names a compatible program or native configuration rollback, not manual
-field deletion. No arbitrary AIGW or Codex version threshold is introduced.
+field deletion. An unsuccessful reader check reports its observed refusal without
+inferring configuration incompatibility from a process exit alone. No arbitrary
+AIGW or Codex version threshold is introduced.
 
 ## Risks / Trade-offs
 
