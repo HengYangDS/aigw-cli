@@ -62,8 +62,7 @@ func TestNativeClientSupplyStopsItsBlockingInstallerOnSignal(t *testing.T) {
 	case err = <-exited:
 	case <-time.After(30 * time.Second):
 		_ = supplier.Process.Kill()
-		<-exited
-		t.Fatalf("supplier still ran 30 s after SIGTERM: %s", readFile(t, output.Name()))
+		t.Fatalf("supplier still ran 30 s after SIGTERM (%v): %s", <-exited, readFile(t, output.Name()))
 	}
 	if exit, failed := errors.AsType[*exec.ExitError](err); !failed || exit.ExitCode() != 1 {
 		t.Fatalf("interrupted supplier = %v: %s", err, readFile(t, output.Name()))
