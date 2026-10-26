@@ -9,6 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/configuration"
+	"aigw-cli/tools/release/construction"
+
 	"go.yaml.in/yaml/v3"
 )
 
@@ -383,9 +386,9 @@ func checkGitHubNativeToolClosure(t *testing.T, projection projection) {
 		if hasDarwinSigner != (name == "native-darwin") {
 			t.Errorf("%s %s Darwin signer presence = %t", projection.Path, name, hasDarwinSigner)
 		}
-		clientTools := strings.Contains(tools, "inputs.windows_clients && ',node'")
-		if clientTools != (name == "native-windows") {
-			t.Errorf("%s %s selected Windows client tool closure = %t", projection.Path, name, clientTools)
+		clientTools := strings.Contains(tools, "inputs.native_clients && ',node'")
+		if !clientTools {
+			t.Errorf("%s %s lacks the selected native client tool closure", projection.Path, name)
 		}
 		bootstrap := false
 		for _, step := range job.Steps {
@@ -447,7 +450,9 @@ func TestGitLabWindowsDeclaresItsPublicInputClientSupplier(t *testing.T) {
 	}
 }
 
-func TestWindowsClientSupplyMatchesSupportedNativeJourneys(t *testing.T) {
+// Every GitHub native job supplies the official clients that the release
+// owner's journey declares for its host, and retires them after any outcome.
+func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {
 	projections := canonicalProjections(t)
 	type step struct {
 		Name           string            `yaml:"name"`
@@ -458,49 +463,50 @@ func TestWindowsClientSupplyMatchesSupportedNativeJourneys(t *testing.T) {
 	}
 	var workflow struct {
 		Jobs map[string]struct {
-			Steps []step `yaml:"steps"`
+			TimeoutMinutes string `yaml:"timeout-minutes"`
+			Steps          []step `yaml:"steps"`
 		} `yaml:"jobs"`
 	}
 	if err := yaml.Unmarshal([]byte(projections[1].Content), &workflow); err != nil {
 		t.Fatal(err)
 	}
-	windows := workflow.Jobs["native-windows"].Steps
-	supplyIndex := slices.IndexFunc(windows, func(item step) bool { return item.Name == "Prepare official Windows clients" })
-	nativeIndex := slices.IndexFunc(windows, func(item step) bool { return item.Name == "Run historical release acceptance" })
-	cleanupIndex := slices.IndexFunc(windows, func(item step) bool { return item.Name == "Remove official Windows client supply" })
-	if supplyIndex < 0 || nativeIndex <= supplyIndex || cleanupIndex <= nativeIndex {
-		t.Fatalf("Windows native supply ordering: supply=%d native=%d cleanup=%d", supplyIndex, nativeIndex, cleanupIndex)
-	}
-	supply := windows[supplyIndex]
-	const selection = "github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''"
-	for _, field := range []struct{ got, want string }{
-		{supply.If, selection}, {windows[cleanupIndex].If, "always() && " + selection},
-		{supply.Env["GIT_TERMINAL_PROMPT"], "0"},
-		{supply.Run, `mise exec --locked -- go run ./tools/ci native-clients supply --root "$env:RUNNER_TEMP" --github-env "$env:GITHUB_ENV" --package '@openai/codex@0.163.0' --package '@anthropic-ai/claude-code-win32-x64@2.1.302'`},
-		{windows[cleanupIndex].Run, "mise exec --locked -- go run ./tools/ci native-clients retire"},
-	} {
-		if field.got != field.want {
-			t.Fatalf("Windows official supply input = %q, want %q", field.got, field.want)
+	const selection = "github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''"
+	const hermes = " --hermes-commit bf0203a794a07aac3ff764972ab9087baa4e4f4e --hermes-installer-sha256 99cb3691d55019c6973a7acb775a915648666cc24e483ca827a1cdbb3531a674"
+	for _, platform := range []string{"darwin", "linux", "windows"} {
+		job := workflow.Jobs["native-"+platform]
+		steps := job.Steps
+		supplyIndex := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Prepare official native clients" })
+		nativeIndex := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Run historical release acceptance" })
+		cleanupIndex := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Remove official native client supply" })
+		if supplyIndex < 0 || nativeIndex <= supplyIndex || cleanupIndex <= nativeIndex {
+			t.Fatalf("%s native supply ordering: supply=%d native=%d cleanup=%d", platform, supplyIndex, nativeIndex, cleanupIndex)
 		}
-	}
-	if supply.TimeoutMinutes != 12 {
-		t.Fatal("Windows official supply lost its caller deadlines")
-	}
-	for _, key := range []string{"GH_TOKEN", "GITHUB_TOKEN"} {
-		if value, present := supply.Env[key]; !present || value != "" {
-			t.Fatalf("Windows official installation inherits %s", key)
+		supply, prefix, deadline := steps[supplyIndex], "$", 20
+		if platform == "windows" {
+			prefix, deadline = "$env:", 12
 		}
-	}
-	for _, item := range windows {
-		if strings.Contains(item.Run, "hermes") || strings.Contains(item.Run, "HERMES") {
-			t.Fatal("Windows native supply requests an unsupported Hermes journey")
+		pins := ""
+		if slices.Contains(construction.NativeAcceptanceClients(platform), configuration.ClientHermes) {
+			pins = hermes
 		}
-	}
-	for _, platform := range []string{"darwin", "linux"} {
-		if slices.ContainsFunc(workflow.Jobs["native-"+platform].Steps, func(item step) bool {
-			return item.Name == supply.Name || item.Name == windows[cleanupIndex].Name
-		}) {
-			t.Fatalf("%s contains Windows-only supply orchestration", platform)
+		for _, field := range []struct{ got, want string }{
+			{supply.If, selection}, {steps[cleanupIndex].If, "always() && " + selection},
+			{supply.Env["GIT_TERMINAL_PROMPT"], "0"},
+			{supply.Run, `mise exec --locked -- go run ./tools/ci native-clients supply --root "` + prefix + `RUNNER_TEMP" --github-env "` + prefix + `GITHUB_ENV" --codex 0.163.0 --claude 2.1.302` + pins},
+			{steps[cleanupIndex].Run, "mise exec --locked -- go run ./tools/ci native-clients retire"},
+			{job.TimeoutMinutes, "${{ inputs.native_clients && 45 || 25 }}"},
+		} {
+			if field.got != field.want {
+				t.Fatalf("%s official supply input = %q, want %q", platform, field.got, field.want)
+			}
+		}
+		if supply.TimeoutMinutes != deadline {
+			t.Fatalf("%s official supply deadline = %d minutes, want %d", platform, supply.TimeoutMinutes, deadline)
+		}
+		for _, key := range []string{"GH_TOKEN", "GITHUB_TOKEN"} {
+			if value, present := supply.Env[key]; !present || value != "" {
+				t.Fatalf("%s official installation inherits %s", platform, key)
+			}
 		}
 	}
 }

@@ -21,9 +21,18 @@ import (
 
 const fixtureClientSupplier = "suppliers/windows-clients-fixture-native-packages.tar.gz"
 
+// fixtureHermesInstaller stands in for the official installer bytes that a
+
+// supply downloads; fixtureRelease pins exactly these bytes.
+
+// fixtureReleaseFor drops the Hermes pins on a host whose journeys omit Hermes.
+
 // windowsPublicInput prepares a GitLab Windows job beside its checkout: the
+
 // job-owned directory, trust files, a public input archive that carries the
+
 // given members, and the job inputs that select it.
+
 func windowsPublicInput(t *testing.T, members map[string][]byte) (string, []byte, map[string]string) {
 	t.Helper()
 	operation := t.TempDir()
@@ -52,15 +61,17 @@ func officialClientMembers(t *testing.T) map[string][]byte {
 	return map[string][]byte{
 		"candidate/checksums.txt": []byte("test"),
 		fixtureClientSupplier: packFixture(t, map[string][]byte{
-			"clients/" + windowsCodexRoot + "/bin/codex.exe":     []byte("codex fixture"),
-			"clients/" + windowsCodexRoot + "/codex-path/rg.exe": []byte("resource fixture"),
-			"clients/" + windowsClaudeExecutable:                 []byte("claude fixture"),
+			"clients/" + windowsClients.codexRoot() + "/bin/codex.exe":     []byte("codex fixture"),
+			"clients/" + windowsClients.codexRoot() + "/codex-path/rg.exe": []byte("resource fixture"),
+			"clients/" + windowsClients.claudeExecutable():                 []byte("claude fixture"),
 		}, true),
 	}
 }
 
 // servePublicInput answers the job's package download with archive and runs
+
 // the system tar for extraction.
+
 func servePublicInput(archive []byte) commandRunner {
 	return func(call command) error {
 		if call.Name == "tar" {
@@ -119,12 +130,13 @@ func TestWindowsInputSupplyAdmitsOnlyTheExactPublicInput(t *testing.T) {
 			if err != nil || downloads != 1 || !slices.Equal(environment, want) {
 				t.Fatalf("Windows client environment = %q, %v; want %q", environment, err, want)
 			}
-			checkWindowsClientIdentities(t, environment)
+			checkClientIdentities(t, environment)
 		})
 	}
 }
 
 // Each failed step reports itself and returns no client environment.
+
 func TestWindowsInputSupplyReportsEachFailedStep(t *testing.T) {
 	failingTar := func(archive []byte) commandRunner {
 		serve := servePublicInput(archive)
@@ -180,11 +192,7 @@ func TestWindowsClientEnvironmentNamesTheMissingTool(t *testing.T) {
 	if _, err := windowsClientEnvironment(root, "missing Git Bash"); err == nil || !strings.Contains(err.Error(), "locate Git") {
 		t.Fatalf("Windows clients without Git = %v", err)
 	}
-	suffix := ""
-	if runtime.GOOS == "windows" {
-		suffix = ".exe"
-	}
-	if err := os.WriteFile(filepath.Join(root, "git"+suffix), []byte("inert fixture"), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "git"+executableSuffix()), []byte("inert fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := windowsClientEnvironment(root, "missing Git Bash"); err == nil || !strings.Contains(err.Error(), "locate Node.js") {
@@ -192,24 +200,36 @@ func TestWindowsClientEnvironmentNamesTheMissingTool(t *testing.T) {
 	}
 }
 
+// Every supported host supplies exactly the clients that the release owner's
+
+// journey declares for its platform, under that host's official layout.
+
+// The official installer runs only after its exact pinned bytes are verified,
+
+// and its homes, caches and launcher stay inside the supply.
+
+// A signal during supply stops before the next step, exports no clients and
+
+// removes the partial supply, including a signal during its last step.
+
 func TestGitHubWindowsClientSupplyRequiresEveryOfficialClient(t *testing.T) {
 	root := t.TempDir()
 	windowsClientTools(t, root)
-	err := supplyWindowsClients(root, filepath.Join(root, "github-env"), []string{"@openai/codex@0.162.1"}, &bytes.Buffer{}, func(call command) error {
+	err := supplyClients("windows/amd64", root, filepath.Join(root, "github-env"), fixtureReleaseFor("windows/amd64"), &bytes.Buffer{}, func(call command) error {
 		if !slices.Contains(call.Args, "install") {
 			return nil
 		}
 		// The installation reports success but supplies only Claude.
-		file := filepath.Join(call.Args[slices.Index(call.Args, "--prefix")+1], filepath.FromSlash(windowsClaudeExecutable))
+		file := filepath.Join(call.Args[slices.Index(call.Args, "--prefix")+1], filepath.FromSlash(windowsClients.claudeExecutable()))
 		if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
 			return err
 		}
 		return os.WriteFile(file, []byte("claude fixture"), 0o600)
-	})
+	}, nil)
 	if !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("supply without the official Codex client = %v", err)
 	}
-	if left, _ := filepath.Glob(filepath.Join(root, windowsClientSupplyPrefix+"*")); len(left) != 0 {
+	if left, _ := filepath.Glob(filepath.Join(root, clientSupplyPrefix+"*")); len(left) != 0 {
 		t.Fatalf("incomplete client supply survived: %q", left)
 	}
 }
@@ -245,34 +265,16 @@ func TestGitHubWindowsClientSupplyRetiresEveryFailedSupply(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			err := supplyWindowsClients(entry.root(root), entry.environment(root), []string{"@openai/codex@0.162.1"}, &bytes.Buffer{}, installOfficialClients)
+			var calls []command
+			err := supplyClients("windows/amd64", entry.root(root), entry.environment(root), fixtureReleaseFor("windows/amd64"), &bytes.Buffer{}, recordingSupply(&calls, windowsClients), nil)
 			if err == nil || !entry.check(err) {
 				t.Fatalf("failed client supply = %v", err)
 			}
-			if left, _ := filepath.Glob(filepath.Join(root, windowsClientSupplyPrefix+"*")); len(left) != 0 {
+			if left, _ := filepath.Glob(filepath.Join(root, clientSupplyPrefix+"*")); len(left) != 0 {
 				t.Fatalf("failed client supply survived: %q", left)
 			}
 		})
 	}
-}
-
-// installOfficialClients stands in for npm and writes the two official client
-// executables under the requested prefix.
-func installOfficialClients(call command) error {
-	if !slices.Contains(call.Args, "install") {
-		return nil
-	}
-	prefix := call.Args[slices.Index(call.Args, "--prefix")+1]
-	for path, data := range map[string]string{windowsCodexRoot + "/bin/codex.exe": "codex fixture", windowsClaudeExecutable: "claude fixture"} {
-		file := filepath.Join(prefix, filepath.FromSlash(path))
-		if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
-			return err
-		}
-		if err := os.WriteFile(file, []byte(data), 0o600); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func TestWindowsClientsRequireGitBash(t *testing.T) {
@@ -286,6 +288,8 @@ func TestWindowsClientsRequireGitBash(t *testing.T) {
 	}
 }
 
+// The Windows supply keeps its exact installation, isolation and environment.
+
 func TestGitHubWindowsClientSupplyRecordsItsOwnedEnvironment(t *testing.T) {
 	root := t.TempDir()
 	githubEnvironment := filepath.Join(root, "github-env")
@@ -293,59 +297,42 @@ func TestGitHubWindowsClientSupplyRecordsItsOwnedEnvironment(t *testing.T) {
 		t.Fatal(err)
 	}
 	gitBin, bash, nodeDirectory := windowsClientTools(t, root)
-	packages := []string{"@openai/codex@0.162.1", "@anthropic-ai/claude-code-win32-x64@2.1.296"}
 	var calls []command
-	var stdout bytes.Buffer
-	err := run([]string{"native-clients", "supply", "--root", root, "--github-env", githubEnvironment, "--package", packages[0], "--package", packages[1]}, &stdout, func(call command) error {
-		calls = append(calls, call)
-		return installOfficialClients(call)
-	})
-	if err != nil {
+	release := fixtureReleaseFor("windows/amd64")
+	if err := supplyClients("windows/amd64", root, githubEnvironment, release, &bytes.Buffer{}, recordingSupply(&calls, windowsClients), nil); err != nil {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(string(readFile(t, githubEnvironment))), "\n")
-	clients, found := strings.CutPrefix(lines[0], "AIGW_NATIVE_CLIENT_SUPPLY=")
-	if !found || filepath.Dir(clients) != root || !strings.HasPrefix(filepath.Base(clients), windowsClientSupplyPrefix) {
-		t.Fatalf("Windows client supply is not recorded before installation: %q", lines)
-	}
+	clients := strings.TrimPrefix(lines[0], "AIGW_NATIVE_CLIENT_SUPPLY=")
 	gitConfig := filepath.Join(clients, "gitconfig")
 	isolated := []string{"GIT_CONFIG_GLOBAL=" + gitConfig}
 	want := []command{
 		{Name: "git", Args: []string{"config", "--file", gitConfig, "core.autocrlf", "false"}},
-		{Name: "mise", Args: append([]string{"exec", "--locked", "--", "npm", "install", "--prefix", clients, "--ignore-scripts", "--save-exact", "--no-audit", "--no-fund"}, packages...), Env: isolated},
+		{Name: "mise", Args: []string{"exec", "--locked", "--", "npm", "install", "--prefix", clients, "--ignore-scripts", "--save-exact", "--no-audit", "--no-fund",
+			"@openai/codex@0.163.0", "@anthropic-ai/claude-code-win32-x64@2.1.302"}, Env: isolated},
 		{Name: "mise", Args: []string{"exec", "--locked", "--", "npm", "audit", "signatures", "--prefix", clients}, Env: isolated},
 	}
 	if !reflect.DeepEqual(calls, want) || string(readFile(t, filepath.Join(clients, "package.json"))) != "{\"private\":true}\n" {
 		t.Fatalf("official Windows client installation = %#v", calls)
 	}
-	environment := expectedWindowsClientEnvironment(clients, gitBin, bash, nodeDirectory)
-	if !slices.Equal(lines[1:], environment) {
+	if environment := expectedWindowsClientEnvironment(clients, gitBin, bash, nodeDirectory); !slices.Equal(lines[1:], environment) {
 		t.Fatalf("GitHub client environment = %q, want %q", lines[1:], environment)
 	}
-	checkWindowsClientIdentities(t, environment)
-	if digest := fmt.Sprintf("%x", sha256.Sum256([]byte("codex fixture"))); !strings.Contains(stdout.String(), digest) {
-		t.Fatalf("official client digests were not reported: %s", stdout.String())
-	}
-	t.Setenv("AIGW_NATIVE_CLIENT_SUPPLY", clients)
-	if err := run([]string{"native-clients", "retire"}, &bytes.Buffer{}, nil); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Lstat(clients); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("Windows client supply survived retirement: %v", err)
-	}
 }
+
+// The command selects this host's official layout and retires what it supplied.
 
 func TestGitHubWindowsClientSupplyRetiresItsDirectoryOnFailure(t *testing.T) {
 	root := t.TempDir()
 	githubEnvironment := filepath.Join(root, "github-env")
 	windowsClientTools(t, root)
 	failure := errors.New("npm audit failed")
-	err := run([]string{"native-clients", "supply", "--root", root, "--github-env", githubEnvironment, "--package", "@openai/codex@0.162.1"}, &bytes.Buffer{}, func(call command) error {
+	err := supplyClients("windows/amd64", root, githubEnvironment, fixtureReleaseFor("windows/amd64"), &bytes.Buffer{}, func(call command) error {
 		if slices.Contains(call.Args, "audit") {
 			return failure
 		}
 		return nil
-	})
+	}, nil)
 	lines := strings.Split(strings.TrimSpace(string(readFile(t, githubEnvironment))), "\n")
 	clients := strings.TrimPrefix(lines[0], "AIGW_NATIVE_CLIENT_SUPPLY=")
 	if !errors.Is(err, failure) || len(lines) != 1 {
@@ -356,9 +343,9 @@ func TestGitHubWindowsClientSupplyRetiresItsDirectoryOnFailure(t *testing.T) {
 	}
 }
 
-func TestGitHubWindowsClientRetirementRemovesOnlyItsOwnSupply(t *testing.T) {
+func TestNativeClientRetirementRemovesOnlyItsOwnSupply(t *testing.T) {
 	foreign := t.TempDir()
-	for _, owned := range []string{foreign, windowsClientSupplyPrefix + "relative"} {
+	for _, owned := range []string{foreign, clientSupplyPrefix + "relative"} {
 		t.Setenv("AIGW_NATIVE_CLIENT_SUPPLY", owned)
 		if err := run([]string{"native-clients", "retire"}, &bytes.Buffer{}, nil); err == nil {
 			t.Fatalf("retirement admitted an unowned path %q", owned)
@@ -373,15 +360,19 @@ func TestGitHubWindowsClientRetirementRemovesOnlyItsOwnSupply(t *testing.T) {
 	}
 }
 
+// A process that outlived its journey keeps the supply and fails retirement,
+
+// whichever process it is, and an unproved inventory fails it as well.
+
 func TestNativeClientsCommandRequiresExactInputs(t *testing.T) {
 	for _, arguments := range [][]string{
 		{"native-clients"},
 		{"native-clients", "install"},
 		{"native-clients", "retire", "extra"},
-		{"native-clients", "supply", "--root", "/r", "--github-env", "/e"},
-		{"native-clients", "supply", "--root", "/r", "--package", "p"},
-		{"native-clients", "supply", "--github-env", "/e", "--package", "p"},
-		{"native-clients", "supply", "--root", "/r", "--github-env", "/e", "--package", "p", "extra"},
+		{"native-clients", "supply", "--root", "/r", "--codex", "1.0.0", "--claude", "1.0.0"},
+		{"native-clients", "supply", "--github-env", "/e", "--codex", "1.0.0", "--claude", "1.0.0"},
+		{"native-clients", "supply", "--root", "/r", "--github-env", "/e", "--package", "p"},
+		{"native-clients", "supply", "--root", "/r", "--github-env", "/e", "--codex", "1.0.0", "--claude", "1.0.0", "extra"},
 	} {
 		if err := run(arguments, &bytes.Buffer{}, func(command) error {
 			t.Fatalf("%q reached client installation", arguments)
@@ -392,24 +383,37 @@ func TestNativeClientsCommandRequiresExactInputs(t *testing.T) {
 	}
 }
 
+// recordingSupply stands in for npm, curl, the official Hermes installer and
+
+// Git: it records each call and writes the files the official tools produce.
+
 // expectedWindowsClientEnvironment is the acceptance environment for clients
+
 // installed under root with the given Git, Git Bash and Node.js locations.
+
 func expectedWindowsClientEnvironment(root, gitBin, bash, nodeDirectory string) []string {
-	codex := filepath.Join(root, filepath.FromSlash(windowsCodexRoot))
+	codex := filepath.Join(root, filepath.FromSlash(windowsClients.codexRoot()))
 	return []string{
 		"AIGW_ACCEPTANCE_CODEX=" + filepath.Join(codex, "bin", "codex.exe"),
-		"AIGW_ACCEPTANCE_CLAUDE=" + filepath.Join(root, filepath.FromSlash(windowsClaudeExecutable)),
+		"AIGW_ACCEPTANCE_CLAUDE=" + filepath.Join(root, filepath.FromSlash(windowsClients.claudeExecutable())),
 		"AIGW_ACCEPTANCE_CLIENT_PATH=" + strings.Join([]string{filepath.Join(codex, "codex-path"), nodeDirectory, gitBin, filepath.Dir(bash), filepath.Join(os.Getenv("SystemRoot"), "System32")}, ";"),
 		"CLAUDE_CODE_GIT_BASH_PATH=" + bash,
 	}
 }
 
-func checkWindowsClientIdentities(t *testing.T, environment []string) {
+// expectedPosixClientEnvironment is the acceptance environment for clients and
+
+// the official Hermes installation under supply.
+
+func checkClientIdentities(t *testing.T, environment []string) {
 	t.Helper()
-	for client, key := range map[string]string{"codex": "AIGW_ACCEPTANCE_CODEX=", "claude": "AIGW_ACCEPTANCE_CLAUDE="} {
+	for client, key := range map[string]string{"codex": "AIGW_ACCEPTANCE_CODEX=", "claude": "AIGW_ACCEPTANCE_CLAUDE=", "hermes": "AIGW_ACCEPTANCE_HERMES="} {
 		index := slices.IndexFunc(environment, func(entry string) bool { return strings.HasPrefix(entry, key) })
 		if index < 0 {
-			t.Fatalf("Windows client environment omits %s", key)
+			if client == "hermes" {
+				continue
+			}
+			t.Fatalf("client environment omits %s", key)
 		}
 		if data, err := os.ReadFile(strings.TrimPrefix(environment[index], key)); err != nil || string(data) != client+" fixture" {
 			t.Fatalf("selected %s client identity is unavailable: %q, %v", client, data, err)
@@ -417,18 +421,24 @@ func checkWindowsClientIdentities(t *testing.T, environment []string) {
 	}
 }
 
+func executableSuffix() string {
+	if runtime.GOOS == "windows" {
+		return ".exe"
+	}
+	return ""
+}
+
 // windowsClientTools puts inert Git and Node.js stand-ins first on PATH beside
+
 // a Git Bash file and returns Git's command directory, Git Bash and Node's
+
 // directory.
+
 func windowsClientTools(t *testing.T, root string) (string, string, string) {
 	t.Helper()
-	suffix := ""
-	if runtime.GOOS == "windows" {
-		suffix = ".exe"
-	}
 	gitBin, nodeDirectory := filepath.Join(root, "git", "cmd"), filepath.Join(root, "node")
 	bash := filepath.Join(root, "git", "bin", "bash.exe")
-	for _, path := range []string{filepath.Join(gitBin, "git"+suffix), filepath.Join(nodeDirectory, "node"+suffix), bash} {
+	for _, path := range []string{filepath.Join(gitBin, "git"+executableSuffix()), filepath.Join(nodeDirectory, "node"+executableSuffix()), bash} {
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 			t.Fatal(err)
 		}

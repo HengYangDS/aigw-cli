@@ -317,7 +317,7 @@ gitlabPipelineRules: [
 ]
 
 githubFullVerificationCondition:   "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == '\(lifecycle.acceptedBranch)' || github.ref_name == '\(lifecycle.releaseBranch)'))"
-githubSourceVerificationCondition: "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || (inputs.candidate_tag == '' && inputs.input_release == ''))"
+githubSourceVerificationCondition: "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || (inputs.candidate_tag == '' && inputs.input_release == ''))"
 
 githubCommitBase: "${{ inputs.commit_base || github.event.pull_request.base.sha || (github.ref_type == 'tag' && format('{0}^', github.sha)) || github.event.before || format('{0}^', github.sha) }}"
 
@@ -335,10 +335,19 @@ miseWindowsArm64ExecutableSHA256: "7a7abd2f66fd6619a14cb340eda3889923b5599d0d75e
 miseWindowsArm64ShimSHA256:       "9a39151763eac654f280ce950f6dd8ddfbcf1043211c9460f7a9e1e77307623b"
 windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 
-// Official Windows clients for real-client acceptance. GitHub installs these
-// packages; a GitLab public input carries the reviewed supplier archive.
-windowsClientPackages: ["@openai/codex@0.163.0", "@anthropic-ai/claude-code-win32-x64@2.1.302"]
-windowsClientSupplier: "suppliers/windows-codex-0.163.0-claude-2.1.302-native-packages.tar.gz"
+// Official native clients for real-client acceptance, pinned once. Each GitHub
+// native job installs the clients its host declares; a GitLab public input
+// carries the reviewed Windows supplier archive built from the same releases.
+nativeClients: {
+	codex:  "0.163.0"
+	claude: "2.1.302"
+	// Hermes v0.22.5 and the SHA-256 of that release's scripts/install.sh.
+	hermes: {
+		commit:    "bf0203a794a07aac3ff764972ab9087baa4e4f4e"
+		installer: "99cb3691d55019c6973a7acb775a915648666cc24e483ca827a1cdbb3531a674"
+	}
+}
+windowsClientSupplier: "suppliers/windows-codex-\(nativeClients.codex)-claude-\(nativeClients.claude)-native-packages.tar.gz"
 
 // Artifact-only journeys enable only the artifact tool closure and, on Linux,
 // no compiler; source, full-quality and lock-refresh runs keep the complete
@@ -430,20 +439,22 @@ workflowEvidencePath:   "build/verification/workflows"
 
 #NativeGitHubJob: {
 	_platform:            #OperatingSystem
-	_sourceCondition:     "github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.windows_clients || (inputs.candidate_tag == '' && inputs.input_release == '')"
-	_historicalCondition: "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.windows_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)"
-	_environmentPrefix:   string
-	_clients:             string
-	_clientTools:         string
+	_sourceCondition:     "github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || (inputs.candidate_tag == '' && inputs.input_release == '')"
+	_historicalCondition: "github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)"
+	// Real clients are supplied for the retained-predecessor journey of the
+	// job's own host; every outcome retires the supply.
+	_clientSelection:   "github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''"
+	_clients:           "${{ inputs.native_clients && inputs.diagnostic_client == '' }}"
+	_clientTools:       "${{ inputs.native_clients && ',\(strings.Join(toolchainTools.nativeClientSupply, ","))' || '' }}"
+	_environmentPrefix: string
+	_hermesArguments:   string
 	if _platform == "windows" {
 		_environmentPrefix: "$env:"
-		_clients:           "${{ inputs.windows_clients && inputs.diagnostic_client == '' }}"
-		_clientTools:       "${{ inputs.windows_clients && ',\(strings.Join(toolchainTools.nativeClientSupply, ","))' || '' }}"
+		_hermesArguments:   ""
 	}
 	if _platform != "windows" {
 		_environmentPrefix: "$"
-		_clients:           "false"
-		_clientTools:       ""
+		_hermesArguments:   " --hermes-commit \(nativeClients.hermes.commit) --hermes-installer-sha256 \(nativeClients.hermes.installer)"
 	}
 	_historicalArguments: "--peer=github --repository=\"\(_environmentPrefix)GITHUB_REPOSITORY\" --baseline-tag=\"\(_environmentPrefix)AIGW_BASELINE_TAG\" --tag=\"\(_environmentPrefix)AIGW_CANDIDATE_TAG\" --clients=\(_clients) --diagnostic-client=\"\(_environmentPrefix)AIGW_NATIVE_DIAGNOSTIC_CLIENT\" --performance-attribution=${{ inputs.performance_attribution }} --input-release=\"\(_environmentPrefix)AIGW_NATIVE_INPUT_RELEASE\" --input-sha256=\"\(_environmentPrefix)AIGW_NATIVE_INPUT_SHA256\" --candidate-source=\"\(_environmentPrefix)AIGW_CANDIDATE_SOURCE\" --candidate=${{ inputs.input_release != '' }}"
 	_performanceCommand:  "mise run performance \(_historicalArguments) --performance \"\(_environmentPrefix)GITHUB_WORKSPACE/build/performance\""
@@ -473,7 +484,9 @@ workflowEvidencePath:   "build/verification/workflows"
 	"runs-on": nativeEvidence[_platform].github.runner
 	if _platform != "windows" {defaults: run: shell: "bash"}
 	if _platform == "windows" {defaults: run: shell: "pwsh"}
-	"timeout-minutes": 25
+
+	// Supplying real clients adds their installation to the journey.
+	"timeout-minutes": "${{ inputs.native_clients && 45 || 25 }}"
 	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
 	env: MISE_ENABLE_TOOLS: "${{ (\(_sourceCondition)) && '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' || inputs.performance && '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS),\(strings.Join(toolchainTools.performance, ","))' || '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' }}\(_clientTools)"
 	steps: [
@@ -523,16 +536,17 @@ workflowEvidencePath:   "build/verification/workflows"
 				}
 			}
 		},
-		if _platform == "windows" {
-			name:              "Prepare official Windows clients"
-			if:                "github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''"
-			"timeout-minutes": 12
+		{
+			name: "Prepare official native clients"
+			if:   _clientSelection
+			if _platform == "windows" {"timeout-minutes": 12}
+			if _platform != "windows" {"timeout-minutes": 20}
 			env: {
 				GH_TOKEN:            ""
 				GITHUB_TOKEN:        ""
 				GIT_TERMINAL_PROMPT: "0"
 			}
-			run: "mise exec --locked -- go run ./tools/ci native-clients supply --root \"$env:RUNNER_TEMP\" --github-env \"$env:GITHUB_ENV\" \(strings.Join([for client in windowsClientPackages {"--package '\(client)'"}], " "))"
+			run: "mise exec --locked -- go run ./tools/ci native-clients supply --root \"\(_environmentPrefix)RUNNER_TEMP\" --github-env \"\(_environmentPrefix)GITHUB_ENV\" --codex \(nativeClients.codex) --claude \(nativeClients.claude)\(_hermesArguments)"
 		},
 		for trust in [{kind: "source", flag: ""}, {kind: "artifact", flag: " --artifact"}] {
 			name: "Prepare native \(trust.kind) trust"
@@ -565,9 +579,9 @@ workflowEvidencePath:   "build/verification/workflows"
 				run: _performanceCommand
 			}
 		},
-		if _platform == "windows" {
-			name: "Remove official Windows client supply"
-			if:   "always() && github.event_name == 'workflow_dispatch' && inputs.windows_clients && inputs.baseline_tag != ''"
+		{
+			name: "Remove official native client supply"
+			if:   "always() && \(_clientSelection)"
 			run:  "mise exec --locked -- go run ./tools/ci native-clients retire"
 		},
 		#DependencyEvidenceGitHubStep & {_name: "dependency-evidence-\(_platform)"},
@@ -898,8 +912,8 @@ githubVerify: {
 				type:        "boolean"
 				default:     false
 			}
-			windows_clients: {
-				description: "With baseline_tag, qualify real Windows clients through the existing release lifecycle"
+			native_clients: {
+				description: "With baseline_tag, qualify each selected host's real clients through the existing release lifecycle"
 				required:    false
 				type:        "boolean"
 				default:     false

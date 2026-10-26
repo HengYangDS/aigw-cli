@@ -302,8 +302,8 @@ retained predecessor journey using Go subtest selection. It requires admitted
 prebuilt candidate and predecessor inputs, preserves source/artifact trust and
 the original client budgets, and does not establish full product acceptance.
 Manual peers expose `diagnostic_client` / `AIGW_NATIVE_DIAGNOSTIC_CLIENT`; leave
-them empty for ordinary verification. GitHub also needs `windows_clients=true`
-to supply Windows clients. Review, accepted-push and tag jobs cannot use this
+them empty for ordinary verification. GitHub also needs `native_clients=true`
+to supply the host's clients. Review, accepted-push and tag jobs cannot use this
 diagnostic scope instead of their full suites.
 
 Default acceptance uses a synthetic current-schema predecessor. Test-owned
@@ -485,9 +485,31 @@ and native MR-pipeline admission, not a manually dispatched pipeline substitute.
 
 GitLab downloads use its explicit project and Job Token, not sibling credentials.
 GitHub manual `candidate_tag`/`baseline_tag` selects that peer's same bytes, with
-`windows_clients` for real-client execution. A reviewed verifier may have a
+`native_clients` for real-client execution. A reviewed verifier may have a
 different SHA but must declare the candidate version; signed provenance still
 binds execution to the selected source.
+
+`ci native-clients supply` installs, for its own host, the clients that
+`NativeAcceptanceClients` declares, at the releases pinned once in
+`.config/ci/pipeline.cue`:
+
+- Codex and Claude Code come from their official npm platform packages, and
+  `npm audit signatures` checks them.
+- On Linux and macOS, Hermes comes from its official release. The release's
+  own installer runs only after its pinned SHA-256 matches. The checkout must
+  then be the unmodified pinned commit with its published launcher.
+
+Homes, caches, temporary files and the launcher stay in one job-owned
+directory:
+
+- The supply records the directory before installing anything, and removes it
+  after a failed or interrupted step.
+- `ci native-clients retire` removes only that recorded directory and proves it
+  absent.
+- On Linux and macOS, retirement first fails, keeping the directory, while a
+  process still names it.
+
+An unsupported host or an inexact pin fails before any installation.
 
 #### Disposable Linux clients
 

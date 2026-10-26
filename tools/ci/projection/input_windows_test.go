@@ -75,7 +75,7 @@ func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
 			digest, source = strings.Repeat("b", 64), strings.Repeat("a", 40)
 		}
 		arguments := "--baseline-tag=" + strings.NewReplacer(
-			"${{ inputs.windows_clients && inputs.diagnostic_client == '' }}", "false",
+			"${{ inputs.native_clients && inputs.diagnostic_client == '' }}", "false",
 			"${{ inputs.performance_attribution }}", "false",
 			"${{ inputs.input_release != '' }}", fmt.Sprint(release != ""),
 		).Replace(suffix)
