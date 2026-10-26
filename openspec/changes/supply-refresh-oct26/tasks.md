@@ -16,6 +16,6 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `mise run check` and `mise run dependencies:check` pass on the lane
-      head.
-- [ ] 3.2 The full proof of the lane head passes.
+- [x] 3.1 `mise run check` and `mise run dependencies:check` pass on the lane
+      head (`0c6a5746`, statement coverage 95.07%).
+- [x] 3.2 The full proof of the lane head passes (Attestation `2480f661`).
