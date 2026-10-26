@@ -358,6 +358,7 @@ allowed_import_edges."internal/presentation" = [
 ]
 allowed_import_edges."internal/process" = []
 allowed_import_edges."tools/ci" = [
+  "internal/configuration",
   "internal/process",
   "tools/ci/evidence",
   "tools/ci/markdown",

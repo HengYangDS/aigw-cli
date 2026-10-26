@@ -51,8 +51,10 @@ journey with real clients, so that acceptance on those hosts is unproved
 ## Impact
 
 `tools/ci` client supply and retirement, the CUE pipeline model, both generated
-Forge projections, their projection tests and `CONTRIBUTING.md` change. Manual
-GitHub dispatches that used `windows_clients` must use `native_clients`.
+Forge projections, their projection tests and `CONTRIBUTING.md` change. The
+architecture policy declares that `tools/ci` reads the client identities in
+`internal/configuration`. Manual GitHub dispatches that used `windows_clients`
+must use `native_clients`.
 Windows supply keeps its packages, isolation and environment. GitLab keeps its
 Windows public input; real-client supply in GitLab's Linux and macOS jobs stays
 out of scope. No product behavior, configuration, credential or release
