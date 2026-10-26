@@ -10,7 +10,7 @@
 
 ## 2. Release
 
-- [ ] 2.1 Prepare 0.4.17: `VERSION` and a dated `CHANGELOG.md` section that
+- [x] 2.1 Prepare 0.4.17: `VERSION` and a dated `CHANGELOG.md` section that
       records every user-relevant change since 0.4.16; `validate-changelog`
       passes.
 
