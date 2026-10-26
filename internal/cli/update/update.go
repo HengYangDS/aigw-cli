@@ -20,6 +20,24 @@ import (
 // Without a readable configuration it cannot name those items, so it stops
 // before any native request.
 func prepareHomebrewRollback(runtime invocation.Context) error {
+	cfg, err := runtime.Config.Load()
+	if err != nil {
+		return invocation.Problem(runtime,
+			"Configuration is not ready for a Homebrew rollback",
+			"AIGW could not read the configuration, including each connection's retry policy.",
+			"No credential, policy or program changed.",
+			"Run `aigw doctor` to inspect or restore the configuration, then retry `aigw update --rollback`.", err)
+	}
+	for _, binding := range cfg.Clients {
+		if binding.RetryPolicy != nil {
+			return invocation.Problem(runtime,
+				"Homebrew rollback retry-policy capability is unproved",
+				"No retained Homebrew program was supplied to the native configuration probe.",
+				"No credential, policy or program changed.",
+				"Keep this compatible AIGW release, or use `aigw rollback` to restore the accepted configuration before choosing a predecessor.",
+				fmt.Errorf("Homebrew rollback cannot prove the selected retry policy"))
+		}
+	}
 	custody, err := invocation.CredentialCustody(runtime)
 	if err != nil {
 		return invocation.Problem(runtime,
@@ -84,7 +102,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				err    error
 			)
 			if rollback {
-				config, readErr := os.ReadFile(runtime.Config.Path())
+				config, readErr := runtime.Config.RollbackConfiguration()
 				if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
 					return fmt.Errorf("read configuration before program rollback: %w", readErr)
 				}
@@ -129,7 +147,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					"Program rollback is incompatible with the current configuration",
 					"The retained program could not read an isolated copy of the current configuration.",
 					"The active program, retained program and configuration remain unchanged.",
-					"Restore a configuration supported by the retained program, then retry `aigw update --rollback`.", err)
+					"Keep a compatible program, or use `aigw rollback` to restore the accepted configuration before retrying; do not delete policy fields manually.", err)
 			}
 			if err != nil {
 				if rollback {

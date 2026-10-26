@@ -108,5 +108,7 @@ func runtimeConfigurationsEqual(left, right Config) (bool, error) {
 	}
 	leftForwarding, leftErr := encodeForwarding(left)
 	rightForwarding, rightErr := encodeForwarding(right)
-	return bytes.Equal(leftData, rightData) && bytes.Equal(leftForwarding, rightForwarding), errors.Join(leftErr, rightErr)
+	leftRetries, leftRetriesErr := encodeRetryPolicies(left)
+	rightRetries, rightRetriesErr := encodeRetryPolicies(right)
+	return bytes.Equal(leftData, rightData) && bytes.Equal(leftForwarding, rightForwarding) && bytes.Equal(leftRetries, rightRetries), errors.Join(leftErr, rightErr, leftRetriesErr, rightRetriesErr)
 }

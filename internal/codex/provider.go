@@ -13,6 +13,8 @@ import (
 // codexProviderProjection is the provider value AIGW writes and subsequently owns.
 // Its source tables may move independently of surrounding comments or user tables.
 type codexProviderProjection struct {
+	RequestMaxRetries  *uint64 `toml:"request_max_retries"`
+	StreamMaxRetries   *uint64 `toml:"stream_max_retries"`
 	Name               *string `toml:"name"`
 	BaseURL            string  `toml:"base_url"`
 	WireAPI            string  `toml:"wire_api"`
@@ -29,6 +31,12 @@ func (projection codexProviderProjection) render(provider string) string {
 		block += "name = " + strconv.Quote(*projection.Name) + "\n"
 	}
 	block += "base_url = " + strconv.Quote(projection.BaseURL) + "\nwire_api = " + strconv.Quote(projection.WireAPI) + "\n"
+	if projection.RequestMaxRetries != nil {
+		block += "request_max_retries = " + strconv.FormatUint(*projection.RequestMaxRetries, 10) + "\n"
+	}
+	if projection.StreamMaxRetries != nil {
+		block += "stream_max_retries = " + strconv.FormatUint(*projection.StreamMaxRetries, 10) + "\n"
+	}
 	if projection.RequiresOpenAIAuth != nil {
 		block += "requires_openai_auth = " + strconv.FormatBool(*projection.RequiresOpenAIAuth) + "\n"
 	}
@@ -102,7 +110,7 @@ func codexProviderForProviderIn(current, provider string) (codexProviderProjecti
 	}
 	decoder := toml.NewDecoder(strings.NewReader(source.String())).DisallowUnknownFields()
 	if err := decoder.Decode(&document); err != nil {
-		return codexProviderProjection{}, fmt.Errorf("Codex config conflict: AIGW-managed provider block changed: %w", err)
+		return codexProviderProjection{}, &providerConflictError{cause: err}
 	}
 	projection := document.Providers[provider]
 	if projection.BaseURL == "" || projection.WireAPI != "responses" ||
@@ -111,6 +119,17 @@ func codexProviderForProviderIn(current, provider string) (codexProviderProjecti
 	}
 	return projection, nil
 }
+
+// providerConflictError preserves the schema/ownership boundary of a reconstructed
+// provider fragment without reporting its offsets as document syntax positions.
+type providerConflictError struct{ cause error }
+
+func (e *providerConflictError) Error() string {
+	return "Codex config conflict: AIGW-managed provider block changed or contains unsupported fields; refusing to overwrite user edits"
+}
+
+func (e *providerConflictError) Unwrap() error            { return e.cause }
+func (e *providerConflictError) ProjectionConflict() bool { return true }
 
 func removeCodexProviderMarkers(text string) string {
 	parser := unstable.Parser{KeepComments: true}

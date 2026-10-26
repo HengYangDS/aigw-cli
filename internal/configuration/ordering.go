@@ -142,5 +142,9 @@ func (s Store) loadSnapshot(snapshot Snapshot) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	return decodeComponents(cfg, snapshot.Catalog, snapshot.Capabilities)
+	cfg, err = decodeComponents(cfg, snapshot.Catalog, snapshot.Capabilities)
+	if err != nil {
+		return Config{}, err
+	}
+	return decodeRetryPolicies(cfg, snapshot.Retries)
 }

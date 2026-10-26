@@ -143,6 +143,7 @@ func (route Route) AdmittedProtocols() []EndpointProtocol {
 
 // Runtime is the resolved, immutable input used to project or invoke one client route.
 type Runtime struct {
+	RetryPolicy       *RetryPolicy     `json:"retry_policy,omitempty"`
 	RouteID           string           `json:"route_id"`
 	RouteLabel        string           `json:"route_label"`
 	AccountID         string           `json:"account_id"`
@@ -180,6 +181,14 @@ func (runtime Runtime) CredentialProjectionFingerprint(client string) string {
 func (runtime Runtime) SameUpstream(other Runtime) bool {
 	return runtime.Client == other.Client && runtime.Protocol == other.Protocol &&
 		runtime.CredentialProjectionFingerprint(runtime.Client) == other.CredentialProjectionFingerprint(other.Client)
+}
+
+// ConnectionFingerprint identifies one client's upstream, effective destination
+// and native provider/authentication contract independently of model and retries.
+func (runtime Runtime) ConnectionFingerprint() string {
+	identity := strings.Join([]string{runtime.CredentialProjectionFingerprint(runtime.Client), runtime.Endpoint,
+		string(runtime.Protocol), runtime.ModelProvider, string(runtime.Authentication)}, "\x00")
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(identity)))
 }
 
 // AccountProbe declares an optional provider-owned diagnostic API independently from inference traffic.
@@ -231,6 +240,7 @@ func (c *Config) Clone() Config {
 	}
 	for name, adapter := range c.Clients {
 		adapter.Targets = append([]string(nil), adapter.Targets...)
+		adapter.RetryPolicy = adapter.RetryPolicy.Clone()
 		out.Clients[name] = adapter
 	}
 	return out
@@ -538,6 +548,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		endpoint = strings.TrimRight(forwarding, "/")
 	}
 	return Runtime{
+		RetryPolicy:       c.retryPolicyFor(client, selection, upstream, protocol),
 		RouteID:           name,
 		RouteLabel:        routeLabel(route, account, c.Models[route.Model]),
 		AccountID:         account.ID,

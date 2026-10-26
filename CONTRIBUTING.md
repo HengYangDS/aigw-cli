@@ -406,7 +406,26 @@ backend cannot qualify tool execution. This test-only setting neither changes
 operator configuration nor chooses a production sandbox mode. Denied tool output
 remains a failure even when Codex returns the final marker.
 
-This explicit build-tagged journey requires all three declared executable paths:
+For focused retry-policy source acceptance, supply an explicit source-built
+program, a portable predecessor fixture and the actual Codex distribution:
+
+```bash
+AIGW_ACCEPTANCE_RETRY_PROGRAM=/absolute/path/to/source-built/aigw \
+AIGW_ACCEPTANCE_BASELINE=/absolute/path/to/retained/portable/aigw \
+AIGW_ACCEPTANCE_CODEX=/absolute/path/to/codex \
+AIGW_ACCEPTANCE_CLIENT_PATH=/usr/bin:/bin \
+  mise exec --locked -- go test -tags=client_acceptance ./tools/release \
+  -run '^TestNativeCodexConnectionRetriesSource$' -count=1 -timeout=2m -v
+```
+
+This exercises public preview, selection, cached predecessor credentials,
+native budget admission, retained-reader rollback refusal, one unknown-outcome
+request and native-default reset
+in private homes with synthetic environment credentials. It does not qualify
+package-manager cutover, release artifacts or Desktop behavior. The same case
+runs as `codex-connection-retries` in the complete release journey.
+
+The complete build-tagged journey requires all three declared executable paths:
 `AIGW_ACCEPTANCE_CODEX`, `AIGW_ACCEPTANCE_CLAUDE` and `AIGW_ACCEPTANCE_HERMES`.
 Hermes also requires `AIGW_ACCEPTANCE_HERMES_HOME` for its native installation.
 Missing clients fail, not skip. See [Adapter admission](docs/governance/adapter-admission.md)

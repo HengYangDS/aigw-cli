@@ -193,6 +193,32 @@ next action; machine consumers use the command's JSON mode where available.
 `aigw check` examines all enabled clients unless `--for <client>` limits its
 credential, projection, and network observations to one enabled client.
 
+### Codex connection retries
+
+Declare native retry budgets explicitly when an endpoint owns recovery:
+
+```bash
+aigw use --for codex <route> --request-max-retries 0 --stream-max-retries 0 --dry-run --json
+aigw use --for codex <route> --request-max-retries 0 --stream-max-retries 0
+aigw use --for codex <route> --native-retries
+```
+
+Zero disables that native retry budget; omission preserves native defaults or
+the selected policy on the same connection. Supplied budgets merge individually.
+Model-only changes preserve policy. With policy selected, changing the Account, authentication,
+protocol or effective endpoint requires explicit retry intent; omitted budgets
+do not carry onto a different connection. Only Codex currently exposes admitted
+native budgets. AIGW projects the declaration; it neither retries requests nor
+guarantees exactly-once inference.
+
+The local Client Binding owns this policy, not the shared team manifest. Its
+optional persistence component preserves cached predecessor credential readers.
+Program rollback tests the retained reader against the complete declaration and
+refuses incompatible readers without changing programs or credentials. Homebrew
+rollback preparation cannot prove an unspecified predecessor's capability while
+policy is selected; use a compatible program or restore accepted configuration
+with `aigw rollback`, not manual policy-field deletion.
+
 ## Product model
 
 | Entity            | Owns                                                      |

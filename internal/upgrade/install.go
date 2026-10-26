@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -98,6 +99,9 @@ func (u Updater) verifyProgram(ctx context.Context, binary []byte, version strin
 	plan.Args = []string{"config", "export"}
 	output, runErr := u.Runner.RunCapture(verificationContext, plan)
 	if runErr != nil {
+		if exit, ok := errors.AsType[*exec.ExitError](runErr); ok && exit.ProcessState != nil && exit.Exited() && exit.ExitCode() > 0 && verificationContext.Err() == nil {
+			return "", fmt.Errorf("%w: retained configuration export failed: %w", ErrRollbackConfiguration, runErr)
+		}
 		return "", fmt.Errorf("verify configuration export with program: %w", runErr)
 	}
 	var manifest struct {

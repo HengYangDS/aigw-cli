@@ -238,6 +238,7 @@ func (recommendation ClientRecommendation) Selections() []ClientSelection {
 // ClientBinding records one client's explicit selection, enabled intent, and
 // owned native targets.
 type ClientBinding struct {
+	RetryPolicy        *RetryPolicy     `json:"retry_policy,omitempty" toml:"retry_policy,omitempty"`
 	ForwardingEndpoint string           `json:"forwarding_endpoint,omitempty" toml:"-"`
 	Route              string           `json:"route,omitempty"              toml:"route,omitempty"`
 	Enabled            bool             `json:"enabled"                      toml:"enabled"`

@@ -121,7 +121,12 @@ func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
 	if err != nil {
 		return VerifiedCheckpoint{}, err
 	}
-	checkpoint.Config, err = s.withComponents(checkpoint.Config, "")
+	catalog, catalogErr := transaction.CaptureFileSnapshot(s.catalogPath())
+	capabilities, capabilitiesErr := transaction.CaptureFileSnapshot(s.capabilitiesPath())
+	if err = errors.Join(catalogErr, capabilitiesErr); err != nil {
+		return VerifiedCheckpoint{}, err
+	}
+	checkpoint.Config, err = decodeComponents(checkpoint.Config, catalog, capabilities)
 	return checkpoint, err
 }
 

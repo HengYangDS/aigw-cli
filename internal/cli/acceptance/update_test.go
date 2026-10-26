@@ -149,7 +149,7 @@ func TestUpdateRollbackPreservesExactConfigurationOnIncompatibility(t *testing.T
 	if actual, err := os.ReadFile(app.Config.Path()); err != nil || string(actual) != string(config) {
 		t.Fatalf("rollback changed config: %q, %v", actual, err)
 	}
-	for _, want := range []string{"incompatible with the current configuration", "remain unchanged", "Restore a configuration supported by the retained program"} {
+	for _, want := range []string{"incompatible with the current configuration", "remain unchanged", "compatible program", "aigw rollback", "do not delete policy fields manually"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("rollback omitted %q: %s", want, out.String())
 		}

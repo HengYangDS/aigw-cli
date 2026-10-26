@@ -12,7 +12,10 @@ import (
 
 // PrepareSelection resolves one proposed binding without changing the caller's
 // configuration. The same result is used for credential admission and commit.
-func (Synchronizer) PrepareSelection(cfg configuration.Config, client, routeID string, protocol configuration.EndpointProtocol, forwarding *string) (configuration.Config, configuration.Runtime, error) {
+func (Synchronizer) PrepareSelection(cfg configuration.Config, client, routeID string, protocol configuration.EndpointProtocol, connection configuration.ConnectionChange) (configuration.Config, configuration.Runtime, error) {
+	if connection.NativeRetries && connection.RetryPolicy != nil {
+		return configuration.Config{}, configuration.Runtime{}, fmt.Errorf("native retries and explicit retry budgets are mutually exclusive")
+	}
 	if protocol == "" {
 		resolved, err := cfg.ResolveRuntime(client, routeID)
 		if err != nil {
@@ -21,13 +24,43 @@ func (Synchronizer) PrepareSelection(cfg configuration.Config, client, routeID s
 		protocol = resolved.Protocol
 	}
 	selected := cfg.Clone()
+	previous, previousErr := cfg.ResolveRuntime(client, "")
 	selected.SetSelectedRoute(client, routeID, protocol)
 	binding := selected.Clients[client]
-	if forwarding != nil {
-		binding.ForwardingEndpoint = *forwarding
+	if connection.ForwardingEndpoint != nil {
+		binding.ForwardingEndpoint = *connection.ForwardingEndpoint
 	}
 	selected.Clients[client] = binding
 	runtime, err := selected.ResolveRuntime(client, "")
+	if err != nil {
+		return configuration.Config{}, configuration.Runtime{}, err
+	}
+	sameConnection := previousErr == nil && previous.ConnectionFingerprint() == runtime.ConnectionFingerprint()
+	if binding.RetryPolicy != nil && !sameConnection && connection.RetryPolicy == nil && !connection.NativeRetries {
+		return configuration.Config{}, configuration.Runtime{}, fmt.Errorf("client %q connection changed with a selected retry policy; declare retry budgets or pass --native-retries", client)
+	}
+	if connection.RetryPolicy != nil {
+		policy := binding.RetryPolicy.Clone()
+		if policy == nil || !sameConnection {
+			policy = &configuration.RetryPolicy{}
+		}
+		declared := connection.RetryPolicy.Clone()
+		if declared.RequestMaxRetries != nil {
+			policy.RequestMaxRetries = declared.RequestMaxRetries
+		}
+		if declared.StreamMaxRetries != nil {
+			policy.StreamMaxRetries = declared.StreamMaxRetries
+		}
+		binding.RetryPolicy = policy
+	}
+	if connection.NativeRetries {
+		binding.RetryPolicy = nil
+	}
+	selected.Clients[client] = binding
+	if err := selected.Validate(); err != nil {
+		return configuration.Config{}, configuration.Runtime{}, err
+	}
+	runtime, err = selected.ResolveRuntime(client, "")
 	if err != nil {
 		return configuration.Config{}, configuration.Runtime{}, err
 	}
@@ -39,8 +72,8 @@ func (Synchronizer) PrepareSelection(cfg configuration.Config, client, routeID s
 // success leaves no rollback obligation with the caller. The result reports
 // configuration and native projection changes separately, not Token acquisition
 // or live inference.
-func (s Synchronizer) SelectRoute(ctx context.Context, before configuration.Config, client, routeID string, protocol configuration.EndpointProtocol, forwarding *string, token string) (changed, projectionChanged bool, binding configuration.ClientBinding, resultErr error) {
-	after, _, err := s.PrepareSelection(before, client, routeID, protocol, forwarding)
+func (s Synchronizer) SelectRoute(ctx context.Context, before configuration.Config, client, routeID string, protocol configuration.EndpointProtocol, connection configuration.ConnectionChange, token string) (changed, projectionChanged bool, binding configuration.ClientBinding, resultErr error) {
+	after, _, err := s.PrepareSelection(before, client, routeID, protocol, connection)
 	if err != nil {
 		return false, false, configuration.ClientBinding{}, err
 	}
@@ -55,7 +88,7 @@ func (s Synchronizer) selectRoute(ctx context.Context, before, after configurati
 	if !exists {
 		return false, false, configuration.ClientBinding{}, fmt.Errorf("unknown route %q", routeID)
 	}
-	after, selected, err := s.PrepareSelection(after, client, routeID, protocol, nil)
+	after, selected, err := s.PrepareSelection(after, client, routeID, protocol, configuration.ConnectionChange{})
 	if err != nil {
 		return false, false, configuration.ClientBinding{}, err
 	}
