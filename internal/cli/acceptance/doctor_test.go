@@ -197,6 +197,20 @@ func TestDoctorJSONDoesNotExposeMissingCodexTarget(t *testing.T) {
 	if !strings.Contains(out.String(), `"codex:target-1"`) || !strings.Contains(out.String(), `"next_action": "aigw sync"`) {
 		t.Fatalf("doctor omitted the Codex recovery decision: %s", out.String())
 	}
+	// A target outside a known home directory is labeled as such, never named.
+	app.Env = []string{"HOME=" + t.TempDir()}
+	for _, args := range [][]string{{"doctor", "--json"}, {"doctor"}} {
+		out.Reset()
+		if err := cli.Execute(app, args); err == nil {
+			t.Fatalf("%v accepted a missing Codex target", args)
+		}
+		if strings.Contains(out.String(), filepath.Dir(target)) || strings.Contains(out.String(), `"target"`) {
+			t.Fatalf("%v exposed the Codex target path: %s", args, out.String())
+		}
+	}
+	if !strings.Contains(out.String(), "Codex configuration target 1 (outside the home directory)") {
+		t.Fatalf("doctor did not say the Codex target lies outside the home directory: %s", out.String())
+	}
 }
 
 func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
@@ -325,7 +339,13 @@ func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T
 
 func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	target := filepath.Join(t.TempDir(), "configuration.toml")
+	home := t.TempDir()
+	app.Env = []string{"HOME=" + home}
+	target := filepath.Join(home, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	homeRelative := filepath.Join("~", ".codex", "config.toml")
 	route := qualifiedRoute("GPT", "team", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg := configuration.NewConfig()
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}}
@@ -345,7 +365,7 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 		t.Fatal("doctor should report Codex projection drift")
 	}
 	human := out.String()
-	if !strings.Contains(human, "Codex configuration target 1") || !strings.Contains(human, "Does not match the current binding") || strings.Contains(human, "Codex config AIGW state is missing") {
+	if !strings.Contains(human, "Codex configuration "+homeRelative) || strings.Contains(human, home) || !strings.Contains(human, "Does not match the current binding") || strings.Contains(human, "Codex config AIGW state is missing") {
 		t.Fatalf("doctor human output = %s", human)
 	}
 	if !strings.Contains(human, "Next\n  aigw sync") || strings.Contains(human, "Next\n  aigw repair") {
@@ -355,10 +375,14 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 	if err := cli.Execute(app, []string{"doctor", "--json"}); err == nil {
 		t.Fatalf("doctor --json error = %v", err)
 	}
+	if strings.Contains(out.String(), home) {
+		t.Fatalf("doctor JSON exposed the home directory: %s", out.String())
+	}
 	var result struct {
 		Checks []struct {
 			Name   string `json:"name"`
 			Detail string `json:"detail"`
+			Target string `json:"target"`
 		} `json:"checks"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
@@ -366,7 +390,7 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 	}
 	for _, check := range result.Checks {
 		if check.Name == "codex:target-1" {
-			if check.Detail != "Codex configuration target does not match selected binding" {
+			if check.Detail != "Codex configuration target does not match selected binding" || check.Target != homeRelative {
 				t.Fatalf("doctor JSON diagnostic = %+v", check)
 			}
 			return

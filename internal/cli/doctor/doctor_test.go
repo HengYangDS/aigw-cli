@@ -247,19 +247,21 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 		t.Fatalf("native Claude model preference check = %#v", check)
 	}
 
-	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{filepath.Join(t.TempDir(), "missing.toml")})
+	home := t.TempDir()
+	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{filepath.Join(home, ".codex", "config.toml")})
 	deps, _, _ = doctorDependencies(t, cfg)
+	deps.Env = []string{"HOME=" + home}
 	check := findCheck(t, Collect(context.Background(), deps), "codex:target-1")
-	if check.OK || check.Detail != "Codex configuration target is unavailable" || check.Fix != "run `aigw sync`" {
+	if check.OK || check.Detail != "Codex configuration target is unavailable" || check.Fix != "run `aigw sync`" || check.Target != filepath.Join("~", ".codex", "config.toml") {
 		t.Fatalf("projection check = %#v", check)
 	}
 
 	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{"unused"})
 	delete(cfg.Accounts, "team")
-	if check := findCheck(t, adapterChecks(context.Background(), deps.Clients, cfg), "projection:codex"); check.OK || check.Detail != "selected client route cannot be resolved" {
+	if check := findCheck(t, adapterChecks(context.Background(), deps.Clients, cfg, ""), "projection:codex"); check.OK || check.Detail != "selected client route cannot be resolved" {
 		t.Fatalf("route check = %#v", check)
 	}
-	if got := adapterChecks(context.Background(), deps.Clients, configuration.NewConfig()); len(got) != len(configuration.AdmittedClientIDs()) {
+	if got := adapterChecks(context.Background(), deps.Clients, configuration.NewConfig(), ""); len(got) != len(configuration.AdmittedClientIDs()) {
 		t.Fatalf("disabled adapter checks = %#v", got)
 	}
 }
@@ -479,7 +481,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 	checks := executeJSON(t, deps, out).Checks
 	longest := 0
 	for _, check := range checks {
-		longest = max(longest, presentation.DisplayWidth("✓ "+Label(check.Name)))
+		longest = max(longest, presentation.DisplayWidth("✓ "+Label(check)))
 	}
 	for _, width := range []int{0, 72, 100} {
 		out.Reset()
@@ -494,7 +496,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 			text := strings.TrimLeft(line, " ")
 			if symbol, rest, classified := strings.Cut(text, " "); classified && (symbol == "✓" || symbol == "✗") {
 				for _, check := range checks {
-					if label := Label(check.Name); strings.HasPrefix(rest, label+" ") {
+					if label := Label(check); strings.HasPrefix(rest, label+" ") {
 						text = strings.TrimLeft(strings.TrimPrefix(rest, label), " ")
 						break
 					}

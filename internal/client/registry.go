@@ -69,12 +69,14 @@ type Status struct {
 	Checks              []Check
 }
 
-// Check is one adapter-owned, read-only diagnostic observation.
+// Check is one adapter-owned, read-only diagnostic observation. Target names
+// the native file the observation inspected, when it concerns one.
 type Check struct {
 	ID           string
 	Ready        bool
 	Detail       string
 	RepairAction string
+	Target       string
 }
 
 // Verification is the non-sensitive result of one explicit live client probe.
