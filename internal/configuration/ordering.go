@@ -13,20 +13,21 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-// CatalogRouteIDs groups display rows by declared Account and Model order.
+// CatalogRouteIDs groups display rows by Account, protocol set, and Model order.
 // RouteIDs retains canonical lexical enumeration for identity and diagnostics.
 func (c *Config) CatalogRouteIDs() []string {
 	ids := c.RouteIDs()
-	declared := false
-	for _, route := range c.Routes {
-		declared = declared || c.Accounts[route.Account].Order != 0 || c.Models[route.Model].Order != 0
-	}
-	if !declared {
-		return ids
+	protocols := make(map[string][]EndpointProtocol, len(ids))
+	for _, id := range ids {
+		protocols[id] = c.Routes[id].AdmittedProtocols()
+		slices.SortFunc(protocols[id], CompareProtocols)
 	}
 	slices.SortFunc(ids, func(left, right string) int {
 		l, r := c.Routes[left], c.Routes[right]
 		if result := c.CompareAccounts(l.Account, r.Account); result != 0 {
+			return result
+		}
+		if result := slices.CompareFunc(protocols[left], protocols[right], CompareProtocols); result != 0 {
 			return result
 		}
 		if result := c.CompareModels(l.Model, r.Model); result != 0 {

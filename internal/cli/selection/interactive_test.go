@@ -88,7 +88,11 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if len(selector.choices) != 2 || selector.choices[0].Value != "codex" || selector.choices[0].Label != "Codex" || selector.choices[1].Value != "purpose" || selector.choices[1].Label != "Purpose · Research" {
+	labels := map[string]string{}
+	for _, choice := range selector.choices {
+		labels[choice.Value] = choice.Label
+	}
+	if len(selector.choices) != 2 || labels["codex"] != "Codex" || labels["purpose"] != "Purpose · Research" {
 		t.Fatalf("choices = %#v", selector.choices)
 	}
 

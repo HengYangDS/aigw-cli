@@ -126,6 +126,61 @@ func TestCatalogOrderRejectsNegativeRanksWithoutChangingStoredBytes(t *testing.T
 	}
 }
 
+func TestCatalogRouteIDsGroupsServicesBeforeModels(t *testing.T) {
+	for _, ranked := range []bool{true, false} {
+		name := "unranked"
+		if ranked {
+			name = "ranked"
+		}
+		t.Run(name, func(t *testing.T) {
+			cfg := NewConfig()
+			endpoints := Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1", OpenAIChatCompletions: "https://team.test/v1"}
+			rank := 0
+			if ranked {
+				rank = 10
+			}
+			cfg.Accounts["alpha"] = Account{Label: "Alpha", Endpoints: endpoints, Order: 2 * rank}
+			cfg.Accounts["zulu"] = Account{Label: "Zulu", Endpoints: endpoints, Order: rank}
+			cfg.Models["strong"] = Model{Label: "Strong", Order: rank}
+			cfg.Models["weak"] = Model{Label: "Weak", Order: 2 * rank}
+			for _, row := range []struct {
+				id, account, model string
+				protocol           EndpointProtocol
+			}{
+				{"z-chat", "zulu", "strong", ProtocolOpenAIChatCompletions},
+				{"z-responses-strong", "zulu", "strong", ProtocolOpenAIResponses},
+				{"z-responses-weak", "zulu", "weak", ProtocolOpenAIResponses},
+				{"z-native-strong", "zulu", "strong", ProtocolAnthropic},
+				{"z-native-weak", "zulu", "weak", ProtocolAnthropic},
+				{"a-native", "alpha", "strong", ProtocolAnthropic},
+			} {
+				cfg.Routes[row.id] = testRoute(row.id, row.account, row.model, row.protocol)
+			}
+			cfg.Routes["z-multi"] = Route{Account: "zulu", Model: "strong", Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}, ProtocolAnthropic: {}}}
+			cfg.SetSelectedRoute(ClientCodex, "z-responses-strong", "")
+			cfg.Normalize()
+			canonical := cfg.RouteIDs()
+			before, err := Export(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := []string{"z-native-strong", "z-native-weak", "z-multi", "z-responses-strong", "z-responses-weak", "z-chat"}
+			if ranked {
+				want = append(want, "a-native")
+			} else {
+				want = append([]string{"a-native"}, want...)
+			}
+			if got := cfg.CatalogRouteIDs(); !slices.Equal(got, want) {
+				t.Fatalf("service/Model order = %v, want %v", got, want)
+			}
+			after, err := Export(cfg)
+			if err != nil || !bytes.Equal(before, after) || !slices.Equal(canonical, cfg.RouteIDs()) {
+				t.Fatalf("presentation changed canonical enumeration, bindings, or export: %v", err)
+			}
+		})
+	}
+}
+
 func TestCatalogOrderSurvivesVerifiedBackupAndCompensation(t *testing.T) {
 	store := NewStore(t.TempDir() + "/config.toml")
 	cfg := convergenceConfig("current")

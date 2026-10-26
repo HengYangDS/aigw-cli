@@ -257,7 +257,7 @@ func cloneInterfaces(interfaces map[EndpointProtocol][]Capability) map[EndpointP
 	return cloned
 }
 
-// RouteIDs returns the stable lexical order used by every CLI projection.
+// RouteIDs returns canonical lexical identity order, independent of presentation.
 func (c *Config) RouteIDs() []string {
 	ids := make([]string, 0, len(c.Routes))
 	for id := range c.Routes {

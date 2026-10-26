@@ -251,14 +251,14 @@ func TestRouteListJSONIsStableAndClientIndependent(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Routes) != 2 || result.Routes[0].ID != "alpha" || result.Routes[1].ID != "zeta" {
+	if len(result.Routes) != 2 || result.Routes[0].ID != "zeta" || result.Routes[1].ID != "alpha" {
 		t.Fatalf("route order = %#v", result.Routes)
 	}
-	if !slices.Equal(result.Routes[0].SelectedClients, []string{configuration.ClientCodex}) {
-		t.Fatalf("Codex-selected Route = %#v", result.Routes[0])
+	if !slices.Equal(result.Routes[0].SelectedClients, []string{configuration.ClientClaude}) {
+		t.Fatalf("Claude-selected Route = %#v", result.Routes[0])
 	}
-	if !slices.Equal(result.Routes[1].SelectedClients, []string{configuration.ClientClaude}) {
-		t.Fatalf("Claude-selected Route = %#v", result.Routes[1])
+	if !slices.Equal(result.Routes[1].SelectedClients, []string{configuration.ClientCodex}) {
+		t.Fatalf("Codex-selected Route = %#v", result.Routes[1])
 	}
 	for _, forbidden := range []string{"never-print-this-token", "authentication", "credential_ownership", "secret_available"} {
 		if strings.Contains(out.String(), forbidden) {
@@ -443,7 +443,11 @@ func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
 	if err := cli.Execute(app, []string{"use", "--for", "claude"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(selector.choices) != 2 || selector.choices[0].Label != "Claude Fable 5 · Default agent" {
+	labels := map[string]string{}
+	for _, choice := range selector.choices {
+		labels[choice.Value] = choice.Label
+	}
+	if len(selector.choices) != 2 || labels["claude-fable-5"] != "Claude Fable 5 · Default agent" || labels["current"] != "Team Gateway" {
 		t.Fatalf("interactive choices = %#v", selector.choices)
 	}
 
