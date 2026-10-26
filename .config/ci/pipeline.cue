@@ -141,6 +141,16 @@ linuxSecretService: {
 	gitlab: "DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(packages)\n\(journey)"
 }
 
+// Codex's Linux sandbox runs commands through bubblewrap. On the Ubuntu 24.04
+// runner the distribution's bwrap needs that release's AppArmor profile, as
+// OpenAI's sandbox prerequisites state; the runner's user-namespace restriction
+// stays in force for everything else.
+linuxClientSandbox: {
+	packages: "bubblewrap apparmor-profiles apparmor-utils"
+	profile:  "bwrap-userns-restrict"
+	github:   "set -eu\nsudo -n \(linuxApt.update)\nsudo -n DEBIAN_FRONTEND=noninteractive \(linuxApt.install) \(packages)\nsudo -n install -m 0644 /usr/share/apparmor/extra-profiles/\(profile) /etc/apparmor.d/\(profile)\nsudo -n apparmor_parser -r /etc/apparmor.d/\(profile)"
+}
+
 commands: {
 	install:      "env GODEBUG=\(installationEnvironment.GODEBUG) mise install --locked"
 	bootstrap:    "mise run bootstrap"
@@ -535,6 +545,11 @@ workflowEvidencePath:   "build/verification/workflows"
 					if full {CGO_ENABLED: "1"}
 				}
 			}
+		},
+		if _platform == "linux" {
+			name: "Prepare the Linux client sandbox"
+			if:   _clientSelection
+			run:  linuxClientSandbox.github
 		},
 		{
 			name: "Prepare official native clients"

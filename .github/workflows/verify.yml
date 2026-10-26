@@ -454,6 +454,14 @@ jobs:
         name: Qualify all repository tools on Linux
         if: github.event_name == 'workflow_dispatch' && inputs.full_quality
         run: mise exec --locked -- go run ./tools/ci native --platform linux --full-quality
+      - name: Prepare the Linux client sandbox
+        if: github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''
+        run: |-
+          set -eu
+          sudo -n timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo -n DEBIAN_FRONTEND=noninteractive timeout --verbose --kill-after=5s 240s apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y bubblewrap apparmor-profiles apparmor-utils
+          sudo -n install -m 0644 /usr/share/apparmor/extra-profiles/bwrap-userns-restrict /etc/apparmor.d/bwrap-userns-restrict
+          sudo -n apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
       - name: Prepare official native clients
         if: github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''
         env:

@@ -20,6 +20,10 @@ journey with real clients, so that acceptance on those hosts is unproved
   - Hermes comes from its official release on Linux and macOS. The release's
     own installer runs only after its pinned checksum matches. The result must
     be the unmodified pinned checkout and its published launcher.
+- Before the supply, the GitHub Linux job installs Codex's documented sandbox
+  prerequisites from apt, the distribution's bubblewrap and its AppArmor
+  profile, because Ubuntu 24.04 otherwise refuses the user namespaces that
+  Codex's bundled sandbox helper needs.
 - Each supply exports the explicit acceptance inputs for its host:
   `AIGW_ACCEPTANCE_CODEX`, `AIGW_ACCEPTANCE_CLAUDE`, `AIGW_ACCEPTANCE_HERMES`,
   `AIGW_ACCEPTANCE_HERMES_HOME` and `AIGW_ACCEPTANCE_CLIENT_PATH`. Windows also

@@ -17,7 +17,10 @@ rather than narrow the journey.
   platform packages, and Hermes from its official release installer after that
   installer's pinned checksum matches
 - **AND** the installed Hermes checkout SHALL be the unmodified pinned commit
-  with its published launcher.
+  with its published launcher
+- **AND** a Linux job SHALL first install the sandbox prerequisites that Codex
+  documents for its host, the distribution's bubblewrap and its AppArmor
+  profile, without lifting the host's user-namespace restriction.
 
 #### Scenario: A Windows job requests real clients
 

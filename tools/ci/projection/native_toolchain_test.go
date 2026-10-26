@@ -508,6 +508,35 @@ func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {
 				t.Fatalf("%s official installation inherits %s", platform, key)
 			}
 		}
+		// Codex's Linux sandbox needs the distribution's bubblewrap and its
+		// AppArmor profile on Ubuntu 24.04, as OpenAI's sandbox prerequisites
+		// state; the runner's user-namespace restriction otherwise stays on.
+		sandboxIndex := slices.IndexFunc(steps, func(item step) bool { return item.Name == "Prepare the Linux client sandbox" })
+		if platform != "linux" {
+			if sandboxIndex >= 0 {
+				t.Fatalf("%s prepares the Linux client sandbox", platform)
+			}
+			continue
+		}
+		if sandboxIndex < 0 || sandboxIndex > supplyIndex {
+			t.Fatalf("Linux client sandbox step = %d, supply step = %d", sandboxIndex, supplyIndex)
+		}
+		if steps[sandboxIndex].If != selection {
+			t.Fatalf("Linux client sandbox condition = %q, want %q", steps[sandboxIndex].If, selection)
+		}
+		sandbox := steps[sandboxIndex].Run
+		for _, command := range []string{
+			"install --no-install-recommends -y bubblewrap apparmor-profiles apparmor-utils\n",
+			"sudo -n install -m 0644 /usr/share/apparmor/extra-profiles/bwrap-userns-restrict /etc/apparmor.d/bwrap-userns-restrict\n",
+			"sudo -n apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict",
+		} {
+			if !strings.Contains(sandbox, command) {
+				t.Fatalf("Linux client sandbox lacks %q:\n%s", command, sandbox)
+			}
+		}
+		if strings.Contains(sandbox, "apparmor_restrict_unprivileged_userns") {
+			t.Fatalf("Linux client sandbox lifts the runner's user-namespace restriction:\n%s", sandbox)
+		}
 	}
 }
 

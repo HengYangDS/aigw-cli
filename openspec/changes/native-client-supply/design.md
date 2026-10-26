@@ -86,6 +86,26 @@ tracked change, and the launcher must exist. Rejected alternatives:
 The installer is the vendor's own script for both POSIX hosts; the repository
 adds no shell or PowerShell script.
 
+### Codex's Linux sandbox prerequisites come from the runner's distribution
+
+AIGW verifies Codex with `--sandbox read-only`, and the protocol challenge makes
+Codex run one command in that sandbox. Since Codex 0.115 the Linux sandbox runs
+commands through bubblewrap. Without a `bwrap` on `PATH`, Codex falls back to a
+bundled helper that needs unprivileged user namespaces. GitHub's Ubuntu 24.04
+image restricts them through AppArmor, so Verify run `40411171963` passed
+Claude and Hermes but failed Codex on Linux.
+
+The GitHub Linux job therefore installs `bubblewrap`, `apparmor-profiles` and
+`apparmor-utils` from apt before the supply, then loads the
+`bwrap-userns-restrict` profile, as OpenAI's sandbox prerequisites state for
+Ubuntu 24.04. This is runner configuration, like the Secret Service packages,
+not supply state. Rejected alternatives:
+
+- Disabling the user-namespace restriction for the whole runner: OpenAI's
+  guidance prefers the profile, which keeps the restriction for every other
+  program.
+- Verifying Codex without its sandbox: it would change what AIGW verifies.
+
 ### Cleanup is owned and proved
 
 The supply records its directory in `GITHUB_ENV` before any installation. A

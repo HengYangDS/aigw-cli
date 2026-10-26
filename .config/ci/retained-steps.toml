@@ -35,6 +35,16 @@ evidence = "GitHub verify.yml native-linux job at d02033e0 installed the Secret 
 [[step]]
 file = ".github/workflows/verify.yml"
 jobs = ["native-linux"]
+sha256 = "cc0e06df5396654795c0576421fa460995232455bab879d4e9ffd71f6261a559"
+class = "operating-system-glue"
+owner = "CI pipeline model (.config/ci/pipeline.cue linuxClientSandbox)"
+reason = "Codex's Linux sandbox runs commands through bubblewrap; on GitHub's Ubuntu 24.04 image it needs the distribution's bwrap and its AppArmor profile from apt, as OpenAI's sandbox prerequisites state, before the real-client journey."
+platforms = ["linux"]
+evidence = "GitHub Verify run 40411171963 at c38ed550, without this step, failed the Linux Codex journey after its sandboxed challenge round while Claude and Hermes passed"
+
+[[step]]
+file = ".github/workflows/verify.yml"
+jobs = ["native-linux"]
 sha256 = "ca980c6ab965111911c2b314eba715264e1fb90c332e3a69ef15e8c3457dc343"
 class = "operating-system-glue"
 owner = "CI pipeline model (.config/ci/pipeline.cue linuxSecretService.session)"

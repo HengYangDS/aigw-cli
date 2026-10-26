@@ -21,11 +21,14 @@
       tests pass.
 - [x] 2.2 Describe the per-host supply and the renamed input in
       `CONTRIBUTING.md`.
+- [x] 2.3 Before the supply, prepare Codex's documented Linux sandbox
+      prerequisites in every GitHub Linux job that requests clients: the
+      distribution's bubblewrap and its AppArmor profile. Without them, run
+      `40411171963` failed the Linux Codex journey. The projection tests pass.
 
 ## 3. Verification
 
-- [x] 3.1 `mise run check` passes on the lane head (`b21bd0c4`, statement
-      coverage 95.19%).
+- [ ] 3.1 `mise run check` passes on the lane head.
 - [ ] 3.2 Dispatch GitHub Verify on the proposal head with
       `native_platform=linux`, `native_clients=true` and a published baseline
       and candidate. The retained-predecessor journey passes with Claude, Codex
