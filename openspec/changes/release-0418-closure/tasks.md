@@ -28,7 +28,7 @@
 
 ## 4. Windows Preflight
 
-- [ ] 4.1 Make the Windows preflight retain its preparation and observed streams
+- [x] 4.1 Make the Windows preflight retain its preparation and observed streams
       as `.preflight` streams and leave the diagnostic verdict to `Measure`, as
       on Unix. The Windows tests for retained streams and for a marked,
       unstopped workload are updated, and the package builds and vets for

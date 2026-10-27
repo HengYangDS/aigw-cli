@@ -74,7 +74,7 @@ func TestWindowsExecutionPreflightOwnsImmediateDescendants(t *testing.T) {
 		t.Fatalf("untimed preflight produced timed samples: %v", err)
 	}
 	for _, stream := range []string{"stdout", "stderr"} {
-		if _, err := os.Stat(strings.TrimSuffix(input.Output, ".json") + ".execution." + stream); err != nil {
+		if _, err := os.Stat(preflightStream(input.Output, stream)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -139,7 +139,7 @@ func TestWindowsExecutionPreflightPreservesFailureEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"preparation", "absent-workload", "absent-controller", "diagnostic", "evidence-write"} {
+	for _, name := range []string{"preparation", "absent-workload", "absent-controller", "evidence-write"} {
 		t.Run(name, func(t *testing.T) {
 			directory := t.TempDir()
 			marker := filepath.Join(directory, "workload-executed")
@@ -156,8 +156,6 @@ func TestWindowsExecutionPreflightPreservesFailureEvidence(t *testing.T) {
 				workload.Command = nil
 			case "absent-controller":
 				input.Tool = filepath.Join(directory, "not-an-executable")
-			case "diagnostic":
-				workload.Command = append(args, "diagnostic")
 			case "evidence-write":
 				input.Output = filepath.Join(directory, "absent-parent", "observed.json")
 			}
@@ -165,7 +163,7 @@ func TestWindowsExecutionPreflightPreservesFailureEvidence(t *testing.T) {
 			if err == nil || strings.Contains(err.Error(), secret) {
 				t.Fatalf("native preflight lost its refusal or disclosed sensitive evidence: %v", err)
 			}
-			started := name == "diagnostic" || name == "evidence-write"
+			started := name == "evidence-write"
 			_, markerErr := os.Stat(marker)
 			if !started {
 				if len(rows) != 0 || len(controllers) != 0 || !errors.Is(markerErr, os.ErrNotExist) {
@@ -177,14 +175,6 @@ func TestWindowsExecutionPreflightPreservesFailureEvidence(t *testing.T) {
 				t.Fatalf("executed failure lost its native evidence: rows=%v controllers=%v marker=%v", rows, controllers, markerErr)
 			}
 			assertWindowsExecutionsExited(t, append(controllers, rows...))
-			if name == "diagnostic" {
-				for _, stream := range []string{"stdout", "stderr"} {
-					data, readErr := os.ReadFile(strings.TrimSuffix(input.Output, ".json") + ".execution." + stream)
-					if readErr != nil || len(data) == 0 || strings.Contains(string(data), secret) {
-						t.Fatalf("failed native preflight did not retain redacted %s: %q, %v", stream, data, readErr)
-					}
-				}
-			}
 		})
 	}
 }

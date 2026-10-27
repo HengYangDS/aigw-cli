@@ -283,6 +283,17 @@ func preflightStream(output, name string) string {
 	return strings.TrimSuffix(output, ".json") + ".preflight." + name
 }
 
+// writePreflightStreams retains a workload's untimed preflight streams,
+// redacted, beside its samples, where Measure judges the product's diagnostics
+// on every platform.
+func writePreflightStreams(input Command, stdout, stderr []byte) error {
+	var err error
+	for name, stream := range map[string][]byte{"stdout": stdout, "stderr": stderr} {
+		err = errors.Join(err, os.WriteFile(preflightStream(input.Output, name), []byte(redaction.Text(string(stream), input.Sensitive...)), 0o600))
+	}
+	return err
+}
+
 // preflightDiagnostics reports whether a workload's retained preflight stream
 // carries a product diagnostic. A workload without one has none to report.
 func preflightDiagnostics(output string) bool {

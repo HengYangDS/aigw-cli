@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"aigw-cli/internal/process"
@@ -41,9 +40,7 @@ func ObserveCommand(parent context.Context, input Command, workload Workload) ([
 		})
 		stdout, stderr, runErr = append(stdout, out...), append(stderr, diagnostics...), err
 	}
-	for name, stream := range map[string][]byte{"stdout": stdout, "stderr": stderr} {
-		runErr = errors.Join(runErr, os.WriteFile(preflightStream(input.Output, name), []byte(redaction.Text(string(stream), input.Sensitive...)), 0o600))
-	}
+	runErr = errors.Join(runErr, writePreflightStreams(input, stdout, stderr))
 	if runErr != nil {
 		return nil, nil, fmt.Errorf("native preflight: %s", redaction.Text(runErr.Error(), input.Sensitive...))
 	}

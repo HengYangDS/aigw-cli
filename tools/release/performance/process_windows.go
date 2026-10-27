@@ -141,10 +141,15 @@ func ObserveCommand(parent context.Context, input Command, workload Workload) (r
 	}
 	ctx, cancel := context.WithTimeout(parent, 20*time.Second)
 	defer cancel()
+	// The preparation and the observed command are the untimed preflight, as on
+	// Unix: their streams are retained where Measure judges the product's
+	// diagnostics, and a diagnostic marks the workload instead of stopping it.
+	var prepared, preparedDiagnostics []byte
 	if len(workload.Prepare) != 0 {
-		_, _, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: workload.Prepare[0], Args: workload.Prepare[1:], Env: input.Environment, Directory: input.Directory})
+		out, diagnostics, err := (process.Runner{StdoutLimit: 4 << 20}).RunCaptureStreams(ctx, process.Plan{Executable: workload.Prepare[0], Args: workload.Prepare[1:], Env: input.Environment, Directory: input.Directory})
+		prepared, preparedDiagnostics = out, diagnostics
 		if err != nil {
-			return nil, nil, fmt.Errorf("native preflight preparation: %s", redaction.Text(err.Error(), input.Sensitive...))
+			return nil, nil, errors.Join(fmt.Errorf("native preflight preparation: %s", redaction.Text(err.Error(), input.Sensitive...)), writePreflightStreams(input, prepared, preparedDiagnostics))
 		}
 	}
 	selected, err := Identify(input.Tool)
@@ -157,13 +162,7 @@ func ObserveCommand(parent context.Context, input Command, workload Workload) (r
 		Env: input.Environment, Directory: input.Directory, DebugProcess: true,
 		OnStart: func(child *os.Process) error { return observer.collect(ctx, uint32(child.Pid)) }, // #nosec G115 -- exec.Start obtains the PID from the native DWORD result.
 	})
-	if process.DiagnosticFailure(stderr) {
-		runErr = errors.Join(runErr, errors.New("native preflight emitted diagnostics"))
-	}
-	for name, stream := range map[string][]byte{"stdout": stdout, "stderr": stderr} {
-		path := strings.TrimSuffix(input.Output, ".json") + ".execution." + name
-		runErr = errors.Join(runErr, os.WriteFile(path, []byte(redaction.Text(string(stream), input.Sensitive...)), 0o600))
-	}
+	runErr = errors.Join(runErr, writePreflightStreams(input, append(prepared, stdout...), append(preparedDiagnostics, stderr...)))
 	rows, controllers = observer.rows, observer.controllers
 	row := input.Measurement
 	row.Execution, row.ControllerExecution = rows, controllers
