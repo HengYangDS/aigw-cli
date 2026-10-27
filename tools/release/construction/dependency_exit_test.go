@@ -33,12 +33,12 @@ func TestDependencyExitWithoutAdvisoryFails(t *testing.T) {
 			report.Results[result].Packages[item].Vulnerabilities = nil
 		}
 	}
-	_, err = scanDependencies(root, filepath.Join(root, "evidence"), dependencyPolicy{}, func(call toolCall) error {
+	_, err = scanDependencies(root, filepath.Join(root, "evidence"), scannedInputs, withLockedScanner(func(call toolCall) error {
 		if err := writeJSON(call.Args[len(call.Args)-1], report); err != nil {
 			return err
 		}
 		return fmt.Errorf("native findings: %w", nativeExit)
-	})
+	}))
 	if err == nil || !strings.Contains(err.Error(), "no complete advisory findings") {
 		t.Fatalf("an exit without an advisory passed the dependency gate: %v", err)
 	}

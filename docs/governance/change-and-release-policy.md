@@ -328,7 +328,11 @@ OSV invocation and admission share exact selected lock paths. Require each once 
 lockfile source with observed packages; empty/partial reports, another checkout or
 ordinary directory scans are not clean evidence. Strip host prefixes only after this
 check. One scan retains the complete raw report and normalized evidence before
-GoReleaser constructs artifacts. Supply-chain security findings are nonblocking:
+GoReleaser constructs artifacts. It runs only the OSV image whose SHA-256 the Mise
+lock records for the host platform and which reports the locked version; both
+reports name that image with host-independent arguments, provenance lists its
+locked asset, and the scan keeps its exact invocation and raw report digest.
+Supply-chain security findings are nonblocking:
 retain and disclose every advisory without an exception registry, suppression,
 or a second disposition scan. Scanner failures and invalid evidence are not clean
 results; artifact corruption, checksum mismatch and invalid signatures remain

@@ -22,13 +22,13 @@ func TestDependencyPolicyScansTheGoStandardLibrary(t *testing.T) {
 	}
 	root := t.TempDir()
 	var config []byte
-	if _, err := scanDependencies(root, filepath.Join(root, "evidence"), policy, func(call toolCall) error {
+	if _, err := scanDependencies(root, filepath.Join(root, "evidence"), dependencyInputs{Policy: policy, Scanner: lockedScannerFixture}, withLockedScanner(func(call toolCall) error {
 		var readErr error
 		if config, readErr = os.ReadFile(call.Args[slices.Index(call.Args, "--config")+1]); readErr != nil {
 			return readErr
 		}
 		return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(root))
-	}); err != nil {
+	})); err != nil {
 		t.Fatal(err)
 	}
 	var native map[string]any
@@ -70,7 +70,7 @@ func buildStandardLibraryRelease(t *testing.T, change string) (string, bool, err
 	root := releaseRoot(t)
 	for name, content := range map[string]string{
 		"go.mod": "module aigw-cli\n", "go.sum": "fixture", "package-lock.json": "fixture",
-		".config/mise/mise.lock": "fixture", "LICENSE": "fixture", "README.md": "fixture",
+		"LICENSE": "fixture", "README.md": "fixture",
 		".config/mise/config.toml": "[tools]\ngo = \"1.27.1\"\nosv-scanner = \"2.5.1\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
@@ -81,7 +81,7 @@ func buildStandardLibraryRelease(t *testing.T, change string) (string, bool, err
 	var calls []toolCall
 	fault := ""
 	runner := releaseFixtureRunner(t, root, &calls, &fault)
-	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}, func(call toolCall) error {
+	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}, withLockedScanner(func(call toolCall) error {
 		if err := runner(call); err != nil {
 			return err
 		}
@@ -94,7 +94,7 @@ func buildStandardLibraryRelease(t *testing.T, change string) (string, bool, err
 			return rewriteStandardLibraries(strings.TrimPrefix(call.Args[len(call.Args)-1], "spdx-json="), change)
 		}
 		return nil
-	})
+	}))
 	return output, slices.ContainsFunc(calls, func(call toolCall) bool { return call.Name == "ssh-keygen" }), err
 }
 

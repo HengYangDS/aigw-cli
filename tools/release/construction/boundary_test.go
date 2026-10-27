@@ -70,7 +70,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 	t.Run("candidate directory collision", func(t *testing.T) {
 		request := valid
 		request.Output = filepath.Join(t.TempDir(), "dist")
-		err := buildRelease(t.Context(), request, func(call toolCall) error {
+		err := buildRelease(t.Context(), request, withLockedScanner(func(call toolCall) error {
 			if call.Name == "osv-scanner" {
 				return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(valid.Root))
 			}
@@ -80,14 +80,14 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 			stage := goReleaserStage(t, call.Args)
 			candidate := filepath.Join(filepath.Dir(stage), "artifacts")
 			return os.WriteFile(candidate, []byte("collision"), 0o600)
-		})
+		}))
 		if err == nil || !strings.Contains(err.Error(), "build portable release artifacts") {
 			t.Fatalf("candidate collision error = %v", err)
 		}
 	})
 
 	t.Run("missing GoReleaser artifact", func(t *testing.T) {
-		err := buildRelease(t.Context(), valid, func(call toolCall) error {
+		err := buildRelease(t.Context(), valid, withLockedScanner(func(call toolCall) error {
 			if call.Name == "osv-scanner" {
 				return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(valid.Root))
 			}
@@ -95,7 +95,7 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 				return os.MkdirAll(goReleaserStage(t, call.Args), 0o700)
 			}
 			return nil
-		})
+		}))
 		if err == nil || !strings.Contains(err.Error(), "read release artifact") {
 			t.Fatalf("missing artifact error = %v", err)
 		}
@@ -123,14 +123,15 @@ func TestReleaseBuildBoundaryFailures(t *testing.T) {
 		if err := os.WriteFile(policy, []byte("PackageOverrides = []\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
+		writeScannerLock(t, request.Root)
 
 		request.Output = filepath.Join(t.TempDir(), "dist")
-		if err := buildRelease(t.Context(), request, func(call toolCall) error {
+		if err := buildRelease(t.Context(), request, withLockedScanner(func(call toolCall) error {
 			if call.Name == "osv-scanner" {
 				return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(request.Root))
 			}
 			return nil
-		}); err == nil || !strings.Contains(err.Error(), "GoReleaser config") {
+		})); err == nil || !strings.Contains(err.Error(), "GoReleaser config") {
 			t.Fatalf("missing configuration error = %v", err)
 		}
 	})
@@ -363,7 +364,7 @@ func TestValidateSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
 
 func releaseFixtureRunner(t *testing.T, root string, calls *[]toolCall, fault *string) toolRunner {
 	t.Helper()
-	return func(call toolCall) error {
+	return withLockedScanner(func(call toolCall) error {
 		*calls = append(*calls, call)
 		if call.Name == "git" && slices.Contains(call.Args, "status") {
 			return nil
@@ -408,13 +409,13 @@ func releaseFixtureRunner(t *testing.T, root string, calls *[]toolCall, fault *s
 			return command.Run()
 		}
 		return nil
-	}
+	})
 }
 
 func TestReleaseBindsEmbeddedSignerToActualChecksumSignature(t *testing.T) {
 	root := releaseRoot(t)
 	for name, content := range map[string]string{
-		"go.mod": "module aigw-cli\n", "go.sum": "fixture", "package-lock.json": "fixture", ".config/mise/mise.lock": "fixture",
+		"go.mod": "module aigw-cli\n", "go.sum": "fixture", "package-lock.json": "fixture",
 		".config/mise/config.toml": "[tools]\ngo = \"1.27.1\"\nosv-scanner = \"2.5.1\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {

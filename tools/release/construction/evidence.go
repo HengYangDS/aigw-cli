@@ -45,19 +45,29 @@ func readDependencyPolicy(root string) (dependencyPolicy, error) {
 	return policy, nil
 }
 
-func scanDependencies(root, output string, policy dependencyPolicy, run toolRunner) (string, error) {
+// scanDependencies admits the locked scanner image, scans the selected
+// lockfiles with it and writes both reports naming that scanner.
+func scanDependencies(root, output string, inputs dependencyInputs, run toolRunner) (string, error) {
 	root, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	output, err = filepath.Abs(output)
 	if err != nil {
 		return "", err
 	}
 	if err := os.MkdirAll(output, 0o700); err != nil {
 		return "", err
 	}
+	admitted, version, err := admitScanner(root, inputs.Scanner, run)
+	if err != nil {
+		return "", err
+	}
 	evidence, err := os.MkdirTemp(output, "scan-")
 	if err != nil {
 		return "", err
 	}
-	data, err := toml.Marshal(policy)
+	data, err := toml.Marshal(inputs.Policy)
 	if err != nil {
 		return "", err
 	}
@@ -68,13 +78,20 @@ func scanDependencies(root, output string, policy dependencyPolicy, run toolRunn
 	raw := filepath.Join(evidence, "dependencies.raw.json")
 	lockfiles := []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")}
 	args := []string{"scan", "source", "--config", config, "--lockfile", lockfiles[0], "--lockfile", lockfiles[1], "--no-call-analysis=go", "--format", "json", "--all-packages", "--all-vulns", "--licenses=", "--output-file", raw}
-	call := toolCall{Name: "osv-scanner", Directory: root, Args: args, Timeout: 2 * time.Minute}
+	call := toolCall{Name: scannerName, Directory: root, Args: args, Timeout: 2 * time.Minute, Image: &toolImage{}}
 	findings, err := runDependencyScan(call, run)
-	if err != nil {
+	if err = errors.Join(err, recordScanInvocation(raw, call, version, inputs.Scanner.Platform)); err != nil {
 		return raw, fmt.Errorf("scan dependencies: %w", err)
 	}
+	if *call.Image != admitted {
+		return raw, fmt.Errorf("dependency scanner image changed from %s to %s between its version report and its scan", admitted.Path, call.Image.Path)
+	}
+	scanner := artifact.Scanner{
+		Tool: artifact.ScannerTool, Version: inputs.Scanner.Version, Platform: inputs.Scanner.Platform,
+		SHA256: inputs.Scanner.SHA256, Arguments: portableArguments(args, root, evidence),
+	}
 	vulnerabilities := filepath.Join(evidence, "vulnerabilities.json")
-	if err := normalizeDependencyEvidence(raw, vulnerabilities, filepath.Join(evidence, "licenses.json"), lockfiles); err != nil {
+	if err := normalizeDependencyEvidence(raw, vulnerabilities, filepath.Join(evidence, "licenses.json"), lockfiles, scanner); err != nil {
 		return raw, err
 	}
 	if findings {
@@ -166,11 +183,11 @@ func onlyDependencyFindingExit(err error) bool {
 
 // ScanDependencies retains complete nonblocking findings and rejects invalid evidence.
 func ScanDependencies(ctx context.Context, root, output string) error {
-	policy, err := readDependencyPolicy(root)
+	inputs, err := readDependencyInputs(root)
 	if err != nil {
 		return err
 	}
-	_, err = scanDependencies(root, output, policy, executeTool(ctx))
+	_, err = scanDependencies(root, output, inputs, executeTool(ctx))
 	return err
 }
 
@@ -215,6 +232,7 @@ type osvVulnerability struct {
 
 type vulnerabilityEvidence struct {
 	SchemaVersion int                   `json:"schema_version"`
+	Scanner       artifact.Scanner      `json:"scanner"`
 	Sources       []vulnerabilitySource `json:"sources"`
 }
 
@@ -236,8 +254,9 @@ type vulnerability struct {
 }
 
 type licenseEvidence struct {
-	SchemaVersion int             `json:"schema_version"`
-	Sources       []licenseSource `json:"sources"`
+	SchemaVersion int              `json:"schema_version"`
+	Scanner       artifact.Scanner `json:"scanner"`
+	Sources       []licenseSource  `json:"sources"`
 }
 
 type licenseSource struct {
@@ -250,7 +269,7 @@ type licensedDependency struct {
 	Licenses []string `json:"licenses"`
 }
 
-func normalizeDependencyEvidence(source, vulnerabilityTarget, licenseTarget string, lockfiles []string) error {
+func normalizeDependencyEvidence(source, vulnerabilityTarget, licenseTarget string, lockfiles []string, scanner artifact.Scanner) error {
 	data, err := os.ReadFile(source)
 	if err != nil {
 		return fmt.Errorf("read OSV dependency report: %w", err)
@@ -266,8 +285,8 @@ func normalizeDependencyEvidence(source, vulnerabilityTarget, licenseTarget stri
 	for _, path := range lockfiles {
 		remaining[filepath.Clean(path)] = true
 	}
-	vulnerabilities := vulnerabilityEvidence{SchemaVersion: 1, Sources: make([]vulnerabilitySource, 0, len(report.Results))}
-	licenses := licenseEvidence{SchemaVersion: 1, Sources: make([]licenseSource, 0, len(report.Results))}
+	vulnerabilities := vulnerabilityEvidence{SchemaVersion: 2, Scanner: scanner, Sources: make([]vulnerabilitySource, 0, len(report.Results))}
+	licenses := licenseEvidence{SchemaVersion: 2, Scanner: scanner, Sources: make([]licenseSource, 0, len(report.Results))}
 	for _, result := range report.Results {
 		path := filepath.Clean(result.Source.Path)
 		if !remaining[path] || result.Source.Type != "lockfile" || len(result.Packages) == 0 {

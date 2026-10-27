@@ -244,7 +244,7 @@ func TestReleaseBuildPreservesToolAndWorkspaceCleanupFailures(t *testing.T) {
 	}
 	want := errors.New("interrupted release tool")
 	var workspace string
-	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}, func(call toolCall) error {
+	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}, withLockedScanner(func(call toolCall) error {
 		if call.Name == "osv-scanner" {
 			return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(root))
 		}
@@ -261,7 +261,7 @@ func TestReleaseBuildPreservesToolAndWorkspaceCleanupFailures(t *testing.T) {
 			}
 		})
 		return want
-	})
+	}))
 	if !errors.Is(err, want) || !errors.Is(err, unix.EPERM) || !strings.Contains(err.Error(), workspace) {
 		t.Fatalf("release discarded tool or cleanup cause and location: %v", err)
 	}

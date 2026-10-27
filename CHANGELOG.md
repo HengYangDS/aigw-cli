@@ -14,6 +14,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Security
+
+- Each release's vulnerability and license reports name the OSV-Scanner image
+  that produced them: its locked version, platform, SHA-256 and scan
+  arguments. The release provenance lists that locked asset, and release
+  construction refuses a scanner whose digest or reported version differs
+  from the Mise lock. Earlier releases' reports do not name their scanner.
+
 ## [0.4.18] - 2026-10-27
 
 History: [GitLab][0.4.18-gitlab] · [GitHub][0.4.18-github]

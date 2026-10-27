@@ -74,7 +74,7 @@ func TestDependencyEvidenceBindsFixesToPackageAndVersionScheme(t *testing.T) {
 				t.Fatal(err)
 			}
 			target := filepath.Join(root, "vulnerabilities.json")
-			if err := normalizeDependencyEvidence(source, target, filepath.Join(root, "licenses.json"), []string{"go.mod"}); err != nil {
+			if err := normalizeDependencyEvidence(source, target, filepath.Join(root, "licenses.json"), []string{"go.mod"}, reportScannerFixture); err != nil {
 				t.Fatal(err)
 			}
 			data, err := os.ReadFile(target)
@@ -85,7 +85,7 @@ func TestDependencyEvidenceBindsFixesToPackageAndVersionScheme(t *testing.T) {
 			if err := json.Unmarshal(data, &got); err != nil {
 				t.Fatal(err)
 			}
-			want := vulnerabilityEvidence{SchemaVersion: 1, Sources: []vulnerabilitySource{{
+			want := vulnerabilityEvidence{SchemaVersion: 2, Scanner: reportScannerFixture, Sources: []vulnerabilitySource{{
 				Lockfile: "go.mod", Packages: []vulnerableDependency{{dependencyIdentity: identity, Vulnerabilities: []vulnerability{{ID: "OSV-1", Aliases: []string{"CVE-1", "CVE-2"}, Summary: "Package advisory", FixedVersions: test.fixed}}}},
 			}}}
 			if !reflect.DeepEqual(got, want) {
@@ -139,7 +139,7 @@ func TestNormalizeDependencyEvidenceRemovesHostAndVolatileMetadata(t *testing.T)
 	}
 	vulnerabilities := filepath.Join(t.TempDir(), "vulnerabilities.json")
 	licenses := filepath.Join(t.TempDir(), "licenses.json")
-	if err := normalizeDependencyEvidence(raw, vulnerabilities, licenses, []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")}); err != nil {
+	if err := normalizeDependencyEvidence(raw, vulnerabilities, licenses, []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")}, reportScannerFixture); err != nil {
 		t.Fatal(err)
 	}
 	for _, path := range []string{vulnerabilities, licenses} {
@@ -192,7 +192,7 @@ func TestDependencyEvidenceOrdersPackagesByCompleteIdentity(t *testing.T) {
 	}
 	vulnerabilitiesPath := filepath.Join(root, "vulnerabilities.json")
 	licensesPath := filepath.Join(root, "licenses.json")
-	if err := normalizeDependencyEvidence(source, vulnerabilitiesPath, licensesPath, []string{filepath.Join(root, "go.mod")}); err != nil {
+	if err := normalizeDependencyEvidence(source, vulnerabilitiesPath, licensesPath, []string{filepath.Join(root, "go.mod")}, reportScannerFixture); err != nil {
 		t.Fatal(err)
 	}
 	want := []dependencyIdentity{identities[3], identities[2], identities[1], identities[0]}
@@ -245,7 +245,7 @@ func TestDependencyEvidenceRejectsMissingOrMalformedScan(t *testing.T) {
 			}
 			vulnerabilities := filepath.Join(root, "vulnerabilities.json")
 			licenses := filepath.Join(root, "licenses.json")
-			err := normalizeDependencyEvidence(source, vulnerabilities, licenses, []string{"go.mod"})
+			err := normalizeDependencyEvidence(source, vulnerabilities, licenses, []string{"go.mod"}, reportScannerFixture)
 			if err == nil || !strings.Contains(err.Error(), test.expected) {
 				t.Fatalf("%s scan error = %v", test.name, err)
 			}
@@ -303,7 +303,7 @@ func TestDependencyEvidenceRequiresCompleteSelectedSources(t *testing.T) {
 				t.Fatal(err)
 			}
 			vulnerabilities, licenses := filepath.Join(root, "vulnerabilities.json"), filepath.Join(root, "licenses.json")
-			err = normalizeDependencyEvidence(source, vulnerabilities, licenses, []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")})
+			err = normalizeDependencyEvidence(source, vulnerabilities, licenses, []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")}, reportScannerFixture)
 			if scenario == "complete" {
 				if err != nil {
 					t.Fatal(err)
@@ -339,13 +339,13 @@ func TestDependencyFindingsAreNonblockingAndRetained(t *testing.T) {
 	}
 	root := t.TempDir()
 	calls := 0
-	raw, err := scanDependencies(root, filepath.Join(root, "evidence"), dependencyPolicy{}, func(call toolCall) error {
+	raw, err := scanDependencies(root, filepath.Join(root, "evidence"), scannedInputs, withLockedScanner(func(call toolCall) error {
 		calls++
 		if err := writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(root)); err != nil {
 			return err
 		}
 		return fmt.Errorf("native findings: %w", nativeExit)
-	})
+	}))
 	if err != nil || calls != 1 {
 		t.Fatalf("complete findings blocked delivery or repeated the scan: error=%v calls=%d", err, calls)
 	}
@@ -370,12 +370,12 @@ func TestDependencyFindingsAreNonblockingAndRetained(t *testing.T) {
 	for name, failure := range map[string]error{"deadline": context.DeadlineExceeded, "cleanup": os.ErrPermission} {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
-			raw, err := scanDependencies(root, filepath.Join(root, "evidence"), dependencyPolicy{}, func(call toolCall) error {
+			raw, err := scanDependencies(root, filepath.Join(root, "evidence"), scannedInputs, withLockedScanner(func(call toolCall) error {
 				if err := writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(root)); err != nil {
 					return err
 				}
 				return fmt.Errorf("execution: %w", errors.Join(fmt.Errorf("findings: %w", nativeExit), failure))
-			})
+			}))
 			if !errors.Is(err, failure) {
 				t.Fatalf("advisory exit swallowed the independent %s failure: %v", name, err)
 			}
@@ -403,7 +403,7 @@ func TestReleaseDependencyAdmissionPrecedesArtifactConstruction(t *testing.T) {
 				t.Fatal(err)
 			}
 			var calls []string
-			err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}, func(call toolCall) error {
+			err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}, withLockedScanner(func(call toolCall) error {
 				calls = append(calls, call.Name)
 				switch call.Name {
 				case "git":
@@ -426,7 +426,7 @@ func TestReleaseDependencyAdmissionPrecedesArtifactConstruction(t *testing.T) {
 					t.Fatalf("unadmitted dependencies reached %s", call.Name)
 					return nil
 				}
-			})
+			}))
 			if err == nil || !slices.Equal(calls, []string{"git", "osv-scanner"}) {
 				t.Fatalf("dependency failure reached artifact construction: error=%v calls=%v", err, calls)
 			}
@@ -445,10 +445,10 @@ func TestDependencyScanBindsRelativeRootToNativeAbsoluteSources(t *testing.T) {
 	root := t.TempDir()
 	t.Chdir(root)
 	calls := 0
-	_, err := scanDependencies(".", filepath.Join(root, "evidence"), dependencyPolicy{}, func(call toolCall) error {
+	_, err := scanDependencies(".", filepath.Join(root, "evidence"), scannedInputs, withLockedScanner(func(call toolCall) error {
 		calls++
 		return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(root))
-	})
+	}))
 	if err != nil || calls != 1 {
 		t.Fatalf("relative root did not bind complete native sources: error=%v calls=%d", err, calls)
 	}
@@ -459,7 +459,7 @@ func TestDependencyScanRejectsIncompleteNativeOutput(t *testing.T) {
 		t.Run(failure, func(t *testing.T) {
 			root := t.TempDir()
 			calls := 0
-			_, err := scanDependencies(root, filepath.Join(root, "evidence"), dependencyPolicy{}, func(call toolCall) error {
+			_, err := scanDependencies(root, filepath.Join(root, "evidence"), scannedInputs, withLockedScanner(func(call toolCall) error {
 				calls++
 				report := dependencyReportFixture(root)
 				switch failure {
@@ -471,7 +471,7 @@ func TestDependencyScanRejectsIncompleteNativeOutput(t *testing.T) {
 					report.Results = report.Results[:1]
 				}
 				return writeJSON(call.Args[len(call.Args)-1], report)
-			})
+			}))
 			if err == nil || calls != 1 {
 				t.Fatalf("incomplete native scan accepted: error=%v calls=%d", err, calls)
 			}
@@ -509,11 +509,15 @@ func TestScanDependenciesRefusesUnusableInputsBeforeScanning(t *testing.T) {
 	if err := os.WriteFile(policy, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := ScanDependencies(t.Context(), root, t.TempDir()); err == nil || !strings.Contains(err.Error(), "read Mise lock") {
+		t.Fatalf("missing Mise lock accepted: %v", err)
+	}
+	writeScannerLock(t, root)
 	blocked := filepath.Join(t.TempDir(), "file")
 	if err := os.WriteFile(blocked, []byte("not a directory\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ScanDependencies(t.Context(), root, filepath.Join(blocked, "evidence")); err == nil {
-		t.Fatal("unusable evidence output accepted")
+	if err := ScanDependencies(t.Context(), root, filepath.Join(blocked, "evidence")); err == nil || strings.Contains(err.Error(), "Mise lock") {
+		t.Fatalf("unusable evidence output accepted: %v", err)
 	}
 }

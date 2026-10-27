@@ -471,7 +471,7 @@ func signedNativeInputFixture(t *testing.T, root, version, key string) string {
 	writeNativeArchive(t, directory, version)
 	for _, name := range releaseartifact.Names(version) {
 		if _, err := os.Stat(filepath.Join(directory, name)); os.IsNotExist(err) {
-			if err := os.WriteFile(filepath.Join(directory, name), []byte(name), 0o600); err != nil {
+			if err := os.WriteFile(filepath.Join(directory, name), matrixFixtureContent(name), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}

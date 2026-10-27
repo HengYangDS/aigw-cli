@@ -30,6 +30,7 @@ func provenanceFixture(t *testing.T) (string, string) {
 			t.Fatal(err)
 		}
 	}
+	writeDependencyReports(t, candidate, "1.2.3", schemaOneReport)
 	return root, candidate
 }
 

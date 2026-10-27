@@ -4,10 +4,13 @@ import (
 	"aigw-cli/internal/process"
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"time"
 )
 
@@ -16,12 +19,28 @@ type toolCall struct {
 	Args, Env       []string
 	Stdout, Stderr  io.Writer
 	Timeout         time.Duration
+	// Image, when set, receives the executable file that the call runs; the
+	// call then runs that resolved file rather than resolving its name again.
+	Image *toolImage
+}
+
+// toolImage identifies an executable file by its path and SHA-256.
+type toolImage struct {
+	Path, SHA256 string
 }
 
 type toolRunner func(toolCall) error
 
 func executeTool(ctx context.Context) toolRunner {
 	return func(call toolCall) (result error) {
+		executable := call.Name
+		if call.Image != nil {
+			image, err := resolveImage(call.Name)
+			if err != nil {
+				return err
+			}
+			*call.Image, executable = image, image.Path
+		}
 		callContext := ctx
 		if call.Timeout > 0 {
 			var cancel context.CancelFunc
@@ -67,7 +86,7 @@ func executeTool(ctx context.Context) toolRunner {
 			stdoutWriter = capture
 		}
 		runErr := (process.Runner{}).RunStream(callContext, process.Plan{
-			Executable: call.Name, Directory: call.Directory,
+			Executable: executable, Directory: call.Directory,
 			Args: call.Args, Env: append(os.Environ(), call.Env...),
 		}, stdoutWriter, diagnostics)
 		if _, err := diagnostics.Seek(0, io.SeekStart); err != nil {
@@ -88,4 +107,22 @@ func executeTool(ctx context.Context) toolRunner {
 			}
 		}
 	}
+}
+
+// resolveImage finds the executable file that a tool name runs and digests it.
+func resolveImage(name string) (toolImage, error) {
+	path, err := exec.LookPath(name)
+	if err != nil {
+		return toolImage{}, fmt.Errorf("resolve %s: %w", name, err)
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return toolImage{}, fmt.Errorf("read %s: %w", path, err)
+	}
+	defer func() { _ = file.Close() }()
+	digest := sha256.New()
+	if _, err := io.Copy(digest, file); err != nil {
+		return toolImage{}, fmt.Errorf("read %s: %w", path, err)
+	}
+	return toolImage{Path: path, SHA256: hex.EncodeToString(digest.Sum(nil))}, nil
 }

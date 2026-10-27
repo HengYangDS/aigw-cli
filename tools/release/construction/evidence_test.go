@@ -263,7 +263,7 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 	var sbom []byte
 	var finalSBOM string
 	observed := errors.New("native SBOM observed before other release evidence")
-	err := buildRelease(t.Context(), buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: version, Epoch: "1784246400", SigningKey: signingKey(t)}, func(call toolCall) error {
+	err := buildRelease(t.Context(), buildRequest{Root: root, Output: filepath.Join(root, "dist"), Version: version, Epoch: "1784246400", SigningKey: signingKey(t)}, withLockedScanner(func(call toolCall) error {
 		switch call.Name {
 		case "git":
 			if slices.Contains(call.Args, "HEAD^{commit}") {
@@ -311,7 +311,7 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 		default:
 			return fmt.Errorf("unexpected release tool %s", call.Name)
 		}
-	})
+	}))
 	if !errors.Is(err, observed) {
 		t.Fatalf("release did not reach native SBOM acceptance: %v", err)
 	}
@@ -359,7 +359,7 @@ func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
 				t.Fatal(err)
 			}
 			valid := buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}
-			err := buildRelease(t.Context(), valid, func(call toolCall) error {
+			err := buildRelease(t.Context(), valid, withLockedScanner(func(call toolCall) error {
 				switch call.Name {
 				case "git":
 					return nil
@@ -384,7 +384,7 @@ func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
 					t.Fatalf("invalid evidence reached later release tool %s", call.Name)
 					return nil
 				}
-			})
+			}))
 			if err == nil || !strings.Contains(err.Error(), boundary) {
 				t.Fatalf("release validation error = %v, want %s", err, boundary)
 			}
@@ -405,7 +405,7 @@ func TestReleaseBuildPropagatesPostBuildValidationFailures(t *testing.T) {
 
 func TestReleaseSBOMRequiresPortableBinaries(t *testing.T) {
 	valid := buildRequest{Root: releaseRoot(t), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400", SigningKey: signingKey(t)}
-	err := buildRelease(t.Context(), valid, func(call toolCall) error {
+	err := buildRelease(t.Context(), valid, withLockedScanner(func(call toolCall) error {
 		if call.Name == "osv-scanner" {
 			return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(valid.Root))
 		}
@@ -426,7 +426,7 @@ func TestReleaseSBOMRequiresPortableBinaries(t *testing.T) {
 			}
 		}
 		return nil
-	})
+	}))
 	if err == nil || !strings.Contains(err.Error(), "binary matrix") {
 		t.Fatalf("missing binary error = %v", err)
 	}
@@ -451,7 +451,7 @@ func TestNativeDependencyEvidenceTransportRefusesBrokenResources(t *testing.T) {
 	if err := os.WriteFile(blocked, []byte("retained"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := scanDependencies(root, blocked, dependencyPolicy{}, func(toolCall) error {
+	if _, err := scanDependencies(root, blocked, dependencyInputs{}, func(toolCall) error {
 		t.Fatal("scanner started before its evidence parent was admitted")
 		return nil
 	}); err == nil {
@@ -464,7 +464,7 @@ func TestNativeDependencyEvidenceTransportRefusesBrokenResources(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if err := normalizeDependencyEvidence(path, filepath.Join(root, "vulnerabilities.json"), filepath.Join(root, "licenses.json"), []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")}); err == nil {
+		if err := normalizeDependencyEvidence(path, filepath.Join(root, "vulnerabilities.json"), filepath.Join(root, "licenses.json"), []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")}, reportScannerFixture); err == nil {
 			t.Fatal("unavailable raw evidence accepted")
 		}
 	}

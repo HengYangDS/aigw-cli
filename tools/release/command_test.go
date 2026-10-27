@@ -501,7 +501,11 @@ func writeArtifactFixture(t *testing.T, version, key string) string {
 		if name == "checksums.txt" || name == "checksums.txt.sig" {
 			continue
 		}
-		if err := os.WriteFile(filepath.Join(directory, name), []byte("fixture:"+name+"\n"), 0o600); err != nil {
+		content := "fixture:" + name + "\n"
+		if strings.HasSuffix(name, ".vulnerabilities.json") || strings.HasSuffix(name, ".licenses.json") {
+			content = `{"schema_version":1,"sources":[]}` + "\n" // Provenance reads the dependency reports.
+		}
+		if err := os.WriteFile(filepath.Join(directory, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}

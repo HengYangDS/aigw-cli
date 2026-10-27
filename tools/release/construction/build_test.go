@@ -34,7 +34,7 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 	root := releaseRoot(t)
 	for name, content := range map[string]string{
 		"go.mod": "module aigw-cli\n", "go.sum": "fixture", "package-lock.json": "fixture",
-		".config/mise/mise.lock": "fixture", "LICENSE": "fixture", "README.md": "fixture",
+		"LICENSE": "fixture", "README.md": "fixture",
 		".config/mise/config.toml": "[tools]\ngo = \"1.27.1\"\nosv-scanner = \"2.5.1\"\n",
 	} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
@@ -175,6 +175,7 @@ func releaseRoot(t *testing.T) string {
 	if err := os.MkdirAll(filepath.Join(root, ".config", "mise"), 0o700); err != nil {
 		t.Fatal(err)
 	}
+	writeScannerLock(t, root)
 	config := filepath.Join(root, ".config", "release")
 	if err := os.MkdirAll(filepath.Join(config, "goreleaser"), 0o700); err != nil {
 		t.Fatal(err)
@@ -484,7 +485,7 @@ func TestReleaseBuildPropagatesToolFailureAndNeverPublishesPartialMatrix(t *test
 
 func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 	root := releaseRoot(t)
-	for name, content := range map[string]string{"go.mod": "module aigw-cli\n", "go.sum": "fixture", "package-lock.json": "fixture", ".config/mise/mise.lock": "fixture"} {
+	for name, content := range map[string]string{"go.mod": "module aigw-cli\n", "go.sum": "fixture", "package-lock.json": "fixture"} {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}

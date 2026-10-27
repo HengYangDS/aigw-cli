@@ -69,7 +69,8 @@ type SourceTrust struct {
 	Commit         string
 }
 
-// WriteProvenance records the source, locked inputs, toolchain and unsigned artifact subjects.
+// WriteProvenance records the source, locked inputs, toolchain, the locked
+// scanner behind the dependency reports and unsigned artifact subjects.
 func WriteProvenance(root, candidate, target, version, commit, tree string) error {
 	data, err := provenanceBytes(func(name string) ([]byte, error) {
 		return os.ReadFile(filepath.Join(root, name))
@@ -224,7 +225,8 @@ func provenanceBytes(readSource func(string) ([]byte, error), toolchain, candida
 		return nil, err
 	}
 	dependencies := []resourceDescriptor{{URI: "urn:aigw:source", Digest: map[string]string{"gitCommit": commit, "gitTree": tree}}}
-	for _, name := range []string{"go.mod", "go.sum", "package-lock.json", filepath.ToSlash(filepath.Join(filepath.Dir(toolchain), "mise.lock"))} {
+	lock := filepath.ToSlash(filepath.Join(filepath.Dir(toolchain), "mise.lock"))
+	for _, name := range []string{"go.mod", "go.sum", "package-lock.json", lock} {
 		data, digestErr := readSource(name)
 		if digestErr != nil {
 			return nil, fmt.Errorf("digest release input %s: %w", name, digestErr)
@@ -241,6 +243,11 @@ func provenanceBytes(readSource func(string) ([]byte, error), toolchain, candida
 		}
 		subjects = append(subjects, subject{Name: name, Digest: digest{SHA256: sum}})
 	}
+	scanner, err := scannerDependency(readSource, lock, candidate, version)
+	if err != nil {
+		return nil, err
+	}
+	dependencies = append(dependencies, scanner...)
 	statement := provenanceStatement{
 		Type: provenanceStatementType, Subject: subjects, PredicateType: provenancePredicateType,
 		Predicate: provenancePredicate{BuildDefinition: buildDefinition{

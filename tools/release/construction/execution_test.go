@@ -3,6 +3,7 @@ package construction
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -47,6 +48,40 @@ func TestReleaseToolQualifiesNativeDiagnostics(t *testing.T) {
 				t.Fatalf("native tool streams changed: stdout=%q stderr=%q", stdout.String(), stderr.String())
 			}
 		})
+	}
+}
+
+// An observed call runs the file that its name resolves to and reports that
+// file's path and SHA-256; a name that resolves to no file starts nothing.
+func TestReleaseToolObservesTheImageItRuns(t *testing.T) {
+	if os.Getenv("AIGW_TEST_RELEASE_IMAGE") == "1" {
+		_, _ = fmt.Fprint(os.Stdout, "observed image ran\n")
+		return
+	}
+	binary, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	program, err := os.ReadFile(binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	var image toolImage
+	err = executeTool(t.Context())(toolCall{
+		Name: binary, Directory: t.TempDir(),
+		Args: []string{"-test.run=^TestReleaseToolObservesTheImageItRuns$"},
+		Env:  []string{"AIGW_TEST_RELEASE_IMAGE=1"}, Stdout: &stdout, Image: &image,
+	})
+	if err != nil || !strings.HasPrefix(stdout.String(), "observed image ran\n") {
+		t.Fatalf("observed image did not run: %v %q", err, stdout.String())
+	}
+	if image.Path != binary || image.SHA256 != fmt.Sprintf("%x", sha256.Sum256(program)) {
+		t.Fatalf("observed image = %+v, want %s", image, binary)
+	}
+	unresolved := toolImage{}
+	if err := executeTool(t.Context())(toolCall{Name: "aigw-release-tool-absent", Directory: t.TempDir(), Image: &unresolved}); err == nil || unresolved != (toolImage{}) {
+		t.Fatalf("unresolvable image started or was observed: %v %+v", err, unresolved)
 	}
 }
 

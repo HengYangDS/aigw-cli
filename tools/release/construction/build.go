@@ -38,7 +38,7 @@ type releaseEpochResolver func(root, version string) (string, error)
 type artifactComparator func(left, right, version string) error
 
 func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (result error) {
-	policy, err := admitReleaseInputs(&request, run)
+	inputs, err := admitReleaseInputs(&request, run)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	if err := os.MkdirAll(candidate, 0o755); err != nil {
 		return fmt.Errorf("create release candidate: %w", err)
 	}
-	rawDependencies, err := scanDependencies(request.Root, filepath.Join(request.Root, "build", "verification", "dependencies"), policy, run)
+	rawDependencies, err := scanDependencies(request.Root, filepath.Join(request.Root, "build", "verification", "dependencies"), inputs, run)
 	if err != nil {
 		return err
 	}
@@ -146,22 +146,22 @@ func writeReleaseSBOM(request buildRequest, stage, candidate string, instant tim
 	return bindStandardLibrary(filepath.Join(candidate, "aigw_"+request.Version+".licenses.json"), sbom, module)
 }
 
-func admitReleaseInputs(request *buildRequest, run toolRunner) (dependencyPolicy, error) {
+func admitReleaseInputs(request *buildRequest, run toolRunner) (dependencyInputs, error) {
 	if err := validateRequest(*request); err != nil {
-		return dependencyPolicy{}, err
+		return dependencyInputs{}, err
 	}
 	if strings.TrimSpace(request.SigningKey) == "" {
-		return dependencyPolicy{}, errors.New("release construction requires AIGW_RELEASE_SIGNING_KEY")
+		return dependencyInputs{}, errors.New("release construction requires AIGW_RELEASE_SIGNING_KEY")
 	}
-	policy, err := readDependencyPolicy(request.Root)
+	inputs, err := readDependencyInputs(request.Root)
 	if err != nil {
-		return dependencyPolicy{}, err
+		return dependencyInputs{}, err
 	}
 	if err := ensureCleanSource(request.Root, run); err != nil {
-		return dependencyPolicy{}, err
+		return dependencyInputs{}, err
 	}
 	request.ReleasePublicKey, err = releasePublicKey(request.SigningKey)
-	return policy, err
+	return inputs, err
 }
 
 func buildArchives(request buildRequest, workspace string, run toolRunner) (string, error) {
