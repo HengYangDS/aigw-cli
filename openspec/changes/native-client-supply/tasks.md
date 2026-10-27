@@ -38,4 +38,5 @@
 - [x] 3.3 The same dispatch passes on macOS with all three clients, and on
       Windows with Claude and Codex (runs `40418594141` and `40418607327` at
       `690d3376`, no skip).
-- [ ] 3.4 The full proof of the lane head passes.
+- [x] 3.4 The full proof of the lane head passes (`e2226dd6`, Attestation
+      `305ba765`).
