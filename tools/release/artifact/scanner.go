@@ -78,10 +78,10 @@ func isSHA256(text string) bool {
 	return err == nil && len(decoded) == sha256.Size && text == strings.ToLower(text)
 }
 
-// scannerDependency returns the locked scanner asset that produced a
-// candidate's dependency reports. Schema 1 reports predate the scanner binding;
-// they name no scanner and add no dependency.
-func scannerDependency(readSource func(string) ([]byte, error), lock, candidate, version string) ([]resourceDescriptor, error) {
+// scannerDependency returns the asset that the Mise lock selects for the
+// scanner that produced a candidate's dependency reports. Schema 1 reports
+// predate the scanner binding; they name no scanner and add no dependency.
+func scannerDependency(lock []byte, candidate, version string) ([]resourceDescriptor, error) {
 	var named []*Scanner
 	for _, report := range []string{"vulnerabilities", "licenses"} {
 		scanner, err := reportScanner(filepath.Join(candidate, "aigw_"+version+"."+report+".json"))
@@ -97,11 +97,7 @@ func scannerDependency(readSource func(string) ([]byte, error), lock, candidate,
 	if scanner == nil {
 		return nil, nil
 	}
-	data, err := readSource(lock)
-	if err != nil {
-		return nil, fmt.Errorf("read Mise lock: %w", err)
-	}
-	image, err := LockedScanner(data, scanner.Platform)
+	image, err := LockedScanner(lock, scanner.Platform)
 	if err != nil {
 		return nil, err
 	}

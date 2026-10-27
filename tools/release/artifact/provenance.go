@@ -225,11 +225,15 @@ func provenanceBytes(readSource func(string) ([]byte, error), toolchain, candida
 		return nil, err
 	}
 	dependencies := []resourceDescriptor{{URI: "urn:aigw:source", Digest: map[string]string{"gitCommit": commit, "gitTree": tree}}}
-	lock := filepath.ToSlash(filepath.Join(filepath.Dir(toolchain), "mise.lock"))
-	for _, name := range []string{"go.mod", "go.sum", "package-lock.json", lock} {
+	lockfile := filepath.ToSlash(filepath.Join(filepath.Dir(toolchain), "mise.lock"))
+	var lock []byte
+	for _, name := range []string{"go.mod", "go.sum", "package-lock.json", lockfile} {
 		data, digestErr := readSource(name)
 		if digestErr != nil {
 			return nil, fmt.Errorf("digest release input %s: %w", name, digestErr)
+		}
+		if name == lockfile {
+			lock = data
 		}
 		sum := fmt.Sprintf("%x", sha256.Sum256(data))
 		dependencies = append(dependencies, resourceDescriptor{URI: "file:" + name, Digest: map[string]string{"sha256": sum}})
@@ -243,7 +247,7 @@ func provenanceBytes(readSource func(string) ([]byte, error), toolchain, candida
 		}
 		subjects = append(subjects, subject{Name: name, Digest: digest{SHA256: sum}})
 	}
-	scanner, err := scannerDependency(readSource, lock, candidate, version)
+	scanner, err := scannerDependency(lock, candidate, version)
 	if err != nil {
 		return nil, err
 	}

@@ -167,4 +167,7 @@ func TestProvenanceListsTheLockedScannerItsReportsName(t *testing.T) {
 			t.Fatalf("disagreeing reports accepted: %v", err)
 		}
 	})
+	if _, err := scannerDependency([]byte(lock), t.TempDir(), "1.2.3"); err == nil || !strings.Contains(err.Error(), "read dependency report") {
+		t.Fatalf("absent dependency reports accepted: %v", err)
+	}
 }

@@ -455,7 +455,7 @@ func TestDependencyScanBindsRelativeRootToNativeAbsoluteSources(t *testing.T) {
 }
 
 func TestDependencyScanRejectsIncompleteNativeOutput(t *testing.T) {
-	for _, failure := range []string{"missing", "malformed", "incomplete"} {
+	for _, failure := range []string{"missing", "malformed", "incomplete", "unreadable"} {
 		t.Run(failure, func(t *testing.T) {
 			root := t.TempDir()
 			calls := 0
@@ -467,13 +467,15 @@ func TestDependencyScanRejectsIncompleteNativeOutput(t *testing.T) {
 					return nil
 				case "malformed":
 					return os.WriteFile(call.Args[len(call.Args)-1], []byte("{"), 0o600)
+				case "unreadable":
+					return os.Mkdir(call.Args[len(call.Args)-1], 0o700)
 				case "incomplete":
 					report.Results = report.Results[:1]
 				}
 				return writeJSON(call.Args[len(call.Args)-1], report)
 			}))
-			if err == nil || calls != 1 {
-				t.Fatalf("incomplete native scan accepted: error=%v calls=%d", err, calls)
+			if err == nil || calls != 1 || (failure == "unreadable") != strings.HasPrefix(err.Error(), "scan dependencies:") {
+				t.Fatalf("incomplete native scan accepted or misattributed: error=%v calls=%d", err, calls)
 			}
 		})
 	}
