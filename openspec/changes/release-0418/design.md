@@ -92,11 +92,18 @@ and tracking records never reach the operator's state.
 ### Team catalogue refresh
 
 A candidate replaces its vendor's Model, or for OpenAI and Anthropic joins the
-curated series, only when the vendor documents it as available and each listed
-Route passes bounded inference and the native Hermes file-tool and recall
-journey. Mistral Large 4 is a Public Preview; it is admitted on the same terms
-as the Preview Models already shipped, and its label says so. Candidates whose
-Routes fail stay out, with the failure recorded.
+curated series, only when the vendor documents it as available and stronger,
+and each listed Route passes bounded inference and the native Hermes file-tool
+and recall journey. A dated or suffixed identifier is judged by the vendor's
+release notes, not by its name: DeepSeek's `deepseek-v4.1-flash-1017` is a
+retrained refresh with higher scores, while a serving tier such as `-highspeed`,
+`-ultraspeed` or `-prime` is not a stronger model. Where an Account lists the
+vendor's dated successor, the Route pins it instead of an undated identifier
+whose build the Account does not document. Mistral Large 4 is a Public Preview;
+it is admitted on the same terms as the Preview Models already shipped, and its
+label says so. Candidates whose Routes fail stay out, with the failure
+recorded. A vendor that the catalogue does not yet represent, such as iFlytek or
+Microsoft, is a scope decision and not part of this refresh.
 
 ### Not ported
 

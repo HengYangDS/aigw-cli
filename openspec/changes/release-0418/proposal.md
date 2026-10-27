@@ -19,8 +19,12 @@ open findings alive:
   glab release (BLOCK `f86f8c0d`).
 - `TestForgeToolchainsIgnoreForeignMiseConfiguration` records its temporary
   checkouts in the operator's real Mise state.
-- The 2026-10-27 catalogue review found newer vendor models: GPT-6.1 Terra,
-  Kimi K3.1 Pro, Muse Wonder, Mistral Large 4 and Command A+.
+- The 2026-10-27 catalogue review, rechecked against each vendor's own sources,
+  found stronger models for eight vendors: GPT-6.1 Terra joins the curated
+  OpenAI series, and DeepSeek V4.1 Flash 1017, Kimi K3.1 Pro, Qwen3.8 Max
+  0902, Doubao Seed 2.1 Pro 260915, MiniMax M3.1 Flash, Muse Wonder and
+  Mistral Large 4 are candidate successors. Command A+ and Solar Pro 4 return
+  to the listings and need a fresh probe.
 
 ## What Changes
 
