@@ -14,6 +14,10 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+## [0.4.18] - 2026-10-27
+
+History: [GitLab][0.4.18-gitlab] · [GitHub][0.4.18-github]
+
 ### Changed
 
 - The team catalogue moves to newer vendor models whose every listed Route
@@ -41,6 +45,8 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   action: undo the outside edit, then run `aigw sync`. Before, the refused
   commands advised `aigw check`, and `aigw check` advised the `aigw sync` that
   had just refused. AIGW still never overwrites such an edit.
+- On Windows, `aigw doctor` labels a Codex configuration on another drive or a
+  network share as outside the home directory, instead of as an unnamed target.
 
 ## [0.4.17] - 2026-10-26
 
@@ -1700,8 +1706,10 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
-[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.17...main
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.17...main
+[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.18...main
+[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.18...main
+[0.4.18-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.17...v0.4.18
+[0.4.18-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.17...v0.4.18
 [0.4.17-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.16...v0.4.17
 [0.4.17-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.16...v0.4.17
 [0.4.16-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.15...v0.4.16

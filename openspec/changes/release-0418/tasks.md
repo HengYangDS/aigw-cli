@@ -73,7 +73,7 @@
 
 ## 8. Release
 
-- [ ] 8.1 Set `VERSION` to 0.4.18 and add its CHANGELOG section;
+- [x] 8.1 Set `VERSION` to 0.4.18 and add its CHANGELOG section;
       `validate-changelog` passes.
 
 ## 9. Verification
