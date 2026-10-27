@@ -88,7 +88,7 @@ func TestNativePrebuiltAcceptanceKeepsBootstrapConditional(t *testing.T) {
 			}
 		}
 		if !slices.ContainsFunc(job.Rules, func(rule gitLabRule) bool {
-			return strings.Contains(rule.If, "$AIGW_CANDIDATE_ARTIFACTS") && strings.HasPrefix(rule.Variables["MISE_ENABLE_TOOLS"], "go,gh,glab,github:goreleaser/goreleaser")
+			return strings.Contains(rule.If, "$AIGW_CANDIDATE_ARTIFACTS") && strings.HasPrefix(rule.Variables["MISE_ENABLE_TOOLS"], "go,glab,github:goreleaser/goreleaser")
 		}) {
 			t.Errorf("%s lacks the explicit prebuilt tool closure", name)
 		}
@@ -130,7 +130,8 @@ func TestGitLabArtifactScopesPrecedeEachNativeAdmission(t *testing.T) {
 	for _, name := range []string{"native-linux", "native-darwin", "native-darwin-review", "native-windows", "native-windows-review"} {
 		t.Run(name, func(t *testing.T) {
 			platform := strings.TrimSuffix(strings.TrimPrefix(name, "native-"), "-review")
-			tools := "go,gh,glab,github:goreleaser/goreleaser"
+			// A GitLab artifact journey prepares glab, never the GitHub CLI.
+			tools := "go,glab,github:goreleaser/goreleaser"
 			if platform == "darwin" {
 				tools += ",github:indygreg/apple-platform-rs"
 			}

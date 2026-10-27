@@ -9,45 +9,45 @@ native-linux:
       variables:
         CGO_ENABLED: "0"
         AIGW_LINUX_COMPILER_PACKAGES: ""
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
     - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
         CGO_ENABLED: "0"
         AIGW_LINUX_COMPILER_PACKAGES: ""
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
     - if: $CI_COMMIT_TAG
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
         CGO_ENABLED: "0"
         AIGW_LINUX_COMPILER_PACKAGES: ""
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
         CGO_ENABLED: "0"
         AIGW_LINUX_COMPILER_PACKAGES: ""
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
     - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
         CGO_ENABLED: "0"
         AIGW_LINUX_COMPILER_PACKAGES: ""
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
     - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
         CGO_ENABLED: "0"
         AIGW_LINUX_COMPILER_PACKAGES: ""
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
     - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
     - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "linux")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
         CGO_ENABLED: "0"
         AIGW_LINUX_COMPILER_PACKAGES: ""
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
     - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "linux")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
         CGO_ENABLED: "0"
         AIGW_LINUX_COMPILER_PACKAGES: ""
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
     - if: ($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "linux")
     - when: never
   after_script:
@@ -168,24 +168,24 @@ native-darwin:
   rules:
     - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
     - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
     - if: $CI_COMMIT_TAG
     - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
     - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
     - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
     - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
     - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
     - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "true"
     - when: never
   after_script:
@@ -256,17 +256,17 @@ native-darwin-review:
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
     - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine
     - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs
     - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "darwin")) && $CI_COMMIT_REF_PROTECTED == "false"
     - when: never
   after_script:
@@ -369,42 +369,42 @@ native-windows:
   rules:
     - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
     - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
     - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,node
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,node
     - if: ($CI_COMMIT_TAG) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
     - if: $CI_COMMIT_TAG
     - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
     - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
     - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,node
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,node
     - if: ($CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
     - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "dev" || $CI_COMMIT_BRANCH == "main")
     - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
     - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
     - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,node
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,node
     - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
     - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "true"
     - when: never
   after_script:
@@ -522,29 +522,29 @@ native-windows-review:
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,node
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,node
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID) && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
     - if: $CI_PIPELINE_SOURCE == "merge_request_event" && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "dev" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main") && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID == $CI_PROJECT_ID
     - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine,node
     - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_PERFORMANCE == "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine
     - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true" && $AIGW_NATIVE_INPUT_PACKAGE && ($AIGW_NATIVE_CLIENTS == "true" || $AIGW_NATIVE_DIAGNOSTIC_CLIENT)
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser,node
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser,node
     - if: ((($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false") && ($AIGW_NATIVE_INPUT_PACKAGE || $AIGW_CANDIDATE_ARTIFACTS || $AIGW_CANDIDATE_TAG) && $AIGW_FULL_NATIVE_QUALITY != "true" && $AIGW_REFRESH_LOCKS != "true"
       variables:
-        MISE_ENABLE_TOOLS: go,gh,glab,github:goreleaser/goreleaser
+        MISE_ENABLE_TOOLS: go,glab,github:goreleaser/goreleaser
     - if: (($CI_PIPELINE_SOURCE == "web" || $CI_PIPELINE_SOURCE == "api") && ($AIGW_NATIVE_PLATFORM == null || $AIGW_NATIVE_PLATFORM == "" || $AIGW_NATIVE_PLATFORM == "all" || $AIGW_NATIVE_PLATFORM == "windows")) && $CI_COMMIT_REF_PROTECTED == "false"
     - when: never
   after_script:

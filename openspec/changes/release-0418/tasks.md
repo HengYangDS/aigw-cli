@@ -55,7 +55,7 @@
 - [x] 6.1 Ignore non-`v` tags in release selection and let a manual tag-ref
       dispatch honor `native_platform`. The tests fail before the change and
       pass after it.
-- [ ] 6.2 Index the artifact tool closure by peer and regenerate both Forge
+- [x] 6.2 Index the artifact tool closure by peer and regenerate both Forge
       projections. The tool-closure tests fail before the change and pass
       after it, and `tools/ci project --check` passes.
 

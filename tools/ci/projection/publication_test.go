@@ -306,7 +306,8 @@ func TestManualPrebuiltPerformanceUsesItsExactToolClosure(t *testing.T) {
 	}
 	const source = "${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || (inputs.candidate_tag == '' && inputs.input_release == '')) && '"
 	for _, platform := range []string{"darwin", "linux", "windows"} {
-		artifactTools := "go,gh,glab,github:goreleaser/goreleaser"
+		// A GitHub artifact journey prepares gh, never the GitLab CLI.
+		artifactTools := "go,gh,github:goreleaser/goreleaser"
 		if platform == "darwin" {
 			artifactTools += ",github:indygreg/apple-platform-rs"
 		}

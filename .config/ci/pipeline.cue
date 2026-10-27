@@ -197,7 +197,12 @@ toolchainTools: {
 	quality: list.Concat([portableQuality, links])
 	// Native Go suites execute real glab against disposable GitLab origins.
 	native: list.Concat([quality, ["github:anchore/syft", "gh", "glab"]])
-	nativeArtifact: ["go", "gh", "glab", "github:goreleaser/goreleaser"]
+	// An artifact-only journey prepares only its own Forge's CLI, so a GitHub
+	// job never asks a tool carrier for glab, nor a GitLab job for gh.
+	nativeArtifact: {
+		github: ["go", "gh", "github:goreleaser/goreleaser"]
+		gitlab: ["go", "glab", "github:goreleaser/goreleaser"]
+	}
 	nativeClientSupply: ["node"]
 	secretService: ["go", "github:goreleaser/goreleaser"]
 	darwin: ["github:indygreg/apple-platform-rs"]
@@ -216,12 +221,16 @@ nativeToolchain: {
 }
 
 nativeArtifactToolchain: {
-	for platform in ["darwin", "linux", "windows"] {
-		(platform): MISE_ENABLE_TOOLS: strings.Join(list.Concat([
-			toolchainTools.nativeArtifact,
-			if platform == "darwin" {toolchainTools.darwin},
-			if platform != "darwin" {[]},
-		]), ",")
+	for peer in ["github", "gitlab"] {
+		(peer): {
+			for platform in ["darwin", "linux", "windows"] {
+				(platform): MISE_ENABLE_TOOLS: strings.Join(list.Concat([
+					toolchainTools.nativeArtifact[peer],
+					if platform == "darwin" {toolchainTools.darwin},
+					if platform != "darwin" {[]},
+				]), ",")
+			}
+		}
 	}
 }
 
@@ -372,7 +381,7 @@ nativeArtifactScope: {
 				if: strings.Join(list.Concat([[_prebuilt], [if performance {_performance}], [if clients {_clients}]]), " && ")
 				variables: {
 					MISE_ENABLE_TOOLS: strings.Join(list.Concat([
-						[nativeArtifactToolchain[platform].MISE_ENABLE_TOOLS],
+						[nativeArtifactToolchain.gitlab[platform].MISE_ENABLE_TOOLS],
 						[if performance {strings.Join(toolchainTools.performance, ",")}],
 						[if clients {strings.Join(toolchainTools.nativeClientSupply, ",")}],
 					]), ",")
@@ -499,7 +508,7 @@ workflowEvidencePath:   "build/verification/workflows"
 	"timeout-minutes": "${{ inputs.native_clients && 45 || 25 }}"
 	// A manual run selects its native platform, from a tag ref too.
 	if: "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
-	env: MISE_ENABLE_TOOLS: "${{ (\(_sourceCondition)) && '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' || inputs.performance && '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS),\(strings.Join(toolchainTools.performance, ","))' || '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' }}\(_clientTools)"
+	env: MISE_ENABLE_TOOLS: "${{ (\(_sourceCondition)) && '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' || inputs.performance && '\(nativeArtifactToolchain.github[_platform].MISE_ENABLE_TOOLS),\(strings.Join(toolchainTools.performance, ","))' || '\(nativeArtifactToolchain.github[_platform].MISE_ENABLE_TOOLS)' }}\(_clientTools)"
 	steps: [
 		#SourceCheckout,
 		#Toolchain,
