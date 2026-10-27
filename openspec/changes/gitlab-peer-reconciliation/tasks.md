@@ -12,12 +12,14 @@
   - [x] 1.2.2 Remove the root `.cbmignore`, which ETHOS's repository paradigm
         rejects.
   - [ ] 1.2.3 Record native ETHOS receipts for `v0.3.4` and `v0.3.5`, which
-        both peers already name identically. AIGW is bound to runtime
-        `2a682982` since 2026-10-20, whose preview still refuses with
-        `proof_attestation_repository_policy_mismatch`: their sources predate
-        the shared paradigm. Owner: ETHOS publication-history-repair 13.4.10
-        (session `Ethos 框架分析`); next: bind the runtime that ships 13.4.10
-        and preview both receipts again; review 2026-10-27.
+        both peers already name identically. Their sources predate the shared
+        repository paradigm, so the receipt preview still refuses with
+        `proof_attestation_repository_policy_mismatch`, and no native path
+        exists yet. DR-0016 withdrew ETHOS publication-history-repair 13.4.10
+        as in-repo work; ETHOS restores it in its Change
+        `forge-admission-and-assurance`, which names this task as its consumer.
+        Owner: a225 (ETHOS product lane); next: that Change restores 13.4.10,
+        then preview both receipts again; review 2026-11-04.
   - [x] 1.2.4 Publish the maintenance tags `v0.3.4` and `v0.3.5`; read back
         GitHub's objects `e86777be` and `95132368`. Done by the user-authorized
         break glass of 2026-10-15, outside ETHOS publication.
@@ -59,8 +61,12 @@
 - [ ] 3.1 Once ETHOS accepts its identity and reference successor, qualify the
       installed admission: reachable wrong-repository links fail, and historical
       peer tag identities reconcile through authorized native repair without
-      copied maps or checkers. ETHOS publication-history-repair task 13.4.9
-      owns reconciling the eleven rc tags; their per-peer objects are in
+      copied maps or checkers. The installed alpha.16 parser still accepts a
+      history link to another repository's release (Codex finding `ccc9685b`);
+      ETHOS adds that check to `forge-admission-and-assurance`. DR-0016
+      withdrew publication-history-repair 13.4.9, reconciling the eleven rc
+      tags, as environment work that waits for the GitLab batch backfill; their
+      per-peer objects are in
       `build/evidence/gitlab-peer-reconciliation/rc-tag-identities-20261020/`
-      of the main checkout. Owner: session "fix aigw and proxy"; next: qualify
-      once 13.4.9 ships in an aigw runtime; review 2026-10-27.
+      of the main checkout. Owner: a225 (ETHOS product lane); next: qualify
+      once that Change ships in an aigw runtime; review 2026-11-04.
