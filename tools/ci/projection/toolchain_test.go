@@ -374,6 +374,8 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 		"MISE_GLOBAL_CONFIG_FILE="+filepath.Join(workspace, "global", "config.toml"),
 		"MISE_SYSTEM_CONFIG_DIR="+filepath.Join(workspace, "system"),
 		"MISE_TRUSTED_CONFIG_PATHS="+workspace,
+		// HOME and the data directory stay shared, so tools are not reinstalled.
+		"MISE_STATE_DIR="+filepath.Join(workspace, "state"),
 	)
 	local, err := projectionCommand(repository, `{env: #MiseConfigurationEnvironment & {_root: "$AIGW_PROJECT_ROOT"}}`).Output()
 	if err != nil {
@@ -408,6 +410,11 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 		if got, err := os.ReadFile(path); err != nil || string(got) != want {
 			t.Errorf("configuration discovery modified %s: %v", path, err)
 		}
+	}
+	// Mise records every project it trusts and tracks in its state directory;
+	// the test's own state keeps those records out of the operator's.
+	if records, err := os.ReadDir(filepath.Join(workspace, "state", "tracked-configs")); err != nil || len(records) == 0 {
+		t.Errorf("mise tracked the temporary checkout outside the test's state directory: %d records, %v", len(records), err)
 	}
 }
 
