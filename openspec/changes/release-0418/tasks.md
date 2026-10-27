@@ -8,10 +8,11 @@
 
 - [x] 2.1 Move doctor's target labelling into its own file with no behavior
       change; the doctor tests pass.
-- [ ] 2.2 Label a target on another volume as outside the home directory. The
+- [x] 2.2 Label a target on another volume as outside the home directory. The
       Windows test for another drive, a UNC share, a letter-case difference and
       a relative HOME passes in hosted Verify on Windows; it builds and vets for
-      Windows locally.
+      Windows locally. PR 208 run 40498737178 passed `internal/cli/doctor` on
+      Windows.
 
 ## 3. Forwarding
 
@@ -67,7 +68,8 @@
       Flash, Muse Wonder, Mistral Large 4, Command A+ and Solar Pro 4 with
       bounded inference and the native Hermes file-tool and recall journey, and
       record the results. Doubao 260915, Mistral Large 4 and Command A+ failed
-      three times each and stay out.
+      three times each and stay out. Every admitted Route passed once more on
+      the stock Hermes v0.22.5 that CI pins.
 - [x] 7.2 Update the team manifest, the qualification record and the rollout
       guide for the qualified candidates; manifest tests pass.
 
@@ -78,6 +80,8 @@
 
 ## 9. Verification
 
-- [ ] 9.1 `mise run check` passes on the lane head.
-- [ ] 9.2 The full proof of the lane head passes.
-- [ ] 9.3 Hosted Verify passes on Linux, macOS and Windows for the proposal.
+- [x] 9.1 `mise run check` passes on the lane head (`1b31914a`).
+- [x] 9.2 The full proof of the lane head passes (`1b31914a`, Attestation
+      `2acf9f217d843d5d767130e1a0058592d1de0b988ecb8670729c7ba4175e09fc`).
+- [x] 9.3 Hosted Verify passes on Linux, macOS and Windows for the proposal
+      (PR 208, run 40498737178).

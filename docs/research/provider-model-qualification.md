@@ -51,8 +51,8 @@ discovery-only. Preserve this distinction and explicit local selections.
 (SHA-256 `e4dbc199…`). Each candidate was judged by its vendor's own release
 notes, not by its identifier, then qualified per Account and protocol by an
 isolated Hermes `read_file` turn and a tool-free resumed recall, both bounded.
-The runs used the operator's patched Hermes v0.22.5+1.g57fd07f, and the last retry ran after an outside
-update to v0.22.5+2.g9f06c16. Raw results are in the canonical checkout's `build/evidence/team-model-refresh-20261027/`.
+The runs used the operator's patched Hermes v0.22.5+1.g57fd07f (the last retry v0.22.5+2.g9f06c16); every
+admitted Route then passed once more on the stock v0.22.5 (`bf0203a7`) that CI pins. Raw results are in the canonical checkout's `build/evidence/team-model-refresh-20261027/`.
 
 | Model                    | Admitted Account / protocol                 | Vendor basis                                                 |
 | ------------------------ | ------------------------------------------- | ------------------------------------------------------------ |
