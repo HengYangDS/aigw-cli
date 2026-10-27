@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -113,5 +114,56 @@ func recordedInstallers(t *testing.T, record string, exited <-chan error) []int 
 		if time.Now().After(deadline) {
 			t.Fatalf("fake installers did not start: %q", data)
 		}
+	}
+}
+
+func TestNativeClientRetirementPreservesASupplyInUse(t *testing.T) {
+	owned, err := os.MkdirTemp(t.TempDir(), clientSupplyPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A real process names the supply in its command line, as a client or a
+	// Hermes gateway started from it does.
+	process := exec.Command("/bin/sleep", "30")
+	process.Args[0] = filepath.Join(owned, "home", ".local", "bin", "hermes")
+	if err := process.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = process.Process.Kill()
+		_ = process.Wait()
+	})
+	pid := strconv.Itoa(process.Process.Pid)
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+		users, err := supplyProcesses(owned, systemOutputRunner)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if slices.Contains(users, pid) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("process inventory never named the supply's user %s: %q", pid, users)
+		}
+	}
+	if err := retireClients(owned, systemOutputRunner); err == nil || !strings.Contains(err.Error(), "still in use by process "+pid) {
+		t.Fatalf("retirement of a supply in use = %v", err)
+	}
+	if _, err := os.Stat(owned); err != nil {
+		t.Fatalf("retirement removed a supply in use: %v", err)
+	}
+	if err := process.Process.Kill(); err != nil {
+		t.Fatal(err)
+	}
+	_ = process.Wait()
+	unproved := errors.New("ps exited with status 1")
+	if err := retireClients(owned, func(command) ([]byte, error) { return nil, unproved }); !errors.Is(err, unproved) {
+		t.Fatalf("retirement with an unproved inventory = %v", err)
+	}
+	if err := retireClients(owned, systemOutputRunner); err != nil {
+		t.Fatalf("retirement after the process exited = %v", err)
+	}
+	if _, err := os.Lstat(owned); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("retired supply survived: %v", err)
 	}
 }
