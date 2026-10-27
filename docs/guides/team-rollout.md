@@ -104,7 +104,9 @@ view promises every model a provider can serve through private routes.
 Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses observations
 are not interchangeable. A Chat Completions result cannot qualify Responses;
 a Responses text call cannot qualify reasoning, tools, continuation, or
-compaction.
+compaction. Judge a dated or suffixed identifier by the vendor's release notes,
+not its name: a dated refresh such as `deepseek-v4.1-flash-1017` can be the
+stronger model, while a serving tier such as `-cc` or `-free` is not.
 
 `aigw models` compares each configured Route's exact `upstream_model` against
 the observation for that Route's protocol. `Listed` and `Not listed` describe
@@ -125,9 +127,10 @@ Catalogue refresh performs none of those transitions.
 ### Reviewed model defaults
 
 The tracked [team manifest](../../manifests/team.toml) is the current Route
-inventory. It currently contains qualified GPT-6.1 Sol and Claude Opus, Sonnet,
-and Haiku 5.5, plus one reviewed general Model per other admitted vendor. Fable,
-Astra, Terra, and Luna await qualified identities meeting the version floors.
+inventory. It currently contains qualified GPT-6.1 Sol and Terra and Claude
+Opus, Sonnet, and Haiku 5.5, plus one reviewed general Model per other admitted
+vendor. Fable, Astra, and Luna await qualified identities meeting the version
+floors.
 The [dated qualification
 evidence](../research/provider-model-qualification.md) explains the observed
 IDs, protocol tests, exclusions, and limits. A catalogue listing is not a live

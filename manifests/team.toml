@@ -79,8 +79,8 @@ order = 30
 label = 'Cohere Command A'
 order = 200
 
-[models.'deepseek-v4.1-flash']
-label = 'DeepSeek V4.1 Flash'
+[models.'deepseek-v4.1-flash-1017']
+label = 'DeepSeek V4.1 Flash 1017'
 order = 210
 
 [models.doubao-seed-2-1-pro-260628]
@@ -103,6 +103,10 @@ order = 250
 label = 'GPT-6.1 Sol'
 order = 120
 
+[models.'gpt-6.1-terra']
+label = 'GPT-6.1 Terra'
+order = 130
+
 [models.'grok-4.7']
 label = 'Grok 4.7'
 order = 260
@@ -111,8 +115,8 @@ order = 260
 label = 'HY4 Preview'
 order = 270
 
-[models.kimi-k3]
-label = 'Kimi K3'
+[models.'kimi-k3.1-pro']
+label = 'Kimi K3.1 Pro'
 order = 280
 
 [models.'laguna-s-2.1']
@@ -135,25 +139,29 @@ order = 320
 label = 'MiMo V2.6 Pro'
 order = 330
 
-[models.minimax-m3]
-label = 'MiniMax M3'
+[models.'minimax-m3.1-flash']
+label = 'MiniMax M3.1 Flash'
 order = 340
 
 [models.mistral-large-3]
 label = 'Mistral Large 3'
 order = 350
 
-[models.'muse-spark-1.3']
-label = 'Muse Spark 1.3'
+[models.muse-wonder]
+label = 'Muse Wonder'
 order = 360
 
 [models.nemotron-3-ultra-550b-a55b]
 label = 'NVIDIA Nemotron 3 Ultra'
 order = 370
 
-[models.'qwen3.8-max']
-label = 'Qwen 3.8 Max'
+[models.'qwen3.8-max-0902']
+label = 'Qwen 3.8 Max 0902'
 order = 380
+
+[models.solar-pro4]
+label = 'Solar Pro 4'
+order = 385
 
 [models.step-5-preview]
 label = 'Step 5 Preview'
@@ -192,12 +200,12 @@ upstream_model = 'cohere-command-a'
 [routes.aihubmix-cohere-command-a.interfaces]
 openai_chat_completions = []
 
-[routes.'aihubmix-deepseek-v4.1-flash']
+[routes.'aihubmix-deepseek-v4.1-flash-1017']
 account = 'aihubmix'
-model = 'deepseek-v4.1-flash'
-upstream_model = 'deepseek-v4.1-flash'
+model = 'deepseek-v4.1-flash-1017'
+upstream_model = 'deepseek-v4.1-flash-1017'
 
-[routes.'aihubmix-deepseek-v4.1-flash'.interfaces]
+[routes.'aihubmix-deepseek-v4.1-flash-1017'.interfaces]
 openai_responses = []
 
 [routes.aihubmix-doubao-seed-2-1-pro-260628]
@@ -240,6 +248,14 @@ upstream_model = 'gpt-6.1-sol'
 [routes.'aihubmix-gpt-6.1-sol'.interfaces]
 openai_responses = []
 
+[routes.'aihubmix-gpt-6.1-terra']
+account = 'aihubmix'
+model = 'gpt-6.1-terra'
+upstream_model = 'gpt-6.1-terra'
+
+[routes.'aihubmix-gpt-6.1-terra'.interfaces]
+openai_responses = []
+
 [routes.'aihubmix-grok-4.7']
 account = 'aihubmix'
 model = 'grok-4.7'
@@ -248,13 +264,13 @@ upstream_model = 'grok-4.7'
 [routes.'aihubmix-grok-4.7'.interfaces]
 openai_responses = []
 
-[routes.aihubmix-kimi-k3]
+[routes.'aihubmix-kimi-k3.1-pro']
 account = 'aihubmix'
-model = 'kimi-k3'
-upstream_model = 'kimi-k3'
+model = 'kimi-k3.1-pro'
+upstream_model = 'kimi-k3.1-pro'
 
-[routes.aihubmix-kimi-k3.interfaces]
-openai_responses = []
+[routes.'aihubmix-kimi-k3.1-pro'.interfaces]
+openai_chat_completions = []
 
 [routes.'aihubmix-laguna-s-2.1']
 account = 'aihubmix'
@@ -280,13 +296,12 @@ upstream_model = 'mercury-2.5'
 [routes.'aihubmix-mercury-2.5'.interfaces]
 openai_chat_completions = []
 
-[routes.aihubmix-minimax-m3-cc]
-label = 'AIHubMix · MiniMax M3 · CC'
+[routes.'aihubmix-minimax-m3.1-flash']
 account = 'aihubmix'
-model = 'minimax-m3'
-upstream_model = 'cc-minimax-m3'
+model = 'minimax-m3.1-flash'
+upstream_model = 'minimax-m3.1-flash'
 
-[routes.aihubmix-minimax-m3-cc.interfaces]
+[routes.'aihubmix-minimax-m3.1-flash'.interfaces]
 openai_responses = []
 
 [routes.aihubmix-mistral-large-3]
@@ -297,12 +312,12 @@ upstream_model = 'mistral-large-3'
 [routes.aihubmix-mistral-large-3.interfaces]
 openai_chat_completions = []
 
-[routes.'aihubmix-muse-spark-1.3']
+[routes.aihubmix-muse-wonder]
 account = 'aihubmix'
-model = 'muse-spark-1.3'
-upstream_model = 'muse-spark-1.3'
+model = 'muse-wonder'
+upstream_model = 'muse-wonder'
 
-[routes.'aihubmix-muse-spark-1.3'.interfaces]
+[routes.aihubmix-muse-wonder.interfaces]
 openai_responses = []
 
 [routes.aihubmix-nemotron-3-ultra-550b-a55b-free]
@@ -314,13 +329,21 @@ upstream_model = 'nemotron-3-ultra-550b-a55b-free'
 [routes.aihubmix-nemotron-3-ultra-550b-a55b-free.interfaces]
 openai_chat_completions = []
 
-[routes.'aihubmix-qwen3.8-max']
+[routes.'aihubmix-qwen3.8-max-0902']
 account = 'aihubmix'
-model = 'qwen3.8-max'
-upstream_model = 'qwen3.8-max'
+model = 'qwen3.8-max-0902'
+upstream_model = 'qwen3.8-max-2026-09-02'
 
-[routes.'aihubmix-qwen3.8-max'.interfaces]
+[routes.'aihubmix-qwen3.8-max-0902'.interfaces]
 openai_responses = []
+
+[routes.aihubmix-solar-pro4]
+account = 'aihubmix'
+model = 'solar-pro4'
+upstream_model = 'solar-pro4'
+
+[routes.aihubmix-solar-pro4.interfaces]
+openai_chat_completions = []
 
 [routes.aihubmix-step-5-preview]
 account = 'aihubmix'
@@ -364,12 +387,12 @@ upstream_model = 'claude-sonnet-5-5-ssvip'
 [routes.dmxapi-claude-sonnet-5-5-ssvip.interfaces]
 anthropic = []
 
-[routes.'dmxapi-deepseek-v4.1-flash']
+[routes.'dmxapi-deepseek-v4.1-flash-1017']
 account = 'dmxapi'
-model = 'deepseek-v4.1-flash'
-upstream_model = 'deepseek-v4.1-flash'
+model = 'deepseek-v4.1-flash-1017'
+upstream_model = 'deepseek-v4.1-flash-1017'
 
-[routes.'dmxapi-deepseek-v4.1-flash'.interfaces]
+[routes.'dmxapi-deepseek-v4.1-flash-1017'.interfaces]
 openai_responses = []
 
 [routes.dmxapi-doubao-seed-2-1-pro-260628]
@@ -413,6 +436,15 @@ upstream_model = 'gpt-6.1-sol-cdx'
 [routes.'dmxapi-gpt-6.1-sol-cdx'.interfaces]
 openai_responses = []
 
+[routes.'dmxapi-gpt-6.1-terra-cdx']
+label = 'DMXAPI · GPT-6.1 Terra · CDX'
+account = 'dmxapi'
+model = 'gpt-6.1-terra'
+upstream_model = 'gpt-6.1-terra-cdx'
+
+[routes.'dmxapi-gpt-6.1-terra-cdx'.interfaces]
+openai_responses = []
+
 [routes.'dmxapi-grok-4.7']
 account = 'dmxapi'
 model = 'grok-4.7'
@@ -429,12 +461,12 @@ upstream_model = 'hy4-preview'
 [routes.dmxapi-hy4-preview.interfaces]
 openai_responses = []
 
-[routes.dmxapi-kimi-k3]
+[routes.'dmxapi-kimi-k3.1-pro']
 account = 'dmxapi'
-model = 'kimi-k3'
-upstream_model = 'kimi-k3'
+model = 'kimi-k3.1-pro'
+upstream_model = 'kimi-k3.1-pro'
 
-[routes.dmxapi-kimi-k3.interfaces]
+[routes.'dmxapi-kimi-k3.1-pro'.interfaces]
 openai_responses = []
 
 [routes.'dmxapi-longcat-2.5-preview']
@@ -445,12 +477,28 @@ upstream_model = 'LongCat-2.5-Preview'
 [routes.'dmxapi-longcat-2.5-preview'.interfaces]
 openai_responses = []
 
-[routes.'dmxapi-qwen3.8-max']
+[routes.'dmxapi-minimax-m3.1-flash']
 account = 'dmxapi'
-model = 'qwen3.8-max'
-upstream_model = 'qwen3.8-max'
+model = 'minimax-m3.1-flash'
+upstream_model = 'MiniMax-M3.1-Flash'
 
-[routes.'dmxapi-qwen3.8-max'.interfaces]
+[routes.'dmxapi-minimax-m3.1-flash'.interfaces]
+openai_responses = []
+
+[routes.dmxapi-muse-wonder]
+account = 'dmxapi'
+model = 'muse-wonder'
+upstream_model = 'muse-wonder'
+
+[routes.dmxapi-muse-wonder.interfaces]
+openai_responses = []
+
+[routes.'dmxapi-qwen3.8-max-0902']
+account = 'dmxapi'
+model = 'qwen3.8-max-0902'
+upstream_model = 'qwen3.8-max-0902'
+
+[routes.'dmxapi-qwen3.8-max-0902'.interfaces]
 openai_responses = []
 
 [routes.dmxapi-step-5-preview]
@@ -485,12 +533,12 @@ upstream_model = 'claude-sonnet-5-5'
 [routes.ucloud-claude-sonnet-5-5.interfaces]
 anthropic = ['tool_search']
 
-[routes.'ucloud-deepseek-v4.1-flash']
+[routes.'ucloud-deepseek-v4.1-flash-1017']
 account = 'ucloud'
-model = 'deepseek-v4.1-flash'
-upstream_model = 'deepseek-v4.1-flash'
+model = 'deepseek-v4.1-flash-1017'
+upstream_model = 'deepseek-v4.1-flash-1017'
 
-[routes.'ucloud-deepseek-v4.1-flash'.interfaces]
+[routes.'ucloud-deepseek-v4.1-flash-1017'.interfaces]
 openai_responses = []
 
 [routes.ucloud-doubao-seed-2-1-pro-260628]
@@ -533,12 +581,12 @@ upstream_model = 'grok-4.7'
 [routes.'ucloud-grok-4.7'.interfaces]
 openai_responses = []
 
-[routes.ucloud-kimi-k3]
+[routes.'ucloud-kimi-k3.1-pro']
 account = 'ucloud'
-model = 'kimi-k3'
-upstream_model = 'kimi-k3'
+model = 'kimi-k3.1-pro'
+upstream_model = 'kimi-k3.1-pro'
 
-[routes.ucloud-kimi-k3.interfaces]
+[routes.'ucloud-kimi-k3.1-pro'.interfaces]
 openai_responses = []
 
 [routes.'ucloud-mimo-v2.6-pro']
@@ -549,18 +597,18 @@ upstream_model = 'mimo-v2.6-pro'
 [routes.'ucloud-mimo-v2.6-pro'.interfaces]
 openai_responses = []
 
-[routes.ucloud-minimax-m3]
+[routes.'ucloud-minimax-m3.1-flash']
 account = 'ucloud'
-model = 'minimax-m3'
-upstream_model = 'MiniMax-M3'
+model = 'minimax-m3.1-flash'
+upstream_model = 'minimax-m3.1-flash'
 
-[routes.ucloud-minimax-m3.interfaces]
+[routes.'ucloud-minimax-m3.1-flash'.interfaces]
 openai_responses = []
 
-[routes.'ucloud-qwen3.8-max']
+[routes.ucloud-muse-wonder]
 account = 'ucloud'
-model = 'qwen3.8-max'
-upstream_model = 'qwen3.8-max'
+model = 'muse-wonder'
+upstream_model = 'muse-wonder-1.0'
 
-[routes.'ucloud-qwen3.8-max'.interfaces]
+[routes.ucloud-muse-wonder.interfaces]
 openai_responses = []

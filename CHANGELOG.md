@@ -14,6 +14,17 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Changed
+
+- The team catalogue moves to newer vendor models whose every listed Route
+  passed bounded inference and the native Hermes file-tool and recall journey.
+  GPT-6.1 Terra joins the GPT series on AIHubMix and DMXAPI's CDX channel;
+  DeepSeek V4.1 Flash 1017, Kimi K3.1 Pro, Qwen 3.8 Max 0902, MiniMax M3.1
+  Flash and Muse Wonder replace their predecessors; and Solar Pro 4 returns on
+  AIHubMix. Qwen no longer has a UCloud Route, and Kimi K3.1 Pro uses Chat
+  Completions on AIHubMix. Importing the manifest keeps explicit Client
+  Bindings to earlier Routes.
+
 ### Fixed
 
 - A forwarded client keeps the upstream it was selected with. An Account edit,

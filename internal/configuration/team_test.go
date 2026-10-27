@@ -141,17 +141,17 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 	want := []string{
 		"claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5",
 		"cohere-command-a",
-		"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-4-argon", "glm-5.3",
-		"gpt-6.1-sol", "grok-4.7",
-		"hy4-preview", "kimi-k3", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.5-preview", "mercury-2.5", "mimo-v2.6-pro",
-		"minimax-m3", "mistral-large-3", "muse-spark-1.3", "nemotron-3-ultra-550b-a55b",
-		"qwen3.8-max", "step-5-preview",
+		"deepseek-v4.1-flash-1017", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-4-argon", "glm-5.3",
+		"gpt-6.1-sol", "gpt-6.1-terra", "grok-4.7",
+		"hy4-preview", "kimi-k3.1-pro", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.5-preview", "mercury-2.5", "mimo-v2.6-pro",
+		"minimax-m3.1-flash", "mistral-large-3", "muse-wonder", "nemotron-3-ultra-550b-a55b",
+		"qwen3.8-max-0902", "solar-pro4", "step-5-preview",
 	}
 	if got := slices.Sorted(maps.Keys(manifest.Models)); !slices.Equal(got, want) {
 		t.Fatalf("team logical Models = %v, want %v", got, want)
 	}
 	for model, order := range map[string]int{
-		"claude-opus-5-5": 20, "claude-sonnet-5-5": 30, "claude-haiku-5-5": 40, "gpt-6.1-sol": 120,
+		"claude-opus-5-5": 20, "claude-sonnet-5-5": 30, "claude-haiku-5-5": 40, "gpt-6.1-sol": 120, "gpt-6.1-terra": 130,
 	} {
 		if got := manifest.Models[model].Order; got != order {
 			t.Errorf("team Model %q order = %d, want %d", model, got, order)
@@ -171,7 +171,7 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 				t.Errorf("verified Route %q = %+v, want exact Account, Model, and wire identity", id, route)
 			}
 		}
-		for _, model := range []string{"deepseek-v4.1-flash", "doubao-seed-2-1-pro-260628"} {
+		for _, model := range []string{"deepseek-v4.1-flash-1017", "doubao-seed-2-1-pro-260628"} {
 			id := account + "-" + model
 			route, ok := manifest.Routes[id]
 			if !ok || route.Account != account || route.Model != model || route.UpstreamModelID() != model {
@@ -185,6 +185,8 @@ func TestTeamManifestGPTAccountRoutesFollowInferenceEvidence(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	want := map[string][]string{
 		"gpt-6.1-sol": {"aihubmix", "dmxapi", "ucloud"},
+		// DMXAPI lists Terra only on its CDX channel, a separate wire identity.
+		"gpt-6.1-terra": {"aihubmix"},
 	}
 	for model, accounts := range want {
 		for _, account := range accounts {
@@ -210,35 +212,6 @@ func TestTeamManifestGrokUpgradeKeepsAllThreeAccounts(t *testing.T) {
 	}
 	if _, present := manifest.Models["grok-4.6"]; present {
 		t.Error("retired Grok 4.6 remains a logical Model")
-	}
-}
-
-func TestTeamManifestKeepsOnlyQualifiedMiniMaxAndMuseRoutes(t *testing.T) {
-	_, manifest := loadTeamManifest(t)
-	if _, admitted := manifest.Routes["dmxapi-minimax-m3"]; admitted {
-		t.Error("timed-out DMXAPI MiniMax M3 Route was admitted")
-	}
-	if _, admitted := manifest.Routes["aihubmix-minimax-m3"]; admitted {
-		t.Error("plain AIHubMix MiniMax M3 Route failed native tool continuation and remains admitted")
-	}
-	for id, expected := range map[string]struct{ account, wire string }{
-		"aihubmix-minimax-m3-cc": {"aihubmix", "cc-minimax-m3"},
-		"ucloud-minimax-m3":      {"ucloud", "MiniMax-M3"},
-	} {
-		route, ok := manifest.Routes[id]
-		if !ok || route.Account != expected.account || route.Model != "minimax-m3" || route.UpstreamModelID() != expected.wire ||
-			!slices.Equal(route.AdmittedProtocols(), []EndpointProtocol{ProtocolOpenAIResponses}) {
-			t.Errorf("qualified MiniMax Route %q = %+v, want wire %q", id, route, expected.wire)
-		}
-	}
-	muse, ok := manifest.Routes["aihubmix-muse-spark-1.3"]
-	if !ok || muse.Account != "aihubmix" || muse.Model != "muse-spark-1.3" || muse.UpstreamModelID() != "muse-spark-1.3" {
-		t.Errorf("verified Meta Route = %+v", muse)
-	}
-	for _, account := range []string{"dmxapi", "ucloud"} {
-		if _, admitted := manifest.Routes[account+"-muse-spark-1.3"]; admitted {
-			t.Errorf("unverified Meta Route on %s was admitted", account)
-		}
 	}
 }
 
@@ -378,7 +351,7 @@ func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) 
 		"dmxapi-claude-sonnet-5-5-cc":    {"claude-sonnet-5-5", "claude-sonnet-5-5-cc"},
 		"dmxapi-claude-sonnet-5-5-ssvip": {"claude-sonnet-5-5", "claude-sonnet-5-5-ssvip"},
 		"dmxapi-gpt-6.1-sol-cdx":         {"gpt-6.1-sol", "gpt-6.1-sol-cdx"},
-		"aihubmix-minimax-m3-cc":         {"minimax-m3", "cc-minimax-m3"},
+		"dmxapi-gpt-6.1-terra-cdx":       {"gpt-6.1-terra", "gpt-6.1-terra-cdx"},
 	}
 	for routeID, want := range wireIdentities {
 		route, ok := manifest.Routes[routeID]

@@ -61,12 +61,13 @@
 
 ## 7. Team Catalogue
 
-- [ ] 7.1 Qualify each listed Route of GPT-6.1 Terra, DeepSeek V4.1 Flash 1017,
+- [x] 7.1 Qualify each listed Route of GPT-6.1 Terra, DeepSeek V4.1 Flash 1017,
       Kimi K3.1 Pro, Qwen3.8 Max 0902, Doubao Seed 2.1 Pro 260915, MiniMax M3.1
       Flash, Muse Wonder, Mistral Large 4, Command A+ and Solar Pro 4 with
       bounded inference and the native Hermes file-tool and recall journey, and
-      record the results.
-- [ ] 7.2 Update the team manifest, the qualification record and the rollout
+      record the results. Doubao 260915, Mistral Large 4 and Command A+ failed
+      three times each and stay out.
+- [x] 7.2 Update the team manifest, the qualification record and the rollout
       guide for the qualified candidates; manifest tests pass.
 
 ## 8. Release
