@@ -817,12 +817,13 @@ literals or compatibility fallbacks.
 
 #### Scenario: A qualified native client release advances
 
-- **WHEN** the admitted Windows native client releases advance past their
-  pinned versions and the repository's minimum release age
+- **WHEN** the admitted native client releases advance past their pinned
+  versions and the repository's minimum release age
 - **THEN** the CUE authority SHALL pin the exact new versions once, and both
-  Forge projections and the Windows client supplier name SHALL follow from it
-- **AND** the Windows native client journey SHALL pass with the new versions
-  before the forges integrate them.
+  Forge projections, every native host's client supply and the Windows client
+  supplier name SHALL follow from it
+- **AND** the native client journey of each supplying host SHALL pass with the
+  new versions before the forges integrate them.
 
 #### Scenario: A candidate lookup cannot reach its datasource
 
@@ -2726,3 +2727,56 @@ runner-owned Mise SHALL be replaced before a job consumes that declaration.
   such as GitLab's Windows ARM64 runner
 - **THEN** that runner's executable and shim SHALL be replaced with the verified
   release before any of its jobs consumes the declaration.
+
+### Requirement: Real-client acceptance supplies each host's official clients
+
+Real-client acceptance on a native host SHALL first supply exactly the clients
+that the release owner declares for that platform, from their official
+distributions at the pinned releases, and export each client's explicit
+executable. Supply state SHALL stay in one job-owned directory that every
+outcome removes. A missing or unverifiable distribution SHALL fail the supply
+rather than narrow the journey.
+
+#### Scenario: A Linux or macOS job requests real clients
+
+- **WHEN** a GitHub native Linux or macOS job runs the retained-predecessor
+  journey with real clients
+- **THEN** it SHALL supply Codex and Claude Code from their official npm
+  platform packages, and Hermes from its official release installer after that
+  installer's pinned checksum matches
+- **AND** the installed Hermes checkout SHALL be the unmodified pinned commit
+  with its published launcher
+- **AND** a Linux job SHALL first install the sandbox prerequisites that Codex
+  documents for its host, the distribution's bubblewrap and its AppArmor
+  profile, without lifting the host's user-namespace restriction.
+
+#### Scenario: A Windows job requests real clients
+
+- **WHEN** a GitHub native Windows job runs the same journey with real clients
+- **THEN** it SHALL supply Codex and Claude Code from the same pinned releases
+  with Git Bash for Claude
+- **AND** it SHALL refuse Hermes inputs, because that host's journeys omit
+  Hermes.
+
+#### Scenario: A supply fails or is interrupted
+
+- **WHEN** an installation step fails, a pinned identity does not match, or the
+  job is interrupted during supply
+- **THEN** the supply SHALL stop the running installer and every process it
+  started, without their cooperation
+- **AND** it SHALL export no client and SHALL remove its directory.
+
+#### Scenario: The job environment names other client state
+
+- **WHEN** the job environment sets a client's home or tool directory, such as
+  `HERMES_RUNTIME_DIR`
+- **THEN** the official installer SHALL still keep its homes, tools, caches and
+  launcher inside the supply.
+
+#### Scenario: The job retires its supply
+
+- **WHEN** the native job ends after acceptance, whatever its outcome
+- **THEN** retirement SHALL remove only the recorded supply directory and prove
+  it absent
+- **AND** on Linux and macOS a process that still names the supply SHALL keep
+  the directory and fail the job.
