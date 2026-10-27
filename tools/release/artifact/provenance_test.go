@@ -7,7 +7,8 @@ import (
 	"testing"
 )
 
-func TestWriteProvenanceBindsSourceLocksToolsAndUnsignedArtifacts(t *testing.T) {
+func provenanceFixture(t *testing.T) (string, string) {
+	t.Helper()
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, ".config", "mise"), 0o700); err != nil {
 		t.Fatal(err)
@@ -29,6 +30,11 @@ func TestWriteProvenanceBindsSourceLocksToolsAndUnsignedArtifacts(t *testing.T) 
 			t.Fatal(err)
 		}
 	}
+	return root, candidate
+}
+
+func TestWriteProvenanceBindsSourceLocksToolsAndUnsignedArtifacts(t *testing.T) {
+	root, candidate := provenanceFixture(t)
 	target := filepath.Join(candidate, "aigw_1.2.3.provenance.json")
 	if err := WriteProvenance(root, candidate, target, "1.2.3", strings.Repeat("a", 40), strings.Repeat("b", 40)); err != nil {
 		t.Fatal(err)
@@ -57,6 +63,59 @@ func TestWriteProvenanceBindsSourceLocksToolsAndUnsignedArtifacts(t *testing.T) 
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("provenance contains forbidden metadata %q: %s", forbidden, text)
 		}
+	}
+}
+
+// Ported from the maintenance branch (fdae584b): every named input failure
+// refuses provenance and leaves an earlier provenance file unchanged.
+func TestWriteProvenancePreservesPriorEvidenceWhenNativeInputsFail(t *testing.T) {
+	for _, scenario := range []struct {
+		name, path, content, diagnostic string
+		remove                          bool
+	}{
+		{"missing toolchain", ".config/mise/config.toml", "", "read mise toolchain", true},
+		{"invalid toolchain", ".config/mise/config.toml", "[tools\n", "decode mise toolchain", false},
+		{"empty toolchain", ".config/mise/config.toml", "[tools]\n", "contains no tools", false},
+		{"missing dependency lock", "go.sum", "", "digest release input go.sum", true},
+		{"missing artifact", "", "", "digest release subject", true},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			root, candidate := provenanceFixture(t)
+			target := filepath.Join(candidate, "aigw_1.2.3.provenance.json")
+			prior := []byte("retained original provenance\n")
+			if err := os.WriteFile(target, prior, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			input := filepath.Join(root, scenario.path)
+			if scenario.path == "" {
+				input = filepath.Join(candidate, provenanceSubjects("1.2.3")[0])
+			}
+			if scenario.remove {
+				if err := os.Remove(input); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.WriteFile(input, []byte(scenario.content), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			err := WriteProvenance(root, candidate, target, "1.2.3", strings.Repeat("a", 40), strings.Repeat("b", 40))
+			if err == nil || !strings.Contains(err.Error(), scenario.diagnostic) {
+				t.Fatalf("incomplete native provenance inputs accepted: %v", err)
+			}
+			if actual, err := os.ReadFile(target); err != nil || string(actual) != string(prior) {
+				t.Fatalf("failed provenance construction changed prior evidence: %v", err)
+			}
+		})
+	}
+}
+
+// Ported from the maintenance branch (fdae584b): provenance verification
+// refuses a missing source trust and an unbound release reference.
+func TestProvenanceVerificationRequiresSourceTrustAndReleaseTag(t *testing.T) {
+	if err := VerifyCandidateProvenance(t.Context(), t.TempDir(), SourceTrust{Commit: strings.Repeat("a", 40)}); err == nil || !strings.Contains(err.Error(), "authorization requires") {
+		t.Fatalf("candidate without source trust was accepted: %v", err)
+	}
+	if err := VerifyProvenance(t.Context(), t.TempDir(), "", SourceTrust{}); err == nil || !strings.Contains(err.Error(), "v<semver>") {
+		t.Fatalf("unbound release reference was accepted: %v", err)
 	}
 }
 

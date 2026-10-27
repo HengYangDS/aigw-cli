@@ -46,9 +46,10 @@
 - [x] 5.3 Judge benchmark diagnostics from an untimed preflight and keep
       Hyperfine's warnings as evidence; rewrite the governance rule. The new
       tests fail before the change and pass after it.
-- [ ] 5.4 Port the branch's release-input, carrier and provenance regression
+- [x] 5.4 Port the branch's release-input, carrier and provenance regression
       tests; each fails against a locally reverted guard and passes against
-      the shipped one.
+      the shipped one. Eight of the ten do; the partial-input and
+      cancellation tests pin behavior that more than one check enforces.
 
 ## 6. CI
 
