@@ -18,7 +18,7 @@
 
 ## 3. Retry Journey
 
-- [ ] 3.1 Make the retry journey expect the baseline's own rollback boundary:
+- [x] 3.1 Make the retry journey expect the baseline's own rollback boundary:
       refusal with both programs unchanged before 0.4.17, and from 0.4.17 on a
       rollback that keeps the policy, followed by a rollback that restores the
       candidate. The journey builds under `client_acceptance` and vets.
