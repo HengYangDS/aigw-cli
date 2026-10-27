@@ -22,9 +22,9 @@
       refusal with both programs unchanged before 0.4.17, and from 0.4.17 on a
       rollback that keeps the policy, followed by a rollback that restores the
       candidate. The journey builds under `client_acceptance` and vets.
-- [ ] 3.2 GitHub Verify with `native_clients=true`, published baseline v0.4.17
+- [x] 3.2 GitHub Verify with `native_clients=true`, published baseline v0.4.17
       and candidate v0.4.18 passes on Linux, macOS and Windows for the
-      proposal, `codex-connection-retries` included.
+      proposal, `codex-connection-retries` included (run 40527682343).
 
 ## 4. Windows Preflight
 
@@ -33,11 +33,13 @@
       on Unix. The Windows tests for retained streams and for a marked,
       unstopped workload are updated, and the package builds and vets for
       windows/amd64 and windows/arm64.
-- [ ] 4.2 GitHub Verify with `full_quality=true` passes on Windows for the
-      proposal, the native attribution test included.
+- [x] 4.2 GitHub Verify with `full_quality=true` passes on Windows for the
+      proposal, the native attribution test included (run 40527701513).
 
 ## 5. Verification
 
-- [ ] 5.1 `mise run check` passes on the lane head.
-- [ ] 5.2 The full proof of the lane head passes.
-- [ ] 5.3 Hosted Verify passes on Linux, macOS and Windows for the proposal.
+- [x] 5.1 `mise run check` passes on the lane head (`44aa9468`).
+- [x] 5.2 The full proof of the lane head passes (`44aa9468`, Attestation
+      `d6e3159ad34435ade65021360476b55e15dc4130899c4256fea225548a08ffff`).
+- [x] 5.3 Hosted Verify passes on Linux, macOS and Windows for the proposal
+      (PR 209, run 40527683057).
