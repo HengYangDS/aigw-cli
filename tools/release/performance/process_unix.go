@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"aigw-cli/internal/process"
@@ -20,10 +19,11 @@ func preparationCommand(arguments []string) string { return Argv(arguments...) }
 func ObserveCurrent() ([]Execution, error) { return nil, nil }
 
 // ObserveCommand runs one untimed preflight, as Windows does: the preparation,
-// then the measured command, each once, and their diagnostics decide whether
-// the workload may be timed. The timed runs' output, Hyperfine's own advice
-// included, then remains evidence only. Unix records no Windows-only execution
-// evidence.
+// then the measured command, each once. Their streams are retained beside the
+// samples, and Measure judges the product's diagnostics from them, so the
+// timed runs' output, Hyperfine's own advice included, remains evidence only.
+// A diagnostic marks the workload unqualified without stopping the others.
+// Unix records no Windows-only execution evidence.
 func ObserveCommand(parent context.Context, input Command, workload Workload) ([]Execution, []Execution, error) {
 	if len(workload.Command) == 0 || input.Output == "" {
 		return nil, nil, errors.New("native preflight requires an explicit workload and output")
@@ -41,12 +41,8 @@ func ObserveCommand(parent context.Context, input Command, workload Workload) ([
 		})
 		stdout, stderr, runErr = append(stdout, out...), append(stderr, diagnostics...), err
 	}
-	if process.DiagnosticFailure(stderr) {
-		runErr = errors.Join(runErr, errors.New("native preflight emitted diagnostics"))
-	}
 	for name, stream := range map[string][]byte{"stdout": stdout, "stderr": stderr} {
-		path := strings.TrimSuffix(input.Output, ".json") + ".preflight." + name
-		runErr = errors.Join(runErr, os.WriteFile(path, []byte(redaction.Text(string(stream), input.Sensitive...)), 0o600))
+		runErr = errors.Join(runErr, os.WriteFile(preflightStream(input.Output, name), []byte(redaction.Text(string(stream), input.Sensitive...)), 0o600))
 	}
 	if runErr != nil {
 		return nil, nil, fmt.Errorf("native preflight: %s", redaction.Text(runErr.Error(), input.Sensitive...))

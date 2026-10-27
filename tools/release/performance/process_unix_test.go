@@ -11,8 +11,9 @@ import (
 )
 
 // The untimed Unix preflight runs the preparation and the measured command
-// once each and judges only their own diagnostics; it records no Windows-only
-// execution evidence.
+// once each and retains their streams; only the product's own diagnostics mark
+// the workload unqualified, and they do not stop it. It records no
+// Windows-only execution evidence.
 func TestUnixPreflightJudgesTheProductCommandOnce(t *testing.T) {
 	if runs := os.Getenv("AIGW_TEST_PREFLIGHT_RUNS"); runs != "" {
 		step := os.Args[len(os.Args)-1]
@@ -49,8 +50,11 @@ func TestUnixPreflightJudgesTheProductCommandOnce(t *testing.T) {
 			run := []string{program, "-test.run=^TestUnixPreflightJudgesTheProductCommandOnce$"}
 			workload := Workload{Command: append(run, "measure"), Prepare: append(append([]string(nil), run...), "prepare")}
 			rows, controllers, err := ObserveCommand(t.Context(), input, workload)
-			if (err != nil) != test.diagnostic || test.diagnostic && !strings.Contains(err.Error(), "native preflight emitted diagnostics") {
-				t.Fatalf("preflight decision for %q: %v", test.marker, err)
+			if err != nil {
+				t.Fatalf("a product diagnostic stopped the workload instead of marking it: %v", err)
+			}
+			if got := preflightDiagnostics(output); got != test.diagnostic {
+				t.Fatalf("preflight diagnostic verdict for %q = %t", test.marker, got)
 			}
 			if rows != nil || controllers != nil {
 				t.Fatalf("Unix preflight acquired Windows-only execution evidence: %v %v", rows, controllers)

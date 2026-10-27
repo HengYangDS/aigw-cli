@@ -141,8 +141,10 @@ func Measure(parent context.Context, input Command) (Measurement, error) {
 			runErr = errors.Join(runErr, err)
 		}
 	}
-	// The untimed preflight judged the product's diagnostics; these streams,
-	// Hyperfine's own statistical advice included, are retained as evidence.
+	// The untimed preflight's retained stream decides product diagnostics; the
+	// timed runs' streams, Hyperfine's own statistical advice included, are
+	// retained as evidence only.
+	row.Diagnostics = preflightDiagnostics(input.Output)
 	if runErr != nil {
 		runErr = fmt.Errorf("Hyperfine: %s; separate redacted streams retained", redaction.Text(runErr.Error(), input.Sensitive...))
 	}
@@ -274,6 +276,18 @@ func MeasureOperation(ctx context.Context, output string, row Measurement, opera
 	}
 	row.P95 = p95
 	return row, nil
+}
+
+// preflightStream names one retained stream of a workload's untimed preflight.
+func preflightStream(output, name string) string {
+	return strings.TrimSuffix(output, ".json") + ".preflight." + name
+}
+
+// preflightDiagnostics reports whether a workload's retained preflight stream
+// carries a product diagnostic. A workload without one has none to report.
+func preflightDiagnostics(output string) bool {
+	stderr, err := os.ReadFile(preflightStream(output, "stderr"))
+	return err == nil && process.DiagnosticFailure(stderr)
 }
 
 // Argv renders exact arguments for Hyperfine's shell-free command parser.
