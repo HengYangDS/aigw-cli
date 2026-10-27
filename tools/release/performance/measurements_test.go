@@ -255,8 +255,10 @@ func TestMeasureRetainsSeparateDiagnosticStreams(t *testing.T) {
 			if strings.Contains(string(stdout)+string(stderr), token) || !bytes.Contains(stdout, []byte("[REDACTED]")) || !bytes.Contains(stderr, []byte("[REDACTED]")) {
 				t.Fatal("native benchmark output leaked its bare Token")
 			}
-			if row.Diagnostics != process.DiagnosticFailure(stderr) {
-				t.Fatalf("native benchmark diagnostic decision=%t differs from complete redacted stderr:\n%s", row.Diagnostics, stderr)
+			// The untimed preflight judges product diagnostics; the timed runs'
+			// streams, Hyperfine's own advice included, are evidence only.
+			if row.Diagnostics {
+				t.Fatalf("timed benchmark output decided qualification (diagnostic=%t):\n%s", process.DiagnosticFailure(stderr), stderr)
 			}
 			if row.Raw != filepath.Base(raw) || row.P95 <= 0 || row.Variant != "candidate" || row.Budget != 0.1 || len(row.Samples.Times) != 40 {
 				t.Fatalf("native benchmark lost its admitted measurement boundary: %#v", row)

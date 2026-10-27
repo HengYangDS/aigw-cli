@@ -141,7 +141,8 @@ func Measure(parent context.Context, input Command) (Measurement, error) {
 			runErr = errors.Join(runErr, err)
 		}
 	}
-	row.Diagnostics = process.DiagnosticFailure(stderr)
+	// The untimed preflight judged the product's diagnostics; these streams,
+	// Hyperfine's own statistical advice included, are retained as evidence.
 	if runErr != nil {
 		runErr = fmt.Errorf("Hyperfine: %s; separate redacted streams retained", redaction.Text(runErr.Error(), input.Sensitive...))
 	}

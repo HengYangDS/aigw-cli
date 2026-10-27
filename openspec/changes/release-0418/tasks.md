@@ -43,7 +43,7 @@
       advisory. Its test fails before the change and passes after it.
 - [x] 5.2 Disable Hermes lazy installs in the release journey. Its test fails
       before the change and passes after it.
-- [ ] 5.3 Judge benchmark diagnostics from an untimed preflight and keep
+- [x] 5.3 Judge benchmark diagnostics from an untimed preflight and keep
       Hyperfine's warnings as evidence; rewrite the governance rule. The new
       tests fail before the change and pass after it.
 - [ ] 5.4 Port the branch's release-input, carrier and provenance regression

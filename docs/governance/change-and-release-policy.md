@@ -546,8 +546,10 @@ cold-cache onboarding, repository construction and CI duration remain separate.
 
 Use five warmups and two reversed-order blocks of at least forty samples; retain
 outliers, per-block and pooled p95. Backend/OS/client/tool identity remains explicit.
-Any native benchmark warning makes the acceptance command fail after preserving
-all samples and the summary, even when every measured duration is within budget.
+An untimed preflight runs each workload's preparation and measured command once,
+and any diagnostic they emit fails the acceptance command. Hyperfine's own
+statistical warnings stay in the retained raw output and do not fail it;
+complete successful samples, both order blocks and unchanged budgets decide.
 
 Use native [candidate performance](../operations/forge-operations.md#measure-native-candidate-performance)
 with one exact signed matrix and retained predecessor. Prefer low-contention
