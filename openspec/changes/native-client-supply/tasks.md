@@ -39,4 +39,4 @@
       Windows with Claude and Codex (runs `40418594141` and `40418607327` at
       `690d3376`, no skip).
 - [x] 3.4 The full proof of the lane head passes (`e2226dd6`, Attestation
-      `305ba765`).
+      `305ba7657f9cfe55f32ef347211d5a6941de7919b7d58a9938952cd620a7e12d`).
