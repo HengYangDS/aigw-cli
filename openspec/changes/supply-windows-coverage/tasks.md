@@ -13,5 +13,7 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `mise run check` passes on the lane head.
-- [ ] 3.2 The full proof of the lane head passes.
+- [x] 3.1 `mise run check` passes on the lane head (`f0f1184daa99850fb2397daee48ee3950cb45adb`, statement
+      coverage 95.20%).
+- [x] 3.2 The full proof of the lane head passes (Attestation
+      `c6610649f3dfcf32655e9dee7de00f7b6432afb91e012a2d46e045bc01d56d50`).
