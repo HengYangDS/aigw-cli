@@ -26,11 +26,12 @@ func (Synchronizer) PrepareSelection(cfg configuration.Config, client, routeID s
 	selected := cfg.Clone()
 	previous, previousErr := cfg.ResolveRuntime(client, "")
 	selected.SetSelectedRoute(client, routeID, protocol)
-	binding := selected.Clients[client]
 	if connection.ForwardingEndpoint != nil {
-		binding.ForwardingEndpoint = *connection.ForwardingEndpoint
+		if err := selected.SetForwardingEndpoint(client, *connection.ForwardingEndpoint); err != nil {
+			return configuration.Config{}, configuration.Runtime{}, err
+		}
 	}
-	selected.Clients[client] = binding
+	binding := selected.Clients[client]
 	runtime, err := selected.ResolveRuntime(client, "")
 	if err != nil {
 		return configuration.Config{}, configuration.Runtime{}, err

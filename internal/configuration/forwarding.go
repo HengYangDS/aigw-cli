@@ -31,16 +31,15 @@ func (s Store) forwardingPath() string {
 	return strings.TrimSuffix(s.path, filepath.Ext(s.path)) + ".forwarding.toml"
 }
 
+// encodeForwarding writes each forwarded binding's recorded upstream, never the
+// one its Route reaches now: validation refuses a configuration where the two
+// differ, so the sidecar cannot rebind a destination silently.
 func encodeForwarding(cfg Config) ([]byte, error) {
 	forwarding := clientForwarding{Clients: map[string]forwardingDestination{}}
 	for client, binding := range cfg.Clients {
 		if binding.ForwardingEndpoint != "" {
-			runtime, err := cfg.ResolveRuntime(client, "")
-			if err != nil {
-				return nil, err
-			}
 			forwarding.Clients[client] = forwardingDestination{
-				Endpoint: binding.ForwardingEndpoint, UpstreamIdentity: runtime.CredentialProjectionFingerprint(client), Protocol: runtime.Protocol,
+				Endpoint: binding.ForwardingEndpoint, UpstreamIdentity: binding.ForwardingUpstreamIdentity, Protocol: binding.ForwardingProtocol,
 			}
 		}
 	}
@@ -79,12 +78,28 @@ func decodeStoreConfig(data []byte, forwarding transaction.FileSnapshot) (Config
 			return Config{}, newLoadError(LoadPhaseValidate, fmt.Errorf("client forwarding %q does not match the selected upstream identity", client))
 		}
 		binding.ForwardingEndpoint = destination.Endpoint
+		binding.ForwardingUpstreamIdentity = destination.UpstreamIdentity
+		binding.ForwardingProtocol = destination.Protocol
 		cfg.Clients[client] = binding
 	}
 	if err := cfg.Validate(); err != nil {
 		return Config{}, newLoadError(LoadPhaseValidate, err)
 	}
 	return cfg, nil
+}
+
+// recordForwardingUpstreams records, for each forwarded binding, the upstream
+// that its Route reaches in this configuration. It serves a document that
+// keeps only the endpoint, such as a verified checkpoint.
+func (c *Config) recordForwardingUpstreams() error {
+	for _, client := range slices.Sorted(maps.Keys(c.Clients)) {
+		if endpoint := c.Clients[client].ForwardingEndpoint; endpoint != "" {
+			if err := c.SetForwardingEndpoint(client, endpoint); err != nil {
+				return fmt.Errorf("client forwarding %q: %w", client, err)
+			}
+		}
+	}
+	return nil
 }
 
 func configurationsEqual(left, right Config) (bool, error) {

@@ -128,8 +128,34 @@ func (c *Config) validateClientBindings() error {
 		if err := binding.validate(client); err != nil {
 			return err
 		}
+		if err := c.validateForwarding(client, binding); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// validateForwarding refuses a forwarded binding whose Route no longer reaches
+// the upstream recorded with its endpoint. Rebinding the destination silently
+// would send the client's traffic somewhere the operator did not choose.
+func (c *Config) validateForwarding(client string, binding ClientBinding) error {
+	if binding.ForwardingEndpoint == "" {
+		return nil
+	}
+	runtime, err := c.ResolveRuntime(client, "")
+	if err != nil {
+		return fmt.Errorf("client binding %q: %w", client, err)
+	}
+	if runtime.CredentialProjectionFingerprint(client) == binding.ForwardingUpstreamIdentity && runtime.Protocol == binding.ForwardingProtocol {
+		return nil
+	}
+	direct := "aigw use --for " + client + " " + binding.Route + " --direct"
+	if binding.RetryPolicy != nil {
+		// The direct connection is a new connection, which a selected retry
+		// policy would otherwise refuse.
+		direct += " --native-retries"
+	}
+	return fmt.Errorf("client %q forwards to the upstream it was selected with, and this change would move that upstream; run `%s` first", client, direct)
 }
 
 func (c *Config) validateSelection(client string, selection ClientSelection) error {

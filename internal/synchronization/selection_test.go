@@ -64,8 +64,11 @@ func TestRouteSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 			cfg.Routes["chat"] = configuration.Route{Label: "Chat", Account: "team", Model: "shared", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIChatCompletions: {}}}
 			cfg.Routes["dual"] = configuration.Route{Label: "Dual", Account: "team", Model: "shared", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIChatCompletions: {}, configuration.ProtocolOpenAIResponses: {}}}
 			cfg.Routes["other"] = configuration.Route{Label: "Other", Account: "other", Model: "shared", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIChatCompletions: {}}}
-			binding := configuration.ClientBinding{Route: "chat", Enabled: true, ForwardingEndpoint: "http://127.0.0.1:8792/selected/v1"}
-			cfg.Clients[configuration.ClientHermes] = binding
+			cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "chat", Enabled: true}
+			if err := cfg.SetForwardingEndpoint(configuration.ClientHermes, "http://127.0.0.1:8792/selected/v1"); err != nil {
+				t.Fatal(err)
+			}
+			binding := cfg.Clients[configuration.ClientHermes]
 			if err := cfg.Validate(); err != nil {
 				t.Fatal(err)
 			}

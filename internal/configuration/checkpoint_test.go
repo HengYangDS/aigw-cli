@@ -21,9 +21,9 @@ func TestForwardingChangedDuringVerificationRejectsCheckpoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	changed := cfg.Clone()
-	binding := changed.Clients[ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/v1"
-	changed.Clients[ClientCodex] = binding
+	if err := changed.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+		t.Fatal(err)
+	}
 	data, err := encodeForwarding(changed)
 	if err != nil {
 		t.Fatal(err)
@@ -51,9 +51,9 @@ func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) 
 		t.Fatal(err)
 	}
 	changed := cfg.Clone()
-	binding := changed.Clients[ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/v1"
-	changed.Clients[ClientCodex] = binding
+	if err := changed.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+		t.Fatal(err)
+	}
 	newer, err := encodeForwarding(changed)
 	if err != nil {
 		t.Fatal(err)

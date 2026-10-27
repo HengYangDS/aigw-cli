@@ -219,6 +219,26 @@ rollback preparation cannot prove an unspecified predecessor's capability while
 policy is selected; use a compatible program or restore accepted configuration
 with `aigw rollback`, not manual policy-field deletion.
 
+### Client forwarding
+
+Send one client through a local endpoint, such as the Responses Proxy, while its
+Account upstream stays the same:
+
+```bash
+aigw use --for <client> <route> --forwarding-endpoint http://127.0.0.1:8792/v1 --dry-run --json
+aigw use --for <client> <route> --forwarding-endpoint http://127.0.0.1:8792/v1
+aigw use --for <client> <route> --direct
+```
+
+The Client Binding records the upstream that forwarding reaches. Selecting a
+Route with the same Account endpoint and protocol keeps forwarding. An Account
+edit, an Account rename or a manifest import that would move a forwarded
+upstream is refused before any write, and the refusal names
+`aigw use --for <client> <route> --direct`, with `--native-retries` when a retry
+policy is selected. Select the direct connection, make the change, then forward
+again. `--direct` drops the forwarding endpoint and its recorded upstream
+together.
+
 ## Product model
 
 | Entity            | Owns                                                      |

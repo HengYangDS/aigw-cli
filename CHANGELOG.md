@@ -16,6 +16,14 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Fixed
 
+- A forwarded client keeps the upstream it was selected with. An Account edit,
+  an Account rename or a manifest import that would move that upstream is now
+  refused before any file changes, and the refusal names
+  `aigw use --for <client> <route> --direct`, with `--native-retries` when a
+  retry policy is selected. Before, the edit silently sent the client's
+  forwarded traffic to the edited Account.
+- `aigw use --direct --forwarding-endpoint ""` is refused as a conflict between
+  the two options, instead of advising the `--direct` that was already given.
 - When settings that AIGW manages in Codex's configuration, such as the retry
   budgets in its provider table, were changed outside AIGW, `aigw use`,
   `aigw sync`, `aigw check`, `aigw status` and `aigw doctor` now give one next

@@ -173,7 +173,11 @@ func (runtime Runtime) CredentialProjectionFingerprint(client string) string {
 	if endpoint == "" {
 		endpoint = runtime.Endpoint
 	}
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(client+"\x00"+runtime.AccountID+"\x00"+endpoint)))
+	return upstreamIdentity(client, runtime.AccountID, endpoint)
+}
+
+func upstreamIdentity(client, accountID, endpoint string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(client+"\x00"+accountID+"\x00"+endpoint)))
 }
 
 // SameUpstream compares the Account, endpoint and protocol identity independently
@@ -565,15 +569,12 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 	}, nil
 }
 
+// forwardingFor returns a client's forwarding destination for a selection that
+// reaches the upstream the binding recorded, and nothing for any other.
 func (c *Config) forwardingFor(client, accountID, upstream string, protocol EndpointProtocol) string {
 	binding := c.Clients[client]
-	bound, exists := c.Routes[binding.Route]
-	if !exists || bound.Account != accountID || binding.ForwardingEndpoint == "" {
-		return ""
-	}
-	spec, _ := ClientSpecFor(client)
-	endpoint, boundProtocol, err := spec.ResolveRouteEndpoint(c.Accounts[accountID], bound, binding.Protocol)
-	if err != nil || endpoint != upstream || boundProtocol != protocol {
+	if binding.ForwardingEndpoint == "" || protocol != binding.ForwardingProtocol ||
+		upstreamIdentity(client, accountID, upstream) != binding.ForwardingUpstreamIdentity {
 		return ""
 	}
 	return binding.ForwardingEndpoint

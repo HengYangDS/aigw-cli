@@ -147,6 +147,12 @@ func decodeVerifiedCheckpoint(data []byte) (VerifiedCheckpoint, error) {
 		return VerifiedCheckpoint{}, err
 	}
 	checkpoint.Config.Normalize()
+	// The checkpoint keeps the shape a retained reader decodes, so it carries no
+	// recorded upstream; each forwarded binding is bound to the upstream it
+	// reaches in the checkpoint itself.
+	if err := checkpoint.Config.recordForwardingUpstreams(); err != nil {
+		return VerifiedCheckpoint{}, fmt.Errorf("validate verified checkpoint: %w", err)
+	}
 	if err := checkpoint.Config.Validate(); err != nil {
 		return VerifiedCheckpoint{}, fmt.Errorf("validate verified checkpoint: %w", err)
 	}

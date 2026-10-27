@@ -22,9 +22,9 @@ func TestAccountFinalizationConvergesForwardingBackupBeforeRetirement(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	binding := cfg.Clients[configuration.ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/v1"
-	cfg.Clients[configuration.ClientCodex] = binding
+	if err := cfg.SetForwardingEndpoint(configuration.ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+		t.Fatal(err)
+	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

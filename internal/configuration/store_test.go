@@ -24,9 +24,10 @@ func TestForwardingStorePreservesStrictPublishedConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
+		t.Fatal(err)
+	}
 	binding := cfg.Clients[ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/backup/v1"
-	cfg.Clients[ClientCodex] = binding
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -58,9 +59,9 @@ func TestForwardingSnapshotRestoresPresenceAndPriorBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	binding := cfg.Clients[ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/backup/v1"
-	cfg.Clients[ClientCodex] = binding
+	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
+		t.Fatal(err)
+	}
 	after, err := store.Commit(before, cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -81,9 +82,9 @@ func TestForwardingSnapshotRestoresPresenceAndPriorBinding(t *testing.T) {
 func TestForwardingStoreRejectsMixedAccountGenerations(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
 	cfg := validConfig()
-	binding := cfg.Clients[ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/backup/v1"
-	cfg.Clients[ClientCodex] = binding
+	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
+		t.Fatal(err)
+	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -104,9 +105,10 @@ func TestForwardingStoreRejectsMixedAccountGenerations(t *testing.T) {
 func TestForwardingMigrationPreviewPreservesAssembledBinding(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
 	cfg := validConfig()
+	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+		t.Fatal(err)
+	}
 	binding := cfg.Clients[ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/v1"
-	cfg.Clients[ClientCodex] = binding
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -130,9 +132,9 @@ func TestForwardingUnchangedCanonicalRejectsStalePreimage(t *testing.T) {
 	if err := os.WriteFile(store.Path(), newer, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	binding := cfg.Clients[ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/v1"
-	cfg.Clients[ClientCodex] = binding
+	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := store.Commit(before, cfg); err == nil {
 		t.Fatal("forwarding committed despite a newer canonical preimage")
 	}

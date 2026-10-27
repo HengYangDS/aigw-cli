@@ -210,7 +210,11 @@ func TestCancelledCommitPreservesConfiguration(t *testing.T) {
 
 func TestCommitPersistenceFailureBoundaries(t *testing.T) {
 	before := configuration.NewConfig()
-	after := before.Clone()
+	// The committed configuration must itself be savable, so the injected
+	// persistence failures are the ones that stop the commit.
+	after := configuration.NewConfig()
+	after.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	after.Routes["gpt"] = configuration.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	want := errors.New("failure")
 	tests := []struct {
 		name  string

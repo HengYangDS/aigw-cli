@@ -69,15 +69,16 @@ func TestUsePreservesForwardingChangedDuringDiscovery(t *testing.T) {
 	if err := credentials.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	binding := cfg.Clients[configuration.ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/original/v1"
-	cfg.Clients[configuration.ClientCodex] = binding
+	if err := cfg.SetForwardingEndpoint(configuration.ClientCodex, "http://127.0.0.1:8792/original/v1"); err != nil {
+		t.Fatal(err)
+	}
 	if err := run.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	newer := cfg.Clone()
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/operator/v1"
-	newer.Clients[configuration.ClientCodex] = binding
+	if err := newer.SetForwardingEndpoint(configuration.ClientCodex, "http://127.0.0.1:8792/operator/v1"); err != nil {
+		t.Fatal(err)
+	}
 	run.Discovery = staticDiscovery{onDiscover: func() {
 		if err := run.Config.Save(newer); err != nil {
 			t.Fatal(err)

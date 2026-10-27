@@ -17,9 +17,10 @@ func TestForwardingBackupConvergencePreservesCurrentGeneration(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
+	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+		t.Fatal(err)
+	}
 	binding := cfg.Clients[ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/v1"
-	cfg.Clients[ClientCodex] = binding
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -41,8 +42,9 @@ func TestForwardingBackupConvergencePreservesCurrentGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	binding.ForwardingEndpoint = "http://127.0.0.1:8793/v1"
-	cfg.Clients[ClientCodex] = binding
+	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8793/v1"); err != nil {
+		t.Fatal(err)
+	}
 	data, err := encodeForwarding(cfg)
 	if err != nil {
 		t.Fatal(err)

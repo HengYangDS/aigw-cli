@@ -31,7 +31,10 @@ func TestProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
 				protocol = configuration.ProtocolAnthropic
 			}
 			before.Routes["route"] = qualifiedRoute("Route", "gateway", "model", protocol)
-			before.Clients[client] = configuration.ClientBinding{Route: "route", Enabled: true, ForwardingEndpoint: "http://127.0.0.1:8792/v1"}
+			before.Clients[client] = configuration.ClientBinding{Route: "route", Enabled: true}
+			if err := before.SetForwardingEndpoint(client, "http://127.0.0.1:8792/v1"); err != nil {
+				t.Fatal(err)
+			}
 			after := before.Clone()
 			account := after.Accounts["gateway"]
 			account.Endpoints = configuration.Endpoints{OpenAIResponses: "https://second.test/v1", Anthropic: "https://second.test"}

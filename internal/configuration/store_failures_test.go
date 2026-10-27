@@ -31,9 +31,7 @@ func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *tes
 		t.Run(test.name, func(t *testing.T) {
 			store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
 			cfg := convergenceConfig("current")
-			binding := cfg.Clients[ClientCodex]
-			binding.ForwardingEndpoint = test.oldEndpoint
-			cfg.Clients[ClientCodex] = binding
+			forwardTo(t, &cfg, test.oldEndpoint)
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -51,8 +49,7 @@ func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *tes
 			if err != nil {
 				t.Fatal(err)
 			}
-			binding.ForwardingEndpoint = test.nextEndpoint
-			cfg.Clients[ClientCodex] = binding
+			forwardTo(t, &cfg, test.nextEndpoint)
 			account := cfg.Accounts["current"]
 			account.Label = "Updated Account"
 			cfg.Accounts["current"] = account

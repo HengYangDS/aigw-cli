@@ -14,9 +14,10 @@ func TestClientForwardingPreservesUpstreamCredentialIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1/"); err != nil {
+		t.Fatal(err)
+	}
 	binding := cfg.Clients[ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/backup/v1/"
-	cfg.Clients[ClientCodex] = binding
 	forwarded, err := cfg.ResolveRuntime(ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
@@ -37,6 +38,10 @@ func TestClientForwardingRequiresAValidSelectedEndpoint(t *testing.T) {
 	for _, endpoint := range []string{"http://remote.test/v1", "https://user:password@example.test/v1", "https://example.test/v1?api_key=secret"} {
 		t.Run(endpoint, func(t *testing.T) {
 			cfg := validConfig()
+			if err := cfg.SetForwardingEndpoint(ClientCodex, endpoint); err == nil {
+				t.Fatal("an invalid forwarding endpoint was selected")
+			}
+			// A sidecar can carry the same endpoint; validation refuses it there.
 			binding := cfg.Clients[ClientCodex]
 			binding.ForwardingEndpoint = endpoint
 			cfg.Clients[ClientCodex] = binding
@@ -54,9 +59,9 @@ func TestClientForwardingRequiresAValidSelectedEndpoint(t *testing.T) {
 
 func TestClientForwardingDoesNotRedirectAnExplicitOtherAccount(t *testing.T) {
 	cfg := validConfig()
-	binding := cfg.Clients[ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/backup/v1"
-	cfg.Clients[ClientCodex] = binding
+	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
+		t.Fatal(err)
+	}
 	cfg.Routes["other"] = testRoute("Other", "dmx", "other-model", ProtocolOpenAIResponses)
 	qualified, err := cfg.ResolveRuntime(ClientCodex, "other")
 	if err != nil || qualified.Endpoint != cfg.Accounts["dmx"].Endpoints.OpenAIResponses || qualified.AccountID != "dmx" {
@@ -70,9 +75,10 @@ func TestClientForwardingDoesNotRedirectAnExplicitOtherAccount(t *testing.T) {
 
 func TestClientForwardingSurvivesEquivalentAutomaticProtocolSelection(t *testing.T) {
 	cfg := validConfig()
+	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
+		t.Fatal(err)
+	}
 	binding := cfg.Clients[ClientCodex]
-	binding.ForwardingEndpoint = "http://127.0.0.1:8792/backup/v1"
-	cfg.Clients[ClientCodex] = binding
 	cfg.SetSelectedRoute(ClientCodex, binding.Route, "")
 	if cfg.Clients[ClientCodex].ForwardingEndpoint != binding.ForwardingEndpoint {
 		t.Fatal("normalizing the same implicit protocol discarded client forwarding")

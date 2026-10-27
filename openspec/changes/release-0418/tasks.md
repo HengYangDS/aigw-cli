@@ -15,19 +15,19 @@
 
 ## 3. Forwarding
 
-- [ ] 3.1 Record the forwarded upstream identity and protocol and refuse edits
-      that change them until `--direct`. The drift, same-upstream,
-      direct-selection and checkpoint-shape tests fail before the change and
-      pass after it.
-- [ ] 3.2 Refuse the same drift through the public commands. The CLI acceptance
+- [x] 3.1 Record the forwarded upstream identity and protocol and refuse edits
+      that change them until `--direct`. The drift tests fail against the
+      reverted guard and pass with it; the same-upstream, direct-selection and
+      checkpoint-shape tests pin the behavior that the change keeps.
+- [x] 3.2 Refuse the same drift through the public commands. The CLI acceptance
       test for `account edit` under forwarding fails before the change and
       passes after it, with client files byte-identical.
-- [ ] 3.3 Refuse `--direct` combined with an empty `--forwarding-endpoint` with
+- [x] 3.3 Refuse `--direct` combined with an empty `--forwarding-endpoint` with
       the direct-connection message. Its test fails before the change and
       passes after it.
-- [ ] 3.4 Port the branch's forwarding store tests; each fails against a locally
+- [x] 3.4 Port the branch's forwarding store tests; each fails against a locally
       reverted guard and passes against the shipped one.
-- [ ] 3.5 Document forwarding in the README and the CHANGELOG.
+- [x] 3.5 Document forwarding in the README and the CHANGELOG.
 
 ## 4. Codex Conflict Recovery
 

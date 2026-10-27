@@ -96,11 +96,12 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 
 func forwardingChoice(endpoint string, specified, direct bool) (*string, error) {
 	if specified {
-		if endpoint == "" {
-			return nil, fmt.Errorf("--forwarding-endpoint requires an endpoint; use --direct to remove forwarding")
-		}
+		// --direct with any endpoint, even an empty one, is the conflict to name.
 		if direct {
 			return nil, fmt.Errorf("--direct and --forwarding-endpoint are mutually exclusive")
+		}
+		if endpoint == "" {
+			return nil, fmt.Errorf("--forwarding-endpoint requires an endpoint; use --direct to remove forwarding")
 		}
 		return &endpoint, nil
 	}

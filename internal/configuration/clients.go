@@ -238,16 +238,52 @@ func (recommendation ClientRecommendation) Selections() []ClientSelection {
 // ClientBinding records one client's explicit selection, enabled intent, and
 // owned native targets.
 type ClientBinding struct {
-	RetryPolicy        *RetryPolicy     `json:"retry_policy,omitempty" toml:"retry_policy,omitempty"`
-	ForwardingEndpoint string           `json:"forwarding_endpoint,omitempty" toml:"-"`
-	Route              string           `json:"route,omitempty"              toml:"route,omitempty"`
-	Enabled            bool             `json:"enabled"                      toml:"enabled"`
-	Protocol           EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
-	ModelProvider      string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
-	Authentication     Authentication   `json:"authentication,omitempty"     toml:"authentication,omitempty"`
-	Executable         string           `json:"executable,omitempty"         toml:"executable,omitempty"`
-	Targets            []string         `json:"targets,omitempty"            toml:"targets,omitempty"`
-	CredentialCommand  string           `json:"credential_command,omitempty" toml:"credential_command,omitempty"`
+	RetryPolicy        *RetryPolicy `json:"retry_policy,omitempty" toml:"retry_policy,omitempty"`
+	ForwardingEndpoint string       `json:"forwarding_endpoint,omitempty" toml:"-"`
+	// ForwardingUpstreamIdentity and ForwardingProtocol record the upstream that
+	// a forwarded binding reaches. SetForwardingEndpoint sets them with the
+	// endpoint, and a binding forwards only while its Route still reaches them.
+	ForwardingUpstreamIdentity string           `json:"-"                            toml:"-"`
+	ForwardingProtocol         EndpointProtocol `json:"-"                            toml:"-"`
+	Route                      string           `json:"route,omitempty"              toml:"route,omitempty"`
+	Enabled                    bool             `json:"enabled"                      toml:"enabled"`
+	Protocol                   EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
+	ModelProvider              string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
+	Authentication             Authentication   `json:"authentication,omitempty"     toml:"authentication,omitempty"`
+	Executable                 string           `json:"executable,omitempty"         toml:"executable,omitempty"`
+	Targets                    []string         `json:"targets,omitempty"            toml:"targets,omitempty"`
+	CredentialCommand          string           `json:"credential_command,omitempty" toml:"credential_command,omitempty"`
+}
+
+func (binding ClientBinding) withoutForwarding() ClientBinding {
+	binding.ForwardingEndpoint, binding.ForwardingUpstreamIdentity, binding.ForwardingProtocol = "", "", ""
+	return binding
+}
+
+// SetForwardingEndpoint forwards one client to endpoint and records the
+// upstream that its selected Route reaches now. An empty endpoint selects the
+// direct connection and drops the recorded upstream with it.
+func (c *Config) SetForwardingEndpoint(client, endpoint string) error {
+	binding := c.Clients[client].withoutForwarding()
+	if endpoint != "" {
+		if err := validateEndpoint(endpoint); err != nil {
+			return fmt.Errorf("client %q forwarding endpoint: %w", client, err)
+		}
+		// The recorded identity names the Account upstream, which forwarding
+		// never replaces, so the current destination does not affect it.
+		runtime, err := c.ResolveRuntime(client, "")
+		if err != nil {
+			return err
+		}
+		binding.ForwardingEndpoint = endpoint
+		binding.ForwardingUpstreamIdentity = runtime.CredentialProjectionFingerprint(client)
+		binding.ForwardingProtocol = runtime.Protocol
+	}
+	if c.Clients == nil {
+		c.Clients = map[string]ClientBinding{}
+	}
+	c.Clients[client] = binding
+	return nil
 }
 
 func (binding ClientBinding) selection() ClientSelection {
@@ -306,7 +342,7 @@ func (c *Config) SetSelectedRoute(client, routeID string, protocol EndpointProto
 	c.Clients[client] = binding
 	current, currentErr := c.ResolveRuntime(client, "")
 	if previousErr != nil || currentErr != nil || !previous.SameUpstream(current) {
-		binding.ForwardingEndpoint = ""
+		binding = binding.withoutForwarding()
 	}
 	c.Clients[client] = binding
 }
