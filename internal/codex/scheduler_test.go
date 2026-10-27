@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"errors"
 	"os"
 	"reflect"
 	"strings"
@@ -421,8 +422,10 @@ func TestCodexRejectsAReappearingRetiredAliasAfterProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			// The reappearing alias is an outside edit, so validation reports the
+			// same ownership conflict that makes synchronization refuse.
 			err = ValidateConfig(path, runtime)
-			if err == nil || !strings.Contains(err.Error(), "max_concurrent_threads_per_session") {
+			if _, conflict := errors.AsType[*ConflictError](err); !conflict || !strings.Contains(err.Error(), "scheduler keys changed") {
 				t.Fatalf("validation accepted the reappearing retired alias: %v", err)
 			}
 			if codexSchedulerHashMatches(codexSchedulerHash(string(projected)), injected) {

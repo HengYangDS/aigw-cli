@@ -187,10 +187,10 @@ func codexCatalogDesiredSnapshot(plan codexCatalogPlan, before transaction.FileS
 	owned := before.Exists && ownedHash != "" && hashBytes(before.Data) == ownedHash
 	if plan.data != nil {
 		if before.Exists && !owned {
-			return transaction.FileSnapshot{}, fmt.Errorf(
+			return transaction.FileSnapshot{}, newConflictError(fmt.Sprintf(
 				"Codex config conflict: %s exists and is not the model catalog AIGW recorded writing; refusing to overwrite or re-permission it",
 				plan.path,
-			)
+			), nil)
 		}
 		// The catalog carries the resolved account's model metadata, so its mode
 		// is part of what AIGW owns rather than a user preference: a mode that

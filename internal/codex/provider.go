@@ -75,7 +75,7 @@ func codexProviderRanges(text, provider string) ([][2]int, error) {
 		return nil, fmt.Errorf("parse Codex provider tables: %w", err)
 	}
 	if len(ranges) == 0 {
-		return nil, fmt.Errorf("Codex config conflict: AIGW-managed provider block is missing")
+		return nil, newConflictError("Codex config conflict: AIGW-managed provider block is missing", nil)
 	}
 	return ranges, nil
 }
@@ -110,26 +110,15 @@ func codexProviderForProviderIn(current, provider string) (codexProviderProjecti
 	}
 	decoder := toml.NewDecoder(strings.NewReader(source.String())).DisallowUnknownFields()
 	if err := decoder.Decode(&document); err != nil {
-		return codexProviderProjection{}, &providerConflictError{cause: err}
+		return codexProviderProjection{}, newConflictError("Codex config conflict: AIGW-managed provider block changed or contains unsupported fields; refusing to overwrite user edits", err)
 	}
 	projection := document.Providers[provider]
 	if projection.BaseURL == "" || projection.WireAPI != "responses" ||
 		projection.Auth != nil && (projection.Auth.Command == "" || len(projection.Auth.Args) == 0) {
-		return codexProviderProjection{}, fmt.Errorf("Codex config conflict: AIGW-managed provider block is incomplete")
+		return codexProviderProjection{}, newConflictError("Codex config conflict: AIGW-managed provider block is incomplete", nil)
 	}
 	return projection, nil
 }
-
-// providerConflictError preserves the schema/ownership boundary of a reconstructed
-// provider fragment without reporting its offsets as document syntax positions.
-type providerConflictError struct{ cause error }
-
-func (e *providerConflictError) Error() string {
-	return "Codex config conflict: AIGW-managed provider block changed or contains unsupported fields; refusing to overwrite user edits"
-}
-
-func (e *providerConflictError) Unwrap() error            { return e.cause }
-func (e *providerConflictError) ProjectionConflict() bool { return true }
 
 func removeCodexProviderMarkers(text string) string {
 	parser := unstable.Parser{KeepComments: true}

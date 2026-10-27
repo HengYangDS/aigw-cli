@@ -31,11 +31,11 @@
 
 ## 4. Codex Conflict Recovery
 
-- [ ] 4.1 Give a refused outside edit to managed Codex settings one next action
+- [x] 4.1 Give a refused outside edit to managed Codex settings one next action
       across errors, `check`, `status` and `doctor`. The acceptance test for
       outside retry-budget edits fails before the change and passes after it,
       and undoing the edit lets `sync` succeed.
-- [ ] 4.2 Record the fix in the CHANGELOG.
+- [x] 4.2 Record the fix in the CHANGELOG.
 
 ## 5. Release Tooling
 

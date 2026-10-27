@@ -194,7 +194,7 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 		problem = Problem{
 			Title:  message,
 			Impact: "The command could not finish; inspect current state before retrying.",
-			Fix:    suggestedFix(message),
+			Fix:    errorFix(err, message),
 		}
 	}
 	if jsonMode {
@@ -219,7 +219,9 @@ func typedErrorMessage(err error) (string, bool) {
 		error
 		ProjectionConflict() bool
 	}](err); ok && conflict.ProjectionConflict() {
-		return conflict.Error(), true
+		// The conflict's own message replaces any decoding cause it wraps; the
+		// surrounding context still names the target.
+		return err.Error(), true
 	}
 	if mismatch, ok := errors.AsType[*configuration.RuntimeRouteClientMismatchError](err); ok {
 		return fmt.Sprintf("route %q is for %s, not %s", mismatch.RouteID, mismatch.ExpectedClient, mismatch.ActualClient), true
@@ -290,6 +292,18 @@ func cobraUnknownFlag(message string) (string, bool) {
 		return "", false
 	}
 	return flag, true
+}
+
+// errorFix prefers the next action an error states for itself: only the guard
+// that refused knows which action can succeed on the same state.
+func errorFix(err error, message string) string {
+	if refusal, ok := errors.AsType[interface {
+		error
+		NextAction() string
+	}](err); ok && refusal.NextAction() != "" {
+		return refusal.NextAction()
+	}
+	return suggestedFix(message)
 }
 
 func suggestedFix(message string) string {

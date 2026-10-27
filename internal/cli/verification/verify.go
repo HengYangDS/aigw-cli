@@ -60,7 +60,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 				status := synchronizer.Inspect(cmd.Context(), cfg, target, clientRuntime)
 				if !status.Ready {
-					return fmt.Errorf("Full verification requires a ready %s adapter: %s; run `%s`", configuration.ClientLabel(target), status.Issue, status.RepairAction)
+					return presentation.ProblemError(
+						fmt.Sprintf("Full verification requires a ready %s adapter: %s", configuration.ClientLabel(target), status.Issue), "",
+						"No client was verified and the latest full verification checkpoint is unchanged.",
+						status.RepairAction, nil,
+					)
 				}
 			}
 			r := invocation.Renderer(runtime)

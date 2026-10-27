@@ -147,13 +147,26 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 	if err := validateCodexStateAttribution(state); err != nil {
 		return err
 	}
+	// Recorded ownership is checked before the desired projection: an outside
+	// edit is a conflict that synchronization refuses, while an owned stale
+	// projection is drift that synchronization repairs.
 	provider := codexStateProvider(state)
 	providerLine, err := codexSelectionLine(text, "model_provider")
 	if err != nil {
 		return err
 	}
 	if !selectionHasValue(providerLine, "model_provider", provider) {
-		return fmt.Errorf("Codex config provider selection does not match AIGW")
+		return newConflictError("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits", nil)
+	}
+	actualBlock, err := codexManagedBlockForProviderIn(text, provider)
+	if err != nil {
+		return err
+	}
+	if !managedBlockHashMatches(state.ManagedBlockHash, actualBlock) {
+		return newConflictError("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits", nil)
+	}
+	if err := validateCodexSchedulerOwnership(state, text); err != nil {
+		return err
 	}
 	if model := runtime.Model; model != "" {
 		modelLine, err := codexSelectionLine(text, "model")
@@ -164,20 +177,10 @@ func ValidateConfig(path string, runtime configuration.Runtime) error {
 			return fmt.Errorf("Codex config model selection does not match Route %q", runtime.RouteID)
 		}
 	}
-	actualBlock, err := codexManagedBlockForProviderIn(text, provider)
-	if err != nil {
-		return err
-	}
 	if hashText(actualBlock) != hashText(expectedBlock) {
 		return fmt.Errorf("Codex config provider block does not match Route %q", runtime.RouteID)
 	}
-	if !managedBlockHashMatches(state.ManagedBlockHash, actualBlock) {
-		return fmt.Errorf("Codex config AIGW state does not match Route %q", runtime.RouteID)
-	}
 	if err := validateCodexScheduler(text); err != nil {
-		return err
-	}
-	if err := validateCodexSchedulerOwnership(state, text); err != nil {
 		return err
 	}
 	return validateCodexCatalog(path, text, state)
@@ -230,7 +233,7 @@ func validateCodexCatalog(path, text string, state codexState) error {
 		return fmt.Errorf("read Codex model catalog: %w", err)
 	}
 	if hashBytes(data) != state.CatalogHash {
-		return fmt.Errorf("Codex config conflict: AIGW-managed model catalog changed; refusing to overwrite user edits")
+		return newConflictError("Codex config conflict: AIGW-managed model catalog changed; refusing to overwrite user edits", nil)
 	}
 	return nil
 }
@@ -242,7 +245,7 @@ func validateCodexCatalogReference(path, text string, state codexState) error {
 	}
 	if state.CatalogHash == "" {
 		if strings.HasSuffix(strings.TrimSpace(line), "# managed by AIGW") {
-			return fmt.Errorf("Codex config references an AIGW-managed model catalog that AIGW does not own")
+			return newConflictError("Codex config references an AIGW-managed model catalog that AIGW does not own", nil)
 		}
 		return nil
 	}
@@ -252,7 +255,7 @@ func validateCodexCatalogReference(path, text string, state codexState) error {
 	}
 	catalogPath := codexCatalogPath(canonical)
 	if !isManagedSelection(line, "model_catalog_json", catalogPath) {
-		return fmt.Errorf("Codex config model catalog selection does not match AIGW")
+		return newConflictError("Codex config model catalog selection does not match AIGW", nil)
 	}
 	return nil
 }
@@ -385,14 +388,14 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 		return "", err
 	}
 	if !managedBlockHashMatches(state.ManagedBlockHash, block) {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits")
+		return "", newConflictError("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits", nil)
 	}
 	providerLine, err := codexSelectionLine(current, "model_provider")
 	if err != nil {
 		return "", err
 	}
 	if !replaceRootSelections && !selectionHasValue(providerLine, "model_provider", provider) {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits")
+		return "", newConflictError("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits", nil)
 	}
 	projectedModel := state.ProjectedModel
 	if projectedModel == "" && previous.Model != "" && hashText(codexManagedBlock(previous, previous.Endpoint)) == state.ManagedBlockHash {
@@ -407,10 +410,10 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 		// scheduler state, and catalogue bytes remain independently guarded.
 	} else if projectedModel == "" {
 		if !isManagedSelection(modelLine, "model", selectionStringValue(modelLine)) {
-			return "", fmt.Errorf("Codex config conflict: AIGW-managed model selection cannot be attributed; refusing to overwrite user edits")
+			return "", newConflictError("Codex config conflict: AIGW-managed model selection cannot be attributed; refusing to overwrite user edits", nil)
 		}
 	} else if !selectionHasValue(modelLine, "model", projectedModel) && (chosen == "" || !selectionHasValue(modelLine, "model", chosen)) {
-		return "", fmt.Errorf("Codex config conflict: AIGW-managed model selection changed; refusing to overwrite user edits")
+		return "", newConflictError("Codex config conflict: AIGW-managed model selection changed; refusing to overwrite user edits", nil)
 	}
 	if err := validateCodexSchedulerOwnership(state, current); err != nil {
 		return "", err

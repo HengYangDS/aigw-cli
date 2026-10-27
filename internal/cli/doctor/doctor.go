@@ -44,6 +44,10 @@ type Check struct {
 	// outsideHome records that the inspected file lies outside the home
 	// directory, so the human label says so instead of naming the file.
 	outsideHome bool
+	// adapterAction records that Fix is a client adapter's repair action. The
+	// adapter's actions are fixed text without local paths, so a sentence-form
+	// one is shown as written.
+	adapterAction bool
 }
 
 const credentialBackendUnavailable = "credential backend is unavailable"
@@ -328,21 +332,25 @@ func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cf
 		if !adapterReady {
 			detail, fix = status.Issue, commandFix(status.RepairAction)
 		}
-		checks = append(checks, Check{Name: "adapter:" + clientID, OK: adapterReady, Detail: detail, Fix: fix})
+		checks = append(checks, Check{Name: "adapter:" + clientID, OK: adapterReady, Detail: detail, Fix: fix, adapterAction: fix != ""})
 		for _, observation := range status.Checks {
 			target, outside := publicTarget(observation.Target, home)
 			checks = append(checks, Check{
 				Name: observation.ID, OK: observation.Ready, Detail: observation.Detail,
 				Fix: commandFix(observation.RepairAction), Target: target, outsideHome: outside,
+				adapterAction: observation.RepairAction != "",
 			})
 		}
 	}
 	return checks
 }
 
+// commandFix presents an adapter's repair action: a bare command is one to
+// run, and a sentence-form action, which names its own commands, is kept as
+// written.
 func commandFix(action string) string {
-	if action == "" {
-		return ""
+	if !strings.HasPrefix(action, "aigw ") {
+		return action
 	}
 	return "run `" + action + "`"
 }
@@ -464,6 +472,9 @@ func Fix(check Check) string {
 	}
 	if strings.HasPrefix(check.Fix, "inspect or restore ") {
 		return "Inspect or restore the local configuration file"
+	}
+	if check.adapterAction {
+		return check.Fix
 	}
 	return "aigw doctor --json"
 }

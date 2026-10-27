@@ -191,10 +191,10 @@ func codexSchedulerHashMatches(recorded, text string) bool {
 
 func validateCodexSchedulerOwnership(state codexState, text string) error {
 	if !codexSchedulerHashMatches(state.ProjectedSchedulerHash, text) {
-		return fmt.Errorf("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits")
+		return newConflictError("Codex config conflict: AIGW-managed scheduler keys changed; refusing to overwrite user edits", nil)
 	}
 	if err := validateCodexSchedulerState(state.OriginalScheduler); err != nil {
-		return fmt.Errorf("Codex config conflict: %w", err)
+		return newConflictError("Codex config conflict: "+err.Error(), err)
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/transaction"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -211,8 +212,8 @@ func TestValidateConfigRejectsIncompleteOrMismatchedProjection(t *testing.T) {
 	writeCodexFixture(t, path, content)
 
 	err = ValidateConfig(path, runtime)
-	if err == nil || !strings.Contains(err.Error(), "state does not match") {
-		t.Errorf("expected hash mismatch error, got %v", err)
+	if _, conflict := errors.AsType[*ConflictError](err); !conflict || !strings.Contains(err.Error(), "provider block changed") {
+		t.Errorf("expected an ownership conflict, got %v", err)
 	}
 }
 
@@ -276,7 +277,8 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		writeCodexFixture(t, path, "model_provider = \"native\"\n"+codexBegin+"\n"+block)
 		writeCodexStateFixture(t, path, validState)
-		if err := ValidateConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "provider selection does not match") {
+		err := ValidateConfig(path, runtime)
+		if _, conflict := errors.AsType[*ConflictError](err); !conflict || !strings.Contains(err.Error(), "model_provider selection changed") {
 			t.Fatalf("ValidateConfig() error = %v", err)
 		}
 	})

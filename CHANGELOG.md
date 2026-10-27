@@ -14,6 +14,15 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Fixed
+
+- When settings that AIGW manages in Codex's configuration, such as the retry
+  budgets in its provider table, were changed outside AIGW, `aigw use`,
+  `aigw sync`, `aigw check`, `aigw status` and `aigw doctor` now give one next
+  action: undo the outside edit, then run `aigw sync`. Before, the refused
+  commands advised `aigw check`, and `aigw check` advised the `aigw sync` that
+  had just refused. AIGW still never overwrites such an edit.
+
 ## [0.4.17] - 2026-10-26
 
 History: [GitLab][0.4.17-gitlab] · [GitHub][0.4.17-github]

@@ -168,22 +168,26 @@ func (codexAdapter) Inspect(_ context.Context, deps Dependencies, cfg configurat
 	for index, target := range adapter.Targets {
 		check := Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "route " + runtime.RouteID, Target: target}
 		observed, readerErr := codexRetainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
-		detail := ""
+		issue, detail, repair := "Codex configuration projection drift: ", "", "aigw sync"
 		if readerErr != nil {
 			detail = "Codex credential reader cannot be inspected"
 		} else if err := codex.ValidateConfig(target, observed); err != nil {
 			detail = "Codex configuration target does not match selected binding"
-			if errors.Is(err, os.ErrNotExist) {
+			if conflict, ok := errors.AsType[*codex.ConflictError](err); ok {
+				// Synchronization refuses an outside edit, so advising it alone
+				// would send the operator back to the same refusal.
+				issue, detail, repair = "Codex configuration conflict: ", "AIGW-managed Codex settings were changed outside AIGW", conflict.NextAction()
+			} else if errors.Is(err, os.ErrNotExist) {
 				detail = "Codex configuration target is unavailable"
 			}
 		}
 		if detail != "" {
 			check.Ready = false
 			check.Detail = detail
-			check.RepairAction = "aigw sync"
+			check.RepairAction = repair
 			status.Ready = false
-			status.Issue = "Codex configuration projection drift: " + detail
-			status.RepairAction = "aigw sync"
+			status.Issue = issue + detail
+			status.RepairAction = repair
 		}
 		status.Checks = append(status.Checks, check)
 	}
