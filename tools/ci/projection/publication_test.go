@@ -194,7 +194,8 @@ func TestAcceptedPublicationChecksRefParityFromMain(t *testing.T) {
 		}
 		want := "github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))"
 		if platform, native := strings.CutPrefix(name, "native-"); native {
-			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '" + platform + "')"
+			// A manual run selects its platform even from a tag ref.
+			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '" + platform + "')"
 		} else if name == "quality" || name == "linux-secret-service" {
 			want = "(" + want + ") && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || (inputs.candidate_tag == '' && inputs.input_release == ''))"
 		}

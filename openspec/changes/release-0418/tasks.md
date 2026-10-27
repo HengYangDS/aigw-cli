@@ -39,9 +39,9 @@
 
 ## 5. Release Tooling
 
-- [ ] 5.1 Fail the dependency gate on an OSV exit 1 without a normalized
+- [x] 5.1 Fail the dependency gate on an OSV exit 1 without a normalized
       advisory. Its test fails before the change and passes after it.
-- [ ] 5.2 Disable Hermes lazy installs in the release journey. Its test fails
+- [x] 5.2 Disable Hermes lazy installs in the release journey. Its test fails
       before the change and passes after it.
 - [ ] 5.3 Judge benchmark diagnostics from an untimed preflight and keep
       Hyperfine's warnings as evidence; rewrite the governance rule. The new
@@ -52,7 +52,7 @@
 
 ## 6. CI
 
-- [ ] 6.1 Ignore non-`v` tags in release selection and let a manual tag-ref
+- [x] 6.1 Ignore non-`v` tags in release selection and let a manual tag-ref
       dispatch honor `native_platform`. The tests fail before the change and
       pass after it.
 - [ ] 6.2 Index the artifact tool closure by peer and regenerate both Forge

@@ -69,25 +69,53 @@ func scanDependencies(root, output string, policy dependencyPolicy, run toolRunn
 	lockfiles := []string{filepath.Join(root, "go.mod"), filepath.Join(root, "package-lock.json")}
 	args := []string{"scan", "source", "--config", config, "--lockfile", lockfiles[0], "--lockfile", lockfiles[1], "--no-call-analysis=go", "--format", "json", "--all-packages", "--all-vulns", "--licenses=", "--output-file", raw}
 	call := toolCall{Name: "osv-scanner", Directory: root, Args: args, Timeout: 2 * time.Minute}
-	if err := runDependencyScan(call, run); err != nil {
+	findings, err := runDependencyScan(call, run)
+	if err != nil {
 		return raw, fmt.Errorf("scan dependencies: %w", err)
 	}
-	if err := normalizeDependencyEvidence(raw, filepath.Join(evidence, "vulnerabilities.json"), filepath.Join(evidence, "licenses.json"), lockfiles); err != nil {
+	vulnerabilities := filepath.Join(evidence, "vulnerabilities.json")
+	if err := normalizeDependencyEvidence(raw, vulnerabilities, filepath.Join(evidence, "licenses.json"), lockfiles); err != nil {
 		return raw, err
+	}
+	if findings {
+		if err := requireAdvisories(vulnerabilities); err != nil {
+			return raw, err
+		}
 	}
 	return raw, nil
 }
 
-func runDependencyScan(call toolCall, run toolRunner) error {
+// requireAdvisories refuses a findings exit whose normalized evidence names no
+// advisory: that exit reports a failure the scanner did not explain.
+func requireAdvisories(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var report vulnerabilityEvidence
+	if err := json.Unmarshal(data, &report); err != nil {
+		return err
+	}
+	for _, source := range report.Sources {
+		if len(source.Packages) > 0 {
+			return nil
+		}
+	}
+	return errors.New("dependency exit 1 has no complete advisory findings")
+}
+
+// runDependencyScan reports whether the scanner's only failure was its exit for
+// findings, which the caller checks against the normalized advisories.
+func runDependencyScan(call toolCall, run toolRunner) (bool, error) {
 	output := call.Args[len(call.Args)-1]
 	stdout, err := os.Create(output + ".stdout")
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer func() { _ = stdout.Close() }()
 	stderr, err := os.Create(output + ".stderr")
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer func() { _ = stderr.Close() }()
 	call.Stdout, call.Stderr = stdout, stderr
@@ -100,11 +128,11 @@ func runDependencyScan(call toolCall, run toolRunner) error {
 		}
 	}
 	if err := stderr.Close(); err != nil {
-		return errors.Join(result, err)
+		return false, errors.Join(result, err)
 	}
 	diagnostics, readErr := os.ReadFile(output + ".stderr")
 	if readErr != nil {
-		return errors.Join(result, readErr)
+		return false, errors.Join(result, readErr)
 	}
 	invalidDiagnostics := process.DiagnosticFailure(diagnostics)
 	findings := onlyDependencyFindingExit(result) && !invalidDiagnostics
@@ -113,15 +141,15 @@ func runDependencyScan(call toolCall, run toolRunner) error {
 		Failed   bool `json:"failed"`
 		Findings bool `json:"findings"`
 	}{code, result != nil && !findings || invalidDiagnostics, findings}); err != nil {
-		return errors.Join(result, err)
+		return false, errors.Join(result, err)
 	}
 	if invalidDiagnostics {
-		return fmt.Errorf("native dependency diagnostics prevent qualification; retained at %s", output+".stderr")
+		return false, fmt.Errorf("native dependency diagnostics prevent qualification; retained at %s", output+".stderr")
 	}
 	if findings {
-		return nil
+		return true, nil
 	}
-	return result
+	return false, result
 }
 
 func onlyDependencyFindingExit(err error) bool {

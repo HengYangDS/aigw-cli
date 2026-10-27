@@ -470,20 +470,20 @@ func TestNativeDependencyEvidenceTransportRefusesBrokenResources(t *testing.T) {
 	}
 	problem := errors.New("native scanner unavailable")
 	output := filepath.Join(root, "unavailable", "raw.json")
-	if err := runDependencyScan(toolCall{Args: []string{output}}, func(toolCall) error { return problem }); !errors.Is(err, os.ErrNotExist) {
+	if _, err := runDependencyScan(toolCall{Args: []string{output}}, func(toolCall) error { return problem }); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("missing capture parent accepted: %v", err)
 	}
 	output = filepath.Join(root, "raw.json")
 	if err := os.Mkdir(output+".stderr", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := runDependencyScan(toolCall{Args: []string{output}}, func(toolCall) error { return problem }); err == nil {
+	if _, err := runDependencyScan(toolCall{Args: []string{output}}, func(toolCall) error { return problem }); err == nil {
 		t.Fatal("invalid stderr target accepted")
 	}
 	if err := os.Remove(output + ".stderr"); err != nil {
 		t.Fatal(err)
 	}
-	if err := runDependencyScan(toolCall{Args: []string{output}}, func(toolCall) error { return problem }); !errors.Is(err, problem) {
+	if _, err := runDependencyScan(toolCall{Args: []string{output}}, func(toolCall) error { return problem }); !errors.Is(err, problem) {
 		t.Fatalf("native failure lost: %v", err)
 	}
 	if err := os.Remove(output + ".exit.json"); err != nil {
@@ -492,7 +492,7 @@ func TestNativeDependencyEvidenceTransportRefusesBrokenResources(t *testing.T) {
 	if err := os.Mkdir(output+".exit.json", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := runDependencyScan(toolCall{Args: []string{output}}, func(toolCall) error { return nil }); err == nil {
+	if _, err := runDependencyScan(toolCall{Args: []string{output}}, func(toolCall) error { return nil }); err == nil {
 		t.Fatal("unwritable exit evidence accepted")
 	}
 }

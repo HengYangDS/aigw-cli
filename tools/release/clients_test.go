@@ -393,6 +393,9 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 		})
 		j.setEnvironment("HERMES_HOME", profile)
 		j.setEnvironment("HERMES_GATEWAY_LOCK_DIR", hermesconfig.GatewayLockDirectory(profile))
+		// As in AIGW's own Hermes verification, the journey uses the supplied
+		// installation's dependencies and never installs one on demand.
+		j.setEnvironment("HERMES_DISABLE_LAZY_INSTALLS", "1")
 	}
 	preferences := map[string]string{
 		// This journey owns client inference and projection, not marketplace synchronization.

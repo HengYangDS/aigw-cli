@@ -430,6 +430,9 @@ func testHermesNativeClientInputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if lazy := environmentValues(journey.environment)["HERMES_DISABLE_LAZY_INSTALLS"]; lazy != "1" {
+		t.Fatalf("Hermes acceptance may install dependencies on demand: HERMES_DISABLE_LAZY_INSTALLS=%q", lazy)
+	}
 	physicalRoot, err := filepath.EvalSymlinks(installation)
 	if err != nil {
 		t.Fatal(err)

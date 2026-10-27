@@ -267,7 +267,7 @@ jobs:
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native macOS acceptance' || 'Native macOS acceptance' }}
     runs-on: macos-26
     timeout-minutes: ${{ inputs.native_clients && 45 || 25 }}
-    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'darwin')
+    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'darwin')
     env:
       MISE_ENABLE_TOOLS: ${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || (inputs.candidate_tag == '' && inputs.input_release == '')) && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab,github:indygreg/apple-platform-rs' || inputs.performance && 'go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs,github:sharkdp/hyperfine' || 'go,gh,glab,github:goreleaser/goreleaser,github:indygreg/apple-platform-rs' }}${{ inputs.native_clients && ',node' || '' }}
     steps:
@@ -398,7 +398,7 @@ jobs:
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native Linux acceptance' || 'Native Linux acceptance' }}
     runs-on: ubuntu-24.04
     timeout-minutes: ${{ inputs.native_clients && 45 || 25 }}
-    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
+    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'linux')
     env:
       MISE_ENABLE_TOOLS: ${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || (inputs.candidate_tag == '' && inputs.input_release == '')) && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' || inputs.performance && 'go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine' || 'go,gh,glab,github:goreleaser/goreleaser' }}${{ inputs.native_clients && ',node' || '' }}
     steps:
@@ -551,7 +551,7 @@ jobs:
     name: ${{ github.event_name == 'workflow_dispatch' && 'Manual Native Windows acceptance' || 'Native Windows acceptance' }}
     runs-on: windows-2025
     timeout-minutes: ${{ inputs.native_clients && 45 || 25 }}
-    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
+    if: (github.ref_type == 'tag' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main'))) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == 'windows')
     env:
       MISE_ENABLE_TOOLS: ${{ (github.event_name != 'workflow_dispatch' || inputs.full_quality || inputs.refresh_locks || inputs.native_clients || (inputs.candidate_tag == '' && inputs.input_release == '')) && 'go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab' || inputs.performance && 'go,gh,glab,github:goreleaser/goreleaser,github:sharkdp/hyperfine' || 'go,gh,glab,github:goreleaser/goreleaser' }}${{ inputs.native_clients && ',node' || '' }}
     steps:

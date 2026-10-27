@@ -497,7 +497,8 @@ workflowEvidencePath:   "build/verification/workflows"
 
 	// Supplying real clients adds their installation to the journey.
 	"timeout-minutes": "${{ inputs.native_clients && 45 || 25 }}"
-	if:                "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
+	// A manual run selects its native platform, from a tag ref too.
+	if: "(\(githubFullVerificationCondition)) && (github.event_name != 'workflow_dispatch' || inputs.native_platform == '' || inputs.native_platform == 'all' || inputs.native_platform == '\(_platform)')"
 	env: MISE_ENABLE_TOOLS: "${{ (\(_sourceCondition)) && '\(nativeToolchain[_platform].MISE_ENABLE_TOOLS)' || inputs.performance && '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS),\(strings.Join(toolchainTools.performance, ","))' || '\(nativeArtifactToolchain[_platform].MISE_ENABLE_TOOLS)' }}\(_clientTools)"
 	steps: [
 		#SourceCheckout,

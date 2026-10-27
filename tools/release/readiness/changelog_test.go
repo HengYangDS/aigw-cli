@@ -281,6 +281,28 @@ func TestSelectedReleaseTagUsesExplicitForgePrecedence(t *testing.T) {
 	if tag := SelectedReleaseTag(); tag != "v3.0.0" {
 		t.Fatalf("explicit tag = %q", tag)
 	}
+	// Only release tags start with v. Another tag, such as a native input
+	// transport tag, selects no release from any authority.
+	transport := "native-inputs-" + strings.Repeat("a", 40)
+	for _, authority := range []string{"AIGW_CHANGELOG_RELEASE_TAG", "GITHUB_REF_NAME", "CI_COMMIT_TAG"} {
+		t.Run(authority, func(t *testing.T) {
+			t.Setenv("AIGW_CHANGELOG_RELEASE_TAG", "")
+			t.Setenv("GITHUB_REF_TYPE", "")
+			t.Setenv("GITHUB_REF_NAME", "")
+			t.Setenv("CI_COMMIT_TAG", "v1.0.0")
+			if authority == "GITHUB_REF_NAME" {
+				t.Setenv("GITHUB_REF_TYPE", "tag")
+			}
+			t.Setenv(authority, transport)
+			if tag := SelectedReleaseTag(); tag != "" {
+				t.Fatalf("native input transport selected as release: %q", tag)
+			}
+			t.Setenv(authority, "vmalformed")
+			if tag := SelectedReleaseTag(); tag != "vmalformed" {
+				t.Fatal("release-shaped tags must retain strict downstream validation")
+			}
+		})
+	}
 }
 
 func TestChangelogReportsOversizedInput(t *testing.T) {

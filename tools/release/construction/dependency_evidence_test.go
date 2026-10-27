@@ -482,7 +482,7 @@ func TestDependencyScanRejectsIncompleteNativeOutput(t *testing.T) {
 func TestDependencyScanRetainsButRejectsNativeWarning(t *testing.T) {
 	root := t.TempDir()
 	output := filepath.Join(root, "native.json")
-	err := runDependencyScan(toolCall{Args: []string{output}}, func(call toolCall) error {
+	_, err := runDependencyScan(toolCall{Args: []string{output}}, func(call toolCall) error {
 		_, err := fmt.Fprintln(call.Stderr, "warning: incomplete native evidence")
 		return err
 	})
