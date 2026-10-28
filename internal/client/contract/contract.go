@@ -45,7 +45,7 @@ type Fixture struct {
 //   - a converged projection plans, applies and rolls back no change;
 //   - Rollback restores every regular file's bytes and mode, every symbolic
 //     link and every other entry below Home; only directories that the
-//     projection created may remain;
+//     projection created may remain, with the mode that it gave them;
 //   - withdrawal is planned and checked the same way, leaves no owned file, and
 //     its own receipt restores the projection; it may remove the directories
 //     that the projection created.
@@ -212,7 +212,7 @@ func plansPredictEveryChange(ctx context.Context, fixture Fixture) error {
 	if err := receipt.Rollback(); err != nil {
 		return fmt.Errorf("Rollback() = %w", err)
 	}
-	return restoredFiles(fixture.Home, original, created, "rollback")
+	return restoredFiles(fixture.Home, original, projected, created, "rollback")
 }
 
 // targetsProjected requires the target of every plan that changes state to
@@ -234,7 +234,7 @@ func targetsProjected(home string, plans []client.ProjectionPlan) error {
 		}
 		target, err := homePaths(home, []string{plan.Target})
 		if err != nil {
-			violations = append(violations, fmt.Errorf("the planned target %s lies outside the fixture home %s", plan.Target, home))
+			violations = append(violations, fmt.Errorf("the planned target lies outside the fixture home %s: %s", home, plan.Target))
 			continue
 		}
 		// An effect outside the home is reported by effectsPredicted.
@@ -302,7 +302,7 @@ func withdrawalLeavesNoOwnedFile(ctx context.Context, fixture Fixture) error {
 	if err := effectsPredicted(fixture.Home, plans, projected, restored, created); err != nil {
 		return fmt.Errorf("withdrawal: %w", err)
 	}
-	if err := restoredFiles(fixture.Home, original, created, "withdrawal"); err != nil {
+	if err := restoredFiles(fixture.Home, original, projected, created, "withdrawal"); err != nil {
 		return err
 	}
 	if receipt == nil {
@@ -519,10 +519,21 @@ func unchangedFiles(home string, want tree, operation string) error {
 	return compareHome(home, want, nil, operation)
 }
 
-// restoredFiles requires every entry below home to match want, except that the
-// directories in created, which the projection created, may remain or go.
-func restoredFiles(home string, want tree, created map[string]bool, operation string) error {
-	return compareHome(home, want, created, operation)
+// restoredFiles requires every entry below home to match want, except that a
+// directory in created, which the projection created, may go or remain with the
+// mode that projected records.
+func restoredFiles(home string, want, projected tree, created map[string]bool, operation string) error {
+	return compareHome(home, want.withDirectories(projected, created), created, operation)
+}
+
+// withDirectories returns captured with the directories in paths added as
+// source records them.
+func (captured tree) withDirectories(source tree, paths map[string]bool) tree {
+	nodes := maps.Clone(captured.nodes)
+	for path := range paths {
+		nodes[path] = source.nodes[path]
+	}
+	return tree{files: captured.files, links: captured.links, nodes: nodes}
 }
 
 func compareHome(home string, want tree, exempt map[string]bool, operation string) error {

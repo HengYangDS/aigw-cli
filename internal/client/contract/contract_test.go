@@ -64,6 +64,7 @@ const (
 	namesOutsideTarget         = "names a target outside the home"
 	withdrawalCreatesDirectory = "creates a directory when it withdraws"
 	withdrawalChangesItsMode   = "changes the mode of its directory when it withdraws"
+	rollbackChangesItsMode     = "changes the mode of its directory on rollback"
 	withdrawalRollbackDrops    = "drops its directory when its withdrawal is rolled back"
 	writesProcessHome          = "writes the process home"
 	capturesProcessHome        = "captures the process home when it is constructed"
@@ -221,6 +222,13 @@ func (adapter fixtureAdapter) project() (client.ProjectionReceipt, error) {
 			}
 			return os.Mkdir(adapter.path(".backup"), 0o700)
 		}), nil
+	case rollbackChangesItsMode:
+		return fixtureReceipt(func() error {
+			if err := adapter.restoreTarget(); err != nil {
+				return err
+			}
+			return os.Chmod(adapter.path(toolName), 0o755)
+		}), nil
 	}
 	return fixtureReceipt(adapter.restore), nil
 }
@@ -231,7 +239,7 @@ func (adapter fixtureAdapter) projectExtras() error {
 	switch adapter.breaks {
 	case listsItsLink, writesUnlistedLink:
 		return os.Symlink(targetName, adapter.path(linkName))
-	case removesItsDirectory, withdrawalChangesItsMode, withdrawalRollbackDrops:
+	case removesItsDirectory, withdrawalChangesItsMode, withdrawalRollbackDrops, rollbackChangesItsMode:
 		return os.Mkdir(adapter.path(toolName), 0o700)
 	case rollbackKeepsMode:
 		return os.Chmod(adapter.path(targetName), 0o644)
@@ -265,6 +273,13 @@ func (adapter fixtureAdapter) withdraw() (client.ProjectionReceipt, error) {
 		return fixtureReceipt(func() error { return nil }), nil
 	case withdrawalRollbackDrops:
 		return fixtureReceipt(func() error { return adapter.write(targetName, "projected") }), nil
+	case withdrawalChangesItsMode:
+		return fixtureReceipt(func() error {
+			if err := adapter.write(targetName, "projected"); err != nil {
+				return err
+			}
+			return os.Chmod(adapter.path(toolName), 0o700)
+		}), nil
 	}
 	return fixtureReceipt(func() error {
 		_, err := adapter.project()
@@ -366,7 +381,7 @@ func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 		{breaks: listsOutsideHome, refused: map[string]string{plans: "lies outside the fixture home", withdrawal: "lies outside the fixture home"}},
 		{breaks: namesMissingTarget, refused: map[string]string{plans: "was not projected"}},
 		{breaks: namesUnlistedTarget, refused: map[string]string{plans: "is a file that the plan's effects do not list"}},
-		{breaks: namesOutsideTarget, refused: map[string]string{plans: "outside.txt lies outside the fixture home"}},
+		{breaks: namesOutsideTarget, refused: map[string]string{plans: "the planned target lies outside the fixture home"}},
 		{breaks: inspectMutates, refused: map[string]string{observation: "Inspect changed the caller's configuration", plans: "Inspect changed the caller's configuration"}},
 		{breaks: verifyMutates, refused: map[string]string{observation: "Verify changed the caller's configuration", plans: "Verify changed the caller's configuration"}},
 		{breaks: planMutates, refused: map[string]string{plans: "Plan changed the caller's configuration", withdrawal: "Plan changed the caller's configuration"}},
@@ -386,6 +401,7 @@ func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 		{breaks: withdrawalKeepsCompanion, refused: map[string]string{withdrawal: "withdrawal changed [companion.txt]"}},
 		{breaks: withdrawalCreatesDirectory, refused: map[string]string{withdrawal: "Apply changed .withdrawn, " + unlisted}},
 		{breaks: withdrawalChangesItsMode, posixOnly: true, refused: map[string]string{withdrawal: "Apply changed .tool, " + unlisted}},
+		{breaks: rollbackChangesItsMode, posixOnly: true, refused: map[string]string{plans: "rollback changed [.tool]"}},
 		{breaks: withdrawalRollbackDrops, refused: map[string]string{withdrawal: "rolling back a withdrawal changed [.tool]"}},
 		{breaks: withdrawalRollbackKeeps, refused: map[string]string{withdrawal: "rolling back a withdrawal changed"}},
 		{breaks: withdrawalReturnsNoReceipt, refused: map[string]string{withdrawal: "returned no receipt"}},

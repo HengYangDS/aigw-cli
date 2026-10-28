@@ -154,8 +154,8 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
   - a converged plan, its `Apply` and its receipt's `Rollback` change nothing;
   - `Rollback` restores every regular file's bytes and mode, every symbolic
     link and every directory's mode; only directories that the projection
-    created may remain, as AIGW leaves them today, and a withdrawal may remove
-    them;
+    created may remain, with the mode that it gave them, as AIGW leaves them
+    today, and a withdrawal may remove them;
   - withdrawal is planned and checked the same way, leaves no owned file, and
     its own receipt restores the projection;
   - `Inspect` and `Verify` (without a Route and with the fixture's selected
