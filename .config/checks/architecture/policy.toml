@@ -48,7 +48,14 @@ package_children."tools" = [
   "release",
 ]
 package_children."internal/client/codex" = ["catalog"]
-package_children."internal/client" = ["claude", "claudedesktop", "codex", "contract", "hermes", "verification"]
+package_children."internal/client" = [
+  "claude",
+  "claudedesktop",
+  "codex",
+  "contract",
+  "hermes",
+  "verification",
+]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
 package_children."tools/ci" = [
   "bootstrap",
