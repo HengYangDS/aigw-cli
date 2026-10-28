@@ -1,24 +1,28 @@
-package client
+package claudedesktop
 
 import (
 	"context"
 	"errors"
 	"slices"
 
-	claudedesktop "aigw-cli/internal/claude/desktop"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	surfaceidentity "aigw-cli/internal/surface"
 	"aigw-cli/internal/transaction"
 )
 
+// claudeDesktopAdapter is the Claude Desktop client adapter behind the client seam.
 type claudeDesktopAdapter struct{}
 
+// New returns the Claude Desktop adapter for the composition root to register.
+func New() client.Adapter { return claudeDesktopAdapter{} }
+
 func (claudeDesktopAdapter) Spec() configuration.ClientSpec {
-	return AdmittedSpec(configuration.ClientClaudeDesktop)
+	return client.AdmittedSpec(configuration.ClientClaudeDesktop)
 }
 
-func (claudeDesktopAdapter) Discover(source DiscoverySource) discovery.Result {
+func (claudeDesktopAdapter) Discover(source client.DiscoverySource) discovery.Result {
 	executable := source.ClaudeDesktopExecutable()
 	library := source.ClaudeDesktopLibraryDirectory()
 	return discovery.Result{
@@ -35,7 +39,7 @@ func (claudeDesktopAdapter) Discover(source DiscoverySource) discovery.Result {
 	}
 }
 
-func (claudeDesktopAdapter) Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
+func (claudeDesktopAdapter) Converge(deps client.Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
 	runtime, err := cfg.ResolveRuntime(configuration.ClientClaudeDesktop, "")
 	if err != nil {
 		if _, unselected := errors.AsType[*configuration.RuntimeBindingUnselectedError](err); unselected {
@@ -47,13 +51,13 @@ func (claudeDesktopAdapter) Converge(deps Dependencies, cfg *configuration.Confi
 	if !explicitlyConfigured || !binding.Enabled {
 		return nil
 	}
-	executable, err := ResolveExecutable(configuration.ClientClaudeDesktop, binding.Executable, discovered.Executable(configuration.ClientClaudeDesktop))
+	executable, err := client.ResolveExecutable(configuration.ClientClaudeDesktop, binding.Executable, discovered.Executable(configuration.ClientClaudeDesktop))
 	if err != nil {
 		return err
 	}
 	available := !runtime.UsesAIGWCredentialStore()
 	if runtime.UsesAIGWCredentialStore() {
-		available, err = SecretAvailable(deps.Secrets, runtime.AccountID)
+		available, err = client.SecretAvailable(deps.Secrets, runtime.AccountID)
 		if err != nil {
 			return err
 		}
@@ -65,19 +69,19 @@ func (claudeDesktopAdapter) Converge(deps Dependencies, cfg *configuration.Confi
 	return nil
 }
 
-func (claudeDesktopAdapter) Plan(deps Dependencies, before, after configuration.Config) ([]ProjectionPlan, error) {
+func (claudeDesktopAdapter) Plan(deps client.Dependencies, before, after configuration.Config) ([]client.ProjectionPlan, error) {
 	plans, targets, err := claudeDesktopPlans(deps, before, after)
 	if err != nil {
 		return nil, err
 	}
-	result := make([]ProjectionPlan, 0, len(plans))
+	result := make([]client.ProjectionPlan, 0, len(plans))
 	for index, plan := range plans {
-		result = append(result, ProjectionPlan{Client: configuration.ClientClaudeDesktop, Target: targets[index], Action: string(plan.Action), Surface: string(surfaceidentity.ClaudeDesktopLibrary), ChangesState: plan.ChangesState()})
+		result = append(result, client.ProjectionPlan{Client: configuration.ClientClaudeDesktop, Target: targets[index], Action: string(plan.Action), Surface: string(surfaceidentity.ClaudeDesktopLibrary), ChangesState: plan.ChangesState()})
 	}
 	return result, nil
 }
 
-type claudeDesktopReceipt []claudedesktop.Receipt
+type claudeDesktopReceipt []Receipt
 
 func (receipt claudeDesktopReceipt) Rollback() error {
 	var result error
@@ -87,7 +91,7 @@ func (receipt claudeDesktopReceipt) Rollback() error {
 	return result
 }
 
-func (claudeDesktopAdapter) Apply(_ context.Context, deps Dependencies, before, after configuration.Config) (ProjectionReceipt, error) {
+func (claudeDesktopAdapter) Apply(_ context.Context, deps client.Dependencies, before, after configuration.Config) (client.ProjectionReceipt, error) {
 	plans, _, err := claudeDesktopPlans(deps, before, after)
 	if err != nil {
 		return nil, err
@@ -120,67 +124,67 @@ func (claudeDesktopAdapter) ProjectionChanged(before, after configuration.Config
 		claudeDesktopToolSearch(before, left) != claudeDesktopToolSearch(after, right)
 }
 
-func (claudeDesktopAdapter) Inspect(ctx context.Context, deps Dependencies, cfg configuration.Config, selected configuration.Runtime) Status {
+func (claudeDesktopAdapter) Inspect(ctx context.Context, deps client.Dependencies, cfg configuration.Config, selected configuration.Runtime) client.Status {
 	if err := ctx.Err(); err != nil {
-		return Status{Issue: err.Error()}
+		return client.Status{Issue: err.Error()}
 	}
 	binding := cfg.Clients[configuration.ClientClaudeDesktop]
 	if !binding.Enabled {
-		return Status{Issue: "Claude Desktop adapter is disabled", RepairAction: "aigw sync"}
+		return client.Status{Issue: "Claude Desktop adapter is disabled", RepairAction: "aigw sync"}
 	}
 	available, err := discovery.ExecutableAvailable(binding.Executable)
 	if err != nil || !available {
-		return Status{Issue: "Claude Desktop executable is unavailable", RepairAction: "aigw repair"}
+		return client.Status{Issue: "Claude Desktop executable is unavailable", RepairAction: "aigw repair"}
 	}
 	if len(binding.Targets) != 1 {
-		return Status{Issue: "Claude Desktop configuration library is missing", RepairAction: "aigw repair"}
+		return client.Status{Issue: "Claude Desktop configuration library is missing", RepairAction: "aigw repair"}
 	}
-	plan, err := claudeDesktopInspectionPlan(deps, cfg, selected, claudedesktop.PathsForLibrary(binding.Targets[0]))
+	plan, err := claudeDesktopInspectionPlan(deps, cfg, selected, PathsForLibrary(binding.Targets[0]))
 	if err != nil {
-		return Status{Issue: "Claude Desktop projection cannot be inspected", RepairAction: "aigw sync"}
+		return client.Status{Issue: "Claude Desktop projection cannot be inspected", RepairAction: "aigw sync"}
 	}
-	if plan.Action != claudedesktop.ActionUnchanged {
-		return Status{Issue: "Claude Desktop projection differs from the selected Route", RepairAction: "aigw sync"}
+	if plan.Action != ActionUnchanged {
+		return client.Status{Issue: "Claude Desktop projection differs from the selected Route", RepairAction: "aigw sync"}
 	}
-	return Status{Ready: true}
+	return client.Status{Ready: true}
 }
 
-func claudeDesktopInspectionPlan(deps Dependencies, cfg configuration.Config, selected configuration.Runtime, paths claudedesktop.Paths) (claudedesktop.Plan, error) {
+func claudeDesktopInspectionPlan(deps client.Dependencies, cfg configuration.Config, selected configuration.Runtime, paths Paths) (Plan, error) {
 	desired, err := claudeDesktopDesired(deps, cfg, selected)
 	if err != nil {
-		return claudedesktop.Plan{}, err
+		return Plan{}, err
 	}
-	plan, err := claudedesktop.Prepare(paths, &desired)
-	if err != nil || plan.Action == claudedesktop.ActionUnchanged || !selected.UsesAIGWCredentialStore() {
+	plan, err := Prepare(paths, &desired)
+	if err != nil || plan.Action == ActionUnchanged || !selected.UsesAIGWCredentialStore() {
 		return plan, err
 	}
 	if plan.ObservedCredentialExecutable() == "" {
 		return plan, nil
 	}
-	reader, err := RetainedDefaultReader(deps.AIGWExecutable, false, func() (string, error) {
+	reader, err := client.RetainedDefaultReader(deps.AIGWExecutable, false, func() (string, error) {
 		return plan.ObservedCredentialExecutable(), nil
 	})
 	if err != nil || reader == deps.AIGWExecutable {
 		return plan, err
 	}
 	desired.CredentialExecutable = reader
-	return claudedesktop.Prepare(paths, &desired)
+	return Prepare(paths, &desired)
 }
 
-func (claudeDesktopAdapter) Verify(context.Context, Dependencies, configuration.Config, configuration.Runtime, string) (Verification, error) {
-	return Verification{}, errors.New("Claude Desktop verification requires explicit native Chat, Cowork, or Code acceptance")
+func (claudeDesktopAdapter) Verify(context.Context, client.Dependencies, configuration.Config, configuration.Runtime, string) (client.Verification, error) {
+	return client.Verification{}, errors.New("Claude Desktop verification requires explicit native Chat, Cowork, or Code acceptance")
 }
 
 func (claudeDesktopAdapter) Withdraw(cfg *configuration.Config) {
 	delete(cfg.Clients, configuration.ClientClaudeDesktop)
 }
 
-func claudeDesktopPlans(deps Dependencies, before, after configuration.Config) ([]claudedesktop.Plan, []string, error) {
+func claudeDesktopPlans(deps client.Dependencies, before, after configuration.Config) ([]Plan, []string, error) {
 	previous, current := before.Clients[configuration.ClientClaudeDesktop], after.Clients[configuration.ClientClaudeDesktop]
 	if !previous.Enabled && !current.Enabled {
 		return nil, nil, nil
 	}
-	var desired *claudedesktop.Desired
+	var desired *Desired
 	if current.Enabled && len(current.Targets) > 0 {
 		if len(current.Targets) != 1 {
 			return nil, nil, errors.New("Claude Desktop requires one configuration library")
@@ -201,13 +205,13 @@ func claudeDesktopPlans(deps Dependencies, before, after configuration.Config) (
 			targets = append(targets, target)
 		}
 	}
-	plans := make([]claudedesktop.Plan, 0, len(targets))
+	plans := make([]Plan, 0, len(targets))
 	for _, target := range targets {
 		projection := desired
 		if !current.Enabled || !slices.Contains(current.Targets, target) {
 			projection = nil
 		}
-		plan, err := claudedesktop.Prepare(claudedesktop.PathsForLibrary(target), projection)
+		plan, err := Prepare(PathsForLibrary(target), projection)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -216,14 +220,14 @@ func claudeDesktopPlans(deps Dependencies, before, after configuration.Config) (
 	return plans, targets, nil
 }
 
-func claudeDesktopDesired(deps Dependencies, cfg configuration.Config, selected configuration.Runtime) (claudedesktop.Desired, error) {
+func claudeDesktopDesired(deps client.Dependencies, cfg configuration.Config, selected configuration.Runtime) (Desired, error) {
 	helper := selected.CredentialExecutable(deps.AIGWExecutable)
 	arguments := []string{}
 	if selected.UsesAIGWCredentialStore() {
 		arguments = []string{"credential", configuration.ClientClaudeDesktop, selected.CredentialProjectionFingerprint(configuration.ClientClaudeDesktop)}
 	}
 	models := claudeDesktopModels(cfg, selected)
-	return claudedesktop.Desired{
+	return Desired{
 		BaseURL:              selected.Endpoint,
 		CredentialExecutable: helper,
 		CredentialArguments:  arguments,
@@ -237,7 +241,7 @@ func claudeDesktopDesired(deps Dependencies, cfg configuration.Config, selected 
 func claudeDesktopRouteIDs(cfg configuration.Config, selected configuration.Runtime) []string {
 	routeIDs := []string{selected.RouteID}
 	seen := map[string]bool{cfg.Routes[selected.RouteID].Model: true}
-	spec := AdmittedSpec(configuration.ClientClaudeDesktop)
+	spec := client.AdmittedSpec(configuration.ClientClaudeDesktop)
 	for _, routeID := range cfg.CatalogRouteIDs() {
 		if routeID == selected.RouteID {
 			continue
@@ -256,11 +260,11 @@ func claudeDesktopRouteIDs(cfg configuration.Config, selected configuration.Runt
 	return routeIDs
 }
 
-func claudeDesktopModels(cfg configuration.Config, selected configuration.Runtime) []claudedesktop.Model {
+func claudeDesktopModels(cfg configuration.Config, selected configuration.Runtime) []Model {
 	routeIDs := claudeDesktopRouteIDs(cfg, selected)
-	models := []claudedesktop.Model{{Name: selected.Model, Label: selected.RouteLabel}}
+	models := []Model{{Name: selected.Model, Label: selected.RouteLabel}}
 	for _, routeID := range routeIDs[1:] {
-		models = append(models, claudedesktop.Model{Name: cfg.Routes[routeID].UpstreamModelID(), Label: cfg.RouteLabel(routeID)})
+		models = append(models, Model{Name: cfg.Routes[routeID].UpstreamModelID(), Label: cfg.RouteLabel(routeID)})
 	}
 	return models
 }

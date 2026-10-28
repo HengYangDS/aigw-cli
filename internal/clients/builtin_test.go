@@ -12,6 +12,7 @@ import (
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/secrets"
 )
 
 type fixedDiscoverer struct{ result discovery.Result }
@@ -175,5 +176,34 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 	}
 	if got := Registry().IDs(); !reflect.DeepEqual(got, baselineClientIDs) {
 		t.Fatalf("built-in registry changed: got %v, want %v", got, baselineClientIDs)
+	}
+}
+
+func TestRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
+	cfg := configuration.NewConfig()
+	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["claude"] = configuration.Route{
+		Account: "gateway", Model: "claude-test",
+		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+	}
+	store := secrets.NewMemoryStore()
+	if err := store.Set("gateway", "fixture-token"); err != nil {
+		t.Fatal(err)
+	}
+	deps := client.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
+
+	for _, clientID := range []string{configuration.ClientClaudeDesktop, configuration.ClientHermes} {
+		t.Run(clientID, func(t *testing.T) {
+			deferred := cfg.Clone()
+			deferred.SetSelectedRoute(clientID, "claude", "")
+			deferred.SetClientActivation(clientID, true, "", nil)
+			plans, err := Registry().Plan(deps, configuration.NewConfig(), deferred, clientID)
+			if err != nil {
+				t.Fatalf("Plan(%q) deferred binding: %v", clientID, err)
+			}
+			if len(plans) != 0 {
+				t.Fatalf("Plan(%q) deferred binding = %#v, want no projection", clientID, plans)
+			}
+		})
 	}
 }

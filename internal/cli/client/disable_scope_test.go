@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	claudedesktop "aigw-cli/internal/claude/desktop"
+	"aigw-cli/internal/client/claudedesktop"
 	configuration "aigw-cli/internal/configuration"
 )
 

@@ -1,4 +1,4 @@
-package client
+package claudedesktop
 
 import (
 	"encoding/json"
@@ -7,10 +7,12 @@ import (
 	"path/filepath"
 	goruntime "runtime"
 	"slices"
+	"strings"
 	"testing"
 
-	claudedesktop "aigw-cli/internal/claude/desktop"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
 )
@@ -18,9 +20,9 @@ import (
 type claudeDesktopFixture struct {
 	adapter claudeDesktopAdapter
 	cfg     configuration.Config
-	deps    Dependencies
+	deps    client.Dependencies
 	runtime configuration.Runtime
-	paths   claudedesktop.Paths
+	paths   Paths
 }
 
 func newClaudeDesktopFixture(t *testing.T) claudeDesktopFixture {
@@ -57,9 +59,9 @@ func newClaudeDesktopFixture(t *testing.T) claudeDesktopFixture {
 	return claudeDesktopFixture{
 		adapter: claudeDesktopAdapter{},
 		cfg:     cfg,
-		deps:    Dependencies{Secrets: store, AIGWExecutable: aigwExecutable},
+		deps:    client.Dependencies{Secrets: store, AIGWExecutable: aigwExecutable},
 		runtime: runtime,
-		paths:   claudedesktop.PathsForLibrary(library),
+		paths:   PathsForLibrary(library),
 	}
 }
 
@@ -105,7 +107,7 @@ func TestClaudeDesktopCatalogueDeduplicatesLogicalModelsButUsesWireNames(t *test
 }
 
 func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T) {
-	team, err := os.ReadFile(filepath.Join("..", "..", "manifests", "team.toml"))
+	team, err := os.ReadFile(filepath.Join("..", "..", "..", "manifests", "team.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +160,7 @@ func TestClaudeDesktopAdapterProjectsSelectedAccountCatalogue(t *testing.T) {
 		t.Fatal(err)
 	}
 	library := filepath.Dir(fixture.paths.Profile)
-	if len(plans) != 1 || plans[0].Client != configuration.ClientClaudeDesktop || plans[0].Target != library || plans[0].Action != string(claudedesktop.ActionProject) {
+	if len(plans) != 1 || plans[0].Client != configuration.ClientClaudeDesktop || plans[0].Target != library || plans[0].Action != string(ActionProject) {
 		t.Fatalf("plans = %#v", plans)
 	}
 	fixture.apply(t)
@@ -271,11 +273,87 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 	}
 	adapter := claudeDesktopAdapter{}
 	discovered := adapter.Discover(discovery.System{GOOS: goruntime.GOOS, Home: root, ClaudeDesktopApp: executable, ClaudeDesktopLibrary: library})
-	if err := adapter.Converge(Dependencies{Secrets: store}, &cfg, discovered); err != nil {
+	if err := adapter.Converge(client.Dependencies{Secrets: store}, &cfg, discovered); err != nil {
 		t.Fatal(err)
 	}
 	binding := cfg.Clients[configuration.ClientClaudeDesktop]
 	if binding.Executable != executable || !slices.Equal(binding.Targets, []string{library}) {
 		t.Fatalf("binding = %#v", binding)
 	}
+}
+
+func TestClaudeDesktopInspectionKeepsIntactRetainedVersionedReader(t *testing.T) {
+	retained, current := versionedReaders(t)
+	fixture := newClaudeDesktopFixture(t)
+	fixture.deps.AIGWExecutable = current
+	if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready || !strings.Contains(status.Issue, "projection differs") {
+		t.Fatalf("unsynchronized Claude Desktop projection = %#v", status)
+	}
+	fixture.deps.AIGWExecutable = retained
+	fixture.apply(t)
+	before, err := os.ReadFile(fixture.paths.Profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.deps.AIGWExecutable = current
+	if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); !status.Ready {
+		t.Fatalf("intact retained Claude Desktop reader was rejected: %s", status.Issue)
+	}
+	after, err := os.ReadFile(fixture.paths.Profile)
+	if err != nil || !slices.Equal(before, after) {
+		t.Fatalf("inspection changed Claude Desktop profile: %v", err)
+	}
+	if err := os.Remove(fixture.paths.Profile); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(fixture.paths.Profile, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready || strings.Contains(status.Issue, fixture.paths.Profile) {
+		t.Fatalf("Claude Desktop inspection exposed an unreadable profile: %#v", status)
+	}
+	if err := os.Remove(fixture.paths.Profile); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fixture.paths.Profile, before, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	changed := fixture.cfg.Clone()
+	account := changed.Accounts["gateway"]
+	account.Endpoints.Anthropic = "https://changed.test"
+	changed.Accounts["gateway"] = account
+	changedRuntime, err := changed.ResolveRuntime(configuration.ClientClaudeDesktop, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status := fixture.adapter.Inspect(t.Context(), fixture.deps, changed, changedRuntime); status.Ready {
+		t.Fatal("an endpoint change was mistaken for a retained-reader transition")
+	}
+	if err := os.RemoveAll(filepath.Dir(retained)); err != nil {
+		t.Fatal(err)
+	}
+	if status := fixture.adapter.Inspect(t.Context(), fixture.deps, fixture.cfg, fixture.runtime); status.Ready {
+		t.Fatal("missing retained Claude Desktop reader was accepted")
+	}
+}
+
+func versionedReaders(t *testing.T) (string, string) {
+	t.Helper()
+	root := t.TempDir()
+	paths := make([]string, 0, 2)
+	for _, version := range []string{"predecessor", "successor"} {
+		source := filepath.Join(root, version)
+		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := credential.EnsureEntrypoint(source, reader); err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, reader)
+	}
+	return paths[0], paths[1]
 }

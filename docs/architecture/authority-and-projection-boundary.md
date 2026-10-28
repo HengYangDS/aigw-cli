@@ -63,8 +63,8 @@ process.
 - **[Configuration](../../internal/configuration/):** Account, Route, recommendation, Client Binding, schema migration, and persistence
 - **[Secret storage](../../internal/secrets/):** Account credential backends, typed diagnostic credentials and replacement
 - **[Diagnostic contract](../../internal/providers/diagnostic/):** Optional provider-account diagnostic results
-- **[Codex integration](../../internal/codex/):** Projection planning and reconciliation
-- **[Claude integration](../../internal/claude/):** Settings projection, credential-safe process plans, and readiness
+- **[Codex integration](../../internal/client/codex/):** Projection planning and reconciliation
+- **[Claude integration](../../internal/client/claude/):** Settings projection, credential-safe process plans, and readiness
 - **[Endpoint authentication](../../internal/credential/):** Provider-neutral credential validation
 - **[Provider diagnostics](../../internal/providers/):** Optional provider-native diagnostics only
 - **[Client orchestration](../../internal/client/):** Admitted client discovery, projection, inspection, verification, compensation, and withdrawal
@@ -335,10 +335,10 @@ Repository-only executables follow the same ontology: [CI](../../tools/ci/),
 [coverage](../../tools/coverage/), [Forge operations](../../tools/forge/), and
 [releases](../../tools/release/) own cross-cutting repository concerns, while client-specific verification is nested
 under its client owner. [Codex catalogue verification](../../tools/codex/catalog/) owns catalogue acceptance,
-measurements and reporting. It consumes the same [catalogue projection](../../internal/codex/catalog/)
+measurements and reporting. It consumes the same [catalogue projection](../../internal/client/codex/catalog/)
 document transformation as product projection, not a second parser or alias
 builder. That document owner preserves all client metadata and adds only
-uniquely established aliases. [Codex integration](../../internal/codex/) owns isolated client reads,
+uniquely established aliases. [Codex integration](../../internal/client/codex/) owns isolated client reads,
 executable identity, projection state and transactional file ownership; it does
 not carry repository acceptance verdicts.
 

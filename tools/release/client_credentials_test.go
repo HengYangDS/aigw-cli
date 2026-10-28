@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	claudedesktop "aigw-cli/internal/claude/desktop"
+	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/platform"

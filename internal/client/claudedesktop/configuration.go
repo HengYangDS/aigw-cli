@@ -1,5 +1,5 @@
-// Package desktop owns AIGW's local Claude Desktop third-party profile.
-package desktop
+// Package claudedesktop owns AIGW's local Claude Desktop third-party profile.
+package claudedesktop
 
 import (
 	"bytes"

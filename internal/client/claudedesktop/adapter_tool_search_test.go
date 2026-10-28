@@ -1,4 +1,4 @@
-package client
+package claudedesktop
 
 import (
 	"encoding/json"
@@ -41,7 +41,7 @@ func TestClaudeDesktopToolSearchRequiresEveryExposedRoute(t *testing.T) {
 }
 
 func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.T) {
-	team, err := os.ReadFile(filepath.Join("..", "..", "manifests", "team.toml"))
+	team, err := os.ReadFile(filepath.Join("..", "..", "..", "manifests", "team.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}

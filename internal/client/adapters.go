@@ -2,9 +2,6 @@ package client
 
 import "aigw-cli/internal/discovery"
 
-// NewClaudeDesktopAdapter returns the Claude Desktop adapter for the composition root to register.
-func NewClaudeDesktopAdapter() Adapter { return claudeDesktopAdapter{} }
-
 // NewHermesAdapter returns the Hermes adapter for the composition root to register.
 func NewHermesAdapter() Adapter { return hermesAdapter{} }
 

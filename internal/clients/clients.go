@@ -4,6 +4,7 @@ package clients
 import (
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 )
@@ -24,7 +25,7 @@ func Registry() client.Registry {
 func adapters() []client.Adapter {
 	return []client.Adapter{
 		claude.New(),
-		client.NewClaudeDesktopAdapter(),
+		claudedesktop.New(),
 		codex.New(),
 		client.NewHermesAdapter(),
 	}

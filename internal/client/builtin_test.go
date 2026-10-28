@@ -5,7 +5,7 @@ import configuration "aigw-cli/internal/configuration"
 // builtinRegistry is the part of the built-in adapter set that this package
 // still owns; the complete set is the composition root's internal/clients.
 func builtinRegistry() Registry {
-	adapters := []Adapter{claudeDesktopAdapter{}, hermesAdapter{}}
+	adapters := []Adapter{hermesAdapter{}}
 	return mustRegistry(specsOf(adapters...), adapters...)
 }
 

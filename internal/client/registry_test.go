@@ -4,14 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/secrets"
 )
 
 type rollbackFunc func() error
@@ -343,34 +341,5 @@ func TestRegistryRejectsUnknownClientOperations(t *testing.T) {
 	assertUnknown("withdraw", registry.Withdraw(&cfg, "unknown"))
 	if len(adapter.calls) != 0 {
 		t.Fatalf("unknown client operations touched an adapter: %v", adapter.calls)
-	}
-}
-
-func TestDefaultRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
-	cfg := configuration.NewConfig()
-	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["claude"] = configuration.Route{
-		Account: "gateway", Model: "claude-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
-	}
-	store := secrets.NewMemoryStore()
-	if err := store.Set("gateway", "fixture-token"); err != nil {
-		t.Fatal(err)
-	}
-	deps := Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
-
-	for _, clientID := range []string{configuration.ClientClaudeDesktop, configuration.ClientHermes} {
-		t.Run(clientID, func(t *testing.T) {
-			deferred := cfg.Clone()
-			deferred.SetSelectedRoute(clientID, "claude", "")
-			deferred.SetClientActivation(clientID, true, "", nil)
-			plans, err := builtinRegistry().Plan(deps, configuration.NewConfig(), deferred, clientID)
-			if err != nil {
-				t.Fatalf("Plan(%q) deferred binding: %v", clientID, err)
-			}
-			if len(plans) != 0 {
-				t.Fatalf("Plan(%q) deferred binding = %#v, want no projection", clientID, plans)
-			}
-		})
 	}
 }

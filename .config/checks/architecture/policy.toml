@@ -17,7 +17,6 @@ go_roots = ["cmd", "internal", "tools"]
 package_children."cmd" = ["aigw"]
 package_children."internal" = [
   "activation",
-  "claude",
   "cli",
   "client",
   "clients",
@@ -49,9 +48,8 @@ package_children."tools" = [
   "gitfixture",
   "release",
 ]
-package_children."internal/claude" = ["desktop"]
 package_children."internal/client/codex" = ["catalog"]
-package_children."internal/client" = ["claude", "codex", "verification"]
+package_children."internal/client" = ["claude", "claudedesktop", "codex", "verification"]
 package_children."internal/hermes" = ["configuration"]
 allowed_import_edges."internal/hermes/configuration" = ["internal/transaction"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
@@ -97,6 +95,7 @@ allowed_import_edges."cmd/aigw" = [
 allowed_import_edges."internal/clients" = [
   "internal/client",
   "internal/client/claude",
+  "internal/client/claudedesktop",
   "internal/client/codex",
   "internal/configuration",
 ]
@@ -108,7 +107,6 @@ allowed_import_edges."internal/credential" = [
 ]
 allowed_import_edges."internal/configuration" = ["internal/transaction"]
 allowed_import_edges."internal/client" = [
-  "internal/claude/desktop",
   "internal/hermes/configuration",
   "internal/configuration",
   "internal/credential",
@@ -151,7 +149,6 @@ allowed_import_edges."internal/secrets" = [
   "internal/secrets/native",
 ]
 allowed_import_edges."internal/secrets/native" = ["internal/process"]
-allowed_import_edges."internal/claude/desktop" = ["internal/transaction"]
 allowed_import_edges."internal/providers" = [
   "internal/configuration",
   "internal/credential",
@@ -174,6 +171,13 @@ allowed_import_edges."internal/client/claude" = [
   "internal/credential",
   "internal/discovery",
   "internal/process",
+  "internal/surface",
+  "internal/transaction",
+]
+allowed_import_edges."internal/client/claudedesktop" = [
+  "internal/client",
+  "internal/configuration",
+  "internal/discovery",
   "internal/surface",
   "internal/transaction",
 ]
@@ -436,7 +440,6 @@ product_roots = ["cmd", "internal"]
 adapter_root = "internal/client"
 composition_roots = ["cmd/aigw", "internal/clients"]
 temporary_exceptions = [
-  "internal/claude/desktop",
   "internal/cli",
   "internal/cli/client",
   "internal/cli/doctor",

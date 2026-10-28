@@ -1,7 +1,7 @@
 package main
 
 import (
-	claudedesktop "aigw-cli/internal/claude/desktop"
+	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/platform"
