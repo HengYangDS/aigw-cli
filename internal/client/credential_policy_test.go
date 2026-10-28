@@ -45,7 +45,7 @@ func configuredClient(t *testing.T, id string) (configuration.Config, client.Dep
 		adapter.Targets = []string{target}
 	}
 	cfg.Clients[id] = adapter
-	deps := client.Dependencies{AIGWExecutable: filepath.Join(root, "aigw"), ClaudeSettingsPath: filepath.Join(root, "settings.json")}
+	deps := client.Dependencies{AIGWExecutable: filepath.Join(root, "aigw"), Host: discovery.Host{GOOS: runtime.GOOS, Home: root, Env: map[string]string{"HOME": root, "USERPROFILE": root}}}
 	discovered := discovery.Result{
 		Executables: map[string]string{id: executable},
 		Surfaces:    []discovery.Surface{{ID: "codex-home-default", Authority: "aigw", ConfigPath: target, AutoManaged: true}, {ID: "hermes-home-default", Authority: "aigw", ConfigPath: target}},

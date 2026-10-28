@@ -36,12 +36,13 @@ func TestClaudeVerificationBoundsClientProcesses(t *testing.T) {
 		t.Fatal(err)
 	}
 	claudeRunner := &captureAdapterRunner{err: errors.New("stop after deadline observation")}
-	settings := filepath.Join(t.TempDir(), "settings.json")
+	home := t.TempDir()
+	settings := filepath.Join(home, ".claude", "settings.json")
 	aigwExecutable := filepath.Join(t.TempDir(), "aigw")
 	if _, err := ReconcileSettings(settings, false, claudeRuntime, aigwExecutable, claudeRuntime.Model); err != nil {
 		t.Fatal(err)
 	}
-	_, _ = (claudeAdapter{}).Verify(context.Background(), client.Dependencies{Runner: claudeRunner, Secrets: secretStore, ClaudeSettingsPath: settings, AIGWExecutable: aigwExecutable}, claudeConfig, claudeRuntime, "")
+	_, _ = (claudeAdapter{}).Verify(context.Background(), client.Dependencies{Runner: claudeRunner, Secrets: secretStore, Host: hostAt(home), AIGWExecutable: aigwExecutable}, claudeConfig, claudeRuntime, "")
 	if len(claudeRunner.deadlines) != 1 || !claudeRunner.deadlines[0] {
 		t.Fatalf("Claude verification deadlines = %#v", claudeRunner.deadlines)
 	}
@@ -60,7 +61,7 @@ func TestClaudeVerificationRequiresTheSynchronizedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := &captureAdapterRunner{err: errors.New("client must not start")}
-	deps := client.Dependencies{Runner: runner, Secrets: store, ClaudeSettingsPath: filepath.Join(root, "settings.json"), AIGWExecutable: filepath.Join(root, "aigw")}
+	deps := client.Dependencies{Runner: runner, Secrets: store, Host: hostAt(root), AIGWExecutable: filepath.Join(root, "aigw")}
 	runtime := configuration.Runtime{AccountID: "gateway", RouteID: "claude", Model: "claude-model", Endpoint: "https://gateway.test"}
 	_, err := (claudeAdapter{}).Verify(context.Background(), deps, cfg, runtime, "")
 	if err == nil || !strings.Contains(err.Error(), "not synchronized") || runner.calls != 0 {
@@ -173,7 +174,7 @@ func TestFailedClaudeVerificationProjectionRemovesItsWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("TMPDIR", root)
 	_, workspace, err := isolateProjection(
-		configuration.NewConfig(), configuration.Runtime{}, client.Dependencies{ClaudeSettingsPath: root},
+		configuration.NewConfig(), configuration.Runtime{}, root,
 	)
 	if err == nil {
 		t.Fatal("directory source unexpectedly copied as Claude settings")
@@ -203,7 +204,7 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	settings := filepath.Join(root, "settings.json")
+	settings := filepath.Join(root, ".claude", "settings.json")
 	aigwExecutable := filepath.Join(root, "aigw")
 	if _, err := ReconcileSettings(settings, false, selected, aigwExecutable, selected.Model); err != nil {
 		t.Fatal(err)
@@ -222,7 +223,7 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testi
 	}
 	runner := &routeVerificationRunner{}
 	if _, err := (claudeAdapter{}).Verify(context.Background(), client.Dependencies{
-		Runner: runner, Secrets: store, ClaudeSettingsPath: settings, AIGWExecutable: aigwExecutable,
+		Runner: runner, Secrets: store, Host: hostAt(root), AIGWExecutable: aigwExecutable,
 	}, cfg, runtime, "alternate"); err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +251,11 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testi
 func TestClaudeVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing.T) {
 	for _, failure := range []string{"selected route", "retained reader"} {
 		t.Run(failure, func(t *testing.T) {
-			settings := filepath.Join(t.TempDir(), "settings.json")
+			home := t.TempDir()
+			settings := filepath.Join(home, ".claude", "settings.json")
+			if err := os.MkdirAll(filepath.Dir(settings), 0o700); err != nil {
+				t.Fatal(err)
+			}
 			if err := os.WriteFile(settings, nil, 0o600); err != nil {
 				t.Fatal(err)
 			}
@@ -272,7 +277,7 @@ func TestClaudeVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing
 				t.Fatal(err)
 			}
 			runner := &routeVerificationRunner{}
-			deps := client.Dependencies{Runner: runner, Secrets: store, ClaudeSettingsPath: settings}
+			deps := client.Dependencies{Runner: runner, Secrets: store, Host: hostAt(home)}
 			want := "unknown route"
 			if failure == "selected route" {
 				binding.Route = "missing"

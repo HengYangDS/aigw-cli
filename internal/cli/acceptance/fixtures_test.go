@@ -32,6 +32,22 @@ func readFile(t *testing.T, path string) []byte {
 	return data
 }
 
+// hostAt observes home as the user's home directory, so Claude Code's settings
+// file is home/.claude/settings.json.
+func hostAt(home string) discovery.Host {
+	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+}
+
+// claudeSettingsPath returns the Claude Code settings file on host.
+func claudeSettingsPath(t testing.TB, host discovery.Host) string {
+	t.Helper()
+	path, err := claude.SettingsPath(host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
 func writeFile(t *testing.T, path string, data []byte, mode os.FileMode) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -217,21 +233,21 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secrets.Store
 	runner := &fakeRunner{}
 	httpClient := &fakeHTTP{status: 200}
 	app := &cli.App{Clients: clients.Registry(),
-		Version:            "0.1.0-test",
-		Executable:         filepath.Join(t.TempDir(), "aigw"),
-		InstallTarget:      filepath.Join(t.TempDir(), "bin", "aigw"),
-		ClaudeSettingsPath: filepath.Join(t.TempDir(), ".claude", "settings.json"),
-		Config:             configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")),
-		Secrets:            secretStore,
-		Accounts:           diagnostics,
-		Env:                []string{},
-		In:                 strings.NewReader(stdin),
-		Out:                out,
-		Err:                out,
-		Interactive:        false,
-		Runner:             runner,
-		HTTP:               httpClient,
-		Discovery:          fakeDiscovery{},
+		Version:       "0.1.0-test",
+		Executable:    filepath.Join(t.TempDir(), "aigw"),
+		InstallTarget: filepath.Join(t.TempDir(), "bin", "aigw"),
+		Host:          hostAt(t.TempDir()),
+		Config:        configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")),
+		Secrets:       secretStore,
+		Accounts:      diagnostics,
+		Env:           []string{},
+		In:            strings.NewReader(stdin),
+		Out:           out,
+		Err:           out,
+		Interactive:   false,
+		Runner:        runner,
+		HTTP:          httpClient,
+		Discovery:     fakeDiscovery{},
 	}
 	return app, out, secretStore, runner, httpClient
 }
@@ -266,7 +282,7 @@ func synchronizeClaudeProjection(t *testing.T, app *cli.App, cfg configuration.C
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := claude.ReconcileSettings(app.ClaudeSettingsPath, false, runtime, app.Executable, runtime.Model); err != nil {
+	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, app.Host), false, runtime, app.Executable, runtime.Model); err != nil {
 		t.Fatal(err)
 	}
 }

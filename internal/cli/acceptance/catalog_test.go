@@ -54,7 +54,7 @@ func TestCatalogDiscoversSortedModelsWithoutWritingConfigOrLeakingToken(t *testi
 		t.Fatal(err)
 	}
 	clientState := []byte("user-owned client state\n")
-	writeFile(t, app.ClaudeSettingsPath, clientState, 0o600)
+	writeFile(t, claudeSettingsPath(t, app.Host), clientState, 0o600)
 	httpClient.handler = func(req *http.Request) (*http.Response, error) {
 		assertCatalogRequest(t, req, token)
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":[{"id":"z-model"},{"id":"gpt-5.6"}]}`)), Request: req}, nil
@@ -70,7 +70,7 @@ func TestCatalogDiscoversSortedModelsWithoutWritingConfigOrLeakingToken(t *testi
 	if string(before) != string(after) {
 		t.Fatalf("catalog changed config\nbefore:\n%s\nafter:\n%s", before, after)
 	}
-	if got := readFile(t, app.ClaudeSettingsPath); string(got) != string(clientState) {
+	if got := readFile(t, claudeSettingsPath(t, app.Host)); string(got) != string(clientState) {
 		t.Fatalf("catalog changed client state: %q", got)
 	}
 	if len(runner.plans) != 0 {

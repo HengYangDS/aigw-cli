@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
@@ -20,6 +21,22 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+// hostAt observes home as the user's home directory, so Claude Code's settings
+// file is home/.claude/settings.json.
+func hostAt(home string) discovery.Host {
+	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+}
+
+// claudeSettingsPath returns the Claude Code settings file on host.
+func claudeSettingsPath(t testing.TB, host discovery.Host) string {
+	t.Helper()
+	path, err := claude.SettingsPath(host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
 
 func executeDoctorCommand(command *cobra.Command) error {
 	command.SilenceErrors = true
@@ -211,7 +228,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	}
 	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
 	deps, _, _ = doctorDependencies(t, cfg)
-	deps.Clients.ClaudeSettingsPath = filepath.Join(t.TempDir(), "settings.json")
+	deps.Clients.Host = hostAt(t.TempDir())
 	deps.Clients.AIGWExecutable = filepath.Join(t.TempDir(), "aigw")
 	checks = Collect(context.Background(), deps)
 	if check := findCheck(t, checks, "adapter:claude"); check.OK || !strings.Contains(check.Detail, "not synchronized") {
@@ -221,7 +238,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := claude.ReconcileSettings(deps.Clients.ClaudeSettingsPath, false, clientRuntime, deps.Clients.AIGWExecutable, clientRuntime.Model); err != nil {
+	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, deps.Clients.Host), false, clientRuntime, deps.Clients.AIGWExecutable, clientRuntime.Model); err != nil {
 		t.Fatal(err)
 	}
 	checks = Collect(context.Background(), deps)
@@ -229,7 +246,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 		t.Fatalf("adapter check = %#v", check)
 	}
 
-	data, err := os.ReadFile(deps.Clients.ClaudeSettingsPath)
+	data, err := os.ReadFile(claudeSettingsPath(t, deps.Clients.Host))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +256,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	}
 	document["model"] = json.RawMessage(`"opus[1m]"`)
 	data, _ = json.MarshalIndent(document, "", "  ")
-	if err := os.WriteFile(deps.Clients.ClaudeSettingsPath, append(data, '\n'), 0o600); err != nil {
+	if err := os.WriteFile(claudeSettingsPath(t, deps.Clients.Host), append(data, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	checks = Collect(context.Background(), deps)

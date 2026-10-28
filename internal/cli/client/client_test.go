@@ -6,10 +6,12 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -21,6 +23,22 @@ import (
 )
 
 type adapterDiscovery struct{ result discovery.Result }
+
+// hostAt observes home as the user's home directory, so Claude Code's settings
+// file is home/.claude/settings.json.
+func hostAt(home string) discovery.Host {
+	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+}
+
+// claudeSettingsPath returns the Claude Code settings file on host.
+func claudeSettingsPath(t testing.TB, host discovery.Host) string {
+	t.Helper()
+	path, err := claude.SettingsPath(host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
 
 func (d adapterDiscovery) Discover() discovery.Result { return d.result }
 
@@ -65,14 +83,14 @@ func adapterRuntime(t *testing.T, cfg configuration.Config) (invocation.Context,
 	secretStore := secrets.NewMemoryStore()
 	runner := &adapterRunner{}
 	return invocation.Context{Clients: clients.Registry(),
-		Executable:         filepath.Join(t.TempDir(), "aigw"),
-		Config:             store,
-		ClaudeSettingsPath: filepath.Join(t.TempDir(), ".claude", "settings.json"),
-		Secrets:            secretStore,
-		Out:                out,
-		RenderOut:          out,
-		Runner:             runner,
-		Discovery:          adapterDiscovery{},
+		Executable: filepath.Join(t.TempDir(), "aigw"),
+		Config:     store,
+		Host:       hostAt(t.TempDir()),
+		Secrets:    secretStore,
+		Out:        out,
+		RenderOut:  out,
+		Runner:     runner,
+		Discovery:  adapterDiscovery{},
 	}, out, secretStore, runner
 }
 
@@ -336,10 +354,10 @@ func TestDisableHandlesUnknownAndAlreadyDisabledClients(t *testing.T) {
 func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	cfg := adapterConfig()
 	runtime, out, secretStore, _ := adapterRuntime(t, cfg)
-	if err := os.MkdirAll(filepath.Dir(runtime.ClaudeSettingsPath), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(claudeSettingsPath(t, runtime.Host)), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(runtime.ClaudeSettingsPath, []byte("{\n  \"theme\": \"dark\"\n}\n"), 0o600); err != nil {
+	if err := os.WriteFile(claudeSettingsPath(t, runtime.Host), []byte("{\n  \"theme\": \"dark\"\n}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := secretStore.Set("gateway", "token"); err != nil {
@@ -371,14 +389,14 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	if token, err := secretStore.Get("gateway"); err != nil || token != "token" {
 		t.Fatalf("credential = %q, %v; want preserved", token, err)
 	}
-	settings, err := os.ReadFile(runtime.ClaudeSettingsPath)
+	settings, err := os.ReadFile(claudeSettingsPath(t, runtime.Host))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(settings), `"theme": "dark"`) || strings.Contains(string(settings), "apiKeyHelper") || strings.Contains(string(settings), "ANTHROPIC_BASE_URL") {
 		t.Fatalf("restored Claude settings = %s", settings)
 	}
-	for _, path := range []string{runtime.ClaudeSettingsPath + ".aigw-state.json", runtime.Config.Path() + ".verified.json"} {
+	for _, path := range []string{claudeSettingsPath(t, runtime.Host) + ".aigw-state.json", runtime.Config.Path() + ".verified.json"} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatalf("retired AIGW state remains at %s: %v", path, err)
 		}

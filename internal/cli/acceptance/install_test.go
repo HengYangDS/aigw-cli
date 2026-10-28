@@ -253,7 +253,7 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	codexTarget := filepath.Join(root, "codex", "config.toml")
 	codexUserState := "approval_policy = \"on-request\"\n"
 	writeFile(t, codexTarget, []byte(codexUserState), 0o600)
-	writeFile(t, app.ClaudeSettingsPath, []byte("{\n  \"theme\": \"dark\"\n}\n"), 0o600)
+	writeFile(t, claudeSettingsPath(t, app.Host), []byte("{\n  \"theme\": \"dark\"\n}\n"), 0o600)
 	foreign := filepath.Join(root, "neighboring-user-state")
 	writeFile(t, foreign, []byte("preserve"), 0o600)
 
@@ -270,7 +270,7 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	removedPaths := []string{
 		codexTarget + ".aigw-state.json",
 		codexTarget + ".aigw-model-catalog.json",
-		app.ClaudeSettingsPath + ".aigw-state.json",
+		claudeSettingsPath(t, app.Host) + ".aigw-state.json",
 		app.Config.Path() + ".verified.json",
 	}
 	if manager == "portable" {
@@ -280,7 +280,7 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	if data, err := os.ReadFile(codexTarget); err != nil || string(data) != codexUserState {
 		t.Fatalf("Codex user state = %q, %v", data, err)
 	}
-	claudeData := readFile(t, app.ClaudeSettingsPath)
+	claudeData := readFile(t, claudeSettingsPath(t, app.Host))
 	var claudeSettings map[string]any
 	if err := json.Unmarshal(claudeData, &claudeSettings); err != nil {
 		t.Fatal(err)

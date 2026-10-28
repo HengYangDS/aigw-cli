@@ -176,7 +176,7 @@ func TestProjectionPlanningValidatesEnabledClients(t *testing.T) {
 
 func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	dir := t.TempDir()
-	settingsPath := filepath.Join(dir, "settings.json")
+	settingsPath := filepath.Join(dir, ".claude", "settings.json")
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	before.Routes["claude"] = configuration.Route{Label: "Claude", Account: "gateway", Model: "claude-team", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
@@ -187,7 +187,7 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: staticDiscovery{}, ClaudeSettingsPath: settingsPath, AIGWExecutable: filepath.Join(dir, "aigw")}
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: staticDiscovery{}, Host: hostAt(dir), AIGWExecutable: filepath.Join(dir, "aigw")}
 
 	plans, err := syncer.Plan(before, after)
 	if err != nil || len(plans) != 1 || plans[0].Client != configuration.ClientClaude || plans[0].Target != settingsPath || plans[0].Action != "project" {
@@ -207,7 +207,7 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 
 func TestCommitProjectionPreservesClaudeModelAcrossHelperChange(t *testing.T) {
 	root := t.TempDir()
-	settings := filepath.Join(root, "settings.json")
+	settings := filepath.Join(root, ".claude", "settings.json")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "gateway", Model: "claude-opus-5-5", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
@@ -215,7 +215,7 @@ func TestCommitProjectionPreservesClaudeModelAcrossHelperChange(t *testing.T) {
 	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 	syncer := Synchronizer{Registry: builtinClients,
 		Config:    configuration.NewStore(filepath.Join(root, "aigw.toml")),
-		Discovery: staticDiscovery{}, ClaudeSettingsPath: settings,
+		Discovery: staticDiscovery{}, Host: hostAt(root),
 		AIGWExecutable: filepath.Join(root, "old-aigw"),
 	}
 	if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), cfg, "initial Claude projection"); err != nil {
@@ -267,12 +267,12 @@ func TestPlanReportsClaudePlanningFailures(t *testing.T) {
 	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}}).Plan(before, after); err == nil || !strings.Contains(err.Error(), "settings path") {
 		t.Fatalf("missing settings path error = %v", err)
 	}
-	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}, ClaudeSettingsPath: "/settings"}).Plan(before, after); err == nil || !strings.Contains(err.Error(), "executable path") {
+	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}, Host: hostAt(t.TempDir())}).Plan(before, after); err == nil || !strings.Contains(err.Error(), "executable path") {
 		t.Fatalf("missing AIGW executable error = %v", err)
 	}
 	invalid := after.Clone()
 	delete(invalid.Routes, "claude")
-	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}, ClaudeSettingsPath: "/settings", AIGWExecutable: "/aigw"}).Plan(before, invalid); err == nil {
+	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}, Host: hostAt(t.TempDir()), AIGWExecutable: "/aigw"}).Plan(before, invalid); err == nil {
 		t.Fatal("invalid enabled Claude runtime was accepted")
 	}
 }
@@ -283,7 +283,7 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 			root := t.TempDir()
 			targets := map[string]string{
 				configuration.ClientCodex:  filepath.Join(root, "codex.toml"),
-				configuration.ClientClaude: filepath.Join(root, "claude.json"),
+				configuration.ClientClaude: filepath.Join(root, ".claude", "settings.json"),
 			}
 			before := testConfig(targets[configuration.ClientCodex])
 			account := before.Accounts["gateway"]
@@ -293,7 +293,7 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 			before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 			before.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 			store := configuration.NewStore(filepath.Join(root, "aigw.toml"))
-			syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(targets[configuration.ClientCodex]), ClaudeSettingsPath: targets[configuration.ClientClaude], AIGWExecutable: filepath.Join(root, "aigw")}
+			syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(targets[configuration.ClientCodex]), Host: hostAt(root), AIGWExecutable: filepath.Join(root, "aigw")}
 			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), before, "initial projection"); err != nil {
 				t.Fatal(err)
 			}

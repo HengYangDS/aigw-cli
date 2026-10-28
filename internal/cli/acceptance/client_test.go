@@ -264,7 +264,7 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 	root := t.TempDir()
 	target := filepath.Join(root, "config.toml")
 	writeFile(t, target, []byte("model_provider = \"native\"\nforeign = true\n"), 0o600)
-	writeFile(t, app.ClaudeSettingsPath, []byte(`{"theme":"dark","env":{"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS":"1"}}`), 0o600)
+	writeFile(t, claudeSettingsPath(t, app.Host), []byte(`{"theme":"dark","env":{"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS":"1"}}`), 0o600)
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
@@ -306,19 +306,19 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 		t.Fatal(err)
 	}
 	beforeCodex := readFile(t, target)
-	beforeClaude := readFile(t, app.ClaudeSettingsPath)
+	beforeClaude := readFile(t, claudeSettingsPath(t, app.Host))
 	beforeConfig := readFile(t, app.Config.Path())
 	if err := cli.Execute(app, []string{"sync", "--dry-run", "--json"}); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(beforeCodex, readFile(t, target)) || !bytes.Equal(beforeClaude, readFile(t, app.ClaudeSettingsPath)) || !bytes.Equal(beforeConfig, readFile(t, app.Config.Path())) {
+	if !bytes.Equal(beforeCodex, readFile(t, target)) || !bytes.Equal(beforeClaude, readFile(t, claudeSettingsPath(t, app.Host))) || !bytes.Equal(beforeConfig, readFile(t, app.Config.Path())) {
 		t.Fatal("dry-run wrote configuration")
 	}
 	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
 	projectedCodex := readFile(t, target)
-	projectedClaude := readFile(t, app.ClaudeSettingsPath)
+	projectedClaude := readFile(t, claudeSettingsPath(t, app.Host))
 	if !strings.Contains(string(projectedCodex), "credential adapter") || !strings.Contains(string(projectedClaude), "credential adapter") {
 		t.Fatal("native projection omitted explicit command")
 	}
@@ -326,7 +326,7 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(projectedCodex, readFile(t, target)) || !bytes.Equal(projectedClaude, readFile(t, app.ClaudeSettingsPath)) {
+	if !bytes.Equal(projectedCodex, readFile(t, target)) || !bytes.Equal(projectedClaude, readFile(t, claudeSettingsPath(t, app.Host))) {
 		t.Fatal("AIGW executable update replaced explicit helper")
 	}
 	assertCredentialPolicyDisableReenable(t, app, root, target, command)
@@ -394,7 +394,7 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 		t.Fatal(err)
 	}
 	beforeConfig := readFile(t, app.Config.Path())
-	beforeSettings := readFile(t, app.ClaudeSettingsPath)
+	beforeSettings := readFile(t, claudeSettingsPath(t, app.Host))
 	app.Secrets = nil
 	if err := cli.Execute(app, []string{"verify", "--for", "claude"}); err != nil {
 		t.Fatal(err)
@@ -402,7 +402,7 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 	if len(runner.plans) != 1 || runner.plans[0].Executable != cfg.Clients[configuration.ClientClaude].Executable {
 		t.Fatal("verification did not use the sole native client plan")
 	}
-	if !bytes.Equal(beforeConfig, readFile(t, app.Config.Path())) || !bytes.Equal(beforeSettings, readFile(t, app.ClaudeSettingsPath)) {
+	if !bytes.Equal(beforeConfig, readFile(t, app.Config.Path())) || !bytes.Equal(beforeSettings, readFile(t, claudeSettingsPath(t, app.Host))) {
 		t.Fatal("verification mutated configuration")
 	}
 	out.Reset()

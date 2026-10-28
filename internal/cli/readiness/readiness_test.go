@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/discovery"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 	"bytes"
@@ -26,6 +27,22 @@ import (
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
+
+// hostAt observes home as the user's home directory, so Claude Code's settings
+// file is home/.claude/settings.json.
+func hostAt(home string) discovery.Host {
+	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+}
+
+// claudeSettingsPath returns the Claude Code settings file on host.
+func claudeSettingsPath(t testing.TB, host discovery.Host) string {
+	t.Helper()
+	path, err := claude.SettingsPath(host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
 
 func (fn roundTripFunc) Do(request *http.Request) (*http.Response, error) { return fn(request) }
 
@@ -151,7 +168,7 @@ func configureClaudeExecutable(t *testing.T, runtime *invocation.Context, cfg *c
 		t.Fatal(err)
 	}
 	runtime.Executable = filepath.Join(root, "aigw")
-	runtime.ClaudeSettingsPath = filepath.Join(root, "settings.json")
+	runtime.Host = hostAt(root)
 	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
 }
 
@@ -161,7 +178,7 @@ func synchronizeClaudeSettings(t *testing.T, runtime invocation.Context, cfg con
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := claude.ReconcileSettings(runtime.ClaudeSettingsPath, false, clientRuntime, runtime.Executable, clientRuntime.Model); err != nil {
+	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, runtime.Host), false, clientRuntime, runtime.Executable, clientRuntime.Model); err != nil {
 		t.Fatal(err)
 	}
 }

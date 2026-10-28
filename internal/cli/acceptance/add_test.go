@@ -24,7 +24,7 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			}
 			cfg := configuration.NewConfig()
 			cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{Anthropic: "https://old.test", OpenAIResponses: "https://old.test/v1"}}
-			paths := map[string]string{configuration.ClientCodex: target, configuration.ClientClaude: app.ClaudeSettingsPath}
+			paths := map[string]string{configuration.ClientCodex: target, configuration.ClientClaude: claudeSettingsPath(t, app.Host)}
 			for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 				protocol := configuration.ProtocolOpenAIResponses
 				if id == configuration.ClientClaude {
@@ -105,7 +105,7 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	foreign := []byte(`{"apiKeyHelper":"user-owned-helper"}`)
-	if err := os.WriteFile(app.ClaudeSettingsPath, foreign, 0o600); err != nil {
+	if err := os.WriteFile(claudeSettingsPath(t, app.Host), foreign, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	before, err := app.Config.CaptureSnapshot()
@@ -120,7 +120,7 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 	if err != nil || !before.Config.Equal(after.Config) || !before.Backup.Equal(after.Backup) || !before.Verified.Equal(after.Verified) {
 		t.Fatalf("failed creation changed configuration: %v", err)
 	}
-	if secretExists(t, credentials, "new") || !bytes.Equal(readFile(t, app.ClaudeSettingsPath), foreign) {
+	if secretExists(t, credentials, "new") || !bytes.Equal(readFile(t, claudeSettingsPath(t, app.Host)), foreign) {
 		t.Fatal("failed creation retained its Token or overwrote client edits")
 	}
 }

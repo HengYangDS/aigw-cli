@@ -32,6 +32,12 @@ type scriptedSecretStore struct {
 	existsCalls int
 }
 
+// hostAt observes home as the user's home directory, so Claude Code's settings
+// file is home/.claude/settings.json.
+func hostAt(home string) discovery.Host {
+	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+}
+
 func (store *scriptedSecretStore) Get(name string) (string, error) {
 	store.getCalls++
 	if store.onGet != nil {
@@ -513,11 +519,11 @@ func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := invocation.Context{Clients: clients.Registry(),
-		Executable:         filepath.Join(t.TempDir(), "aigw"),
-		Config:             store,
-		Secrets:            secretStore,
-		Discovery:          setupDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}},
-		ClaudeSettingsPath: filepath.Join(t.TempDir(), ".claude", "settings.json"),
+		Executable: filepath.Join(t.TempDir(), "aigw"),
+		Config:     store,
+		Secrets:    secretStore,
+		Discovery:  setupDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}},
+		Host:       hostAt(t.TempDir()),
 		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
 		}),

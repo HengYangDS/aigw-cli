@@ -109,8 +109,10 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
 - Each adapter moves to `internal/client/<name>`. The package name is the
   client ID without hyphens: `claude`, `claudedesktop`, `codex`, `hermes`.
 - Each adapter owns its native paths and discovery. `DiscoverySource`
-  shrinks to client-neutral lookups (an executable by name, a file's
-  presence, the user's home), and `Dependencies` loses `ClaudeSettingsPath`.
+  shrinks to client-neutral lookups (an executable by name or path, a file's
+  presence, and the observed platform: operating system, the user's home and
+  the environment), and `Dependencies` replaces `ClaudeSettingsPath` with that
+  observed platform.
 - The descriptor stays `ClientSpec`, moves to `domain` and is returned by each
   adapter's `Spec()`. The admitted list is the composition root's ordered
   registration, not a list in `configuration`.

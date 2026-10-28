@@ -139,7 +139,7 @@ func TestUseForClaudeLeavesUnselectedCodexDriftUntouched(t *testing.T) {
 	if after := readFile(t, target+".aigw-state.json"); !bytes.Equal(after, codexState) {
 		t.Fatal("Claude selection rewrote the independent Codex projection state")
 	}
-	if projected := readFile(t, app.ClaudeSettingsPath); !bytes.Contains(projected, []byte("claude-sonnet")) {
+	if projected := readFile(t, claudeSettingsPath(t, app.Host)); !bytes.Contains(projected, []byte("claude-sonnet")) {
 		t.Fatal("Claude selection did not update its own projection")
 	}
 }
@@ -172,9 +172,9 @@ func TestUseForCodexLeavesUnselectedClaudeDriftUntouched(t *testing.T) {
 	if err := os.WriteFile(target, []byte(codexProjection), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	state := readFile(t, app.ClaudeSettingsPath+".aigw-state.json")
+	state := readFile(t, claudeSettingsPath(t, app.Host)+".aigw-state.json")
 	foreign := []byte(`{"apiKeyHelper":"user-owned-helper"}`)
-	if err := os.WriteFile(app.ClaudeSettingsPath, foreign, 0o600); err != nil {
+	if err := os.WriteFile(claudeSettingsPath(t, app.Host), foreign, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := cli.Execute(app, []string{"use", "--for", "codex", "two"}); err != nil {
@@ -184,7 +184,7 @@ func TestUseForCodexLeavesUnselectedClaudeDriftUntouched(t *testing.T) {
 	if err != nil || after.SelectedRoute(configuration.ClientCodex) != "two" || after.SelectedRoute(configuration.ClientClaude) != "claude" {
 		t.Fatalf("client-scoped selection = %#v, %v", after.Clients, err)
 	}
-	if !bytes.Equal(readFile(t, app.ClaudeSettingsPath), foreign) || !bytes.Equal(readFile(t, app.ClaudeSettingsPath+".aigw-state.json"), state) {
+	if !bytes.Equal(readFile(t, claudeSettingsPath(t, app.Host)), foreign) || !bytes.Equal(readFile(t, claudeSettingsPath(t, app.Host)+".aigw-state.json"), state) {
 		t.Fatal("Codex selection changed unselected Claude files")
 	}
 	if projected := readFile(t, target); !bytes.Contains(projected, []byte("model-two")) {
@@ -224,11 +224,11 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 	if err := cli.Execute(app, []string{"use", "--for", "claude", "claude"}); err != nil {
 		t.Fatalf("select Claude route: %v", err)
 	}
-	claudeProjection, err := os.ReadFile(app.ClaudeSettingsPath)
+	claudeProjection, err := os.ReadFile(claudeSettingsPath(t, app.Host))
 	if err != nil {
 		t.Fatalf("read Claude projection: %v", err)
 	}
-	claudeState, err := os.ReadFile(app.ClaudeSettingsPath + ".aigw-state.json")
+	claudeState, err := os.ReadFile(claudeSettingsPath(t, app.Host) + ".aigw-state.json")
 	if err != nil {
 		t.Fatalf("read Claude projection state: %v", err)
 	}
@@ -236,14 +236,14 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 	if err := cli.Execute(app, []string{"use", "--for", "codex", "codex"}); err != nil {
 		t.Fatalf("select Codex route: %v", err)
 	}
-	claudeAfterCodex, err := os.ReadFile(app.ClaudeSettingsPath)
+	claudeAfterCodex, err := os.ReadFile(claudeSettingsPath(t, app.Host))
 	if err != nil {
 		t.Fatalf("read Claude projection after Codex selection: %v", err)
 	}
 	if !bytes.Equal(claudeAfterCodex, claudeProjection) {
 		t.Fatal("Codex selection rewrote the independent Claude projection")
 	}
-	if after := readFile(t, app.ClaudeSettingsPath+".aigw-state.json"); !bytes.Equal(after, claudeState) {
+	if after := readFile(t, claudeSettingsPath(t, app.Host)+".aigw-state.json"); !bytes.Equal(after, claudeState) {
 		t.Fatal("Codex selection rewrote the independent Claude projection state")
 	}
 	selected, err := app.Config.Load()
@@ -302,8 +302,8 @@ func TestRepeatedUseOfActiveRouteDoesNotRewriteOwnedState(t *testing.T) {
 		app.Config.Path(),
 		app.Config.Path() + ".bak",
 		app.Config.Path() + ".verified.json",
-		app.ClaudeSettingsPath,
-		app.ClaudeSettingsPath + ".aigw-state.json",
+		claudeSettingsPath(t, app.Host),
+		claudeSettingsPath(t, app.Host) + ".aigw-state.json",
 	}
 	type fileState struct {
 		info os.FileInfo
@@ -386,7 +386,7 @@ func TestUseActivatesClaudeInstalledAfterManifestSetup(t *testing.T) {
 	if !adapter.Enabled || adapter.Executable != claudeExecutable {
 		t.Fatalf("Claude adapter after use = %#v", adapter)
 	}
-	settings, err := os.ReadFile(app.ClaudeSettingsPath)
+	settings, err := os.ReadFile(claudeSettingsPath(t, app.Host))
 	if err != nil {
 		t.Fatalf("read Claude projection: %v", err)
 	}

@@ -4,11 +4,13 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
 )
 
@@ -45,10 +47,11 @@ func TestClaudeAdapterApplyValidatesIntentAndRestoresObservedPreimage(t *testing
 		t.Fatalf("Apply() error = %v", err)
 	}
 
-	settingsPath := filepath.Join(t.TempDir(), "settings.json")
+	home := t.TempDir()
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
 	receipt, err := (claudeAdapter{}).Apply(context.Background(), client.Dependencies{
-		ClaudeSettingsPath: settingsPath,
-		AIGWExecutable:     filepath.Join(t.TempDir(), "aigw"),
+		Host:           hostAt(home),
+		AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
 	}, enabledWithoutRoute, configured)
 	if err != nil {
 		t.Fatal(err)
@@ -61,6 +64,12 @@ func TestClaudeAdapterApplyValidatesIntentAndRestoresObservedPreimage(t *testing
 			t.Fatalf("projection artifact remains after rollback: %s: %v", path, err)
 		}
 	}
+}
+
+// hostAt observes home as the user's home directory, so Claude Code's settings
+// file is home/.claude/settings.json.
+func hostAt(home string) discovery.Host {
+	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
 }
 
 func qualifiedRoute(label, account, model string, protocols ...configuration.EndpointProtocol) configuration.Route {

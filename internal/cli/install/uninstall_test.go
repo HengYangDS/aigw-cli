@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -12,7 +13,14 @@ import (
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/discovery"
 )
+
+// hostAt observes home as the user's home directory, so Claude Code's settings
+// file is home/.claude/settings.json.
+func hostAt(home string) discovery.Host {
+	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+}
 
 func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing.T) {
 	root := t.TempDir()
@@ -87,14 +95,14 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
-		blockedSettings := filepath.Join(root, "blocked-settings")
-		if err := os.Mkdir(blockedSettings, 0o700); err != nil {
+		blockedHome := filepath.Join(root, "blocked")
+		if err := os.MkdirAll(filepath.Join(blockedHome, ".claude", "settings.json"), 0o700); err != nil {
 			t.Fatal(err)
 		}
 		command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),
-			Executable:         target,
-			Config:             store,
-			ClaudeSettingsPath: blockedSettings,
+			Executable: target,
+			Config:     store,
+			Host:       hostAt(blockedHome),
 		})
 		command.SetArgs(nil)
 		if err := command.Execute(); err == nil {

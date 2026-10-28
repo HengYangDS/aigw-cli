@@ -277,7 +277,7 @@ func TestCheckPreservesClaudeNativeOverrideAndUsesEndpointScope(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	original, err := os.ReadFile(runtime.ClaudeSettingsPath)
+	original, err := os.ReadFile(claudeSettingsPath(t, runtime.Host))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,10 +288,10 @@ func TestCheckPreservesClaudeNativeOverrideAndUsesEndpointScope(t *testing.T) {
 	document["model"] = json.RawMessage(`"opus[1m]"`)
 	changed, _ := json.MarshalIndent(document, "", "  ")
 	changed = append(changed, '\n')
-	if err := os.WriteFile(runtime.ClaudeSettingsPath, changed, 0o600); err != nil {
+	if err := os.WriteFile(claudeSettingsPath(t, runtime.Host), changed, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	sidecarPath := runtime.ClaudeSettingsPath + ".aigw-state.json"
+	sidecarPath := claudeSettingsPath(t, runtime.Host) + ".aigw-state.json"
 	beforeSidecar, err := os.ReadFile(sidecarPath)
 	if err != nil {
 		t.Fatal(err)
@@ -321,7 +321,7 @@ func TestCheckPreservesClaudeNativeOverrideAndUsesEndpointScope(t *testing.T) {
 		observed.NextAction != "aigw verify --for claude" {
 		t.Fatalf("calls=%d client=%+v", calls, observed)
 	}
-	afterSettings, _ := os.ReadFile(runtime.ClaudeSettingsPath)
+	afterSettings, _ := os.ReadFile(claudeSettingsPath(t, runtime.Host))
 	afterSidecar, _ := os.ReadFile(sidecarPath)
 	if !bytes.Equal(changed, afterSettings) || !bytes.Equal(beforeSidecar, afterSidecar) {
 		t.Fatal("check changed Claude settings or sidecar")

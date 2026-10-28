@@ -85,7 +85,7 @@ func TestDryRunUsesOneResolvedReaderWithoutWriting(t *testing.T) {
 			if err := tokens.Set("one", "synthetic-fixture"); err != nil {
 				t.Fatal(err)
 			}
-			runtime := invocation.Context{Clients: clients.Registry(), Config: store, Executable: source, Secrets: tokens, Out: out, Discovery: staticDiscovery{}, ClaudeSettingsPath: filepath.Join(root, "settings.json"), ResolveCredentialPath: sync.OnceValues(func() (string, error) {
+			runtime := invocation.Context{Clients: clients.Registry(), Config: store, Executable: source, Secrets: tokens, Out: out, Discovery: staticDiscovery{}, Host: hostAt(root), ResolveCredentialPath: sync.OnceValues(func() (string, error) {
 				calls++
 				return reader, nil
 			})}
@@ -136,7 +136,7 @@ func TestSyncMetadataObservationScopeExpiresWithCommand(t *testing.T) {
 	})
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Config: store, Executable: source, Secrets: tokens, Out: &bytes.Buffer{}, Discovery: staticDiscovery{},
-		ClaudeSettingsPath: filepath.Join(root, "settings.json"), CredentialPath: reader,
+		Host: hostAt(root), CredentialPath: reader,
 	}
 	cmd := NewSyncCommand(runtime)
 	cmd.SilenceErrors, cmd.SilenceUsage = true, true

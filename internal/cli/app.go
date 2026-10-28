@@ -60,7 +60,7 @@ type App struct {
 	ResolveProgram        func() (credential.Program, error)
 	Files                 credential.Files
 	InstallTarget         string
-	ClaudeSettingsPath    string
+	Host                  discovery.Host
 	Config                configuration.Store
 	Secrets               secrets.Store
 	Accounts              secrets.DiagnosticCredentialStore
@@ -226,28 +226,28 @@ func NewDefault(clients client.Registry) (*App, error) {
 	}
 	host := discovery.Current()
 	app := &App{
-		GOOS:               runtime.GOOS,
-		DataDir:            paths.Data,
-		Now:                time.Now,
-		Version:            Version,
-		Executable:         executable,
-		InstallTarget:      filepath.Join(paths.InstallDir, paths.InstallName),
-		ClaudeSettingsPath: paths.ClaudeSettings,
-		Config:             configuration.NewStore(paths.Config),
-		Secrets:            secretStore,
-		Accounts:           diagnosticCredentialStore,
-		Env:                os.Environ(),
-		In:                 os.Stdin,
-		Out:                os.Stdout,
-		Err:                os.Stderr,
-		Interactive:        presentation.Interactive(os.Stdin),
-		Color:              presentation.ColorEnabled(runtime.GOOS, env, presentation.Interactive(os.Stdout), presentation.EnableVirtualTerminal),
-		Runner:             process.Runner{},
-		HTTP:               &http.Client{},
-		Prompt:             prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
-		Discovery:          client.NewDiscoverer(clients, host),
-		Clients:            clients,
-		Updater:            upgrade.Current(executable),
+		GOOS:          runtime.GOOS,
+		DataDir:       paths.Data,
+		Now:           time.Now,
+		Version:       Version,
+		Executable:    executable,
+		InstallTarget: filepath.Join(paths.InstallDir, paths.InstallName),
+		Host:          host.Platform(),
+		Config:        configuration.NewStore(paths.Config),
+		Secrets:       secretStore,
+		Accounts:      diagnosticCredentialStore,
+		Env:           os.Environ(),
+		In:            os.Stdin,
+		Out:           os.Stdout,
+		Err:           os.Stderr,
+		Interactive:   presentation.Interactive(os.Stdin),
+		Color:         presentation.ColorEnabled(runtime.GOOS, env, presentation.Interactive(os.Stdout), presentation.EnableVirtualTerminal),
+		Runner:        process.Runner{},
+		HTTP:          &http.Client{},
+		Prompt:        prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
+		Discovery:     client.NewDiscoverer(clients, host),
+		Clients:       clients,
+		Updater:       upgrade.Current(executable),
 	}
 	app.UseExecutableIdentity(nil, paths.InstallName)
 	return app, nil
@@ -309,7 +309,7 @@ func (a *App) invocationContext() invocation.Context {
 		ResolveCredentialPath: a.ResolveCredentialPath,
 		ResolveProgram:        a.ResolveProgram,
 		Files:                 a.Files,
-		ClaudeSettingsPath:    a.ClaudeSettingsPath,
+		Host:                  a.Host,
 		Config:                a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
 		In:        a.In,
 		RenderOut: a.outputWriter(),

@@ -53,6 +53,10 @@ func (claudeAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg c
 	if !ready {
 		return client.Verification{}, fmt.Errorf("claude executable is unavailable; run `aigw repair`")
 	}
+	settings, err := SettingsPath(deps.Host)
+	if err != nil {
+		return client.Verification{}, err
+	}
 	verifyCtx, cancel := context.WithTimeout(ctx, clientverification.ProtocolTimeout)
 	defer cancel()
 	reader := deps.AIGWExecutable
@@ -61,15 +65,15 @@ func (claudeAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg c
 		if err != nil {
 			return client.Verification{}, err
 		}
-		reader, err = retainedExecutable(deps.ClaudeSettingsPath, cfg, selected, reader)
+		reader, err = retainedExecutable(settings, cfg, selected, reader)
 		if err != nil {
 			return client.Verification{}, err
 		}
 	}
 	runtime.CredentialCommand = runtime.CredentialExecutable(reader)
-	settingsPath := deps.ClaudeSettingsPath
+	settingsPath := settings
 	if explicitRoute != "" {
-		isolated, workspace, err := isolateProjection(cfg, runtime, deps)
+		isolated, workspace, err := isolateProjection(cfg, runtime, settings)
 		if err != nil {
 			return client.Verification{}, err
 		}
@@ -87,7 +91,7 @@ func (claudeAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg c
 	return client.Verification{Scope: "Native text response; tools and continuation are not probed"}, verifyRuntime(verifyCtx, runner, adapter.Executable, settingsPath, runtime, token, explicitRoute)
 }
 
-func isolateProjection(cfg configuration.Config, runtime configuration.Runtime, deps client.Dependencies) (settingsPath, workspace string, result error) {
+func isolateProjection(cfg configuration.Config, runtime configuration.Runtime, source string) (settingsPath, workspace string, result error) {
 	workspace, err := os.MkdirTemp("", "aigw-claude-route-verification-")
 	if err != nil {
 		return "", "", fmt.Errorf("create isolated Claude verification projection: %w", err)
@@ -103,7 +107,7 @@ func isolateProjection(cfg configuration.Config, runtime configuration.Runtime, 
 		workspace = ""
 	}()
 	settingsPath = filepath.Join(workspace, "settings.json")
-	if err := CopyProjection(deps.ClaudeSettingsPath, settingsPath); err != nil {
+	if err := CopyProjection(source, settingsPath); err != nil {
 		return "", workspace, fmt.Errorf("copy Claude verification projection: %w", err)
 	}
 	selected, err := cfg.ResolveRuntime(configuration.ClientClaude, "")

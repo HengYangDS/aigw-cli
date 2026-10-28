@@ -30,11 +30,12 @@ type DiscoverySource interface {
 }
 
 // Dependencies are the shared capabilities supplied to one adapter operation.
+// Host is the observed platform from which adapters derive their native paths.
 type Dependencies struct {
 	Secrets                   secrets.Store
 	Runner                    process.VerificationRunner
 	Discovery                 discovery.Discoverer
-	ClaudeSettingsPath        string
+	Host                      discovery.Host
 	AIGWExecutable            string
 	AuthorizedSelectionClient string
 }

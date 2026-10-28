@@ -131,8 +131,9 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 		t.Fatalf("initial manifest setup: %v", err)
 	}
 
-	settingsPath := filepath.Join(t.TempDir(), "settings.json")
-	app.ClaudeSettingsPath = settingsPath
+	settingsHome := t.TempDir()
+	settingsPath := filepath.Join(settingsHome, ".claude", "settings.json")
+	app.Host = hostAt(settingsHome)
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{configuration.ClientClaude: "/usr/local/bin/claude"},
 	}}
@@ -264,7 +265,7 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
 	if data := readFile(t, codexTarget); !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {
 		t.Fatalf("sync did not project the selected Codex Route:\n%s", data)
 	}
-	if _, err := os.Stat(app.ClaudeSettingsPath); !errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(claudeSettingsPath(t, app.Host)); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("sync projected the unready Claude Route: %v", err)
 	}
 	if len(runner.plans) != 0 {

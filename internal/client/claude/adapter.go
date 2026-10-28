@@ -62,7 +62,11 @@ func (claudeAdapter) Plan(deps client.Dependencies, before, after configuration.
 		return nil, err
 	}
 	previous, _ := before.ResolveRuntime(configuration.ClientClaude, "")
-	plan, err := PlanSettings(deps.ClaudeSettingsPath, disabled, runtime, runtime.CredentialExecutable(deps.AIGWExecutable), previous.Model)
+	settings, err := SettingsPath(deps.Host)
+	if err != nil {
+		return nil, err
+	}
+	plan, err := PlanSettings(settings, disabled, runtime, runtime.CredentialExecutable(deps.AIGWExecutable), previous.Model)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +82,11 @@ func (claudeAdapter) Apply(_ context.Context, deps client.Dependencies, before, 
 		return nil, err
 	}
 	previous, _ := before.ResolveRuntime(configuration.ClientClaude, "")
-	return ReconcileSettings(deps.ClaudeSettingsPath, disabled, runtime, runtime.CredentialExecutable(deps.AIGWExecutable), previous.Model)
+	settings, err := SettingsPath(deps.Host)
+	if err != nil {
+		return nil, err
+	}
+	return ReconcileSettings(settings, disabled, runtime, runtime.CredentialExecutable(deps.AIGWExecutable), previous.Model)
 }
 
 func (claudeAdapter) ProjectionChanged(before, after configuration.Config) bool {
@@ -113,11 +121,15 @@ func (claudeAdapter) Inspect(_ context.Context, deps client.Dependencies, cfg co
 	if !ready {
 		return client.Status{Issue: "Claude executable is unavailable", RepairAction: "aigw repair"}
 	}
-	reader, err := retainedExecutable(deps.ClaudeSettingsPath, cfg, runtime, deps.AIGWExecutable)
+	settings, err := SettingsPath(deps.Host)
+	if err != nil {
+		return client.Status{Issue: "Claude settings are not synchronized with the selected Route", RepairAction: "aigw sync"}
+	}
+	reader, err := retainedExecutable(settings, cfg, runtime, deps.AIGWExecutable)
 	if err != nil {
 		return client.Status{Issue: "Claude credential reader is not synchronized with the selected Route", RepairAction: "aigw sync"}
 	}
-	inspection, err := InspectSettings(deps.ClaudeSettingsPath, runtime, reader)
+	inspection, err := InspectSettings(settings, runtime, reader)
 	if err != nil {
 		return client.Status{Issue: "Claude settings are not synchronized with the selected Route", RepairAction: "aigw sync"}
 	}

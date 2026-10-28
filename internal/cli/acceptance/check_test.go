@@ -373,17 +373,17 @@ func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedRoute(t *testing.
 	app.Interactive = true
 	app.Prompt = prompt
 	before := map[string][]byte{
-		app.Config.Path():                           readFile(t, app.Config.Path()),
-		app.Config.Path() + ".verified.json":        readFile(t, app.Config.Path()+".verified.json"),
-		codexTarget:                                 readFile(t, codexTarget),
-		codexTarget + ".aigw-state.json":            readFile(t, codexTarget+".aigw-state.json"),
-		app.ClaudeSettingsPath:                      readFile(t, app.ClaudeSettingsPath),
-		app.ClaudeSettingsPath + ".aigw-state.json": readFile(t, app.ClaudeSettingsPath+".aigw-state.json"),
+		app.Config.Path():                                    readFile(t, app.Config.Path()),
+		app.Config.Path() + ".verified.json":                 readFile(t, app.Config.Path()+".verified.json"),
+		codexTarget:                                          readFile(t, codexTarget),
+		codexTarget + ".aigw-state.json":                     readFile(t, codexTarget+".aigw-state.json"),
+		claudeSettingsPath(t, app.Host):                      readFile(t, claudeSettingsPath(t, app.Host)),
+		claudeSettingsPath(t, app.Host) + ".aigw-state.json": readFile(t, claudeSettingsPath(t, app.Host)+".aigw-state.json"),
 	}
 	beforeDirectories := map[string][]string{
-		filepath.Dir(app.Config.Path()):      directoryNames(t, filepath.Dir(app.Config.Path())),
-		filepath.Dir(codexTarget):            directoryNames(t, filepath.Dir(codexTarget)),
-		filepath.Dir(app.ClaudeSettingsPath): directoryNames(t, filepath.Dir(app.ClaudeSettingsPath)),
+		filepath.Dir(app.Config.Path()):               directoryNames(t, filepath.Dir(app.Config.Path())),
+		filepath.Dir(codexTarget):                     directoryNames(t, filepath.Dir(codexTarget)),
+		filepath.Dir(claudeSettingsPath(t, app.Host)): directoryNames(t, filepath.Dir(claudeSettingsPath(t, app.Host))),
 	}
 	seen := map[string]int{}
 	httpClient.handler = func(req *http.Request) (*http.Response, error) {

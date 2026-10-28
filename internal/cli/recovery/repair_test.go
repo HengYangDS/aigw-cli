@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -21,6 +22,12 @@ import (
 )
 
 type staticDiscovery struct{ result discovery.Result }
+
+// hostAt observes home as the user's home directory, so Claude Code's settings
+// file is home/.claude/settings.json.
+func hostAt(home string) discovery.Host {
+	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+}
 
 func (candidate staticDiscovery) Discover() discovery.Result { return candidate.result }
 
@@ -141,7 +148,7 @@ func TestRunRepairReturnsConfigurationCommitFailure(t *testing.T) {
 		Discovery: staticDiscovery{result: discovery.Result{Executables: map[string]string{
 			configuration.ClientClaude: "/opt/claude",
 		}}},
-		ClaudeSettingsPath: filepath.Join(t.TempDir(), ".claude", "settings.json"),
+		Host: hostAt(t.TempDir()),
 	}
 	if err := runRepair(context.Background(), runtime, false, false); err == nil {
 		t.Fatal("configuration commit failure was accepted")
@@ -201,7 +208,8 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 
 func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *testing.T) {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	settingsPath := filepath.Join(t.TempDir(), ".claude", "settings.json")
+	settingsHome := t.TempDir()
+	settingsPath := filepath.Join(settingsHome, ".claude", "settings.json")
 	executable := filepath.Join(t.TempDir(), "aigw")
 	cfg := configuration.NewConfig()
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
@@ -216,11 +224,11 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 	}
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(),
-		Executable:         executable,
-		Config:             store,
-		Discovery:          staticDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}},
-		ClaudeSettingsPath: settingsPath,
-		Out:                out,
+		Executable: executable,
+		Config:     store,
+		Discovery:  staticDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}},
+		Host:       hostAt(settingsHome),
+		Out:        out,
 	}
 
 	if err := runRepair(context.Background(), runtime, false, false); err != nil {

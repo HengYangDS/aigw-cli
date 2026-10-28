@@ -45,7 +45,7 @@ func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
 				t.Fatal(err)
 			}
 			synchronizeClaudeProjection(t, app, cfg)
-			data, err := os.ReadFile(app.ClaudeSettingsPath)
+			data, err := os.ReadFile(claudeSettingsPath(t, app.Host))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -59,7 +59,7 @@ func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(app.ClaudeSettingsPath, data, 0o600); err != nil {
+			if err := os.WriteFile(claudeSettingsPath(t, app.Host), data, 0o600); err != nil {
 				t.Fatal(err)
 			}
 			settingsBefore := append([]byte(nil), data...)
@@ -69,7 +69,7 @@ func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
 			if err := cli.Execute(app, test.args); err != nil {
 				t.Fatal(err)
 			}
-			data, err = os.ReadFile(app.ClaudeSettingsPath)
+			data, err = os.ReadFile(claudeSettingsPath(t, app.Host))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -95,7 +95,7 @@ func assertClaudeNativePreferencePreview(t *testing.T, app *cli.App, out *bytes.
 	if err != nil {
 		t.Fatal(err)
 	}
-	state, err := os.ReadFile(app.ClaudeSettingsPath + ".aigw-state.json")
+	state, err := os.ReadFile(claudeSettingsPath(t, app.Host) + ".aigw-state.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,10 +119,10 @@ func assertClaudeNativePreferencePreview(t *testing.T, app *cli.App, out *bytes.
 	if err != nil || !reflect.DeepEqual(before, after) {
 		t.Fatal("preview changed configuration")
 	}
-	if current, err := os.ReadFile(app.ClaudeSettingsPath); err != nil || !bytes.Equal(current, settings) {
+	if current, err := os.ReadFile(claudeSettingsPath(t, app.Host)); err != nil || !bytes.Equal(current, settings) {
 		t.Fatal("preview changed user settings")
 	}
-	if current, err := os.ReadFile(app.ClaudeSettingsPath + ".aigw-state.json"); err != nil || !bytes.Equal(current, state) {
+	if current, err := os.ReadFile(claudeSettingsPath(t, app.Host) + ".aigw-state.json"); err != nil || !bytes.Equal(current, state) {
 		t.Fatal("preview changed ownership state")
 	}
 }
@@ -178,12 +178,12 @@ func TestRecoveryJSONSeparatesPreviewFromAppliedProjection(t *testing.T) {
 				if !bytes.Equal(before, after) {
 					t.Fatal("preview changed configuration")
 				}
-				if _, err := os.Stat(app.ClaudeSettingsPath); !errors.Is(err, os.ErrNotExist) {
+				if _, err := os.Stat(claudeSettingsPath(t, app.Host)); !errors.Is(err, os.ErrNotExist) {
 					t.Fatalf("preview created client settings: %v", err)
 				}
 				return
 			}
-			settings, err := os.ReadFile(app.ClaudeSettingsPath)
+			settings, err := os.ReadFile(claudeSettingsPath(t, app.Host))
 			if err != nil || !json.Valid(settings) {
 				t.Fatalf("applied projection = %q, %v", settings, err)
 			}
@@ -220,7 +220,7 @@ func TestRecoveryJSONOutputFailurePreservesCommittedProjection(t *testing.T) {
 			if err != nil || !cfg.Clients[configuration.ClientClaude].Enabled {
 				t.Fatalf("committed adapter = %+v, %v", cfg.Clients[configuration.ClientClaude], err)
 			}
-			settings, err := os.ReadFile(app.ClaudeSettingsPath)
+			settings, err := os.ReadFile(claudeSettingsPath(t, app.Host))
 			if err != nil || !json.Valid(settings) {
 				t.Fatalf("committed projection = %q, %v", settings, err)
 			}

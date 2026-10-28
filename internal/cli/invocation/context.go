@@ -52,19 +52,21 @@ type Context struct {
 	ResolveProgram        func() (credential.Program, error)
 	Files                 credential.Files
 	InstallTarget         string
-	ClaudeSettingsPath    string
-	Config                configuration.Store
-	Secrets               secrets.Store
-	Accounts              secrets.DiagnosticCredentialStore
-	In                    io.Reader
-	Out                   io.Writer
-	Color                 bool
-	Width                 int
-	Interactive           bool
-	Runner                process.VerificationRunner
-	HTTP                  HTTPDoer
-	Prompt                Prompter
-	Discovery             discovery.Discoverer
+	// Host is the observed platform from which client adapters derive their
+	// native paths.
+	Host        discovery.Host
+	Config      configuration.Store
+	Secrets     secrets.Store
+	Accounts    secrets.DiagnosticCredentialStore
+	In          io.Reader
+	Out         io.Writer
+	Color       bool
+	Width       int
+	Interactive bool
+	Runner      process.VerificationRunner
+	HTTP        HTTPDoer
+	Prompt      Prompter
+	Discovery   discovery.Discoverer
 	// Clients is the composition root's adapter registry; every client
 	// operation of this invocation goes through it.
 	Clients   client.Registry
@@ -154,7 +156,7 @@ func Synchronizer(runtime Context) synchronization.Synchronizer {
 		Runner:                runtime.Runner,
 		Discovery:             runtime.Discovery,
 		Registry:              runtime.Clients,
-		ClaudeSettingsPath:    runtime.ClaudeSettingsPath,
+		Host:                  runtime.Host,
 		AIGWExecutable:        runtime.Executable,
 		CredentialPath:        runtime.CredentialPath,
 		ResolveCredentialPath: runtime.ResolveCredentialPath,

@@ -138,7 +138,7 @@ type Synchronizer struct {
 	Runner                    process.VerificationRunner
 	Discovery                 discovery.Discoverer
 	Registry                  client.Registry
-	ClaudeSettingsPath        string
+	Host                      discovery.Host
 	AIGWExecutable            string
 	CredentialPath            string
 	ResolveCredentialPath     func() (string, error)
@@ -279,7 +279,7 @@ func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...c
 		Secrets:                   s.Secrets,
 		Runner:                    s.Runner,
 		Discovery:                 s.Discovery,
-		ClaudeSettingsPath:        s.ClaudeSettingsPath,
+		Host:                      s.Host,
 		AIGWExecutable:            executable,
 		AuthorizedSelectionClient: s.AuthorizedSelectionClient,
 	}, nil

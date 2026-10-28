@@ -153,7 +153,7 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 
 	app, _, secretStore, runner, _ := testApp(t, "")
 	app.Executable = filepath.Join(bin, executableName("aigw"))
-	app.ClaudeSettingsPath = claudeSettings
+	app.Host = hostAt(home)
 	app.Discovery = client.NewDiscoverer(clients.Registry(), discovery.System{GOOS: runtime.GOOS, Home: home, Path: bin})
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
@@ -245,8 +245,9 @@ func requireRouteSelectionsUnchanged(t *testing.T, before, after configuration.C
 
 func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 	app, _, secretStore, runner, _ := testApp(t, "")
-	settingsPath := filepath.Join(t.TempDir(), "settings.json")
-	app.ClaudeSettingsPath = settingsPath
+	settingsHome := t.TempDir()
+	settingsPath := filepath.Join(settingsHome, ".claude", "settings.json")
+	app.Host = hostAt(settingsHome)
 	claudeExecutable := executableFixture(t, configuration.ClientClaude)
 	oldAIGWExecutable := executableFixture(t, "aigw-old")
 	newAIGWExecutable := executableFixture(t, "aigw-new")
@@ -343,8 +344,8 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.toml")
 	second := filepath.Join(dir, "second.toml")
-	claudeSettings := filepath.Join(dir, "settings.json")
-	app.ClaudeSettingsPath = claudeSettings
+	claudeSettings := filepath.Join(dir, ".claude", "settings.json")
+	app.Host = hostAt(dir)
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/usr/local/bin/claude"}}}
 	for _, target := range []string{first, second} {
 		if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
@@ -422,8 +423,7 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 
 func TestSyncDryRunRecommendsCheckWhenProjectionIsConverged(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	settingsPath := filepath.Join(t.TempDir(), "settings.json")
-	app.ClaudeSettingsPath = settingsPath
+	app.Host = hostAt(t.TempDir())
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/usr/local/bin/claude"}}}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}

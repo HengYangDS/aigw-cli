@@ -105,6 +105,12 @@ func testConfig(target string) configuration.Config {
 	return cfg
 }
 
+// hostAt observes home as the user's home directory, so Claude Code's settings
+// file is home/.claude/settings.json.
+func hostAt(home string) discovery.Host {
+	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+}
+
 func targetDiscovery(target string) staticDiscovery {
 	return staticDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
 		ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
@@ -418,7 +424,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	if err := credentials.Set("gateway", accountToken); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, ClaudeSettingsPath: settingsPath, AIGWExecutable: aigwExecutable}
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Host: hostAt(dir), AIGWExecutable: aigwExecutable}
 	if err := syncer.Commit(t.Context(), before, after, "enable Claude"); err != nil {
 		t.Fatal(err)
 	}
@@ -486,7 +492,7 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: store, ClaudeSettingsPath: settingsPath, AIGWExecutable: "/usr/local/bin/aigw"}
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Host: hostAt(dir), AIGWExecutable: "/usr/local/bin/aigw"}
 	err := syncer.Commit(context.Background(), before, after, "enable Claude")
 	if err == nil || !strings.Contains(err.Error(), "preflight") || strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("Commit() error = %v", err)

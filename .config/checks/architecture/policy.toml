@@ -166,6 +166,7 @@ allowed_import_edges."internal/client/claude" = [
   "internal/configuration",
   "internal/credential",
   "internal/discovery",
+  "internal/platform",
   "internal/process",
   "internal/surface",
   "internal/transaction",
@@ -447,18 +448,14 @@ composition_roots = ["cmd/aigw", "internal/clients"]
 # Hermes vocabulary, not Codex knowledge.
 native_terms.hermes = ["codex_responses"]
 temporary_exceptions = [
-  "internal/cli",
   "internal/cli/client",
   "internal/cli/doctor",
-  "internal/cli/invocation",
   "internal/cli/readiness",
   "internal/cli/selection",
-  "internal/client",
   "internal/client/verification",
   "internal/configuration",
   "internal/credential",
   "internal/discovery",
-  "internal/platform",
   "internal/surface",
   "internal/synchronization",
 ]

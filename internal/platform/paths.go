@@ -10,12 +10,11 @@ import (
 
 // Paths is the complete host-derived path contract for one AIGW process.
 type Paths struct {
-	Config         string
-	Data           string
-	Secrets        string
-	ClaudeSettings string
-	InstallDir     string
-	InstallName    string
+	Config      string
+	Data        string
+	Secrets     string
+	InstallDir  string
+	InstallName string
 }
 
 // PathsFor derives every host-owned path from one explicit platform snapshot.
@@ -25,10 +24,6 @@ func PathsFor(goos string, env map[string]string) (Paths, error) {
 		return Paths{}, err
 	}
 	data, err := DataDirFor(goos, env)
-	if err != nil {
-		return Paths{}, err
-	}
-	claudeSettings, err := ClaudeSettingsPathFor(goos, env)
 	if err != nil {
 		return Paths{}, err
 	}
@@ -43,12 +38,11 @@ func PathsFor(goos string, env map[string]string) (Paths, error) {
 		secrets = AppendWindowsPath(data, "secrets")
 	}
 	return Paths{
-		Config:         config,
-		Data:           data,
-		Secrets:        secrets,
-		ClaudeSettings: claudeSettings,
-		InstallDir:     installDir,
-		InstallName:    installName,
+		Config:      config,
+		Data:        data,
+		Secrets:     secrets,
+		InstallDir:  installDir,
+		InstallName: installName,
 	}, nil
 }
 
@@ -110,28 +104,6 @@ func DataDirFor(goos string, env map[string]string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
-}
-
-// ClaudeSettingsPathFor returns Claude Code's official per-user settings file.
-// The path is derived only from the target platform and explicit environment;
-// AIGW never assumes a workstation-specific directory.
-func ClaudeSettingsPathFor(goos string, env map[string]string) (string, error) {
-	var home string
-	if goos == "windows" {
-		home = env["USERPROFILE"]
-		if home == "" {
-			return "", fmt.Errorf("USERPROFILE is not set")
-		}
-		return AppendWindowsPath(home, ".claude", "settings.json"), nil
-	}
-	if goos != "darwin" && goos != "linux" {
-		return "", fmt.Errorf("unsupported operating system %q", goos)
-	}
-	home = env["HOME"]
-	if home == "" {
-		return "", fmt.Errorf("HOME is not set")
-	}
-	return path.Join(home, ".claude", "settings.json"), nil
 }
 
 // UserBinDirFor returns the platform-native per-user executable directory from an explicit environment.

@@ -392,7 +392,7 @@ func TestSetupFromConfigurationManifestProjectionFailureRestoresOwnedFiles(t *te
 	app.Executable = "relative-helper"
 	root := t.TempDir()
 	app.Config = configuration.NewStore(filepath.Join(root, "aigw", "config.toml"))
-	app.ClaudeSettingsPath = filepath.Join(root, "claude", "settings.json")
+	app.Host = hostAt(filepath.Join(root, "claude"))
 	claudeExecutable := executableFixture(t, "claude")
 	originalExecutable, err := os.ReadFile(claudeExecutable)
 	if err != nil {
@@ -402,7 +402,7 @@ func TestSetupFromConfigurationManifestProjectionFailureRestoresOwnedFiles(t *te
 	preserved := map[string]string{
 		codexTarget: "model_provider = \"native\"\n",
 		filepath.Join(root, "codex", "auth.json"): `{"OPENAI_API_KEY":"client-owned-token"}`,
-		app.ClaudeSettingsPath:                    `{"theme":"dark"}`,
+		claudeSettingsPath(t, app.Host):           `{"theme":"dark"}`,
 	}
 	for path, content := range preserved {
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {

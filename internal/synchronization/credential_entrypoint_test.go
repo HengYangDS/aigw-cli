@@ -65,7 +65,10 @@ func TestCodexInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	root := t.TempDir()
 	data := filepath.Join(root, "data")
-	settings := filepath.Join(root, "settings.json")
+	settings := filepath.Join(root, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settings), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(settings, []byte(`{"theme":"dark"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +100,7 @@ func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	if _, err := claude.ReconcileSettings(settings, false, runtime, retained, runtime.Model); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, ClaudeSettingsPath: settings, AIGWExecutable: filepath.Join(root, "successor"), CredentialPath: current}
+	syncer := Synchronizer{Registry: builtinClients, Host: hostAt(root), AIGWExecutable: filepath.Join(root, "successor"), CredentialPath: current}
 	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientClaude, runtime); !status.Ready {
 		t.Fatalf("unchanged Claude Route with an intact retained reader was rejected: %s", status.Issue)
 	}

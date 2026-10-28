@@ -51,16 +51,17 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 	}
 	cfg := configuration.NewConfig()
 	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
-	deps := client.Dependencies{ClaudeSettingsPath: filepath.Join(root, "settings.json"), AIGWExecutable: filepath.Join(root, "aigw")}
+	settings := filepath.Join(root, ".claude", "settings.json")
+	deps := client.Dependencies{Host: hostAt(root), AIGWExecutable: filepath.Join(root, "aigw")}
 	runtime := configuration.Runtime{AccountID: "gateway", RouteID: "claude", Model: "claude-model", Endpoint: "https://gateway.test"}
 	if test.sync {
-		if _, err := ReconcileSettings(deps.ClaudeSettingsPath, false, runtime, deps.AIGWExecutable, runtime.Model); err != nil {
+		if _, err := ReconcileSettings(settings, false, runtime, deps.AIGWExecutable, runtime.Model); err != nil {
 			t.Fatal(err)
 		}
 	}
 	runtime.Model = test.model
 	if test.nativeModel != "" {
-		data, err := os.ReadFile(deps.ClaudeSettingsPath)
+		data, err := os.ReadFile(settings)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -70,17 +71,17 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 		}
 		document["model"], _ = json.Marshal(test.nativeModel)
 		data, _ = json.MarshalIndent(document, "", "  ")
-		if err := os.WriteFile(deps.ClaudeSettingsPath, append(data, '\n'), 0o600); err != nil {
+		if err := os.WriteFile(settings, append(data, '\n'), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if test.settings != "" {
-		if err := os.WriteFile(deps.ClaudeSettingsPath, []byte(test.settings), 0o600); err != nil {
+		if err := os.WriteFile(settings, []byte(test.settings), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	files := map[string]transaction.FileSnapshot{}
-	for _, path := range []string{deps.ClaudeSettingsPath, deps.ClaudeSettingsPath + ".aigw-state.json"} {
+	for _, path := range []string{settings, settings + ".aigw-state.json"} {
 		data, err := transaction.CaptureFileSnapshot(path)
 		if err != nil {
 			t.Fatal(err)

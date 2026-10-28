@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -18,6 +19,12 @@ import (
 type fixedDiscoverer struct{ result discovery.Result }
 
 func (discoverer fixedDiscoverer) Discover() discovery.Result { return discoverer.result }
+
+// hostAt observes home as the user's home directory, so Claude Code's settings
+// file is home/.claude/settings.json.
+func hostAt(home string) discovery.Host {
+	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
+}
 
 func qualifiedRoute(label, account, model string, protocols ...configuration.EndpointProtocol) configuration.Route {
 	interfaces := make(map[configuration.EndpointProtocol][]configuration.Capability, len(protocols))
@@ -94,8 +101,8 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 		Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{
 			ID: "codex-home-default", Authority: "aigw", ConfigPath: codexTarget, Present: true, AutoManaged: true,
 		}}}},
-		ClaudeSettingsPath: claudeSettings,
-		AIGWExecutable:     "/opt/aigw",
+		Host:           hostAt(dir),
+		AIGWExecutable: "/opt/aigw",
 	}
 
 	_, _, err := Registry().Apply(t.Context(), deps, before, after)

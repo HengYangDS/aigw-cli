@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
@@ -361,7 +362,11 @@ func (j *journeyFixture) enableSystemCredentialStore() {
 		j.testing.Fatal(err)
 	}
 	j.config = filepath.FromSlash(paths.Config)
-	j.settings = filepath.FromSlash(paths.ClaudeSettings)
+	settings, err := claude.SettingsPathFor(runtime.GOOS, environmentValues(environment))
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	j.settings = filepath.FromSlash(settings)
 	if runtime.GOOS == "darwin" {
 		for _, directory := range []string{filepath.Dir(j.config), filepath.Dir(j.settings)} {
 			if err := os.MkdirAll(filepath.Dir(directory), 0o700); err != nil {
