@@ -38,3 +38,10 @@ func SettingsPath(host discovery.Host) (string, error) {
 	}
 	return SettingsPathFor(host.GOOS, map[string]string{"HOME": host.Getenv("HOME"), "USERPROFILE": host.Getenv("USERPROFILE")})
 }
+
+// ValidateHost refuses a host on which Claude Code's settings file cannot be
+// derived. Like AIGW's own platform paths, it matches variable names exactly.
+func (claudeAdapter) ValidateHost(host discovery.Host) error {
+	_, err := SettingsPathFor(host.GOOS, host.Env)
+	return err
+}

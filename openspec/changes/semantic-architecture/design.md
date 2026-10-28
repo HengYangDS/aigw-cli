@@ -112,7 +112,10 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
   shrinks to client-neutral lookups (an executable by name or path, a file's
   presence, and the observed platform: operating system, the user's home and
   the environment), and `Dependencies` replaces `ClaudeSettingsPath` with that
-  observed platform.
+  observed platform. AIGW still refuses to start on a host where it cannot
+  derive Claude Code's settings file or Claude Desktop's library: those two
+  adapters implement an optional seam method that validates the observed host,
+  and the CLI asks the registry right after deriving AIGW's own paths.
 - The descriptor stays `ClientSpec`, moves to `domain` and is returned by each
   adapter's `Spec()`. The admitted list is the composition root's ordered
   registration, not a list in `configuration`.
@@ -124,6 +127,10 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
 - Client-specific branches move from `configuration`, `synchronization`,
   `discovery` and `surface` into adapter methods. `AdoptCodexSelection` and
   `AdoptHermesSelection` become one seam method that each adapter implements.
+  The registry adopts in admission order. When the Codex and Hermes adoptions
+  fail together, AIGW therefore reports Codex's error where it reported
+  Hermes' before; the exit status is the same. Keeping the old order would
+  need an order rule with no meaning, so this one difference is accepted.
   Commands read client policy and wording from descriptor capabilities (the
   product name, explicit configuration targets, retry budgets, optional model
   discovery and doctor wording), and an adapter that validates explicit targets

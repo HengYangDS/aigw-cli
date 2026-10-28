@@ -4,6 +4,9 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"aigw-cli/internal/client"
+	"aigw-cli/internal/discovery"
 )
 
 func TestClaudeDesktopLibraryUsesTheOfficialPerUserScope(t *testing.T) {
@@ -52,5 +55,29 @@ func TestClaudeDesktopApplicationPathsUseOfficialNativeLocations(t *testing.T) {
 				t.Fatalf("ApplicationPathsFor() = %#v, want %#v", got, test.want)
 			}
 		})
+	}
+}
+
+// AIGW does not start on a host where it cannot derive Claude Desktop's
+// configuration library, and it names the same missing input as the library.
+func TestAdapterRefusesAHostWithoutTheLibraryInputs(t *testing.T) {
+	validator, validates := New().(client.HostValidator)
+	if !validates {
+		t.Fatal("the Claude Desktop adapter does not validate the host")
+	}
+	if err := validator.ValidateHost(discovery.Host{GOOS: "windows", Env: map[string]string{"LOCALAPPDATA": `C:\Users\alex\AppData\Local`}}); err != nil {
+		t.Fatalf("ValidateHost() of a complete Windows host = %v", err)
+	}
+	// Every platform misses its own inputs here, while other platforms' inputs are present.
+	foreign := map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`, "USERPROFILE": `C:\Users\alex`}
+	for goos, want := range map[string]string{
+		"darwin":  "HOME is not set",
+		"linux":   "HOME and XDG_CONFIG_HOME are not set",
+		"windows": "LOCALAPPDATA is not set",
+		"plan9":   `unsupported operating system "plan9"`,
+	} {
+		if err := validator.ValidateHost(discovery.Host{GOOS: goos, Home: "/home/alex", Env: foreign}); err == nil || err.Error() != want {
+			t.Errorf("ValidateHost(%s) = %v, want %q", goos, err, want)
+		}
 	}
 }

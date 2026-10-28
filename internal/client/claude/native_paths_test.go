@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"aigw-cli/internal/client"
 	"aigw-cli/internal/discovery"
 )
 
@@ -62,5 +63,32 @@ func TestSettingsPathFollowsTheObservedHost(t *testing.T) {
 	}
 	if _, err := SettingsPath(discovery.Host{GOOS: "linux"}); err == nil || err.Error() != "HOME is not set" {
 		t.Fatalf("missing home error = %v", err)
+	}
+}
+
+// AIGW does not start on a host where it cannot derive Claude Code's settings
+// file. The check reads the environment as AIGW's own platform paths do.
+func TestAdapterRefusesAHostWithoutTheSettingsInputs(t *testing.T) {
+	validator, validates := New().(client.HostValidator)
+	if !validates {
+		t.Fatal("the Claude Code adapter does not validate the host")
+	}
+	for _, test := range []struct {
+		name string
+		host discovery.Host
+		want string
+	}{
+		{name: "macOS", host: discovery.Host{GOOS: "darwin", Env: map[string]string{"HOME": "/Users/alex"}}},
+		{name: "Linux without HOME", host: discovery.Host{GOOS: "linux", Home: "/home/alex", Env: map[string]string{"XDG_CONFIG_HOME": "/cfg"}}, want: "HOME is not set"},
+		{name: "Windows", host: discovery.Host{GOOS: "windows", Env: map[string]string{"USERPROFILE": `C:\Users\alex`}}},
+		{name: "Windows without USERPROFILE", host: discovery.Host{GOOS: "windows", Env: map[string]string{"APPDATA": `C:\Users\alex\AppData\Roaming`}}, want: "USERPROFILE is not set"},
+		{name: "unsupported", host: discovery.Host{GOOS: "plan9", Env: map[string]string{"HOME": "/usr/alex"}}, want: `unsupported operating system "plan9"`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := validator.ValidateHost(test.host)
+			if (err == nil) != (test.want == "") || err != nil && err.Error() != test.want {
+				t.Fatalf("ValidateHost() = %v, want %q", err, test.want)
+			}
+		})
 	}
 }

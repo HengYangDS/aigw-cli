@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 
+	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/platform"
 )
 
@@ -33,6 +34,14 @@ func LibraryPathFor(goos string, env map[string]string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
+}
+
+// ValidateHost refuses a host on which Claude Desktop's configuration library
+// cannot be derived. Like AIGW's own platform paths, it matches variable names
+// exactly.
+func (claudeDesktopAdapter) ValidateHost(host discovery.Host) error {
+	_, err := LibraryPathFor(host.GOOS, host.Env)
+	return err
 }
 
 // ApplicationPathsFor returns Claude Desktop's native application locations in

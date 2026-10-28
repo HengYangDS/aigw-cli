@@ -113,6 +113,13 @@ type TargetValidator interface {
 	ValidateTarget(discovered discovery.Result, path string) error
 }
 
+// HostValidator is implemented by an adapter whose native paths every AIGW
+// process derives: it refuses a host on which they cannot be derived, and AIGW
+// then does not start.
+type HostValidator interface {
+	ValidateHost(host discovery.Host) error
+}
+
 // Registry is the sole ordered operational registry for admitted clients.
 type Registry struct {
 	byID map[string]Adapter
@@ -331,6 +338,19 @@ func (registry Registry) ValidateTarget(clientID string, discovered discovery.Re
 	}
 	if validator, validates := adapter.(TargetValidator); validates {
 		return validator.ValidateTarget(discovered, path)
+	}
+	return nil
+}
+
+// ValidateHost refuses a host on which an admitted client cannot derive its
+// native paths, with the first refusal in admission order.
+func (registry Registry) ValidateHost(host discovery.Host) error {
+	for _, id := range registry.ids {
+		if validator, validates := registry.byID[id].(HostValidator); validates {
+			if err := validator.ValidateHost(host); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

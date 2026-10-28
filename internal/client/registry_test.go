@@ -352,3 +352,41 @@ func TestRegistryRejectsUnknownClientOperations(t *testing.T) {
 		t.Fatalf("unknown client operations touched an adapter: %v", adapter.calls)
 	}
 }
+
+// hostValidatingAdapter refuses every host with its error, or none without one.
+type hostValidatingAdapter struct {
+	failingProjectionAdapter
+	err error
+}
+
+func (adapter hostValidatingAdapter) ValidateHost(discovery.Host) error { return adapter.err }
+
+func TestRegistryRefusesAHostWithTheFirstRefusalInAdmissionOrder(t *testing.T) {
+	events := []string{}
+	plain := failingProjectionAdapter{id: "plain", events: &events}
+	for _, test := range []struct {
+		name          string
+		first, second error
+		want          string
+	}{
+		{name: "every adapter derives its native paths"},
+		{name: "the later adapter refuses", second: errors.New("SECOND_HOME is not set"), want: "SECOND_HOME is not set"},
+		{name: "both adapters refuse", first: errors.New("FIRST_HOME is not set"), second: errors.New("SECOND_HOME is not set"), want: "FIRST_HOME is not set"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			first := hostValidatingAdapter{failingProjectionAdapter{id: "first", events: &events}, test.first}
+			second := hostValidatingAdapter{failingProjectionAdapter{id: "second", events: &events}, test.second}
+			registry, err := NewRegistry([]configuration.ClientSpec{plain.Spec(), first.Spec(), second.Spec()}, plain, first, second)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = registry.ValidateHost(discovery.Host{GOOS: "windows"})
+			if (err == nil) != (test.want == "") || err != nil && err.Error() != test.want {
+				t.Fatalf("ValidateHost() = %v, want %q", err, test.want)
+			}
+		})
+	}
+	if len(events) != 0 {
+		t.Fatalf("host validation called other adapter methods: %v", events)
+	}
+}

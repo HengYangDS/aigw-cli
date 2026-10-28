@@ -206,6 +206,10 @@ func NewDefault(clients client.Registry) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	host := discovery.Current()
+	if err := clients.ValidateHost(host.Platform()); err != nil {
+		return nil, err
+	}
 	executable, err := os.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
@@ -224,7 +228,6 @@ func NewDefault(clients client.Registry) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	host := discovery.Current()
 	app := &App{
 		GOOS:          runtime.GOOS,
 		DataDir:       paths.Data,
