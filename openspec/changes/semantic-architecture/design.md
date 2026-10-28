@@ -115,7 +115,13 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
   observed platform. AIGW still refuses to start on a host where it cannot
   derive Claude Code's settings file or Claude Desktop's library: those two
   adapters implement an optional seam method that validates the observed host,
-  and the CLI asks the registry right after deriving AIGW's own paths.
+  and the CLI asks the registry right after deriving AIGW's own paths. On
+  Windows, the host reads a variable name case-insensitively: the exact
+  spelling wins, and otherwise the first spelling in sorted order. Windows
+  returns the first spelling in its environment block instead, so the two can
+  differ only when that block holds two spellings of one name, which neither
+  Go's `os/exec` nor `SetEnvironmentVariable` produces. This difference is
+  accepted.
 - The descriptor stays `ClientSpec`, moves to `domain` and is returned by each
   adapter's `Spec()`. The admitted list is the composition root's ordered
   registration, not a list in `configuration`.
@@ -140,16 +146,26 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
   file that applying it may write or remove: its target file, ownership state
   and companion files, as the adapter's own plan owner derives them. The field
   is not serialized, so command output is unchanged. The suite derives its
-  checks from that model: `Apply` changes no file outside the listed effects,
-  each plan's `ChangesState` holds exactly when `Apply` changes one of its
-  effects, a converged plan changes nothing, `Rollback` restores bytes and
-  modes, and withdrawal is planned the same way and leaves no owned file.
-  `Inspect`, `Verify` and `Plan` change no file, and the caller's
-  configuration equals its `Config.Clone` from before the call. A plan
-  promises a change of its effects, not of its target alone: Claude Code
-  changes only its ownership state when its settings file already holds the
-  projected bytes. Every admitted adapter and a test-only rehearsal adapter
-  run it.
+  checks from that model:
+  - `Apply` changes no file outside the listed effects, each plan's
+    `ChangesState` holds exactly when `Apply` changes one of its effects, and
+    the target of a changing plan exists after a projection;
+  - a converged plan, its `Apply` and its receipt's `Rollback` change nothing;
+  - `Rollback` restores every regular file's bytes and mode and every symbolic
+    link;
+  - withdrawal is planned and checked the same way, leaves no owned file, and
+    its own receipt restores the projection;
+  - `Inspect` and `Verify` (without and with an explicit Route), before and
+    after a projection, and every `Plan` change no file and leave the caller's
+    configuration equal to its `Config.Clone` from before the call.
+
+  A plan promises a change of its effects, not of its target alone: Claude
+  Code changes only its ownership state when its settings file already holds
+  the projected bytes. Each check runs with the process's home, configuration
+  and temporary directories pointed at an empty sentinel that must stay empty,
+  so an adapter that ignores the observed host cannot touch the developer's
+  files. Directories that a projection creates may remain, as AIGW leaves them
+  today. Every admitted adapter and a test-only rehearsal adapter run it.
 
 ### Domain, store and secret replace `configuration`
 
