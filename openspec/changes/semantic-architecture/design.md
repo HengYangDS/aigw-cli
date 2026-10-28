@@ -234,9 +234,12 @@ the locked merge loses no scenario.
 ## Stages and acceptance
 
 Each stage is one Work Lane and one PR into `dev`. A stage starts after the
-previous stage is on GitHub and GitLab `dev`. Stages 1 to 5 must keep every
-existing test, the full ETHOS proof, the hosted three-platform graph and the
-real-client journeys unchanged. Stage 3 adds its scripts.
+previous stage is on GitHub `dev`. GitLab `dev` receives the completed stages
+in that peer's next catch-up, which waits for ETHOS to publish aigw's
+historical release tags there (Change `gitlab-peer-reconciliation`). Stages 1
+to 5 must keep every existing test, the full ETHOS proof, the hosted
+three-platform graph and the real-client journeys unchanged. Stage 3 adds its
+scripts.
 
 | Stage     | Measured result at the stage head                                                                                                                                                                                                                                                                                                                                                                                                |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

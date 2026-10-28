@@ -12,7 +12,7 @@
 - [x] 1.10 Shrink the confinement list to `internal/configuration` and `internal/credential`, which stage 2 deletes.
 - [x] 1.11 Run the local quality graph at the stage head: every existing test passes unchanged in behavior and every coverage floor holds.
 - [x] 1.12 Prove the stage head with the full ETHOS proof.
-- [ ] 1.13 Confirm the hosted three-platform graph and the real-client journeys on macOS, Linux and Windows pass at the stage head.
+- [x] 1.13 Confirm the hosted three-platform graph and the real-client journeys on macOS, Linux and Windows pass at the stage head.
 
 ## 2. Stage 2 — Domain, store and secret
 
