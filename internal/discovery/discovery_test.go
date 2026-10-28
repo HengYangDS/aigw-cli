@@ -158,3 +158,22 @@ func TestLinuxDiscoveryKeepsDefaultClientHomesIndependent(t *testing.T) {
 		t.Fatalf("auto-managed targets = %#v, want absent but creatable default %q", targets, wantConfig)
 	}
 }
+
+// On Windows, a variable's exact spelling wins over other spellings of the same
+// name, and a lookup without the exact spelling finds the same spelling every
+// time. Elsewhere, names match exactly.
+func TestHostGetenvIsDeterministicForSpellingsOfOneName(t *testing.T) {
+	env := map[string]string{"USERPROFILE": `C:\Users\alex`, "UserProfile": `D:\profile`, "userprofile": `E:\alex`}
+	windows := discovery.Host{GOOS: "windows", Env: env}
+	for range 100 {
+		if got := windows.Getenv("UserProfile"); got != `D:\profile` {
+			t.Fatalf("Getenv(UserProfile) = %q, want the exact spelling's value", got)
+		}
+		if got := windows.Getenv("UsErPrOfIlE"); got != `C:\Users\alex` {
+			t.Fatalf("Getenv(UsErPrOfIlE) = %q, want the first spelling in sorted order", got)
+		}
+	}
+	if got := (discovery.Host{GOOS: "linux", Env: env}).Getenv("Userprofile"); got != "" {
+		t.Fatalf("Linux Getenv(Userprofile) = %q, want exact matches only", got)
+	}
+}

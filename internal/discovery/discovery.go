@@ -5,9 +5,11 @@ package discovery
 
 import (
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 )
 
@@ -35,17 +37,19 @@ type Host struct {
 }
 
 // Getenv returns one variable of the observed environment, or an empty string.
-// Windows variable names are case-insensitive, as the operating system reads them.
+// Windows variable names are case-insensitive, as the operating system reads
+// them. There the exact spelling wins, and otherwise the first matching name in
+// sorted order, so every lookup of a name in one process returns the same value.
 func (h Host) Getenv(name string) string {
-	if h.GOOS == "windows" {
-		for key, value := range h.Env {
-			if strings.EqualFold(key, name) {
-				return value
-			}
-		}
-		return ""
+	if value, found := h.Env[name]; found || h.GOOS != "windows" {
+		return value
 	}
-	return h.Env[name]
+	for _, key := range slices.Sorted(maps.Keys(h.Env)) {
+		if strings.EqualFold(key, name) {
+			return h.Env[key]
+		}
+	}
+	return ""
 }
 
 // System discovers clients from one explicit host and executable search path.
