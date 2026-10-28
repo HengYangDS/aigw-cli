@@ -1,7 +1,6 @@
 package renaming
 
 import (
-	"aigw-cli/internal/clients"
 	"bytes"
 	"context"
 	"errors"
@@ -11,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 

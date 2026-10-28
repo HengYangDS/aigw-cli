@@ -1,7 +1,6 @@
 package install
 
 import (
-	"aigw-cli/internal/clients"
 	"bytes"
 	"errors"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/upgrade"
 )

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"aigw-cli/internal/clients"
 	"bytes"
 	"context"
 	"errors"
@@ -15,6 +14,7 @@ import (
 	"time"
 	"unicode"
 
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"

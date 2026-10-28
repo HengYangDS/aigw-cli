@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"aigw-cli/internal/clients"
 	"bytes"
 	"errors"
 	"io"
@@ -11,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"aigw-cli/internal/clients"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
@@ -15,6 +14,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/synchronization"
 )
 

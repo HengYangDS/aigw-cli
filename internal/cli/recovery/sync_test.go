@@ -1,7 +1,6 @@
 package recovery
 
 import (
-	"aigw-cli/internal/clients"
 	"bytes"
 	"encoding/json"
 	"os"
@@ -11,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"

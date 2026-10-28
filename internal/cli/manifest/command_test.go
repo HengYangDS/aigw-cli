@@ -1,7 +1,6 @@
 package manifest
 
 import (
-	"aigw-cli/internal/clients"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -13,6 +12,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 

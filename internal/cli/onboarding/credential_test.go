@@ -1,7 +1,6 @@
 package onboarding
 
 import (
-	"aigw-cli/internal/clients"
 	"context"
 	"errors"
 	"io"
@@ -10,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 )

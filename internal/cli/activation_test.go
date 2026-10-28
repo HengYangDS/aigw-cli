@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"aigw-cli/internal/clients"
 	"bytes"
 	"encoding/json"
 	"io"
@@ -9,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"

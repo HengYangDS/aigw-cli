@@ -1,7 +1,6 @@
 package client
 
 import (
-	"aigw-cli/internal/clients"
 	"bytes"
 	"context"
 	"errors"
@@ -11,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"

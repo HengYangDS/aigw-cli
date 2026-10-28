@@ -1,12 +1,12 @@
 package onboarding
 
 import (
-	"aigw-cli/internal/clients"
 	"bytes"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
