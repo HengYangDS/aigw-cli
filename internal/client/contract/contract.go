@@ -4,11 +4,16 @@
 package contract
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"sort"
+	"strings"
 	"testing"
 
 	"aigw-cli/internal/client"
@@ -29,71 +34,216 @@ type Fixture struct {
 }
 
 // Run checks the seam invariants for the fixtures that newFixture prepares:
-// Inspect and Verify touch nothing, plans predict exactly whether Apply changes
-// state and name targets that Apply projects, a converged projection plans and
-// applies no change, Rollback restores every file's bytes and mode, and
-// withdrawal leaves no owned file behind.
+//   - Inspect, Verify and Plan change no file and leave the caller's
+//     configuration as it was;
+//   - Apply changes only files that the plans list in their Effects, and each
+//     plan changes state exactly when Apply changes one of its effects;
+//   - a converged projection plans and applies no change;
+//   - Rollback restores every file's bytes and mode;
+//   - withdrawal is planned the same way and leaves no owned file behind.
 func Run(t *testing.T, newFixture func(t *testing.T) Fixture) {
 	t.Helper()
-	t.Run("inspection and verification touch nothing", func(t *testing.T) {
-		fixture := newFixture(t)
-		original := capture(t, fixture.Home)
-		fixture.Adapter.Inspect(t.Context(), fixture.Dependencies, fixture.After, fixture.Runtime)
-		_, _ = fixture.Adapter.Verify(t.Context(), fixture.Dependencies, fixture.After, fixture.Runtime, "")
-		requireUnchanged(t, original, capture(t, fixture.Home), "inspection and verification")
-	})
-	t.Run("plans predict every change and rollback restores it", func(t *testing.T) {
-		fixture := newFixture(t)
-		original := capture(t, fixture.Home)
-		plans, err := fixture.Adapter.Plan(fixture.Dependencies, fixture.Before, fixture.After)
-		if err != nil {
-			t.Fatalf("Plan() = %v", err)
-		}
-		requireUnchanged(t, original, capture(t, fixture.Home), "planning")
-		receipt, err := fixture.Adapter.Apply(t.Context(), fixture.Dependencies, fixture.Before, fixture.After)
-		if err != nil {
-			t.Fatalf("Apply() = %v", err)
-		}
-		projected := capture(t, fixture.Home)
-		if changed := changedPaths(original, projected); len(changed) == 0 || receipt == nil || !changesState(plans) {
-			t.Fatalf("Apply() of an enabled projection changed %v with receipt %v after plans %#v", changed, receipt, plans)
-		}
-		for _, plan := range plans {
-			if _, err := os.Stat(plan.Target); plan.ChangesState && err != nil {
-				t.Errorf("planned target %s was not projected: %v", plan.Target, err)
+	for _, invariant := range invariants {
+		t.Run(invariant.name, func(t *testing.T) {
+			if err := invariant.check(t.Context(), newFixture(t)); err != nil {
+				t.Fatal(err)
 			}
+		})
+	}
+}
+
+// invariant is one property of the seam that every adapter keeps.
+type invariant struct {
+	name  string
+	check func(ctx context.Context, fixture Fixture) error
+}
+
+var invariants = []invariant{
+	{name: "inspection and verification touch nothing", check: observationTouchesNothing},
+	{name: "plans predict every change and rollback restores it", check: plansPredictEveryChange},
+	{name: "withdrawal leaves no owned file", check: withdrawalLeavesNoOwnedFile},
+}
+
+func observationTouchesNothing(ctx context.Context, fixture Fixture) error {
+	original, err := capture(fixture.Home)
+	if err != nil {
+		return err
+	}
+	caller := fixture.After.Clone()
+	fixture.Adapter.Inspect(ctx, fixture.Dependencies, fixture.After, fixture.Runtime)
+	if err := unchangedCaller("Inspect", caller, fixture.After); err != nil {
+		return err
+	}
+	_, _ = fixture.Adapter.Verify(ctx, fixture.Dependencies, fixture.After, fixture.Runtime, "")
+	if err := unchangedCaller("Verify", caller, fixture.After); err != nil {
+		return err
+	}
+	return unchangedFiles(fixture.Home, original, "inspection and verification")
+}
+
+func plansPredictEveryChange(ctx context.Context, fixture Fixture) error {
+	original, err := capture(fixture.Home)
+	if err != nil {
+		return err
+	}
+	plans, err := plan(fixture, fixture.Before, fixture.After)
+	if err != nil {
+		return err
+	}
+	if err := unchangedFiles(fixture.Home, original, "planning"); err != nil {
+		return err
+	}
+	receipt, err := fixture.Adapter.Apply(ctx, fixture.Dependencies, fixture.Before, fixture.After)
+	if err != nil {
+		return fmt.Errorf("Apply() = %w", err)
+	}
+	if receipt == nil || !changesState(plans) {
+		return fmt.Errorf("Apply() of an enabled projection returned receipt %v after plans %#v", receipt, plans)
+	}
+	projected, err := capture(fixture.Home)
+	if err != nil {
+		return err
+	}
+	if err := effectsPredicted(fixture.Home, plans, original, projected); err != nil {
+		return err
+	}
+	if err := convergedProjectionChangesNothing(ctx, fixture, projected); err != nil {
+		return err
+	}
+	if err := receipt.Rollback(); err != nil {
+		return fmt.Errorf("Rollback() = %w", err)
+	}
+	return unchangedFiles(fixture.Home, original, "rollback")
+}
+
+func convergedProjectionChangesNothing(ctx context.Context, fixture Fixture, projected map[string]transaction.FileSnapshot) error {
+	converged, err := plan(fixture, fixture.After, fixture.After)
+	if err != nil {
+		return err
+	}
+	if changesState(converged) {
+		return fmt.Errorf("a converged projection plans changes: %#v", converged)
+	}
+	if _, err := fixture.Adapter.Apply(ctx, fixture.Dependencies, fixture.After, fixture.After); err != nil {
+		return fmt.Errorf("Apply() of a converged projection = %w", err)
+	}
+	return unchangedFiles(fixture.Home, projected, "applying a converged projection")
+}
+
+func withdrawalLeavesNoOwnedFile(ctx context.Context, fixture Fixture) error {
+	original, err := capture(fixture.Home)
+	if err != nil {
+		return err
+	}
+	if _, err := fixture.Adapter.Apply(ctx, fixture.Dependencies, fixture.Before, fixture.After); err != nil {
+		return fmt.Errorf("Apply() = %w", err)
+	}
+	projected, err := capture(fixture.Home)
+	if err != nil {
+		return err
+	}
+	withdrawn := fixture.After.Clone()
+	fixture.Adapter.Withdraw(&withdrawn)
+	plans, err := plan(fixture, fixture.After, withdrawn)
+	if err != nil {
+		return err
+	}
+	if _, err := fixture.Adapter.Apply(ctx, fixture.Dependencies, fixture.After, withdrawn); err != nil {
+		return fmt.Errorf("Apply() after Withdraw() = %w", err)
+	}
+	restored, err := capture(fixture.Home)
+	if err != nil {
+		return err
+	}
+	if err := effectsPredicted(fixture.Home, plans, projected, restored); err != nil {
+		return fmt.Errorf("withdrawal: %w", err)
+	}
+	return unchangedFiles(fixture.Home, original, "withdrawal")
+}
+
+// plan returns the adapter's plans for the transition and requires planning to
+// leave both of the caller's configurations as they were.
+func plan(fixture Fixture, before, after configuration.Config) ([]client.ProjectionPlan, error) {
+	callerBefore, callerAfter := before.Clone(), after.Clone()
+	plans, err := fixture.Adapter.Plan(fixture.Dependencies, before, after)
+	if err != nil {
+		return nil, fmt.Errorf("Plan() = %w", err)
+	}
+	return plans, errors.Join(unchangedCaller("Plan", callerBefore, before), unchangedCaller("Plan", callerAfter, after))
+}
+
+// unchangedCaller requires an operation to leave the caller's configuration as
+// it was; caller is the configuration's clone from before the call.
+func unchangedCaller(operation string, caller, current configuration.Config) error {
+	if !reflect.DeepEqual(caller, current.Clone()) {
+		return fmt.Errorf("%s changed the caller's configuration", operation)
+	}
+	return nil
+}
+
+// effectsPredicted requires Apply to change only files that the plans list in
+// their Effects, and each plan to change state exactly when Apply changed one
+// of its effects.
+func effectsPredicted(home string, plans []client.ProjectionPlan, before, after map[string]transaction.FileSnapshot) error {
+	changed := changedPaths(before, after)
+	declared := map[string]bool{}
+	var violations []error
+	for _, plan := range plans {
+		effects, err := homePaths(home, plan.Effects)
+		if err != nil {
+			return err
 		}
-		converged, err := fixture.Adapter.Plan(fixture.Dependencies, fixture.After, fixture.After)
-		if err != nil || changesState(converged) {
-			t.Fatalf("a converged projection plans changes: %#v, %v", converged, err)
+		touched := slices.ContainsFunc(effects, func(effect string) bool { return slices.Contains(changed, effect) })
+		if touched != plan.ChangesState {
+			violations = append(violations, fmt.Errorf("the plan for %s states ChangesState %t, but Apply changed %v and the plan's effects are %v", plan.Target, plan.ChangesState, changed, effects))
 		}
-		if _, err := fixture.Adapter.Apply(t.Context(), fixture.Dependencies, fixture.After, fixture.After); err != nil {
-			t.Fatalf("Apply() of a converged projection = %v", err)
+		for _, effect := range effects {
+			declared[effect] = true
 		}
-		requireUnchanged(t, projected, capture(t, fixture.Home), "applying a converged projection")
-		if err := receipt.Rollback(); err != nil {
-			t.Fatalf("Rollback() = %v", err)
+	}
+	for _, path := range changed {
+		if !declared[path] {
+			violations = append(violations, fmt.Errorf("Apply changed %s, which no plan lists among its effects", path))
 		}
-		requireUnchanged(t, original, capture(t, fixture.Home), "rollback")
-	})
-	t.Run("withdrawal leaves no owned file", func(t *testing.T) {
-		fixture := newFixture(t)
-		original := capture(t, fixture.Home)
-		if _, err := fixture.Adapter.Apply(t.Context(), fixture.Dependencies, fixture.Before, fixture.After); err != nil {
-			t.Fatalf("Apply() = %v", err)
+	}
+	return errors.Join(violations...)
+}
+
+// homePaths names effects relative to home, as capture names files. Both sides
+// resolve symbolic links first, so a plan may name a file through either
+// spelling of the temporary directory that holds the home.
+func homePaths(home string, effects []string) ([]string, error) {
+	root := resolve(home)
+	paths := make([]string, 0, len(effects))
+	for _, effect := range effects {
+		relative, err := filepath.Rel(root, resolve(effect))
+		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			return nil, fmt.Errorf("the plan effect %s lies outside the fixture home %s", effect, home)
 		}
-		withdrawn := fixture.After.Clone()
-		fixture.Adapter.Withdraw(&withdrawn)
-		if _, err := fixture.Adapter.Apply(t.Context(), fixture.Dependencies, fixture.After, withdrawn); err != nil {
-			t.Fatalf("Apply() after Withdraw() = %v", err)
+		paths = append(paths, filepath.ToSlash(relative))
+	}
+	return paths, nil
+}
+
+// resolve resolves the symbolic links in the longest existing prefix of path,
+// so that a file that does not exist yet resolves like its directory.
+func resolve(path string) string {
+	prefix, rest := filepath.Clean(path), ""
+	for {
+		if resolved, err := filepath.EvalSymlinks(prefix); err == nil {
+			return filepath.Join(resolved, rest)
 		}
-		requireUnchanged(t, original, capture(t, fixture.Home), "withdrawal")
-	})
+		parent := filepath.Dir(prefix)
+		if parent == prefix {
+			return filepath.Clean(path)
+		}
+		rest = filepath.Join(filepath.Base(prefix), rest)
+		prefix = parent
+	}
 }
 
 // capture records the bytes and mode of every regular file below home.
-func capture(t *testing.T, home string) map[string]transaction.FileSnapshot {
-	t.Helper()
+func capture(home string) (map[string]transaction.FileSnapshot, error) {
 	files := map[string]transaction.FileSnapshot{}
 	err := filepath.WalkDir(home, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil || !entry.Type().IsRegular() {
@@ -111,9 +261,9 @@ func capture(t *testing.T, home string) map[string]transaction.FileSnapshot {
 		return nil
 	})
 	if err != nil && !os.IsNotExist(err) {
-		t.Fatalf("capture %s: %v", home, err)
+		return nil, fmt.Errorf("capture %s: %w", home, err)
 	}
-	return files
+	return files, nil
 }
 
 func changedPaths(before, after map[string]transaction.FileSnapshot) []string {
@@ -132,11 +282,15 @@ func changedPaths(before, after map[string]transaction.FileSnapshot) []string {
 	return changed
 }
 
-func requireUnchanged(t *testing.T, want, got map[string]transaction.FileSnapshot, operation string) {
-	t.Helper()
-	if changed := changedPaths(want, got); len(changed) > 0 {
-		t.Fatalf("%s changed %v", operation, changed)
+func unchangedFiles(home string, want map[string]transaction.FileSnapshot, operation string) error {
+	got, err := capture(home)
+	if err != nil {
+		return err
 	}
+	if changed := changedPaths(want, got); len(changed) > 0 {
+		return fmt.Errorf("%s changed %v", operation, changed)
+	}
+	return nil
 }
 
 func changesState(plans []client.ProjectionPlan) bool {

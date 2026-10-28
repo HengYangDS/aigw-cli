@@ -73,7 +73,7 @@ func (claudeAdapter) Plan(deps client.Dependencies, before, after configuration.
 	if err != nil {
 		return nil, err
 	}
-	return []client.ProjectionPlan{{Client: configuration.ClientClaude, Target: plan.Target, Action: string(plan.Action), Surface: string(SettingsSurface), ChangesState: plan.ChangesState()}}, nil
+	return []client.ProjectionPlan{{Client: configuration.ClientClaude, Target: plan.Target, Action: string(plan.Action), Surface: string(SettingsSurface), Effects: plan.Effects(), ChangesState: plan.ChangesState()}}, nil
 }
 
 func (claudeAdapter) Apply(_ context.Context, deps client.Dependencies, before, after configuration.Config) (client.ProjectionReceipt, error) {

@@ -315,7 +315,7 @@ func (hermesAdapter) Plan(deps client.Dependencies, before, after configuration.
 	}
 	result := make([]client.ProjectionPlan, 0, len(plans))
 	for index, plan := range plans {
-		result = append(result, client.ProjectionPlan{Client: configuration.ClientHermes, Target: targets[index], Action: plan.Action, Surface: hermesSurface, ChangesState: plan.ChangesState()})
+		result = append(result, client.ProjectionPlan{Client: configuration.ClientHermes, Target: targets[index], Action: plan.Action, Surface: hermesSurface, Effects: plan.Effects(), ChangesState: plan.ChangesState()})
 	}
 	return result, nil
 }

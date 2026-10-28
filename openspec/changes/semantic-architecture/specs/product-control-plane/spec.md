@@ -74,9 +74,10 @@ admitted only when total owned complexity falls.
 
 - **WHEN** an adapter is registered, including a test-only rehearsal adapter
 - **THEN** it SHALL pass one shared adapter contract: its plan lists every
-  effect that applying it makes, rollback restores the prior bytes and modes,
-  withdrawal leaves no owned file, and inspection and verification change no
-  file
+  file that applying it may change and states exactly whether applying it
+  changes one, rollback restores the prior bytes and modes, withdrawal leaves
+  no owned file, and inspection, verification and planning change no file and
+  leave the caller's configuration unchanged
 - **AND** an adapter that fails any part of that contract SHALL NOT be admitted.
 
 #### Scenario: Compose with a traffic gateway

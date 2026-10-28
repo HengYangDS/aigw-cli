@@ -82,7 +82,7 @@ func (adapter rehearsalAdapter) Plan(_ client.Dependencies, before, after config
 	case changes:
 		action = "project"
 	}
-	return []client.ProjectionPlan{{Client: rehearsalID, Target: adapter.target(), Action: action, ChangesState: changes}}, nil
+	return []client.ProjectionPlan{{Client: rehearsalID, Target: adapter.target(), Action: action, Effects: []string{adapter.target()}, ChangesState: changes}}, nil
 }
 
 type rehearsalReceipt struct {

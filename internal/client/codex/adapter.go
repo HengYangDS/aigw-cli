@@ -107,7 +107,7 @@ func (codexAdapter) Plan(deps client.Dependencies, before, after configuration.C
 	}
 	result := make([]client.ProjectionPlan, 0, len(plans))
 	for _, plan := range plans {
-		result = append(result, client.ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: string(plan.Action), Surface: plan.SurfaceID, ChangesState: plan.ChangesState()})
+		result = append(result, client.ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: string(plan.Action), Surface: plan.SurfaceID, Effects: plan.Effects, ChangesState: plan.ChangesState()})
 	}
 	return result, nil
 }

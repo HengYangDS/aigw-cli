@@ -76,6 +76,9 @@ type ProjectionPlan struct {
 	Target    string           `json:"target"`
 	Action    ProjectionAction `json:"action"`
 	SurfaceID string           `json:"-"`
+	// Effects lists every file that applying the plan may write or remove: the
+	// configuration, its ownership state and its model catalog.
+	Effects []string `json:"-"`
 }
 
 // ChangesState reports whether applying the plan changes an owned target.

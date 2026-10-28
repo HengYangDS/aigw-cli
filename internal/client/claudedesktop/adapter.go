@@ -89,7 +89,7 @@ func (claudeDesktopAdapter) Plan(deps client.Dependencies, before, after configu
 	}
 	result := make([]client.ProjectionPlan, 0, len(plans))
 	for index, plan := range plans {
-		result = append(result, client.ProjectionPlan{Client: configuration.ClientClaudeDesktop, Target: targets[index], Action: string(plan.Action), Surface: string(LibrarySurface), ChangesState: plan.ChangesState()})
+		result = append(result, client.ProjectionPlan{Client: configuration.ClientClaudeDesktop, Target: targets[index], Action: string(plan.Action), Surface: string(LibrarySurface), Effects: plan.Effects(), ChangesState: plan.ChangesState()})
 	}
 	return result, nil
 }

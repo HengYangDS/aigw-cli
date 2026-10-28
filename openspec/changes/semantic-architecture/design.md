@@ -136,10 +136,20 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
   discovery and doctor wording), and an adapter that validates explicit targets
   implements an optional seam method.
 - One contract suite in `internal/client/contract` takes an adapter factory
-  and a private fixture home. It checks the seam's invariants: `Plan` lists
-  every effect that `Apply` makes, `Rollback` restores bytes and modes,
-  `Withdraw` leaves no owned file, and `Inspect` and `Verify` touch nothing.
-  Every admitted adapter and a test-only rehearsal adapter run it.
+  and a private fixture home. Each `ProjectionPlan` lists in `Effects` every
+  file that applying it may write or remove: its target file, ownership state
+  and companion files, as the adapter's own plan owner derives them. The field
+  is not serialized, so command output is unchanged. The suite derives its
+  checks from that model: `Apply` changes no file outside the listed effects,
+  each plan's `ChangesState` holds exactly when `Apply` changes one of its
+  effects, a converged plan changes nothing, `Rollback` restores bytes and
+  modes, and withdrawal is planned the same way and leaves no owned file.
+  `Inspect`, `Verify` and `Plan` change no file, and the caller's
+  configuration equals its `Config.Clone` from before the call. A plan
+  promises a change of its effects, not of its target alone: Claude Code
+  changes only its ownership state when its settings file already holds the
+  projected bytes. Every admitted adapter and a test-only rehearsal adapter
+  run it.
 
 ### Domain, store and secret replace `configuration`
 

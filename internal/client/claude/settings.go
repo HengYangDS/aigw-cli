@@ -80,6 +80,12 @@ func (plan SettingsPlan) ChangesState() bool {
 	return plan.Action == SettingsActionProject || plan.Action == SettingsActionRestore
 }
 
+// Effects returns every file that applying the plan may write or remove: the
+// settings file and its ownership state.
+func (plan SettingsPlan) Effects() []string {
+	return []string{plan.Target, plan.Target + settingsStateSuffix}
+}
+
 // SettingsReceipt records the settings projection that was actually applied.
 type SettingsReceipt struct {
 	SettingsPlan

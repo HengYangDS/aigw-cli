@@ -110,6 +110,15 @@ type codexPreparedTarget struct {
 	artifacts []codexPreparedArtifact
 }
 
+// effects lists the files that applying the target's plan may write or remove.
+func (target codexPreparedTarget) effects() []string {
+	effects := make([]string, 0, len(target.artifacts))
+	for _, artifact := range target.artifacts {
+		effects = append(effects, artifact.path)
+	}
+	return effects
+}
+
 type committedCodexArtifact struct {
 	prepared codexPreparedArtifact
 	post     transaction.FileSnapshot
@@ -149,7 +158,9 @@ func planCodexReconciliationTransition(before, after []TargetRef, previous, runt
 	}
 	plans := make([]ProjectionPlan, 0, len(prepared))
 	for _, target := range prepared {
-		plans = append(plans, target.plan)
+		plan := target.plan
+		plan.Effects = target.effects()
+		plans = append(plans, plan)
 	}
 	return plans, nil
 }

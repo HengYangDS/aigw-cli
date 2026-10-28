@@ -42,13 +42,16 @@ type Dependencies struct {
 
 // ProjectionPlan is a side-effect-free description of one owned projection
 // effect. Surface is the identity of the host surface that owns the target.
-// ChangesState identifies whether that effect changes current state.
+// Effects lists every file that applying the plan may write or remove: the
+// target itself when it is a file, its ownership state and any companion
+// files. ChangesState identifies whether applying the plan changes one of them.
 type ProjectionPlan struct {
-	Client       string `json:"client"`
-	Target       string `json:"target"`
-	Action       string `json:"action"`
-	Surface      string `json:"-"`
-	ChangesState bool   `json:"-"`
+	Client       string   `json:"client"`
+	Target       string   `json:"target"`
+	Action       string   `json:"action"`
+	Surface      string   `json:"-"`
+	Effects      []string `json:"-"`
+	ChangesState bool     `json:"-"`
 }
 
 // ProjectionReceipt can compensate an applied client projection while its

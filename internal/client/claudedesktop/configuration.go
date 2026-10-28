@@ -79,6 +79,15 @@ type Plan struct {
 // ChangesState reports whether applying the plan changes an owned file.
 func (plan Plan) ChangesState() bool { return len(plan.changes) > 0 }
 
+// Effects returns every file that applying the plan writes or removes.
+func (plan Plan) Effects() []string {
+	effects := make([]string, 0, len(plan.changes))
+	for _, change := range plan.changes {
+		effects = append(effects, change.path)
+	}
+	return effects
+}
+
 // ObservedCredentialExecutable returns the sidecar-validated managed helper.
 func (plan Plan) ObservedCredentialExecutable() string {
 	return plan.observedCredentialExecutable

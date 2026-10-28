@@ -87,6 +87,10 @@ type Plan struct {
 // ChangesState reports whether applying the plan changes owned configuration.
 func (plan *Plan) ChangesState() bool { return plan.Action == "write" || plan.Action == "remove" }
 
+// Effects returns every file that applying the plan may write or remove: the
+// configuration and its ownership state.
+func (plan *Plan) Effects() []string { return []string{plan.path, plan.path + stateSuffix} }
+
 // ObservedCredentialCommand returns one sidecar-validated managed command.
 func (plan *Plan) ObservedCredentialCommand(providerID string) (string, bool) {
 	command, ok := plan.commands[providerID]
