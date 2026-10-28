@@ -44,8 +44,8 @@ type Fixture struct {
 //     file, is listed among the plan's effects;
 //   - a converged projection plans, applies and rolls back no change;
 //   - Rollback restores every regular file's bytes and mode, every symbolic
-//     link and every other entry below Home; only directories that the
-//     projection created may remain;
+//     link and every other entry below Home; directories that the projection
+//     created may remain;
 //   - withdrawal is planned and checked the same way, leaves no owned file, and
 //     its own receipt restores the projection.
 //
@@ -53,8 +53,9 @@ type Fixture struct {
 // base directories, TMPDIR, TMP and TEMP, and after the fixture is prepared
 // also the working directory, pointed at an empty sentinel that must stay
 // empty. That refuses an adapter which writes through those variables or a
-// relative path instead of the observed host; client-specific variables, the
-// operating system's user database and Windows known folders are not covered.
+// relative path instead of the observed host. Client-specific variables,
+// values read before Run starts, the operating system's user database and
+// Windows known folders are not covered.
 func Run(t *testing.T, newFixture func(t *testing.T) Fixture) {
 	t.Helper()
 	for _, property := range invariants {
@@ -73,6 +74,9 @@ func runInvariant(t *testing.T, property invariant, newFixture func(t *testing.T
 	t.Helper()
 	sentinel, sentinelUnchanged := isolateProcessHome(t)
 	fixture := newFixture(t)
+	if err := isolationHolds(sentinel); err != nil {
+		return err
+	}
 	t.Chdir(sentinel)
 	return errors.Join(property.check(t.Context(), fixture), sentinelUnchanged())
 }
@@ -93,8 +97,19 @@ var invariants = []invariant{
 // observed host would reach the developer's home or temporary files.
 var processHomeVariables = []string{
 	"HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA",
-	"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME",
+	"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_RUNTIME_DIR",
 	"TMPDIR", "TMP", "TEMP",
+}
+
+// isolationHolds requires every redirected variable to still name the
+// sentinel, so that a fixture cannot undo the isolation.
+func isolationHolds(sentinel string) error {
+	for _, name := range processHomeVariables {
+		if value := os.Getenv(name); value != sentinel {
+			return fmt.Errorf("the fixture set %s to %q, out of the process home sentinel", name, value)
+		}
+	}
+	return nil
 }
 
 // isolateProcessHome points the process's home and temporary directories at one
@@ -182,7 +197,8 @@ func plansPredictEveryChange(ctx context.Context, fixture Fixture) error {
 	if err != nil {
 		return err
 	}
-	if err := errors.Join(effectsPredicted(fixture.Home, plans, original, projected), targetsProjected(fixture.Home, plans)); err != nil {
+	created := createdDirectories(original, projected)
+	if err := errors.Join(effectsPredicted(fixture.Home, plans, original, projected, created), targetsProjected(fixture.Home, plans)); err != nil {
 		return err
 	}
 	if err := observeWithoutEffects(ctx, fixture, "after a projection"); err != nil {
@@ -194,7 +210,7 @@ func plansPredictEveryChange(ctx context.Context, fixture Fixture) error {
 	if err := receipt.Rollback(); err != nil {
 		return fmt.Errorf("Rollback() = %w", err)
 	}
-	return restoredFiles(fixture.Home, original, "rollback")
+	return restoredFiles(fixture.Home, original, created, "rollback")
 }
 
 // targetsProjected requires the target of every plan that changes state to
@@ -214,9 +230,13 @@ func targetsProjected(home string, plans []client.ProjectionPlan) error {
 		if !info.Mode().IsRegular() {
 			continue
 		}
-		target, targetErr := homePaths(home, []string{plan.Target})
-		effects, effectsErr := homePaths(home, plan.Effects)
-		if targetErr != nil || effectsErr != nil || !slices.Contains(effects, target[0]) {
+		target, err := homePaths(home, []string{plan.Target})
+		if err != nil {
+			violations = append(violations, err)
+			continue
+		}
+		// An effect outside the home is reported by effectsPredicted.
+		if effects, err := homePaths(home, plan.Effects); err == nil && !slices.Contains(effects, target[0]) {
 			violations = append(violations, fmt.Errorf("the planned target %s is a file that the plan's effects do not list", plan.Target))
 		}
 	}
@@ -276,10 +296,11 @@ func withdrawalLeavesNoOwnedFile(ctx context.Context, fixture Fixture) error {
 	if err != nil {
 		return err
 	}
-	if err := effectsPredicted(fixture.Home, plans, projected, restored); err != nil {
+	created := createdDirectories(original, projected)
+	if err := effectsPredicted(fixture.Home, plans, projected, restored, created); err != nil {
 		return fmt.Errorf("withdrawal: %w", err)
 	}
-	if err := restoredFiles(fixture.Home, original, "withdrawal"); err != nil {
+	if err := restoredFiles(fixture.Home, original, created, "withdrawal"); err != nil {
 		return err
 	}
 	if receipt == nil {
@@ -288,7 +309,7 @@ func withdrawalLeavesNoOwnedFile(ctx context.Context, fixture Fixture) error {
 	if err := receipt.Rollback(); err != nil {
 		return fmt.Errorf("Rollback() of a withdrawal = %w", err)
 	}
-	return unchangedFiles(fixture.Home, projected, "rolling back a withdrawal")
+	return restoredFiles(fixture.Home, projected, created, "rolling back a withdrawal")
 }
 
 // plan returns the adapter's plans for the transition and requires planning to
@@ -324,9 +345,10 @@ func unchangedCaller(operation string, caller, current configuration.Config) err
 
 // effectsPredicted requires Apply to change only entries that the plans list in
 // their Effects, and each plan to change state exactly when Apply changed one
-// of its effects. A directory that Apply creates is not an effect.
-func effectsPredicted(home string, plans []client.ProjectionPlan, before, after tree) error {
-	changed := changedPaths(before, after, true)
+// of its effects. The directories in created, which the projection created, are
+// not effects: Apply may create them and a withdrawal may remove them.
+func effectsPredicted(home string, plans []client.ProjectionPlan, before, after tree, created map[string]bool) error {
+	changed := changedPaths(before, after, created)
 	declared := map[string]bool{}
 	var violations []error
 	for _, plan := range plans {
@@ -428,25 +450,48 @@ func capture(home string) (tree, error) {
 	return captured, nil
 }
 
-// changedPaths lists every entry that changed between two captures. With
-// keepCreatedDirectories, a directory that exists only afterwards, where no
-// other entry stood before, does not count.
-func changedPaths(before, after tree, keepCreatedDirectories bool) []string {
+// createdDirectories names the directories that exist in projected where
+// nothing stood in original: the directories that a projection created.
+func createdDirectories(original, projected tree) map[string]bool {
+	created := map[string]bool{}
+	for path, mode := range projected.nodes {
+		if mode.IsDir() && !original.holds(path) {
+			created[path] = true
+		}
+	}
+	return created
+}
+
+// holds reports whether any entry stands at path.
+func (captured tree) holds(path string) bool {
+	_, file := captured.files[path]
+	_, link := captured.links[path]
+	_, node := captured.nodes[path]
+	return file || link || node
+}
+
+// changedPaths lists every entry that changed between two captures. A path in
+// exempt counts only when a file, link or other non-directory entry stands
+// there on either side, so its directory may appear, change mode or go.
+func changedPaths(before, after tree, exempt map[string]bool) []string {
 	changed := map[string]bool{}
 	collectChanges(changed, before.files, after.files, transaction.FileSnapshot.Equal)
 	collectChanges(changed, before.links, after.links, equalValues[string])
 	collectChanges(changed, before.nodes, after.nodes, equalValues[fs.FileMode])
-	if keepCreatedDirectories {
-		for path, mode := range after.nodes {
-			_, wasFile := before.files[path]
-			_, wasLink := before.links[path]
-			_, wasNode := before.nodes[path]
-			if mode.IsDir() && !wasFile && !wasLink && !wasNode {
-				delete(changed, path)
-			}
+	for path := range exempt {
+		if before.onlyDirectory(path) && after.onlyDirectory(path) {
+			delete(changed, path)
 		}
 	}
 	return slices.Sorted(maps.Keys(changed))
+}
+
+// onlyDirectory reports whether path holds nothing or a directory.
+func (captured tree) onlyDirectory(path string) bool {
+	_, file := captured.files[path]
+	_, link := captured.links[path]
+	mode, node := captured.nodes[path]
+	return !file && !link && (!node || mode.IsDir())
 }
 
 // collectChanges marks every path that only one side holds or that the two
@@ -468,21 +513,21 @@ func equalValues[V comparable](left, right V) bool { return left == right }
 
 // unchangedFiles requires every entry below home to match want.
 func unchangedFiles(home string, want tree, operation string) error {
-	return compareHome(home, want, operation, false)
+	return compareHome(home, want, nil, operation)
 }
 
-// restoredFiles requires every entry below home to match want, except
-// directories that a projection created since.
-func restoredFiles(home string, want tree, operation string) error {
-	return compareHome(home, want, operation, true)
+// restoredFiles requires every entry below home to match want, except the
+// directories in created, which the projection created and which may remain.
+func restoredFiles(home string, want tree, created map[string]bool, operation string) error {
+	return compareHome(home, want, created, operation)
 }
 
-func compareHome(home string, want tree, operation string, keepCreatedDirectories bool) error {
+func compareHome(home string, want tree, exempt map[string]bool, operation string) error {
 	got, err := capture(home)
 	if err != nil {
 		return err
 	}
-	if changed := changedPaths(want, got, keepCreatedDirectories); len(changed) > 0 {
+	if changed := changedPaths(want, got, exempt); len(changed) > 0 {
 		return fmt.Errorf("%s changed %v", operation, changed)
 	}
 	return nil

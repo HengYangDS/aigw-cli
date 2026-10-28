@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -20,6 +21,7 @@ const (
 	companionName = "companion.txt"
 	linkName      = "link"
 	existingName  = "existing"
+	toolName      = ".tool"
 )
 
 // These name the one seam promise that a fixtureAdapter breaks;
@@ -55,6 +57,9 @@ const (
 	withdrawalRollbackKeeps    = "keeps the withdrawal on rollback"
 	withdrawalReturnsNoReceipt = "returns no receipt for its withdrawal"
 	projectionReturnsNoReceipt = "returns no receipt for its projection"
+	removesItsDirectory        = "removes the directory that its projection created"
+	rollbackCreatesDirectory   = "creates a directory on rollback"
+	fixtureRedirectsHome       = "redirects the process home while it is prepared"
 	writesProcessHome          = "writes the process home"
 	capturesProcessHome        = "captures the process home when it is constructed"
 	writesRelativePath         = "writes a path relative to the working directory"
@@ -202,15 +207,25 @@ func (adapter fixtureAdapter) project() (client.ProjectionReceipt, error) {
 		return nil, nil
 	case rollbackKeeps:
 		return fixtureReceipt(func() error { return nil }), nil
+	case rollbackCreatesDirectory:
+		return fixtureReceipt(func() error {
+			if err := adapter.restore(); err != nil {
+				return err
+			}
+			return os.Mkdir(adapter.path(".backup"), 0o700)
+		}), nil
 	}
 	return fixtureReceipt(adapter.restore), nil
 }
 
-// projectExtras performs the projection's link, mode and out-of-home effects.
+// projectExtras performs the projection's link, directory, mode and
+// out-of-home effects.
 func (adapter fixtureAdapter) projectExtras() error {
 	switch adapter.breaks {
 	case listsItsLink, writesUnlistedLink:
 		return os.Symlink(targetName, adapter.path(linkName))
+	case removesItsDirectory:
+		return os.Mkdir(adapter.path(toolName), 0o700)
 	case rollbackKeepsMode:
 		return os.Chmod(adapter.path(targetName), 0o644)
 	case changesDirectoryMode:
@@ -252,10 +267,10 @@ func (adapter fixtureAdapter) withdraw() (client.ProjectionReceipt, error) {
 	}), nil
 }
 
-// restore returns the target to its original bytes and removes the companion
-// and the link.
+// restore returns the target to its original bytes and removes the companion,
+// the link and the projection's directory.
 func (adapter fixtureAdapter) restore() error {
-	for _, name := range []string{companionName, linkName} {
+	for _, name := range []string{companionName, linkName, toolName} {
 		if err := os.Remove(adapter.path(name)); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
@@ -278,6 +293,9 @@ func newFixture(t *testing.T, breaks string) Fixture {
 	if home, err := os.UserHomeDir(); err == nil {
 		adapter.capturedHome = home
 	}
+	if breaks == fixtureRedirectsHome {
+		t.Setenv("HOME", t.TempDir())
+	}
 	if err := adapter.restoreTarget(); err != nil {
 		t.Fatal(err)
 	}
@@ -296,16 +314,20 @@ func newFixture(t *testing.T, breaks string) Fixture {
 
 // Each case keeps or breaks one seam promise. refused maps every invariant that
 // must reject the case to a phrase of its reason; the other invariants pass.
+// Windows file modes record only the read-only attribute, so the mode cases run
+// on macOS and Linux.
 func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 	observation, plans, withdrawal := invariants[0].name, invariants[1].name, invariants[2].name
 	unlisted := "which no plan lists"
 	for _, test := range []struct {
-		breaks  string
-		refused map[string]string
+		breaks    string
+		posixOnly bool
+		refused   map[string]string
 	}{
 		{breaks: keepsEveryPromise},
 		{breaks: listsItsCompanion},
 		{breaks: listsItsLink},
+		{breaks: removesItsDirectory},
 		{breaks: writesUnlistedCompanion, refused: map[string]string{plans: unlisted, withdrawal: unlisted}},
 		{breaks: writesOnlyCompanion, refused: map[string]string{plans: "states ChangesState true", withdrawal: unlisted}},
 		{breaks: writesUnlistedLink, refused: map[string]string{plans: "Apply changed link, " + unlisted, withdrawal: "Apply changed link, " + unlisted}},
@@ -327,8 +349,9 @@ func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 		{breaks: convergedWrites, refused: map[string]string{plans: "applying a converged projection changed"}},
 		{breaks: convergedRollbackWrites, refused: map[string]string{plans: "rolling back a converged projection changed"}},
 		{breaks: rollbackKeeps, refused: map[string]string{plans: "rollback changed [planned.txt]"}},
-		{breaks: rollbackKeepsMode, refused: map[string]string{plans: "rollback changed [planned.txt]", withdrawal: "withdrawal changed [planned.txt]"}},
-		{breaks: changesDirectoryMode, refused: map[string]string{plans: "Apply changed existing, " + unlisted, withdrawal: "withdrawal changed [existing]"}},
+		{breaks: rollbackCreatesDirectory, refused: map[string]string{plans: "rollback changed [.backup]"}},
+		{breaks: rollbackKeepsMode, posixOnly: true, refused: map[string]string{plans: "rollback changed [planned.txt]", withdrawal: "withdrawal changed [planned.txt]"}},
+		{breaks: changesDirectoryMode, posixOnly: true, refused: map[string]string{plans: "Apply changed existing, " + unlisted, withdrawal: "withdrawal changed [existing]"}},
 		{breaks: withdrawalKeepsCompanion, refused: map[string]string{withdrawal: "withdrawal changed [companion.txt]"}},
 		{breaks: withdrawalRollbackKeeps, refused: map[string]string{withdrawal: "rolling back a withdrawal changed"}},
 		{breaks: withdrawalReturnsNoReceipt, refused: map[string]string{withdrawal: "returned no receipt"}},
@@ -339,6 +362,9 @@ func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 			name = "keeps every promise"
 		}
 		t.Run(name, func(t *testing.T) {
+			if test.posixOnly && runtime.GOOS == "windows" {
+				t.Skip("Windows file modes record only the read-only attribute")
+			}
 			for _, property := range invariants {
 				err := property.check(t.Context(), newFixture(t, test.breaks))
 				want, refused := test.refused[property.name]
@@ -350,11 +376,25 @@ func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 	}
 }
 
+// decoyProcessHome points the process home, temporary and working directories
+// at a test-owned directory, so that a test of the isolation writes there, not
+// into the developer's files, if the isolation itself ever breaks.
+func decoyProcessHome(t *testing.T) {
+	t.Helper()
+	decoy := t.TempDir()
+	for _, name := range processHomeVariables {
+		t.Setenv(name, decoy)
+	}
+	t.Chdir(decoy)
+}
+
 // Run isolates the process home before it prepares the fixture and runs the
 // operations from the sentinel, so an adapter that writes through the process
 // home, through a home it captured while it was constructed, or through a
-// relative path is refused, while an honest one passes.
+// relative path is refused, as is a fixture that redirects the process home,
+// while an honest one passes.
 func TestRunRefusesWritesOutsideTheObservedHost(t *testing.T) {
+	decoyProcessHome(t)
 	for _, test := range []struct {
 		breaks string
 		want   string
@@ -363,6 +403,7 @@ func TestRunRefusesWritesOutsideTheObservedHost(t *testing.T) {
 		{breaks: writesProcessHome, want: "instead of the fixture home"},
 		{breaks: capturesProcessHome, want: "instead of the fixture home"},
 		{breaks: writesRelativePath, want: "instead of the fixture home"},
+		{breaks: fixtureRedirectsHome, want: "out of the process home sentinel"},
 	} {
 		name := test.breaks
 		if name == "" {
@@ -380,6 +421,7 @@ func TestRunRefusesWritesOutsideTheObservedHost(t *testing.T) {
 // A temporary directory that an operation removes again leaves the sentinel
 // empty, and a file left in the process home is reported by name.
 func TestTheProcessHomeSentinelReportsAWrite(t *testing.T) {
+	decoyProcessHome(t)
 	_, sentinelUnchanged := isolateProcessHome(t)
 	if err := sentinelUnchanged(); err != nil {
 		t.Fatalf("a fresh sentinel = %v, want empty", err)

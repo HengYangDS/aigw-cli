@@ -153,22 +153,24 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
     file, is one of the plan's effects;
   - a converged plan, its `Apply` and its receipt's `Rollback` change nothing;
   - `Rollback` restores every regular file's bytes and mode, every symbolic
-    link and every directory's mode; only directories that the projection
-    created may remain, as AIGW leaves them today;
+    link and every directory's mode; directories that the projection created
+    may remain, as AIGW leaves them today, and a withdrawal may remove them;
   - withdrawal is planned and checked the same way, leaves no owned file, and
     its own receipt restores the projection;
   - `Inspect` and `Verify` (without a Route and with the fixture's selected
-    Route), before and after a projection, and every `Plan` change nothing
-    below the home, and these calls and every `Apply` leave the caller's
-    configuration equal to its `Config.Clone` from before the call.
+    Route, or a placeholder when it selects none), before and after a
+    projection, and every `Plan` change nothing below the home, and these
+    calls and every `Apply` leave the caller's configuration equal to its
+    `Config.Clone` from before the call.
 
   A plan promises a change of its effects, not of its target alone: Claude
   Code changes only its ownership state when its settings file already holds
   the projected bytes. Each check runs with HOME, USERPROFILE, APPDATA,
   LOCALAPPDATA, the XDG base directories, TMPDIR, TMP and TEMP, and the working
-  directory, pointed at an empty sentinel that must stay empty. That refuses an
-  adapter that writes through those variables or a relative path instead of
-  the observed host. Client-specific variables, the operating system's user
+  directory, pointed at an empty sentinel that must stay empty, and a fixture
+  may not redirect them. That refuses an adapter that writes through those
+  variables or a relative path instead of the observed host. Client-specific
+  variables, values read before the suite starts, the operating system's user
   database and Windows known folders are outside the check. Every admitted
   adapter and a test-only rehearsal adapter run it.
 
