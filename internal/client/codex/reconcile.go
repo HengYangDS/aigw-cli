@@ -110,11 +110,17 @@ type codexPreparedTarget struct {
 	artifacts []codexPreparedArtifact
 }
 
-// effects lists the files that applying the target's plan may write or remove.
+// effects lists the files that applying the target's plan may write or remove:
+// the configuration target itself, and every prepared artifact.
 func (target codexPreparedTarget) effects() []string {
-	effects := make([]string, 0, len(target.artifacts))
+	effects := make([]string, 0, len(target.artifacts)+1)
+	if target.plan.Target != "" {
+		effects = append(effects, target.plan.Target)
+	}
 	for _, artifact := range target.artifacts {
-		effects = append(effects, artifact.path)
+		if artifact.path != target.plan.Target {
+			effects = append(effects, artifact.path)
+		}
 	}
 	return effects
 }

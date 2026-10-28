@@ -149,23 +149,28 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
   checks from that model:
   - `Apply` changes no file outside the listed effects, each plan's
     `ChangesState` holds exactly when `Apply` changes one of its effects, and
-    the target of a changing plan exists after a projection;
+    the target of a changing plan exists after a projection and, when it is a
+    file, is one of the plan's effects;
   - a converged plan, its `Apply` and its receipt's `Rollback` change nothing;
-  - `Rollback` restores every regular file's bytes and mode and every symbolic
-    link;
+  - `Rollback` restores every regular file's bytes and mode, every symbolic
+    link and every directory's mode; only directories that the projection
+    created may remain, as AIGW leaves them today;
   - withdrawal is planned and checked the same way, leaves no owned file, and
     its own receipt restores the projection;
-  - `Inspect` and `Verify` (without and with an explicit Route), before and
-    after a projection, and every `Plan` change no file and leave the caller's
+  - `Inspect` and `Verify` (without a Route and with the fixture's selected
+    Route), before and after a projection, and every `Plan` change nothing
+    below the home, and these calls and every `Apply` leave the caller's
     configuration equal to its `Config.Clone` from before the call.
 
   A plan promises a change of its effects, not of its target alone: Claude
   Code changes only its ownership state when its settings file already holds
-  the projected bytes. Each check runs with the process's home, configuration
-  and temporary directories pointed at an empty sentinel that must stay empty,
-  so an adapter that ignores the observed host cannot touch the developer's
-  files. Directories that a projection creates may remain, as AIGW leaves them
-  today. Every admitted adapter and a test-only rehearsal adapter run it.
+  the projected bytes. Each check runs with HOME, USERPROFILE, APPDATA,
+  LOCALAPPDATA, the XDG base directories, TMPDIR, TMP and TEMP, and the working
+  directory, pointed at an empty sentinel that must stay empty. That refuses an
+  adapter that writes through those variables or a relative path instead of
+  the observed host. Client-specific variables, the operating system's user
+  database and Windows known folders are outside the check. Every admitted
+  adapter and a test-only rehearsal adapter run it.
 
 ### Domain, store and secret replace `configuration`
 
