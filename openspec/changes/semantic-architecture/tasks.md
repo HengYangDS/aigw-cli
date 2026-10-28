@@ -11,7 +11,7 @@
 - [x] 1.9 Add `internal/client/contract`: one suite that every adapter factory runs against a private fixture home. The suite compares the files that Apply changes with the effects that Plan declares, requires every planned transition to happen, and requires Inspect, Verify and Plan to leave the caller's configuration unchanged. All four adapters and a test-only rehearsal adapter pass it. The rehearsal adapter lives in the composition root's tests, and its change touches only that test file.
 - [x] 1.10 Shrink the confinement list to `internal/configuration` and `internal/credential`, which stage 2 deletes.
 - [x] 1.11 Run the local quality graph at the stage head: every existing test passes unchanged in behavior and every coverage floor holds.
-- [ ] 1.12 Prove the stage head with the full ETHOS proof.
+- [x] 1.12 Prove the stage head with the full ETHOS proof.
 - [ ] 1.13 Confirm the hosted three-platform graph and the real-client journeys on macOS, Linux and Windows pass at the stage head.
 
 ## 2. Stage 2 — Domain, store and secret
