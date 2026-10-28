@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -66,10 +67,10 @@ func validateClientConfinement(c clientConfinement) error {
 	return nil
 }
 
-// checkClientConfinement scans identifiers and string literals, never
-// comments, of non-test product files. A client is named when a token's words
-// contain the words of its ID; in a client's own package, a shorter ID that
-// prefixes the owner's ID names the owner.
+// checkClientConfinement scans identifiers and the decoded values of string and
+// character literals, never comments, of non-test product files. A client is
+// named when a token's words contain the words of its ID; in a client's own
+// package, a shorter ID that prefixes the owner's ID names the owner.
 func checkClientConfinement(root string, files []goFileInfo, c clientConfinement, report *Report) error {
 	if len(c.Clients) == 0 {
 		return nil
@@ -165,6 +166,12 @@ func namedClients(relPath string, source []byte, clients [][]string) []namedClie
 		}
 		if kind != token.IDENT && kind != token.STRING && kind != token.CHAR {
 			continue
+		}
+		// A literal names a client by its value, so escapes are decoded first.
+		if kind != token.IDENT {
+			if value, err := strconv.Unquote(literal); err == nil {
+				literal = value
+			}
 		}
 		words := splitWords(literal)
 		for index := 0; index < len(words); index++ {

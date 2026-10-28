@@ -113,6 +113,33 @@ func TestClientConfinementReportsNamingPackagesPerClient(t *testing.T) {
 	}
 }
 
+// A literal names a client by its value, not its spelling: every Go escape
+// form of the same string is refused like the plain one (Codex finding
+// 60b67634 showed that "\x63odex" escaped the source-text scan).
+func TestClientConfinementDecodesLiteralValues(t *testing.T) {
+	for name, literal := range map[string]string{
+		"plain":           `"codex"`,
+		"hex escape":      `"\x63odex"`,
+		"octal escape":    `"\143odex"`,
+		"unicode escape":  "\"\\" + "u0063odex\"",
+		"raw string":      "`codex`",
+		"inside sentence": `"aigw verify --for \x63odex"`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			root, files := confinementFixture(t, map[string]string{
+				"internal/shared/paths.go": "package shared\n\nconst home = " + literal + "\n",
+			})
+			report := newReport("policy.toml", root)
+			if err := checkClientConfinement(root, files, confinementPolicy(), &report); err != nil {
+				t.Fatal(err)
+			}
+			if len(report.Findings) != 1 || report.Findings[0].Name != "codex" || report.Findings[0].Line != 3 {
+				t.Fatalf("literal %s findings = %+v, want one codex finding on line 3", literal, report.Findings)
+			}
+		})
+	}
+}
+
 func TestClientWordsSplitIdentifiersAndLiterals(t *testing.T) {
 	for text, want := range map[string][]string{
 		"ClaudeDesktopLibrary":     {"claude", "desktop", "library"},
