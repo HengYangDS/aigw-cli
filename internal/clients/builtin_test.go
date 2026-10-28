@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -111,5 +112,68 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 		if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
 			t.Fatalf("Codex artifact %s exists after preparation failure: %v", path, statErr)
 		}
+	}
+}
+
+// futureAdapter is a client admitted after the built-in set. It embeds the seam,
+// so it implements only the two methods that admission reaches.
+type futureAdapter struct{ client.Adapter }
+
+func (futureAdapter) Spec() configuration.ClientSpec {
+	return configuration.ClientSpec{ID: "future", Label: "Future", EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
+}
+
+func (adapter futureAdapter) Converge(_ client.Dependencies, cfg *configuration.Config, _ discovery.Result) error {
+	cfg.SetClientActivation(adapter.Spec().ID, true, "", nil)
+	return nil
+}
+
+func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing.T) {
+	baselineClientIDs := Registry().IDs()
+	before := configuration.NewConfig()
+	before.Accounts["direct"] = configuration.Account{
+		Label: "Direct",
+		Endpoints: configuration.Endpoints{
+			Anthropic:       "https://direct.example.test",
+			OpenAIResponses: "https://direct.example.test/v1",
+		},
+	}
+	before.Accounts["gateway"] = configuration.Account{
+		Label: "External gateway",
+		Endpoints: configuration.Endpoints{
+			Anthropic:       "http://127.0.0.1:9876",
+			OpenAIResponses: "http://127.0.0.1:9876/v1",
+		},
+	}
+	before.Routes["claude"] = qualifiedRoute("", "direct", "claude-test", configuration.ProtocolAnthropic)
+	before.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
+	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	before.SetSelectedRoute(configuration.ClientCodex, "codex", "")
+	before.SetClientActivation(configuration.ClientClaude, true, "/clients/claude", nil)
+	before.SetClientActivation(configuration.ClientCodex, true, "/clients/codex", []string{"/clients/codex.toml"})
+	wantUnchanged := before.Clone()
+
+	future := futureAdapter{}
+	specs := append(configuration.AdmittedClientSpecs(), future.Spec())
+	registry, err := client.NewRegistry(specs, append(adapters(), future)...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := registry.Converge(client.Dependencies{}, before, discovery.Result{}, future.Spec().ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !after.Clients[future.Spec().ID].Enabled {
+		t.Fatal("future client was not admitted through its adapter")
+	}
+	delete(after.Clients, future.Spec().ID)
+	if !reflect.DeepEqual(after, wantUnchanged) {
+		t.Fatalf("future client changed existing client or Provider state:\n got %#v\nwant %#v", after, wantUnchanged)
+	}
+	if !reflect.DeepEqual(before, wantUnchanged) {
+		t.Fatal("future client admission mutated its input configuration")
+	}
+	if got := Registry().IDs(); !reflect.DeepEqual(got, baselineClientIDs) {
+		t.Fatalf("built-in registry changed: got %v, want %v", got, baselineClientIDs)
 	}
 }

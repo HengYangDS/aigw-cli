@@ -3,6 +3,7 @@ package clients
 
 import (
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 )
@@ -12,15 +13,19 @@ import (
 // adapters use it too. An adapter set that does not match the admission
 // records is a build defect, so it panics rather than starting without one.
 func Registry() client.Registry {
-	registry, err := client.NewRegistry(
-		configuration.AdmittedClientSpecs(),
-		client.NewClaudeAdapter(),
-		client.NewClaudeDesktopAdapter(),
-		codex.New(),
-		client.NewHermesAdapter(),
-	)
+	registry, err := client.NewRegistry(configuration.AdmittedClientSpecs(), adapters()...)
 	if err != nil {
 		panic(err)
 	}
 	return registry
+}
+
+// adapters lists every built-in client adapter in admission order.
+func adapters() []client.Adapter {
+	return []client.Adapter{
+		claude.New(),
+		client.NewClaudeDesktopAdapter(),
+		codex.New(),
+		client.NewHermesAdapter(),
+	}
 }

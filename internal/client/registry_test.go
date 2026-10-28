@@ -4,10 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -192,57 +190,6 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 	}
 }
 
-func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing.T) {
-	baselineClientIDs := builtinRegistry().IDs()
-	before := configuration.NewConfig()
-	before.Accounts["direct"] = configuration.Account{
-		Label: "Direct",
-		Endpoints: configuration.Endpoints{
-			Anthropic:       "https://direct.example.test",
-			OpenAIResponses: "https://direct.example.test/v1",
-		},
-	}
-	before.Accounts["gateway"] = configuration.Account{
-		Label: "External gateway",
-		Endpoints: configuration.Endpoints{
-			Anthropic:       "http://127.0.0.1:9876",
-			OpenAIResponses: "http://127.0.0.1:9876/v1",
-		},
-	}
-	before.Routes["claude"] = qualifiedRoute("", "direct", "claude-test", configuration.ProtocolAnthropic)
-	before.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	before.SetSelectedRoute(configuration.ClientCodex, "codex", "")
-	before.SetClientActivation(configuration.ClientClaude, true, "/clients/claude", nil)
-	before.SetClientActivation(configuration.ClientCodex, true, "/clients/codex", []string{"/clients/codex.toml"})
-	wantUnchanged := before.Clone()
-
-	future := &recordingAdapter{}
-	owned := []Adapter{claudeAdapter{}, claudeDesktopAdapter{}, hermesAdapter{}}
-	specs := append(specsOf(owned...), future.Spec())
-	registry, err := NewRegistry(specs, append(owned, future)...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	after, err := registry.Converge(Dependencies{}, before, discovery.Result{}, future.Spec().ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !after.Clients[future.Spec().ID].Enabled {
-		t.Fatal("future client was not admitted through its adapter")
-	}
-	delete(after.Clients, future.Spec().ID)
-	if !reflect.DeepEqual(after, wantUnchanged) {
-		t.Fatalf("future client changed existing client or Provider state:\n got %#v\nwant %#v", after, wantUnchanged)
-	}
-	if !reflect.DeepEqual(before, wantUnchanged) {
-		t.Fatal("future client admission mutated its input configuration")
-	}
-	if got := builtinRegistry().IDs(); !reflect.DeepEqual(got, baselineClientIDs) {
-		t.Fatalf("built-in registry changed: got %v, want %v", got, baselineClientIDs)
-	}
-}
-
 func TestRegistryCompensatesAppliedAdaptersInReverseOrder(t *testing.T) {
 	for _, nilReceipt := range []bool{false, true} {
 		t.Run(fmt.Sprintf("nil-receipt=%t", nilReceipt), func(t *testing.T) {
@@ -396,57 +343,6 @@ func TestRegistryRejectsUnknownClientOperations(t *testing.T) {
 	assertUnknown("withdraw", registry.Withdraw(&cfg, "unknown"))
 	if len(adapter.calls) != 0 {
 		t.Fatalf("unknown client operations touched an adapter: %v", adapter.calls)
-	}
-}
-
-func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.T) {
-	missing := filepath.Join(t.TempDir(), "missing")
-	cfg := configuration.NewConfig()
-	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{
-		Anthropic:       "https://gateway.test",
-		OpenAIResponses: "https://gateway.test/v1",
-	}}
-	cfg.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
-	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, missing, nil)
-
-	after, err := builtinRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, configuration.ClientClaude)
-	if err != nil || after.Clients[configuration.ClientClaude].Executable != missing {
-		t.Fatalf("configured missing executable = %q, %v", after.Clients[configuration.ClientClaude].Executable, err)
-	}
-	if runtime.GOOS == "windows" {
-		return
-	}
-	loop := filepath.Join(t.TempDir(), "loop")
-	if err := os.Symlink(loop, loop); err != nil {
-		t.Skipf("symbolic link unavailable: %v", err)
-	}
-	cfg.SetClientActivation(configuration.ClientClaude, true, loop, nil)
-	discovered := discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/replacement/claude"}}
-	for _, clientID := range []string{configuration.ClientClaude} {
-		if _, err := builtinRegistry().Converge(Dependencies{}, cfg, discovered, clientID); err == nil || !strings.Contains(err.Error(), "inspect configured "+clientID+" executable") {
-			t.Fatalf("Converge(%q) error = %v", clientID, err)
-		}
-	}
-}
-
-func TestDefaultRegistryIgnoresOnlyAnUnselectedRoute(t *testing.T) {
-	for _, clientID := range []string{configuration.ClientClaude} {
-		t.Run(clientID+" without a route", func(t *testing.T) {
-			if _, err := builtinRegistry().Converge(Dependencies{}, configuration.NewConfig(), discovery.Result{}, clientID); err != nil {
-				t.Fatalf("Converge(%q) without a route = %v", clientID, err)
-			}
-		})
-
-		t.Run(clientID+" with a broken route", func(t *testing.T) {
-			cfg := configuration.NewConfig()
-			cfg.SetSelectedRoute(clientID, "missing-route", "")
-			if _, err := builtinRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
-				t.Fatalf("Converge(%q) broken route error = %v", clientID, err)
-			}
-		})
 	}
 }
 

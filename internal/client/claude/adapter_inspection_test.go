@@ -1,4 +1,4 @@
-package client
+package claude
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/claude"
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/transaction"
 )
@@ -51,10 +51,10 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 	}
 	cfg := configuration.NewConfig()
 	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
-	deps := Dependencies{ClaudeSettingsPath: filepath.Join(root, "settings.json"), AIGWExecutable: filepath.Join(root, "aigw")}
+	deps := client.Dependencies{ClaudeSettingsPath: filepath.Join(root, "settings.json"), AIGWExecutable: filepath.Join(root, "aigw")}
 	runtime := configuration.Runtime{AccountID: "gateway", RouteID: "claude", Model: "claude-model", Endpoint: "https://gateway.test"}
 	if test.sync {
-		if _, err := claude.ReconcileSettings(deps.ClaudeSettingsPath, false, runtime, deps.AIGWExecutable, runtime.Model); err != nil {
+		if _, err := ReconcileSettings(deps.ClaudeSettingsPath, false, runtime, deps.AIGWExecutable, runtime.Model); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/claude"
+	"aigw-cli/internal/client/claude"
 	configuration "aigw-cli/internal/configuration"
 )
 

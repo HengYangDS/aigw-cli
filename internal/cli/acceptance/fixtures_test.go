@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"aigw-cli/internal/clients"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -15,8 +14,9 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/claude"
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"

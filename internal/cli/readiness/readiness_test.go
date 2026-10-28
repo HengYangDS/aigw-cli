@@ -1,8 +1,8 @@
 package readiness
 
 import (
-	"aigw-cli/internal/claude"
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"

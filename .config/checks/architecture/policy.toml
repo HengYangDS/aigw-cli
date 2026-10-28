@@ -51,7 +51,7 @@ package_children."tools" = [
 ]
 package_children."internal/claude" = ["desktop"]
 package_children."internal/client/codex" = ["catalog"]
-package_children."internal/client" = ["codex", "verification"]
+package_children."internal/client" = ["claude", "codex", "verification"]
 package_children."internal/hermes" = ["configuration"]
 allowed_import_edges."internal/hermes/configuration" = ["internal/transaction"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
@@ -96,6 +96,7 @@ allowed_import_edges."cmd/aigw" = [
 # The built-in adapter set is the only list of every client outside its adapters.
 allowed_import_edges."internal/clients" = [
   "internal/client",
+  "internal/client/claude",
   "internal/client/codex",
   "internal/configuration",
 ]
@@ -109,7 +110,6 @@ allowed_import_edges."internal/configuration" = ["internal/transaction"]
 allowed_import_edges."internal/client" = [
   "internal/claude/desktop",
   "internal/hermes/configuration",
-  "internal/claude",
   "internal/configuration",
   "internal/credential",
   "internal/discovery",
@@ -120,9 +120,7 @@ allowed_import_edges."internal/client" = [
   "internal/client/verification",
 ]
 allowed_import_edges."internal/client/verification" = [
-  "internal/claude",
   "internal/configuration",
-  "internal/process",
   "internal/redaction",
 ]
 # Upgrade reuses neutral process and durable staging owners.
@@ -153,12 +151,6 @@ allowed_import_edges."internal/secrets" = [
   "internal/secrets/native",
 ]
 allowed_import_edges."internal/secrets/native" = ["internal/process"]
-allowed_import_edges."internal/claude" = [
-  "internal/credential",
-  "internal/configuration",
-  "internal/process",
-  "internal/transaction",
-]
 allowed_import_edges."internal/claude/desktop" = ["internal/transaction"]
 allowed_import_edges."internal/providers" = [
   "internal/configuration",
@@ -175,6 +167,16 @@ allowed_import_edges."internal/providers/dmxapi" = [
   "internal/secrets",
 ]
 allowed_import_edges."internal/platform" = []
+allowed_import_edges."internal/client/claude" = [
+  "internal/client",
+  "internal/client/verification",
+  "internal/configuration",
+  "internal/credential",
+  "internal/discovery",
+  "internal/process",
+  "internal/surface",
+  "internal/transaction",
+]
 allowed_import_edges."internal/client/codex" = [
   "internal/client",
   "internal/client/codex/catalog",
@@ -434,7 +436,6 @@ product_roots = ["cmd", "internal"]
 adapter_root = "internal/client"
 composition_roots = ["cmd/aigw", "internal/clients"]
 temporary_exceptions = [
-  "internal/claude",
   "internal/claude/desktop",
   "internal/cli",
   "internal/cli/client",

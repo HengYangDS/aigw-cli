@@ -1,7 +1,7 @@
 package doctor
 
 import (
-	"aigw-cli/internal/claude"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"

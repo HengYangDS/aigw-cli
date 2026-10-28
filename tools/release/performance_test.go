@@ -3,7 +3,7 @@
 package main
 
 import (
-	"aigw-cli/internal/claude"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/secrets"

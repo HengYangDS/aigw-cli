@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"aigw-cli/internal/claude"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
