@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"aigw-cli/internal/codex/catalog"
+	"aigw-cli/internal/client/codex/catalog"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/transaction"
 

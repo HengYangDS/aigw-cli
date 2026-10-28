@@ -202,9 +202,11 @@ actions. Stage 6 needs its own written design and approval.
 - **Large moves conflict with concurrent work** → stages run serially. Each
   stage starts from the current `dev` and is announced before landing, and
   other lanes refresh after it.
-- **History becomes harder to follow** → each stage commits its pure moves
-  (`git mv` with no edits) separately from its edits, so
-  `git log --follow` and `git blame -C` keep working.
+- **History becomes harder to follow** → files move with `git mv` and keep
+  their content apart from import paths and the identifiers that the move
+  requires, so Git's rename detection, `git log --follow` and `git blame -C`
+  follow them. Each commit moves one client and still builds and tests, which
+  a move without its edits would not.
 - **Per-package coverage floors move with the code** → each new package must
   meet the existing 95% statement floor on every hosted platform before its
   stage lands. Platform-specific files move with their build constraints.

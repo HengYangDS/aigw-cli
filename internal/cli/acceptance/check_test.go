@@ -2,7 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/codex"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 	"bytes"

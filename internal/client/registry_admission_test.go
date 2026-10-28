@@ -63,7 +63,7 @@ func TestBuiltInRegistryInvariantsPanicOnInvalidDefinitions(t *testing.T) {
 		run  func()
 	}{
 		{name: "invalid registry", run: func() { mustRegistry(nil, failingProjectionAdapter{id: "unadmitted"}) }},
-		{name: "missing client", run: func() { mustClientSpec("missing") }},
+		{name: "missing client", run: func() { AdmittedSpec("missing") }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

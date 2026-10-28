@@ -1,7 +1,7 @@
 package codex_test
 
 import (
-	"aigw-cli/internal/codex"
+	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 	"os"
 	"path/filepath"

@@ -15,7 +15,7 @@ import (
 type claudeDesktopAdapter struct{}
 
 func (claudeDesktopAdapter) Spec() configuration.ClientSpec {
-	return mustClientSpec(configuration.ClientClaudeDesktop)
+	return AdmittedSpec(configuration.ClientClaudeDesktop)
 }
 
 func (claudeDesktopAdapter) Discover(source DiscoverySource) discovery.Result {
@@ -47,13 +47,13 @@ func (claudeDesktopAdapter) Converge(deps Dependencies, cfg *configuration.Confi
 	if !explicitlyConfigured || !binding.Enabled {
 		return nil
 	}
-	executable, err := resolveExecutable(configuration.ClientClaudeDesktop, binding.Executable, discovered.Executable(configuration.ClientClaudeDesktop))
+	executable, err := ResolveExecutable(configuration.ClientClaudeDesktop, binding.Executable, discovered.Executable(configuration.ClientClaudeDesktop))
 	if err != nil {
 		return err
 	}
 	available := !runtime.UsesAIGWCredentialStore()
 	if runtime.UsesAIGWCredentialStore() {
-		available, err = secretAvailable(deps.Secrets, runtime.AccountID)
+		available, err = SecretAvailable(deps.Secrets, runtime.AccountID)
 		if err != nil {
 			return err
 		}
@@ -157,7 +157,7 @@ func claudeDesktopInspectionPlan(deps Dependencies, cfg configuration.Config, se
 	if plan.ObservedCredentialExecutable() == "" {
 		return plan, nil
 	}
-	reader, err := retainedDefaultReader(deps.AIGWExecutable, false, func() (string, error) {
+	reader, err := RetainedDefaultReader(deps.AIGWExecutable, false, func() (string, error) {
 		return plan.ObservedCredentialExecutable(), nil
 	})
 	if err != nil || reader == deps.AIGWExecutable {
@@ -237,7 +237,7 @@ func claudeDesktopDesired(deps Dependencies, cfg configuration.Config, selected 
 func claudeDesktopRouteIDs(cfg configuration.Config, selected configuration.Runtime) []string {
 	routeIDs := []string{selected.RouteID}
 	seen := map[string]bool{cfg.Routes[selected.RouteID].Model: true}
-	spec := mustClientSpec(configuration.ClientClaudeDesktop)
+	spec := AdmittedSpec(configuration.ClientClaudeDesktop)
 	for _, routeID := range cfg.CatalogRouteIDs() {
 		if routeID == selected.RouteID {
 			continue

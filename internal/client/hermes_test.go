@@ -213,7 +213,7 @@ func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
 	for _, provider := range catalogue {
 		models[provider.ID] = provider.Models
 	}
-	spec := mustClientSpec(configuration.ClientHermes)
+	spec := AdmittedSpec(configuration.ClientHermes)
 	for _, routeID := range cfg.RouteIDs() {
 		route := cfg.Routes[routeID]
 		for _, protocol := range spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route) {

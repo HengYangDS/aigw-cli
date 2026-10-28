@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -219,8 +218,9 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 	wantUnchanged := before.Clone()
 
 	future := &recordingAdapter{}
-	specs := append(configuration.AdmittedClientSpecs(), future.Spec())
-	registry, err := NewRegistry(specs, codexAdapter{}, claudeAdapter{}, claudeDesktopAdapter{}, hermesAdapter{}, future)
+	owned := []Adapter{claudeAdapter{}, claudeDesktopAdapter{}, hermesAdapter{}}
+	specs := append(specsOf(owned...), future.Spec())
+	registry, err := NewRegistry(specs, append(owned, future)...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -424,12 +424,8 @@ func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.
 		t.Skipf("symbolic link unavailable: %v", err)
 	}
 	cfg.SetClientActivation(configuration.ClientClaude, true, loop, nil)
-	cfg.SetClientActivation(configuration.ClientCodex, true, loop, []string{"/target"})
-	discovered := discovery.Result{Executables: map[string]string{
-		configuration.ClientClaude: "/replacement/claude",
-		configuration.ClientCodex:  "/replacement/codex",
-	}}
-	for _, clientID := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	discovered := discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/replacement/claude"}}
+	for _, clientID := range []string{configuration.ClientClaude} {
 		if _, err := builtinRegistry().Converge(Dependencies{}, cfg, discovered, clientID); err == nil || !strings.Contains(err.Error(), "inspect configured "+clientID+" executable") {
 			t.Fatalf("Converge(%q) error = %v", clientID, err)
 		}
@@ -437,7 +433,7 @@ func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.
 }
 
 func TestDefaultRegistryIgnoresOnlyAnUnselectedRoute(t *testing.T) {
-	for _, clientID := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, clientID := range []string{configuration.ClientClaude} {
 		t.Run(clientID+" without a route", func(t *testing.T) {
 			if _, err := builtinRegistry().Converge(Dependencies{}, configuration.NewConfig(), discovery.Result{}, clientID); err != nil {
 				t.Fatalf("Converge(%q) without a route = %v", clientID, err)
@@ -480,61 +476,5 @@ func TestDefaultRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 				t.Fatalf("Plan(%q) deferred binding = %#v, want no projection", clientID, plans)
 			}
 		})
-	}
-}
-
-func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
-	dir := t.TempDir()
-	codexTarget := filepath.Join(dir, ".codex", "config.toml")
-	if err := os.MkdirAll(filepath.Dir(codexTarget), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	originalCodex := []byte("model_provider = \"native\"\n")
-	if err := os.WriteFile(codexTarget, originalCodex, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	claudeSettings := filepath.Join(dir, ".claude", "settings.json")
-	if err := os.MkdirAll(filepath.Dir(claudeSettings), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(claudeSettings, []byte("{"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	before := configuration.NewConfig()
-	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
-		Anthropic:       "https://gateway.test",
-		OpenAIResponses: "https://gateway.test/v1",
-	}}
-	before.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
-	before.Routes["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	before.SetSelectedRoute(configuration.ClientCodex, "codex", "")
-	after := before.Clone()
-	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
-	after.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{codexTarget})
-	deps := Dependencies{
-		Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{
-			ID: "codex-home-default", Authority: "aigw", ConfigPath: codexTarget, Present: true, AutoManaged: true,
-		}}}},
-		ClaudeSettingsPath: claudeSettings,
-		AIGWExecutable:     "/opt/aigw",
-	}
-
-	_, _, err := builtinRegistry().Apply(t.Context(), deps, before, after)
-	if err == nil || !strings.Contains(err.Error(), "parse Claude settings") {
-		t.Fatalf("Apply() error = %v", err)
-	}
-	got, readErr := os.ReadFile(codexTarget)
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	if !bytes.Equal(got, originalCodex) {
-		t.Fatalf("Codex changed before Claude preparation completed:\n%s", got)
-	}
-	for _, path := range []string{codexTarget + ".aigw-state.json", filepath.Join(filepath.Dir(codexTarget), "models.json")} {
-		if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
-			t.Fatalf("Codex artifact %s exists after preparation failure: %v", path, statErr)
-		}
 	}
 }

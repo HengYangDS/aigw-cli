@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/codex"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/configuration"
 )
 

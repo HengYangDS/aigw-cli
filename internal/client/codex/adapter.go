@@ -1,0 +1,279 @@
+package codex
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+
+	"aigw-cli/internal/client"
+	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/discovery"
+	surfaceidentity "aigw-cli/internal/surface"
+)
+
+// codexAdapter is the Codex client adapter behind the client seam.
+type codexAdapter struct{}
+
+// New returns the Codex adapter for the composition root to register.
+func New() client.Adapter { return codexAdapter{} }
+
+func (codexAdapter) Spec() configuration.ClientSpec {
+	return client.AdmittedSpec(configuration.ClientCodex)
+}
+
+func (codexAdapter) Discover(source client.DiscoverySource) discovery.Result {
+	path := filepath.Join(source.CodexHomeDirectory(), "config.toml")
+	return discovery.Result{
+		Executables: map[string]string{configuration.ClientCodex: source.Executable(configuration.ClientCodex)},
+		Surfaces: []discovery.Surface{{
+			ID:          string(surfaceidentity.CodexHomeDefault),
+			Product:     "Codex",
+			Authority:   string(surfaceidentity.AuthorityAIGW),
+			ConfigPath:  path,
+			Present:     source.FilePresent(path),
+			AutoManaged: true,
+		}},
+	}
+}
+
+func (codexAdapter) Converge(deps client.Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
+	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		if _, unselected := errors.AsType[*configuration.RuntimeBindingUnselectedError](err); unselected {
+			return nil
+		}
+		return err
+	}
+	binding, explicitlyConfigured := cfg.Clients[configuration.ClientCodex]
+	if !explicitlyConfigured || !binding.Enabled {
+		return nil
+	}
+	targets := convergedTargets(discovered, binding.Targets)
+	executable, err := client.ResolveExecutable(configuration.ClientCodex, binding.Executable, discovered.Executable(configuration.ClientCodex))
+	if err != nil {
+		return err
+	}
+	available := !runtime.UsesAIGWCredentialStore()
+	if runtime.UsesAIGWCredentialStore() {
+		available, err = client.SecretAvailable(deps.Secrets, runtime.AccountID)
+		if err != nil {
+			return err
+		}
+	}
+	if executable != "" && len(targets) > 0 && available {
+		cfg.SetClientActivation(configuration.ClientCodex, true, executable, targets)
+	}
+	return nil
+}
+
+func (codexAdapter) Plan(deps client.Dependencies, before, after configuration.Config) ([]client.ProjectionPlan, error) {
+	beforeRefs, afterRefs, previous, runtime, err := reconciliationInputs(deps, before, after)
+	if err != nil {
+		return nil, err
+	}
+	var plans []ProjectionPlan
+	if deps.AuthorizedSelectionClient == configuration.ClientCodex {
+		plans, err = PlanReconciliationAuthorizedTransition(beforeRefs, afterRefs, previous, runtime)
+	} else {
+		plans, err = PlanReconciliationTransition(beforeRefs, afterRefs, previous, runtime)
+	}
+	if err != nil {
+		return nil, err
+	}
+	result := make([]client.ProjectionPlan, 0, len(plans))
+	for _, plan := range plans {
+		result = append(result, client.ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: string(plan.Action), Surface: plan.SurfaceID, ChangesState: plan.ChangesState()})
+	}
+	return result, nil
+}
+
+func (codexAdapter) Apply(_ context.Context, deps client.Dependencies, before, after configuration.Config) (client.ProjectionReceipt, error) {
+	beforeRefs, afterRefs, previous, runtime, err := reconciliationInputs(deps, before, after)
+	if err != nil {
+		return nil, err
+	}
+	if deps.AuthorizedSelectionClient == configuration.ClientCodex {
+		return ReconcileConfigsAuthorizedTransition(beforeRefs, afterRefs, previous, runtime)
+	}
+	return ReconcileConfigsTransition(beforeRefs, afterRefs, previous, runtime)
+}
+
+func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
+	beforeBinding := before.Clients[configuration.ClientCodex]
+	afterBinding := after.Clients[configuration.ClientCodex]
+	if beforeBinding.Enabled != afterBinding.Enabled || beforeBinding.CredentialCommand != afterBinding.CredentialCommand {
+		return true
+	}
+	if !afterBinding.Enabled {
+		return false
+	}
+	if !beforeBinding.Enabled || !slices.Equal(beforeBinding.Targets, afterBinding.Targets) {
+		return true
+	}
+	beforeRuntime, beforeErr := before.ResolveRuntime(configuration.ClientCodex, "")
+	afterRuntime, afterErr := after.ResolveRuntime(configuration.ClientCodex, "")
+	if beforeErr != nil || afterErr != nil {
+		return true
+	}
+	return beforeRuntime.AccountID != afterRuntime.AccountID ||
+		!beforeRuntime.SameUpstream(afterRuntime) ||
+		beforeRuntime.RouteID != afterRuntime.RouteID ||
+		beforeRuntime.RouteLabel != afterRuntime.RouteLabel ||
+		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
+		beforeRuntime.Model != afterRuntime.Model ||
+		beforeRuntime.ModelProvider != afterRuntime.ModelProvider ||
+		beforeRuntime.Authentication != afterRuntime.Authentication
+}
+
+func (codexAdapter) Inspect(_ context.Context, deps client.Dependencies, cfg configuration.Config, runtime configuration.Runtime) client.Status {
+	binding := cfg.Clients[configuration.ClientCodex]
+	if !binding.Enabled {
+		return client.Status{Issue: "Codex adapter is disabled", RepairAction: "aigw sync"}
+	}
+	if binding.Executable == "" {
+		return client.Status{Issue: "Codex executable is not configured", RepairAction: "aigw repair"}
+	}
+	if len(binding.Targets) == 0 {
+		return client.Status{Issue: "Codex configuration target is missing", RepairAction: "aigw repair"}
+	}
+	status := client.Status{Ready: true, Checks: make([]client.Check, 0, len(binding.Targets))}
+	for index, target := range binding.Targets {
+		check := client.Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "route " + runtime.RouteID, Target: target}
+		observed, readerErr := retainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
+		issue, detail, repair := "Codex configuration projection drift: ", "", "aigw sync"
+		if readerErr != nil {
+			detail = "Codex credential reader cannot be inspected"
+		} else if err := ValidateConfig(target, observed); err != nil {
+			detail = "Codex configuration target does not match selected binding"
+			if conflict, ok := errors.AsType[*ConflictError](err); ok {
+				// Synchronization refuses an outside edit, so advising it alone
+				// would send the operator back to the same refusal.
+				issue, detail, repair = "Codex configuration conflict: ", "AIGW-managed Codex settings were changed outside AIGW", conflict.NextAction()
+			} else if errors.Is(err, os.ErrNotExist) {
+				detail = "Codex configuration target is unavailable"
+			}
+		}
+		if detail != "" {
+			check.Ready = false
+			check.Detail = detail
+			check.RepairAction = repair
+			status.Ready = false
+			status.Issue = issue + detail
+			status.RepairAction = repair
+		}
+		status.Checks = append(status.Checks, check)
+	}
+
+	return status
+}
+
+func (codexAdapter) Withdraw(cfg *configuration.Config) {
+	delete(cfg.Clients, configuration.ClientCodex)
+}
+
+func convergedTargets(discovered discovery.Result, current []string) []string {
+	seen := map[string]bool{}
+	targets := make([]string, 0, len(current)+len(discovered.Surfaces))
+	appendTarget := func(path string) {
+		if path != "" && !seen[path] {
+			seen[path] = true
+			targets = append(targets, path)
+		}
+	}
+	for _, path := range discovered.AutoManagedCodexTargets() {
+		appendTarget(path)
+	}
+	for _, path := range current {
+		if surface, ok := discovered.SurfaceForConfigPath(path); ok {
+			if surface.ID == string(surfaceidentity.CodexHomeDefault) {
+				appendTarget(path)
+			}
+			continue
+		}
+		appendTarget(path)
+	}
+	return targets
+}
+
+func reconciliationInputs(deps client.Dependencies, before, after configuration.Config) ([]TargetRef, []TargetRef, configuration.Runtime, configuration.Runtime, error) {
+	beforeBinding := before.Clients[configuration.ClientCodex]
+	afterBinding := after.Clients[configuration.ClientCodex]
+	if !beforeBinding.Enabled && !afterBinding.Enabled {
+		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, nil
+	}
+	discovered, err := discover(deps)
+	if err != nil {
+		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
+	}
+	beforeRefs, err := targetRefs(discovered, beforeBinding.Targets, bindingExecutable(discovered, beforeBinding))
+	if err != nil {
+		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
+	}
+	afterRefs, err := targetRefs(discovered, afterBinding.Targets, bindingExecutable(discovered, afterBinding))
+	if err != nil {
+		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
+	}
+	previous, _ := before.ResolveRuntime(configuration.ClientCodex, "")
+	if previous.RequiresAccountToken() {
+		previous.CredentialCommand = previous.CredentialExecutable(deps.AIGWExecutable)
+	}
+	if !afterBinding.Enabled {
+		return beforeRefs, nil, previous, configuration.Runtime{}, nil
+	}
+	runtime, err := after.ResolveRuntime(configuration.ClientCodex, "")
+	if err != nil {
+		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
+	}
+	if runtime.RequiresAccountToken() {
+		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
+	}
+	return beforeRefs, afterRefs, previous, runtime, nil
+}
+
+func discover(deps client.Dependencies) (discovery.Result, error) {
+	if deps.Discovery == nil {
+		return discovery.Result{}, fmt.Errorf("codex surface discovery is unavailable")
+	}
+	return deps.Discovery.Discover(), nil
+}
+
+func bindingExecutable(discovered discovery.Result, binding configuration.ClientBinding) string {
+	if binding.Executable != "" {
+		return binding.Executable
+	}
+	return discovered.Executable(configuration.ClientCodex)
+}
+
+func targetRefs(discovered discovery.Result, paths []string, executable string) ([]TargetRef, error) {
+	refs := make([]TargetRef, 0, len(paths))
+	for _, path := range paths {
+		if path == "" {
+			return nil, fmt.Errorf("codex config target is empty")
+		}
+		if surface, ok := discovered.SurfaceForConfigPath(path); ok {
+			refs = append(refs, TargetRef{
+				SurfaceID:      surface.ID,
+				Authority:      surface.Authority,
+				ProjectionMode: ProjectionFullSelection,
+				Path:           path,
+				Executable:     executable,
+				CreateIfAbsent: surface.AutoManaged,
+			})
+			continue
+		}
+		sum := sha256.Sum256([]byte(filepath.Clean(path)))
+		refs = append(refs, TargetRef{
+			SurfaceID:      string(surfaceidentity.CodexHomeExplicit(hex.EncodeToString(sum[:6]))),
+			Authority:      string(surfaceidentity.AuthorityAIGW),
+			ProjectionMode: ProjectionFullSelection,
+			Path:           path,
+			Executable:     executable,
+		})
+	}
+	return refs, nil
+}

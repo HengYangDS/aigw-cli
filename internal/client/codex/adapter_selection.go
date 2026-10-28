@@ -1,19 +1,19 @@
-package client
+package codex
 
 import (
 	"fmt"
 	"slices"
 	"strings"
 
-	"aigw-cli/internal/codex"
+	"aigw-cli/internal/client"
 	"aigw-cli/internal/configuration"
 )
 
-// AdoptCodexSelection records Codex's own model choice as its Client Binding
-// when the root model is the only changed value AIGW owns in the Codex targets
-// and it names the upstream model of one Route of the selected Account and
+// AdoptSelection records Codex's own model choice as its Client Binding when
+// the root model is the only changed value AIGW owns in the Codex targets and
+// it names the upstream model of one Route of the selected Account and
 // protocol. The binding keeps its protocol, provider and forwarding.
-func AdoptCodexSelection(_ Dependencies, cfg *configuration.Config) (string, error) {
+func AdoptSelection(_ client.Dependencies, cfg *configuration.Config) (string, error) {
 	binding := cfg.Clients[configuration.ClientCodex]
 	if !binding.Enabled || len(binding.Targets) == 0 {
 		return "", nil
@@ -24,7 +24,7 @@ func AdoptCodexSelection(_ Dependencies, cfg *configuration.Config) (string, err
 	}
 	chosen := ""
 	for _, target := range binding.Targets {
-		model, changed, err := codex.ObserveSelection(target)
+		model, changed, err := ObserveSelection(target)
 		if err != nil {
 			return "", err
 		}
@@ -38,7 +38,7 @@ func AdoptCodexSelection(_ Dependencies, cfg *configuration.Config) (string, err
 	if chosen == "" {
 		return "", nil
 	}
-	routeID, err := codexRouteFor(*cfg, selected, chosen)
+	routeID, err := routeFor(*cfg, selected, chosen)
 	if err != nil {
 		return "", err
 	}
@@ -46,10 +46,10 @@ func AdoptCodexSelection(_ Dependencies, cfg *configuration.Config) (string, err
 	return routeID, nil
 }
 
-// codexRouteFor maps Codex's model to the one Route with the selected Account,
+// routeFor maps Codex's model to the one Route with the selected Account,
 // protocol and that upstream model, which the managed provider already reaches.
-func codexRouteFor(cfg configuration.Config, selected configuration.Runtime, model string) (string, error) {
-	spec := mustClientSpec(configuration.ClientCodex)
+func routeFor(cfg configuration.Config, selected configuration.Runtime, model string) (string, error) {
+	spec := client.AdmittedSpec(configuration.ClientCodex)
 	var matches []string
 	for _, routeID := range cfg.CatalogRouteIDs() {
 		route := cfg.Routes[routeID]

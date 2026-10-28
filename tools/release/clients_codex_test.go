@@ -18,9 +18,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"aigw-cli/internal/client/codex"
+	codexcatalog "aigw-cli/internal/client/codex/catalog"
 	clientverification "aigw-cli/internal/client/verification"
-	"aigw-cli/internal/codex"
-	codexcatalog "aigw-cli/internal/codex/catalog"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"

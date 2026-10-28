@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/codex"
+	"aigw-cli/internal/client/codex"
 )
 
 const fakeBundledCatalog = `{"models":[{"slug":"gpt-5.6-sol","display_name":"Sol","priority":1},{"slug":"gpt-5.5","display_name":"Five","priority":2},{"slug":"gpt-6.1-sol","display_name":"Sol 6.1","context_window":500000,"reasoning_effort":"high","future":{"enabled":true}},{"slug":"gpt-6-luna","display_name":"Luna"}]}`

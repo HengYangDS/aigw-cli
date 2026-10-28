@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/codex"
+	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/prompt"

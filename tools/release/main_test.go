@@ -1,8 +1,7 @@
 package main
 
 import (
-	clientverification "aigw-cli/internal/client/verification"
-	"aigw-cli/internal/codex"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/tools/gitfixture"
@@ -106,7 +105,7 @@ func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
 	}
 	cfg := configuration.Config{}
 	cfg.SetClientActivation(configuration.ClientCodex, true, executable, []string{target})
-	if _, err := clientverification.VerifyCodexInvocation(t.Context(), process.Runner{}, cfg, selected, ""); err != nil {
+	if _, err := codex.VerifyInvocation(t.Context(), process.Runner{}, cfg, selected, ""); err != nil {
 		t.Fatalf("copied Codex fixture cannot satisfy the current verifier: %v", err)
 	}
 }

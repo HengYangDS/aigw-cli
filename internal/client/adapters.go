@@ -2,24 +2,13 @@ package client
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
-	"slices"
 
 	"aigw-cli/internal/claude"
-	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
 )
-
-// NewCodexAdapter returns the Codex adapter for the composition root to register.
-func NewCodexAdapter() Adapter { return codexAdapter{} }
 
 // NewClaudeAdapter returns the Claude Code adapter for the composition root to register.
 func NewClaudeAdapter() Adapter { return claudeAdapter{} }
@@ -44,166 +33,10 @@ func (discoverer registeredDiscoverer) Discover() discovery.Result {
 	return discoverer.registry.Discover(discoverer.source)
 }
 
-type codexAdapter struct{}
-
-func (codexAdapter) Spec() configuration.ClientSpec {
-	return mustClientSpec(configuration.ClientCodex)
-}
-
-func (codexAdapter) Discover(source DiscoverySource) discovery.Result {
-	path := filepath.Join(source.CodexHomeDirectory(), "config.toml")
-	return discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: source.Executable(configuration.ClientCodex)},
-		Surfaces: []discovery.Surface{{
-			ID:          string(surfaceidentity.CodexHomeDefault),
-			Product:     "Codex",
-			Authority:   string(surfaceidentity.AuthorityAIGW),
-			ConfigPath:  path,
-			Present:     source.FilePresent(path),
-			AutoManaged: true,
-		}},
-	}
-}
-
-func (codexAdapter) Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		if _, unselected := errors.AsType[*configuration.RuntimeBindingUnselectedError](err); unselected {
-			return nil
-		}
-		return err
-	}
-	adapter, explicitlyConfigured := cfg.Clients[configuration.ClientCodex]
-	if !explicitlyConfigured || !adapter.Enabled {
-		return nil
-	}
-	targets := codexTargets(discovered, adapter.Targets)
-	executable, err := resolveExecutable(configuration.ClientCodex, adapter.Executable, discovered.Executable(configuration.ClientCodex))
-	if err != nil {
-		return err
-	}
-	available := !runtime.UsesAIGWCredentialStore()
-	if runtime.UsesAIGWCredentialStore() {
-		available, err = secretAvailable(deps.Secrets, runtime.AccountID)
-		if err != nil {
-			return err
-		}
-	}
-	if executable != "" && len(targets) > 0 && available {
-		cfg.SetClientActivation(configuration.ClientCodex, true, executable, targets)
-	}
-	return nil
-}
-
-func (codexAdapter) Plan(deps Dependencies, before, after configuration.Config) ([]ProjectionPlan, error) {
-	beforeRefs, afterRefs, previous, runtime, err := codexReconciliationInputs(deps, before, after)
-	if err != nil {
-		return nil, err
-	}
-	var plans []codex.ProjectionPlan
-	if deps.AuthorizedSelectionClient == configuration.ClientCodex {
-		plans, err = codex.PlanReconciliationAuthorizedTransition(beforeRefs, afterRefs, previous, runtime)
-	} else {
-		plans, err = codex.PlanReconciliationTransition(beforeRefs, afterRefs, previous, runtime)
-	}
-	if err != nil {
-		return nil, err
-	}
-	result := make([]ProjectionPlan, 0, len(plans))
-	for _, plan := range plans {
-		result = append(result, ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: string(plan.Action), Surface: plan.SurfaceID, ChangesState: plan.ChangesState()})
-	}
-	return result, nil
-}
-
-func (codexAdapter) Apply(_ context.Context, deps Dependencies, before, after configuration.Config) (ProjectionReceipt, error) {
-	beforeRefs, afterRefs, previous, runtime, err := codexReconciliationInputs(deps, before, after)
-	if err != nil {
-		return nil, err
-	}
-	if deps.AuthorizedSelectionClient == configuration.ClientCodex {
-		return codex.ReconcileConfigsAuthorizedTransition(beforeRefs, afterRefs, previous, runtime)
-	}
-	return codex.ReconcileConfigsTransition(beforeRefs, afterRefs, previous, runtime)
-}
-
-func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
-	beforeAdapter := before.Clients[configuration.ClientCodex]
-	afterAdapter := after.Clients[configuration.ClientCodex]
-	if beforeAdapter.Enabled != afterAdapter.Enabled || beforeAdapter.CredentialCommand != afterAdapter.CredentialCommand {
-		return true
-	}
-	if !afterAdapter.Enabled {
-		return false
-	}
-	if !beforeAdapter.Enabled || !slices.Equal(beforeAdapter.Targets, afterAdapter.Targets) {
-		return true
-	}
-	beforeRuntime, beforeErr := before.ResolveRuntime(configuration.ClientCodex, "")
-	afterRuntime, afterErr := after.ResolveRuntime(configuration.ClientCodex, "")
-	if beforeErr != nil || afterErr != nil {
-		return true
-	}
-	return beforeRuntime.AccountID != afterRuntime.AccountID ||
-		!beforeRuntime.SameUpstream(afterRuntime) ||
-		beforeRuntime.RouteID != afterRuntime.RouteID ||
-		beforeRuntime.RouteLabel != afterRuntime.RouteLabel ||
-		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
-		beforeRuntime.Model != afterRuntime.Model ||
-		beforeRuntime.ModelProvider != afterRuntime.ModelProvider ||
-		beforeRuntime.Authentication != afterRuntime.Authentication
-}
-
-func (codexAdapter) Inspect(_ context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) Status {
-	adapter := cfg.Clients[configuration.ClientCodex]
-	if !adapter.Enabled {
-		return Status{Issue: "Codex adapter is disabled", RepairAction: "aigw sync"}
-	}
-	if adapter.Executable == "" {
-		return Status{Issue: "Codex executable is not configured", RepairAction: "aigw repair"}
-	}
-	if len(adapter.Targets) == 0 {
-		return Status{Issue: "Codex configuration target is missing", RepairAction: "aigw repair"}
-	}
-	status := Status{Ready: true, Checks: make([]Check, 0, len(adapter.Targets))}
-	for index, target := range adapter.Targets {
-		check := Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "route " + runtime.RouteID, Target: target}
-		observed, readerErr := codexRetainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
-		issue, detail, repair := "Codex configuration projection drift: ", "", "aigw sync"
-		if readerErr != nil {
-			detail = "Codex credential reader cannot be inspected"
-		} else if err := codex.ValidateConfig(target, observed); err != nil {
-			detail = "Codex configuration target does not match selected binding"
-			if conflict, ok := errors.AsType[*codex.ConflictError](err); ok {
-				// Synchronization refuses an outside edit, so advising it alone
-				// would send the operator back to the same refusal.
-				issue, detail, repair = "Codex configuration conflict: ", "AIGW-managed Codex settings were changed outside AIGW", conflict.NextAction()
-			} else if errors.Is(err, os.ErrNotExist) {
-				detail = "Codex configuration target is unavailable"
-			}
-		}
-		if detail != "" {
-			check.Ready = false
-			check.Detail = detail
-			check.RepairAction = repair
-			status.Ready = false
-			status.Issue = issue + detail
-			status.RepairAction = repair
-		}
-		status.Checks = append(status.Checks, check)
-	}
-
-	return status
-}
-
-func (codexAdapter) Withdraw(cfg *configuration.Config) {
-	delete(cfg.Clients, configuration.ClientCodex)
-}
-
 type claudeAdapter struct{}
 
 func (claudeAdapter) Spec() configuration.ClientSpec {
-	return mustClientSpec(configuration.ClientClaude)
+	return AdmittedSpec(configuration.ClientClaude)
 }
 
 func (claudeAdapter) Discover(source DiscoverySource) discovery.Result {
@@ -222,13 +55,13 @@ func (claudeAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 	if !explicitlyConfigured || !adapter.Enabled {
 		return nil
 	}
-	executable, err := resolveExecutable(configuration.ClientClaude, adapter.Executable, discovered.Executable(configuration.ClientClaude))
+	executable, err := ResolveExecutable(configuration.ClientClaude, adapter.Executable, discovered.Executable(configuration.ClientClaude))
 	if err != nil {
 		return err
 	}
 	available := !runtime.UsesAIGWCredentialStore()
 	if runtime.UsesAIGWCredentialStore() {
-		available, err = secretAvailable(deps.Secrets, runtime.AccountID)
+		available, err = SecretAvailable(deps.Secrets, runtime.AccountID)
 		if err != nil {
 			return err
 		}
@@ -312,134 +145,6 @@ func (claudeAdapter) Inspect(_ context.Context, deps Dependencies, cfg configura
 
 func (claudeAdapter) Withdraw(cfg *configuration.Config) {
 	delete(cfg.Clients, configuration.ClientClaude)
-}
-
-func mustClientSpec(clientID string) configuration.ClientSpec {
-	spec, ok := configuration.ClientSpecFor(clientID)
-	if !ok {
-		panic("missing client admission: " + clientID)
-	}
-	return spec
-}
-
-func resolveExecutable(clientID, configured, discovered string) (string, error) {
-	available, err := discovery.ExecutableAvailable(configured)
-	if err != nil {
-		return "", fmt.Errorf("inspect configured %s executable: %w", clientID, err)
-	}
-	if available || discovered == "" {
-		return configured, nil
-	}
-	return discovered, nil
-}
-
-func secretAvailable(store secrets.Store, accountID string) (bool, error) {
-	if store == nil {
-		return false, nil
-	}
-	return store.Exists(accountID)
-}
-
-func codexTargets(discovered discovery.Result, current []string) []string {
-	seen := map[string]bool{}
-	targets := make([]string, 0, len(current)+len(discovered.Surfaces))
-	appendTarget := func(path string) {
-		if path != "" && !seen[path] {
-			seen[path] = true
-			targets = append(targets, path)
-		}
-	}
-	for _, path := range discovered.AutoManagedCodexTargets() {
-		appendTarget(path)
-	}
-	for _, path := range current {
-		if surface, ok := discovered.SurfaceForConfigPath(path); ok {
-			if surface.ID == string(surfaceidentity.CodexHomeDefault) {
-				appendTarget(path)
-			}
-			continue
-		}
-		appendTarget(path)
-	}
-	return targets
-}
-
-func codexReconciliationInputs(deps Dependencies, before, after configuration.Config) ([]codex.TargetRef, []codex.TargetRef, configuration.Runtime, configuration.Runtime, error) {
-	beforeAdapter := before.Clients[configuration.ClientCodex]
-	afterAdapter := after.Clients[configuration.ClientCodex]
-	if !beforeAdapter.Enabled && !afterAdapter.Enabled {
-		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, nil
-	}
-	discovered, err := discover(deps)
-	if err != nil {
-		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
-	}
-	beforeRefs, err := codexTargetRefs(discovered, beforeAdapter.Targets, codexExecutable(discovered, beforeAdapter))
-	if err != nil {
-		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
-	}
-	afterRefs, err := codexTargetRefs(discovered, afterAdapter.Targets, codexExecutable(discovered, afterAdapter))
-	if err != nil {
-		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
-	}
-	previous, _ := before.ResolveRuntime(configuration.ClientCodex, "")
-	if previous.RequiresAccountToken() {
-		previous.CredentialCommand = previous.CredentialExecutable(deps.AIGWExecutable)
-	}
-	if !afterAdapter.Enabled {
-		return beforeRefs, nil, previous, configuration.Runtime{}, nil
-	}
-	runtime, err := after.ResolveRuntime(configuration.ClientCodex, "")
-	if err != nil {
-		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
-	}
-	if runtime.RequiresAccountToken() {
-		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
-	}
-	return beforeRefs, afterRefs, previous, runtime, nil
-}
-
-func discover(deps Dependencies) (discovery.Result, error) {
-	if deps.Discovery == nil {
-		return discovery.Result{}, fmt.Errorf("codex surface discovery is unavailable")
-	}
-	return deps.Discovery.Discover(), nil
-}
-
-func codexExecutable(discovered discovery.Result, adapter configuration.ClientBinding) string {
-	if adapter.Executable != "" {
-		return adapter.Executable
-	}
-	return discovered.Executable(configuration.ClientCodex)
-}
-
-func codexTargetRefs(discovered discovery.Result, paths []string, executable string) ([]codex.TargetRef, error) {
-	refs := make([]codex.TargetRef, 0, len(paths))
-	for _, path := range paths {
-		if path == "" {
-			return nil, fmt.Errorf("codex config target is empty")
-		}
-		if surface, ok := discovered.SurfaceForConfigPath(path); ok {
-			refs = append(refs, codex.TargetRef{
-				SurfaceID:      surface.ID,
-				Authority:      surface.Authority,
-				ProjectionMode: codex.ProjectionFullSelection,
-				Path:           path,
-				Executable:     executable,
-				CreateIfAbsent: surface.AutoManaged,
-			})
-			continue
-		}
-		sum := sha256.Sum256([]byte(filepath.Clean(path)))
-		refs = append(refs, codex.TargetRef{
-			SurfaceID:      string(surfaceidentity.CodexHomeExplicit(hex.EncodeToString(sum[:6]))),
-			Authority:      string(surfaceidentity.AuthorityAIGW),
-			ProjectionMode: codex.ProjectionFullSelection,
-			Path:           path,
-			Executable:     executable,
-		})
-	}
-	return refs, nil
 }
 
 func claudeProjectionRequired(before, after configuration.Config) bool {

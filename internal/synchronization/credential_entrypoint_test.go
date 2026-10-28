@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/claude"
-	"aigw-cli/internal/codex"
+	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 )

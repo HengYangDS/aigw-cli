@@ -3,6 +3,7 @@ package clients
 
 import (
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 )
 
@@ -15,7 +16,7 @@ func Registry() client.Registry {
 		configuration.AdmittedClientSpecs(),
 		client.NewClaudeAdapter(),
 		client.NewClaudeDesktopAdapter(),
-		client.NewCodexAdapter(),
+		codex.New(),
 		client.NewHermesAdapter(),
 	)
 	if err != nil {

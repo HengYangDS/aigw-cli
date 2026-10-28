@@ -9,8 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"aigw-cli/internal/codex"
-	"aigw-cli/internal/codex/catalog"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/codex/catalog"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )

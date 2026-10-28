@@ -22,7 +22,7 @@ type hermesAdapter struct{}
 const hermesSurface = string(surfaceidentity.HermesHomeDefault)
 
 func (hermesAdapter) Spec() configuration.ClientSpec {
-	return mustClientSpec(configuration.ClientHermes)
+	return AdmittedSpec(configuration.ClientHermes)
 }
 
 func (hermesAdapter) Discover(source DiscoverySource) discovery.Result {
@@ -46,7 +46,7 @@ func (hermesAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 	if !explicitlyConfigured || !adapter.Enabled {
 		return nil
 	}
-	executable, err := resolveExecutable(configuration.ClientHermes, adapter.Executable, discovered.Executable(configuration.ClientHermes))
+	executable, err := ResolveExecutable(configuration.ClientHermes, adapter.Executable, discovered.Executable(configuration.ClientHermes))
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (hermesAdapter) Converge(deps Dependencies, cfg *configuration.Config, disc
 	}
 	credentialAvailable := !selected.UsesAIGWCredentialStore()
 	if selected.UsesAIGWCredentialStore() {
-		credentialAvailable, err = secretAvailable(deps.Secrets, selected.AccountID)
+		credentialAvailable, err = SecretAvailable(deps.Secrets, selected.AccountID)
 		if err != nil {
 			return err
 		}
@@ -87,7 +87,7 @@ func hermesDesired(deps Dependencies, cfg configuration.Config, selected configu
 	desired := hermesconfig.Desired{SelectedProvider: hermesProviderID(selected.AccountID, selected.Protocol), SelectedModel: selected.Model}
 	for _, item := range catalogue {
 		if _, observed := connected[item.Account]; !observed {
-			available, err := secretAvailable(deps.Secrets, item.Account)
+			available, err := SecretAvailable(deps.Secrets, item.Account)
 			if err != nil {
 				return hermesconfig.Desired{}, fmt.Errorf("inspect Hermes Account %q credential: %w", item.Account, err)
 			}
@@ -121,7 +121,7 @@ type hermesCatalogueProvider struct {
 }
 
 func hermesCatalogue(cfg configuration.Config) ([]hermesCatalogueProvider, error) {
-	spec := mustClientSpec(configuration.ClientHermes)
+	spec := AdmittedSpec(configuration.ClientHermes)
 	providers := make(map[string]hermesCatalogueProvider)
 	var ids []string
 	for _, routeID := range cfg.CatalogRouteIDs() {
@@ -268,7 +268,7 @@ func hermesRouteFor(cfg configuration.Config, native hermesconfig.Selection) (st
 		return "", "", fmt.Errorf("Hermes selects provider %q, which AIGW no longer projects; run `aigw use --for hermes <route>`", native.Provider)
 	}
 	provider := catalogue[index]
-	spec := mustClientSpec(configuration.ClientHermes)
+	spec := AdmittedSpec(configuration.ClientHermes)
 	var matches []string
 	for _, routeID := range cfg.CatalogRouteIDs() {
 		route := cfg.Routes[routeID]
@@ -402,7 +402,7 @@ func hermesInspectionPlan(deps Dependencies, cfg configuration.Config, selected 
 }
 
 func hermesRetainedReader(cfg configuration.Config, desired hermesconfig.Desired, plan hermesconfig.Plan, current string) (string, error) {
-	return retainedDefaultReader(current, false, func() (string, error) {
+	return RetainedDefaultReader(current, false, func() (string, error) {
 		catalogue, err := hermesCatalogue(cfg)
 		if err != nil {
 			return "", err

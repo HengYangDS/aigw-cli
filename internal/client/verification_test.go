@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"aigw-cli/internal/claude"
-	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/process"
@@ -282,85 +281,6 @@ func environmentValue(environment []string, name string) string {
 	return ""
 }
 
-func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testing.T) {
-	cfg, selected := codexVerificationFixture(t)
-	target := cfg.Clients[configuration.ClientCodex].Targets[0]
-	if err := codex.DisableConfig(target); err != nil {
-		t.Fatal(err)
-	}
-	base, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// An absolute reference on every platform: a rooted Windows path without a
-	// drive is rebased onto the configuration's drive, which would change the line.
-	userCatalog := "model_catalog_json = '" + filepath.Join(t.TempDir(), "owned", "catalog.json") + "'"
-	if err := os.WriteFile(target, append([]byte(userCatalog+"\n"), base...), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := codex.SyncConfig(target, selected); err != nil {
-		t.Fatal(err)
-	}
-	before, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", configuration.ProtocolOpenAIResponses)
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "alternate")
-	if err != nil {
-		t.Fatal(err)
-	}
-	runner := &routeVerificationRunner{}
-	if _, err := (codexAdapter{}).Verify(context.Background(), Dependencies{
-		Runner: runner, AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
-	}, cfg, runtime, "alternate"); err != nil {
-		t.Fatal(err)
-	}
-	after, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Equal(before, after) {
-		t.Fatal("explicit Route verification changed the selected Codex projection")
-	}
-	request := runner.plans[len(runner.plans)-1]
-	verificationHome := ""
-	for _, entry := range request.Env {
-		if value, ok := strings.CutPrefix(entry, "CODEX_HOME="); ok {
-			verificationHome = value
-			break
-		}
-	}
-	if verificationHome == filepath.Dir(target) || verificationHome == "" {
-		t.Fatalf("CODEX_HOME = %q, want an isolated projection", verificationHome)
-	}
-	if !strings.Contains(string(runner.config), userCatalog) {
-		t.Fatalf("isolated Codex projection did not preserve user configuration:\n%s", runner.config)
-	}
-	if _, err := os.Stat(verificationHome); !os.IsNotExist(err) {
-		t.Fatalf("isolated Codex projection survived verification: %s: %v", verificationHome, err)
-	}
-}
-
-func TestFailedCodexVerificationProjectionRemovesItsWorkspace(t *testing.T) {
-	root := t.TempDir()
-	t.Setenv("TMPDIR", root)
-	_, workspace, err := isolateCodexProjection(
-		configuration.NewConfig(), configuration.Runtime{},
-		configuration.ClientBinding{Targets: []string{root}},
-	)
-	if err == nil {
-		t.Fatal("directory source unexpectedly copied as a Codex config")
-	}
-	if workspace != "" {
-		t.Fatalf("failed projection retained workspace %q", workspace)
-	}
-	entries, err := os.ReadDir(root)
-	if err != nil || len(entries) != 0 {
-		t.Fatalf("failed projection left temporary resources: %v, %v", entries, err)
-	}
-}
-
 func TestFailedClaudeVerificationProjectionRemovesItsWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("TMPDIR", root)
@@ -377,49 +297,6 @@ func TestFailedClaudeVerificationProjectionRemovesItsWorkspace(t *testing.T) {
 	if err != nil || len(entries) != 0 {
 		t.Fatalf("failed projection left temporary resources: %v, %v", entries, err)
 	}
-}
-
-func TestCodexVerificationRepairsCosmeticRootSelectionDriftInIsolation(t *testing.T) {
-	cfg, selected := codexVerificationFixture(t)
-	target := cfg.Clients[configuration.ClientCodex].Targets[0]
-	projected, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	unmarked := strings.Replace(string(projected), `model_provider = "aigw" # managed by AIGW`, `model_provider = "aigw"`, 1)
-	unmarked = strings.Replace(unmarked, `model = "gpt-selected" # managed by AIGW`, `model = "gpt-selected"`, 1)
-	if err := os.WriteFile(target, []byte(unmarked), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	before, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", configuration.ProtocolOpenAIResponses)
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "alternate")
-	if err != nil {
-		t.Fatal(err)
-	}
-	runner := &routeVerificationRunner{}
-	if _, err := (codexAdapter{}).Verify(context.Background(), Dependencies{
-		Runner: runner, AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
-	}, cfg, runtime, "alternate"); err != nil {
-		t.Fatalf("explicit Route verification rejected cosmetic root selection drift: %v", err)
-	}
-	after, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Equal(before, after) {
-		t.Fatal("isolated verification changed the selected Codex projection")
-	}
-	if !strings.Contains(string(runner.config), `model = "gpt-alternate" # managed by AIGW`) {
-		t.Fatalf("isolated projection did not select alternate Route:\n%s", runner.config)
-	}
-	if !strings.Contains(string(runner.config), `model_provider = "aigw" # managed by AIGW`) {
-		t.Fatalf("isolated projection did not restore cosmetic ownership markers:\n%s", runner.config)
-	}
-	_ = selected
 }
 
 func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testing.T) {
@@ -482,52 +359,52 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testi
 	}
 }
 
-func TestClientVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing.T) {
-	for _, client := range []string{configuration.ClientCodex, configuration.ClientClaude} {
-		for _, failure := range []string{"selected route", "retained reader"} {
-			t.Run(client+"/"+failure, func(t *testing.T) {
-				cfg, _ := codexVerificationFixture(t)
-				binding := cfg.Clients[configuration.ClientCodex]
-				cfg.Clients[client] = binding
-				if client == configuration.ClientClaude {
-					cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-					cfg.Routes["codex"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
-				}
-				selected, err := cfg.ResolveRuntime(client, "")
-				if err != nil {
+func TestClaudeVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing.T) {
+	for _, failure := range []string{"selected route", "retained reader"} {
+		t.Run(failure, func(t *testing.T) {
+			settings := filepath.Join(t.TempDir(), "settings.json")
+			if err := os.WriteFile(settings, nil, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			executable := filepath.Join(t.TempDir(), "claude")
+			if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			cfg := configuration.NewConfig()
+			cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
+			cfg.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
+			binding := configuration.ClientBinding{Route: "claude", Enabled: true, Executable: executable}
+			cfg.Clients[configuration.ClientClaude] = binding
+			selected, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			store := secrets.NewMemoryStore()
+			if err := store.Set("gateway", "fixture-token"); err != nil {
+				t.Fatal(err)
+			}
+			runner := &routeVerificationRunner{}
+			deps := Dependencies{Runner: runner, Secrets: store, ClaudeSettingsPath: settings}
+			want := "unknown route"
+			if failure == "selected route" {
+				binding.Route = "missing"
+				cfg.Clients[configuration.ClientClaude] = binding
+			} else {
+				_, deps.AIGWExecutable = versionedReaders(t)
+				if err := os.Remove(settings); err != nil {
 					t.Fatal(err)
 				}
-				store := secrets.NewMemoryStore()
-				if err := store.Set("gateway", "fixture-token"); err != nil {
+				if err := os.Mkdir(settings, 0o700); err != nil {
 					t.Fatal(err)
 				}
-				runner := &routeVerificationRunner{}
-				deps := Dependencies{Runner: runner, Secrets: store, ClaudeSettingsPath: binding.Targets[0]}
-				var adapter Adapter = codexAdapter{}
-				if client == configuration.ClientClaude {
-					adapter = claudeAdapter{}
-				}
-				want := "unknown route"
-				if failure == "selected route" {
-					binding.Route = "missing"
-					cfg.Clients[client] = binding
-				} else {
-					_, deps.AIGWExecutable = versionedReaders(t)
-					if err := os.Remove(binding.Targets[0]); err != nil {
-						t.Fatal(err)
-					}
-					if err := os.Mkdir(binding.Targets[0], 0o700); err != nil {
-						t.Fatal(err)
-					}
-					want = "retained"
-				}
-				if _, err := adapter.Verify(t.Context(), deps, cfg, selected, ""); err == nil || !strings.Contains(err.Error(), want) {
-					t.Fatalf("verification refusal = %v, want %q", err, want)
-				}
-				if len(runner.plans) != 0 {
-					t.Fatalf("verification invoked a client before resolving its selection: %#v", runner.plans)
-				}
-			})
-		}
+				want = "retained"
+			}
+			if _, err := (claudeAdapter{}).Verify(t.Context(), deps, cfg, selected, ""); err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("verification refusal = %v, want %q", err, want)
+			}
+			if len(runner.plans) != 0 {
+				t.Fatalf("verification invoked a client before resolving its selection: %#v", runner.plans)
+			}
+		})
 	}
 }

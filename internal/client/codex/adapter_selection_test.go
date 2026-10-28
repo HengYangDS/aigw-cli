@@ -1,19 +1,18 @@
-package client
+package codex
 
 import (
+	"aigw-cli/internal/client"
+	"aigw-cli/internal/configuration"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"aigw-cli/internal/codex"
-	"aigw-cli/internal/configuration"
 )
 
 func TestAdoptCodexSelectionRecordsTheOneMatchingRoute(t *testing.T) {
 	cfg, targets := codexAdoptionFixture(t, 1)
 	native := chooseCodexModel(t, targets[0], "gpt-terra")
-	routeID, err := AdoptCodexSelection(Dependencies{}, &cfg)
+	routeID, err := AdoptSelection(client.Dependencies{}, &cfg)
 	if err != nil || routeID != "terra" {
 		t.Fatalf("adopted Route = %q, %v", routeID, err)
 	}
@@ -41,7 +40,7 @@ func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
 				cfg.Normalize()
 			}
 			chooseCodexModel(t, targets[0], test.model)
-			_, err := AdoptCodexSelection(Dependencies{}, &cfg)
+			_, err := AdoptSelection(client.Dependencies{}, &cfg)
 			for _, want := range test.want {
 				if err == nil || !strings.Contains(err.Error(), want) {
 					t.Fatalf("adoption error = %v, want %s", err, want)
@@ -58,7 +57,7 @@ func TestAdoptCodexSelectionRefusesDisagreeingTargets(t *testing.T) {
 	cfg, targets := codexAdoptionFixture(t, 2)
 	chooseCodexModel(t, targets[0], "gpt-terra")
 	chooseCodexModel(t, targets[1], "gpt-luna")
-	if _, err := AdoptCodexSelection(Dependencies{}, &cfg); err == nil || !strings.Contains(err.Error(), "aigw use --for codex") {
+	if _, err := AdoptSelection(client.Dependencies{}, &cfg); err == nil || !strings.Contains(err.Error(), "aigw use --for codex") {
 		t.Fatalf("disagreeing targets were adopted: %v", err)
 	}
 	if cfg.SelectedRoute(configuration.ClientCodex) != "sol" {
@@ -87,7 +86,7 @@ func TestAdoptCodexSelectionLeavesUnchangedBindings(t *testing.T) {
 			cfg, targets := codexAdoptionFixture(t, 1)
 			prepare(&cfg, targets[0])
 			before := cfg.Clients[configuration.ClientCodex]
-			routeID, err := AdoptCodexSelection(Dependencies{}, &cfg)
+			routeID, err := AdoptSelection(client.Dependencies{}, &cfg)
 			if err != nil || routeID != "" || cfg.Clients[configuration.ClientCodex].Route != before.Route {
 				t.Fatalf("adoption = %q, %v; binding %#v", routeID, err, cfg.Clients[configuration.ClientCodex])
 			}
@@ -122,7 +121,7 @@ func codexAdoptionFixture(t *testing.T, count int) (configuration.Config, []stri
 	}
 	runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
 	for _, target := range targets {
-		if err := codex.SyncConfig(target, runtime); err != nil {
+		if err := SyncConfig(target, runtime); err != nil {
 			t.Fatal(err)
 		}
 	}

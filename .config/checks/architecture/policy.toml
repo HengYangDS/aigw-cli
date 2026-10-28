@@ -21,7 +21,6 @@ package_children."internal" = [
   "cli",
   "client",
   "clients",
-  "codex",
   "configuration",
   "credential",
   "diagnostics",
@@ -51,8 +50,8 @@ package_children."tools" = [
   "release",
 ]
 package_children."internal/claude" = ["desktop"]
-package_children."internal/codex" = ["catalog"]
-package_children."internal/client" = ["verification"]
+package_children."internal/client/codex" = ["catalog"]
+package_children."internal/client" = ["codex", "verification"]
 package_children."internal/hermes" = ["configuration"]
 allowed_import_edges."internal/hermes/configuration" = ["internal/transaction"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
@@ -97,6 +96,7 @@ allowed_import_edges."cmd/aigw" = [
 # The built-in adapter set is the only list of every client outside its adapters.
 allowed_import_edges."internal/clients" = [
   "internal/client",
+  "internal/client/codex",
   "internal/configuration",
 ]
 allowed_import_edges."internal/transaction" = []
@@ -110,7 +110,6 @@ allowed_import_edges."internal/client" = [
   "internal/claude/desktop",
   "internal/hermes/configuration",
   "internal/claude",
-  "internal/codex",
   "internal/configuration",
   "internal/credential",
   "internal/discovery",
@@ -122,7 +121,6 @@ allowed_import_edges."internal/client" = [
 ]
 allowed_import_edges."internal/client/verification" = [
   "internal/claude",
-  "internal/codex",
   "internal/configuration",
   "internal/process",
   "internal/redaction",
@@ -143,6 +141,7 @@ allowed_import_edges."internal/renaming" = [
 ]
 allowed_import_edges."internal/synchronization" = [
   "internal/client",
+  "internal/client/codex",
   "internal/configuration",
   "internal/credential",
   "internal/discovery",
@@ -176,14 +175,17 @@ allowed_import_edges."internal/providers/dmxapi" = [
   "internal/secrets",
 ]
 allowed_import_edges."internal/platform" = []
-allowed_import_edges."internal/codex" = [
-  "internal/codex/catalog",
+allowed_import_edges."internal/client/codex" = [
+  "internal/client",
+  "internal/client/codex/catalog",
+  "internal/client/verification",
   "internal/configuration",
+  "internal/discovery",
   "internal/process",
   "internal/surface",
   "internal/transaction",
 ]
-allowed_import_edges."internal/codex/catalog" = []
+allowed_import_edges."internal/client/codex/catalog" = []
 allowed_import_edges."internal/discovery" = [
   "internal/platform",
   "internal/surface",
@@ -405,8 +407,8 @@ allowed_import_edges."tools/architecture" = []
 allowed_import_edges."tools/forge" = []
 allowed_import_edges."tools/gitfixture" = []
 allowed_import_edges."tools/codex/catalog" = [
-  "internal/codex",
-  "internal/codex/catalog",
+  "internal/client/codex",
+  "internal/client/codex/catalog",
 ]
 allowed_import_edges."tools/coverage" = []
 
@@ -442,8 +444,6 @@ temporary_exceptions = [
   "internal/cli/selection",
   "internal/client",
   "internal/client/verification",
-  "internal/codex",
-  "internal/codex/catalog",
   "internal/configuration",
   "internal/credential",
   "internal/discovery",

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/codex"
+	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 )
 
