@@ -311,10 +311,10 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := normalizeCodexTargets([]TargetRef{{
-		SurfaceID: string(surface.CodexHomeDefault), Authority: string(surface.AuthorityAIGW),
+		SurfaceID: string(HomeDefault), Authority: string(surface.AuthorityAIGW),
 		ProjectionMode: ProjectionFullSelection, Path: config,
 	}, {
-		SurfaceID: string(surface.CodexHomeDefault), Authority: string(surface.AuthorityAIGW),
+		SurfaceID: string(HomeDefault), Authority: string(surface.AuthorityAIGW),
 		ProjectionMode: ProjectionFullSelection, Path: config,
 	}}); err == nil {
 		t.Fatal("duplicate target was accepted")

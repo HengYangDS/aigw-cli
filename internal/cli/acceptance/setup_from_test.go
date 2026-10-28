@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -76,7 +77,7 @@ func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutAccountTo
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{configuration.ClientCodex: executableFixture(t, "codex")},
 		Surfaces: []discovery.Surface{{
-			ID:          string(surfaceidentity.CodexHomeDefault),
+			ID:          string(codex.HomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  target,
 			Present:     true,
@@ -215,7 +216,7 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 					t.Fatal(err)
 				}
 				discovered.Surfaces = []discovery.Surface{{
-					ID:          string(surfaceidentity.CodexHomeDefault),
+					ID:          string(codex.HomeDefault),
 					Authority:   string(surfaceidentity.AuthorityAIGW),
 					ConfigPath:  target,
 					Present:     true,
@@ -319,8 +320,8 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 			app.Discovery = fakeDiscovery{result: discovery.Result{
 				Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
 				Surfaces: []discovery.Surface{
-					{ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: targets[0], Present: true, AutoManaged: true},
-					{ID: string(surfaceidentity.CodexHomeExplicit("second")), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: targets[1], Present: true, AutoManaged: true},
+					{ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: targets[0], Present: true, AutoManaged: true},
+					{ID: string(codex.HomeExplicit("second")), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: targets[1], Present: true, AutoManaged: true},
 				},
 			}}
 			if err := cli.Execute(app, args); err != nil {
@@ -415,7 +416,7 @@ func TestSetupFromConfigurationManifestProjectionFailureRestoresOwnedFiles(t *te
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{configuration.ClientClaude: claudeExecutable, configuration.ClientCodex: "/opt/codex-real"},
 		Surfaces: []discovery.Surface{{
-			ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
+			ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
 			ConfigPath: codexTarget, Present: true, AutoManaged: true,
 		}},
 	}}

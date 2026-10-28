@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	surfaceidentity "aigw-cli/internal/surface"
@@ -132,7 +133,7 @@ func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: claudeExecutable, configuration.ClientCodex: "/opt/codex"}, Surfaces: []discovery.Surface{{
-		ID:          string(surfaceidentity.CodexHomeDefault),
+		ID:          string(codex.HomeDefault),
 		Authority:   string(surfaceidentity.AuthorityAIGW),
 		ConfigPath:  target,
 		Present:     true,
@@ -179,7 +180,7 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{configuration.ClientCodex: shadowExecutable},
 		Surfaces: []discovery.Surface{{
-			ID:          string(surfaceidentity.CodexHomeDefault),
+			ID:          string(codex.HomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  newTarget,
 			Present:     true,
@@ -247,7 +248,7 @@ func TestRepairMigratesMissingClientExecutables(t *testing.T) {
 			configuration.ClientCodex:  newCodex,
 		},
 		Surfaces: []discovery.Surface{{
-			ID:          string(surfaceidentity.CodexHomeDefault),
+			ID:          string(codex.HomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  target,
 			Present:     true,
@@ -295,7 +296,7 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientCodex: "/opt/codex"}, Surfaces: []discovery.Surface{{
-		ID:          string(surfaceidentity.CodexHomeDefault),
+		ID:          string(codex.HomeDefault),
 		Authority:   string(surfaceidentity.AuthorityAIGW),
 		ConfigPath:  target,
 		Present:     true,

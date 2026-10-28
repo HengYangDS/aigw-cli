@@ -10,7 +10,6 @@ import (
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
-	surfaceidentity "aigw-cli/internal/surface"
 
 	"github.com/spf13/cobra"
 )
@@ -86,13 +85,13 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 				return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.AccountID, instruction)
 			}
 		}
-		if client == configuration.ClientCodex {
+		if runtime.Clients.ValidatesTargets(client) {
 			discovered, err := discover(runtime)
 			if err != nil {
 				return err
 			}
 			for _, target := range targets {
-				if err := ValidateCodexTarget(discovered, target); err != nil {
+				if err := runtime.Clients.ValidateTarget(client, discovered, target); err != nil {
 					return err
 				}
 			}
@@ -176,18 +175,6 @@ func renderDisabled(r *presentation.Renderer, spec configuration.ClientSpec) {
 func validateClientArgument(command *cobra.Command, args []string) error {
 	if err := cobra.OnlyValidArgs(command, args); err != nil {
 		return fmt.Errorf("Client must be %s; run `%s --help`: %w", configuration.AdmittedClientUsage(), command.CommandPath(), err)
-	}
-	return nil
-}
-
-// ValidateCodexTarget rejects executable paths and non-Codex-Home
-// surfaces where a writable configuration target is required.
-func ValidateCodexTarget(discovered discovery.Result, path string) error {
-	if _, ok := discovered.SurfaceForExecutablePath(path); ok {
-		return fmt.Errorf("an executable is not a Codex configuration target")
-	}
-	if surface, ok := discovered.SurfaceForConfigPath(path); ok && surface.ID != string(surfaceidentity.CodexHomeDefault) {
-		return fmt.Errorf("surface %s is not an AIGW Codex target", surface.ID)
 	}
 	return nil
 }

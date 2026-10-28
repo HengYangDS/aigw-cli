@@ -13,12 +13,15 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
-	surfaceidentity "aigw-cli/internal/surface"
 )
 
 type staticDiscovery struct{ result discovery.Result }
@@ -34,16 +37,16 @@ func (candidate staticDiscovery) Discover() discovery.Result { return candidate.
 func TestRenderRepairPreviewNamesEachClientAndItsSurface(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Out: out, RenderOut: out, Width: 120}
-	explicit := string(surfaceidentity.CodexHomeExplicit("0123456789ab"))
+	explicit := string(codex.HomeExplicit("0123456789ab"))
 	plans := []client.ProjectionPlan{
-		{Client: configuration.ClientCodex, Target: "/known", Action: "update", Surface: string(surfaceidentity.CodexHomeDefault)},
+		{Client: configuration.ClientCodex, Target: "/known", Action: "update", Surface: string(codex.HomeDefault)},
 		{Client: configuration.ClientCodex, Target: "/explicit", Action: "create", Surface: explicit},
-		{Client: configuration.ClientClaudeDesktop, Target: "/library", Action: "update", Surface: string(surfaceidentity.ClaudeDesktopLibrary)},
+		{Client: configuration.ClientClaudeDesktop, Target: "/library", Action: "update", Surface: string(claudedesktop.LibrarySurface)},
 	}
 	if err := renderRepairResult(runtime, true, false, true, plans, nil); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Repair preview", "Codex · " + string(surfaceidentity.CodexHomeDefault), "Codex · " + explicit, "Claude Desktop · " + string(surfaceidentity.ClaudeDesktopLibrary), "create"} {
+	for _, want := range []string{"Repair preview", "Codex · " + string(codex.HomeDefault), "Codex · " + explicit, "Claude Desktop · " + string(claudedesktop.LibrarySurface), "create"} {
 		if !bytes.Contains(out.Bytes(), []byte(want)) {
 			t.Fatalf("output lacks %q: %s", want, out.String())
 		}
@@ -66,10 +69,10 @@ func TestRenderRepairPreviewJSONReportsEachPlannedSurface(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Out: out}
 	plans := []client.ProjectionPlan{
-		{Client: configuration.ClientClaude, Target: "/settings.json", Action: "update", ChangesState: true, Surface: string(surfaceidentity.ClaudeSettings)},
-		{Client: configuration.ClientClaudeDesktop, Target: "/library", Action: "unchanged", Surface: string(surfaceidentity.ClaudeDesktopLibrary)},
-		{Client: configuration.ClientCodex, Target: "/known", Action: "update", ChangesState: true, Surface: string(surfaceidentity.CodexHomeDefault)},
-		{Client: configuration.ClientHermes, Target: "/hermes/config.yaml", Action: "unchanged", Surface: string(surfaceidentity.HermesHomeDefault)},
+		{Client: configuration.ClientClaude, Target: "/settings.json", Action: "update", ChangesState: true, Surface: string(claude.SettingsSurface)},
+		{Client: configuration.ClientClaudeDesktop, Target: "/library", Action: "unchanged", Surface: string(claudedesktop.LibrarySurface)},
+		{Client: configuration.ClientCodex, Target: "/known", Action: "update", ChangesState: true, Surface: string(codex.HomeDefault)},
+		{Client: configuration.ClientHermes, Target: "/hermes/config.yaml", Action: "unchanged", Surface: string(hermes.HomeSurface)},
 	}
 
 	if err := renderRepairResult(runtime, true, true, false, plans, nil); err != nil {

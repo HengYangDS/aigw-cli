@@ -65,6 +65,12 @@ func newClaudeDesktopFixture(t *testing.T) claudeDesktopFixture {
 	}
 }
 
+func TestLibrarySurfaceIdentityIsStable(t *testing.T) {
+	if got := string(LibrarySurface); got != "claude-desktop-config-library" {
+		t.Fatalf("Claude Desktop library surface = %q", got)
+	}
+}
+
 func TestClaudeDesktopCatalogueDerivesUnlabeledAlternative(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
 	route := fixture.cfg.Routes["alternate"]

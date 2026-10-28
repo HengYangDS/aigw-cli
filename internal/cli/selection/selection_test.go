@@ -132,7 +132,7 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	run.Discovery = staticDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
-		ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
+		ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
 		ConfigPath: target, Present: true, AutoManaged: true,
 	}}}}
 	before, err := run.Config.CaptureSnapshot()

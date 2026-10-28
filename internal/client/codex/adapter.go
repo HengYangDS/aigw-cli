@@ -31,7 +31,7 @@ func (codexAdapter) Discover(source client.DiscoverySource) discovery.Result {
 	return discovery.Result{
 		Executables: map[string]string{configuration.ClientCodex: source.Executable(configuration.ClientCodex)},
 		Surfaces: []discovery.Surface{{
-			ID:          string(surfaceidentity.CodexHomeDefault),
+			ID:          string(HomeDefault),
 			Product:     "Codex",
 			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  path,
@@ -47,6 +47,18 @@ func homeDirectory(host discovery.Host) string {
 		return home
 	}
 	return filepath.Join(host.Home, ".codex")
+}
+
+// ValidateTarget rejects executable paths and non-Codex-Home surfaces where
+// a writable configuration target is required.
+func (codexAdapter) ValidateTarget(discovered discovery.Result, path string) error {
+	if _, ok := discovered.SurfaceForExecutablePath(path); ok {
+		return fmt.Errorf("an executable is not a Codex configuration target")
+	}
+	if surface, ok := discovered.SurfaceForConfigPath(path); ok && surface.ID != string(HomeDefault) {
+		return fmt.Errorf("surface %s is not an AIGW Codex target", surface.ID)
+	}
+	return nil
 }
 
 func (codexAdapter) Converge(deps client.Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
@@ -193,12 +205,12 @@ func convergedTargets(discovered discovery.Result, current []string) []string {
 			targets = append(targets, path)
 		}
 	}
-	for _, path := range discovered.AutoManagedCodexTargets() {
+	for _, path := range AutoManagedTargets(discovered) {
 		appendTarget(path)
 	}
 	for _, path := range current {
 		if surface, ok := discovered.SurfaceForConfigPath(path); ok {
-			if surface.ID == string(surfaceidentity.CodexHomeDefault) {
+			if surface.ID == string(HomeDefault) {
 				appendTarget(path)
 			}
 			continue
@@ -276,7 +288,7 @@ func targetRefs(discovered discovery.Result, paths []string, executable string) 
 		}
 		sum := sha256.Sum256([]byte(filepath.Clean(path)))
 		refs = append(refs, TargetRef{
-			SurfaceID:      string(surfaceidentity.CodexHomeExplicit(hex.EncodeToString(sum[:6]))),
+			SurfaceID:      string(HomeExplicit(hex.EncodeToString(sum[:6]))),
 			Authority:      string(surfaceidentity.AuthorityAIGW),
 			ProjectionMode: ProjectionFullSelection,
 			Path:           path,

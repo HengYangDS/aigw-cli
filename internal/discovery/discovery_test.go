@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
-	surfacepkg "aigw-cli/internal/surface"
 )
 
 func TestDiscoverFindsClientsAndAutoManagedCodexTargets(t *testing.T) {
@@ -42,7 +42,7 @@ func TestDiscoverFindsClientsAndAutoManagedCodexTargets(t *testing.T) {
 	if got.Executable("claude") != wantClaude || got.Executable("codex") != wantCodex {
 		t.Fatalf("executables = %#v", got)
 	}
-	if targets := got.AutoManagedCodexTargets(); len(targets) != 1 || targets[0] != target {
+	if targets := codex.AutoManagedTargets(got); len(targets) != 1 || targets[0] != target {
 		t.Fatalf("targets = %#v", targets)
 	}
 }
@@ -146,15 +146,15 @@ func TestLinuxDiscoveryKeepsDefaultClientHomesIndependent(t *testing.T) {
 	if len(result.Surfaces) != 3 {
 		t.Fatalf("Linux surfaces = %#v", result.Surfaces)
 	}
-	surface, ok := result.Surface(string(surfacepkg.CodexHomeDefault))
+	surface, ok := result.Surface(string(codex.HomeDefault))
 	if !ok {
 		t.Fatalf("default Codex Home missing from %#v", result.Surfaces)
 	}
 	wantConfig := filepath.Join(home, ".codex", "config.toml")
-	if surface.ID != string(surfacepkg.CodexHomeDefault) || surface.ConfigPath != wantConfig || surface.Present {
+	if surface.ID != string(codex.HomeDefault) || surface.ConfigPath != wantConfig || surface.Present {
 		t.Fatalf("default Codex Home = %#v", surface)
 	}
-	if targets := result.AutoManagedCodexTargets(); len(targets) != 1 || targets[0] != wantConfig {
+	if targets := codex.AutoManagedTargets(result); len(targets) != 1 || targets[0] != wantConfig {
 		t.Fatalf("auto-managed targets = %#v, want absent but creatable default %q", targets, wantConfig)
 	}
 }

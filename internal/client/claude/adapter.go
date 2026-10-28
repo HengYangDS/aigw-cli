@@ -10,6 +10,9 @@ import (
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
+// SettingsSurface identifies Claude Code's user settings file.
+const SettingsSurface surfaceidentity.ID = "claude-settings"
+
 // claudeAdapter is the Claude Code client adapter behind the client seam.
 type claudeAdapter struct{}
 
@@ -70,7 +73,7 @@ func (claudeAdapter) Plan(deps client.Dependencies, before, after configuration.
 	if err != nil {
 		return nil, err
 	}
-	return []client.ProjectionPlan{{Client: configuration.ClientClaude, Target: plan.Target, Action: string(plan.Action), Surface: string(surfaceidentity.ClaudeSettings), ChangesState: plan.ChangesState()}}, nil
+	return []client.ProjectionPlan{{Client: configuration.ClientClaude, Target: plan.Target, Action: string(plan.Action), Surface: string(SettingsSurface), ChangesState: plan.ChangesState()}}, nil
 }
 
 func (claudeAdapter) Apply(_ context.Context, deps client.Dependencies, before, after configuration.Config) (client.ProjectionReceipt, error) {

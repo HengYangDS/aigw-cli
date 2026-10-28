@@ -91,7 +91,7 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 	run.Discovery = staticDiscovery{result: discovery.Result{
 		Executables: map[string]string{configuration.ClientCodex: filepath.Join(t.TempDir(), "codex")},
 		Surfaces: []discovery.Surface{{
-			ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
+			ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
 			ConfigPath: target, AutoManaged: true,
 		}},
 	}}

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -83,7 +84,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 		Discovery: setupDiscovery{result: discovery.Result{
 			Executables: map[string]string{configuration.ClientCodex: source},
 			Surfaces: []discovery.Surface{{
-				ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
+				ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
 				ConfigPath: target, Present: true, AutoManaged: true,
 			}},
 		}},

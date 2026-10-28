@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -33,7 +34,7 @@ func TestUseSelectsClientNativeRouteWithoutAccessingAccountTokens(t *testing.T) 
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{configuration.ClientCodex: executableFixture(t, "codex")},
 		Surfaces: []discovery.Surface{{
-			ID:          string(surface.CodexHomeDefault),
+			ID:          string(codex.HomeDefault),
 			Authority:   string(surface.AuthorityAIGW),
 			ConfigPath:  target,
 			AutoManaged: true,
@@ -203,7 +204,7 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 			configuration.ClientCodex:  codexExecutable,
 		},
 		Surfaces: []discovery.Surface{{
-			ID:          string(surface.CodexHomeDefault),
+			ID:          string(codex.HomeDefault),
 			Authority:   string(surface.AuthorityAIGW),
 			ConfigPath:  codexTarget,
 			AutoManaged: true,

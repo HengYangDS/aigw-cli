@@ -23,7 +23,10 @@ type hermesAdapter struct{}
 // New returns the Hermes adapter for the composition root to register.
 func New() client.Adapter { return hermesAdapter{} }
 
-const hermesSurface = string(surfaceidentity.HermesHomeDefault)
+// HomeSurface identifies the configuration of the Hermes home.
+const HomeSurface surfaceidentity.ID = "hermes-home-default"
+
+const hermesSurface = string(HomeSurface)
 
 func (hermesAdapter) Spec() configuration.ClientSpec {
 	return client.AdmittedSpec(configuration.ClientHermes)

@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/upgrade"
 	"crypto/sha256"
 	"encoding/json"
@@ -334,7 +335,7 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 			configuration.ClientCodex:  codexExecutable,
 		},
 		Surfaces: []discovery.Surface{{
-			ID:          string(surface.CodexHomeDefault),
+			ID:          string(codex.HomeDefault),
 			Authority:   string(surface.AuthorityAIGW),
 			ConfigPath:  codexTarget,
 			AutoManaged: true,

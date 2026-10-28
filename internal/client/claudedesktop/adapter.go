@@ -12,6 +12,10 @@ import (
 	"aigw-cli/internal/transaction"
 )
 
+// LibrarySurface identifies Claude Desktop's per-user third-party
+// configuration library.
+const LibrarySurface surfaceidentity.ID = "claude-desktop-config-library"
+
 // claudeDesktopAdapter is the Claude Desktop client adapter behind the client seam.
 type claudeDesktopAdapter struct{}
 
@@ -37,7 +41,7 @@ func (claudeDesktopAdapter) Discover(source client.DiscoverySource) discovery.Re
 	return discovery.Result{
 		Executables: map[string]string{configuration.ClientClaudeDesktop: executable},
 		Surfaces: []discovery.Surface{{
-			ID:          string(surfaceidentity.ClaudeDesktopLibrary),
+			ID:          string(LibrarySurface),
 			Product:     "Claude Desktop",
 			Authority:   string(surfaceidentity.AuthorityAIGW),
 			Executable:  executable,
@@ -85,7 +89,7 @@ func (claudeDesktopAdapter) Plan(deps client.Dependencies, before, after configu
 	}
 	result := make([]client.ProjectionPlan, 0, len(plans))
 	for index, plan := range plans {
-		result = append(result, client.ProjectionPlan{Client: configuration.ClientClaudeDesktop, Target: targets[index], Action: string(plan.Action), Surface: string(surfaceidentity.ClaudeDesktopLibrary), ChangesState: plan.ChangesState()})
+		result = append(result, client.ProjectionPlan{Client: configuration.ClientClaudeDesktop, Target: targets[index], Action: string(plan.Action), Surface: string(LibrarySurface), ChangesState: plan.ChangesState()})
 	}
 	return result, nil
 }
@@ -299,7 +303,7 @@ func claudeDesktopTarget(current []string, discovered discovery.Result) string {
 	if len(current) == 1 {
 		return current[0]
 	}
-	surface, ok := discovered.Surface(string(surfaceidentity.ClaudeDesktopLibrary))
+	surface, ok := discovered.Surface(string(LibrarySurface))
 	if !ok || !surface.Present {
 		return ""
 	}

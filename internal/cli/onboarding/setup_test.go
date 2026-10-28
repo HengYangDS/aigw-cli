@@ -2,6 +2,7 @@ package onboarding
 
 import (
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/prompt"
 	"bytes"
@@ -395,7 +396,7 @@ interfaces = { openai_responses = ["text"] }
 		Discovery: setupDiscovery{result: discovery.Result{
 			Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
 			Surfaces: []discovery.Surface{{
-				ID:          string(surfaceidentity.CodexHomeDefault),
+				ID:          string(codex.HomeDefault),
 				Authority:   string(surfaceidentity.AuthorityAIGW),
 				ConfigPath:  filepath.Join(t.TempDir(), "codex", "configuration.toml"),
 				Present:     true,

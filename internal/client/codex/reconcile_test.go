@@ -16,7 +16,7 @@ import (
 
 func codexHomeTarget(path string) TargetRef {
 	return TargetRef{
-		SurfaceID:      string(surface.CodexHomeDefault),
+		SurfaceID:      string(HomeDefault),
 		Authority:      string(surface.AuthorityAIGW),
 		ProjectionMode: ProjectionFullSelection,
 		Path:           path,

@@ -2,9 +2,6 @@ package discovery
 
 import (
 	"path/filepath"
-	"sort"
-
-	surfaceidentity "aigw-cli/internal/surface"
 )
 
 // Surface is a stable host classification. Discovery only inspects paths; it
@@ -48,20 +45,6 @@ func (r Result) SurfaceForExecutablePath(path string) (Surface, bool) {
 		}
 	}
 	return Surface{}, false
-}
-
-// AutoManagedCodexTargets returns Codex homes that AIGW may project without
-// further operator admission. Presence remains an observed readiness fact; it
-// does not determine whether the declared default surface may be created.
-func (r Result) AutoManagedCodexTargets() []string {
-	targets := make([]string, 0)
-	for _, surface := range r.Surfaces {
-		if surface.AutoManaged && surfaceidentity.ID(surface.ID).IsCodexHome() && surface.ConfigPath != "" {
-			targets = append(targets, surface.ConfigPath)
-		}
-	}
-	sort.Strings(targets)
-	return targets
 }
 
 func sameSurfacePath(left, right string) bool {

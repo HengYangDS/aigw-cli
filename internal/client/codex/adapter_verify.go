@@ -97,7 +97,7 @@ func isolateProjection(cfg configuration.Config, runtime configuration.Runtime, 
 	if err := CopyProjection(selectedTargets[0], target); err != nil {
 		return configuration.Config{}, workspace, fmt.Errorf("copy Codex verification input: %w", err)
 	}
-	before := TargetRef{SurfaceID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ProjectionMode: ProjectionFullSelection, Path: target}
+	before := TargetRef{SurfaceID: string(HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ProjectionMode: ProjectionFullSelection, Path: target}
 	after := before
 	after.Executable = binding.Executable
 	after.CreateIfAbsent = true

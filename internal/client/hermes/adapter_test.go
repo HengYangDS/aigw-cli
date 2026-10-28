@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
@@ -32,6 +33,12 @@ func publicHermesReader(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func TestHomeSurfaceIdentityIsStable(t *testing.T) {
+	if got := string(HomeSurface); got != "hermes-home-default" {
+		t.Fatalf("Hermes home surface = %q", got)
+	}
 }
 
 func TestHermesInspectionKeepsIntactRetainedReader(t *testing.T) {
@@ -101,7 +108,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	if _, _, err := registry.Apply(context.Background(), deps, cfg, after, "hermes"); err != nil {
 		t.Fatal(err)
 	}
-	for _, target := range observed.AutoManagedCodexTargets() {
+	for _, target := range codex.AutoManagedTargets(observed) {
 		if target == path {
 			t.Fatal("Hermes target was admitted as a Codex home")
 		}

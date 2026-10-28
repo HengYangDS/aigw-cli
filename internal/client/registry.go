@@ -107,6 +107,12 @@ type Adapter interface {
 	Withdraw(cfg *configuration.Config)
 }
 
+// TargetValidator is implemented by an adapter whose configuration targets the
+// operator names explicitly: it refuses a path that is not one of its targets.
+type TargetValidator interface {
+	ValidateTarget(discovered discovery.Result, path string) error
+}
+
 // Registry is the sole ordered operational registry for admitted clients.
 type Registry struct {
 	byID map[string]Adapter
@@ -307,6 +313,26 @@ func (registry Registry) AdoptSelections(deps Dependencies, cfg *configuration.C
 		}
 	}
 	return adopted, nil
+}
+
+// ValidatesTargets reports whether the client's adapter validates explicit
+// configuration targets.
+func (registry Registry) ValidatesTargets(clientID string) bool {
+	_, validates := registry.byID[clientID].(TargetValidator)
+	return validates
+}
+
+// ValidateTarget refuses a path that the client's adapter does not accept as
+// a configuration target.
+func (registry Registry) ValidateTarget(clientID string, discovered discovery.Result, path string) error {
+	adapter, err := registry.adapter(clientID)
+	if err != nil {
+		return err
+	}
+	if validator, validates := adapter.(TargetValidator); validates {
+		return validator.ValidateTarget(discovered, path)
+	}
+	return nil
 }
 
 // IDs returns admitted clients in the registry's stable order.

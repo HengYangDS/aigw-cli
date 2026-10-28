@@ -9,7 +9,6 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
-	surfacepkg "aigw-cli/internal/surface"
 )
 
 // desktopHost returns a supported Claude Desktop platform for this test host:
@@ -44,7 +43,7 @@ func TestDiscoverReturnsClaudeDesktopApplicationAndConfigurationLibrary(t *testi
 	if got := result.Executable(configuration.ClientClaudeDesktop); got != executable {
 		t.Fatalf("Claude Desktop executable = %q, want %q", got, executable)
 	}
-	surface, ok := result.Surface(string(surfacepkg.ClaudeDesktopLibrary))
+	surface, ok := result.Surface(string(claudedesktop.LibrarySurface))
 	if !ok || surface.ConfigPath != library || surface.Executable != executable || !surface.AutoManaged || !surface.Present {
 		t.Fatalf("Claude Desktop surface = %#v, %t", surface, ok)
 	}

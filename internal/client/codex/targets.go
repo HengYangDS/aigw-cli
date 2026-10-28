@@ -123,7 +123,7 @@ func validateDesiredCodexTarget(target TargetRef) error {
 	surfaceID := surface.ID(target.SurfaceID)
 	authority := surface.Authority(target.Authority)
 	switch {
-	case surfaceID.IsCodexHome() && surfaceID.HasAuthority(authority) && target.ProjectionMode == ProjectionFullSelection:
+	case IsHome(surfaceID) && authority == surface.AuthorityAIGW && target.ProjectionMode == ProjectionFullSelection:
 		return nil
 	default:
 		return fmt.Errorf("Codex target %s cannot use authority %s with projection mode %s", target.SurfaceID, target.Authority, target.ProjectionMode)
@@ -134,7 +134,7 @@ func codexHomeTargets(paths []string) []TargetRef {
 	targets := make([]TargetRef, 0, len(paths))
 	for _, path := range paths {
 		targets = append(targets, TargetRef{
-			SurfaceID:      string(surface.CodexHomeDefault),
+			SurfaceID:      string(HomeDefault),
 			Authority:      string(surface.AuthorityAIGW),
 			ProjectionMode: ProjectionFullSelection,
 			Path:           path,

@@ -113,7 +113,7 @@ func hostAt(home string) discovery.Host {
 
 func targetDiscovery(target string) staticDiscovery {
 	return staticDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
-		ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
+		ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
 		ConfigPath: target, Present: true, AutoManaged: true,
 	}}}}
 }

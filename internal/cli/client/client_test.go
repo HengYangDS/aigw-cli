@@ -12,6 +12,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -216,7 +217,7 @@ func TestEnableCodexValidatesTargetsAndPersistsProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
-		ID:         string(surfaceidentity.CodexHomeDefault),
+		ID:         string(codex.HomeDefault),
 		Authority:  string(surfaceidentity.AuthorityAIGW),
 		ConfigPath: target,
 		Present:    true,
@@ -258,7 +259,7 @@ func TestEnableCodexWithClientNativeAuthenticationDoesNotAccessAccountTokens(t *
 		t.Fatal(err)
 	}
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
-		ID:         string(surfaceidentity.CodexHomeDefault),
+		ID:         string(codex.HomeDefault),
 		Authority:  string(surfaceidentity.AuthorityAIGW),
 		ConfigPath: target,
 		Present:    true,
@@ -286,7 +287,7 @@ func TestEnableCodexRejectsUnsafeTargetsAndUnavailableDiscovery(t *testing.T) {
 	}
 
 	executable := filepath.Join(t.TempDir(), "codex")
-	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(surfaceidentity.CodexHomeDefault), Executable: executable}}}}
+	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), Executable: executable}}}}
 	err = executeAdapter(t, runtime, "enable", configuration.ClientCodex, "--executable", "/opt/codex", "--target", executable)
 	if err == nil || !strings.Contains(err.Error(), "executable") {
 		t.Fatalf("executable target error = %v", err)
@@ -439,7 +440,7 @@ func TestDisableCodexRestoresProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
-		ID: string(surfaceidentity.CodexHomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target,
+		ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target,
 	}}}}
 	if err := executeAdapter(t, runtime, "enable", configuration.ClientCodex, "--executable", "/opt/codex", "--target", target); err != nil {
 		t.Fatal(err)
@@ -453,19 +454,6 @@ func TestDisableCodexRestoresProjection(t *testing.T) {
 	}
 	if string(data) != original {
 		t.Fatalf("restored target = %q", data)
-	}
-}
-
-func TestCodexTargetValidationAcceptsStandaloneAndUnknownPaths(t *testing.T) {
-	codexHome := filepath.Join(t.TempDir(), "config.toml")
-	discovered := discovery.Result{Surfaces: []discovery.Surface{{
-		ID: string(surfaceidentity.CodexHomeDefault), ConfigPath: codexHome,
-	}}}
-	if err := ValidateCodexTarget(discovered, codexHome); err != nil {
-		t.Fatalf("Codex Home target rejected: %v", err)
-	}
-	if err := ValidateCodexTarget(discovered, filepath.Join(t.TempDir(), "explicit.toml")); err != nil {
-		t.Fatalf("explicit target rejected: %v", err)
 	}
 }
 

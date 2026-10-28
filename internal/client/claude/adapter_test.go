@@ -14,6 +14,12 @@ import (
 	"aigw-cli/internal/process"
 )
 
+func TestSettingsSurfaceIdentityIsStable(t *testing.T) {
+	if got := string(SettingsSurface); got != "claude-settings" {
+		t.Fatalf("Claude settings surface = %q", got)
+	}
+}
+
 func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
 	before := configuration.NewConfig()
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}

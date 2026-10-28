@@ -195,7 +195,7 @@ allowed_import_edges."internal/client/hermes" = [
   "internal/surface",
   "internal/transaction",
 ]
-allowed_import_edges."internal/discovery" = ["internal/surface"]
+allowed_import_edges."internal/discovery" = []
 allowed_import_edges."internal/surface" = []
 allowed_import_edges."internal/readiness" = ["internal/diagnostics"]
 allowed_import_edges."internal/activation" = [
@@ -315,7 +315,6 @@ allowed_import_edges."internal/cli/client" = [
   "internal/credential",
   "internal/discovery",
   "internal/presentation",
-  "internal/surface",
 ]
 allowed_import_edges."internal/cli/verification" = [
   "internal/cli/invocation",
@@ -449,8 +448,6 @@ temporary_exceptions = [
   "internal/cli/selection",
   "internal/configuration",
   "internal/credential",
-  "internal/discovery",
-  "internal/surface",
 ]
 
 # Every tracked carrier resolves to exactly one semantic responsibility.
