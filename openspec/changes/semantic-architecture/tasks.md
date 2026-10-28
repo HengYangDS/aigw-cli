@@ -7,9 +7,9 @@
 - [x] 1.5 Move Claude Desktop (`internal/claude/desktop` and `internal/client/claude_desktop.go`) to `internal/client/claudedesktop` in the same form.
 - [x] 1.6 Move Hermes (`internal/hermes/configuration`, the Hermes adapter and its platform verification files) to `internal/client/hermes` in the same form. The confinement policy declares the Hermes API mode `codex_responses` as a Hermes native term, which the gate accepts only as that literal in the Hermes package.
 - [x] 1.7 Make the seam client-neutral. `DiscoverySource` offers only executable, file-presence and host lookups, and `Dependencies` drops `ClaudeSettingsPath`. Each adapter derives its own native paths, so the Claude path derivation leaves `internal/platform`.
-- [ ] 1.8 Replace the client branches in `internal/cli`, `internal/synchronization`, `internal/discovery`, `internal/surface`, `internal/platform` and `internal/client/verification` with descriptor capabilities and adapter methods. `AdoptCodexSelection` and `AdoptHermesSelection` become one seam method that each adapter implements.
+- [x] 1.8 Replace the client branches in `internal/cli`, `internal/synchronization`, `internal/discovery`, `internal/surface`, `internal/platform` and `internal/client/verification` with descriptor capabilities and adapter methods. `AdoptCodexSelection` and `AdoptHermesSelection` become one seam method that each adapter implements.
 - [ ] 1.9 Add `internal/client/contract`: one suite that every adapter factory runs against a private fixture home. All four adapters and a test-only rehearsal adapter pass it, and the rehearsal adapter's change touches only its own package, the test composition root and its fixtures.
-- [ ] 1.10 Shrink the confinement list to `internal/configuration` and `internal/credential`, which stage 2 deletes.
+- [x] 1.10 Shrink the confinement list to `internal/configuration` and `internal/credential`, which stage 2 deletes.
 - [ ] 1.11 Run the local quality graph at the stage head: every existing test passes unchanged in behavior and every coverage floor holds.
 - [ ] 1.12 Prove the stage head with the full ETHOS proof.
 - [ ] 1.13 Confirm the hosted three-platform graph and the real-client journeys on macOS, Linux and Windows pass at the stage head.

@@ -32,10 +32,37 @@ type ClientSpec struct {
 	SessionsKeepRoute  bool
 	QualifiedModes     []string
 	QualifiedPlatforms []string
+	// ProductName is the full product name where it differs from Label.
+	ProductName string
+	// TargetFile names the native configuration file that an explicit target
+	// names; a client with one is enabled only with at least one target.
+	TargetFile string
+	// TargetsUsage explains repeated targets in the target option's help.
+	TargetsUsage string
+	// RetryBudgets marks a client that honors per-connection retry budgets.
+	RetryBudgets bool
+	// ModelDiscoveryOptional marks a client that works without its endpoint's
+	// model discovery, so a missing discovery endpoint still counts as reachable.
+	ModelDiscoveryOptional bool
+	// Doctor is how doctor words this client's checks.
+	Doctor DoctorWording
+}
+
+// DoctorWording is how doctor words one client's checks; the zero value keeps
+// the generic Healthy and Check failed.
+type DoctorWording struct {
+	// AdapterStates names the adapter's state and its missing executable or
+	// configuration file.
+	AdapterStates bool
+	// RouteBinding reports an unresolvable route as an unresolvable binding.
+	RouteBinding bool
 }
 
 var admittedClientSpecs = []ClientSpec{
-	{ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
+	{
+		ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic},
+		ProductName: "Claude Code", ModelDiscoveryOptional: true, Doctor: DoctorWording{AdapterStates: true},
+	},
 	{
 		ID:                     ClientClaudeDesktop,
 		Label:                  "Claude Desktop",
@@ -44,7 +71,11 @@ var admittedClientSpecs = []ClientSpec{
 		QualifiedModes:         []string{"Chat", "Cowork", "Code"},
 		QualifiedPlatforms:     []string{"macOS"},
 	},
-	{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
+	{
+		ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses},
+		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true,
+		Doctor: DoctorWording{AdapterStates: true, RouteBinding: true},
+	},
 	{
 		ID:                ClientHermes,
 		Label:             "Hermes",
@@ -87,6 +118,15 @@ func ClientLabel(id string) string {
 		return spec.Label
 	}
 	return id
+}
+
+// ClientProductName returns an admitted client's full product name, which is
+// its label unless the two differ, or the identifier itself for any other value.
+func ClientProductName(id string) string {
+	if spec, admitted := ClientSpecFor(id); admitted && spec.ProductName != "" {
+		return spec.ProductName
+	}
+	return ClientLabel(id)
 }
 
 func naturalChoices(choices []string) string {

@@ -207,7 +207,7 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg configur
 		result.issue = result.diagnostic.Summary
 		result.fix = result.diagnostic.Fix
 	} else if result.nativeModelOverride {
-		result.fix = "aigw verify --for claude"
+		result.fix = "aigw verify --for " + client
 	}
 	result.checkPassed = result.issue == ""
 	return result
@@ -321,7 +321,7 @@ func checkedClientStatuses(runtime invocation.Context, cfg configuration.Config,
 		}
 		if client.nativeModelOverride && client.checkPassed {
 			status.NativeModelOverride = true
-			status.NextAction = "aigw verify --for claude"
+			status.NextAction = "aigw verify --for " + client.client
 		}
 		clients[client.client] = status
 	}
@@ -503,8 +503,8 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 	field := presentation.Field{State: presentation.OK, Label: configuration.ClientLabel(client), Value: result.runtime.RouteLabel + " · " + label}
 	command := ""
 	if result.nativeModelOverride {
-		field.Details = append(field.Details, "Claude Code uses a native model preference; this endpoint check does not verify that model")
-		command = "aigw verify --for claude"
+		field.Details = append(field.Details, configuration.ClientProductName(client)+" uses a native model preference; this endpoint check does not verify that model")
+		command = "aigw verify --for " + client
 	}
 	if endpointTransport(result.runtime.Endpoint) == endpointTransportExternalLoopback {
 		field.Details = append(field.Details, configuration.ClientLabel(client)+" uses a loopback endpoint; AIGW does not manage the endpoint runtime")

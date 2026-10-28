@@ -50,8 +50,8 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if strings.TrimSpace(executable) == "" {
 			return fmt.Errorf("--executable is required; run `aigw client discover`")
 		}
-		if args[0] == configuration.ClientCodex && len(targets) == 0 {
-			return fmt.Errorf("Codex projection requires at least one --target config.toml; run `aigw client enable --help`")
+		if spec, _ := configuration.ClientSpecFor(args[0]); spec.TargetFile != "" && len(targets) == 0 {
+			return fmt.Errorf("%s projection requires at least one --target %s; run `aigw client enable --help`", spec.Label, spec.TargetFile)
 		}
 		for _, target := range targets {
 			if strings.TrimSpace(target) == "" {
@@ -107,8 +107,19 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		return nil
 	}}
 	cmd.Flags().StringVar(&executable, "executable", "", "Path to the real client executable")
-	cmd.Flags().StringSliceVar(&targets, "target", nil, "Client configuration path; repeat for multiple Codex homes")
+	cmd.Flags().StringSliceVar(&targets, "target", nil, targetHelp())
 	return cmd
+}
+
+// targetHelp explains the target option with each client's repeated-target usage.
+func targetHelp() string {
+	help := []string{"Client configuration path"}
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if spec.TargetsUsage != "" {
+			help = append(help, spec.TargetsUsage)
+		}
+	}
+	return strings.Join(help, "; ")
 }
 
 func newDisableCommand(runtime invocation.Context) *cobra.Command {

@@ -115,8 +115,8 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, 
 		state := domainreadiness.ClassifyClient(facts)
 		if adapterStatus.NativeModelOverride && state.State == domainreadiness.Configured {
 			state.NativeModelOverride = true
-			state.Detail = "Claude Code uses a native model preference; its AIGW endpoint and credential helper remain configured"
-			state.NextAction = "aigw verify --for claude"
+			state.Detail = configuration.ClientProductName(clientID) + " uses a native model preference; its AIGW endpoint and credential helper remain configured"
+			state.NextAction = "aigw verify --for " + clientID
 		}
 		client := clientStatus{
 			Client:             state,

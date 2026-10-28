@@ -124,6 +124,10 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
 - Client-specific branches move from `configuration`, `synchronization`,
   `discovery` and `surface` into adapter methods. `AdoptCodexSelection` and
   `AdoptHermesSelection` become one seam method that each adapter implements.
+  Commands read client policy and wording from descriptor capabilities (the
+  product name, explicit configuration targets, retry budgets, optional model
+  discovery and doctor wording), and an adapter that validates explicit targets
+  implements an optional seam method.
 - One contract suite in `internal/client/contract` takes an adapter factory
   and a private fixture home. It checks the seam's invariants: `Plan` lists
   every effect that `Apply` makes, `Rollback` restores bytes and modes,

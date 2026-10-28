@@ -3,6 +3,7 @@ package selection
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
@@ -16,9 +17,21 @@ type retryOptions struct {
 }
 
 func (options *retryOptions) bind(cmd *cobra.Command) {
-	cmd.Flags().Uint64Var(&options.request, "request-max-retries", 0, "Explicit native request retry budget for this Codex connection; zero disables client request retries")
-	cmd.Flags().Uint64Var(&options.stream, "stream-max-retries", 0, "Explicit native stream retry budget for this Codex connection; zero disables client stream retries")
+	clients := retryBudgetClients()
+	cmd.Flags().Uint64Var(&options.request, "request-max-retries", 0, "Explicit native request retry budget for this "+clients+" connection; zero disables client request retries")
+	cmd.Flags().Uint64Var(&options.stream, "stream-max-retries", 0, "Explicit native stream retry budget for this "+clients+" connection; zero disables client stream retries")
 	cmd.Flags().BoolVar(&options.native, "native-retries", false, "Remove this connection's retry policy and use client native defaults")
+}
+
+// retryBudgetClients names the clients that honor per-connection retry budgets.
+func retryBudgetClients() string {
+	var labels []string
+	for _, spec := range configuration.AdmittedClientSpecs() {
+		if spec.RetryBudgets {
+			labels = append(labels, spec.Label)
+		}
+	}
+	return strings.Join(labels, " or ")
 }
 
 func (options *retryOptions) connection(cmd *cobra.Command, forwarding *string) (configuration.ConnectionChange, error) {

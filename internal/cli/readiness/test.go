@@ -89,7 +89,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 					return fmt.Errorf("%s authentication was rejected (HTTP %d); %s", configuration.ClientLabel(target), status, instruction)
 				}
 				detail := ""
-				if status == http.StatusNotFound && target == configuration.ClientClaude {
+				if spec, _ := configuration.ClientSpecFor(target); status == http.StatusNotFound && spec.ModelDiscoveryOptional {
 					detail = "Endpoint is reachable; model discovery is unavailable and credential acceptance is unverified"
 				} else if status < http.StatusOK || status >= http.StatusMultipleChoices {
 					return fmt.Errorf("%s endpoint returned HTTP %d", configuration.ClientLabel(target), status)

@@ -148,7 +148,7 @@ func renderUse(runtime invocation.Context, cfg configuration.Config, selected co
 	if selected.Endpoint != selected.UpstreamEndpoint {
 		rows = append(rows, presentation.Field{Label: "Account upstream", Value: selected.UpstreamEndpoint})
 	}
-	if selected.Client == configuration.ClientCodex {
+	if spec.RetryBudgets {
 		rows = append(rows, retryFields(selected.RetryPolicy)...)
 	}
 	if result.ProjectionDeferred {
@@ -218,10 +218,11 @@ func previewUse(runtime invocation.Context, cfg configuration.Config, selected c
 		{Label: "Endpoint", Value: selected.Endpoint},
 		{Label: "Account upstream", Value: selected.UpstreamEndpoint},
 	}
-	if selected.Client == configuration.ClientCodex {
+	spec, _ := configuration.ClientSpecFor(selected.Client)
+	if spec.RetryBudgets {
 		rows = append(rows, retryFields(selected.RetryPolicy)...)
 	}
-	if spec, _ := configuration.ClientSpecFor(selected.Client); spec.SessionsKeepRoute &&
+	if spec.SessionsKeepRoute &&
 		slices.ContainsFunc(plans, func(plan client.ProjectionPlan) bool { return plan.ChangesState }) {
 		rows = append(rows, existingSessionsField)
 	}

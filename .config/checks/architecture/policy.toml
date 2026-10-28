@@ -442,10 +442,6 @@ composition_roots = ["cmd/aigw", "internal/clients"]
 # Hermes vocabulary, not Codex knowledge.
 native_terms.hermes = ["codex_responses"]
 temporary_exceptions = [
-  "internal/cli/client",
-  "internal/cli/doctor",
-  "internal/cli/readiness",
-  "internal/cli/selection",
   "internal/configuration",
   "internal/credential",
 ]

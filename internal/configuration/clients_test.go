@@ -24,8 +24,16 @@ func TestAdmittedClientRegistryIsTheSingleProtocolBoundary(t *testing.T) {
 		{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
 		{ID: ClientHermes, Label: "Hermes", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions}, SessionsKeepRoute: true},
 	}
+	claude, codex := &want[0], &want[2]
+	claude.ProductName, claude.ModelDiscoveryOptional = "Claude Code", true
+	claude.Doctor.AdapterStates = true
+	codex.TargetFile, codex.TargetsUsage, codex.RetryBudgets = "config.toml", "repeat for multiple Codex homes", true
+	codex.Doctor.AdapterStates, codex.Doctor.RouteBinding = true, true
 	if got := AdmittedClientSpecs(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("client specs = %#v, want %#v", got, want)
+	}
+	if ClientProductName(ClientClaude) != "Claude Code" || ClientProductName(ClientCodex) != "Codex" || ClientProductName("gemini") != "gemini" {
+		t.Fatal("product names must fall back to the label and then the identifier")
 	}
 	if got := AdmittedClientIDs(); !reflect.DeepEqual(got, []string{ClientClaude, ClientClaudeDesktop, ClientCodex, ClientHermes}) {
 		t.Fatalf("client ids = %#v", got)
