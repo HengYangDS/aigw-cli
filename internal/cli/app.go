@@ -225,7 +225,6 @@ func NewDefault(clients client.Registry) (*App, error) {
 		return nil, err
 	}
 	host := discovery.Current()
-	host.ClaudeDesktopLibrary = paths.ClaudeDesktopLibrary
 	app := &App{
 		GOOS:               runtime.GOOS,
 		DataDir:            paths.Data,

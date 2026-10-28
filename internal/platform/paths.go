@@ -10,13 +10,12 @@ import (
 
 // Paths is the complete host-derived path contract for one AIGW process.
 type Paths struct {
-	Config               string
-	Data                 string
-	Secrets              string
-	ClaudeSettings       string
-	ClaudeDesktopLibrary string
-	InstallDir           string
-	InstallName          string
+	Config         string
+	Data           string
+	Secrets        string
+	ClaudeSettings string
+	InstallDir     string
+	InstallName    string
 }
 
 // PathsFor derives every host-owned path from one explicit platform snapshot.
@@ -33,10 +32,6 @@ func PathsFor(goos string, env map[string]string) (Paths, error) {
 	if err != nil {
 		return Paths{}, err
 	}
-	claudeDesktopLibrary, err := ClaudeDesktopLibraryPathFor(goos, env)
-	if err != nil {
-		return Paths{}, err
-	}
 	installDir, err := UserBinDirFor(goos, env)
 	if err != nil {
 		return Paths{}, err
@@ -45,16 +40,15 @@ func PathsFor(goos string, env map[string]string) (Paths, error) {
 	secrets := path.Join(data, "secrets")
 	if goos == "windows" {
 		installName += ".exe"
-		secrets = appendWindowsPath(data, "secrets")
+		secrets = AppendWindowsPath(data, "secrets")
 	}
 	return Paths{
-		Config:               config,
-		Data:                 data,
-		Secrets:              secrets,
-		ClaudeSettings:       claudeSettings,
-		ClaudeDesktopLibrary: claudeDesktopLibrary,
-		InstallDir:           installDir,
-		InstallName:          installName,
+		Config:         config,
+		Data:           data,
+		Secrets:        secrets,
+		ClaudeSettings: claudeSettings,
+		InstallDir:     installDir,
+		InstallName:    installName,
 	}, nil
 }
 
@@ -81,7 +75,7 @@ func ConfigPathFor(goos string, env map[string]string) (string, error) {
 		if base == "" {
 			return "", fmt.Errorf("APPDATA is not set")
 		}
-		return appendWindowsPath(base, "aigw", "config.toml"), nil
+		return AppendWindowsPath(base, "aigw", "config.toml"), nil
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
@@ -112,7 +106,7 @@ func DataDirFor(goos string, env map[string]string) (string, error) {
 		if base == "" {
 			return "", fmt.Errorf("LOCALAPPDATA and APPDATA are not set")
 		}
-		return appendWindowsPath(base, "aigw"), nil
+		return AppendWindowsPath(base, "aigw"), nil
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
@@ -128,7 +122,7 @@ func ClaudeSettingsPathFor(goos string, env map[string]string) (string, error) {
 		if home == "" {
 			return "", fmt.Errorf("USERPROFILE is not set")
 		}
-		return appendWindowsPath(home, ".claude", "settings.json"), nil
+		return AppendWindowsPath(home, ".claude", "settings.json"), nil
 	}
 	if goos != "darwin" && goos != "linux" {
 		return "", fmt.Errorf("unsupported operating system %q", goos)
@@ -138,54 +132,6 @@ func ClaudeSettingsPathFor(goos string, env map[string]string) (string, error) {
 		return "", fmt.Errorf("HOME is not set")
 	}
 	return path.Join(home, ".claude", "settings.json"), nil
-}
-
-// ClaudeDesktopLibraryPathFor returns Claude Desktop's official per-user
-// third-party inference configuration library.
-func ClaudeDesktopLibraryPathFor(goos string, env map[string]string) (string, error) {
-	switch goos {
-	case "darwin":
-		if env["HOME"] == "" {
-			return "", fmt.Errorf("HOME is not set")
-		}
-		return path.Join(env["HOME"], "Library", "Application Support", "Claude-3p", "configLibrary"), nil
-	case "linux":
-		base := env["XDG_CONFIG_HOME"]
-		if base == "" {
-			if env["HOME"] == "" {
-				return "", fmt.Errorf("HOME and XDG_CONFIG_HOME are not set")
-			}
-			base = path.Join(env["HOME"], ".config")
-		}
-		return path.Join(base, "Claude-3p", "configLibrary"), nil
-	case "windows":
-		if env["LOCALAPPDATA"] == "" {
-			return "", fmt.Errorf("LOCALAPPDATA is not set")
-		}
-		return appendWindowsPath(env["LOCALAPPDATA"], "Claude-3p", "configLibrary"), nil
-	default:
-		return "", fmt.Errorf("unsupported operating system %q", goos)
-	}
-}
-
-// ClaudeDesktopApplicationPathsFor returns Claude Desktop's native application
-// locations in discovery order. Linux installations are resolved through PATH.
-func ClaudeDesktopApplicationPathsFor(goos string, env map[string]string) []string {
-	switch goos {
-	case "darwin":
-		paths := []string{}
-		if home := env["HOME"]; home != "" {
-			paths = append(paths, path.Join(home, "Applications", "Claude.app", "Contents", "MacOS", "Claude"))
-		}
-		return append(paths, path.Join("/", "Applications", "Claude.app", "Contents", "MacOS", "Claude"))
-	case "windows":
-		if env["LOCALAPPDATA"] == "" {
-			return nil
-		}
-		return []string{appendWindowsPath(env["LOCALAPPDATA"], "AnthropicClaude", "claude.exe")}
-	default:
-		return nil
-	}
 }
 
 // UserBinDirFor returns the platform-native per-user executable directory from an explicit environment.
@@ -205,14 +151,15 @@ func UserBinDirFor(goos string, env map[string]string) (string, error) {
 		if base == "" {
 			return "", fmt.Errorf("LOCALAPPDATA and APPDATA are not set")
 		}
-		return appendWindowsPath(base, "Programs", "aigw", "bin"), nil
+		return AppendWindowsPath(base, "Programs", "aigw", "bin"), nil
 	default:
 		return "", fmt.Errorf("unsupported operating system %q", goos)
 	}
 }
 
-// appendWindowsPath appends owned components without reinterpreting the base namespace.
-func appendWindowsPath(base string, components ...string) string {
+// AppendWindowsPath appends owned components to a Windows base path without
+// reinterpreting the base namespace.
+func AppendWindowsPath(base string, components ...string) string {
 	base = strings.ReplaceAll(base, "/", `\`)
 	return strings.TrimRight(base, `\`) + `\` + strings.Join(components, `\`)
 }

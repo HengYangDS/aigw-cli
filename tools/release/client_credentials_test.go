@@ -21,7 +21,6 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
-	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 
@@ -374,11 +373,11 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 		return j.shellCredential(command)
 	}
 	if client == configuration.ClientClaudeDesktop {
-		paths, err := platform.PathsFor(runtime.GOOS, environmentValues(j.environment))
+		library, err := claudedesktop.LibraryPathFor(runtime.GOOS, environmentValues(j.environment))
 		if err != nil {
 			j.testing.Fatal(err)
 		}
-		profile := claudedesktop.PathsForLibrary(filepath.FromSlash(paths.ClaudeDesktopLibrary)).Profile
+		profile := claudedesktop.PathsForLibrary(filepath.FromSlash(library)).Profile
 		var config struct {
 			Command string   `json:"inferenceCredentialHelper"`
 			Args    []string `json:"inferenceCredentialHelperArgs"`

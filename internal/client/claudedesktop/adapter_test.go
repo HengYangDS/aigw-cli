@@ -253,15 +253,26 @@ func TestClaudeDesktopProjectionChangeDetection(t *testing.T) {
 }
 
 func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *testing.T) {
+	goos := goruntime.GOOS
+	if goos == "linux" {
+		goos = "darwin"
+	}
+	if goos != "darwin" && goos != "windows" {
+		t.Skip("unsupported test host")
+	}
 	root := t.TempDir()
-	executable := filepath.Join(root, "bin", "Claude")
+	env := map[string]string{"HOME": root, "LOCALAPPDATA": root}
+	executable := ApplicationPathsFor(goos, env)[0]
 	if err := os.MkdirAll(filepath.Dir(executable), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	library := filepath.Join(root, "Claude-3p", "configLibrary")
+	library, err := LibraryPathFor(goos, env)
+	if err != nil {
+		t.Fatal(err)
+	}
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test/v1"}}
 	cfg.Routes["selected"] = configuration.Route{Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
@@ -272,7 +283,7 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 		t.Fatal(err)
 	}
 	adapter := claudeDesktopAdapter{}
-	discovered := adapter.Discover(discovery.System{GOOS: goruntime.GOOS, Home: root, ClaudeDesktopApp: executable, ClaudeDesktopLibrary: library})
+	discovered := adapter.Discover(discovery.System{GOOS: goos, Home: root, Env: map[string]string{"LOCALAPPDATA": root}})
 	if err := adapter.Converge(client.Dependencies{Secrets: store}, &cfg, discovered); err != nil {
 		t.Fatal(err)
 	}

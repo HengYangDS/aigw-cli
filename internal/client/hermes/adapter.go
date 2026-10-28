@@ -31,11 +31,19 @@ func (hermesAdapter) Spec() configuration.ClientSpec {
 
 func (hermesAdapter) Discover(source client.DiscoverySource) discovery.Result {
 	executable := source.Executable(configuration.ClientHermes)
-	path := filepath.Join(source.HermesHomeDirectory(), "config.yaml")
+	path := filepath.Join(homeDirectory(source.Platform()), "config.yaml")
 	return discovery.Result{
 		Executables: map[string]string{configuration.ClientHermes: executable},
 		Surfaces:    []discovery.Surface{{ID: hermesSurface, Product: "Hermes", Authority: "aigw", Executable: executable, ConfigPath: path, Present: source.FilePresent(path)}},
 	}
+}
+
+// homeDirectory resolves the native Hermes configuration root without creating it.
+func homeDirectory(host discovery.Host) string {
+	if home := host.Getenv("HERMES_HOME"); home != "" {
+		return home
+	}
+	return filepath.Join(host.Home, ".hermes")
 }
 
 func (hermesAdapter) Converge(deps client.Dependencies, cfg *configuration.Config, discovered discovery.Result) error {

@@ -4,7 +4,6 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secrets"
 	"fmt"
 	"os"
@@ -24,10 +23,10 @@ func TestNativeClientFixtureMatchesClaudeDesktopDiscovery(t *testing.T) {
 	}
 	journey := &journeyFixture{testing: t, root: root, clientBin: clientBin}
 	journey.installClientFixture(configuration.ClientClaudeDesktop)
-	discovered := (discovery.System{
+	discovered := claudedesktop.New().Discover(discovery.System{
 		GOOS: runtime.GOOS, Home: filepath.Join(root, "home"),
-		XDGConfigHome: filepath.Join(root, "config"), LocalAppData: filepath.Join(root, "localappdata"), Path: clientBin,
-	}).ClaudeDesktopExecutable()
+		Env: map[string]string{"XDG_CONFIG_HOME": filepath.Join(root, "config"), "LOCALAPPDATA": filepath.Join(root, "localappdata")}, Path: clientBin,
+	}).Executable(configuration.ClientClaudeDesktop)
 	if runtime.GOOS == "linux" {
 		if discovered != "" {
 			t.Fatalf("Claude Desktop fixture was discovered on unsupported Linux host: %q", discovered)
@@ -259,11 +258,11 @@ func (j *journeyFixture) clientProjectionPaths(clientID string) []string {
 		path := filepath.Join(environmentValues(j.environment)["HERMES_HOME"], "config.yaml")
 		return []string{path, path + ".aigw-state.json"}
 	case configuration.ClientClaudeDesktop:
-		paths, err := platform.PathsFor(runtime.GOOS, environmentValues(j.environment))
+		library, err := claudedesktop.LibraryPathFor(runtime.GOOS, environmentValues(j.environment))
 		if err != nil {
 			j.testing.Fatal(err)
 		}
-		desktopPaths := claudedesktop.PathsForLibrary(paths.ClaudeDesktopLibrary)
+		desktopPaths := claudedesktop.PathsForLibrary(library)
 		return []string{
 			desktopPaths.StandardConfig,
 			desktopPaths.ThirdPartyConfig,

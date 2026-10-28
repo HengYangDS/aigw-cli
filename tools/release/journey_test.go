@@ -1,9 +1,9 @@
 package main
 
 import (
+	"aigw-cli/internal/client/claudedesktop"
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
-	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
@@ -287,7 +287,7 @@ func (j *journeyFixture) installClientFixture(client string) {
 	}
 	target := filepath.Join(j.clientBin, name)
 	if client == configuration.ClientClaudeDesktop {
-		candidates := platform.ClaudeDesktopApplicationPathsFor(runtime.GOOS, map[string]string{
+		candidates := claudedesktop.ApplicationPathsFor(runtime.GOOS, map[string]string{
 			"HOME": filepath.Join(j.root, "home"), "LOCALAPPDATA": filepath.Join(j.root, "localappdata"),
 		})
 		if len(candidates) > 0 {

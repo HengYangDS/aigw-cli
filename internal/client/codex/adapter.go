@@ -27,7 +27,7 @@ func (codexAdapter) Spec() configuration.ClientSpec {
 }
 
 func (codexAdapter) Discover(source client.DiscoverySource) discovery.Result {
-	path := filepath.Join(source.CodexHomeDirectory(), "config.toml")
+	path := filepath.Join(homeDirectory(source.Platform()), "config.toml")
 	return discovery.Result{
 		Executables: map[string]string{configuration.ClientCodex: source.Executable(configuration.ClientCodex)},
 		Surfaces: []discovery.Surface{{
@@ -39,6 +39,14 @@ func (codexAdapter) Discover(source client.DiscoverySource) discovery.Result {
 			AutoManaged: true,
 		}},
 	}
+}
+
+// homeDirectory returns the explicit Codex Home or its platform default.
+func homeDirectory(host discovery.Host) string {
+	if home := host.Getenv("CODEX_HOME"); home != "" {
+		return home
+	}
+	return filepath.Join(host.Home, ".codex")
 }
 
 func (codexAdapter) Converge(deps client.Dependencies, cfg *configuration.Config, discovered discovery.Result) error {

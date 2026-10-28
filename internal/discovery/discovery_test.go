@@ -8,9 +8,7 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/platform"
 	surfacepkg "aigw-cli/internal/surface"
 )
 
@@ -72,69 +70,15 @@ func TestDiscoverReturnsClaudeExecutableWithoutPrivateMarkers(t *testing.T) {
 	}
 }
 
-func TestDiscoverReturnsClaudeDesktopApplicationAndConfigurationLibrary(t *testing.T) {
-	root := t.TempDir()
-	executable := filepath.Join(root, "Claude")
-	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	library := filepath.Join(root, "Claude-3p", "configLibrary")
-	system := discovery.System{GOOS: runtime.GOOS, Home: root, ClaudeDesktopApp: executable, ClaudeDesktopLibrary: library}
-	result := client.NewDiscoverer(clients.Registry(), system).Discover()
-	if got := result.Executable(configuration.ClientClaudeDesktop); got != executable {
-		t.Fatalf("Claude Desktop executable = %q, want %q", got, executable)
-	}
-	surface, ok := result.Surface(string(surfacepkg.ClaudeDesktopLibrary))
-	if !ok || surface.ConfigPath != library || surface.Executable != executable || !surface.AutoManaged || !surface.Present {
-		t.Fatalf("Claude Desktop surface = %#v, %t", surface, ok)
-	}
-}
-
-func TestClaudeDesktopDiscoveryUsesNativeApplicationPath(t *testing.T) {
-	goos := runtime.GOOS
-	if goos == "linux" {
-		goos = "darwin"
-	}
-	if goos != "darwin" && goos != "windows" {
-		t.Skip("unsupported test host")
-	}
-	root := t.TempDir()
-	env := map[string]string{"HOME": root, "LOCALAPPDATA": root}
-	candidate := platform.ClaudeDesktopApplicationPathsFor(goos, env)[0]
-	if err := os.MkdirAll(filepath.Dir(candidate), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(candidate, []byte("fixture"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	system := discovery.System{GOOS: goos, Home: root, LocalAppData: root}
-	if got := system.ClaudeDesktopExecutable(); got != candidate {
-		t.Fatalf("ClaudeDesktopExecutable() = %q, want %q", got, candidate)
-	}
-}
-
-func TestClaudeDesktopDiscoveryRejectsUnofficialLinuxPathExecutable(t *testing.T) {
-	root := t.TempDir()
-	executable := filepath.Join(root, "claude-desktop")
-	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-
-	system := discovery.System{GOOS: "linux", Home: root, Path: root}
-	if got := system.ClaudeDesktopExecutable(); got != "" {
-		t.Fatalf("ClaudeDesktopExecutable() = %q, want unavailable on Linux", got)
-	}
-}
-
 func TestCurrentReflectsProcessPlatformAndPath(t *testing.T) {
 	wantPath := filepath.Join(t.TempDir(), "bin")
-	wantCodexHome := filepath.Join(t.TempDir(), "codex-home")
+	wantHome := filepath.Join(t.TempDir(), "client-home")
 	t.Setenv("PATH", wantPath)
-	t.Setenv("CODEX_HOME", wantCodexHome)
+	t.Setenv("AIGW_DISCOVERY_PROBE", wantHome)
 
 	system := discovery.Current()
-	if system.GOOS != runtime.GOOS || system.Path != wantPath || system.CodexHomeDirectory() != wantCodexHome {
-		t.Fatalf("Current() = %#v, want GOOS %q, PATH %q and Codex Home %q", system, runtime.GOOS, wantPath, wantCodexHome)
+	if system.GOOS != runtime.GOOS || system.Path != wantPath || system.Platform().Getenv("AIGW_DISCOVERY_PROBE") != wantHome {
+		t.Fatalf("Current() = %#v, want GOOS %q, PATH %q and the process environment", system, runtime.GOOS, wantPath)
 	}
 }
 

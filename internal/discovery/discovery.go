@@ -1,5 +1,6 @@
-// Package discovery classifies installed client executables and Codex homes
-// without adopting or mutating them.
+// Package discovery observes the host for client discovery without adopting or
+// mutating anything: executables on the search path, file presence, and the
+// platform from which each client adapter derives its own native paths.
 package discovery
 
 import (
@@ -8,8 +9,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	"aigw-cli/internal/platform"
 )
 
 // Result contains discovered client executables and independently addressable configuration surfaces.
@@ -26,63 +25,59 @@ func (r Result) Executable(client string) string { return r.Executables[client] 
 // Discoverer resolves currently available client executables and configuration surfaces.
 type Discoverer interface{ Discover() Result }
 
-// System discovers clients from one explicit operating-system, home, and search-path context.
+// Host is the platform that one AIGW process observes: its operating system,
+// the user's home directory and the environment. Adapters derive their native
+// client paths from it.
+type Host struct {
+	GOOS string
+	Home string
+	Env  map[string]string
+}
+
+// Getenv returns one variable of the observed environment, or an empty string.
+// Windows variable names are case-insensitive, as the operating system reads them.
+func (h Host) Getenv(name string) string {
+	if h.GOOS == "windows" {
+		for key, value := range h.Env {
+			if strings.EqualFold(key, name) {
+				return value
+			}
+		}
+		return ""
+	}
+	return h.Env[name]
+}
+
+// System discovers clients from one explicit host and executable search path.
 type System struct {
-	GOOS                 string
-	Home                 string
-	CodexHome            string
-	HermesHome           string
-	ClaudeDesktopApp     string
-	ClaudeDesktopLibrary string
-	XDGConfigHome        string
-	LocalAppData         string
-	Path                 string
+	GOOS string
+	Home string
+	Env  map[string]string
+	Path string
 }
 
 // Current returns the discovery context derived from the current process environment.
 func Current() System {
 	home, _ := os.UserHomeDir()
-	return System{
-		GOOS: runtime.GOOS, Home: home, CodexHome: os.Getenv("CODEX_HOME"), HermesHome: os.Getenv("HERMES_HOME"),
-		XDGConfigHome: os.Getenv("XDG_CONFIG_HOME"), LocalAppData: os.Getenv("LOCALAPPDATA"), Path: os.Getenv("PATH"),
+	env := map[string]string{}
+	for _, entry := range os.Environ() {
+		if key, value, ok := strings.Cut(entry, "="); ok && key != "" {
+			env[key] = value
+		}
 	}
+	return System{GOOS: runtime.GOOS, Home: home, Env: env, Path: os.Getenv("PATH")}
 }
+
+// Platform returns the observed host from which adapters derive their native paths.
+func (s System) Platform() Host { return Host{GOOS: s.GOOS, Home: s.Home, Env: s.Env} }
 
 // Executable returns the first runnable command with name on this host.
 func (s System) Executable(name string) string { return s.find(name) }
 
-// ClaudeDesktopExecutable returns the installed native Claude Desktop executable.
-func (s System) ClaudeDesktopExecutable() string {
-	if available, _ := executableAvailable(s.GOOS, s.ClaudeDesktopApp); available {
-		return s.ClaudeDesktopApp
-	}
-	for _, candidate := range platform.ClaudeDesktopApplicationPathsFor(s.GOOS, map[string]string{
-		"HOME": s.Home, "LOCALAPPDATA": s.LocalAppData,
-	}) {
-		if available, _ := executableAvailable(s.GOOS, candidate); available {
-			return candidate
-		}
-	}
-	return ""
-}
-
-// ClaudeDesktopLibraryDirectory returns the native third-party configuration root.
-func (s System) ClaudeDesktopLibraryDirectory() string {
-	if s.ClaudeDesktopLibrary != "" {
-		return s.ClaudeDesktopLibrary
-	}
-	library, _ := platform.ClaudeDesktopLibraryPathFor(s.GOOS, map[string]string{
-		"HOME": s.Home, "XDG_CONFIG_HOME": s.XDGConfigHome, "LOCALAPPDATA": s.LocalAppData,
-	})
-	return library
-}
-
-// CodexHomeDirectory returns the explicit Codex Home or its platform default.
-func (s System) CodexHomeDirectory() string {
-	if s.CodexHome != "" {
-		return s.CodexHome
-	}
-	return filepath.Join(s.Home, ".codex")
+// Runnable reports whether path names a runnable executable on this host.
+func (s System) Runnable(path string) bool {
+	available, _ := executableAvailable(s.GOOS, path)
+	return available
 }
 
 // FilePresent reports whether path currently names a non-directory entry.
@@ -133,12 +128,4 @@ func executableAvailable(goos, path string) (bool, error) {
 		return false, nil
 	}
 	return goos == "windows" || info.Mode().Perm()&0o111 != 0, nil
-}
-
-// HermesHomeDirectory resolves the native Hermes configuration root without creating it.
-func (s System) HermesHomeDirectory() string {
-	if s.HermesHome != "" {
-		return s.HermesHome
-	}
-	return filepath.Join(s.Home, ".hermes")
 }

@@ -18,15 +18,15 @@ import (
 	"aigw-cli/internal/transaction"
 )
 
-// DiscoverySource is the bounded host observation surface used by adapters.
-// It contains no mutation capability.
+// DiscoverySource is the bounded, client-neutral host observation surface used
+// by adapters: executable and file lookups, and the observed platform from
+// which each adapter derives its own native paths. It contains no mutation
+// capability.
 type DiscoverySource interface {
-	Executable(clientID string) string
-	ClaudeDesktopExecutable() string
-	ClaudeDesktopLibraryDirectory() string
-	CodexHomeDirectory() string
-	HermesHomeDirectory() string
+	Executable(name string) string
+	Runnable(path string) bool
 	FilePresent(path string) bool
+	Platform() discovery.Host
 }
 
 // Dependencies are the shared capabilities supplied to one adapter operation.
