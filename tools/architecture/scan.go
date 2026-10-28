@@ -64,6 +64,9 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	}
 	checkImportOwners(goFiles, p, &report)
 	checkCompositionRoots(goFiles, p, &report)
+	if err := checkClientConfinement(absRoot, goFiles, p.ClientConfinement, &report); err != nil {
+		return Report{}, err
+	}
 	if err := repositoryAnalysis.peerImports(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}

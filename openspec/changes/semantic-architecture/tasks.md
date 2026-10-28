@@ -1,15 +1,15 @@
 ## 1. Stage 1 — Client packages
 
-- [ ] 1.1 Add client-name confinement to `tools/architecture`. The check scans product packages for identifiers and string literals that spell an admitted client ID. A temporary policy list of the current offending packages may only shrink: the gate fails for an unlisted offender and for a listed package that no longer offends. The gate's report reproduces the baseline of 11 Codex, 13 Claude and 5 Hermes packages.
+- [x] 1.1 Add client-name confinement to `tools/architecture`. The check scans product packages for identifiers and string literals that spell an admitted client ID. A temporary policy list of the current offending packages may only shrink: the gate fails for an unlisted offender and for a listed package that no longer offends. The gate's `client_packages` report records the baseline: 19 packages name a client (Codex 13, Claude Code 13, Claude Desktop 7, Hermes 6).
 - [ ] 1.2 Compose the adapter registry in `cmd/aigw` and pass it into the CLI application. `client.DefaultRegistry` and every fallback to it are deleted, and tests construct their registries explicitly.
 - [ ] 1.3 Move Codex to `internal/client/codex`: `internal/codex`, `internal/codex/catalog` and the Codex adapter and selection code from `internal/client`. The pure move is one commit and the import and API edits follow in the next; `tools/codex/catalog` imports the new path.
 - [ ] 1.4 Move Claude Code (`internal/claude` and the Claude adapter) to `internal/client/claude` in the same two-commit form.
 - [ ] 1.5 Move Claude Desktop (`internal/claude/desktop` and `internal/client/claude_desktop.go`) to `internal/client/claudedesktop` in the same form.
 - [ ] 1.6 Move Hermes (`internal/hermes/configuration`, the Hermes adapter and its platform verification files) to `internal/client/hermes` in the same form.
 - [ ] 1.7 Make the seam client-neutral. `DiscoverySource` offers only executable, file-presence and host lookups, and `Dependencies` drops `ClaudeSettingsPath`. Each adapter derives its own native paths, so the Claude path derivation leaves `internal/platform`.
-- [ ] 1.8 Replace the client branches in `internal/cli`, `internal/synchronization`, `internal/discovery`, `internal/surface` and `internal/client/verification` with descriptor capabilities and adapter methods. `AdoptCodexSelection` and `AdoptHermesSelection` become one seam method that each adapter implements.
+- [ ] 1.8 Replace the client branches in `internal/cli`, `internal/synchronization`, `internal/discovery`, `internal/surface`, `internal/platform` and `internal/client/verification` with descriptor capabilities and adapter methods. `AdoptCodexSelection` and `AdoptHermesSelection` become one seam method that each adapter implements.
 - [ ] 1.9 Add `internal/client/contract`: one suite that every adapter factory runs against a private fixture home. All four adapters and a test-only rehearsal adapter pass it, and the rehearsal adapter's change touches only its own package, the test composition root and its fixtures.
-- [ ] 1.10 Shrink the confinement list to `internal/configuration` alone; stage 2 removes that package.
+- [ ] 1.10 Shrink the confinement list to `internal/configuration` and `internal/credential`, which stage 2 deletes.
 - [ ] 1.11 Run the local quality graph at the stage head: every existing test passes unchanged in behavior and every coverage floor holds.
 - [ ] 1.12 Prove the stage head with the full ETHOS proof.
 - [ ] 1.13 Confirm the hosted three-platform graph and the real-client journeys on macOS, Linux and Windows pass at the stage head.

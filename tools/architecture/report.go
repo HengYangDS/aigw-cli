@@ -28,6 +28,9 @@ type Report struct {
 	Root     string         `json:"root"`
 	Summary  map[string]int `json:"summary"`
 	Findings []Finding      `json:"findings"`
+	// ClientPackages lists, for each admitted client, the product packages
+	// outside its adapter package and the composition roots that name it.
+	ClientPackages map[string][]string `json:"client_packages,omitempty"`
 }
 
 func newReport(policyPath, root string) Report {

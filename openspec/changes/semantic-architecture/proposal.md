@@ -3,12 +3,13 @@
 AIGW's package layout no longer shows where a behavior lives or who owns it.
 Measured on `dev` `1dd333c4`:
 
-- **Client knowledge is spread across shared packages.** Production code
-  names Codex in 11 packages under 7 top-level owners, Claude in 13 under 8 and
-  Hermes in 5 under 5. `configuration` (15 files, about 11,000 lines, 117
-  exported identifiers) branches on all three clients, and `discovery`,
-  `surface` and `synchronization` hard-code them. Adding Hermes touched 14
-  internal packages.
+- **Client knowledge is spread across shared packages.** The architecture
+  gate's client-name scan finds 19 product packages under 11 top-level owners
+  that name a client: Codex in 13, Claude Code in 13, Claude Desktop in 7 and
+  Hermes in 6. `configuration` (15 files, about 11,000 lines, 117 exported
+  identifiers) branches on all of them, and `discovery`, `surface` and
+  `synchronization` hard-code them. Adding Hermes touched 14 internal
+  packages.
 - **The tree is flat and its dependency rule is hand-written.** `internal/`
   has 23 sibling owners, and the architecture policy allows dependencies
   through 63 hand-maintained import-edge entries with 220 targets. No rule

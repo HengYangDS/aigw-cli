@@ -414,6 +414,38 @@ check_decision_records = true
 check_semantic_names = true
 require_import_owners = true
 
+# Each admitted client's knowledge stays in its adapter package below
+# adapter_root, named after the client ID without hyphens. Outside it only the
+# composition roots may name a client. temporary_exceptions lists the packages
+# that still do while Change semantic-architecture moves that knowledge; it may
+# only shrink.
+[client_confinement]
+clients = ["claude", "claude-desktop", "codex", "hermes"]
+product_roots = ["cmd", "internal"]
+adapter_root = "internal/client"
+composition_roots = ["cmd/aigw"]
+temporary_exceptions = [
+  "internal/claude",
+  "internal/claude/desktop",
+  "internal/cli",
+  "internal/cli/client",
+  "internal/cli/doctor",
+  "internal/cli/invocation",
+  "internal/cli/readiness",
+  "internal/cli/selection",
+  "internal/client",
+  "internal/client/verification",
+  "internal/codex",
+  "internal/codex/catalog",
+  "internal/configuration",
+  "internal/credential",
+  "internal/discovery",
+  "internal/hermes/configuration",
+  "internal/platform",
+  "internal/surface",
+  "internal/synchronization",
+]
+
 # Every tracked carrier resolves to exactly one semantic responsibility.
 # Executable checks remain in tools/ci and their native tool configurations.
 [tracked_carrier_classes.go-source]

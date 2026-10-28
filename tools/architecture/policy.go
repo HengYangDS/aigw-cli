@@ -34,6 +34,7 @@ type policy struct {
 	CheckDecisionRecords  bool                    `toml:"check_decision_records"`
 	CheckSemanticNames    bool                    `toml:"check_semantic_names"`
 	RequireImportOwners   bool                    `toml:"require_import_owners"`
+	ClientConfinement     clientConfinement       `toml:"client_confinement"`
 }
 
 type carrierClass struct {
@@ -77,7 +78,7 @@ func validatePolicy(p policy) error {
 	if err := validateTrackedCarrierClasses(p.TrackedCarrierClasses); err != nil {
 		return err
 	}
-	return nil
+	return validateClientConfinement(p.ClientConfinement)
 }
 
 func validateTrackedCarrierClasses(classes map[string]carrierClass) error {
