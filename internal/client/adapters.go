@@ -18,16 +18,17 @@ import (
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
-var defaultRegistry = mustRegistry(
-	configuration.AdmittedClientSpecs(),
-	codexAdapter{},
-	claudeAdapter{},
-	claudeDesktopAdapter{},
-	hermesAdapter{},
-)
+// NewCodexAdapter returns the Codex adapter for the composition root to register.
+func NewCodexAdapter() Adapter { return codexAdapter{} }
 
-// DefaultRegistry returns the immutable built-in adapter registry.
-func DefaultRegistry() Registry { return defaultRegistry }
+// NewClaudeAdapter returns the Claude Code adapter for the composition root to register.
+func NewClaudeAdapter() Adapter { return claudeAdapter{} }
+
+// NewClaudeDesktopAdapter returns the Claude Desktop adapter for the composition root to register.
+func NewClaudeDesktopAdapter() Adapter { return claudeDesktopAdapter{} }
+
+// NewHermesAdapter returns the Hermes adapter for the composition root to register.
+func NewHermesAdapter() Adapter { return hermesAdapter{} }
 
 // NewDiscoverer binds an adapter registry to one host observation source.
 func NewDiscoverer(registry Registry, source DiscoverySource) discovery.Discoverer {
@@ -311,14 +312,6 @@ func (claudeAdapter) Inspect(_ context.Context, deps Dependencies, cfg configura
 
 func (claudeAdapter) Withdraw(cfg *configuration.Config) {
 	delete(cfg.Clients, configuration.ClientClaude)
-}
-
-func mustRegistry(specs []configuration.ClientSpec, adapters ...Adapter) Registry {
-	registry, err := NewRegistry(specs, adapters...)
-	if err != nil {
-		panic(err)
-	}
-	return registry
 }
 
 func mustClientSpec(clientID string) configuration.ClientSpec {

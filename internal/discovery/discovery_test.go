@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/platform"
@@ -37,7 +38,7 @@ func TestDiscoverFindsClientsAndAutoManagedCodexTargets(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	d := client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: goos, Home: home, Path: bin})
+	d := client.NewDiscoverer(clients.Registry(), discovery.System{GOOS: goos, Home: home, Path: bin})
 	got := d.Discover()
 	wantClaude, wantCodex := filepath.Join(bin, names[0]), filepath.Join(bin, names[1])
 	if got.Executable("claude") != wantClaude || got.Executable("codex") != wantCodex {
@@ -61,7 +62,7 @@ func TestDiscoverReturnsClaudeExecutableWithoutPrivateMarkers(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\nnative Claude fixture\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	got := client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: goos, Home: home, Path: bin}).Discover()
+	got := client.NewDiscoverer(clients.Registry(), discovery.System{GOOS: goos, Home: home, Path: bin}).Discover()
 	want, err := filepath.Abs(filepath.Join(bin, name))
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +80,7 @@ func TestDiscoverReturnsClaudeDesktopApplicationAndConfigurationLibrary(t *testi
 	}
 	library := filepath.Join(root, "Claude-3p", "configLibrary")
 	system := discovery.System{GOOS: runtime.GOOS, Home: root, ClaudeDesktopApp: executable, ClaudeDesktopLibrary: library}
-	result := client.NewDiscoverer(client.DefaultRegistry(), system).Discover()
+	result := client.NewDiscoverer(clients.Registry(), system).Discover()
 	if got := result.Executable(configuration.ClientClaudeDesktop); got != executable {
 		t.Fatalf("Claude Desktop executable = %q, want %q", got, executable)
 	}
@@ -197,7 +198,7 @@ func TestResultFindsKnownSurfaceByEachIdentity(t *testing.T) {
 
 func TestLinuxDiscoveryKeepsDefaultClientHomesIndependent(t *testing.T) {
 	home := t.TempDir()
-	result := client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: "linux", Home: home}).Discover()
+	result := client.NewDiscoverer(clients.Registry(), discovery.System{GOOS: "linux", Home: home}).Discover()
 	if len(result.Surfaces) != 3 {
 		t.Fatalf("Linux surfaces = %#v", result.Surfaces)
 	}

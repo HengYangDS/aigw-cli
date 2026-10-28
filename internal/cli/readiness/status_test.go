@@ -3,6 +3,7 @@ package readiness
 import (
 	"aigw-cli/internal/cli/invocation"
 	clientdomain "aigw-cli/internal/client"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
@@ -260,7 +261,7 @@ func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *test
 func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	emptyPath := filepath.Join(t.TempDir(), "configuration.toml")
 	emptyOut := &bytes.Buffer{}
-	emptyRuntime := invocation.Context{Config: configuration.NewStore(emptyPath), Out: emptyOut, RenderOut: emptyOut, Secrets: secrets.NewMemoryStore()}
+	emptyRuntime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(emptyPath), Out: emptyOut, RenderOut: emptyOut, Secrets: secrets.NewMemoryStore()}
 	if err := RunStatus(emptyRuntime, false); err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +280,7 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	if err := os.WriteFile(badPath, []byte("not = [toml"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	badRuntime := invocation.Context{Config: configuration.NewStore(badPath), Out: io.Discard}
+	badRuntime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(badPath), Out: io.Discard}
 	if err := RunStatus(badRuntime, false); err == nil {
 		t.Fatal("malformed configuration was accepted")
 	}
@@ -359,7 +360,7 @@ func TestStatusJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 
 func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Out: out, RenderOut: out, Width: 120}
+	runtime := invocation.Context{Clients: clients.Registry(), Out: out, RenderOut: out, Width: 120}
 	cfg := configuration.NewConfig()
 	cfg.Routes["available"] = configuration.Route{Label: "Available"}
 	clients := map[string]clientStatus{}
@@ -384,7 +385,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 		domainreadiness.Invalid,
 	} {
 		out := &bytes.Buffer{}
-		runtime := invocation.Context{Out: out, Width: 120}
+		runtime := invocation.Context{Clients: clients.Registry(), Out: out, Width: 120}
 		renderClientStatus(invocation.Renderer(runtime), statusOutput{
 			Clients: map[string]clientStatus{configuration.ClientClaude: {
 				Client: domainreadiness.Client{State: state, Route: "route"},

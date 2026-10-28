@@ -20,7 +20,7 @@ func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 		t.Fatal(err)
 	}
 	credentials := setupTokenStore(t, "existing-token")
-	syncer := Synchronizer{Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
 	changed, _, _, err := syncer.SelectRoute(t.Context(), before, configuration.ClientClaude, "next", "", configuration.ConnectionChange{}, "")
 	if err != nil || !changed {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
@@ -72,7 +72,7 @@ func TestRouteSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 			if err := cfg.Validate(); err != nil {
 				t.Fatal(err)
 			}
-			proposed, selected, err := (Synchronizer{}).PrepareSelection(cfg, configuration.ClientHermes, test.route, test.protocol, configuration.ConnectionChange{ForwardingEndpoint: test.forwarding})
+			proposed, selected, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, configuration.ClientHermes, test.route, test.protocol, configuration.ConnectionChange{ForwardingEndpoint: test.forwarding})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -97,7 +97,7 @@ func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 			failure := errors.New("configuration write failed")
 			store := &configStoreStub{commitErr: failure}
 			store.bindConfiguration(t, before)
-			syncer := Synchronizer{Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
+			syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
 			switch phase {
 			case "cancelled":
 				cancel()
@@ -135,7 +135,7 @@ func TestRouteSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 			if route == "native" {
 				client = configuration.ClientCodex
 			}
-			_, _, _, err := (Synchronizer{Config: store, Secrets: credentials}).SelectRoute(t.Context(), cfg, client, route, "", configuration.ConnectionChange{}, "token")
+			_, _, _, err := (Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials}).SelectRoute(t.Context(), cfg, client, route, "", configuration.ConnectionChange{}, "token")
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid selection reached credential mutation: writes=%d, error=%v", credentials.writes, err)
 			}

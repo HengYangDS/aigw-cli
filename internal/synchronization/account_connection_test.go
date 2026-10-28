@@ -31,7 +31,7 @@ func TestAccountConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
 				account.Endpoints.Anthropic = "invalid-endpoint"
 			}
 			acquired := false
-			err := (Synchronizer{}).ConnectAccount(ctx, before, name, configuration.ClientClaude, account, route, func() (string, error) {
+			err := (Synchronizer{Registry: builtinClients}).ConnectAccount(ctx, before, name, configuration.ClientClaude, account, route, func() (string, error) {
 				acquired = true
 				return "token", nil
 			})
@@ -48,7 +48,7 @@ func TestAccountConnectionPreservesStateWhenTokenAcquisitionFails(t *testing.T) 
 			before := setupConfiguration()
 			store := &configStoreStub{}
 			credentials := &setupCredentials{Store: secrets.NewMemoryStore()}
-			syncer := Synchronizer{Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
+			syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			failure := errors.New("input unavailable")

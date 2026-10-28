@@ -2,7 +2,7 @@ package doctor
 
 import (
 	"aigw-cli/internal/claude"
-	"aigw-cli/internal/client"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
@@ -52,7 +52,7 @@ func doctorDependencies(t *testing.T, cfg configuration.Config) (Dependencies, *
 	out := &bytes.Buffer{}
 	secretStore := secrets.NewMemoryStore()
 	return Dependencies{
-		Config: store, Secrets: secretStore, Clients: synchronization.Synchronizer{Registry: client.DefaultRegistry()}, Out: out,
+		Config: store, Secrets: secretStore, Clients: synchronization.Synchronizer{Registry: clients.Registry()}, Out: out,
 	}, out, secretStore
 }
 
@@ -117,7 +117,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	if err := os.MkdirAll(bad.Path(), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	broken := Collect(context.Background(), Dependencies{Config: bad, Secrets: secrets.NewMemoryStore(), Clients: synchronization.Synchronizer{Registry: client.DefaultRegistry()}})
+	broken := Collect(context.Background(), Dependencies{Config: bad, Secrets: secrets.NewMemoryStore(), Clients: synchronization.Synchronizer{Registry: clients.Registry()}})
 	if check := findCheck(t, broken, "config"); check.OK || check.Detail != "cannot read or validate configuration" || check.Fix != "inspect or restore the local configuration file" {
 		t.Fatalf("config check = %#v", check)
 	}

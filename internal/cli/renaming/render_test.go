@@ -2,6 +2,7 @@ package renaming
 
 import (
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/renaming"
 	"bytes"
@@ -26,7 +27,7 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 	for _, test := range statuses {
 		t.Run(test.title+"/"+string(test.plan.Status), func(t *testing.T) {
 			out := &bytes.Buffer{}
-			if err := writeResult(invocation.Context{Out: out}, test.plan, false); err != nil {
+			if err := writeResult(invocation.Context{Clients: clients.Registry(), Out: out}, test.plan, false); err != nil {
 				t.Fatal(err)
 			}
 			if !strings.Contains(out.String(), test.title) {
@@ -42,7 +43,7 @@ func TestAccountRenameContinuationFollowsEnabledClients(t *testing.T) {
 		cfg.SetClientActivation(configuration.ClientClaude, enabled, "", nil)
 		var out bytes.Buffer
 		plan := renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Config: cfg}
-		if err := writeResult(invocation.Context{Out: &out}, plan, false); err != nil {
+		if err := writeResult(invocation.Context{Clients: clients.Registry(), Out: &out}, plan, false); err != nil {
 			t.Fatal(err)
 		}
 		if strings.Contains(out.String(), "aigw verify --for all") != enabled {

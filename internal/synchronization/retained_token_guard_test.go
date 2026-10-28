@@ -91,7 +91,7 @@ func main() {
 	}
 	configurationStore := &configStoreStub{}
 	configurationStore.bindConfiguration(t, cfg)
-	syncer := Synchronizer{Config: configurationStore, Secrets: store, Discovery: targetDiscovery(target), ClaudeSettingsPath: claudeSettings, AIGWExecutable: candidate, CredentialPath: current}
+	syncer := Synchronizer{Registry: builtinClients, Config: configurationStore, Secrets: store, Discovery: targetDiscovery(target), ClaudeSettingsPath: claudeSettings, AIGWExecutable: candidate, CredentialPath: current}
 	if err := syncer.CommitProjection(t.Context(), cfg, afterConfig, "sync"); err != nil {
 		t.Fatalf("independent Claude projection failed: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	}
 	configurationStore := &configStoreStub{}
 	configurationStore.bindConfiguration(t, cfg)
-	syncer := Synchronizer{Config: configurationStore, Secrets: secrets.NewMemoryStore(), Discovery: targetDiscovery(target), AIGWExecutable: candidate, CredentialPath: reader, ClaudeSettingsPath: filepath.Join(root, "settings.json")}
+	syncer := Synchronizer{Registry: builtinClients, Config: configurationStore, Secrets: secrets.NewMemoryStore(), Discovery: targetDiscovery(target), AIGWExecutable: candidate, CredentialPath: reader, ClaudeSettingsPath: filepath.Join(root, "settings.json")}
 	plans, err := syncer.Plan(cfg, cfg)
 	if err != nil || len(plans) == 0 {
 		t.Fatalf("ready native Codex has no projection plan: plans=%v error=%v", plans, err)

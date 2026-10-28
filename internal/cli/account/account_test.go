@@ -1,6 +1,7 @@
 package account
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"os"
 	"path/filepath"
@@ -46,7 +47,7 @@ func TestAccountReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
 }
 
 func TestAccountCommandsRequireAnAccountBeforeProviderWork(t *testing.T) {
-	runtime := invocation.Context{
+	runtime := invocation.Context{Clients: clients.Registry(),
 		Config:      configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")),
 		Interactive: true,
 		Out:         &bytes.Buffer{},
@@ -71,7 +72,7 @@ func TestAccountCommandsRequireAnAccountBeforeProviderWork(t *testing.T) {
 
 func TestEditReturnsTransactionPreparationFailure(t *testing.T) {
 	store, secretStore := blockedConfigurationStore(t)
-	command := newEditCommand(invocation.Context{Config: store, Secrets: secretStore, Out: &bytes.Buffer{}})
+	command := newEditCommand(invocation.Context{Clients: clients.Registry(), Config: store, Secrets: secretStore, Out: &bytes.Buffer{}})
 	command.SetArgs([]string{"current", "--label", "Renamed"})
 	command.SilenceErrors = true
 	command.SilenceUsage = true

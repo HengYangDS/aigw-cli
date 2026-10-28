@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
@@ -29,7 +30,7 @@ func TestNewDefaultBindsCredentialEntrypointToExecutableBytes(t *testing.T) {
 		t.Setenv(key, value)
 	}
 	t.Setenv("AIGW_SECRET_BACKEND", "env")
-	app, err := NewDefault()
+	app, err := NewDefault(clients.Registry())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +80,7 @@ func TestNewDefaultBindsCredentialEntrypointToExecutableBytes(t *testing.T) {
 func TestRootHelpAndCredentialErrorsDoNotResolveReaderIdentity(t *testing.T) {
 	for _, args := range [][]string{{"--help"}, {"--version"}, {"help", "sync"}, {"completion", "bash"}, {"credential", "unknown", "invalid"}} {
 		t.Run(args[0], func(t *testing.T) {
-			app := &App{Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, ResolveCredentialPath: func() (string, error) {
+			app := &App{Clients: clients.Registry(), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, ResolveCredentialPath: func() (string, error) {
 				t.Fatal("non-reader CLI invoked executable identity resolution")
 				return "", nil
 			}}
@@ -95,7 +96,7 @@ func TestInvocationReaderIdentityIsMemoizedWithoutGlobalState(t *testing.T) {
 	for _, fail := range []bool{false, true} {
 		calls := 0
 		problem := errors.New("exact identity unavailable")
-		app := &App{ResolveCredentialPath: sync.OnceValues(func() (string, error) {
+		app := &App{Clients: clients.Registry(), ResolveCredentialPath: sync.OnceValues(func() (string, error) {
 			calls++
 			if fail {
 				return "", problem
@@ -122,7 +123,7 @@ func TestExecutableIdentityReadsTheProgramOncePerApp(t *testing.T) {
 	for _, present := range []bool{true, false} {
 		t.Run(fmt.Sprintf("present=%t", present), func(t *testing.T) {
 			root := t.TempDir()
-			app := &App{Executable: filepath.Join(root, "aigw"), DataDir: filepath.Join(root, "data")}
+			app := &App{Clients: clients.Registry(), Executable: filepath.Join(root, "aigw"), DataDir: filepath.Join(root, "data")}
 			if present {
 				if err := os.WriteFile(app.Executable, []byte("portable program"), 0o700); err != nil {
 					t.Fatal(err)
@@ -159,7 +160,7 @@ func BenchmarkDefaultAppStartup(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		if _, err := NewDefault(); err != nil {
+		if _, err := NewDefault(clients.Registry()); err != nil {
 			b.Fatal(err)
 		}
 	}

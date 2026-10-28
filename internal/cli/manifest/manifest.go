@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
 
@@ -103,7 +102,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			ImportedRoutes:       len(incoming.Routes),
 			KeptAccounts:         slices.Sorted(maps.Keys(keeping)),
 			RetiredRoutes:        slices.Sorted(maps.Keys(retiring)),
-			ProjectionCandidates: client.DefaultRegistry().ChangedClients(before, cfg),
+			ProjectionCandidates: runtime.Clients.ChangedClients(before, cfg),
 			NextAction:           "aigw status",
 		}
 		if dryRun {

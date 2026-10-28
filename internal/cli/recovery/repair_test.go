@@ -1,6 +1,7 @@
 package recovery
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -25,7 +26,7 @@ func (candidate staticDiscovery) Discover() discovery.Result { return candidate.
 
 func TestRenderRepairPreviewNamesEachClientAndItsSurface(t *testing.T) {
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Out: out, RenderOut: out, Width: 120}
+	runtime := invocation.Context{Clients: clients.Registry(), Out: out, RenderOut: out, Width: 120}
 	explicit := string(surfaceidentity.CodexHomeExplicit("0123456789ab"))
 	plans := []client.ProjectionPlan{
 		{Client: configuration.ClientCodex, Target: "/known", Action: "update", Surface: string(surfaceidentity.CodexHomeDefault)},
@@ -56,7 +57,7 @@ func TestRenderRepairPreviewNamesEachClientAndItsSurface(t *testing.T) {
 
 func TestRenderRepairPreviewJSONReportsEachPlannedSurface(t *testing.T) {
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Out: out}
+	runtime := invocation.Context{Clients: clients.Registry(), Out: out}
 	plans := []client.ProjectionPlan{
 		{Client: configuration.ClientClaude, Target: "/settings.json", Action: "update", ChangesState: true, Surface: string(surfaceidentity.ClaudeSettings)},
 		{Client: configuration.ClientClaudeDesktop, Target: "/library", Action: "unchanged", Surface: string(surfaceidentity.ClaudeDesktopLibrary)},
@@ -83,7 +84,7 @@ func TestRenderRepairPreviewJSONReportsEachPlannedSurface(t *testing.T) {
 
 func TestRunRepairReportsDiscoveryFailureWithoutMutatingConfiguration(t *testing.T) {
 	store, cfg := configuredRepairStore(t)
-	if err := runRepair(context.Background(), invocation.Context{Config: store}, false, false); err == nil || !strings.Contains(err.Error(), "discovery") {
+	if err := runRepair(context.Background(), invocation.Context{Clients: clients.Registry(), Config: store}, false, false); err == nil || !strings.Contains(err.Error(), "discovery") {
 		t.Fatalf("runRepair() error = %v, want discovery failure", err)
 	}
 	if saved, err := store.Load(); err != nil || saved.SelectedRoute(configuration.ClientCodex) != cfg.SelectedRoute(configuration.ClientCodex) {
@@ -116,7 +117,7 @@ func TestRepairDesiredConfigPreservesExplicitCodexIntentWhenDiscoveryIsEmpty(t *
 	}
 	before.SetSelectedRoute(configuration.ClientCodex, "one", "")
 	before.SetClientActivation(configuration.ClientCodex, true, "/old", nil)
-	runtime := invocation.Context{Discovery: staticDiscovery{result: discovery.Result{}}}
+	runtime := invocation.Context{Clients: clients.Registry(), Discovery: staticDiscovery{result: discovery.Result{}}}
 	after, _, err := invocation.Synchronizer(runtime).DesiredClientConfiguration(before)
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +136,7 @@ func TestRunRepairReturnsConfigurationCommitFailure(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(backup, "blocker"), []byte("occupied"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runtime := invocation.Context{
+	runtime := invocation.Context{Clients: clients.Registry(),
 		Config: store,
 		Discovery: staticDiscovery{result: discovery.Result{Executables: map[string]string{
 			configuration.ClientClaude: "/opt/claude",
@@ -174,7 +175,7 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-			runtime := invocation.Context{
+			runtime := invocation.Context{Clients: clients.Registry(),
 				Executable: filepath.Join(t.TempDir(), "aigw"),
 				Config:     store,
 				Discovery:  staticDiscovery{result: discovery.Result{}},
@@ -214,7 +215,7 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{
+	runtime := invocation.Context{Clients: clients.Registry(),
 		Executable:         executable,
 		Config:             store,
 		Discovery:          staticDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}},
@@ -271,7 +272,7 @@ func TestRepairPreservesUnprovenCachedCredentialEntrypoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Executable: source, CredentialPath: helper, Config: store, Discovery: staticDiscovery{}, Out: out}
+	runtime := invocation.Context{Clients: clients.Registry(), Executable: source, CredentialPath: helper, Config: store, Discovery: staticDiscovery{}, Out: out}
 	if err := runRepair(t.Context(), runtime, true, true); err != nil {
 		t.Fatal(err)
 	}

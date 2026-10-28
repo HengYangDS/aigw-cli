@@ -1,6 +1,7 @@
 package onboarding
 
 import (
+	"aigw-cli/internal/clients"
 	"context"
 	"io"
 	"net/http"
@@ -21,7 +22,7 @@ func TestSetupValidatesSelectedHermesProtocol(t *testing.T) {
 		t.Fatal(err)
 	}
 	requests := 0
-	runtime := invocation.Context{
+	runtime := invocation.Context{Clients: clients.Registry(),
 		Config: store, Secrets: credentials, Discovery: setupDiscovery{result: discovery.Result{}},
 		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			requests++

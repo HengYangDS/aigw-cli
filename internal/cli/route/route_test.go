@@ -1,6 +1,7 @@
 package route
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -30,7 +31,7 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Config: store, Out: out, RenderOut: out}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: store, Out: out, RenderOut: out}
 	list := newListCommand(runtime)
 	list.SetArgs([]string{"--json"})
 	if err := list.Execute(); err != nil {
@@ -76,7 +77,7 @@ func TestRouteHumanOutputNamesClientsByLabel(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Config: store, Out: out, RenderOut: out}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: store, Out: out, RenderOut: out}
 	for _, command := range []*cobra.Command{newListCommand(runtime), newShowCommand(runtime)} {
 		out.Reset()
 		if command.Name() == "show" {
@@ -177,7 +178,7 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 			if err := secretStore.Set("team", "retained-token"); err != nil {
 				t.Fatal(err)
 			}
-			command := newRemoveCommand(invocation.Context{Config: store, Secrets: secretStore, Out: &bytes.Buffer{}, RenderOut: &bytes.Buffer{}})
+			command := newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: store, Secrets: secretStore, Out: &bytes.Buffer{}, RenderOut: &bytes.Buffer{}})
 			command.SetArgs([]string{"claude"})
 			if err := command.Execute(); err != nil {
 				t.Fatal(err)
@@ -225,7 +226,7 @@ func blockedRouteRuntime(t *testing.T) invocation.Context {
 	if err := os.WriteFile(filepath.Join(backup, "blocker"), []byte("occupied"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return invocation.Context{
+	return invocation.Context{Clients: clients.Registry(),
 		Config:    store,
 		Secrets:   secrets.NewMemoryStore(),
 		Out:       &bytes.Buffer{},
@@ -254,7 +255,7 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 				t.Fatal(err)
 			}
 			out := &bytes.Buffer{}
-			command := newAddCommand(invocation.Context{Config: store, Secrets: secrets.NewMemoryStore(), Out: out, RenderOut: out})
+			command := newAddCommand(invocation.Context{Clients: clients.Registry(), Config: store, Secrets: secrets.NewMemoryStore(), Out: out, RenderOut: out})
 			args := []string{"ucloud-minimax-new", "--account", "ucloud", "--model", "minimax-m3", "--protocol", "openai_responses"}
 			if test.upstream != "" {
 				args = append(args, "--upstream-model", test.upstream)
@@ -285,7 +286,7 @@ func TestRouteAddRejectsEmptyExplicitUpstreamBeforeConfigurationAccess(t *testin
 		if err := os.WriteFile(store.Path(), original, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		command := newAddCommand(invocation.Context{Config: store, Out: &bytes.Buffer{}})
+		command := newAddCommand(invocation.Context{Clients: clients.Registry(), Config: store, Out: &bytes.Buffer{}})
 		command.SetArgs([]string{"ucloud-minimax-new", "--account", "ucloud", "--model", "minimax-m3", "--protocol", "openai_responses", "--upstream-model", upstream})
 		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "--upstream-model requires a non-empty value") {
 			t.Fatalf("empty upstream was not rejected before loading configuration: %v", err)

@@ -13,6 +13,7 @@ import (
 
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -84,7 +85,7 @@ func TestClientDiscoveryBranches(t *testing.T) {
 			resolved[name] = path
 		}
 		app, out, _, _, _ := testApp(t, "")
-		app.Discovery = client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: runtime.GOOS, Home: t.TempDir(), Path: dir})
+		app.Discovery = client.NewDiscoverer(clients.Registry(), discovery.System{GOOS: runtime.GOOS, Home: t.TempDir(), Path: dir})
 		if err := cli.Execute(app, []string{"client", "discover"}); err != nil {
 			t.Fatal(err)
 		}

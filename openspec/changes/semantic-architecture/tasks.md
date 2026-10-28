@@ -1,7 +1,7 @@
 ## 1. Stage 1 — Client packages
 
 - [x] 1.1 Add client-name confinement to `tools/architecture`. The check scans product packages for identifiers and string literals that spell an admitted client ID. A temporary policy list of the current offending packages may only shrink: the gate fails for an unlisted offender and for a listed package that no longer offends. The gate's `client_packages` report records the baseline: 19 packages name a client (Codex 13, Claude Code 13, Claude Desktop 7, Hermes 6).
-- [ ] 1.2 Compose the adapter registry in `cmd/aigw` and pass it into the CLI application. `client.DefaultRegistry` and every fallback to it are deleted, and tests construct their registries explicitly.
+- [x] 1.2 Compose the adapter registry at the composition root and pass it into the CLI application: `internal/clients` lists the built-in adapters and `cmd/aigw` injects them. `client.DefaultRegistry` and every fallback to it are deleted, a synchronizer without a registry refuses, and tests construct their registries explicitly.
 - [ ] 1.3 Move Codex to `internal/client/codex`: `internal/codex`, `internal/codex/catalog` and the Codex adapter and selection code from `internal/client`. The pure move is one commit and the import and API edits follow in the next; `tools/codex/catalog` imports the new path.
 - [ ] 1.4 Move Claude Code (`internal/claude` and the Claude adapter) to `internal/client/claude` in the same two-commit form.
 - [ ] 1.5 Move Claude Desktop (`internal/claude/desktop` and `internal/client/claude_desktop.go`) to `internal/client/claudedesktop` in the same form.

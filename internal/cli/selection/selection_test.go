@@ -1,6 +1,7 @@
 package selection
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -246,7 +247,7 @@ func configuredRuntime(t *testing.T) (invocation.Context, configuration.Config, 
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	return invocation.Context{Config: store, Out: out, RenderOut: out, Width: 120, Discovery: staticDiscovery{}}, cfg, out
+	return invocation.Context{Clients: clients.Registry(), Config: store, Out: out, RenderOut: out, Width: 120, Discovery: staticDiscovery{}}, cfg, out
 }
 
 func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {

@@ -20,6 +20,7 @@ package_children."internal" = [
   "claude",
   "cli",
   "client",
+  "clients",
   "codex",
   "configuration",
   "credential",
@@ -87,10 +88,16 @@ peer_package_roots."internal/cli" = ["invocation"]
 # Installation ownership decides the native credential worker's role.
 allowed_import_edges."cmd/aigw" = [
   "internal/cli",
+  "internal/clients",
   "internal/presentation",
   "internal/secrets",
   "internal/secrets/native",
   "internal/upgrade",
+]
+# The built-in adapter set is the only list of every client outside its adapters.
+allowed_import_edges."internal/clients" = [
+  "internal/client",
+  "internal/configuration",
 ]
 allowed_import_edges."internal/transaction" = []
 allowed_import_edges."internal/credential" = [
@@ -219,6 +226,7 @@ allowed_import_edges."internal/cli" = [
   "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/invocation" = [
+  "internal/client",
   "internal/configuration",
   "internal/credential",
   "internal/discovery",
@@ -281,7 +289,6 @@ allowed_import_edges."internal/cli/catalog" = [
 ]
 allowed_import_edges."internal/cli/manifest" = [
   "internal/cli/invocation",
-  "internal/client",
   "internal/configuration",
   "internal/presentation",
 ]
@@ -423,7 +430,7 @@ require_import_owners = true
 clients = ["claude", "claude-desktop", "codex", "hermes"]
 product_roots = ["cmd", "internal"]
 adapter_root = "internal/client"
-composition_roots = ["cmd/aigw"]
+composition_roots = ["cmd/aigw", "internal/clients"]
 temporary_exceptions = [
   "internal/claude",
   "internal/claude/desktop",

@@ -3,6 +3,7 @@ package cli_test
 import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -153,7 +154,7 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	app, _, secretStore, runner, _ := testApp(t, "")
 	app.Executable = filepath.Join(bin, executableName("aigw"))
 	app.ClaudeSettingsPath = claudeSettings
-	app.Discovery = client.NewDiscoverer(client.DefaultRegistry(), discovery.System{GOOS: runtime.GOOS, Home: home, Path: bin})
+	app.Discovery = client.NewDiscoverer(clients.Registry(), discovery.System{GOOS: runtime.GOOS, Home: home, Path: bin})
 	cfg := configuration.NewConfig()
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
 		Anthropic:       "https://gateway.test",

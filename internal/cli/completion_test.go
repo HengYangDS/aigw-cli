@@ -1,13 +1,14 @@
 package cli
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"testing"
 )
 
 func TestCompletionSupportsDocumentedShells(t *testing.T) {
 	out := new(bytes.Buffer)
-	app := &App{Out: out, Err: out}
+	app := &App{Clients: clients.Registry(), Out: out, Err: out}
 	for _, shell := range []string{"bash", "zsh", "fish", "powershell"} {
 		out.Reset()
 		if err := Execute(app, []string{"completion", shell}); err != nil {

@@ -2,6 +2,7 @@ package renaming
 
 import (
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/prompt"
 	"errors"
@@ -24,13 +25,13 @@ func (prompt selectionPrompt) Select(string, []prompt.Choice) (string, error) {
 func (prompt selectionPrompt) Text(string) (string, error) { return prompt.text, prompt.textErr }
 
 func TestResolveRenameIDsErrorBranches(t *testing.T) {
-	if err := NewRouteCommand(invocation.Context{}).ValidateArgs(nil); err == nil {
+	if err := NewRouteCommand(invocation.Context{Clients: clients.Registry()}).ValidateArgs(nil); err == nil {
 		t.Fatal("expected non-interactive error")
 	}
-	if err := NewRouteCommand(invocation.Context{Interactive: true}).ValidateArgs(nil); err == nil {
+	if err := NewRouteCommand(invocation.Context{Clients: clients.Registry(), Interactive: true}).ValidateArgs(nil); err == nil {
 		t.Fatal("expected missing prompt error")
 	}
-	if _, _, err := resolveIDs(invocation.Context{Config: configuration.NewStore(filepath.Join(t.TempDir(), "empty.toml")), Interactive: true, Prompt: selectionPrompt{}}, "route", nil); err == nil || !strings.Contains(err.Error(), "No routes") {
+	if _, _, err := resolveIDs(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(filepath.Join(t.TempDir(), "empty.toml")), Interactive: true, Prompt: selectionPrompt{}}, "route", nil); err == nil || !strings.Contains(err.Error(), "No routes") {
 		t.Fatalf("error = %v", err)
 	}
 	want := errors.New("select failed")

@@ -1,6 +1,7 @@
 package update
 
 import (
+	"aigw-cli/internal/clients"
 	"errors"
 	"io"
 	"os"
@@ -29,7 +30,7 @@ func TestHomebrewRollbackDoesNotReleaseCredentialsBeforeRetryCapability(t *testi
 		t.Fatal(err)
 	}
 	reads := 0
-	runtime := invocation.Context{Config: store, Secrets: secrets.NewMemoryStore(), Out: io.Discard, ResolveProgram: func() (credential.Program, error) {
+	runtime := invocation.Context{Clients: clients.Registry(), Config: store, Secrets: secrets.NewMemoryStore(), Out: io.Discard, ResolveProgram: func() (credential.Program, error) {
 		reads++
 		return credential.Program{}, errors.New("credential reader must not be resolved")
 	}}
@@ -49,7 +50,7 @@ func TestHomebrewRollbackRefusesUnreadableRetryPolicyBeforeCustody(t *testing.T)
 		t.Fatal(err)
 	}
 	reads := 0
-	runtime := invocation.Context{Config: store, Secrets: secrets.NewMemoryStore(), Out: io.Discard, ResolveProgram: func() (credential.Program, error) {
+	runtime := invocation.Context{Clients: clients.Registry(), Config: store, Secrets: secrets.NewMemoryStore(), Out: io.Discard, ResolveProgram: func() (credential.Program, error) {
 		reads++
 		return credential.Program{}, errors.New("credential reader must not be resolved")
 	}}

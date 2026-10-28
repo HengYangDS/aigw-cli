@@ -227,9 +227,11 @@ func (s Synchronizer) Withdraw(cfg *configuration.Config, clientIDs ...string) e
 	return nil
 }
 
+// registry is the composition root's adapter registry. A synchronizer
+// without one is a wiring defect, so it refuses instead of guessing clients.
 func (s Synchronizer) registry() client.Registry {
 	if s.Registry.Empty() {
-		return client.DefaultRegistry()
+		panic("synchronization requires the composition root's client registry")
 	}
 	return s.Registry
 }

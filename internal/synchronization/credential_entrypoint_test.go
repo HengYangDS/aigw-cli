@@ -50,7 +50,7 @@ func TestCodexInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	if err := codex.SyncConfig(target, projected); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Discovery: targetDiscovery(target), AIGWExecutable: sources[1], CredentialPath: current}
+	syncer := Synchronizer{Registry: builtinClients, Discovery: targetDiscovery(target), AIGWExecutable: sources[1], CredentialPath: current}
 	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientCodex, runtime); !status.Ready {
 		t.Fatalf("unchanged Route with an intact retained reader was rejected: %s", status.Issue)
 	}
@@ -97,7 +97,7 @@ func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	if _, err := claude.ReconcileSettings(settings, false, runtime, retained, runtime.Model); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{ClaudeSettingsPath: settings, AIGWExecutable: filepath.Join(root, "successor"), CredentialPath: current}
+	syncer := Synchronizer{Registry: builtinClients, ClaudeSettingsPath: settings, AIGWExecutable: filepath.Join(root, "successor"), CredentialPath: current}
 	if status := syncer.Inspect(t.Context(), cfg, configuration.ClientClaude, runtime); !status.Ready {
 		t.Fatalf("unchanged Claude Route with an intact retained reader was rejected: %s", status.Issue)
 	}
@@ -132,7 +132,7 @@ func TestCancelledProjectionAfterVersionedReaderPreparationRestoresOwnedState(t 
 		}
 		cancel()
 	}}
-	syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
 	if err := syncer.CommitProjection(ctx, configuration.NewConfig(), testConfig(target), "test"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled projection error = %v, want context cancellation", err)
 	}
@@ -173,7 +173,7 @@ func TestFailedSynchronizationRemovesOnlyItsNewCredentialEntrypoint(t *testing.T
 					}
 				}
 			}
-			syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
+			syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
 			cfg := testConfig(target)
 			err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), cfg, "test")
 			if err == nil {
@@ -213,7 +213,7 @@ func TestFailedReconcileRemovesNewEntrypointAfterProjectionAdmission(t *testing.
 			t.Fatal(err)
 		}
 	}
-	syncer := Synchronizer{Discovery: discovered, AIGWExecutable: source, CredentialPath: helper}
+	syncer := Synchronizer{Registry: builtinClients, Discovery: discovered, AIGWExecutable: source, CredentialPath: helper}
 	if err := syncer.ReconcileClient(t.Context(), testConfig(target), configuration.ClientCodex); err == nil {
 		t.Fatal("post-entrypoint projection failure was not reported")
 	}
@@ -232,7 +232,7 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	target := filepath.Join(root, "codex.toml")
 	helper := filepath.Join(root, "data", "credential", "aigw")
 	cfg := testConfig(target)
-	syncer := Synchronizer{CredentialPath: helper}
+	syncer := Synchronizer{Registry: builtinClients, CredentialPath: helper}
 	if action, err := syncer.CredentialEntrypointPlan(cfg); err != nil || action != CredentialEntrypointInstall {
 		t.Fatalf("default Token client plan = %q, %v; want helper creation", action, err)
 	}
@@ -302,7 +302,7 @@ func TestReconcileClientRejectsMissingCredentialSourceBeforeProjection(t *testin
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(root, "missing-aigw"), CredentialPath: helper}
+	syncer := Synchronizer{Registry: builtinClients, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(root, "missing-aigw"), CredentialPath: helper}
 	if err := syncer.ReconcileClient(t.Context(), testConfig(target), configuration.ClientCodex); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("missing source error = %v, want missing executable", err)
 	}
@@ -325,7 +325,7 @@ func TestReconcileClientPreflightRejectsInvalidTargetBeforeEntrypointCreation(t 
 	if err := os.Mkdir(target, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
+	syncer := Synchronizer{Registry: builtinClients, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
 	if err := syncer.ReconcileClient(t.Context(), testConfig(target), configuration.ClientCodex); err == nil {
 		t.Fatal("invalid client target passed projection preflight")
 	}
@@ -350,7 +350,7 @@ func TestDisablingLastTokenClientRetainsUnprovenCachedEntrypoint(t *testing.T) {
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
 	if err := syncer.CommitProjection(t.Context(), before, before, "setup"); err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func TestDisablingOneTokenClientRetainsEntrypointForAnother(t *testing.T) {
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
 	if err := syncer.CommitProjection(t.Context(), before, before, "setup", configuration.ClientCodex); err != nil {
 		t.Fatal(err)
 	}
@@ -434,7 +434,7 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
 	if err := syncer.CommitProjection(t.Context(), before, before, "setup", configuration.ClientCodex); err != nil {
 		t.Fatal(err)
 	}
@@ -465,7 +465,7 @@ func TestWithdrawingLastClientPreservesChangedCachedEntrypoint(t *testing.T) {
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
 	if err := syncer.CommitProjection(t.Context(), before, before, "setup"); err != nil {
 		t.Fatal(err)
 	}

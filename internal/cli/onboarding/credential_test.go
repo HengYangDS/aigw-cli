@@ -1,6 +1,7 @@
 package onboarding
 
 import (
+	"aigw-cli/internal/clients"
 	"context"
 	"errors"
 	"io"
@@ -40,7 +41,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 
 	t.Run("network", func(t *testing.T) {
 		want := errors.New("network failed")
-		app := invocation.Context{HTTP: setupHTTPClient(func(*http.Request) (*http.Response, error) { return nil, want })}
+		app := invocation.Context{Clients: clients.Registry(), HTTP: setupHTTPClient(func(*http.Request) (*http.Response, error) { return nil, want })}
 		if err := credential.Validate(context.Background(), app.HTTP, account, "token", configuration.ClientCodex); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
@@ -48,7 +49,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 
 	t.Run("body read", func(t *testing.T) {
 		want := errors.New("read failed")
-		app := invocation.Context{HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
+		app := invocation.Context{Clients: clients.Registry(), HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: setupResponseBody{Reader: errorReader{err: want}}, Request: request}, nil
 		})}
 		if err := credential.Validate(context.Background(), app.HTTP, account, "token", configuration.ClientCodex); !errors.Is(err, want) {
@@ -58,7 +59,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 
 	t.Run("body close", func(t *testing.T) {
 		want := errors.New("close failed")
-		app := invocation.Context{HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
+		app := invocation.Context{Clients: clients.Registry(), HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: setupResponseBody{Reader: strings.NewReader("ok"), closeErr: want}, Request: request}, nil
 		})}
 		if err := credential.Validate(context.Background(), app.HTTP, account, "token", configuration.ClientCodex); !errors.Is(err, want) {
@@ -68,7 +69,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 
 	t.Run("duplicate client", func(t *testing.T) {
 		calls := 0
-		app := invocation.Context{HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
+		app := invocation.Context{Clients: clients.Registry(), HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			calls++
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
 		})}

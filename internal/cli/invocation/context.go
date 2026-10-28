@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
@@ -64,10 +65,13 @@ type Context struct {
 	HTTP                  HTTPDoer
 	Prompt                Prompter
 	Discovery             discovery.Discoverer
-	Updater               Updater
-	RenderOut             io.Writer
-	Now                   func() time.Time
-	Problem               func(title, evidence, impact, fix string, cause error) error
+	// Clients is the composition root's adapter registry; every client
+	// operation of this invocation goes through it.
+	Clients   client.Registry
+	Updater   Updater
+	RenderOut io.Writer
+	Now       func() time.Time
+	Problem   func(title, evidence, impact, fix string, cause error) error
 }
 
 // ReadToken reads an explicitly requested token source without consulting
@@ -149,6 +153,7 @@ func Synchronizer(runtime Context) synchronization.Synchronizer {
 		Secrets:               runtime.Secrets,
 		Runner:                runtime.Runner,
 		Discovery:             runtime.Discovery,
+		Registry:              runtime.Clients,
 		ClaudeSettingsPath:    runtime.ClaudeSettingsPath,
 		AIGWExecutable:        runtime.Executable,
 		CredentialPath:        runtime.CredentialPath,

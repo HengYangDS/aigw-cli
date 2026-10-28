@@ -47,7 +47,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps := Dependencies{Secrets: store, AIGWExecutable: filepath.Join(home, "aigw")}
-	registry := DefaultRegistry()
+	registry := builtinRegistry()
 	observed := registry.Discover(source)
 	after, err := registry.Converge(deps, cfg, observed, "hermes")
 	if err != nil {
@@ -130,7 +130,7 @@ func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 	if oldErr != nil || newErr != nil || oldRuntime != newRuntime {
 		t.Fatalf("selected Hermes Route changed: before=%#v (%v), after=%#v (%v)", oldRuntime, oldErr, newRuntime, newErr)
 	}
-	if got := DefaultRegistry().ChangedClients(before, after); !slices.Equal(got, []string{configuration.ClientHermes}) {
+	if got := builtinRegistry().ChangedClients(before, after); !slices.Equal(got, []string{configuration.ClientHermes}) {
 		t.Fatalf("removing an unselected provider Model affected clients %v, want Hermes", got)
 	}
 }
@@ -238,7 +238,7 @@ func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 	route.Label = "Edited display label"
 	route.Purpose = "Edited purpose"
 	after.Routes["extra"] = route
-	if got := DefaultRegistry().ChangedClients(before, after); len(got) != 0 {
+	if got := builtinRegistry().ChangedClients(before, after); len(got) != 0 {
 		t.Fatalf("display-only edit affected clients %v", got)
 	}
 }

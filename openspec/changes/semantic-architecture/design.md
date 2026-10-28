@@ -60,7 +60,7 @@ a package in its own layer or in a higher one.
 
 | Layer | Packages                                                 | Owns                                                                                                                            |
 | ----- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | `cmd/aigw`                                               | binary entry and the composition root                                                                                           |
+| 1     | `cmd/aigw`, `internal/clients`                           | binary entry and the composition root                                                                                           |
 | 2     | `internal/cli`                                           | the command tree, flags and exit codes                                                                                          |
 | 3     | `internal/app`, `internal/terminal`                      | use cases; human and JSON rendering, prompts, redaction                                                                         |
 | 4     | `internal/client`, `internal/program`                    | the client seam and its adapters; AIGW's own install, update, rollback and artifact format                                      |
@@ -110,6 +110,11 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
 - The descriptor stays `ClientSpec`, moves to `domain` and is returned by each
   adapter's `Spec()`. The admitted list is the composition root's ordered
   registration, not a list in `configuration`.
+- The composition root has two parts. `internal/clients` is the only list of
+  the built-in adapters, and `cmd/aigw` injects that registry into the CLI, so
+  no package below it holds a default registry. Tests that exercise real
+  adapters use the same list; a synchronizer without a registry refuses to
+  guess.
 - Client-specific branches move from `configuration`, `synchronization`,
   `discovery` and `surface` into adapter methods. `AdoptCodexSelection` and
   `AdoptHermesSelection` become one seam method that each adapter implements.

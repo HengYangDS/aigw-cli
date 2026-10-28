@@ -74,8 +74,10 @@ type App struct {
 	HTTP                  invocation.HTTPDoer
 	Prompt                invocation.Prompter
 	Discovery             discovery.Discoverer
-	Updater               invocation.Updater
-	output                *commandOutput
+	// Clients is the composition root's adapter registry.
+	Clients client.Registry
+	Updater invocation.Updater
+	output  *commandOutput
 }
 
 // commandOutput owns write progress and the first failure for one invocation.
@@ -196,8 +198,9 @@ func requiresConfigurationLock(app *App, command *cobra.Command) bool {
 	}
 }
 
-// NewDefault constructs an App from the current platform, environment, configuration, and credential backend.
-func NewDefault() (*App, error) {
+// NewDefault constructs an App from the current platform, environment, configuration, and credential backend,
+// operating clients only through the composition root's registry.
+func NewDefault(clients client.Registry) (*App, error) {
 	env := environmentMap(os.Environ())
 	paths, err := platform.PathsFor(runtime.GOOS, env)
 	if err != nil {
@@ -243,7 +246,8 @@ func NewDefault() (*App, error) {
 		Runner:             process.Runner{},
 		HTTP:               &http.Client{},
 		Prompt:             prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
-		Discovery:          client.NewDiscoverer(client.DefaultRegistry(), host),
+		Discovery:          client.NewDiscoverer(clients, host),
+		Clients:            clients,
 		Updater:            upgrade.Current(executable),
 	}
 	app.UseExecutableIdentity(nil, paths.InstallName)
@@ -312,7 +316,7 @@ func (a *App) invocationContext() invocation.Context {
 		RenderOut: a.outputWriter(),
 		Color:     a.Color, Width: presentation.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
-		Discovery: a.Discovery, Updater: a.Updater, Now: a.Now, Problem: presentation.ProblemError,
+		Discovery: a.Discovery, Clients: a.Clients, Updater: a.Updater, Now: a.Now, Problem: presentation.ProblemError,
 	}
 }
 

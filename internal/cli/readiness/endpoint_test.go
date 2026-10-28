@@ -2,6 +2,7 @@ package readiness
 
 import (
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 	"bytes"
@@ -368,7 +369,7 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 
 	t.Run("not configured", func(t *testing.T) {
 		problem := errors.New("structured problem")
-		runtime := invocation.Context{Config: configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")), Out: io.Discard, Problem: func(string, string, string, string, error) error { return problem }}
+		runtime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")), Out: io.Discard, Problem: func(string, string, string, string, error) error { return problem }}
 		if err := executeCommand(NewTestCommand(runtime)); !errors.Is(err, problem) {
 			t.Fatalf("error = %v", err)
 		}
@@ -414,14 +415,14 @@ func TestReadinessTransportHelpers(t *testing.T) {
 		t.Fatalf("remote transport = %#v", got)
 	}
 	buffer := &bytes.Buffer{}
-	runtime := invocation.Context{Config: configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")), Out: buffer, Secrets: secrets.NewMemoryStore()}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")), Out: buffer, Secrets: secrets.NewMemoryStore()}
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buffer.String(), "Not configured") {
 		t.Fatalf("status output = %q", buffer.String())
 	}
-	command := NewStatusCommand(invocation.Context{Config: configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")), Out: io.Discard, Secrets: secrets.NewMemoryStore()})
+	command := NewStatusCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")), Out: io.Discard, Secrets: secrets.NewMemoryStore()})
 	command.SetArgs([]string{"--json"})
 	if err := executeCommand(command); err != nil {
 		t.Fatal(err)

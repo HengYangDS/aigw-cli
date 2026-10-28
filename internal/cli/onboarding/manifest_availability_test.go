@@ -1,6 +1,7 @@
 package onboarding
 
 import (
+	"aigw-cli/internal/clients"
 	"io"
 	"os"
 	"path/filepath"
@@ -76,7 +77,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 		t.Fatal(err)
 	}
 	target := filepath.Join(root, "codex.toml")
-	runtime := invocation.Context{
+	runtime := invocation.Context{Clients: clients.Registry(),
 		Executable: source, CredentialPath: reader, Secrets: store,
 		Config: configuration.NewStore(filepath.Join(root, "configuration.toml")),
 		Discovery: setupDiscovery{result: discovery.Result{

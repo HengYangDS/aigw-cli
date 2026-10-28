@@ -423,7 +423,7 @@ func TestChangedClientsFollowPersistentCodexSemantics(t *testing.T) {
 
 	disabled := before.Clone()
 	delete(disabled.Clients, configuration.ClientCodex)
-	adapterRegistry := DefaultRegistry()
+	adapterRegistry := builtinRegistry()
 	if changed := adapterRegistry.ChangedClients(before, disabled); len(changed) != 1 || changed[0] != configuration.ClientCodex {
 		t.Fatalf("adapter removal scope = %v, want Codex only", changed)
 	}
@@ -448,7 +448,7 @@ func TestChangedClientsRetainsAdmissionOrderAndIndependentResults(t *testing.T) 
 	after := before.Clone()
 	account.Endpoints = configuration.Endpoints{OpenAIResponses: "https://replacement.test/v1", Anthropic: "https://replacement.test"}
 	after.Accounts["gateway"] = account
-	registry := DefaultRegistry()
+	registry := builtinRegistry()
 	changed := registry.ChangedClients(before, after)
 	want := before.EnabledClientIDs()
 	if !slices.Equal(changed, want) {
@@ -466,7 +466,7 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 		after := before.Clone()
 		delete(before.Routes, "codex")
 		delete(after.Routes, "codex")
-		if changed := DefaultRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != configuration.ClientCodex {
+		if changed := builtinRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != configuration.ClientCodex {
 			t.Fatal("invalid Codex runtime was treated as unchanged")
 		}
 	})
@@ -475,7 +475,7 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 		before := codexConfiguration("/first")
 		after := before.Clone()
 		after.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{"/second"})
-		if changed := DefaultRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != configuration.ClientCodex {
+		if changed := builtinRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != configuration.ClientCodex {
 			t.Fatal("changed Codex target set was treated as unchanged")
 		}
 	})
@@ -489,7 +489,7 @@ func TestProjectionErrorAndInvalidRuntimeBranches(t *testing.T) {
 		after := before.Clone()
 		delete(before.Routes, "claude")
 		delete(after.Routes, "claude")
-		if changed := DefaultRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != configuration.ClientClaude {
+		if changed := builtinRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != configuration.ClientClaude {
 			t.Fatal("invalid Claude runtime was treated as unchanged")
 		}
 	})

@@ -3,6 +3,7 @@ package readiness
 import (
 	"aigw-cli/internal/claude"
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/codex"
 	configuration "aigw-cli/internal/configuration"
 	domainreadiness "aigw-cli/internal/readiness"
@@ -29,7 +30,7 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 func (fn roundTripFunc) Do(request *http.Request) (*http.Response, error) { return fn(request) }
 
 func TestCheckCommandDescribesItsProductBoundary(t *testing.T) {
-	command := NewCheckCommand(invocation.Context{})
+	command := NewCheckCommand(invocation.Context{Clients: clients.Registry()})
 	if command.Short != "Check enabled clients; selected-model probes may use quota" {
 		t.Fatalf("check summary = %q", command.Short)
 	}
@@ -127,7 +128,7 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, configuration
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{
+	runtime := invocation.Context{Clients: clients.Registry(),
 		Config: store, Secrets: secrets.NewMemoryStore(),
 		Out: out, RenderOut: out, Width: 120,
 	}

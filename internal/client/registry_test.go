@@ -194,7 +194,7 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 }
 
 func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing.T) {
-	baselineClientIDs := DefaultRegistry().IDs()
+	baselineClientIDs := builtinRegistry().IDs()
 	before := configuration.NewConfig()
 	before.Accounts["direct"] = configuration.Account{
 		Label: "Direct",
@@ -238,7 +238,7 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 	if !reflect.DeepEqual(before, wantUnchanged) {
 		t.Fatal("future client admission mutated its input configuration")
 	}
-	if got := DefaultRegistry().IDs(); !reflect.DeepEqual(got, baselineClientIDs) {
+	if got := builtinRegistry().IDs(); !reflect.DeepEqual(got, baselineClientIDs) {
 		t.Fatalf("built-in registry changed: got %v, want %v", got, baselineClientIDs)
 	}
 }
@@ -412,7 +412,7 @@ func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.
 	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, missing, nil)
 
-	after, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, configuration.ClientClaude)
+	after, err := builtinRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, configuration.ClientClaude)
 	if err != nil || after.Clients[configuration.ClientClaude].Executable != missing {
 		t.Fatalf("configured missing executable = %q, %v", after.Clients[configuration.ClientClaude].Executable, err)
 	}
@@ -430,7 +430,7 @@ func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.
 		configuration.ClientCodex:  "/replacement/codex",
 	}}
 	for _, clientID := range []string{configuration.ClientClaude, configuration.ClientCodex} {
-		if _, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovered, clientID); err == nil || !strings.Contains(err.Error(), "inspect configured "+clientID+" executable") {
+		if _, err := builtinRegistry().Converge(Dependencies{}, cfg, discovered, clientID); err == nil || !strings.Contains(err.Error(), "inspect configured "+clientID+" executable") {
 			t.Fatalf("Converge(%q) error = %v", clientID, err)
 		}
 	}
@@ -439,7 +439,7 @@ func TestDefaultRegistryConvergesConfiguredExecutablesConservatively(t *testing.
 func TestDefaultRegistryIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 	for _, clientID := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		t.Run(clientID+" without a route", func(t *testing.T) {
-			if _, err := DefaultRegistry().Converge(Dependencies{}, configuration.NewConfig(), discovery.Result{}, clientID); err != nil {
+			if _, err := builtinRegistry().Converge(Dependencies{}, configuration.NewConfig(), discovery.Result{}, clientID); err != nil {
 				t.Fatalf("Converge(%q) without a route = %v", clientID, err)
 			}
 		})
@@ -447,7 +447,7 @@ func TestDefaultRegistryIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 		t.Run(clientID+" with a broken route", func(t *testing.T) {
 			cfg := configuration.NewConfig()
 			cfg.SetSelectedRoute(clientID, "missing-route", "")
-			if _, err := DefaultRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
+			if _, err := builtinRegistry().Converge(Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
 				t.Fatalf("Converge(%q) broken route error = %v", clientID, err)
 			}
 		})
@@ -472,7 +472,7 @@ func TestDefaultRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 			deferred := cfg.Clone()
 			deferred.SetSelectedRoute(clientID, "claude", "")
 			deferred.SetClientActivation(clientID, true, "", nil)
-			plans, err := DefaultRegistry().Plan(deps, configuration.NewConfig(), deferred, clientID)
+			plans, err := builtinRegistry().Plan(deps, configuration.NewConfig(), deferred, clientID)
 			if err != nil {
 				t.Fatalf("Plan(%q) deferred binding: %v", clientID, err)
 			}
@@ -521,7 +521,7 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 		AIGWExecutable:     "/opt/aigw",
 	}
 
-	_, _, err := DefaultRegistry().Apply(t.Context(), deps, before, after)
+	_, _, err := builtinRegistry().Apply(t.Context(), deps, before, after)
 	if err == nil || !strings.Contains(err.Error(), "parse Claude settings") {
 		t.Fatalf("Apply() error = %v", err)
 	}

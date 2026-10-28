@@ -1,6 +1,7 @@
 package credential
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"context"
 	"errors"
@@ -398,7 +399,7 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	return invocation.Context{Config: store, Secrets: secrets.NewMemoryStore(), Out: out}, out
+	return invocation.Context{Clients: clients.Registry(), Config: store, Secrets: secrets.NewMemoryStore(), Out: out}, out
 }
 
 func helperArgs(t *testing.T, runtime invocation.Context, client string) []string {

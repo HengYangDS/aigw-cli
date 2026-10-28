@@ -1,6 +1,7 @@
 package install
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"errors"
 	"os"
@@ -26,7 +27,7 @@ func TestInstallCommandUsesPlatformDefaultTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := new(bytes.Buffer)
-	command := NewInstallCommand(invocation.Context{Executable: source, InstallTarget: target, Out: out})
+	command := NewInstallCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target, Out: out})
 	command.SetArgs(nil)
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
@@ -53,7 +54,7 @@ func TestInstallationCommandReportsHumanStateAndOutputFailures(t *testing.T) {
 	}
 	for _, retained := range []bool{true, false} {
 		out := new(bytes.Buffer)
-		command := NewInspectionCommand(invocation.Context{Executable: program, Version: "1.2.3", Out: out})
+		command := NewInspectionCommand(invocation.Context{Clients: clients.Registry(), Executable: program, Version: "1.2.3", Out: out})
 		command.SetArgs(nil)
 		if err := command.Execute(); err != nil {
 			t.Fatal(err)
@@ -83,13 +84,13 @@ func TestInstallationCommandReportsHumanStateAndOutputFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{nil, {"--json"}} {
-		command := NewInspectionCommand(invocation.Context{Executable: program, Out: closed})
+		command := NewInspectionCommand(invocation.Context{Clients: clients.Registry(), Executable: program, Out: closed})
 		command.SetArgs(args)
 		if err := command.Execute(); !errors.Is(err, os.ErrClosed) {
 			t.Fatalf("output error = %v", err)
 		}
 	}
-	command := NewInspectionCommand(invocation.Context{Executable: root, Out: new(bytes.Buffer)})
+	command := NewInspectionCommand(invocation.Context{Clients: clients.Registry(), Executable: root, Out: new(bytes.Buffer)})
 	command.SetArgs(nil)
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "current portable program") {
 		t.Fatalf("invalid installation observation = %v", err)
@@ -102,12 +103,12 @@ func TestInstallCommandReportsUnavailableTargetAndCopyFailure(t *testing.T) {
 	if err := os.WriteFile(source, []byte("current"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	command := NewInstallCommand(invocation.Context{Executable: source})
+	command := NewInstallCommand(invocation.Context{Clients: clients.Registry(), Executable: source})
 	command.SetArgs(nil)
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "target is unavailable") {
 		t.Fatalf("missing target error = %v", err)
 	}
-	command = NewInstallCommand(invocation.Context{Executable: filepath.Join(root, "missing"), InstallTarget: filepath.Join(root, "bin", "aigw")})
+	command = NewInstallCommand(invocation.Context{Clients: clients.Registry(), Executable: filepath.Join(root, "missing"), InstallTarget: filepath.Join(root, "bin", "aigw")})
 	command.SetArgs(nil)
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "read portable") {
 		t.Fatalf("copy failure = %v", err)
@@ -322,7 +323,7 @@ func TestPortableInstallAndUninstallPreserveHomebrewOwnership(t *testing.T) {
 		"install":   func() error { return Install(source, target) },
 		"uninstall": func() error { return Uninstall(target) },
 		"command": func() error {
-			command := NewUninstallCommand(invocation.Context{Executable: target, Config: configuration.NewStore("invalid\x00config")})
+			command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: target, Config: configuration.NewStore("invalid\x00config")})
 			command.SetArgs(nil)
 			return command.Execute()
 		},
@@ -353,7 +354,7 @@ func TestHomebrewSourceCannotCreatePortableInstallation(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	command := NewInstallCommand(invocation.Context{Executable: source, InstallTarget: target})
+	command := NewInstallCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target})
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "Homebrew") {
 		t.Fatalf("managed source escaped ownership: %v", err)
 	}

@@ -47,7 +47,7 @@ func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *tes
 			if err != nil {
 				t.Fatal(err)
 			}
-			syncer := Synchronizer{AIGWExecutable: source, CredentialPath: reader}
+			syncer := Synchronizer{Registry: builtinClients, AIGWExecutable: source, CredentialPath: reader}
 			entrypoint, _, err := syncer.prepareCredentialEntrypoint(testConfig(filepath.Join(root, "codex.toml")), configuration.ClientCodex)
 			if err != nil || entrypoint == nil {
 				t.Fatalf("prepared reader = %v, %v", entrypoint, err)
@@ -76,7 +76,7 @@ func TestExplicitTokenVerificationRefusesUnresolvedReaderFromNativeBinding(t *te
 		t.Fatalf("explicit account-token runtime = %+v, %v", runtime, err)
 	}
 	problem := errors.New("identity source unavailable")
-	syncer := Synchronizer{ResolveCredentialPath: func() (string, error) { return "", problem }}
+	syncer := Synchronizer{Registry: builtinClients, ResolveCredentialPath: func() (string, error) { return "", problem }}
 	if _, err := syncer.Verify(t.Context(), cfg, configuration.ClientCodex, runtime, "explicit"); !errors.Is(err, problem) {
 		t.Fatalf("explicit Token verification used the public fallback: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
 			store := &configStoreStub{}
 			store.bindConfiguration(t, cfg)
 			problem := errors.New("identity source unavailable")
-			syncer := Synchronizer{Config: store, ResolveCredentialPath: func() (string, error) {
+			syncer := Synchronizer{Registry: builtinClients, Config: store, ResolveCredentialPath: func() (string, error) {
 				if empty {
 					return "", nil
 				}
@@ -259,7 +259,7 @@ func TestConvergedProjectionRechecksTargetsAfterConfigurationCommit(t *testing.T
 				t.Fatal(err)
 			}
 			store := &configStoreStub{}
-			syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
+			syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
 			cfg := testConfig(target)
 			store.bindConfiguration(t, cfg)
 			if err := syncer.CommitProjection(t.Context(), cfg, cfg, "initial sync"); err != nil {
@@ -409,7 +409,7 @@ func TestPrepareCredentialEntrypointRejectsInvalidBindingBeforeReading(t *testin
 	root := t.TempDir()
 	cfg := testConfig(filepath.Join(root, "codex.toml"))
 	delete(cfg.Routes, "gpt")
-	syncer := Synchronizer{
+	syncer := Synchronizer{Registry: builtinClients,
 		CredentialPath: filepath.Join(root, "data", "credential", "aigw"),
 		ResolveProgram: func() (credential.Program, error) {
 			t.Fatal("an invalid binding read the AIGW program")

@@ -67,7 +67,7 @@ func TestSetupPreservesAlreadyConfiguredState(t *testing.T) {
 		t.Fatal(err)
 	}
 	credentials := &setupCredentials{Store: memory}
-	syncer := Synchronizer{Config: store, Secrets: credentials,
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials,
 		Discovery: setupDiscovery(func() { t.Fatal("setup discovered clients in an already configured installation") }),
 		Runner: runnerFunc(func(context.Context, process.Plan) error {
 			t.Fatal("setup changed existing native client credentials")
@@ -101,7 +101,7 @@ func TestCancelledSetupPreservesCredentialsAndConfiguration(t *testing.T) {
 			} else {
 				discoverySource = setupDiscovery(cancel)
 			}
-			runtime := Synchronizer{Config: store, Secrets: credentials, Discovery: discoverySource}
+			runtime := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: discoverySource}
 			_, err := runtime.Setup(ctx, configuration.NewConfig(), setupConfiguration(), map[string]string{"team": "new-token"}, configuration.ClientClaude)
 			if !errors.Is(err, context.Canceled) {
 				t.Errorf("setup error = %v, want cancellation", err)
@@ -124,7 +124,7 @@ func TestSetupRejectsInvalidConfigurationBeforeCredentialMutation(t *testing.T) 
 	credentials := setupTokenStore(t, "original")
 	after := setupConfiguration()
 	after.SetSelectedRoute(configuration.ClientClaude, "missing-route", "")
-	_, err := (Synchronizer{Config: store, Secrets: credentials}).Setup(t.Context(), configuration.NewConfig(), after, map[string]string{"team": "replacement"})
+	_, err := (Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials}).Setup(t.Context(), configuration.NewConfig(), after, map[string]string{"team": "replacement"})
 	if err == nil {
 		t.Fatal("setup accepted an unresolved route")
 	}
@@ -148,7 +148,7 @@ func TestSetupAdmitsCredentialOwnershipAndClientScopeBeforeWriting(t *testing.T)
 			} else {
 				clients = []string{"unknown"}
 			}
-			syncer := Synchronizer{Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
+			syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
 			_, err := syncer.Setup(t.Context(), configuration.NewConfig(), setupConfiguration(), tokens, clients...)
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid %s: error = %v, credential writes = %d", boundary, err, credentials.writes)
@@ -182,7 +182,7 @@ func TestSetupCommitReportsBackendSelectionFailureWithoutErasingForeignState(t *
 			if err := os.Mkdir(configPath, 0o700); err != nil {
 				t.Fatal(err)
 			}
-			run := Synchronizer{
+			run := Synchronizer{Registry: builtinClients,
 				Config: configuration.NewStore(configPath), Secrets: store,
 				Discovery: setupDiscovery(replaceBackend),
 			}

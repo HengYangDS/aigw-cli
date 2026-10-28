@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -215,7 +216,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secrets.Store
 	}
 	runner := &fakeRunner{}
 	httpClient := &fakeHTTP{status: 200}
-	app := &cli.App{
+	app := &cli.App{Clients: clients.Registry(),
 		Version:            "0.1.0-test",
 		Executable:         filepath.Join(t.TempDir(), "aigw"),
 		InstallTarget:      filepath.Join(t.TempDir(), "bin", "aigw"),

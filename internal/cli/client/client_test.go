@@ -1,6 +1,7 @@
 package client
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"context"
 	"errors"
@@ -63,7 +64,7 @@ func adapterRuntime(t *testing.T, cfg configuration.Config) (invocation.Context,
 	out := &bytes.Buffer{}
 	secretStore := secrets.NewMemoryStore()
 	runner := &adapterRunner{}
-	return invocation.Context{
+	return invocation.Context{Clients: clients.Registry(),
 		Executable:         filepath.Join(t.TempDir(), "aigw"),
 		Config:             store,
 		ClaudeSettingsPath: filepath.Join(t.TempDir(), ".claude", "settings.json"),
@@ -452,7 +453,7 @@ func TestCodexTargetValidationAcceptsStandaloneAndUnknownPaths(t *testing.T) {
 
 func TestCommandsPropagateConfigurationLoadErrors(t *testing.T) {
 	badPath := t.TempDir()
-	runtime := invocation.Context{
+	runtime := invocation.Context{Clients: clients.Registry(),
 		Config:    configuration.NewStore(badPath),
 		Secrets:   secrets.NewMemoryStore(),
 		Out:       &bytes.Buffer{},

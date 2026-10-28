@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"context"
 	"errors"
@@ -43,31 +44,31 @@ func configuredApp(t *testing.T) *App {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &App{Config: store, Secrets: secretStore, Accounts: diagnostics, Out: out, Err: out}
+	return &App{Clients: clients.Registry(), Config: store, Secrets: secretStore, Accounts: diagnostics, Out: out, Err: out}
 }
 
 func TestNewDefaultBuildsAFunctioningApp(t *testing.T) {
-	app, err := NewDefault()
+	app, err := NewDefault(clients.Registry())
 	if err != nil {
-		t.Fatalf("NewDefault() error = %v", err)
+		t.Fatalf("NewDefault(clients.Registry()) error = %v", err)
 	}
 	if app.GOOS == "" || app.DataDir == "" || app.Version == "" {
-		t.Fatalf("NewDefault() produced an incomplete app: %#v", app)
+		t.Fatalf("NewDefault(clients.Registry()) produced an incomplete app: %#v", app)
 	}
 	if app.Config.Path() == "" {
-		t.Fatal("NewDefault() did not wire a config path")
+		t.Fatal("NewDefault(clients.Registry()) did not wire a config path")
 	}
 	if filepath.Base(app.Config.Path()) != "config.toml" {
-		t.Fatalf("NewDefault() config path = %q, want the stable config.toml contract", app.Config.Path())
+		t.Fatalf("NewDefault(clients.Registry()) config path = %q, want the stable config.toml contract", app.Config.Path())
 	}
 	if app.Secrets == nil || app.Accounts == nil || app.Runner == nil || app.HTTP == nil || app.Prompt == nil || app.Discovery == nil || app.Updater == nil {
-		t.Fatalf("NewDefault() left a required dependency nil: %#v", app)
+		t.Fatalf("NewDefault(clients.Registry()) left a required dependency nil: %#v", app)
 	}
 	if _, ok := app.Runner.(process.Runner); !ok {
-		t.Fatalf("NewDefault() runner = %T, want process.Runner", app.Runner)
+		t.Fatalf("NewDefault(clients.Registry()) runner = %T, want process.Runner", app.Runner)
 	}
 	if app.Now == nil {
-		t.Fatal("NewDefault() did not wire a clock")
+		t.Fatal("NewDefault(clients.Registry()) did not wire a clock")
 	}
 }
 
@@ -85,7 +86,7 @@ func TestExecuteReturnsBusyLockErrorWhenAnotherMutationHoldsIt(t *testing.T) {
 		}
 	})
 
-	app := &App{Config: store, Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
+	app := &App{Clients: clients.Registry(), Config: store, Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
 	err = Execute(app, []string{"add", "dmx", "--for", "claude", "--model", "claude-test", "--anthropic-url", "https://example.test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "retry after the other command finishes") {
 		t.Fatalf("Execute() error = %v, want a busy-lock error", err)
@@ -166,7 +167,7 @@ func TestFinishExecutionPreservesCommandAndUnlockFailures(t *testing.T) {
 
 func TestExecuteReturnsConfigurationLoadFailure(t *testing.T) {
 	out := new(bytes.Buffer)
-	app := &App{Config: configuration.NewStore(t.TempDir()), Out: out, Err: out}
+	app := &App{Clients: clients.Registry(), Config: configuration.NewStore(t.TempDir()), Out: out, Err: out}
 	if err := Execute(app, nil); err == nil {
 		t.Fatal("expected configuration load error")
 	}
@@ -174,7 +175,7 @@ func TestExecuteReturnsConfigurationLoadFailure(t *testing.T) {
 
 func TestCommandHelpIsProjectedFromCobraMetadata(t *testing.T) {
 	out := new(bytes.Buffer)
-	app := &App{Out: out, Err: out}
+	app := &App{Clients: clients.Registry(), Out: out, Err: out}
 	command := &cobra.Command{Use: "semantic-root", Short: "source-owned summary"}
 	command.AddCommand(
 		&cobra.Command{Use: "zeta", Short: "source-owned Z", Run: func(*cobra.Command, []string) {}},
@@ -225,7 +226,7 @@ func TestCommandHelpIncludesNativeFlagMetadataAndExamples(t *testing.T) {
 	for _, columns := range []string{"0", "48"} {
 		t.Run(columns, func(t *testing.T) {
 			var out bytes.Buffer
-			app := &App{Out: &out, Err: &out, Env: []string{"COLUMNS=" + columns}}
+			app := &App{Clients: clients.Registry(), Out: &out, Err: &out, Env: []string{"COLUMNS=" + columns}}
 			root := &cobra.Command{Use: "service"}
 			root.PersistentFlags().String("region", "team", "Choose the service region")
 			command := &cobra.Command{
@@ -280,7 +281,7 @@ func TestCommandHelpIncludesNativeFlagMetadataAndExamples(t *testing.T) {
 
 func TestGroupedHelpUsesDeclaredOrderAndTitles(t *testing.T) {
 	out := new(bytes.Buffer)
-	app := &App{Out: out, Err: out}
+	app := &App{Clients: clients.Registry(), Out: out, Err: out}
 	command := &cobra.Command{Use: "workflow"}
 	command.AddGroup(
 		&cobra.Group{ID: "second", Title: "Prepare the workspace"},
@@ -305,7 +306,7 @@ func TestGroupedHelpUsesDeclaredOrderAndTitles(t *testing.T) {
 
 func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 	out := new(bytes.Buffer)
-	app := &App{Out: out, Err: out}
+	app := &App{Clients: clients.Registry(), Out: out, Err: out}
 	if err := Execute(app, []string{"--help"}); err != nil {
 		t.Fatal(err)
 	}
@@ -331,7 +332,7 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 }
 
 func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
-	nativeName := NewRoot(&App{}).Name()
+	nativeName := NewRoot(&App{Clients: clients.Registry()}).Name()
 	for _, test := range []struct {
 		name  string
 		width int
@@ -345,7 +346,7 @@ func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
 		{"gateway", 120, false}, {"gateway", 120, true},
 	} {
 		var out bytes.Buffer
-		app := &App{Out: &out, Err: &out, Color: test.color, Env: []string{"COLUMNS=" + strconv.Itoa(test.width)}}
+		app := &App{Clients: clients.Registry(), Out: &out, Err: &out, Color: test.color, Env: []string{"COLUMNS=" + strconv.Itoa(test.width)}}
 		command := NewRoot(app)
 		command.Use = test.name
 		renderCommandHelp(app, command)
@@ -384,7 +385,7 @@ func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
 }
 
 func TestPublicCommandTreeCarriesOneCoherentMetadataContract(t *testing.T) {
-	root := NewRoot(&App{Out: io.Discard, Err: io.Discard})
+	root := NewRoot(&App{Clients: clients.Registry(), Out: io.Discard, Err: io.Discard})
 	identifier := regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 	paths := make(map[string]struct{})
 
@@ -440,13 +441,13 @@ func TestPublicCommandHelpFitsDeclaredTerminalWidths(t *testing.T) {
 	for _, width := range []int{24, 48, 80, 120} {
 		for _, color := range []bool{false, true} {
 			var out bytes.Buffer
-			app := &App{Out: &out, Err: &out, Color: color, Env: []string{"COLUMNS=" + strconv.Itoa(width)}}
+			app := &App{Clients: clients.Registry(), Out: &out, Err: &out, Color: color, Env: []string{"COLUMNS=" + strconv.Itoa(width)}}
 			var visit func(*cobra.Command)
 			visit = func(command *cobra.Command) {
 				out.Reset()
 				renderCommandHelp(app, command)
 				var reference bytes.Buffer
-				renderCommandHelp(&App{Out: &reference, Err: io.Discard}, command)
+				renderCommandHelp(&App{Clients: clients.Registry(), Out: &reference, Err: io.Discard}, command)
 				actual := strings.ReplaceAll(ansi.Strip(out.String()), "─", "")
 				original := strings.ReplaceAll(reference.String(), "─", "")
 				if strings.Join(strings.Fields(actual), "") != strings.Join(strings.Fields(original), "") {
@@ -470,7 +471,7 @@ func TestPublicCommandHelpFitsDeclaredTerminalWidths(t *testing.T) {
 
 func TestCriticalCommandHelpUsesEnglishGuidance(t *testing.T) {
 	out := new(bytes.Buffer)
-	app := &App{Out: out, Err: out}
+	app := &App{Clients: clients.Registry(), Out: out, Err: out}
 	cases := []struct {
 		args []string
 		want []string
@@ -507,7 +508,7 @@ func TestCommandHelpLeavesConfigurationStorageAbsent(t *testing.T) {
 		t.Run(command.CommandPath(), func(t *testing.T) {
 			configRoot := filepath.Join(t.TempDir(), "configuration")
 			var output bytes.Buffer
-			app := &App{
+			app := &App{Clients: clients.Registry(),
 				Config: configuration.NewStore(filepath.Join(configRoot, "aigw.toml")),
 				Out:    &output,
 				Err:    io.Discard,
@@ -536,5 +537,5 @@ func TestCommandHelpLeavesConfigurationStorageAbsent(t *testing.T) {
 			visit(child, append(append([]string{}, path...), child.Name()))
 		}
 	}
-	visit(NewRoot(&App{Out: io.Discard, Err: io.Discard}), nil)
+	visit(NewRoot(&App{Clients: clients.Registry(), Out: io.Discard, Err: io.Discard}), nil)
 }

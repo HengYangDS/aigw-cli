@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -47,7 +48,7 @@ func executeManifestCommand(command *cobra.Command) error {
 }
 
 func TestCommandRequiresAConfigurationOperation(t *testing.T) {
-	command := NewCommand(invocation.Context{Out: io.Discard})
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Out: io.Discard})
 	if err := command.RunE(command, nil); err == nil || !strings.Contains(err.Error(), "Choose a config subcommand") {
 		t.Fatalf("missing-operation error = %v", err)
 	}
@@ -57,7 +58,7 @@ func TestCommandRequiresAConfigurationOperation(t *testing.T) {
 }
 
 func TestConfigurationCommandTreeMatchesItsManifestResponsibility(t *testing.T) {
-	command := NewCommand(invocation.Context{Out: io.Discard})
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Out: io.Discard})
 	var names []string
 	for _, child := range command.Commands() {
 		names = append(names, child.Name())
@@ -73,7 +74,7 @@ func TestConfigurationCommandTreeMatchesItsManifestResponsibility(t *testing.T) 
 func TestPathPrintsTheConfiguredStorePath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	out := &bytes.Buffer{}
-	command := NewCommand(invocation.Context{Config: configuration.NewStore(path), Out: out})
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path), Out: out})
 	command.SetArgs([]string{"path"})
 	if err := executeManifestCommand(command); err != nil {
 		t.Fatal(err)
@@ -84,7 +85,7 @@ func TestPathPrintsTheConfiguredStorePath(t *testing.T) {
 }
 
 func TestPathReturnsOutputFailure(t *testing.T) {
-	command := newPathCommand(invocation.Context{Config: configuration.NewStore("configuration.toml"), Out: failingWriter{}})
+	command := newPathCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore("configuration.toml"), Out: failingWriter{}})
 	if err := executeManifestCommand(command); err == nil || !strings.Contains(err.Error(), "write refused") {
 		t.Fatalf("error = %v", err)
 	}
@@ -121,7 +122,7 @@ func TestExportSurfacesLoadAndOutputFailures(t *testing.T) {
 		if err := os.WriteFile(path, []byte("not = [valid"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		command := newExportCommand(invocation.Context{Config: configuration.NewStore(path), Out: io.Discard})
+		command := newExportCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path), Out: io.Discard})
 		if err := executeManifestCommand(command); err == nil {
 			t.Fatal("expected malformed configuration to fail")
 		}
@@ -138,7 +139,7 @@ func TestExportSurfacesLoadAndOutputFailures(t *testing.T) {
 
 func TestExportSurfacesManifestValidationFailure(t *testing.T) {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml"))
-	command := newExportCommand(invocation.Context{Config: store, Out: io.Discard})
+	command := newExportCommand(invocation.Context{Clients: clients.Registry(), Config: store, Out: io.Discard})
 	if err := executeManifestCommand(command); err == nil || !strings.Contains(err.Error(), "at least one route") {
 		t.Fatalf("error = %v", err)
 	}
@@ -433,7 +434,7 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 				if err := os.WriteFile(path, []byte("not = [valid"), 0o600); err != nil {
 					t.Fatal(err)
 				}
-				return invocation.Context{Config: configuration.NewStore(path), Secrets: secrets.NewMemoryStore(), Out: io.Discard}
+				return invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path), Secrets: secrets.NewMemoryStore(), Out: io.Discard}
 			},
 			path: func(*testing.T) string { return validPath },
 			want: "parse config",
@@ -487,7 +488,7 @@ func savedRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, s
 	}
 	out := &bytes.Buffer{}
 	renderOut := &bytes.Buffer{}
-	return invocation.Context{
+	return invocation.Context{Clients: clients.Registry(),
 		Config:    store,
 		Secrets:   secrets.NewMemoryStore(),
 		Out:       out,

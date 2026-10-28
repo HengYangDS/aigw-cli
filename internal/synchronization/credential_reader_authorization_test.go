@@ -65,7 +65,7 @@ func main() {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Synchronizer{Config: &configStoreStub{}, Secrets: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
+	return Synchronizer{Registry: builtinClients, Config: &configStoreStub{}, Secrets: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
 }
 
 func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {

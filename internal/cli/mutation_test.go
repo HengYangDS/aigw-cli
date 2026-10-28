@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"errors"
 	"io"
@@ -89,7 +90,7 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		t.Run(strings.Join(test.args, "/"), func(t *testing.T) {
 			root := filepath.Join(t.TempDir(), "configuration")
 			var output bytes.Buffer
-			app := &App{
+			app := &App{Clients: clients.Registry(),
 				Config: configuration.NewStore(filepath.Join(root, "config.toml")),
 				Out:    &output,
 				Err:    io.Discard,
@@ -165,7 +166,7 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := &App{}
+			app := &App{Clients: clients.Registry()}
 			command, args, err := NewRoot(app).Find(tt.args)
 			if err != nil {
 				t.Fatal(err)
@@ -183,7 +184,7 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 func TestConfigImportPreviewDoesNotCreateConfigurationDirectoryOrLock(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "configuration")
 	var output bytes.Buffer
-	app := &App{Config: configuration.NewStore(filepath.Join(root, "config.toml")), Out: &output, Err: io.Discard}
+	app := &App{Clients: clients.Registry(), Config: configuration.NewStore(filepath.Join(root, "config.toml")), Out: &output, Err: io.Discard}
 	manifest := filepath.Join("..", "..", "manifests", "team.toml")
 	if err := Execute(app, []string{"config", "import", manifest, "--dry-run", "--json"}); err != nil {
 		t.Fatal(err)

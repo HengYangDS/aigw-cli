@@ -30,7 +30,7 @@ func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Secrets: secretStore, Discovery: staticDiscovery{result: discovery.Result{Executables: map[string]string{
+	syncer := Synchronizer{Registry: builtinClients, Secrets: secretStore, Discovery: staticDiscovery{result: discovery.Result{Executables: map[string]string{
 		configuration.ClientClaude: claudeExecutable,
 	}}}}
 
@@ -58,7 +58,7 @@ func TestDesiredClientConfigurationDoesNotReselectRoutes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	after, _, err := (Synchronizer{Secrets: secretStore, Discovery: staticDiscovery{}}).DesiredClientConfiguration(before)
+	after, _, err := (Synchronizer{Registry: builtinClients, Secrets: secretStore, Discovery: staticDiscovery{}}).DesiredClientConfiguration(before)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestDesiredSyncConfigurationDoesNotSearchUnselectedWritableCredentials(t *t
 	before.Routes["claude"] = configuration.Route{Account: "team", Model: "model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	before.SetRecommendedRoute(configuration.ClientClaude, "claude")
 	want := errors.New("unselected native credential was inspected")
-	syncer := Synchronizer{Secrets: secretReadStub{err: want}, Discovery: staticDiscovery{}}
+	syncer := Synchronizer{Registry: builtinClients, Secrets: secretReadStub{err: want}, Discovery: staticDiscovery{}}
 
 	after, _, err := syncer.DesiredSyncConfiguration(before)
 	if err != nil || len(after.Clients) != 0 {
@@ -89,7 +89,7 @@ func TestDesiredSyncConfigurationFailsClosedOnReadOnlyMetadataError(t *testing.T
 	before := configuration.NewConfig()
 	before.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
 	want := errors.New("environment metadata unavailable")
-	syncer := Synchronizer{Secrets: failingReadOnlyStore{secretReadStub{err: want}}, Discovery: staticDiscovery{}}
+	syncer := Synchronizer{Registry: builtinClients, Secrets: failingReadOnlyStore{secretReadStub{err: want}}, Discovery: staticDiscovery{}}
 	after, _, err := syncer.DesiredSyncConfiguration(before)
 	if !errors.Is(err, want) || len(after.Accounts) != 0 {
 		t.Fatalf("failed credential observation admitted a selected configuration: %#v, %v", after, err)
@@ -110,7 +110,7 @@ func TestDesiredSyncConfigurationPreservesExplicitDisabledSelection(t *testing.T
 		}
 		return ""
 	})
-	after, _, err := (Synchronizer{Secrets: store, Discovery: staticDiscovery{}}).DesiredSyncConfiguration(before)
+	after, _, err := (Synchronizer{Registry: builtinClients, Secrets: store, Discovery: staticDiscovery{}}).DesiredSyncConfiguration(before)
 	if err != nil || after.SelectedRoute(configuration.ClientClaude) != "manual" || after.Clients[configuration.ClientClaude].Enabled {
 		t.Fatalf("environment recommendation overrode an explicit disabled selection: %#v, %v", after.Clients, err)
 	}
@@ -127,7 +127,7 @@ func TestDesiredClientConfigurationSurfacesCredentialObservationFailures(t *test
 	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	before.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 	want := errors.New("credential observation failed")
-	syncer := Synchronizer{Secrets: secretReadStub{err: want}, Discovery: staticDiscovery{}}
+	syncer := Synchronizer{Registry: builtinClients, Secrets: secretReadStub{err: want}, Discovery: staticDiscovery{}}
 
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		enabled := before.Clone()
@@ -150,7 +150,7 @@ func TestDesiredClientConfigurationDoesNotActivateUnboundClients(t *testing.T) {
 	if err := store.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	after, _, err := (Synchronizer{Secrets: store, Discovery: staticDiscovery{}}).DesiredClientConfiguration(before, configuration.ClientClaude)
+	after, _, err := (Synchronizer{Registry: builtinClients, Secrets: store, Discovery: staticDiscovery{}}).DesiredClientConfiguration(before, configuration.ClientClaude)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestDesiredClientConfigurationDoesNotActivateUnboundClients(t *testing.T) {
 }
 
 func TestProjectionPlanningValidatesEnabledClients(t *testing.T) {
-	syncer := Synchronizer{}
+	syncer := Synchronizer{Registry: builtinClients}
 	cfg := configuration.NewConfig()
 	plans, err := syncer.Plan(cfg, cfg)
 	if err != nil || len(plans) != 0 {
@@ -169,7 +169,7 @@ func TestProjectionPlanningValidatesEnabledClients(t *testing.T) {
 
 	invalid := testConfig("/target")
 	delete(invalid.Routes, "gpt")
-	if _, err := (Synchronizer{Discovery: staticDiscovery{}}).Plan(invalid, invalid); err == nil {
+	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}}).Plan(invalid, invalid); err == nil {
 		t.Fatal("planning accepted an invalid runtime")
 	}
 }
@@ -187,7 +187,7 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Config: store, Discovery: staticDiscovery{}, ClaudeSettingsPath: settingsPath, AIGWExecutable: filepath.Join(dir, "aigw")}
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: staticDiscovery{}, ClaudeSettingsPath: settingsPath, AIGWExecutable: filepath.Join(dir, "aigw")}
 
 	plans, err := syncer.Plan(before, after)
 	if err != nil || len(plans) != 1 || plans[0].Client != configuration.ClientClaude || plans[0].Target != settingsPath || plans[0].Action != "project" {
@@ -213,7 +213,7 @@ func TestCommitProjectionPreservesClaudeModelAcrossHelperChange(t *testing.T) {
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "gateway", Model: "claude-opus-5-5", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
-	syncer := Synchronizer{
+	syncer := Synchronizer{Registry: builtinClients,
 		Config:    configuration.NewStore(filepath.Join(root, "aigw.toml")),
 		Discovery: staticDiscovery{}, ClaudeSettingsPath: settings,
 		AIGWExecutable: filepath.Join(root, "old-aigw"),
@@ -264,15 +264,15 @@ func TestPlanReportsClaudePlanningFailures(t *testing.T) {
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 
-	if _, err := (Synchronizer{Discovery: staticDiscovery{}}).Plan(before, after); err == nil || !strings.Contains(err.Error(), "settings path") {
+	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}}).Plan(before, after); err == nil || !strings.Contains(err.Error(), "settings path") {
 		t.Fatalf("missing settings path error = %v", err)
 	}
-	if _, err := (Synchronizer{Discovery: staticDiscovery{}, ClaudeSettingsPath: "/settings"}).Plan(before, after); err == nil || !strings.Contains(err.Error(), "executable path") {
+	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}, ClaudeSettingsPath: "/settings"}).Plan(before, after); err == nil || !strings.Contains(err.Error(), "executable path") {
 		t.Fatalf("missing AIGW executable error = %v", err)
 	}
 	invalid := after.Clone()
 	delete(invalid.Routes, "claude")
-	if _, err := (Synchronizer{Discovery: staticDiscovery{}, ClaudeSettingsPath: "/settings", AIGWExecutable: "/aigw"}).Plan(before, invalid); err == nil {
+	if _, err := (Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}, ClaudeSettingsPath: "/settings", AIGWExecutable: "/aigw"}).Plan(before, invalid); err == nil {
 		t.Fatal("invalid enabled Claude runtime was accepted")
 	}
 }
@@ -293,7 +293,7 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 			before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 			before.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
 			store := configuration.NewStore(filepath.Join(root, "aigw.toml"))
-			syncer := Synchronizer{Config: store, Discovery: targetDiscovery(targets[configuration.ClientCodex]), ClaudeSettingsPath: targets[configuration.ClientClaude], AIGWExecutable: filepath.Join(root, "aigw")}
+			syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(targets[configuration.ClientCodex]), ClaudeSettingsPath: targets[configuration.ClientClaude], AIGWExecutable: filepath.Join(root, "aigw")}
 			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), before, "initial projection"); err != nil {
 				t.Fatal(err)
 			}
@@ -353,10 +353,10 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 
 func TestProjectionPlanningRequiresDiscoveryAndValidTargets(t *testing.T) {
 	base := testConfig("/target")
-	if _, err := (Synchronizer{}).Plan(base, base); err == nil {
+	if _, err := (Synchronizer{Registry: builtinClients}).Plan(base, base); err == nil {
 		t.Fatal("expected discovery error")
 	}
-	syncer := Synchronizer{Discovery: staticDiscovery{}}
+	syncer := Synchronizer{Registry: builtinClients, Discovery: staticDiscovery{}}
 	before := base.Clone()
 	before.SetClientActivation(configuration.ClientCodex, true, "", []string{""})
 	if _, err := syncer.Plan(before, base); err == nil {
@@ -372,7 +372,7 @@ func TestProjectionPlanningRequiresDiscoveryAndValidTargets(t *testing.T) {
 func TestReconcileClientHonorsCancellationBeforeObservation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := (Synchronizer{}).ReconcileClient(ctx, configuration.NewConfig(), configuration.ClientClaude); !errors.Is(err, context.Canceled) {
+	if err := (Synchronizer{Registry: builtinClients}).ReconcileClient(ctx, configuration.NewConfig(), configuration.ClientClaude); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled projection = %v", err)
 	}
 }
@@ -390,7 +390,7 @@ func TestCommitProjectionDoesNotBindNativeAuthentication(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := &recordingRunner{}
-	syncer := Synchronizer{
+	syncer := Synchronizer{Registry: builtinClients,
 		Config:         store,
 		AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
 		Secrets:        secretReadStub{},
@@ -431,7 +431,7 @@ func TestCommitProjectionRepairsUnchangedConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	runner := &recordingRunner{}
-	syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), Runner: runner, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), Runner: runner, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
 	for range 2 {
 		if err := syncer.CommitProjection(context.Background(), cfg, cfg, "sync"); err != nil {
 			t.Fatal(err)
@@ -469,7 +469,7 @@ func TestClientNativeModelProviderChangesProjectionWithoutAIGWCredentialHelper(t
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Config: store, Discovery: targetDiscovery(target), AIGWExecutable: credentialCommand}
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: credentialCommand}
 	if err := syncer.Commit(t.Context(), before, after, "native provider"); err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,7 @@
 package onboarding
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"strings"
 	"testing"
@@ -21,7 +22,7 @@ func TestManifestSetupOffersEqualCompatibleAccountsWithoutTokens(t *testing.T) {
 	recommendation.Alternatives = []configuration.ClientSelection{{Route: "dmx"}}
 	cfg.Recommendations[configuration.ClientClaude] = recommendation
 	output := &bytes.Buffer{}
-	runtime := invocation.Context{Secrets: secrets.NewMemoryStore(), Out: output, RenderOut: output}
+	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore(), Out: output, RenderOut: output}
 	result := buildManifestSetupResult(runtime, cfg, []string{"ucloud", "dmx"}, "", nil, nil)
 	want := "Choose one compatible Account: aigw rotate dmx or aigw rotate ucloud"
 	if result.NextAction != want || len(result.DeferredActions) != 1 || result.DeferredActions[0] != want {
@@ -41,7 +42,7 @@ func TestGuidedSetupDefersMissingClientBeforeVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 	output := &bytes.Buffer{}
-	renderSetupClients(invocation.Context{Secrets: store, Out: output, RenderOut: output}, cfg, configuration.ClientClaude)
+	renderSetupClients(invocation.Context{Clients: clients.Registry(), Secrets: store, Out: output, RenderOut: output}, cfg, configuration.ClientClaude)
 	want := "Install Claude if needed, then run `aigw sync`"
 	if !strings.Contains(output.String(), want) || strings.Contains(output.String(), "Next: aigw check") {
 		t.Fatalf("guided setup admitted verification before projection: %q", output.String())
@@ -50,7 +51,7 @@ func TestGuidedSetupDefersMissingClientBeforeVerification(t *testing.T) {
 
 func TestManifestSetupReportsSelectedCredentialBeforeDeferredProjection(t *testing.T) {
 	cfg := manifestSetupConfig()
-	runtime := invocation.Context{Secrets: secrets.NewMemoryStore()}
+	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore()}
 	result := buildManifestSetupResult(runtime, cfg, []string{"team"}, "", nil, nil)
 	want := "run `aigw rotate team`"
 	if result.NextAction != want || len(result.DeferredActions) == 0 || result.DeferredActions[0] != want {

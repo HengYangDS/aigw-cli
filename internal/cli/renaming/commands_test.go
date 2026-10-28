@@ -1,6 +1,7 @@
 package renaming
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"context"
 	"errors"
@@ -30,7 +31,7 @@ func renameRuntime(t *testing.T) invocation.Context {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return invocation.Context{Config: store, Secrets: secretStore, Accounts: diagnostics, Out: &bytes.Buffer{}}
+	return invocation.Context{Clients: clients.Registry(), Config: store, Secrets: secretStore, Accounts: diagnostics, Out: &bytes.Buffer{}}
 }
 
 func TestRenameCommandsPreserveInvocationAndDomainErrors(t *testing.T) {
@@ -59,7 +60,7 @@ func TestRenameCommandsPreserveInvocationAndDomainErrors(t *testing.T) {
 			})
 		}
 		t.Run(constructor.name+"/argument admission", func(t *testing.T) {
-			runtime := invocation.Context{Interactive: true, Prompt: selectionPrompt{}}
+			runtime := invocation.Context{Clients: clients.Registry(), Interactive: true, Prompt: selectionPrompt{}}
 			for _, args := range [][]string{nil, {"old"}, {"old", "new.id-1"}} {
 				if err := constructor.new(runtime).ValidateArgs(args); err != nil {
 					t.Fatalf("valid interactive input %q rejected: %v", args, err)

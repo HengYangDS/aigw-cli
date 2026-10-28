@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
@@ -54,7 +55,7 @@ func configuredClient(t *testing.T, id string) (configuration.Config, client.Dep
 }
 
 func TestCredentialPolicyControlsProjectionAndSurvivesDiscovery(t *testing.T) {
-	registry := client.DefaultRegistry()
+	registry := clients.Registry()
 	for _, id := range registry.IDs() {
 		t.Run(id, func(t *testing.T) {
 			before, deps, discovered := configuredClient(t, id)
@@ -100,7 +101,7 @@ func TestCredentialPolicyControlsProjectionAndSurvivesDiscovery(t *testing.T) {
 }
 
 func TestDisabledCredentialPolicyRequiresExplicitEnable(t *testing.T) {
-	registry := client.DefaultRegistry()
+	registry := clients.Registry()
 	for _, id := range registry.IDs() {
 		cfg, deps, discovered := configuredClient(t, id)
 		command := filepath.Join(t.TempDir(), "credential adapter")
@@ -122,7 +123,7 @@ func TestDisabledCredentialPolicyRequiresExplicitEnable(t *testing.T) {
 }
 
 func TestExplicitDisableSurvivesDiscoveryWithoutAnExternalHelper(t *testing.T) {
-	registry := client.DefaultRegistry()
+	registry := clients.Registry()
 	for _, id := range registry.IDs() {
 		t.Run(id, func(t *testing.T) {
 			cfg, deps, observed := configuredClient(t, id)
@@ -149,7 +150,7 @@ func TestMissingCodexTargetRetainsExplicitIntentAndCredentialPolicy(t *testing.T
 	adapter.Targets = nil
 	adapter.CredentialCommand = command
 	cfg.Clients[configuration.ClientCodex] = adapter
-	after, err := client.DefaultRegistry().Converge(deps, cfg, discovery.Result{}, configuration.ClientCodex)
+	after, err := clients.Registry().Converge(deps, cfg, discovery.Result{}, configuration.ClientCodex)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +179,7 @@ func (runner *rejectingClient) RunCapture(_ context.Context, plan process.Plan) 
 }
 
 func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing.T) {
-	registry := client.DefaultRegistry()
+	registry := clients.Registry()
 	for _, id := range registry.IDs() {
 		t.Run(id, func(t *testing.T) {
 			cfg, deps, _ := configuredClient(t, id)

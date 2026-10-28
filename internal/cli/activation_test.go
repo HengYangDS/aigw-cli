@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"aigw-cli/internal/clients"
 	"bytes"
 	"encoding/json"
 	"io"
@@ -51,7 +52,7 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 			for _, args := range [][]string{{"status", "--json"}, {"sync", "--dry-run", "--json"}, {"check", "--json"}, {"doctor", "--json"}} {
 				t.Run(args[0], func(t *testing.T) {
 					out := &bytes.Buffer{}
-					app := &App{Config: store, Secrets: secretStore, Accounts: accounts, Discovery: noClientDiscovery{}, Out: out, Err: io.Discard}
+					app := &App{Clients: clients.Registry(), Config: store, Secrets: secretStore, Accounts: accounts, Discovery: noClientDiscovery{}, Out: out, Err: io.Discard}
 					commandErr := Execute(app, args)
 					if (commandErr != nil) != (args[0] == "check") {
 						t.Fatalf("%s outcome = %v", args[0], commandErr)
@@ -106,7 +107,7 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 	for _, args := range [][]string{{"status", "--json"}, {"sync", "--dry-run", "--json"}, {"check", "--json"}, {"doctor", "--json"}} {
 		t.Run(args[0], func(t *testing.T) {
 			out := &bytes.Buffer{}
-			app := &App{Config: store, Secrets: secretStore, Accounts: accounts, Discovery: noClientDiscovery{}, Out: out, Err: io.Discard}
+			app := &App{Clients: clients.Registry(), Config: store, Secrets: secretStore, Accounts: accounts, Discovery: noClientDiscovery{}, Out: out, Err: io.Discard}
 			commandErr := Execute(app, args)
 			if (commandErr != nil) != (args[0] == "check") {
 				t.Fatalf("%s outcome = %v", args[0], commandErr)

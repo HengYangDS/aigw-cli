@@ -1,6 +1,7 @@
 package renaming
 
 import (
+	"aigw-cli/internal/clients"
 	"context"
 	"errors"
 	"net/http"
@@ -241,7 +242,7 @@ func TestCanceledAccountOperationPreservesOwnedState(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			deps := Renamer{Config: store, Secrets: tokens, Accounts: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Config: store}}
+			deps := Renamer{Config: store, Secrets: tokens, Accounts: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Registry: clients.Registry(), Config: store}}
 			ctx, cancel := context.WithCancel(t.Context())
 			cancel()
 			if operation == "rename" {
@@ -284,7 +285,7 @@ func TestRenamerRetainsRetryStateWhenConfigurationCommitFails(t *testing.T) {
 				t.Fatal(err)
 			}
 			failure := errors.New("configuration commit failed")
-			renamer := Renamer{Config: store, Secrets: tokens, Accounts: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Config: failingRenameConfigStore{err: failure}}}
+			renamer := Renamer{Config: store, Secrets: tokens, Accounts: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Registry: clients.Registry(), Config: failingRenameConfigStore{err: failure}}}
 			if resource == "account" {
 				_, err = renamer.RenameAccount(t.Context(), "old", "new", false)
 				if value, getErr := tokens.Get("new"); getErr != nil || value != "source-token" {
