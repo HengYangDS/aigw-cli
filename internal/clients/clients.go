@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	configuration "aigw-cli/internal/configuration"
 )
 
@@ -27,6 +28,6 @@ func adapters() []client.Adapter {
 		claude.New(),
 		claudedesktop.New(),
 		codex.New(),
-		client.NewHermesAdapter(),
+		hermes.New(),
 	}
 }

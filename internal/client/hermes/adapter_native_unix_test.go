@@ -1,6 +1,6 @@
 //go:build native_hermes && !windows
 
-package client
+package hermes
 
 import (
 	"bytes"
@@ -10,8 +10,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-
-	hermesconfig "aigw-cli/internal/hermes/configuration"
 )
 
 // The native boot-record resolver remains real; only home-maintenance steps are
@@ -49,7 +47,7 @@ print(json.dumps({"record": str(record)}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	home, cleanup, err := hermesconfig.CreateVerificationHome(filepath.Join(owner, "config.yaml"))
+	home, cleanup, err := CreateVerificationHome(filepath.Join(owner, "config.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +150,7 @@ print(json.dumps({"members": [str(p.resolve()) for p in members], "stamp": membe
 	if len(before.Members) != 3 {
 		t.Fatal("native dependency fixture did not select its complete live-profile union")
 	}
-	home, cleanup, err := hermesconfig.CreateVerificationHome(target)
+	home, cleanup, err := CreateVerificationHome(target)
 	if err != nil {
 		t.Fatal(err)
 	}

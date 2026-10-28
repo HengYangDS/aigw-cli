@@ -1,6 +1,6 @@
 //go:build native_hermes
 
-package client
+package hermes
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"aigw-cli/internal/client"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
@@ -43,8 +44,8 @@ func TestHermesNativeProjection(t *testing.T) {
 			if err := configuration.NewStore(configPath).Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-			deps := Dependencies{AIGWExecutable: candidate}
-			if _, _, err := builtinRegistry().Apply(t.Context(), deps, configuration.NewConfig(), cfg, configuration.ClientHermes); err != nil {
+			deps := client.Dependencies{AIGWExecutable: candidate}
+			if _, _, err := hermesRegistry().Apply(t.Context(), deps, configuration.NewConfig(), cfg, configuration.ClientHermes); err != nil {
 				t.Fatal(err)
 			}
 			env["HERMES_HOME"], env["AIGW_SECRET_BACKEND"], env["AIGW_TOKEN_FIXTURE"] = hermesHome, "env", "public-native-fixture"
@@ -65,7 +66,7 @@ func TestHermesNativeProjection(t *testing.T) {
 			t.Logf("native Hermes model=%s protocol=%s credential-command=passed source=%s", result.Model, result.Protocol, result.Source)
 			disabled := cfg.Clone()
 			(hermesAdapter{}).Withdraw(&disabled)
-			if _, _, err := builtinRegistry().Apply(t.Context(), deps, cfg, disabled, configuration.ClientHermes); err != nil {
+			if _, _, err := hermesRegistry().Apply(t.Context(), deps, cfg, disabled, configuration.ClientHermes); err != nil {
 				t.Fatal(err)
 			}
 			for _, target := range []string{filepath.Join(hermesHome, "config.yaml"), filepath.Join(hermesHome, "config.yaml.aigw-state.json")} {
@@ -87,7 +88,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifestData, err := os.ReadFile(filepath.Join("..", "..", "manifests", "team.toml"))
+	manifestData, err := os.ReadFile(filepath.Join("..", "..", "..", "manifests", "team.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +124,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err := configuration.NewStore(configPath).Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := builtinRegistry().Apply(t.Context(), Dependencies{Secrets: projectionSecrets, AIGWExecutable: candidate}, configuration.NewConfig(), cfg, configuration.ClientHermes); err != nil {
+	if _, _, err := hermesRegistry().Apply(t.Context(), client.Dependencies{Secrets: projectionSecrets, AIGWExecutable: candidate}, configuration.NewConfig(), cfg, configuration.ClientHermes); err != nil {
 		t.Fatal(err)
 	}
 	env["HERMES_HOME"], env["AIGW_SECRET_BACKEND"] = hermesHome, "env"

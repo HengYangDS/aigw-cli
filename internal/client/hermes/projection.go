@@ -1,5 +1,5 @@
-// Package configuration owns reversible Hermes provider and model projection.
-package configuration
+// Package hermes owns reversible Hermes provider and model projection.
+package hermes
 
 import (
 	"bytes"

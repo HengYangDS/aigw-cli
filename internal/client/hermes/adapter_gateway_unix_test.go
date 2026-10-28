@@ -1,6 +1,6 @@
 //go:build !windows
 
-package client
+package hermes
 
 import (
 	"fmt"

@@ -91,8 +91,12 @@ direct owners. A violation names the importing package, the imported package
 and both layers. Client-name confinement uses the same scan: identifiers and
 string literals that spell an admitted client ID are refused in product
 packages outside that client's package, the composition root and test
-fixtures. Repository tools are outside the confinement rule because they
-import the client's package rather than re-encode it.
+fixtures. A client's own vocabulary can contain another client's ID, such as
+the Hermes API mode `codex_responses`. The policy lists each such exact literal
+as a native term of its client: the gate accepts it only in that client's
+package and fails when it no longer occurs. Repository tools are outside the
+confinement rule because they import the client's package rather than
+re-encode it.
 
 Alternative considered: golangci-lint `depguard`. Rejected because it would
 add a second authority next to `tools/architecture`. Its rules are deny lists

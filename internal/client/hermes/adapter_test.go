@@ -1,4 +1,4 @@
-package client
+package hermes
 
 import (
 	"context"
@@ -9,10 +9,21 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 )
+
+// hermesRegistry registers only this adapter against its own admission record.
+func hermesRegistry() client.Registry {
+	registry, err := client.NewRegistry([]configuration.ClientSpec{client.AdmittedSpec(configuration.ClientHermes)}, New())
+	if err != nil {
+		panic(err)
+	}
+	return registry
+}
 
 func publicHermesReader(t *testing.T) string {
 	t.Helper()
@@ -46,8 +57,8 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	if err := store.Set("team", "fixture-token"); err != nil {
 		t.Fatal(err)
 	}
-	deps := Dependencies{Secrets: store, AIGWExecutable: filepath.Join(home, "aigw")}
-	registry := builtinRegistry()
+	deps := client.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(home, "aigw")}
+	registry := hermesRegistry()
 	observed := registry.Discover(source)
 	after, err := registry.Converge(deps, cfg, observed, "hermes")
 	if err != nil {
@@ -130,7 +141,7 @@ func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 	if oldErr != nil || newErr != nil || oldRuntime != newRuntime {
 		t.Fatalf("selected Hermes Route changed: before=%#v (%v), after=%#v (%v)", oldRuntime, oldErr, newRuntime, newErr)
 	}
-	if got := builtinRegistry().ChangedClients(before, after); !slices.Equal(got, []string{configuration.ClientHermes}) {
+	if got := hermesRegistry().ChangedClients(before, after); !slices.Equal(got, []string{configuration.ClientHermes}) {
 		t.Fatalf("removing an unselected provider Model affected clients %v, want Hermes", got)
 	}
 }
@@ -153,7 +164,7 @@ func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
 	if err := store.Set("gateway", "fixture-token"); err != nil {
 		t.Fatal(err)
 	}
-	desired, err := hermesDesired(Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, selected)
+	desired, err := hermesDesired(client.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}, cfg, selected)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +204,7 @@ func TestHermesCatalogueFollowsDeclaredAccountAndModelOrder(t *testing.T) {
 }
 
 func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
-	team, err := os.ReadFile(filepath.Join("..", "..", "manifests", "team.toml"))
+	team, err := os.ReadFile(filepath.Join("..", "..", "..", "manifests", "team.toml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +224,7 @@ func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
 	for _, provider := range catalogue {
 		models[provider.ID] = provider.Models
 	}
-	spec := AdmittedSpec(configuration.ClientHermes)
+	spec := client.AdmittedSpec(configuration.ClientHermes)
 	for _, routeID := range cfg.RouteIDs() {
 		route := cfg.Routes[routeID]
 		for _, protocol := range spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route) {
@@ -238,7 +249,7 @@ func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 	route.Label = "Edited display label"
 	route.Purpose = "Edited purpose"
 	after.Routes["extra"] = route
-	if got := builtinRegistry().ChangedClients(before, after); len(got) != 0 {
+	if got := hermesRegistry().ChangedClients(before, after); len(got) != 0 {
 		t.Fatalf("display-only edit affected clients %v", got)
 	}
 }
@@ -271,7 +282,7 @@ func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *
 		}
 	}
 
-	plans, _, err := hermesPlans(Dependencies{Secrets: store, AIGWExecutable: filepath.Join(home, "aigw")}, configuration.NewConfig(), cfg)
+	plans, _, err := hermesPlans(client.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(home, "aigw")}, configuration.NewConfig(), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,4 +306,46 @@ func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *
 			t.Errorf("Hermes projection contains disconnected Account value %q:\n%s", unwanted, data)
 		}
 	}
+}
+
+func qualifiedRoute(label, account, model string, protocols ...configuration.EndpointProtocol) configuration.Route {
+	interfaces := make(map[configuration.EndpointProtocol][]configuration.Capability, len(protocols))
+	for _, protocol := range protocols {
+		interfaces[protocol] = []configuration.Capability{}
+	}
+	return configuration.Route{
+		Label: label, Account: account, Model: model, UpstreamModel: model, Interfaces: interfaces,
+	}
+}
+
+type captureAdapterRunner struct {
+	err       error
+	calls     int
+	deadlines []bool
+	plans     []process.Plan
+	outputs   [][]byte
+	stderr    []byte
+	observe   func(process.Plan)
+}
+
+func (runner *captureAdapterRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+	output, err := runner.RunCapture(ctx, plan)
+	if err != nil {
+		return nil, output, err
+	}
+	return output, runner.stderr, nil
+}
+
+func (runner *captureAdapterRunner) RunCapture(ctx context.Context, plan process.Plan) ([]byte, error) {
+	if runner.observe != nil {
+		runner.observe(plan)
+	}
+	runner.plans = append(runner.plans, plan)
+	runner.calls++
+	_, hasDeadline := ctx.Deadline()
+	runner.deadlines = append(runner.deadlines, hasDeadline)
+	if runner.calls <= len(runner.outputs) {
+		return runner.outputs[runner.calls-1], runner.err
+	}
+	return nil, runner.err
 }

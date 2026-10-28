@@ -11,6 +11,7 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
@@ -173,7 +174,7 @@ func (s Synchronizer) AdoptNativeSelections(before configuration.Config) (config
 	if err != nil {
 		return configuration.Config{}, nil, err
 	}
-	routeID, err := client.AdoptHermesSelection(dependencies, &after)
+	routeID, err := hermes.AdoptSelection(dependencies, &after)
 	if err != nil {
 		return configuration.Config{}, nil, err
 	}

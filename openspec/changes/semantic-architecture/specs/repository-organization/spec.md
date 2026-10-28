@@ -35,6 +35,15 @@ name a client.
 - **THEN** the architecture gate fails with the path, the line and the client
   ID.
 
+#### Scenario: A client's native value contains another client's ID
+
+- **WHEN** a client's own native value contains another client's ID, such as
+  the Hermes API mode `codex_responses`
+- **THEN** the architecture policy declares that exact value as a native term
+  of the first client
+- **AND** the gate accepts it only as that literal in that client's package and
+  fails when the declared term no longer occurs there.
+
 #### Scenario: A client is added
 
 - **WHEN** a test-only rehearsal adapter is registered

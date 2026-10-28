@@ -21,9 +21,9 @@ import (
 	"testing"
 	"time"
 
+	"aigw-cli/internal/client/hermes"
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
-	hermesconfig "aigw-cli/internal/hermes/configuration"
 	"aigw-cli/internal/process"
 
 	"go.yaml.in/yaml/v3"
@@ -377,16 +377,16 @@ func reportedHermesSession(diagnostics []byte) string {
 // Hermes home through the native command, which refuses an active turn, and
 // waits until the gateway releases the home's lock.
 func (j *journeyFixture) stopHermesGateway(executable, home string) {
-	if hermesconfig.AwaitGatewayAbsence(home, 0, 0) {
+	if hermes.AwaitGatewayAbsence(home, 0, 0) {
 		return
 	}
 	environment := environmentWith(j.environment, map[string]string{
-		"HERMES_HOME": home, "HERMES_GATEWAY_LOCK_DIR": hermesconfig.GatewayLockDirectory(home),
+		"HERMES_HOME": home, "HERMES_GATEWAY_LOCK_DIR": hermes.GatewayLockDirectory(home),
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), clientverification.ProtocolTimeout)
 	defer cancel()
 	_, _, _ = (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: executable, Directory: home, Env: environment, Args: []string{"gateway", "stop"}})
-	hermesconfig.AwaitGatewayAbsence(home, 15*time.Second, 250*time.Millisecond)
+	hermes.AwaitGatewayAbsence(home, 15*time.Second, 250*time.Millisecond)
 }
 
 func testHermesSessionIdentifier(t *testing.T) {

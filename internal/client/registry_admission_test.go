@@ -76,3 +76,11 @@ func TestBuiltInRegistryInvariantsPanicOnInvalidDefinitions(t *testing.T) {
 		})
 	}
 }
+
+func mustRegistry(specs []configuration.ClientSpec, adapters ...Adapter) Registry {
+	registry, err := NewRegistry(specs, adapters...)
+	if err != nil {
+		panic(err)
+	}
+	return registry
+}

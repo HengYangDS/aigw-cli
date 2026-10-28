@@ -24,7 +24,6 @@ package_children."internal" = [
   "credential",
   "diagnostics",
   "discovery",
-  "hermes",
   "platform",
   "presentation",
   "process",
@@ -49,9 +48,7 @@ package_children."tools" = [
   "release",
 ]
 package_children."internal/client/codex" = ["catalog"]
-package_children."internal/client" = ["claude", "claudedesktop", "codex", "verification"]
-package_children."internal/hermes" = ["configuration"]
-allowed_import_edges."internal/hermes/configuration" = ["internal/transaction"]
+package_children."internal/client" = ["claude", "claudedesktop", "codex", "hermes", "verification"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
 package_children."tools/ci" = [
   "bootstrap",
@@ -97,6 +94,7 @@ allowed_import_edges."internal/clients" = [
   "internal/client/claude",
   "internal/client/claudedesktop",
   "internal/client/codex",
+  "internal/client/hermes",
   "internal/configuration",
 ]
 allowed_import_edges."internal/transaction" = []
@@ -107,15 +105,12 @@ allowed_import_edges."internal/credential" = [
 ]
 allowed_import_edges."internal/configuration" = ["internal/transaction"]
 allowed_import_edges."internal/client" = [
-  "internal/hermes/configuration",
   "internal/configuration",
   "internal/credential",
   "internal/discovery",
   "internal/process",
   "internal/secrets",
-  "internal/surface",
   "internal/transaction",
-  "internal/client/verification",
 ]
 allowed_import_edges."internal/client/verification" = [
   "internal/configuration",
@@ -138,6 +133,7 @@ allowed_import_edges."internal/renaming" = [
 allowed_import_edges."internal/synchronization" = [
   "internal/client",
   "internal/client/codex",
+  "internal/client/hermes",
   "internal/configuration",
   "internal/credential",
   "internal/discovery",
@@ -192,6 +188,16 @@ allowed_import_edges."internal/client/codex" = [
   "internal/transaction",
 ]
 allowed_import_edges."internal/client/codex/catalog" = []
+allowed_import_edges."internal/client/hermes" = [
+  "internal/client",
+  "internal/client/verification",
+  "internal/configuration",
+  "internal/credential",
+  "internal/discovery",
+  "internal/process",
+  "internal/surface",
+  "internal/transaction",
+]
 allowed_import_edges."internal/discovery" = [
   "internal/platform",
   "internal/surface",
@@ -439,6 +445,9 @@ clients = ["claude", "claude-desktop", "codex", "hermes"]
 product_roots = ["cmd", "internal"]
 adapter_root = "internal/client"
 composition_roots = ["cmd/aigw", "internal/clients"]
+# Hermes names its OpenAI Responses API mode codex_responses; that value is
+# Hermes vocabulary, not Codex knowledge.
+native_terms.hermes = ["codex_responses"]
 temporary_exceptions = [
   "internal/cli",
   "internal/cli/client",
@@ -451,7 +460,6 @@ temporary_exceptions = [
   "internal/configuration",
   "internal/credential",
   "internal/discovery",
-  "internal/hermes/configuration",
   "internal/platform",
   "internal/surface",
   "internal/synchronization",

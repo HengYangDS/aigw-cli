@@ -3,8 +3,8 @@
 package main
 
 import (
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/configuration"
-	hermesconfig "aigw-cli/internal/hermes/configuration"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
@@ -380,7 +380,7 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 		if err != nil {
 			return err
 		}
-		profile, cleanup, err := hermesconfig.CreateVerificationHome(filepath.Join(installation, "config.yaml"))
+		profile, cleanup, err := hermes.CreateVerificationHome(filepath.Join(installation, "config.yaml"))
 		if err != nil {
 			return err
 		}
@@ -392,7 +392,7 @@ func (j *journeyFixture) prepareNativeClient(client, executable string, team []b
 			}
 		})
 		j.setEnvironment("HERMES_HOME", profile)
-		j.setEnvironment("HERMES_GATEWAY_LOCK_DIR", hermesconfig.GatewayLockDirectory(profile))
+		j.setEnvironment("HERMES_GATEWAY_LOCK_DIR", hermes.GatewayLockDirectory(profile))
 		// As in AIGW's own Hermes verification, the journey uses the supplied
 		// installation's dependencies and never installs one on demand.
 		j.setEnvironment("HERMES_DISABLE_LAZY_INSTALLS", "1")
@@ -435,7 +435,7 @@ terminal:
 		return err
 	}
 	if client == configuration.ClientHermes {
-		plan, err := hermesconfig.Prepare(path, nil)
+		plan, err := hermes.Prepare(path, nil)
 		if err != nil {
 			return err
 		}

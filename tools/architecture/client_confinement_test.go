@@ -140,6 +140,62 @@ func TestClientConfinementDecodesLiteralValues(t *testing.T) {
 	}
 }
 
+// A client's native vocabulary can contain another client's ID, like Hermes'
+// API mode "codex_responses". A declared native term is accepted only as that
+// exact literal in its own client's adapter package.
+func TestClientConfinementAcceptsDeclaredNativeTermsOnlyInTheirAdapter(t *testing.T) {
+	policy := confinementPolicy()
+	policy.NativeTerms = map[string][]string{"hermes": {"codex_responses"}}
+	root, files := confinementFixture(t, map[string]string{
+		"internal/client/hermes/document.go":   "package hermes\n\nvar mode = \"codex_responses\"\n",
+		"internal/client/hermes/escaped.go":    "package hermes\n\nvar mode = \"\\x63odex_responses\"\n",
+		"internal/client/hermes/variant.go":    "package hermes\n\nvar other = \"codex_responses_v2\"\n",
+		"internal/client/claude/settings.go":   "package claude\n\nvar mode = \"codex_responses\"\n",
+		"internal/shared/modes.go":             "package shared\n\nvar mode = \"codex_responses\"\n",
+		"internal/client/hermes/identifier.go": "package hermes\n\nvar codexResponses = 1\n",
+	})
+	report := newReport("policy.toml", root)
+	if err := checkClientConfinement(root, files, policy, &report); err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, finding := range report.Findings {
+		got = append(got, finding.Rule+" "+finding.Package+" "+finding.Name)
+	}
+	want := []string{
+		"client_confinement internal/client/claude codex",
+		"client_confinement internal/client/hermes codex",
+		"client_confinement internal/shared codex",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("findings = %q, want %q", got, want)
+	}
+	for _, finding := range report.Findings {
+		if finding.Package == "internal/client/hermes" && finding.Path != "internal/client/hermes/identifier.go" && finding.Path != "internal/client/hermes/variant.go" {
+			t.Fatalf("the declared native term itself was refused: %+v", finding)
+		}
+	}
+}
+
+func TestClientConfinementRefusesAnUnusedNativeTerm(t *testing.T) {
+	policy := confinementPolicy()
+	policy.NativeTerms = map[string][]string{"hermes": {"codex_responses"}}
+	root, files := confinementFixture(t, map[string]string{
+		"internal/client/hermes/document.go": "package hermes\n\nvar mode = \"anthropic_messages\"\n",
+	})
+	report := newReport("policy.toml", root)
+	if err := checkClientConfinement(root, files, policy, &report); err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Findings) != 1 {
+		t.Fatalf("findings = %+v, want only the unused native term", report.Findings)
+	}
+	stale := report.Findings[0]
+	if stale.Rule != "client_confinement_native_term" || stale.Package != "internal/client/hermes" || stale.Name != "codex_responses" || !strings.Contains(stale.Message, "remove it from native_terms") {
+		t.Fatalf("unused native term finding = %+v", stale)
+	}
+}
+
 func TestClientWordsSplitIdentifiersAndLiterals(t *testing.T) {
 	for text, want := range map[string][]string{
 		"ClaudeDesktopLibrary":     {"claude", "desktop", "library"},
@@ -172,6 +228,12 @@ func TestClientConfinementPolicyRejectsInvalidDeclarations(t *testing.T) {
 		"missing adapter root":  func(c *clientConfinement) { c.AdapterRoot = "" },
 		"foreign composition":   func(c *clientConfinement) { c.CompositionRoots = []string{`cmd\aigw`} },
 		"duplicate exception":   func(c *clientConfinement) { c.TemporaryExceptions = []string{"internal/a", "internal/a"} },
+		"native term owner":     func(c *clientConfinement) { c.NativeTerms = map[string][]string{"gemini": {"codex_responses"}} },
+		"empty native term":     func(c *clientConfinement) { c.NativeTerms = map[string][]string{"hermes": {""}} },
+		"duplicate native term": func(c *clientConfinement) {
+			c.NativeTerms = map[string][]string{"hermes": {"codex_responses", "codex_responses"}}
+		},
+		"needless native term": func(c *clientConfinement) { c.NativeTerms = map[string][]string{"hermes": {"hermes_mode"}} },
 	} {
 		t.Run(name, func(t *testing.T) {
 			policy := confinementPolicy()

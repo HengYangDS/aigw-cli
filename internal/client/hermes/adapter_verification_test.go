@@ -1,4 +1,4 @@
-package client
+package hermes
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
@@ -16,7 +17,7 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
-func hermesVerificationFixture(t *testing.T) (configuration.Config, configuration.Runtime, Dependencies) {
+func hermesVerificationFixture(t *testing.T) (configuration.Config, configuration.Runtime, client.Dependencies) {
 	t.Helper()
 	t.Setenv("HERMES_DISABLE_LAZY_INSTALLS", "0")
 	executable := filepath.Join(t.TempDir(), "hermes")
@@ -49,7 +50,7 @@ func hermesVerificationFixture(t *testing.T) (configuration.Config, configuratio
 			t.Fatal(err)
 		}
 	}
-	return cfg, selected, Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
+	return cfg, selected, client.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
 }
 
 func TestHermesVerificationUsesTheOfficialSingleTurnContract(t *testing.T) {
@@ -250,7 +251,7 @@ func TestHermesVerificationRequiresOneConfiguredHome(t *testing.T) {
 		cfg := configuration.NewConfig()
 		cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Enabled: true, Targets: targets}
 		runner := &captureAdapterRunner{}
-		_, err := (hermesAdapter{}).Verify(t.Context(), Dependencies{Runner: runner}, cfg, configuration.Runtime{}, "")
+		_, err := (hermesAdapter{}).Verify(t.Context(), client.Dependencies{Runner: runner}, cfg, configuration.Runtime{}, "")
 		if err == nil || !strings.Contains(err.Error(), "one configured home") || len(runner.plans) != 0 {
 			t.Fatalf("ambiguous configuration home reached native verification: %v", err)
 		}

@@ -1,4 +1,4 @@
-package client
+package hermes
 
 import (
 	"os"
@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/process"
@@ -55,7 +56,7 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 		t.Fatal(err)
 	}
 	adapter := hermesAdapter{}
-	deps := Dependencies{Secrets: store, AIGWExecutable: retained}
+	deps := client.Dependencies{Secrets: store, AIGWExecutable: retained}
 	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
 	if err != nil {
 		t.Fatal(err)
@@ -122,7 +123,7 @@ func requireHermesVerificationRefusal(t *testing.T, err error, calls int) {
 	}
 }
 
-func requireHermesVerificationReader(t *testing.T, deps Dependencies, cfg configuration.Config, selected configuration.Runtime, retained string, before []byte) {
+func requireHermesVerificationReader(t *testing.T, deps client.Dependencies, cfg configuration.Config, selected configuration.Runtime, retained string, before []byte) {
 	t.Helper()
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes fixture"), []byte("AIGW_OK")}}
 	runner.observe = func(plan process.Plan) {

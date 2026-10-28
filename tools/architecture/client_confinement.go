@@ -18,13 +18,16 @@ import (
 // test files are fixtures. TemporaryExceptions lists the packages that still
 // name a client while the semantic-architecture Change moves that knowledge:
 // the gate refuses an unlisted offender and a listed package that no longer
-// offends, so the list can only shrink.
+// offends, so the list can only shrink. NativeTerms lists, per client, the
+// exact literals of that client's own vocabulary that contain another client's
+// ID; its adapter package may hold them, and an unused term is refused.
 type clientConfinement struct {
-	Clients             []string `toml:"clients"`
-	ProductRoots        []string `toml:"product_roots"`
-	AdapterRoot         string   `toml:"adapter_root"`
-	CompositionRoots    []string `toml:"composition_roots"`
-	TemporaryExceptions []string `toml:"temporary_exceptions"`
+	Clients             []string            `toml:"clients"`
+	ProductRoots        []string            `toml:"product_roots"`
+	AdapterRoot         string              `toml:"adapter_root"`
+	CompositionRoots    []string            `toml:"composition_roots"`
+	TemporaryExceptions []string            `toml:"temporary_exceptions"`
+	NativeTerms         map[string][]string `toml:"native_terms"`
 }
 
 type clientOccurrence struct {
@@ -33,9 +36,10 @@ type clientOccurrence struct {
 }
 
 // validateClientConfinement accepts an absent table or one complete declaration
-// of portable roots, unique kebab-case client IDs and unique exceptions.
+// of portable roots, unique kebab-case client IDs, unique exceptions and unique
+// native terms that each name another client than their own.
 func validateClientConfinement(c clientConfinement) error {
-	if len(c.Clients) == 0 && len(c.ProductRoots) == 0 && c.AdapterRoot == "" && len(c.CompositionRoots) == 0 && len(c.TemporaryExceptions) == 0 {
+	if len(c.Clients) == 0 && len(c.ProductRoots) == 0 && c.AdapterRoot == "" && len(c.CompositionRoots) == 0 && len(c.TemporaryExceptions) == 0 && len(c.NativeTerms) == 0 {
 		return nil
 	}
 	if len(c.Clients) == 0 || len(c.ProductRoots) == 0 || !isPortableRelativePath(c.AdapterRoot) {
@@ -64,22 +68,53 @@ func validateClientConfinement(c clientConfinement) error {
 			unique[path] = true
 		}
 	}
+	return validateNativeTerms(c, seen)
+}
+
+// validateNativeTerms accepts, per declared client, unique non-empty terms that
+// each name a client other than their owner.
+func validateNativeTerms(c clientConfinement, declared map[string]bool) error {
+	clients := clientWords(c.Clients)
+	for owner, terms := range c.NativeTerms {
+		if !declared[owner] {
+			return fmt.Errorf("client_confinement native_terms owner %q is not a declared client", owner)
+		}
+		unique := map[string]bool{}
+		for _, term := range terms {
+			if term == "" || unique[term] {
+				return fmt.Errorf("client_confinement native term %q of %q is empty or duplicated", term, owner)
+			}
+			unique[term] = true
+			if !slices.ContainsFunc(clientsInWords(splitWords(term), clients), func(named []string) bool {
+				return !hasWordPrefix(strings.Split(owner, "-"), named)
+			}) {
+				return fmt.Errorf("client_confinement native term %q of %q names no other client and needs no declaration", term, owner)
+			}
+		}
+	}
 	return nil
+}
+
+func clientWords(ids []string) [][]string {
+	clients := make([][]string, 0, len(ids))
+	for _, id := range ids {
+		clients = append(clients, strings.Split(id, "-"))
+	}
+	return clients
 }
 
 // checkClientConfinement scans identifiers and the decoded values of string and
 // character literals, never comments, of non-test product files. A client is
 // named when a token's words contain the words of its ID; in a client's own
-// package, a shorter ID that prefixes the owner's ID names the owner.
+// package, a shorter ID that prefixes the owner's ID names the owner, and a
+// literal whose value is one of the owner's native terms names no client.
 func checkClientConfinement(root string, files []goFileInfo, c clientConfinement, report *Report) error {
 	if len(c.Clients) == 0 {
 		return nil
 	}
-	clients := make([][]string, 0, len(c.Clients))
-	for _, id := range c.Clients {
-		clients = append(clients, strings.Split(id, "-"))
-	}
+	clients := clientWords(c.Clients)
 	naming := map[string]map[string]clientOccurrence{}
+	usedTerms := map[string]bool{}
 	for _, file := range files {
 		if file.isTest || !withinAny(file.dir, c.ProductRoots) || withinAny(file.dir, c.CompositionRoots) {
 			continue
@@ -89,7 +124,15 @@ func checkClientConfinement(root string, files []goFileInfo, c clientConfinement
 			return fmt.Errorf("read %s: %w", file.relPath, err)
 		}
 		owner := adapterOwner(file.dir, c)
-		for _, item := range namedClients(file.relPath, source, clients) {
+		native := map[string]bool{}
+		for _, term := range c.NativeTerms[strings.Join(owner, "-")] {
+			native[term] = true
+		}
+		found, used := namedClients(file.relPath, source, clients, native)
+		for _, term := range used {
+			usedTerms[strings.Join(owner, "-")+"\x00"+term] = true
+		}
+		for _, item := range found {
 			if owner != nil && hasWordPrefix(owner, item.client) {
 				continue
 			}
@@ -102,11 +145,11 @@ func checkClientConfinement(root string, files []goFileInfo, c clientConfinement
 			}
 		}
 	}
-	reportClientConfinement(naming, c, report)
+	reportClientConfinement(naming, usedTerms, c, report)
 	return nil
 }
 
-func reportClientConfinement(naming map[string]map[string]clientOccurrence, c clientConfinement, report *Report) {
+func reportClientConfinement(naming map[string]map[string]clientOccurrence, usedTerms map[string]bool, c clientConfinement, report *Report) {
 	packages := make([]string, 0, len(naming))
 	for dir := range naming {
 		packages = append(packages, dir)
@@ -145,6 +188,26 @@ func reportClientConfinement(naming map[string]map[string]clientOccurrence, c cl
 			})
 		}
 	}
+	owners := make([]string, 0, len(c.NativeTerms))
+	for owner := range c.NativeTerms {
+		owners = append(owners, owner)
+	}
+	sort.Strings(owners)
+	for _, owner := range owners {
+		dir := c.AdapterRoot + "/" + strings.ReplaceAll(owner, "-", "")
+		for _, term := range c.NativeTerms[owner] {
+			if usedTerms[owner+"\x00"+term] {
+				continue
+			}
+			report.addFinding(Finding{
+				Rule:    "client_confinement_native_term",
+				Path:    dir,
+				Package: dir,
+				Name:    term,
+				Message: fmt.Sprintf("native term %q of client %q no longer occurs in %q; remove it from native_terms", term, owner, dir),
+			})
+		}
+	}
 }
 
 type namedClient struct {
@@ -153,16 +216,16 @@ type namedClient struct {
 }
 
 // namedClients returns every client that one file's identifiers and literals
-// name, preferring the longest ID at each word position.
-func namedClients(relPath string, source []byte, clients [][]string) []namedClient {
+// name, and the native terms it holds. A literal whose decoded value is a
+// native term names no client.
+func namedClients(relPath string, source []byte, clients [][]string, native map[string]bool) (found []namedClient, used []string) {
 	files := token.NewFileSet()
 	var scan scanner.Scanner
 	scan.Init(files.AddFile(relPath, -1, len(source)), source, nil, 0)
-	var found []namedClient
 	for {
 		position, kind, literal := scan.Scan()
 		if kind == token.EOF {
-			return found
+			return found, used
 		}
 		if kind != token.IDENT && kind != token.STRING && kind != token.CHAR {
 			continue
@@ -172,21 +235,34 @@ func namedClients(relPath string, source []byte, clients [][]string) []namedClie
 			if value, err := strconv.Unquote(literal); err == nil {
 				literal = value
 			}
+			if native[literal] {
+				used = append(used, literal)
+				continue
+			}
 		}
-		words := splitWords(literal)
-		for index := 0; index < len(words); index++ {
-			var match []string
-			for _, client := range clients {
-				if len(client) > len(match) && index+len(client) <= len(words) && slices.Equal(words[index:index+len(client)], client) {
-					match = client
-				}
-			}
-			if match != nil {
-				found = append(found, namedClient{client: match, line: files.Position(position).Line})
-				index += len(match) - 1
-			}
+		for _, client := range clientsInWords(splitWords(literal), clients) {
+			found = append(found, namedClient{client: client, line: files.Position(position).Line})
 		}
 	}
+}
+
+// clientsInWords returns the clients that a word sequence contains, preferring
+// the longest ID at each word position.
+func clientsInWords(words []string, clients [][]string) [][]string {
+	var named [][]string
+	for index := 0; index < len(words); index++ {
+		var match []string
+		for _, client := range clients {
+			if len(client) > len(match) && index+len(client) <= len(words) && slices.Equal(words[index:index+len(client)], client) {
+				match = client
+			}
+		}
+		if match != nil {
+			named = append(named, match)
+			index += len(match) - 1
+		}
+	}
+	return named
 }
 
 func adapterOwner(dir string, c clientConfinement) []string {

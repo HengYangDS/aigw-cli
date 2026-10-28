@@ -6,19 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 )
-
-func qualifiedRoute(label, account, model string, protocols ...configuration.EndpointProtocol) configuration.Route {
-	interfaces := make(map[configuration.EndpointProtocol][]configuration.Capability, len(protocols))
-	for _, protocol := range protocols {
-		interfaces[protocol] = []configuration.Capability{}
-	}
-	return configuration.Route{
-		Label: label, Account: account, Model: model, UpstreamModel: model, Interfaces: interfaces,
-	}
-}
 
 type captureAdapterRunner struct {
 	err       error
