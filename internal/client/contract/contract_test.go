@@ -25,8 +25,8 @@ const (
 )
 
 // These name the one seam promise that a fixtureAdapter breaks;
-// keepsEveryPromise, listsItsCompanion, listsItsLink and removesItsDirectory
-// keep every promise.
+// keepsEveryPromise, listsItsCompanion, listsItsLink, removesItsDirectory and
+// keepsItsDirectory keep every promise.
 const (
 	keepsEveryPromise          = ""
 	listsItsCompanion          = "lists its companion"
@@ -59,11 +59,13 @@ const (
 	withdrawalReturnsNoReceipt = "returns no receipt for its withdrawal"
 	projectionReturnsNoReceipt = "returns no receipt for its projection"
 	removesItsDirectory        = "removes the directory that its projection created"
+	keepsItsDirectory          = "keeps the directory that its projection created"
 	rollbackCreatesDirectory   = "creates a directory on rollback"
 	fixtureRedirectsHome       = "redirects the process home while it is prepared"
 	namesOutsideTarget         = "names a target outside the home"
 	withdrawalCreatesDirectory = "creates a directory when it withdraws"
 	withdrawalChangesItsMode   = "changes the mode of its directory when it withdraws"
+	withdrawalChangesListed    = "changes the mode of its listed directory when it withdraws"
 	rollbackChangesItsMode     = "changes the mode of its directory on rollback"
 	withdrawalRollbackDrops    = "drops its directory when its withdrawal is rolled back"
 	writesProcessHome          = "writes the process home"
@@ -145,6 +147,8 @@ func (adapter fixtureAdapter) Plan(_ client.Dependencies, before, after configur
 		effects = append(effects, adapter.path(companionName))
 	case listsItsLink:
 		effects = append(effects, adapter.path(linkName))
+	case withdrawalChangesListed:
+		effects = append(effects, adapter.path(toolName))
 	case listsOutsideHome:
 		effects = append(effects, adapter.outside)
 	case namesMissingTarget:
@@ -215,6 +219,8 @@ func (adapter fixtureAdapter) project() (client.ProjectionReceipt, error) {
 		return nil, nil
 	case rollbackKeeps:
 		return fixtureReceipt(func() error { return nil }), nil
+	case keepsItsDirectory:
+		return fixtureReceipt(adapter.restoreTarget), nil
 	case rollbackCreatesDirectory:
 		return fixtureReceipt(func() error {
 			if err := adapter.restore(); err != nil {
@@ -239,7 +245,8 @@ func (adapter fixtureAdapter) projectExtras() error {
 	switch adapter.breaks {
 	case listsItsLink, writesUnlistedLink:
 		return os.Symlink(targetName, adapter.path(linkName))
-	case removesItsDirectory, withdrawalChangesItsMode, withdrawalRollbackDrops, rollbackChangesItsMode:
+	case removesItsDirectory, keepsItsDirectory, withdrawalChangesItsMode, withdrawalChangesListed,
+		withdrawalRollbackDrops, rollbackChangesItsMode:
 		return os.Mkdir(adapter.path(toolName), 0o700)
 	case rollbackKeepsMode:
 		return os.Chmod(adapter.path(targetName), 0o644)
@@ -271,9 +278,9 @@ func (adapter fixtureAdapter) withdraw() (client.ProjectionReceipt, error) {
 		return nil, nil
 	case withdrawalRollbackKeeps:
 		return fixtureReceipt(func() error { return nil }), nil
-	case withdrawalRollbackDrops:
+	case withdrawalRollbackDrops, keepsItsDirectory:
 		return fixtureReceipt(func() error { return adapter.write(targetName, "projected") }), nil
-	case withdrawalChangesItsMode:
+	case withdrawalChangesItsMode, withdrawalChangesListed:
 		return fixtureReceipt(func() error {
 			if err := adapter.write(targetName, "projected"); err != nil {
 				return err
@@ -291,9 +298,9 @@ func (adapter fixtureAdapter) withdraw() (client.ProjectionReceipt, error) {
 // promise in the way that the fixture names.
 func (adapter fixtureAdapter) withdrawFiles() error {
 	switch adapter.breaks {
-	case withdrawalKeepsCompanion:
+	case withdrawalKeepsCompanion, keepsItsDirectory:
 		return adapter.restoreTarget()
-	case withdrawalChangesItsMode:
+	case withdrawalChangesItsMode, withdrawalChangesListed:
 		if err := adapter.restoreTarget(); err != nil {
 			return err
 		}
@@ -373,6 +380,7 @@ func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 		{breaks: listsItsCompanion},
 		{breaks: listsItsLink},
 		{breaks: removesItsDirectory},
+		{breaks: keepsItsDirectory},
 		{breaks: writesUnlistedCompanion, refused: map[string]string{plans: unlisted, withdrawal: unlisted}},
 		{breaks: writesOnlyCompanion, refused: map[string]string{plans: "states ChangesState true", withdrawal: unlisted}},
 		{breaks: writesUnlistedLink, refused: map[string]string{plans: "Apply changed link, " + unlisted, withdrawal: "Apply changed link, " + unlisted}},
@@ -401,6 +409,7 @@ func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 		{breaks: withdrawalKeepsCompanion, refused: map[string]string{withdrawal: "withdrawal changed [companion.txt]"}},
 		{breaks: withdrawalCreatesDirectory, refused: map[string]string{withdrawal: "Apply changed .withdrawn, " + unlisted}},
 		{breaks: withdrawalChangesItsMode, posixOnly: true, refused: map[string]string{withdrawal: "Apply changed .tool, " + unlisted}},
+		{breaks: withdrawalChangesListed, posixOnly: true, refused: map[string]string{withdrawal: "withdrawal changed [.tool]"}},
 		{breaks: rollbackChangesItsMode, posixOnly: true, refused: map[string]string{plans: "rollback changed [.tool]"}},
 		{breaks: withdrawalRollbackDrops, refused: map[string]string{withdrawal: "rolling back a withdrawal changed [.tool]"}},
 		{breaks: withdrawalRollbackKeeps, refused: map[string]string{withdrawal: "rolling back a withdrawal changed"}},
