@@ -153,8 +153,9 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
     file, is one of the plan's effects;
   - a converged plan, its `Apply` and its receipt's `Rollback` change nothing;
   - `Rollback` restores every regular file's bytes and mode, every symbolic
-    link and every directory's mode; directories that the projection created
-    may remain, as AIGW leaves them today, and a withdrawal may remove them;
+    link and every directory's mode; only directories that the projection
+    created may remain, as AIGW leaves them today, and a withdrawal may remove
+    them;
   - withdrawal is planned and checked the same way, leaves no owned file, and
     its own receipt restores the projection;
   - `Inspect` and `Verify` (without a Route and with the fixture's selected
@@ -166,7 +167,8 @@ Stage 1 deepens `client.Adapter` instead of adding another interface:
   A plan promises a change of its effects, not of its target alone: Claude
   Code changes only its ownership state when its settings file already holds
   the projected bytes. Each check runs with HOME, USERPROFILE, APPDATA,
-  LOCALAPPDATA, the XDG base directories, TMPDIR, TMP and TEMP, and the working
+  LOCALAPPDATA, XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_STATE_HOME,
+  XDG_CACHE_HOME, XDG_RUNTIME_DIR, TMPDIR, TMP and TEMP, and the working
   directory, pointed at an empty sentinel that must stay empty, and a fixture
   may not redirect them. That refuses an adapter that writes through those
   variables or a relative path instead of the observed host. Client-specific

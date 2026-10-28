@@ -44,18 +44,20 @@ type Fixture struct {
 //     file, is listed among the plan's effects;
 //   - a converged projection plans, applies and rolls back no change;
 //   - Rollback restores every regular file's bytes and mode, every symbolic
-//     link and every other entry below Home; directories that the projection
-//     created may remain;
+//     link and every other entry below Home; only directories that the
+//     projection created may remain;
 //   - withdrawal is planned and checked the same way, leaves no owned file, and
-//     its own receipt restores the projection.
+//     its own receipt restores the projection; it may remove the directories
+//     that the projection created.
 //
-// Each invariant runs with HOME, USERPROFILE, APPDATA, LOCALAPPDATA, the XDG
-// base directories, TMPDIR, TMP and TEMP, and after the fixture is prepared
-// also the working directory, pointed at an empty sentinel that must stay
-// empty. That refuses an adapter which writes through those variables or a
-// relative path instead of the observed host. Client-specific variables,
-// values read before Run starts, the operating system's user database and
-// Windows known folders are not covered.
+// Each invariant runs with HOME, USERPROFILE, APPDATA, LOCALAPPDATA,
+// XDG_CONFIG_HOME, XDG_DATA_HOME, XDG_STATE_HOME, XDG_CACHE_HOME,
+// XDG_RUNTIME_DIR, TMPDIR, TMP and TEMP, and after the fixture is prepared also
+// the working directory, pointed at an empty sentinel that must stay empty, and
+// the fixture may not redirect them. That refuses an adapter which writes
+// through those variables or a relative path instead of the observed host.
+// Client-specific variables, values read before Run starts, the operating
+// system's user database and Windows known folders are not covered.
 func Run(t *testing.T, newFixture func(t *testing.T) Fixture) {
 	t.Helper()
 	for _, property := range invariants {
@@ -232,7 +234,7 @@ func targetsProjected(home string, plans []client.ProjectionPlan) error {
 		}
 		target, err := homePaths(home, []string{plan.Target})
 		if err != nil {
-			violations = append(violations, err)
+			violations = append(violations, fmt.Errorf("the planned target %s lies outside the fixture home %s", plan.Target, home))
 			continue
 		}
 		// An effect outside the home is reported by effectsPredicted.
@@ -309,7 +311,7 @@ func withdrawalLeavesNoOwnedFile(ctx context.Context, fixture Fixture) error {
 	if err := receipt.Rollback(); err != nil {
 		return fmt.Errorf("Rollback() of a withdrawal = %w", err)
 	}
-	return restoredFiles(fixture.Home, projected, created, "rolling back a withdrawal")
+	return unchangedFiles(fixture.Home, projected, "rolling back a withdrawal")
 }
 
 // plan returns the adapter's plans for the transition and requires planning to
@@ -471,15 +473,16 @@ func (captured tree) holds(path string) bool {
 }
 
 // changedPaths lists every entry that changed between two captures. A path in
-// exempt counts only when a file, link or other non-directory entry stands
-// there on either side, so its directory may appear, change mode or go.
+// exempt may appear or go as a directory: it does not count when one side holds
+// nothing there and the other side nothing or a directory. A file, link or
+// other entry there, or a directory whose mode changed, still counts.
 func changedPaths(before, after tree, exempt map[string]bool) []string {
 	changed := map[string]bool{}
 	collectChanges(changed, before.files, after.files, transaction.FileSnapshot.Equal)
 	collectChanges(changed, before.links, after.links, equalValues[string])
 	collectChanges(changed, before.nodes, after.nodes, equalValues[fs.FileMode])
 	for path := range exempt {
-		if before.onlyDirectory(path) && after.onlyDirectory(path) {
+		if !before.holds(path) && after.onlyDirectory(path) || before.onlyDirectory(path) && !after.holds(path) {
 			delete(changed, path)
 		}
 	}
@@ -516,8 +519,8 @@ func unchangedFiles(home string, want tree, operation string) error {
 	return compareHome(home, want, nil, operation)
 }
 
-// restoredFiles requires every entry below home to match want, except the
-// directories in created, which the projection created and which may remain.
+// restoredFiles requires every entry below home to match want, except that the
+// directories in created, which the projection created, may remain or go.
 func restoredFiles(home string, want tree, created map[string]bool, operation string) error {
 	return compareHome(home, want, created, operation)
 }

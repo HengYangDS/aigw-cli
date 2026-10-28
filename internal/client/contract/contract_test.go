@@ -25,7 +25,8 @@ const (
 )
 
 // These name the one seam promise that a fixtureAdapter breaks;
-// keepsEveryPromise, listsItsCompanion and listsItsLink keep every promise.
+// keepsEveryPromise, listsItsCompanion, listsItsLink and removesItsDirectory
+// keep every promise.
 const (
 	keepsEveryPromise          = ""
 	listsItsCompanion          = "lists its companion"
@@ -60,6 +61,10 @@ const (
 	removesItsDirectory        = "removes the directory that its projection created"
 	rollbackCreatesDirectory   = "creates a directory on rollback"
 	fixtureRedirectsHome       = "redirects the process home while it is prepared"
+	namesOutsideTarget         = "names a target outside the home"
+	withdrawalCreatesDirectory = "creates a directory when it withdraws"
+	withdrawalChangesItsMode   = "changes the mode of its directory when it withdraws"
+	withdrawalRollbackDrops    = "drops its directory when its withdrawal is rolled back"
 	writesProcessHome          = "writes the process home"
 	capturesProcessHome        = "captures the process home when it is constructed"
 	writesRelativePath         = "writes a path relative to the working directory"
@@ -145,6 +150,8 @@ func (adapter fixtureAdapter) Plan(_ client.Dependencies, before, after configur
 		target = adapter.path("missing.txt")
 	case namesUnlistedTarget:
 		target = adapter.path(filepath.Join(existingName, "readme.txt"))
+	case namesOutsideTarget:
+		target = adapter.outside
 	}
 	changes := (enabling || withdrawing) && adapter.breaks != statesNoChange ||
 		adapter.breaks == plansWhenConverged && enabled(before) && enabled(after)
@@ -224,7 +231,7 @@ func (adapter fixtureAdapter) projectExtras() error {
 	switch adapter.breaks {
 	case listsItsLink, writesUnlistedLink:
 		return os.Symlink(targetName, adapter.path(linkName))
-	case removesItsDirectory:
+	case removesItsDirectory, withdrawalChangesItsMode, withdrawalRollbackDrops:
 		return os.Mkdir(adapter.path(toolName), 0o700)
 	case rollbackKeepsMode:
 		return os.Chmod(adapter.path(targetName), 0o644)
@@ -248,11 +255,7 @@ func (adapter fixtureAdapter) withdraw() (client.ProjectionReceipt, error) {
 	if adapter.breaks == withdrawalPlanWrites {
 		return nil, nil
 	}
-	restore := adapter.restore
-	if adapter.breaks == withdrawalKeepsCompanion {
-		restore = adapter.restoreTarget
-	}
-	if err := restore(); err != nil {
+	if err := adapter.withdrawFiles(); err != nil {
 		return nil, err
 	}
 	switch adapter.breaks {
@@ -260,11 +263,33 @@ func (adapter fixtureAdapter) withdraw() (client.ProjectionReceipt, error) {
 		return nil, nil
 	case withdrawalRollbackKeeps:
 		return fixtureReceipt(func() error { return nil }), nil
+	case withdrawalRollbackDrops:
+		return fixtureReceipt(func() error { return adapter.write(targetName, "projected") }), nil
 	}
 	return fixtureReceipt(func() error {
 		_, err := adapter.project()
 		return err
 	}), nil
+}
+
+// withdrawFiles restores the home as a withdrawal promises, or breaks that
+// promise in the way that the fixture names.
+func (adapter fixtureAdapter) withdrawFiles() error {
+	switch adapter.breaks {
+	case withdrawalKeepsCompanion:
+		return adapter.restoreTarget()
+	case withdrawalChangesItsMode:
+		if err := adapter.restoreTarget(); err != nil {
+			return err
+		}
+		return os.Chmod(adapter.path(toolName), 0o755)
+	case withdrawalCreatesDirectory:
+		if err := adapter.restore(); err != nil {
+			return err
+		}
+		return os.Mkdir(adapter.path(".withdrawn"), 0o700)
+	}
+	return adapter.restore()
 }
 
 // restore returns the target to its original bytes and removes the companion,
@@ -295,6 +320,11 @@ func newFixture(t *testing.T, breaks string) Fixture {
 	}
 	if breaks == fixtureRedirectsHome {
 		t.Setenv("HOME", t.TempDir())
+	}
+	if breaks == namesOutsideTarget {
+		if err := os.WriteFile(adapter.outside, []byte("outside"), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err := adapter.restoreTarget(); err != nil {
 		t.Fatal(err)
@@ -336,6 +366,7 @@ func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 		{breaks: listsOutsideHome, refused: map[string]string{plans: "lies outside the fixture home", withdrawal: "lies outside the fixture home"}},
 		{breaks: namesMissingTarget, refused: map[string]string{plans: "was not projected"}},
 		{breaks: namesUnlistedTarget, refused: map[string]string{plans: "is a file that the plan's effects do not list"}},
+		{breaks: namesOutsideTarget, refused: map[string]string{plans: "outside.txt lies outside the fixture home"}},
 		{breaks: inspectMutates, refused: map[string]string{observation: "Inspect changed the caller's configuration", plans: "Inspect changed the caller's configuration"}},
 		{breaks: verifyMutates, refused: map[string]string{observation: "Verify changed the caller's configuration", plans: "Verify changed the caller's configuration"}},
 		{breaks: planMutates, refused: map[string]string{plans: "Plan changed the caller's configuration", withdrawal: "Plan changed the caller's configuration"}},
@@ -353,6 +384,9 @@ func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 		{breaks: rollbackKeepsMode, posixOnly: true, refused: map[string]string{plans: "rollback changed [planned.txt]", withdrawal: "withdrawal changed [planned.txt]"}},
 		{breaks: changesDirectoryMode, posixOnly: true, refused: map[string]string{plans: "Apply changed existing, " + unlisted, withdrawal: "withdrawal changed [existing]"}},
 		{breaks: withdrawalKeepsCompanion, refused: map[string]string{withdrawal: "withdrawal changed [companion.txt]"}},
+		{breaks: withdrawalCreatesDirectory, refused: map[string]string{withdrawal: "Apply changed .withdrawn, " + unlisted}},
+		{breaks: withdrawalChangesItsMode, posixOnly: true, refused: map[string]string{withdrawal: "Apply changed .tool, " + unlisted}},
+		{breaks: withdrawalRollbackDrops, refused: map[string]string{withdrawal: "rolling back a withdrawal changed [.tool]"}},
 		{breaks: withdrawalRollbackKeeps, refused: map[string]string{withdrawal: "rolling back a withdrawal changed"}},
 		{breaks: withdrawalReturnsNoReceipt, refused: map[string]string{withdrawal: "returned no receipt"}},
 		{breaks: projectionReturnsNoReceipt, refused: map[string]string{plans: "Apply() of an enabled projection returned receipt <nil>"}},
