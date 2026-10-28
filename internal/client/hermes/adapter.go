@@ -239,7 +239,7 @@ func hermesPreviousDesired(deps client.Dependencies, before configuration.Config
 // when the operator selected another model of AIGW's projected catalogue in
 // Hermes and nothing else that AIGW owns changed. It returns the adopted Route,
 // or an empty string when Hermes still shows the bound selection.
-func AdoptSelection(deps client.Dependencies, cfg *configuration.Config) (string, error) {
+func (hermesAdapter) AdoptSelection(deps client.Dependencies, cfg *configuration.Config) (string, error) {
 	binding := cfg.Clients[configuration.ClientHermes]
 	if !binding.Enabled || len(binding.Targets) != 1 {
 		return "", nil

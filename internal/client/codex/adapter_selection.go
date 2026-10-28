@@ -13,7 +13,7 @@ import (
 // the root model is the only changed value AIGW owns in the Codex targets and
 // it names the upstream model of one Route of the selected Account and
 // protocol. The binding keeps its protocol, provider and forwarding.
-func AdoptSelection(_ client.Dependencies, cfg *configuration.Config) (string, error) {
+func (codexAdapter) AdoptSelection(_ client.Dependencies, cfg *configuration.Config) (string, error) {
 	binding := cfg.Clients[configuration.ClientCodex]
 	if !binding.Enabled || len(binding.Targets) == 0 {
 		return "", nil

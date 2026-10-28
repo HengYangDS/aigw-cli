@@ -27,7 +27,7 @@ func TestAdoptHermesSelectionLeavesUnprojectedBindingsUnchanged(t *testing.T) {
 			candidate := cfg.Clone()
 			prepare(&candidate)
 			before := candidate.Clone()
-			routeID, err := AdoptSelection(client.Dependencies{}, &candidate)
+			routeID, err := (hermesAdapter{}).AdoptSelection(client.Dependencies{}, &candidate)
 			if err != nil || routeID != "" || candidate.SelectedRoute(configuration.ClientHermes) != before.SelectedRoute(configuration.ClientHermes) {
 				t.Fatalf("adoption = %q, %v; binding %#v", routeID, err, candidate.Clients[configuration.ClientHermes])
 			}

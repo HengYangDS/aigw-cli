@@ -136,6 +136,12 @@ func (claudeAdapter) Inspect(_ context.Context, deps client.Dependencies, cfg co
 	return client.Status{Ready: true, NativeModelOverride: inspection.NativeModelOverride}
 }
 
+// AdoptSelection adopts nothing: Claude Code has no native selection that AIGW
+// records as its Client Binding.
+func (claudeAdapter) AdoptSelection(client.Dependencies, *configuration.Config) (string, error) {
+	return "", nil
+}
+
 func (claudeAdapter) Withdraw(cfg *configuration.Config) {
 	delete(cfg.Clients, configuration.ClientClaude)
 }

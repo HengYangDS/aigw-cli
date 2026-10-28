@@ -184,6 +184,12 @@ func (claudeDesktopAdapter) Verify(context.Context, client.Dependencies, configu
 	return client.Verification{}, errors.New("Claude Desktop verification requires explicit native Chat, Cowork, or Code acceptance")
 }
 
+// AdoptSelection adopts nothing: Claude Desktop has no native selection that AIGW
+// records as its Client Binding.
+func (claudeDesktopAdapter) AdoptSelection(client.Dependencies, *configuration.Config) (string, error) {
+	return "", nil
+}
+
 func (claudeDesktopAdapter) Withdraw(cfg *configuration.Config) {
 	delete(cfg.Clients, configuration.ClientClaudeDesktop)
 }

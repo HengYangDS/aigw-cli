@@ -132,8 +132,6 @@ allowed_import_edges."internal/renaming" = [
 ]
 allowed_import_edges."internal/synchronization" = [
   "internal/client",
-  "internal/client/codex",
-  "internal/client/hermes",
   "internal/configuration",
   "internal/credential",
   "internal/discovery",
@@ -457,7 +455,6 @@ temporary_exceptions = [
   "internal/credential",
   "internal/discovery",
   "internal/surface",
-  "internal/synchronization",
 ]
 
 # Every tracked carrier resolves to exactly one semantic responsibility.

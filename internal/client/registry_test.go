@@ -76,6 +76,10 @@ func (failingProjectionAdapter) Verify(context.Context, Dependencies, configurat
 	return Verification{}, nil
 }
 
+func (failingProjectionAdapter) AdoptSelection(Dependencies, *configuration.Config) (string, error) {
+	return "", nil
+}
+
 func (failingProjectionAdapter) Withdraw(*configuration.Config) {}
 
 func TestRegistryScopesProjectionToTheRequestedClient(t *testing.T) {
@@ -140,6 +144,11 @@ func (adapter *recordingAdapter) Inspect(_ context.Context, _ Dependencies, _ co
 func (adapter *recordingAdapter) Verify(_ context.Context, _ Dependencies, _ configuration.Config, _ configuration.Runtime, _ string) (Verification, error) {
 	adapter.calls = append(adapter.calls, "verify")
 	return Verification{Version: "verified"}, nil
+}
+
+func (adapter *recordingAdapter) AdoptSelection(Dependencies, *configuration.Config) (string, error) {
+	adapter.calls = append(adapter.calls, "adopt")
+	return "", nil
 }
 
 func (adapter *recordingAdapter) Withdraw(cfg *configuration.Config) {

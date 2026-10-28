@@ -100,6 +100,10 @@ type Adapter interface {
 	ProjectionChanged(before, after configuration.Config) bool
 	Inspect(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) Status
 	Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime, prompt string) (Verification, error)
+	// AdoptSelection records the client's own selection inside AIGW's projected
+	// catalogue as its Client Binding and returns the adopted Route, or an empty
+	// string when the client shows its bound selection or adopts nothing.
+	AdoptSelection(deps Dependencies, cfg *configuration.Config) (string, error)
 	Withdraw(cfg *configuration.Config)
 }
 
@@ -287,6 +291,22 @@ func (registry Registry) Withdraw(cfg *configuration.Config, clientID string) er
 	}
 	adapter.Withdraw(cfg)
 	return nil
+}
+
+// AdoptSelections records each admitted client's own selection as its Client
+// Binding in admission order, and returns the adopted Route per client.
+func (registry Registry) AdoptSelections(deps Dependencies, cfg *configuration.Config) (map[string]string, error) {
+	adopted := map[string]string{}
+	for _, id := range registry.ids {
+		routeID, err := registry.byID[id].AdoptSelection(deps, cfg)
+		if err != nil {
+			return nil, err
+		}
+		if routeID != "" {
+			adopted[id] = routeID
+		}
+	}
+	return adopted, nil
 }
 
 // IDs returns admitted clients in the registry's stable order.

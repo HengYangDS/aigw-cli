@@ -10,8 +10,6 @@ import (
 	"slices"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/hermes"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
@@ -169,24 +167,13 @@ func (s Synchronizer) DesiredClientConfiguration(before configuration.Config, cl
 // the Route that wins.
 func (s Synchronizer) AdoptNativeSelections(before configuration.Config) (configuration.Config, map[string]string, error) {
 	after := before.Clone()
-	adopted := map[string]string{}
 	dependencies, err := s.clientDependencies(nil)
 	if err != nil {
 		return configuration.Config{}, nil, err
 	}
-	routeID, err := hermes.AdoptSelection(dependencies, &after)
+	adopted, err := s.registry().AdoptSelections(dependencies, &after)
 	if err != nil {
 		return configuration.Config{}, nil, err
-	}
-	if routeID != "" {
-		adopted[configuration.ClientHermes] = routeID
-	}
-	routeID, err = codex.AdoptSelection(dependencies, &after)
-	if err != nil {
-		return configuration.Config{}, nil, err
-	}
-	if routeID != "" {
-		adopted[configuration.ClientCodex] = routeID
 	}
 	return after, adopted, nil
 }
