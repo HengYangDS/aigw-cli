@@ -1,12 +1,11 @@
 package verification
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 	"time"
-
-	configuration "aigw-cli/internal/configuration"
 )
 
 func TestProtocolTimeoutAllowsColdClientStartup(t *testing.T) {
@@ -15,13 +14,21 @@ func TestProtocolTimeoutAllowsColdClientStartup(t *testing.T) {
 	}
 }
 
-func TestFailureAdvisesTheClaudeSettingOnlyForClaude(t *testing.T) {
-	cause := errors.New("launch /Users/operator/private/claude: exit status 1")
-	compatibility := `{"type":"result","is_error":true,"result":"API Error: 400 context_management: Extra inputs are not permitted; token=must-not-leak; /Users/operator/private"}`
-	if err := Failure("Codex", configuration.ClientCodex, "", []byte(compatibility), cause); strings.Contains(err.Error(), "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS") {
-		t.Fatalf("Codex failure advised a Claude-specific setting: %v", err)
+// A client's advice explains its own diagnostics; another client's failure
+// with the same diagnostic gets only the shared summary, and a timeout still
+// wins over the advice.
+func TestFailureAppliesOnlyTheCallersAdvice(t *testing.T) {
+	cause := errors.New("launch /Users/operator/private/client: exit status 1")
+	diagnostic := []byte(`{"result":"API Error: 400 Tier_Gate: extra inputs are not permitted; token=must-not-leak; /Users/operator/private"}`)
+	advice := []Advice{{Markers: []string{"tier_gate", "extra inputs are not permitted"}, Summary: "endpoint rejects the tier gate; disable it and verify again"}}
+	if err := Failure("Other", "other", "", diagnostic, cause, nil); strings.Contains(err.Error(), "tier gate") {
+		t.Fatalf("a failure without advice applied another client's advice: %v", err)
 	}
-	if err := Failure("Claude", configuration.ClientClaude, "", []byte(compatibility), cause); !strings.Contains(err.Error(), "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1") || !errors.Is(err, cause) {
-		t.Fatalf("Claude failure lost its compatibility advice or cause: %v", err)
+	err := Failure("Client", "client", "", diagnostic, cause, advice, "must-not-leak")
+	if !strings.Contains(err.Error(), "Client minimal verification request failed: endpoint rejects the tier gate; disable it and verify again; run `aigw verify --for client`") || !errors.Is(err, cause) {
+		t.Fatalf("the caller's advice or cause was lost: %v", err)
+	}
+	if err := Failure("Client", "client", "", diagnostic, context.DeadlineExceeded, advice); !strings.Contains(err.Error(), "client verification timed out") {
+		t.Fatalf("advice outranked a timeout: %v", err)
 	}
 }

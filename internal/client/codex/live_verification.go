@@ -118,7 +118,7 @@ func verifyTurn(ctx context.Context, runner process.VerificationRunner, plan pro
 				diagnostic = fmt.Appendf(diagnostic, "\n%s\n%s", event.Message, event.Error.Message)
 			}
 		}
-		return "", clientverification.Failure("Codex", configuration.ClientCodex, explicitRoute, diagnostic, err)
+		return "", clientverification.Failure("Codex", configuration.ClientCodex, explicitRoute, diagnostic, err, nil)
 	}
 	if process.DiagnosticFailure(diagnostic) {
 		return "", clientverification.Diagnostic("Codex", diagnostic)

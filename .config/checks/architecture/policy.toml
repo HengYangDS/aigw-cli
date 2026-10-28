@@ -112,10 +112,7 @@ allowed_import_edges."internal/client" = [
   "internal/secrets",
   "internal/transaction",
 ]
-allowed_import_edges."internal/client/verification" = [
-  "internal/configuration",
-  "internal/redaction",
-]
+allowed_import_edges."internal/client/verification" = ["internal/redaction"]
 # Upgrade reuses neutral process and durable staging owners.
 allowed_import_edges."internal/upgrade" = [
   "internal/platform",
@@ -450,7 +447,6 @@ temporary_exceptions = [
   "internal/cli/doctor",
   "internal/cli/readiness",
   "internal/cli/selection",
-  "internal/client/verification",
   "internal/configuration",
   "internal/credential",
   "internal/discovery",

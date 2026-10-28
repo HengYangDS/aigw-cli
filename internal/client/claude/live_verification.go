@@ -17,6 +17,13 @@ import (
 
 const responseSentinel = "AIGW_OK"
 
+// failureAdvice explains an endpoint's refusal of Claude Code's pre-release
+// context management.
+var failureAdvice = []clientverification.Advice{{
+	Markers: []string{"context_management", "extra inputs are not permitted"},
+	Summary: "endpoint rejects pre-release context management; set CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1 in native Claude settings env and verify again",
+}}
+
 // verifyRuntime performs one bounded Claude CLI request. explicitRoute is
 // the invocation's --route, which its retry advice repeats.
 func verifyRuntime(ctx context.Context, runner process.VerificationRunner, executable, settingsPath string, clientRuntime configuration.Runtime, token, explicitRoute string) error {
@@ -36,7 +43,7 @@ func verifyRuntime(ctx context.Context, runner process.VerificationRunner, execu
 		if result.status != 0 && errors.Is(err, context.DeadlineExceeded) {
 			return clientverification.RequestFailure(fmt.Sprintf("Claude minimal verification request failed: client verification timed out after endpoint HTTP %d; run `%s`", result.status, clientverification.Command(configuration.ClientClaude, explicitRoute)), err)
 		}
-		return clientverification.Failure("Claude", configuration.ClientClaude, explicitRoute, bytes.Join([][]byte{diagnostic, output}, []byte("\n")), err, token)
+		return clientverification.Failure("Claude", configuration.ClientClaude, explicitRoute, bytes.Join([][]byte{diagnostic, output}, []byte("\n")), err, failureAdvice, token)
 	}
 	if process.DiagnosticFailure(diagnostic) {
 		return clientverification.Diagnostic("Claude", diagnostic)
@@ -45,7 +52,7 @@ func verifyRuntime(ctx context.Context, runner process.VerificationRunner, execu
 		return resultErr
 	}
 	if result.failed {
-		return clientverification.Failure("Claude", configuration.ClientClaude, explicitRoute, output, errors.New("native Claude result reports an error"), token)
+		return clientverification.Failure("Claude", configuration.ClientClaude, explicitRoute, output, errors.New("native Claude result reports an error"), failureAdvice, token)
 	}
 	if strings.TrimSpace(result.response) != responseSentinel {
 		return fmt.Errorf("Claude model response did not return the expected AIGW_OK verification marker")

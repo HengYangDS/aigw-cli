@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/redaction"
 )
 
@@ -60,9 +60,19 @@ func RequestFailure(message string, cause error) error {
 	return requestFailureError{message: message, cause: cause}
 }
 
+// Advice is a client's own explanation of one diagnostic: a failed request
+// whose lowercased, redacted diagnostic contains every marker is summarized as
+// Summary.
+type Advice struct {
+	Markers []string
+	Summary string
+}
+
 // Failure is the verification request failure that names its retry command.
-func Failure(label, client, explicitRoute string, diagnostic []byte, cause error, secrets ...string) error {
-	detail := verificationFailureSummary(client, diagnostic, cause, secrets...)
+// The client's advice explains its known diagnostics after a timeout and
+// before the shared model and authentication summaries.
+func Failure(label, client, explicitRoute string, diagnostic []byte, cause error, advice []Advice, secrets ...string) error {
+	detail := verificationFailureSummary(diagnostic, cause, advice, secrets...)
 	return requestFailureError{
 		message: fmt.Sprintf("%s minimal verification request failed: %s; run `%s`", label, detail, Command(client, explicitRoute)),
 		cause:   cause,
@@ -80,13 +90,17 @@ func Command(client, explicitRoute string) string {
 	return command
 }
 
-func verificationFailureSummary(client string, diagnostic []byte, cause error, secrets ...string) string {
+func verificationFailureSummary(diagnostic []byte, cause error, advice []Advice, secrets ...string) string {
 	text := strings.ToLower(redaction.Text(string(diagnostic), secrets...))
-	switch {
-	case errors.Is(cause, context.DeadlineExceeded), strings.Contains(text, "deadline exceeded"), strings.Contains(text, "timed out"):
+	if errors.Is(cause, context.DeadlineExceeded) || strings.Contains(text, "deadline exceeded") || strings.Contains(text, "timed out") {
 		return "client verification timed out"
-	case client == configuration.ClientClaude && strings.Contains(text, "context_management") && strings.Contains(text, "extra inputs are not permitted"):
-		return "endpoint rejects pre-release context management; set CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1 in native Claude settings env and verify again"
+	}
+	for _, item := range advice {
+		if !slices.ContainsFunc(item.Markers, func(marker string) bool { return !strings.Contains(text, marker) }) {
+			return item.Summary
+		}
+	}
+	switch {
 	case strings.Contains(text, "unrecognized_model"),
 		strings.Contains(text, "not support for model"),
 		strings.Contains(text, "model id") && strings.Contains(text, "incorrect"),
