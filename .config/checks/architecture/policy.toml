@@ -48,7 +48,7 @@ package_children."tools" = [
   "release",
 ]
 package_children."internal/client/codex" = ["catalog"]
-package_children."internal/client" = ["claude", "claudedesktop", "codex", "hermes", "verification"]
+package_children."internal/client" = ["claude", "claudedesktop", "codex", "contract", "hermes", "verification"]
 package_children."internal/upgrade" = ["acceptance", "artifact"]
 package_children."tools/ci" = [
   "bootstrap",
@@ -185,6 +185,12 @@ allowed_import_edges."internal/client/codex" = [
   "internal/transaction",
 ]
 allowed_import_edges."internal/client/codex/catalog" = []
+# The seam's contract suite checks any adapter against the seam alone.
+allowed_import_edges."internal/client/contract" = [
+  "internal/client",
+  "internal/configuration",
+  "internal/transaction",
+]
 allowed_import_edges."internal/client/hermes" = [
   "internal/client",
   "internal/client/verification",
