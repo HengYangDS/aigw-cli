@@ -1,9 +1,8 @@
 package domain
 
-// The built-in clients as this package's test fixtures. Configuration names no
-// client, and its tests cannot import the adapters that own these records,
-// because the adapters import configuration; the composition root's tests pin
-// the real records.
+// The built-in clients as this package's test fixtures. Domain names no client,
+// and its tests cannot import the adapters that own these records, because the
+// adapters import domain; the composition root's tests pin the real records.
 const (
 	ClientClaude        = "claude"
 	ClientClaudeDesktop = "claude-desktop"

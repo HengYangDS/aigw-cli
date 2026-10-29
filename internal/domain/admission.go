@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 )
@@ -12,21 +13,30 @@ type Admission struct {
 	specs []ClientSpec
 }
 
-// NewAdmission admits specs in the given order. An empty or repeated client
-// identifier, or client-native authentication without a model provider to
-// select it with, is a build defect, so it panics instead of admitting part of
+// Validate reports why a specification cannot be admitted: it has no
+// identifier, or it offers client-native authentication without a model
+// provider, which that authentication needs and only a default admits.
+func (s ClientSpec) Validate() error {
+	if s.ID == "" {
+		return errors.New("client specification has no identifier")
+	}
+	if s.ClientNativeAuthentication && s.DefaultModelProvider == "" {
+		return fmt.Errorf("client %q has client-native authentication but no model provider", s.ID)
+	}
+	return nil
+}
+
+// NewAdmission admits specs in the given order. An invalid or repeated
+// specification is a build defect, so it panics instead of admitting part of
 // the set.
 func NewAdmission(specs ...ClientSpec) Admission {
 	admitted := make([]ClientSpec, 0, len(specs))
 	for _, spec := range specs {
-		if spec.ID == "" {
-			panic("client specification has no identifier")
+		if err := spec.Validate(); err != nil {
+			panic(err.Error())
 		}
 		if slices.ContainsFunc(admitted, func(existing ClientSpec) bool { return existing.ID == spec.ID }) {
 			panic(fmt.Sprintf("client %q is admitted more than once", spec.ID))
-		}
-		if spec.ClientNativeAuthentication && spec.DefaultModelProvider == "" {
-			panic(fmt.Sprintf("client %q has client-native authentication but no model provider", spec.ID))
 		}
 		admitted = append(admitted, spec.clone())
 	}

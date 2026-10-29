@@ -60,7 +60,8 @@ process.
 
 ## Semantic packages
 
-- **[Configuration](../../internal/configuration/):** Account, Route, recommendation, Client Binding, schema migration, and persistence
+- **[Domain](../../internal/domain/):** Account, Route, recommendation, Client Binding, the admitted client specifications, validation and the team manifest semantics, with standard-library imports only
+- **[Configuration](../../internal/configuration/):** Schema migration, persistence, checkpoints and the team manifest's TOML encoding
 - **[Secret storage](../../internal/secrets/):** Account credential backends, typed diagnostic credentials and replacement
 - **[Diagnostic contract](../../internal/providers/diagnostic/):** Optional provider-account diagnostic results
 - **[Codex integration](../../internal/client/codex/):** Projection planning and reconciliation

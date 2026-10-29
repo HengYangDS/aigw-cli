@@ -142,8 +142,8 @@ func NewRegistry(adapters ...Adapter) (Registry, error) {
 			return Registry{}, fmt.Errorf("client adapter is nil")
 		}
 		spec := adapter.Spec()
-		if spec.ID == "" {
-			return Registry{}, fmt.Errorf("client adapter ID is empty")
+		if err := spec.Validate(); err != nil {
+			return Registry{}, fmt.Errorf("client adapter: %w", err)
 		}
 		if _, exists := byID[spec.ID]; exists {
 			return Registry{}, fmt.Errorf("client adapter %q is registered more than once", spec.ID)

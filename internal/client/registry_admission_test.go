@@ -4,7 +4,17 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/domain"
 )
+
+// specAdapter is a fixture adapter whose admission record a test chooses.
+type specAdapter struct {
+	failingProjectionAdapter
+	spec domain.ClientSpec
+}
+
+func (adapter specAdapter) Spec() domain.ClientSpec { return adapter.spec }
 
 func TestRegistryRejectsInvalidAdapterSets(t *testing.T) {
 	tests := []struct {
@@ -13,7 +23,7 @@ func TestRegistryRejectsInvalidAdapterSets(t *testing.T) {
 		want     string
 	}{
 		{name: "nil adapter", adapters: []Adapter{nil}, want: "adapter is nil"},
-		{name: "empty adapter ID", adapters: []Adapter{failingProjectionAdapter{}}, want: "ID is empty"},
+		{name: "empty adapter ID", adapters: []Adapter{failingProjectionAdapter{}}, want: "has no identifier"},
 		{
 			name: "duplicate adapter",
 			adapters: []Adapter{
@@ -21,6 +31,13 @@ func TestRegistryRejectsInvalidAdapterSets(t *testing.T) {
 				failingProjectionAdapter{id: "duplicate"},
 			},
 			want: "registered more than once",
+		},
+		{
+			// The registry returns the specification's defect instead of
+			// letting the admission panic on it.
+			name:     "native authentication without a model provider",
+			adapters: []Adapter{specAdapter{spec: domain.ClientSpec{ID: "native", ClientNativeAuthentication: true}}},
+			want:     `client "native" has client-native authentication but no model provider`,
 		},
 	}
 	for _, test := range tests {

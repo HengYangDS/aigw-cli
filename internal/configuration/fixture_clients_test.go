@@ -1,49 +1,31 @@
 package configuration
 
-import "aigw-cli/internal/domain"
-
-// The built-in clients as this package's test fixtures. The store names no
-// client, and its tests cannot import the adapters that own these records,
-// because the adapters import the store; the composition root's tests pin the
-// real records.
-const (
-	ClientClaude        = "claude"
-	ClientClaudeDesktop = "claude-desktop"
-	ClientCodex         = "codex"
-	ClientHermes        = "hermes"
+import (
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
+	"aigw-cli/internal/clients"
+	"aigw-cli/internal/domain"
 )
 
-// testClientSpecs returns the built-in client records that this package's
-// tests admit, in admission order.
-func testClientSpecs() []domain.ClientSpec {
-	anthropic, responses := domain.ProtocolAnthropic, domain.ProtocolOpenAIResponses
-	return []domain.ClientSpec{
-		{
-			ID: ClientClaude, Label: "Claude", EndpointProtocols: []domain.EndpointProtocol{anthropic},
-			ProductName: "Claude Code", ModelDiscoveryOptional: true, Doctor: domain.DoctorWording{AdapterStates: true},
-			PublishedProfileProtocol: anthropic,
-		},
-		{
-			ID: ClientClaudeDesktop, Label: "Claude Desktop", EndpointProtocols: []domain.EndpointProtocol{anthropic},
-			RestartAfterProjection: true, QualifiedModes: []string{"Chat", "Cowork", "Code"}, QualifiedPlatforms: []string{"macOS"},
-		},
-		{
-			ID: ClientCodex, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{responses},
-			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true,
-			DefaultModelProvider: domain.ModelProviderAIGW, ClientNativeAuthentication: true,
-			PublishedProfileProtocol: responses, Doctor: domain.DoctorWording{AdapterStates: true, RouteBinding: true},
-		},
-		{
-			ID: ClientHermes, Label: "Hermes", SessionsKeepRoute: true,
-			EndpointProtocols: []domain.EndpointProtocol{responses, anthropic, domain.ProtocolOpenAIChatCompletions},
-		},
-	}
-}
+// The built-in clients by their adapters' identifiers. Neither the composition
+// root nor an adapter imports this package, so its tests admit the composition
+// root's real client records instead of copies that could drift from them.
+const (
+	ClientClaude        = claude.ID
+	ClientClaudeDesktop = claudedesktop.ID
+	ClientCodex         = codex.ID
+	ClientHermes        = hermes.ID
+)
 
-// testAdmission admits the fixture built-in clients for this package's tests.
-func testAdmission() domain.Admission { return domain.NewAdmission(testClientSpecs()...) }
+// testClientSpecs returns the built-in client records in admission order.
+func testClientSpecs() []domain.ClientSpec { return clients.Admission().Specs() }
 
-// admitted governs a configuration literal by the fixture admission, which a
+// testAdmission admits the built-in clients, as the program does.
+func testAdmission() domain.Admission { return clients.Admission() }
+
+// admitted governs a configuration literal by the built-in admission, which a
 // literal of another package cannot set.
 func admitted(cfg domain.Config) domain.Config {
 	cfg.SetAdmission(testAdmission())

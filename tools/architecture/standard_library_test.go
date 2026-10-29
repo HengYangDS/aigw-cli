@@ -1,10 +1,28 @@
 package main
 
 import (
+	"bytes"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// Every run applies the rule: a listed package that imports another package of
+// the module fails the gate.
+func TestRunEnforcesStandardLibraryOnly(t *testing.T) {
+	root := t.TempDir()
+	policyPath := writePolicy(t, root, validPolicy+"standard_library_only = [\"internal/model\"]\n")
+	writeFile(t, filepath.Join(root, "go.mod"), "module fixture\n")
+	writeFile(t, filepath.Join(root, "internal", "model", "model.go"), "// Package model owns the fixture model.\npackage model\n\nimport _ \"fixture/internal/store\"\n")
+	writeFile(t, filepath.Join(root, "internal", "store", "store.go"), "// Package store owns the fixture store.\npackage store\n")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 {
+		t.Fatalf("code=%d want 1 stderr=%q stdout=%s", code, stderr.String(), stdout.String())
+	}
+	if report := decodeReport(t, stdout.String()); !hasRule(report, "standard_library_only") {
+		t.Fatalf("the run did not apply standard_library_only: %v", findingRules(report))
+	}
+}
 
 func TestStandardLibraryOnlyRefusesModuleAndThirdPartyImports(t *testing.T) {
 	root := t.TempDir()
@@ -41,11 +59,14 @@ func TestStandardLibraryOnlyRefusesModuleAndThirdPartyImports(t *testing.T) {
 func TestStandardLibraryOnlyReportsAStaleEntry(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
+	writeFile(t, filepath.Join(root, "internal", "fixtures", "fixture_test.go"), "package fixtures\n")
+	// A package with only test files has no production Go files either.
+	files := []goFileInfo{{relPath: "internal/fixtures/fixture_test.go", dir: "internal/fixtures", isTest: true}}
 	report := newReport("policy", root)
-	if err := checkStandardLibraryOnly(root, nil, policy{StandardLibraryOnly: []string{"internal/retired"}}, &report); err != nil {
+	if err := checkStandardLibraryOnly(root, files, policy{StandardLibraryOnly: []string{"internal/retired", "internal/fixtures"}}, &report); err != nil {
 		t.Fatal(err)
 	}
-	if countRule(report, "standard_library_only_entry") != 1 {
+	if countRule(report, "standard_library_only_entry") != 2 {
 		t.Fatalf("a listed package without production files was accepted: %+v", report.Findings)
 	}
 }
