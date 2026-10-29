@@ -20,7 +20,7 @@
 - [x] 2.2 Create `internal/store` from configuration loading, saving and schema migration, and fold `internal/transaction` into it. Both packages are gone, and the architecture gate admits `internal/store` in their place.
 - [x] 2.3 Create `internal/secret` from `internal/secrets`, `internal/secrets/native` and the credential readers of `internal/credential`; the requests that prove an Account's Token move to `domain`, and the probes that send them go to `internal/secret/probe`. Both packages are gone, and the architecture gate admits `internal/secret`, `internal/secret/native` and `internal/secret/probe` in their place.
 - [x] 2.4 Move the remaining client-specific code, such as Codex's model provider in `domain`, into the adapters. The Codex adapter owns its provider identifier, and no production file of `domain`, `store` or `secret` names a client.
-- [x] 2.5 Remove every exported identifier in `domain`, `store` and `secret` that has no caller outside its package, and make the architecture gate report any new one. The gate's `used_exports_only` rule covers the three packages and the `secret` subpackages, and it reports no finding.
+- [x] 2.5 Remove every exported identifier in `domain`, `store` and `secret` that has no caller outside its package, and make the architecture gate report any new one. The gate's `used_exports_only` rule covers the top-level identifiers of the three packages and the `secret` subpackages, and it reports no finding. A type-checked scan finds no exported method of their exported types without a caller outside its package.
 - [ ] 2.6 Run the local quality graph at the stage head.
 - [ ] 2.7 Prove the stage head with the full ETHOS proof.
 - [ ] 2.8 Confirm the hosted three-platform graph and the real-client journeys at the stage head.
@@ -39,7 +39,7 @@
 
 - [ ] 4.1 Move program install, update, rollback and uninstall from `internal/upgrade` into `internal/program`, and the Provider-native diagnostics from `internal/providers` into `internal/provider`.
 - [ ] 4.2 Move the release artifact format to `internal/program/artifact`. Release tooling and program update both import it, and the `artifact` package base name occurs once.
-- [ ] 4.3 Add the ordered `layers` table, with at most 12 entries, to the architecture policy, and make `tools/architecture` enforce it for product packages and repository tools; delete `allowed_import_edges`. First move the behavior behind the same-layer edges that stage 2 leaves to a lower owner: the file transactions that `secret` takes from `store`, and the diagnostic credentials and Token probes that `provider` takes from `secret`.
+- [ ] 4.3 Add the ordered `layers` table, with at most 12 entries, to the architecture policy, and make `tools/architecture` enforce it for product packages and repository tools; delete `allowed_import_edges`. First resolve the imports that the table would refuse. `secret` takes the file transactions from `store`, which move to a lower owner. `provider` takes diagnostic credentials and the redirect-free `probe.Send` from `secret`; sending is I/O, so it receives them through a seam instead. `providers/dmxapi`, `client/verification` and `tools/release/performance` import `redaction`, a layer 3 owner.
 - [ ] 4.4 Make the Mise `build` task write to `build/artifacts/<version>-<commit>/`; the repository root `dist/` default and its ignore entry are removed.
 - [ ] 4.5 Run the local quality graph at the stage head.
 - [ ] 4.6 Prove the stage head with the full ETHOS proof.
