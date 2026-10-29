@@ -12,7 +12,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
@@ -27,8 +27,8 @@ func renameRuntime(t *testing.T) invocation.Context {
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	secretStore := secrets.NewMemoryStore()
-	diagnostics, err := secrets.NewDiagnosticCredentialStore(secretStore)
+	secretStore := secret.NewMemoryStore()
+	diagnostics, err := secret.NewDiagnosticCredentialStore(secretStore)
 	if err != nil {
 		t.Fatal(err)
 	}

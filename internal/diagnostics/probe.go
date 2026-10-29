@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 )
 
@@ -110,14 +109,14 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 		if strings.TrimSpace(runtime.Model) == "" {
 			return Result{Kind: ModelUnresolved, Scope: scope, Summary: "Route has no upstream model for inference", Fix: "Check the selected Route's upstream model"}
 		}
-		req, err = credential.ModelInferenceRequest(ctx, runtime.Endpoint, runtime.Protocol, token, runtime.Model)
+		req, err = domain.ModelInferenceRequest(ctx, runtime.Endpoint, runtime.Protocol, token, runtime.Model)
 	} else {
-		req, err = credential.ModelCatalogRequest(ctx, runtime.Endpoint, runtime.Protocol, token)
+		req, err = domain.ModelCatalogRequest(ctx, runtime.Endpoint, runtime.Protocol, token)
 	}
 	if err != nil {
 		return Result{Kind: EndpointMismatch, Scope: scope, Summary: "Cannot construct the diagnostic request", Fix: "Check the endpoint and protocol for the active route"}
 	}
-	resp, err := credential.DoProbe(client, req)
+	resp, err := domain.DoProbe(client, req)
 	if err != nil {
 		return Result{Kind: NetworkFailure, Scope: scope, Summary: "Cannot reach the endpoint", Fix: unreachableEndpointFix(runtime.Client), Retryable: true, Attempts: 1}
 	}

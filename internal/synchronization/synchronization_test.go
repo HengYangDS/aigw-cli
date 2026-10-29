@@ -4,11 +4,11 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 	"bytes"
@@ -422,7 +422,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	aigwExecutable := filepath.Join(t.TempDir(), "secret-token-aigw")
-	credentials := secrets.NewMemoryStore()
+	credentials := secret.NewMemoryStore()
 	const accountToken = "synthetic-account-token-not-for-authentication"
 	if err := credentials.Set("gateway", accountToken); err != nil {
 		t.Fatal(err)
@@ -450,7 +450,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	helper, err := credential.Command(aigwExecutable, claude.ID, projection.CredentialProjectionFingerprint(claude.ID), runtime.GOOS)
+	helper, err := secret.Command(aigwExecutable, claude.ID, projection.CredentialProjectionFingerprint(claude.ID), runtime.GOOS)
 	if err != nil {
 		t.Fatal(err)
 	}

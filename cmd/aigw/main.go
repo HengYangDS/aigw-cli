@@ -5,8 +5,8 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/native"
 	"aigw-cli/internal/upgrade"
 	"io"
 	"os"
@@ -28,7 +28,7 @@ func credentialRole(executable string, err error) native.Role {
 
 func run(args []string, stdout, stderr io.Writer) int {
 	role := func() native.Role { return credentialRole(os.Executable()) }
-	if handled, code := native.RunCredentialSubprocess(args, os.Stdin, stdout, stderr, secrets.Service, role); handled {
+	if handled, code := native.RunCredentialSubprocess(args, os.Stdin, stdout, stderr, secret.Service, role); handled {
 		return code
 	}
 	app, err := cli.NewDefault(clients.Registry())

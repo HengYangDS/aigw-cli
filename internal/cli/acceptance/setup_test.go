@@ -7,7 +7,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 	"context"
@@ -23,8 +23,8 @@ import (
 
 func TestSetupReusesReadOnlyEnvironmentSecretWithoutPromptingOrPersisting(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
-		if key == secrets.EnvironmentKey("dmx") {
+	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+		if key == secret.EnvironmentKey("dmx") {
 			return "environment-only-token"
 		}
 		return ""
@@ -149,7 +149,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("secret lookup", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		want := errors.New("keychain unavailable")
-		app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), getErr: want}
+		app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), getErr: want}
 		err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test"})
 		if !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
@@ -177,7 +177,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("secret write", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "token\n")
 		want := errors.New("keychain locked")
-		app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), setErr: want}
+		app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), setErr: want}
 		err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--token-stdin"})
 		if !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
@@ -214,7 +214,7 @@ func TestSetupRejectsInvalidAutomaticBackendSelectionBeforeCredentialInput(t *te
 			if err := os.WriteFile(filepath.Join(secretsRoot, "backend"), []byte("invalid\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			store, err := secrets.Select(secrets.Selection{GOOS: runtime.GOOS, Root: secretsRoot})
+			store, err := secret.Select(secret.Selection{GOOS: runtime.GOOS, Root: secretsRoot})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -269,10 +269,10 @@ func TestSetupRestoresExistingSecretWhenCodexProjectionFails(t *testing.T) {
 func TestSetupRollbackRemovesNewAutomaticBackendSelection(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
 	secretsRoot := filepath.Join(t.TempDir(), "secrets")
-	store, err := secrets.Select(secrets.Selection{
+	store, err := secret.Select(secret.Selection{
 		GOOS:         runtime.GOOS,
 		Root:         secretsRoot,
-		KeyringProbe: func(secrets.Store) error { return errors.New("native credential service unavailable") },
+		KeyringProbe: func(secret.Store) error { return errors.New("native credential service unavailable") },
 	})
 	if err != nil {
 		t.Fatal(err)

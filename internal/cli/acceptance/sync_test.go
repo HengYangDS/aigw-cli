@@ -8,7 +8,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -321,7 +321,7 @@ func TestSyncSurfacesCredentialObservationFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := errors.New("credential observation failed")
-	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: want}
+	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: want}
 
 	if err := cli.Execute(app, []string{"sync"}); err == nil || err.Error() != "Synchronization prerequisites are unavailable" || !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)

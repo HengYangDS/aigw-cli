@@ -1,6 +1,8 @@
 // Package domain owns AIGW's configuration model: its schema, the clients a
-// configuration admits, validation, and the semantics of the token-free team
-// manifest. It imports only the standard library and names no client.
+// configuration admits, validation, the endpoint requests that prove an
+// Account's Token, and the semantics of the token-free team manifest. It
+// imports only the standard library, names no client and sends requests only
+// through a caller-supplied HTTP client.
 package domain
 
 import (

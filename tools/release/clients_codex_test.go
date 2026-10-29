@@ -24,7 +24,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
 	"aigw-cli/internal/clients"
@@ -90,7 +90,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	if err := journey.prepareNativeClient(codex.ID, executable, p.team); err != nil {
 		t.Fatal(err)
 	}
-	journey.setEnvironment(secrets.EnvironmentKey(account), token)
+	journey.setEnvironment(secret.EnvironmentKey(account), token)
 	journey.run("setup", "--from", journey.manifest)
 	journey.run("use", "--for", codex.ID, routeIDs[0])
 	journey.enableNativeClient(codex.ID, executable)
@@ -184,7 +184,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	if err := journey.prepareNativeClient(codex.ID, executable, p.team); err != nil {
 		t.Fatal(err)
 	}
-	journey.setEnvironment(secrets.EnvironmentKey(account), token)
+	journey.setEnvironment(secret.EnvironmentKey(account), token)
 	journey.run("setup", "--from", journey.manifest)
 	journey.run("use", "--for", codex.ID, routeID)
 	journey.enableNativeClient(codex.ID, executable)

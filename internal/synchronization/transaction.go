@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -68,7 +68,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 		return false, err
 	}
 	var undoEntrypoint func() error
-	var entrypoint *credential.Entrypoint
+	var entrypoint *secret.Entrypoint
 	if len(projectable) > 0 {
 		entrypoint, undoEntrypoint, err = s.prepareCredentialEntrypoint(after, projectable...)
 		if err != nil {
@@ -115,7 +115,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 
 // finalizeCredentialEntrypoint confirms, after projection, the reader that this
 // transaction prepared; without a prepared reader there is nothing to confirm.
-func (s Synchronizer) finalizeCredentialEntrypoint(entrypoint *credential.Entrypoint) error {
+func (s Synchronizer) finalizeCredentialEntrypoint(entrypoint *secret.Entrypoint) error {
 	if entrypoint == nil {
 		return nil
 	}

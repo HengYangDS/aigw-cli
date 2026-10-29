@@ -10,7 +10,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -40,7 +40,7 @@ func TestUsePromptsForACompatibleClientOnASharedRoute(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "synthetic-token"); err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestUsePromptsForACompatibleClientOnASharedRoute(t *testing.T) {
 
 func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
-	secretStore := secrets.NewMemoryStore()
+	secretStore := secret.NewMemoryStore()
 	runtime.Secrets = secretStore
 	selector := &promptStub{selected: "codex"}
 	runtime.Prompt = selector

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"context"
 	"errors"
 	"os/exec"
@@ -28,7 +28,7 @@ func legacyKeychainSlot(t *testing.T, operation, account, keychain string) bool 
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	args := []string{operation, "-s", secrets.Service, "-a", account}
+	args := []string{operation, "-s", secret.Service, "-a", account}
 	if keychain != "" {
 		args = append(args, keychain)
 	}
@@ -58,7 +58,7 @@ func TestLegacyKeychainSlotCleanupAfterEarlyExit(t *testing.T) {
 	const account = "owned-legacy-slot"
 	t.Run("early exit", func(t *testing.T) {
 		requireUnoccupiedLegacyKeychainSlot(t, account, keychain)
-		runPrivateKeychainCommand(t, "add-generic-password", "-s", secrets.Service, "-a", account, "-w", "synthetic", "-A", keychain)
+		runPrivateKeychainCommand(t, "add-generic-password", "-s", secret.Service, "-a", account, "-w", "synthetic", "-A", keychain)
 		t.SkipNow()
 	})
 	if legacyKeychainSlot(t, "find-generic-password", account, keychain) {

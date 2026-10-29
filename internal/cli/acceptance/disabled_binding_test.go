@@ -14,13 +14,13 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 // accountDenyingStore fails credential metadata reads for chosen Accounts, as
 // a denied operating-system credential item does, and records every read.
 type accountDenyingStore struct {
-	secrets.Store
+	secret.Store
 	denied   map[string]error
 	observed []string
 }

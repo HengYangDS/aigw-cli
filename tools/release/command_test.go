@@ -2,7 +2,7 @@ package main
 
 import (
 	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	upgradeartifact "aigw-cli/internal/upgrade/artifact"
 	"aigw-cli/tools/release/artifact"
 	"archive/zip"
@@ -32,7 +32,7 @@ func TestSyncPreviewIncludesMissingCredentialEntrypointWithoutWriting(t *testing
 	}))
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, program, server.URL, true)
-	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
 	target := journey.credentialEntrypoint()
 	if err := errors.Join(os.Remove(target), os.Remove(target+".sha256")); err != nil {

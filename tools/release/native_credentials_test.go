@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
 	builtinclients "aigw-cli/internal/clients"
@@ -39,21 +39,21 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	journey.prepareCodexLifecycle()
 	configureNativeDiagnosticProbe(t, journey, sourceAccount, endpoint)
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, newVersion)
-	store, err := secrets.Select(secrets.Selection{Backend: "keyring", Executable: candidate})
+	store, err := secret.Select(secret.Selection{Backend: "keyring", Executable: candidate})
 	if err != nil {
 		t.Fatal(err)
 	}
 	requireUnoccupiedNativeCredentialSlots(t, store, sourceAccount, targetAccount)
-	diagnosticSlots, err := secrets.ForKind(store, secrets.ProviderDiagnostic)
+	diagnosticSlots, err := secret.ForKind(store, secret.ProviderDiagnostic)
 	if err != nil {
 		t.Fatal(err)
 	}
 	requireUnoccupiedNativeCredentialSlots(t, diagnosticSlots, sourceAccount, targetAccount)
-	diagnostics, err := secrets.NewDiagnosticCredentialStore(store)
+	diagnostics, err := secret.NewDiagnosticCredentialStore(store)
 	if err != nil {
 		t.Fatal(err)
 	}
-	backend := secrets.BackendSelection{
+	backend := secret.BackendSelection{
 		Kind:         "keyring",
 		Availability: "available",
 		Mutability:   "read_write",
@@ -70,7 +70,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 	if bytes.Contains(output, []byte(diagnostic)) || bytes.Contains(output, []byte(diagnosticID)) {
 		t.Fatal("diagnostic credential input escaped into CLI output")
 	}
-	wantDiagnostic := secrets.DiagnosticCredential{SystemToken: diagnostic, UserID: diagnosticID}
+	wantDiagnostic := secret.DiagnosticCredential{SystemToken: diagnostic, UserID: diagnosticID}
 	if got, err := diagnostics.Get(sourceAccount); err != nil || got != wantDiagnostic {
 		t.Fatalf("candidate diagnostic credential was not staged from explicit input: %v", err)
 	}
@@ -95,7 +95,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 }
 
 func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
-	t *testing.T, account, predecessorVersion string, store secrets.Store, backend secrets.BackendSelection, prior ...process.Plan,
+	t *testing.T, account, predecessorVersion string, store secret.Store, backend secret.BackendSelection, prior ...process.Plan,
 ) string {
 	t.Helper()
 	const rotated = "native-system-keyring-rotated-after-rollback"
@@ -167,12 +167,12 @@ func configureNativeDiagnosticProbe(t *testing.T, journey *journeyFixture, accou
 }
 
 func finishNativeCredentialJourney(
-	journey *journeyFixture, store secrets.Store,
-	sourceAccount, targetAccount, replacement string, wantDiagnostic secrets.DiagnosticCredential, backend secrets.BackendSelection,
+	journey *journeyFixture, store secret.Store,
+	sourceAccount, targetAccount, replacement string, wantDiagnostic secret.DiagnosticCredential, backend secret.BackendSelection,
 ) {
 	t := journey.testing
 	t.Helper()
-	diagnostics, err := secrets.NewDiagnosticCredentialStore(store)
+	diagnostics, err := secret.NewDiagnosticCredentialStore(store)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,7 @@ func finishNativeCredentialJourney(
 	}
 }
 
-func requireUnoccupiedNativeCredentialSlots(t *testing.T, store secrets.Store, accounts ...string) {
+func requireUnoccupiedNativeCredentialSlots(t *testing.T, store secret.Store, accounts ...string) {
 	t.Helper()
 	for _, account := range accounts {
 		if exists, err := store.Exists(account); err != nil || exists {
@@ -246,7 +246,7 @@ func requireUnoccupiedNativeCredentialSlots(t *testing.T, store secrets.Store, a
 }
 
 func TestNativeCredentialSlotCleanupAfterEarlyExit(t *testing.T) {
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	t.Run("early exit", func(t *testing.T) {
 		requireUnoccupiedNativeCredentialSlots(t, store, "owned")
 		if err := store.Set("owned", "synthetic"); err != nil {
@@ -405,7 +405,7 @@ func systemCredentialEnvironment(goos string, current []string, hostHome, scope 
 	}), nil
 }
 
-func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, token string, backend secrets.BackendSelection, prior ...process.Plan) {
+func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive, checksums, newVersion, token string, backend secret.BackendSelection, prior ...process.Plan) {
 	j.testing.Helper()
 	oldVersion := j.predecessorVersion(newVersion)
 	j.testing.Logf("credential baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(j.testing, j.source)), newVersion, sha256.Sum256(readFile(j.testing, candidate)))
@@ -483,7 +483,7 @@ func runLinuxSecureFileFallback(t *testing.T, candidate, endpoint string) {
 	)
 	const token = "native-secure-file-token"
 	journey.runWithInput(journey.binary, token+"\n", "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe", "--token-stdin")
-	journey.requireCredentialBackend(token, secrets.BackendSelection{
+	journey.requireCredentialBackend(token, secret.BackendSelection{
 		Kind:         "file",
 		Availability: "available",
 		Mutability:   "read_write",

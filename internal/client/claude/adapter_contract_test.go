@@ -9,7 +9,7 @@ import (
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/contract"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func TestClaudeAdapterKeepsTheSeamContract(t *testing.T) {
@@ -32,7 +32,7 @@ func TestClaudeAdapterKeepsTheSeamContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		store := secrets.NewMemoryStore()
+		store := secret.NewMemoryStore()
 		if err := store.Set("gateway", "token"); err != nil {
 			t.Fatal(err)
 		}

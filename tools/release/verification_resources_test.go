@@ -22,7 +22,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/tools/release/readiness"
 )
 
@@ -74,7 +74,7 @@ func runNativeResourceCase(t *testing.T, program, client, mode string) {
 	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
 		journey.setEnvironment(key, temporary)
 	}
-	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-resource-token")
+	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-resource-token")
 	if err := os.WriteFile(journey.manifest, []byte(nativeResourceManifest(client)), 0o600); err != nil {
 		t.Fatal(err)
 	}

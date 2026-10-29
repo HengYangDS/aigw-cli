@@ -6,7 +6,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"bytes"
 	"path/filepath"
 	"strings"
@@ -178,7 +178,7 @@ func TestResultClassifiesObservedClientStates(t *testing.T) {
 			if err := secretStore.Set("team", "token"); err != nil {
 				t.Fatal(err)
 			}
-			deps.Inspect = func(domain.Config, secrets.Store) map[string]domainreadiness.Client {
+			deps.Inspect = func(domain.Config, secret.Store) map[string]domainreadiness.Client {
 				return map[string]domainreadiness.Client{claude.ID: {State: test.state}}
 			}
 			result := executeJSON(t, deps, out)

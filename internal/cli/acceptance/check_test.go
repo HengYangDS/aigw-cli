@@ -6,7 +6,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"bytes"
 	"encoding/json"
 	"io"
@@ -361,12 +361,12 @@ func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedRoute(t *testing.
 		if err := secretStore.Set(account, token); err != nil {
 			t.Fatal(err)
 		}
-		if err := app.Accounts.Set(account, secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
+		if err := app.Accounts.Set(account, secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	tokenObservation := &recordingCredentialStore[string]{backend: secretStore}
-	diagnosticObservation := &recordingCredentialStore[secrets.DiagnosticCredential]{backend: app.Accounts}
+	diagnosticObservation := &recordingCredentialStore[secret.DiagnosticCredential]{backend: app.Accounts}
 	app.Secrets = tokenObservation
 	app.Accounts = diagnosticObservation
 	prompt := &scriptedPrompt{}

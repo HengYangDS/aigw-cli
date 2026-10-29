@@ -6,7 +6,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	surfaceidentity "aigw-cli/internal/surface"
 	"bytes"
 	"encoding/json"
@@ -22,7 +22,7 @@ import (
 
 func TestSetupFromConfigurationManifestNamesEnvironmentTokensInsteadOfRotate(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	app.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
+	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
 	app.Discovery = fakeDiscovery{}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
@@ -31,8 +31,8 @@ func TestSetupFromConfigurationManifestNamesEnvironmentTokensInsteadOfRotate(t *
 	}
 	text := out.String()
 	for _, want := range []string{
-		secrets.EnvironmentKey("aihubmix"),
-		secrets.EnvironmentKey("dmxapi"),
+		secret.EnvironmentKey("aihubmix"),
+		secret.EnvironmentKey("dmxapi"),
 		"one compatible Account variable",
 		", then run `aigw sync`",
 	} {
@@ -52,7 +52,7 @@ func TestSetupFromConfigurationManifestNamesEnvironmentTokensInsteadOfRotate(t *
 
 func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	app.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
+	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
 	app.Discovery = fakeDiscovery{}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
@@ -67,7 +67,7 @@ func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice
 		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
 	}
 	wantDeferred := []string{
-		"Set one compatible Account variable: " + secrets.EnvironmentKey("aihubmix") + " or " + secrets.EnvironmentKey("dmxapi") + ", then run `aigw sync`",
+		"Set one compatible Account variable: " + secret.EnvironmentKey("aihubmix") + " or " + secret.EnvironmentKey("dmxapi") + ", then run `aigw sync`",
 	}
 	if !slices.Equal(result.DeferredActions, wantDeferred) || result.NextAction != wantDeferred[0] {
 		t.Fatalf("setup JSON continuation = %#v", result)
@@ -80,8 +80,8 @@ func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice
 func TestSetupFromTeamManifestConnectsExplicitManualAccountFromEnvironment(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	const token = "aigw-test-aihubmix-token"
-	app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
-		if key == secrets.EnvironmentKey("aihubmix") {
+	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+		if key == secret.EnvironmentKey("aihubmix") {
 			return token
 		}
 		return ""
@@ -122,7 +122,7 @@ func TestSetupFromConfigurationManifestLeavesNoConfigWhenTokenStorageFails(t *te
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-dmxapi-token"}}
 	want := errors.New("credential store unavailable")
-	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), setErr: want}
+	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), setErr: want}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
 	err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--account", "dmxapi"})
@@ -134,8 +134,8 @@ func TestSetupFromConfigurationManifestLeavesNoConfigWhenTokenStorageFails(t *te
 
 func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
-		if key == secrets.EnvironmentKey("dmxapi") {
+	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+		if key == secret.EnvironmentKey("dmxapi") {
 			return "aigw-test-dmxapi-env-token"
 		}
 		return ""
@@ -275,11 +275,11 @@ func assertManifestSetupDoesNotLeakTokens(t *testing.T, app *cli.App, out *bytes
 
 func TestSetupFromConfigurationManifestReusesEnvironmentTokensWithoutPrompting(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
+	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
 		switch key {
-		case secrets.EnvironmentKey("aihubmix"):
+		case secret.EnvironmentKey("aihubmix"):
 			return "aigw-test-aihubmix-env-token"
-		case secrets.EnvironmentKey("dmxapi"):
+		case secret.EnvironmentKey("dmxapi"):
 			return "aigw-test-dmxapi-env-token"
 		default:
 			return ""

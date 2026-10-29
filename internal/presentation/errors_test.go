@@ -15,7 +15,7 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
 	"github.com/pelletier/go-toml/v2"
@@ -168,7 +168,7 @@ func TestCredentialErrorUsesOnlySafeProblems(t *testing.T) {
 
 func TestNativeReaderPreflightReportsRecoveryWithoutPrivateCause(t *testing.T) {
 	const privateCause = "private-token-fragment /Users/operator/keychain"
-	err := fmt.Errorf("%w: %s", secrets.ErrNativeReaderUnverified, privateCause)
+	err := fmt.Errorf("%w: %s", secret.ErrNativeReaderUnverified, privateCause)
 	for _, jsonMode := range []bool{false, true} {
 		var out bytes.Buffer
 		renderer := New(&out, false)

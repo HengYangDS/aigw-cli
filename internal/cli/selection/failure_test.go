@@ -11,12 +11,12 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 	runtime, _, _ := configuredRuntime(t)
-	runtime.Secrets = failingSecretStore{Store: secrets.NewMemoryStore(), setErr: errors.New("store failed")}
+	runtime.Secrets = failingSecretStore{Store: secret.NewMemoryStore(), setErr: errors.New("store failed")}
 	runtime.Interactive = true
 	runtime.Prompt = &promptStub{secret: "token"}
 	runtime.HTTP = doerFunc(func(*http.Request) (*http.Response, error) {
@@ -31,7 +31,7 @@ func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 	}
 
 	runtime, _, _ = configuredRuntime(t)
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 }
 
 type failingSecretStore struct {
-	secrets.Store
+	secret.Store
 	setErr    error
 	deleteErr error
 }
@@ -127,9 +127,9 @@ func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
 func TestUseRollsBackAutomaticBackendSelection(t *testing.T) {
 	run, _, _, _ := tokenAcquisitionRuntime(t)
 	root := filepath.Join(t.TempDir(), "secrets")
-	store, err := secrets.Select(secrets.Selection{
+	store, err := secret.Select(secret.Selection{
 		GOOS: runtime.GOOS, Root: root,
-		KeyringProbe: func(secrets.Store) error { return errors.New("isolated file backend") },
+		KeyringProbe: func(secret.Store) error { return errors.New("isolated file backend") },
 	})
 	if err != nil {
 		t.Fatal(err)

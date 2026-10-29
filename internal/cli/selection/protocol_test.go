@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/prompt"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
@@ -53,7 +53,7 @@ func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 
 func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		t.Fatalf("ambiguous selection changed Hermes binding: %#v, %v", unchanged.Clients, err)
 	}
 
-	runtime.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
+	runtime.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
 	command = NewUseCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
@@ -134,7 +134,7 @@ func TestUseValidatesSelectedProtocolWhenAcquiringToken(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	runtime.Secrets = secrets.NewMemoryStore()
+	runtime.Secrets = secret.NewMemoryStore()
 	runtime.Interactive = true
 	runtime.Prompt = &promptStub{secret: "token"}
 	requests := 0

@@ -9,10 +9,9 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -26,11 +25,11 @@ func versionedReaders(t *testing.T) (string, string) {
 		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+		reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := credential.EnsureEntrypoint(source, reader); err != nil {
+		if _, err := secret.EnsureEntrypoint(source, reader); err != nil {
 			t.Fatal(err)
 		}
 		paths = append(paths, reader)
@@ -51,7 +50,7 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedRoute(ID, "hermes", "")
 	cfg.SetClientActivation(ID, true, executable, []string{target})
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("team", "fixture-token"); err != nil {
 		t.Fatal(err)
 	}

@@ -14,7 +14,7 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
 	"aigw-cli/internal/clients"
@@ -30,7 +30,7 @@ func catalogDependencies(t *testing.T, cfg domain.Config, secretValues map[strin
 			t.Fatal(err)
 		}
 	}
-	secretStore := secrets.NewMemoryStore()
+	secretStore := secret.NewMemoryStore()
 	for account, value := range secretValues {
 		if err := secretStore.Set(account, value); err != nil {
 			t.Fatal(err)
@@ -68,7 +68,7 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 	if err := writeUnreadableConfig(loadFailure.Path()); err != nil {
 		t.Fatal(err)
 	}
-	deps := Dependencies{Config: loadFailure, Secrets: secrets.NewMemoryStore(), HTTP: catalogHTTPClient(nil), Out: io.Discard}
+	deps := Dependencies{Config: loadFailure, Secrets: secret.NewMemoryStore(), HTTP: catalogHTTPClient(nil), Out: io.Discard}
 	if err := executeCatalogCommand(t, NewModelsCommand(deps)); err == nil {
 		t.Fatal("expected config load failure")
 	}
@@ -266,7 +266,7 @@ func (store *faultingSecrets) Get(account string) (string, error) {
 	}
 	value, ok := store.values[account]
 	if !ok {
-		return "", secrets.ErrNotFound
+		return "", secret.ErrNotFound
 	}
 	return value, nil
 }

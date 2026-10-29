@@ -11,8 +11,8 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/native"
 	"aigw-cli/internal/store"
 )
 
@@ -45,7 +45,7 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveProbeRoute(t, app.Config)
 		diagnosticStore := app.Accounts
-		_ = diagnosticStore.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
+		_ = diagnosticStore.Set("dmx", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		if err := cli.Execute(app, []string{"balance"}); err == nil {
 			t.Fatal("expected missing API token")
 		}
@@ -55,7 +55,7 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 		app, _, secretStore, _, httpClient := testApp(t, "")
 		saveProbeRoute(t, app.Config)
 		diagnosticStore := app.Accounts
-		_ = diagnosticStore.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
+		_ = diagnosticStore.Set("dmx", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		_ = secretStore.Set("dmx", "sk-abcd-middle-wxyz")
 		want := errors.New("network failed")
 		httpClient.handler = func(*http.Request) (*http.Response, error) { return nil, want }
@@ -68,7 +68,7 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 		app, out, secretStore, _, httpClient := testApp(t, "")
 		saveProbeRoute(t, app.Config)
 		diagnosticStore := app.Accounts
-		_ = diagnosticStore.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
+		_ = diagnosticStore.Set("dmx", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		_ = secretStore.Set("dmx", "sk-abcd-middle-wxyz")
 		httpClient.handler = func(request *http.Request) (*http.Response, error) {
 			body := `{"success":true,"data":{"quota":6250000}}`
@@ -146,7 +146,7 @@ func TestBalanceDoesNotReportUnreadableDiagnosticCredentialAsMissing(t *testing.
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, httpClient := testApp(t, "")
 			saveProbeRoute(t, app.Config)
-			store := &recordingCredentialStore[secrets.DiagnosticCredential]{backend: app.Accounts, getErr: test.cause}
+			store := &recordingCredentialStore[secret.DiagnosticCredential]{backend: app.Accounts, getErr: test.cause}
 			app.Accounts = store
 
 			err := cli.Execute(app, []string{"balance"})
@@ -171,9 +171,9 @@ func TestBalanceDoesNotReportUnreadableDiagnosticCredentialAsMissing(t *testing.
 func TestBalanceReportsIncompleteEnvironmentDiagnosticPair(t *testing.T) {
 	app, out, _, _, httpClient := testApp(t, "")
 	saveProbeRoute(t, app.Config)
-	values := map[string]string{secrets.DiagnosticSystemTokenEnvironmentKey("dmx"): "private-system-token"}
-	backend := secrets.NewEnvironmentStore(func(key string) string { return values[key] })
-	accounts, err := secrets.NewDiagnosticCredentialStore(backend)
+	values := map[string]string{secret.DiagnosticSystemTokenEnvironmentKey("dmx"): "private-system-token"}
+	backend := secret.NewEnvironmentStore(func(key string) string { return values[key] })
+	accounts, err := secret.NewDiagnosticCredentialStore(backend)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestBalanceReportsIncompleteEnvironmentDiagnosticPair(t *testing.T) {
 	if err := cli.Execute(app, []string{"balance"}); err == nil {
 		t.Fatal("incomplete diagnostic pair was accepted")
 	}
-	for _, want := range []string{"Cannot read provider diagnostic credential", secrets.DiagnosticSystemTokenEnvironmentKey("dmx"), secrets.DiagnosticUserIDEnvironmentKey("dmx")} {
+	for _, want := range []string{"Cannot read provider diagnostic credential", secret.DiagnosticSystemTokenEnvironmentKey("dmx"), secret.DiagnosticUserIDEnvironmentKey("dmx")} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("balance output lacks %q: %s", want, out.String())
 		}
@@ -202,8 +202,8 @@ func TestBalanceReportsIncompleteEnvironmentDiagnosticPair(t *testing.T) {
 func TestBalanceNamesEnvironmentVariablesForAbsentDiagnostics(t *testing.T) {
 	app, out, _, _, httpClient := testApp(t, "")
 	saveProbeRoute(t, app.Config)
-	backend := secrets.NewEnvironmentStore(func(string) string { return "" })
-	accounts, err := secrets.NewDiagnosticCredentialStore(backend)
+	backend := secret.NewEnvironmentStore(func(string) string { return "" })
+	accounts, err := secret.NewDiagnosticCredentialStore(backend)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,7 +212,7 @@ func TestBalanceNamesEnvironmentVariablesForAbsentDiagnostics(t *testing.T) {
 	if err := cli.Execute(app, []string{"balance"}); err == nil {
 		t.Fatal("absent diagnostics produced a balance")
 	}
-	for _, want := range []string{"Precise balance diagnostics are not enabled", secrets.DiagnosticSystemTokenEnvironmentKey("dmx"), secrets.DiagnosticUserIDEnvironmentKey("dmx")} {
+	for _, want := range []string{"Precise balance diagnostics are not enabled", secret.DiagnosticSystemTokenEnvironmentKey("dmx"), secret.DiagnosticUserIDEnvironmentKey("dmx")} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("balance output lacks %q: %s", want, out.String())
 		}

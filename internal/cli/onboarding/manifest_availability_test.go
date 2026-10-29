@@ -10,9 +10,9 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 )
@@ -21,7 +21,7 @@ func TestMain(m *testing.M) {
 	if len(os.Args) != 4 || !strings.HasPrefix(os.Args[1], "__aigw-native-credential-") {
 		os.Exit(m.Run())
 	}
-	if os.Args[2] != secrets.Service || os.Args[3] != "team" {
+	if os.Args[2] != secret.Service || os.Args[3] != "team" {
 		os.Exit(3)
 	}
 	log, err := os.OpenFile(filepath.Join(filepath.Dir(os.Args[0]), "operations"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
@@ -59,14 +59,14 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 	if err := os.WriteFile(source, data, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	secretStore, err := secrets.Select(secrets.Selection{
+	secretStore, err := secret.Select(secret.Selection{
 		Backend: "keyring", Executable: source,
-		KeyringProbe: func(secrets.Store) error { return nil },
+		KeyringProbe: func(secret.Store) error { return nil },
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, filepath.Base(source))
+	reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, filepath.Base(source))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,8 +103,8 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 			t.Fatal(err)
 		}
 		for _, operation := range []struct{ file, commands string }{
-			{filepath.Join(root, "operations"), "__aigw-native-credential-exists " + secrets.Service + " team\n__aigw-native-credential-read " + secrets.Service + " team\n"},
-			{filepath.Join(filepath.Dir(reader), "operations"), "__aigw-native-credential-read " + secrets.Service + " team\n"},
+			{filepath.Join(root, "operations"), "__aigw-native-credential-exists " + secret.Service + " team\n__aigw-native-credential-read " + secret.Service + " team\n"},
+			{filepath.Join(filepath.Dir(reader), "operations"), "__aigw-native-credential-read " + secret.Service + " team\n"},
 		} {
 			data, err := os.ReadFile(operation.file)
 			if err != nil {

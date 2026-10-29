@@ -18,14 +18,14 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func TestAdapterEnableSurfacesCredentialObservationFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	want := errors.New("credential observation failed")
-	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: want}
+	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: want}
 
 	err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", executableFixture(t, "claude")})
 	if !errors.Is(err, want) {

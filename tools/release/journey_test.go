@@ -6,7 +6,7 @@ import (
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"context"
@@ -57,7 +57,7 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.installClientFixture("claude")
 		journey.run("sync")
 		journey.requireNoClaudeProjection()
-		journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+		journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 		beforePreview := readFile(t, journey.config)
 		var preview struct {
 			Selections map[string]string `json:"selections"`
@@ -70,7 +70,7 @@ func TestNativeProductJourney(t *testing.T) {
 		}
 		journey.run("sync")
 		journey.requireClaudeProjection()
-		journey.requireCredentialBackend("native-journey-token", secrets.BackendSelection{
+		journey.requireCredentialBackend("native-journey-token", secret.BackendSelection{
 			Kind:         "env",
 			Availability: "available",
 			Mutability:   "read_only",
@@ -90,7 +90,7 @@ func TestNativeProductJourney(t *testing.T) {
 	t.Run("one selected account does not require every token", func(t *testing.T) {
 		journey := newNativeJourney(t, currentProgram(t), server.URL+"/v1", true)
 		journey.prepareCodexLifecycle()
-		journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+		journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 		journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
 		journey.requireClaudeProjection()
@@ -104,7 +104,7 @@ func TestNativeProductJourney(t *testing.T) {
 		if !diagnosis.OK {
 			t.Fatal("doctor rejected a healthy partially connected catalogue")
 		}
-		journey.requireCredentialBackend("native-journey-token", secrets.BackendSelection{
+		journey.requireCredentialBackend("native-journey-token", secret.BackendSelection{
 			Kind: "env", Availability: "available", Mutability: "read_only", Persistence: "explicit",
 		})
 		journey.requireClaudeCredential("native-journey-token")
@@ -311,7 +311,7 @@ func (j *journeyFixture) setEnvironment(key, value string) {
 }
 
 func TestJourneyEnvironmentUpdatesPreserveOwnedCredentials(t *testing.T) {
-	key := secrets.EnvironmentKey("native-system-keyring-probe")
+	key := secret.EnvironmentKey("native-system-keyring-probe")
 	initial := environmentWith([]string{"PATH=host", key + "=ambient"}, map[string]string{"PATH": "isolated"})
 	if !slices.Equal(initial, []string{"PATH=isolated"}) {
 		t.Fatalf("initial environment retained ambient credentials: %v", initial)

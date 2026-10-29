@@ -15,12 +15,12 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
 type setupCredentials struct {
-	secrets.Store
+	secret.Store
 	writes int
 }
 
@@ -31,7 +31,7 @@ func (s *setupCredentials) Set(account, token string) error {
 
 func setupTokenStore(t *testing.T, token string) *setupCredentials {
 	t.Helper()
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("team", token); err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestSetupPreservesAlreadyConfiguredState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	memory := secrets.NewMemoryStore()
+	memory := secret.NewMemoryStore()
 	if err := memory.Set("gateway", "old-token"); err != nil {
 		t.Fatal(err)
 	}
@@ -175,9 +175,9 @@ func TestSetupCommitReportsBackendSelectionFailureWithoutErasingForeignState(t *
 					t.Fatal(err)
 				}
 			}
-			secretStore, err := secrets.Select(secrets.Selection{
+			secretStore, err := secret.Select(secret.Selection{
 				GOOS: runtime.GOOS, Root: secretRoot,
-				KeyringProbe: func(secrets.Store) error { return errors.New("isolated file backend") },
+				KeyringProbe: func(secret.Store) error { return errors.New("isolated file backend") },
 			})
 			if err != nil {
 				t.Fatal(err)

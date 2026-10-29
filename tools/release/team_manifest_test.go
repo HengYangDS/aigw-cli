@@ -4,7 +4,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
@@ -140,7 +140,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 		return
 	}
 	if !clientFirst {
-		journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
+		journey.setEnvironment(secret.EnvironmentKey(account), "team-journey-token")
 	}
 	for _, client := range plan.clients {
 		journey.installClientFixture(client)
@@ -154,7 +154,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 	}
 	if clientFirst {
 		requireNoActivationBeforeToken(t, journey)
-		journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
+		journey.setEnvironment(secret.EnvironmentKey(account), "team-journey-token")
 	}
 	selected, err := domain.Merge(domain.NewConfig(builtinclients.Admission()), plan.manifest)
 	if err != nil {

@@ -17,7 +17,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -71,7 +71,7 @@ func TestRotateWithoutNameRefusesAmbiguousAccounts(t *testing.T) {
 func TestRotateRejectsReadOnlyEnvironmentBackendBeforeInput(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "must-not-be-read\n")
 	saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
-	app.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
+	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secretErr: errors.New("prompt must not run")}
 
@@ -80,7 +80,7 @@ func TestRotateRejectsReadOnlyEnvironmentBackendBeforeInput(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 	text := out.String()
-	if !strings.Contains(text, secrets.EnvironmentKey("one")) || !strings.Contains(text, "No Token was read, validated, or changed") {
+	if !strings.Contains(text, secret.EnvironmentKey("one")) || !strings.Contains(text, "No Token was read, validated, or changed") {
 		t.Fatalf("output = %q", text)
 	}
 	if strings.Contains(err.Error(), "prompt must not run") || strings.Contains(text, "aigw check") {
@@ -116,7 +116,7 @@ func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "new-token\n")
 			saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
-			app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), getErr: test.get, setErr: test.set}
+			app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), getErr: test.get, setErr: test.set}
 			want := cmp.Or(test.get, test.set)
 			if err := cli.Execute(app, []string{"rotate", "one", "--token-stdin"}); !errors.Is(err, want) {
 				t.Fatalf("error = %v, want %v", err, want)

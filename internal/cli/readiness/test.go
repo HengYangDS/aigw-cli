@@ -8,10 +8,10 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	clientverification "aigw-cli/internal/client/verification"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
@@ -82,7 +82,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("token for account %q is unavailable: %w; %s", accountName, err, instruction)
 				}
-				status, err := credential.ProbeStatus(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), target, clientRuntime.Endpoint, token, clientRuntime.Protocol)
+				status, err := domain.ProbeStatus(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), target, clientRuntime.Endpoint, token, clientRuntime.Protocol)
 				if err != nil {
 					return err
 				}
@@ -126,14 +126,14 @@ func endpointTestToken(runtime invocation.Context, account string, stdinMode boo
 	if stdinMode {
 		token, err := invocation.ReadToken(runtime, true, false)
 		if err == nil && format == "go-keyring-base64" {
-			token, err = secrets.DecodeKeyringBase64(token)
+			token, err = secret.DecodeKeyringBase64(token)
 			if err == nil {
 				err = invocation.ValidateToken(token)
 			}
 		}
 		return token, "supply an authorized Token for this endpoint", err
 	}
-	instruction, _ := credential.TokenRecovery(runtime.Secrets, account)
+	instruction, _ := secret.TokenRecovery(runtime.Secrets, account)
 	token, err := runtime.Secrets.Get(account)
 	return token, instruction, err
 }

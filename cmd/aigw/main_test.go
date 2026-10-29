@@ -1,7 +1,7 @@
 package main
 
 import (
-	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/secret/native"
 	"aigw-cli/internal/upgrade"
 	"bytes"
 	"errors"

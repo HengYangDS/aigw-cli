@@ -5,11 +5,11 @@ package onboarding
 import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/prompt"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"context"
 	"errors"
 	"fmt"
@@ -57,7 +57,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		}),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			operation := runtime
-			operation.Secrets = secrets.ObserveAvailability(runtime.Secrets)
+			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 			if cmd.Flags().Changed("from") {
 				return runManifestSetup(cmd.Context(), operation, request)
 			}
@@ -125,7 +125,7 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	if err != nil {
 		return err
 	}
-	if err := credential.ValidateRuntime(ctx, runtime.HTTP, runtime.Clients.Admission(), selected, credentialChange.token); err != nil {
+	if err := domain.ValidateRuntime(ctx, runtime.HTTP, runtime.Clients.Admission(), selected, credentialChange.token); err != nil {
 		return fmt.Errorf("Token validation failed: %w", err)
 	}
 
@@ -271,7 +271,7 @@ func setupEndpointFlag(protocol domain.EndpointProtocol) string {
 func setupToken(runtime invocation.Context, request Request) (setupCredential, error) {
 	credential := setupCredential{account: request.Account}
 	previous, err := runtime.Secrets.Get(request.Account)
-	if err != nil && !errors.Is(err, secrets.ErrNotFound) {
+	if err != nil && !errors.Is(err, secret.ErrNotFound) {
 		return setupCredential{}, err
 	}
 	if !request.PromptToken && !request.TokenStdin && err == nil {

@@ -11,10 +11,9 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func TestClaudeVerificationBoundsClientProcesses(t *testing.T) {
@@ -31,7 +30,7 @@ func TestClaudeVerificationBoundsClientProcesses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	secretStore := secrets.NewMemoryStore()
+	secretStore := secret.NewMemoryStore()
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +55,7 @@ func TestClaudeVerificationRequiresTheSynchronizedProjection(t *testing.T) {
 	}
 	cfg := domain.NewConfig(testAdmission())
 	cfg.SetClientActivation(ID, true, executable, nil)
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +70,7 @@ func TestClaudeVerificationRequiresTheSynchronizedProjection(t *testing.T) {
 
 func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
 	runtime := domain.Runtime{AccountID: "gateway"}
-	secretStore := secrets.NewMemoryStore()
+	secretStore := secret.NewMemoryStore()
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +216,7 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -272,7 +271,7 @@ func TestClaudeVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing
 			if err != nil {
 				t.Fatal(err)
 			}
-			store := secrets.NewMemoryStore()
+			store := secret.NewMemoryStore()
 			if err := store.Set("gateway", "fixture-token"); err != nil {
 				t.Fatal(err)
 			}
@@ -311,11 +310,11 @@ func versionedReaders(t *testing.T) (string, string) {
 		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+		reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := credential.EnsureEntrypoint(source, reader); err != nil {
+		if _, err := secret.EnsureEntrypoint(source, reader); err != nil {
 			t.Fatal(err)
 		}
 		paths = append(paths, reader)

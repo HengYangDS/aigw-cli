@@ -17,7 +17,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 type fixedDiscoverer struct{ result discovery.Result }
@@ -229,7 +229,7 @@ func TestRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 		Account: "gateway", Model: "claude-test",
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "fixture-token"); err != nil {
 		t.Fatal(err)
 	}

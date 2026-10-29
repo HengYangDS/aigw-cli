@@ -9,7 +9,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/prompt"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	surfaceidentity "aigw-cli/internal/surface"
 	"errors"
 	"fmt"
@@ -247,7 +247,7 @@ func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secrets: []string{"new-token"}}
 	want := errors.New("keychain locked")
-	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), setErr: want}
+	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), setErr: want}
 	err := cli.Execute(app, []string{"use", "--for", "claude", "two"})
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)

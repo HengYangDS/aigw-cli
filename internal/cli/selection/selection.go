@@ -10,11 +10,10 @@ import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/prompt"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 
 	"github.com/spf13/cobra"
 )
@@ -58,7 +57,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			operation := runtime
-			operation.Secrets = secrets.ObserveAvailability(runtime.Secrets)
+			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 			client, name, err := resolveUseSelection(operation, cfg, client, args)
 			if err != nil {
 				return err
@@ -327,7 +326,7 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg domain.
 	if available {
 		return "", nil
 	}
-	instruction, writable := credential.TokenRecovery(runtime.Secrets, selected.AccountID)
+	instruction, writable := secret.TokenRecovery(runtime.Secrets, selected.AccountID)
 	if !writable {
 		retry := fmt.Sprintf("aigw use --for %s %s", selected.Client, selected.RouteID)
 		spec, _ := runtime.Clients.Admission().Spec(selected.Client)
@@ -344,7 +343,7 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg domain.
 	if err != nil {
 		return "", err
 	}
-	if err := credential.ValidateRuntime(ctx, runtime.HTTP, runtime.Clients.Admission(), selected, token); err != nil {
+	if err := domain.ValidateRuntime(ctx, runtime.HTTP, runtime.Clients.Admission(), selected, token); err != nil {
 		return "", fmt.Errorf("token validation failed: %w", err)
 	}
 	return token, nil

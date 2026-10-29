@@ -7,7 +7,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
 	"bytes"
@@ -61,21 +61,21 @@ func validDoctorConfig() domain.Config {
 	return cfg
 }
 
-func doctorDependencies(t *testing.T, cfg domain.Config) (Dependencies, *bytes.Buffer, secrets.Store) {
+func doctorDependencies(t *testing.T, cfg domain.Config) (Dependencies, *bytes.Buffer, secret.Store) {
 	t.Helper()
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	secretStore := secrets.NewMemoryStore()
+	secretStore := secret.NewMemoryStore()
 	return Dependencies{
 		Config: configStore, Secrets: secretStore, Clients: synchronization.Synchronizer{Registry: clients.Registry()}, Out: out,
 	}, out, secretStore
 }
 
 type observingDoctorSecrets struct {
-	secrets.Store
+	secret.Store
 	existsCalls []string
 }
 
@@ -135,7 +135,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	if err := os.MkdirAll(bad.Path(), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	broken := Collect(context.Background(), Dependencies{Config: bad, Secrets: secrets.NewMemoryStore(), Clients: synchronization.Synchronizer{Registry: clients.Registry()}})
+	broken := Collect(context.Background(), Dependencies{Config: bad, Secrets: secret.NewMemoryStore(), Clients: synchronization.Synchronizer{Registry: clients.Registry()}})
 	if check := findCheck(t, broken, "config"); check.OK || check.Detail != "cannot read or validate configuration" || check.Fix != "inspect or restore the local configuration file" {
 		t.Fatalf("config check = %#v", check)
 	}
@@ -301,7 +301,7 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 func TestCommandHumanAndJSONPaths(t *testing.T) {
 	cfg := validDoctorConfig()
 	deps, out, secretStore := doctorDependencies(t, cfg)
-	deps.Inspect = func(domain.Config, secrets.Store) map[string]domainreadiness.Client {
+	deps.Inspect = func(domain.Config, secret.Store) map[string]domainreadiness.Client {
 		return map[string]domainreadiness.Client{
 			claude.ID: {State: domainreadiness.Configured, Route: "claude", Account: "team"},
 			codex.ID:  {State: domainreadiness.Deferred, NextAction: "aigw sync"},
@@ -361,10 +361,10 @@ func TestCommandJSONExposesTheCanonicalCredentialBackendSelection(t *testing.T) 
 	cfg := validDoctorConfig()
 	deps, out, _ := doctorDependencies(t, cfg)
 	root := filepath.Join(t.TempDir(), "secrets")
-	store, err := secrets.Select(secrets.Selection{
+	store, err := secret.Select(secret.Selection{
 		GOOS:         runtime.GOOS,
 		Root:         root,
-		KeyringProbe: func(secrets.Store) error { return errors.New("service unavailable") },
+		KeyringProbe: func(secret.Store) error { return errors.New("service unavailable") },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -372,7 +372,7 @@ func TestCommandJSONExposesTheCanonicalCredentialBackendSelection(t *testing.T) 
 	deps.Secrets = store
 
 	result := executeJSON(t, deps, out)
-	want := secrets.BackendSelection{
+	want := secret.BackendSelection{
 		Kind:         "file",
 		Availability: "available",
 		Mutability:   "read_write",
@@ -396,7 +396,7 @@ func TestCommandJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "backend"), []byte("retired\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store, err := secrets.Select(secrets.Selection{GOOS: runtime.GOOS, Root: root})
+	store, err := secret.Select(secret.Selection{GOOS: runtime.GOOS, Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -418,7 +418,7 @@ func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	deps.Inspect = func(domain.Config, secrets.Store) map[string]domainreadiness.Client {
+	deps.Inspect = func(domain.Config, secret.Store) map[string]domainreadiness.Client {
 		return map[string]domainreadiness.Client{
 			claude.ID: {
 				State:      domainreadiness.Unavailable,

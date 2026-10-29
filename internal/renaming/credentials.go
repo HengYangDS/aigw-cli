@@ -7,7 +7,7 @@ import (
 	"os"
 	"runtime"
 
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func deleteCredentialSlot(store interface {
@@ -47,11 +47,11 @@ func planCredentialCopies(deps Renamer, plan Plan) (Plan, error) {
 			return Plan{}, errors.New("API token credential slots differ")
 		}
 		plan.Actions.APIToken = "reuse-equal-target-and-retain-source"
-	case secrets.IsReadOnly(deps.Secrets):
+	case secret.IsReadOnly(deps.Secrets):
 		plan.Actions.APIToken = "provide-equal-environment-variable"
 		plan.Status = StatusBlocked
-		sourceKey := secrets.EnvironmentKey(plan.OldID)
-		targetKey := secrets.EnvironmentKey(plan.NewID)
+		sourceKey := secret.EnvironmentKey(plan.OldID)
+		targetKey := secret.EnvironmentKey(plan.NewID)
 		plan.blockedReason = fmt.Sprintf("set %s to the same value as %s outside AIGW", targetKey, sourceKey)
 		plan.ExternalTODOs = append(plan.ExternalTODOs, "Set "+targetKey+" to the same value as "+sourceKey+" outside AIGW")
 	default:
@@ -113,9 +113,9 @@ func applyCredentialCopies(deps Renamer, plan Plan) error {
 	return nil
 }
 
-func readOptionalToken(store secrets.Store, id string) (string, bool, error) {
+func readOptionalToken(store secret.Store, id string) (string, bool, error) {
 	value, err := store.Get(id)
-	if errors.Is(err, secrets.ErrNotFound) {
+	if errors.Is(err, secret.ErrNotFound) {
 		return "", false, nil
 	}
 	if err != nil {
@@ -124,13 +124,13 @@ func readOptionalToken(store secrets.Store, id string) (string, bool, error) {
 	return value, true, nil
 }
 
-func readOptionalProbeCredential(store secrets.DiagnosticCredentialStore, id string) (secrets.DiagnosticCredential, bool, error) {
+func readOptionalProbeCredential(store secret.DiagnosticCredentialStore, id string) (secret.DiagnosticCredential, bool, error) {
 	value, err := store.Get(id)
-	if errors.Is(err, secrets.ErrNotFound) {
-		return secrets.DiagnosticCredential{}, false, nil
+	if errors.Is(err, secret.ErrNotFound) {
+		return secret.DiagnosticCredential{}, false, nil
 	}
 	if err != nil {
-		return secrets.DiagnosticCredential{}, false, err
+		return secret.DiagnosticCredential{}, false, err
 	}
 	return value, true, nil
 }
@@ -146,6 +146,6 @@ func secretValuesEqual(left, right string) bool {
 	return subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
 }
 
-func probeCredentialsEqual(left, right secrets.DiagnosticCredential) bool {
+func probeCredentialsEqual(left, right secret.DiagnosticCredential) bool {
 	return secretValuesEqual(left.SystemToken, right.SystemToken) && secretValuesEqual(left.UserID, right.UserID)
 }

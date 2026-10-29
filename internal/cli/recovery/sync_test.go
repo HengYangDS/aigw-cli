@@ -13,10 +13,10 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 )
 
@@ -34,7 +34,7 @@ func TestDryRunPreservesUnusedChangedCredentialEntrypointWithoutWriting(t *testi
 			if err := os.WriteFile(source, []byte("AIGW fixture"), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := credential.EnsureEntrypoint(source, helper); err != nil {
+			if _, err := secret.EnsureEntrypoint(source, helper); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(helper+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
@@ -84,7 +84,7 @@ func TestDryRunUsesOneResolvedReaderWithoutWriting(t *testing.T) {
 			}
 			calls := 0
 			out := &bytes.Buffer{}
-			tokens := secrets.NewMemoryStore()
+			tokens := secret.NewMemoryStore()
 			if err := tokens.Set("one", "synthetic-fixture"); err != nil {
 				t.Fatal(err)
 			}
@@ -130,8 +130,8 @@ func TestSyncMetadataObservationScopeExpiresWithCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	lookups := 0
-	tokens := secrets.NewEnvironmentStore(func(key string) string {
-		if key == secrets.EnvironmentKey("one") {
+	tokens := secret.NewEnvironmentStore(func(key string) string {
+		if key == secret.EnvironmentKey("one") {
 			lookups++
 			return "synthetic-fixture"
 		}
@@ -255,7 +255,7 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	secretStore := secrets.NewMemoryStore()
+	secretStore := secret.NewMemoryStore()
 	if err := secretStore.Set("two", "token"); err != nil {
 		t.Fatal(err)
 	}

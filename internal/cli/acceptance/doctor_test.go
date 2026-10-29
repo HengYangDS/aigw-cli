@@ -15,7 +15,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -23,8 +23,8 @@ func TestDoctorReportsOneCredentialCheckForSharedAccount(t *testing.T) {
 	app, runner := readyVerificationApp(t)
 	observations := 0
 	present := true
-	app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
-		if key != secrets.EnvironmentKey("dmx") {
+	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+		if key != secret.EnvironmentKey("dmx") {
 			t.Fatalf("doctor observed an unrelated credential purpose: %q", key)
 		}
 		observations++
@@ -127,7 +127,7 @@ func TestDoctorReportsCredentialObservationFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := errors.New("credential observation failed at /private/account-store")
-	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: want}
+	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: want}
 
 	if err := cli.Execute(app, []string{"doctor", "--json"}); err == nil {
 		t.Fatal(err)

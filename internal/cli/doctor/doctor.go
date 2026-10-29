@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	clientactivation "aigw-cli/internal/activation"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
 
@@ -23,10 +23,10 @@ import (
 // Dependencies are the capabilities required by the diagnostic command.
 type Dependencies struct {
 	Config    store.Store
-	Secrets   secrets.Store
+	Secrets   secret.Store
 	Clients   synchronization.Synchronizer
 	Env       []string
-	Inspect   func(domain.Config, secrets.Store) map[string]domainreadiness.Client
+	Inspect   func(domain.Config, secret.Store) map[string]domainreadiness.Client
 	Out       io.Writer
 	Color     bool
 	Width     int
@@ -54,7 +54,7 @@ type Check struct {
 const credentialBackendUnavailable = "credential backend is unavailable"
 
 type commandResult struct {
-	CredentialBackend secrets.BackendSelection          `json:"credential_backend"`
+	CredentialBackend secret.BackendSelection           `json:"credential_backend"`
 	Checks            []Check                           `json:"checks"`
 	Clients           map[string]domainreadiness.Client `json:"clients"`
 	OK                bool                              `json:"ok"`
@@ -79,7 +79,7 @@ func NewCommand(deps Dependencies) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			operation := deps
-			operation.Secrets = secrets.ObserveAvailability(deps.Secrets)
+			operation.Secrets = secret.ObserveAvailability(deps.Secrets)
 			operation.Clients.Secrets = operation.Secrets
 			result := collectResult(cmd.Context(), operation)
 			if jsonMode {
@@ -140,7 +140,7 @@ func NewCommand(deps Dependencies) *cobra.Command {
 }
 
 func collectResult(ctx context.Context, deps Dependencies) commandResult {
-	backend, backendErr := secrets.Inspect(deps.Secrets)
+	backend, backendErr := secret.Inspect(deps.Secrets)
 	checks := Collect(ctx, deps)
 	if backendErr != nil {
 		checks = append([]Check{{
@@ -186,7 +186,7 @@ func collectResult(ctx context.Context, deps Dependencies) commandResult {
 	return result
 }
 
-func applyActivation(result *commandResult, cfg domain.Config, store secrets.Store) {
+func applyActivation(result *commandResult, cfg domain.Config, store secret.Store) {
 	activation := clientactivation.AssessActivation(cfg, store)
 	result.EnabledClients = activation.EnabledClients
 	result.State = activation.State
@@ -296,7 +296,7 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 		}
 		fix := ""
 		if !ok {
-			fix, _ = credential.TokenRecovery(deps.Secrets, name)
+			fix, _ = secret.TokenRecovery(deps.Secrets, name)
 		}
 		detail := "missing"
 		if ok {

@@ -5,11 +5,11 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 	"bytes"
 	"context"
@@ -178,7 +178,7 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	j.environment = environmentWithout(j.environment, secrets.EnvironmentKey(account))
+	j.environment = environmentWithout(j.environment, secret.EnvironmentKey(account))
 	j.setEnvironment("AIGW_TEST_EXTERNAL_CREDENTIAL", "1")
 	j.setEnvironment("AIGW_TEST_EXTERNAL_CLIENT", client)
 	j.setEnvironment("AIGW_TEST_EXTERNAL_FINGERPRINT", selected.CredentialProjectionFingerprint(client))
@@ -214,7 +214,7 @@ func (j *journeyFixture) credentialEntrypoint() string {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	path, err := credential.VersionedEntrypointPath(paths.Data, j.binary, paths.InstallName)
+	path, err := secret.VersionedEntrypointPath(paths.Data, j.binary, paths.InstallName)
 	if err != nil {
 		j.testing.Fatal(err)
 	}
@@ -247,7 +247,7 @@ func (j *journeyFixture) requireCredential(plan process.Plan, want string) {
 	}
 }
 
-func (j *journeyFixture) requireCredentialBackend(token string, want secrets.BackendSelection) {
+func (j *journeyFixture) requireCredentialBackend(token string, want secret.BackendSelection) {
 	j.testing.Helper()
 	for _, command := range [][]string{{"status", "--json"}, {"doctor", "--json"}} {
 		output := j.run(command...)
@@ -255,7 +255,7 @@ func (j *journeyFixture) requireCredentialBackend(token string, want secrets.Bac
 			j.testing.Fatalf("%s disclosed the credential", strings.Join(command, " "))
 		}
 		var result struct {
-			CredentialBackend secrets.BackendSelection `json:"credential_backend"`
+			CredentialBackend secret.BackendSelection `json:"credential_backend"`
 		}
 		if err := json.Unmarshal(output, &result); err != nil {
 			j.testing.Fatalf("decode %s: %v", strings.Join(command, " "), err)

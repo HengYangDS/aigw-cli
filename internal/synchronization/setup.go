@@ -6,7 +6,7 @@ import (
 	"slices"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 // AdmitSetup requires an installation without Routes before first-time setup.
@@ -55,7 +55,7 @@ func (s Synchronizer) Setup(ctx context.Context, before, after domain.Config, to
 	if err := s.validateRetryTransition(before, after, domain.ConnectionChange{}); err != nil {
 		return domain.Config{}, err
 	}
-	rollback, err := secrets.Replace(s.Secrets, tokens)
+	rollback, err := secret.Replace(s.Secrets, tokens)
 	if err != nil {
 		return domain.Config{}, err
 	}

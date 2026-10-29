@@ -18,7 +18,7 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/credential"
+
 	"aigw-cli/internal/domain"
 )
 
@@ -231,7 +231,7 @@ func TestNativeClientInferenceEnvelope(t *testing.T) {
 		domain.ProtocolOpenAIChatCompletions,
 	} {
 		t.Run(string(protocol), func(t *testing.T) {
-			request, err := credential.ModelInferenceRequest(t.Context(), "https://fixture.test/v1", protocol, "synthetic", "configured-model")
+			request, err := domain.ModelInferenceRequest(t.Context(), "https://fixture.test/v1", protocol, "synthetic", "configured-model")
 			if err != nil {
 				t.Fatal(err)
 			}

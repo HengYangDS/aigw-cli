@@ -11,9 +11,8 @@ import (
 
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
@@ -27,11 +26,11 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataDir := filepath.Join(root, "data")
-	retained, err := credential.VersionedEntrypointPath(dataDir, oldSource, installName)
+	retained, err := secret.VersionedEntrypointPath(dataDir, oldSource, installName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := credential.EnsureEntrypoint(oldSource, retained); err != nil {
+	if _, err := secret.EnsureEntrypoint(oldSource, retained); err != nil {
 		t.Fatal(err)
 	}
 
@@ -85,11 +84,11 @@ func main() {
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build candidate reader: %v: %s", err, output)
 	}
-	current, err := credential.VersionedEntrypointPath(dataDir, candidate, installName)
+	current, err := secret.VersionedEntrypointPath(dataDir, candidate, installName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := secrets.Select(secrets.Selection{Backend: "keyring", Executable: candidate, KeyringProbe: func(secrets.Store) error { return nil }})
+	store, err := secret.Select(secret.Selection{Backend: "keyring", Executable: candidate, KeyringProbe: func(secret.Store) error { return nil }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +129,7 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	if err := os.WriteFile(candidate, []byte("candidate"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), candidate, "aigw")
+	reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), candidate, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +141,7 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	}
 	configurationStore := &configStoreStub{}
 	configurationStore.bindConfiguration(t, cfg)
-	syncer := Synchronizer{Registry: builtinClients, Config: configurationStore, Secrets: secrets.NewMemoryStore(), Discovery: targetDiscovery(target), AIGWExecutable: candidate, CredentialPath: reader, Host: hostAt(root)}
+	syncer := Synchronizer{Registry: builtinClients, Config: configurationStore, Secrets: secret.NewMemoryStore(), Discovery: targetDiscovery(target), AIGWExecutable: candidate, CredentialPath: reader, Host: hostAt(root)}
 	plans, err := syncer.Plan(cfg, cfg)
 	if err != nil || len(plans) == 0 {
 		t.Fatalf("ready native Codex has no projection plan: plans=%v error=%v", plans, err)

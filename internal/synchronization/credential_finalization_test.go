@@ -14,9 +14,9 @@ import (
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -46,7 +46,7 @@ func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *tes
 			if err := os.WriteFile(source, []byte("executable fixture"), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+			reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -209,11 +209,11 @@ func TestConvergedProjectionValidatesReaderWithoutApplying(t *testing.T) {
 			if err := os.WriteFile(source, []byte("executable fixture"), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+			reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := credential.EnsureEntrypoint(source, reader); err != nil {
+			if _, err := secret.EnsureEntrypoint(source, reader); err != nil {
 				t.Fatal(err)
 			}
 			if path := map[string]string{"source": source, "reader": reader}[tc.changedTarget]; path != "" {
@@ -257,7 +257,7 @@ func TestConvergedProjectionRechecksTargetsAfterConfigurationCommit(t *testing.T
 			if err := os.WriteFile(source, []byte("executable fixture"), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+			reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -317,7 +317,7 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 			if err := os.WriteFile(target, previous, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+			reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -380,7 +380,7 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 					t.Fatal(err)
 				}
 			}
-			reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+			reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -414,9 +414,9 @@ func TestPrepareCredentialEntrypointRejectsInvalidBindingBeforeReading(t *testin
 	delete(cfg.Routes, "gpt")
 	syncer := Synchronizer{Registry: builtinClients,
 		CredentialPath: filepath.Join(root, "data", "credential", "aigw"),
-		ResolveProgram: func() (credential.Program, error) {
+		ResolveProgram: func() (secret.Program, error) {
 			t.Fatal("an invalid binding read the AIGW program")
-			return credential.Program{}, nil
+			return secret.Program{}, nil
 		},
 	}
 	if entrypoint, _, err := syncer.prepareCredentialEntrypoint(cfg, codex.ID); err == nil || entrypoint != nil {

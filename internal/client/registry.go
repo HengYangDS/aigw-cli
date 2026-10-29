@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -32,7 +32,7 @@ type DiscoverySource interface {
 // Dependencies are the shared capabilities supplied to one adapter operation.
 // Host is the observed platform from which adapters derive their native paths.
 type Dependencies struct {
-	Secrets                   secrets.Store
+	Secrets                   secret.Store
 	Runner                    process.VerificationRunner
 	Discovery                 discovery.Discoverer
 	Host                      discovery.Host

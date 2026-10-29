@@ -14,9 +14,8 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func newKeyringReaderFixture(t *testing.T, target string) Synchronizer {
@@ -57,14 +56,14 @@ func main() {
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build disposable credential reader: %v\n%s", err, output)
 	}
-	store, err := secrets.Select(secrets.Selection{
+	store, err := secret.Select(secret.Selection{
 		Backend: "keyring", Executable: source,
-		KeyringProbe: func(secrets.Store) error { return nil },
+		KeyringProbe: func(secret.Store) error { return nil },
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, sourceName)
+	reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, sourceName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +90,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			if err == nil {
 				t.Fatal("copied reader denied by the native store was accepted")
 			}
-			if !strings.Contains(err.Error(), "copied credential reader") || !errors.Is(err, secrets.ErrNativeReaderUnverified) {
+			if !strings.Contains(err.Error(), "copied credential reader") || !errors.Is(err, secret.ErrNativeReaderUnverified) {
 				t.Fatalf("failure lost its reader boundary or public diagnostic category: %v", err)
 			}
 			for _, path := range []string{reader, reader + ".sha256"} {
@@ -169,7 +168,7 @@ func TestSyncObservesNativeAvailabilityOncePerInvocation(t *testing.T) {
 	}
 	configStore.bindConfiguration(t, before)
 	for invocation := 1; invocation <= 2; invocation++ {
-		syncer.Secrets = secrets.ObserveAvailability(syncer.Secrets)
+		syncer.Secrets = secret.ObserveAvailability(syncer.Secrets)
 		after, _, err := syncer.DesiredSyncConfiguration(before)
 		if err != nil {
 			t.Fatal(err)
@@ -186,7 +185,7 @@ func TestSyncObservesNativeAvailabilityOncePerInvocation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			want := operation.name + " " + secrets.Service + " gateway\n"
+			want := operation.name + " " + secret.Service + " gateway\n"
 			if string(data) != strings.Repeat(want, invocation) {
 				t.Fatalf("invocation %d: native operations = %q; want one exact operation per invocation: %q", invocation, data, want)
 			}
@@ -215,7 +214,7 @@ func requireSingleCopiedCredentialRead(t *testing.T, syncer Synchronizer, cfg do
 		operations = append(operations, strings.FieldsFunc(string(data), func(r rune) bool { return r == '\n' })...)
 	}
 	t.Logf("native credential operations: %v", operations)
-	want := "__aigw-native-credential-read " + secrets.Service + " " + account
+	want := "__aigw-native-credential-read " + secret.Service + " " + account
 	if len(operations) != 1 || operations[0] != want {
 		t.Fatalf("copied-reader authorization operations = %v, want one exact copied read: %s", operations, want)
 	}

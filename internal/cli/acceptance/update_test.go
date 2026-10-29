@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/upgrade"
 )
@@ -191,7 +191,7 @@ func keychainRecorder(t *testing.T, app *cli.App, code string) string {
 	if err := os.WriteFile(app.Executable, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	store, err := secrets.Select(secrets.Selection{Backend: "keyring", GOOS: "darwin", Root: t.TempDir(), Executable: app.Executable})
+	store, err := secret.Select(secret.Selection{Backend: "keyring", GOOS: "darwin", Root: t.TempDir(), Executable: app.Executable})
 	if err != nil {
 		t.Fatal(err)
 	}

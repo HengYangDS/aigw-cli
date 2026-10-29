@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/secret"
 
 	"github.com/spf13/cobra"
 )
@@ -81,7 +81,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 				return fmt.Errorf("Cannot inspect Account %q credential: %w", clientRuntime.AccountID, err)
 			}
 			if !available {
-				instruction, _ := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
+				instruction, _ := secret.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
 				return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.AccountID, instruction)
 			}
 		}

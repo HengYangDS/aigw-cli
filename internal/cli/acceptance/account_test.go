@@ -13,7 +13,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -253,7 +253,7 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 		saveProbeRoute(t, app.Config)
 		want := errors.New("credential write failed")
 		app.Prompt = &scriptedPrompt{secrets: []string{"system-token"}, texts: []string{"user"}}
-		app.Accounts = &recordingCredentialStore[secrets.DiagnosticCredential]{backend: app.Accounts, setErr: want}
+		app.Accounts = &recordingCredentialStore[secret.DiagnosticCredential]{backend: app.Accounts, setErr: want}
 		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
@@ -270,7 +270,7 @@ func TestAccountDiagnosticsEnableAcceptsExplicitNoninteractiveInput(t *testing.T
 		t.Fatal(err)
 	}
 	credential, err := app.Accounts.Get("dmx")
-	if err != nil || credential != (secrets.DiagnosticCredential{SystemToken: "platform-system-token", UserID: "operator-42"}) {
+	if err != nil || credential != (secret.DiagnosticCredential{SystemToken: "platform-system-token", UserID: "operator-42"}) {
 		t.Fatalf("explicit diagnostic credential was not stored: %v", err)
 	}
 	if strings.Contains(out.String(), "platform-system-token") || strings.Contains(out.String(), "operator-42") {
@@ -327,7 +327,7 @@ func TestAccountDiagnosticsDisableBranches(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveProbeRoute(t, app.Config)
 		want := errors.New("delete failed")
-		app.Accounts = &recordingCredentialStore[secrets.DiagnosticCredential]{backend: app.Accounts, deleteErr: want}
+		app.Accounts = &recordingCredentialStore[secret.DiagnosticCredential]{backend: app.Accounts, deleteErr: want}
 		if err := cli.Execute(app, []string{"account", "diagnostics", "disable", "dmx"}); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
@@ -337,7 +337,7 @@ func TestAccountDiagnosticsDisableBranches(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
 		saveProbeRoute(t, app.Config)
 		diagnosticStore := app.Accounts
-		_ = diagnosticStore.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
+		_ = diagnosticStore.Set("dmx", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		if err := cli.Execute(app, []string{"account", "diagnostics", "disable", "dmx"}); err != nil {
 			t.Fatal(err)
 		}

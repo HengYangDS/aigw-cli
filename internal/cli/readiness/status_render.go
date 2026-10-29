@@ -6,7 +6,7 @@ import (
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"strings"
 )
 
@@ -113,8 +113,8 @@ func renderDiagnosticStatus(runtime invocation.Context, r *presentation.Renderer
 			rows = append(rows, presentation.Field{State: presentation.Info, Label: accountName, Value: "Diagnostic credential present · content not verified"})
 		default:
 			action := "aigw account diagnostics enable " + accountName
-			if secrets.IsReadOnly(runtime.Secrets) {
-				action = "set `" + secrets.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secrets.DiagnosticUserIDEnvironmentKey(accountName) + "`"
+			if secret.IsReadOnly(runtime.Secrets) {
+				action = "set `" + secret.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secret.DiagnosticUserIDEnvironmentKey(accountName) + "`"
 			}
 			rows = append(rows, presentation.Field{State: presentation.Warn, Label: accountName, Value: "Precise balance not ready · " + action})
 		}

@@ -13,13 +13,13 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
 func TestSetupValidatesSelectedHermesProtocol(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	credentials := secrets.NewMemoryStore()
+	credentials := secret.NewMemoryStore()
 	if err := credentials.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}

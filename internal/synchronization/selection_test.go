@@ -13,7 +13,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -96,7 +96,7 @@ func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 		t.Run(phase, func(t *testing.T) {
 			before := setupConfiguration()
 			delete(before.Clients, claude.ID)
-			credentials := secrets.NewMemoryStore()
+			credentials := secret.NewMemoryStore()
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			failure := errors.New("configuration write failed")
@@ -115,7 +115,7 @@ func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 			if !errors.Is(err, failure) {
 				t.Fatalf("selection error = %v, want %v", err, failure)
 			}
-			if token, err := credentials.Get("team"); !errors.Is(err, secrets.ErrNotFound) || token != "" {
+			if token, err := credentials.Get("team"); !errors.Is(err, secret.ErrNotFound) || token != "" {
 				t.Fatalf("failed selection retained credential: %v", err)
 			}
 			if before.SelectedRoute(claude.ID) != "" || (phase != "persistence" && store.commits != 0) {
@@ -135,7 +135,7 @@ func TestRouteSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 			binding.Authentication = domain.AuthenticationClientNative
 			cfg.Clients[codex.ID] = binding
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
-			credentials := &setupCredentials{Store: secrets.NewMemoryStore()}
+			credentials := &setupCredentials{Store: secret.NewMemoryStore()}
 			client := claude.ID
 			if route == "native" {
 				client = codex.ID

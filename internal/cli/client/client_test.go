@@ -17,7 +17,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 
@@ -75,14 +75,14 @@ func adapterConfig() domain.Config {
 	return cfg
 }
 
-func adapterRuntime(t *testing.T, cfg domain.Config) (invocation.Context, *bytes.Buffer, secrets.Store, *adapterRunner) {
+func adapterRuntime(t *testing.T, cfg domain.Config) (invocation.Context, *bytes.Buffer, secret.Store, *adapterRunner) {
 	t.Helper()
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	secretStore := secrets.NewMemoryStore()
+	secretStore := secret.NewMemoryStore()
 	runner := &adapterRunner{}
 	return invocation.Context{Clients: clients.Registry(),
 		Executable: filepath.Join(t.TempDir(), "aigw"),
@@ -462,7 +462,7 @@ func TestCommandsPropagateConfigurationLoadErrors(t *testing.T) {
 	badPath := t.TempDir()
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Config:    store.NewStore(badPath, clients.Admission()),
-		Secrets:   secrets.NewMemoryStore(),
+		Secrets:   secret.NewMemoryStore(),
 		Out:       &bytes.Buffer{},
 		RenderOut: &bytes.Buffer{},
 		Discovery: adapterDiscovery{},

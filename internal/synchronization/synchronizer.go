@@ -10,11 +10,11 @@ import (
 	"slices"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 )
 
@@ -87,7 +87,7 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg domain.Config, cl
 	return errors.Join(fmt.Errorf("credential entrypoint finalization failed; client projection was rolled back: %w", finalizeErr), undoCreatedEntrypoint(undoEntrypoint))
 }
 
-func (s Synchronizer) prepareCredentialEntrypoint(cfg domain.Config, clientIDs ...string) (*credential.Entrypoint, func() error, error) {
+func (s Synchronizer) prepareCredentialEntrypoint(cfg domain.Config, clientIDs ...string) (*secret.Entrypoint, func() error, error) {
 	accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
 	if err != nil || len(accounts) == 0 {
 		return nil, nil, err
@@ -105,7 +105,7 @@ func (s Synchronizer) prepareCredentialEntrypoint(cfg domain.Config, clientIDs .
 		return nil, nil, err
 	}
 	if s.Secrets != nil {
-		if err := secrets.VerifyNativeReaderAccess(s.Secrets, path, accounts); err != nil {
+		if err := secret.VerifyNativeReaderAccess(s.Secrets, path, accounts); err != nil {
 			return nil, nil, errors.Join(err, undoCreatedEntrypoint(undo))
 		}
 	}
@@ -114,11 +114,11 @@ func (s Synchronizer) prepareCredentialEntrypoint(cfg domain.Config, clientIDs .
 
 // program returns the running AIGW program that this invocation already read,
 // or reads AIGWExecutable when the invocation supplied no program.
-func (s Synchronizer) program() (credential.Program, error) {
+func (s Synchronizer) program() (secret.Program, error) {
 	if s.ResolveProgram != nil {
 		return s.ResolveProgram()
 	}
-	return credential.ReadProgram(s.Files, s.AIGWExecutable)
+	return secret.ReadProgram(s.Files, s.AIGWExecutable)
 }
 
 // ConfigStore is the exact persistence capability needed by a synchronization
@@ -133,7 +133,7 @@ type ConfigStore interface {
 // transaction. Client behavior is selected only through Registry.
 type Synchronizer struct {
 	Config                    ConfigStore
-	Secrets                   secrets.Store
+	Secrets                   secret.Store
 	Runner                    process.VerificationRunner
 	Discovery                 discovery.Discoverer
 	Registry                  client.Registry
@@ -141,8 +141,8 @@ type Synchronizer struct {
 	AIGWExecutable            string
 	CredentialPath            string
 	ResolveCredentialPath     func() (string, error)
-	ResolveProgram            func() (credential.Program, error)
-	Files                     credential.Files
+	ResolveProgram            func() (secret.Program, error)
+	Files                     secret.Files
 	AuthorizedSelectionClient string
 }
 
@@ -183,7 +183,7 @@ func (s Synchronizer) AdoptNativeSelections(before domain.Config) (domain.Config
 // read-only credential source gains an Account Token after catalogue import.
 // Writable native stores are not searched for unselected credentials.
 func (s Synchronizer) DesiredSyncConfiguration(before domain.Config) (domain.Config, discovery.Result, error) {
-	if !secrets.IsReadOnly(s.Secrets) {
+	if !secret.IsReadOnly(s.Secrets) {
 		return s.DesiredClientConfiguration(before)
 	}
 	connected := make([]string, 0, len(before.Accounts))
@@ -370,7 +370,7 @@ func (s Synchronizer) CredentialEntrypointPlan(cfg domain.Config, clientIDs ...s
 	if err != nil {
 		return CredentialEntrypointUnchanged, err
 	}
-	missing, err := credential.EntrypointNeededFrom(s.Files, path)
+	missing, err := secret.EntrypointNeededFrom(s.Files, path)
 	if err != nil {
 		return CredentialEntrypointUnchanged, err
 	}

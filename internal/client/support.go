@@ -5,10 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 // ResolveExecutable keeps a configured executable that is still available and
@@ -25,7 +24,7 @@ func ResolveExecutable(clientID, configured, discovered string) (string, error) 
 }
 
 // SecretAvailable reports whether the credential store holds an Account's token.
-func SecretAvailable(store secrets.Store, accountID string) (bool, error) {
+func SecretAvailable(store secret.Store, accountID string) (bool, error) {
 	if store == nil {
 		return false, nil
 	}
@@ -36,15 +35,15 @@ func SecretAvailable(store secrets.Store, accountID string) (bool, error) {
 // projection still names when it is a valid retained AIGW reader, and the
 // current one otherwise. An external reader is kept as configured.
 func RetainedDefaultReader(current string, external bool, observe func() (string, error)) (string, error) {
-	if current == "" || external || !credential.IsVersionedEntrypointPath(current) {
+	if current == "" || external || !secret.IsVersionedEntrypointPath(current) {
 		return current, nil
 	}
 	projected, err := observe()
 	if err != nil || projected == current {
 		return current, err
 	}
-	if credential.IsVersionedEntrypointPath(projected) {
-		if err := credential.ValidateRetainedEntrypoint(current, projected); err != nil {
+	if secret.IsVersionedEntrypointPath(projected) {
+		if err := secret.ValidateRetainedEntrypoint(current, projected); err != nil {
 			return current, err
 		}
 	} else {

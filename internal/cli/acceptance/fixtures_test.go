@@ -21,7 +21,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -147,7 +147,7 @@ func planEnvironmentValue(environment []string, name string) string {
 	return ""
 }
 
-func secretExists(t testing.TB, store secrets.Store, account string) bool {
+func secretExists(t testing.TB, store secret.Store, account string) bool {
 	t.Helper()
 	present, err := store.Exists(account)
 	if err != nil {
@@ -156,7 +156,7 @@ func secretExists(t testing.TB, store secrets.Store, account string) bool {
 	return present
 }
 
-func accountCredentialExists(t testing.TB, store secrets.DiagnosticCredentialStore, accountID string) bool {
+func accountCredentialExists(t testing.TB, store secret.DiagnosticCredentialStore, accountID string) bool {
 	t.Helper()
 	present, err := store.Exists(accountID)
 	if err != nil {
@@ -224,11 +224,11 @@ func fixtureResponseBody(req *http.Request) string {
 	}
 }
 
-func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secrets.Store, *fakeRunner, *fakeHTTP) {
+func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secret.Store, *fakeRunner, *fakeHTTP) {
 	t.Helper()
 	out := new(bytes.Buffer)
-	secretStore := secrets.NewMemoryStore()
-	diagnostics, err := secrets.NewDiagnosticCredentialStore(secretStore)
+	secretStore := secret.NewMemoryStore()
+	diagnostics, err := secret.NewDiagnosticCredentialStore(secretStore)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +315,7 @@ func saveCommandRoute(t *testing.T, app *cli.App, endpoints domain.Endpoints, cl
 	}
 }
 
-type recordingCredentialStore[T string | secrets.DiagnosticCredential] struct {
+type recordingCredentialStore[T string | secret.DiagnosticCredential] struct {
 	backend interface {
 		Get(accountID string) (T, error)
 		Set(accountID string, value T) error
@@ -366,7 +366,7 @@ func (store *recordingCredentialStore[T]) Exists(account string) (bool, error) {
 }
 
 func TestCredentialFixturePreservesRealStateAcrossInjectedFailures(t *testing.T) {
-	backend := secrets.NewMemoryStore()
+	backend := secret.NewMemoryStore()
 	store := &recordingCredentialStore[string]{backend: backend}
 	if err := store.Set("account", "original"); err != nil {
 		t.Fatal(err)
@@ -392,7 +392,7 @@ func TestCredentialFixturePreservesRealStateAcrossInjectedFailures(t *testing.T)
 	if err := store.Delete("account"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := backend.Get("account"); !errors.Is(err, secrets.ErrNotFound) {
+	if _, err := backend.Get("account"); !errors.Is(err, secret.ErrNotFound) {
 		t.Fatalf("successful deletion retained credential: %v", err)
 	}
 	if len(store.setCalls) != 3 || len(store.deleteCalls) != 2 || len(store.getCalls) != 1 {

@@ -22,7 +22,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/readiness"
 
@@ -279,7 +279,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	if err := os.WriteFile(session, sessionBytes, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
 	predecessor := readFile(t, journey.config)
 	if !bytes.HasPrefix(predecessor, []byte(fmt.Sprintf("version = %d\n", domain.ConfigVersion))) {

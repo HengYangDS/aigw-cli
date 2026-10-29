@@ -4,9 +4,9 @@ package main
 
 import (
 	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/performance"
 	"bytes"
@@ -224,7 +224,7 @@ interfaces = { anthropic = ["text"] }
 	t.Cleanup(j.uninstallAndRequireInstallationRemoved)
 	args := []string{"setup", "--from", j.manifest, "--account", account}
 	if backend == "env" {
-		j.setEnvironment(secrets.EnvironmentKey(account), token)
+		j.setEnvironment(secret.EnvironmentKey(account), token)
 		j.run(args...)
 	} else {
 		j.runWithInput(j.binary, token+"\n", append(args, "--token-stdin")...)
@@ -255,7 +255,7 @@ func (j *journeyFixture) preparePerformanceCredentials(backend, account, credent
 	j.enableSystemCredentialStore()
 	// Use one verified candidate for fixture observation and cleanup;
 	// measurements remain bound to each variant's own source and reader.
-	store, err := secrets.Select(secrets.Selection{Backend: "keyring", Executable: credentialWorker})
+	store, err := secret.Select(secret.Selection{Backend: "keyring", Executable: credentialWorker})
 	if err != nil {
 		j.testing.Fatal(err)
 	}
@@ -300,7 +300,7 @@ func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, 
 		mode = "forwarding"
 	}
 	scope := resolved.CredentialProjectionFingerprint(claude.ID)
-	reader, err := credential.ExecutableFromCommand(helperCommand, claude.ID, scope, runtime.GOOS)
+	reader, err := secret.ExecutableFromCommand(helperCommand, claude.ID, scope, runtime.GOOS)
 	if err != nil {
 		return nil, err
 	}

@@ -11,8 +11,8 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -31,15 +31,15 @@ func TestCodexInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 		}
 		sources = append(sources, source)
 	}
-	retained, err := credential.VersionedEntrypointPath(data, sources[0], "aigw")
+	retained, err := secret.VersionedEntrypointPath(data, sources[0], "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
-	current, err := credential.VersionedEntrypointPath(data, sources[1], "aigw")
+	current, err := secret.VersionedEntrypointPath(data, sources[1], "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := credential.EnsureEntrypoint(sources[0], retained); err != nil {
+	if _, err := secret.EnsureEntrypoint(sources[0], retained); err != nil {
 		t.Fatal(err)
 	}
 	cfg := testConfig(target)
@@ -80,14 +80,14 @@ func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		path, err := credential.VersionedEntrypointPath(data, source, "aigw")
+		path, err := secret.VersionedEntrypointPath(data, source, "aigw")
 		if err != nil {
 			t.Fatal(err)
 		}
 		paths = append(paths, path)
 	}
 	retained, current := paths[0], paths[1]
-	if _, err := credential.EnsureEntrypoint(filepath.Join(root, "predecessor"), retained); err != nil {
+	if _, err := secret.EnsureEntrypoint(filepath.Join(root, "predecessor"), retained); err != nil {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
@@ -125,7 +125,7 @@ func TestCancelledProjectionAfterVersionedReaderPreparationRestoresOwnedState(t 
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+	reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +257,7 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	if err := os.WriteFile(source, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := credential.EnsureEntrypoint(source, helper); err != nil {
+	if _, err := secret.EnsureEntrypoint(source, helper); err != nil {
 		t.Fatal(err)
 	}
 	if action, err := syncer.CredentialEntrypointPlan(disabled); err != nil || action != CredentialEntrypointUnchanged {

@@ -18,7 +18,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
@@ -104,7 +104,7 @@ func assertDeferredHumanCommand(t *testing.T, app *cli.App, out *bytes.Buffer, c
 
 func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 	app, out, _, runner, httpClient := testApp(t, "")
-	app.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
+	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
 	app.Discovery = fakeDiscovery{}
 
 	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
@@ -121,7 +121,7 @@ func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 	if len(setup.SelectedBindings) != 0 || len(setup.DeferredActions) != 1 {
 		t.Fatalf("setup activation = %+v", setup)
 	}
-	wantAction := "Set one compatible Account variable: " + secrets.EnvironmentKey("dmxapi") + " or " + secrets.EnvironmentKey("ucloud") + ", then run `aigw sync`"
+	wantAction := "Set one compatible Account variable: " + secret.EnvironmentKey("dmxapi") + " or " + secret.EnvironmentKey("ucloud") + ", then run `aigw sync`"
 	if setup.DeferredActions[0] != wantAction {
 		t.Fatalf("setup deferred action = %q, want %q", setup.DeferredActions[0], wantAction)
 	}
@@ -150,8 +150,8 @@ func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 
 func TestShippedTeamManifestImportsWithAnOfflineProvider(t *testing.T) {
 	app, out, _, runner, httpClient := testApp(t, "")
-	app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
-		if key == secrets.EnvironmentKey("dmxapi") {
+	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+		if key == secret.EnvironmentKey("dmxapi") {
 			return "synthetic-offline-token"
 		}
 		return ""

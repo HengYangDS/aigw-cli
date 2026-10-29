@@ -11,7 +11,7 @@ import (
 	builtinclients "aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 type unobservedWritableStore struct{}
@@ -35,7 +35,7 @@ func (selectedMetadataStore) Exists(account string) (bool, error) {
 	return true, nil
 }
 
-type deniedMetadataStore struct{ secrets.Store }
+type deniedMetadataStore struct{ secret.Store }
 
 func (deniedMetadataStore) Exists(string) (bool, error) {
 	return false, errors.New("metadata denied")
@@ -49,14 +49,14 @@ func TestAssessActivationChoosesOneCompatibleEnvironmentAccount(t *testing.T) {
 	cfg.Routes["dmx-claude"] = domain.Route{Account: "dmx", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetRecommendedRoute(claude.ID, "ucloud-claude")
 	cfg.SetSelectedRoute(claude.ID, "dmx-claude", "")
-	store := secrets.NewEnvironmentStore(func(string) string { return "" })
+	store := secret.NewEnvironmentStore(func(string) string { return "" })
 	got := AssessActivation(cfg, store)
-	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != "set environment variable "+secrets.EnvironmentKey("dmx") {
+	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != "set environment variable "+secret.EnvironmentKey("dmx") {
 		t.Fatalf("selected Account activation = %+v", got)
 	}
 
-	store = secrets.NewEnvironmentStore(func(key string) string {
-		if key == secrets.EnvironmentKey("dmx") {
+	store = secret.NewEnvironmentStore(func(key string) string {
+		if key == secret.EnvironmentKey("dmx") {
 			return "available-token"
 		}
 		return ""
@@ -66,21 +66,21 @@ func TestAssessActivationChoosesOneCompatibleEnvironmentAccount(t *testing.T) {
 		t.Fatalf("connected Account activation = %+v", got)
 	}
 
-	store = secrets.NewEnvironmentStore(func(key string) string {
-		if key == secrets.EnvironmentKey("ucloud") {
+	store = secret.NewEnvironmentStore(func(key string) string {
+		if key == secret.EnvironmentKey("ucloud") {
 			return "available-token"
 		}
 		return ""
 	})
 	got = AssessActivation(cfg, store)
-	if got.NextActionFor(nil) != "set environment variable "+secrets.EnvironmentKey("dmx") {
+	if got.NextActionFor(nil) != "set environment variable "+secret.EnvironmentKey("dmx") {
 		t.Fatalf("recommended Account replaced an explicit selection: %+v", got)
 	}
 }
 
 func TestAssessActivationSeparatesCapabilityAndSelectionPrerequisites(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	capability := AssessActivation(cfg, store)
 	if capability.CapabilityPrerequisite != "aigw setup" || capability.SelectionPrerequisite != "" || capability.NextActionFor(nil) != "aigw setup" {
 		t.Fatalf("missing capability = %+v", capability)
@@ -115,7 +115,7 @@ func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 		binding := cfg.Clients[codex.ID]
 		binding.Authentication, binding.ModelProvider, binding.CredentialCommand = test.authentication, test.provider, test.command
 		cfg.Clients[codex.ID] = binding
-		for _, store := range []secrets.Store{nil, unobservedWritableStore{}} {
+		for _, store := range []secret.Store{nil, unobservedWritableStore{}} {
 			decision := AssessActivation(cfg, store)
 			if decision.State != domainreadiness.Deferred || decision.NextActionFor(nil) != "aigw use --for codex codex" || len(decision.ClientCredentialPrerequisites) != 0 {
 				t.Fatalf("independent credential selection required an unused AIGW Token backend: %+v", decision)
@@ -178,8 +178,8 @@ func TestAssessActivationListsUnselectedCompatibleEnvironmentAccounts(t *testing
 	recommendation.Alternatives = []domain.ClientSelection{{Route: "dmx-claude"}}
 	cfg.Recommendations[claude.ID] = recommendation
 
-	got := AssessActivation(cfg, secrets.NewEnvironmentStore(func(string) string { return "" }))
-	want := "Set one compatible Account variable: " + secrets.EnvironmentKey("dmx") + " or " + secrets.EnvironmentKey("ucloud") + ", then run `aigw sync`"
+	got := AssessActivation(cfg, secret.NewEnvironmentStore(func(string) string { return "" }))
+	want := "Set one compatible Account variable: " + secret.EnvironmentKey("dmx") + " or " + secret.EnvironmentKey("ucloud") + ", then run `aigw sync`"
 	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != want {
 		t.Fatalf("unselected alternatives = %+v, want %q", got, want)
 	}
@@ -208,7 +208,7 @@ func TestAssessActivationSelectedWritableAccountRequiresItsToken(t *testing.T) {
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = domain.Route{Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 
 	got := AssessActivation(cfg, store)
 	if got.NextActionFor(nil) != "run `aigw rotate team`" || got.CredentialPrerequisite == "" {
@@ -228,7 +228,7 @@ func TestAssessActivationDoesNotRecommendNoOpSyncBeforeClientActivation(t *testi
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = domain.Route{Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -249,8 +249,8 @@ func TestAssessActivationDoesNotInstallAClientWhoseSelectedTokenIsMissing(t *tes
 	cfg.Routes["codex"] = domain.Route{Account: "connected", Model: "gpt", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetRecommendedRoute(codex.ID, "codex")
-	store := secrets.NewEnvironmentStore(func(key string) string {
-		if key == secrets.EnvironmentKey("connected") {
+	store := secret.NewEnvironmentStore(func(key string) string {
+		if key == secret.EnvironmentKey("connected") {
 			return "available-token"
 		}
 		return ""
@@ -262,7 +262,7 @@ func TestAssessActivationDoesNotInstallAClientWhoseSelectedTokenIsMissing(t *tes
 		t.Fatalf("unavailable selected Token concealed a usable client: %+v; want %q", got, want)
 	}
 	clients := []domainreadiness.Client{
-		{State: domainreadiness.Deferred, NextAction: "set environment variable " + secrets.EnvironmentKey("missing")},
+		{State: domainreadiness.Deferred, NextAction: "set environment variable " + secret.EnvironmentKey("missing")},
 		{State: domainreadiness.Deferred, NextAction: "aigw use --for codex codex"},
 	}
 	if action := got.NextActionFor(clients); action != want {
@@ -279,7 +279,7 @@ func TestAssessActivationDoesNotVerifyWithoutCredentialMetadata(t *testing.T) {
 
 	for _, test := range []struct {
 		name  string
-		store secrets.Store
+		store secret.Store
 	}{
 		{name: "no backend"},
 		{name: "backend denied", store: deniedMetadataStore{}},
@@ -300,7 +300,7 @@ func TestAssessActivationDoesNotVerifyWithoutSelectedToken(t *testing.T) {
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 
-	got := AssessActivation(cfg, secrets.NewMemoryStore())
+	got := AssessActivation(cfg, secret.NewMemoryStore())
 	if got.State != "" || got.NextActionFor(nil) != "run `aigw rotate team`" || got.VerificationPrerequisite != "" {
 		t.Fatalf("missing selected Token admitted verification: %+v", got)
 	}
@@ -334,16 +334,16 @@ func TestAssessActivationSeparatesMissingTokenFromDeferredProjection(t *testing.
 	cfg.SetSelectedRoute(hermes.ID, "hermes", "")
 	cfg.SetClientActivation(hermes.ID, true, "", nil)
 
-	missing := secrets.NewEnvironmentStore(func(string) string { return "" })
+	missing := secret.NewEnvironmentStore(func(string) string { return "" })
 	got := AssessActivation(cfg, missing)
-	wantCredential := "set environment variable " + secrets.EnvironmentKey("team")
+	wantCredential := "set environment variable " + secret.EnvironmentKey("team")
 	wantProjection := "Install Hermes if needed, then run `aigw sync`"
 	if got.State != domainreadiness.Deferred || got.ClientCredentialPrerequisites[hermes.ID] != wantCredential || got.NextActionFor(nil) != wantCredential || got.ProjectionPrerequisites[hermes.ID] != wantProjection {
 		t.Fatalf("missing Token and client = %+v", got)
 	}
 
-	connected := secrets.NewEnvironmentStore(func(key string) string {
-		if key == secrets.EnvironmentKey("team") {
+	connected := secret.NewEnvironmentStore(func(key string) string {
+		if key == secret.EnvironmentKey("team") {
 			return "available-token"
 		}
 		return ""

@@ -9,13 +9,13 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func TestUseTellsHermesUsersThatExistingSessionsKeepTheirRoute(t *testing.T) {
 	const note = "Keep the route they started with; new sessions use this selection"
 	runtime, cfg, out := configuredRuntime(t)
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}

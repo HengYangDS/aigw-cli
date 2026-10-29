@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"aigw-cli/internal/providers"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (Plan, error) {
@@ -103,10 +103,10 @@ func planFinalToken(deps Renamer, plan *Plan, oldID, newID string, confirmed boo
 		plan.Actions.APIToken = "rotation-confirmation-required"
 		plan.ExternalTODOs = append(plan.ExternalTODOs, "Re-run `aigw verify --for all`, then pass --confirm-api-token-rotation")
 		*blocked = append(*blocked, "API token rotation confirmation is required")
-	case secrets.IsReadOnly(deps.Secrets):
+	case secret.IsReadOnly(deps.Secrets):
 		plan.Actions.APIToken = "external-cleanup-required"
 		plan.externalTokenCleanup = true
-		plan.ExternalTODOs = append(plan.ExternalTODOs, "Unset "+secrets.EnvironmentKey(oldID)+" outside AIGW, then retry finalization")
+		plan.ExternalTODOs = append(plan.ExternalTODOs, "Unset "+secret.EnvironmentKey(oldID)+" outside AIGW, then retry finalization")
 	default:
 		plan.deleteToken = true
 		plan.Actions.APIToken = "delete-source"
@@ -177,7 +177,7 @@ func applyFinalize(ctx context.Context, deps Renamer, plan Plan) (Plan, error) {
 		if present, err := deps.Secrets.Exists(plan.OldID); err != nil {
 			cleanupErrors = append(cleanupErrors, fmt.Errorf("check external source API token cleanup: %w", err))
 		} else if present {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("unset %s outside AIGW, then retry finalization", secrets.EnvironmentKey(plan.OldID)))
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("unset %s outside AIGW, then retry finalization", secret.EnvironmentKey(plan.OldID)))
 		} else {
 			plan.Actions.APIToken = "already-absent"
 		}

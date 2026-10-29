@@ -12,7 +12,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	codexcatalog "aigw-cli/internal/client/codex/catalog"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -62,7 +62,7 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	if err := os.WriteFile(configPath, append(reference, readFile(t, configPath)...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	journey.setEnvironment(secrets.EnvironmentKey(route.Account), token)
+	journey.setEnvironment(secret.EnvironmentKey(route.Account), token)
 	journey.run("setup", "--from", journey.manifest, "--account", route.Account)
 	journey.enableNativeClient(codex.ID, executable)
 	for _, args := range [][]string{

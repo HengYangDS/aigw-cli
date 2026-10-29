@@ -6,7 +6,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 	"encoding/json"
@@ -62,7 +62,7 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 
 func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutAccountToken(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	credentials := &recordingCredentialStore[string]{backend: secrets.NewMemoryStore()}
+	credentials := &recordingCredentialStore[string]{backend: secret.NewMemoryStore()}
 	app.Secrets = credentials
 	httpCalls := 0
 	app.HTTP = &fakeHTTP{handler: func(*http.Request) (*http.Response, error) {
@@ -202,8 +202,8 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
-			app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
-				if key == secrets.EnvironmentKey("dmxapi") {
+			app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+				if key == secret.EnvironmentKey("dmxapi") {
 					return "aigw-test-dmxapi-token"
 				}
 				return ""
@@ -305,8 +305,8 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 			const token = "aigw-test-dmxapi-token"
 			args := []string{"setup", "--from", writeConfigurationManifest(t, configurationManifestFixture), "--account", "dmxapi"}
 			if backend == "environment" {
-				app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
-					if key == secrets.EnvironmentKey("dmxapi") {
+				app.Secrets = secret.NewEnvironmentStore(func(key string) string {
+					if key == secret.EnvironmentKey("dmxapi") {
 						return token
 					}
 					return ""
@@ -359,10 +359,10 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 func TestSetupFromConfigurationManifestOutputFailureKeepsCommittedAutomaticBackendSelection(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
 	secretsRoot := filepath.Join(t.TempDir(), "secrets")
-	secretStore, err := secrets.Select(secrets.Selection{
+	secretStore, err := secret.Select(secret.Selection{
 		GOOS:         runtime.GOOS,
 		Root:         secretsRoot,
-		KeyringProbe: func(secrets.Store) error { return errors.New("native credential service unavailable") },
+		KeyringProbe: func(secret.Store) error { return errors.New("native credential service unavailable") },
 	})
 	if err != nil {
 		t.Fatal(err)

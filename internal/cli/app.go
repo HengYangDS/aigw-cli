@@ -34,7 +34,6 @@ import (
 	updatecli "aigw-cli/internal/cli/update"
 	"aigw-cli/internal/cli/verification"
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
@@ -42,7 +41,8 @@ import (
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/prompt"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/upgrade"
 
@@ -58,13 +58,13 @@ type App struct {
 	Executable            string
 	CredentialPath        string
 	ResolveCredentialPath func() (string, error)
-	ResolveProgram        func() (credential.Program, error)
-	Files                 credential.Files
+	ResolveProgram        func() (secret.Program, error)
+	Files                 secret.Files
 	InstallTarget         string
 	Host                  discovery.Host
 	Config                store.Store
-	Secrets               secrets.Store
-	Accounts              secrets.DiagnosticCredentialStore
+	Secrets               secret.Store
+	Accounts              secret.DiagnosticCredentialStore
 	Env                   []string
 	In                    io.Reader
 	Out                   io.Writer
@@ -215,7 +215,7 @@ func NewDefault(clients client.Registry) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve AIGW executable: %w", err)
 	}
-	secretStore, err := secrets.Select(secrets.Selection{
+	secretStore, err := secret.Select(secret.Selection{
 		Backend:    env["AIGW_SECRET_BACKEND"],
 		GOOS:       runtime.GOOS,
 		Root:       paths.Secrets,
@@ -225,7 +225,7 @@ func NewDefault(clients client.Registry) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	diagnosticCredentialStore, err := secrets.NewDiagnosticCredentialStore(secretStore)
+	diagnosticCredentialStore, err := secret.NewDiagnosticCredentialStore(secretStore)
 	if err != nil {
 		return nil, err
 	}
@@ -260,10 +260,10 @@ func NewDefault(clients client.Registry) (*App, error) {
 // UseExecutableIdentity binds the App's credential reader to the bytes of its
 // Executable. The program is read through files at most once for this App,
 // and only when a command first needs the reader.
-func (a *App) UseExecutableIdentity(files credential.Files, installName string) {
+func (a *App) UseExecutableIdentity(files secret.Files, installName string) {
 	executable, dataDir := a.Executable, a.DataDir
-	program := sync.OnceValues(func() (credential.Program, error) {
-		return credential.ReadProgram(files, executable)
+	program := sync.OnceValues(func() (secret.Program, error) {
+		return secret.ReadProgram(files, executable)
 	})
 	a.Files, a.ResolveProgram = files, program
 	a.ResolveCredentialPath = sync.OnceValues(func() (string, error) {
@@ -289,7 +289,7 @@ func environmentMap(values []string) map[string]string {
 func (a *App) doctorCommand() *cobra.Command {
 	return doctor.NewCommand(doctor.Dependencies{
 		Config: a.Config, Secrets: a.Secrets, Clients: invocation.Synchronizer(a.invocationContext()), Env: a.Env, Out: a.outputWriter(),
-		Inspect: func(cfg domain.Config, store secrets.Store) map[string]domainreadiness.Client {
+		Inspect: func(cfg domain.Config, store secret.Store) map[string]domainreadiness.Client {
 			operation := a.invocationContext()
 			operation.Secrets = store
 			return readiness.InspectClients(operation, cfg)

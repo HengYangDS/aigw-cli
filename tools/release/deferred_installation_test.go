@@ -7,7 +7,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	builtinclients "aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"fmt"
 	"os"
@@ -106,7 +106,7 @@ interfaces = { openai_responses = [] }
 			if err := os.WriteFile(journey.manifest, []byte(manifest), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+			journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 			journey.run("setup", "--from", journey.manifest)
 
 			before, err := store.NewStore(journey.config, builtinclients.Admission()).Load()

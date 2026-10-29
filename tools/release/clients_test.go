@@ -8,7 +8,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
@@ -165,7 +165,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	if err := journey.prepareNativeClient(client, executable, p.team); err != nil {
 		t.Fatal(err)
 	}
-	journey.setEnvironment(secrets.EnvironmentKey(route.Account), token)
+	journey.setEnvironment(secret.EnvironmentKey(route.Account), token)
 	journey.run("setup", "--from", journey.manifest, "--account", route.Account)
 	journey.enableNativeClient(client, executable)
 	retainedCredential := journey.retainedCredential(client)
@@ -232,7 +232,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	journey.requireNativeForwarding(client, token, server, continueClient)
 	journey.verifyNativeConfigEditing(client, executable)
 	const renamedAccount = "renamed-client-account"
-	journey.setEnvironment(secrets.EnvironmentKey(renamedAccount), token)
+	journey.setEnvironment(secret.EnvironmentKey(renamedAccount), token)
 	journey.run("account", "rename", route.Account, renamedAccount)
 	count := completions.Load()
 	journey.run("verify", "--for", "all")
@@ -243,7 +243,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	if err != nil || len(checkpoint.Clients) != 1 || checkpoint.Clients[0] != client {
 		t.Fatalf("single-client checkpoint = %v: %v", checkpoint.Clients, err)
 	}
-	journey.environment = environmentWithout(journey.environment, secrets.EnvironmentKey(route.Account))
+	journey.environment = environmentWithout(journey.environment, secret.EnvironmentKey(route.Account))
 	journey.run("account", "rename", route.Account, renamedAccount, "--finalize")
 	var retirement struct {
 		Status string `json:"status"`

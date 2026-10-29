@@ -16,7 +16,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
@@ -216,7 +216,7 @@ func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *tes
 		t.Fatal(err)
 	}
 	reads := 0
-	runtime.Secrets = secrets.NewEnvironmentStore(func(string) string { reads++; return "" })
+	runtime.Secrets = secret.NewEnvironmentStore(func(string) string { reads++; return "" })
 	incoming := strings.ReplaceAll(importManifest, "gateway", "local")
 	incoming = strings.ReplaceAll(incoming, "Gateway", "Local")
 	manifestPath := writeManifest(t, incoming)
@@ -262,7 +262,7 @@ func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *tes
 func TestImportDoesNotInspectUnselectedAccountCredentials(t *testing.T) {
 	runtime, _, _, _ := savedRuntime(t, localConfig())
 	reads := 0
-	runtime.Secrets = secrets.NewEnvironmentStore(func(string) string {
+	runtime.Secrets = secret.NewEnvironmentStore(func(string) string {
 		reads++
 		return ""
 	})
@@ -437,7 +437,7 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 				if err := os.WriteFile(path, []byte("not = [valid"), 0o600); err != nil {
 					t.Fatal(err)
 				}
-				return invocation.Context{Clients: clients.Registry(), Config: store.NewStore(path, clients.Admission()), Secrets: secrets.NewMemoryStore(), Out: io.Discard}
+				return invocation.Context{Clients: clients.Registry(), Config: store.NewStore(path, clients.Admission()), Secrets: secret.NewMemoryStore(), Out: io.Discard}
 			},
 			path: func(*testing.T) string { return validPath },
 			want: "parse config",
@@ -493,7 +493,7 @@ func savedRuntime(t *testing.T, cfg domain.Config) (invocation.Context, string, 
 	renderOut := &bytes.Buffer{}
 	return invocation.Context{Clients: clients.Registry(),
 		Config:    configStore,
-		Secrets:   secrets.NewMemoryStore(),
+		Secrets:   secret.NewMemoryStore(),
 		Out:       out,
 		RenderOut: renderOut,
 		Width:     120,

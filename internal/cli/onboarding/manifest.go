@@ -5,7 +5,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"context"
 	"fmt"
@@ -241,7 +241,7 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg domain.Conf
 	}
 
 	if tokenStdin {
-		if secrets.IsReadOnly(runtime.Secrets) {
+		if secret.IsReadOnly(runtime.Secrets) {
 			return nil, fmt.Errorf("--token-stdin cannot replace a Token in the read-only environment secret backend")
 		}
 		token, err := invocation.ReadToken(runtime, true, true)
@@ -258,8 +258,8 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg domain.Conf
 	if selectedAccount == "" || len(credentials) > 0 {
 		return credentials, nil
 	}
-	if secrets.IsReadOnly(runtime.Secrets) {
-		return nil, fmt.Errorf("environment Token %s is not set; provide it or choose another Account", secrets.EnvironmentKey(selectedAccount))
+	if secret.IsReadOnly(runtime.Secrets) {
+		return nil, fmt.Errorf("environment Token %s is not set; provide it or choose another Account", secret.EnvironmentKey(selectedAccount))
 	}
 	if !runtime.Interactive {
 		return nil, fmt.Errorf("Account %q is not connected; run setup interactively or add --token-stdin", selectedAccount)

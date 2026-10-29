@@ -12,9 +12,9 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -135,26 +135,26 @@ func TestUninstallPreservesEveryVersionedReader(t *testing.T) {
 	if err := os.WriteFile(target, []byte("previous target version"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	predecessorReader, err := credential.VersionedEntrypointPath(dataDir, target, "aigw")
+	predecessorReader, err := secret.VersionedEntrypointPath(dataDir, target, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := credential.EnsureEntrypoint(target, predecessorReader); err != nil {
+	if _, err := secret.EnsureEntrypoint(target, predecessorReader); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(target, []byte("installed"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	invokerReader, err := credential.VersionedEntrypointPath(dataDir, invoker, "aigw")
+	invokerReader, err := secret.VersionedEntrypointPath(dataDir, invoker, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
-	targetReader, err := credential.VersionedEntrypointPath(dataDir, target, "aigw")
+	targetReader, err := secret.VersionedEntrypointPath(dataDir, target, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for source, reader := range map[string]string{invoker: invokerReader, target: targetReader} {
-		if _, err := credential.EnsureEntrypoint(source, reader); err != nil {
+		if _, err := secret.EnsureEntrypoint(source, reader); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -193,15 +193,15 @@ func TestUninstallPreservesReaderSharedByIdenticalInstallations(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	invokerReader, err := credential.VersionedEntrypointPath(dataDir, invoker, "aigw")
+	invokerReader, err := secret.VersionedEntrypointPath(dataDir, invoker, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}
-	targetReader, err := credential.VersionedEntrypointPath(dataDir, target, "aigw")
+	targetReader, err := secret.VersionedEntrypointPath(dataDir, target, "aigw")
 	if err != nil || targetReader != invokerReader {
 		t.Fatalf("identical installations did not share one reader: %v", err)
 	}
-	if _, err := credential.EnsureEntrypoint(invoker, invokerReader); err != nil {
+	if _, err := secret.EnsureEntrypoint(invoker, invokerReader); err != nil {
 		t.Fatal(err)
 	}
 	command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),

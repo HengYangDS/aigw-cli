@@ -6,7 +6,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"bytes"
 	"encoding/base64"
@@ -418,14 +418,14 @@ func TestReadinessTransportHelpers(t *testing.T) {
 		t.Fatalf("remote transport = %#v", got)
 	}
 	buffer := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()), Out: buffer, Secrets: secrets.NewMemoryStore()}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()), Out: buffer, Secrets: secret.NewMemoryStore()}
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(buffer.String(), "Not configured") {
 		t.Fatalf("status output = %q", buffer.String())
 	}
-	command := NewStatusCommand(invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()), Out: io.Discard, Secrets: secrets.NewMemoryStore()})
+	command := NewStatusCommand(invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()), Out: io.Discard, Secrets: secret.NewMemoryStore()})
 	command.SetArgs([]string{"--json"})
 	if err := executeCommand(command); err != nil {
 		t.Fatal(err)

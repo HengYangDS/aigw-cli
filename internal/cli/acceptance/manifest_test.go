@@ -12,7 +12,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -81,7 +81,7 @@ interfaces = { anthropic = ["text"] }
 
 func TestConfigImportDefersCredentialObservationToStatus(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	store := &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("unexpected credential observation")}
+	store := &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: errors.New("unexpected credential observation")}
 	app.Secrets = store
 	if err := cli.Execute(app, []string{"config", "import", writeConfigurationManifest(t, configurationManifestFixture)}); err != nil {
 		t.Fatal(err)

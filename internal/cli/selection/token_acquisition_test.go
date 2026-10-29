@@ -11,13 +11,13 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
-func tokenAcquisitionRuntime(t *testing.T) (invocation.Context, domain.Config, secrets.Store, *bytes.Buffer) {
+func tokenAcquisitionRuntime(t *testing.T) (invocation.Context, domain.Config, secret.Store, *bytes.Buffer) {
 	t.Helper()
 	run, cfg, out := configuredRuntime(t)
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	run.Secrets = store
 	run.Interactive = true
 	run.HTTP = doerFunc(func(*http.Request) (*http.Response, error) {
@@ -105,14 +105,14 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 
 func TestUseNamesMissingEnvironmentTokenWithoutPrompting(t *testing.T) {
 	runtime, _, _ := configuredRuntime(t)
-	runtime.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
+	runtime.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
 	runtime.Interactive = true
 	runtime.Prompt = &promptStub{err: errors.New("prompt must not run")}
 
 	command := NewUseCommand(runtime)
 	command.SetArgs([]string{"--for", codex.ID, "codex"})
 	err := command.Execute()
-	if err == nil || !strings.Contains(err.Error(), secrets.EnvironmentKey("gateway")) || !strings.Contains(err.Error(), "aigw use --for codex codex") {
+	if err == nil || !strings.Contains(err.Error(), secret.EnvironmentKey("gateway")) || !strings.Contains(err.Error(), "aigw use --for codex codex") {
 		t.Fatalf("error = %v", err)
 	}
 	if strings.Contains(err.Error(), "aigw rotate") || strings.Contains(err.Error(), "prompt must not run") {

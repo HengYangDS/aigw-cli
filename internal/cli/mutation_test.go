@@ -13,14 +13,14 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
 func TestUseForwardingPreviewDoesNotAcquireConfigurationLock(t *testing.T) {
 	app := configuredApp(t)
 	var output bytes.Buffer
-	app.Out, app.Err, app.Secrets = &output, &output, secrets.NewMemoryStore()
+	app.Out, app.Err, app.Secrets = &output, &output, secret.NewMemoryStore()
 	app.Discovery = noClientDiscovery{}
 	before, err := app.Config.CaptureSnapshot()
 	if err != nil {

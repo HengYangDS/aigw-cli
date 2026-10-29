@@ -16,7 +16,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
@@ -178,7 +178,7 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 			if err := configStore.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-			secretStore := secrets.NewMemoryStore()
+			secretStore := secret.NewMemoryStore()
 			if err := secretStore.Set("team", "retained-token"); err != nil {
 				t.Fatal(err)
 			}
@@ -232,7 +232,7 @@ func blockedRouteRuntime(t *testing.T) invocation.Context {
 	}
 	return invocation.Context{Clients: clients.Registry(),
 		Config:    configStore,
-		Secrets:   secrets.NewMemoryStore(),
+		Secrets:   secret.NewMemoryStore(),
 		Out:       &bytes.Buffer{},
 		RenderOut: &bytes.Buffer{},
 	}
@@ -259,7 +259,7 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 				t.Fatal(err)
 			}
 			out := &bytes.Buffer{}
-			command := newAddCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secrets.NewMemoryStore(), Out: out, RenderOut: out})
+			command := newAddCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: out, RenderOut: out})
 			args := []string{"ucloud-minimax-new", "--account", "ucloud", "--model", "minimax-m3", "--protocol", "openai_responses"}
 			if test.upstream != "" {
 				args = append(args, "--upstream-model", test.upstream)

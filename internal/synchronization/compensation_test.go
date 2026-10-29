@@ -9,8 +9,8 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -36,7 +36,7 @@ func TestFailedSelfCompensationPreservesTheReaderItProjected(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+	reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
 	if err != nil {
 		t.Fatal(err)
 	}

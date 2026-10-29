@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 )
 
@@ -207,11 +206,11 @@ func observationKey(account string, protocol domain.EndpointProtocol) string {
 func FetchIDs(parent context.Context, client HTTPDoer, endpoint string, protocol domain.EndpointProtocol, token string) ([]string, string, error) {
 	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
 	defer cancel()
-	request, err := credential.ModelCatalogRequest(ctx, endpoint, protocol, token)
+	request, err := domain.ModelCatalogRequest(ctx, endpoint, protocol, token)
 	if err != nil {
 		return nil, "", err
 	}
-	response, err := credential.DoProbe(client, request)
+	response, err := domain.DoProbe(client, request)
 	if err != nil {
 		return nil, request.URL.String(), err
 	}

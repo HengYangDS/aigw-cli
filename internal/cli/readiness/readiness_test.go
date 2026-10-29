@@ -8,7 +8,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"bytes"
 	"context"
@@ -78,12 +78,12 @@ type failingAccountObservationStore struct {
 	reads int
 }
 
-func (store *failingAccountObservationStore) Get(string) (secrets.DiagnosticCredential, error) {
+func (store *failingAccountObservationStore) Get(string) (secret.DiagnosticCredential, error) {
 	store.reads++
-	return secrets.DiagnosticCredential{}, store.err
+	return secret.DiagnosticCredential{}, store.err
 }
-func (*failingAccountObservationStore) Set(string, secrets.DiagnosticCredential) error { return nil }
-func (*failingAccountObservationStore) Delete(string) error                            { return nil }
+func (*failingAccountObservationStore) Set(string, secret.DiagnosticCredential) error { return nil }
+func (*failingAccountObservationStore) Delete(string) error                           { return nil }
 func (store *failingAccountObservationStore) Exists(string) (bool, error) {
 	store.reads++
 	return false, store.err
@@ -106,7 +106,7 @@ func (store *observingSecretStore) Get(account string) (string, error) {
 		return "", store.getErr
 	}
 	if store.value == "" {
-		return "", secrets.ErrNotFound
+		return "", secret.ErrNotFound
 	}
 	return store.value, nil
 }
@@ -147,11 +147,11 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, domain.Config
 	}
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(),
-		Config: configStore, Secrets: secrets.NewMemoryStore(),
+		Config: configStore, Secrets: secret.NewMemoryStore(),
 		Out: out, RenderOut: out, Width: 120,
 	}
 	var err error
-	runtime.Accounts, err = secrets.NewDiagnosticCredentialStore(runtime.Secrets)
+	runtime.Accounts, err = secret.NewDiagnosticCredentialStore(runtime.Secrets)
 	if err != nil {
 		t.Fatal(err)
 	}

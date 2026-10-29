@@ -5,8 +5,8 @@ package main
 import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/native"
 	"aigw-cli/internal/store"
 	"bytes"
 	"context"
@@ -335,7 +335,7 @@ func (j *journeyFixture) measureNativeCredentialOperations(output, variant, back
 		run  func() error
 	}{
 		{"native-read-api", func() error {
-			value, err := native.Read(j.source, secrets.Service, "native-system-keyring-probe")
+			value, err := native.Read(j.source, secret.Service, "native-system-keyring-probe")
 			if err != nil {
 				return err
 			}
@@ -345,7 +345,7 @@ func (j *journeyFixture) measureNativeCredentialOperations(output, variant, back
 			return nil
 		}},
 		{"native-exists-api", func() error {
-			exists, err := native.Exists(j.source, secrets.Service, "native-system-keyring-probe")
+			exists, err := native.Exists(j.source, secret.Service, "native-system-keyring-probe")
 			if err != nil {
 				return err
 			}

@@ -7,7 +7,7 @@ import (
 	"reflect"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 // PrepareSelection resolves one proposed binding without changing the caller's
@@ -124,7 +124,7 @@ func (s Synchronizer) selectRoute(ctx context.Context, before, after domain.Conf
 		}
 		tokens = map[string]string{selected.AccountID: token}
 	}
-	rollback, err := secrets.Replace(s.Secrets, tokens)
+	rollback, err := secret.Replace(s.Secrets, tokens)
 	if err != nil {
 		return false, false, domain.ClientBinding{}, err
 	}

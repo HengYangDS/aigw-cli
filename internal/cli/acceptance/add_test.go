@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -208,7 +208,7 @@ func TestAddRejectsConfigThatFailsValidation(t *testing.T) {
 func TestAddSurfacesSecretStoreSetFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
 	want := errors.New("keychain unavailable")
-	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), setErr: want}
+	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), setErr: want}
 	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)

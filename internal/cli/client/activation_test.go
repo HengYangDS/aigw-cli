@@ -10,8 +10,8 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 )
 
 func TestClaudeDesktopLifecycleReportsRequiredRestart(t *testing.T) {
@@ -134,7 +134,7 @@ func TestEnableWithExternalCredentialPreservesUnusedCachedEntrypoint(t *testing.
 		t.Fatal(err)
 	}
 	runtime.CredentialPath = filepath.Join(root, "data", "credential", "aigw")
-	if _, err := credential.EnsureEntrypoint(runtime.Executable, runtime.CredentialPath); err != nil {
+	if _, err := secret.EnsureEntrypoint(runtime.Executable, runtime.CredentialPath); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(runtime.CredentialPath+".sha256", []byte("changed receipt\n"), 0o600); err != nil {

@@ -6,7 +6,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"bytes"
 	"context"
@@ -30,7 +30,7 @@ func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T
 	before.SetSelectedRoute(claude.ID, "claude", "")
 	before.SetSelectedRoute(codex.ID, "codex", "")
 	before.SetClientActivation(codex.ID, true, "/existing/codex", []string{"/explicit/config.toml"})
-	secretStore := secrets.NewMemoryStore()
+	secretStore := secret.NewMemoryStore()
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestDesiredClientConfigurationDoesNotReselectRoutes(t *testing.T) {
 	before.Routes["one"] = domain.Route{Label: "One", Account: "one", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.Routes["two"] = domain.Route{Label: "Two", Account: "two", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedRoute(claude.ID, "one", "")
-	secretStore := secrets.NewMemoryStore()
+	secretStore := secret.NewMemoryStore()
 	if err := secretStore.Set("two", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -108,8 +108,8 @@ func TestDesiredSyncConfigurationPreservesExplicitDisabledSelection(t *testing.T
 	}
 	before.SetRecommendedRoute(claude.ID, "recommended")
 	before.SetSelectedRoute(claude.ID, "manual", "")
-	store := secrets.NewEnvironmentStore(func(key string) string {
-		if key == secrets.EnvironmentKey("recommended") {
+	store := secret.NewEnvironmentStore(func(key string) string {
+		if key == secret.EnvironmentKey("recommended") {
 			return "token"
 		}
 		return ""
@@ -150,7 +150,7 @@ func TestDesiredClientConfigurationDoesNotActivateUnboundClients(t *testing.T) {
 	before.Routes["claude"] = domain.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.Routes["codex"] = domain.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	before.SetRecommendedRoute(claude.ID, "claude")
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}

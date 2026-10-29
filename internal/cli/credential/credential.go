@@ -10,8 +10,8 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/native"
 	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
@@ -49,7 +49,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if errors.Is(err, context.DeadlineExceeded) {
 					return presentation.ProblemError("Account Token read exceeded its deadline", "", "The credential subprocess was stopped; no Token was returned.", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read.", err)
 				}
-				if errors.Is(err, secrets.ErrNotFound) {
+				if errors.Is(err, secret.ErrNotFound) {
 					return presentation.ProblemError(
 						fmt.Sprintf("%s Account Token is not configured", client), "",
 						"No Token was returned.",

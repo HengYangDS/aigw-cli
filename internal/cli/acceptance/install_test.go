@@ -16,9 +16,9 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/surface"
 )
 
@@ -154,7 +154,7 @@ func TestUninstallPreservesDriftedSharedReader(t *testing.T) {
 	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
 	app.DataDir = filepath.Join(root, "data")
 	writeFile(t, app.Executable, []byte("portable program"), 0o755)
-	reader, err := credential.VersionedEntrypointPath(app.DataDir, app.Executable, executableName("aigw"))
+	reader, err := secret.VersionedEntrypointPath(app.DataDir, app.Executable, executableName("aigw"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +191,7 @@ func TestPortableUninstallPreservesExternalCredentialCommand(t *testing.T) {
 	app.Executable = filepath.Join(root, "bin", executableName("aigw"))
 	app.DataDir = filepath.Join(root, "data")
 	writeFile(t, app.Executable, []byte("portable program"), 0o755)
-	reader, err := credential.VersionedEntrypointPath(app.DataDir, app.Executable, executableName("aigw"))
+	reader, err := secret.VersionedEntrypointPath(app.DataDir, app.Executable, executableName("aigw"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -10,7 +10,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/synchronization"
 
 	"github.com/spf13/cobra"
@@ -50,7 +50,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			operation := runtime
-			operation.Secrets = secrets.ObserveAvailability(runtime.Secrets)
+			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 			synchronizer := invocation.Synchronizer(operation)
 			adoptedConfig, adopted, err := synchronizer.AdoptNativeSelections(before)
 			if err != nil {

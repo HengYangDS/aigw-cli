@@ -11,9 +11,9 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 )
 
@@ -32,9 +32,9 @@ func TestHomebrewRollbackDoesNotReleaseCredentialsBeforeRetryCapability(t *testi
 		t.Fatal(err)
 	}
 	reads := 0
-	runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secrets.NewMemoryStore(), Out: io.Discard, ResolveProgram: func() (credential.Program, error) {
+	runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: io.Discard, ResolveProgram: func() (secret.Program, error) {
 		reads++
-		return credential.Program{}, errors.New("credential reader must not be resolved")
+		return secret.Program{}, errors.New("credential reader must not be resolved")
 	}}
 	err = prepareHomebrewRollback(runtime)
 	if err == nil || !strings.Contains(err.Error(), "retry") || reads != 0 {
@@ -52,9 +52,9 @@ func TestHomebrewRollbackRefusesUnreadableRetryPolicyBeforeCustody(t *testing.T)
 		t.Fatal(err)
 	}
 	reads := 0
-	runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secrets.NewMemoryStore(), Out: io.Discard, ResolveProgram: func() (credential.Program, error) {
+	runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: io.Discard, ResolveProgram: func() (secret.Program, error) {
 		reads++
-		return credential.Program{}, errors.New("credential reader must not be resolved")
+		return secret.Program{}, errors.New("credential reader must not be resolved")
 	}}
 	if err := prepareHomebrewRollback(runtime); err == nil || reads != 0 {
 		t.Fatalf("unreadable policy reached custody: %v (reads=%d)", err, reads)

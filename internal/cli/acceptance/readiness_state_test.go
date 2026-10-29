@@ -13,7 +13,7 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func TestStatusAndCheckHideUnreadableConfigDetails(t *testing.T) {
@@ -72,7 +72,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("native metadata must not select external credentials")}
+	store := &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: errors.New("native metadata must not select external credentials")}
 	app.Secrets = store
 	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"doctor", "--json"}, {"doctor"}, {"route", "list"}, {"route", "show", "claude"}, {"use", "--for", "claude", "claude"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[claude.ID].Executable}} {
 		out.Reset()
@@ -305,14 +305,14 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 				t.Fatal(err)
 			}
 			diagnosticCredentialStore := app.Accounts
-			if err := diagnosticCredentialStore.Set("team", secrets.DiagnosticCredential{SystemToken: "never-read-this-system-token", UserID: "never-read-this-user"}); err != nil {
+			if err := diagnosticCredentialStore.Set("team", secret.DiagnosticCredential{SystemToken: "never-read-this-system-token", UserID: "never-read-this-user"}); err != nil {
 				t.Fatal(err)
 			}
 			before := readFile(t, app.Config.Path())
 			beforeFiles := directoryNames(t, filepath.Dir(app.Config.Path()))
 
 			tokenObservation := &recordingCredentialStore[string]{backend: secretStore}
-			diagnosticObservation := &recordingCredentialStore[secrets.DiagnosticCredential]{backend: diagnosticCredentialStore}
+			diagnosticObservation := &recordingCredentialStore[secret.DiagnosticCredential]{backend: diagnosticCredentialStore}
 			app.Secrets = tokenObservation
 			app.Accounts = diagnosticObservation
 			prompt := &scriptedPrompt{}
@@ -378,12 +378,12 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 	if err := secretStore.Set("team", "never-read-this-token"); err != nil {
 		t.Fatal(err)
 	}
-	diagnosticCredentialStore, err := secrets.NewDiagnosticCredentialStore(secretStore)
+	diagnosticCredentialStore, err := secret.NewDiagnosticCredentialStore(secretStore)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := errors.New("credential metadata unavailable")
-	observed := &recordingCredentialStore[secrets.DiagnosticCredential]{backend: diagnosticCredentialStore, existsErr: want}
+	observed := &recordingCredentialStore[secret.DiagnosticCredential]{backend: diagnosticCredentialStore, existsErr: want}
 	app.Accounts = observed
 
 	if err := cli.Execute(app, []string{"status"}); err != nil {

@@ -18,10 +18,10 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -280,7 +280,7 @@ func TestRepairPreservesUnprovenCachedCredentialEntrypoint(t *testing.T) {
 	if err := os.WriteFile(source, []byte("AIGW fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := credential.EnsureEntrypoint(source, helper); err != nil {
+	if _, err := secret.EnsureEntrypoint(source, helper); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}

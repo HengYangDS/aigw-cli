@@ -12,7 +12,7 @@ import (
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -37,7 +37,7 @@ func hermesVerificationFixture(t *testing.T) (domain.Config, domain.Runtime, cli
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}

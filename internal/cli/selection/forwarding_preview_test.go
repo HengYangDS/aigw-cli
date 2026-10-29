@@ -12,13 +12,13 @@ import (
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
 // credentialFreeStore fails any credential read, so a preview that reads one
 // fails instead of passing silently.
-type credentialFreeStore struct{ secrets.Store }
+type credentialFreeStore struct{ secret.Store }
 
 func (credentialFreeStore) Get(string) (string, error) {
 	return "", errors.New("preview read a credential")
@@ -64,7 +64,7 @@ func TestUseForwardingPreviewRefusesAnEditedOwnedTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	owned := directoryBytes(t, filepath.Dir(target))
-	run.Secrets = credentialFreeStore{secrets.NewMemoryStore()}
+	run.Secrets = credentialFreeStore{secret.NewMemoryStore()}
 	command := NewUseCommand(run)
 	command.SilenceErrors, command.SilenceUsage = true, true
 	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
@@ -100,7 +100,7 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 	if err := run.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	run.Secrets = credentialFreeStore{secrets.NewMemoryStore()}
+	run.Secrets = credentialFreeStore{secret.NewMemoryStore()}
 	command := NewUseCommand(run)
 	command.SilenceErrors, command.SilenceUsage = true, true
 	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
@@ -127,7 +127,7 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 	if _, err := os.Stat(target); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("preview created the discovered target: %v", err)
 	}
-	credentials := secrets.NewMemoryStore()
+	credentials := secret.NewMemoryStore()
 	if err := credentials.Set("gateway", "synthetic"); err != nil {
 		t.Fatal(err)
 	}

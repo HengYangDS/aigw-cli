@@ -19,7 +19,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 type fixedDiscovery struct{ result discovery.Result }
@@ -132,7 +132,7 @@ func TestExplicitDisableSurvivesDiscoveryWithoutAnExternalHelper(t *testing.T) {
 		t.Run(id, func(t *testing.T) {
 			cfg, deps, observed := configuredClient(t, id)
 			cfg.SetClientActivation(id, false, "", nil)
-			deps.Secrets = secrets.NewMemoryStore()
+			deps.Secrets = secret.NewMemoryStore()
 			if err := deps.Secrets.Set("gateway", "public-token"); err != nil {
 				t.Fatal(err)
 			}

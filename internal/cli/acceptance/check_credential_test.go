@@ -12,8 +12,8 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/native"
 )
 
 func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
@@ -65,8 +65,8 @@ func TestCheckNamesTheEnvironmentTokenForARejectedToken(t *testing.T) {
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	variable := secrets.EnvironmentKey("dmx")
-	app.Secrets = secrets.NewEnvironmentStore(func(key string) string {
+	variable := secret.EnvironmentKey("dmx")
+	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
 		if key == variable {
 			return "rejected-fixture-token"
 		}

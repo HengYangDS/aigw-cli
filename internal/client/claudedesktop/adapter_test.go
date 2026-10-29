@@ -11,10 +11,10 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 )
 
@@ -49,7 +49,7 @@ func newClaudeDesktopFixture(t *testing.T) claudeDesktopFixture {
 	cfg.Routes["selected"] = domain.Route{Label: "Fable 5.1", Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(ID, "selected", "")
 	cfg.SetClientActivation(ID, true, executable, []string{library})
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "secret"); err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +285,7 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 	cfg.Routes["selected"] = domain.Route{Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(ID, "selected", "")
 	cfg.SetClientActivation(ID, true, "", nil)
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "secret"); err != nil {
 		t.Fatal(err)
 	}
@@ -364,11 +364,11 @@ func versionedReaders(t *testing.T) (string, string) {
 		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+		reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := credential.EnsureEntrypoint(source, reader); err != nil {
+		if _, err := secret.EnsureEntrypoint(source, reader); err != nil {
 			t.Fatal(err)
 		}
 		paths = append(paths, reader)

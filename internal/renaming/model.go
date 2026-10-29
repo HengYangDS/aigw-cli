@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
 )
@@ -18,8 +18,8 @@ type HTTPDoer interface {
 // Renamer owns identity migration, credential preparation, and verified finalization.
 type Renamer struct {
 	Config       store.Store
-	Secrets      secrets.Store
-	Accounts     secrets.DiagnosticCredentialStore
+	Secrets      secret.Store
+	Accounts     secret.DiagnosticCredentialStore
 	HTTP         HTTPDoer
 	Synchronizer synchronization.Synchronizer
 }
@@ -88,7 +88,7 @@ type tokenCopy struct {
 }
 
 type probeCopy struct {
-	value secrets.DiagnosticCredential
+	value secret.DiagnosticCredential
 	copy  bool
 }
 

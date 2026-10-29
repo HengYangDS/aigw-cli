@@ -22,7 +22,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/upgrade"
 
@@ -90,7 +90,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	if err := journey.prepareNativeClient(codex.ID, executable, p.team); err != nil {
 		t.Fatal(err)
 	}
-	journey.setEnvironment(secrets.EnvironmentKey(route.Account), token)
+	journey.setEnvironment(secret.EnvironmentKey(route.Account), token)
 	journey.run("setup", "--from", journey.manifest, "--account", route.Account)
 	journey.enableNativeClient(codex.ID, executable)
 	retained := journey.retainedCredential(codex.ID)

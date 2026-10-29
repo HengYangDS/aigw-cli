@@ -16,7 +16,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -106,7 +106,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projectionSecrets := secrets.NewMemoryStore()
+	projectionSecrets := secret.NewMemoryStore()
 	for _, accountID := range connectedAccounts {
 		if err := projectionSecrets.Set(accountID, "public-native-fixture"); err != nil {
 			t.Fatal(err)
@@ -130,7 +130,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	}
 	env["HERMES_HOME"], env["AIGW_SECRET_BACKEND"] = hermesHome, "env"
 	for _, accountID := range connectedAccounts {
-		env[secrets.EnvironmentKey(accountID)] = "public-native-fixture"
+		env[secret.EnvironmentKey(accountID)] = "public-native-fixture"
 	}
 	output := runHermesNativeScript(t, python, home, env, hermesNativeCatalogProbe)
 	var result struct {

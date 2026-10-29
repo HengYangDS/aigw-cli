@@ -1,0 +1,523 @@
+package secret
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+type syncWriterStub struct {
+	writeErr error
+	syncErr  error
+}
+
+func (writer syncWriterStub) Write([]byte) (int, error) {
+	if writer.writeErr != nil {
+		return 0, writer.writeErr
+	}
+	return 1, nil
+}
+
+func (writer syncWriterStub) Sync() error { return writer.syncErr }
+
+type readRootStub struct {
+	info os.FileInfo
+	err  error
+}
+
+func (root readRootStub) Lstat(string) (os.FileInfo, error) { return root.info, nil }
+func (root readRootStub) Open(string) (*os.File, error)     { return nil, root.err }
+
+type failingDirectorySyncRoot struct {
+	*os.Root
+	remainingFailures int
+	onFailure         func()
+	recoveryObserved  bool
+}
+
+type faultRoot struct {
+	*os.Root
+	lstatErr    error
+	openFileErr error
+	openFile    *os.File
+	removeErr   error
+	renameErr   error
+	openErrors  map[string]error
+	openedFile  *os.File
+}
+
+func (root *faultRoot) Lstat(name string) (os.FileInfo, error) {
+	if root.lstatErr != nil {
+		return nil, root.lstatErr
+	}
+	return root.Root.Lstat(name)
+}
+
+func (root *faultRoot) OpenFile(name string, flag int, perm os.FileMode) (*os.File, error) {
+	if root.openFileErr != nil {
+		return nil, root.openFileErr
+	}
+	if root.openFile != nil {
+		return root.openFile, nil
+	}
+	return root.Root.OpenFile(name, flag, perm)
+}
+
+func (root *faultRoot) Remove(name string) error {
+	if root.removeErr != nil {
+		return root.removeErr
+	}
+	return root.Root.Remove(name)
+}
+
+func (root *faultRoot) Rename(oldName, newName string) error {
+	if root.renameErr != nil {
+		return root.renameErr
+	}
+	return root.Root.Rename(oldName, newName)
+}
+
+func (root *faultRoot) Open(name string) (*os.File, error) {
+	if err := root.openErrors[name]; err != nil {
+		return nil, err
+	}
+	if root.openedFile != nil {
+		return root.openedFile, nil
+	}
+	return root.Root.Open(name)
+}
+
+func (root *failingDirectorySyncRoot) Open(name string) (*os.File, error) {
+	if name == "." && !root.recoveryObserved {
+		root.recoveryObserved = true
+		return root.Root.Open(name)
+	}
+	if name == "." && root.remainingFailures > 0 {
+		root.remainingFailures--
+		if root.onFailure != nil {
+			root.onFailure()
+		}
+		return nil, errors.New("directory sync failed")
+	}
+	return root.Root.Open(name)
+}
+
+func TestSecureFileHelpersRejectInvalidResources(t *testing.T) {
+	if _, err := openSecureRoot("", false); err == nil {
+		t.Fatal("openSecureRoot() accepted an empty storage root")
+	}
+	parent := t.TempDir()
+	if _, err := openSecureRoot(filepath.Join(parent, "invalid")+"\x00root", false); err == nil {
+		t.Fatal("openSecureRoot() accepted an invalid storage root")
+	}
+	regular := filepath.Join(parent, "regular")
+	if err := os.WriteFile(regular, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openSecureRoot(regular, false); err == nil {
+		t.Fatal("openSecureRoot() accepted a regular file")
+	}
+	if _, err := openSecureRoot(filepath.Join(regular, "child"), true); err == nil {
+		t.Fatal("openSecureRoot() created beneath a regular file")
+	}
+
+	rootPath := filepath.Join(parent, "root")
+	if err := os.Mkdir(rootPath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(rootPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(rootPath, "occupied"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeSecureFile(root, "occupied", []byte("token")); err == nil {
+		t.Fatal("writeSecureFile() replaced a directory")
+	}
+	if err := root.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readSecureFile(root, "missing"); err == nil {
+		t.Fatal("readSecureFile() used a closed root")
+	}
+	if err := writeSecureFile(root, "alpha", []byte("token")); err == nil {
+		t.Fatal("writeSecureFile() used a closed root")
+	}
+	if err := syncRoot(root); err == nil {
+		t.Fatal("syncRoot() used a closed root")
+	}
+}
+
+func TestSecureFileTransactionsReportOwnedFilesystemFailures(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "secrets")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = opened.Close() }()
+	want := errors.New("injected filesystem failure")
+
+	if _, _, err := replaceSecureFile(&faultRoot{Root: opened, openFileErr: want}, "alpha", []byte("token")); !errors.Is(err, want) {
+		t.Fatalf("replaceSecureFile() open error = %v, want %v", err, want)
+	}
+	if _, _, err := replaceSecureFile(&faultRoot{Root: opened, renameErr: want}, "alpha", []byte("token")); !errors.Is(err, want) {
+		t.Fatalf("replaceSecureFile() rename error = %v, want %v", err, want)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "alpha"), []byte("token"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := deleteSecureFile(&faultRoot{Root: opened, removeErr: want}, "alpha"); !errors.Is(err, want) {
+		t.Fatalf("deleteSecureFile() remove error = %v, want %v", err, want)
+	}
+	if _, err := secureFileExists(&faultRoot{Root: opened, lstatErr: want}, "alpha"); !errors.Is(err, want) {
+		t.Fatalf("secureFileExists() inspection error = %v, want %v", err, want)
+	}
+	if _, err := captureOptionalSecureFile(&faultRoot{Root: opened, openErrors: map[string]error{"alpha": want}}, "alpha"); !errors.Is(err, want) {
+		t.Fatalf("captureOptionalSecureFile() read error = %v, want %v", err, want)
+	}
+}
+
+func TestSecureReplacementPreservesPrimaryAndStagingCleanupFailures(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(directory, "alpha"), []byte("original"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	primary, cleanup := errors.New("rename denied"), errors.New("staging removal denied")
+	_, committed, failure := replaceSecureFile(&faultRoot{Root: root, renameErr: primary, removeErr: cleanup}, "alpha", []byte("replacement"))
+	if committed || !errors.Is(failure, primary) || !errors.Is(failure, cleanup) {
+		t.Fatalf("replacement lost primary or cleanup error: committed=%t, %v", committed, failure)
+	}
+	if value, err := os.ReadFile(filepath.Join(directory, "alpha")); err != nil || string(value) != "original" {
+		t.Fatalf("failed replacement changed Token: %q, %v", value, err)
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil || len(entries) != 2 {
+		t.Fatalf("expected original and exact retained staging file: %v, %v", entries, err)
+	}
+	for _, entry := range entries {
+		if entry.Name() != "alpha" && !strings.Contains(failure.Error(), entry.Name()) {
+			t.Fatalf("cleanup error omitted retained path %s: %v", entry.Name(), failure)
+		}
+	}
+}
+
+func TestGuardedDeleteReportsObservationRemovalAndSyncFailures(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "secrets")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "alpha")
+	if err := os.WriteFile(path, []byte("token"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = opened.Close() }()
+	expected, err := captureOptionalSecureFile(opened, "alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(expected.value)
+	want := errors.New("injected filesystem failure")
+
+	if err := deleteSecureFileIf(&faultRoot{Root: opened, lstatErr: want}, "alpha", expected); !errors.Is(err, want) {
+		t.Fatalf("deleteSecureFileIf() observation error = %v, want %v", err, want)
+	}
+	if err := deleteSecureFileIf(&faultRoot{Root: opened, removeErr: want}, "alpha", expected); !errors.Is(err, want) {
+		t.Fatalf("deleteSecureFileIf() removal error = %v, want %v", err, want)
+	}
+	root := &failingDirectorySyncRoot{Root: opened, remainingFailures: 1}
+	if err := deleteSecureFileIf(root, "alpha", expected); err == nil || !strings.Contains(err.Error(), "sync") {
+		t.Fatalf("deleteSecureFileIf() sync error = %v", err)
+	}
+	value, err := os.ReadFile(path)
+	if err != nil || string(value) != "token" {
+		t.Fatalf("Token after guarded delete compensation = %q, %v", value, err)
+	}
+}
+
+func TestRestoreSecureFileReportsCompensationFailures(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "secrets")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "alpha")
+	if err := os.WriteFile(path, []byte("postimage"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = opened.Close() }()
+	postimage, err := captureOptionalSecureFile(opened, "alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clear(postimage.value)
+	cause := errors.New("commit failed")
+	want := errors.New("injected compensation failure")
+
+	if err := restoreSecureFile(&faultRoot{Root: opened, lstatErr: want}, "alpha", credentialFileSnapshot{}, postimage, cause); err == nil || !strings.Contains(err.Error(), "inspect Token postimage") {
+		t.Fatalf("restoreSecureFile() observation error = %v", err)
+	}
+	if err := restoreSecureFile(&faultRoot{Root: opened, removeErr: want}, "alpha", credentialFileSnapshot{}, postimage, cause); err == nil || !strings.Contains(err.Error(), "remove uncommitted Token") {
+		t.Fatalf("restoreSecureFile() removal error = %v", err)
+	}
+	if err := restoreSecureFile(&faultRoot{Root: opened, openErrors: map[string]error{".": want}}, "alpha", credentialFileSnapshot{}, postimage, cause); err == nil || !strings.Contains(err.Error(), "sync restored Token state") {
+		t.Fatalf("restoreSecureFile() sync error = %v", err)
+	}
+	if err := os.WriteFile(path, []byte("postimage"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	postimage, err = captureOptionalSecureFile(opened, "alpha")
+	if err != nil {
+		t.Fatal(err)
+	}
+	preimage := credentialFileSnapshot{value: []byte("preimage"), exists: true}
+	if err := restoreSecureFile(&faultRoot{Root: opened, openFileErr: want}, "alpha", preimage, postimage, cause); err == nil || !strings.Contains(err.Error(), "restore previous Token") {
+		t.Fatalf("restoreSecureFile() replacement error = %v", err)
+	}
+}
+
+func TestCredentialSnapshotComparisonSupportsContentOnlyExpectations(t *testing.T) {
+	left := credentialFileSnapshot{value: []byte("token"), exists: true}
+	right := credentialFileSnapshot{value: []byte("token"), exists: true}
+	if !sameCredentialFileSnapshot(left, right) {
+		t.Fatal("sameCredentialFileSnapshot() rejected equal content-only snapshots")
+	}
+}
+
+func TestSecureFilePropagatesOpenAndWriteFailures(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "alpha")
+	if err := os.WriteFile(path, []byte("token"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("injected open failure")
+	if _, err := readSecureFile(readRootStub{info: info, err: want}, "alpha"); !errors.Is(err, want) {
+		t.Fatalf("readSecureFile() error = %v, want %v", err, want)
+	}
+	readOnly, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	if err := writeSecureFile(&faultRoot{Root: root, openFile: readOnly}, "alpha", []byte("replacement")); err == nil {
+		t.Fatal("writeSecureFile() ignored a write failure")
+	}
+}
+
+func TestSecureRootAndFileIdentityAreStable(t *testing.T) {
+	parent := t.TempDir()
+	first := filepath.Join(parent, "first")
+	second := filepath.Join(parent, "second")
+	if err := os.Mkdir(first, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(second, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	firstInfo, err := os.Stat(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openVerifiedRoot(filepath.Join(parent, "missing"), firstInfo); err == nil {
+		t.Fatal("openVerifiedRoot() accepted a missing root")
+	}
+	if _, err := openVerifiedRoot(second, firstInfo); err == nil {
+		t.Fatal("openVerifiedRoot() accepted a changed root")
+	}
+
+	root, err := os.OpenRoot(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = root.Close() }()
+	if _, err := openVerifiedFile(root, "missing", firstInfo); err == nil {
+		t.Fatal("openVerifiedFile() accepted a missing file")
+	}
+	for _, name := range []string{"alpha", "beta"} {
+		if err := os.WriteFile(filepath.Join(first, name), []byte(name), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	alpha, err := os.Stat(filepath.Join(first, "alpha"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openVerifiedFile(root, "beta", alpha); err == nil {
+		t.Fatal("openVerifiedFile() accepted a changed file")
+	}
+	if _, err := readSecureFile(root, "beta"); err != nil {
+		t.Fatalf("readSecureFile() error = %v", err)
+	}
+}
+
+func TestWriteAndSyncFailuresAreExplicit(t *testing.T) {
+	want := errors.New("injected failure")
+	if err := writeAndSync(syncWriterStub{writeErr: want}, []byte("token")); !errors.Is(err, want) {
+		t.Fatalf("writeAndSync() write error = %v", err)
+	}
+	if err := writeAndSync(syncWriterStub{syncErr: want}, []byte("token")); !errors.Is(err, want) {
+		t.Fatalf("writeAndSync() sync error = %v", err)
+	}
+}
+
+type boundedObservationRoot struct {
+	*os.Root
+	lstatCalls int
+}
+
+func (root *boundedObservationRoot) Lstat(name string) (os.FileInfo, error) {
+	root.lstatCalls++
+	if root.lstatCalls > 2 {
+		return nil, errors.New("credential state was observed more than once")
+	}
+	return root.Root.Lstat(name)
+}
+
+func TestGuardedDeleteUsesOneValidatedSnapshot(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "secrets")
+	if err := os.Mkdir(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, backendChoiceName)
+	if err := os.WriteFile(path, []byte("file\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = opened.Close() }()
+	root := &boundedObservationRoot{Root: opened}
+	expected, err := captureOptionalSecureFile(opened, backendChoiceName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := deleteSecureFileIf(root, backendChoiceName, expected); err != nil {
+		t.Fatalf("deleteSecureFileIf() error = %v", err)
+	}
+	if root.lstatCalls != 2 {
+		t.Fatalf("Lstat calls = %d, want one validated snapshot", root.lstatCalls)
+	}
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("backend selection remains after guarded deletion: %v", err)
+	}
+}
+
+func TestFileStoreReadAndDeleteBoundaries(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "secrets")
+	store := newFileStore(root)
+	if _, err := store.Get("missing"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Get() error = %v, want ErrNotFound", err)
+	}
+	if err := store.Delete("missing"); err != nil {
+		t.Fatalf("Delete() missing error = %v", err)
+	}
+	if mustExist(t, store, "missing") {
+		t.Fatal("Has() reported a missing Token")
+	}
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if mustExist(t, store, "still-missing") {
+		t.Fatal("Exists() reported an absent Token file")
+	}
+	if err := store.Delete("still-missing"); err != nil {
+		t.Fatalf("Delete() absent Token error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "empty"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !mustExist(t, store, "empty") {
+		t.Fatal("empty credential file was reported absent")
+	}
+	if _, err := store.Get("empty"); err == nil || errors.Is(err, ErrNotFound) {
+		t.Fatalf("present empty credential file was reported absent: %v", err)
+	}
+	if err := store.Set("present", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Set("present", "replacement"); err != nil {
+		t.Fatalf("replace Token error = %v", err)
+	}
+	if !mustExist(t, store, "present") {
+		t.Fatal("Has() did not report the stored Token")
+	}
+}
+
+func TestFileStoreRejectsInvalidAccountNames(t *testing.T) {
+	store := newFileStore(filepath.Join(t.TempDir(), "secrets"))
+	if _, err := store.Get("invalid account"); err == nil {
+		t.Fatal("Get() accepted an invalid Account ID")
+	}
+	if err := store.Set("invalid account", "token"); err == nil {
+		t.Fatal("Set() accepted an invalid Account ID")
+	}
+	if err := store.Set("alpha", ""); err == nil {
+		t.Fatal("Set() accepted an empty Token")
+	}
+	if err := store.Delete("invalid account"); err == nil {
+		t.Fatal("Delete() accepted an invalid Account ID")
+	}
+}
+
+func TestFileStorePreservesNonDirectoryRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "storage")
+	const original = "unowned storage\n"
+	if err := os.WriteFile(root, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.Stat(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := newFileStore(root)
+	operations := []struct {
+		name string
+		run  func() error
+	}{
+		{"read", func() error { _, err := store.Get("alpha"); return err }},
+		{"exists", func() error { _, err := store.Exists("alpha"); return err }},
+		{"write", func() error { return store.Set("alpha", "synthetic-token") }},
+		{"delete", func() error { return store.Delete("alpha") }},
+	}
+	for _, operation := range operations {
+		t.Run(operation.name, func(t *testing.T) {
+			if err := operation.run(); err == nil || errors.Is(err, ErrNotFound) {
+				t.Fatalf("occupied storage root was not refused: %v", err)
+			}
+			content, err := os.ReadFile(root)
+			if err != nil || string(content) != original {
+				t.Fatalf("refused operation changed unowned storage: %v", err)
+			}
+			after, err := os.Stat(root)
+			if err != nil || !os.SameFile(before, after) || after.Mode() != before.Mode() {
+				t.Fatalf("refused operation changed storage identity or mode: %v", err)
+			}
+		})
+	}
+}

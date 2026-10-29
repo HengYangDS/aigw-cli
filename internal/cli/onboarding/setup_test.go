@@ -21,7 +21,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 )
@@ -53,7 +53,7 @@ func (store *scriptedSecretStore) Get(name string) (string, error) {
 	if value, ok := store.values[name]; ok {
 		return value, nil
 	}
-	return "", secrets.ErrNotFound
+	return "", secret.ErrNotFound
 }
 
 func (store *scriptedSecretStore) Set(name, value string) error {
@@ -81,7 +81,7 @@ func (store *scriptedSecretStore) Exists(name string) (bool, error) {
 	return ok, nil
 }
 
-func secretExists(t testing.TB, store secrets.Store, account string) bool {
+func secretExists(t testing.TB, store secret.Store, account string) bool {
 	t.Helper()
 	present, err := store.Exists(account)
 	if err != nil {
@@ -192,21 +192,21 @@ func TestManifestSetupCredentialObservation(t *testing.T) {
 func TestManifestSetupCredentialInput(t *testing.T) {
 	cfg := manifestSetupConfig()
 	t.Run("stdin read-only", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewEnvironmentStore(func(string) string { return "" }), In: strings.NewReader("token\n")}
+		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewEnvironmentStore(func(string) string { return "" }), In: strings.NewReader("token\n")}
 		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", true); err == nil || !strings.Contains(err.Error(), "read-only") {
 			t.Fatalf("error = %v", err)
 		}
 	})
 
 	t.Run("stdin read", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore(), In: strings.NewReader("")}
+		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), In: strings.NewReader("")}
 		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", true); err == nil {
 			t.Fatal("expected stdin read failure")
 		}
 	})
 
 	t.Run("missing read-only", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewEnvironmentStore(func(string) string { return "" })}
+		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewEnvironmentStore(func(string) string { return "" })}
 		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); err == nil || !strings.Contains(err.Error(), "AIGW_TOKEN_TEAM") {
 			t.Fatalf("error = %v", err)
 		}
@@ -214,21 +214,21 @@ func TestManifestSetupCredentialInput(t *testing.T) {
 
 	t.Run("prompt error", func(t *testing.T) {
 		want := errors.New("cancelled")
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore(), Interactive: true, Prompt: scriptedSetupPrompt{err: want}}
+		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), Interactive: true, Prompt: scriptedSetupPrompt{err: want}}
 		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
 
 	t.Run("empty prompt", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore(), Interactive: true, Prompt: scriptedSetupPrompt{}}
+		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), Interactive: true, Prompt: scriptedSetupPrompt{}}
 		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); err == nil || !strings.Contains(err.Error(), "empty Token") {
 			t.Fatalf("error = %v", err)
 		}
 	})
 
 	t.Run("stdin success", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore(), In: strings.NewReader("new-token\n")}
+		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), In: strings.NewReader("new-token\n")}
 		credentials, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", true)
 		if err != nil || len(credentials) != 1 || !credentials[0].write || credentials[0].token != "new-token" {
 			t.Fatalf("credentials=%#v error=%v", credentials, err)
@@ -236,14 +236,14 @@ func TestManifestSetupCredentialInput(t *testing.T) {
 	})
 
 	t.Run("unknown selected account", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore()}
+		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}
 		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "missing", false); err == nil || !strings.Contains(err.Error(), "unknown Account") {
 			t.Fatalf("error = %v", err)
 		}
 	})
 
 	t.Run("selected account needs an explicit token outside an interactive terminal", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore()}
+		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}
 		if _, err := collectManifestSetupCredentials(app, cfg, []string{"team"}, "team", false); err == nil || !strings.Contains(err.Error(), "not connected") {
 			t.Fatalf("error = %v", err)
 		}
@@ -307,9 +307,9 @@ func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *t
 func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 	root := t.TempDir()
 	secretRoot := filepath.Join(root, "secrets")
-	secretStore, err := secrets.Select(secrets.Selection{
+	secretStore, err := secret.Select(secret.Selection{
 		GOOS: runtime.GOOS, Root: secretRoot,
-		KeyringProbe: func(secrets.Store) error { return errors.New("isolated file backend") },
+		KeyringProbe: func(secret.Store) error { return errors.New("isolated file backend") },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -341,9 +341,9 @@ func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 	if err != nil || strings.TrimSpace(string(selected)) != "file" {
 		t.Fatalf("backend selection = %q, %v; want file while credential remains", selected, err)
 	}
-	fresh, err := secrets.Select(secrets.Selection{
+	fresh, err := secret.Select(secret.Selection{
 		GOOS: runtime.GOOS, Root: secretRoot,
-		KeyringProbe: func(secrets.Store) error {
+		KeyringProbe: func(secret.Store) error {
 			t.Fatal("fresh invocation must reuse the retained backend without probing keyring")
 			return nil
 		},
@@ -507,7 +507,7 @@ func TestSetupTokenPromptAndBackendErrors(t *testing.T) {
 	})
 
 	t.Run("prompt", func(t *testing.T) {
-		app := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore(), Prompt: scriptedSetupPrompt{value: "prompt-token"}}
+		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), Prompt: scriptedSetupPrompt{value: "prompt-token"}}
 		credential, err := setupToken(app, Request{Account: "one", PromptToken: true, Label: "One"})
 		if err != nil || !credential.write || credential.token != "prompt-token" {
 			t.Fatalf("credential=%#v error=%v", credential, err)
@@ -518,7 +518,7 @@ func TestSetupTokenPromptAndBackendErrors(t *testing.T) {
 func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	configStore := store.NewStore(path, clients.Admission())
-	secretStore := secrets.NewMemoryStore()
+	secretStore := secret.NewMemoryStore()
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}

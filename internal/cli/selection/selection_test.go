@@ -21,7 +21,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/prompt"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 )
@@ -68,7 +68,7 @@ func TestUseForwardingPreviewIsCredentialFreeAndDoesNotWrite(t *testing.T) {
 
 func TestUsePreservesForwardingChangedDuringDiscovery(t *testing.T) {
 	run, cfg, _ := configuredRuntime(t)
-	credentials := secrets.NewMemoryStore()
+	credentials := secret.NewMemoryStore()
 	run.Secrets = credentials
 	if err := credentials.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
@@ -107,7 +107,7 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	run.Executable = filepath.Join(root, "aigw")
-	run.Secrets = secrets.NewMemoryStore()
+	run.Secrets = secret.NewMemoryStore()
 	if err := run.Secrets.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 
 func TestUseForwardingApplyNoOpAndDirectPreserveAccount(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
-	credentials := secrets.NewMemoryStore()
+	credentials := secret.NewMemoryStore()
 	if err := credentials.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +199,7 @@ func (source staticDiscovery) Discover() discovery.Result {
 	return source.result
 }
 
-func secretExists(t testing.TB, store secrets.Store, account string) bool {
+func secretExists(t testing.TB, store secret.Store, account string) bool {
 	t.Helper()
 	present, err := store.Exists(account)
 	if err != nil {
@@ -255,7 +255,7 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 
 func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
-	secretStore := secrets.NewMemoryStore()
+	secretStore := secret.NewMemoryStore()
 	runtime.Secrets = secretStore
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
@@ -297,7 +297,7 @@ func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 func TestUseRenderingDoesNotReinspectCredentialMetadata(t *testing.T) {
 	run, _, out := configuredRuntime(t)
 	reads, renderingReads := 0, 0
-	run.Secrets = secrets.NewEnvironmentStore(func(string) string {
+	run.Secrets = secret.NewEnvironmentStore(func(string) string {
 		reads++
 		if out.Len() > 0 {
 			renderingReads++
@@ -337,7 +337,7 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, out := configuredRuntime(t)
-			store := secrets.NewMemoryStore()
+			store := secret.NewMemoryStore()
 			runtime.Secrets = store
 			runtime.Executable = filepath.Join(t.TempDir(), "aigw")
 			if err := store.Set("gateway", "token"); err != nil {

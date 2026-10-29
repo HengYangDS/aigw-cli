@@ -7,8 +7,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/credential"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func versionedReaders(t *testing.T) (string, string) {
@@ -20,11 +19,11 @@ func versionedReaders(t *testing.T) (string, string) {
 		if err := os.WriteFile(source, []byte(version), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		reader, err := credential.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
+		reader, err := secret.VersionedEntrypointPath(filepath.Join(root, "data"), source, "aigw")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := credential.EnsureEntrypoint(source, reader); err != nil {
+		if _, err := secret.EnsureEntrypoint(source, reader); err != nil {
 			t.Fatal(err)
 		}
 		paths = append(paths, reader)
@@ -41,7 +40,7 @@ func TestCodexVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing.
 			if err != nil {
 				t.Fatal(err)
 			}
-			store := secrets.NewMemoryStore()
+			store := secret.NewMemoryStore()
 			if err := store.Set("gateway", "fixture-token"); err != nil {
 				t.Fatal(err)
 			}

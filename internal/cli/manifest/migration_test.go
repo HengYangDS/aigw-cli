@@ -12,7 +12,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
 	"github.com/pelletier/go-toml/v2"
@@ -63,7 +63,7 @@ func TestMigrationPreviewAndApplyPreserveCredentialsAndClientFiles(t *testing.T)
 	if err := os.WriteFile(target, originalTarget, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	credentialStore := &observedSecretStore{Store: secrets.NewMemoryStore()}
+	credentialStore := &observedSecretStore{Store: secret.NewMemoryStore()}
 	if err := credentialStore.Set("gateway", "must-remain-secret"); err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestMigrationRollbackUsesRetainedPredecessorWithoutTouchingCredentialsOrCli
 	if err := os.WriteFile(target, originalTarget, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	credentialStore := &observedSecretStore{Store: secrets.NewMemoryStore()}
+	credentialStore := &observedSecretStore{Store: secret.NewMemoryStore()}
 	if err := credentialStore.Set("gateway", "must-remain-secret"); err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestMigrationPreviewRollbackAndCurrentStatePreserveRetainedInputs(t *testin
 	if err := os.WriteFile(target, []byte("user-owned client state\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	credentials := &observedSecretStore{Store: secrets.NewMemoryStore()}
+	credentials := &observedSecretStore{Store: secret.NewMemoryStore()}
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(path, clients.Admission()), Secrets: credentials, Out: out, RenderOut: out, Width: 120}
 	if err := executeManifestCommand(newMigrateCommand(runtime)); err != nil {
@@ -194,7 +194,7 @@ func TestMigrationPreviewRollbackAndCurrentStatePreserveRetainedInputs(t *testin
 }
 
 type observedSecretStore struct {
-	secrets.Store
+	secret.Store
 	reads  int
 	writes int
 }

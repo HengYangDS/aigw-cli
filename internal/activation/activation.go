@@ -5,10 +5,9 @@ import (
 	"slices"
 	"strings"
 
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 // Activation separates the prerequisites for local client use and caches
@@ -121,7 +120,7 @@ func observedClientAction(clients []domainreadiness.Client) string {
 	return bestAction
 }
 
-func observeCredential(store secrets.Store, observed map[string]credentialObservation, account string) (credentialObservation, bool) {
+func observeCredential(store secret.Store, observed map[string]credentialObservation, account string) (credentialObservation, bool) {
 	if store == nil {
 		return credentialObservation{}, false
 	}
@@ -155,7 +154,7 @@ func ProjectionPrerequisites(cfg domain.Config) map[string]string {
 	return prerequisites
 }
 
-func assessEnabledProjection(cfg domain.Config, store secrets.Store, result Activation) Activation {
+func assessEnabledProjection(cfg domain.Config, store secret.Store, result Activation) Activation {
 	result.ProjectionPrerequisites = ProjectionPrerequisites(cfg)
 	result.ClientCredentialPrerequisites = map[string]string{}
 	result.observedCredentials = map[string]credentialObservation{}
@@ -172,7 +171,7 @@ func assessEnabledProjection(cfg domain.Config, store secrets.Store, result Acti
 			case !observed || observation.err != nil:
 				metadataUnavailable = true
 			case !observation.available:
-				result.ClientCredentialPrerequisites[spec.ID], _ = credential.TokenRecovery(store, runtime.AccountID)
+				result.ClientCredentialPrerequisites[spec.ID], _ = secret.TokenRecovery(store, runtime.AccountID)
 			}
 		}
 		if result.ProjectionPrerequisites[spec.ID] != "" || result.ClientCredentialPrerequisites[spec.ID] != "" {
@@ -192,7 +191,7 @@ func assessEnabledProjection(cfg domain.Config, store secrets.Store, result Acti
 
 type inactiveClientAssessment struct {
 	cfg            domain.Config
-	store          secrets.Store
+	store          secret.Store
 	result         Activation
 	readOnly       bool
 	seen           map[string]bool
@@ -225,7 +224,7 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 		return false
 	}
 	if !selected && !assessment.readOnly {
-		assessment.result.ClientCredentialPrerequisites[client], _ = credential.TokenRecovery(assessment.store, candidate.AccountID)
+		assessment.result.ClientCredentialPrerequisites[client], _ = secret.TokenRecovery(assessment.store, candidate.AccountID)
 		if !assessment.seen[candidate.AccountID] {
 			assessment.alternatives = append(assessment.alternatives, "aigw rotate "+candidate.AccountID)
 			assessment.seen[candidate.AccountID] = true
@@ -242,12 +241,12 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 		delete(assessment.result.ClientCredentialPrerequisites, client)
 		return true
 	}
-	action, _ := credential.TokenRecovery(assessment.store, candidate.AccountID)
+	action, _ := secret.TokenRecovery(assessment.store, candidate.AccountID)
 	assessment.result.ClientCredentialPrerequisites[client] = action
 	if selected && assessment.firstMissing == "" {
 		assessment.firstMissing = action
 	} else if !selected && !assessment.seen[candidate.AccountID] {
-		assessment.alternatives = append(assessment.alternatives, secrets.EnvironmentKey(candidate.AccountID))
+		assessment.alternatives = append(assessment.alternatives, secret.EnvironmentKey(candidate.AccountID))
 		assessment.seen[candidate.AccountID] = true
 	}
 	return false
@@ -274,12 +273,12 @@ func (assessment *inactiveClientAssessment) finish() Activation {
 	return assessment.result
 }
 
-func assessInactiveClients(cfg domain.Config, store secrets.Store, result Activation) Activation {
+func assessInactiveClients(cfg domain.Config, store secret.Store, result Activation) Activation {
 	result.observedCredentials = map[string]credentialObservation{}
 	result.ClientCredentialPrerequisites = map[string]string{}
 	result.ProjectionPrerequisites = map[string]string{}
 	assessment := inactiveClientAssessment{
-		cfg: cfg, store: store, result: result, readOnly: secrets.IsReadOnly(store), seen: map[string]bool{},
+		cfg: cfg, store: store, result: result, readOnly: secret.IsReadOnly(store), seen: map[string]bool{},
 	}
 	for _, client := range cfg.Admission().IDs() {
 		if assessment.consider(client, cfg.SelectedRoute(client), true) {
@@ -346,7 +345,7 @@ func NextActionAfterAccountConnection(cfg domain.Config, accountID string) strin
 // AssessActivation selects a safe continuation without observing unselected
 // native credentials. Environment credential metadata is read only when that
 // backend is explicitly selected.
-func AssessActivation(cfg domain.Config, store secrets.Store) Activation {
+func AssessActivation(cfg domain.Config, store secret.Store) Activation {
 	result := Activation{EnabledClients: len(cfg.EnabledClientIDs()), admission: cfg.Admission()}
 	if result.EnabledClients != 0 {
 		return assessEnabledProjection(cfg, store, result)

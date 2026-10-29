@@ -211,7 +211,7 @@ func TestLinuxSecretServiceHasItsOwnRequiredJob(t *testing.T) {
 		t.Fatal("GitHub Secret Service qualification must follow source admission, not artifact-only native selection")
 	}
 	githubQualification := secretService.Steps[2].Run
-	if strings.Contains(githubQualification, "./internal/secrets/native") {
+	if strings.Contains(githubQualification, "./internal/secret/native") {
 		t.Fatal("standalone Secret Service job repeats source-level credential qualification")
 	}
 	for _, required := range []string{

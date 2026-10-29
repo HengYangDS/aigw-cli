@@ -12,8 +12,8 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/diagnostics"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/native"
 )
 
 func TestCheckJSONClassifiesCredentialReadFailures(t *testing.T) {
@@ -23,7 +23,7 @@ func TestCheckJSONClassifiesCredentialReadFailures(t *testing.T) {
 		state                domainreadiness.State
 	}{
 		{"unreadable", "account token could not be read", domainreadiness.CredentialBackendRecovery, fmt.Errorf("private credential detail: %w", native.ErrUnavailable), domainreadiness.Unavailable},
-		{"disappeared", "account token is unavailable", "aigw rotate one", secrets.ErrNotFound, domainreadiness.Deferred},
+		{"disappeared", "account token is unavailable", "aigw rotate one", secret.ErrNotFound, domainreadiness.Deferred},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, output := configuredReadinessRuntime(t)

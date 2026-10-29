@@ -11,7 +11,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
@@ -84,7 +84,7 @@ func TestEditReturnsTransactionPreparationFailure(t *testing.T) {
 	}
 }
 
-func blockedConfigurationStore(t *testing.T) (store.Store, secrets.Store) {
+func blockedConfigurationStore(t *testing.T) (store.Store, secret.Store) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	configStore := store.NewStore(path, clients.Admission())
@@ -108,5 +108,5 @@ func blockedConfigurationStore(t *testing.T) (store.Store, secrets.Store) {
 	if err := os.WriteFile(filepath.Join(backup, "blocker"), []byte("occupied"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return configStore, secrets.NewMemoryStore()
+	return configStore, secret.NewMemoryStore()
 }

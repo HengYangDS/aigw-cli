@@ -13,7 +13,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -32,8 +32,8 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	secretStore := secrets.NewMemoryStore()
-	accounts, err := secrets.NewDiagnosticCredentialStore(secretStore)
+	secretStore := secret.NewMemoryStore()
+	accounts, err := secret.NewDiagnosticCredentialStore(secretStore)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,13 +96,13 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	secretStore := secrets.NewEnvironmentStore(func(key string) string {
-		if key == secrets.EnvironmentKey("connected") {
+	secretStore := secret.NewEnvironmentStore(func(key string) string {
+		if key == secret.EnvironmentKey("connected") {
 			return "available-token"
 		}
 		return ""
 	})
-	accounts, err := secrets.NewDiagnosticCredentialStore(secretStore)
+	accounts, err := secret.NewDiagnosticCredentialStore(secretStore)
 	if err != nil {
 		t.Fatal(err)
 	}

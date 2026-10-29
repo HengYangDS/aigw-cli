@@ -16,7 +16,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
 )
@@ -47,7 +47,7 @@ func TestAccountFinalizationConvergesForwardingBackupBeforeRetirement(t *testing
 	if err := os.Remove(component); err != nil {
 		t.Fatal(err)
 	}
-	plan, err := planFinalize(Renamer{Config: store, Secrets: secrets.NewMemoryStore(), Accounts: &faultProbeStore{}}, "old", "new", FinalizeOptions{})
+	plan, err := planFinalize(Renamer{Config: store, Secrets: secret.NewMemoryStore(), Accounts: &faultProbeStore{}}, "old", "new", FinalizeOptions{})
 	if err != nil || plan.Status == StatusAlreadyFinalized || plan.Actions.Backup != "converge-to-verified-current" {
 		t.Fatalf("finalization ignored missing forwarding recovery state: %#v, %v", plan, err)
 	}
@@ -108,7 +108,7 @@ func TestCanceledAccountOperationPreservesOwnedState(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			tokens := secrets.NewMemoryStore()
+			tokens := secret.NewMemoryStore()
 			for _, id := range []string{"old", "new"} {
 				if id == "new" && operation == "rename" {
 					continue
@@ -132,7 +132,7 @@ func TestCanceledAccountOperationPreservesOwnedState(t *testing.T) {
 				t.Fatalf("source token = %q, error = %v", value, err)
 			}
 			target, targetErr := tokens.Get("new")
-			if operation == "rename" && !errors.Is(targetErr, secrets.ErrNotFound) ||
+			if operation == "rename" && !errors.Is(targetErr, secret.ErrNotFound) ||
 				operation == "finalize" && (targetErr != nil || target != "source-token") {
 				t.Fatalf("canceled %s changed target credential: %q, %v", operation, target, targetErr)
 			}
@@ -155,7 +155,7 @@ func TestRenamerRetainsRetryStateWhenConfigurationCommitFails(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			tokens := secrets.NewMemoryStore()
+			tokens := secret.NewMemoryStore()
 			if err := tokens.Set("old", "source-token"); err != nil {
 				t.Fatal(err)
 			}
@@ -238,7 +238,7 @@ func TestAccountCredentialPlanningReadErrors(t *testing.T) {
 		{name: "source token", secrets: &faultTokenStore{getErrors: map[string]error{"old": want}}, accounts: &faultProbeStore{}},
 		{name: "target token", secrets: &faultTokenStore{values: map[string]string{"old": "token"}, getErrors: map[string]error{"new": want}}, accounts: &faultProbeStore{}},
 		{name: "source probe", secrets: &faultTokenStore{}, accounts: &faultProbeStore{getErrors: map[string]error{"old": want}}},
-		{name: "target probe", secrets: &faultTokenStore{}, accounts: &faultProbeStore{values: map[string]secrets.DiagnosticCredential{"old": {SystemToken: "s", UserID: "u"}}, getErrors: map[string]error{"new": want}}},
+		{name: "target probe", secrets: &faultTokenStore{}, accounts: &faultProbeStore{values: map[string]secret.DiagnosticCredential{"old": {SystemToken: "s", UserID: "u"}}, getErrors: map[string]error{"new": want}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -252,7 +252,7 @@ func TestAccountCredentialPlanningReadErrors(t *testing.T) {
 
 func TestApplyAccountCredentialCopiesFailures(t *testing.T) {
 	want := errors.New("operation failed")
-	probe := secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"}
+	probe := secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}
 	plan := Plan{OldID: "old", NewID: "new", tokenCopy: tokenCopy{value: "token", copy: true}}
 	tests := []struct {
 		name     string
@@ -265,7 +265,7 @@ func TestApplyAccountCredentialCopiesFailures(t *testing.T) {
 		{name: "token differs", secrets: &faultTokenStore{setReplacement: "other"}, accounts: &faultProbeStore{}, plan: plan},
 		{name: "probe set", secrets: &faultTokenStore{}, accounts: &faultProbeStore{setErr: want}, plan: Plan{NewID: "new", probeCopy: probeCopy{value: probe, copy: true}}},
 		{name: "probe get", secrets: &faultTokenStore{}, accounts: &faultProbeStore{getErrors: map[string]error{"new": want}}, plan: Plan{NewID: "new", probeCopy: probeCopy{value: probe, copy: true}}},
-		{name: "probe differs", secrets: &faultTokenStore{}, accounts: &faultProbeStore{setReplacement: secrets.DiagnosticCredential{SystemToken: "other", UserID: "other"}}, plan: Plan{NewID: "new", probeCopy: probeCopy{value: probe, copy: true}}},
+		{name: "probe differs", secrets: &faultTokenStore{}, accounts: &faultProbeStore{setReplacement: secret.DiagnosticCredential{SystemToken: "other", UserID: "other"}}, plan: Plan{NewID: "new", probeCopy: probeCopy{value: probe, copy: true}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -279,7 +279,7 @@ func TestApplyAccountCredentialCopiesFailures(t *testing.T) {
 
 func TestPlanAccountFinalizeCredentialReadErrors(t *testing.T) {
 	want := errors.New("read failed")
-	probe := secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"}
+	probe := secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}
 	tests := []struct {
 		name     string
 		secrets  *faultTokenStore
@@ -288,8 +288,8 @@ func TestPlanAccountFinalizeCredentialReadErrors(t *testing.T) {
 		{name: "target token", secrets: &faultTokenStore{getErrors: map[string]error{"new": want}}, accounts: &faultProbeStore{}},
 		{name: "source token", secrets: &faultTokenStore{values: map[string]string{"new": "token"}, getErrors: map[string]error{"old": want}}, accounts: &faultProbeStore{}},
 		{name: "source probe", secrets: &faultTokenStore{values: map[string]string{"new": "token"}}, accounts: &faultProbeStore{getErrors: map[string]error{"old": want}}},
-		{name: "target probe", secrets: &faultTokenStore{values: map[string]string{"new": "token"}}, accounts: &faultProbeStore{values: map[string]secrets.DiagnosticCredential{"old": probe}, getErrors: map[string]error{"new": want}}},
-		{name: "target probe absent", secrets: &faultTokenStore{values: map[string]string{"new": "token"}}, accounts: &faultProbeStore{values: map[string]secrets.DiagnosticCredential{"old": probe}}},
+		{name: "target probe", secrets: &faultTokenStore{values: map[string]string{"new": "token"}}, accounts: &faultProbeStore{values: map[string]secret.DiagnosticCredential{"old": probe}, getErrors: map[string]error{"new": want}}},
+		{name: "target probe absent", secrets: &faultTokenStore{values: map[string]string{"new": "token"}}, accounts: &faultProbeStore{values: map[string]secret.DiagnosticCredential{"old": probe}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -342,8 +342,8 @@ func TestApplyAccountFinalizeCleanupFailures(t *testing.T) {
 		{name: "external observation", plan: Plan{OldID: "old", externalTokenCleanup: true}, secrets: &faultTokenStore{getErrors: map[string]error{"old": want}}, accounts: &faultProbeStore{}},
 		{name: "external remains", plan: Plan{OldID: "old", externalTokenCleanup: true}, secrets: &faultTokenStore{values: map[string]string{"old": "token"}}, accounts: &faultProbeStore{}},
 		{name: "probe delete", plan: Plan{OldID: "old", deleteProbe: true}, secrets: &faultTokenStore{}, accounts: &faultProbeStore{deleteErr: want}},
-		{name: "probe verify metadata", plan: Plan{OldID: "old", deleteProbe: true}, secrets: &faultTokenStore{}, accounts: &faultProbeStore{values: map[string]secrets.DiagnosticCredential{"old": {SystemToken: "s", UserID: "u"}}, afterDeleteErr: want}},
-		{name: "probe remains", plan: Plan{OldID: "old", deleteProbe: true}, secrets: &faultTokenStore{}, accounts: &faultProbeStore{values: map[string]secrets.DiagnosticCredential{"old": {SystemToken: "s", UserID: "u"}}, retainDelete: true}},
+		{name: "probe verify metadata", plan: Plan{OldID: "old", deleteProbe: true}, secrets: &faultTokenStore{}, accounts: &faultProbeStore{values: map[string]secret.DiagnosticCredential{"old": {SystemToken: "s", UserID: "u"}}, afterDeleteErr: want}},
+		{name: "probe remains", plan: Plan{OldID: "old", deleteProbe: true}, secrets: &faultTokenStore{}, accounts: &faultProbeStore{values: map[string]secret.DiagnosticCredential{"old": {SystemToken: "s", UserID: "u"}}, retainDelete: true}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -369,7 +369,7 @@ func TestFinalizeVerifiesDeletedSlotsWithoutReadingCredentialValues(t *testing.T
 	store, snapshot := renameFinalizationState(t)
 	unavailable := errors.New("credential values are not available for inspection")
 	tokens := &faultTokenStore{values: map[string]string{"old": "token"}, getErrors: map[string]error{"old": unavailable}}
-	probes := &faultProbeStore{values: map[string]secrets.DiagnosticCredential{"old": {SystemToken: "system", UserID: "user"}}, getErrors: map[string]error{"old": unavailable}}
+	probes := &faultProbeStore{values: map[string]secret.DiagnosticCredential{"old": {SystemToken: "system", UserID: "user"}}, getErrors: map[string]error{"old": unavailable}}
 	plan := Plan{OldID: "old", snapshot: snapshot, deleteToken: true, deleteProbe: true}
 	result, err := applyFinalize(t.Context(), Renamer{Config: store, Secrets: tokens, Accounts: probes}, plan)
 	if err != nil || result.Status != "finalized" {
@@ -414,7 +414,7 @@ func TestVerifyFinalizedAccountProbeFailures(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 
-	deps.Accounts = &faultProbeStore{values: map[string]secrets.DiagnosticCredential{"new": {SystemToken: "s", UserID: "u"}}}
+	deps.Accounts = &faultProbeStore{values: map[string]secret.DiagnosticCredential{"new": {SystemToken: "s", UserID: "u"}}}
 	deps.HTTP = probeTransport(func(*http.Request) (*http.Response, error) { return nil, want })
 	if err := verifyFinalizedAccountProbe(context.Background(), deps, base); !errors.Is(err, want) {
 		t.Fatalf("error = %v", err)

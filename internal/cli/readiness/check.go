@@ -9,12 +9,11 @@ import (
 
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 
 	"github.com/spf13/cobra"
 )
@@ -182,7 +181,7 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg domain.C
 	token, tokenErr := runtime.Secrets.Get(clientRuntime.AccountID)
 	if tokenErr != nil {
 		result.credentialErr = tokenErr
-		if !errors.Is(tokenErr, secrets.ErrNotFound) {
+		if !errors.Is(tokenErr, secret.ErrNotFound) {
 			result.credentialState = domainreadiness.Unavailable
 			result.issue = "account token could not be read"
 			result.fix = domainreadiness.CredentialBackendRecovery
@@ -191,7 +190,7 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg domain.C
 		result.credentialState = domainreadiness.Deferred
 		result.issue = "account token is unavailable"
 		result.fix = "aigw rotate " + clientRuntime.AccountID
-		if instruction, writable := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID); !writable {
+		if instruction, writable := secret.TokenRecovery(runtime.Secrets, clientRuntime.AccountID); !writable {
 			result.fix = instruction
 		}
 		return result
@@ -201,7 +200,7 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg domain.C
 		scope = diagnostics.ScopeEndpoint
 	}
 	result.diagnostic = diagnostics.ProbeBounded(cmd.Context(), runtime.HTTP, clientRuntime, token, scope)
-	instruction, _ := credential.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
+	instruction, _ := secret.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
 	result.diagnostic = result.diagnostic.WithTokenRecovery(instruction)
 	if result.diagnostic.Kind != diagnostics.Healthy {
 		result.issue = result.diagnostic.Summary

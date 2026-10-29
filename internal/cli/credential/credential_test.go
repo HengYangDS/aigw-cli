@@ -17,8 +17,8 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/native"
 	"aigw-cli/internal/store"
 )
 
@@ -403,7 +403,7 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	return invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secrets.NewMemoryStore(), Out: out}, out
+	return invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: out}, out
 }
 
 func helperArgs(t *testing.T, runtime invocation.Context, client string) []string {

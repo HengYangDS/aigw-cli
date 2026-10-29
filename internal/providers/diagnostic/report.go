@@ -1,5 +1,5 @@
 // Package diagnostic owns optional provider-native account diagnostic results.
-// Canonical Accounts belong to configuration; credentials belong to secrets.
+// Canonical Accounts belong to domain; credentials belong to secret.
 package diagnostic
 
 // Report is a provider-native, optional account diagnostic result. Core AIGW

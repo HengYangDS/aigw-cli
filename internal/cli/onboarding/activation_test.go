@@ -10,7 +10,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func TestManifestSetupOffersEqualCompatibleAccountsWithoutTokens(t *testing.T) {
@@ -24,7 +24,7 @@ func TestManifestSetupOffersEqualCompatibleAccountsWithoutTokens(t *testing.T) {
 	recommendation.Alternatives = []domain.ClientSelection{{Route: "dmx"}}
 	cfg.Recommendations[claude.ID] = recommendation
 	output := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore(), Out: output, RenderOut: output}
+	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), Out: output, RenderOut: output}
 	result := buildManifestSetupResult(runtime, cfg, []string{"ucloud", "dmx"}, "", nil, nil)
 	want := "Choose one compatible Account: aigw rotate dmx or aigw rotate ucloud"
 	if result.NextAction != want || len(result.DeferredActions) != 1 || result.DeferredActions[0] != want {
@@ -39,7 +39,7 @@ func TestManifestSetupOffersEqualCompatibleAccountsWithoutTokens(t *testing.T) {
 func TestGuidedSetupDefersMissingClientBeforeVerification(t *testing.T) {
 	cfg := manifestSetupConfig()
 	cfg.SetClientActivation(codex.ID, false, "", nil)
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +53,7 @@ func TestGuidedSetupDefersMissingClientBeforeVerification(t *testing.T) {
 
 func TestManifestSetupReportsSelectedCredentialBeforeDeferredProjection(t *testing.T) {
 	cfg := manifestSetupConfig()
-	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore()}
+	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}
 	result := buildManifestSetupResult(runtime, cfg, []string{"team"}, "", nil, nil)
 	want := "run `aigw rotate team`"
 	if result.NextAction != want || len(result.DeferredActions) == 0 || result.DeferredActions[0] != want {

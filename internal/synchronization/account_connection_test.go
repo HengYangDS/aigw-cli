@@ -8,7 +8,7 @@ import (
 
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 )
 
 func TestAccountConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
@@ -48,7 +48,7 @@ func TestAccountConnectionPreservesStateWhenTokenAcquisitionFails(t *testing.T) 
 		t.Run(phase, func(t *testing.T) {
 			before := setupConfiguration()
 			store := &configStoreStub{}
-			credentials := &setupCredentials{Store: secrets.NewMemoryStore()}
+			credentials := &setupCredentials{Store: secret.NewMemoryStore()}
 			syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()

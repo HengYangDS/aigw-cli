@@ -9,7 +9,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"bytes"
 	"context"
@@ -60,7 +60,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if got := buffer.String(); !strings.Contains(got, "aigw account diagnostics enable one") {
 		t.Fatalf("missing diagnostic credential status = %q", got)
 	}
-	if err := runtime.Accounts.Set("one", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
+	if err := runtime.Accounts.Set("one", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
 		t.Fatal(err)
 	}
 	buffer.Reset()
@@ -168,7 +168,7 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 		{name: "unsupported probe", probe: &domain.AccountProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "Provider diagnostics unavailable in this version"},
 		{name: "missing probe credential", probe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance not ready"},
 		{name: "available probe credential", probe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Diagnostic credential present · content not verified"},
-		{name: "incomplete environment pair", probe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, environment: true, want: secrets.DiagnosticUserIDEnvironmentKey("one")},
+		{name: "incomplete environment pair", probe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, environment: true, want: secret.DiagnosticUserIDEnvironmentKey("one")},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, buffer := configuredReadinessRuntime(t)
@@ -183,16 +183,16 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 				t.Fatal(err)
 			}
 			if test.environment {
-				values := map[string]string{secrets.EnvironmentKey("one"): "token", secrets.DiagnosticSystemTokenEnvironmentKey("one"): "private-fixture"}
-				backend := secrets.NewEnvironmentStore(func(key string) string { return values[key] })
-				accounts, err := secrets.NewDiagnosticCredentialStore(backend)
+				values := map[string]string{secret.EnvironmentKey("one"): "token", secret.DiagnosticSystemTokenEnvironmentKey("one"): "private-fixture"}
+				backend := secret.NewEnvironmentStore(func(key string) string { return values[key] })
+				accounts, err := secret.NewDiagnosticCredentialStore(backend)
 				if err != nil {
 					t.Fatal(err)
 				}
 				runtime.Secrets, runtime.Accounts = backend, accounts
 			}
 			if test.credential {
-				if err := runtime.Accounts.Set("one", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
+				if err := runtime.Accounts.Set("one", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -265,7 +265,7 @@ func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *test
 func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	emptyPath := filepath.Join(t.TempDir(), "configuration.toml")
 	emptyOut := &bytes.Buffer{}
-	emptyRuntime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(emptyPath, clients.Admission()), Out: emptyOut, RenderOut: emptyOut, Secrets: secrets.NewMemoryStore()}
+	emptyRuntime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(emptyPath, clients.Admission()), Out: emptyOut, RenderOut: emptyOut, Secrets: secret.NewMemoryStore()}
 	if err := RunStatus(emptyRuntime, false); err != nil {
 		t.Fatal(err)
 	}
@@ -293,10 +293,10 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 func TestStatusJSONExposesAutomaticCredentialBackendWithoutPersistingSelection(t *testing.T) {
 	runtime, _, buffer := configuredReadinessRuntime(t)
 	root := filepath.Join(t.TempDir(), "secrets")
-	store, err := secrets.Select(secrets.Selection{
+	store, err := secret.Select(secret.Selection{
 		GOOS:         goruntime.GOOS,
 		Root:         root,
-		KeyringProbe: func(secrets.Store) error { return errors.New("service unavailable") },
+		KeyringProbe: func(secret.Store) error { return errors.New("service unavailable") },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -307,12 +307,12 @@ func TestStatusJSONExposesAutomaticCredentialBackendWithoutPersistingSelection(t
 		t.Fatal(err)
 	}
 	var result struct {
-		CredentialBackend secrets.BackendSelection `json:"credential_backend"`
+		CredentialBackend secret.BackendSelection `json:"credential_backend"`
 	}
 	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	want := secrets.BackendSelection{
+	want := secret.BackendSelection{
 		Kind:         "file",
 		Availability: "available",
 		Mutability:   "read_write",
@@ -335,7 +335,7 @@ func TestStatusJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "backend"), []byte("retired\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store, err := secrets.Select(secrets.Selection{GOOS: goruntime.GOOS, Root: root})
+	store, err := secret.Select(secret.Selection{GOOS: goruntime.GOOS, Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -345,12 +345,12 @@ func TestStatusJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	var result struct {
-		CredentialBackend secrets.BackendSelection `json:"credential_backend"`
+		CredentialBackend secret.BackendSelection `json:"credential_backend"`
 	}
 	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	want := secrets.BackendSelection{
+	want := secret.BackendSelection{
 		Kind:           "unknown",
 		Availability:   "unavailable",
 		Mutability:     "unknown",

@@ -19,7 +19,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
 	"github.com/charmbracelet/x/ansi"
@@ -41,8 +41,8 @@ func configuredApp(t *testing.T) *App {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	secretStore := secrets.NewMemoryStore()
-	diagnostics, err := secrets.NewDiagnosticCredentialStore(secretStore)
+	secretStore := secret.NewMemoryStore()
+	diagnostics, err := secret.NewDiagnosticCredentialStore(secretStore)
 	if err != nil {
 		t.Fatal(err)
 	}

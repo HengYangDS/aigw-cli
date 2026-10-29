@@ -6,7 +6,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"encoding/json"
 	"errors"
@@ -149,7 +149,7 @@ func TestRouteAddDoesNotConflateRouteCreationWithClientCompatibility(t *testing.
 func TestRouteReadsDoNotInspectCredentials(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	saveCommandRoute(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
-	observed := &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("credential observation must not run")}
+	observed := &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: errors.New("credential observation must not run")}
 	app.Secrets = observed
 
 	for _, args := range [][]string{{"route", "list"}, {"route", "show", "one"}} {

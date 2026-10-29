@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/prompt"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
 	"aigw-cli/internal/upgrade"
@@ -49,15 +49,15 @@ type Context struct {
 	DataDir               string
 	CredentialPath        string
 	ResolveCredentialPath func() (string, error)
-	ResolveProgram        func() (credential.Program, error)
-	Files                 credential.Files
+	ResolveProgram        func() (secret.Program, error)
+	Files                 secret.Files
 	InstallTarget         string
 	// Host is the observed platform from which client adapters derive their
 	// native paths.
 	Host        discovery.Host
 	Config      store.Store
-	Secrets     secrets.Store
-	Accounts    secrets.DiagnosticCredentialStore
+	Secrets     secret.Store
+	Accounts    secret.DiagnosticCredentialStore
 	In          io.Reader
 	Out         io.Writer
 	Color       bool
@@ -180,15 +180,15 @@ func CredentialCustody(runtime Context) (upgrade.CredentialCustody, error) {
 }
 
 type credentialCustody struct {
-	store      secrets.Store
+	store      secret.Store
 	executable string
 	accounts   []string
 }
 
 func (custody credentialCustody) Release(version string) error {
-	return secrets.RestorePredecessorCredentials(custody.store, custody.executable, custody.accounts, version)
+	return secret.RestorePredecessorCredentials(custody.store, custody.executable, custody.accounts, version)
 }
 
 func (custody credentialCustody) Reclaim() error {
-	return secrets.ReclaimPredecessorCredentials(custody.store, custody.executable, custody.accounts)
+	return secret.ReclaimPredecessorCredentials(custody.store, custody.executable, custody.accounts)
 }

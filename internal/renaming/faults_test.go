@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -39,7 +39,7 @@ func (store *faultTokenStore) Get(id string) (string, error) {
 	if value, ok := store.values[id]; ok {
 		return value, nil
 	}
-	return "", secrets.ErrNotFound
+	return "", secret.ErrNotFound
 }
 
 func (store *faultTokenStore) Set(id, value string) error {
@@ -73,42 +73,42 @@ func (store *faultTokenStore) Exists(id string) (bool, error) {
 		return present, store.afterDeleteErr
 	}
 	_, err := store.Get(id)
-	if errors.Is(err, secrets.ErrNotFound) {
+	if errors.Is(err, secret.ErrNotFound) {
 		return false, nil
 	}
 	return err == nil, err
 }
 
 type faultProbeStore struct {
-	values         map[string]secrets.DiagnosticCredential
+	values         map[string]secret.DiagnosticCredential
 	getErrors      map[string]error
 	setErr         error
 	deleteErr      error
-	setReplacement secrets.DiagnosticCredential
+	setReplacement secret.DiagnosticCredential
 	retainDelete   bool
 	afterDeleteErr error
 	deleted        bool
 }
 
-func (store *faultProbeStore) Get(id string) (secrets.DiagnosticCredential, error) {
+func (store *faultProbeStore) Get(id string) (secret.DiagnosticCredential, error) {
 	if err := store.getErrors[id]; err != nil {
-		return secrets.DiagnosticCredential{}, err
+		return secret.DiagnosticCredential{}, err
 	}
 	if value, ok := store.values[id]; ok {
 		return value, nil
 	}
-	return secrets.DiagnosticCredential{}, secrets.ErrNotFound
+	return secret.DiagnosticCredential{}, secret.ErrNotFound
 }
 
-func (store *faultProbeStore) Set(id string, value secrets.DiagnosticCredential) error {
+func (store *faultProbeStore) Set(id string, value secret.DiagnosticCredential) error {
 	if store.setErr != nil {
 		return store.setErr
 	}
-	if store.setReplacement != (secrets.DiagnosticCredential{}) {
+	if store.setReplacement != (secret.DiagnosticCredential{}) {
 		value = store.setReplacement
 	}
 	if store.values == nil {
-		store.values = map[string]secrets.DiagnosticCredential{}
+		store.values = map[string]secret.DiagnosticCredential{}
 	}
 	store.values[id] = value
 	return nil
@@ -131,7 +131,7 @@ func (store *faultProbeStore) Exists(id string) (bool, error) {
 		return present, store.afterDeleteErr
 	}
 	_, err := store.Get(id)
-	if errors.Is(err, secrets.ErrNotFound) {
+	if errors.Is(err, secret.ErrNotFound) {
 		return false, nil
 	}
 	return err == nil, err

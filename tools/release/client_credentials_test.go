@@ -22,9 +22,9 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
+
 	"aigw-cli/internal/store"
 
 	"aigw-cli/internal/clients"
@@ -115,10 +115,10 @@ func TestRetainedCredentialCommandDoesNotReloadClientProjection(t *testing.T) {
 			} else {
 				projection = journey.settings
 			}
-			journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+			journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 			journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
 			retained := journey.retainedCredential(client)
-			journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "changed-after-capture")
+			journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "changed-after-capture")
 			if err := os.Remove(projection); err != nil {
 				t.Fatal(err)
 			}
@@ -145,25 +145,25 @@ func TestWindowsCredentialCommandSupportsDeepEntrypointNamespace(t *testing.T) {
 			if err := os.MkdirAll(data, 0o700); err != nil {
 				t.Fatal(err)
 			}
-			reader, err := credential.VersionedEntrypointPath(data, program, "aigw.exe")
+			reader, err := secret.VersionedEntrypointPath(data, program, "aigw.exe")
 			if err != nil {
 				t.Fatal(err)
 			}
 			if len(reader) < 260 {
 				t.Fatal("fixture did not reach the native Windows shell path boundary")
 			}
-			command, err := credential.Command(reader, claude.ID, "deep-fixture", runtime.GOOS)
+			command, err := secret.Command(reader, claude.ID, "deep-fixture", runtime.GOOS)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := credential.EnsureEntrypoint(program, reader); err != nil {
+			if _, err := secret.EnsureEntrypoint(program, reader); err != nil {
 				t.Fatal(err)
 			}
-			prepared, err := credential.Command(reader, claude.ID, "deep-fixture", runtime.GOOS)
+			prepared, err := secret.Command(reader, claude.ID, "deep-fixture", runtime.GOOS)
 			if err != nil || command != prepared {
 				t.Fatalf("reader preparation changed the captured command: %v", err)
 			}
-			canonical, err := credential.ExecutableFromCommand(command, claude.ID, "deep-fixture", runtime.GOOS)
+			canonical, err := secret.ExecutableFromCommand(command, claude.ID, "deep-fixture", runtime.GOOS)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -177,11 +177,11 @@ func TestWindowsCredentialCommandSupportsDeepEntrypointNamespace(t *testing.T) {
 			}
 			successor := filepath.Join(root, "successor.exe")
 			mustWriteFile(t, successor, []byte("successor identity"), 0o700)
-			current, err := credential.VersionedEntrypointPath(data, successor, "aigw.exe")
+			current, err := secret.VersionedEntrypointPath(data, successor, "aigw.exe")
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := credential.ValidateRetainedEntrypoint(current, canonical); err != nil {
+			if err := secret.ValidateRetainedEntrypoint(current, canonical); err != nil {
 				t.Fatalf("same native reader namespace was rejected: %v", err)
 			}
 			journey := &journeyFixture{testing: t, root: root, environment: append(os.Environ(),
@@ -193,7 +193,7 @@ func TestWindowsCredentialCommandSupportsDeepEntrypointNamespace(t *testing.T) {
 	t.Run("unavailable native name", func(t *testing.T) {
 		root := t.TempDir()
 		path := filepath.Join(root, strings.Repeat("uncreated", 32), "aigw.exe")
-		if _, err := credential.Command(path, claude.ID, "deep-fixture", runtime.GOOS); err == nil {
+		if _, err := secret.Command(path, claude.ID, "deep-fixture", runtime.GOOS); err == nil {
 			t.Fatal("an overlong uncreated path acquired an executable command")
 		}
 		entries, err := os.ReadDir(root)
@@ -214,7 +214,7 @@ func TestRetainedCredentialSurvivesInstalledExecutableUnlink(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, program, server.URL, true)
-	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
 	retained := journey.retainedCredential(claude.ID)
 	journey.requireCredential(retained, "native-journey-token")
@@ -253,7 +253,7 @@ func TestSyncPreservesRetainedEntrypointAfterInterruptedLastClientWithdrawal(t *
 	}))
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, program, server.URL, true)
-	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
 	retained := journey.retainedCredential(claude.ID)
 	configStore := store.NewStore(journey.config, clients.Admission())
@@ -310,7 +310,7 @@ func TestClientDisablePreservesRetainedEntrypointAcrossReenable(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, program, server.URL, true)
-	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
+	journey.setEnvironment(secret.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
 	configStore := store.NewStore(journey.config, clients.Admission())
 	cfg, err := configStore.Load()

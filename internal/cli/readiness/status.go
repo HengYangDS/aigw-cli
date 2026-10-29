@@ -8,12 +8,11 @@ import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	clientdomain "aigw-cli/internal/client"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 
 	"github.com/spf13/cobra"
 )
@@ -38,12 +37,12 @@ type endpointTransportKind string
 const endpointTransportExternalLoopback endpointTransportKind = "external_loopback"
 
 type statusOutput struct {
-	CredentialBackend secrets.BackendSelection `json:"credential_backend"`
-	Clients           map[string]clientStatus  `json:"clients"`
-	Routes            int                      `json:"routes"`
-	EnabledClients    int                      `json:"enabled_clients"`
-	State             domainreadiness.State    `json:"state,omitempty"`
-	NextAction        string                   `json:"next_action,omitempty"`
+	CredentialBackend secret.BackendSelection `json:"credential_backend"`
+	Clients           map[string]clientStatus `json:"clients"`
+	Routes            int                     `json:"routes"`
+	EnabledClients    int                     `json:"enabled_clients"`
+	State             domainreadiness.State   `json:"state,omitempty"`
+	NextAction        string                  `json:"next_action,omitempty"`
 }
 
 var inspectAdapter = func(ctx context.Context, runtime invocation.Context, cfg domain.Config, clientID string, clientRuntime domain.Runtime) clientdomain.Status {
@@ -140,7 +139,7 @@ func inspectStatusClients(runtime invocation.Context, cfg domain.Config, activat
 	return clients
 }
 
-func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *clientactivation.Activation, store secrets.Store, clientID, accountID string) {
+func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *clientactivation.Activation, store secret.Store, clientID, accountID string) {
 	if !facts.CredentialRequired {
 		return
 	}
@@ -164,7 +163,7 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 	}
 	facts.CredentialAction = activation.ClientCredentialPrerequisites[clientID]
 	if facts.CredentialAction == "" {
-		facts.CredentialAction, _ = credential.TokenRecovery(store, accountID)
+		facts.CredentialAction, _ = secret.TokenRecovery(store, accountID)
 	}
 }
 
@@ -205,7 +204,7 @@ func orderedClientStates(runtime invocation.Context, clients map[string]clientSt
 }
 
 func collectStatus(runtime invocation.Context, cfg domain.Config) statusOutput {
-	backend, backendErr := secrets.Inspect(runtime.Secrets)
+	backend, backendErr := secret.Inspect(runtime.Secrets)
 	if backendErr != nil {
 		backend.RecoveryAction = domainreadiness.CredentialBackendRecovery
 	}

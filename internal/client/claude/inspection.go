@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"strings"
 
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 )
 
 // SettingsInspection identifies a native model preference while retaining
@@ -32,7 +32,7 @@ func ObservedCredentialExecutable(path string, selected domain.Runtime) (string,
 	if err := json.Unmarshal(document["apiKeyHelper"], &command); err != nil {
 		return "", fmt.Errorf("decode Claude credential helper: %w", err)
 	}
-	return credential.ExecutableFromCommand(command, ID, selected.CredentialProjectionFingerprint(ID), runtime.GOOS)
+	return secret.ExecutableFromCommand(command, ID, selected.CredentialProjectionFingerprint(ID), runtime.GOOS)
 }
 
 // InspectSettings checks Claude's owned connection without writing settings,

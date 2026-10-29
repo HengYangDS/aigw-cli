@@ -60,13 +60,12 @@ process.
 
 ## Semantic packages
 
-- **[Domain](../../internal/domain/):** Account, Route, recommendation, Client Binding, the admitted client specifications, validation and the team manifest semantics, with standard-library imports only
+- **[Domain](../../internal/domain/):** Account, Route, recommendation, Client Binding, the admitted client specifications, validation, the endpoint requests that prove an Account's Token, and the team manifest semantics, with standard-library imports only
 - **[Store](../../internal/store/):** Schema migration, persistence, checkpoints, the team manifest's TOML encoding, and guarded filesystem mutation and rollback
-- **[Secret storage](../../internal/secrets/):** Account credential backends, typed diagnostic credentials and replacement
+- **[Secret](../../internal/secret/):** Account credential backends, typed diagnostic credentials and replacement, and the private credential reader that native clients run
 - **[Diagnostic contract](../../internal/providers/diagnostic/):** Optional provider-account diagnostic results
 - **[Codex integration](../../internal/client/codex/):** Projection planning and reconciliation
 - **[Claude integration](../../internal/client/claude/):** Settings projection, credential-safe process plans, and readiness
-- **[Endpoint authentication](../../internal/credential/):** Provider-neutral credential validation
 - **[Provider diagnostics](../../internal/providers/):** Optional provider-native diagnostics only
 - **[Client orchestration](../../internal/client/):** Admitted client discovery, projection, inspection, verification, compensation, and withdrawal
 - **[Synchronization](../../internal/synchronization/):** Client Binding convergence and multi-client projection transaction

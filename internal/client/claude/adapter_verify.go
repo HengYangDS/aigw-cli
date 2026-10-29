@@ -9,9 +9,9 @@ import (
 
 	"aigw-cli/internal/client"
 	clientverification "aigw-cli/internal/client/verification"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )
@@ -39,7 +39,7 @@ func (claudeAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg d
 		var err error
 		token, err = deps.Secrets.Get(runtime.AccountID)
 		if err != nil {
-			instruction, _ := credential.TokenRecovery(deps.Secrets, runtime.AccountID)
+			instruction, _ := secret.TokenRecovery(deps.Secrets, runtime.AccountID)
 			return client.Verification{}, fmt.Errorf("token for account %q is unavailable: %w; %s", runtime.AccountID, err, instruction)
 		}
 	}

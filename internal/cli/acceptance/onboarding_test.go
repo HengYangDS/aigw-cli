@@ -7,7 +7,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	surfaceidentity "aigw-cli/internal/surface"
 	"encoding/json"
 	"errors"
@@ -126,9 +126,9 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	tokens := map[string]string{}
-	app.Secrets = secrets.NewEnvironmentStore(func(key string) string { return tokens[key] })
+	app.Secrets = secret.NewEnvironmentStore(func(key string) string { return tokens[key] })
 	app.Discovery = fakeDiscovery{}
-	tokens[secrets.EnvironmentKey("aihubmix")] = "test-token"
+	tokens[secret.EnvironmentKey("aihubmix")] = "test-token"
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 	if err := cli.Execute(app, []string{"setup", "--from", manifestPath}); err != nil {
 		t.Fatalf("initial manifest setup: %v", err)

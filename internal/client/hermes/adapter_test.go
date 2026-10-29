@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -61,7 +61,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://provider.test"}}
 	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", domain.ProtocolAnthropic)
 	cfg.Clients[ID] = domain.ClientBinding{Route: "hermes", Enabled: true, Protocol: domain.ProtocolAnthropic}
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("team", "fixture-token"); err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +168,7 @@ func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "fixture-token"); err != nil {
 		t.Fatal(err)
 	}
@@ -283,7 +283,7 @@ func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *
 	cfg.Routes["qwen"] = domain.Route{Label: "Qwen", Account: "connected", Model: "qwen-max", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.Routes["deepseek"] = domain.Route{Label: "DeepSeek", Account: "offline", Model: "deepseek-v3", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.Clients[ID] = domain.ClientBinding{Route: "claude", Enabled: true, Protocol: domain.ProtocolAnthropic, Targets: []string{target}}
-	store := secrets.NewMemoryStore()
+	store := secret.NewMemoryStore()
 	for _, accountID := range []string{"team", "connected"} {
 		if err := store.Set(accountID, "fixture-token"); err != nil {
 			t.Fatal(err)

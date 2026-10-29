@@ -15,7 +15,7 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
 
@@ -134,7 +134,7 @@ func TestProblemFallsBackToCause(t *testing.T) {
 
 func TestSynchronizerPreservesInvocationCapabilities(t *testing.T) {
 	config := store.NewStore("configuration.toml", clients.Admission())
-	secretStore := secrets.NewMemoryStore()
+	secretStore := secret.NewMemoryStore()
 	runner := fakeRunner{}
 	discoverer := fakeDiscoverer{}
 

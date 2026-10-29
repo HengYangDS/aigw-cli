@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
 	"github.com/pelletier/go-toml/v2"
@@ -177,7 +177,7 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 	var problem Problem
 	if user, ok := errors.AsType[*userError](err); ok {
 		problem = user.problem
-	} else if errors.Is(err, secrets.ErrNativeReaderUnverified) {
+	} else if errors.Is(err, secret.ErrNativeReaderUnverified) {
 		problem = Problem{
 			Title:    "Cannot verify native Account Token access for this AIGW version",
 			Evidence: "Noninteractive native-store preflight could not establish reader access.",

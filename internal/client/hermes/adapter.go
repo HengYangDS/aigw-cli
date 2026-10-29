@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 )
@@ -121,7 +121,7 @@ func hermesDesired(deps client.Dependencies, cfg domain.Config, selected domain.
 		if !connected[item.Account] {
 			continue
 		}
-		command, err := credential.Command(item.Runtime.CredentialExecutable(deps.AIGWExecutable), ID, item.Runtime.CredentialProjectionFingerprint(ID), runtime.GOOS)
+		command, err := secret.Command(item.Runtime.CredentialExecutable(deps.AIGWExecutable), ID, item.Runtime.CredentialProjectionFingerprint(ID), runtime.GOOS)
 		if err != nil {
 			return Desired{}, err
 		}
@@ -441,7 +441,7 @@ func hermesRetainedReader(cfg domain.Config, desired Desired, plan Plan, current
 			if !ok {
 				return "", errors.New("managed Hermes credential command is missing")
 			}
-			reader, err := credential.ExecutableFromCommand(command, ID, item.Runtime.CredentialProjectionFingerprint(ID), runtime.GOOS)
+			reader, err := secret.ExecutableFromCommand(command, ID, item.Runtime.CredentialProjectionFingerprint(ID), runtime.GOOS)
 			if err != nil {
 				return "", err
 			}

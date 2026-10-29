@@ -7,7 +7,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/surface"
 	"bytes"
@@ -22,7 +22,7 @@ func TestUseSurfacesCredentialObservationFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	want := errors.New("credential observation failed")
-	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: want}
+	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: want}
 
 	if err := cli.Execute(app, []string{"use", "--for", "claude", "one"}); !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
@@ -31,7 +31,7 @@ func TestUseSurfacesCredentialObservationFailure(t *testing.T) {
 
 func TestUseSelectsClientNativeRouteWithoutAccessingAccountTokens(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	credentials := &recordingCredentialStore[string]{backend: secrets.NewMemoryStore()}
+	credentials := &recordingCredentialStore[string]{backend: secret.NewMemoryStore()}
 	app.Secrets = credentials
 	target := filepath.Join(t.TempDir(), "config.toml")
 	app.Discovery = fakeDiscovery{result: discovery.Result{

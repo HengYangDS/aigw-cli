@@ -12,11 +12,10 @@ import (
 
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
-	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/secret"
 
 	"github.com/spf13/cobra"
 )
@@ -164,7 +163,7 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if instruction, writable := credential.TokenRecovery(runtime.Secrets, accountName); !writable {
+			if instruction, writable := secret.TokenRecovery(runtime.Secrets, accountName); !writable {
 				cause := fmt.Errorf("credential backend is read-only")
 				return invocation.Problem(
 					runtime,
@@ -187,13 +186,13 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			account.ID = accountName
-			if err := credential.Validate(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), account, token); err != nil {
+			if err := domain.Validate(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), account, token); err != nil {
 				return fmt.Errorf("Token validation failed: %w", err)
 			}
 			if err := cmd.Context().Err(); err != nil {
 				return err
 			}
-			_, err = secrets.Replace(runtime.Secrets, map[string]string{accountName: token})
+			_, err = secret.Replace(runtime.Secrets, map[string]string{accountName: token})
 			if err != nil {
 				return err
 			}
@@ -269,7 +268,7 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 				return err
 			}
 		}
-		if err := runtime.Accounts.Set(accountName, secrets.DiagnosticCredential{SystemToken: systemToken, UserID: userID}); err != nil {
+		if err := runtime.Accounts.Set(accountName, secret.DiagnosticCredential{SystemToken: systemToken, UserID: userID}); err != nil {
 			return err
 		}
 		r := invocation.Renderer(runtime)
@@ -359,12 +358,12 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 // diagnosticCredentialProblem explains why precise balance cannot run and names
 // a recovery the selected credential backend can perform. The read-only
 // environment backend cannot store diagnostics, so it names their variables.
-func diagnosticCredentialProblem(store secrets.Store, accountName string, err error) error {
+func diagnosticCredentialProblem(store secret.Store, accountName string, err error) error {
 	environment := ""
-	if secrets.IsReadOnly(store) {
-		environment = "Set both `" + secrets.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secrets.DiagnosticUserIDEnvironmentKey(accountName) + "` in the parent environment, then retry."
+	if secret.IsReadOnly(store) {
+		environment = "Set both `" + secret.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secret.DiagnosticUserIDEnvironmentKey(accountName) + "` in the parent environment, then retry."
 	}
-	if !errors.Is(err, secrets.ErrNotFound) {
+	if !errors.Is(err, secret.ErrNotFound) {
 		return presentation.ProblemError(
 			"Cannot read provider diagnostic credential",
 			"AIGW could not read a usable provider diagnostic credential for "+accountName+"; this does not establish that it is missing.",
