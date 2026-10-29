@@ -9,7 +9,6 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
-
 	"aigw-cli/internal/presentation"
 
 	"github.com/spf13/cobra"

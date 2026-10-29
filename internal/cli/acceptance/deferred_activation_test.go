@@ -475,9 +475,9 @@ func assertTokenRemovedJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer
 	if command == "sync" {
 		return
 	}
-	codex := result.Clients[codex.ID]
-	if codex.State != "deferred" || codex.NextAction != wantAction || !codex.ProjectionDeferred {
-		t.Fatalf("%s selected Codex = %+v", command, codex)
+	selected := result.Clients[codex.ID]
+	if selected.State != "deferred" || selected.NextAction != wantAction || !selected.ProjectionDeferred {
+		t.Fatalf("%s selected Codex = %+v", command, selected)
 	}
 }
 

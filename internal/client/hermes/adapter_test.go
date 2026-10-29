@@ -18,7 +18,7 @@ import (
 	"aigw-cli/internal/secrets"
 )
 
-// hermesRegistry registers only this adapter against its own admission record.
+// hermesRegistry registers only this adapter, so it admits only Hermes.
 func hermesRegistry() client.Registry {
 	registry, err := client.NewRegistry(New())
 	if err != nil {

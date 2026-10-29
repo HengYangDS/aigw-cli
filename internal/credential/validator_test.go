@@ -98,6 +98,36 @@ func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 	}
 }
 
+// TestValidateNamesTheDefaultProbeClient shows that a default probe's error
+// names the first admitted client that speaks only the account's protocol, and
+// that an admission without one refuses instead of probing.
+func TestValidateNamesTheDefaultProbeClient(t *testing.T) {
+	t.Parallel()
+
+	anthropic := domain.Endpoints{Anthropic: "https://anthropic.test"}
+	for name, test := range map[string]struct {
+		endpoints domain.Endpoints
+		admission domain.Admission
+		want      string
+	}{
+		"Anthropic Messages": {endpoints: anthropic, admission: testAdmission(), want: "Claude authentication was rejected (HTTP 401)"},
+		"OpenAI Responses": {
+			endpoints: domain.Endpoints{Anthropic: anthropic.Anthropic, OpenAIResponses: "https://responses.test/v1"},
+			admission: testAdmission(), want: "Codex authentication was rejected (HTTP 401)",
+		},
+		"no probing client": {endpoints: anthropic, admission: domain.NewAdmission(), want: "no admitted client probes an Account Token over Anthropic Messages"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			account := domain.Account{ID: "team", Endpoints: test.endpoints}
+			err := Validate(context.Background(), staticResponse(http.StatusUnauthorized, http.NoBody), test.admission, account, "secret")
+			if err == nil || err.Error() != test.want {
+				t.Fatalf("Validate() = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
 func TestValidateRuntimeUsesTheSelectedEndpointProtocol(t *testing.T) {
 	t.Parallel()
 

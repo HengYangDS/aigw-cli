@@ -191,15 +191,16 @@ no caller outside its package.
 client specifications that the composition root builds from the adapters'
 `Spec()`. `NewConfig` and the store take it, and every rule that iterates or
 looks up clients reads it from the configuration instead of a package list.
-Client-specific rules become `ClientSpec` capabilities: the default model
-provider, model-provider selection, client-native authentication and the
-protocol of a pre-catalogue profile join the existing retry budgets. An error
-that named the one client with a capability derives that name from the
-admitted clients that have it, so its text is unchanged. Tests that need the
-built-in clients take the composition root's admission. A package that the
-composition root imports cannot import it back: an adapter's own tests admit
-its specification, plus a fixture client where a test needs a second one, and
-the other such packages admit fixture specifications.
+Client-specific rules become `ClientSpec` capabilities beside the existing
+retry budgets: a default model provider, which also admits an explicit one;
+client-native authentication, which needs a default model provider; and the
+protocol of a pre-catalogue profile. An error that named the one client with a
+capability derives that name from the admitted clients that have it, so its
+text is unchanged. Tests that need the built-in clients take the composition
+root's admission. A package that the composition root imports cannot import it
+back: an adapter's own tests admit its specification, plus a fixture client
+where a test needs a second one, and the other such packages admit fixture
+specifications.
 
 Alternative considered: one registration of the admitted specifications at
 start-up. Rejected because it keeps a package-level dependency that every

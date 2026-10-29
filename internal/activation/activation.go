@@ -13,7 +13,9 @@ import (
 
 // Activation separates the prerequisites for local client use and caches
 // credential availability metadata, never Token values or inference health.
-// An empty scope is deferred despite a valid catalogue.
+// An empty scope is deferred despite a valid catalogue. Obtain it from
+// AssessActivation: a value built any other way admits no client, so
+// NextActionFor ignores its per-client prerequisites.
 type Activation struct {
 	EnabledClients                int
 	State                         domainreadiness.State

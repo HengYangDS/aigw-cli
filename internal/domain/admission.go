@@ -13,8 +13,9 @@ type Admission struct {
 }
 
 // NewAdmission admits specs in the given order. An empty or repeated client
-// identifier is a build defect, so it panics instead of admitting part of the
-// set.
+// identifier, or client-native authentication without a model provider to
+// select it with, is a build defect, so it panics instead of admitting part of
+// the set.
 func NewAdmission(specs ...ClientSpec) Admission {
 	admitted := make([]ClientSpec, 0, len(specs))
 	for _, spec := range specs {
@@ -23,6 +24,9 @@ func NewAdmission(specs ...ClientSpec) Admission {
 		}
 		if slices.ContainsFunc(admitted, func(existing ClientSpec) bool { return existing.ID == spec.ID }) {
 			panic(fmt.Sprintf("client %q is admitted more than once", spec.ID))
+		}
+		if spec.ClientNativeAuthentication && spec.DefaultModelProvider == "" {
+			panic(fmt.Sprintf("client %q has client-native authentication but no model provider", spec.ID))
 		}
 		admitted = append(admitted, spec.clone())
 	}

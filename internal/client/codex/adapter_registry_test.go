@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-// codexRegistry registers only this adapter against its own admission record.
+// codexRegistry registers only this adapter, so it admits only Codex.
 func codexRegistry() client.Registry {
 	registry, err := client.NewRegistry(New())
 	if err != nil {

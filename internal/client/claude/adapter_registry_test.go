@@ -12,7 +12,7 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-// claudeRegistry registers only this adapter against its own admission record.
+// claudeRegistry registers only this adapter, so it admits only Claude Code.
 func claudeRegistry() client.Registry {
 	registry, err := client.NewRegistry(New())
 	if err != nil {

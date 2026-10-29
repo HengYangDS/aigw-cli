@@ -10,26 +10,34 @@ import (
 func testAdmission() Admission { return NewAdmission(testClientSpecs()...) }
 
 func TestAdmissionKeepsOrderAndReturnsCopies(t *testing.T) {
-	admission := NewAdmission(
-		ClientSpec{ID: "second", Label: "Second", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
-		ClientSpec{ID: "first", Label: "First", ProductName: "First Product"},
-	)
+	input := ClientSpec{
+		ID: "second", Label: "Second", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic},
+		QualifiedModes: []string{"Chat"}, QualifiedPlatforms: []string{"macOS"},
+	}
+	admission := NewAdmission(input, ClientSpec{ID: "first", Label: "First", ProductName: "First Product"})
 	if got := admission.IDs(); !reflect.DeepEqual(got, []string{"second", "first"}) {
 		t.Fatalf("IDs() = %v", got)
 	}
+	mutate := func(spec ClientSpec) {
+		spec.EndpointProtocols[0], spec.QualifiedModes[0], spec.QualifiedPlatforms[0] = ProtocolOpenAIResponses, "Code", "Linux"
+	}
+	unshared := func(source string) {
+		t.Helper()
+		again, _ := admission.Spec("second")
+		if again.EndpointProtocols[0] != ProtocolAnthropic || again.QualifiedModes[0] != "Chat" || again.QualifiedPlatforms[0] != "macOS" {
+			t.Fatalf("%s shares its slices with the admission: %#v", source, again)
+		}
+	}
+	mutate(input)
+	unshared("the admitted argument")
 	spec, admitted := admission.Spec("second")
 	if !admitted || spec.Label != "Second" {
 		t.Fatalf("Spec(second) = %#v, %v", spec, admitted)
 	}
-	spec.EndpointProtocols[0] = ProtocolOpenAIResponses
-	if again, _ := admission.Spec("second"); again.EndpointProtocols[0] != ProtocolAnthropic {
-		t.Fatal("Spec shares its protocols with the admission")
-	}
-	specs := admission.Specs()
-	specs[0].EndpointProtocols[0] = ProtocolOpenAIResponses
-	if again, _ := admission.Spec("second"); again.EndpointProtocols[0] != ProtocolAnthropic {
-		t.Fatal("Specs shares its protocols with the admission")
-	}
+	mutate(spec)
+	unshared("Spec")
+	mutate(admission.Specs()[0])
+	unshared("Specs")
 	if admission.Admits("third") {
 		t.Fatal("an unknown client is admitted")
 	}
@@ -45,10 +53,13 @@ func TestAdmissionKeepsOrderAndReturnsCopies(t *testing.T) {
 	}
 }
 
-func TestAdmissionRefusesAnEmptyOrRepeatedIdentifier(t *testing.T) {
+func TestAdmissionRefusesAnInvalidSpecification(t *testing.T) {
 	for name, specs := range map[string][]ClientSpec{
-		"empty":    {{ID: ""}},
-		"repeated": {{ID: "one"}, {ID: "one"}},
+		"empty identifier":    {{ID: ""}},
+		"repeated identifier": {{ID: "one"}, {ID: "one"}},
+		// Client-native authentication requires an explicit model provider,
+		// which only a client with a default model provider accepts.
+		"native authentication without a model provider": {{ID: "native", ClientNativeAuthentication: true}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {
