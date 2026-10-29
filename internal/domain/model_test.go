@@ -29,6 +29,9 @@ func TestConfigQueriesOwnAccountAndRouteSelectionSemantics(t *testing.T) {
 	if err != nil || accountID != "gateway" {
 		t.Fatalf("ResolveAccount(account) = %q, %v", accountID, err)
 	}
+	if got := cfg.SelectedAccountIDs(); !reflect.DeepEqual(got, []string{"gateway"}) {
+		t.Fatalf("SelectedAccountIDs() = %#v; want the selected Route's Account", got)
+	}
 	if _, _, err := cfg.ResolveAccount("missing"); err == nil {
 		t.Fatal("ResolveAccount() accepted an unknown reference")
 	}
