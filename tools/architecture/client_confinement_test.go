@@ -30,13 +30,12 @@ func confinementFixture(t *testing.T, sources map[string]string) (string, []goFi
 	return root, files
 }
 
-func confinementPolicy(exceptions ...string) clientConfinement {
+func confinementPolicy() clientConfinement {
 	return clientConfinement{
-		Clients:             []string{"claude", "claude-desktop", "codex", "hermes"},
-		ProductRoots:        []string{"cmd", "internal"},
-		AdapterRoot:         "internal/client",
-		CompositionRoots:    []string{"cmd/aigw"},
-		TemporaryExceptions: exceptions,
+		Clients:          []string{"claude", "claude-desktop", "codex", "hermes"},
+		ProductRoots:     []string{"cmd", "internal"},
+		AdapterRoot:      "internal/client",
+		CompositionRoots: []string{"cmd/aigw"},
 	}
 }
 
@@ -77,30 +76,10 @@ func TestClientConfinementRefusesPackagesThatNameAnotherClient(t *testing.T) {
 	}
 }
 
-func TestClientConfinementExceptionsOnlyShrink(t *testing.T) {
-	root, files := confinementFixture(t, confinementSources)
-	report := newReport("policy.toml", root)
-	policy := confinementPolicy("internal/client", "internal/client/claude", "internal/client/codex", "internal/shared", "internal/neutral")
-	if err := checkClientConfinement(root, files, policy, &report); err != nil {
-		t.Fatal(err)
-	}
-	if len(report.Findings) != 1 {
-		t.Fatalf("findings = %+v, want only the stale exception", report.Findings)
-	}
-	stale := report.Findings[0]
-	if stale.Rule != "client_confinement_exception" || stale.Package != "internal/neutral" {
-		t.Fatalf("stale exception finding = %+v", stale)
-	}
-	if !strings.Contains(stale.Message, "remove it from temporary_exceptions") {
-		t.Fatalf("stale exception message = %q", stale.Message)
-	}
-}
-
 func TestClientConfinementReportsNamingPackagesPerClient(t *testing.T) {
 	root, files := confinementFixture(t, confinementSources)
 	report := newReport("policy.toml", root)
-	policy := confinementPolicy("internal/client", "internal/client/claude", "internal/client/codex", "internal/shared")
-	if err := checkClientConfinement(root, files, policy, &report); err != nil {
+	if err := checkClientConfinement(root, files, confinementPolicy(), &report); err != nil {
 		t.Fatal(err)
 	}
 	want := map[string][]string{
@@ -216,7 +195,7 @@ func TestClientConfinementPolicyRejectsInvalidDeclarations(t *testing.T) {
 	if err := validateClientConfinement(clientConfinement{}); err != nil {
 		t.Fatalf("an absent confinement table must be valid: %v", err)
 	}
-	if err := validateClientConfinement(confinementPolicy("internal/shared")); err != nil {
+	if err := validateClientConfinement(confinementPolicy()); err != nil {
 		t.Fatalf("valid confinement rejected: %v", err)
 	}
 	for name, mutate := range map[string]func(*clientConfinement){
@@ -227,7 +206,7 @@ func TestClientConfinementPolicyRejectsInvalidDeclarations(t *testing.T) {
 		"no product root":       func(c *clientConfinement) { c.ProductRoots = nil },
 		"missing adapter root":  func(c *clientConfinement) { c.AdapterRoot = "" },
 		"foreign composition":   func(c *clientConfinement) { c.CompositionRoots = []string{`cmd\aigw`} },
-		"duplicate exception":   func(c *clientConfinement) { c.TemporaryExceptions = []string{"internal/a", "internal/a"} },
+		"duplicate composition": func(c *clientConfinement) { c.CompositionRoots = []string{"cmd/aigw", "cmd/aigw"} },
 		"native term owner":     func(c *clientConfinement) { c.NativeTerms = map[string][]string{"gemini": {"codex_responses"}} },
 		"empty native term":     func(c *clientConfinement) { c.NativeTerms = map[string][]string{"hermes": {""}} },
 		"duplicate native term": func(c *clientConfinement) {

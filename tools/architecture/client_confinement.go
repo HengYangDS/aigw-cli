@@ -15,19 +15,15 @@ import (
 
 // clientConfinement keeps each admitted client's knowledge in that client's
 // adapter package. Outside it, only composition roots may name a client, and
-// test files are fixtures. TemporaryExceptions lists the packages that still
-// name a client while the semantic-architecture Change moves that knowledge:
-// the gate refuses an unlisted offender and a listed package that no longer
-// offends, so the list can only shrink. NativeTerms lists, per client, the
-// exact literals of that client's own vocabulary that contain another client's
-// ID; its adapter package may hold them, and an unused term is refused.
+// test files are fixtures. NativeTerms lists, per client, the exact literals of
+// that client's own vocabulary that contain another client's ID; its adapter
+// package may hold them, and an unused term is refused.
 type clientConfinement struct {
-	Clients             []string            `toml:"clients"`
-	ProductRoots        []string            `toml:"product_roots"`
-	AdapterRoot         string              `toml:"adapter_root"`
-	CompositionRoots    []string            `toml:"composition_roots"`
-	TemporaryExceptions []string            `toml:"temporary_exceptions"`
-	NativeTerms         map[string][]string `toml:"native_terms"`
+	Clients          []string            `toml:"clients"`
+	ProductRoots     []string            `toml:"product_roots"`
+	AdapterRoot      string              `toml:"adapter_root"`
+	CompositionRoots []string            `toml:"composition_roots"`
+	NativeTerms      map[string][]string `toml:"native_terms"`
 }
 
 type clientOccurrence struct {
@@ -36,10 +32,10 @@ type clientOccurrence struct {
 }
 
 // validateClientConfinement accepts an absent table or one complete declaration
-// of portable roots, unique kebab-case client IDs, unique exceptions and unique
-// native terms that each name another client than their own.
+// of portable roots, unique kebab-case client IDs and unique native terms that
+// each name another client than their own.
 func validateClientConfinement(c clientConfinement) error {
-	if len(c.Clients) == 0 && len(c.ProductRoots) == 0 && c.AdapterRoot == "" && len(c.CompositionRoots) == 0 && len(c.TemporaryExceptions) == 0 && len(c.NativeTerms) == 0 {
+	if len(c.Clients) == 0 && len(c.ProductRoots) == 0 && c.AdapterRoot == "" && len(c.CompositionRoots) == 0 && len(c.NativeTerms) == 0 {
 		return nil
 	}
 	if len(c.Clients) == 0 || len(c.ProductRoots) == 0 || !isPortableRelativePath(c.AdapterRoot) {
@@ -58,7 +54,7 @@ func validateClientConfinement(c clientConfinement) error {
 		seen[id] = true
 	}
 	for field, paths := range map[string][]string{
-		"product_roots": c.ProductRoots, "composition_roots": c.CompositionRoots, "temporary_exceptions": c.TemporaryExceptions,
+		"product_roots": c.ProductRoots, "composition_roots": c.CompositionRoots,
 	} {
 		unique := map[string]bool{}
 		for _, path := range paths {
@@ -164,9 +160,6 @@ func reportClientConfinement(naming map[string]map[string]clientOccurrence, used
 		sort.Strings(ids)
 		for _, id := range ids {
 			report.ClientPackages[id] = append(report.ClientPackages[id], dir)
-			if slices.Contains(c.TemporaryExceptions, dir) {
-				continue
-			}
 			occurrence := naming[dir][id]
 			report.addFinding(Finding{
 				Rule:    "client_confinement",
@@ -175,16 +168,6 @@ func reportClientConfinement(naming map[string]map[string]clientOccurrence, used
 				Package: dir,
 				Name:    id,
 				Message: fmt.Sprintf("package %q names client %q; move that knowledge into the client's adapter package", dir, id),
-			})
-		}
-	}
-	for _, dir := range c.TemporaryExceptions {
-		if _, offends := naming[dir]; !offends {
-			report.addFinding(Finding{
-				Rule:    "client_confinement_exception",
-				Path:    dir,
-				Package: dir,
-				Message: fmt.Sprintf("package %q no longer names a client; remove it from temporary_exceptions", dir),
 			})
 		}
 	}
