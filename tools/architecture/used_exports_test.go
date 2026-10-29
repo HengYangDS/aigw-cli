@@ -80,6 +80,24 @@ type ViaPointer struct{}
 
 func (Result) Method() Via { return Via{} }
 
+func (Result) helper(Secretive) {}
+
+type Secretive struct{}
+
+func (promoted) Promote() ViaPromotion { return ViaPromotion{} }
+
+type ViaPromotion struct{}
+
+type account struct{}
+
+func (account) Secret() Token { return Token{} }
+
+type Token struct{}
+
+func Resolve(account string) {}
+
+func Hook() func(account string) { return nil }
+
 func (*Result) PointerMethod() ViaPointer { return ViaPointer{} }
 
 type Constraint interface{ ~int }
@@ -154,7 +172,7 @@ func writeUsedExportsFixture(t *testing.T, root string) []goFileInfo {
 
 import "example.com/aigw/internal/model"
 
-var _, _, _, _, _, _ = model.Used, model.UseBox, model.UsePair, model.Serve, model.Bridge, model.Platform
+var _, _, _, _, _, _, _, _ = model.Used, model.UseBox, model.UsePair, model.Serve, model.Bridge, model.Platform, model.Resolve, model.Hook
 
 func shadow() int {
 	model := struct{ Variable int }{}
@@ -163,7 +181,7 @@ func shadow() int {
 `)
 	writeFile(t, filepath.Join(root, "internal", "user", "user_test.go"), "package user\n\nimport \"example.com/aigw/internal/model\"\n\nvar _ = model.ByOtherTest\n")
 	writeFile(t, filepath.Join(root, "internal", "alias", "alias.go"), "package alias\n\nimport m \"example.com/aigw/internal/model\"\n\nvar _ = m.Aliased\n")
-	writeFile(t, filepath.Join(root, "internal", "dot", "dot.go"), "package dot\n\nimport . \"example.com/aigw/internal/model\"\n\nvar _ = DotUsed\n")
+	writeFile(t, filepath.Join(root, "internal", "dot", "dot.go"), "package dot\n\nimport . \"example.com/aigw/internal/model\"\n\nvar _, _ = DotUsed, account\n")
 	// What parses before a syntax error still counts.
 	writeFile(t, filepath.Join(root, "internal", "broken", "broken.go"), "package broken\n\nimport \"example.com/aigw/internal/model\"\n\nvar _ = model.BrokenUser\n\nfunc (\n")
 	return []goFileInfo{
@@ -200,7 +218,7 @@ func TestUsedExportsOnlyCountsOnlyUsersOutsideThePackage(t *testing.T) {
 		unused = append(unused, name)
 	}
 	slices.Sort(unused)
-	want := []string{"AfterReset", "Hidden", "HiddenArg", "OnlyExternalTest", "OnlyOwnTests", "Reset", "Thing", "Untyped", "Variable"}
+	want := []string{"AfterReset", "Hidden", "HiddenArg", "OnlyExternalTest", "OnlyOwnTests", "Reset", "Secretive", "Thing", "Token", "Untyped", "Variable"}
 	if !slices.Equal(unused, want) {
 		t.Fatalf("unused exports = %v, want %v", unused, want)
 	}

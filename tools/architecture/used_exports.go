@@ -18,13 +18,13 @@ import (
 // exported top-level functions, types, variables and constants of the
 // package's production files. A Go file in another directory uses one when it
 // selects it through an import of the package; the package's own tests do not
-// count. A used identifier also uses what its exported API names: the types in
-// its signature or declared type, the exported fields and methods of a used
-// type, including those promoted from an embedded unexported type, and the
-// constants declared with a used type. Methods and fields are not checked
-// themselves. Go syntax stays with the Go toolchain: a file with a syntax
-// error contributes what parses before the error. A listed package without
-// production Go files is a stale entry.
+// count. A used identifier also uses the types that its exported API names:
+// those in its signature or declared type, the exported fields and methods of a
+// used type, also of an unexported type such as an embedded one, and the
+// constants declared with a used type. Parameter and result names are not
+// types. Methods and fields are not checked themselves. Go syntax stays with
+// the Go toolchain: a file with a syntax error contributes what the parser
+// recovers. A listed package without production Go files is a stale entry.
 func checkUsedExportsOnly(root string, files []goFileInfo, p policy, report *Report) error {
 	if len(p.UsedExportsOnly) == 0 {
 		return nil
@@ -43,8 +43,8 @@ func checkUsedExportsOnly(root string, files []goFileInfo, p policy, report *Rep
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", file.relPath, err)
 		}
-		// A syntax error is the Go toolchain's to report; the partial tree keeps
-		// what parsed before it, and a file that yields no tree contributes nothing.
+		// A syntax error is the Go toolchain's to report; the parser still returns
+		// the tree that it recovers.
 		tree, _ := parser.ParseFile(fset, file.relPath, data, 0)
 		parsed[file.relPath] = tree
 		return tree, nil
@@ -114,9 +114,6 @@ func collectExportedSurface(files []goFileInfo, dir string, fset *token.FileSet,
 		tree, err := parse(file)
 		if err != nil {
 			return exportedSurface{}, err
-		}
-		if tree == nil {
-			continue
 		}
 		// declare records one declaration; a name declared in several files,
 		// such as one per platform, keeps its first position and every file's API.
@@ -239,6 +236,23 @@ func (s exportedSurface) reach(used map[string]bool) map[string]bool {
 	for name := range used {
 		queue = append(queue, name)
 	}
+	var visit func(ast.Node) bool
+	visit = func(node ast.Node) bool {
+		switch node := node.(type) {
+		case *ast.SelectorExpr:
+			// Another package's identifier.
+			return false
+		case *ast.Field:
+			// A parameter, result or type parameter name is not a type.
+			if node.Type != nil {
+				ast.Inspect(node.Type, visit)
+			}
+			return false
+		case *ast.Ident:
+			queue = append(queue, node.Name)
+		}
+		return true
+	}
 	for len(queue) > 0 {
 		name := queue[len(queue)-1]
 		queue = queue[:len(queue)-1]
@@ -249,16 +263,7 @@ func (s exportedSurface) reach(used map[string]bool) map[string]bool {
 		reached[name] = true
 		queue = append(queue, s.constants[name]...)
 		for _, node := range declaration.api {
-			ast.Inspect(node, func(node ast.Node) bool {
-				switch node := node.(type) {
-				case *ast.SelectorExpr:
-					// Another package's identifier.
-					return false
-				case *ast.Ident:
-					queue = append(queue, node.Name)
-				}
-				return true
-			})
+			ast.Inspect(node, visit)
 		}
 	}
 	return reached
@@ -291,9 +296,6 @@ func externalSelections(files []goFileInfo, importPath, dir string, parse func(g
 		if err != nil {
 			return nil, err
 		}
-		if tree == nil {
-			continue
-		}
 		local := ""
 		for _, spec := range tree.Imports {
 			if value, _ := strconv.Unquote(spec.Path.Value); value == importPath {
@@ -307,8 +309,11 @@ func externalSelections(files []goFileInfo, importPath, dir string, parse func(g
 		case "", "_":
 			continue
 		case ".":
+			// Another package can select only exported names.
 			for _, name := range tree.Unresolved {
-				used[name.Name] = true
+				if name.IsExported() {
+					used[name.Name] = true
+				}
 			}
 			continue
 		}
