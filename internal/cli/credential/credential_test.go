@@ -15,11 +15,11 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/store"
 )
 
 func TestCredentialHelperPrintsOnlyTheProjectedAccountToken(t *testing.T) {
@@ -289,7 +289,7 @@ func TestClaudeCredentialHelperFailsClosedWithoutWritingStdout(t *testing.T) {
 			args := helperArgs(t, runtime, claude.ID)
 			switch name {
 			case "load":
-				runtime.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+				runtime.Config = store.NewStore(t.TempDir(), clients.Admission())
 			case "disabled":
 				runtime, buffer = helperRuntime(t, claude.ID, false)
 			case "route":
@@ -384,7 +384,7 @@ func TestCredentialHelperRedactsBackendDiagnostics(t *testing.T) {
 
 func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Context, *bytes.Buffer) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	account := domain.Account{Label: "Gateway"}
 	spec, _ := clients.Admission().Spec(client)
@@ -399,11 +399,11 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
 	}
 	cfg.Clients[client] = domain.ClientBinding{Route: client, Enabled: enabled, Protocol: spec.EndpointProtocols[0], Executable: client}
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	return invocation.Context{Clients: clients.Registry(), Config: store, Secrets: secrets.NewMemoryStore(), Out: out}, out
+	return invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secrets.NewMemoryStore(), Out: out}, out
 }
 
 func helperArgs(t *testing.T, runtime invocation.Context, client string) []string {

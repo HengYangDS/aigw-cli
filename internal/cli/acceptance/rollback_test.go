@@ -11,8 +11,8 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 )
 
 func TestRollbackReportsUnavailableRecoveryWithoutChangingCurrentConfiguration(t *testing.T) {
@@ -197,7 +197,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	canonical := current.Clone()
 	account.Order = 0
 	canonical.Accounts["dmx"] = account
-	isolated := configuration.NewStore(filepath.Join(t.TempDir(), "config.toml"), clients.Admission())
+	isolated := store.NewStore(filepath.Join(t.TempDir(), "config.toml"), clients.Admission())
 	if err := isolated.Save(canonical); err != nil {
 		t.Fatal(err)
 	}

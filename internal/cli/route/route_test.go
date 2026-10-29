@@ -15,15 +15,15 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
 
 func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
 	cfg.Models["gpt-6-sol"] = domain.Model{Label: "GPT-6 Sol"}
@@ -31,11 +31,11 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 		Account: "ucloud", Model: "gpt-6-sol", UpstreamModel: "GPT-6-Sol",
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
 	}
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: store, Out: out, RenderOut: out}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out, RenderOut: out}
 	list := newListCommand(runtime)
 	list.SetArgs([]string{"--json"})
 	if err := list.Execute(); err != nil {
@@ -69,7 +69,7 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 }
 
 func TestRouteHumanOutputNamesClientsByLabel(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["messages"] = domain.Route{
@@ -77,11 +77,11 @@ func TestRouteHumanOutputNamesClientsByLabel(t *testing.T) {
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedRoute(claudedesktop.ID, "messages", "")
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: store, Out: out, RenderOut: out}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out, RenderOut: out}
 	for _, command := range []*cobra.Command{newListCommand(runtime), newShowCommand(runtime)} {
 		out.Reset()
 		if command.Name() == "show" {
@@ -155,7 +155,7 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 		{Route: "reserve", Protocol: domain.ProtocolAnthropic},
 	}} {
 		t.Run(fmt.Sprint(len(alternatives)), func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
 			cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
 			cfg.Routes["claude"] = domain.Route{
@@ -175,19 +175,19 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 			cfg.Recommendations[claude.ID] = domain.ClientRecommendation{
 				Primary: domain.ClientSelection{Route: "claude", Protocol: domain.ProtocolAnthropic}, Alternatives: alternatives,
 			}
-			if err := store.Save(cfg); err != nil {
+			if err := configStore.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
 			secretStore := secrets.NewMemoryStore()
 			if err := secretStore.Set("team", "retained-token"); err != nil {
 				t.Fatal(err)
 			}
-			command := newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: store, Secrets: secretStore, Out: &bytes.Buffer{}, RenderOut: &bytes.Buffer{}})
+			command := newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Out: &bytes.Buffer{}, RenderOut: &bytes.Buffer{}})
 			command.SetArgs([]string{"claude"})
 			if err := command.Execute(); err != nil {
 				t.Fatal(err)
 			}
-			after, err := store.Load()
+			after, err := configStore.Load()
 			want := domain.ClientRecommendation{}
 			if len(alternatives) != 0 {
 				want = domain.ClientRecommendation{Primary: alternatives[0], Alternatives: alternatives[1:]}
@@ -205,7 +205,7 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 func blockedRouteRuntime(t *testing.T) invocation.Context {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
-	store := configuration.NewStore(path, clients.Admission())
+	configStore := store.NewStore(path, clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["current"] = domain.Account{
 		Label:     "Current",
@@ -220,7 +220,7 @@ func blockedRouteRuntime(t *testing.T) invocation.Context {
 		},
 	}
 	cfg.SetSelectedRoute(codex.ID, "current", "")
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	backup := path + ".bak"
@@ -231,7 +231,7 @@ func blockedRouteRuntime(t *testing.T) invocation.Context {
 		t.Fatal(err)
 	}
 	return invocation.Context{Clients: clients.Registry(),
-		Config:    store,
+		Config:    configStore,
 		Secrets:   secrets.NewMemoryStore(),
 		Out:       &bytes.Buffer{},
 		RenderOut: &bytes.Buffer{},
@@ -247,7 +247,7 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 		{name: "channel variant", upstream: "coding-minimax-m3", wantWire: "coding-minimax-m3"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
 			cfg.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://provider.test/v1"}}
 			cfg.Models["minimax-m3"] = domain.Model{Label: "MiniMax M3"}
@@ -255,11 +255,11 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 				Account: "ucloud", Model: "minimax-m3", UpstreamModel: "MiniMax-M3",
 				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
-			if err := store.Save(cfg); err != nil {
+			if err := configStore.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
 			out := &bytes.Buffer{}
-			command := newAddCommand(invocation.Context{Clients: clients.Registry(), Config: store, Secrets: secrets.NewMemoryStore(), Out: out, RenderOut: out})
+			command := newAddCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secrets.NewMemoryStore(), Out: out, RenderOut: out})
 			args := []string{"ucloud-minimax-new", "--account", "ucloud", "--model", "minimax-m3", "--protocol", "openai_responses"}
 			if test.upstream != "" {
 				args = append(args, "--upstream-model", test.upstream)
@@ -268,7 +268,7 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 			if err := command.Execute(); err != nil {
 				t.Fatalf("add exact provider ID: %v", err)
 			}
-			got, err := store.Load()
+			got, err := configStore.Load()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -285,17 +285,17 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 
 func TestRouteAddRejectsEmptyExplicitUpstreamBeforeConfigurationAccess(t *testing.T) {
 	for _, upstream := range []string{"", " \t"} {
-		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+		configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 		original := []byte("invalid configuration [")
-		if err := os.WriteFile(store.Path(), original, 0o600); err != nil {
+		if err := os.WriteFile(configStore.Path(), original, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		command := newAddCommand(invocation.Context{Clients: clients.Registry(), Config: store, Out: &bytes.Buffer{}})
+		command := newAddCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Out: &bytes.Buffer{}})
 		command.SetArgs([]string{"ucloud-minimax-new", "--account", "ucloud", "--model", "minimax-m3", "--protocol", "openai_responses", "--upstream-model", upstream})
 		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "--upstream-model requires a non-empty value") {
 			t.Fatalf("empty upstream was not rejected before loading configuration: %v", err)
 		}
-		if got, err := os.ReadFile(store.Path()); err != nil || !bytes.Equal(got, original) {
+		if got, err := os.ReadFile(configStore.Path()); err != nil || !bytes.Equal(got, original) {
 			t.Fatalf("invalid upstream changed configuration: %v", err)
 		}
 	}

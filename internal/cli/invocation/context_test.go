@@ -12,11 +12,11 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 func TestReadTokenUsesExplicitInvocationInput(t *testing.T) {
@@ -133,7 +133,7 @@ func TestProblemFallsBackToCause(t *testing.T) {
 }
 
 func TestSynchronizerPreservesInvocationCapabilities(t *testing.T) {
-	config := configuration.NewStore("configuration.toml", clients.Admission())
+	config := store.NewStore("configuration.toml", clients.Admission())
 	secretStore := secrets.NewMemoryStore()
 	runner := fakeRunner{}
 	discoverer := fakeDiscoverer{}

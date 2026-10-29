@@ -11,10 +11,10 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 type noClientDiscovery struct{}
@@ -24,12 +24,12 @@ func (noClientDiscovery) Discover() discovery.Result {
 }
 
 func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	secretStore := secrets.NewMemoryStore()
@@ -55,7 +55,7 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 			for _, args := range [][]string{{"status", "--json"}, {"sync", "--dry-run", "--json"}, {"check", "--json"}, {"doctor", "--json"}} {
 				t.Run(args[0], func(t *testing.T) {
 					out := &bytes.Buffer{}
-					app := &App{Clients: clients.Registry(), Config: store, Secrets: secretStore, Accounts: accounts, Discovery: noClientDiscovery{}, Out: out, Err: io.Discard}
+					app := &App{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Accounts: accounts, Discovery: noClientDiscovery{}, Out: out, Err: io.Discard}
 					commandErr := Execute(app, args)
 					if (commandErr != nil) != (args[0] == "check") {
 						t.Fatalf("%s outcome = %v", args[0], commandErr)
@@ -85,7 +85,7 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 }
 
 func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["missing"] = domain.Account{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
 	cfg.Accounts["connected"] = domain.Account{Label: "Connected", Endpoints: domain.Endpoints{OpenAIResponses: "https://connected.test/v1"}}
@@ -93,7 +93,7 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "connected", Model: "gpt", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetRecommendedRoute(codex.ID, "codex")
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	secretStore := secrets.NewEnvironmentStore(func(key string) string {
@@ -110,7 +110,7 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 	for _, args := range [][]string{{"status", "--json"}, {"sync", "--dry-run", "--json"}, {"check", "--json"}, {"doctor", "--json"}} {
 		t.Run(args[0], func(t *testing.T) {
 			out := &bytes.Buffer{}
-			app := &App{Clients: clients.Registry(), Config: store, Secrets: secretStore, Accounts: accounts, Discovery: noClientDiscovery{}, Out: out, Err: io.Discard}
+			app := &App{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Accounts: accounts, Discovery: noClientDiscovery{}, Out: out, Err: io.Discard}
 			commandErr := Execute(app, args)
 			if (commandErr != nil) != (args[0] == "check") {
 				t.Fatalf("%s outcome = %v", args[0], commandErr)

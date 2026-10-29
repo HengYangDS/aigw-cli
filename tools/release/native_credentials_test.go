@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	builtinclients "aigw-cli/internal/clients"
 
@@ -129,7 +129,7 @@ func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
 
 func preprojectNativeCredentialJourney(t *testing.T, journey *journeyFixture, candidate, oldVersion, token string) []process.Plan {
 	t.Helper()
-	cfg, err := configuration.NewStore(journey.config, builtinclients.Admission()).Load()
+	cfg, err := store.NewStore(journey.config, builtinclients.Admission()).Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func preprojectNativeCredentialJourney(t *testing.T, journey *journeyFixture, ca
 
 func configureNativeDiagnosticProbe(t *testing.T, journey *journeyFixture, accountID, endpoint string) {
 	t.Helper()
-	manifest, err := configuration.Parse(readFile(t, journey.manifest), builtinclients.Admission())
+	manifest, err := store.Parse(readFile(t, journey.manifest), builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -432,7 +432,7 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 			j.requireCredential(credential, token)
 		}
 		j.run("sync")
-		if !bytes.Equal(capturePublishedSnapshot(j.testing, configuration.NewStore(j.config, builtinclients.Admission())).Catalog.Data, catalog) {
+		if !bytes.Equal(capturePublishedSnapshot(j.testing, store.NewStore(j.config, builtinclients.Admission())).Catalog.Data, catalog) {
 			j.testing.Fatal("credential lifecycle changed catalogue presentation")
 		}
 		current := j.retainedCredentials()
@@ -455,7 +455,7 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 
 func (j *journeyFixture) requireCurrentVersionedReaders(current []process.Plan, version string) {
 	j.testing.Helper()
-	cfg, err := configuration.NewStore(j.config, builtinclients.Admission()).Load()
+	cfg, err := store.NewStore(j.config, builtinclients.Admission()).Load()
 	if err != nil {
 		j.testing.Fatal(err)
 	}

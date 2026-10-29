@@ -7,7 +7,7 @@ import (
 	"io"
 	"slices"
 
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -26,11 +26,11 @@ func ObserveSelection(path string, current Desired) (Selection, bool, error) {
 	if err := current.Validate(); err != nil {
 		return Selection{}, false, err
 	}
-	config, err := transaction.CaptureFileSnapshot(path)
+	config, err := store.CaptureFileSnapshot(path)
 	if err != nil {
 		return Selection{}, false, err
 	}
-	stateSnapshot, err := transaction.CaptureFileSnapshot(path + stateSuffix)
+	stateSnapshot, err := store.CaptureFileSnapshot(path + stateSuffix)
 	if err != nil || !stateSnapshot.Exists {
 		return Selection{}, false, err
 	}

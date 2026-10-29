@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 )
 
 // Commit persists one configuration transition and converges affected client
@@ -125,7 +125,7 @@ func (s Synchronizer) finalizeCredentialEntrypoint(entrypoint *credential.Entryp
 func (s Synchronizer) applyProjection(
 	ctx context.Context,
 	before, after domain.Config,
-	configBefore, configAfter configuration.Snapshot,
+	configBefore, configAfter store.Snapshot,
 	undoEntrypoint func() error,
 	clientIDs ...string,
 ) (client.ProjectionReceipt, bool, error) {

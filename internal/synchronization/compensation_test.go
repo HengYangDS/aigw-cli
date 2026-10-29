@@ -11,7 +11,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 )
 
 // selfCompensationAdapter writes a client configuration that references the
@@ -25,7 +25,7 @@ func (adapter selfCompensationAdapter) Apply(context.Context, client.Dependencie
 	if err := os.WriteFile(adapter.target, []byte("reader="+adapter.reader), 0o600); err != nil {
 		return nil, err
 	}
-	return nil, transaction.CompensationFailed(errors.New("write projection state"), errors.New("restore projection: newer edit"))
+	return nil, store.CompensationFailed(errors.New("write projection state"), errors.New("restore projection: newer edit"))
 }
 
 func TestFailedSelfCompensationPreservesTheReaderItProjected(t *testing.T) {
@@ -45,10 +45,10 @@ func TestFailedSelfCompensationPreservesTheReaderItProjected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := &configStoreStub{}
-	syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
+	configStore := &configStoreStub{}
+	syncer := Synchronizer{Config: configStore, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
 	err = syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "sync")
-	if !errors.Is(err, client.ErrProjectionRollbackFailed) || !errors.Is(err, transaction.ErrCompensationIncomplete) {
+	if !errors.Is(err, client.ErrProjectionRollbackFailed) || !errors.Is(err, store.ErrCompensationIncomplete) {
 		t.Fatalf("incomplete self-compensation was not reported as a failed rollback: %v", err)
 	}
 	if _, statErr := os.Stat(reader); statErr != nil {

@@ -11,9 +11,9 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
@@ -77,7 +77,7 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexRoute(t *testing.T) {
 func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 	t.Run("load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"repair", "--dry-run"}); err == nil {
 			t.Fatal("expected config load failure")
 		}

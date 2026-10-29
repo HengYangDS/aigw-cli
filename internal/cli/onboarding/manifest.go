@@ -3,10 +3,10 @@ package onboarding
 import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"context"
 	"fmt"
 	"os"
@@ -34,7 +34,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	if err != nil {
 		return fmt.Errorf("Failed to read configuration manifest: %w", err)
 	}
-	manifest, err := configuration.Parse(data, runtime.Config.Admission())
+	manifest, err := store.Parse(data, runtime.Config.Admission())
 	if err != nil {
 		return err
 	}

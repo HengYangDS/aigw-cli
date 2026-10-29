@@ -7,9 +7,9 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
@@ -64,7 +64,7 @@ func TestNativeClientInputs(t *testing.T) {
 			endpoint: "http://127.0.0.1:1/v1",
 		}
 		team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
-		manifest, err := configuration.Parse(team, clients.Admission())
+		manifest, err := store.Parse(team, clients.Admission())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -86,7 +86,7 @@ func TestNativeClientInputs(t *testing.T) {
 			t.Fatal("native client temporary directory is unavailable")
 		}
 		journey.requireNativePreferences(codex.ID)
-		prepared, err := configuration.Parse(readFile(t, journey.manifest), clients.Admission())
+		prepared, err := store.Parse(readFile(t, journey.manifest), clients.Admission())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -108,7 +108,7 @@ func TestNativeClientJourney(t *testing.T) {
 		t.Fatal(err)
 	}
 	team := readFile(t, filepath.Join(root, "manifests", "team.toml"))
-	manifest, err := configuration.Parse(team, clients.Admission())
+	manifest, err := store.Parse(team, clients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +239,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	if completions.Load() <= count {
 		t.Fatal("bulk verification did not invoke the enabled native client")
 	}
-	checkpoint, err := configuration.NewStore(journey.config, clients.Admission()).LoadVerifiedCheckpoint()
+	checkpoint, err := store.NewStore(journey.config, clients.Admission()).LoadVerifiedCheckpoint()
 	if err != nil || len(checkpoint.Clients) != 1 || checkpoint.Clients[0] != client {
 		t.Fatalf("single-client checkpoint = %v: %v", checkpoint.Clients, err)
 	}
@@ -261,8 +261,8 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 
 func (j *journeyFixture) requireNativeForwarding(client, token string, upstream *httptest.Server, continueClient func()) {
 	j.testing.Helper()
-	store := configuration.NewStore(j.config, clients.Admission())
-	cfg, err := store.Load()
+	configStore := store.NewStore(j.config, clients.Admission())
+	cfg, err := configStore.Load()
 	if err != nil {
 		j.testing.Fatal(err)
 	}
@@ -282,13 +282,13 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	defer forwarding.Close()
 	endpoint := forwarding.URL + strings.TrimPrefix(direct.Endpoint, upstream.URL)
 	args := []string{"use", "--for", client, direct.RouteID, "--protocol", string(direct.Protocol), "--forwarding-endpoint", endpoint}
-	before := capturePublishedSnapshot(j.testing, store)
+	before := capturePublishedSnapshot(j.testing, configStore)
 	preview := j.run(append(slices.Clone(args), "--dry-run", "--json")...)
-	if !bytes.Contains(preview, []byte(endpoint)) || bytes.Contains(preview, []byte(token)) || !reflect.DeepEqual(before, capturePublishedSnapshot(j.testing, store)) {
+	if !bytes.Contains(preview, []byte(endpoint)) || bytes.Contains(preview, []byte(token)) || !reflect.DeepEqual(before, capturePublishedSnapshot(j.testing, configStore)) {
 		j.testing.Fatal("native forwarding preview leaked credentials or mutated state")
 	}
 	j.run(args...)
-	cfg, err = store.Load()
+	cfg, err = configStore.Load()
 	if err != nil {
 		j.testing.Fatal(err)
 	}
@@ -310,7 +310,7 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	// complete through its original credential reference.
 	continueClient()
 	j.run("rollback", "--last-change")
-	restored := capturePublishedSnapshot(j.testing, store)
+	restored := capturePublishedSnapshot(j.testing, configStore)
 	if !restored.Config.Equal(before.Config) || !restored.Forwarding.Equal(before.Forwarding) {
 		j.testing.Fatal("native forwarding rollback lost the original binding bytes")
 	}
@@ -451,7 +451,7 @@ terminal:
 			return err
 		}
 	}
-	manifest, err := configuration.Parse(team, clients.Admission())
+	manifest, err := store.Parse(team, clients.Admission())
 	if err != nil {
 		return err
 	}

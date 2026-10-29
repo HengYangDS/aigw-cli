@@ -21,11 +21,11 @@ import (
 	"aigw-cli/internal/client/codex"
 	codexcatalog "aigw-cli/internal/client/codex/catalog"
 	clientverification "aigw-cli/internal/client/verification"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	"aigw-cli/internal/clients"
 
@@ -210,7 +210,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	if afterCheckpoint, err := os.ReadFile(checkpoint); err != nil && !os.IsNotExist(err) || !bytes.Equal(beforeCheckpoint, afterCheckpoint) {
 		t.Fatalf("incomplete metadata changed the verification checkpoint: %v", err)
 	}
-	cfg, err := configuration.NewStore(journey.config, clients.Admission()).Load()
+	cfg, err := store.NewStore(journey.config, clients.Admission()).Load()
 	if err != nil {
 		t.Fatal(err)
 	}

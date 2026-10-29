@@ -12,29 +12,29 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	before := setupConfiguration()
 	before.Routes["next"] = domain.Route{Label: "Next", Account: "team", Model: "claude-next", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
-	if err := store.Save(before); err != nil {
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
+	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
 	credentials := setupTokenStore(t, "existing-token")
-	syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
+	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials, Discovery: setupDiscovery(nil)}
 	changed, _, _, err := syncer.SelectRoute(t.Context(), before, claude.ID, "next", "", domain.ConnectionChange{}, "")
 	if err != nil || !changed {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
 	}
-	current, err := store.Load()
+	current, err := configStore.Load()
 	if err != nil || current.SelectedRoute(claude.ID) != "next" || before.SelectedRoute(claude.ID) != "claude" {
 		t.Fatalf("selection mutated its input or failed persistence: %v", err)
 	}
-	snapshot, err := store.CaptureSnapshot()
+	snapshot, err := configStore.CaptureSnapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	if err != nil || changed || credentials.writes != 0 {
 		t.Fatalf("repeated selection = %t, %v; credential writes=%d", changed, err, credentials.writes)
 	}
-	after, err := store.CaptureSnapshot()
+	after, err := configStore.CaptureSnapshot()
 	if err != nil || !snapshot.Config.Equal(after.Config) || !snapshot.Backup.Equal(after.Backup) || !snapshot.Verified.Equal(after.Verified) {
 		t.Fatalf("repeated selection changed persistence: %v", err)
 	}
@@ -134,17 +134,17 @@ func TestRouteSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 			binding.ModelProvider = "provider"
 			binding.Authentication = domain.AuthenticationClientNative
 			cfg.Clients[codex.ID] = binding
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
+			configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 			credentials := &setupCredentials{Store: secrets.NewMemoryStore()}
 			client := claude.ID
 			if route == "native" {
 				client = codex.ID
 			}
-			_, _, _, err := (Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials}).SelectRoute(t.Context(), cfg, client, route, "", domain.ConnectionChange{}, "token")
+			_, _, _, err := (Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials}).SelectRoute(t.Context(), cfg, client, route, "", domain.ConnectionChange{}, "token")
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid selection reached credential mutation: writes=%d, error=%v", credentials.writes, err)
 			}
-			if _, err := os.Stat(store.Path()); !os.IsNotExist(err) {
+			if _, err := os.Stat(configStore.Path()); !os.IsNotExist(err) {
 				t.Fatalf("invalid selection created configuration: %v", err)
 			}
 		})

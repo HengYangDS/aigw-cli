@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"testing"
 
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 )
 
 func TestEntrypointCopiesOnceAndRollsBackOnlyItsOwnBytes(t *testing.T) {
@@ -156,11 +156,11 @@ func TestReceiptWriteFailureRemovesOnlyNewCredentialEntrypoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := errors.New("receipt write failed")
-	write := func(path string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+	write := func(path string, expected store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
 		if path == target+".sha256" {
-			return transaction.FileSnapshot{}, want
+			return store.FileSnapshot{}, want
 		}
-		return transaction.WriteFileAtomicExactModeIfUnchanged(path, expected, data, mode)
+		return store.WriteFileAtomicExactModeIfUnchanged(path, expected, data, mode)
 	}
 	if _, err := ensureEntrypoint(source, target, write); !errors.Is(err, want) {
 		t.Fatalf("receipt failure = %v, want %v", err, want)
@@ -180,8 +180,8 @@ func TestExecutableWriteFailureLeavesNoCredentialEntrypoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := errors.New("executable write failed")
-	write := func(string, transaction.FileSnapshot, []byte, os.FileMode) (transaction.FileSnapshot, error) {
-		return transaction.FileSnapshot{}, want
+	write := func(string, store.FileSnapshot, []byte, os.FileMode) (store.FileSnapshot, error) {
+		return store.FileSnapshot{}, want
 	}
 	if _, err := ensureEntrypoint(source, target, write); !errors.Is(err, want) {
 		t.Fatalf("executable failure = %v, want %v", err, want)
@@ -235,11 +235,11 @@ func TestEntrypointVerificationFailureCompensatesItsOwnBytes(t *testing.T) {
 	if err := os.WriteFile(source, []byte("verified-source"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	write := func(path string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+	write := func(path string, expected store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
 		if path == target+".sha256" {
 			data = []byte("wrong digest\n")
 		}
-		return transaction.WriteFileAtomicExactModeIfUnchanged(path, expected, data, mode)
+		return store.WriteFileAtomicExactModeIfUnchanged(path, expected, data, mode)
 	}
 	if _, err := ensureEntrypoint(source, target, write); err == nil {
 		t.Fatal("entrypoint verification accepted a mismatched receipt")
@@ -359,13 +359,13 @@ func TestEntrypointFailurePreservesUnownedDirectoryContent(t *testing.T) {
 				}
 			}
 			want := errors.New("executable write failed")
-			write := func(string, transaction.FileSnapshot, []byte, os.FileMode) (transaction.FileSnapshot, error) {
+			write := func(string, store.FileSnapshot, []byte, os.FileMode) (store.FileSnapshot, error) {
 				if phase == "concurrent" {
 					if err := os.WriteFile(foreign, []byte("preserve me"), 0o600); err != nil {
 						t.Fatal(err)
 					}
 				}
-				return transaction.FileSnapshot{}, want
+				return store.FileSnapshot{}, want
 			}
 			if _, err := ensureEntrypoint(source, target, write); !errors.Is(err, want) {
 				t.Fatalf("entrypoint failure = %v, want %v", err, want)

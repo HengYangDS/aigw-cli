@@ -5,8 +5,8 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -208,7 +208,7 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
-			app.Config = configuration.NewStore(filepath.Join(t.TempDir(), "localhost-4567-configuration.toml"), clients.Admission())
+			app.Config = store.NewStore(filepath.Join(t.TempDir(), "localhost-4567-configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
 			addAccountRoute(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: tc.endpoint}, codex.ID, "model-test")
 			cfg.SetSelectedRoute(codex.ID, "team", "")

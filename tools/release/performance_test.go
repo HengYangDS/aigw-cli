@@ -4,10 +4,10 @@ package main
 
 import (
 	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/performance"
 	"bytes"
 	"encoding/json"
@@ -286,7 +286,7 @@ func (j *journeyFixture) measurePerformance(hyperfine, output, variant, backend 
 }
 
 func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, backend, preparer, helperCommand string, block int) ([]performance.Measurement, error) {
-	config, err := configuration.NewStore(j.config, clients.Admission()).Load()
+	config, err := store.NewStore(j.config, clients.Admission()).Load()
 	if err != nil {
 		return nil, err
 	}
@@ -398,7 +398,7 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 }
 
 func (j *journeyFixture) reviewPerformanceBinding(expected domain.Runtime) error {
-	config, err := configuration.NewStore(j.config, clients.Admission()).Load()
+	config, err := store.NewStore(j.config, clients.Admission()).Load()
 	if err != nil {
 		return err
 	}

@@ -4,9 +4,9 @@ package renaming
 import (
 	"net/http"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
 )
 
@@ -17,7 +17,7 @@ type HTTPDoer interface {
 
 // Renamer owns identity migration, credential preparation, and verified finalization.
 type Renamer struct {
-	Config       configuration.Store
+	Config       store.Store
 	Secrets      secrets.Store
 	Accounts     secrets.DiagnosticCredentialStore
 	HTTP         HTTPDoer
@@ -75,7 +75,7 @@ type Plan struct {
 	probeCopy            probeCopy      `json:"-"`
 	blockedReason        string         `json:"-"`
 	Finalize             bool           `json:"-"`
-	snapshot             configuration.Snapshot
+	snapshot             store.Snapshot
 	deleteToken          bool `json:"-"`
 	deleteProbe          bool `json:"-"`
 	verifyProbe          bool `json:"-"`

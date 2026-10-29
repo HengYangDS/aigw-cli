@@ -3,9 +3,9 @@ package main
 import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"crypto/sha256"
@@ -62,7 +62,7 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testing.T) {
 	team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
 	sol := "gpt-6.1-sol"
-	manifest, err := configuration.Parse(team, builtinclients.Admission())
+	manifest, err := store.Parse(team, builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func newTeamManifestJourney(t *testing.T) teamManifestJourney {
 		t.Fatal(err)
 	}
 	team := readFile(t, filepath.Join(root, "manifests", "team.toml"))
-	manifest, err := configuration.Parse(team, builtinclients.Admission())
+	manifest, err := store.Parse(team, builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 		t.Fatal("late sync preview changed configuration")
 	}
 	journey.run("sync")
-	actual, err := configuration.NewStore(journey.config, builtinclients.Admission()).Load()
+	actual, err := store.NewStore(journey.config, builtinclients.Admission()).Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +191,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 	}
 	for client, choice := range manual {
 		journey.run("use", "--for", client, "--protocol", string(choice.protocol), choice.route)
-		actual, err = configuration.NewStore(journey.config, builtinclients.Admission()).Load()
+		actual, err = store.NewStore(journey.config, builtinclients.Admission()).Load()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -263,7 +263,7 @@ func requireNoActivationBeforeToken(t *testing.T, journey *journeyFixture) {
 		t.Fatalf("client-first sync planned activation without a Token: %+v", preview)
 	}
 	journey.run("sync")
-	beforeToken, err := configuration.NewStore(journey.config, builtinclients.Admission()).Load()
+	beforeToken, err := store.NewStore(journey.config, builtinclients.Admission()).Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +275,7 @@ func requireNoActivationBeforeToken(t *testing.T, journey *journeyFixture) {
 
 func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *journeyFixture, account string) {
 	t.Helper()
-	cfg, err := configuration.NewStore(journey.config, builtinclients.Admission()).Load()
+	cfg, err := store.NewStore(journey.config, builtinclients.Admission()).Load()
 	if err != nil {
 		t.Fatal(err)
 	}

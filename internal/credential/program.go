@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 )
 
 // Files opens AIGW executables whose content identity AIGW verifies. A nil
@@ -70,12 +70,12 @@ func EntrypointNeededFrom(files Files, path string) (bool, error) {
 // bytes whose digest still equals ReadProgram's. The returned compensation
 // removes only bytes created by this operation.
 func (p Program) EnsureEntrypoint(target string) (Entrypoint, func() error, error) {
-	return p.ensure(target, transaction.WriteFileAtomicExactModeIfUnchanged)
+	return p.ensure(target, store.WriteFileAtomicExactModeIfUnchanged)
 }
 
 func (p Program) ensure(
 	target string,
-	write func(string, transaction.FileSnapshot, []byte, os.FileMode) (transaction.FileSnapshot, error),
+	write func(string, store.FileSnapshot, []byte, os.FileMode) (store.FileSnapshot, error),
 ) (Entrypoint, func() error, error) {
 	reader, absent, err := p.executables.verify(target)
 	if err != nil {

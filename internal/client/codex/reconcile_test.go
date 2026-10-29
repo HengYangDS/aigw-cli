@@ -2,8 +2,8 @@ package codex
 
 import (
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/surface"
-	"aigw-cli/internal/transaction"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -136,9 +136,9 @@ func TestReconcileConfigsRollsBackMixedRestoreAndAdd(t *testing.T) {
 		addedPath,
 		codexStatePath(addedPath),
 	}
-	snapshots := map[string]transaction.FileSnapshot{}
+	snapshots := map[string]store.FileSnapshot{}
 	for _, path := range paths {
-		snapshot, err := transaction.CaptureFileSnapshot(path)
+		snapshot, err := store.CaptureFileSnapshot(path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -159,15 +159,15 @@ func TestReconcileConfigsRollsBackMixedRestoreAndAdd(t *testing.T) {
 		}
 		return nil
 	}
-	writeFileAtomicIfUnchanged = func(path string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+	writeFileAtomicIfUnchanged = func(path string, expected store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
 		if err := failOnFourth(); err != nil {
-			return transaction.FileSnapshot{}, err
+			return store.FileSnapshot{}, err
 		}
 		return originalWrite(path, expected, data, mode)
 	}
-	removeFileIfUnchanged = func(path string, expected transaction.FileSnapshot) (transaction.FileSnapshot, error) {
+	removeFileIfUnchanged = func(path string, expected store.FileSnapshot) (store.FileSnapshot, error) {
 		if err := failOnFourth(); err != nil {
-			return transaction.FileSnapshot{}, err
+			return store.FileSnapshot{}, err
 		}
 		return originalRemove(path, expected)
 	}
@@ -177,7 +177,7 @@ func TestReconcileConfigsRollsBackMixedRestoreAndAdd(t *testing.T) {
 		t.Fatalf("ReconcileConfigs() error = %v", err)
 	}
 	for _, path := range paths {
-		got, readErr := transaction.CaptureFileSnapshot(path)
+		got, readErr := store.CaptureFileSnapshot(path)
 		if readErr != nil {
 			t.Fatal(readErr)
 		}
@@ -206,14 +206,14 @@ func TestReconcileConfigsPreservesCommitAndCompensationFailures(t *testing.T) {
 		restoreFileAtomicIfPostimage = originalRestore
 	})
 	writes := 0
-	writeFileAtomicIfUnchanged = func(path string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+	writeFileAtomicIfUnchanged = func(path string, expected store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
 		writes++
 		if writes == 2 {
-			return transaction.FileSnapshot{}, commitFailure
+			return store.FileSnapshot{}, commitFailure
 		}
 		return originalWrite(path, expected, data, mode)
 	}
-	restoreFileAtomicIfPostimage = func(path string, preimage, postimage transaction.FileSnapshot) error {
+	restoreFileAtomicIfPostimage = func(path string, preimage, postimage store.FileSnapshot) error {
 		return rollbackFailure
 	}
 
@@ -243,7 +243,7 @@ func TestReconciliationReceiptPreservesForeignEditsAndRestoresOwnedFiles(t *test
 	originalRestore := restoreFileAtomicIfPostimage
 	t.Cleanup(func() { restoreFileAtomicIfPostimage = originalRestore })
 	var conflict error
-	restoreFileAtomicIfPostimage = func(path string, preimage, postimage transaction.FileSnapshot) error {
+	restoreFileAtomicIfPostimage = func(path string, preimage, postimage store.FileSnapshot) error {
 		err := originalRestore(path, preimage, postimage)
 		if err != nil {
 			conflict = err
@@ -276,11 +276,11 @@ func TestReconcileConfigsRejectsChangedPreimageWithoutOverwrite(t *testing.T) {
 	originalWrite := writeFileAtomicIfUnchanged
 	defer func() { writeFileAtomicIfUnchanged = originalWrite }()
 	mutated := false
-	writeFileAtomicIfUnchanged = func(path string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+	writeFileAtomicIfUnchanged = func(path string, expected store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
 		if !mutated {
 			mutated = true
 			if err := os.WriteFile(path, []byte("newer external state\n"), 0o600); err != nil {
-				return transaction.FileSnapshot{}, err
+				return store.FileSnapshot{}, err
 			}
 		}
 		return originalWrite(path, expected, data, mode)
@@ -302,11 +302,11 @@ func TestRollbackCodexArtifactsPreservesExternalEdit(t *testing.T) {
 
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	writeCodexFixture(t, path, "original\n")
-	before, err := transaction.CaptureFileSnapshot(path)
+	before, err := store.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	post, err := transaction.WriteFileAtomicIfUnchanged(path, before, []byte("transaction postimage\n"), 0o600)
+	post, err := store.WriteFileAtomicIfUnchanged(path, before, []byte("transaction postimage\n"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,18 +337,18 @@ func TestPrepareCodexReconciliationRejectsInvalidTarget(t *testing.T) {
 
 func TestPrepareCodexRestoreHandlesRestoredAndUnsupportedState(t *testing.T) {
 	target := TargetRef{Path: "p", ProjectionMode: ProjectionFullSelection}
-	configSnap := transaction.FileSnapshot{Exists: true, Data: []byte("")}
-	stateSnap := transaction.FileSnapshot{Exists: false}
+	configSnap := store.FileSnapshot{Exists: true, Data: []byte("")}
+	stateSnap := store.FileSnapshot{Exists: false}
 
-	plan, err := prepareCodexRestore(target, configSnap, stateSnap, transaction.FileSnapshot{})
+	plan, err := prepareCodexRestore(target, configSnap, stateSnap, store.FileSnapshot{})
 	if err != nil || plan.plan.Action != ProjectionActionAlreadyRestored {
 		t.Errorf("expected already-restored, got %+v, err %v", plan, err)
 	}
 
 	state := codexState{ProjectionMode: "invalid", WriterID: ProjectionWriterID, TransactionID: "t"}
 	data, _ := json.Marshal(state)
-	stateSnap = transaction.FileSnapshot{Exists: true, Data: data}
-	_, err = prepareCodexRestore(target, configSnap, stateSnap, transaction.FileSnapshot{})
+	stateSnap = store.FileSnapshot{Exists: true, Data: data}
+	_, err = prepareCodexRestore(target, configSnap, stateSnap, store.FileSnapshot{})
 	if err == nil || !strings.Contains(err.Error(), "unsupported") {
 		t.Errorf("expected unsupported error, got %v", err)
 	}

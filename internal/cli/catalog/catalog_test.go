@@ -13,9 +13,9 @@ import (
 	"testing/iotest"
 
 	"aigw-cli/internal/client/codex"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	"aigw-cli/internal/clients"
 
@@ -24,9 +24,9 @@ import (
 
 func catalogDependencies(t *testing.T, cfg domain.Config, secretValues map[string]string, client HTTPDoer) (Dependencies, *bytes.Buffer) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if len(cfg.Routes) > 0 {
-		if err := store.Save(cfg); err != nil {
+		if err := configStore.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -37,7 +37,7 @@ func catalogDependencies(t *testing.T, cfg domain.Config, secretValues map[strin
 		}
 	}
 	out := new(bytes.Buffer)
-	return Dependencies{Config: store, Secrets: secretStore, HTTP: client, Out: out, Width: 120}, out
+	return Dependencies{Config: configStore, Secrets: secretStore, HTTP: client, Out: out, Width: 120}, out
 }
 
 func executeCatalogCommand(t *testing.T, command *cobra.Command, args ...string) error {
@@ -64,7 +64,7 @@ func configuredCatalog() domain.Config {
 }
 
 func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
-	loadFailure := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	loadFailure := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := writeUnreadableConfig(loadFailure.Path()); err != nil {
 		t.Fatal(err)
 	}
@@ -281,13 +281,13 @@ func (store *faultingSecrets) Exists(account string) (bool, error) {
 	return ok, nil
 }
 
-func saveCatalogConfig(t *testing.T, cfg domain.Config) configuration.Store {
+func saveCatalogConfig(t *testing.T, cfg domain.Config) store.Store {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	if err := store.Save(cfg); err != nil {
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	return store
+	return configStore
 }
 
 func writeUnreadableConfig(path string) error {

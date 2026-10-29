@@ -1,0 +1,536 @@
+package store
+
+import (
+	"aigw-cli/internal/domain"
+
+	"bytes"
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *testing.T) {
+	const oldEndpoint = "http://127.0.0.1:8792/old/v1"
+	const nextEndpoint = "http://127.0.0.1:8792/next/v1"
+	for _, test := range []struct {
+		name, component, oldEndpoint, nextEndpoint string
+		concurrent                                 bool
+	}{
+		{name: "create", component: "forwarding", nextEndpoint: nextEndpoint},
+		{name: "replace", component: "forwarding", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
+		{name: "withdraw", component: "forwarding", oldEndpoint: oldEndpoint},
+		{name: "backup", component: "forwarding-backup", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
+		{name: "canonical", component: "config", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
+		{name: "checkpoint", component: "checkpoint", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint},
+		{name: "direct checkpoint", component: "checkpoint", nextEndpoint: nextEndpoint},
+		{name: "concurrent", component: "forwarding", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint, concurrent: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+			cfg := convergenceConfig("current")
+			forwardTo(t, &cfg, test.oldEndpoint)
+			if err := store.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err != nil {
+				t.Fatal(err)
+			}
+			state, err := store.CaptureSnapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := store.ConvergeVerifiedBackup(state); err != nil {
+				t.Fatal(err)
+			}
+			before, err := store.CaptureSnapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			forwardTo(t, &cfg, test.nextEndpoint)
+			account := cfg.Accounts["current"]
+			account.Label = "Updated Account"
+			cfg.Accounts["current"] = account
+			originalWrite := writeConfigurationFileIfUnchanged
+			originalRemove := removeConfigurationFileIfUnchanged
+			t.Cleanup(func() {
+				writeConfigurationFileIfUnchanged = originalWrite
+				removeConfigurationFileIfUnchanged = originalRemove
+			})
+			failure := errors.New("component mutation failed")
+			newer := []byte("# concurrent operator content\n")
+			failedPath := map[string]string{
+				"forwarding": store.forwardingPath(), "forwarding-backup": store.forwardingPath() + ".bak",
+				"config": store.Path(), "checkpoint": store.Path() + ".verified.json",
+			}[test.component]
+			beforeFailure := func() {}
+			if test.concurrent {
+				beforeFailure = func() { replaceConcurrentConfig(t, store.Path(), newer) }
+			}
+			writeConfigurationFileIfUnchanged = func(path string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
+				if path != failedPath {
+					return originalWrite(path, expected, data, mode)
+				}
+				beforeFailure()
+				return FileSnapshot{}, failure
+			}
+			removeConfigurationFileIfUnchanged = func(path string, expected FileSnapshot) (FileSnapshot, error) {
+				if path == failedPath {
+					return FileSnapshot{}, failure
+				}
+				return originalRemove(path, expected)
+			}
+			_, err = store.Commit(before, cfg)
+			if !errors.Is(err, failure) || strings.Contains(err.Error(), "postimage changed") != test.concurrent {
+				t.Fatalf("failed mutation must report only genuine compensation conflicts: %v", err)
+			}
+			after, err := store.CaptureSnapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.concurrent {
+				if !bytes.Equal(after.Config.Data, newer) {
+					t.Fatal("compensation changed newer operator content")
+				}
+				after.Config = before.Config
+			}
+			if !before.equal(after) {
+				t.Fatal("failed forwarding write did not restore every owned snapshot")
+			}
+		})
+	}
+}
+
+func replaceConcurrentConfig(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPathReturnsConfiguredPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if got := NewStore(path, testAdmission()).Path(); got != path {
+		t.Fatalf("Path() = %q, want %q", got, path)
+	}
+}
+
+func TestCaptureSnapshotSurfacesConfigReadErrors(t *testing.T) {
+	path := t.TempDir()
+	if _, err := NewStore(path, testAdmission()).CaptureSnapshot(); err == nil {
+		t.Fatal("CaptureSnapshot succeeded despite a directory at the config path")
+	}
+}
+
+func TestCaptureSnapshotSurfacesBackupReadErrors(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.Mkdir(path+".bak", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewStore(path, testAdmission()).CaptureSnapshot(); err == nil {
+		t.Fatal("CaptureSnapshot succeeded despite a directory at the backup path")
+	}
+}
+
+func TestCaptureSnapshotSurfacesVerifiedCheckpointReadErrors(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.Mkdir(path+".verified.json", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewStore(path, testAdmission()).CaptureSnapshot(); err == nil {
+		t.Fatal("CaptureSnapshot succeeded despite a directory at the verified checkpoint path")
+	}
+}
+
+func TestRestoreSnapshotSurfacesConfigPostimageMismatch(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path, testAdmission())
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Save(convergenceConfig("current")); err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("external change"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RestoreSnapshot(before, after); err == nil || !strings.Contains(err.Error(), "restore config snapshot") {
+		t.Fatalf("config postimage mismatch error = %v", err)
+	}
+}
+
+func TestRestoreSnapshotSurfacesBackupPostimageMismatch(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path, testAdmission())
+	if err := store.Save(convergenceConfig("old")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Save(convergenceConfig("current")); err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path+".bak", []byte("external backup change"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RestoreSnapshot(before, after); err == nil || !strings.Contains(err.Error(), "restore config backup snapshot") {
+		t.Fatalf("backup postimage mismatch error = %v", err)
+	}
+}
+
+func TestLockSurfacesUnwritableConfigDirectory(t *testing.T) {
+	// A regular file standing where the config directory must be created
+	// refuses MkdirAll identically on every platform: unlike a chmod-
+	// restricted directory, this is not a permission model Windows is
+	// free to ignore (see https://github.com/golang/go/issues/35042).
+	base := t.TempDir()
+	blocked := filepath.Join(base, "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(filepath.Join(blocked, "child", " toml"), testAdmission())
+	if _, err := store.Lock(context.Background()); err == nil {
+		t.Fatal("Lock succeeded despite an unwritable config directory")
+	}
+}
+
+func TestLoadOfMissingConfigReturnsDefault(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	got, err := NewStore(path, testAdmission()).Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Version != domain.ConfigVersion || len(got.Routes) != 0 {
+		t.Fatalf("default config = %#v", got)
+	}
+}
+
+func TestLoadSurfacesUnderlyingReadErrors(t *testing.T) {
+	path := t.TempDir()
+	_, err := NewStore(path, testAdmission()).Load()
+	var loadErr *LoadError
+	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseRead || loadErr.Err == nil || !strings.Contains(err.Error(), "read config") {
+		t.Fatalf("Load(directory) error = %v", err)
+	}
+}
+
+func TestLoadSurfacesTypedParseErrors(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(path, []byte("version = [\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := NewStore(path, testAdmission()).Load()
+	var loadErr *LoadError
+	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseParse || loadErr.Err == nil || !strings.Contains(err.Error(), "parse config") {
+		t.Fatalf("malformed config load error = %v", err)
+	}
+}
+
+func TestSaveSurfacesUnwritableConfigDirectory(t *testing.T) {
+	// See TestLockSurfacesUnwritableConfigDirectory: a file blocking the
+	// directory component is reachable on every platform, unlike chmod.
+	base := t.TempDir()
+	blocked := filepath.Join(base, "blocked")
+	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(filepath.Join(blocked, "child", " toml"), testAdmission())
+	if err := store.Save(convergenceConfig("current")); err == nil {
+		t.Fatal("Save succeeded despite an unwritable config directory")
+	}
+}
+
+func TestSaveSurfacesBackupWriteFailures(t *testing.T) {
+	// An existing directory at the backup path refuses the atomic rename
+	// that finalizes the backup write on every platform: renaming a file
+	// onto an existing directory fails on POSIX (EISDIR) and on Windows
+	// (access denied), unlike a chmod-restricted parent directory.
+	dir := t.TempDir()
+	path := filepath.Join(dir, " toml")
+	store := NewStore(path, testAdmission())
+	if err := store.Save(convergenceConfig("old")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(path+".bak", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Save(convergenceConfig("current")); err == nil || !strings.Contains(err.Error(), "capture current config") {
+		t.Fatalf("backup write failure error = %v", err)
+	}
+}
+
+func TestSaveSurfacesUnderlyingCurrentReadErrors(t *testing.T) {
+	path := t.TempDir()
+	if err := NewStore(path, testAdmission()).Save(convergenceConfig("current")); err == nil || !strings.Contains(err.Error(), "capture current config") {
+		t.Fatalf("Save(directory) error = %v", err)
+	}
+}
+
+func TestCommitRestoresPreparedSnapshotWhenPostimageCaptureFails(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path, testAdmission())
+	if err := store.Save(convergenceConfig("old")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalWrite := writeConfigurationFileIfUnchanged
+	t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
+	writes := 0
+	writeConfigurationFileIfUnchanged = func(target string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
+		writes++
+		if writes == 2 {
+			return FileSnapshot{}, errors.New("write config failed")
+		}
+		return originalWrite(target, expected, data, mode)
+	}
+	result, err := store.Commit(before, convergenceConfig("current"))
+	if err == nil || !strings.Contains(err.Error(), "write config") {
+		t.Fatalf("Commit() = %#v, %v; want config write failure", result, err)
+	}
+	after, captureErr := store.CaptureSnapshot()
+	if captureErr != nil {
+		t.Fatal(captureErr)
+	}
+	if !reflect.DeepEqual(after, before) {
+		t.Fatalf("snapshot after failed commit = %#v, want %#v", after, before)
+	}
+}
+
+func TestCommitLeavesConfigurationUntouchedWhenBackupWriteFails(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path, testAdmission())
+	if err := store.Save(convergenceConfig("old")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("backup write failed")
+	originalWrite := writeConfigurationFileIfUnchanged
+	t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
+	writeConfigurationFileIfUnchanged = func(target string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
+		if target == path+".bak" {
+			return FileSnapshot{}, want
+		}
+		return originalWrite(target, expected, data, mode)
+	}
+
+	if _, err := store.Commit(before, convergenceConfig("current")); !errors.Is(err, want) || !strings.Contains(err.Error(), "back up current config") {
+		t.Fatalf("Commit() error = %v, want backup write failure", err)
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(after, before) {
+		t.Fatalf("snapshot after failed backup = %#v, want %#v", after, before)
+	}
+}
+
+func TestCommitPreservesNewerBackupWhenConfigurationWriteAndCompensationConflict(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path, testAdmission())
+	if err := store.Save(convergenceConfig("old")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := errors.New("config write failed")
+	newerBackup := []byte("newer backup\n")
+	originalWrite := writeConfigurationFileIfUnchanged
+	t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
+	writeConfigurationFileIfUnchanged = func(target string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
+		if target == path {
+			return FileSnapshot{}, want
+		}
+		postimage, writeErr := originalWrite(target, expected, data, mode)
+		if writeErr != nil {
+			return FileSnapshot{}, writeErr
+		}
+		if err := os.WriteFile(target, newerBackup, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return postimage, nil
+	}
+
+	_, err = store.Commit(before, convergenceConfig("current"))
+	if !errors.Is(err, want) || !strings.Contains(err.Error(), "restore config backup") || !strings.Contains(err.Error(), "postimage changed") {
+		t.Fatalf("Commit() error = %v, want write and compensation conflict", err)
+	}
+	current, readErr := os.ReadFile(path)
+	if readErr != nil || !bytes.Equal(current, before.Config.Data) {
+		t.Fatalf("configuration after failed commit = %q, %v", current, readErr)
+	}
+	backup, readErr := os.ReadFile(path + ".bak")
+	if readErr != nil || !bytes.Equal(backup, newerBackup) {
+		t.Fatalf("newer backup after rejected compensation = %q, %v", backup, readErr)
+	}
+}
+
+func TestCommitReportsConfigurationRestoreFailureAfterCheckpointInvalidationFailure(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path, testAdmission())
+	if err := store.Save(convergenceConfig("before")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalRemove := removeConfigurationFileIfUnchanged
+	t.Cleanup(func() { removeConfigurationFileIfUnchanged = originalRemove })
+	failure := errors.New("checkpoint removal failed")
+	foreign := []byte("newer writer")
+	// Mutating the just-written config makes the guarded compensation refuse
+	// to overwrite a newer writer, which is the failure this branch reports.
+	removeConfigurationFileIfUnchanged = func(string, FileSnapshot) (FileSnapshot, error) {
+		if err := os.WriteFile(path, foreign, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return FileSnapshot{}, failure
+	}
+	_, err = store.Commit(before, convergenceConfig("after"))
+	if !errors.Is(err, failure) || !strings.Contains(err.Error(), "restore config") {
+		t.Fatalf("Commit() error = %v", err)
+	}
+	after, err := store.CaptureSnapshot()
+	if err != nil || !bytes.Equal(after.Config.Data, foreign) || !after.Backup.Equal(before.Backup) || !after.Verified.Equal(before.Verified) {
+		t.Fatalf("compensation changed foreign config or failed to restore independent recovery state: %v", err)
+	}
+}
+
+func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		changed []int
+	}{
+		{"config", []int{0}},
+		{"backup", []int{1}},
+		{"checkpoint", []int{2}},
+		{"both-recovery-files", []int{1, 2}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			store := NewStore(path, testAdmission())
+			cfg := convergenceConfig("before")
+			if err := store.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientClaude}); err != nil {
+				t.Fatal(err)
+			}
+			before, err := store.CaptureSnapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			after, err := store.Commit(before, convergenceConfig("after"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			files := []struct {
+				name string
+				path string
+				want FileSnapshot
+			}{
+				{"config", path, before.Config},
+				{"backup", path + ".bak", before.Backup},
+				{"checkpoint", path + ".verified.json", before.Verified},
+			}
+			for _, index := range test.changed {
+				file := &files[index]
+				if err := os.WriteFile(file.path, []byte("newer "+file.name), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				file.want, err = CaptureFileSnapshot(file.path)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			err = store.RestoreSnapshot(before, after)
+			if err == nil || !strings.Contains(err.Error(), "postimage changed") {
+				t.Fatalf("restore must report the conflict: %v", err)
+			}
+			for _, index := range test.changed {
+				if !strings.Contains(err.Error(), files[index].path) {
+					t.Errorf("restore lost conflict for %s: %v", files[index].path, err)
+				}
+			}
+			for _, file := range files {
+				got, err := CaptureFileSnapshot(file.path)
+				if err != nil || !got.Equal(file.want) {
+					t.Errorf("%s after restore: exists=%t digest=%s mode=%o error=%v; want exists=%t digest=%s mode=%o", file.name, got.Exists, got.SHA256, got.Mode, err, file.want.Exists, file.want.SHA256, file.want.Mode)
+				}
+			}
+		})
+	}
+}
+
+func TestCommitReportsBackupRestoreFailureAfterCheckpointInvalidationFailure(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path, testAdmission())
+	if err := store.Save(convergenceConfig("before")); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalRemove := removeConfigurationFileIfUnchanged
+	t.Cleanup(func() { removeConfigurationFileIfUnchanged = originalRemove })
+	removeConfigurationFileIfUnchanged = func(string, FileSnapshot) (FileSnapshot, error) {
+		if err := os.WriteFile(path+".bak", []byte("newer backup"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return FileSnapshot{}, errors.New("checkpoint removal failed")
+	}
+	_, err = store.Commit(before, convergenceConfig("after"))
+	if err == nil || !strings.Contains(err.Error(), "restore config backup") {
+		t.Fatalf("Commit() error = %v", err)
+	}
+}
+
+func TestRestoreSnapshotSurfacesVerifiedCheckpointPostimageMismatch(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.toml")
+	store := NewStore(path, testAdmission())
+	beforeConfig := convergenceConfig("before")
+	if err := store.Save(beforeConfig); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveVerifiedCheckpoint(t.Context(), beforeConfig, []string{ClientCodex}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := store.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := store.Commit(before, convergenceConfig("after"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path+".verified.json", []byte("newer checkpoint"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.RestoreSnapshot(before, after); err == nil || !strings.Contains(err.Error(), "restore verified checkpoint snapshot") {
+		t.Fatalf("verified checkpoint postimage mismatch error = %v", err)
+	}
+}

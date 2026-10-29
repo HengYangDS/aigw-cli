@@ -13,9 +13,9 @@ import (
 
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/upgrade"
 )
 
@@ -41,7 +41,7 @@ func TestUpdateInvalidInputsLeaveOperationAndConfigurationUntouched(t *testing.T
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")
 			root := filepath.Join(t.TempDir(), "unconfigured")
-			app.Config = configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
+			app.Config = store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 			updater := &fakeUpdater{}
 			app.Updater = updater
 			err := cli.Execute(app, append([]string{"update"}, args...))

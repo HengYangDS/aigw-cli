@@ -5,10 +5,10 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/surface"
 	"bytes"
 	"errors"
@@ -471,7 +471,7 @@ func TestUseCodexRouteOnSameAccountDoesNotRebindCredentials(t *testing.T) {
 
 func TestUseSurfacesConfigLoadFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+	app.Config = store.NewStore(t.TempDir(), clients.Admission())
 	err := cli.Execute(app, []string{"use", "--for", "claude", "one"})
 	if err == nil {
 		t.Fatal("expected a config load failure")

@@ -12,11 +12,11 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	builtinclients "aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 type setupCredentials struct {
@@ -58,11 +58,11 @@ func setupConfiguration() domain.Config {
 func TestSetupPreservesAlreadyConfiguredState(t *testing.T) {
 	dir := t.TempDir()
 	cfg := testConfig(filepath.Join(dir, "config.toml"))
-	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"), builtinclients.Admission())
-	if err := store.Save(cfg); err != nil {
+	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), builtinclients.Admission())
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	preimage, err := os.ReadFile(store.Path())
+	preimage, err := os.ReadFile(configStore.Path())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestSetupPreservesAlreadyConfiguredState(t *testing.T) {
 		t.Fatal(err)
 	}
 	credentials := &setupCredentials{Store: memory}
-	syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials,
+	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials,
 		Discovery: setupDiscovery(func() { t.Fatal("setup discovered clients in an already configured installation") }),
 		Runner: runnerFunc(func(context.Context, process.Plan) error {
 			t.Fatal("setup changed existing native client credentials")
@@ -86,7 +86,7 @@ func TestSetupPreservesAlreadyConfiguredState(t *testing.T) {
 	if tokenErr != nil || storedToken != "old-token" || credentials.writes != 0 {
 		t.Fatalf("setup touched the prior Account Token: writes=%d, error=%v", credentials.writes, tokenErr)
 	}
-	after, readErr := os.ReadFile(store.Path())
+	after, readErr := os.ReadFile(configStore.Path())
 	if readErr != nil || string(after) != string(preimage) {
 		t.Fatalf("setup changed the prior configuration: %v", readErr)
 	}
@@ -95,7 +95,7 @@ func TestSetupPreservesAlreadyConfiguredState(t *testing.T) {
 func TestCancelledSetupPreservesCredentialsAndConfiguration(t *testing.T) {
 	for _, phase := range []string{"before_setup", "during_discovery"} {
 		t.Run(phase, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), builtinclients.Admission())
+			configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), builtinclients.Admission())
 			credentials := setupTokenStore(t, "old-token")
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
@@ -105,7 +105,7 @@ func TestCancelledSetupPreservesCredentialsAndConfiguration(t *testing.T) {
 			} else {
 				discoverySource = setupDiscovery(cancel)
 			}
-			runtime := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: discoverySource}
+			runtime := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials, Discovery: discoverySource}
 			_, err := runtime.Setup(ctx, domain.NewConfig(builtinclients.Admission()), setupConfiguration(), map[string]string{"team": "new-token"}, claude.ID)
 			if !errors.Is(err, context.Canceled) {
 				t.Errorf("setup error = %v, want cancellation", err)
@@ -113,7 +113,7 @@ func TestCancelledSetupPreservesCredentialsAndConfiguration(t *testing.T) {
 			if token, getErr := credentials.Get("team"); getErr != nil || token != "old-token" {
 				t.Errorf("credential = %q, %v; want original Token", token, getErr)
 			}
-			if _, statErr := os.Stat(store.Path()); !errors.Is(statErr, os.ErrNotExist) {
+			if _, statErr := os.Stat(configStore.Path()); !errors.Is(statErr, os.ErrNotExist) {
 				t.Errorf("cancelled setup created configuration: %v", statErr)
 			}
 			if phase == "before_setup" && credentials.writes != 0 {
@@ -124,11 +124,11 @@ func TestCancelledSetupPreservesCredentialsAndConfiguration(t *testing.T) {
 }
 
 func TestSetupRejectsInvalidConfigurationBeforeCredentialMutation(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), builtinclients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), builtinclients.Admission())
 	credentials := setupTokenStore(t, "original")
 	after := setupConfiguration()
 	after.SetSelectedRoute(claude.ID, "missing-route", "")
-	_, err := (Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials}).Setup(t.Context(), domain.NewConfig(builtinclients.Admission()), after, map[string]string{"team": "replacement"})
+	_, err := (Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials}).Setup(t.Context(), domain.NewConfig(builtinclients.Admission()), after, map[string]string{"team": "replacement"})
 	if err == nil {
 		t.Fatal("setup accepted an unresolved route")
 	}
@@ -143,7 +143,7 @@ func TestSetupRejectsInvalidConfigurationBeforeCredentialMutation(t *testing.T) 
 func TestSetupAdmitsCredentialOwnershipAndClientScopeBeforeWriting(t *testing.T) {
 	for _, boundary := range []string{"account", "client"} {
 		t.Run(boundary, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), builtinclients.Admission())
+			configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), builtinclients.Admission())
 			credentials := setupTokenStore(t, "original")
 			tokens := map[string]string{"team": "replacement"}
 			var clients []string
@@ -152,7 +152,7 @@ func TestSetupAdmitsCredentialOwnershipAndClientScopeBeforeWriting(t *testing.T)
 			} else {
 				clients = []string{"unknown"}
 			}
-			syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
+			syncer := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials, Discovery: setupDiscovery(nil)}
 			_, err := syncer.Setup(t.Context(), domain.NewConfig(builtinclients.Admission()), setupConfiguration(), tokens, clients...)
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid %s: error = %v, credential writes = %d", boundary, err, credentials.writes)
@@ -175,7 +175,7 @@ func TestSetupCommitReportsBackendSelectionFailureWithoutErasingForeignState(t *
 					t.Fatal(err)
 				}
 			}
-			store, err := secrets.Select(secrets.Selection{
+			secretStore, err := secrets.Select(secrets.Selection{
 				GOOS: runtime.GOOS, Root: secretRoot,
 				KeyringProbe: func(secrets.Store) error { return errors.New("isolated file backend") },
 			})
@@ -187,7 +187,7 @@ func TestSetupCommitReportsBackendSelectionFailureWithoutErasingForeignState(t *
 				t.Fatal(err)
 			}
 			run := Synchronizer{Registry: builtinClients,
-				Config: configuration.NewStore(configPath, builtinclients.Admission()), Secrets: store,
+				Config: store.NewStore(configPath, builtinclients.Admission()), Secrets: secretStore,
 				Discovery: setupDiscovery(replaceBackend),
 			}
 			want := "backend selection rollback also failed"
@@ -201,7 +201,7 @@ func TestSetupCommitReportsBackendSelectionFailureWithoutErasingForeignState(t *
 			}
 			if phase == "during commit" {
 				var configErr *os.PathError
-				present, observeErr := store.Exists("team")
+				present, observeErr := secretStore.Exists("team")
 				if !errors.As(err, &configErr) || observeErr != nil || present {
 					t.Fatalf("commit lost configuration failure or retained its credential: %v", err)
 				}

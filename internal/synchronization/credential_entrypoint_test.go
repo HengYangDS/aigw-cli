@@ -11,9 +11,9 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 )
 
 func TestCodexInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
@@ -350,12 +350,12 @@ func TestDisablingLastTokenClientRetainsUnprovenCachedEntrypoint(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store := configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 	before := testConfig(target)
-	if err := store.Save(before); err != nil {
+	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
+	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
 	if err := syncer.CommitProjection(t.Context(), before, before, "setup"); err != nil {
 		t.Fatal(err)
 	}
@@ -372,7 +372,7 @@ func TestDisablingLastTokenClientRetainsUnprovenCachedEntrypoint(t *testing.T) {
 			t.Fatalf("last configured consumer disabled, cached entrypoint lost at %s: %v", path, err)
 		}
 	}
-	stored, err := store.Load()
+	stored, err := configStore.Load()
 	if err != nil || stored.Clients[codex.ID].Enabled {
 		t.Fatalf("Client Binding was not disabled: %#v, %v", stored.Clients, err)
 	}
@@ -396,11 +396,11 @@ func TestDisablingOneTokenClientRetainsEntrypointForAnother(t *testing.T) {
 	before.Routes["claude"] = domain.Route{Account: "gateway", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedRoute(claude.ID, "claude", "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
-	store := configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
-	if err := store.Save(before); err != nil {
+	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
+	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
+	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
 	if err := syncer.CommitProjection(t.Context(), before, before, "setup", codex.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -435,11 +435,11 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	binding := before.Clients[claude.ID]
 	binding.CredentialCommand = helper
 	before.Clients[claude.ID] = binding
-	store := configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
-	if err := store.Save(before); err != nil {
+	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
+	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
+	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
 	if err := syncer.CommitProjection(t.Context(), before, before, "setup", codex.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -465,12 +465,12 @@ func TestWithdrawingLastClientPreservesChangedCachedEntrypoint(t *testing.T) {
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store := configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 	before := testConfig(target)
-	if err := store.Save(before); err != nil {
+	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
+	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
 	if err := syncer.CommitProjection(t.Context(), before, before, "setup"); err != nil {
 		t.Fatal(err)
 	}
@@ -482,7 +482,7 @@ func TestWithdrawingLastClientPreservesChangedCachedEntrypoint(t *testing.T) {
 	if err := syncer.CommitProjection(t.Context(), before, after, "disable", codex.ID); err != nil {
 		t.Fatalf("withdrawal should not inspect an unneeded cached entrypoint: %v", err)
 	}
-	stored, loadErr := store.Load()
+	stored, loadErr := configStore.Load()
 	if loadErr != nil || stored.Clients[codex.ID].Enabled {
 		t.Fatalf("client withdrawal was not committed: %#v, %v", stored.Clients, loadErr)
 	}

@@ -16,11 +16,11 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
@@ -29,7 +29,7 @@ import (
 
 func configuredApp(t *testing.T) *App {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "http://127.0.0.1:1234/v1", Anthropic: "https://one.test"}}
 	cfg.Routes["one"] = domain.Route{
@@ -37,7 +37,7 @@ func configuredApp(t *testing.T) *App {
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedRoute(codex.ID, "one", "")
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
@@ -46,7 +46,7 @@ func configuredApp(t *testing.T) *App {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &App{Clients: clients.Registry(), Config: store, Secrets: secretStore, Accounts: diagnostics, Out: out, Err: out}
+	return &App{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Accounts: diagnostics, Out: out, Err: out}
 }
 
 func TestNewDefaultBuildsAFunctioningApp(t *testing.T) {
@@ -75,10 +75,10 @@ func TestNewDefaultBuildsAFunctioningApp(t *testing.T) {
 }
 
 func TestExecuteReturnsBusyLockErrorWhenAnotherMutationHoldsIt(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
-	unlock, err := store.Lock(ctx)
+	unlock, err := configStore.Lock(ctx)
 	if err != nil {
 		t.Fatalf("acquire external lock: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestExecuteReturnsBusyLockErrorWhenAnotherMutationHoldsIt(t *testing.T) {
 		}
 	})
 
-	app := &App{Clients: clients.Registry(), Config: store, Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
+	app := &App{Clients: clients.Registry(), Config: configStore, Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
 	err = Execute(app, []string{"add", "dmx", "--for", "claude", "--model", "claude-test", "--anthropic-url", "https://example.test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "retry after the other command finishes") {
 		t.Fatalf("Execute() error = %v, want a busy-lock error", err)
@@ -169,7 +169,7 @@ func TestFinishExecutionPreservesCommandAndUnlockFailures(t *testing.T) {
 
 func TestExecuteReturnsConfigurationLoadFailure(t *testing.T) {
 	out := new(bytes.Buffer)
-	app := &App{Clients: clients.Registry(), Config: configuration.NewStore(t.TempDir(), clients.Admission()), Out: out, Err: out}
+	app := &App{Clients: clients.Registry(), Config: store.NewStore(t.TempDir(), clients.Admission()), Out: out, Err: out}
 	if err := Execute(app, nil); err == nil {
 		t.Fatal("expected configuration load error")
 	}
@@ -405,7 +405,7 @@ func TestCommandHelpLeavesConfigurationStorageAbsent(t *testing.T) {
 			configRoot := filepath.Join(t.TempDir(), "configuration")
 			var output bytes.Buffer
 			app := &App{Clients: clients.Registry(),
-				Config: configuration.NewStore(filepath.Join(configRoot, "aigw.toml"), clients.Admission()),
+				Config: store.NewStore(filepath.Join(configRoot, "aigw.toml"), clients.Admission()),
 				Out:    &output,
 				Err:    io.Discard,
 			}

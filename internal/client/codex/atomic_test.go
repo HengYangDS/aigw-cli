@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 )
 
 func atomicTestRuntime() domain.Runtime {
@@ -134,10 +134,10 @@ func TestReconcileConfigsRollsBackEveryTargetAndAbsentStateOnWriteFailure(t *tes
 	originalWrite := writeFileAtomicIfUnchanged
 	defer func() { writeFileAtomicIfUnchanged = originalWrite }()
 	writes := 0
-	writeFileAtomicIfUnchanged = func(path string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+	writeFileAtomicIfUnchanged = func(path string, expected store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
 		writes++
 		if writes == 4 { // second target state write, after the first target was fully committed
-			return transaction.FileSnapshot{}, errors.New("injected state-write failure")
+			return store.FileSnapshot{}, errors.New("injected state-write failure")
 		}
 		return originalWrite(path, expected, data, mode)
 	}
@@ -244,9 +244,9 @@ func TestConvergedCodexReconciliationPreservesEveryOwnedFile(t *testing.T) {
 	if _, err := ReconcileConfigs(nil, targets, runtime); err != nil {
 		t.Fatal(err)
 	}
-	before := map[string]transaction.FileSnapshot{}
+	before := map[string]store.FileSnapshot{}
 	for _, file := range []string{path, codexStatePath(path), codexCatalogPath(path)} {
-		snapshot, err := transaction.CaptureFileSnapshot(file)
+		snapshot, err := store.CaptureFileSnapshot(file)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -260,7 +260,7 @@ func TestConvergedCodexReconciliationPreservesEveryOwnedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	for file, want := range before {
-		got, err := transaction.CaptureFileSnapshot(file)
+		got, err := store.CaptureFileSnapshot(file)
 		if err != nil || !got.Equal(want) {
 			t.Fatalf("converged reconciliation changed %s: %v", file, err)
 		}
@@ -306,9 +306,9 @@ func TestReconcileConfigsRollsBackCatalogWhenConfigWriteFails(t *testing.T) {
 
 	writeOriginal := writeFileAtomicIfUnchanged
 	t.Cleanup(func() { writeFileAtomicIfUnchanged = writeOriginal })
-	writeFileAtomicIfUnchanged = func(target string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+	writeFileAtomicIfUnchanged = func(target string, expected store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
 		if target == path {
-			return transaction.FileSnapshot{}, fmt.Errorf("injected config write failure")
+			return store.FileSnapshot{}, fmt.Errorf("injected config write failure")
 		}
 		return writeOriginal(target, expected, data, mode)
 	}

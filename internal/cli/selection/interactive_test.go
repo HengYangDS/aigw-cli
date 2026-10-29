@@ -9,9 +9,9 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
@@ -109,7 +109,7 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 		{name: "route required", runtime: func(value invocation.Context) invocation.Context { value.Interactive = false; return value }, want: "requires a Route"},
 		{name: "unknown route", args: []string{"missing"}, want: "unknown route"},
 		{name: "load", args: []string{"codex"}, runtime: func(value invocation.Context) invocation.Context {
-			value.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+			value.Config = store.NewStore(t.TempDir(), clients.Admission())
 			return value
 		}, want: "read"},
 		{name: "selection", runtime: func(value invocation.Context) invocation.Context {

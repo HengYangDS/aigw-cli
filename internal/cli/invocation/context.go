@@ -12,13 +12,13 @@ import (
 	"time"
 
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
 	"aigw-cli/internal/upgrade"
 )
@@ -55,7 +55,7 @@ type Context struct {
 	// Host is the observed platform from which client adapters derive their
 	// native paths.
 	Host        discovery.Host
-	Config      configuration.Store
+	Config      store.Store
 	Secrets     secrets.Store
 	Accounts    secrets.DiagnosticCredentialStore
 	In          io.Reader

@@ -20,10 +20,10 @@ import (
 	"time"
 
 	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/upgrade"
 
 	"aigw-cli/internal/clients"
@@ -45,7 +45,7 @@ func TestNativeCodexConnectionRetriesSource(t *testing.T) {
 		t.Fatal(err)
 	}
 	team := readFile(t, filepath.Join(root, "manifests", "team.toml"))
-	manifest, err := configuration.Parse(team, clients.Admission())
+	manifest, err := store.Parse(team, clients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +188,7 @@ func (j *journeyFixture) readsRetryPolicy(program string) bool {
 func (j *journeyFixture) requireRetryRollbackAdmission(baseline string) {
 	t := j.testing
 	t.Helper()
-	admission, err := configuration.NewStore(j.config, clients.Admission()).RollbackConfiguration()
+	admission, err := store.NewStore(j.config, clients.Admission()).RollbackConfiguration()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func (j *journeyFixture) requireRetryRollbackAdmission(baseline string) {
 func (j *journeyFixture) requireRetryRollbackRefusal(baseline string) {
 	t := j.testing
 	t.Helper()
-	admission, err := configuration.NewStore(j.config, clients.Admission()).RollbackConfiguration()
+	admission, err := store.NewStore(j.config, clients.Admission()).RollbackConfiguration()
 	if err != nil {
 		t.Fatal(err)
 	}

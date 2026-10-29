@@ -11,20 +11,20 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
 
 func renameRuntime(t *testing.T) invocation.Context {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["old"] = domain.Account{Label: "Old", Endpoints: domain.Endpoints{OpenAIResponses: "https://old.test/v1"}}
 	cfg.Routes["old"] = domain.Route{Label: "Old", Account: "old", Model: "gpt"}
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	secretStore := secrets.NewMemoryStore()
@@ -32,7 +32,7 @@ func renameRuntime(t *testing.T) invocation.Context {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return invocation.Context{Clients: clients.Registry(), Config: store, Secrets: secretStore, Accounts: diagnostics, Out: &bytes.Buffer{}}
+	return invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Accounts: diagnostics, Out: &bytes.Buffer{}}
 }
 
 func TestRenameCommandsPreserveInvocationAndDomainErrors(t *testing.T) {
@@ -93,7 +93,7 @@ func TestRenameCommandsPreserveInvocationAndDomainErrors(t *testing.T) {
 		})
 		t.Run(constructor.name+"/unreadable configuration", func(t *testing.T) {
 			runtime := renameRuntime(t)
-			runtime.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+			runtime.Config = store.NewStore(t.TempDir(), clients.Admission())
 			command := constructor.new(runtime)
 			command.SilenceErrors, command.SilenceUsage = true, true
 			command.SetArgs([]string{"old", "new"})
@@ -140,7 +140,7 @@ func TestInteractiveRenamePreservesConfigurationLoadFailure(t *testing.T) {
 	if err := os.WriteFile(path, []byte("invalid TOML = ["), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runtime.Config = configuration.NewStore(path, clients.Admission())
+	runtime.Config = store.NewStore(path, clients.Admission())
 	runtime.Interactive = true
 	runtime.Prompt = selectionPrompt{}
 	if _, _, err := resolveIDs(runtime, "account", nil); err == nil {

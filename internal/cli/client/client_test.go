@@ -14,11 +14,11 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 
 	"github.com/pelletier/go-toml/v2"
@@ -77,8 +77,8 @@ func adapterConfig() domain.Config {
 
 func adapterRuntime(t *testing.T, cfg domain.Config) (invocation.Context, *bytes.Buffer, secrets.Store, *adapterRunner) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	if err := store.Save(cfg); err != nil {
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
@@ -86,7 +86,7 @@ func adapterRuntime(t *testing.T, cfg domain.Config) (invocation.Context, *bytes
 	runner := &adapterRunner{}
 	return invocation.Context{Clients: clients.Registry(),
 		Executable: filepath.Join(t.TempDir(), "aigw"),
-		Config:     store,
+		Config:     configStore,
 		Host:       hostAt(t.TempDir()),
 		Secrets:    secretStore,
 		Out:        out,
@@ -461,7 +461,7 @@ func TestDisableCodexRestoresProjection(t *testing.T) {
 func TestCommandsPropagateConfigurationLoadErrors(t *testing.T) {
 	badPath := t.TempDir()
 	runtime := invocation.Context{Clients: clients.Registry(),
-		Config:    configuration.NewStore(badPath, clients.Admission()),
+		Config:    store.NewStore(badPath, clients.Admission()),
 		Secrets:   secrets.NewMemoryStore(),
 		Out:       &bytes.Buffer{},
 		RenderOut: &bytes.Buffer{},

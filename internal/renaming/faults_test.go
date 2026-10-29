@@ -3,21 +3,21 @@ package renaming
 import (
 	"errors"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 type failingRenameConfigStore struct{ err error }
 
-func (store failingRenameConfigStore) CaptureSnapshot() (configuration.Snapshot, error) {
-	return configuration.Snapshot{}, store.err
+func (configStore failingRenameConfigStore) CaptureSnapshot() (store.Snapshot, error) {
+	return store.Snapshot{}, configStore.err
 }
 func (failingRenameConfigStore) Save(domain.Config) error { return nil }
-func (store failingRenameConfigStore) Commit(before configuration.Snapshot, _ domain.Config) (configuration.Snapshot, error) {
-	return before, store.err
+func (configStore failingRenameConfigStore) Commit(before store.Snapshot, _ domain.Config) (store.Snapshot, error) {
+	return before, configStore.err
 }
-func (failingRenameConfigStore) RestoreSnapshot(configuration.Snapshot, configuration.Snapshot) error {
+func (failingRenameConfigStore) RestoreSnapshot(store.Snapshot, store.Snapshot) error {
 	return nil
 }
 

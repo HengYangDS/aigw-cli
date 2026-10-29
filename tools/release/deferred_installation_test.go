@@ -6,9 +6,9 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	builtinclients "aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -109,7 +109,7 @@ interfaces = { openai_responses = [] }
 			journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 			journey.run("setup", "--from", journey.manifest)
 
-			before, err := configuration.NewStore(journey.config, builtinclients.Admission()).Load()
+			before, err := store.NewStore(journey.config, builtinclients.Admission()).Load()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -125,7 +125,7 @@ interfaces = { openai_responses = [] }
 			journey.installClientFixture(clientID)
 			journey.run("sync")
 
-			after, err := configuration.NewStore(journey.config, builtinclients.Admission()).Load()
+			after, err := store.NewStore(journey.config, builtinclients.Admission()).Load()
 			if err != nil {
 				t.Fatal(err)
 			}

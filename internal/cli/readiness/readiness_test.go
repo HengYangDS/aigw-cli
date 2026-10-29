@@ -5,11 +5,11 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -123,7 +123,7 @@ func (store *observingSecretStore) Exists(account string) (bool, error) {
 func configuredReadinessRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.Buffer) {
 	t.Helper()
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
-	store := configuration.NewStore(configPath, clients.Admission())
+	configStore := store.NewStore(configPath, clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{
 		Label: "One",
@@ -142,12 +142,12 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, domain.Config
 	}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(),
-		Config: store, Secrets: secrets.NewMemoryStore(),
+		Config: configStore, Secrets: secrets.NewMemoryStore(),
 		Out: out, RenderOut: out, Width: 120,
 	}
 	var err error

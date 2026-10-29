@@ -10,16 +10,16 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/store"
 )
 
 func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 	t.Run("load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"balance"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -44,8 +44,8 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 	t.Run("missing api token", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveProbeRoute(t, app.Config)
-		store := app.Accounts
-		_ = store.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
+		diagnosticStore := app.Accounts
+		_ = diagnosticStore.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		if err := cli.Execute(app, []string{"balance"}); err == nil {
 			t.Fatal("expected missing API token")
 		}
@@ -54,8 +54,8 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 	t.Run("provider failure", func(t *testing.T) {
 		app, _, secretStore, _, httpClient := testApp(t, "")
 		saveProbeRoute(t, app.Config)
-		store := app.Accounts
-		_ = store.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
+		diagnosticStore := app.Accounts
+		_ = diagnosticStore.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		_ = secretStore.Set("dmx", "sk-abcd-middle-wxyz")
 		want := errors.New("network failed")
 		httpClient.handler = func(*http.Request) (*http.Response, error) { return nil, want }
@@ -67,8 +67,8 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 	t.Run("disabled unlimited token", func(t *testing.T) {
 		app, out, secretStore, _, httpClient := testApp(t, "")
 		saveProbeRoute(t, app.Config)
-		store := app.Accounts
-		_ = store.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
+		diagnosticStore := app.Accounts
+		_ = diagnosticStore.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		_ = secretStore.Set("dmx", "sk-abcd-middle-wxyz")
 		httpClient.handler = func(request *http.Request) (*http.Response, error) {
 			body := `{"success":true,"data":{"quota":6250000}}`

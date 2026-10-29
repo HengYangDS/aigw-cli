@@ -10,7 +10,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/upgrade"
 )
 
@@ -323,7 +323,7 @@ func TestPortableInstallAndUninstallPreserveHomebrewOwnership(t *testing.T) {
 		"install":   func() error { return Install(source, target) },
 		"uninstall": func() error { return Uninstall(target) },
 		"command": func() error {
-			command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: target, Config: configuration.NewStore("invalid\x00config", clients.Admission())})
+			command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: target, Config: store.NewStore("invalid\x00config", clients.Admission())})
 			command.SetArgs(nil)
 			return command.Execute()
 		},

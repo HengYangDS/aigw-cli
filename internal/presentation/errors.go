@@ -8,9 +8,9 @@ import (
 	"strings"
 	"syscall"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -85,7 +85,7 @@ func LocalFailure(version string, err error) error {
 	if _, unsupported := errors.AsType[*domain.UnsupportedConfigVersionError](err); unsupported {
 		return err
 	}
-	failure, ok := errors.AsType[*configuration.LoadError](err)
+	failure, ok := errors.AsType[*store.LoadError](err)
 	if !ok {
 		return err
 	}
@@ -101,46 +101,46 @@ func LocalFailure(version string, err error) error {
 // stopped, with the operation and operating-system error of a read or the
 // position of a parse failure. It never includes a path or document content.
 func ConfigurationLoadEvidence(subject string, err error) (string, bool) {
-	failure, ok := errors.AsType[*configuration.LoadError](err)
+	failure, ok := errors.AsType[*store.LoadError](err)
 	if !ok {
 		return "", false
 	}
 	detail := ""
 	switch failure.Phase {
-	case configuration.LoadPhaseRead:
+	case store.LoadPhaseRead:
 		if access, ok := errors.AsType[*os.PathError](err); ok {
 			detail = fmt.Sprintf(" (%s: %s)", access.Op, fileErrorReason(access.Err))
 		}
-	case configuration.LoadPhaseParse:
+	case store.LoadPhaseParse:
 		if document, ok := errors.AsType[*toml.DecodeError](err); ok {
 			line, column := document.Position()
 			detail = fmt.Sprintf(" at line %d, column %d", line, column)
 		}
-	case configuration.LoadPhaseValidate:
+	case store.LoadPhaseValidate:
 	}
 	return fmt.Sprintf("%s stopped at the configuration %s stage%s.", subject, failure.Phase, detail), true
 }
 
-func configurationLoadTitle(phase configuration.LoadPhase) string {
+func configurationLoadTitle(phase store.LoadPhase) string {
 	switch phase {
-	case configuration.LoadPhaseRead:
+	case store.LoadPhaseRead:
 		return "Cannot read local configuration"
-	case configuration.LoadPhaseParse:
+	case store.LoadPhaseParse:
 		return "Cannot parse local configuration"
-	case configuration.LoadPhaseValidate:
+	case store.LoadPhaseValidate:
 		return "Cannot validate local configuration"
 	default:
 		return "Cannot load local configuration"
 	}
 }
 
-func configurationLoadFix(phase configuration.LoadPhase) string {
+func configurationLoadFix(phase store.LoadPhase) string {
 	switch phase {
-	case configuration.LoadPhaseRead:
+	case store.LoadPhaseRead:
 		return "Restore read access to the AIGW configuration; run `aigw doctor` to inspect it."
-	case configuration.LoadPhaseParse:
+	case store.LoadPhaseParse:
 		return "Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it."
-	case configuration.LoadPhaseValidate:
+	case store.LoadPhaseValidate:
 		return "If a newer AIGW wrote this configuration, use that installed AIGW; otherwise run `aigw doctor` to inspect or restore it."
 	default:
 		return "Run `aigw doctor` to inspect or restore the configuration."
@@ -244,7 +244,7 @@ func typedErrorMessage(err error) (string, bool) {
 		}
 		return message, true
 	}
-	if failure, ok := errors.AsType[*configuration.LoadError](err); ok {
+	if failure, ok := errors.AsType[*store.LoadError](err); ok {
 		return configurationLoadTitle(failure.Phase) + "; run `aigw doctor` to inspect or restore it", true
 	}
 	if access, ok := errors.AsType[*os.PathError](err); ok {

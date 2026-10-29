@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 )
 
 func TestClaudeDesktopToolSearchRequiresEveryExposedRoute(t *testing.T) {
@@ -46,7 +46,7 @@ func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := configuration.Parse(team, builtInAdmission())
+	manifest, err := store.Parse(team, builtInAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}

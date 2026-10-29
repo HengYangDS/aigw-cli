@@ -10,12 +10,12 @@ import (
 	"slices"
 
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 // ClientIDs returns admitted clients in stable execution order.
@@ -124,9 +124,9 @@ func (s Synchronizer) program() (credential.Program, error) {
 // ConfigStore is the exact persistence capability needed by a synchronization
 // transaction.
 type ConfigStore interface {
-	CaptureSnapshot() (configuration.Snapshot, error)
-	Commit(before configuration.Snapshot, cfg domain.Config) (configuration.Snapshot, error)
-	RestoreSnapshot(before, after configuration.Snapshot) error
+	CaptureSnapshot() (store.Snapshot, error)
+	Commit(before store.Snapshot, cfg domain.Config) (store.Snapshot, error)
+	RestoreSnapshot(before, after store.Snapshot) error
 }
 
 // Synchronizer carries the explicit dependencies required for one convergence

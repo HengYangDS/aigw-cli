@@ -13,11 +13,11 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 type syncDiscovery struct{ result discovery.Result }
@@ -159,7 +159,7 @@ func TestSyncMetadataObservationScopeExpiresWithCommand(t *testing.T) {
 
 func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 	t.Run("configuration load", func(t *testing.T) {
-		command := NewSyncCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(t.TempDir(), clients.Admission())})
+		command := NewSyncCommand(invocation.Context{Clients: clients.Registry(), Config: store.NewStore(t.TempDir(), clients.Admission())})
 		command.SilenceErrors = true
 		command.SilenceUsage = true
 		if err := command.Execute(); err == nil {
@@ -175,7 +175,7 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 		{name: "reconciliation"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
 			cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 			cfg.Routes["one"] = domain.Route{
@@ -184,12 +184,12 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 			}
 			cfg.SetSelectedRoute(codex.ID, "one", "")
 			cfg.SetClientActivation(codex.ID, true, "/portable/codex", []string{"/portable/config.toml"})
-			if err := store.Save(cfg); err != nil {
+			if err := configStore.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
 			out := &bytes.Buffer{}
 			errOut := &bytes.Buffer{}
-			command := NewSyncCommand(invocation.Context{Clients: clients.Registry(), Config: store, Out: out, RenderOut: out})
+			command := NewSyncCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out, RenderOut: out})
 			command.SilenceErrors = true
 			command.SilenceUsage = true
 			command.SetOut(out)
@@ -215,7 +215,7 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 
 func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 	t.Run("planning", func(t *testing.T) {
-		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+		configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 		cfg := domain.NewConfig(clients.Admission())
 		cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 		cfg.Routes["one"] = domain.Route{
@@ -224,10 +224,10 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 		}
 		cfg.SetSelectedRoute(codex.ID, "one", "")
 		cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{""})
-		if err := store.Save(cfg); err != nil {
+		if err := configStore.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
-		command := NewSyncCommand(invocation.Context{Clients: clients.Registry(), Config: store, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
+		command := NewSyncCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
 		command.SilenceErrors = true
 		command.SilenceUsage = true
 		command.SetArgs([]string{"--dry-run"})
@@ -238,7 +238,7 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 }
 
 func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	cfg.Accounts["two"] = domain.Account{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
@@ -252,21 +252,21 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 	}
 	cfg.SetSelectedRoute(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{t.TempDir()})
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	secretStore := secrets.NewMemoryStore()
 	if err := secretStore.Set("two", "token"); err != nil {
 		t.Fatal(err)
 	}
-	command := NewSyncCommand(invocation.Context{Clients: clients.Registry(), Config: store, Secrets: secretStore, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
+	command := NewSyncCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 
 	if err := command.Execute(); err == nil {
 		t.Fatal("projection failure after Client Binding selection was accepted")
 	}
-	after, err := store.Load()
+	after, err := configStore.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 }
 
 func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	target := t.TempDir()
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
@@ -286,10 +286,10 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 	}
 	cfg.SetSelectedRoute(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	command := NewSyncCommand(invocation.Context{Clients: clients.Registry(), Config: store, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
+	command := NewSyncCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Discovery: syncDiscovery{}, Out: &bytes.Buffer{}})
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	if err := command.Execute(); err == nil {
@@ -299,7 +299,7 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 
 func TestRollbackCoversLoadCheckpointAndBackupFailures(t *testing.T) {
 	t.Run("current config load", func(t *testing.T) {
-		command := NewRollbackCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(t.TempDir(), clients.Admission())})
+		command := NewRollbackCommand(invocation.Context{Clients: clients.Registry(), Config: store.NewStore(t.TempDir(), clients.Admission())})
 		command.SilenceErrors = true
 		command.SilenceUsage = true
 		if err := command.Execute(); err == nil {
@@ -308,11 +308,11 @@ func TestRollbackCoversLoadCheckpointAndBackupFailures(t *testing.T) {
 	})
 
 	t.Run("invalid verified checkpoint", func(t *testing.T) {
-		store := rollbackStore(t)
-		if err := os.WriteFile(store.Path()+".verified.json", []byte("not-json"), 0o600); err != nil {
+		configStore := rollbackStore(t)
+		if err := os.WriteFile(configStore.Path()+".verified.json", []byte("not-json"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		command := NewRollbackCommand(invocation.Context{Clients: clients.Registry(), Config: store})
+		command := NewRollbackCommand(invocation.Context{Clients: clients.Registry(), Config: configStore})
 		command.SilenceErrors = true
 		command.SilenceUsage = true
 		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "parse verified checkpoint") {
@@ -321,11 +321,11 @@ func TestRollbackCoversLoadCheckpointAndBackupFailures(t *testing.T) {
 	})
 
 	t.Run("invalid previous backup", func(t *testing.T) {
-		store := rollbackStore(t)
-		if err := os.WriteFile(store.Path()+".bak", []byte("not = [toml"), 0o600); err != nil {
+		configStore := rollbackStore(t)
+		if err := os.WriteFile(configStore.Path()+".bak", []byte("not = [toml"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		command := NewRollbackCommand(invocation.Context{Clients: clients.Registry(), Config: store})
+		command := NewRollbackCommand(invocation.Context{Clients: clients.Registry(), Config: configStore})
 		command.SilenceErrors = true
 		command.SilenceUsage = true
 		command.SetArgs([]string{"--last-change"})
@@ -335,9 +335,9 @@ func TestRollbackCoversLoadCheckpointAndBackupFailures(t *testing.T) {
 	})
 }
 
-func rollbackStore(t *testing.T) configuration.Store {
+func rollbackStore(t *testing.T) store.Store {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
 	cfg.Routes["one"] = domain.Route{
@@ -345,8 +345,8 @@ func rollbackStore(t *testing.T) configuration.Store {
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedRoute(claude.ID, "one", "")
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	return store
+	return configStore
 }

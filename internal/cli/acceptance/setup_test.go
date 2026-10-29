@@ -5,10 +5,10 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 	"context"
 	"errors"
@@ -112,7 +112,7 @@ func TestSetupRejectsInvalidFlagCombinationsAndValues(t *testing.T) {
 func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "token\n")
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--token-stdin"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -130,7 +130,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("interactive load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"setup"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -296,9 +296,9 @@ func TestSetupRollbackRemovesNewAutomaticBackendSelection(t *testing.T) {
 	}
 }
 
-func assertSetupTransactionClosed(t *testing.T, store configuration.Store, absentPaths ...string) {
+func assertSetupTransactionClosed(t *testing.T, configStore store.Store, absentPaths ...string) {
 	t.Helper()
-	configPath := store.Path()
+	configPath := configStore.Path()
 	paths := append([]string{configPath, configPath + ".bak", configPath + ".verified.json"}, absentPaths...)
 	for _, path := range paths {
 		if _, err := os.Stat(path); err == nil || !errors.Is(err, os.ErrNotExist) {
@@ -321,7 +321,7 @@ func assertSetupTransactionClosed(t *testing.T, store configuration.Store, absen
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
 	defer cancel()
-	unlock, err := store.Lock(ctx)
+	unlock, err := configStore.Lock(ctx)
 	if err != nil {
 		t.Fatalf("failed setup retained the configuration lock: %v", err)
 	}

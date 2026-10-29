@@ -4,10 +4,10 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -187,11 +187,11 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	before.SetSelectedRoute(claude.ID, "claude", "")
 	after := before.Clone()
 	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
-	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
-	if err := store.Save(before); err != nil {
+	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
+	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: staticDiscovery{}, Host: hostAt(dir), AIGWExecutable: filepath.Join(dir, "aigw")}
+	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: staticDiscovery{}, Host: hostAt(dir), AIGWExecutable: filepath.Join(dir, "aigw")}
 
 	plans, err := syncer.Plan(before, after)
 	if err != nil || len(plans) != 1 || plans[0].Client != claude.ID || plans[0].Target != settingsPath || plans[0].Action != "project" {
@@ -218,7 +218,7 @@ func TestCommitProjectionPreservesClaudeModelAcrossHelperChange(t *testing.T) {
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	syncer := Synchronizer{Registry: builtinClients,
-		Config:    configuration.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission()),
+		Config:    store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission()),
 		Discovery: staticDiscovery{}, Host: hostAt(root),
 		AIGWExecutable: filepath.Join(root, "old-aigw"),
 	}
@@ -296,8 +296,8 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 			before.Routes["claude"] = domain.Route{Label: "Claude", Account: "gateway", Model: "claude-original", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 			before.SetSelectedRoute(claude.ID, "claude", "")
 			before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
-			store := configuration.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
-			syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(targets[codex.ID]), Host: hostAt(root), AIGWExecutable: filepath.Join(root, "aigw")}
+			configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
+			syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(targets[codex.ID]), Host: hostAt(root), AIGWExecutable: filepath.Join(root, "aigw")}
 			if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), before, "initial projection"); err != nil {
 				t.Fatal(err)
 			}
@@ -347,7 +347,7 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 			if err != nil || !bytes.Equal(preservedState, state) {
 				t.Fatalf("unselected ownership state changed: %s, %v", preservedState, err)
 			}
-			stored, err := store.Load()
+			stored, err := configStore.Load()
 			if err != nil || stored.Accounts["gateway"].Endpoints != account.Endpoints {
 				t.Fatalf("configuration did not commit: %#v, %v", stored.Accounts, err)
 			}
@@ -389,13 +389,13 @@ func TestCommitProjectionDoesNotBindNativeAuthentication(t *testing.T) {
 	before := testConfig(target)
 	delete(before.Clients, codex.ID)
 	after := testConfig(target)
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	if err := store.Save(before); err != nil {
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
 	runner := &recordingRunner{}
 	syncer := Synchronizer{Registry: builtinClients,
-		Config:         store,
+		Config:         configStore,
 		AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
 		Secrets:        secretReadStub{},
 		Runner:         runner,
@@ -408,7 +408,7 @@ func TestCommitProjectionDoesNotBindNativeAuthentication(t *testing.T) {
 	if len(runner.plans) != 0 {
 		t.Fatalf("projection-only commit started authentication: %#v", runner.plans)
 	}
-	stored, err := store.Load()
+	stored, err := configStore.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,12 +430,12 @@ func TestCommitProjectionRepairsUnchangedConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := testConfig(target)
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
-	if err := store.Save(cfg); err != nil {
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	runner := &recordingRunner{}
-	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), Runner: runner, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
+	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), Runner: runner, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
 	for range 2 {
 		if err := syncer.CommitProjection(context.Background(), cfg, cfg, "sync"); err != nil {
 			t.Fatal(err)
@@ -469,11 +469,11 @@ func TestClientNativeModelProviderChangesProjectionWithoutAIGWCredentialHelper(t
 	binding.Authentication = domain.AuthenticationClientNative
 	after.Clients[codex.ID] = binding
 
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
-	if err := store.Save(before); err != nil {
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
+	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: credentialCommand}
+	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Discovery: targetDiscovery(target), AIGWExecutable: credentialCommand}
 	if err := syncer.Commit(t.Context(), before, after, "native provider"); err != nil {
 		t.Fatal(err)
 	}

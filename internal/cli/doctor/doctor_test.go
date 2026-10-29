@@ -4,11 +4,11 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
 	"bytes"
 	"context"
@@ -63,14 +63,14 @@ func validDoctorConfig() domain.Config {
 
 func doctorDependencies(t *testing.T, cfg domain.Config) (Dependencies, *bytes.Buffer, secrets.Store) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	if err := store.Save(cfg); err != nil {
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
 	secretStore := secrets.NewMemoryStore()
 	return Dependencies{
-		Config: store, Secrets: secretStore, Clients: synchronization.Synchronizer{Registry: clients.Registry()}, Out: out,
+		Config: configStore, Secrets: secretStore, Clients: synchronization.Synchronizer{Registry: clients.Registry()}, Out: out,
 	}, out, secretStore
 }
 
@@ -131,7 +131,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	if check.OK || check.Detail != "Codex configuration target is missing" || check.Fix != "run `aigw repair`" {
 		t.Fatalf("Codex adapter check = %#v", check)
 	}
-	bad := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	bad := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := os.MkdirAll(bad.Path(), 0o700); err != nil {
 		t.Fatal(err)
 	}

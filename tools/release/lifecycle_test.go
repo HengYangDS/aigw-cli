@@ -20,10 +20,9 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client/codex"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 
 	"aigw-cli/internal/clients"
 
@@ -123,7 +122,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	t.Logf("baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(t, baseline)), newVersion, sha256.Sum256(readFile(t, newArtifact)))
 	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
-	before, err := configuration.NewStore(journey.config, clients.Admission()).Load()
+	before, err := store.NewStore(journey.config, clients.Admission()).Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +159,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	}
 	requireUserFiles()
 	clear(before.Clients)
-	if retained, err := configuration.NewStore(journey.config, clients.Admission()).Load(); err != nil || !reflect.DeepEqual(retained, before) {
+	if retained, err := store.NewStore(journey.config, clients.Admission()).Load(); err != nil || !reflect.DeepEqual(retained, before) {
 		t.Fatalf("capability configuration changed across program lifecycle\nwant: %#v\ngot: %#v\nerror: %v", before, retained, err)
 	}
 }
@@ -168,7 +167,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 func (j *journeyFixture) prepareCodexLifecycle() (string, string) {
 	j.testing.Helper()
 	j.installClientFixture("codex")
-	manifest, err := configuration.Parse(readFile(j.testing, j.manifest), clients.Admission())
+	manifest, err := store.Parse(readFile(j.testing, j.manifest), clients.Admission())
 	if err != nil {
 		j.testing.Fatal(err)
 	}
@@ -246,9 +245,9 @@ func (j *journeyFixture) requireRepairPreservesUserSettings(previousTheme, theme
 	paths := []string{j.config, j.config + ".bak", j.config + ".verified.json", j.settings, j.settings + ".aigw-state.json"}
 	codexConfig := filepath.Join(j.root, "home", ".codex", "config.toml")
 	paths = append(paths, codexConfig, codexConfig+".aigw-state.json", codexConfig+".aigw-model-catalog.json")
-	before := make(map[string]transaction.FileSnapshot, len(paths))
+	before := make(map[string]store.FileSnapshot, len(paths))
 	for _, path := range paths {
-		content, err := transaction.CaptureFileSnapshot(path)
+		content, err := store.CaptureFileSnapshot(path)
 		if err != nil {
 			j.testing.Fatal(err)
 		}
@@ -266,7 +265,7 @@ func (j *journeyFixture) requireRepairPreservesUserSettings(previousTheme, theme
 			j.testing.Fatalf("repeated repair is not terminal: %#v", result)
 		}
 		for _, path := range paths {
-			after, err := transaction.CaptureFileSnapshot(path)
+			after, err := store.CaptureFileSnapshot(path)
 			if err != nil {
 				j.testing.Fatal(err)
 			}

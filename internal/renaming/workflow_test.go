@@ -15,9 +15,9 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
 )
 
@@ -75,36 +75,36 @@ func renamedConfig() domain.Config {
 	return cfg
 }
 
-func renameFinalizationState(t *testing.T) (configuration.Store, configuration.Snapshot) {
+func renameFinalizationState(t *testing.T) (store.Store, store.Snapshot) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	if err := store.Save(migrationConfig()); err != nil {
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	if err := configStore.Save(migrationConfig()); err != nil {
 		t.Fatal(err)
 	}
 	current := renamedConfig()
-	if err := store.Save(current); err != nil {
+	if err := configStore.Save(current); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), current, clients.Admission().IDs()); err != nil {
+	if err := configStore.SaveVerifiedCheckpoint(t.Context(), current, clients.Admission().IDs()); err != nil {
 		t.Fatal(err)
 	}
-	state, err := store.CaptureVerifiedBackupState()
+	state, err := configStore.CaptureVerifiedBackupState()
 	if err != nil {
 		t.Fatal(err)
 	}
-	return store, state.Snapshot
+	return configStore, state.Snapshot
 }
 
 func TestCanceledAccountOperationPreservesOwnedState(t *testing.T) {
 	for _, operation := range []string{"rename", "finalize"} {
 		t.Run(operation, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			if operation == "finalize" {
-				store, _ = renameFinalizationState(t)
-			} else if err := store.Save(migrationConfig()); err != nil {
+				configStore, _ = renameFinalizationState(t)
+			} else if err := configStore.Save(migrationConfig()); err != nil {
 				t.Fatal(err)
 			}
-			before, err := store.CaptureSnapshot()
+			before, err := configStore.CaptureSnapshot()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -117,7 +117,7 @@ func TestCanceledAccountOperationPreservesOwnedState(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			deps := Renamer{Config: store, Secrets: tokens, Accounts: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Registry: clients.Registry(), Config: store}}
+			deps := Renamer{Config: configStore, Secrets: tokens, Accounts: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Registry: clients.Registry(), Config: configStore}}
 			ctx, cancel := context.WithCancel(t.Context())
 			cancel()
 			if operation == "rename" {
@@ -136,7 +136,7 @@ func TestCanceledAccountOperationPreservesOwnedState(t *testing.T) {
 				operation == "finalize" && (targetErr != nil || target != "source-token") {
 				t.Fatalf("canceled %s changed target credential: %q, %v", operation, target, targetErr)
 			}
-			after, err := store.CaptureSnapshot()
+			after, err := configStore.CaptureSnapshot()
 			if err != nil || !reflect.DeepEqual(before, after) {
 				t.Fatalf("canceled %s changed configuration: %v", operation, err)
 			}
@@ -147,11 +147,11 @@ func TestCanceledAccountOperationPreservesOwnedState(t *testing.T) {
 func TestRenamerRetainsRetryStateWhenConfigurationCommitFails(t *testing.T) {
 	for _, resource := range []string{"account", "route"} {
 		t.Run(resource, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-			if err := store.Save(migrationConfig()); err != nil {
+			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+			if err := configStore.Save(migrationConfig()); err != nil {
 				t.Fatal(err)
 			}
-			before, err := store.CaptureSnapshot()
+			before, err := configStore.CaptureSnapshot()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -160,7 +160,7 @@ func TestRenamerRetainsRetryStateWhenConfigurationCommitFails(t *testing.T) {
 				t.Fatal(err)
 			}
 			failure := errors.New("configuration commit failed")
-			renamer := Renamer{Config: store, Secrets: tokens, Accounts: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Registry: clients.Registry(), Config: failingRenameConfigStore{err: failure}}}
+			renamer := Renamer{Config: configStore, Secrets: tokens, Accounts: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Registry: clients.Registry(), Config: failingRenameConfigStore{err: failure}}}
 			if resource == "account" {
 				_, err = renamer.RenameAccount(t.Context(), "old", "new", false)
 				if value, getErr := tokens.Get("new"); getErr != nil || value != "source-token" {
@@ -175,7 +175,7 @@ func TestRenamerRetainsRetryStateWhenConfigurationCommitFails(t *testing.T) {
 			if value, getErr := tokens.Get("old"); getErr != nil || value != "source-token" {
 				t.Fatalf("rollback credential = %q, error = %v", value, getErr)
 			}
-			after, err := store.CaptureSnapshot()
+			after, err := configStore.CaptureSnapshot()
 			if err != nil || !reflect.DeepEqual(before, after) {
 				t.Fatalf("failed commit changed configuration: %v", err)
 			}
@@ -313,14 +313,14 @@ func TestPlanAccountFinalizeRejectsIncompleteRenameState(t *testing.T) {
 		{"target account missing", renamedConfig(), "missing", "does not exist"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-			if err := store.Save(test.config); err != nil {
+			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+			if err := configStore.Save(test.config); err != nil {
 				t.Fatal(err)
 			}
-			if err := store.SaveVerifiedCheckpoint(t.Context(), test.config, clients.Admission().IDs()); err != nil {
+			if err := configStore.SaveVerifiedCheckpoint(t.Context(), test.config, clients.Admission().IDs()); err != nil {
 				t.Fatal(err)
 			}
-			deps := Renamer{Config: store, Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
+			deps := Renamer{Config: configStore, Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
 			if _, err := planFinalize(deps, "old", test.target, FinalizeOptions{}); err == nil || !strings.Contains(err.Error(), test.problem) {
 				t.Fatalf("planFinalize() error = %v", err)
 			}
@@ -347,9 +347,9 @@ func TestApplyAccountFinalizeCleanupFailures(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, snapshot := renameFinalizationState(t)
+			configStore, snapshot := renameFinalizationState(t)
 			test.plan.snapshot = snapshot
-			deps := Renamer{Config: store, Secrets: test.secrets, Accounts: test.accounts}
+			deps := Renamer{Config: configStore, Secrets: test.secrets, Accounts: test.accounts}
 			if _, err := applyFinalize(context.Background(), deps, test.plan); err == nil {
 				t.Fatal("expected cleanup failure")
 			}
@@ -358,7 +358,7 @@ func TestApplyAccountFinalizeCleanupFailures(t *testing.T) {
 
 	t.Run("backup convergence", func(t *testing.T) {
 		_, snapshot := renameFinalizationState(t)
-		deps := Renamer{Config: configuration.NewStore(t.TempDir(), clients.Admission()), Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
+		deps := Renamer{Config: store.NewStore(t.TempDir(), clients.Admission()), Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
 		if _, err := applyFinalize(context.Background(), deps, Plan{snapshot: snapshot}); err == nil || !strings.Contains(err.Error(), "Converge") {
 			t.Fatalf("error = %v", err)
 		}

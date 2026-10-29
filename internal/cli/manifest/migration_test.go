@@ -11,16 +11,16 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	"github.com/pelletier/go-toml/v2"
 )
 
 func TestMigrationPreviewNamesClientsAndProtocolsByLabel(t *testing.T) {
 	out := &bytes.Buffer{}
-	plan := configuration.MigrationPlan{
+	plan := store.MigrationPlan{
 		Required: true, FromVersion: 5, ToVersion: 6, Accounts: []string{"gateway"}, Routes: []string{"messages", "responses"},
 		Clients: map[string]domain.ClientBinding{
 			claudedesktop.ID: {Route: "messages", Protocol: domain.ProtocolAnthropic, Targets: []string{"/library"}},
@@ -69,7 +69,7 @@ func TestMigrationPreviewAndApplyPreserveCredentialsAndClientFiles(t *testing.T)
 	}
 	credentialStore.reset()
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path, clients.Admission()), Secrets: credentialStore, Out: out, RenderOut: out, Width: 120}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(path, clients.Admission()), Secrets: credentialStore, Out: out, RenderOut: out, Width: 120}
 
 	preview := newMigrateCommand(runtime)
 	preview.SetArgs([]string{"--dry-run", "--json"})
@@ -119,7 +119,7 @@ func TestMigrationRollbackUsesRetainedPredecessorWithoutTouchingCredentialsOrCli
 	}
 	credentialStore.reset()
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path, clients.Admission()), Secrets: credentialStore, Out: out, RenderOut: out, Width: 120}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(path, clients.Admission()), Secrets: credentialStore, Out: out, RenderOut: out, Width: 120}
 
 	apply := newMigrateCommand(runtime)
 	if err := executeManifestCommand(apply); err != nil {
@@ -152,7 +152,7 @@ func TestMigrationPreviewRollbackAndCurrentStatePreserveRetainedInputs(t *testin
 	}
 	credentials := &observedSecretStore{Store: secrets.NewMemoryStore()}
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path, clients.Admission()), Secrets: credentials, Out: out, RenderOut: out, Width: 120}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(path, clients.Admission()), Secrets: credentials, Out: out, RenderOut: out, Width: 120}
 	if err := executeManifestCommand(newMigrateCommand(runtime)); err != nil {
 		t.Fatal(err)
 	}

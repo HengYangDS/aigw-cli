@@ -11,7 +11,7 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 )
 
 type claudeInspectionCase struct {
@@ -80,9 +80,9 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 			t.Fatal(err)
 		}
 	}
-	files := map[string]transaction.FileSnapshot{}
+	files := map[string]store.FileSnapshot{}
 	for _, path := range []string{settings, settings + ".aigw-state.json"} {
-		data, err := transaction.CaptureFileSnapshot(path)
+		data, err := store.CaptureFileSnapshot(path)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -99,7 +99,7 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 		t.Errorf("Claude inspection exposed a private path: %+v", status)
 	}
 	for path, before := range files {
-		after, err := transaction.CaptureFileSnapshot(path)
+		after, err := store.CaptureFileSnapshot(path)
 		if err != nil || !after.Equal(before) {
 			t.Errorf("inspection changed %s: %v", path, err)
 		}

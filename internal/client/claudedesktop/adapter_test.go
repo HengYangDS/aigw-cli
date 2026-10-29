@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 type claudeDesktopFixture struct {
@@ -118,7 +118,7 @@ func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := configuration.Parse(team, builtInAdmission())
+	manifest, err := store.Parse(team, builtInAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}

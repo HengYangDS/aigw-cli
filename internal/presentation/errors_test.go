@@ -14,9 +14,9 @@ import (
 
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -70,19 +70,19 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 		want []string
 	}{
 		"read": {
-			err:  &configuration.LoadError{Phase: configuration.LoadPhaseRead, Err: &os.PathError{Op: "open", Path: "/private/config.toml", Err: os.ErrPermission}},
+			err:  &store.LoadError{Phase: store.LoadPhaseRead, Err: &os.PathError{Op: "open", Path: "/private/config.toml", Err: os.ErrPermission}},
 			want: []string{"Cannot read local configuration", "read stage (open: permission denied)", "aigw doctor"},
 		},
 		"parse": {
-			err:  &configuration.LoadError{Phase: configuration.LoadPhaseParse, Err: fmt.Errorf("%s: %w", content, syntax)},
+			err:  &store.LoadError{Phase: store.LoadPhaseParse, Err: fmt.Errorf("%s: %w", content, syntax)},
 			want: []string{"Cannot parse local configuration", fmt.Sprintf("parse stage at line %d, column %d", line, column), "aigw doctor"},
 		},
 		"validate": {
-			err:  &configuration.LoadError{Phase: configuration.LoadPhaseValidate, Err: errors.New(content)},
+			err:  &store.LoadError{Phase: store.LoadPhaseValidate, Err: errors.New(content)},
 			want: []string{"Cannot validate local configuration", "AIGW 9.8.7 stopped at the configuration validate stage", "newer AIGW", "aigw doctor"},
 		},
 		"unknown stage": {
-			err:  &configuration.LoadError{Phase: "replay", Err: errors.New(content)},
+			err:  &store.LoadError{Phase: "replay", Err: errors.New(content)},
 			want: []string{"Cannot load local configuration", "stopped at the configuration replay stage", "aigw doctor"},
 		},
 	} {
@@ -107,7 +107,7 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 
 func TestLocalFailureKeepsOtherErrorsUnchanged(t *testing.T) {
 	recovery := presentationProjectionError{restored: true, cause: &os.PathError{Op: "write", Path: "/private/x", Err: os.ErrPermission}}
-	unsupported := &configuration.LoadError{Phase: configuration.LoadPhaseValidate, Err: &domain.UnsupportedConfigVersionError{Version: 0, ExpectedVersion: domain.ConfigVersion}}
+	unsupported := &store.LoadError{Phase: store.LoadPhaseValidate, Err: &domain.UnsupportedConfigVersionError{Version: 0, ExpectedVersion: domain.ConfigVersion}}
 	for _, err := range []error{nil, errors.New("plain failure"), ProblemError("Problem", "", "", "", nil), recovery, unsupported} {
 		if got := LocalFailure("1.2.3", err); !errors.Is(got, err) || !errors.Is(err, got) {
 			t.Fatalf("LocalFailure changed %#v into %#v", err, got)
@@ -303,7 +303,7 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 		{name: "unsupported version", err: &domain.UnsupportedConfigVersionError{Version: 3, ExpectedVersion: 2}, want: "unsupported configuration version: found 3, expected 2. AIGW does not reinterpret configuration schemas"},
 		{name: "migratable version", err: &domain.UnsupportedConfigVersionError{Version: domain.LegacyConfigVersion, ExpectedVersion: domain.ConfigVersion}, want: fmt.Sprintf("unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`", domain.LegacyConfigVersion, domain.ConfigVersion)},
 		{name: "published migratable version", err: &domain.UnsupportedConfigVersionError{Version: domain.PublishedConfigVersion, ExpectedVersion: domain.ConfigVersion}, want: fmt.Sprintf("unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`", domain.PublishedConfigVersion, domain.ConfigVersion)},
-		{name: "config load", err: &configuration.LoadError{Phase: configuration.LoadPhaseRead, Err: errors.New("details changed")}, want: "Cannot read local configuration; run `aigw doctor` to inspect or restore it"},
+		{name: "config load", err: &store.LoadError{Phase: store.LoadPhaseRead, Err: errors.New("details changed")}, want: "Cannot read local configuration; run `aigw doctor` to inspect or restore it"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

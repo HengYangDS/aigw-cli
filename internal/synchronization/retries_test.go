@@ -9,8 +9,8 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 )
 
 func TestRetryPolicyRequiresExplicitConnectionChange(t *testing.T) {
@@ -85,15 +85,15 @@ func TestRetryConnectionTransitionGenericAccountCommit(t *testing.T) {
 	for _, change := range []string{"label", "endpoint"} {
 		t.Run(change, func(t *testing.T) {
 			cfg := retryTransitionFixture(t)
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
-			if err := store.Save(cfg); err != nil {
+			configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
+			if err := configStore.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-			before, err := store.Load()
+			before, err := configStore.Load()
 			if err != nil {
 				t.Fatal(err)
 			}
-			snapshot, err := store.CaptureSnapshot()
+			snapshot, err := configStore.CaptureSnapshot()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -105,14 +105,14 @@ func TestRetryConnectionTransitionGenericAccountCommit(t *testing.T) {
 				account.Endpoints.OpenAIResponses = "https://replacement.test/v1"
 			}
 			after.Accounts["one"] = account
-			err = (Synchronizer{Registry: builtinClients, Config: store}).Commit(t.Context(), before, after, "account edit")
+			err = (Synchronizer{Registry: builtinClients, Config: configStore}).Commit(t.Context(), before, after, "account edit")
 			if change == "label" {
 				if err != nil {
 					t.Fatal(err)
 				}
 				return
 			}
-			observed, loadErr := store.Load()
+			observed, loadErr := configStore.Load()
 			if loadErr != nil {
 				t.Fatal(loadErr)
 			}
@@ -122,7 +122,7 @@ func TestRetryConnectionTransitionGenericAccountCommit(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), "retry") {
 				t.Fatal("connection changed without explicit retry intent")
 			}
-			unchanged, snapshotErr := store.CaptureSnapshot()
+			unchanged, snapshotErr := configStore.CaptureSnapshot()
 			if snapshotErr != nil || !reflect.DeepEqual(snapshot, unchanged) {
 				t.Fatalf("refusal changed configuration: %v", snapshotErr)
 			}

@@ -23,9 +23,9 @@ import (
 
 	"aigw-cli/internal/client/hermes"
 	clientverification "aigw-cli/internal/client/verification"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
+	"aigw-cli/internal/store"
 
 	"aigw-cli/internal/clients"
 
@@ -44,8 +44,8 @@ type hermesSessionRecorder struct {
 
 func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 	j.testing.Helper()
-	store := configuration.NewStore(j.config, clients.Admission())
-	before, err := store.Load()
+	configStore := store.NewStore(j.config, clients.Admission())
+	before, err := configStore.Load()
 	if err != nil {
 		j.testing.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 		j.testing.Fatal("selection preview changed the native preimages")
 	}
 	j.run(args...)
-	after, err := store.Load()
+	after, err := configStore.Load()
 	if err != nil || after.SelectedRoute(hermes.ID) != alternative.RouteID {
 		j.testing.Fatalf("native selection adoption: %v", err)
 	}

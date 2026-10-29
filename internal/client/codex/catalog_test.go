@@ -2,7 +2,7 @@ package codex
 
 import (
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -54,7 +54,7 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 	target := codexHomeTarget(filepath.Join(dir, "configuration.toml"))
 	target.Executable = filepath.Join(dir, "codex")
 	owned := []byte(`{"models":[{"slug":"openai.gpt-5.5"}]}` + "\n")
-	before := transaction.FileSnapshot{Exists: true, Data: owned, SHA256: hashBytes(owned), Mode: 0o600}
+	before := store.FileSnapshot{Exists: true, Data: owned, SHA256: hashBytes(owned), Mode: 0o600}
 	state := codexState{
 		CatalogState:         catalogStateProjected,
 		CatalogHash:          hashBytes(owned),
@@ -94,13 +94,13 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
 	}
-	edited := transaction.FileSnapshot{Exists: true, Data: []byte("{}"), SHA256: hashBytes([]byte("{}")), Mode: 0o600}
+	edited := store.FileSnapshot{Exists: true, Data: []byte("{}"), SHA256: hashBytes([]byte("{}")), Mode: 0o600}
 	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", state, edited); plan.state != catalogStateStale {
 		t.Fatalf("edited catalog: plan = %+v", plan)
 	}
 
 	// Never owned a catalog here: nothing was lost, so nothing is reported.
-	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
+	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", codexState{}, store.FileSnapshot{}); !emptyCatalogPlan(plan) {
 		t.Fatalf("never owned: plan = %+v", plan)
 	}
 }
@@ -119,11 +119,11 @@ func TestCodexCatalogProjectionYieldsToUserAuthoredCatalog(t *testing.T) {
 	}
 	base := "model_catalog_json = \"/home/user/own-catalog.json\"\n"
 	for _, model := range []string{"openai.gpt-5.5", "gpt-6.1-sol"} {
-		if plan := codexCatalogProjection(target, model, "", base, codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
+		if plan := codexCatalogProjection(target, model, "", base, codexState{}, store.FileSnapshot{}); !emptyCatalogPlan(plan) {
 			t.Fatalf("user catalog was not respected for %q: plan = %+v", model, plan)
 		}
 	}
-	if plan := codexCatalogProjection(target, "", "", "", codexState{}, transaction.FileSnapshot{}); !emptyCatalogPlan(plan) {
+	if plan := codexCatalogProjection(target, "", "", "", codexState{}, store.FileSnapshot{}); !emptyCatalogPlan(plan) {
 		t.Fatalf("empty model produced a catalog: plan = %+v", plan)
 	}
 }
@@ -279,7 +279,7 @@ func TestCodexCatalogProjectionKeepsAnExistingNativeWireModel(t *testing.T) {
 		return ExecutableIdentity{Version: "0.160.0", SHA256: "client-catalog"}, bundled, nil
 	}
 	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
-	plan := codexCatalogProjection(target, wire, canonical, "", codexState{}, transaction.FileSnapshot{})
+	plan := codexCatalogProjection(target, wire, canonical, "", codexState{}, store.FileSnapshot{})
 	if plan.state != catalogStateProjected || string(plan.data) != string(bundled) {
 		t.Fatalf("existing native wire model was rewritten: plan = %+v", plan)
 	}
@@ -335,7 +335,7 @@ func TestCopyProjectionRebasesOwnedCatalogReference(t *testing.T) {
 
 func TestCodexCatalogDesiredSnapshotRemovesOnlyOwnedFiles(t *testing.T) {
 	foreign := []byte(`{"models":[]}`)
-	before := transaction.FileSnapshot{Exists: true, Data: foreign, SHA256: hashBytes(foreign), Mode: 0o600}
+	before := store.FileSnapshot{Exists: true, Data: foreign, SHA256: hashBytes(foreign), Mode: 0o600}
 	got, err := codexCatalogDesiredSnapshot(codexCatalogPlan{}, before, hashBytes([]byte("other")))
 	if err != nil || !got.Equal(before) {
 		t.Fatalf("foreign catalog would be removed: %+v, err = %v", got, err)
@@ -346,7 +346,7 @@ func TestCodexCatalogDesiredSnapshotRemovesOnlyOwnedFiles(t *testing.T) {
 	if got, err = codexCatalogDesiredSnapshot(codexCatalogPlan{}, before, hashBytes(foreign)); err != nil || got.Exists {
 		t.Fatalf("owned catalog was not removed: %+v, err = %v", got, err)
 	}
-	if got, err = codexCatalogDesiredSnapshot(codexCatalogPlan{data: []byte("x")}, transaction.FileSnapshot{}, ""); err != nil || got.Mode != 0o600 {
+	if got, err = codexCatalogDesiredSnapshot(codexCatalogPlan{data: []byte("x")}, store.FileSnapshot{}, ""); err != nil || got.Mode != 0o600 {
 		t.Fatalf("new catalog mode = %v, err = %v", got.Mode.Perm(), err)
 	}
 }
@@ -360,7 +360,7 @@ func TestCodexCatalogDesiredSnapshotConvergesOwnedPermissions(t *testing.T) {
 	}
 	owned := []byte(`{"models":[{"slug":"gpt-5.5"}]}`)
 	for _, drifted := range []os.FileMode{0o640, 0o644, 0o664, 0o600} {
-		before := transaction.FileSnapshot{Exists: true, Data: owned, SHA256: hashBytes(owned), Mode: drifted}
+		before := store.FileSnapshot{Exists: true, Data: owned, SHA256: hashBytes(owned), Mode: drifted}
 		got, err := codexCatalogDesiredSnapshot(codexCatalogPlan{path: "/tmp/catalog.json", data: []byte("x")}, before, hashBytes(owned))
 		if err != nil {
 			t.Fatalf("owned catalog at %v was rejected: %v", drifted, err)
@@ -381,7 +381,7 @@ func TestCodexCatalogDesiredSnapshotFailsClosedOnForeignFile(t *testing.T) {
 		"no recorded hash":    "",
 		"hash of other bytes": hashBytes([]byte("other")),
 	} {
-		before := transaction.FileSnapshot{Exists: true, Data: foreign, SHA256: hashBytes(foreign), Mode: 0o644}
+		before := store.FileSnapshot{Exists: true, Data: foreign, SHA256: hashBytes(foreign), Mode: 0o644}
 		got, err := codexCatalogDesiredSnapshot(plan, before, ownedHash)
 		if err == nil {
 			t.Fatalf("%s: foreign catalog was adopted: %+v", name, got)

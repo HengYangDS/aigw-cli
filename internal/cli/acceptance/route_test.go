@@ -5,9 +5,9 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"encoding/json"
 	"errors"
 	"os"
@@ -28,7 +28,7 @@ func TestRouteAddValidation(t *testing.T) {
 
 	t.Run("route add load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"route", "add", "two", "--account", "one", "--model", "m"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -313,7 +313,7 @@ func TestRouteShowRendersEverySecretFreeField(t *testing.T) {
 func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 	t.Run("list load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"route", "list"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -321,7 +321,7 @@ func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 
 	t.Run("show load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"route", "show", "one"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -344,7 +344,7 @@ func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 
 	t.Run("edit load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"route", "edit", "one", "--label", "New"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -361,7 +361,7 @@ func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 
 	t.Run("remove load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"route", "remove", "one"}); err == nil {
 			t.Fatal("expected config load failure")
 		}

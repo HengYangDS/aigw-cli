@@ -11,13 +11,13 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/upgrade"
 
 	"github.com/spf13/cobra"
 )
 
-var writeFileAtomic = transaction.WriteFileAtomic
+var writeFileAtomic = store.WriteFileAtomic
 
 // NewInspectionCommand constructs read-only observation of the running installation.
 func NewInspectionCommand(runtime invocation.Context) *cobra.Command {

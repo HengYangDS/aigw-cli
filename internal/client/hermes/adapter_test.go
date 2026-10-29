@@ -11,11 +11,11 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 // hermesRegistry registers only this adapter, so it admits only Hermes.
@@ -216,7 +216,7 @@ func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := configuration.Parse(team, builtInAdmission())
+	manifest, err := store.Parse(team, builtInAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}

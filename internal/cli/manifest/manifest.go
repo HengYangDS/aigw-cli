@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
@@ -44,7 +44,7 @@ func newExportCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		data, err := configuration.Export(cfg)
+		data, err := store.Export(cfg)
 		if err != nil {
 			return err
 		}
@@ -76,7 +76,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return fmt.Errorf("Failed to read configuration manifest: %w", err)
 		}
-		incoming, err := configuration.Parse(data, runtime.Config.Admission())
+		incoming, err := store.Parse(data, runtime.Config.Admission())
 		if err != nil {
 			return err
 		}

@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 // TestHermesNativeProjection consumes an explicit candidate and an installed
@@ -42,7 +42,7 @@ func TestHermesNativeProjection(t *testing.T) {
 				Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
 			cfg.Clients[ID] = domain.ClientBinding{Route: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
-			if err := configuration.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
+			if err := store.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
 				t.Fatal(err)
 			}
 			deps := client.Dependencies{AIGWExecutable: candidate}
@@ -93,7 +93,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := configuration.Parse(manifestData, testAdmission())
+	manifest, err := store.Parse(manifestData, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := configuration.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
+	if err := store.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := hermesRegistry().Apply(t.Context(), client.Dependencies{Secrets: projectionSecrets, AIGWExecutable: candidate}, domain.NewConfig(testAdmission()), cfg, ID); err != nil {

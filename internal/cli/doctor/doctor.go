@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	clientactivation "aigw-cli/internal/activation"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
 
 	"github.com/spf13/cobra"
@@ -22,7 +22,7 @@ import (
 
 // Dependencies are the capabilities required by the diagnostic command.
 type Dependencies struct {
-	Config    configuration.Store
+	Config    store.Store
 	Secrets   secrets.Store
 	Clients   synchronization.Synchronizer
 	Env       []string

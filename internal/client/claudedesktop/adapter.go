@@ -8,8 +8,8 @@ import (
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
-	"aigw-cli/internal/transaction"
 )
 
 // ID identifies Claude Desktop's independent third-party inference surface.
@@ -123,7 +123,7 @@ func (claudeDesktopAdapter) Apply(_ context.Context, deps client.Dependencies, b
 	for _, plan := range plans {
 		receipt, err := plan.Apply()
 		if err != nil {
-			return nil, transaction.CompensationFailed(err, receipts.Rollback())
+			return nil, store.CompensationFailed(err, receipts.Rollback())
 		}
 		receipts = append(receipts, receipt)
 	}

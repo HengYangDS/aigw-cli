@@ -7,10 +7,10 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -265,7 +265,7 @@ func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *test
 func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	emptyPath := filepath.Join(t.TempDir(), "configuration.toml")
 	emptyOut := &bytes.Buffer{}
-	emptyRuntime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(emptyPath, clients.Admission()), Out: emptyOut, RenderOut: emptyOut, Secrets: secrets.NewMemoryStore()}
+	emptyRuntime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(emptyPath, clients.Admission()), Out: emptyOut, RenderOut: emptyOut, Secrets: secrets.NewMemoryStore()}
 	if err := RunStatus(emptyRuntime, false); err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +284,7 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	if err := os.WriteFile(badPath, []byte("not = [toml"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	badRuntime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(badPath, clients.Admission()), Out: io.Discard}
+	badRuntime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(badPath, clients.Admission()), Out: io.Discard}
 	if err := RunStatus(badRuntime, false); err == nil {
 		t.Fatal("malformed configuration was accepted")
 	}

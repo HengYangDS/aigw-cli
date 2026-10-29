@@ -15,8 +15,8 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 )
 
 func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
@@ -198,7 +198,7 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 		prep func(*cli.App)
 		want string
 	}{
-		{name: "config load", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) { app.Config = configuration.NewStore(t.TempDir(), clients.Admission()) }, want: "read config"},
+		{name: "config load", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) { app.Config = store.NewStore(t.TempDir(), clients.Admission()) }, want: "read config"},
 		{name: "unknown route", args: []string{"verify", "--for", "codex", "--route", "missing"}, prep: func(app *cli.App) {
 			saveCommandRoute(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		}, want: "unknown route"},

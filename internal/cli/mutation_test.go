@@ -12,9 +12,9 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 func TestUseForwardingPreviewDoesNotAcquireConfigurationLock(t *testing.T) {
@@ -93,7 +93,7 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 			root := filepath.Join(t.TempDir(), "configuration")
 			var output bytes.Buffer
 			app := &App{Clients: clients.Registry(),
-				Config: configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
+				Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
 				Out:    &output,
 				Err:    io.Discard,
 			}
@@ -186,7 +186,7 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 func TestConfigImportPreviewDoesNotCreateConfigurationDirectoryOrLock(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "configuration")
 	var output bytes.Buffer
-	app := &App{Clients: clients.Registry(), Config: configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission()), Out: &output, Err: io.Discard}
+	app := &App{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()), Out: &output, Err: io.Discard}
 	manifest := filepath.Join("..", "..", "manifests", "team.toml")
 	if err := Execute(app, []string{"config", "import", manifest, "--dry-run", "--json"}); err != nil {
 		t.Fatal(err)
@@ -200,18 +200,18 @@ func TestConfigImportPreviewDoesNotCreateConfigurationDirectoryOrLock(t *testing
 }
 
 func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
-	emptyStore := App{Config: configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission()), Interactive: true}
+	emptyStore := App{Config: store.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission()), Interactive: true}
 	if !requiresConfigurationLock(&emptyStore, NewRoot(&emptyStore)) {
 		t.Fatal("an interactive terminal with no routes should trigger the onboarding wizard lock")
 	}
 
-	nonInteractive := App{Config: configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission()), Interactive: false}
+	nonInteractive := App{Config: store.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission()), Interactive: false}
 	if requiresConfigurationLock(&nonInteractive, NewRoot(&nonInteractive)) {
 		t.Fatal("a non-interactive session with no routes must not take a mutation lock")
 	}
 
 	path := filepath.Join(t.TempDir(), "configuration.toml")
-	store := configuration.NewStore(path, clients.Admission())
+	configStore := store.NewStore(path, clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Routes["gpt"] = domain.Route{
@@ -219,10 +219,10 @@ func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedRoute(codex.ID, "gpt", "")
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	populated := App{Config: store, Interactive: true}
+	populated := App{Config: configStore, Interactive: true}
 	if requiresConfigurationLock(&populated, NewRoot(&populated)) {
 		t.Fatal("an already-configured store must not trigger the onboarding wizard lock")
 	}

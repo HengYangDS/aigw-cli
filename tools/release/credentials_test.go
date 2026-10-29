@@ -5,12 +5,12 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -163,15 +163,15 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	if err := os.WriteFile(helper, readFile(j.testing, program), 0o700); err != nil {
 		j.testing.Fatal(err)
 	}
-	store := configuration.NewStore(j.config, clients.Admission())
-	cfg, err := store.Load()
+	configStore := store.NewStore(j.config, clients.Admission())
+	cfg, err := configStore.Load()
 	if err != nil {
 		j.testing.Fatal(err)
 	}
 	adapter := cfg.Clients[client]
 	adapter.CredentialCommand = helper
 	cfg.Clients[client] = adapter
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		j.testing.Fatal(err)
 	}
 	selected, err := cfg.ResolveRuntime(client, "")
@@ -199,7 +199,7 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	j.run(args...)
 	j.run("sync")
 	j.run("verify", "--for", client)
-	retained, err := store.Load()
+	retained, err := configStore.Load()
 	if err != nil || retained.Clients[client].CredentialCommand != helper {
 		j.testing.Fatalf("native lifecycle discarded explicit helper: %v", err)
 	}

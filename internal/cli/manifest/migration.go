@@ -4,16 +4,16 @@ import (
 	"fmt"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
 
 type migrationOutput struct {
 	DryRun bool `json:"dry_run"`
-	configuration.MigrationPlan
+	store.MigrationPlan
 	NextAction string `json:"next_action"`
 }
 
@@ -63,7 +63,7 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 		title = "Configuration migration preview"
 	} else if !result.Required {
 		title = "Configuration is current"
-	} else if result.Direction == configuration.MigrationRollback {
+	} else if result.Direction == store.MigrationRollback {
 		title = "Configuration migration rolled back"
 	}
 	renderer.ProductTitle(title)

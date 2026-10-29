@@ -1,7 +1,7 @@
 package codex
 
 import (
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 	"bytes"
 	"fmt"
 	"os"
@@ -421,12 +421,12 @@ func TestReconcileConfigsRefusesToAdoptAForeignCatalogFile(t *testing.T) {
 // starting at all, so the file is created first and deleted last.
 func TestCodexArtifactsFollowTheCatalogDependencyOrder(t *testing.T) {
 	target := codexHomeTarget(filepath.Join(t.TempDir(), "configuration.toml"))
-	configBefore := transaction.FileSnapshot{Exists: true, Data: []byte("old"), SHA256: hashBytes([]byte("old")), Mode: 0o600}
+	configBefore := store.FileSnapshot{Exists: true, Data: []byte("old"), SHA256: hashBytes([]byte("old")), Mode: 0o600}
 	catalogData := []byte("{}")
 
 	created := codexArtifactsForDesiredState(
-		target, configBefore, []byte("new"), transaction.FileSnapshot{}, []byte("state"),
-		transaction.FileSnapshot{}, transaction.NewFileSnapshot(catalogData, 0o600),
+		target, configBefore, []byte("new"), store.FileSnapshot{}, []byte("state"),
+		store.FileSnapshot{}, store.NewFileSnapshot(catalogData, 0o600),
 	)
 	wantCreate := []string{codexCatalogPath(target.Path), target.Path, codexStatePath(target.Path)}
 	for index, artifact := range created {
@@ -438,10 +438,10 @@ func TestCodexArtifactsFollowTheCatalogDependencyOrder(t *testing.T) {
 		t.Fatalf("create order = %v, want %v", artifactPaths(created), wantCreate)
 	}
 
-	catalogBefore := transaction.NewFileSnapshot(catalogData, 0o600)
+	catalogBefore := store.NewFileSnapshot(catalogData, 0o600)
 	removed := codexArtifactsForDesiredState(
-		target, configBefore, []byte("new"), transaction.FileSnapshot{Exists: true, Data: []byte("state"), SHA256: hashBytes([]byte("state")), Mode: 0o600}, nil,
-		catalogBefore, transaction.FileSnapshot{},
+		target, configBefore, []byte("new"), store.FileSnapshot{Exists: true, Data: []byte("state"), SHA256: hashBytes([]byte("state")), Mode: 0o600}, nil,
+		catalogBefore, store.FileSnapshot{},
 	)
 	wantRemove := []string{target.Path, codexStatePath(target.Path), codexCatalogPath(target.Path)}
 	if strings.Join(artifactPaths(removed), ",") != strings.Join(wantRemove, ",") {
@@ -451,7 +451,7 @@ func TestCodexArtifactsFollowTheCatalogDependencyOrder(t *testing.T) {
 	// An unchanged catalog is not an artifact at all, so a converged target
 	// performs no writes.
 	unchanged := codexArtifactsForDesiredState(
-		target, configBefore, configBefore.Data, transaction.FileSnapshot{Exists: true, Data: []byte("state"), SHA256: hashBytes([]byte("state")), Mode: 0o600}, []byte("state"),
+		target, configBefore, configBefore.Data, store.FileSnapshot{Exists: true, Data: []byte("state"), SHA256: hashBytes([]byte("state")), Mode: 0o600}, []byte("state"),
 		catalogBefore, catalogBefore,
 	)
 	if len(unchanged) != 0 {
@@ -484,16 +484,16 @@ func TestReconcileConfigsRollsBackConfigStateAndCatalogTogether(t *testing.T) {
 		writeFileAtomicExactModeIfUnchanged = originalExactWrite
 	})
 	var written []string
-	writeFileAtomicIfUnchanged = func(target string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+	writeFileAtomicIfUnchanged = func(target string, expected store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
 		written = append(written, target)
 		if strings.HasSuffix(target, ".aigw-state.json") {
-			return transaction.FileSnapshot{}, fmt.Errorf("injected sidecar failure")
+			return store.FileSnapshot{}, fmt.Errorf("injected sidecar failure")
 		}
 		return originalWrite(target, expected, data, mode)
 	}
 	// The catalog is the one artifact written mode-exactly, so both writers have
 	// to be observed for the assertion below to see it join the transaction.
-	writeFileAtomicExactModeIfUnchanged = func(target string, expected transaction.FileSnapshot, data []byte, mode os.FileMode) (transaction.FileSnapshot, error) {
+	writeFileAtomicExactModeIfUnchanged = func(target string, expected store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
 		written = append(written, target)
 		return originalExactWrite(target, expected, data, mode)
 	}

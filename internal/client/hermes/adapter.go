@@ -13,8 +13,8 @@ import (
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
-	"aigw-cli/internal/transaction"
 )
 
 // ID identifies the independently configured Hermes Agent.
@@ -349,7 +349,7 @@ func (hermesAdapter) Apply(_ context.Context, deps client.Dependencies, before, 
 	for _, plan := range plans {
 		receipt, err := plan.Apply()
 		if err != nil {
-			return nil, transaction.CompensationFailed(err, receipts.Rollback())
+			return nil, store.CompensationFailed(err, receipts.Rollback())
 		}
 		receipts = append(receipts, receipt)
 	}

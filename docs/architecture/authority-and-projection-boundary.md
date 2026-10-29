@@ -61,7 +61,7 @@ process.
 ## Semantic packages
 
 - **[Domain](../../internal/domain/):** Account, Route, recommendation, Client Binding, the admitted client specifications, validation and the team manifest semantics, with standard-library imports only
-- **[Configuration](../../internal/configuration/):** Schema migration, persistence, checkpoints and the team manifest's TOML encoding
+- **[Store](../../internal/store/):** Schema migration, persistence, checkpoints, the team manifest's TOML encoding, and guarded filesystem mutation and rollback
 - **[Secret storage](../../internal/secrets/):** Account credential backends, typed diagnostic credentials and replacement
 - **[Diagnostic contract](../../internal/providers/diagnostic/):** Optional provider-account diagnostic results
 - **[Codex integration](../../internal/client/codex/):** Projection planning and reconciliation
@@ -72,7 +72,6 @@ process.
 - **[Synchronization](../../internal/synchronization/):** Client Binding convergence and multi-client projection transaction
 - **[Presentation](../../internal/presentation/):** Terminal capability detection plus human and JSON rendering of command results
 - **[CLI](../../internal/cli/):** Command composition; domain behavior remains in semantic owners
-- **[Transactions](../../internal/transaction/):** Guarded filesystem mutation and rollback
 - **[Upgrades](../../internal/upgrade/):** Independent-Forge update verification and installation
 
 Dependency direction is toward domain owners. Presentation, CLI composition,

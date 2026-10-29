@@ -22,10 +22,10 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	"aigw-cli/internal/clients"
 
@@ -256,14 +256,14 @@ func TestSyncPreservesRetainedEntrypointAfterInterruptedLastClientWithdrawal(t *
 	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
 	retained := journey.retainedCredential(claude.ID)
-	store := configuration.NewStore(journey.config, clients.Admission())
-	before, err := store.Load()
+	configStore := store.NewStore(journey.config, clients.Admission())
+	before, err := configStore.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	after := before.Clone()
 	after.SetClientActivation(claude.ID, false, "", nil)
-	if err := store.Save(after); err != nil {
+	if err := configStore.Save(after); err != nil {
 		t.Fatal(err)
 	}
 	helper := journey.credentialEntrypoint()
@@ -292,7 +292,7 @@ func TestSyncPreservesRetainedEntrypointAfterInterruptedLastClientWithdrawal(t *
 			t.Fatalf("sync removed a possible cached command %s: %v", path, err)
 		}
 	}
-	if err := store.Save(before); err != nil {
+	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
 	}
 	journey.run("sync")
@@ -312,8 +312,8 @@ func TestClientDisablePreservesRetainedEntrypointAcrossReenable(t *testing.T) {
 	journey := newNativeJourney(t, program, server.URL, true)
 	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
-	store := configuration.NewStore(journey.config, clients.Admission())
-	cfg, err := store.Load()
+	configStore := store.NewStore(journey.config, clients.Admission())
+	cfg, err := configStore.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -433,7 +433,7 @@ func (j *journeyFixture) shellCredential(command string) process.Plan {
 }
 
 func (j *journeyFixture) retainedCredentials() []process.Plan {
-	cfg, err := configuration.NewStore(j.config, clients.Admission()).Load()
+	cfg, err := store.NewStore(j.config, clients.Admission()).Load()
 	if err != nil {
 		j.testing.Fatal(err)
 	}

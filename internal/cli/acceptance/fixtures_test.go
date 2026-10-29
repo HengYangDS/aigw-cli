@@ -18,11 +18,11 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 func readFile(t *testing.T, path string) []byte {
@@ -239,7 +239,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secrets.Store
 		Executable:    filepath.Join(t.TempDir(), "aigw"),
 		InstallTarget: filepath.Join(t.TempDir(), "bin", "aigw"),
 		Host:          hostAt(t.TempDir()),
-		Config:        configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()),
+		Config:        store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()),
 		Secrets:       secretStore,
 		Accounts:      diagnostics,
 		Env:           []string{},
@@ -400,7 +400,7 @@ func TestCredentialFixturePreservesRealStateAcrossInjectedFailures(t *testing.T)
 	}
 }
 
-func saveProbeRoute(t *testing.T, appConfig configuration.Store) {
+func saveProbeRoute(t *testing.T, appConfig store.Store) {
 	t.Helper()
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{

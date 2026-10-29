@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 )
 
 type verificationResourceProcess struct {
@@ -96,7 +96,7 @@ func writeVerificationProcess(path string) error {
 	if err != nil {
 		return err
 	}
-	return transaction.WriteFileAtomicExactMode(path, data, 0o600)
+	return store.WriteFileAtomicExactMode(path, data, 0o600)
 }
 
 func TestVerificationProcessPublicationDoesNotMutateObservedBytes(t *testing.T) {

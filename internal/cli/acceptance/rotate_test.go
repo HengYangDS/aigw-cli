@@ -16,9 +16,9 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
@@ -91,7 +91,7 @@ func TestRotateRejectsReadOnlyEnvironmentBackendBeforeInput(t *testing.T) {
 func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 	t.Run("config load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "new-token\n")
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"rotate", "one", "--token-stdin"}); err == nil {
 			t.Fatal("expected config load failure")
 		}

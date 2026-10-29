@@ -8,10 +8,10 @@ import (
 	"slices"
 	"strings"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
@@ -23,7 +23,7 @@ type HTTPDoer interface {
 
 // Dependencies are the capabilities required by model commands.
 type Dependencies struct {
-	Config    configuration.Store
+	Config    store.Store
 	Secrets   secrets.Store
 	HTTP      HTTPDoer
 	Out       io.Writer

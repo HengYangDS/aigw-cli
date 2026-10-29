@@ -4,10 +4,10 @@ package main
 
 import (
 	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/store"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -275,7 +275,7 @@ func TestNativeAttributionSummaryRetainsItsNonqualifyingScope(t *testing.T) {
 func (j *journeyFixture) measureMemory(variant string, block int) (performance.Memory, error) {
 	j.testing.Helper()
 	row := performance.Memory{Variant: variant, Case: "status", Block: block, Bytes: []uint64{}}
-	config, err := configuration.NewStore(j.config, clients.Admission()).Load()
+	config, err := store.NewStore(j.config, clients.Admission()).Load()
 	if err != nil {
 		return row, err
 	}
@@ -425,11 +425,11 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 		config.Accounts["memory"] = domain.Account{Label: "Memory", Endpoints: domain.Endpoints{Anthropic: "https://unused.example.test"}}
 		config.Routes["memory"] = domain.Route{Account: "memory", Model: "memory", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
 		config.SetSelectedRoute(claude.ID, "memory", domain.ProtocolAnthropic)
-		store := configuration.NewStore(filepath.Join(output, "config.toml"), clients.Admission())
-		if err := store.Save(config); err != nil {
+		configStore := store.NewStore(filepath.Join(output, "config.toml"), clients.Admission())
+		if err := configStore.Save(config); err != nil {
 			t.Fatal(err)
 		}
-		journey := &journeyFixture{testing: t, binary: program, root: output, config: store.Path(),
+		journey := &journeyFixture{testing: t, binary: program, root: output, config: configStore.Path(),
 			environment: append(os.Environ(), "AIGW_TEST_MEMORY_OBSERVATIONS="+filepath.Join(output, "observations"))}
 		row, err := journey.measureMemory("candidate", 1)
 		if err != nil {

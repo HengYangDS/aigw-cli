@@ -12,10 +12,10 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 )
 
 // hostAt observes home as the user's home directory, so Claude Code's settings
@@ -53,7 +53,7 @@ func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing
 func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T) {
 	t.Run("configuration load", func(t *testing.T) {
 		root := t.TempDir()
-		command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: filepath.Join(root, "aigw"), Config: configuration.NewStore(root, clients.Admission())})
+		command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: filepath.Join(root, "aigw"), Config: store.NewStore(root, clients.Admission())})
 		command.SetArgs(nil)
 		if err := command.Execute(); err == nil {
 			t.Fatal("uninstall succeeded despite an unreadable configuration path")
@@ -68,7 +68,7 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		}
 		command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),
 			Executable: target,
-			Config:     configuration.NewStore(filepath.Join(root, "invalid")+"\x00configuration.toml", clients.Admission()),
+			Config:     store.NewStore(filepath.Join(root, "invalid")+"\x00configuration.toml", clients.Admission()),
 		})
 		command.SetArgs(nil)
 		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "inspect AIGW configuration") {
@@ -85,7 +85,7 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		if err := os.WriteFile(target, []byte("current"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		store := configuration.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission())
+		configStore := store.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission())
 		cfg := domain.NewConfig(clients.Admission())
 		cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 		cfg.Routes["claude"] = domain.Route{
@@ -94,7 +94,7 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		}
 		cfg.SetSelectedRoute(claude.ID, "claude", "")
 		cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
-		if err := store.Save(cfg); err != nil {
+		if err := configStore.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
 		blockedHome := filepath.Join(root, "blocked")
@@ -103,7 +103,7 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		}
 		command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),
 			Executable: target,
-			Config:     store,
+			Config:     configStore,
 			Host:       hostAt(blockedHome),
 		})
 		command.SetArgs(nil)
@@ -159,7 +159,7 @@ func TestUninstallPreservesEveryVersionedReader(t *testing.T) {
 		}
 	}
 	command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),
-		Executable: invoker, DataDir: dataDir, CredentialPath: invokerReader, Config: configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
+		Executable: invoker, DataDir: dataDir, CredentialPath: invokerReader, Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
 	})
 	command.SetArgs([]string{"--target", target})
 	if err := command.Execute(); err != nil {
@@ -206,7 +206,7 @@ func TestUninstallPreservesReaderSharedByIdenticalInstallations(t *testing.T) {
 	}
 	command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),
 		Executable: invoker, DataDir: dataDir, CredentialPath: invokerReader,
-		Config: configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
+		Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
 	})
 	command.SetArgs([]string{"--target", target})
 	if err := command.Execute(); err != nil {

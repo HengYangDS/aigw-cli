@@ -10,10 +10,10 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
@@ -59,7 +59,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 	if err := os.WriteFile(source, data, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	store, err := secrets.Select(secrets.Selection{
+	secretStore, err := secrets.Select(secrets.Selection{
 		Backend: "keyring", Executable: source,
 		KeyringProbe: func(secrets.Store) error { return nil },
 	})
@@ -70,7 +70,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := configuration.Export(manifestSetupConfig())
+	manifest, err := store.Export(manifestSetupConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,8 +79,8 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 	}
 	target := filepath.Join(root, "codex.toml")
 	runtime := invocation.Context{Clients: clients.Registry(),
-		Executable: source, CredentialPath: reader, Secrets: store,
-		Config: configuration.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission()),
+		Executable: source, CredentialPath: reader, Secrets: secretStore,
+		Config: store.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission()),
 		Discovery: setupDiscovery{result: discovery.Result{
 			Executables: map[string]string{codex.ID: source},
 			Surfaces: []discovery.Surface{{

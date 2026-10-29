@@ -18,11 +18,11 @@ import (
 
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/hermes"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
@@ -270,18 +270,18 @@ func TestManifestSetupClientSelectionRequiresConnectedRouteAndUsableSurface(t *t
 
 func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
-	store := &scriptedSecretStore{
+	secretStore := &scriptedSecretStore{
 		values: map[string]string{},
-		onGet: func(store *scriptedSecretStore, account string) {
-			if store.values[account] == "token" {
-				delete(store.values, account)
+		onGet: func(secretStore *scriptedSecretStore, account string) {
+			if secretStore.values[account] == "token" {
+				delete(secretStore.values, account)
 			}
 		},
 	}
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Executable: filepath.Join(t.TempDir(), "aigw"),
-		Config:     configuration.NewStore(configPath, clients.Admission()),
-		Secrets:    store,
+		Config:     store.NewStore(configPath, clients.Admission()),
+		Secrets:    secretStore,
 		Discovery:  setupDiscovery{},
 		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			if err := os.Mkdir(configPath, 0o700); err != nil {
@@ -299,7 +299,7 @@ func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *t
 	if err == nil || !strings.Contains(err.Error(), "setup failed") || !strings.Contains(err.Error(), "credential rollback also failed") || !strings.Contains(err.Error(), "credential postimage changed") {
 		t.Fatalf("error = %v, want configuration failure with rollback drift", err)
 	}
-	if secretExists(t, store, "team") {
+	if secretExists(t, secretStore, "team") {
 		t.Fatal("rollback recreated a credential removed before compensation")
 	}
 }
@@ -307,7 +307,7 @@ func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *t
 func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 	root := t.TempDir()
 	secretRoot := filepath.Join(root, "secrets")
-	store, err := secrets.Select(secrets.Selection{
+	secretStore, err := secrets.Select(secrets.Selection{
 		GOOS: runtime.GOOS, Root: secretRoot,
 		KeyringProbe: func(secrets.Store) error { return errors.New("isolated file backend") },
 	})
@@ -316,9 +316,9 @@ func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 	}
 	configPath := filepath.Join(root, "configuration.toml")
 	run := invocation.Context{Clients: clients.Registry(),
-		Executable: filepath.Join(root, "aigw"), Config: configuration.NewStore(configPath, clients.Admission()), Secrets: store,
+		Executable: filepath.Join(root, "aigw"), Config: store.NewStore(configPath, clients.Admission()), Secrets: secretStore,
 		Discovery: setupDiscovery{onDiscover: func() {
-			if err := store.Set("team", "newer-token"); err != nil {
+			if err := secretStore.Set("team", "newer-token"); err != nil {
 				t.Fatal(err)
 			}
 		}},
@@ -334,7 +334,7 @@ func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "credential postimage changed") {
 		t.Fatalf("setup error = %v, want uncompensated credential", err)
 	}
-	if token, err := store.Get("team"); err != nil || token != "newer-token" {
+	if token, err := secretStore.Get("team"); err != nil || token != "newer-token" {
 		t.Fatalf("newer credential was not preserved: %v", err)
 	}
 	selected, err := os.ReadFile(filepath.Join(secretRoot, "backend"))
@@ -381,10 +381,10 @@ interfaces = { openai_responses = ["text"] }
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store := &scriptedSecretStore{
+	secretStore := &scriptedSecretStore{
 		values: map[string]string{},
-		onGet: func(store *scriptedSecretStore, account string) {
-			delete(store.values, account)
+		onGet: func(secretStore *scriptedSecretStore, account string) {
+			delete(secretStore.values, account)
 		},
 		onSet: func(_ *scriptedSecretStore, _ string) {
 			if err := os.Mkdir(configPath, 0o700); err != nil {
@@ -394,8 +394,8 @@ interfaces = { openai_responses = ["text"] }
 	}
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Executable: filepath.Join(t.TempDir(), "aigw"),
-		Config:     configuration.NewStore(configPath, clients.Admission()),
-		Secrets:    store,
+		Config:     store.NewStore(configPath, clients.Admission()),
+		Secrets:    secretStore,
 		Discovery: setupDiscovery{result: discovery.Result{
 			Executables: map[string]string{codex.ID: "/opt/codex"},
 			Surfaces: []discovery.Surface{{
@@ -415,7 +415,7 @@ interfaces = { openai_responses = ["text"] }
 	if err == nil || !strings.Contains(err.Error(), "setup failed") || !strings.Contains(err.Error(), "credential rollback also failed") || !strings.Contains(err.Error(), "credential postimage changed") {
 		t.Fatalf("error = %v, want configuration failure with rollback drift", err)
 	}
-	if secretExists(t, store, "team") {
+	if secretExists(t, secretStore, "team") {
 		t.Fatal("rollback recreated a credential removed before compensation")
 	}
 }
@@ -517,14 +517,14 @@ func TestSetupTokenPromptAndBackendErrors(t *testing.T) {
 
 func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
-	store := configuration.NewStore(path, clients.Admission())
+	configStore := store.NewStore(path, clients.Admission())
 	secretStore := secrets.NewMemoryStore()
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Executable: filepath.Join(t.TempDir(), "aigw"),
-		Config:     store,
+		Config:     configStore,
 		Secrets:    secretStore,
 		Discovery:  setupDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: "/opt/claude"}}},
 		Host:       hostAt(t.TempDir()),
@@ -539,7 +539,7 @@ func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 	if err := runSetup(context.Background(), runtime, request); err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := store.Load()
+	cfg, err := configStore.Load()
 	if err != nil {
 		t.Fatal(err)
 	}

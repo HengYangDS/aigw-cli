@@ -18,11 +18,11 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/store"
 )
 
 type staticDiscovery struct{ result discovery.Result }
@@ -103,9 +103,9 @@ func TestRunRepairReportsDiscoveryFailureWithoutMutatingConfiguration(t *testing
 	}
 }
 
-func configuredRepairStore(t *testing.T) (configuration.Store, domain.Config) {
+func configuredRepairStore(t *testing.T) (store.Store, domain.Config) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
 	cfg.Routes["one"] = domain.Route{
@@ -113,10 +113,10 @@ func configuredRepairStore(t *testing.T) (configuration.Store, domain.Config) {
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedRoute(claude.ID, "one", "")
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	return store, cfg
+	return configStore, cfg
 }
 
 func TestRepairDesiredConfigPreservesExplicitCodexIntentWhenDiscoveryIsEmpty(t *testing.T) {
@@ -173,7 +173,7 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
 			cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 			cfg.Routes["one"] = domain.Route{
@@ -183,23 +183,23 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 			cfg.SetSelectedRoute(codex.ID, "one", "")
 			missingTarget := filepath.Join(t.TempDir(), "missing", "configuration.toml")
 			cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{missingTarget})
-			if err := store.Save(cfg); err != nil {
+			if err := configStore.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
 			runtime := invocation.Context{Clients: clients.Registry(),
 				Executable: filepath.Join(t.TempDir(), "aigw"),
-				Config:     store,
+				Config:     configStore,
 				Discovery:  staticDiscovery{result: discovery.Result{}},
 				Out:        &bytes.Buffer{},
 			}
-			before, err := store.CaptureSnapshot()
+			before, err := configStore.CaptureSnapshot()
 			if err != nil {
 				t.Fatal(err)
 			}
 			if err := runRepair(context.Background(), runtime, test.dryRun, false); err == nil || !strings.Contains(err.Error(), "does not exist") {
 				t.Fatalf("repair error = %v", err)
 			}
-			after, err := store.CaptureSnapshot()
+			after, err := configStore.CaptureSnapshot()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -211,7 +211,7 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 }
 
 func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	settingsHome := t.TempDir()
 	settingsPath := filepath.Join(settingsHome, ".claude", "settings.json")
 	executable := filepath.Join(t.TempDir(), "aigw")
@@ -223,13 +223,13 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 	}
 	cfg.SetSelectedRoute(claude.ID, "one", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Executable: executable,
-		Config:     store,
+		Config:     configStore,
 		Discovery:  staticDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: "/opt/claude"}}},
 		Host:       hostAt(settingsHome),
 		Out:        out,

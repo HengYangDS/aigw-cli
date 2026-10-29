@@ -17,9 +17,9 @@
 ## 2. Stage 2 — Domain, store and secret
 
 - [x] 2.1 Create `internal/domain` from the model types, validation and manifest semantics of `internal/configuration`. Each `Config` carries the `Admission` that the composition root builds from the adapters' `Spec()`, and client-specific rules become `ClientSpec` capabilities. The adapters own their client IDs and specifications, so `internal/configuration` and `internal/credential` name no client and the confinement list leaves the policy. The architecture gate admits only standard-library imports in `domain`, which names no client.
-- [ ] 2.2 Create `internal/store` from configuration loading, saving and schema migration, and fold `internal/transaction` into it.
+- [x] 2.2 Create `internal/store` from configuration loading, saving and schema migration, and fold `internal/transaction` into it. Both packages are gone, and the architecture gate admits `internal/store` in their place.
 - [ ] 2.3 Create `internal/secret` from `internal/secrets`, `internal/secrets/native` and the credential readers of `internal/credential`; Account credential validation moves to `domain`.
-- [ ] 2.4 Move the remaining client-specific configuration code into the adapters and delete `internal/configuration`, `internal/credential`, `internal/secrets` and `internal/transaction`.
+- [ ] 2.4 Move the remaining client-specific code, such as Codex's model provider in `domain`, into the adapters and delete `internal/credential` and `internal/secrets`.
 - [ ] 2.5 Remove every exported identifier in `domain`, `store` and `secret` that has no caller outside its package, and make the architecture gate report any new one.
 - [ ] 2.6 Run the local quality graph at the stage head.
 - [ ] 2.7 Prove the stage head with the full ETHOS proof.

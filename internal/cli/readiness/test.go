@@ -8,11 +8,11 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	clientverification "aigw-cli/internal/client/verification"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
@@ -38,7 +38,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 		Args: cobra.MatchAll(cobra.NoArgs, validateEndpointTestSelection(runtime.Clients.Admission())),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if configPath != "" {
-				runtime.Config = configuration.NewStore(configPath, runtime.Config.Admission())
+				runtime.Config = store.NewStore(configPath, runtime.Config.Admission())
 			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {

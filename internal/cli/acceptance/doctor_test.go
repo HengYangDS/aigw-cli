@@ -14,9 +14,9 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 func TestDoctorReportsOneCredentialCheckForSharedAccount(t *testing.T) {
@@ -144,7 +144,7 @@ func TestDoctorReportsCredentialObservationFailure(t *testing.T) {
 
 func TestDoctorJSONDoesNotExposeConfigurationPath(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	bad := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	bad := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	app.Config = bad
 	if err := os.MkdirAll(bad.Path(), 0o700); err != nil {
 		t.Fatal(err)

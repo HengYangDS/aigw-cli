@@ -12,7 +12,7 @@ import (
 	"slices"
 	"sync"
 
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 )
 
 const entrypointDirectory = "credential"
@@ -247,12 +247,12 @@ func inspectEntrypoint(path string) (os.FileInfo, bool, error) {
 // link. It never replaces an existing entrypoint during an ordinary sync.
 // The returned compensation removes only bytes created by this operation.
 func EnsureEntrypoint(source, target string) (func() error, error) {
-	return ensureEntrypoint(source, target, transaction.WriteFileAtomicExactModeIfUnchanged)
+	return ensureEntrypoint(source, target, store.WriteFileAtomicExactModeIfUnchanged)
 }
 
 func ensureEntrypoint(
 	source, target string,
-	write func(string, transaction.FileSnapshot, []byte, os.FileMode) (transaction.FileSnapshot, error),
+	write func(string, store.FileSnapshot, []byte, os.FileMode) (store.FileSnapshot, error),
 ) (func() error, error) {
 	program, err := ReadProgram(nil, source)
 	if err != nil {
@@ -267,7 +267,7 @@ func ensureEntrypoint(
 // written reader once.
 func (e executables) install(
 	data []byte, sum [sha256.Size]byte, target string,
-	write func(string, transaction.FileSnapshot, []byte, os.FileMode) (transaction.FileSnapshot, error),
+	write func(string, store.FileSnapshot, []byte, os.FileMode) (store.FileSnapshot, error),
 ) (Entrypoint, func() error, error) {
 	if err := validateVersionedDigest(target, sum); err != nil {
 		return Entrypoint{}, nil, err
@@ -287,14 +287,14 @@ func (e executables) install(
 			return Entrypoint{}, nil, errors.Join(err, cleanupDirectories())
 		}
 	}
-	post, err := write(target, transaction.FileSnapshot{}, data, 0o700)
+	post, err := write(target, store.FileSnapshot{}, data, 0o700)
 	if err != nil {
 		return Entrypoint{}, nil, errors.Join(err, cleanupDirectories())
 	}
 	receiptPath := target + ".sha256"
-	receiptPost, err := write(receiptPath, transaction.FileSnapshot{}, []byte(identity), 0o600)
+	receiptPost, err := write(receiptPath, store.FileSnapshot{}, []byte(identity), 0o600)
 	if err != nil {
-		_, cleanupErr := transaction.RemoveFileIfUnchanged(target, post)
+		_, cleanupErr := store.RemoveFileIfUnchanged(target, post)
 		return Entrypoint{}, nil, errors.Join(err, cleanupErr, cleanupDirectories())
 	}
 	undo := func() error {
@@ -381,8 +381,8 @@ func createCredentialDirectoryChain(parent string) (func() error, error) {
 	return cleanup, nil
 }
 
-func removeEntrypointPair(target string, binary, receipt transaction.FileSnapshot) error {
-	current, err := transaction.CaptureFileSnapshot(target)
+func removeEntrypointPair(target string, binary, receipt store.FileSnapshot) error {
+	current, err := store.CaptureFileSnapshot(target)
 	if err != nil {
 		return err
 	}
@@ -390,11 +390,11 @@ func removeEntrypointPair(target string, binary, receipt transaction.FileSnapsho
 		return errors.New("credential executable changed; refusing to remove its identity record")
 	}
 	receiptPath := target + ".sha256"
-	if _, err := transaction.RemoveFileIfUnchanged(receiptPath, receipt); err != nil {
+	if _, err := store.RemoveFileIfUnchanged(receiptPath, receipt); err != nil {
 		return err
 	}
-	if _, err := transaction.RemoveFileIfUnchanged(target, binary); err != nil {
-		_, restoreErr := transaction.WriteFileAtomicExactModeIfUnchanged(receiptPath, transaction.FileSnapshot{}, receipt.Data, receipt.Mode)
+	if _, err := store.RemoveFileIfUnchanged(target, binary); err != nil {
+		_, restoreErr := store.WriteFileAtomicExactModeIfUnchanged(receiptPath, store.FileSnapshot{}, receipt.Data, receipt.Mode)
 		return errors.Join(err, restoreErr)
 	}
 	return nil

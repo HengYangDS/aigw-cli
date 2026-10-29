@@ -10,9 +10,9 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
@@ -50,7 +50,7 @@ func TestAccountReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
 
 func TestAccountCommandsRequireAnAccountBeforeProviderWork(t *testing.T) {
 	runtime := invocation.Context{Clients: clients.Registry(),
-		Config:      configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()),
+		Config:      store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()),
 		Interactive: true,
 		Out:         &bytes.Buffer{},
 		RenderOut:   &bytes.Buffer{},
@@ -84,10 +84,10 @@ func TestEditReturnsTransactionPreparationFailure(t *testing.T) {
 	}
 }
 
-func blockedConfigurationStore(t *testing.T) (configuration.Store, secrets.Store) {
+func blockedConfigurationStore(t *testing.T) (store.Store, secrets.Store) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
-	store := configuration.NewStore(path, clients.Admission())
+	configStore := store.NewStore(path, clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["current"] = domain.Account{
 		Label:     "Current",
@@ -98,7 +98,7 @@ func blockedConfigurationStore(t *testing.T) (configuration.Store, secrets.Store
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedRoute(codex.ID, "current", "")
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	backup := path + ".bak"
@@ -108,5 +108,5 @@ func blockedConfigurationStore(t *testing.T) (configuration.Store, secrets.Store
 	if err := os.WriteFile(filepath.Join(backup, "blocker"), []byte("occupied"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return store, secrets.NewMemoryStore()
+	return configStore, secrets.NewMemoryStore()
 }

@@ -20,7 +20,6 @@ package_children."internal" = [
   "cli",
   "client",
   "clients",
-  "configuration",
   "credential",
   "diagnostics",
   "discovery",
@@ -34,9 +33,9 @@ package_children."internal" = [
   "redaction",
   "renaming",
   "secrets",
+  "store",
   "surface",
   "synchronization",
-  "transaction",
   "upgrade",
 ]
 package_children."tools" = [
@@ -108,16 +107,14 @@ allowed_import_edges."internal/clients" = [
   "internal/client/hermes",
   "internal/domain",
 ]
-allowed_import_edges."internal/transaction" = []
 allowed_import_edges."internal/credential" = [
   "internal/domain",
   "internal/secrets",
-  "internal/transaction",
+  "internal/store",
 ]
 allowed_import_edges."internal/domain" = []
-allowed_import_edges."internal/configuration" = [
+allowed_import_edges."internal/store" = [
   "internal/domain",
-  "internal/transaction",
 ]
 allowed_import_edges."internal/client" = [
   "internal/credential",
@@ -125,32 +122,32 @@ allowed_import_edges."internal/client" = [
   "internal/domain",
   "internal/process",
   "internal/secrets",
-  "internal/transaction",
+  "internal/store",
 ]
 allowed_import_edges."internal/client/verification" = ["internal/redaction"]
 # Upgrade reuses neutral process and durable staging owners.
 allowed_import_edges."internal/upgrade" = [
   "internal/platform",
   "internal/process",
-  "internal/transaction",
+  "internal/store",
   "internal/upgrade/artifact",
 ]
 allowed_import_edges."internal/upgrade/artifact" = []
 allowed_import_edges."internal/renaming" = [
-  "internal/configuration",
   "internal/domain",
   "internal/providers",
   "internal/secrets",
+  "internal/store",
   "internal/synchronization",
 ]
 allowed_import_edges."internal/synchronization" = [
   "internal/client",
-  "internal/configuration",
   "internal/credential",
   "internal/discovery",
   "internal/domain",
   "internal/process",
   "internal/secrets",
+  "internal/store",
 ]
 allowed_import_edges."internal/secrets" = [
   "internal/domain",
@@ -180,16 +177,16 @@ allowed_import_edges."internal/client/claude" = [
   "internal/domain",
   "internal/platform",
   "internal/process",
+  "internal/store",
   "internal/surface",
-  "internal/transaction",
 ]
 allowed_import_edges."internal/client/claudedesktop" = [
   "internal/client",
   "internal/discovery",
   "internal/domain",
   "internal/platform",
+  "internal/store",
   "internal/surface",
-  "internal/transaction",
 ]
 allowed_import_edges."internal/client/codex" = [
   "internal/client",
@@ -198,15 +195,15 @@ allowed_import_edges."internal/client/codex" = [
   "internal/discovery",
   "internal/domain",
   "internal/process",
+  "internal/store",
   "internal/surface",
-  "internal/transaction",
 ]
 allowed_import_edges."internal/client/codex/catalog" = []
 # The seam's contract suite checks any adapter against the seam alone.
 allowed_import_edges."internal/client/contract" = [
   "internal/client",
   "internal/domain",
-  "internal/transaction",
+  "internal/store",
 ]
 allowed_import_edges."internal/client/hermes" = [
   "internal/client",
@@ -215,8 +212,8 @@ allowed_import_edges."internal/client/hermes" = [
   "internal/discovery",
   "internal/domain",
   "internal/process",
+  "internal/store",
   "internal/surface",
-  "internal/transaction",
 ]
 allowed_import_edges."internal/discovery" = []
 allowed_import_edges."internal/surface" = []
@@ -245,7 +242,6 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/update",
   "internal/cli/verification",
   "internal/client",
-  "internal/configuration",
   "internal/credential",
   "internal/discovery",
   "internal/domain",
@@ -255,32 +251,33 @@ allowed_import_edges."internal/cli" = [
   "internal/prompt",
   "internal/readiness",
   "internal/secrets",
+  "internal/store",
   "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/invocation" = [
   "internal/client",
-  "internal/configuration",
   "internal/credential",
   "internal/discovery",
   "internal/presentation",
   "internal/process",
   "internal/prompt",
   "internal/secrets",
+  "internal/store",
   "internal/synchronization",
   "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/credential" = [
   "internal/cli/invocation",
-  "internal/configuration",
   "internal/domain",
   "internal/presentation",
   "internal/secrets",
   "internal/secrets/native",
+  "internal/store",
 ]
 allowed_import_edges."internal/cli/install" = [
   "internal/cli/invocation",
   "internal/presentation",
-  "internal/transaction",
+  "internal/store",
   "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/selection" = [
@@ -315,26 +312,26 @@ allowed_import_edges."internal/cli/recovery" = [
   "internal/synchronization",
 ]
 allowed_import_edges."internal/cli/catalog" = [
-  "internal/configuration",
   "internal/credential",
   "internal/domain",
   "internal/presentation",
   "internal/secrets",
+  "internal/store",
 ]
 allowed_import_edges."internal/cli/manifest" = [
   "internal/cli/invocation",
-  "internal/configuration",
   "internal/domain",
   "internal/presentation",
+  "internal/store",
 ]
 allowed_import_edges."internal/cli/doctor" = [
   "internal/activation",
-  "internal/configuration",
   "internal/credential",
   "internal/domain",
   "internal/presentation",
   "internal/readiness",
   "internal/secrets",
+  "internal/store",
   "internal/synchronization",
 ]
 allowed_import_edges."internal/cli/client" = [
@@ -361,7 +358,6 @@ allowed_import_edges."internal/cli/readiness" = [
   # aigw test defers a Route it cannot probe to the verify command that
   # verification owns.
   "internal/client/verification",
-  "internal/configuration",
   "internal/credential",
   "internal/diagnostics",
   "internal/domain",
@@ -369,6 +365,7 @@ allowed_import_edges."internal/cli/readiness" = [
   "internal/providers",
   "internal/readiness",
   "internal/secrets",
+  "internal/store",
 ]
 allowed_import_edges."internal/cli/account" = [
   "internal/activation",
@@ -382,12 +379,12 @@ allowed_import_edges."internal/cli/account" = [
 allowed_import_edges."internal/cli/onboarding" = [
   "internal/activation",
   "internal/cli/invocation",
-  "internal/configuration",
   "internal/credential",
   "internal/domain",
   "internal/presentation",
   "internal/prompt",
   "internal/secrets",
+  "internal/store",
 ]
 allowed_import_edges."internal/prompt" = []
 allowed_import_edges."internal/redaction" = []
@@ -397,9 +394,9 @@ allowed_import_edges."internal/diagnostics" = [
 ]
 allowed_import_edges."internal/providers/diagnostic" = []
 allowed_import_edges."internal/presentation" = [
-  "internal/configuration",
   "internal/domain",
   "internal/secrets",
+  "internal/store",
 ]
 allowed_import_edges."internal/process" = []
 allowed_import_edges."tools/ci" = [
@@ -434,8 +431,8 @@ allowed_import_edges."tools/release/construction" = [
   "internal/upgrade",
   "internal/upgrade/artifact",
   "tools/release/artifact",
-  "tools/release/readiness",
   "tools/release/performance",
+  "tools/release/readiness",
 ]
 allowed_import_edges."tools/release/performance" = [
   "internal/domain",

@@ -200,7 +200,8 @@ text is unchanged. Tests that need the built-in clients take the composition
 root's admission. A package that the composition root imports cannot import it
 back: an adapter's own tests admit its specification, plus a fixture client
 where a test needs a second one, and the other such packages admit fixture
-specifications.
+specifications. Where a fixture copies the built-in records, an external test of
+the same package keeps it equal to the composition root's admission.
 
 Alternative considered: one registration of the admitted specifications at
 start-up. Rejected because it keeps a package-level dependency that every

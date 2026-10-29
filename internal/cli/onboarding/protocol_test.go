@@ -11,21 +11,21 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 func TestSetupValidatesSelectedHermesProtocol(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	credentials := secrets.NewMemoryStore()
 	if err := credentials.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
 	requests := 0
 	runtime := invocation.Context{Clients: clients.Registry(),
-		Config: store, Secrets: credentials, Discovery: setupDiscovery{result: discovery.Result{}},
+		Config: configStore, Secrets: credentials, Discovery: setupDiscovery{result: discovery.Result{}},
 		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			requests++
 			if request.URL.Host != "messages.test" || request.Header.Get("X-Api-Key") != "token" || request.Header.Get("Authorization") != "" {

@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -269,13 +269,13 @@ func DisableConfig(path string) error {
 	return err
 }
 
-func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot) (string, codexState, error) {
+func codexUserConfig(configSnapshot, stateSnapshot store.FileSnapshot) (string, codexState, error) {
 	return codexUserConfigTransition(configSnapshot, stateSnapshot, domain.Runtime{}, "", false)
 }
 
 // codexUserConfigTransition removes the recorded projection from a target
 // before chosen, the root model about to be projected, replaces it.
-func codexUserConfigTransition(configSnapshot, stateSnapshot transaction.FileSnapshot, previous domain.Runtime, chosen string, replaceRootSelections bool) (string, codexState, error) {
+func codexUserConfigTransition(configSnapshot, stateSnapshot store.FileSnapshot, previous domain.Runtime, chosen string, replaceRootSelections bool) (string, codexState, error) {
 	text := string(configSnapshot.Data)
 	if !stateSnapshot.Exists {
 		scheduler, err := captureCodexScheduler(text)

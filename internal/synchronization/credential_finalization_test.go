@@ -14,10 +14,10 @@ import (
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/store"
 )
 
 func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *testing.T) {
@@ -323,8 +323,8 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 			}
 			before := testConfig(target)
 			before.SetClientActivation(codex.ID, false, "", nil)
-			store := configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
-			if err := store.Save(before); err != nil {
+			configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
+			if err := configStore.Save(before); err != nil {
 				t.Fatal(err)
 			}
 			adapter := removedEntrypointAdapter{target: target, reader: reader}
@@ -332,7 +332,7 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
+			syncer := Synchronizer{Config: configStore, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
 			after := testConfig(target)
 			if mode == "commit" {
 				err = syncer.CommitProjection(t.Context(), before, after, "sync")
@@ -343,7 +343,7 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 				t.Fatal("missing reader after projection was accepted")
 			}
 			if mode == "commit" {
-				stored, loadErr := store.Load()
+				stored, loadErr := configStore.Load()
 				if loadErr != nil || stored.Clients[codex.ID].Enabled {
 					t.Fatalf("failed synchronization retained enabled Codex: %v, %v", stored.Clients[codex.ID], loadErr)
 				}

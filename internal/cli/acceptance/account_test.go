@@ -12,9 +12,9 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 func TestAccountListJSONIsStableAndSecretFree(t *testing.T) {
@@ -120,7 +120,7 @@ func TestAccountEditValidation(t *testing.T) {
 
 	t.Run("account edit load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"account", "edit", "one", "--label", "New"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -186,7 +186,7 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 	t.Run("config load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -309,7 +309,7 @@ func TestAccountDiagnosticsEnableRejectsIncompleteExplicitInputBeforeReading(t *
 func TestAccountDiagnosticsDisableBranches(t *testing.T) {
 	t.Run("load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
+		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"account", "diagnostics", "disable"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -336,12 +336,12 @@ func TestAccountDiagnosticsDisableBranches(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
 		saveProbeRoute(t, app.Config)
-		store := app.Accounts
-		_ = store.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
+		diagnosticStore := app.Accounts
+		_ = diagnosticStore.Set("dmx", secrets.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		if err := cli.Execute(app, []string{"account", "diagnostics", "disable", "dmx"}); err != nil {
 			t.Fatal(err)
 		}
-		if accountCredentialExists(t, store, "dmx") || !strings.Contains(out.String(), "credentials were removed") {
+		if accountCredentialExists(t, diagnosticStore, "dmx") || !strings.Contains(out.String(), "credentials were removed") {
 			t.Fatalf("output=%q", out.String())
 		}
 	})

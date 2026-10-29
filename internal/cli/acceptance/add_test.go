@@ -12,10 +12,10 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 )
 
 func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
@@ -163,7 +163,7 @@ func TestAddSurfacesConfigLoadFailure(t *testing.T) {
 	// A config path that is itself an existing directory makes os.ReadFile
 	// fail with something other than os.ErrNotExist.
 	dir := t.TempDir()
-	app.Config = configuration.NewStore(dir, clients.Admission())
+	app.Config = store.NewStore(dir, clients.Admission())
 	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
 	if err == nil || strings.Contains(err.Error(), "Invalid account ID") {
 		t.Fatalf("error = %v, want a config load failure", err)
@@ -231,7 +231,7 @@ func TestAddRejectsUnavailableLockBeforeCredentialAccess(t *testing.T) {
 	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app.Config = configuration.NewStore(filepath.Join(blocker, "nested", "configuration.toml"), clients.Admission())
+	app.Config = store.NewStore(filepath.Join(blocker, "nested", "configuration.toml"), clients.Admission())
 	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "create config directory for lock") {
 		t.Fatalf("lock admission error = %v", err)

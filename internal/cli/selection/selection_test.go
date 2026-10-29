@@ -18,11 +18,11 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
@@ -228,7 +228,7 @@ func (do doerFunc) Do(request *http.Request) (*http.Response, error) { return do
 
 func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.Buffer) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{
 		Label: "Gateway",
@@ -246,11 +246,11 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 		},
 	}
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
-	if err := store.Save(cfg); err != nil {
+	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	return invocation.Context{Clients: clients.Registry(), Config: store, Out: out, RenderOut: out, Width: 120, Discovery: staticDiscovery{}}, cfg, out
+	return invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out, RenderOut: out, Width: 120, Discovery: staticDiscovery{}}, cfg, out
 }
 
 func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {

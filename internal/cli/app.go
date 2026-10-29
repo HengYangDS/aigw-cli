@@ -34,7 +34,6 @@ import (
 	updatecli "aigw-cli/internal/cli/update"
 	"aigw-cli/internal/cli/verification"
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
@@ -44,6 +43,7 @@ import (
 	"aigw-cli/internal/prompt"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/upgrade"
 
 	"github.com/spf13/cobra"
@@ -62,7 +62,7 @@ type App struct {
 	Files                 credential.Files
 	InstallTarget         string
 	Host                  discovery.Host
-	Config                configuration.Store
+	Config                store.Store
 	Secrets               secrets.Store
 	Accounts              secrets.DiagnosticCredentialStore
 	Env                   []string
@@ -237,7 +237,7 @@ func NewDefault(clients client.Registry) (*App, error) {
 		Executable:    executable,
 		InstallTarget: filepath.Join(paths.InstallDir, paths.InstallName),
 		Host:          host.Platform(),
-		Config:        configuration.NewStore(paths.Config, clients.Admission()),
+		Config:        store.NewStore(paths.Config, clients.Admission()),
 		Secrets:       secretStore,
 		Accounts:      diagnosticCredentialStore,
 		Env:           os.Environ(),

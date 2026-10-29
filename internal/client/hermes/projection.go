@@ -11,7 +11,7 @@ import (
 	"slices"
 	"strings"
 
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -75,8 +75,8 @@ func (provider Provider) validate() error {
 type Plan struct {
 	Action       string
 	path         string
-	configBefore transaction.FileSnapshot
-	stateBefore  transaction.FileSnapshot
+	configBefore store.FileSnapshot
+	stateBefore  store.FileSnapshot
 	configAfter  []byte
 	stateAfter   []byte
 	removeConfig bool
@@ -100,10 +100,10 @@ func (plan *Plan) ObservedCredentialCommand(providerID string) (string, bool) {
 // Receipt retains the exact file snapshots needed for guarded compensation.
 type Receipt struct {
 	path         string
-	configBefore transaction.FileSnapshot
-	stateBefore  transaction.FileSnapshot
-	configAfter  transaction.FileSnapshot
-	stateAfter   transaction.FileSnapshot
+	configBefore store.FileSnapshot
+	stateBefore  store.FileSnapshot
+	configAfter  store.FileSnapshot
+	stateAfter   store.FileSnapshot
 	changed      bool
 }
 
@@ -152,11 +152,11 @@ func prepare(path string, desired, previous *Desired) (Plan, error) {
 func prepareObserved(path string, desired, previous *Desired, adopted bool) (Plan, error) {
 	plan := Plan{path: path, Action: "unchanged"}
 	var err error
-	plan.configBefore, err = transaction.CaptureFileSnapshot(path)
+	plan.configBefore, err = store.CaptureFileSnapshot(path)
 	if err != nil {
 		return Plan{}, err
 	}
-	plan.stateBefore, err = transaction.CaptureFileSnapshot(path + stateSuffix)
+	plan.stateBefore, err = store.CaptureFileSnapshot(path + stateSuffix)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -335,20 +335,20 @@ func (plan *Plan) Apply() (Receipt, error) {
 	receipt := Receipt{path: plan.path, configBefore: plan.configBefore, stateBefore: plan.stateBefore, changed: true}
 	var err error
 	if plan.removeConfig {
-		receipt.configAfter, err = transaction.RemoveFileIfUnchanged(plan.path, plan.configBefore)
+		receipt.configAfter, err = store.RemoveFileIfUnchanged(plan.path, plan.configBefore)
 	} else {
-		receipt.configAfter, err = transaction.WriteFileAtomicIfUnchanged(plan.path, plan.configBefore, plan.configAfter, 0o600)
+		receipt.configAfter, err = store.WriteFileAtomicIfUnchanged(plan.path, plan.configBefore, plan.configAfter, 0o600)
 	}
 	if err != nil {
 		return Receipt{}, err
 	}
 	if plan.Action == "remove" {
-		receipt.stateAfter, err = transaction.RemoveFileIfUnchanged(plan.path+stateSuffix, plan.stateBefore)
+		receipt.stateAfter, err = store.RemoveFileIfUnchanged(plan.path+stateSuffix, plan.stateBefore)
 	} else {
-		receipt.stateAfter, err = transaction.WriteFileAtomicIfUnchanged(plan.path+stateSuffix, plan.stateBefore, plan.stateAfter, 0o600)
+		receipt.stateAfter, err = store.WriteFileAtomicIfUnchanged(plan.path+stateSuffix, plan.stateBefore, plan.stateAfter, 0o600)
 	}
 	if err != nil {
-		return Receipt{}, transaction.CompensationFailed(err, transaction.RestoreFileAtomicIfPostimage(plan.path, plan.configBefore, receipt.configAfter))
+		return Receipt{}, store.CompensationFailed(err, store.RestoreFileAtomicIfPostimage(plan.path, plan.configBefore, receipt.configAfter))
 	}
 	return receipt, nil
 }
@@ -359,8 +359,8 @@ func (receipt Receipt) Rollback() error {
 		return nil
 	}
 	// Retain ownership if configuration compensation is unsafe.
-	if err := transaction.RestoreFileAtomicIfPostimage(receipt.path, receipt.configBefore, receipt.configAfter); err != nil {
+	if err := store.RestoreFileAtomicIfPostimage(receipt.path, receipt.configBefore, receipt.configAfter); err != nil {
 		return err
 	}
-	return transaction.RestoreFileAtomicIfPostimage(receipt.path+stateSuffix, receipt.stateBefore, receipt.stateAfter)
+	return store.RestoreFileAtomicIfPostimage(receipt.path+stateSuffix, receipt.stateBefore, receipt.stateAfter)
 }

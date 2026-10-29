@@ -8,11 +8,11 @@ import (
 	"fmt"
 
 	"aigw-cli/internal/cli/invocation"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
+	"aigw-cli/internal/store"
 
 	"github.com/spf13/cobra"
 )
@@ -91,7 +91,7 @@ func configurationProblem(version string, err error) error {
 	if stage, ok := presentation.ConfigurationLoadEvidence(reader, err); ok {
 		evidence = stage
 	}
-	if failure, ok := errors.AsType[*configuration.LoadError](err); ok && failure.Phase == configuration.LoadPhaseRead {
+	if failure, ok := errors.AsType[*store.LoadError](err); ok && failure.Phase == store.LoadPhaseRead {
 		fix = "Restore the client's read access to the AIGW configuration; run `aigw doctor` to inspect it."
 	}
 	return presentation.ProblemError("Cannot read AIGW configuration", evidence, "Credential lookup did not start.", fix, err)

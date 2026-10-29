@@ -19,11 +19,11 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	clientverification "aigw-cli/internal/client/verification"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
+	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/readiness"
 
 	builtinclients "aigw-cli/internal/clients"
@@ -123,15 +123,15 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	state := publishedNativeJourney{journey: journey, baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version, clients: deferredJourneyClientIDs()}
 	state.prepare(t, nativeCurrentSchemaManifest(upstream.URL+"/v1"))
 	journey.run("update", "--candidate", archive, "--checksums", checksums)
-	store := configuration.NewStore(journey.config, builtinclients.Admission())
-	before := capturePublishedSnapshot(t, store)
+	configStore := store.NewStore(journey.config, builtinclients.Admission())
+	before := capturePublishedSnapshot(t, configStore)
 	endpoint := forwarding.URL + "/selected/v1"
 	args := []string{"use", "native-codex", "--for", codex.ID, "--forwarding-endpoint", endpoint}
 	preview := journey.run(append(slices.Clone(args), "--dry-run", "--json")...)
 	if bytes.Contains(preview, []byte("native-journey-token")) || !bytes.Contains(preview, []byte(endpoint)) {
 		t.Fatal("forwarding preview lost its destination or exposed credentials")
 	}
-	unchanged, err := store.CaptureSnapshot()
+	unchanged, err := configStore.CaptureSnapshot()
 	if err != nil || !reflect.DeepEqual(before, unchanged) {
 		t.Fatalf("native preview changed configuration or recovery state: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 		t.Fatal("forwarding preview sent an inference request")
 	}
 	journey.run(args...)
-	cfg, err := store.Load()
+	cfg, err := configStore.Load()
 	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint || cfg.Accounts["native-system-keyring-probe"].Endpoints.OpenAIResponses != upstream.URL+"/v1" {
 		t.Fatalf("forwarding did not preserve Account ownership: %v", err)
 	}
@@ -161,9 +161,9 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 		journey.requireCredential(original, "native-journey-token")
 		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
 	}
-	selected := capturePublishedSnapshot(t, store)
+	selected := capturePublishedSnapshot(t, configStore)
 	journey.run("sync")
-	converged, err := store.CaptureSnapshot()
+	converged, err := configStore.CaptureSnapshot()
 	if err != nil || !reflect.DeepEqual(selected, converged) {
 		t.Fatalf("converged native sync rewrote forwarding state: %v", err)
 	}
@@ -171,25 +171,25 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	state.finish(t)
 }
 
-func capturePublishedSnapshot(t *testing.T, store configuration.Store) configuration.Snapshot {
+func capturePublishedSnapshot(t *testing.T, configStore store.Store) store.Snapshot {
 	t.Helper()
-	snapshot, err := store.CaptureSnapshot()
+	snapshot, err := configStore.CaptureSnapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
 	return snapshot
 }
 
-func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint string, selected configuration.Snapshot, baseline string) {
+func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint string, selected store.Snapshot, baseline string) {
 	journey := state.journey
-	store := configuration.NewStore(journey.config, builtinclients.Admission())
+	configStore := store.NewStore(journey.config, builtinclients.Admission())
 	journey.run("rollback", "--last-change")
-	cfg, err := store.Load()
+	cfg, err := configStore.Load()
 	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != "" {
 		t.Fatalf("configuration rollback retained forwarding: %v", err)
 	}
 	journey.run("rollback", "--last-change")
-	restored, err := store.CaptureSnapshot()
+	restored, err := configStore.CaptureSnapshot()
 	if err != nil || !restored.Config.Equal(selected.Config) || !restored.Forwarding.Equal(selected.Forwarding) {
 		t.Fatalf("configuration forward restore lost exact binding bytes: %v", err)
 	}
@@ -201,7 +201,7 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint s
 	journey.runWith(state.candidate, "sync")
 	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
 	journey.requireProgramBytes(state.candidate)
-	cfg, err = store.Load()
+	cfg, err = configStore.Load()
 	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint {
 		t.Fatalf("program rollback and forward restore lost forwarding: %v", err)
 	}
@@ -246,7 +246,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	}
 	journey.installClientFixture(hermes.ID)
 	journey.setEnvironment("HERMES_HOME", filepath.Join(journey.root, "home", ".hermes"))
-	configured, err := configuration.Parse(readFile(t, journey.manifest), builtinclients.Admission())
+	configured, err := store.Parse(readFile(t, journey.manifest), builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -378,7 +378,7 @@ func (state *publishedNativeJourney) upgrade(t *testing.T) {
 func (j *journeyFixture) importCatalogOrder() []byte {
 	j.testing.Helper()
 	before := readFile(j.testing, j.config)
-	ranked, err := configuration.Parse(readFile(j.testing, j.manifest), builtinclients.Admission())
+	ranked, err := store.Parse(readFile(j.testing, j.manifest), builtinclients.Admission())
 	if err != nil {
 		j.testing.Fatal(err)
 	}
@@ -393,9 +393,9 @@ func (j *journeyFixture) importCatalogOrder() []byte {
 		j.testing.Fatal(err)
 	}
 	j.run("config", "import", j.manifest, "--replace-account", "native-system-keyring-probe", "--replace-model", "claude-test")
-	store := configuration.NewStore(j.config, builtinclients.Admission())
-	updated := capturePublishedSnapshot(j.testing, store)
-	selected, err := store.Load()
+	configStore := store.NewStore(j.config, builtinclients.Admission())
+	updated := capturePublishedSnapshot(j.testing, configStore)
+	selected, err := configStore.Load()
 	if err != nil {
 		j.testing.Fatal(err)
 	}
@@ -432,12 +432,12 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 		journey.requireCredential(successor[client], "native-journey-token")
 	}
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) ||
-		!bytes.Equal(capturePublishedSnapshot(t, configuration.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
+		!bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
 		t.Fatal("current-schema rollback changed published routing or catalogue presentation")
 	}
 	journey.run("sync")
 	journey.run("check")
-	if !bytes.Equal(capturePublishedSnapshot(t, configuration.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
+	if !bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
 		t.Fatal("published predecessor synchronization changed catalogue presentation")
 	}
 	for _, client := range state.clients {
@@ -454,7 +454,7 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 	journey.requireVersion(state.version)
 	journey.requireProgramBytes(state.candidate)
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) ||
-		!bytes.Equal(capturePublishedSnapshot(t, configuration.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
+		!bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
 		t.Fatal("current-schema recovery rewrote published routing or catalogue presentation")
 	}
 	state.finish(t)

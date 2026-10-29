@@ -15,7 +15,7 @@ import (
 
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/transaction"
+	"aigw-cli/internal/store"
 )
 
 const (
@@ -23,10 +23,10 @@ const (
 )
 
 var (
-	captureSnapshot = transaction.CaptureFileSnapshot
-	writeGuarded    = transaction.WriteFileAtomicIfUnchanged
-	removeGuarded   = transaction.RemoveFileIfUnchanged
-	restoreGuarded  = transaction.RestoreFileAtomicIfPostimage
+	captureSnapshot = store.CaptureFileSnapshot
+	writeGuarded    = store.WriteFileAtomicIfUnchanged
+	removeGuarded   = store.RemoveFileIfUnchanged
+	restoreGuarded  = store.RestoreFileAtomicIfPostimage
 )
 
 var managedEnvironmentKeys = []string{
@@ -107,8 +107,8 @@ type settingsChange struct {
 	plan           SettingsPlan
 	path           string
 	statePath      string
-	settingsBefore transaction.FileSnapshot
-	stateBefore    transaction.FileSnapshot
+	settingsBefore store.FileSnapshot
+	stateBefore    store.FileSnapshot
 	settingsData   []byte
 	stateData      []byte
 	removeSettings bool
@@ -118,14 +118,14 @@ type settingsChange struct {
 // target without interpreting or changing its contents.
 func CopyProjection(source, target string) error {
 	for _, suffix := range []string{"", settingsStateSuffix} {
-		snapshot, err := transaction.CaptureFileSnapshot(source + suffix)
+		snapshot, err := store.CaptureFileSnapshot(source + suffix)
 		if err != nil {
 			return err
 		}
 		if !snapshot.Exists {
 			continue
 		}
-		if err := transaction.WriteFileAtomicExactMode(target+suffix, snapshot.Data, snapshot.Mode); err != nil {
+		if err := store.WriteFileAtomicExactMode(target+suffix, snapshot.Data, snapshot.Mode); err != nil {
 			return err
 		}
 	}
@@ -251,7 +251,7 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 	return change, nil
 }
 
-func prepareSettingsState(document settingsDocument, settingsBefore, stateBefore transaction.FileSnapshot, previousModel string) (settingsState, error) {
+func prepareSettingsState(document settingsDocument, settingsBefore, stateBefore store.FileSnapshot, previousModel string) (settingsState, error) {
 	if !stateBefore.Exists {
 		if hasCredentialOwnershipConflict(document) {
 			return settingsState{}, errors.New("Claude credential ownership conflict: remove the plaintext credential or foreign apiKeyHelper before enabling AIGW")
@@ -289,7 +289,7 @@ func (state *settingsState) acceptModelPreference(document settingsDocument, pre
 }
 
 func (change settingsChange) apply() (SettingsReceipt, error) {
-	var settingsAfter transaction.FileSnapshot
+	var settingsAfter store.FileSnapshot
 	var err error
 	settingsAction, stateAction := "write", "write"
 	if change.plan.Action == SettingsActionRestore {
@@ -303,7 +303,7 @@ func (change settingsChange) apply() (SettingsReceipt, error) {
 	if err != nil {
 		return SettingsReceipt{}, fmt.Errorf("%s Claude settings: %w", settingsAction, err)
 	}
-	var stateAfter transaction.FileSnapshot
+	var stateAfter store.FileSnapshot
 	if change.plan.Action == SettingsActionRestore {
 		stateAfter, err = removeGuarded(change.statePath, change.stateBefore)
 	} else {
@@ -312,7 +312,7 @@ func (change settingsChange) apply() (SettingsReceipt, error) {
 	if err != nil {
 		rollbackErr := restoreGuarded(change.path, change.settingsBefore, settingsAfter)
 		if rollbackErr != nil {
-			return SettingsReceipt{}, transaction.CompensationFailed(fmt.Errorf("%s Claude settings state: %w", stateAction, err), rollbackErr)
+			return SettingsReceipt{}, store.CompensationFailed(fmt.Errorf("%s Claude settings state: %w", stateAction, err), rollbackErr)
 		}
 		return SettingsReceipt{}, fmt.Errorf("%s Claude settings state: %w", stateAction, err)
 	}
@@ -324,7 +324,7 @@ func (change settingsChange) apply() (SettingsReceipt, error) {
 	}}, nil
 }
 
-func decodeSettings(snapshot transaction.FileSnapshot) (settingsDocument, error) {
+func decodeSettings(snapshot store.FileSnapshot) (settingsDocument, error) {
 	if !snapshot.Exists || len(bytes.TrimSpace(snapshot.Data)) == 0 {
 		return settingsDocument{}, nil
 	}
