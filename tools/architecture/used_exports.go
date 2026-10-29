@@ -146,6 +146,7 @@ func collectExportedSurface(files []goFileInfo, dir string, fset *token.FileSet,
 					}
 				case len(decl.Recv.List) > 0 && decl.Name.IsExported():
 					owner := receiverTypeName(decl.Recv.List[0].Type)
+					// A generic method adds its own type parameters to its receiver's.
 					params := receiverParams(decl.Recv.List[0].Type)
 					maps.Copy(params, fieldNames(decl.Type.TypeParams))
 					methods[owner] = append(methods[owner], apiNode{decl.Type, params})
@@ -230,11 +231,13 @@ func fieldNames(fields *ast.FieldList) map[string]bool {
 }
 
 // receiverParams returns the type parameter names that a method's receiver
-// declares, as in func (Box[T]) Get() T; a generic method adds its own.
+// declares, as in func (Box[T]) Get() T.
 func receiverParams(expr ast.Expr) map[string]bool {
 	names := map[string]bool{}
 	var indices []ast.Expr
 	switch receiver := expr.(type) {
+	case *ast.ParenExpr:
+		return receiverParams(receiver.X)
 	case *ast.StarExpr:
 		return receiverParams(receiver.X)
 	case *ast.IndexExpr:
@@ -252,6 +255,8 @@ func receiverParams(expr ast.Expr) map[string]bool {
 
 func receiverTypeName(expr ast.Expr) string {
 	switch receiver := expr.(type) {
+	case *ast.ParenExpr:
+		return receiverTypeName(receiver.X)
 	case *ast.StarExpr:
 		return receiverTypeName(receiver.X)
 	case *ast.IndexExpr:

@@ -106,7 +106,15 @@ func (*Gen[Token]) Ptr() Token { var zero Token; return zero }
 
 func (Gen[T]) Map[Token any](value Token) Token { return value }
 
-func (Pair[Token, V]) Key() Token { var zero Token; return zero }
+func (Pair[K, Token]) Value() Token { var zero Token; return zero }
+
+type Paren[Token any] struct{}
+
+func (receiver (*Paren[Token])) Get() (Token, ViaParen) { var zero Token; return zero, ViaParen{} }
+
+type ViaParen struct{}
+
+func UseParen() *Paren[int] { return nil }
 
 func UseGen() Gen[int] { return Gen[int]{} }
 
@@ -208,6 +216,8 @@ func writeUsedExportsFixture(t *testing.T, root string) []goFileInfo {
 import "example.com/aigw/internal/model"
 
 var _, _, _, _, _, _, _, _, _, _ = model.Used, model.UseBox, model.UsePair, model.Serve, model.Bridge, model.Platform, model.Resolve, model.Hook, model.UseGen, model.UseOuter
+
+var _ = model.UseParen
 
 var _ = model.Pick[int]
 

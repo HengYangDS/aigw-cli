@@ -78,8 +78,8 @@ in `domain`, which like them imports only the standard library, because
 provider diagnostics, client verification and release tooling apply them below
 `terminal`.
 
-Repository tools sit above the product stack. A package under `tools/` may
-import its own subtree and product packages in layers 4 to 6, and never
+Repository tools sit above the product stack. A production file under `tools/`
+may import its own subtree and product packages in layers 4 to 6, and never
 `cmd`, `cli` or `app`. The release tool already imports
 `internal/upgrade/artifact`, and `tools/codex/catalog` imports `internal/client/codex`;
 both keep importing the owner instead of re-encoding its knowledge.
@@ -91,7 +91,8 @@ every new package needs a policy edit.
 ### The existing architecture gate enforces the layers
 
 `tools/architecture` gains a `layers` table. The table is an ordered list of
-package-path prefixes, and the gate checks every import against it. The table
+package-path prefixes, and the gate checks every import of a production file
+against it. The table
 replaces `allowed_import_edges`. `package_children` stays as the closed list of
 direct owners. A violation names the importing package, the imported package
 and both layers. Client-name confinement uses the same scan: identifiers and
