@@ -71,7 +71,9 @@ a package in its own layer or in a higher one.
 never imports an adapter, and adapters never import each other. `domain`
 imports only the standard library. `terminal` renders values that `app`
 returns; neither imports the other. The adapter list shares layer 2 with the
-command tree because only `cmd/aigw` imports it. The redaction rules live
+command tree because only `cmd/aigw` imports it in production code. Like
+today's import edges, the layers bind production files; test files are
+fixtures and may import the adapter list. The redaction rules live
 in `domain`, which like them imports only the standard library, because
 provider diagnostics, client verification and release tooling apply them below
 `terminal`.

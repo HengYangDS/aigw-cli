@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -145,7 +146,9 @@ func collectExportedSurface(files []goFileInfo, dir string, fset *token.FileSet,
 					}
 				case len(decl.Recv.List) > 0 && decl.Name.IsExported():
 					owner := receiverTypeName(decl.Recv.List[0].Type)
-					methods[owner] = append(methods[owner], apiNode{decl.Type, receiverParams(decl.Recv.List[0].Type)})
+					params := receiverParams(decl.Recv.List[0].Type)
+					maps.Copy(params, fieldNames(decl.Type.TypeParams))
+					methods[owner] = append(methods[owner], apiNode{decl.Type, params})
 				}
 			case *ast.GenDecl:
 				collectGenDecl(decl, declare, surface.constants)
@@ -227,7 +230,7 @@ func fieldNames(fields *ast.FieldList) map[string]bool {
 }
 
 // receiverParams returns the type parameter names that a method's receiver
-// declares, as in func (Box[T]) Get() T.
+// declares, as in func (Box[T]) Get() T; a generic method adds its own.
 func receiverParams(expr ast.Expr) map[string]bool {
 	names := map[string]bool{}
 	var indices []ast.Expr

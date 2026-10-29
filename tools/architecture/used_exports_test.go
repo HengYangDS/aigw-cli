@@ -102,6 +102,12 @@ type Gen[Token any] struct{ Value Token }
 
 func (Gen[Token]) Get() Token { var zero Token; return zero }
 
+func (*Gen[Token]) Ptr() Token { var zero Token; return zero }
+
+func (Gen[T]) Map[Token any](value Token) Token { return value }
+
+func (Pair[Token, V]) Key() Token { var zero Token; return zero }
+
 func UseGen() Gen[int] { return Gen[int]{} }
 
 func Pick[Token any](value Token) Token { return value }
