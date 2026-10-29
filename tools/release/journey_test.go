@@ -1,9 +1,9 @@
 package main
 
 import (
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/claudedesktop"
 	clientverification "aigw-cli/internal/client/verification"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
@@ -65,7 +65,7 @@ func TestNativeProductJourney(t *testing.T) {
 		if err := json.Unmarshal(journey.run("sync", "--dry-run", "--json"), &preview); err != nil {
 			t.Fatal(err)
 		}
-		if preview.Selections[configuration.ClientClaude] != "native-system-keyring-probe-claude" || !bytes.Equal(beforePreview, readFile(t, journey.config)) {
+		if preview.Selections[claude.ID] != "native-system-keyring-probe-claude" || !bytes.Equal(beforePreview, readFile(t, journey.config)) {
 			t.Fatalf("late sync preview did not plan the available Account without writing: %+v", preview)
 		}
 		journey.run("sync")
@@ -79,7 +79,7 @@ func TestNativeProductJourney(t *testing.T) {
 		journey.requireClaudeCredential("native-journey-token")
 		journey.run("check")
 		journey.run("verify", "--for", "claude")
-		retained := journey.retainedCredential(configuration.ClientClaude)
+		retained := journey.retainedCredential(claude.ID)
 		journey.uninstallAndRequireInstallationRemoved()
 		journey.requireWithdrawnCredentialDenied(retained, "native-journey-token")
 		journey.requireConfigContains("native-system-keyring-probe-claude", "unused-claude")
@@ -286,7 +286,7 @@ func (j *journeyFixture) installClientFixture(client string) {
 		name += ".exe"
 	}
 	target := filepath.Join(j.clientBin, name)
-	if client == configuration.ClientClaudeDesktop {
+	if client == claudedesktop.ID {
 		candidates := claudedesktop.ApplicationPathsFor(runtime.GOOS, map[string]string{
 			"HOME": filepath.Join(j.root, "home"), "LOCALAPPDATA": filepath.Join(j.root, "localappdata"),
 		})
@@ -395,12 +395,12 @@ func (j *journeyFixture) requireConfigContains(values ...string) {
 
 func (j *journeyFixture) requireNoClaudeProjection() {
 	j.testing.Helper()
-	j.requireNoClientProjection(configuration.ClientClaude)
+	j.requireNoClientProjection(claude.ID)
 }
 
 func (j *journeyFixture) requireClaudeProjection() {
 	j.testing.Helper()
-	j.requireClientProjection(configuration.ClientClaude)
+	j.requireClientProjection(claude.ID)
 	data, err := os.ReadFile(j.settings)
 	if err != nil {
 		j.testing.Fatal(err)
@@ -540,9 +540,9 @@ func TestRetainedClaudeCredentialCommandsRemainIndependent(t *testing.T) {
 		}
 	}
 	writeCommand("original-fixture-token")
-	original := journey.retainedCredential(configuration.ClientClaude)
+	original := journey.retainedCredential(claude.ID)
 	writeCommand("successor-fixture-token")
-	successor := journey.retainedCredential(configuration.ClientClaude)
+	successor := journey.retainedCredential(claude.ID)
 	if err := os.Remove(journey.settings); err != nil {
 		t.Fatal(err)
 	}

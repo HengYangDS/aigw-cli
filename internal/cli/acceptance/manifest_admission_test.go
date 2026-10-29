@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
@@ -85,7 +86,7 @@ func TestSetupFromConfigurationManifestDefersOnlineAuthenticationToCheck(t *test
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: executableFixture(t, "codex")},
+		Executables: map[string]string{codex.ID: executableFixture(t, "codex")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -228,7 +229,7 @@ func TestManifestSetupSurfacesManifestAndConfigFailures(t *testing.T) {
 
 	t.Run("already configured", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		path := writeConfigurationManifest(t, configurationManifestFixture)
 		err := cli.Execute(app, []string{"setup", "--from", path})
 		if err == nil || !strings.Contains(err.Error(), "already configured") {

@@ -139,8 +139,8 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, configuration
 		Label: "Codex", Account: "one", Model: "gpt-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetSelectedRoute(codex.ID, "codex", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -169,12 +169,12 @@ func configureClaudeExecutable(t *testing.T, runtime *invocation.Context, cfg *c
 	}
 	runtime.Executable = filepath.Join(root, "aigw")
 	runtime.Host = hostAt(root)
-	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
+	cfg.SetClientActivation(claude.ID, true, executable, nil)
 }
 
 func synchronizeClaudeSettings(t *testing.T, runtime invocation.Context, cfg configuration.Config) {
 	t.Helper()
-	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+	clientRuntime, err := cfg.ResolveRuntime(claude.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,7 +212,7 @@ func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
 		if err := json.Unmarshal(buffer.Bytes(), &status); err != nil {
 			t.Fatal(err)
 		}
-		client := status.Clients[configuration.ClientClaude]
+		client := status.Clients[claude.ID]
 		if client.ProjectionReady != synchronized || secretStore.getCalls != secretReads {
 			t.Errorf("synchronized=%t client=%+v secret reads=%d", synchronized, client, secretStore.getCalls-secretReads)
 		}
@@ -235,11 +235,11 @@ func executeCommand(command *cobra.Command) error {
 }
 
 func TestCheckEvaluationClientLookupDistinguishesMissingClient(t *testing.T) {
-	evaluation := checkEvaluation{clients: []evaluatedClient{{client: configuration.ClientClaude}}}
-	if client, ok := evaluation.client(configuration.ClientClaude); !ok || client.client != configuration.ClientClaude {
+	evaluation := checkEvaluation{clients: []evaluatedClient{{client: claude.ID}}}
+	if client, ok := evaluation.client(claude.ID); !ok || client.client != claude.ID {
 		t.Fatalf("Claude client = %#v, %v", client, ok)
 	}
-	if client, ok := evaluation.client(configuration.ClientCodex); ok || client != (evaluatedClient{}) {
+	if client, ok := evaluation.client(codex.ID); ok || client != (evaluatedClient{}) {
 		t.Fatalf("missing Codex client = %#v, %v", client, ok)
 	}
 }
@@ -254,8 +254,8 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	if err := os.WriteFile(target, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{target})
-	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	cfg.SetClientActivation(codex.ID, true, "codex", []string{target})
+	clientRuntime, err := cfg.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,13 +272,13 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 	if evaluation := evaluateCheck(command, runtime, cfg); !evaluation.ok() {
 		t.Fatalf("ready clients failed evaluation: %+v", evaluation.clients)
 	}
-	if store.existsCalls != 0 || store.getCalls != len([]string{configuration.ClientClaude, configuration.ClientCodex}) {
+	if store.existsCalls != 0 || store.getCalls != len([]string{claude.ID, codex.ID}) {
 		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
 	}
 }
 
 func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
-	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, client := range []string{claude.ID, codex.ID} {
 		for _, jsonMode := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", client, jsonMode), func(t *testing.T) {
 				runtime, cfg, output := configuredReadinessRuntime(t)
@@ -320,7 +320,7 @@ func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 						t.Fatalf("client status = %+v", state)
 					}
 				}
-				if !strings.Contains(strings.ToLower(problemDetail), "projection") || problemAction != "Install "+configuration.ClientLabel(client)+" if needed, then run `aigw sync`" {
+				if !strings.Contains(strings.ToLower(problemDetail), "projection") || problemAction != "Install "+clients.Admission().Label(client)+" if needed, then run `aigw sync`" {
 					t.Fatalf("projection recovery was lost: detail=%q action=%q", problemDetail, problemAction)
 				}
 			})
@@ -330,7 +330,7 @@ func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 
 func TestCheckExplainsBothMissingTokenAndDeferredProjection(t *testing.T) {
 	runtime, cfg, output := configuredReadinessRuntime(t)
-	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	cfg.SetClientActivation(claude.ID, true, "", nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +350,7 @@ func TestCheckExplainsBothMissingTokenAndDeferredProjection(t *testing.T) {
 
 func TestCheckReportsCredentialMetadataFailureBeforeClientProjection(t *testing.T) {
 	runtime, cfg, output := configuredReadinessRuntime(t)
-	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	cfg.SetClientActivation(claude.ID, true, "", nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +369,7 @@ func TestCheckReportsCredentialMetadataFailureBeforeClientProjection(t *testing.
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.State != domainreadiness.Unavailable || result.NextAction != "aigw doctor" || result.Clients[configuration.ClientClaude].State != domainreadiness.Unavailable {
+	if result.State != domainreadiness.Unavailable || result.NextAction != "aigw doctor" || result.Clients[claude.ID].State != domainreadiness.Unavailable {
 		t.Fatalf("metadata failure = %+v", result)
 	}
 	if store.getCalls != 0 || store.existsCalls != 1 {
@@ -379,7 +379,7 @@ func TestCheckReportsCredentialMetadataFailureBeforeClientProjection(t *testing.
 
 func TestJSONCheckSelectsTheFailedClientRecoveryAction(t *testing.T) {
 	runtime, cfg, output := configuredReadinessRuntime(t)
-	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(t.TempDir(), "missing-claude"), nil)
+	cfg.SetClientActivation(claude.ID, true, filepath.Join(t.TempDir(), "missing-claude"), nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -392,7 +392,7 @@ func TestJSONCheckSelectsTheFailedClientRecoveryAction(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	client := result.Clients[configuration.ClientClaude]
+	client := result.Clients[claude.ID]
 	if client.NextAction == "" || result.NextAction != client.NextAction {
 		t.Fatalf("top-level recovery differs from the failed client: %+v", result)
 	}
@@ -401,10 +401,10 @@ func TestJSONCheckSelectsTheFailedClientRecoveryAction(t *testing.T) {
 func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
 	runtime.Version = "1.0.0"
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[codex.ID]
 	binding.ModelProvider = "amazon-bedrock"
 	binding.Authentication = configuration.AuthenticationClientNative
-	delete(cfg.Clients, configuration.ClientClaude)
+	delete(cfg.Clients, claude.ID)
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, nil, 0o600); err != nil {
 		t.Fatal(err)
@@ -412,8 +412,8 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	binding.Enabled = true
 	binding.Executable = "codex"
 	binding.Targets = []string{target}
-	cfg.Clients[configuration.ClientCodex] = binding
-	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	cfg.Clients[codex.ID] = binding
+	clientRuntime, err := cfg.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -473,7 +473,7 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 		"check_passed":        json.RawMessage(`true`),
 		"next_action":         json.RawMessage(`"aigw verify --for codex"`),
 	}
-	if !machine.OK || !reflect.DeepEqual(machine.Clients[configuration.ClientCodex], want) {
+	if !machine.OK || !reflect.DeepEqual(machine.Clients[codex.ID], want) {
 		t.Fatalf("client-native JSON check = %#v", machine)
 	}
 	if store.getCalls != 0 || store.existsCalls != 0 || requests != 0 {
@@ -527,11 +527,11 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 		if err := runtime.Secrets.Set("one", "token"); err != nil {
 			t.Fatal(err)
 		}
-		binding := cfg.Clients[configuration.ClientCodex]
+		binding := cfg.Clients[codex.ID]
 		binding.Enabled = true
 		binding.Executable = "/opt/codex"
 		binding.Targets = []string{filepath.Join(t.TempDir(), "missing.toml")}
-		cfg.Clients[configuration.ClientCodex] = binding
+		cfg.Clients[codex.ID] = binding
 		if err := runtime.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}

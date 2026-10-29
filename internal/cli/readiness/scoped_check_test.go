@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	claudeclient "aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/diagnostics"
@@ -22,14 +23,14 @@ import (
 func configuredCodexScopedCheck(t *testing.T) (invocation.Context, *bytes.Buffer) {
 	t.Helper()
 	runtime, cfg, output := configuredReadinessRuntime(t)
-	delete(cfg.Clients, configuration.ClientClaude)
+	delete(cfg.Clients, claudeclient.ID)
 	runtime.Executable = filepath.Join(t.TempDir(), "aigw")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{target})
-	selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	cfg.SetClientActivation(codex.ID, true, "codex", []string{target})
+	selected, err := cfg.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,8 +57,8 @@ func TestCheckForLimitsCredentialsAndInferenceToOneEnabledClient(t *testing.T) {
 	claude := cfg.Routes["claude"]
 	claude.Account = "other"
 	cfg.Routes["claude"] = claude
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(t.TempDir(), "missing-claude"), nil)
+	cfg.SetSelectedRoute(claudeclient.ID, "claude", "")
+	cfg.SetClientActivation(claudeclient.ID, true, filepath.Join(t.TempDir(), "missing-claude"), nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +81,7 @@ func TestCheckForLimitsCredentialsAndInferenceToOneEnabledClient(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	checked := result.Clients[configuration.ClientCodex]
+	checked := result.Clients[codex.ID]
 	if !result.OK || result.EnabledClients != 1 || len(result.Clients) != 1 || checked.CheckPassed == nil || !*checked.CheckPassed || checked.DiagnosticScope != diagnostics.ScopeInference || requests != 1 {
 		t.Fatalf("scoped result = %+v; requests=%d", result, requests)
 	}
@@ -184,8 +185,8 @@ func TestMixedInvalidAndDeferredClientsShareOneRecoveryAction(t *testing.T) {
 	if err := runtime.Secrets.Set("one", "available-token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
-	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "missing.toml")})
+	cfg.SetClientActivation(claudeclient.ID, true, "", nil)
+	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "missing.toml")})
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -198,7 +199,7 @@ func TestMixedInvalidAndDeferredClientsShareOneRecoveryAction(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Clients[configuration.ClientClaude].State != domainreadiness.Deferred || result.Clients[configuration.ClientCodex].State != domainreadiness.Invalid || result.NextAction == "" || result.Error == "" {
+	if result.Clients[claudeclient.ID].State != domainreadiness.Deferred || result.Clients[codex.ID].State != domainreadiness.Invalid || result.NextAction == "" || result.Error == "" {
 		t.Fatalf("mixed JSON check = %+v", result)
 	}
 	humanAction := ""
@@ -256,7 +257,7 @@ func TestCheckReportsThePerformedInferenceOrEndpointScope(t *testing.T) {
 			if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 				t.Fatal(err)
 			}
-			observed := result.Clients[configuration.ClientCodex]
+			observed := result.Clients[codex.ID]
 			if calls != 1 || !result.OK || observed.State != test.state || observed.DiagnosticScope != test.scope ||
 				observed.CheckPassed == nil || !*observed.CheckPassed {
 				t.Fatalf("calls=%d result=%+v", calls, result)
@@ -267,7 +268,7 @@ func TestCheckReportsThePerformedInferenceOrEndpointScope(t *testing.T) {
 
 func TestCheckPreservesClaudeNativeOverrideAndUsesEndpointScope(t *testing.T) {
 	runtime, cfg, output := configuredReadinessRuntime(t)
-	delete(cfg.Clients, configuration.ClientCodex)
+	delete(cfg.Clients, codex.ID)
 	configureClaudeExecutable(t, &runtime, &cfg)
 	synchronizeClaudeSettings(t, runtime, cfg)
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -315,7 +316,7 @@ func TestCheckPreservesClaudeNativeOverrideAndUsesEndpointScope(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	observed := result.Clients[configuration.ClientClaude]
+	observed := result.Clients[claudeclient.ID]
 	if calls != 1 || !result.OK || !observed.NativeModelOverride ||
 		observed.State != domainreadiness.EndpointChecked || observed.DiagnosticScope != diagnostics.ScopeEndpoint ||
 		observed.NextAction != "aigw verify --for claude" {
@@ -339,7 +340,7 @@ func assertClaudeNativeOverrideOutput(t *testing.T, runtime invocation.Context, 
 	if err := json.Unmarshal(output.Bytes(), &status); err != nil {
 		t.Fatal(err)
 	}
-	local := status.Clients[configuration.ClientClaude]
+	local := status.Clients[claudeclient.ID]
 	if local.State != domainreadiness.Configured || !local.NativeModelOverride ||
 		local.NextAction != "aigw verify --for claude" {
 		t.Fatalf("local Claude state = %+v", local)

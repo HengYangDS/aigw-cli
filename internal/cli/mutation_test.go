@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -216,7 +217,7 @@ func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
 		Label: "GPT", Account: "dmx", Model: "gpt-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
+	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

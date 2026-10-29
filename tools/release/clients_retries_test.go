@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
@@ -57,7 +58,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	selection := p.manifest.Recommendations[configuration.ClientCodex].Primary
+	selection := p.manifest.Recommendations[codex.ID].Primary
 	route := p.manifest.Routes[selection.Route]
 	const token = "native-retry-fixture-token"
 	var failures, mode, completions atomic.Int64
@@ -85,19 +86,19 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
-	if err := journey.prepareNativeClient(configuration.ClientCodex, executable, p.team); err != nil {
+	if err := journey.prepareNativeClient(codex.ID, executable, p.team); err != nil {
 		t.Fatal(err)
 	}
 	journey.setEnvironment(secrets.EnvironmentKey(route.Account), token)
 	journey.run("setup", "--from", journey.manifest, "--account", route.Account)
-	journey.enableNativeClient(configuration.ClientCodex, executable)
-	retained := journey.retainedCredential(configuration.ClientCodex)
+	journey.enableNativeClient(codex.ID, executable)
+	retained := journey.retainedCredential(codex.ID)
 	journey.runWith(p.candidate, "sync")
 	// Selection may bind the successor's credential reader; establish that
 	// independent transition before measuring policy-only canonical preservation.
-	journey.runWith(p.candidate, "use", "--for", configuration.ClientCodex, selection.Route)
+	journey.runWith(p.candidate, "use", "--for", codex.ID, selection.Route)
 	canonical := readFile(t, journey.config)
-	args := []string{"use", "--for", configuration.ClientCodex, selection.Route, "--request-max-retries", "0", "--stream-max-retries", "0"}
+	args := []string{"use", "--for", codex.ID, selection.Route, "--request-max-retries", "0", "--stream-max-retries", "0"}
 	preview := journey.runWith(p.candidate, append(args, "--dry-run", "--json")...)
 	var selected configuration.Runtime
 	if err := json.Unmarshal(preview, &selected); err != nil || selected.RetryPolicy == nil {
@@ -112,7 +113,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 		if err := toml.Unmarshal(readFile(t, journey.config), &after); err != nil {
 			t.Fatal(err)
 		}
-		t.Fatalf("retry selection changed cached predecessor credential input: binding before=%+v after=%+v", before.Clients[configuration.ClientCodex], after.Clients[configuration.ClientCodex])
+		t.Fatalf("retry selection changed cached predecessor credential input: binding before=%+v after=%+v", before.Clients[codex.ID], after.Clients[codex.ID])
 	}
 	journey.requireCredential(retained, token)
 	journey.requireRetryRollbackBoundary(p.baseline)
@@ -142,7 +143,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 		t.Fatalf("native no-retry boundary: requests=%d, error=%v, deadline=%v\n%s\n%s", failures.Load(), runErr, ctx.Err(), stdout, stderr)
 	}
 	mode.Store(0)
-	journey.runWith(p.candidate, "use", "--for", configuration.ClientCodex, selection.Route, "--native-retries")
+	journey.runWith(p.candidate, "use", "--for", codex.ID, selection.Route, "--native-retries")
 	if bytes.Contains(readFile(t, path), []byte("max_retries")) {
 		t.Fatal("native reset retained retry fields")
 	}

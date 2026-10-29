@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -25,7 +26,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 	})
 
 	t.Run("missing endpoint", func(t *testing.T) {
-		err := credential.Validate(context.Background(), nil, clients.Admission(), configuration.Account{ID: "one", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}, "token", configuration.ClientCodex)
+		err := credential.Validate(context.Background(), nil, clients.Admission(), configuration.Account{ID: "one", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}, "token", codex.ID)
 		if err == nil || !strings.Contains(err.Error(), "no OpenAI") {
 			t.Fatalf("error = %v", err)
 		}
@@ -34,7 +35,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 	t.Run("invalid URL", func(t *testing.T) {
 		bad := account
 		bad.Endpoints.OpenAIResponses = "://bad"
-		if err := credential.Validate(context.Background(), nil, clients.Admission(), bad, "token", configuration.ClientCodex); err == nil {
+		if err := credential.Validate(context.Background(), nil, clients.Admission(), bad, "token", codex.ID); err == nil {
 			t.Fatal("expected request construction failure")
 		}
 	})
@@ -42,7 +43,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 	t.Run("network", func(t *testing.T) {
 		want := errors.New("network failed")
 		app := invocation.Context{Clients: clients.Registry(), HTTP: setupHTTPClient(func(*http.Request) (*http.Response, error) { return nil, want })}
-		if err := credential.Validate(context.Background(), app.HTTP, clients.Admission(), account, "token", configuration.ClientCodex); !errors.Is(err, want) {
+		if err := credential.Validate(context.Background(), app.HTTP, clients.Admission(), account, "token", codex.ID); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
@@ -52,7 +53,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 		app := invocation.Context{Clients: clients.Registry(), HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: setupResponseBody{Reader: errorReader{err: want}}, Request: request}, nil
 		})}
-		if err := credential.Validate(context.Background(), app.HTTP, clients.Admission(), account, "token", configuration.ClientCodex); !errors.Is(err, want) {
+		if err := credential.Validate(context.Background(), app.HTTP, clients.Admission(), account, "token", codex.ID); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
@@ -62,7 +63,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 		app := invocation.Context{Clients: clients.Registry(), HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: setupResponseBody{Reader: strings.NewReader("ok"), closeErr: want}, Request: request}, nil
 		})}
-		if err := credential.Validate(context.Background(), app.HTTP, clients.Admission(), account, "token", configuration.ClientCodex); !errors.Is(err, want) {
+		if err := credential.Validate(context.Background(), app.HTTP, clients.Admission(), account, "token", codex.ID); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
@@ -73,7 +74,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 			calls++
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
 		})}
-		if err := credential.Validate(context.Background(), app.HTTP, clients.Admission(), account, "token", configuration.ClientCodex, configuration.ClientCodex); err != nil || calls != 1 {
+		if err := credential.Validate(context.Background(), app.HTTP, clients.Admission(), account, "token", codex.ID, codex.ID); err != nil || calls != 1 {
 			t.Fatalf("calls=%d error=%v", calls, err)
 		}
 	})

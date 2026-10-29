@@ -41,7 +41,7 @@ func TestFailedSelfCompensationPreservesTheReaderItProjected(t *testing.T) {
 		t.Fatal(err)
 	}
 	adapter := selfCompensationAdapter{removedEntrypointAdapter{target: target, reader: reader}}
-	registry, err := client.NewRegistry([]configuration.ClientSpec{adapter.Spec()}, adapter)
+	registry, err := client.NewRegistry(adapter)
 	if err != nil {
 		t.Fatal(err)
 	}

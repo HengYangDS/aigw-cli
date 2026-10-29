@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -204,7 +205,7 @@ func TestPortableUninstallPreservesExternalCredentialCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, client := range []string{claude.ID, codex.ID} {
 		binding := cfg.Clients[client]
 		binding.CredentialCommand = external
 		cfg.Clients[client] = binding
@@ -301,7 +302,7 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	if len(retained.Clients) != expectedBindings || len(retained.EnabledClientIDs()) != 0 || len(retained.Accounts) != 1 || len(retained.Routes) != 2 {
 		t.Fatalf("retained capability configuration = %#v", retained)
 	}
-	if manager == "homebrew" && (retained.SelectedRoute(configuration.ClientClaude) != "claude" || retained.SelectedRoute(configuration.ClientCodex) != "codex") {
+	if manager == "homebrew" && (retained.SelectedRoute(claude.ID) != "claude" || retained.SelectedRoute(codex.ID) != "codex") {
 		t.Fatalf("package-managed uninstall changed retained client selections: %#v", retained.Clients)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "token" {
@@ -332,8 +333,8 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 	codexExecutable := executableFixture(t, "codex")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{
-			configuration.ClientClaude: claudeExecutable,
-			configuration.ClientCodex:  codexExecutable,
+			claude.ID: claudeExecutable,
+			codex.ID:  codexExecutable,
 		},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
@@ -346,10 +347,10 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "team", "claude-model", configuration.ProtocolAnthropic)
 	cfg.Routes["codex"] = qualifiedRoute("Codex", "team", "gpt-model", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
-	cfg.SetClientActivation(configuration.ClientCodex, true, codexExecutable, []string{codexTarget})
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)
+	cfg.SetClientActivation(codex.ID, true, codexExecutable, []string{codexTarget})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -359,7 +360,7 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, configuration.AdmittedClientIDs()); err != nil {
+	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, clients.Admission().IDs()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -376,7 +377,7 @@ func withdrawInstallationClients(t *testing.T, app *cli.App, manager, previousEx
 	if err := cli.Execute(app, []string{"uninstall"}); err == nil || !strings.Contains(err.Error(), "Homebrew") {
 		t.Fatalf("managed uninstall = %v", err)
 	}
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range clients.Admission().IDs() {
 		if err := cli.Execute(app, []string{"client", "disable", client}); err != nil {
 			t.Fatal(err)
 		}

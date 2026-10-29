@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client/claudedesktop"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 )
 
@@ -40,7 +39,7 @@ func TestDiscoverReturnsClaudeDesktopApplicationAndConfigurationLibrary(t *testi
 		t.Fatal(err)
 	}
 	result := claudedesktop.New().Discover(discovery.System{GOOS: goos, Home: root, Env: map[string]string{"LOCALAPPDATA": root}})
-	if got := result.Executable(configuration.ClientClaudeDesktop); got != executable {
+	if got := result.Executable(claudedesktop.ID); got != executable {
 		t.Fatalf("Claude Desktop executable = %q, want %q", got, executable)
 	}
 	surface, ok := result.Surface(string(claudedesktop.LibrarySurface))
@@ -59,7 +58,7 @@ func TestClaudeDesktopDiscoveryUsesNativeApplicationPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := claudedesktop.New().Discover(discovery.System{GOOS: goos, Home: root, Env: map[string]string{"LOCALAPPDATA": root}})
-	if got := result.Executable(configuration.ClientClaudeDesktop); got != candidate {
+	if got := result.Executable(claudedesktop.ID); got != candidate {
 		t.Fatalf("Claude Desktop executable = %q, want %q", got, candidate)
 	}
 }
@@ -72,7 +71,7 @@ func TestClaudeDesktopDiscoveryRejectsUnofficialLinuxPathExecutable(t *testing.T
 	}
 
 	result := claudedesktop.New().Discover(discovery.System{GOOS: "linux", Home: root, Path: root})
-	if got := result.Executable(configuration.ClientClaudeDesktop); got != "" {
+	if got := result.Executable(claudedesktop.ID); got != "" {
 		t.Fatalf("Claude Desktop executable = %q, want unavailable on Linux", got)
 	}
 }

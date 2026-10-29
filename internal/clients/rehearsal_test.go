@@ -139,8 +139,10 @@ func (rehearsalAdapter) Withdraw(cfg *configuration.Config) {
 	delete(cfg.Clients, rehearsalID)
 }
 
-func rehearsalConfiguration() (configuration.Config, configuration.Config) {
-	before := configuration.NewConfig(Admission())
+// rehearsalConfiguration returns a configuration pair that the given admission
+// governs, before and after the rehearsal client selects its Route.
+func rehearsalConfiguration(admission configuration.Admission) (configuration.Config, configuration.Config) {
+	before := configuration.NewConfig(admission)
 	before.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	before.Routes["rehearsal"] = qualifiedRoute("", "gateway", "rehearsal-model", configuration.ProtocolOpenAIResponses)
 	after := before.Clone()
@@ -151,8 +153,9 @@ func rehearsalConfiguration() (configuration.Config, configuration.Config) {
 func TestRehearsalAdapterKeepsTheSeamContract(t *testing.T) {
 	contract.Run(t, func(t *testing.T) contract.Fixture {
 		home := t.TempDir()
-		before, after := rehearsalConfiguration()
-		return contract.Fixture{Adapter: rehearsalAdapter{home: home}, Home: home, Before: before, After: after}
+		adapter := rehearsalAdapter{home: home}
+		before, after := rehearsalConfiguration(configuration.NewAdmission(adapter.Spec()))
+		return contract.Fixture{Adapter: adapter, Home: home, Before: before, After: after}
 	})
 }
 
@@ -160,14 +163,17 @@ func TestRehearsalAdapterKeepsTheSeamContract(t *testing.T) {
 // root, and synchronizing it plans and changes only its own projection.
 func TestRehearsalClientJoinsTheBuiltInSet(t *testing.T) {
 	rehearsal := rehearsalAdapter{home: t.TempDir()}
-	registry, err := client.NewRegistry(append(configuration.AdmittedClientSpecs(), rehearsal.Spec()), append(adapters(), rehearsal)...)
+	registry, err := client.NewRegistry(append(adapters(), rehearsal)...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if want := append(Registry().IDs(), rehearsalID); !slices.Equal(registry.IDs(), want) {
 		t.Fatalf("registered clients = %q, want %q", registry.IDs(), want)
 	}
-	before, after := rehearsalConfiguration()
+	before, after := rehearsalConfiguration(registry.Admission())
+	if !after.Admission().Admits(rehearsalID) {
+		t.Fatal("the configuration does not admit the client that the registry serves")
+	}
 	if changed := registry.ChangedClients(before, after); !slices.Equal(changed, []string{rehearsalID}) {
 		t.Fatalf("changed clients = %q, want only the rehearsal client", changed)
 	}

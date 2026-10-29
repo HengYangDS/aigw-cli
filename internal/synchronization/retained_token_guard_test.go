@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -39,7 +40,7 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := testConfig(target)
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,8 +62,8 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 	afterConfig := cfg.Clone()
 	afterConfig.Accounts["ready"] = configuration.Account{Label: "Ready", Endpoints: configuration.Endpoints{Anthropic: "https://ready.test"}}
 	afterConfig.Routes["claude"] = configuration.Route{Label: "Claude", Account: "ready", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	afterConfig.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	afterConfig.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+	afterConfig.SetSelectedRoute(claude.ID, "claude", "")
+	afterConfig.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 
 	workerSource := filepath.Join(root, "candidate.go")
 	if err := os.WriteFile(workerSource, []byte(`package main
@@ -114,14 +115,14 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 		t.Fatal(err)
 	}
 	cfg := testConfig(target)
-	codexBinding := cfg.Clients[configuration.ClientCodex]
+	codexBinding := cfg.Clients[codex.ID]
 	codexBinding.Authentication = configuration.AuthenticationClientNative
 	codexBinding.ModelProvider = "amazon-bedrock"
-	cfg.Clients[configuration.ClientCodex] = codexBinding
+	cfg.Clients[codex.ID] = codexBinding
 	cfg.Accounts["missing"] = configuration.Account{Label: "Missing", Endpoints: configuration.Endpoints{Anthropic: "https://missing.test"}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "missing", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}

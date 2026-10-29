@@ -1,6 +1,8 @@
 package main
 
 import (
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
@@ -79,8 +81,8 @@ func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testi
 		t.Fatalf("team DMXAPI endpoint = %q, want direct provider", got)
 	}
 	for client, want := range map[string][]string{
-		configuration.ClientCodex:  {"dmxapi-" + sol + "-cdx", "ucloud-" + sol},
-		configuration.ClientHermes: {"dmxapi-" + sol, "ucloud-" + sol},
+		codex.ID:  {"dmxapi-" + sol + "-cdx", "ucloud-" + sol},
+		hermes.ID: {"dmxapi-" + sol, "ucloud-" + sol},
 	} {
 		selections := manifest.Recommendations[client].Selections()
 		if len(selections) != len(want) {
@@ -113,7 +115,7 @@ func newTeamManifestJourney(t *testing.T) teamManifestJourney {
 	t.Logf("team candidate version=%s sha256=%x", version, sha256.Sum256(readFile(t, program)))
 	clients := slices.Collect(maps.Keys(manifest.Recommendations))
 	slices.Sort(clients)
-	admitted := configuration.AdmittedClientIDs()
+	admitted := builtinclients.Admission().IDs()
 	slices.Sort(admitted)
 	if !slices.Equal(clients, admitted) {
 		t.Fatalf("team recommendations cover %q, want every admitted client %q", clients, admitted)
@@ -142,7 +144,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 	for _, client := range plan.clients {
 		journey.installClientFixture(client)
 	}
-	hermesPath := journey.clientProjectionPaths(configuration.ClientHermes)[0]
+	hermesPath := journey.clientProjectionPaths(hermes.ID)[0]
 	if err := os.MkdirAll(filepath.Dir(hermesPath), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +220,7 @@ func (plan teamManifestJourney) manualSelections(
 }
 
 func (plan teamManifestJourney) manualRoute(account, client string) (manualRouteSelection, bool) {
-	spec, found := configuration.ClientSpecFor(client)
+	spec, found := builtinclients.Admission().Spec(client)
 	if !found {
 		return manualRouteSelection{}, false
 	}
@@ -309,13 +311,13 @@ func (plan teamManifestJourney) requireHermesWireCatalogue(t *testing.T, journey
 			Endpoint string   `yaml:"base_url"`
 		} `yaml:"providers"`
 	}
-	if err := yaml.Unmarshal(readFile(t, journey.clientProjectionPaths(configuration.ClientHermes)[0]), &projected); err != nil {
+	if err := yaml.Unmarshal(readFile(t, journey.clientProjectionPaths(hermes.ID)[0]), &projected); err != nil {
 		t.Fatal(err)
 	}
 	if projected.Model.OllamaContext != 65536 || projected.MCP["retained"].Command != "user-mcp" || projected.Providers["personal"].Endpoint != "https://personal.test" {
 		t.Fatal("native Hermes projection changed unowned settings")
 	}
-	spec, found := configuration.ClientSpecFor(configuration.ClientHermes)
+	spec, found := builtinclients.Admission().Spec(hermes.ID)
 	if !found {
 		t.Fatal("Hermes client contract is absent")
 	}

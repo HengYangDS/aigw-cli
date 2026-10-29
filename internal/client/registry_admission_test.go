@@ -1,16 +1,14 @@
 package client
 
 import (
+	"slices"
 	"strings"
 	"testing"
-
-	"aigw-cli/internal/configuration"
 )
 
-func TestRegistryRejectsInvalidAdmissionSets(t *testing.T) {
+func TestRegistryRejectsInvalidAdapterSets(t *testing.T) {
 	tests := []struct {
 		name     string
-		specs    []configuration.ClientSpec
 		adapters []Adapter
 		want     string
 	}{
@@ -24,63 +22,24 @@ func TestRegistryRejectsInvalidAdmissionSets(t *testing.T) {
 			},
 			want: "registered more than once",
 		},
-		{
-			name: "duplicate admission",
-			specs: []configuration.ClientSpec{
-				failingProjectionAdapter{id: "duplicate"}.Spec(),
-				failingProjectionAdapter{id: "duplicate"}.Spec(),
-			},
-			adapters: []Adapter{
-				failingProjectionAdapter{id: "duplicate"},
-			},
-			want: "declared more than once",
-		},
-		{name: "missing adapter", specs: []configuration.ClientSpec{{ID: "missing"}}, want: "has no operational adapter"},
-		{
-			name:     "mismatched admission",
-			specs:    []configuration.ClientSpec{{ID: "client", Label: "Expected"}},
-			adapters: []Adapter{failingProjectionAdapter{id: "client"}},
-			want:     "does not match",
-		},
-		{
-			name:     "unadmitted adapter",
-			adapters: []Adapter{failingProjectionAdapter{id: "extra"}},
-			want:     "unadmitted adapter",
-		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if _, err := NewRegistry(test.specs, test.adapters...); err == nil || !strings.Contains(err.Error(), test.want) {
+			if _, err := NewRegistry(test.adapters...); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("NewRegistry() error = %v, want %q", err, test.want)
 			}
 		})
 	}
 }
 
-func TestBuiltInRegistryInvariantsPanicOnInvalidDefinitions(t *testing.T) {
-	tests := []struct {
-		name string
-		run  func()
-	}{
-		{name: "invalid registry", run: func() { mustRegistry(nil, failingProjectionAdapter{id: "unadmitted"}) }},
-		{name: "missing client", run: func() { AdmittedSpec("missing") }},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			defer func() {
-				if recover() == nil {
-					t.Fatal("invariant violation did not panic")
-				}
-			}()
-			test.run()
-		})
-	}
-}
-
-func mustRegistry(specs []configuration.ClientSpec, adapters ...Adapter) Registry {
-	registry, err := NewRegistry(specs, adapters...)
+// The registration order is the admission order of every configuration that
+// the registry serves.
+func TestRegistryAdmitsItsAdaptersInRegistrationOrder(t *testing.T) {
+	registry, err := NewRegistry(failingProjectionAdapter{id: "second"}, failingProjectionAdapter{id: "first"})
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
-	return registry
+	if got := registry.Admission().IDs(); !slices.Equal(got, []string{"second", "first"}) || !slices.Equal(registry.IDs(), got) {
+		t.Fatalf("admission = %v, registry = %v", got, registry.IDs())
+	}
 }

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/secrets"
 )
@@ -37,8 +36,8 @@ func TestCodexVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing.
 	for _, failure := range []string{"selected route", "retained reader"} {
 		t.Run(failure, func(t *testing.T) {
 			cfg, _ := codexVerificationFixture(t)
-			binding := cfg.Clients[configuration.ClientCodex]
-			selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+			binding := cfg.Clients[ID]
+			selected, err := cfg.ResolveRuntime(ID, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -51,7 +50,7 @@ func TestCodexVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing.
 			want := "unknown route"
 			if failure == "selected route" {
 				binding.Route = "missing"
-				cfg.Clients[configuration.ClientCodex] = binding
+				cfg.Clients[ID] = binding
 			} else {
 				_, deps.AIGWExecutable = versionedReaders(t)
 				if err := os.Remove(binding.Targets[0]); err != nil {

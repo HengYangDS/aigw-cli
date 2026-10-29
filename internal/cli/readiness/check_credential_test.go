@@ -8,7 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/diagnostics"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
@@ -48,7 +49,7 @@ func TestCheckJSONClassifiesCredentialReadFailures(t *testing.T) {
 			if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 				t.Fatal(err)
 			}
-			client := result.Clients[configuration.ClientClaude]
+			client := result.Clients[claude.ID]
 			if result.OK || client.State != test.state || client.Detail != test.detail || client.NextAction != test.action || result.NextAction != test.action {
 				t.Fatalf("JSON check = %+v", result)
 			}
@@ -69,8 +70,8 @@ func TestCheckReportsUnresolvedBindingsBeforeCredentialOrNetworkAccess(t *testin
 		t.Fatal("an unresolved binding contacted an endpoint")
 		return nil, nil
 	})
-	cfg.SetSelectedRoute(configuration.ClientCodex, "missing", "")
-	result := evaluateClient(NewCheckCommand(runtime), runtime, cfg, configuration.ClientCodex)
+	cfg.SetSelectedRoute(codex.ID, "missing", "")
+	result := evaluateClient(NewCheckCommand(runtime), runtime, cfg, codex.ID)
 	_, command, unchecked, err := checkedClientField(runtime, result, "")
 	if err == nil || !errors.Is(err, result.resolveErr) || command != "" || unchecked {
 		t.Fatalf("unresolved binding was reported as checked: %q, %t, %v", command, unchecked, err)
@@ -90,7 +91,7 @@ func TestCheckReportsAnUnsentInferenceRequestWithoutClaimingEndpointFailure(t *t
 		problem, evidence = title, detail
 		return cause
 	}
-	selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	selected, err := cfg.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +101,7 @@ func TestCheckReportsAnUnsentInferenceRequestWithoutClaimingEndpointFailure(t *t
 		return nil, nil
 	})
 	diagnostic := diagnostics.Probe(t.Context(), runtime.HTTP, selected, "fixture-token", diagnostics.ScopeInference)
-	result := evaluatedClient{client: configuration.ClientCodex, runtime: selected, adapter: true, diagnostic: diagnostic}
+	result := evaluatedClient{client: codex.ID, runtime: selected, adapter: true, diagnostic: diagnostic}
 	_, command, unchecked, err := checkedClientField(runtime, result, "")
 	if err == nil || command != "" || unchecked || diagnostic.Kind != diagnostics.ModelUnresolved {
 		t.Fatalf("unsent inference was reported as checked: %q, %t, %v", command, unchecked, err)

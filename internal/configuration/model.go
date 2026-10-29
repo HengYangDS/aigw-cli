@@ -24,14 +24,6 @@ type RouteLifecycle string
 const (
 	// ConfigVersion is the only configuration schema version accepted by this build.
 	ConfigVersion = 6
-	// ClientClaude identifies the admitted Claude Code client.
-	ClientClaude = "claude"
-	// ClientClaudeDesktop identifies Claude Desktop's independent third-party inference surface.
-	ClientClaudeDesktop = "claude-desktop"
-	// ClientCodex identifies the admitted Codex client family.
-	ClientCodex = "codex"
-	// ClientHermes identifies the independently configured Hermes Agent.
-	ClientHermes = "hermes"
 	// ModelProviderAIGW is the stable provider identifier written into AIGW-owned Codex projections.
 	ModelProviderAIGW = "aigw"
 

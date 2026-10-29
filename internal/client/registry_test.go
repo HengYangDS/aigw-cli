@@ -86,11 +86,11 @@ func TestRegistryScopesProjectionToTheRequestedClient(t *testing.T) {
 	var events []string
 	first := failingProjectionAdapter{id: "first", events: &events}
 	second := failingProjectionAdapter{id: "second", events: &events, applyErr: errors.New("unselected client")}
-	registry, err := NewRegistry([]configuration.ClientSpec{first.Spec(), second.Spec()}, first, second)
+	registry, err := NewRegistry(first, second)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(testAdmission())
+	cfg := configuration.NewConfig(registry.Admission())
 	if _, _, err := registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "first"); err != nil {
 		t.Fatal(err)
 	}
@@ -158,12 +158,12 @@ func (adapter *recordingAdapter) Withdraw(cfg *configuration.Config) {
 
 func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 	adapter := &recordingAdapter{}
-	registry, err := NewRegistry([]configuration.ClientSpec{adapter.Spec()}, adapter)
+	registry, err := NewRegistry(adapter)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cfg := configuration.NewConfig(testAdmission())
+	cfg := configuration.NewConfig(registry.Admission())
 	if discovered := registry.Discover(nil); discovered.Executable("future") != "/future" {
 		t.Fatalf("discovered = %#v", discovered)
 	}
@@ -176,7 +176,7 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 	if _, _, err := registry.Apply(context.Background(), Dependencies{}, cfg, cfg); err != nil {
 		t.Fatal(err)
 	}
-	if changed := registry.ChangedClients(configuration.NewConfig(testAdmission()), cfg); !reflect.DeepEqual(changed, []string{"future"}) {
+	if changed := registry.ChangedClients(configuration.NewConfig(registry.Admission()), cfg); !reflect.DeepEqual(changed, []string{"future"}) {
 		t.Fatalf("changed client scope = %v, want the admitted future client", changed)
 	}
 	if status := registry.Inspect(context.Background(), Dependencies{}, cfg, "future", configuration.Runtime{}); !status.Ready {
@@ -205,11 +205,11 @@ func TestRegistryCompensatesAppliedAdaptersInReverseOrder(t *testing.T) {
 			first := failingProjectionAdapter{id: "first", events: &events, nilReceipt: nilReceipt}
 			second := failingProjectionAdapter{id: "second", events: &events}
 			third := failingProjectionAdapter{id: "third", events: &events, applyErr: failure}
-			registry, err := NewRegistry([]configuration.ClientSpec{first.Spec(), second.Spec(), third.Spec()}, third, second, first)
+			registry, err := NewRegistry(first, second, third)
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, _, err = registry.Apply(t.Context(), Dependencies{}, configuration.NewConfig(testAdmission()), configuration.NewConfig(testAdmission()))
+			_, _, err = registry.Apply(t.Context(), Dependencies{}, configuration.NewConfig(registry.Admission()), configuration.NewConfig(registry.Admission()))
 			if !errors.Is(err, failure) || !strings.Contains(err.Error(), "prior adapters were rolled back") {
 				t.Fatalf("Apply() error = %v", err)
 			}
@@ -230,11 +230,11 @@ func TestRegistryReturnsOneRollbackForSuccessfulProjection(t *testing.T) {
 			var events []string
 			first := failingProjectionAdapter{id: "first", events: &events, plans: []ProjectionPlan{{Client: "first", ChangesState: state == "changed-target"}}}
 			second := failingProjectionAdapter{id: "second", events: &events}
-			registry, err := NewRegistry([]configuration.ClientSpec{first.Spec(), second.Spec()}, first, second)
+			registry, err := NewRegistry(first, second)
 			if err != nil {
 				t.Fatal(err)
 			}
-			before, after := configuration.NewConfig(testAdmission()), configuration.NewConfig(testAdmission())
+			before, after := configuration.NewConfig(registry.Admission()), configuration.NewConfig(registry.Admission())
 			if state == "changed-config" {
 				after.Accounts["new"] = configuration.Account{Label: "New"}
 			}
@@ -264,12 +264,12 @@ func TestRegistryReportsCompensationFailure(t *testing.T) {
 	first := failingProjectionAdapter{id: "first", events: &events, rollbackErr: firstRollbackFailure}
 	second := failingProjectionAdapter{id: "second", events: &events, rollbackErr: secondRollbackFailure}
 	third := failingProjectionAdapter{id: "third", events: &events, applyErr: applyFailure}
-	registry, err := NewRegistry([]configuration.ClientSpec{first.Spec(), second.Spec(), third.Spec()}, first, second, third)
+	registry, err := NewRegistry(first, second, third)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	_, _, err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(testAdmission()), configuration.NewConfig(testAdmission()))
+	_, _, err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(registry.Admission()), configuration.NewConfig(registry.Admission()))
 	if !errors.Is(err, applyFailure) || !errors.Is(err, firstRollbackFailure) || !errors.Is(err, secondRollbackFailure) || !errors.Is(err, ErrProjectionRollbackFailed) {
 		t.Fatalf("Apply() error = %v", err)
 	}
@@ -308,11 +308,11 @@ func TestRegistryCancellationStopsNewWritesAndCompensatesPriorAdapters(t *testin
 					first.rollbackErr = conflict
 				}
 			}
-			registry, err := NewRegistry([]configuration.ClientSpec{first.Spec(), second.Spec()}, first, second)
+			registry, err := NewRegistry(first, second)
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, _, err = registry.Apply(ctx, Dependencies{}, configuration.NewConfig(testAdmission()), configuration.NewConfig(testAdmission()))
+			_, _, err = registry.Apply(ctx, Dependencies{}, configuration.NewConfig(registry.Admission()), configuration.NewConfig(registry.Admission()))
 			if !errors.Is(err, wantErr) || (conflict != nil && !errors.Is(err, conflict)) {
 				t.Errorf("Apply() error = %v; want %v and any compensation conflict", err, wantErr)
 			}
@@ -325,11 +325,11 @@ func TestRegistryCancellationStopsNewWritesAndCompensatesPriorAdapters(t *testin
 
 func TestRegistryRejectsUnknownClientOperations(t *testing.T) {
 	adapter := &recordingAdapter{}
-	registry, err := NewRegistry([]configuration.ClientSpec{adapter.Spec()}, adapter)
+	registry, err := NewRegistry(adapter)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(testAdmission())
+	cfg := configuration.NewConfig(registry.Admission())
 	assertUnknown := func(name string, err error) {
 		t.Helper()
 		if err == nil || !strings.Contains(err.Error(), "no admitted operational adapter") {
@@ -376,7 +376,7 @@ func TestRegistryRefusesAHostWithTheFirstRefusalInAdmissionOrder(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			first := hostValidatingAdapter{failingProjectionAdapter{id: "first", events: &events}, test.first}
 			second := hostValidatingAdapter{failingProjectionAdapter{id: "second", events: &events}, test.second}
-			registry, err := NewRegistry([]configuration.ClientSpec{plain.Spec(), first.Spec(), second.Spec()}, plain, first, second)
+			registry, err := NewRegistry(plain, first, second)
 			if err != nil {
 				t.Fatal(err)
 			}

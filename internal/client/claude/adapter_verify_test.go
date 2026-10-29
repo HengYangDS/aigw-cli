@@ -25,9 +25,9 @@ func TestClaudeVerificationBoundsClientProcesses(t *testing.T) {
 	claudeConfig := configuration.NewConfig(testAdmission())
 	claudeConfig.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	claudeConfig.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
-	claudeConfig.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	claudeConfig.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
-	claudeRuntime, err := claudeConfig.ResolveRuntime(configuration.ClientClaude, "")
+	claudeConfig.SetSelectedRoute(ID, "claude", "")
+	claudeConfig.SetClientActivation(ID, true, claudeExecutable, nil)
+	claudeRuntime, err := claudeConfig.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestClaudeVerificationRequiresTheSynchronizedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := configuration.NewConfig(testAdmission())
-	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
+	cfg.SetClientActivation(ID, true, executable, nil)
 	store := secrets.NewMemoryStore()
 	if err := store.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
@@ -80,7 +80,7 @@ func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
 	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
 		t.Fatalf("Verify() disabled error = %v", err)
 	}
-	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	cfg.SetClientActivation(ID, true, "", nil)
 	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
 		t.Fatalf("Verify() unconfigured error = %v", err)
 	}
@@ -89,7 +89,7 @@ func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
 	if err := os.Symlink(loop, loop); err != nil {
 		t.Skipf("symbolic link unavailable: %v", err)
 	}
-	cfg.SetClientActivation(configuration.ClientClaude, true, loop, nil)
+	cfg.SetClientActivation(ID, true, loop, nil)
 	status := (claudeAdapter{}).Inspect(context.Background(), client.Dependencies{}, cfg, configuration.Runtime{})
 	if status.Ready || status.Issue != "Cannot inspect Claude executable" {
 		t.Fatalf("status = %#v", status)
@@ -101,7 +101,7 @@ func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
 	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "inspect Claude executable") {
 		t.Fatalf("Verify() inspection error = %v", err)
 	}
-	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(t.TempDir(), "missing"), nil)
+	cfg.SetClientActivation(ID, true, filepath.Join(t.TempDir(), "missing"), nil)
 	if _, err := (claudeAdapter{}).Verify(context.Background(), dependencies, cfg, runtime, ""); err == nil || !strings.Contains(err.Error(), "executable is unavailable") {
 		t.Fatalf("Verify() unavailable error = %v", err)
 	}
@@ -198,9 +198,9 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testi
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["selected"] = qualifiedRoute("", "gateway", "claude-selected", configuration.ProtocolAnthropic)
 	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "claude-alternate", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "selected", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
-	selected, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+	cfg.SetSelectedRoute(ID, "selected", "")
+	cfg.SetClientActivation(ID, true, executable, nil)
+	selected, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := cfg.ResolveRuntime(configuration.ClientClaude, "alternate")
+	runtime, err := cfg.ResolveRuntime(ID, "alternate")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,8 +267,8 @@ func TestClaudeVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing
 			cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 			cfg.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
 			binding := configuration.ClientBinding{Route: "claude", Enabled: true, Executable: executable}
-			cfg.Clients[configuration.ClientClaude] = binding
-			selected, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+			cfg.Clients[ID] = binding
+			selected, err := cfg.ResolveRuntime(ID, "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -281,7 +281,7 @@ func TestClaudeVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing
 			want := "unknown route"
 			if failure == "selected route" {
 				binding.Route = "missing"
-				cfg.Clients[configuration.ClientClaude] = binding
+				cfg.Clients[ID] = binding
 			} else {
 				_, deps.AIGWExecutable = versionedReaders(t)
 				if err := os.Remove(settings); err != nil {

@@ -68,80 +68,6 @@ type DoctorWording struct {
 	RouteBinding bool
 }
 
-var admittedClientSpecs = []ClientSpec{
-	{
-		ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic},
-		ProductName: "Claude Code", ModelDiscoveryOptional: true, Doctor: DoctorWording{AdapterStates: true},
-		PublishedProfileProtocol: ProtocolAnthropic,
-	},
-	{
-		ID:                     ClientClaudeDesktop,
-		Label:                  "Claude Desktop",
-		EndpointProtocols:      []EndpointProtocol{ProtocolAnthropic},
-		RestartAfterProjection: true,
-		QualifiedModes:         []string{"Chat", "Cowork", "Code"},
-		QualifiedPlatforms:     []string{"macOS"},
-	},
-	{
-		ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses},
-		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true,
-		DefaultModelProvider: ModelProviderAIGW, ClientNativeAuthentication: true,
-		PublishedProfileProtocol: ProtocolOpenAIResponses,
-		Doctor:                   DoctorWording{AdapterStates: true, RouteBinding: true},
-	},
-	{
-		ID:                ClientHermes,
-		Label:             "Hermes",
-		EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions},
-		SessionsKeepRoute: true,
-	},
-}
-
-// AdmittedClientSpecs returns an independent copy of every supported client contract.
-func AdmittedClientSpecs() []ClientSpec {
-	result := slices.Clone(admittedClientSpecs)
-	for index := range result {
-		result[index].EndpointProtocols = slices.Clone(result[index].EndpointProtocols)
-		result[index].QualifiedModes = slices.Clone(result[index].QualifiedModes)
-		result[index].QualifiedPlatforms = slices.Clone(result[index].QualifiedPlatforms)
-	}
-	return result
-}
-
-// AdmittedClientIDs returns admitted client identifiers in stable order.
-func AdmittedClientIDs() []string {
-	clients := make([]string, 0, len(admittedClientSpecs))
-	for _, spec := range admittedClientSpecs {
-		clients = append(clients, spec.ID)
-	}
-	return clients
-}
-
-// AdmittedClientUsage renders the stable client choices for CLI help and
-// errors. Extra choices are command-local values such as "all"; admitted
-// client IDs remain owned by this registry.
-func AdmittedClientUsage(extra ...string) string {
-	return naturalChoices(append(AdmittedClientIDs(), extra...))
-}
-
-// ClientLabel returns the presentation label that human output uses for an
-// admitted client, or the identifier itself for any other value.
-func ClientLabel(id string) string {
-	if spec, admitted := ClientSpecFor(id); admitted {
-		return spec.Label
-	}
-	return id
-}
-
-// ClientProductName returns an admitted client's full product name, which is
-// its label unless the two differ, or the identifier itself for any other value.
-func ClientProductName(id string) string {
-	if spec, admitted := ClientSpecFor(id); admitted && spec.ProductName != "" {
-		return spec.ProductName
-	}
-	return ClientLabel(id)
-}
-
 func naturalChoices(choices []string) string {
 	switch len(choices) {
 	case 0:
@@ -153,25 +79,6 @@ func naturalChoices(choices []string) string {
 	default:
 		return strings.Join(choices[:len(choices)-1], ", ") + ", or " + choices[len(choices)-1]
 	}
-}
-
-// ClientSpecFor resolves one admitted client contract by identifier.
-func ClientSpecFor(id string) (ClientSpec, bool) {
-	for _, spec := range admittedClientSpecs {
-		if spec.ID == id {
-			spec.EndpointProtocols = slices.Clone(spec.EndpointProtocols)
-			spec.QualifiedModes = slices.Clone(spec.QualifiedModes)
-			spec.QualifiedPlatforms = slices.Clone(spec.QualifiedPlatforms)
-			return spec, true
-		}
-	}
-	return ClientSpec{}, false
-}
-
-// IsAdmittedClient reports whether an identifier has an admitted client contract.
-func IsAdmittedClient(id string) bool {
-	_, ok := ClientSpecFor(id)
-	return ok
 }
 
 // ResolveEndpoint selects an explicitly requested protocol or the sole available

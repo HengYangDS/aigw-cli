@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -90,8 +91,8 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 			Label: "Claude", Account: "gateway", Model: "claude-test",
 			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 		}
-		cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-		cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+		cfg.SetSelectedRoute(claude.ID, "claude", "")
+		cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
 		}

@@ -14,6 +14,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
@@ -35,7 +37,7 @@ func TestUseForwardingPreviewIsCredentialFreeAndDoesNotWrite(t *testing.T) {
 	})
 	command := NewUseCommand(runtime)
 	command.SilenceErrors, command.SilenceUsage = true, true
-	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
+	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +47,7 @@ func TestUseForwardingPreviewIsCredentialFreeAndDoesNotWrite(t *testing.T) {
 	}
 	out.Reset()
 	command = NewUseCommand(runtime)
-	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex", "--forwarding-endpoint", result.Endpoint, "--dry-run"})
+	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", result.Endpoint, "--dry-run"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -70,14 +72,14 @@ func TestUsePreservesForwardingChangedDuringDiscovery(t *testing.T) {
 	if err := credentials.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := cfg.SetForwardingEndpoint(configuration.ClientCodex, "http://127.0.0.1:8792/original/v1"); err != nil {
+	if err := cfg.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/original/v1"); err != nil {
 		t.Fatal(err)
 	}
 	if err := run.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	newer := cfg.Clone()
-	if err := newer.SetForwardingEndpoint(configuration.ClientCodex, "http://127.0.0.1:8792/operator/v1"); err != nil {
+	if err := newer.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/operator/v1"); err != nil {
 		t.Fatal(err)
 	}
 	run.Discovery = staticDiscovery{onDiscover: func() {
@@ -86,7 +88,7 @@ func TestUsePreservesForwardingChangedDuringDiscovery(t *testing.T) {
 		}
 	}}
 	command := NewUseCommand(run)
-	command.SetArgs([]string{"codex", "--for", configuration.ClientCodex})
+	command.SetArgs([]string{"codex", "--for", codex.ID})
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("selection must reject a newer assembled configuration: %v", err)
 	}
@@ -108,11 +110,11 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 	if err := run.Secrets.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
+	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := run.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	selected, err := cfg.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +142,7 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	command := NewUseCommand(run)
-	command.SetArgs([]string{"codex", "--for", configuration.ClientCodex, "--dry-run"})
+	command.SetArgs([]string{"codex", "--for", codex.ID, "--dry-run"})
 	if err := command.Execute(); err != nil {
 		t.Fatalf("explicit selection preview rejected an authorized root selection: %v", err)
 	}
@@ -166,7 +168,7 @@ func TestUseForwardingApplyNoOpAndDirectPreserveAccount(t *testing.T) {
 		out.Reset()
 		command := NewUseCommand(runtime)
 		command.SilenceErrors, command.SilenceUsage = true, true
-		command.SetArgs(append([]string{"--for", configuration.ClientCodex, "codex"}, extra...))
+		command.SetArgs(append([]string{"--for", codex.ID, "codex"}, extra...))
 		if err := command.Execute(); err != nil {
 			t.Fatal(err)
 		}
@@ -178,8 +180,8 @@ func TestUseForwardingApplyNoOpAndDirectPreserveAccount(t *testing.T) {
 		if index == 2 {
 			want = ""
 		}
-		if current.Clients[configuration.ClientCodex].ForwardingEndpoint != want {
-			t.Fatalf("selection %d destination = %q, want %q", index, current.Clients[configuration.ClientCodex].ForwardingEndpoint, want)
+		if current.Clients[codex.ID].ForwardingEndpoint != want {
+			t.Fatalf("selection %d destination = %q, want %q", index, current.Clients[codex.ID].ForwardingEndpoint, want)
 		}
 	}
 }
@@ -242,7 +244,7 @@ func configuredRuntime(t *testing.T) (invocation.Context, configuration.Config, 
 			configuration.ProtocolOpenAIResponses: {},
 		},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
+	cfg.SetSelectedRoute(codex.ID, "codex", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +275,7 @@ func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	command := NewUseCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", configuration.ClientClaude, "claude"})
+	command.SetArgs([]string{"--for", claude.ID, "claude"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -281,7 +283,7 @@ func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SelectedRoute(configuration.ClientClaude) != "claude" || got.SelectedRoute(configuration.ClientCodex) != "codex" || len(got.Clients) != 2 {
+	if got.SelectedRoute(claude.ID) != "claude" || got.SelectedRoute(codex.ID) != "codex" || len(got.Clients) != 2 {
 		t.Fatalf("client bindings = %#v", got.Clients)
 	}
 	for _, want := range []string{"Route selected", "Claude", "Team reviewer", "Projection", "Install Claude if needed, then run `aigw sync`"} {
@@ -304,7 +306,7 @@ func TestUseRenderingDoesNotReinspectCredentialMetadata(t *testing.T) {
 	for invocation := 1; invocation <= 2; invocation++ {
 		out.Reset()
 		cmd := NewUseCommand(run)
-		cmd.SetArgs([]string{"--for", configuration.ClientCodex, "codex"})
+		cmd.SetArgs([]string{"--for", codex.ID, "codex"})
 		if err := cmd.Execute(); err != nil {
 			t.Fatal(err)
 		}
@@ -352,13 +354,13 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 				}
 				library = filepath.Join(t.TempDir(), "Claude-3p", "configLibrary")
 				runtime.Discovery = staticDiscovery{result: discovery.Result{
-					Executables: map[string]string{configuration.ClientClaudeDesktop: executable},
+					Executables: map[string]string{claudedesktop.ID: executable},
 					Surfaces:    []discovery.Surface{{ID: "claude-desktop-config-library", ConfigPath: library, Present: true, AutoManaged: true}},
 				}}
 			}
 			if test.preselected {
-				cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "desktop", "")
-				cfg.SetClientActivation(configuration.ClientClaudeDesktop, true, executable, []string{library})
+				cfg.SetSelectedRoute(claudedesktop.ID, "desktop", "")
+				cfg.SetClientActivation(claudedesktop.ID, true, executable, []string{library})
 			}
 			if err := runtime.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -366,7 +368,7 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 			command := NewUseCommand(runtime)
 			command.SilenceErrors = true
 			command.SilenceUsage = true
-			args := []string{"--for", configuration.ClientClaudeDesktop, "desktop"}
+			args := []string{"--for", claudedesktop.ID, "desktop"}
 			if strings.HasSuffix(test.name, "-json") {
 				args = append(args, "--json")
 			}
@@ -419,7 +421,7 @@ func TestUseRespectsCommandCancellation(t *testing.T) {
 			command := NewUseCommand(run)
 			command.SilenceErrors = true
 			command.SilenceUsage = true
-			command.SetArgs([]string{"--for", configuration.ClientCodex, "codex"})
+			command.SetArgs([]string{"--for", codex.ID, "codex"})
 			if err := command.ExecuteContext(ctx); !errors.Is(err, context.Canceled) {
 				t.Fatalf("cancellation error = %v", err)
 			}

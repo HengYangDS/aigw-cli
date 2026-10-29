@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
@@ -19,16 +20,16 @@ func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-model")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
+	addAccountRoute(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-model")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := secretStore.Set("claude", "token"); err != nil {
 		t.Fatal(err)
 	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/different/claude"}}}
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: "/different/claude"}}}
 
 	if err := cli.Execute(app, []string{"repair"}); err != nil {
 		t.Fatal(err)
@@ -37,7 +38,7 @@ func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := restored.Clients[configuration.ClientClaude].Executable; got != claudeExecutable {
+	if got := restored.Clients[claude.ID].Executable; got != claudeExecutable {
 		t.Fatalf("repair replaced configured Claude executable: %q", got)
 	}
 	if !strings.Contains(out.String(), "Configuration") || !strings.Contains(out.String(), "Synchronized") {
@@ -49,9 +50,9 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexRoute(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, configuration.ClientClaude, "claude-test")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
+	addAccountRoute(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +68,7 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexRoute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adapter := got.Clients[configuration.ClientClaude]; !adapter.Enabled || adapter.Executable != claudeExecutable {
+	if adapter := got.Clients[claude.ID]; !adapter.Enabled || adapter.Executable != claudeExecutable {
 		t.Fatalf("Claude adapter changed during repair: %#v", adapter)
 	}
 }
@@ -83,7 +84,7 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 
 	t.Run("discovery", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		app.Discovery = nil
 		if err := cli.Execute(app, []string{"repair", "--dry-run"}); err == nil || err.Error() != "Repair prerequisites are unavailable" {
 			t.Fatalf("error = %v", err)
@@ -105,7 +106,7 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 
 	t.Run("human preview", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		if err := cli.Execute(app, []string{"repair", "--dry-run"}); err != nil {
 			t.Fatal(err)
 		}
@@ -118,12 +119,12 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "dmx-claude", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientClaude, "claude-model")
-	addAccountRoute(&cfg, "dmx-codex", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-model")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "dmx-claude", "")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "dmx-codex", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
-	cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
+	addAccountRoute(&cfg, "dmx-claude", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, claude.ID, "claude-model")
+	addAccountRoute(&cfg, "dmx-codex", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-model")
+	cfg.SetSelectedRoute(claude.ID, "dmx-claude", "")
+	cfg.SetSelectedRoute(codex.ID, "dmx-codex", "")
+	cfg.SetClientActivation(claude.ID, true, "", nil)
+	cfg.SetClientActivation(codex.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +134,7 @@ func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: claudeExecutable, configuration.ClientCodex: "/opt/codex"}, Surfaces: []discovery.Surface{{
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: claudeExecutable, codex.ID: "/opt/codex"}, Surfaces: []discovery.Surface{{
 		ID:          string(codex.HomeDefault),
 		Authority:   string(surfaceidentity.AuthorityAIGW),
 		ConfigPath:  target,
@@ -169,9 +170,9 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 	}
 
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-test")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "dmx", "")
-	cfg.SetClientActivation(configuration.ClientCodex, true, trustedExecutable, []string{existingTarget})
+	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-test")
+	cfg.SetSelectedRoute(codex.ID, "dmx", "")
+	cfg.SetClientActivation(codex.ID, true, trustedExecutable, []string{existingTarget})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +180,7 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: shadowExecutable},
+		Executables: map[string]string{codex.ID: shadowExecutable},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -196,8 +197,8 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.Clients[configuration.ClientCodex].Executable != trustedExecutable {
-		t.Fatalf("repair replaced configured Codex executable: %#v", first.Clients[configuration.ClientCodex])
+	if first.Clients[codex.ID].Executable != trustedExecutable {
+		t.Fatalf("repair replaced configured Codex executable: %#v", first.Clients[codex.ID])
 	}
 	if len(runner.plans) != 0 {
 		t.Fatalf("repair invoked a client: %#v", runner.plans)
@@ -231,12 +232,12 @@ func TestRepairMigratesMissingClientExecutables(t *testing.T) {
 	}
 
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "claude", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, configuration.ClientClaude, "claude-model")
-	addAccountRoute(&cfg, "codex", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, configuration.ClientCodex, "gpt-model")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, oldClaude, nil)
-	cfg.SetClientActivation(configuration.ClientCodex, true, oldCodex, []string{target})
+	addAccountRoute(&cfg, "claude", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, claude.ID, "claude-model")
+	addAccountRoute(&cfg, "codex", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, codex.ID, "gpt-model")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.SetClientActivation(claude.ID, true, oldClaude, nil)
+	cfg.SetClientActivation(codex.ID, true, oldCodex, []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -245,8 +246,8 @@ func TestRepairMigratesMissingClientExecutables(t *testing.T) {
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{
-			configuration.ClientClaude: newClaude,
-			configuration.ClientCodex:  newCodex,
+			claude.ID: newClaude,
+			codex.ID:  newCodex,
 		},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
@@ -264,10 +265,10 @@ func TestRepairMigratesMissingClientExecutables(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := after.Clients[configuration.ClientClaude].Executable; got != newClaude {
+	if got := after.Clients[claude.ID].Executable; got != newClaude {
 		t.Fatalf("Claude executable = %q, want %q", got, newClaude)
 	}
-	if got := after.Clients[configuration.ClientCodex].Executable; got != newCodex {
+	if got := after.Clients[codex.ID].Executable; got != newCodex {
 		t.Fatalf("Codex executable = %q, want %q", got, newCodex)
 	}
 }
@@ -279,9 +280,9 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-5.6-terra")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "dmx", "")
-	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
+	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-5.6-terra")
+	cfg.SetSelectedRoute(codex.ID, "dmx", "")
+	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +297,7 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 	if err := os.WriteFile(target, []byte(strings.Replace(string(projected), "# <<< AIGW managed provider <<<\n", "", 1)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientCodex: "/opt/codex"}, Surfaces: []discovery.Surface{{
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{codex.ID: "/opt/codex"}, Surfaces: []discovery.Surface{{
 		ID:          string(codex.HomeDefault),
 		Authority:   string(surfaceidentity.AuthorityAIGW),
 		ConfigPath:  target,

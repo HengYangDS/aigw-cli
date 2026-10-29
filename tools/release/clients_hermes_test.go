@@ -48,13 +48,13 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	selected, err := before.ResolveRuntime(configuration.ClientHermes, "")
+	selected, err := before.ResolveRuntime(hermes.ID, "")
 	if err != nil {
 		j.testing.Fatal(err)
 	}
 	var alternative configuration.Runtime
 	for _, id := range before.RouteIDs() {
-		candidate, err := before.ResolveRuntime(configuration.ClientHermes, id)
+		candidate, err := before.ResolveRuntime(hermes.ID, id)
 		if err == nil && candidate.AccountID == selected.AccountID && candidate.Protocol == selected.Protocol && candidate.Model != selected.Model {
 			alternative = candidate
 			break
@@ -63,23 +63,23 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 	if alternative.RouteID == "" {
 		j.testing.Fatal("native Hermes selection requires another owned model on the same protocol")
 	}
-	target := j.clientProjectionPaths(configuration.ClientHermes)[0]
+	target := j.clientProjectionPaths(hermes.ID)[0]
 	j.runWith(executable, "config", "set", "model.default", alternative.Model)
 	nativeBefore, stateBefore := readFile(j.testing, target), readFile(j.testing, target+".aigw-state.json")
 	var adoption struct {
 		AdoptedSelections map[string]string `json:"adopted_selections"`
 	}
-	if err := json.Unmarshal(j.run("sync", "--dry-run", "--json"), &adoption); err != nil || adoption.AdoptedSelections[configuration.ClientHermes] != alternative.RouteID {
+	if err := json.Unmarshal(j.run("sync", "--dry-run", "--json"), &adoption); err != nil || adoption.AdoptedSelections[hermes.ID] != alternative.RouteID {
 		j.testing.Fatalf("synchronization preview did not adopt the native selection: %v, %v", adoption.AdoptedSelections, err)
 	}
-	args := []string{"use", "--for", configuration.ClientHermes, "--protocol", string(alternative.Protocol), alternative.RouteID}
+	args := []string{"use", "--for", hermes.ID, "--protocol", string(alternative.Protocol), alternative.RouteID}
 	j.run(append(slices.Clone(args), "--dry-run", "--json")...)
 	if !bytes.Equal(readFile(j.testing, target), nativeBefore) || !bytes.Equal(readFile(j.testing, target+".aigw-state.json"), stateBefore) {
 		j.testing.Fatal("selection preview changed the native preimages")
 	}
 	j.run(args...)
 	after, err := store.Load()
-	if err != nil || after.SelectedRoute(configuration.ClientHermes) != alternative.RouteID {
+	if err != nil || after.SelectedRoute(hermes.ID) != alternative.RouteID {
 		j.testing.Fatalf("native selection adoption: %v", err)
 	}
 	var original, adopted map[string]any
@@ -105,9 +105,9 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 			j.testing.Fatalf("native selection did not converge: %s", target.Action)
 		}
 	}
-	j.run("use", "--for", configuration.ClientHermes, "--protocol", string(selected.Protocol), selected.RouteID)
+	j.run("use", "--for", hermes.ID, "--protocol", string(selected.Protocol), selected.RouteID)
 	j.run("check")
-	j.requireNativePreferences(configuration.ClientHermes)
+	j.requireNativePreferences(hermes.ID)
 }
 
 type hermesSessionSnapshot struct {
@@ -421,7 +421,7 @@ func testHermesNativeClientInputs(t *testing.T) {
 		testing: t, root: root, manifest: filepath.Join(root, "team.toml"),
 		endpoint: "http://127.0.0.1:1/v1",
 	}
-	err := journey.prepareNativeClient(configuration.ClientHermes, file, readFile(t, filepath.Join("..", "..", "manifests", "team.toml")))
+	err := journey.prepareNativeClient(hermes.ID, file, readFile(t, filepath.Join("..", "..", "manifests", "team.toml")))
 	home := environmentValues(journey.environment)["HERMES_HOME"]
 	if runtime.GOOS == "windows" {
 		if err == nil || home != "" || !strings.Contains(err.Error(), "no client process was started") {

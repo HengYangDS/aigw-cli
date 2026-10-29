@@ -49,15 +49,15 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientHermes, "hermes", "")
-	cfg.SetClientActivation(configuration.ClientHermes, true, executable, []string{target})
+	cfg.SetSelectedRoute(ID, "hermes", "")
+	cfg.SetClientActivation(ID, true, executable, []string{target})
 	store := secrets.NewMemoryStore()
 	if err := store.Set("team", "fixture-token"); err != nil {
 		t.Fatal(err)
 	}
 	adapter := hermesAdapter{}
 	deps := client.Dependencies{Secrets: store, AIGWExecutable: retained}
-	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	selected, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	account := changed.Accounts["team"]
 	account.Endpoints.Anthropic = "https://changed.test"
 	changed.Accounts["team"] = account
-	changedRuntime, err := changed.ResolveRuntime(configuration.ClientHermes, "")
+	changedRuntime, err := changed.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func requireHermesVerificationReader(t *testing.T, deps client.Dependencies, cfg
 	} else if err != nil {
 		t.Fatal(err)
 	}
-	after, err := os.ReadFile(cfg.Clients[configuration.ClientHermes].Targets[0])
+	after, err := os.ReadFile(cfg.Clients[ID].Targets[0])
 	if err != nil || !slices.Equal(before, after) {
 		t.Fatal("verification changed the retained Hermes configuration")
 	}

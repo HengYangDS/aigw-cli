@@ -18,7 +18,10 @@ import (
 	"testing"
 	"time"
 
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/process"
@@ -35,7 +38,7 @@ func TestNativeClientFilePreservation(t *testing.T) {
 		journey := journeyFixture{testing: t, root: t.TempDir()}
 		home := t.TempDir()
 		journey.setEnvironment("HERMES_HOME", home)
-		check := journey.preserveClientFiles(configuration.ClientHermes)
+		check := journey.preserveClientFiles(hermes.ID)
 		path := filepath.Join(home, "sessions", "user.jsonl")
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("preservation did not inspect the effective Hermes session path: %v", err)
@@ -66,7 +69,7 @@ func TestNativeClientFilePreservation(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			check := journey.preserveClientFiles(configuration.ClientCodex)
+			check := journey.preserveClientFiles(codex.ID)
 			if err := check(); err != nil {
 				t.Fatal(err)
 			}
@@ -103,11 +106,11 @@ func TestRetainedCredentialCommandDoesNotReloadClientProjection(t *testing.T) {
 		_, _ = io.WriteString(w, `{"data":[]}`)
 	}))
 	t.Cleanup(server.Close)
-	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, client := range []string{claude.ID, codex.ID} {
 		t.Run(client, func(t *testing.T) {
 			journey := newNativeJourney(t, program, server.URL, true)
 			var projection string
-			if client == configuration.ClientCodex {
+			if client == codex.ID {
 				projection, _ = journey.prepareCodexLifecycle()
 			} else {
 				projection = journey.settings
@@ -149,18 +152,18 @@ func TestWindowsCredentialCommandSupportsDeepEntrypointNamespace(t *testing.T) {
 			if len(reader) < 260 {
 				t.Fatal("fixture did not reach the native Windows shell path boundary")
 			}
-			command, err := credential.Command(reader, configuration.ClientClaude, "deep-fixture", runtime.GOOS)
+			command, err := credential.Command(reader, claude.ID, "deep-fixture", runtime.GOOS)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if _, err := credential.EnsureEntrypoint(program, reader); err != nil {
 				t.Fatal(err)
 			}
-			prepared, err := credential.Command(reader, configuration.ClientClaude, "deep-fixture", runtime.GOOS)
+			prepared, err := credential.Command(reader, claude.ID, "deep-fixture", runtime.GOOS)
 			if err != nil || command != prepared {
 				t.Fatalf("reader preparation changed the captured command: %v", err)
 			}
-			canonical, err := credential.ExecutableFromCommand(command, configuration.ClientClaude, "deep-fixture", runtime.GOOS)
+			canonical, err := credential.ExecutableFromCommand(command, claude.ID, "deep-fixture", runtime.GOOS)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -190,7 +193,7 @@ func TestWindowsCredentialCommandSupportsDeepEntrypointNamespace(t *testing.T) {
 	t.Run("unavailable native name", func(t *testing.T) {
 		root := t.TempDir()
 		path := filepath.Join(root, strings.Repeat("uncreated", 32), "aigw.exe")
-		if _, err := credential.Command(path, configuration.ClientClaude, "deep-fixture", runtime.GOOS); err == nil {
+		if _, err := credential.Command(path, claude.ID, "deep-fixture", runtime.GOOS); err == nil {
 			t.Fatal("an overlong uncreated path acquired an executable command")
 		}
 		entries, err := os.ReadDir(root)
@@ -213,7 +216,7 @@ func TestRetainedCredentialSurvivesInstalledExecutableUnlink(t *testing.T) {
 	journey := newNativeJourney(t, program, server.URL, true)
 	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
-	retained := journey.retainedCredential(configuration.ClientClaude)
+	retained := journey.retainedCredential(claude.ID)
 	journey.requireCredential(retained, "native-journey-token")
 	if err := os.Remove(journey.binary); err != nil {
 		t.Fatal(err)
@@ -252,14 +255,14 @@ func TestSyncPreservesRetainedEntrypointAfterInterruptedLastClientWithdrawal(t *
 	journey := newNativeJourney(t, program, server.URL, true)
 	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
-	retained := journey.retainedCredential(configuration.ClientClaude)
+	retained := journey.retainedCredential(claude.ID)
 	store := configuration.NewStore(journey.config, clients.Admission())
 	before, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	after := before.Clone()
-	after.SetClientActivation(configuration.ClientClaude, false, "", nil)
+	after.SetClientActivation(claude.ID, false, "", nil)
 	if err := store.Save(after); err != nil {
 		t.Fatal(err)
 	}
@@ -314,24 +317,24 @@ func TestClientDisablePreservesRetainedEntrypointAcrossReenable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	executable := cfg.Clients[configuration.ClientClaude].Executable
+	executable := cfg.Clients[claude.ID].Executable
 	helper := journey.credentialEntrypoint()
-	retained := journey.retainedCredential(configuration.ClientClaude)
-	journey.run("client", "disable", configuration.ClientClaude)
+	retained := journey.retainedCredential(claude.ID)
+	journey.run("client", "disable", claude.ID)
 	for _, path := range []string{helper, helper + ".sha256"} {
 		if _, err := os.Lstat(path); err != nil {
 			t.Fatalf("disable removed a possible cached command %s: %v", path, err)
 		}
 	}
-	journey.run("client", "enable", configuration.ClientClaude, "--executable", executable)
+	journey.run("client", "enable", claude.ID, "--executable", executable)
 	journey.requireCredential(retained, "native-journey-token")
-	journey.requireCredential(journey.retainedCredential(configuration.ClientClaude), "native-journey-token")
+	journey.requireCredential(journey.retainedCredential(claude.ID), "native-journey-token")
 }
 
 func (j *journeyFixture) retainedCredential(client string) process.Plan {
 	j.testing.Helper()
 	plan := process.Plan{Env: slices.Clone(j.environment)}
-	if client == configuration.ClientCodex {
+	if client == codex.ID {
 		var config struct {
 			ModelProvider  string `toml:"model_provider"`
 			ModelProviders map[string]struct {
@@ -352,7 +355,7 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 		plan.Executable, plan.Args = auth.Command, auth.Args
 		return plan
 	}
-	if client == configuration.ClientHermes {
+	if client == hermes.ID {
 		var config struct {
 			Model struct {
 				Provider string `yaml:"provider"`
@@ -374,7 +377,7 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 		}
 		return j.shellCredential(command)
 	}
-	if client == configuration.ClientClaudeDesktop {
+	if client == claudedesktop.ID {
 		library, err := claudedesktop.LibraryPathFor(runtime.GOOS, environmentValues(j.environment))
 		if err != nil {
 			j.testing.Fatal(err)
@@ -393,7 +396,7 @@ func (j *journeyFixture) retainedCredential(client string) process.Plan {
 		plan.Executable, plan.Args = config.Command, config.Args
 		return plan
 	}
-	if client != configuration.ClientClaude {
+	if client != claude.ID {
 		j.testing.Fatalf("unsupported credential client %q", client)
 	}
 	var settings struct {
@@ -491,9 +494,9 @@ func (j *journeyFixture) preserveClientFiles(client string) func() error {
 	home := filepath.Join(j.root, "home")
 	path, content := filepath.Join(home, ".claude", "CLAUDE.md"), "# User instructions\n"
 	switch client {
-	case configuration.ClientCodex:
+	case codex.ID:
 		path, content = filepath.Join(home, ".codex", "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
-	case configuration.ClientHermes:
+	case hermes.ID:
 		path, content = filepath.Join(environmentValues(j.environment)["HERMES_HOME"], "sessions", "user.jsonl"), "{\"owner\":\"user\"}\n"
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -503,7 +506,7 @@ func (j *journeyFixture) preserveClientFiles(client string) func() error {
 		j.testing.Fatal(err)
 	}
 	files := map[string][]byte{path: []byte(content)}
-	if client == configuration.ClientCodex {
+	if client == codex.ID {
 		auth := filepath.Join(home, ".codex", "auth.json")
 		data, err := os.ReadFile(auth)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {

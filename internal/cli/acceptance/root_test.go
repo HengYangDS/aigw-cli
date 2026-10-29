@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 )
@@ -235,7 +236,7 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
 			cfg := configuration.NewConfig(clients.Admission())
-			addAccountRoute(&cfg, "claude", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			addAccountRoute(&cfg, "claude", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -256,7 +257,7 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 
 func TestPublicMutationFailureDoesNotExposePrivatePath(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 	privatePath := app.Config.Path() + ".bak"
 	if err := os.Mkdir(privatePath, 0o700); err != nil {
 		t.Fatal(err)

@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	claudeclient "aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -37,13 +39,13 @@ func enabledCodexWithDisabledClaude(t *testing.T) (*cli.App, *bytes.Buffer, *acc
 	t.Helper()
 	app, out, memory, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "gpt", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
-	addAccountRoute(&cfg, "claude", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-test")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	addAccountRoute(&cfg, "gpt", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+	addAccountRoute(&cfg, "claude", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, claudeclient.ID, "claude-test")
+	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.SetSelectedRoute(claudeclient.ID, "claude", "")
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	writeFile(t, codexTarget, []byte("model_provider = \"native\"\n"), 0o600)
-	cfg.SetClientActivation(configuration.ClientCodex, true, executableFixture(t, "codex"), []string{codexTarget})
+	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{codexTarget})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +98,7 @@ func TestDisabledBindingAccountCannotChangeReadiness(t *testing.T) {
 	if err := json.Unmarshal([]byte(denied[0]), &status); err != nil {
 		t.Fatal(err)
 	}
-	if claude := status.Clients[configuration.ClientClaude]; claude.State != "deferred" || claude.Detail != "The client is not installed or enabled" || status.NextAction == "aigw doctor" {
+	if claude := status.Clients[claudeclient.ID]; claude.State != "deferred" || claude.Detail != "The client is not installed or enabled" || status.NextAction == "aigw doctor" {
 		t.Errorf("status with an unobservable disabled binding = %+v", status)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"testing/iotest"
 
+	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 
@@ -57,7 +58,7 @@ func configuredCatalog() configuration.Config {
 		Label: "Claude", Account: "gateway", Model: "gpt-claude",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
+	cfg.SetSelectedRoute(codex.ID, "codex", "")
 	return cfg
 }
 

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
@@ -31,7 +32,7 @@ func TestAccountConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
 				account.Endpoints.Anthropic = "invalid-endpoint"
 			}
 			acquired := false
-			err := (Synchronizer{Registry: builtinClients}).ConnectAccount(ctx, before, name, configuration.ClientClaude, account, route, func() (string, error) {
+			err := (Synchronizer{Registry: builtinClients}).ConnectAccount(ctx, before, name, claude.ID, account, route, func() (string, error) {
 				acquired = true
 				return "token", nil
 			})
@@ -52,7 +53,7 @@ func TestAccountConnectionPreservesStateWhenTokenAcquisitionFails(t *testing.T) 
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			failure := errors.New("input unavailable")
-			err := syncer.ConnectAccount(ctx, before, "new", configuration.ClientClaude, before.Accounts["team"], before.Routes["claude"], func() (string, error) {
+			err := syncer.ConnectAccount(ctx, before, "new", claude.ID, before.Accounts["team"], before.Routes["claude"], func() (string, error) {
 				switch phase {
 				case "input failure":
 					return "", failure

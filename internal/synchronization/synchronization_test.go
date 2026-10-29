@@ -1,6 +1,7 @@
 package synchronization
 
 import (
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
@@ -101,8 +102,8 @@ func testConfig(target string) configuration.Config {
 	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Routes["gpt"] = configuration.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
-	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
+	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	return cfg
 }
 
@@ -152,7 +153,7 @@ func TestCommitRestoresTargetRemovedFromAdapter(t *testing.T) {
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := before.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := before.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +162,7 @@ func TestCommitRestoresTargetRemovedFromAdapter(t *testing.T) {
 		t.Fatal(err)
 	}
 	after := before.Clone()
-	delete(after.Clients, configuration.ClientCodex)
+	delete(after.Clients, codex.ID)
 	if err := syncer.Commit(context.Background(), before, after, "test"); err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +174,7 @@ func TestCommitRestoresTargetRemovedFromAdapter(t *testing.T) {
 		t.Fatalf("sidecar remains after adapter removal: %v", err)
 	}
 	stored, err := store.Load()
-	if err != nil || stored.Clients[configuration.ClientCodex].Enabled {
+	if err != nil || stored.Clients[codex.ID].Enabled {
 		t.Fatalf("stored config still enables Codex: %#v, %v", stored.Clients, err)
 	}
 }
@@ -216,11 +217,9 @@ func TestCancelledCommitPreservesConfiguration(t *testing.T) {
 }
 
 func TestCommitPersistenceFailureBoundaries(t *testing.T) {
-	before := configuration.NewConfig(clients.
-		// The committed configuration must itself be savable, so the injected
-		// persistence failures are the ones that stop the commit.
-		Admission())
-
+	before := configuration.NewConfig(clients.Admission())
+	// The committed configuration must itself be savable, so the injected
+	// persistence failures are the ones that stop the commit.
 	after := configuration.NewConfig(clients.Admission())
 	after.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	after.Routes["gpt"] = configuration.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
@@ -414,9 +413,9 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 		Label: "Claude", Account: "gateway", Model: "claude-team",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	before.SetSelectedRoute(claude.ID, "claude", "")
 	after := before.Clone()
-	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
@@ -446,11 +445,11 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	if err := decoder.Decode(&document); err != nil {
 		t.Fatal(err)
 	}
-	projection, err := after.ResolveRuntime(configuration.ClientClaude, "")
+	projection, err := after.ResolveRuntime(claude.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	helper, err := credential.Command(aigwExecutable, configuration.ClientClaude, projection.CredentialProjectionFingerprint(configuration.ClientClaude), runtime.GOOS)
+	helper, err := credential.Command(aigwExecutable, claude.ID, projection.CredentialProjectionFingerprint(claude.ID), runtime.GOOS)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -488,9 +487,9 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 		Label: "Claude", Account: "gateway", Model: "claude-team",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	before.SetSelectedRoute(claude.ID, "claude", "")
 	after := before.Clone()
-	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
@@ -501,7 +500,7 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 		t.Fatalf("Commit() error = %v", err)
 	}
 	stored, loadErr := store.Load()
-	if loadErr != nil || stored.Clients[configuration.ClientClaude].Enabled {
+	if loadErr != nil || stored.Clients[claude.ID].Enabled {
 		t.Fatalf("configuration was not rolled back: %#v, %v", stored, loadErr)
 	}
 }

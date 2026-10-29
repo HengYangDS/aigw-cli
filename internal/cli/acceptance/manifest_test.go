@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -18,7 +20,7 @@ func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesT
 	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Label: "Personal Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://personal.example.test"}}
 	cfg.Routes["local"] = qualifiedRoute("Local", "team", "local-model", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "local", "")
+	cfg.SetSelectedRoute(claude.ID, "local", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +56,7 @@ interfaces = { anthropic = ["text"] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["team"].Endpoints.Anthropic != "https://personal.example.test" || got.SelectedRoute(configuration.ClientClaude) != "local" {
+	if got.Accounts["team"].Endpoints.Anthropic != "https://personal.example.test" || got.SelectedRoute(claude.ID) != "local" {
 		t.Fatalf("default import mutated local identity: %#v", got)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
@@ -68,7 +70,7 @@ interfaces = { anthropic = ["text"] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["team"].Endpoints.Anthropic != "https://team.example.test" || got.SelectedRoute(configuration.ClientClaude) != "local" {
+	if got.Accounts["team"].Endpoints.Anthropic != "https://team.example.test" || got.SelectedRoute(claude.ID) != "local" {
 		t.Fatalf("explicit replacement result: %#v", got)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
@@ -119,7 +121,7 @@ func TestConfigCommandIOFailures(t *testing.T) {
 
 	t.Run("export output", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		want := errors.New("output failed")
 		app.Out = failingOutput{err: want}
 		if err := cli.Execute(app, []string{"config", "export"}); !errors.Is(err, want) {
@@ -189,7 +191,7 @@ func TestConfigImportRefusesRouteConflictUntilExplicitReplacement(t *testing.T) 
 	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Label: "Team Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
 	cfg.Routes["shared"] = qualifiedRoute("Personal Model", "team", "personal-model", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "shared", "")
+	cfg.SetSelectedRoute(codex.ID, "shared", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

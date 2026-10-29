@@ -11,7 +11,6 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/codex"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
@@ -32,14 +31,14 @@ func (credentialFreeStore) Get(string) (string, error) {
 func TestUseForwardingPreviewRefusesAnEditedOwnedTarget(t *testing.T) {
 	run, cfg, out := configuredRuntime(t)
 	target := filepath.Join(t.TempDir(), "config.toml")
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[codex.ID]
 	binding.Enabled, binding.Targets = true, []string{target}
 	binding.CredentialCommand = filepath.Join(t.TempDir(), "codex-reader")
-	cfg.Clients[configuration.ClientCodex] = binding
+	cfg.Clients[codex.ID] = binding
 	if err := run.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	selected, err := cfg.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +67,7 @@ func TestUseForwardingPreviewRefusesAnEditedOwnedTarget(t *testing.T) {
 	run.Secrets = credentialFreeStore{secrets.NewMemoryStore()}
 	command := NewUseCommand(run)
 	command.SilenceErrors, command.SilenceUsage = true, true
-	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
+	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
 	err = command.Execute()
 	if _, conflict := errors.AsType[*codex.ConflictError](err); !conflict {
 		t.Fatalf("preview did not refuse the edited target as a Codex conflict: %v, %s", err, out.String())
@@ -89,22 +88,22 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 	run, cfg, out := configuredRuntime(t)
 	target := filepath.Join(t.TempDir(), "config.toml")
 	run.Discovery = staticDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: filepath.Join(t.TempDir(), "codex")},
+		Executables: map[string]string{codex.ID: filepath.Join(t.TempDir(), "codex")},
 		Surfaces: []discovery.Surface{{
 			ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
 			ConfigPath: target, AutoManaged: true,
 		}},
 	}}
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[codex.ID]
 	binding.Enabled, binding.CredentialCommand = true, filepath.Join(t.TempDir(), "reader")
-	cfg.Clients[configuration.ClientCodex] = binding
+	cfg.Clients[codex.ID] = binding
 	if err := run.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	run.Secrets = credentialFreeStore{secrets.NewMemoryStore()}
 	command := NewUseCommand(run)
 	command.SilenceErrors, command.SilenceUsage = true, true
-	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
+	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +121,7 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 	}
 	planned := filepath.Join(directory, filepath.Base(target))
 	if len(preview.Targets) != 1 || preview.Targets[0].Target != planned ||
-		preview.Targets[0].Client != configuration.ClientCodex || preview.Targets[0].Action != "initial-project" {
+		preview.Targets[0].Client != codex.ID || preview.Targets[0].Action != "initial-project" {
 		t.Fatalf("preview did not plan the newly discovered target: %s", out.Bytes())
 	}
 	if _, err := os.Stat(target); !errors.Is(err, os.ErrNotExist) {
@@ -135,7 +134,7 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 	run.Secrets = credentials
 	command = NewUseCommand(run)
 	command.SilenceErrors, command.SilenceUsage = true, true
-	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1"})
+	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +142,7 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stored := current.Clients[configuration.ClientCodex].Targets
+	stored := current.Clients[codex.ID].Targets
 	if len(stored) != 1 {
 		t.Fatalf("selection stored %d targets: %#v", len(stored), stored)
 	}

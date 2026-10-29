@@ -16,7 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/client/claude"
+	codexclient "aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/tools/release/construction"
 )
 
@@ -67,7 +69,7 @@ func fixtureRelease() clientRelease {
 func fixtureReleaseFor(host string) clientRelease {
 	release := fixtureRelease()
 	platform, _, _ := strings.Cut(host, "/")
-	if !slices.Contains(construction.NativeAcceptanceClients(platform), configuration.ClientHermes) {
+	if !slices.Contains(construction.NativeAcceptanceClients(platform), hermes.ID) {
 		release.hermesCommit, release.hermesInstaller = "", ""
 	}
 	return release
@@ -366,7 +368,7 @@ func TestNativeClientsCommandSuppliesAndRetiresThisHost(t *testing.T) {
 }
 
 func TestNativeClientSupplyRefusesAClientWithoutAnOfficialDistribution(t *testing.T) {
-	err := fixtureRelease().validate([]string{configuration.ClientClaude, configuration.ClientCodex, configuration.ClientHermes, "cursor"})
+	err := fixtureRelease().validate([]string{claude.ID, codexclient.ID, hermes.ID, "cursor"})
 	if err == nil || !strings.Contains(err.Error(), "no official supply for native client cursor") {
 		t.Fatalf("supply of a client without an official distribution = %v", err)
 	}

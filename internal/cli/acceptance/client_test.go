@@ -13,6 +13,8 @@ import (
 
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -21,7 +23,7 @@ import (
 
 func TestAdapterEnableSurfacesCredentialObservationFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	want := errors.New("credential observation failed")
 	app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: want}
 
@@ -33,7 +35,7 @@ func TestAdapterEnableSurfacesCredentialObservationFailure(t *testing.T) {
 
 func TestAdapterEnableReportsConfigurationCommitFailure(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	if err := secretStore.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +52,7 @@ func TestAdapterEnableReportsConfigurationCommitFailure(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 	stored, loadErr := app.Config.Load()
-	if loadErr != nil || stored.Clients[configuration.ClientClaude].Enabled {
+	if loadErr != nil || stored.Clients[claude.ID].Enabled {
 		t.Fatalf("failed configuration commit enabled Claude: %#v, %v", stored.Clients, loadErr)
 	}
 }
@@ -121,9 +123,9 @@ func TestAdapterValidationBranches(t *testing.T) {
 func TestAdapterStateFailureBranches(t *testing.T) {
 	t.Run("enable already enabled", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		cfg, _ := app.Config.Load()
-		cfg.SetClientActivation(configuration.ClientClaude, true, "/old", nil)
+		cfg.SetClientActivation(claude.ID, true, "/old", nil)
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -136,7 +138,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 
 	t.Run("enable unresolved route", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		_ = secretStore.Set("one", "token")
 		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", "/x"})
 		if err == nil || !strings.Contains(err.Error(), "no Route selected for client \"claude\"") {
@@ -146,7 +148,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 
 	t.Run("enable missing token", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"client", "enable", "claude", "--executable", "/x"})
 		if err == nil || !strings.Contains(err.Error(), "missing a token") {
 			t.Fatalf("error = %v", err)
@@ -155,7 +157,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 
 	t.Run("enable missing discovery", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		_ = secretStore.Set("one", "token")
 		app.Discovery = nil
 		err := cli.Execute(app, []string{"client", "enable", "codex", "--executable", "/x", "--target", filepath.Join(t.TempDir(), "configuration.toml")})
@@ -179,8 +181,8 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-model")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "team", "")
+	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-model")
+	cfg.SetSelectedRoute(claude.ID, "team", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -234,8 +236,8 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "gpt-model")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "team", "")
+	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "gpt-model")
+	cfg.SetSelectedRoute(codex.ID, "team", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -267,20 +269,20 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 	writeFile(t, claudeSettingsPath(t, app.Host), []byte(`{"theme":"dark","env":{"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS":"1"}}`), 0o600)
 	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, id := range []string{claude.ID, codex.ID} {
 		executable := filepath.Join(root, id)
 		writeFile(t, executable, []byte("public fixture"), 0o700)
 		protocol := configuration.ProtocolOpenAIResponses
-		if id == configuration.ClientClaude {
+		if id == claude.ID {
 			protocol = configuration.ProtocolAnthropic
 		}
 		cfg.Routes[id] = qualifiedRoute(id, "gateway", "fixture-model", protocol)
 		cfg.SetSelectedRoute(id, id, "")
 		cfg.SetClientActivation(id, true, executable, nil)
 	}
-	adapter := cfg.Clients[configuration.ClientCodex]
+	adapter := cfg.Clients[codex.ID]
 	adapter.Targets = []string{target}
-	cfg.Clients[configuration.ClientCodex] = adapter
+	cfg.Clients[codex.ID] = adapter
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +299,7 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 		t.Fatal(err)
 	}
 	command := filepath.Join(root, "credential adapter")
-	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, id := range []string{claude.ID, codex.ID} {
 		adapter := cfg.Clients[id]
 		adapter.CredentialCommand = command
 		cfg.Clients[id] = adapter
@@ -340,7 +342,7 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 
 func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, target, command string) {
 	t.Helper()
-	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, id := range []string{claude.ID, codex.ID} {
 		if err := cli.Execute(app, []string{"client", "disable", id}); err != nil {
 			t.Fatal(err)
 		}
@@ -352,13 +354,13 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, id := range []string{claude.ID, codex.ID} {
 		adapter := disabled.Clients[id]
 		if adapter.Enabled || adapter.CredentialCommand != command {
 			t.Fatalf("sync did not preserve disabled %s policy: %#v", id, adapter)
 		}
 		args := []string{"client", "enable", id, "--executable", filepath.Join(root, id)}
-		if id == configuration.ClientCodex {
+		if id == codex.ID {
 			args = append(args, "--target", target)
 		}
 		if err := cli.Execute(app, args); err != nil {
@@ -369,7 +371,7 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, id := range []string{claude.ID, codex.ID} {
 		if adapter := reenabled.Clients[id]; !adapter.Enabled || adapter.CredentialCommand != command {
 			t.Fatalf("reenable replaced %s credential policy: %#v", id, adapter)
 		}
@@ -381,12 +383,12 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://example.invalid"}}
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "fixture-model", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	command := filepath.Join(t.TempDir(), "explicit-helper")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
-	binding := cfg.Clients[configuration.ClientClaude]
+	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
+	binding := cfg.Clients[claude.ID]
 	binding.CredentialCommand = command
-	cfg.Clients[configuration.ClientClaude] = binding
+	cfg.Clients[claude.ID] = binding
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -399,7 +401,7 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 	if err := cli.Execute(app, []string{"verify", "--for", "claude"}); err != nil {
 		t.Fatal(err)
 	}
-	if len(runner.plans) != 1 || runner.plans[0].Executable != cfg.Clients[configuration.ClientClaude].Executable {
+	if len(runner.plans) != 1 || runner.plans[0].Executable != cfg.Clients[claude.ID].Executable {
 		t.Fatal("verification did not use the sole native client plan")
 	}
 	if !bytes.Equal(beforeConfig, readFile(t, app.Config.Path())) || !bytes.Equal(beforeSettings, readFile(t, claudeSettingsPath(t, app.Host))) {

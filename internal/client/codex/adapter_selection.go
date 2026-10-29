@@ -14,11 +14,11 @@ import (
 // it names the upstream model of one Route of the selected Account and
 // protocol. The binding keeps its protocol, provider and forwarding.
 func (codexAdapter) AdoptSelection(_ client.Dependencies, cfg *configuration.Config) (string, error) {
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[ID]
 	if !binding.Enabled || len(binding.Targets) == 0 {
 		return "", nil
 	}
-	selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	selected, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		return "", nil
 	}
@@ -42,14 +42,14 @@ func (codexAdapter) AdoptSelection(_ client.Dependencies, cfg *configuration.Con
 	if err != nil {
 		return "", err
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, routeID, "")
+	cfg.SetSelectedRoute(ID, routeID, "")
 	return routeID, nil
 }
 
 // routeFor maps Codex's model to the one Route with the selected Account,
 // protocol and that upstream model, which the managed provider already reaches.
 func routeFor(cfg configuration.Config, selected configuration.Runtime, model string) (string, error) {
-	spec := client.AdmittedSpec(configuration.ClientCodex)
+	spec := codexAdapter{}.Spec()
 	var matches []string
 	for _, routeID := range cfg.CatalogRouteIDs() {
 		route := cfg.Routes[routeID]

@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -55,8 +56,8 @@ func validDoctorConfig() configuration.Config {
 	}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetSelectedRoute(codex.ID, "codex", "")
 	return cfg
 }
 
@@ -111,8 +112,8 @@ func findCheck(t *testing.T, checks []Check, name string) Check {
 
 func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	cfg := validDoctorConfig()
-	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
-	cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
+	cfg.SetClientActivation(claude.ID, true, "", nil)
+	cfg.SetClientActivation(codex.ID, true, "", nil)
 	deps, _, _ := doctorDependencies(t, cfg)
 	checks := Collect(context.Background(), deps)
 	if check := findCheck(t, checks, "secret:team"); check.OK || check.Fix == "" {
@@ -124,7 +125,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 		}
 	}
 
-	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", nil)
+	cfg.SetClientActivation(codex.ID, true, "codex", nil)
 	deps, _, _ = doctorDependencies(t, cfg)
 	check := findCheck(t, Collect(context.Background(), deps), "adapter:codex")
 	if check.OK || check.Detail != "Codex configuration target is missing" || check.Fix != "run `aigw repair`" {
@@ -142,7 +143,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 
 func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.T) {
 	cfg := validDoctorConfig()
-	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	cfg.SetClientActivation(claude.ID, true, "", nil)
 	cfg.Accounts["optional"] = configuration.Account{
 		Label: "Optional",
 		Endpoints: configuration.Endpoints{
@@ -169,7 +170,7 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 
 func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 	cfg := validDoctorConfig()
-	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, client := range []string{claude.ID, codex.ID} {
 		cfg.SetClientActivation(client, true, "", nil)
 	}
 	cfg.Accounts["native"] = configuration.Account{
@@ -186,7 +187,7 @@ func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 			configuration.ProtocolOpenAIResponses: {},
 		},
 	}
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
+	cfg.Clients[codex.ID] = configuration.ClientBinding{
 		Route: "native", Enabled: true, ModelProvider: "amazon-bedrock",
 		Authentication: configuration.AuthenticationClientNative,
 	}
@@ -210,7 +211,7 @@ func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 
 func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	cfg := validDoctorConfig()
-	cfg.SetClientActivation(configuration.ClientClaude, true, filepath.Join(t.TempDir(), "missing"), nil)
+	cfg.SetClientActivation(claude.ID, true, filepath.Join(t.TempDir(), "missing"), nil)
 	deps, _, secretsStore := doctorDependencies(t, cfg)
 	if err := secretsStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
@@ -226,7 +227,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("binary"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
+	cfg.SetClientActivation(claude.ID, true, executable, nil)
 	deps, _, _ = doctorDependencies(t, cfg)
 	deps.Clients.Host = hostAt(t.TempDir())
 	deps.Clients.AIGWExecutable = filepath.Join(t.TempDir(), "aigw")
@@ -234,7 +235,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if check := findCheck(t, checks, "adapter:claude"); check.OK || !strings.Contains(check.Detail, "not synchronized") {
 		t.Fatalf("unsynchronized adapter check = %#v", check)
 	}
-	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+	clientRuntime, err := cfg.ResolveRuntime(claude.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +266,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	}
 
 	home := t.TempDir()
-	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{filepath.Join(home, ".codex", "config.toml")})
+	cfg.SetClientActivation(codex.ID, true, "codex", []string{filepath.Join(home, ".codex", "config.toml")})
 	deps, _, _ = doctorDependencies(t, cfg)
 	deps.Env = []string{"HOME=" + home}
 	check := findCheck(t, Collect(context.Background(), deps), "codex:target-1")
@@ -273,12 +274,12 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 		t.Fatalf("projection check = %#v", check)
 	}
 
-	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", []string{"unused"})
+	cfg.SetClientActivation(codex.ID, true, "codex", []string{"unused"})
 	delete(cfg.Accounts, "team")
 	if check := findCheck(t, adapterChecks(context.Background(), deps.Clients, cfg, ""), "projection:codex"); check.OK || check.Detail != "selected client route cannot be resolved" {
 		t.Fatalf("route check = %#v", check)
 	}
-	if got := adapterChecks(context.Background(), deps.Clients, configuration.NewConfig(clients.Admission()), ""); len(got) != len(configuration.AdmittedClientIDs()) {
+	if got := adapterChecks(context.Background(), deps.Clients, configuration.NewConfig(clients.Admission()), ""); len(got) != len(clients.Admission().IDs()) {
 		t.Fatalf("disabled adapter checks = %#v", got)
 	}
 }
@@ -289,7 +290,7 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 	if err := os.MkdirAll(blocked, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientClaude, true, blocked, nil)
+	cfg.SetClientActivation(claude.ID, true, blocked, nil)
 	deps, _, _ := doctorDependencies(t, cfg)
 	check := findCheck(t, Collect(context.Background(), deps), "adapter:claude")
 	if check.OK || !strings.Contains(check.Detail, "unavailable") {
@@ -302,8 +303,8 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	deps, out, secretStore := doctorDependencies(t, cfg)
 	deps.Inspect = func(configuration.Config, secrets.Store) map[string]domainreadiness.Client {
 		return map[string]domainreadiness.Client{
-			configuration.ClientClaude: {State: domainreadiness.Configured, Route: "claude", Account: "team"},
-			configuration.ClientCodex:  {State: domainreadiness.Deferred, NextAction: "aigw sync"},
+			claude.ID: {State: domainreadiness.Configured, Route: "claude", Account: "team"},
+			codex.ID:  {State: domainreadiness.Deferred, NextAction: "aigw sync"},
 		}
 	}
 	if err := secretStore.Set("team", "token"); err != nil {
@@ -313,7 +314,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	if !result.OK || !AllOK(result.Checks) {
 		t.Fatalf("result = %#v", result)
 	}
-	if result.Clients[configuration.ClientClaude].State != domainreadiness.Configured {
+	if result.Clients[claude.ID].State != domainreadiness.Configured {
 		t.Fatalf("canonical clients = %#v", result.Clients)
 	}
 
@@ -419,7 +420,7 @@ func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
 	}
 	deps.Inspect = func(configuration.Config, secrets.Store) map[string]domainreadiness.Client {
 		return map[string]domainreadiness.Client{
-			configuration.ClientClaude: {
+			claude.ID: {
 				State:      domainreadiness.Unavailable,
 				Route:      "claude",
 				Account:    "team",
@@ -430,7 +431,7 @@ func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
 	}
 
 	result := executeJSON(t, deps, out)
-	state, ok := result.Clients[configuration.ClientClaude]
+	state, ok := result.Clients[claude.ID]
 	if result.OK || result.NextAction != "aigw doctor" || !ok || state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" {
 		t.Fatalf("canonical clients = %#v\n%s", result.Clients, out.String())
 	}
@@ -537,7 +538,7 @@ func TestHumanDoctorNamesNativeClaudeModelPreferenceAndVerification(t *testing.T
 	var output bytes.Buffer
 	renderer := presentation.NewWithWidth(&output, false, 100)
 	renderClients(renderer, clients.Admission(), map[string]domainreadiness.Client{
-		configuration.ClientClaude: {
+		claude.ID: {
 			State:               domainreadiness.Configured,
 			Route:               "fable",
 			NativeModelOverride: true,

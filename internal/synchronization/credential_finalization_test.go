@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -49,7 +50,7 @@ func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *tes
 				t.Fatal(err)
 			}
 			syncer := Synchronizer{Registry: builtinClients, AIGWExecutable: source, CredentialPath: reader}
-			entrypoint, _, err := syncer.prepareCredentialEntrypoint(testConfig(filepath.Join(root, "codex.toml")), configuration.ClientCodex)
+			entrypoint, _, err := syncer.prepareCredentialEntrypoint(testConfig(filepath.Join(root, "codex.toml")), codex.ID)
 			if err != nil || entrypoint == nil {
 				t.Fatalf("prepared reader = %v, %v", entrypoint, err)
 			}
@@ -63,25 +64,25 @@ func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *tes
 
 func TestExplicitTokenVerificationRefusesUnresolvedReaderFromNativeBinding(t *testing.T) {
 	cfg := testConfig(filepath.Join(t.TempDir(), "codex.toml"))
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[codex.ID]
 	binding.Authentication = configuration.AuthenticationClientNative
 	binding.ModelProvider = "amazon-bedrock"
-	cfg.Clients[configuration.ClientCodex] = binding
+	cfg.Clients[codex.ID] = binding
 	cfg.Accounts["explicit"] = cfg.Accounts["gateway"]
 	cfg.Routes["explicit"] = cfg.Routes["gpt"]
 	route := cfg.Routes["explicit"]
 	route.Account = "explicit"
 	cfg.Routes["explicit"] = route
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "explicit")
+	runtime, err := cfg.ResolveRuntime(codex.ID, "explicit")
 	if err != nil || !runtime.UsesAIGWCredentialStore() {
 		t.Fatalf("explicit account-token runtime = %+v, %v", runtime, err)
 	}
 	problem := errors.New("identity source unavailable")
 	syncer := Synchronizer{Registry: builtinClients, ResolveCredentialPath: func() (string, error) { return "", problem }}
-	if _, err := syncer.Verify(t.Context(), cfg, configuration.ClientCodex, runtime, "explicit"); !errors.Is(err, problem) {
+	if _, err := syncer.Verify(t.Context(), cfg, codex.ID, runtime, "explicit"); !errors.Is(err, problem) {
 		t.Fatalf("explicit Token verification used the public fallback: %v", err)
 	}
-	if current := cfg.Clients[configuration.ClientCodex]; current.Authentication != binding.Authentication || current.Route != binding.Route || current.ModelProvider != binding.ModelProvider {
+	if current := cfg.Clients[codex.ID]; current.Authentication != binding.Authentication || current.Route != binding.Route || current.ModelProvider != binding.ModelProvider {
 		t.Fatal("explicit verification changed the configured native binding")
 	}
 }
@@ -100,17 +101,17 @@ func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
 				}
 				return "", problem
 			}}
-			runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+			runtime, err := cfg.ResolveRuntime(codex.ID, "")
 			if err != nil {
 				t.Fatal(err)
 			}
 			for _, operation := range []func() error{
 				func() error { _, err := syncer.Plan(cfg, cfg); return err },
 				func() error { _, err := syncer.CredentialEntrypointPlan(cfg); return err },
-				func() error { return syncer.ReconcileClient(t.Context(), cfg, configuration.ClientCodex) },
+				func() error { return syncer.ReconcileClient(t.Context(), cfg, codex.ID) },
 				func() error { return syncer.CommitProjection(t.Context(), cfg, cfg, "test") },
 				func() error {
-					_, err := syncer.Verify(t.Context(), cfg, configuration.ClientCodex, runtime, "")
+					_, err := syncer.Verify(t.Context(), cfg, codex.ID, runtime, "")
 					return err
 				},
 			} {
@@ -118,7 +119,7 @@ func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
 					t.Fatalf("unresolved reader admitted: %v", err)
 				}
 			}
-			if status := syncer.Inspect(t.Context(), cfg, configuration.ClientCodex, runtime); status.Ready || !strings.Contains(status.Issue, "reader identity") {
+			if status := syncer.Inspect(t.Context(), cfg, codex.ID, runtime); status.Ready || !strings.Contains(status.Issue, "reader identity") {
 				t.Fatalf("unresolved reader status = %+v", status)
 			}
 			if store.commits != 0 {
@@ -126,9 +127,9 @@ func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
 			}
 			for _, unused := range []configuration.Config{configuration.NewConfig(clients.Admission()), cfg.Clone()} {
 				if len(unused.Clients) > 0 {
-					binding := unused.Clients[configuration.ClientCodex]
+					binding := unused.Clients[codex.ID]
 					binding.CredentialCommand = filepath.Join(root, "external-reader")
-					unused.Clients[configuration.ClientCodex] = binding
+					unused.Clients[codex.ID] = binding
 				}
 				if action, err := syncer.CredentialEntrypointPlan(unused); err != nil || action != CredentialEntrypointUnchanged {
 					t.Fatalf("unused reader plan = %q, %v", action, err)
@@ -146,11 +147,11 @@ type removedEntrypointAdapter struct {
 }
 
 func (adapter removedEntrypointAdapter) Spec() configuration.ClientSpec {
-	return configuration.ClientSpec{ID: configuration.ClientCodex, Label: "Codex", EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
+	return configuration.ClientSpec{ID: codex.ID, Label: "Codex", EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
 }
 
 func (adapter removedEntrypointAdapter) Plan(client.Dependencies, configuration.Config, configuration.Config) ([]client.ProjectionPlan, error) {
-	return []client.ProjectionPlan{{Client: configuration.ClientCodex, Target: adapter.target, Action: "update", ChangesState: true}}, nil
+	return []client.ProjectionPlan{{Client: codex.ID, Target: adapter.target, Action: "update", ChangesState: true}}, nil
 }
 
 func (adapter removedEntrypointAdapter) Apply(context.Context, client.Dependencies, configuration.Config, configuration.Config) (client.ProjectionReceipt, error) {
@@ -182,7 +183,7 @@ type convergedProjectionAdapter struct {
 }
 
 func (adapter convergedProjectionAdapter) Plan(client.Dependencies, configuration.Config, configuration.Config) ([]client.ProjectionPlan, error) {
-	return []client.ProjectionPlan{{Client: configuration.ClientCodex, Target: adapter.target, Action: "unchanged"}}, nil
+	return []client.ProjectionPlan{{Client: codex.ID, Target: adapter.target, Action: "unchanged"}}, nil
 }
 
 func (adapter convergedProjectionAdapter) Apply(context.Context, client.Dependencies, configuration.Config, configuration.Config) (client.ProjectionReceipt, error) {
@@ -221,7 +222,7 @@ func TestConvergedProjectionValidatesReaderWithoutApplying(t *testing.T) {
 			}
 			applied := 0
 			adapter := convergedProjectionAdapter{target: filepath.Join(root, "codex.toml"), applied: &applied}
-			registry, err := client.NewRegistry([]configuration.ClientSpec{adapter.Spec()}, adapter)
+			registry, err := client.NewRegistry(adapter)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -266,11 +267,11 @@ func TestConvergedProjectionRechecksTargetsAfterConfigurationCommit(t *testing.T
 			if err := syncer.CommitProjection(t.Context(), cfg, cfg, "initial sync"); err != nil {
 				t.Fatal(err)
 			}
-			dependencies, err := syncer.clientDependencies([]string{configuration.ClientCodex}, cfg)
+			dependencies, err := syncer.clientDependencies([]string{codex.ID}, cfg)
 			if err != nil {
 				t.Fatal(err)
 			}
-			plans, err := syncer.registry().Plan(dependencies, cfg, cfg, configuration.ClientCodex)
+			plans, err := syncer.registry().Plan(dependencies, cfg, cfg, codex.ID)
 			if err != nil || len(plans) == 0 || slices.ContainsFunc(plans, func(plan client.ProjectionPlan) bool { return plan.ChangesState }) {
 				t.Fatalf("initial managed projection plan = %v, %v", plans, err)
 			}
@@ -320,13 +321,13 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 				t.Fatal(err)
 			}
 			before := testConfig(target)
-			before.SetClientActivation(configuration.ClientCodex, false, "", nil)
+			before.SetClientActivation(codex.ID, false, "", nil)
 			store := configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 			if err := store.Save(before); err != nil {
 				t.Fatal(err)
 			}
 			adapter := removedEntrypointAdapter{target: target, reader: reader}
-			registry, err := client.NewRegistry([]configuration.ClientSpec{adapter.Spec()}, adapter)
+			registry, err := client.NewRegistry(adapter)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -335,15 +336,15 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 			if mode == "commit" {
 				err = syncer.CommitProjection(t.Context(), before, after, "sync")
 			} else {
-				err = syncer.ReconcileClient(t.Context(), after, configuration.ClientCodex)
+				err = syncer.ReconcileClient(t.Context(), after, codex.ID)
 			}
 			if err == nil {
 				t.Fatal("missing reader after projection was accepted")
 			}
 			if mode == "commit" {
 				stored, loadErr := store.Load()
-				if loadErr != nil || stored.Clients[configuration.ClientCodex].Enabled {
-					t.Fatalf("failed synchronization retained enabled Codex: %v, %v", stored.Clients[configuration.ClientCodex], loadErr)
+				if loadErr != nil || stored.Clients[codex.ID].Enabled {
+					t.Fatalf("failed synchronization retained enabled Codex: %v, %v", stored.Clients[codex.ID], loadErr)
 				}
 				var recovery interface{ ConfigurationRestored() bool }
 				if !errors.As(err, &recovery) || !recovery.ConfigurationRestored() {
@@ -383,7 +384,7 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 				t.Fatal(err)
 			}
 			adapter := removedEntrypointAdapter{target: target, reader: reader, rollbackErr: tc.projectionErr}
-			registry, err := client.NewRegistry([]configuration.ClientSpec{adapter.Spec()}, adapter)
+			registry, err := client.NewRegistry(adapter)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -417,7 +418,7 @@ func TestPrepareCredentialEntrypointRejectsInvalidBindingBeforeReading(t *testin
 			return credential.Program{}, nil
 		},
 	}
-	if entrypoint, _, err := syncer.prepareCredentialEntrypoint(cfg, configuration.ClientCodex); err == nil || entrypoint != nil {
+	if entrypoint, _, err := syncer.prepareCredentialEntrypoint(cfg, codex.ID); err == nil || entrypoint != nil {
 		t.Fatalf("invalid binding preparation = %v, %v", entrypoint, err)
 	}
 }

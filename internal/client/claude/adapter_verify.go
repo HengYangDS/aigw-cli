@@ -20,7 +20,7 @@ func retainedExecutable(path string, cfg configuration.Config, runtime configura
 	if !runtime.RequiresAccountToken() {
 		return runtime.CredentialExecutable(currentReader), nil
 	}
-	reader, err := client.RetainedDefaultReader(currentReader, cfg.Clients[configuration.ClientClaude].CredentialCommand != "", func() (string, error) {
+	reader, err := client.RetainedDefaultReader(currentReader, cfg.Clients[ID].CredentialCommand != "", func() (string, error) {
 		return ObservedCredentialExecutable(path, runtime)
 	})
 	if err != nil {
@@ -30,7 +30,7 @@ func retainedExecutable(path string, cfg configuration.Config, runtime configura
 }
 
 func (claudeAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg configuration.Config, runtime configuration.Runtime, explicitRoute string) (_ client.Verification, result error) {
-	adapter := cfg.Clients[configuration.ClientClaude]
+	adapter := cfg.Clients[ID]
 	token := ""
 	if adapter.CredentialCommand == "" {
 		if deps.Secrets == nil {
@@ -61,7 +61,7 @@ func (claudeAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg c
 	defer cancel()
 	reader := deps.AIGWExecutable
 	if adapter.Route != "" {
-		selected, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+		selected, err := cfg.ResolveRuntime(ID, "")
 		if err != nil {
 			return client.Verification{}, err
 		}
@@ -110,7 +110,7 @@ func isolateProjection(cfg configuration.Config, runtime configuration.Runtime, 
 	if err := CopyProjection(source, settingsPath); err != nil {
 		return "", workspace, fmt.Errorf("copy Claude verification projection: %w", err)
 	}
-	selected, err := cfg.ResolveRuntime(configuration.ClientClaude, "")
+	selected, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		return "", workspace, fmt.Errorf("resolve selected Claude projection: %w", err)
 	}

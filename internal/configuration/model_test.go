@@ -316,7 +316,7 @@ func TestValidateRejectsRuntimeRouteReferencingUnknownAccountOrInvalidClientOpti
 }
 
 func TestValidateRequiresEachSelectedBindingsClientProtocol(t *testing.T) {
-	for _, client := range AdmittedClientSpecs() {
+	for _, client := range testClientSpecs() {
 		t.Run(client.ID, func(t *testing.T) {
 			cfg := validConfig()
 			cfg.Normalize()

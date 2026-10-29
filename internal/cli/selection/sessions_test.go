@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -26,7 +27,7 @@ func TestUseTellsHermesUsersThatExistingSessionsKeepTheirRoute(t *testing.T) {
 	}
 	target := filepath.Join(t.TempDir(), ".hermes", "config.yaml")
 	runtime.Discovery = staticDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientHermes: executable},
+		Executables: map[string]string{hermes.ID: executable},
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
 	}}
 	for _, id := range []string{"first", "second"} {
@@ -44,7 +45,7 @@ func TestUseTellsHermesUsersThatExistingSessionsKeepTheirRoute(t *testing.T) {
 		command := NewUseCommand(runtime)
 		command.SilenceErrors = true
 		command.SilenceUsage = true
-		command.SetArgs(append([]string{"--for", configuration.ClientHermes}, args...))
+		command.SetArgs(append([]string{"--for", hermes.ID}, args...))
 		if err := command.Execute(); err != nil {
 			t.Fatal(err)
 		}

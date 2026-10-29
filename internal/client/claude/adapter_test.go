@@ -24,8 +24,8 @@ func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.
 	before := configuration.NewConfig(testAdmission())
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
 	before.Routes["route"] = qualifiedRoute("Route", "gateway", "model", configuration.ProtocolAnthropic)
-	before.Clients[configuration.ClientClaude] = configuration.ClientBinding{Route: "route", Enabled: true}
-	if err := before.SetForwardingEndpoint(configuration.ClientClaude, "http://127.0.0.1:8792/v1"); err != nil {
+	before.Clients[ID] = configuration.ClientBinding{Route: "route", Enabled: true}
+	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
 	after := before.Clone()
@@ -39,7 +39,7 @@ func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.
 
 func TestClaudeAdapterApplyValidatesIntentAndRestoresObservedPreimage(t *testing.T) {
 	enabledWithoutRoute := configuration.NewConfig(testAdmission())
-	enabledWithoutRoute.SetClientActivation(configuration.ClientClaude, true, "/usr/bin/claude", nil)
+	enabledWithoutRoute.SetClientActivation(ID, true, "/usr/bin/claude", nil)
 	if _, err := (claudeAdapter{}).Apply(context.Background(), client.Dependencies{}, configuration.NewConfig(testAdmission()), enabledWithoutRoute); err == nil {
 		t.Fatal("Apply() accepted an enabled adapter without a route")
 	}
@@ -47,8 +47,8 @@ func TestClaudeAdapterApplyValidatesIntentAndRestoresObservedPreimage(t *testing
 	configured := configuration.NewConfig(testAdmission())
 	configured.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	configured.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
-	configured.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	configured.SetClientActivation(configuration.ClientClaude, true, "/usr/bin/claude", nil)
+	configured.SetSelectedRoute(ID, "claude", "")
+	configured.SetClientActivation(ID, true, "/usr/bin/claude", nil)
 	if _, err := (claudeAdapter{}).Apply(context.Background(), client.Dependencies{}, configuration.NewConfig(testAdmission()), configured); err == nil || !strings.Contains(err.Error(), "settings path is empty") {
 		t.Fatalf("Apply() error = %v", err)
 	}

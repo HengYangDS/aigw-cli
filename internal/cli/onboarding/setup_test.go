@@ -16,6 +16,8 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/hermes"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
@@ -130,12 +132,12 @@ func manifestSetupConfig() configuration.Config {
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.Recommendations[configuration.ClientCodex] = configuration.ClientRecommendation{Primary: configuration.ClientSelection{Route: "codex"}}
-	cfg.Recommendations[configuration.ClientClaude] = configuration.ClientRecommendation{Primary: configuration.ClientSelection{Route: "claude"}}
-	cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
-	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Recommendations[codex.ID] = configuration.ClientRecommendation{Primary: configuration.ClientSelection{Route: "codex"}}
+	cfg.Recommendations[claude.ID] = configuration.ClientRecommendation{Primary: configuration.ClientSelection{Route: "claude"}}
+	cfg.SetClientActivation(codex.ID, true, "", nil)
+	cfg.SetClientActivation(claude.ID, true, "", nil)
 	return cfg
 }
 
@@ -252,14 +254,14 @@ func TestManifestSetupClientSelectionRequiresConnectedRouteAndUsableSurface(t *t
 	connected := map[string]setupCredential{"team": {account: "team", token: "token"}}
 
 	withoutCodexSurface := manifestSetupSelectedClients(cfg, connected, map[string]bool{
-		configuration.ClientClaude: true,
+		claude.ID: true,
 	})
-	if len(withoutCodexSurface) != 1 || withoutCodexSurface[0] != configuration.ClientClaude {
+	if len(withoutCodexSurface) != 1 || withoutCodexSurface[0] != claude.ID {
 		t.Fatalf("clients without Codex surface = %#v", withoutCodexSurface)
 	}
 
 	if clients := manifestSetupSelectedClients(cfg, map[string]setupCredential{}, map[string]bool{
-		configuration.ClientClaude: true,
+		claude.ID: true,
 	}); len(clients) != 0 {
 		t.Fatalf("unconnected route selected clients = %#v", clients)
 	}
@@ -290,7 +292,7 @@ func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *t
 		Out:       io.Discard,
 		RenderOut: io.Discard,
 	}
-	request := Request{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: configuration.ClientClaude, Model: "claude-test", TokenStdin: true}
+	request := Request{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, Model: "claude-test", TokenStdin: true}
 
 	err := runSetup(context.Background(), runtime, request)
 	if err == nil || !strings.Contains(err.Error(), "setup failed") || !strings.Contains(err.Error(), "credential rollback also failed") || !strings.Contains(err.Error(), "credential postimage changed") {
@@ -327,7 +329,7 @@ func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 		}),
 		In: strings.NewReader("token\n"), Out: io.Discard, RenderOut: io.Discard,
 	}
-	err = runSetup(t.Context(), run, Request{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: configuration.ClientClaude, Model: "claude-test", TokenStdin: true})
+	err = runSetup(t.Context(), run, Request{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, Model: "claude-test", TokenStdin: true})
 	if err == nil || !strings.Contains(err.Error(), "credential postimage changed") {
 		t.Fatalf("setup error = %v, want uncompensated credential", err)
 	}
@@ -394,7 +396,7 @@ interfaces = { openai_responses = ["text"] }
 		Config:     configuration.NewStore(configPath, clients.Admission()),
 		Secrets:    store,
 		Discovery: setupDiscovery{result: discovery.Result{
-			Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
+			Executables: map[string]string{codex.ID: "/opt/codex"},
 			Surfaces: []discovery.Surface{{
 				ID:          string(codex.HomeDefault),
 				Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -431,14 +433,14 @@ func TestConfiguredClientsForAccount(t *testing.T) {
 	}
 
 	clients := configuredClientsForAccount(cfg, "legacy")
-	if len(clients) != 2 || clients[0] != configuration.ClientCodex || clients[1] != configuration.ClientHermes {
+	if len(clients) != 2 || clients[0] != codex.ID || clients[1] != hermes.ID {
 		t.Fatalf("clients = %#v", clients)
 	}
 }
 
 func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 	_, err := planSetup(configuration.NewConfig(clients.Admission()), Request{
-		Route: "shared", Client: configuration.ClientHermes, Model: "shared-model",
+		Route: "shared", Client: hermes.ID, Model: "shared-model",
 		OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
 	})
 	if err == nil || !strings.Contains(err.Error(), "--protocol") {
@@ -451,7 +453,7 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 		t.Fatalf("ambiguous Hermes setup recommendation = %q, want %q", rendered.String(), want)
 	}
 	_, err = planSetup(configuration.NewConfig(clients.Admission()), Request{
-		Route: "chat", Client: configuration.ClientHermes, Model: "chat-model",
+		Route: "chat", Client: hermes.ID, Model: "chat-model",
 		Protocol: string(configuration.ProtocolOpenAIChatCompletions),
 	})
 	if err == nil || !strings.Contains(err.Error(), "--chat-url") {
@@ -466,7 +468,7 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 		{
 			name: "Anthropic among two endpoints",
 			request: Request{
-				Route: "shared", Client: configuration.ClientHermes, Model: "shared-model",
+				Route: "shared", Client: hermes.ID, Model: "shared-model",
 				OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
 				Protocol: string(configuration.ProtocolAnthropic),
 			},
@@ -475,7 +477,7 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 		{
 			name: "Chat Completions",
 			request: Request{
-				Route: "chat", Client: configuration.ClientHermes, Model: "chat-model",
+				Route: "chat", Client: hermes.ID, Model: "chat-model",
 				ChatURL: "https://chat.test/v1", Protocol: string(configuration.ProtocolOpenAIChatCompletions),
 			},
 			protocol: configuration.ProtocolOpenAIChatCompletions,
@@ -483,8 +485,8 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			plan, err := planSetup(configuration.NewConfig(clients.Admission()), test.request)
-			if err != nil || plan.config.Clients[configuration.ClientHermes].Protocol != test.protocol {
-				t.Fatalf("Hermes setup protocol = %#v, %v", plan.config.Clients[configuration.ClientHermes], err)
+			if err != nil || plan.config.Clients[hermes.ID].Protocol != test.protocol {
+				t.Fatalf("Hermes setup protocol = %#v, %v", plan.config.Clients[hermes.ID], err)
 			}
 		})
 	}
@@ -523,7 +525,7 @@ func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 		Executable: filepath.Join(t.TempDir(), "aigw"),
 		Config:     store,
 		Secrets:    secretStore,
-		Discovery:  setupDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}},
+		Discovery:  setupDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: "/opt/claude"}}},
 		Host:       hostAt(t.TempDir()),
 		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
@@ -532,7 +534,7 @@ func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 		RenderOut:   io.Discard,
 		Interactive: false,
 	}
-	request := Request{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: configuration.ClientClaude, Model: "claude-test"}
+	request := Request{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, Model: "claude-test"}
 	if err := runSetup(context.Background(), runtime, request); err != nil {
 		t.Fatal(err)
 	}
@@ -540,7 +542,7 @@ func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adapter := cfg.Clients[configuration.ClientClaude]; !adapter.Enabled || adapter.Executable != "/opt/claude" {
+	if adapter := cfg.Clients[claude.ID]; !adapter.Enabled || adapter.Executable != "/opt/claude" {
 		t.Fatalf("Claude adapter = %#v", adapter)
 	}
 }

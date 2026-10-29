@@ -3,6 +3,7 @@ package cli_test
 import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"bytes"
@@ -28,7 +29,7 @@ func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, credentials, runner, _ := testApp(t, "")
-			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 			if err := credentials.Set("one", "test-token"); err != nil {
 				t.Fatal(err)
 			}
@@ -36,7 +37,7 @@ func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			route := cfg.Routes["one"]
 			route.Model = "claude-next"
 			route.UpstreamModel = "claude-next"
@@ -112,7 +113,7 @@ func assertClaudeNativePreferencePreview(t *testing.T, app *cli.App, out *bytes.
 	if command == "repair" {
 		preview.Targets = preview.Projections
 	}
-	if len(preview.Targets) != 1 || preview.Targets[0].Client != configuration.ClientClaude || preview.Targets[0].Action != "already-converged" {
+	if len(preview.Targets) != 1 || preview.Targets[0].Client != claude.ID || preview.Targets[0].Action != "already-converged" {
 		t.Fatalf("preview=%+v", preview)
 	}
 	after, err := app.Config.CaptureSnapshot()
@@ -140,19 +141,19 @@ func TestRecoveryJSONSeparatesPreviewFromAppliedProjection(t *testing.T) {
 	} {
 		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
 			app, out, credentials, _, _ := testApp(t, "")
-			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 			cfg, err := app.Config.Load()
 			if err != nil {
 				t.Fatal(err)
 			}
-			cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+			cfg.SetClientActivation(claude.ID, true, "", nil)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
 			if err := credentials.Set("one", "test-token"); err != nil {
 				t.Fatal(err)
 			}
-			app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: executableFixture(t, "claude")}}}
+			app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: executableFixture(t, "claude")}}}
 			before, err := os.ReadFile(app.Config.Path())
 			if err != nil {
 				t.Fatal(err)
@@ -198,27 +199,27 @@ func TestRecoveryJSONOutputFailurePreservesCommittedProjection(t *testing.T) {
 	for _, command := range []string{"sync", "repair"} {
 		t.Run(command, func(t *testing.T) {
 			app, _, credentials, _, _ := testApp(t, "")
-			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 			cfg, err := app.Config.Load()
 			if err != nil {
 				t.Fatal(err)
 			}
-			cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+			cfg.SetClientActivation(claude.ID, true, "", nil)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
 			if err := credentials.Set("one", "test-token"); err != nil {
 				t.Fatal(err)
 			}
-			app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: executableFixture(t, "claude")}}}
+			app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: executableFixture(t, "claude")}}}
 			want := errors.New("output is unavailable")
 			app.Out = failingOutput{err: want}
 			if err := cli.Execute(app, []string{command, "--json"}); !errors.Is(err, want) {
 				t.Fatalf("output error = %v, want %v", err, want)
 			}
 			cfg, err = app.Config.Load()
-			if err != nil || !cfg.Clients[configuration.ClientClaude].Enabled {
-				t.Fatalf("committed adapter = %+v, %v", cfg.Clients[configuration.ClientClaude], err)
+			if err != nil || !cfg.Clients[claude.ID].Enabled {
+				t.Fatalf("committed adapter = %+v, %v", cfg.Clients[claude.ID], err)
 			}
 			settings, err := os.ReadFile(claudeSettingsPath(t, app.Host))
 			if err != nil || !json.Valid(settings) {

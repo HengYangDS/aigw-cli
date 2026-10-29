@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -20,11 +22,11 @@ func TestMigrationPreviewNamesClientsAndProtocolsByLabel(t *testing.T) {
 	plan := configuration.MigrationPlan{
 		Required: true, FromVersion: 5, ToVersion: 6, Accounts: []string{"gateway"}, Routes: []string{"messages", "responses"},
 		Clients: map[string]configuration.ClientBinding{
-			configuration.ClientClaudeDesktop: {Route: "messages", Protocol: configuration.ProtocolAnthropic, Targets: []string{"/library"}},
-			configuration.ClientCodex:         {Route: "responses", Protocol: configuration.ProtocolOpenAIResponses, Targets: []string{"/a", "/b"}},
+			claudedesktop.ID: {Route: "messages", Protocol: configuration.ProtocolAnthropic, Targets: []string{"/library"}},
+			codex.ID:         {Route: "responses", Protocol: configuration.ProtocolOpenAIResponses, Targets: []string{"/a", "/b"}},
 		},
 		Recommendations: map[string]configuration.ClientRecommendation{
-			configuration.ClientClaudeDesktop: {Primary: configuration.ClientSelection{Route: "messages"}},
+			claudedesktop.ID: {Primary: configuration.ClientSelection{Route: "messages"}},
 		},
 	}
 	if err := renderMigration(invocation.Context{Clients: clients.Registry(), Out: out, RenderOut: out}, migrationOutput{DryRun: true, MigrationPlan: plan, NextAction: "aigw config migrate"}); err != nil {

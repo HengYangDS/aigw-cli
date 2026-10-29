@@ -209,7 +209,7 @@ func finishNativeCredentialJourney(
 	journey.runWith(journey.source, "install", "--target", journey.binary)
 	journey.run("sync")
 	journey.requireNoClaudeProjection()
-	journey.run("use", "--for", configuration.ClientClaude, "native-system-keyring-probe-claude")
+	journey.run("use", "--for", claude.ID, "native-system-keyring-probe-claude")
 	journey.requireCredentialBackend(replacement, backend)
 	journey.requireClaudeCredential(replacement)
 	journey.uninstallAndRequireInstallationRemoved()

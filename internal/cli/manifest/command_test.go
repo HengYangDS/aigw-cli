@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -186,7 +188,7 @@ func TestImportPreservesExplicitSelectionWithoutSuggestingNoOpSync(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := cfg.SelectedRoute(configuration.ClientCodex); got != "local" {
+	if got := cfg.SelectedRoute(codex.ID); got != "local" {
 		t.Fatalf("explicit Codex Route changed to %q", got)
 	}
 	if output := strings.TrimSpace(renderOut.String()); !strings.HasSuffix(output, "aigw status") || strings.Contains(output, "Next\n  aigw sync") {
@@ -204,9 +206,9 @@ func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *tes
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
 	cfg.Models["gpt-old"] = configuration.Model{Label: "Old"}
-	cfg.SetSelectedRoute(configuration.ClientHermes, "local", "")
+	cfg.SetSelectedRoute(hermes.ID, "local", "")
 	clientTarget := filepath.Join(t.TempDir(), "hermes.yaml")
-	cfg.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{clientTarget})
+	cfg.SetClientActivation(hermes.ID, true, "/opt/hermes", []string{clientTarget})
 	runtime, path, out, renderOut := savedRuntime(t, cfg)
 	before, err := os.ReadFile(path)
 	if err != nil {
@@ -236,7 +238,7 @@ func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *tes
 	if !preview.DryRun || preview.ImportedAccounts != 1 || preview.ImportedRoutes != 1 ||
 		!slices.Equal(preview.KeptAccounts, []string{"local"}) ||
 		!slices.Equal(preview.RetiredRoutes, []string{"old"}) ||
-		!slices.Contains(preview.ProjectionCandidates, configuration.ClientHermes) {
+		!slices.Contains(preview.ProjectionCandidates, hermes.ID) {
 		t.Fatalf("import preview = %+v", preview)
 	}
 	after, err := os.ReadFile(path)
@@ -317,7 +319,7 @@ func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 	cfg.Models["gpt-old"] = configuration.Model{Label: "Old"}
 	cfg.Models["gpt-shared"] = configuration.Model{Label: "Shared"}
 	cfg.Models["gpt-declared"] = configuration.Model{Label: "Declared"}
-	cfg.Recommendations[configuration.ClientCodex] = configuration.ClientRecommendation{
+	cfg.Recommendations[codex.ID] = configuration.ClientRecommendation{
 		Primary:      configuration.ClientSelection{Route: "old"},
 		Alternatives: []configuration.ClientSelection{{Route: "shared-old"}},
 	}
@@ -344,10 +346,10 @@ func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 	if _, exists := got.Models["gpt-old"]; exists {
 		t.Fatal("Model orphaned by retired Route remains")
 	}
-	if got.Models["gpt-shared"].Label != "Shared" || got.Models["gpt-declared"].Label != "Declared" || got.SelectedRoute(configuration.ClientCodex) != "local" || got.Routes["remote"].Account != "gateway" {
+	if got.Models["gpt-shared"].Label != "Shared" || got.Models["gpt-declared"].Label != "Declared" || got.SelectedRoute(codex.ID) != "local" || got.Routes["remote"].Account != "gateway" {
 		t.Fatalf("unrelated state or imported Route changed: %#v", got)
 	}
-	if recommendation := got.Recommendations[configuration.ClientCodex]; recommendation.Primary.Route != "remote" || len(recommendation.Alternatives) != 0 {
+	if recommendation := got.Recommendations[codex.ID]; recommendation.Primary.Route != "remote" || len(recommendation.Alternatives) != 0 {
 		t.Fatalf("recommendation was not replaced: %#v", got.Recommendations)
 	}
 	if !strings.Contains(renderOut.String(), "Retired Routes") {
@@ -504,7 +506,7 @@ func localConfig() configuration.Config {
 		Label: "Local", Account: "local", Model: "gpt-local",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "local", "")
+	cfg.SetSelectedRoute(codex.ID, "local", "")
 	return cfg
 }
 

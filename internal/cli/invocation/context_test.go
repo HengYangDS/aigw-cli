@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -96,13 +97,13 @@ func TestDiscoverRequiresAndUsesTheBoundDiscoverer(t *testing.T) {
 		t.Fatal("Discover() error = nil, want unavailable error")
 	}
 
-	want := discovery.Result{Executables: map[string]string{configuration.ClientCodex: "/portable/codex"}}
+	want := discovery.Result{Executables: map[string]string{codex.ID: "/portable/codex"}}
 	got, err := Discover(Context{Discovery: fixedDiscoverer{result: want}})
 	if err != nil {
 		t.Fatalf("Discover() error = %v", err)
 	}
-	if got.Executable(configuration.ClientCodex) != want.Executable(configuration.ClientCodex) {
-		t.Fatalf("Discover().Executable(codex) = %q, want %q", got.Executable(configuration.ClientCodex), want.Executable(configuration.ClientCodex))
+	if got.Executable(codex.ID) != want.Executable(codex.ID) {
+		t.Fatalf("Discover().Executable(codex) = %q, want %q", got.Executable(codex.ID), want.Executable(codex.ID))
 	}
 }
 

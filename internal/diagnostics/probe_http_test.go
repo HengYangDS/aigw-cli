@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/diagnostics"
 )
@@ -43,7 +44,7 @@ func TestProbeBoundedRealHTTPDoesNotRetryUnauthorized(t *testing.T) {
 		_, _ = writer.Write([]byte(`{"message":"invalid api key"}`))
 	}))
 	defer server.Close()
-	result := diagnostics.ProbeBounded(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Protocol: configuration.ProtocolOpenAIResponses, Endpoint: server.URL + "/v1"}, "secret", diagnostics.ScopeEndpoint)
+	result := diagnostics.ProbeBounded(context.Background(), server.Client(), configuration.Runtime{Client: codex.ID, Protocol: configuration.ProtocolOpenAIResponses, Endpoint: server.URL + "/v1"}, "secret", diagnostics.ScopeEndpoint)
 	if result.Kind != diagnostics.InvalidToken || result.Attempts != 1 || calls.Load() != 1 {
 		t.Fatalf("result=%#v calls=%d, want one terminal unauthorized request", result, calls.Load())
 	}
@@ -131,7 +132,7 @@ func TestProbeClassifiesRealHTTPResponses(t *testing.T) {
 			}))
 			defer server.Close()
 
-			result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Protocol: configuration.ProtocolOpenAIResponses, Endpoint: server.URL}, "secret", diagnostics.ScopeEndpoint)
+			result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Client: codex.ID, Protocol: configuration.ProtocolOpenAIResponses, Endpoint: server.URL}, "secret", diagnostics.ScopeEndpoint)
 			if result.Kind != tt.kind || result.HTTPStatus != tt.status || result.Summary == "" || result.Fix == "" {
 				t.Fatalf("Probe() = %#v", result)
 			}
@@ -170,7 +171,7 @@ func TestProbeReportsTruncatedHTTPResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Client: configuration.ClientCodex, Protocol: configuration.ProtocolOpenAIResponses, Endpoint: server.URL}, secret, diagnostics.ScopeEndpoint)
+	result := diagnostics.Probe(context.Background(), server.Client(), configuration.Runtime{Client: codex.ID, Protocol: configuration.ProtocolOpenAIResponses, Endpoint: server.URL}, secret, diagnostics.ScopeEndpoint)
 	if result.Kind != diagnostics.NetworkFailure || result.HTTPStatus != http.StatusOK || !result.Retryable || result.Summary != "Cannot read the endpoint response" {
 		t.Fatalf("Probe() = %#v", result)
 	}

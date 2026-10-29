@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 )
@@ -20,8 +21,8 @@ func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Routes["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["terra"] = qualifiedRoute("Terra", "gateway", "gpt-terra", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "sol", "")
-	cfg.SetClientActivation(configuration.ClientCodex, true, executableFixture(t, "codex"), []string{target})
+	cfg.SetSelectedRoute(codex.ID, "sol", "")
+	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -42,10 +43,10 @@ func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
 	var result struct {
 		Adopted map[string]string `json:"adopted_selections"`
 	}
-	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.Adopted[configuration.ClientCodex] != "terra" {
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.Adopted[codex.ID] != "terra" {
 		t.Fatalf("adopted selections = %v, %v\n%s", result.Adopted, err, output)
 	}
-	if after, err := app.Config.Load(); err != nil || after.SelectedRoute(configuration.ClientCodex) != "terra" {
+	if after, err := app.Config.Load(); err != nil || after.SelectedRoute(codex.ID) != "terra" {
 		t.Fatalf("Codex binding was not adopted: %v", err)
 	}
 	adopted := string(readFile(t, target))
@@ -70,7 +71,7 @@ func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
 			t.Fatalf("dry run adopted again: %v, %v\n%s", preview.Adopted, err, output)
 		}
 		for _, item := range preview.Targets {
-			if item.Client == configuration.ClientCodex && item.Action != "already-converged" {
+			if item.Client == codex.ID && item.Action != "already-converged" {
 				t.Fatalf("adopted Codex state did not converge: %+v", preview)
 			}
 		}
@@ -88,8 +89,8 @@ func TestCodexSyncRefusesAModelChoiceWithAnotherEdit(t *testing.T) {
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Routes["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["terra"] = qualifiedRoute("Terra", "gateway", "gpt-terra", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "sol", "")
-	cfg.SetClientActivation(configuration.ClientCodex, true, executableFixture(t, "codex"), []string{target})
+	cfg.SetSelectedRoute(codex.ID, "sol", "")
+	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

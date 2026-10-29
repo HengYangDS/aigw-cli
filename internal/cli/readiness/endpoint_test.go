@@ -2,6 +2,8 @@ package readiness
 
 import (
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -64,7 +66,7 @@ func TestEndpointTestRejectsMalformedKeyringFormatBeforeHTTP(t *testing.T) {
 
 func TestEndpointTestDefaultsToSelectedBindingsOnly(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	delete(cfg.Clients, configuration.ClientClaude)
+	delete(cfg.Clients, claude.ID)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +92,7 @@ func TestEndpointTestDefaultsToSelectedBindingsOnly(t *testing.T) {
 }
 
 func TestEndpointTestUsesOneEphemeralTokenAndExplicitConfig(t *testing.T) {
-	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, client := range []string{claude.ID, codex.ID} {
 		t.Run(client, func(t *testing.T) {
 			runtime, _, output := configuredReadinessRuntime(t)
 			configPath := runtime.Config.Path()
@@ -104,10 +106,10 @@ func TestEndpointTestUsesOneEphemeralTokenAndExplicitConfig(t *testing.T) {
 			requests := 0
 			runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
 				requests++
-				if client == configuration.ClientCodex && request.Header.Get("Authorization") != "Bearer ephemeral-token" {
+				if client == codex.ID && request.Header.Get("Authorization") != "Bearer ephemeral-token" {
 					t.Fatal("request did not use the supplied Token")
 				}
-				if client == configuration.ClientClaude && request.Header.Get("X-Api-Key") != "ephemeral-token" {
+				if client == claude.ID && request.Header.Get("X-Api-Key") != "ephemeral-token" {
 					t.Fatal("request did not use the supplied Token")
 				}
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
@@ -262,10 +264,10 @@ func TestEndpointTestCommandCoversSuccessAndTransportFailures(t *testing.T) {
 
 func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[codex.ID]
 	binding.ModelProvider = "amazon-bedrock"
 	binding.Authentication = configuration.AuthenticationClientNative
-	cfg.Clients[configuration.ClientCodex] = binding
+	cfg.Clients[codex.ID] = binding
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +279,7 @@ func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testi
 		return nil, errors.New("client-native endpoint probe")
 	})
 	command := NewTestCommand(runtime)
-	command.SetArgs([]string{"--for", configuration.ClientCodex})
+	command.SetArgs([]string{"--for", codex.ID})
 
 	err := executeCommand(command)
 	if err == nil || !strings.Contains(err.Error(), "aigw verify --for codex") {
@@ -305,9 +307,9 @@ func TestEndpointTestDefersToVerifyForTheSameRoute(t *testing.T) {
 		for _, args := range [][]string{{"--for", "codex"}, {"--for", "codex", "--route", "codex"}} {
 			t.Run(test.name+" "+strings.Join(args, " "), func(t *testing.T) {
 				runtime, cfg, _ := configuredReadinessRuntime(t)
-				binding := cfg.Clients[configuration.ClientCodex]
+				binding := cfg.Clients[codex.ID]
 				test.configure(&binding)
-				cfg.Clients[configuration.ClientCodex] = binding
+				cfg.Clients[codex.ID] = binding
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
 				}

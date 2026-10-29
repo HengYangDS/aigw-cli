@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -16,7 +18,7 @@ import (
 )
 
 func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
-	for _, clientID := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, clientID := range []string{claude.ID, codex.ID} {
 		t.Run(clientID, func(t *testing.T) {
 			app, out, credentials, _, _ := testApp(t, "new-token\n")
 			target := filepath.Join(t.TempDir(), "config.toml")
@@ -25,19 +27,19 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			}
 			cfg := configuration.NewConfig(clients.Admission())
 			cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{Anthropic: "https://old.test", OpenAIResponses: "https://old.test/v1"}}
-			paths := map[string]string{configuration.ClientCodex: target, configuration.ClientClaude: claudeSettingsPath(t, app.Host)}
-			for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+			paths := map[string]string{codex.ID: target, claude.ID: claudeSettingsPath(t, app.Host)}
+			for _, id := range []string{claude.ID, codex.ID} {
 				protocol := configuration.ProtocolOpenAIResponses
-				if id == configuration.ClientClaude {
+				if id == claude.ID {
 					protocol = configuration.ProtocolAnthropic
 				}
 				cfg.Routes[id] = qualifiedRoute(id, "old", "old-model", protocol)
 				cfg.SetSelectedRoute(id, id, "")
 				cfg.SetClientActivation(id, true, executableFixture(t, id), nil)
 			}
-			adapter := cfg.Clients[configuration.ClientCodex]
+			adapter := cfg.Clients[codex.ID]
 			adapter.Targets = []string{target}
-			cfg.Clients[configuration.ClientCodex] = adapter
+			cfg.Clients[codex.ID] = adapter
 			if err := credentials.Set("old", "old-token"); err != nil {
 				t.Fatal(err)
 			}
@@ -47,9 +49,9 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			if err := cli.Execute(app, []string{"sync"}); err != nil {
 				t.Fatal(err)
 			}
-			other := configuration.ClientClaude
+			other := claude.ID
 			if clientID == other {
-				other = configuration.ClientCodex
+				other = codex.ID
 			}
 			foreign := []byte("external unfinished edit\n")
 			if err := os.WriteFile(paths[other], foreign, 0o600); err != nil {
@@ -89,13 +91,13 @@ func assertAccountConnectionOutput(t *testing.T, output string) {
 func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "new-token\n")
 	claudeExecutable := executableFixture(t, "claude")
-	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: claudeExecutable}}}
-	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://old.test"}, configuration.ClientClaude, "old-model")
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: claudeExecutable}}}
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://old.test"}, claude.ID, "old-model")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientClaude, true, claudeExecutable, nil)
+	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +131,7 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 func TestAddPreservesExistingAccountWithDifferentRouteID(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "new-token\n")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "existing-route", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "old-model")
+	addAccountRoute(&cfg, "existing-route", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, claude.ID, "old-model")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -247,7 +249,7 @@ func TestAddCompensatesCredentialAfterConfigurationFailure(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			app, _, backend, _, _ := testApp(t, "token\n")
-			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://current.test"}, configuration.ClientClaude, "current")
+			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://current.test"}, claude.ID, "current")
 			before := readFile(t, app.Config.Path())
 			if err := os.Mkdir(app.Config.Path()+".bak", 0o700); err != nil {
 				t.Fatal(err)
@@ -287,7 +289,7 @@ func TestAddWithTokenStdinCreatesRouteWithoutPrintingSecret(t *testing.T) {
 		t.Fatalf("secret leaked in output: %s", out.String())
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || cfg.SelectedRoute(configuration.ClientCodex) != "dmx" || cfg.Routes["dmx"].Label != "DMXAPI" {
+	if err != nil || cfg.SelectedRoute(codex.ID) != "dmx" || cfg.Routes["dmx"].Label != "DMXAPI" {
 		t.Fatalf("config = %#v, %v", cfg, err)
 	}
 }

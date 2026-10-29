@@ -385,7 +385,9 @@ allowed_import_edges."internal/presentation" = [
 ]
 allowed_import_edges."internal/process" = []
 allowed_import_edges."tools/ci" = [
-  "internal/configuration",
+  "internal/client/claude",
+  "internal/client/codex",
+  "internal/client/hermes",
   "internal/process",
   "tools/ci/evidence",
   "tools/ci/markdown",
@@ -404,9 +406,12 @@ allowed_import_edges."tools/release" = [
   "tools/release/readiness",
 ]
 allowed_import_edges."tools/release/artifact" = ["internal/upgrade/artifact"]
-# Construction reuses canonical client IDs, neutral execution and release contracts.
+# Construction reuses the adapters' canonical client IDs, neutral execution and
+# release contracts.
 allowed_import_edges."tools/release/construction" = [
-  "internal/configuration",
+  "internal/client/claude",
+  "internal/client/codex",
+  "internal/client/hermes",
   "internal/process",
   "internal/upgrade",
   "internal/upgrade/artifact",
@@ -443,9 +448,7 @@ require_import_owners = true
 
 # Each admitted client's knowledge stays in its adapter package below
 # adapter_root, named after the client ID without hyphens. Outside it only the
-# composition roots may name a client. temporary_exceptions lists the packages
-# that still do while Change semantic-architecture moves that knowledge; it may
-# only shrink.
+# composition roots may name a client.
 [client_confinement]
 clients = ["claude", "claude-desktop", "codex", "hermes"]
 product_roots = ["cmd", "internal"]
@@ -454,10 +457,6 @@ composition_roots = ["cmd/aigw", "internal/clients"]
 # Hermes names its OpenAI Responses API mode codex_responses; that value is
 # Hermes vocabulary, not Codex knowledge.
 native_terms.hermes = ["codex_responses"]
-temporary_exceptions = [
-  "internal/configuration",
-  "internal/credential",
-]
 
 # Every tracked carrier resolves to exactly one semantic responsibility.
 # Executable checks remain in tools/ci and their native tool configurations.

@@ -23,7 +23,7 @@ func atomicTestRuntime() configuration.Runtime {
 		RouteID:           "gpt-5.6-terra",
 		RouteLabel:        "GPT-5.6 Terra",
 		AccountID:         "gateway",
-		Client:            configuration.ClientCodex,
+		Client:            ID,
 		Endpoint:          "http://127.0.0.1:48721/v1",
 		Model:             "gpt-5.6-terra",
 	}

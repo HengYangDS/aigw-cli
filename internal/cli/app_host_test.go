@@ -27,7 +27,7 @@ func (hostRefusingAdapter) ValidateHost(discovery.Host) error {
 // native paths, and it reports that client's refusal unchanged.
 func TestNewDefaultRefusesAHostThatAClientCannotServe(t *testing.T) {
 	refusing := hostRefusingAdapter{}
-	registry, err := client.NewRegistry([]configuration.ClientSpec{refusing.Spec()}, refusing)
+	registry, err := client.NewRegistry(refusing)
 	if err != nil {
 		t.Fatal(err)
 	}

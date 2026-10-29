@@ -190,7 +190,7 @@ func finalMessagePath(arguments []string) string {
 func configuredCodexVerification(t *testing.T, targets ...string) (configuration.Config, configuration.Runtime) {
 	t.Helper()
 	cfg := verificationConfig()
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func configuredCodexVerification(t *testing.T, targets ...string) (configuration
 	if err := os.WriteFile(executable, []byte("codex fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientCodex, true, executable, targets)
+	cfg.SetClientActivation(ID, true, executable, targets)
 	return cfg, runtime
 }
 
@@ -221,7 +221,7 @@ func TestVerifyCodexUsesConfiguredClientAndOneSynchronizedTarget(t *testing.T) {
 	root := t.TempDir()
 	first, second := filepath.Join(root, "a", "config.toml"), filepath.Join(root, "z", "config.toml")
 	cfg, runtime := configuredCodexVerification(t, first, second)
-	executable := cfg.Clients[configuration.ClientCodex].Executable
+	executable := cfg.Clients[ID].Executable
 	runner := &recordingCaptureRunner{version: "codex-cli 9.9.9", marker: "AIGW_OK"}
 	identity, err := VerifyInvocation(context.Background(), runner, cfg, runtime, "")
 	if err != nil {
@@ -318,20 +318,20 @@ func TestVerifyCodexOwnsClientWorkspace(t *testing.T) {
 func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "codex", "config.toml")
 	cfg, runtime := configuredCodexVerification(t, target)
-	executable := cfg.Clients[configuration.ClientCodex].Executable
+	executable := cfg.Clients[ID].Executable
 
 	disabled := cfg.Clone()
-	disabled.Clients[configuration.ClientCodex] = configuration.ClientBinding{}
+	disabled.Clients[ID] = configuration.ClientBinding{}
 	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, disabled, runtime, ""); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
 		t.Fatalf("disabled adapter error = %v", err)
 	}
 	missingExecutable := cfg.Clone()
-	missingExecutable.SetClientActivation(configuration.ClientCodex, true, "", []string{target})
+	missingExecutable.SetClientActivation(ID, true, "", []string{target})
 	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, missingExecutable, runtime, ""); err == nil || !strings.Contains(err.Error(), "executable is not configured") {
 		t.Fatalf("missing executable error = %v", err)
 	}
 	missingTarget := cfg.Clone()
-	missingTarget.SetClientActivation(configuration.ClientCodex, true, executable, nil)
+	missingTarget.SetClientActivation(ID, true, executable, nil)
 	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, missingTarget, runtime, ""); err == nil || !strings.Contains(err.Error(), "configuration target is missing") {
 		t.Fatalf("missing target error = %v", err)
 	}
@@ -344,7 +344,7 @@ func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 		t.Fatalf("capture error = %v", err)
 	}
 	missingOnDisk := cfg.Clone()
-	missingOnDisk.SetClientActivation(configuration.ClientCodex, true, filepath.Join(t.TempDir(), "missing-codex"), []string{target})
+	missingOnDisk.SetClientActivation(ID, true, filepath.Join(t.TempDir(), "missing-codex"), []string{target})
 	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, missingOnDisk, runtime, ""); err == nil || !strings.Contains(err.Error(), "read Codex executable") {
 		t.Fatalf("missing executable file error = %v", err)
 	}
@@ -417,7 +417,7 @@ func verificationConfig() configuration.Config {
 	}}
 	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "one", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "one", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	cfg.SetSelectedRoute(ID, "codex", "")
+	cfg.SetSelectedRoute(otherClient.ID, "claude", "")
 	return cfg
 }

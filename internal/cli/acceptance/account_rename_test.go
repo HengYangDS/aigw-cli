@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -392,7 +394,7 @@ func TestAccountRenameProjectionFailureRollsBackConfigAndRetainsBothCredentialSl
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
+	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -441,8 +443,8 @@ func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) 
 	cfg := accountRenameConfig()
 	cfg.Accounts["active"] = configuration.Account{Label: "Active", Endpoints: configuration.Endpoints{OpenAIResponses: "https://active.test/v1"}}
 	cfg.Routes["active-route"] = qualifiedRoute("Active", "active", "active-model", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "active-route", "")
-	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")})
+	cfg.SetSelectedRoute(codex.ID, "active-route", "")
+	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -526,7 +528,7 @@ func accountRenameConfig() configuration.Config {
 	claudeRoute := cfg.Routes["claude-route"]
 	claudeRoute.Purpose = "Claude purpose"
 	cfg.Routes["claude-route"] = claudeRoute
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex-route", "")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude-route", "")
+	cfg.SetSelectedRoute(codex.ID, "codex-route", "")
+	cfg.SetSelectedRoute(claude.ID, "claude-route", "")
 	return cfg
 }

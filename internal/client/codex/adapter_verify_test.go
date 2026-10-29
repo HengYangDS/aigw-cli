@@ -15,7 +15,7 @@ import (
 
 func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testing.T) {
 	cfg, selected := codexVerificationFixture(t)
-	target := cfg.Clients[configuration.ClientCodex].Targets[0]
+	target := cfg.Clients[ID].Targets[0]
 	if err := DisableConfig(target); err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testin
 		t.Fatal(err)
 	}
 	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", configuration.ProtocolOpenAIResponses)
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "alternate")
+	runtime, err := cfg.ResolveRuntime(ID, "alternate")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestFailedCodexVerificationProjectionRemovesItsWorkspace(t *testing.T) {
 
 func TestCodexVerificationRepairsCosmeticRootSelectionDriftInIsolation(t *testing.T) {
 	cfg, selected := codexVerificationFixture(t)
-	target := cfg.Clients[configuration.ClientCodex].Targets[0]
+	target := cfg.Clients[ID].Targets[0]
 	projected, err := os.ReadFile(target)
 	if err != nil {
 		t.Fatal(err)
@@ -109,7 +109,7 @@ func TestCodexVerificationRepairsCosmeticRootSelectionDriftInIsolation(t *testin
 		t.Fatal(err)
 	}
 	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", configuration.ProtocolOpenAIResponses)
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "alternate")
+	runtime, err := cfg.ResolveRuntime(ID, "alternate")
 	if err != nil {
 		t.Fatal(err)
 	}

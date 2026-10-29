@@ -1,7 +1,7 @@
 package main
 
 import (
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/secrets"
 	upgradeartifact "aigw-cli/internal/upgrade/artifact"
 	"aigw-cli/tools/release/artifact"
@@ -58,7 +58,7 @@ func TestSyncPreviewIncludesMissingCredentialEntrypointWithoutWriting(t *testing
 		t.Fatal("dry-run changed configuration")
 	}
 	journey.run("sync")
-	journey.requireCredential(journey.retainedCredential(configuration.ClientClaude), "native-journey-token")
+	journey.requireCredential(journey.retainedCredential(claude.ID), "native-journey-token")
 }
 
 func TestNativeJourneyOwnsWorkingDirectory(t *testing.T) {

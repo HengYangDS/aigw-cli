@@ -86,13 +86,13 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
-	if err := journey.prepareNativeClient(configuration.ClientCodex, executable, p.team); err != nil {
+	if err := journey.prepareNativeClient(codex.ID, executable, p.team); err != nil {
 		t.Fatal(err)
 	}
 	journey.setEnvironment(secrets.EnvironmentKey(account), token)
 	journey.run("setup", "--from", journey.manifest)
-	journey.run("use", "--for", configuration.ClientCodex, routeIDs[0])
-	journey.enableNativeClient(configuration.ClientCodex, executable)
+	journey.run("use", "--for", codex.ID, routeIDs[0])
+	journey.enableNativeClient(codex.ID, executable)
 	selected := readFile(t, journey.config)
 	for _, routeID := range routeIDs {
 		route := p.manifest.Routes[routeID]
@@ -109,7 +109,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 			defer cancel()
 			stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
 				Executable: journey.binary, Env: journey.environment,
-				Args: []string{"verify", "--for", configuration.ClientCodex, "--route", routeID},
+				Args: []string{"verify", "--for", codex.ID, "--route", routeID},
 			})
 			completed := requireNativeCodexRouteOutcome(t, executable, route, stdout, stderr, err, token)
 			want := int64(3)
@@ -180,13 +180,13 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	})
 	t.Cleanup(server.Close)
 	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
-	if err := journey.prepareNativeClient(configuration.ClientCodex, executable, p.team); err != nil {
+	if err := journey.prepareNativeClient(codex.ID, executable, p.team); err != nil {
 		t.Fatal(err)
 	}
 	journey.setEnvironment(secrets.EnvironmentKey(account), token)
 	journey.run("setup", "--from", journey.manifest)
-	journey.run("use", "--for", configuration.ClientCodex, routeID)
-	journey.enableNativeClient(configuration.ClientCodex, executable)
+	journey.run("use", "--for", codex.ID, routeID)
+	journey.enableNativeClient(codex.ID, executable)
 	// Public verification must not turn this client's missing metadata into a
 	// completed checkpoint. The direct tool loop below proves its narrower use.
 	checkpoint := journey.config + ".verified.json"
@@ -197,7 +197,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), clientverification.ProtocolTimeout)
 	stdout, stderr, verifyErr := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{
 		Executable: journey.binary, Env: journey.environment,
-		Args: []string{"verify", "--for", configuration.ClientCodex},
+		Args: []string{"verify", "--for", codex.ID},
 	})
 	cancel()
 	route := p.manifest.Routes[routeID]
@@ -213,7 +213,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}

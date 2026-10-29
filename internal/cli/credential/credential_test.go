@@ -11,6 +11,9 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
@@ -19,7 +22,7 @@ import (
 )
 
 func TestCredentialHelperPrintsOnlyTheProjectedAccountToken(t *testing.T) {
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range clients.Admission().IDs() {
 		for _, change := range []string{"none", "token", "model", "label"} {
 			t.Run(client+"/"+change, func(t *testing.T) {
 				runtime, buffer := helperRuntime(t, client, true)
@@ -65,7 +68,7 @@ func TestCredentialHelperPrintsOnlyTheProjectedAccountToken(t *testing.T) {
 }
 
 func TestCredentialHelperIgnoresMalformedOptionalComponents(t *testing.T) {
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range clients.Admission().IDs() {
 		for _, component := range []string{".catalog.toml", ".capabilities.toml"} {
 			t.Run(client+component, func(t *testing.T) {
 				runtime, buffer := helperRuntime(t, client, true)
@@ -95,9 +98,9 @@ func TestCredentialHelperIgnoresMalformedOptionalComponents(t *testing.T) {
 func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
 	for _, stage := range []string{"read", "parse", "validate"} {
 		t.Run(stage, func(t *testing.T) {
-			runtime, stdout := helperRuntime(t, configuration.ClientCodex, true)
+			runtime, stdout := helperRuntime(t, codex.ID, true)
 			runtime.Version = "9.8.7"
-			args := helperArgs(t, runtime, configuration.ClientCodex)
+			args := helperArgs(t, runtime, codex.ID)
 			path := runtime.Config.Path()
 			data, err := os.ReadFile(path)
 			if err != nil {
@@ -152,7 +155,7 @@ func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
 }
 
 func TestCredentialHelperResolvesAnUnselectedRouteProjection(t *testing.T) {
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range clients.Admission().IDs() {
 		t.Run(client, func(t *testing.T) {
 			runtime, buffer := helperRuntime(t, client, true)
 			cfg, err := runtime.Config.Load()
@@ -160,7 +163,7 @@ func TestCredentialHelperResolvesAnUnselectedRouteProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			account := configuration.Account{Label: "Alternate"}
-			spec, _ := configuration.ClientSpecFor(client)
+			spec, _ := clients.Admission().Spec(client)
 			if spec.EndpointProtocols[0] == configuration.ProtocolAnthropic {
 				account.Endpoints.Anthropic = "https://alternate.test"
 			} else {
@@ -194,7 +197,7 @@ func TestCredentialHelperResolvesAnUnselectedRouteProjection(t *testing.T) {
 }
 
 func TestCredentialHelperResolvesEveryProjectedRouteProtocol(t *testing.T) {
-	runtime, buffer := helperRuntime(t, configuration.ClientHermes, true)
+	runtime, buffer := helperRuntime(t, hermes.ID, true)
 	cfg, err := runtime.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -202,19 +205,19 @@ func TestCredentialHelperResolvesEveryProjectedRouteProtocol(t *testing.T) {
 	account := cfg.Accounts["gateway"]
 	account.Endpoints.OpenAIChatCompletions = "https://gateway.test/chat/v1"
 	cfg.Accounts["gateway"] = account
-	route := cfg.Routes[configuration.ClientHermes]
+	route := cfg.Routes[hermes.ID]
 	route.Interfaces = map[configuration.EndpointProtocol][]configuration.Capability{
 		configuration.ProtocolOpenAIResponses:       {},
 		configuration.ProtocolOpenAIChatCompletions: {},
 	}
-	cfg.Routes[configuration.ClientHermes] = route
+	cfg.Routes[hermes.ID] = route
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	if err := runtime.Secrets.Set("gateway", "gateway-token"); err != nil {
 		t.Fatal(err)
 	}
-	projection, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	projection, err := cfg.ResolveRuntime(hermes.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +225,7 @@ func TestCredentialHelperResolvesEveryProjectedRouteProtocol(t *testing.T) {
 	projection.Endpoint = account.Endpoints.OpenAIChatCompletions
 
 	command := NewCommand(runtime)
-	if err := command.RunE(command, []string{configuration.ClientHermes, projection.CredentialProjectionFingerprint(configuration.ClientHermes)}); err != nil {
+	if err := command.RunE(command, []string{hermes.ID, projection.CredentialProjectionFingerprint(hermes.ID)}); err != nil {
 		t.Fatal(err)
 	}
 	if got := buffer.String(); got != "gateway-token\n" {
@@ -231,7 +234,7 @@ func TestCredentialHelperResolvesEveryProjectedRouteProtocol(t *testing.T) {
 }
 
 func TestCredentialHelperRejectsStaleBindingBeforeSecretAccess(t *testing.T) {
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range clients.Admission().IDs() {
 		for _, change := range []string{"client", "account", "endpoint"} {
 			t.Run(client+"/"+change, func(t *testing.T) {
 				runtime, buffer := helperRuntime(t, client, true)
@@ -281,26 +284,26 @@ func TestCredentialHelperRejectsStaleBindingBeforeSecretAccess(t *testing.T) {
 func TestClaudeCredentialHelperFailsClosedWithoutWritingStdout(t *testing.T) {
 	for name := range map[string]bool{"wrong client": true, "load": true, "disabled": true, "route": true, "secret": true} {
 		t.Run(name, func(t *testing.T) {
-			runtime, buffer := helperRuntime(t, configuration.ClientClaude, true)
-			args := helperArgs(t, runtime, configuration.ClientClaude)
+			runtime, buffer := helperRuntime(t, claude.ID, true)
+			args := helperArgs(t, runtime, claude.ID)
 			switch name {
 			case "load":
 				runtime.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 			case "disabled":
-				runtime, buffer = helperRuntime(t, configuration.ClientClaude, false)
+				runtime, buffer = helperRuntime(t, claude.ID, false)
 			case "route":
 				cfg, err := runtime.Config.Load()
 				if err != nil {
 					t.Fatal(err)
 				}
-				route := cfg.Routes[configuration.ClientClaude]
+				route := cfg.Routes[claude.ID]
 				route.Model = "changed-after-projection"
-				cfg.Routes[configuration.ClientClaude] = route
+				cfg.Routes[claude.ID] = route
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
 				}
 			}
-			argument := configuration.ClientClaude
+			argument := claude.ID
 			if name == "wrong client" {
 				argument = "unsupported"
 			}
@@ -315,11 +318,11 @@ func TestClaudeCredentialHelperFailsClosedWithoutWritingStdout(t *testing.T) {
 }
 
 func TestCredentialCommandRequiresProjectionFingerprintBeforeSecretAccess(t *testing.T) {
-	runtime, buffer := helperRuntime(t, configuration.ClientCodex, true)
+	runtime, buffer := helperRuntime(t, codex.ID, true)
 	store := &refusingSecretStore{}
 	runtime.Secrets = store
 	command := NewCommand(runtime)
-	command.SetArgs([]string{configuration.ClientCodex})
+	command.SetArgs([]string{codex.ID})
 	command.SetOut(&bytes.Buffer{})
 	command.SetErr(&bytes.Buffer{})
 	err := command.Execute()
@@ -332,13 +335,13 @@ func TestCredentialCommandRequiresProjectionFingerprintBeforeSecretAccess(t *tes
 }
 
 func TestCredentialHelperUsesAccountTokenLanguage(t *testing.T) {
-	runtime, stdout := helperRuntime(t, configuration.ClientClaude, true)
+	runtime, stdout := helperRuntime(t, claude.ID, true)
 	command := NewCommand(runtime)
 
 	if command.Short != "Read the Account Token matching a client projection" {
 		t.Fatalf("short help = %q", command.Short)
 	}
-	err := command.RunE(command, helperArgs(t, runtime, configuration.ClientClaude))
+	err := command.RunE(command, helperArgs(t, runtime, claude.ID))
 	var stderr bytes.Buffer
 	presentation.RenderCredentialError(presentation.New(&stderr, false), err)
 	if err == nil || stdout.Len() != 0 || !strings.Contains(stderr.String(), "claude Account Token is not configured") ||
@@ -348,24 +351,24 @@ func TestCredentialHelperUsesAccountTokenLanguage(t *testing.T) {
 }
 
 func TestClaudeCredentialHelperPropagatesOutputFailure(t *testing.T) {
-	runtime, _ := helperRuntime(t, configuration.ClientClaude, true)
+	runtime, _ := helperRuntime(t, claude.ID, true)
 	if err := runtime.Secrets.Set("gateway", "secret-token"); err != nil {
 		t.Fatal(err)
 	}
 	writeErr := errors.New("write failed")
 	runtime.Out = failingWriter{err: writeErr}
 	command := NewCommand(runtime)
-	if err := command.RunE(command, helperArgs(t, runtime, configuration.ClientClaude)); !errors.Is(err, writeErr) {
+	if err := command.RunE(command, helperArgs(t, runtime, claude.ID)); !errors.Is(err, writeErr) {
 		t.Fatalf("error=%v", err)
 	}
 }
 
 func TestCredentialHelperRedactsBackendDiagnostics(t *testing.T) {
-	runtime, stdout := helperRuntime(t, configuration.ClientCodex, true)
+	runtime, stdout := helperRuntime(t, codex.ID, true)
 	store := &refusingSecretStore{readError: errors.New("locked login Keychain at /private/account-token")}
 	runtime.Secrets = store
 	command := NewCommand(runtime)
-	err := command.RunE(command, helperArgs(t, runtime, configuration.ClientCodex))
+	err := command.RunE(command, helperArgs(t, runtime, codex.ID))
 	var stderr bytes.Buffer
 	renderer := presentation.New(&stderr, false)
 	presentation.RenderCredentialError(renderer, err)
@@ -383,7 +386,7 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := configuration.NewConfig(clients.Admission())
 	account := configuration.Account{Label: "Gateway"}
-	spec, _ := configuration.ClientSpecFor(client)
+	spec, _ := clients.Admission().Spec(client)
 	if spec.EndpointProtocols[0] == configuration.ProtocolAnthropic {
 		account.Endpoints.Anthropic = "https://gateway.test"
 	} else {
@@ -434,10 +437,10 @@ func (store *refusingSecretStore) Get(string) (string, error) {
 }
 
 func TestCredentialReadDeadlineHasPreciseRecovery(t *testing.T) {
-	runtime, stdout := helperRuntime(t, configuration.ClientCodex, true)
+	runtime, stdout := helperRuntime(t, codex.ID, true)
 	runtime.Secrets = &refusingSecretStore{readError: context.DeadlineExceeded}
 	command := NewCommand(runtime)
-	err := command.RunE(command, helperArgs(t, runtime, configuration.ClientCodex))
+	err := command.RunE(command, helperArgs(t, runtime, codex.ID))
 	var diagnostic bytes.Buffer
 	presentation.RenderCredentialError(presentation.New(&diagnostic, false), err)
 	if err == nil || stdout.Len() != 0 || !strings.Contains(diagnostic.String(), "deadline") || strings.Contains(diagnostic.String(), "aigw sync") {
@@ -454,15 +457,15 @@ func (store *refusingSecretStore) Exists(string) (bool, error) {
 }
 
 func TestCredentialHelperRejectsClientNativeBeforeSecretAccess(t *testing.T) {
-	runtime, buffer := helperRuntime(t, configuration.ClientCodex, true)
+	runtime, buffer := helperRuntime(t, codex.ID, true)
 	cfg, err := runtime.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[codex.ID]
 	binding.ModelProvider = "amazon-bedrock"
 	binding.Authentication = configuration.AuthenticationClientNative
-	cfg.Clients[configuration.ClientCodex] = binding
+	cfg.Clients[codex.ID] = binding
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -470,7 +473,7 @@ func TestCredentialHelperRejectsClientNativeBeforeSecretAccess(t *testing.T) {
 	runtime.Secrets = store
 	command := NewCommand(runtime)
 
-	err = command.RunE(command, helperArgs(t, runtime, configuration.ClientCodex))
+	err = command.RunE(command, helperArgs(t, runtime, codex.ID))
 	if err == nil || !strings.Contains(err.Error(), "client-owned authentication") {
 		t.Fatalf("credential helper error = %v", err)
 	}
@@ -488,11 +491,11 @@ func TestCredentialHelperRejectsClientNativeBeforeSecretAccess(t *testing.T) {
 }
 
 func TestCredentialHelperReportsSafeNativeStatusWithoutRetry(t *testing.T) {
-	runtime, output := helperRuntime(t, configuration.ClientCodex, true)
+	runtime, output := helperRuntime(t, codex.ID, true)
 	store := &refusingSecretStore{readError: &native.KeychainError{Status: -25308}}
 	runtime.Secrets = store
 	command := NewCommand(runtime)
-	err := command.RunE(command, helperArgs(t, runtime, configuration.ClientCodex))
+	err := command.RunE(command, helperArgs(t, runtime, codex.ID))
 	var diagnostic bytes.Buffer
 	presentation.RenderCredentialError(presentation.New(&diagnostic, false), err)
 	if output.Len() != 0 || !strings.Contains(diagnostic.String(), "Keychain OSStatus -25308") ||

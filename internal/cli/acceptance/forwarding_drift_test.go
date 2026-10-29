@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 )
@@ -29,8 +30,8 @@ func TestAccountEditRefusesToMoveAForwardedUpstream(t *testing.T) {
 			cfg := configuration.NewConfig(clients.Admission())
 			cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 			cfg.Routes["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", configuration.ProtocolOpenAIResponses)
-			cfg.SetSelectedRoute(configuration.ClientCodex, "sol", "")
-			cfg.SetClientActivation(configuration.ClientCodex, true, executableFixture(t, "codex"), []string{target})
+			cfg.SetSelectedRoute(codex.ID, "sol", "")
+			cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}

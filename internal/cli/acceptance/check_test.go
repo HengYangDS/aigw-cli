@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
@@ -21,9 +22,9 @@ import (
 func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "dmx", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
+	cfg.SetSelectedRoute(claude.ID, "dmx", "")
+	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -53,9 +54,9 @@ func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, secretStore, _, httpClient := testApp(t, "")
 			cfg := configuration.NewConfig(clients.Admission())
-			addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
-			cfg.SetSelectedRoute(configuration.ClientClaude, "dmx", "")
-			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+			addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
+			cfg.SetSelectedRoute(claude.ID, "dmx", "")
+			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -82,7 +83,7 @@ func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
 			if strings.Contains(out.String(), `"config_path"`) || strings.Contains(out.String(), app.Config.Path()) {
 				t.Fatalf("check exposed a private configuration path: %s", out.String())
 			}
-			client := result.Clients[configuration.ClientClaude]
+			client := result.Clients[claude.ID]
 			if result.OK || client.DiagnosticKind != test.kind || client.Retryable != test.retryable || client.NextAction == "" {
 				t.Fatalf("check JSON = %#v", result)
 			}
@@ -98,8 +99,8 @@ func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T)
 	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
 	cfg.Routes["claude-fable-5"] = qualifiedRoute("Claude Fable", "dmx", "claude-fable-5", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude-fable-5", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude-real", nil)
+	cfg.SetSelectedRoute(claude.ID, "claude-fable-5", "")
+	cfg.SetClientActivation(claude.ID, true, "/opt/claude-real", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -116,10 +117,10 @@ func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T)
 func TestCheckJSONReportsOnlyActiveRoutes(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
-	addAccountRoute(&cfg, "unused", "unused-account", "Unused", configuration.Endpoints{Anthropic: "https://unused.test"}, configuration.ClientClaude, "unused-test")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	addAccountRoute(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
+	addAccountRoute(&cfg, "unused", "unused-account", "Unused", configuration.Endpoints{Anthropic: "https://unused.test"}, claude.ID, "unused-test")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -141,7 +142,7 @@ func TestCheckJSONReportsOnlyActiveRoutes(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode check --json: %v\n%s", err, out.String())
 	}
-	client, ok := result.Clients[configuration.ClientClaude]
+	client, ok := result.Clients[claude.ID]
 	if !ok || !client.CheckPassed || client.Route != "claude" || client.Account != "claude-account" || !result.OK {
 		t.Fatalf("JSON readiness = %#v", result)
 	}
@@ -156,9 +157,9 @@ func TestCheckJSONReportsOnlyActiveRoutes(t *testing.T) {
 func TestCheckJSONMakesMissingActiveCredentialActionable(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	addAccountRoute(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -179,7 +180,7 @@ func TestCheckJSONMakesMissingActiveCredentialActionable(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode check --json: %v\n%s", err, out.String())
 	}
-	client := result.Clients[configuration.ClientClaude]
+	client := result.Clients[claude.ID]
 	if result.OK || client.CheckPassed || client.Account != "claude-account" || client.Detail != "account token is unavailable" || client.NextAction != "aigw rotate claude-account" {
 		t.Fatalf("JSON missing-token result = %#v", result)
 	}
@@ -241,12 +242,12 @@ func TestCheckJSONKeepsConfigurationFailureMachineReadable(t *testing.T) {
 
 func TestCheckSurfacesMissingSelectedRouteToken(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -263,9 +264,9 @@ func TestCheckSurfacesMissingSelectedRouteToken(t *testing.T) {
 func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "claude", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	addAccountRoute(&cfg, "claude", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -284,15 +285,15 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 func TestCheckRejectsAnEnabledClientRouteWithoutItsAccountToken(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
-	addAccountRoute(&cfg, "codex", "codex-account", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, "gpt-test")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	addAccountRoute(&cfg, "claude", "claude-account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
+	addAccountRoute(&cfg, "codex", "codex-account", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, codex.ID, "gpt-test")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	target := filepath.Join(t.TempDir(), "config.toml")
 	writeFile(t, target, nil, 0o600)
-	cfg.SetClientActivation(configuration.ClientCodex, true, executableFixture(t, "codex"), []string{target})
-	clientRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
+	clientRuntime, err := cfg.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -338,14 +339,14 @@ func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedRoute(t *testing.
 		"codex":  qualifiedRoute("Codex", "codex-account", "gpt-test", configuration.ProtocolOpenAIResponses),
 	}
 	cfg.Clients = map[string]configuration.ClientBinding{
-		configuration.ClientClaude: {Route: "claude", Enabled: true, Executable: executableFixture(t, "claude")},
-		configuration.ClientCodex:  {Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}},
+		claude.ID: {Route: "claude", Enabled: true, Executable: executableFixture(t, "claude")},
+		codex.ID:  {Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{codexTarget}},
 	}
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	codexRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	codexRuntime, err := cfg.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -353,7 +354,7 @@ func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedRoute(t *testing.
 	if err := codex.SyncConfig(codexTarget, codexRuntime); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, configuration.AdmittedClientIDs()); err != nil {
+	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, clients.Admission().IDs()); err != nil {
 		t.Fatal(err)
 	}
 	for account, token := range map[string]string{"claude-account": "claude-token", "codex-account": "codex-token", "stale-account": "stale-token"} {
@@ -436,9 +437,9 @@ func TestCheckEvaluatesRoutesIndependentlyOfProgramVersion(t *testing.T) {
 				app, out, store, _, _ := testApp(t, "")
 				app.Version = version
 				cfg := configuration.NewConfig(clients.Admission())
-				addAccountRoute(&cfg, "claude", "account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
-				cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-				cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+				addAccountRoute(&cfg, "claude", "account", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
+				cfg.SetSelectedRoute(claude.ID, "claude", "")
+				cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 				synchronizeClaudeProjection(t, app, cfg)
 				if err := app.Config.Save(cfg); err != nil {
 					t.Fatal(err)
@@ -471,8 +472,8 @@ func TestCheckKeepsGenericHealthAvailableWhenExactDiagnosticDriverIsNotBundled(t
 		AccountProbe: &configuration.AccountProbe{Kind: "future-provider", BaseURL: "https://future.test"},
 	}
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "future", "claude-test", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

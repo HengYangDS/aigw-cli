@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -17,8 +19,8 @@ import (
 func TestAccountListJSONIsStableAndSecretFree(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "zeta", "zeta", "Zeta", configuration.Endpoints{Anthropic: "https://zeta.test"}, configuration.ClientClaude, "claude-test")
-	addAccountRoute(&cfg, "alpha", "alpha", "Alpha", configuration.Endpoints{OpenAIResponses: "https://alpha.test/v1"}, configuration.ClientCodex, "gpt-test")
+	addAccountRoute(&cfg, "zeta", "zeta", "Zeta", configuration.Endpoints{Anthropic: "https://zeta.test"}, claude.ID, "claude-test")
+	addAccountRoute(&cfg, "alpha", "alpha", "Alpha", configuration.Endpoints{OpenAIResponses: "https://alpha.test/v1"}, codex.ID, "gpt-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +73,7 @@ func TestAccountListFollowsDeclaredPresentationOrder(t *testing.T) {
 		id, label string
 		order     int
 	}{{"aihubmix", "AIHubMix", 30}, {"dmxapi", "DMXAPI", 10}, {"ucloud", "UCloud", 20}} {
-		addAccountRoute(&cfg, account.id, account.id, account.label, configuration.Endpoints{OpenAIResponses: "https://" + account.id + ".test/v1"}, configuration.ClientCodex, "gpt-test")
+		addAccountRoute(&cfg, account.id, account.id, account.label, configuration.Endpoints{OpenAIResponses: "https://" + account.id + ".test/v1"}, codex.ID, "gpt-test")
 		declared := cfg.Accounts[account.id]
 		declared.Order = account.order
 		cfg.Accounts[account.id] = declared
@@ -125,7 +127,7 @@ func TestAccountEditValidation(t *testing.T) {
 
 	t.Run("account edit unknown", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"account", "edit", "missing", "--label", "New"})
 		if err == nil || !strings.Contains(err.Error(), "Unknown account") {
 			t.Fatalf("error = %v", err)
@@ -134,7 +136,7 @@ func TestAccountEditValidation(t *testing.T) {
 
 	t.Run("account edit label and anthropic", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		if err := cli.Execute(app, []string{"account", "edit", "one", "--label", "Renamed", "--anthropic-url", "https://new.test/"}); err != nil {
 			t.Fatal(err)
 		}
@@ -148,9 +150,9 @@ func TestAccountEditValidation(t *testing.T) {
 func TestAccountEditUpdatesSharedEndpointWithoutRouteDuplication(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "gpt", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, configuration.ClientCodex, "gpt-test")
-	addAccountRoute(&cfg, "claude", "dmx", "DMXAPI", configuration.Endpoints{}, configuration.ClientClaude, "claude-test")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
+	addAccountRoute(&cfg, "gpt", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, codex.ID, "gpt-test")
+	addAccountRoute(&cfg, "claude", "dmx", "DMXAPI", configuration.Endpoints{}, claude.ID, "claude-test")
+	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +203,7 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 	t.Run("no probe", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
+		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err == nil || !strings.Contains(err.Error(), "does not support") {
 			t.Fatalf("error = %v", err)
 		}

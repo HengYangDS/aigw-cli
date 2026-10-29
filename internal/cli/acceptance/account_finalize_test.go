@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
@@ -29,7 +31,7 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 	t.Run("stale checkpoint", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
 		before := accountRenameConfig()
-		before.SetClientActivation(configuration.ClientClaude, true, "", nil)
+		before.SetClientActivation(claude.ID, true, "", nil)
 		if err := app.Config.Save(before); err != nil {
 			t.Fatal(err)
 		}
@@ -56,7 +58,7 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 
 	t.Run("partial client coverage", func(t *testing.T) {
 		app, _, secretStore, current := prepareAccountFinalizer(t, nil)
-		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, []string{configuration.ClientCodex}); err != nil {
+		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, []string{codex.ID}); err != nil {
 			t.Fatal(err)
 		}
 		if err := secretStore.Set("zeta-new", "target-token"); err != nil {
@@ -70,7 +72,7 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 		app, _, secretStore, _, _ := testApp(t, "")
 		current := accountRenameConfig()
 		current.Accounts["zeta-new"] = current.Accounts["zeta-old"]
-		current.SetClientActivation(configuration.ClientClaude, true, "", nil)
+		current.SetClientActivation(claude.ID, true, "", nil)
 		if err := app.Config.Save(current); err != nil {
 			t.Fatal(err)
 		}
@@ -85,7 +87,7 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 }
 
 func TestAccountFinalizeUsesEnabledClientScope(t *testing.T) {
-	for _, enabled := range []string{"", configuration.ClientClaude, configuration.ClientCodex} {
+	for _, enabled := range []string{"", claude.ID, codex.ID} {
 		t.Run("enabled="+enabled, func(t *testing.T) {
 			app, _, store, _, _ := testApp(t, "")
 			cfg := renamedAccountConfig(accountRenameConfig())
@@ -129,7 +131,7 @@ func TestAccountFinalizeWithoutCredentialsNeedsNoToken(t *testing.T) {
 }
 
 func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
-	app, out, secretStore, current := prepareAccountFinalizer(t, []string{configuration.ClientClaude, configuration.ClientCodex})
+	app, out, secretStore, current := prepareAccountFinalizer(t, []string{claude.ID, codex.ID})
 	const token = "finalize-shared-token"
 	probe := secrets.DiagnosticCredential{SystemToken: "finalize-shared-system", UserID: "finalize-shared-user"}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
@@ -192,7 +194,7 @@ func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
 }
 
 func TestAccountFinalizeRequiresTargetAPIToken(t *testing.T) {
-	app, _, secretStore, _ := prepareAccountFinalizer(t, []string{configuration.ClientClaude, configuration.ClientCodex})
+	app, _, secretStore, _ := prepareAccountFinalizer(t, []string{claude.ID, codex.ID})
 	if err := secretStore.Set("zeta-old", "source-token"); err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +217,7 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 		t.Fatal(err)
 	}
 	current := renamedAccountConfig(before)
-	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, client := range []string{claude.ID, codex.ID} {
 		current.SetClientActivation(client, true, "", nil)
 	}
 	if err := app.Config.Save(current); err != nil {
@@ -280,7 +282,7 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 }
 
 func TestAccountFinalizePartialDeleteCanRetryAfterBackupConvergence(t *testing.T) {
-	app, _, secretStore, _ := prepareAccountFinalizer(t, []string{configuration.ClientClaude, configuration.ClientCodex})
+	app, _, secretStore, _ := prepareAccountFinalizer(t, []string{claude.ID, codex.ID})
 	const token = "partial-delete-token"
 	probe := secrets.DiagnosticCredential{SystemToken: "partial-delete-system", UserID: "partial-delete-user"}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
@@ -310,7 +312,7 @@ func TestAccountFinalizePartialDeleteCanRetryAfterBackupConvergence(t *testing.T
 }
 
 func TestAccountFinalizeEnvironmentCleanupIsExternalAndRetryable(t *testing.T) {
-	app, _, _, _ := prepareAccountFinalizer(t, []string{configuration.ClientClaude, configuration.ClientCodex})
+	app, _, _, _ := prepareAccountFinalizer(t, []string{claude.ID, codex.ID})
 	const token = "finalize-environment-token"
 	values := map[string]string{
 		secrets.EnvironmentKey("zeta-old"): token,
@@ -382,7 +384,7 @@ func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.B
 	current := renamedAccountConfig(before)
 	enabledClients := clients
 	if enabledClients == nil {
-		enabledClients = []string{configuration.ClientClaude, configuration.ClientCodex}
+		enabledClients = []string{claude.ID, codex.ID}
 	}
 	for _, client := range enabledClients {
 		current.SetClientActivation(client, true, "", nil)

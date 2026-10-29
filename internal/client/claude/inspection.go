@@ -32,7 +32,7 @@ func ObservedCredentialExecutable(path string, selected configuration.Runtime) (
 	if err := json.Unmarshal(document["apiKeyHelper"], &command); err != nil {
 		return "", fmt.Errorf("decode Claude credential helper: %w", err)
 	}
-	return credential.ExecutableFromCommand(command, configuration.ClientClaude, selected.CredentialProjectionFingerprint(configuration.ClientClaude), runtime.GOOS)
+	return credential.ExecutableFromCommand(command, ID, selected.CredentialProjectionFingerprint(ID), runtime.GOOS)
 }
 
 // InspectSettings checks Claude's owned connection without writing settings,

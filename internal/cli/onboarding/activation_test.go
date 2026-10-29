@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -17,10 +19,10 @@ func TestManifestSetupOffersEqualCompatibleAccountsWithoutTokens(t *testing.T) {
 		cfg.Accounts[account] = configuration.Account{Label: account, Endpoints: configuration.Endpoints{Anthropic: "https://" + account + ".test"}}
 		cfg.Routes[account] = configuration.Route{Label: account, Account: account, Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	}
-	cfg.SetRecommendedRoute(configuration.ClientClaude, "ucloud")
-	recommendation := cfg.Recommendations[configuration.ClientClaude]
+	cfg.SetRecommendedRoute(claude.ID, "ucloud")
+	recommendation := cfg.Recommendations[claude.ID]
 	recommendation.Alternatives = []configuration.ClientSelection{{Route: "dmx"}}
-	cfg.Recommendations[configuration.ClientClaude] = recommendation
+	cfg.Recommendations[claude.ID] = recommendation
 	output := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore(), Out: output, RenderOut: output}
 	result := buildManifestSetupResult(runtime, cfg, []string{"ucloud", "dmx"}, "", nil, nil)
@@ -36,13 +38,13 @@ func TestManifestSetupOffersEqualCompatibleAccountsWithoutTokens(t *testing.T) {
 
 func TestGuidedSetupDefersMissingClientBeforeVerification(t *testing.T) {
 	cfg := manifestSetupConfig()
-	cfg.SetClientActivation(configuration.ClientCodex, false, "", nil)
+	cfg.SetClientActivation(codex.ID, false, "", nil)
 	store := secrets.NewMemoryStore()
 	if err := store.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
 	output := &bytes.Buffer{}
-	renderSetupClients(invocation.Context{Clients: clients.Registry(), Secrets: store, Out: output, RenderOut: output}, cfg, configuration.ClientClaude)
+	renderSetupClients(invocation.Context{Clients: clients.Registry(), Secrets: store, Out: output, RenderOut: output}, cfg, claude.ID)
 	want := "Install Claude if needed, then run `aigw sync`"
 	if !strings.Contains(output.String(), want) || strings.Contains(output.String(), "Next: aigw check") {
 		t.Fatalf("guided setup admitted verification before projection: %q", output.String())

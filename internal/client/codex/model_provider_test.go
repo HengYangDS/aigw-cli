@@ -109,7 +109,7 @@ func TestCodexProviderNameDoesNotSelectCredentialOwnership(t *testing.T) {
 	for _, want := range []string{
 		`model_provider = "aigw" # managed by AIGW`,
 		`[model_providers.aigw.auth]`,
-		runtime.CredentialProjectionFingerprint(configuration.ClientCodex),
+		runtime.CredentialProjectionFingerprint(codex.ID),
 	} {
 		if !strings.Contains(string(data), want) {
 			t.Fatalf("account-token projection lacks %q:\n%s", want, data)

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 )
@@ -39,7 +40,7 @@ func TestReaderCommandsReadEachAIGWExecutableOnce(t *testing.T) {
 	program := filepath.Join(root, "program", executableName("aigw"))
 	writeFile(t, program, []byte("portable program"), 0o755)
 	base.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{
-		configuration.ClientClaude: executableFixture(t, configuration.ClientClaude),
+		claude.ID: executableFixture(t, claude.ID),
 	}}}
 	for _, step := range []struct {
 		args    []string
@@ -88,7 +89,7 @@ func addNextClaudeRoute(t *testing.T, app *cli.App) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	addAccountRoute(&cfg, "claude-next", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, configuration.ClientClaude, "claude-next")
+	addAccountRoute(&cfg, "claude-next", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-next")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

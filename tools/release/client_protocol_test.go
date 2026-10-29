@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 )
@@ -149,16 +151,16 @@ func (input clientInferenceRequest) codexCommandTool() (custom bool, err error) 
 func newNativeClientServer(t *testing.T, client string, protocol configuration.EndpointProtocol, model, token string, completions *atomic.Int64) (*httptest.Server, *hermesSessionRecorder) {
 	t.Helper()
 	requiredEffort := "high"
-	if client == configuration.ClientHermes {
+	if client == hermes.ID {
 		requiredEffort = ""
 	}
 	shell := ""
-	if client == configuration.ClientCodex {
+	if client == codex.ID {
 		shell = nativeCodexToolShell(t)
 	}
 	handler := clientResponseHandler(protocol, map[string]*atomic.Int64{model: completions}, token, requiredEffort, shell)
 	var hermesSession *hermesSessionRecorder
-	if client == configuration.ClientHermes {
+	if client == hermes.ID {
 		hermesSession = &hermesSessionRecorder{Handler: handler, model: model, token: token}
 		handler = hermesSession
 	}

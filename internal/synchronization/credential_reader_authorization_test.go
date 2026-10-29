@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/activation"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -109,7 +111,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			route = deferred.Routes["gpt"]
 			route.Account = "missing"
 			deferred.Routes["gpt"] = route
-			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), deferred, "deferred", configuration.ClientCodex); err != nil {
+			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), deferred, "deferred", codex.ID); err != nil {
 				t.Fatalf("absent Token blocked deferred selection: %v", err)
 			}
 			if current, err := os.ReadFile(target); err != nil || !bytes.Equal(current, original) {
@@ -129,9 +131,9 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 				Account: "blocked", Model: "claude-test",
 				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 			}
-			selected.SetSelectedRoute(configuration.ClientClaude, "blocked-claude", "")
-			selected.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
-			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), selected, "codex", configuration.ClientCodex); err != nil {
+			selected.SetSelectedRoute(claude.ID, "blocked-claude", "")
+			selected.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), selected, "codex", codex.ID); err != nil {
 				t.Fatalf("unrelated Claude Token blocked a Codex-only projection: %v", err)
 			}
 		})
@@ -201,7 +203,7 @@ func requireSingleCopiedCredentialRead(t *testing.T, syncer Synchronizer, cfg co
 			t.Fatal(err)
 		}
 	}
-	if _, _, err := syncer.prepareCredentialEntrypoint(cfg, configuration.ClientCodex); err != nil {
+	if _, _, err := syncer.prepareCredentialEntrypoint(cfg, codex.ID); err != nil {
 		t.Fatal(err)
 	}
 	var operations []string

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
@@ -30,7 +31,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		runtime, _, store, buffer := tokenAcquisitionRuntime(t)
 		command := NewUseCommand(runtime)
-		command.SetArgs([]string{"--for", configuration.ClientCodex, "codex"})
+		command.SetArgs([]string{"--for", codex.ID, "codex"})
 		if err := command.Execute(); err != nil {
 			t.Fatal(err)
 		}
@@ -73,7 +74,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 				Label: "Next", Account: "gateway", Model: "gpt-next",
 				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 			}
-			cfg.SetClientActivation(configuration.ClientCodex, true, "", []string{filepath.Join(t.TempDir(), "missing-configuration.toml")})
+			cfg.SetClientActivation(codex.ID, true, "", []string{filepath.Join(t.TempDir(), "missing-configuration.toml")})
 			if err := value.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -86,9 +87,9 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			command := NewUseCommand(runtime)
 			command.SilenceErrors = true
 			command.SilenceUsage = true
-			args := []string{"--for", configuration.ClientCodex, "codex"}
+			args := []string{"--for", codex.ID, "codex"}
 			if test.name == "commit" {
-				args = []string{"--for", configuration.ClientCodex, "next"}
+				args = []string{"--for", codex.ID, "next"}
 			}
 			command.SetArgs(args)
 			err := command.Execute()
@@ -109,7 +110,7 @@ func TestUseNamesMissingEnvironmentTokenWithoutPrompting(t *testing.T) {
 	runtime.Prompt = &promptStub{err: errors.New("prompt must not run")}
 
 	command := NewUseCommand(runtime)
-	command.SetArgs([]string{"--for", configuration.ClientCodex, "codex"})
+	command.SetArgs([]string{"--for", codex.ID, "codex"})
 	err := command.Execute()
 	if err == nil || !strings.Contains(err.Error(), secrets.EnvironmentKey("gateway")) || !strings.Contains(err.Error(), "aigw use --for codex codex") {
 		t.Fatalf("error = %v", err)

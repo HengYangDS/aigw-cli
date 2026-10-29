@@ -19,7 +19,7 @@ import (
 
 // hermesRegistry registers only this adapter against its own admission record.
 func hermesRegistry() client.Registry {
-	registry, err := client.NewRegistry([]configuration.ClientSpec{client.AdmittedSpec(configuration.ClientHermes)}, New())
+	registry, err := client.NewRegistry(New())
 	if err != nil {
 		panic(err)
 	}
@@ -59,7 +59,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://provider.test"}}
 	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", configuration.ProtocolAnthropic)
-	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic}
+	cfg.Clients[ID] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic}
 	store := secrets.NewMemoryStore()
 	if err := store.Set("team", "fixture-token"); err != nil {
 		t.Fatal(err)
@@ -138,17 +138,17 @@ func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	before.Routes["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", configuration.ProtocolOpenAIResponses)
 	before.Routes["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", configuration.ProtocolOpenAIResponses)
-	before.SetSelectedRoute(configuration.ClientHermes, "selected", "")
-	before.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
+	before.SetSelectedRoute(ID, "selected", "")
+	before.SetClientActivation(ID, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
 	before.Normalize()
 	after := before.Clone()
 	delete(after.Routes, "extra")
-	oldRuntime, oldErr := before.ResolveRuntime(configuration.ClientHermes, "")
-	newRuntime, newErr := after.ResolveRuntime(configuration.ClientHermes, "")
+	oldRuntime, oldErr := before.ResolveRuntime(ID, "")
+	newRuntime, newErr := after.ResolveRuntime(ID, "")
 	if oldErr != nil || newErr != nil || oldRuntime != newRuntime {
 		t.Fatalf("selected Hermes Route changed: before=%#v (%v), after=%#v (%v)", oldRuntime, oldErr, newRuntime, newErr)
 	}
-	if got := hermesRegistry().ChangedClients(before, after); !slices.Equal(got, []string{configuration.ClientHermes}) {
+	if got := hermesRegistry().ChangedClients(before, after); !slices.Equal(got, []string{ID}) {
 		t.Fatalf("removing an unselected provider Model affected clients %v, want Hermes", got)
 	}
 }
@@ -162,8 +162,8 @@ func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
 			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 		}
 	}
-	cfg.SetSelectedRoute(configuration.ClientHermes, "variant", "")
-	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	cfg.SetSelectedRoute(ID, "variant", "")
+	selected, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,11 +215,11 @@ func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := configuration.Parse(team, testAdmission())
+	manifest, err := configuration.Parse(team, builtInAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := configuration.Merge(configuration.NewConfig(testAdmission()), manifest)
+	cfg, err := configuration.Merge(configuration.NewConfig(builtInAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +231,7 @@ func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
 	for _, provider := range catalogue {
 		models[provider.ID] = provider.Models
 	}
-	spec := client.AdmittedSpec(configuration.ClientHermes)
+	spec := New().Spec()
 	for _, routeID := range cfg.RouteIDs() {
 		route := cfg.Routes[routeID]
 		for _, protocol := range spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route) {
@@ -248,8 +248,8 @@ func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	before.Routes["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", configuration.ProtocolOpenAIResponses)
 	before.Routes["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", configuration.ProtocolOpenAIResponses)
-	before.SetSelectedRoute(configuration.ClientHermes, "selected", "")
-	before.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
+	before.SetSelectedRoute(ID, "selected", "")
+	before.SetClientActivation(ID, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
 	before.Normalize()
 	after := before.Clone()
 	route := after.Routes["extra"]
@@ -281,7 +281,7 @@ func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *
 	cfg.Routes["gemini"] = configuration.Route{Label: "Gemini", Account: "team", Model: "gemini-3.8-flash", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIChatCompletions: {}}}
 	cfg.Routes["qwen"] = configuration.Route{Label: "Qwen", Account: "connected", Model: "qwen-max", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	cfg.Routes["deepseek"] = configuration.Route{Label: "DeepSeek", Account: "offline", Model: "deepseek-v3", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "claude", Enabled: true, Protocol: configuration.ProtocolAnthropic, Targets: []string{target}}
+	cfg.Clients[ID] = configuration.ClientBinding{Route: "claude", Enabled: true, Protocol: configuration.ProtocolAnthropic, Targets: []string{target}}
 	store := secrets.NewMemoryStore()
 	for _, accountID := range []string{"team", "connected"} {
 		if err := store.Set(accountID, "fixture-token"); err != nil {

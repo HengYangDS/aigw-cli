@@ -11,6 +11,10 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 
@@ -48,13 +52,13 @@ interfaces = { anthropic = ["text", "streaming", "tools"] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.Clients[configuration.ClientHermes].Enabled || cfg.SelectedRoute(configuration.ClientHermes) != "team-model" {
+	if !cfg.Clients[hermes.ID].Enabled || cfg.SelectedRoute(hermes.ID) != "team-model" {
 		t.Fatal("deferred setup lost selected or enabled intent")
 	}
 	target := filepath.Join(root, "hermes", "config.yaml")
 	executable := executableFixture(t, "hermes")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientHermes: executable},
+		Executables: map[string]string{hermes.ID: executable},
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
 	}}
 	for _, args := range [][]string{{"sync"}, {"status", "--json"}, {"check"}, {"test", "--for", "hermes"}, {"verify", "--for", "hermes"}} {
@@ -106,7 +110,7 @@ func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
 	}
 	target := filepath.Join(t.TempDir(), "hermes", "config.yaml")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientHermes: executableFixture(t, "hermes")},
+		Executables: map[string]string{hermes.ID: executableFixture(t, "hermes")},
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
 	}}
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
@@ -146,7 +150,7 @@ func TestHermesExplicitSelectionAdoptsNativeSwitchThenSyncs(t *testing.T) {
 	}
 	target := filepath.Join(t.TempDir(), "hermes", "config.yaml")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientHermes: executableFixture(t, "hermes")},
+		Executables: map[string]string{hermes.ID: executableFixture(t, "hermes")},
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
 	}}
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
@@ -199,10 +203,10 @@ func TestHermesExplicitSelectionAdoptsNativeSwitchThenSyncs(t *testing.T) {
 		t.Fatalf("sync after explicit adoption: %v", err)
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || cfg.SelectedRoute(configuration.ClientHermes) != "dmxapi-gpt-6.1-sol" {
+	if err != nil || cfg.SelectedRoute(hermes.ID) != "dmxapi-gpt-6.1-sol" {
 		t.Fatalf("Hermes binding after adoption: %#v, %v", cfg.Clients, err)
 	}
-	for _, client := range []string{configuration.ClientCodex, configuration.ClientClaude, configuration.ClientClaudeDesktop} {
+	for _, client := range []string{codex.ID, claude.ID, claudedesktop.ID} {
 		if cfg.SelectedRoute(client) != configBefore.SelectedRoute(client) {
 			t.Fatalf("Hermes adoption changed %s", client)
 		}
@@ -270,7 +274,7 @@ func shippedHermesAppWith(t *testing.T, reader bool) (*cli.App, *bytes.Buffer, *
 	}
 	target := filepath.Join(t.TempDir(), "hermes", "config.yaml")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientHermes: executableFixture(t, "hermes")},
+		Executables: map[string]string{hermes.ID: executableFixture(t, "hermes")},
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
 	}}
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
@@ -313,18 +317,18 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatalf("sync result: %v\n%s", err, output)
 	}
-	if result.Adopted[configuration.ClientHermes] != "dmxapi-claude-opus-5-5" {
+	if result.Adopted[hermes.ID] != "dmxapi-claude-opus-5-5" {
 		t.Fatalf("adopted selections = %v", result.Adopted)
 	}
 	after, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	binding := after.Clients[configuration.ClientHermes]
+	binding := after.Clients[hermes.ID]
 	if binding.Route != "dmxapi-claude-opus-5-5" || binding.Protocol != configuration.ProtocolAnthropic {
 		t.Fatalf("Hermes binding = %#v", binding)
 	}
-	for _, client := range []string{configuration.ClientCodex, configuration.ClientClaude, configuration.ClientClaudeDesktop} {
+	for _, client := range []string{codex.ID, claude.ID, claudedesktop.ID} {
 		if after.SelectedRoute(client) != before.SelectedRoute(client) {
 			t.Fatalf("Hermes adoption changed %s", client)
 		}
@@ -350,7 +354,7 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 		t.Fatalf("second sync preview: %v\n%s", err, output)
 	}
 	for _, target := range preview.Targets {
-		if target.Client == configuration.ClientHermes && target.Action != "unchanged" {
+		if target.Client == hermes.ID && target.Action != "unchanged" {
 			t.Fatalf("adopted Hermes state did not converge: %+v", preview)
 		}
 	}
@@ -387,14 +391,14 @@ func TestHermesSyncAdoptsAChoiceWhoseTokenReturnsLater(t *testing.T) {
 		}
 		wantAdopted := map[string]string{}
 		if step == "token-missing" {
-			wantAdopted[configuration.ClientHermes] = "ucloud-claude-opus-5-5"
+			wantAdopted[hermes.ID] = "ucloud-claude-opus-5-5"
 		}
-		if len(result.Adopted) != len(wantAdopted) || result.Adopted[configuration.ClientHermes] != wantAdopted[configuration.ClientHermes] {
+		if len(result.Adopted) != len(wantAdopted) || result.Adopted[hermes.ID] != wantAdopted[hermes.ID] {
 			t.Fatalf("%s adopted selections = %v, want %v", step, result.Adopted, wantAdopted)
 		}
 		cfg, err := app.Config.Load()
-		if err != nil || cfg.SelectedRoute(configuration.ClientHermes) != "ucloud-claude-opus-5-5" {
-			t.Fatalf("%s Hermes binding = %#v, %v", step, cfg.Clients[configuration.ClientHermes], err)
+		if err != nil || cfg.SelectedRoute(hermes.ID) != "ucloud-claude-opus-5-5" {
+			t.Fatalf("%s Hermes binding = %#v, %v", step, cfg.Clients[hermes.ID], err)
 		}
 		if !bytes.Equal(readFile(t, target), drifted) {
 			t.Fatalf("%s sync rewrote Hermes' own selection", step)
@@ -418,7 +422,7 @@ func TestHermesSyncAdoptsAChoiceWhoseTokenReturnsLater(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, target := range preview.Targets {
-		if target.Client == configuration.ClientHermes && target.Action != "unchanged" {
+		if target.Client == hermes.ID && target.Action != "unchanged" {
 			t.Fatalf("restored-Token adoption did not converge: %+v", preview.Targets)
 		}
 	}
@@ -447,8 +451,8 @@ func TestHermesSyncRefusesChangedManagedProvider(t *testing.T) {
 		t.Fatalf("sync accepted a changed managed provider: %v\n%s", err, output)
 	}
 	after, loadErr := app.Config.Load()
-	if loadErr != nil || after.SelectedRoute(configuration.ClientHermes) != before.SelectedRoute(configuration.ClientHermes) {
-		t.Fatalf("refused sync changed the Hermes binding: %#v, %v", after.Clients[configuration.ClientHermes], loadErr)
+	if loadErr != nil || after.SelectedRoute(hermes.ID) != before.SelectedRoute(hermes.ID) {
+		t.Fatalf("refused sync changed the Hermes binding: %#v, %v", after.Clients[hermes.ID], loadErr)
 	}
 	if !bytes.Equal(readFile(t, target), drifted) || !bytes.Equal(readFile(t, target+".aigw-state.json"), stateBefore) {
 		t.Fatal("refused sync changed native Hermes files")
@@ -465,8 +469,8 @@ func TestHermesExplicitSelectionOverridesNativeModelChoice(t *testing.T) {
 		t.Fatalf("sync after explicit selection: %v\n%s", err, output)
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || cfg.SelectedRoute(configuration.ClientHermes) != "ucloud-gpt-6.1-sol" {
-		t.Fatalf("explicit selection lost to the native choice: %#v, %v", cfg.Clients[configuration.ClientHermes], err)
+	if err != nil || cfg.SelectedRoute(hermes.ID) != "ucloud-gpt-6.1-sol" {
+		t.Fatalf("explicit selection lost to the native choice: %#v, %v", cfg.Clients[hermes.ID], err)
 	}
 	if provider, model := hermesProjectedSelection(t, target); provider != "aigw-ucloud-openai-responses" || model != "gpt-6.1-sol" {
 		t.Fatalf("Hermes did not receive the explicitly selected Route: %s %s", provider, model)

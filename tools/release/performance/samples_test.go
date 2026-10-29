@@ -1,6 +1,7 @@
 package performance
 
 import (
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/configuration"
 	"encoding/json"
 	"errors"
@@ -119,7 +120,7 @@ func TestMeasurementRejectsWarningsAfterValidatingItsWorkload(t *testing.T) {
 func TestPooledKeepsDirectAndForwardingBindingsSeparate(t *testing.T) {
 	var rows []Measurement
 	for _, mode := range []string{"direct", "forwarding"} {
-		binding := configuration.Runtime{Client: configuration.ClientClaude, RouteID: "route", AccountID: "account",
+		binding := configuration.Runtime{Client: claude.ID, RouteID: "route", AccountID: "account",
 			Protocol: configuration.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "https://upstream.example/v1"}
 		if mode == "forwarding" {
 			binding.Endpoint = "http://127.0.0.1:18792/v1"
@@ -172,7 +173,7 @@ func TestMemoryRequiresOneResolvedMeasurementBinding(t *testing.T) {
 			summary := Summary{Scope: "forwarding-performance"}
 			for _, variant := range []string{"baseline", "candidate"} {
 				mode := "direct"
-				binding := configuration.Runtime{Client: configuration.ClientClaude, RouteID: "route", AccountID: "account",
+				binding := configuration.Runtime{Client: claude.ID, RouteID: "route", AccountID: "account",
 					Protocol: configuration.ProtocolAnthropic, Endpoint: "https://upstream.example/v1", UpstreamEndpoint: "https://upstream.example/v1"}
 				if variant == "candidate" {
 					mode, binding.Endpoint = "forwarding", "http://127.0.0.1:18792/v1"

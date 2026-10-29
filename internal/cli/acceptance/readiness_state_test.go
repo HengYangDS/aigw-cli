@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -55,12 +56,12 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://example.invalid"}}
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "fixture", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	command := filepath.Join(t.TempDir(), "credential adapter")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
-	binding := cfg.Clients[configuration.ClientClaude]
+	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
+	binding := cfg.Clients[claude.ID]
 	binding.CredentialCommand = command
-	cfg.Clients[configuration.ClientClaude] = binding
+	cfg.Clients[claude.ID] = binding
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +74,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	}
 	store := &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("native metadata must not select external credentials")}
 	app.Secrets = store
-	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"doctor", "--json"}, {"doctor"}, {"route", "list"}, {"route", "show", "claude"}, {"use", "--for", "claude", "claude"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[configuration.ClientClaude].Executable}} {
+	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"doctor", "--json"}, {"doctor"}, {"route", "list"}, {"route", "show", "claude"}, {"use", "--for", "claude", "claude"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[claude.ID].Executable}} {
 		out.Reset()
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v required a native Token: %v", args, err)
@@ -83,7 +84,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 				t.Fatal(err)
 			}
-			state := result.Clients[configuration.ClientClaude]
+			state := result.Clients[claude.ID]
 			if state.State != "configured" || state.NextAction != "aigw verify --for claude" {
 				t.Fatalf("external credential readiness = %#v", state)
 			}
@@ -134,11 +135,11 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 				"team",
 				"Team",
 				configuration.Endpoints{Anthropic: "https://team.test"},
-				configuration.ClientClaude,
+				claude.ID,
 				"claude-test",
 			)
-			cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+			cfg.SetSelectedRoute(claude.ID, "claude", "")
+			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -157,7 +158,7 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 			if err := json.Unmarshal(out.Bytes(), &document); err != nil {
 				t.Fatalf("decode check JSON: %v\n%s", err, out.String())
 			}
-			state := document.Clients[configuration.ClientClaude].State
+			state := document.Clients[claude.ID].State
 			if state != test.wantState {
 				t.Fatalf("check state = %q, want %q\n%s", state, test.wantState, out.String())
 			}
@@ -177,11 +178,11 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 				"team",
 				"Team",
 				configuration.Endpoints{Anthropic: "https://team.test"},
-				configuration.ClientClaude,
+				claude.ID,
 				"claude-test",
 			)
-			cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+			cfg.SetSelectedRoute(claude.ID, "claude", "")
+			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -197,7 +198,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 			if err := json.Unmarshal(out.Bytes(), &document); err != nil {
 				t.Fatalf("decode %s JSON: %v\n%s", command, err, out.String())
 			}
-			state := document.Clients[configuration.ClientClaude].State
+			state := document.Clients[claude.ID].State
 			if state != "configured" {
 				t.Fatalf("%s state = %q, want configured\n%s", command, state, out.String())
 			}
@@ -213,11 +214,11 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 		"team",
 		"Team",
 		configuration.Endpoints{Anthropic: "https://team.test"},
-		configuration.ClientClaude,
+		claude.ID,
 		"claude-test",
 	)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -232,7 +233,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &document); err != nil {
 		t.Fatalf("decode check JSON: %v\n%s", err, out.String())
 	}
-	state := document.Clients[configuration.ClientClaude].State
+	state := document.Clients[claude.ID].State
 	if state != "endpoint_checked" {
 		t.Fatalf("check state = %q, want endpoint_checked\n%s", state, out.String())
 	}
@@ -251,10 +252,10 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 				"team",
 				"Team",
 				configuration.Endpoints{Anthropic: "https://team.test"},
-				configuration.ClientClaude,
+				claude.ID,
 				"claude-test",
 			)
-			cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
+			cfg.SetRecommendedRoute(claude.ID, "claude")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -266,7 +267,7 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 			if err := json.Unmarshal(out.Bytes(), &document); err != nil {
 				t.Fatalf("decode %s JSON: %v\n%s", command, err, out.String())
 			}
-			client := document.Clients[configuration.ClientClaude]
+			client := document.Clients[claude.ID]
 			state, action := client.State, client.NextAction
 			if state != "deferred" || action != "aigw use --for claude claude" {
 				t.Fatalf("%s state = %q, next_action = %q; want deferred and an explicit Claude selection\n%s", command, state, action, out.String())
@@ -286,7 +287,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 				"team",
 				"Team",
 				configuration.Endpoints{Anthropic: "https://team.test"},
-				configuration.ClientClaude,
+				claude.ID,
 				"claude-test",
 			)
 			cfg.Accounts["team"] = configuration.Account{
@@ -294,8 +295,8 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 				Endpoints:    configuration.Endpoints{Anthropic: "https://team.test"},
 				AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 			}
-			cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-			cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+			cfg.SetSelectedRoute(claude.ID, "claude", "")
+			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -361,7 +362,7 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 		"team",
 		"Team",
 		configuration.Endpoints{Anthropic: "https://team.test"},
-		configuration.ClientClaude,
+		claude.ID,
 		"claude-test",
 	)
 	cfg.Accounts["team"] = configuration.Account{
@@ -369,8 +370,8 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 		Endpoints:    configuration.Endpoints{Anthropic: "https://team.test"},
 		AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -27,7 +27,7 @@ var removeVerificationWorkspace = robustio.RemoveAll
 // with the selected projection in a disposable, operation-owned home.
 // explicitRoute is the invocation's --route, which its retry advice repeats.
 func VerifyInvocation(ctx context.Context, runner process.VerificationRunner, cfg configuration.Config, clientRuntime configuration.Runtime, explicitRoute string) (_ ExecutableIdentity, result error) {
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[ID]
 	if !binding.Enabled {
 		return ExecutableIdentity{}, fmt.Errorf("Codex adapter is disabled; run `aigw repair`")
 	}
@@ -118,7 +118,7 @@ func verifyTurn(ctx context.Context, runner process.VerificationRunner, plan pro
 				diagnostic = fmt.Appendf(diagnostic, "\n%s\n%s", event.Message, event.Error.Message)
 			}
 		}
-		return "", clientverification.Failure("Codex", configuration.ClientCodex, explicitRoute, diagnostic, err, nil)
+		return "", clientverification.Failure("Codex", ID, explicitRoute, diagnostic, err, nil)
 	}
 	if process.DiagnosticFailure(diagnostic) {
 		return "", clientverification.Diagnostic("Codex", diagnostic)

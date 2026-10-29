@@ -46,13 +46,13 @@ func newClaudeDesktopFixture(t *testing.T) claudeDesktopFixture {
 	cfg.Routes["manual"] = configuration.Route{Label: "Manual", Account: "gateway", Model: "manual-model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.Routes["other-account"] = configuration.Route{Label: "Other", Account: "other", Model: "other-model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.Routes["selected"] = configuration.Route{Label: "Fable 5.1", Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "selected", "")
-	cfg.SetClientActivation(configuration.ClientClaudeDesktop, true, executable, []string{library})
+	cfg.SetSelectedRoute(ID, "selected", "")
+	cfg.SetClientActivation(ID, true, executable, []string{library})
 	store := secrets.NewMemoryStore()
 	if err := store.Set("gateway", "secret"); err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := cfg.ResolveRuntime(configuration.ClientClaudeDesktop, "")
+	runtime, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestClaudeDesktopCatalogueDeduplicatesLogicalModelsButUsesWireNames(t *test
 	alternate := fixture.cfg.Routes["alternate"]
 	alternate.UpstreamModel = "claude-opus-5-ssvip"
 	fixture.cfg.Routes["alternate"] = alternate
-	runtime, err := fixture.cfg.ResolveRuntime(configuration.ClientClaudeDesktop, "")
+	runtime, err := fixture.cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,21 +117,21 @@ func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := configuration.Parse(team, testAdmission())
+	manifest, err := configuration.Parse(team, builtInAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := configuration.Merge(configuration.NewConfig(testAdmission()), manifest)
+	cfg, err := configuration.Merge(configuration.NewConfig(builtInAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "dmxapi-claude-sonnet-5-5-cc", "")
-	runtime, err := cfg.ResolveRuntime(configuration.ClientClaudeDesktop, "")
+	cfg.SetSelectedRoute(ID, "dmxapi-claude-sonnet-5-5-cc", "")
+	runtime, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	models := claudeDesktopModels(cfg, runtime)
-	spec, _ := configuration.ClientSpecFor(configuration.ClientClaudeDesktop)
+	spec := New().Spec()
 	wires := map[string]string{}
 	want := map[string]bool{}
 	for _, route := range cfg.Routes {
@@ -166,7 +166,7 @@ func TestClaudeDesktopAdapterProjectsSelectedAccountCatalogue(t *testing.T) {
 		t.Fatal(err)
 	}
 	library := filepath.Dir(fixture.paths.Profile)
-	if len(plans) != 1 || plans[0].Client != configuration.ClientClaudeDesktop || plans[0].Target != library || plans[0].Action != string(ActionProject) {
+	if len(plans) != 1 || plans[0].Client != ID || plans[0].Target != library || plans[0].Action != string(ActionProject) {
 		t.Fatalf("plans = %#v", plans)
 	}
 	fixture.apply(t)
@@ -189,7 +189,7 @@ func TestClaudeDesktopAdapterProjectsSelectedAccountCatalogue(t *testing.T) {
 		}
 	}
 	arguments, ok := profile["inferenceCredentialHelperArgs"].([]any)
-	wantArguments := []any{"credential", configuration.ClientClaudeDesktop, fixture.runtime.CredentialProjectionFingerprint(configuration.ClientClaudeDesktop)}
+	wantArguments := []any{"credential", ID, fixture.runtime.CredentialProjectionFingerprint(ID)}
 	if !ok || !slices.Equal(arguments, wantArguments) {
 		t.Fatalf("credential arguments = %#v, want %#v", arguments, wantArguments)
 	}
@@ -203,7 +203,7 @@ func TestClaudeDesktopAdapterWithdrawsOwnedProjection(t *testing.T) {
 	fixture.apply(t)
 	disabled := fixture.cfg.Clone()
 	fixture.adapter.Withdraw(&disabled)
-	if _, exists := disabled.Clients[configuration.ClientClaudeDesktop]; exists {
+	if _, exists := disabled.Clients[ID]; exists {
 		t.Fatal("withdrawal retained the Claude Desktop binding")
 	}
 	if _, err := fixture.adapter.Apply(t.Context(), fixture.deps, fixture.cfg, disabled); err != nil {
@@ -238,16 +238,16 @@ func TestClaudeDesktopProjectionChangeDetection(t *testing.T) {
 		t.Fatal("unchanged configuration reported a projection change")
 	}
 	disabled := fixture.cfg.Clone()
-	binding := disabled.Clients[configuration.ClientClaudeDesktop]
+	binding := disabled.Clients[ID]
 	binding.Enabled = false
-	disabled.Clients[configuration.ClientClaudeDesktop] = binding
+	disabled.Clients[ID] = binding
 	if !fixture.adapter.ProjectionChanged(fixture.cfg, disabled) {
 		t.Fatal("disabled projection was not detected")
 	}
 	retargeted := fixture.cfg.Clone()
-	binding = retargeted.Clients[configuration.ClientClaudeDesktop]
+	binding = retargeted.Clients[ID]
 	binding.Targets = []string{filepath.Join(t.TempDir(), "configLibrary")}
-	retargeted.Clients[configuration.ClientClaudeDesktop] = binding
+	retargeted.Clients[ID] = binding
 	if !fixture.adapter.ProjectionChanged(fixture.cfg, retargeted) {
 		t.Fatal("target change was not detected")
 	}
@@ -282,8 +282,8 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test/v1"}}
 	cfg.Routes["selected"] = configuration.Route{Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "selected", "")
-	cfg.SetClientActivation(configuration.ClientClaudeDesktop, true, "", nil)
+	cfg.SetSelectedRoute(ID, "selected", "")
+	cfg.SetClientActivation(ID, true, "", nil)
 	store := secrets.NewMemoryStore()
 	if err := store.Set("gateway", "secret"); err != nil {
 		t.Fatal(err)
@@ -293,7 +293,7 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 	if err := adapter.Converge(client.Dependencies{Secrets: store}, &cfg, discovered); err != nil {
 		t.Fatal(err)
 	}
-	binding := cfg.Clients[configuration.ClientClaudeDesktop]
+	binding := cfg.Clients[ID]
 	if binding.Executable != executable || !slices.Equal(binding.Targets, []string{library}) {
 		t.Fatalf("binding = %#v", binding)
 	}
@@ -339,7 +339,7 @@ func TestClaudeDesktopInspectionKeepsIntactRetainedVersionedReader(t *testing.T)
 	account := changed.Accounts["gateway"]
 	account.Endpoints.Anthropic = "https://changed.test"
 	changed.Accounts["gateway"] = account
-	changedRuntime, err := changed.ResolveRuntime(configuration.ClientClaudeDesktop, "")
+	changedRuntime, err := changed.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}

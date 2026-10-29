@@ -1,7 +1,9 @@
 package construction
 
 import (
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/upgrade/artifact"
 	releaseartifact "aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/performance"
@@ -37,12 +39,12 @@ type NativeAcceptance struct {
 
 // NativeAcceptanceClients owns the client journeys supported on each native host.
 func NativeAcceptanceClients(platform string) []string {
-	clients := []string{configuration.ClientClaude, configuration.ClientCodex}
+	clients := []string{claude.ID, codex.ID}
 	switch platform {
 	case "windows":
 		return clients
 	case "darwin", "linux":
-		return append(clients, configuration.ClientHermes)
+		return append(clients, hermes.ID)
 	default:
 		return nil
 	}
@@ -235,7 +237,7 @@ func requireNativeClients(selected string) error {
 		if err != nil || !filepath.IsAbs(path) || !info.Mode().IsRegular() {
 			return fmt.Errorf("real-client acceptance requires an explicit executable in %s", key)
 		}
-		if client == configuration.ClientHermes {
+		if client == hermes.ID {
 			key := "AIGW_ACCEPTANCE_HERMES_HOME"
 			home := os.Getenv(key)
 			info, err := os.Stat(home)

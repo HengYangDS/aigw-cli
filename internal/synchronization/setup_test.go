@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	builtinclients "aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -48,7 +50,7 @@ func setupConfiguration() configuration.Config {
 	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	return cfg
 }
 
@@ -75,7 +77,7 @@ func TestSetupPreservesAlreadyConfiguredState(t *testing.T) {
 			return nil
 		}),
 	}
-	_, err = syncer.Setup(t.Context(), cfg, cfg.Clone(), map[string]string{"gateway": "replacement-token"}, configuration.ClientCodex)
+	_, err = syncer.Setup(t.Context(), cfg, cfg.Clone(), map[string]string{"gateway": "replacement-token"}, codex.ID)
 	if err == nil || !strings.Contains(err.Error(), "already configured") {
 		t.Fatalf("setup error = %v; want rejection of an already configured installation", err)
 	}
@@ -103,7 +105,7 @@ func TestCancelledSetupPreservesCredentialsAndConfiguration(t *testing.T) {
 				discoverySource = setupDiscovery(cancel)
 			}
 			runtime := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: discoverySource}
-			_, err := runtime.Setup(ctx, configuration.NewConfig(builtinclients.Admission()), setupConfiguration(), map[string]string{"team": "new-token"}, configuration.ClientClaude)
+			_, err := runtime.Setup(ctx, configuration.NewConfig(builtinclients.Admission()), setupConfiguration(), map[string]string{"team": "new-token"}, claude.ID)
 			if !errors.Is(err, context.Canceled) {
 				t.Errorf("setup error = %v, want cancellation", err)
 			}
@@ -124,7 +126,7 @@ func TestSetupRejectsInvalidConfigurationBeforeCredentialMutation(t *testing.T) 
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), builtinclients.Admission())
 	credentials := setupTokenStore(t, "original")
 	after := setupConfiguration()
-	after.SetSelectedRoute(configuration.ClientClaude, "missing-route", "")
+	after.SetSelectedRoute(claude.ID, "missing-route", "")
 	_, err := (Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials}).Setup(t.Context(), configuration.NewConfig(builtinclients.Admission()), after, map[string]string{"team": "replacement"})
 	if err == nil {
 		t.Fatal("setup accepted an unresolved route")
@@ -192,7 +194,7 @@ func TestSetupCommitReportsBackendSelectionFailureWithoutErasingForeignState(t *
 				replaceBackend()
 				want = "observe automatic credential backend selection"
 			}
-			_, err = run.Setup(t.Context(), configuration.NewConfig(builtinclients.Admission()), setupConfiguration(), map[string]string{"team": "token"}, configuration.ClientClaude)
+			_, err = run.Setup(t.Context(), configuration.NewConfig(builtinclients.Admission()), setupConfiguration(), map[string]string{"team": "token"}, claude.ID)
 			if err == nil || !strings.Contains(err.Error(), want) {
 				t.Fatalf("commit error = %v, want %s", err, want)
 			}

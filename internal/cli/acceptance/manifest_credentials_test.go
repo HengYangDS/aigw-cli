@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -148,7 +149,7 @@ func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.SelectedRoute(configuration.ClientClaude) != "dmxapi-claude" || cfg.SelectedRoute(configuration.ClientCodex) != "dmxapi-gpt" {
+	if cfg.SelectedRoute(claude.ID) != "dmxapi-claude" || cfg.SelectedRoute(codex.ID) != "dmxapi-gpt" {
 		t.Fatalf("available Account did not become usable: %#v", cfg.Clients)
 	}
 	for _, want := range []string{"Install Claude if needed, then run `aigw sync`", "Install Codex if needed, then run `aigw sync`", "Next", "aigw sync"} {
@@ -173,7 +174,7 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	codexTarget := filepath.Join(t.TempDir(), "codex", "configuration.toml")
 	writeFile(t, codexTarget, []byte("model_provider = \"native\"\n"), 0o600)
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientClaude: "/opt/claude-real", configuration.ClientCodex: "/opt/codex-real"},
+		Executables: map[string]string{claude.ID: "/opt/claude-real", codex.ID: "/opt/codex-real"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -207,7 +208,7 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if len(cfg.Accounts) != 2 {
 		t.Fatalf("team config = %#v", cfg)
 	}
-	if cfg.SelectedRoute(configuration.ClientClaude) != "dmxapi-claude" || cfg.SelectedRoute(configuration.ClientCodex) != "dmxapi-gpt" {
+	if cfg.SelectedRoute(claude.ID) != "dmxapi-claude" || cfg.SelectedRoute(codex.ID) != "dmxapi-gpt" {
 		t.Fatalf("connected Account bindings = %#v", cfg.Clients)
 	}
 	if !cfg.Clients["claude"].Enabled || !cfg.Clients["codex"].Enabled {
@@ -216,12 +217,12 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if len(runner.plans) != 0 {
 		t.Fatalf("setup invoked a client: %#v", runner.plans)
 	}
-	projection, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	projection, err := cfg.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	projected := readFile(t, codexTarget)
-	if !strings.Contains(string(projected), projection.CredentialProjectionFingerprint(configuration.ClientCodex)) {
+	if !strings.Contains(string(projected), projection.CredentialProjectionFingerprint(codex.ID)) {
 		t.Fatalf("credential helper projection = %s", projected)
 	}
 	for _, want := range []string{"Selected Client Bindings", "Claude", "dmxapi-claude", "Codex", "dmxapi-gpt", "Projected", "aihubmix", "Deferred"} {
@@ -290,7 +291,7 @@ func TestSetupFromConfigurationManifestReusesEnvironmentTokensWithoutPrompting(t
 		t.Fatal(err)
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || len(cfg.Routes) != 3 || cfg.SelectedRoute(configuration.ClientCodex) != "dmxapi-gpt" {
+	if err != nil || len(cfg.Routes) != 3 || cfg.SelectedRoute(codex.ID) != "dmxapi-gpt" {
 		t.Fatalf("team config = %#v, %v", cfg, err)
 	}
 }
@@ -337,7 +338,7 @@ func TestSetupFromConfigurationManifestPreservesClientOwnedCredentials(t *testin
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientClaude: "/opt/claude-real", configuration.ClientCodex: "/opt/codex-real"},
+		Executables: map[string]string{claude.ID: "/opt/claude-real", codex.ID: "/opt/codex-real"},
 		Surfaces: []discovery.Surface{{
 			ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
 			ConfigPath: codexTarget, AutoManaged: true,
@@ -354,7 +355,7 @@ func TestSetupFromConfigurationManifestPreservesClientOwnedCredentials(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.SelectedRoute(configuration.ClientCodex) == "" || !secretExists(t, app.Secrets, "dmxapi") {
+	if cfg.SelectedRoute(codex.ID) == "" || !secretExists(t, app.Secrets, "dmxapi") {
 		t.Fatal("setup did not persist the selected Account and route")
 	}
 	authAfter, err := os.ReadFile(authPath)

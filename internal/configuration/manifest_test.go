@@ -163,14 +163,12 @@ func TestCredentialDetectionDescendsIntoArrays(t *testing.T) {
 	}
 }
 
-func TestManifestAdmissionIsDerivedFromClientRegistry(t *testing.T) {
-	previous := admittedClientSpecs
-	admittedClientSpecs = append(AdmittedClientSpecs(), ClientSpec{
+func TestManifestRecommendationsFollowTheAdmission(t *testing.T) {
+	admission := NewAdmission(append(testClientSpecs(), ClientSpec{
 		ID:                "synthetic",
 		Label:             "Synthetic",
 		EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses},
-	})
-	defer func() { admittedClientSpecs = previous }()
+	})...)
 
 	manifest, err := Parse([]byte(`version = 7
 [recommendations.synthetic.primary]
@@ -186,9 +184,9 @@ label = "Synthetic Default"
 account = "team"
 model = "synthetic-model"
 interfaces = { openai_responses = [] }
-`), testAdmission())
+`), admission)
 	if err != nil {
-		t.Fatalf("registry-admitted client was rejected: %v", err)
+		t.Fatalf("an admitted client was rejected: %v", err)
 	}
 	if manifest.Recommendations["synthetic"].Primary.Route != "synthetic-default" {
 		t.Fatalf("recommended routes = %#v", manifest.Recommendations)

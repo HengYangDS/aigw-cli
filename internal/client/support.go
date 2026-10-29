@@ -5,23 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 )
-
-// AdmittedSpec returns one client's admission record, which its adapter
-// returns from Spec. The admission records are static, so a missing one is a
-// build defect and panics.
-func AdmittedSpec(clientID string) configuration.ClientSpec {
-	spec, ok := configuration.ClientSpecFor(clientID)
-	if !ok {
-		panic("missing client admission: " + clientID)
-	}
-	return spec
-}
 
 // ResolveExecutable keeps a configured executable that is still available and
 // otherwise adopts the discovered one.

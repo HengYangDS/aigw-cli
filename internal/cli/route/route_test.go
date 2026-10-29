@@ -11,6 +11,9 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -72,7 +75,7 @@ func TestRouteHumanOutputNamesClientsByLabel(t *testing.T) {
 		Account: "gateway", Model: "model-a",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "messages", "")
+	cfg.SetSelectedRoute(claudedesktop.ID, "messages", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -162,13 +165,13 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 				Label: "Codex", Account: "team", Model: "gpt-test",
 				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 			}
-			cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
-			cfg.SetRecommendedRoute(configuration.ClientCodex, "codex")
-			cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
+			cfg.SetRecommendedRoute(claude.ID, "claude")
+			cfg.SetRecommendedRoute(codex.ID, "codex")
+			cfg.SetSelectedRoute(codex.ID, "codex", "")
 			for _, selection := range alternatives {
 				cfg.Routes[selection.Route] = cfg.Routes["claude"]
 			}
-			cfg.Recommendations[configuration.ClientClaude] = configuration.ClientRecommendation{
+			cfg.Recommendations[claude.ID] = configuration.ClientRecommendation{
 				Primary: configuration.ClientSelection{Route: "claude", Protocol: configuration.ProtocolAnthropic}, Alternatives: alternatives,
 			}
 			if err := store.Save(cfg); err != nil {
@@ -188,7 +191,7 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 			if len(alternatives) != 0 {
 				want = configuration.ClientRecommendation{Primary: alternatives[0], Alternatives: alternatives[1:]}
 			}
-			if err != nil || !reflect.DeepEqual(after.Recommendations[configuration.ClientClaude], want) || after.RecommendedRoute(configuration.ClientCodex) != "codex" {
+			if err != nil || !reflect.DeepEqual(after.Recommendations[claude.ID], want) || after.RecommendedRoute(codex.ID) != "codex" {
 				t.Fatalf("removal recommendation state = %#v, %v", after.Recommendations, err)
 			}
 			if token, err := secretStore.Get("team"); err != nil || token != "retained-token" || !reflect.DeepEqual(after.Accounts, cfg.Accounts) || !reflect.DeepEqual(after.Clients, cfg.Clients) {
@@ -215,7 +218,7 @@ func blockedRouteRuntime(t *testing.T) invocation.Context {
 			configuration.ProtocolOpenAIResponses: {},
 		},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "current", "")
+	cfg.SetSelectedRoute(codex.ID, "current", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

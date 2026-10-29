@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
@@ -45,7 +46,7 @@ func TestSetupReusesReadOnlyEnvironmentSecretWithoutPromptingOrPersisting(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.SelectedRoute(configuration.ClientCodex) != "gpt-5.6-terra" || cfg.Routes["gpt-5.6-terra"].Account != "dmx" {
+	if cfg.SelectedRoute(codex.ID) != "gpt-5.6-terra" || cfg.Routes["gpt-5.6-terra"].Account != "dmx" {
 		t.Fatalf("setup config = %#v", cfg)
 	}
 	if strings.Contains(out.String(), "environment-only-token") {
@@ -118,7 +119,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 
 	t.Run("already configured", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "token\n")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"setup", "--route", "two", "--for", "claude", "--model", "m", "--anthropic-url", "https://two.test", "--token-stdin"})
 		if err == nil || !strings.Contains(err.Error(), "already configured") {
 			t.Fatalf("error = %v", err)
@@ -137,7 +138,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("interactive already configured", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "m")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"setup"})
 		if err == nil || !strings.Contains(err.Error(), "already configured") {
 			t.Fatalf("error = %v", err)
@@ -231,7 +232,7 @@ func TestSetupRollsBackConfigAndSecretWhenCodexProjectionFails(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "token\n")
 	target := t.TempDir()
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
+		Executables: map[string]string{codex.ID: "/opt/codex"},
 		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
 	}}
 	err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "codex", "--model", "m", "--openai-url", "https://one.test/v1", "--token-stdin"})
@@ -251,7 +252,7 @@ func TestSetupRestoresExistingSecretWhenCodexProjectionFails(t *testing.T) {
 	}
 	target := t.TempDir()
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
+		Executables: map[string]string{codex.ID: "/opt/codex"},
 		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
 	}}
 	err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "codex", "--model", "m", "--openai-url", "https://one.test/v1", "--token-stdin"})
@@ -278,7 +279,7 @@ func TestSetupRollbackRemovesNewAutomaticBackendSelection(t *testing.T) {
 	app.Secrets = store
 	target := t.TempDir()
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
+		Executables: map[string]string{codex.ID: "/opt/codex"},
 		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
 	}}
 

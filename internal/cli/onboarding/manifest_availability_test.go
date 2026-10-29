@@ -82,7 +82,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 		Executable: source, CredentialPath: reader, Secrets: store,
 		Config: configuration.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission()),
 		Discovery: setupDiscovery{result: discovery.Result{
-			Executables: map[string]string{configuration.ClientCodex: source},
+			Executables: map[string]string{codex.ID: source},
 			Surfaces: []discovery.Surface{{
 				ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
 				ConfigPath: target, Present: true, AutoManaged: true,
@@ -119,11 +119,11 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 
 func TestManifestSetupAvailabilityFollowsTheAdmittedClientRegistry(t *testing.T) {
 	executables := map[string]string{}
-	for _, clientID := range configuration.AdmittedClientIDs() {
+	for _, clientID := range clients.Admission().IDs() {
 		executables[clientID] = "/installed/" + clientID
 	}
 	available := manifestSetupAvailableClients(clients.Admission(), executables)
-	for _, clientID := range configuration.AdmittedClientIDs() {
+	for _, clientID := range clients.Admission().IDs() {
 		if !available[clientID] {
 			t.Fatalf("admitted installed client %q is unavailable: %#v", clientID, available)
 		}

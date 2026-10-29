@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -25,7 +27,7 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -88,8 +90,8 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 	cfg.Accounts["connected"] = configuration.Account{Label: "Connected", Endpoints: configuration.Endpoints{OpenAIResponses: "https://connected.test/v1"}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "missing", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "connected", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetRecommendedRoute(configuration.ClientCodex, "codex")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetRecommendedRoute(codex.ID, "codex")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

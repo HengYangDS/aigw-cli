@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 )
@@ -31,7 +32,7 @@ func TestRouteListGroupsServicesAndPreservesStoredBindings(t *testing.T) {
 	} {
 		cfg.Routes[row.id] = qualifiedRoute(row.id, "team", row.model, row.protocol)
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "d-responses-strong", "")
+	cfg.SetSelectedRoute(codex.ID, "d-responses-strong", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

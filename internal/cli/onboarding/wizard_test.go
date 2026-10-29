@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/prompt"
@@ -66,7 +68,7 @@ func (candidate *scriptedWizardPrompt) Select(_ string, choices []prompt.Choice)
 func TestWizardOffersAdmittedClientsAndHermesProtocols(t *testing.T) {
 	prompt := &scriptedWizardPrompt{
 		texts:      []string{"team", "Team", "https://messages.test"},
-		selections: []string{configuration.ClientHermes, string(configuration.ProtocolAnthropic)},
+		selections: []string{hermes.ID, string(configuration.ProtocolAnthropic)},
 		failTextAt: 4,
 	}
 	if err := RunWizard(context.Background(), invocation.Context{Clients: clients.Registry(), Prompt: prompt}); err == nil {
@@ -75,12 +77,12 @@ func TestWizardOffersAdmittedClientsAndHermesProtocols(t *testing.T) {
 	if len(prompt.choiceSets) != 2 {
 		t.Fatalf("wizard choices = %#v; want client and protocol", prompt.choiceSets)
 	}
-	clients := make([]string, 0, len(prompt.choiceSets[0]))
+	offered := make([]string, 0, len(prompt.choiceSets[0]))
 	for _, choice := range prompt.choiceSets[0] {
-		clients = append(clients, choice.Value)
+		offered = append(offered, choice.Value)
 	}
-	if !slices.Equal(clients, configuration.AdmittedClientIDs()) || !slices.Contains(clients, configuration.ClientClaudeDesktop) || !slices.Contains(clients, configuration.ClientHermes) {
-		t.Fatalf("wizard clients = %#v", clients)
+	if !slices.Equal(offered, clients.Admission().IDs()) || !slices.Contains(offered, claudedesktop.ID) || !slices.Contains(offered, hermes.ID) {
+		t.Fatalf("wizard clients = %#v", offered)
 	}
 	protocols := make([]string, 0, len(prompt.choiceSets[1]))
 	for _, choice := range prompt.choiceSets[1] {

@@ -82,8 +82,8 @@ func TestMain(m *testing.M) {
 
 func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
 	fixture := &journeyFixture{testing: t, clientBin: t.TempDir()}
-	fixture.installClientFixture(configuration.ClientCodex)
-	executable := filepath.Join(fixture.clientBin, configuration.ClientCodex)
+	fixture.installClientFixture(codex.ID)
+	executable := filepath.Join(fixture.clientBin, codex.ID)
 	if runtime.GOOS == "windows" {
 		executable += ".exe"
 	}
@@ -93,7 +93,7 @@ func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
 	}
 	selected := configuration.Runtime{
 		RouteID: "fixture", RouteLabel: "Fixture", AccountID: "fixture",
-		Client: configuration.ClientCodex, Endpoint: "https://api.example.invalid/v1",
+		Client: codex.ID, Endpoint: "https://api.example.invalid/v1",
 		Model: "gpt-test", CredentialCommand: reader,
 	}
 	target := filepath.Join(t.TempDir(), "config.toml")
@@ -104,7 +104,7 @@ func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := configuration.Config{}
-	cfg.SetClientActivation(configuration.ClientCodex, true, executable, []string{target})
+	cfg.SetClientActivation(codex.ID, true, executable, []string{target})
 	if _, err := codex.VerifyInvocation(t.Context(), process.Runner{}, cfg, selected, ""); err != nil {
 		t.Fatalf("copied Codex fixture cannot satisfy the current verifier: %v", err)
 	}

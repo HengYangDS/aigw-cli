@@ -8,6 +8,9 @@ import (
 	"reflect"
 	"testing"
 
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -22,19 +25,19 @@ func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	}
 	credentials := setupTokenStore(t, "existing-token")
 	syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
-	changed, _, _, err := syncer.SelectRoute(t.Context(), before, configuration.ClientClaude, "next", "", configuration.ConnectionChange{}, "")
+	changed, _, _, err := syncer.SelectRoute(t.Context(), before, claude.ID, "next", "", configuration.ConnectionChange{}, "")
 	if err != nil || !changed {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
 	}
 	current, err := store.Load()
-	if err != nil || current.SelectedRoute(configuration.ClientClaude) != "next" || before.SelectedRoute(configuration.ClientClaude) != "claude" {
+	if err != nil || current.SelectedRoute(claude.ID) != "next" || before.SelectedRoute(claude.ID) != "claude" {
 		t.Fatalf("selection mutated its input or failed persistence: %v", err)
 	}
 	snapshot, err := store.CaptureSnapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	changed, _, _, err = syncer.SelectRoute(t.Context(), current, configuration.ClientClaude, "next", "", configuration.ConnectionChange{}, "")
+	changed, _, _, err = syncer.SelectRoute(t.Context(), current, claude.ID, "next", "", configuration.ConnectionChange{}, "")
 	if err != nil || changed || credentials.writes != 0 {
 		t.Fatalf("repeated selection = %t, %v; credential writes=%d", changed, err, credentials.writes)
 	}
@@ -65,22 +68,22 @@ func TestRouteSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 			cfg.Routes["chat"] = configuration.Route{Label: "Chat", Account: "team", Model: "shared", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIChatCompletions: {}}}
 			cfg.Routes["dual"] = configuration.Route{Label: "Dual", Account: "team", Model: "shared", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIChatCompletions: {}, configuration.ProtocolOpenAIResponses: {}}}
 			cfg.Routes["other"] = configuration.Route{Label: "Other", Account: "other", Model: "shared", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIChatCompletions: {}}}
-			cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "chat", Enabled: true}
-			if err := cfg.SetForwardingEndpoint(configuration.ClientHermes, "http://127.0.0.1:8792/selected/v1"); err != nil {
+			cfg.Clients[hermes.ID] = configuration.ClientBinding{Route: "chat", Enabled: true}
+			if err := cfg.SetForwardingEndpoint(hermes.ID, "http://127.0.0.1:8792/selected/v1"); err != nil {
 				t.Fatal(err)
 			}
-			binding := cfg.Clients[configuration.ClientHermes]
+			binding := cfg.Clients[hermes.ID]
 			if err := cfg.Validate(); err != nil {
 				t.Fatal(err)
 			}
-			proposed, selected, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, configuration.ClientHermes, test.route, test.protocol, configuration.ConnectionChange{ForwardingEndpoint: test.forwarding})
+			proposed, selected, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, hermes.ID, test.route, test.protocol, configuration.ConnectionChange{ForwardingEndpoint: test.forwarding})
 			if err != nil {
 				t.Fatal(err)
 			}
 			if selected.Protocol != test.protocol || selected.Endpoint != test.wantEndpoint {
 				t.Fatalf("selection = %s %s, want %s %s", selected.Protocol, selected.Endpoint, test.protocol, test.wantEndpoint)
 			}
-			if proposed.Clients[configuration.ClientHermes].Route != test.route || !reflect.DeepEqual(cfg.Clients[configuration.ClientHermes], binding) {
+			if proposed.Clients[hermes.ID].Route != test.route || !reflect.DeepEqual(cfg.Clients[hermes.ID], binding) {
 				t.Fatal("selection lost its Route or mutated the original binding")
 			}
 		})
@@ -91,7 +94,7 @@ func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 	for _, phase := range []string{"cancelled", "discovery", "persistence"} {
 		t.Run(phase, func(t *testing.T) {
 			before := setupConfiguration()
-			delete(before.Clients, configuration.ClientClaude)
+			delete(before.Clients, claude.ID)
 			credentials := secrets.NewMemoryStore()
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
@@ -107,14 +110,14 @@ func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 				syncer.Discovery = setupDiscovery(cancel)
 				failure = context.Canceled
 			}
-			_, _, _, err := syncer.SelectRoute(ctx, before, configuration.ClientClaude, "claude", "", configuration.ConnectionChange{}, "new-token")
+			_, _, _, err := syncer.SelectRoute(ctx, before, claude.ID, "claude", "", configuration.ConnectionChange{}, "new-token")
 			if !errors.Is(err, failure) {
 				t.Fatalf("selection error = %v, want %v", err, failure)
 			}
 			if token, err := credentials.Get("team"); !errors.Is(err, secrets.ErrNotFound) || token != "" {
 				t.Fatalf("failed selection retained credential: %v", err)
 			}
-			if before.SelectedRoute(configuration.ClientClaude) != "" || (phase != "persistence" && store.commits != 0) {
+			if before.SelectedRoute(claude.ID) != "" || (phase != "persistence" && store.commits != 0) {
 				t.Fatal("failed selection modified its configuration input or committed after cancellation")
 			}
 		})
@@ -126,15 +129,15 @@ func TestRouteSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 		t.Run(route, func(t *testing.T) {
 			cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
 			cfg.Routes["native"] = configuration.Route{Label: "Native", Account: "gateway", Model: "model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-			binding := cfg.Clients[configuration.ClientCodex]
+			binding := cfg.Clients[codex.ID]
 			binding.ModelProvider = "provider"
 			binding.Authentication = configuration.AuthenticationClientNative
-			cfg.Clients[configuration.ClientCodex] = binding
+			cfg.Clients[codex.ID] = binding
 			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 			credentials := &setupCredentials{Store: secrets.NewMemoryStore()}
-			client := configuration.ClientClaude
+			client := claude.ID
 			if route == "native" {
-				client = configuration.ClientCodex
+				client = codex.ID
 			}
 			_, _, _, err := (Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials}).SelectRoute(t.Context(), cfg, client, route, "", configuration.ConnectionChange{}, "token")
 			if err == nil || credentials.writes != 0 {

@@ -11,6 +11,10 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -40,8 +44,41 @@ func codexConfiguration(target string) configuration.Config {
 	cfg := configuration.NewConfig(Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Clients[codex.ID] = configuration.ClientBinding{Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
+}
+
+// TestBuiltInAdmissionIsTheProductClientContract pins each built-in client's
+// admission record and the admission order that help, errors and output use.
+func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
+	anthropic, responses := configuration.ProtocolAnthropic, configuration.ProtocolOpenAIResponses
+	want := []configuration.ClientSpec{
+		{
+			ID: claude.ID, Label: "Claude", EndpointProtocols: []configuration.EndpointProtocol{anthropic},
+			ProductName: "Claude Code", ModelDiscoveryOptional: true, Doctor: configuration.DoctorWording{AdapterStates: true},
+			PublishedProfileProtocol: anthropic,
+		},
+		{
+			ID: claudedesktop.ID, Label: "Claude Desktop", EndpointProtocols: []configuration.EndpointProtocol{anthropic},
+			RestartAfterProjection: true, QualifiedModes: []string{"Chat", "Cowork", "Code"}, QualifiedPlatforms: []string{"macOS"},
+		},
+		{
+			ID: codex.ID, Label: "Codex", EndpointProtocols: []configuration.EndpointProtocol{responses},
+			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true,
+			DefaultModelProvider: configuration.ModelProviderAIGW, ClientNativeAuthentication: true,
+			PublishedProfileProtocol: responses, Doctor: configuration.DoctorWording{AdapterStates: true, RouteBinding: true},
+		},
+		{
+			ID: hermes.ID, Label: "Hermes", SessionsKeepRoute: true,
+			EndpointProtocols: []configuration.EndpointProtocol{responses, anthropic, configuration.ProtocolOpenAIChatCompletions},
+		},
+	}
+	if got := Admission().Specs(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("built-in client specs = %#v, want %#v", got, want)
+	}
+	if got := Admission().Usage(); got != "claude, claude-desktop, codex, or hermes" {
+		t.Fatalf("built-in client usage = %q", got)
+	}
 }
 
 func TestChangedClientsRetainsAdmissionOrderAndIndependentResults(t *testing.T) {
@@ -50,8 +87,8 @@ func TestChangedClientsRetainsAdmissionOrderAndIndependentResults(t *testing.T) 
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Accounts["gateway"] = account
 	before.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
-	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	before.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+	before.SetSelectedRoute(claude.ID, "claude", "")
+	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	after := before.Clone()
 	account.Endpoints = configuration.Endpoints{OpenAIResponses: "https://replacement.test/v1", Anthropic: "https://replacement.test"}
 	after.Accounts["gateway"] = account
@@ -92,11 +129,11 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 	}}
 	before.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
 	before.Routes["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	before.SetSelectedRoute(configuration.ClientCodex, "codex", "")
+	before.SetSelectedRoute(claude.ID, "claude", "")
+	before.SetSelectedRoute(codex.ID, "codex", "")
 	after := before.Clone()
-	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
-	after.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{codexTarget})
+	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
+	after.SetClientActivation(codex.ID, true, "/opt/codex", []string{codexTarget})
 	deps := client.Dependencies{
 		Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{
 			ID: "codex-home-default", Authority: "aigw", ConfigPath: codexTarget, Present: true, AutoManaged: true,
@@ -138,7 +175,12 @@ func (adapter futureAdapter) Converge(_ client.Dependencies, cfg *configuration.
 
 func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing.T) {
 	baselineClientIDs := Registry().IDs()
-	before := configuration.NewConfig(Admission())
+	future := futureAdapter{}
+	registry, err := client.NewRegistry(append(adapters(), future)...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := configuration.NewConfig(registry.Admission())
 	before.Accounts["direct"] = configuration.Account{
 		Label: "Direct",
 		Endpoints: configuration.Endpoints{
@@ -155,18 +197,12 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 	}
 	before.Routes["claude"] = qualifiedRoute("", "direct", "claude-test", configuration.ProtocolAnthropic)
 	before.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	before.SetSelectedRoute(configuration.ClientCodex, "codex", "")
-	before.SetClientActivation(configuration.ClientClaude, true, "/clients/claude", nil)
-	before.SetClientActivation(configuration.ClientCodex, true, "/clients/codex", []string{"/clients/codex.toml"})
+	before.SetSelectedRoute(claude.ID, "claude", "")
+	before.SetSelectedRoute(codex.ID, "codex", "")
+	before.SetClientActivation(claude.ID, true, "/clients/claude", nil)
+	before.SetClientActivation(codex.ID, true, "/clients/codex", []string{"/clients/codex.toml"})
 	wantUnchanged := before.Clone()
 
-	future := futureAdapter{}
-	specs := append(configuration.AdmittedClientSpecs(), future.Spec())
-	registry, err := client.NewRegistry(specs, append(adapters(), future)...)
-	if err != nil {
-		t.Fatal(err)
-	}
 	after, err := registry.Converge(client.Dependencies{}, before, discovery.Result{}, future.Spec().ID)
 	if err != nil {
 		t.Fatal(err)
@@ -199,7 +235,7 @@ func TestRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 	}
 	deps := client.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
 
-	for _, clientID := range []string{configuration.ClientClaudeDesktop, configuration.ClientHermes} {
+	for _, clientID := range []string{claudedesktop.ID, hermes.ID} {
 		t.Run(clientID, func(t *testing.T) {
 			deferred := cfg.Clone()
 			deferred.SetSelectedRoute(clientID, "claude", "")

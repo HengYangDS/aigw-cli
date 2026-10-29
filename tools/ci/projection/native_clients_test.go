@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/configuration"
+	hermesclient "aigw-cli/internal/client/hermes"
 	"aigw-cli/tools/release/construction"
 
 	"go.yaml.in/yaml/v3"
@@ -45,7 +45,7 @@ func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {
 			prefix, deadline = "$env:", 12
 		}
 		pins := ""
-		if slices.Contains(construction.NativeAcceptanceClients(platform), configuration.ClientHermes) {
+		if slices.Contains(construction.NativeAcceptanceClients(platform), hermesclient.ID) {
 			pins = hermes
 		}
 		for _, field := range []struct{ got, want string }{

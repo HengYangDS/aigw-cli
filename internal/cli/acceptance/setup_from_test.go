@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
@@ -76,7 +77,7 @@ func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutAccountTo
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: executableFixture(t, "codex")},
+		Executables: map[string]string{codex.ID: executableFixture(t, "codex")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -126,7 +127,7 @@ interfaces = { openai_responses = ["text", "reasoning", "streaming", "tools"] }
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode setup result: %v\n%s", err, out.String())
 	}
-	if len(result.ConnectedAccounts) != 0 || result.SelectedBindings[configuration.ClientCodex] != "bedrock" || !slices.Equal(result.ProjectedClients, []string{configuration.ClientCodex}) {
+	if len(result.ConnectedAccounts) != 0 || result.SelectedBindings[codex.ID] != "bedrock" || !slices.Equal(result.ProjectedClients, []string{codex.ID}) {
 		t.Fatalf("setup state = %#v", result)
 	}
 	if len(result.DeferredActions) != 0 || result.NextAction != "aigw check" {
@@ -193,9 +194,9 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 		installed map[string]string
 	}{
 		{name: "neither client", installed: map[string]string{}},
-		{name: "Claude only", installed: map[string]string{configuration.ClientClaude: "/opt/claude"}},
-		{name: "Codex only", installed: map[string]string{configuration.ClientCodex: "/opt/codex"}},
-		{name: "both clients", installed: map[string]string{configuration.ClientClaude: "/opt/claude", configuration.ClientCodex: "/opt/codex"}},
+		{name: "Claude only", installed: map[string]string{claude.ID: "/opt/claude"}},
+		{name: "Codex only", installed: map[string]string{codex.ID: "/opt/codex"}},
+		{name: "both clients", installed: map[string]string{claude.ID: "/opt/claude", codex.ID: "/opt/codex"}},
 	}
 
 	for _, test := range tests {
@@ -208,7 +209,7 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 				return ""
 			})
 			discovered := discovery.Result{Executables: test.installed}
-			if _, installed := test.installed[configuration.ClientCodex]; installed {
+			if _, installed := test.installed[codex.ID]; installed {
 				target := filepath.Join(t.TempDir(), "codex", "configuration.toml")
 				if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 					t.Fatal(err)
@@ -237,14 +238,14 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 				t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
 			}
-			if result.SelectedBindings[configuration.ClientClaude] != "dmxapi-claude" || result.SelectedBindings[configuration.ClientCodex] != "dmxapi-gpt" {
+			if result.SelectedBindings[claude.ID] != "dmxapi-claude" || result.SelectedBindings[codex.ID] != "dmxapi-gpt" {
 				t.Fatalf("selected bindings = %#v", result.SelectedBindings)
 			}
 			cfg, err := app.Config.Load()
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, client := range configuration.AdmittedClientIDs() {
+			for _, client := range clients.Admission().IDs() {
 				_, installed := test.installed[client]
 				selected := cfg.SelectedRoute(client) != ""
 				if cfg.Clients[client].Enabled != selected {
@@ -285,7 +286,7 @@ func TestSetupFromConfigurationManifestAcceptsOneConnectedAccount(t *testing.T) 
 func TestSetupFromConfigurationManifestReportsInstalledClientWaitingForAnAccount(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientClaude: "/opt/claude"},
+		Executables: map[string]string{claude.ID: "/opt/claude"},
 	}}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
@@ -319,7 +320,7 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 				filepath.Join(t.TempDir(), "two", "configuration.toml"),
 			}
 			app.Discovery = fakeDiscovery{result: discovery.Result{
-				Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
+				Executables: map[string]string{codex.ID: "/opt/codex"},
 				Surfaces: []discovery.Surface{
 					{ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: targets[0], Present: true, AutoManaged: true},
 					{ID: string(codex.HomeExplicit("second")), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: targets[1], Present: true, AutoManaged: true},
@@ -332,16 +333,16 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if selected := cfg.SelectedRoute(configuration.ClientCodex); selected != "dmxapi-gpt" {
+			if selected := cfg.SelectedRoute(codex.ID); selected != "dmxapi-gpt" {
 				t.Fatalf("Codex selected Route = %q", selected)
 			}
-			projectedRuntime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+			projectedRuntime, err := cfg.ResolveRuntime(codex.ID, "")
 			if err != nil {
 				t.Fatal(err)
 			}
 			for _, target := range targets {
 				data, err := os.ReadFile(target)
-				if err != nil || !strings.Contains(string(data), projectedRuntime.CredentialProjectionFingerprint(configuration.ClientCodex)) || strings.Contains(string(data), token) {
+				if err != nil || !strings.Contains(string(data), projectedRuntime.CredentialProjectionFingerprint(codex.ID)) || strings.Contains(string(data), token) {
 					t.Fatalf("target %s credential projection = %s, %v", target, data, err)
 				}
 			}
@@ -415,7 +416,7 @@ func TestSetupFromConfigurationManifestProjectionFailureRestoresOwnedFiles(t *te
 		}
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientClaude: claudeExecutable, configuration.ClientCodex: "/opt/codex-real"},
+		Executables: map[string]string{claude.ID: claudeExecutable, codex.ID: "/opt/codex-real"},
 		Surfaces: []discovery.Surface{{
 			ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
 			ConfigPath: codexTarget, Present: true, AutoManaged: true,

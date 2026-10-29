@@ -10,12 +10,13 @@ import (
 	configuration "aigw-cli/internal/configuration"
 )
 
-// Registry registers every built-in adapter against the admitted client
-// records. The binary injects it into the CLI, and tests that exercise real
-// adapters use it too. An adapter set that does not match the admission
-// records is a build defect, so it panics rather than starting without one.
+// Registry registers every built-in adapter in admission order; each adapter's
+// Spec is its client's admission record. The binary injects it into the CLI,
+// and tests that exercise real adapters use it too. An adapter set that the
+// registry refuses is a build defect, so it panics rather than starting
+// without one.
 func Registry() client.Registry {
-	registry, err := client.NewRegistry(configuration.AdmittedClientSpecs(), adapters()...)
+	registry, err := client.NewRegistry(adapters()...)
 	if err != nil {
 		panic(err)
 	}

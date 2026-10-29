@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 )
@@ -14,17 +15,17 @@ import (
 func TestRetryPolicyRequiresExplicitConnectionChange(t *testing.T) {
 	cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
 	zero := uint64(0)
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[codex.ID]
 	binding.RetryPolicy = &configuration.RetryPolicy{RequestMaxRetries: &zero, StreamMaxRetries: &zero}
-	cfg.Clients[configuration.ClientCodex] = binding
+	cfg.Clients[codex.ID] = binding
 	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{OpenAIResponses: "https://other.test/v1"}}
 	cfg.Routes["other"] = configuration.Route{Label: "Other", Account: "other", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	cfg.Normalize()
-	_, _, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, configuration.ClientCodex, "other", "", configuration.ConnectionChange{})
+	_, _, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, codex.ID, "other", "", configuration.ConnectionChange{})
 	if err == nil || !strings.Contains(err.Error(), "retry") {
 		t.Fatalf("a different connection silently inherited policy: %v", err)
 	}
-	if cfg.Clients[configuration.ClientCodex].Route != binding.Route {
+	if cfg.Clients[codex.ID].Route != binding.Route {
 		t.Fatal("refused selection changed its input")
 	}
 }
@@ -32,9 +33,9 @@ func TestRetryPolicyRequiresExplicitConnectionChange(t *testing.T) {
 func TestRetryPolicySelectionPreservesOnlyTheSameConnection(t *testing.T) {
 	cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
 	zero, two := uint64(0), uint64(2)
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[codex.ID]
 	binding.RetryPolicy = &configuration.RetryPolicy{RequestMaxRetries: &zero, StreamMaxRetries: &two}
-	cfg.Clients[configuration.ClientCodex] = binding
+	cfg.Clients[codex.ID] = binding
 	model := cfg.Routes["gpt"]
 	model.Model, model.UpstreamModel = "other-model", "other-model"
 	cfg.Routes["model-only"] = model
@@ -53,8 +54,8 @@ func TestRetryPolicySelectionPreservesOnlyTheSameConnection(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			before := cfg.Clone()
-			after, runtime, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, configuration.ClientCodex, test.route, "", test.change)
-			if err != nil || !reflect.DeepEqual(runtime.RetryPolicy, test.want) || !reflect.DeepEqual(after.Clients[configuration.ClientCodex].RetryPolicy, test.want) {
+			after, runtime, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, codex.ID, test.route, "", test.change)
+			if err != nil || !reflect.DeepEqual(runtime.RetryPolicy, test.want) || !reflect.DeepEqual(after.Clients[codex.ID].RetryPolicy, test.want) {
 				t.Fatalf("selection policy = %#v, want %#v: %v", runtime.RetryPolicy, test.want, err)
 			}
 			if !reflect.DeepEqual(cfg, before) {
@@ -70,11 +71,11 @@ func retryTransitionFixture(t *testing.T) configuration.Config {
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	cfg.Models["gpt"] = configuration.Model{Label: "GPT"}
 	cfg.Routes["one"] = configuration.Route{Label: "One", Account: "one", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "one", configuration.ProtocolOpenAIResponses)
+	cfg.SetSelectedRoute(codex.ID, "one", configuration.ProtocolOpenAIResponses)
 	zero := uint64(0)
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[codex.ID]
 	binding.RetryPolicy = &configuration.RetryPolicy{RequestMaxRetries: &zero}
-	cfg.Clients[configuration.ClientCodex] = binding
+	cfg.Clients[codex.ID] = binding
 	cfg.Normalize()
 	return cfg
 }
@@ -114,9 +115,9 @@ func TestRetryConnectionTransitionGenericAccountCommit(t *testing.T) {
 			if loadErr != nil {
 				t.Fatal(loadErr)
 			}
-			oldRuntime, _ := before.ResolveRuntime(configuration.ClientCodex, "")
-			newRuntime, _ := observed.ResolveRuntime(configuration.ClientCodex, "")
-			t.Logf("commit_error=%v endpoint=%s changed_connection=%v retained_budget=%v", err, newRuntime.Endpoint, oldRuntime.ConnectionFingerprint() != newRuntime.ConnectionFingerprint(), reflect.DeepEqual(before.Clients[configuration.ClientCodex].RetryPolicy, observed.Clients[configuration.ClientCodex].RetryPolicy))
+			oldRuntime, _ := before.ResolveRuntime(codex.ID, "")
+			newRuntime, _ := observed.ResolveRuntime(codex.ID, "")
+			t.Logf("commit_error=%v endpoint=%s changed_connection=%v retained_budget=%v", err, newRuntime.Endpoint, oldRuntime.ConnectionFingerprint() != newRuntime.ConnectionFingerprint(), reflect.DeepEqual(before.Clients[codex.ID].RetryPolicy, observed.Clients[codex.ID].RetryPolicy))
 			if err == nil || !strings.Contains(err.Error(), "retry") {
 				t.Fatal("connection changed without explicit retry intent")
 			}
@@ -133,7 +134,7 @@ func TestRetryConnectionTransitionAccountAddAdmission(t *testing.T) {
 	acquired := false
 	account := configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{OpenAIResponses: "https://other.test/v1"}}
 	route := configuration.Route{Label: "Other", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	err := (Synchronizer{Registry: builtinClients}).ConnectAccount(t.Context(), cfg, "other", configuration.ClientCodex, account, route, func() (string, error) { acquired = true; return "", fmt.Errorf("diagnostic token source reached") })
+	err := (Synchronizer{Registry: builtinClients}).ConnectAccount(t.Context(), cfg, "other", codex.ID, account, route, func() (string, error) { acquired = true; return "", fmt.Errorf("diagnostic token source reached") })
 	if err == nil || acquired || !strings.Contains(err.Error(), "retry") {
 		t.Fatalf("new connection admission err=%v acquired=%v", err, acquired)
 	}
@@ -144,7 +145,7 @@ func TestPrepareSelectionRefusesNativeAndExplicitRetriesTogether(t *testing.T) {
 	before := cfg.Clone()
 	zero := uint64(0)
 	change := configuration.ConnectionChange{NativeRetries: true, RetryPolicy: &configuration.RetryPolicy{RequestMaxRetries: &zero}}
-	if _, _, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, configuration.ClientCodex, "gpt", "", change); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+	if _, _, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, codex.ID, "gpt", "", change); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
 		t.Fatalf("contradictory retry intent = %v", err)
 	}
 	if !reflect.DeepEqual(cfg, before) {

@@ -40,12 +40,12 @@ func TestHermesNativeProjection(t *testing.T) {
 				Label: "Hermes", Account: "fixture", Model: "fixture-model",
 				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
 			}
-			cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
+			cfg.Clients[ID] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
 			if err := configuration.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
 				t.Fatal(err)
 			}
 			deps := client.Dependencies{AIGWExecutable: candidate}
-			if _, _, err := hermesRegistry().Apply(t.Context(), deps, configuration.NewConfig(testAdmission()), cfg, configuration.ClientHermes); err != nil {
+			if _, _, err := hermesRegistry().Apply(t.Context(), deps, configuration.NewConfig(testAdmission()), cfg, ID); err != nil {
 				t.Fatal(err)
 			}
 			env["HERMES_HOME"], env["AIGW_SECRET_BACKEND"], env["AIGW_TOKEN_FIXTURE"] = hermesHome, "env", "public-native-fixture"
@@ -66,7 +66,7 @@ func TestHermesNativeProjection(t *testing.T) {
 			t.Logf("native Hermes model=%s protocol=%s credential-command=passed source=%s", result.Model, result.Protocol, result.Source)
 			disabled := cfg.Clone()
 			(hermesAdapter{}).Withdraw(&disabled)
-			if _, _, err := hermesRegistry().Apply(t.Context(), deps, cfg, disabled, configuration.ClientHermes); err != nil {
+			if _, _, err := hermesRegistry().Apply(t.Context(), deps, cfg, disabled, ID); err != nil {
 				t.Fatal(err)
 			}
 			for _, target := range []string{filepath.Join(hermesHome, "config.yaml"), filepath.Join(hermesHome, "config.yaml.aigw-state.json")} {
@@ -101,7 +101,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	connectedAccounts := []string{"aihubmix", "ucloud"}
-	cfg, err = cfg.SelectRoutesForConnectedAccounts(connectedAccounts, configuration.ClientHermes)
+	cfg, err = cfg.SelectRoutesForConnectedAccounts(connectedAccounts, ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,19 +112,19 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 		}
 	}
 	hermesHome := filepath.Join(home, "hermes")
-	binding := cfg.Clients[configuration.ClientHermes]
+	binding := cfg.Clients[ID]
 	binding.Enabled = true
 	binding.Executable = python
 	binding.Targets = []string{filepath.Join(hermesHome, "config.yaml")}
-	cfg.Clients[configuration.ClientHermes] = binding
-	selected, err := cfg.ResolveRuntime(configuration.ClientHermes, "")
+	cfg.Clients[ID] = binding
+	selected, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := configuration.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := hermesRegistry().Apply(t.Context(), client.Dependencies{Secrets: projectionSecrets, AIGWExecutable: candidate}, configuration.NewConfig(testAdmission()), cfg, configuration.ClientHermes); err != nil {
+	if _, _, err := hermesRegistry().Apply(t.Context(), client.Dependencies{Secrets: projectionSecrets, AIGWExecutable: candidate}, configuration.NewConfig(testAdmission()), cfg, ID); err != nil {
 		t.Fatal(err)
 	}
 	env["HERMES_HOME"], env["AIGW_SECRET_BACKEND"] = hermesHome, "env"

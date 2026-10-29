@@ -92,7 +92,7 @@ func TestHelperOnlyMigrationRetainsNativeModelPreference(t *testing.T) {
 	if string(projected["model"]) != string(encodeRaw("opus[1m]")) {
 		t.Fatalf("native model choice became %s", projected["model"])
 	}
-	if string(projected["apiKeyHelper"]) != string(encodeRaw(credentialHelper(newHelper, runtime.CredentialProjectionFingerprint(configuration.ClientClaude)))) {
+	if string(projected["apiKeyHelper"]) != string(encodeRaw(credentialHelper(newHelper, runtime.CredentialProjectionFingerprint(ID)))) {
 		t.Fatal("helper migration did not project the new executable")
 	}
 	if inspection, err := InspectSettings(path, runtime, newHelper); err != nil || !inspection.NativeModelOverride {

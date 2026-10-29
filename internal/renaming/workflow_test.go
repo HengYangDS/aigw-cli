@@ -11,6 +11,9 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -23,13 +26,13 @@ func TestAccountFinalizationConvergesForwardingBackupBeforeRetirement(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := cfg.SetForwardingEndpoint(configuration.ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
+	if err := cfg.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, configuration.AdmittedClientIDs()); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, clients.Admission().IDs()); err != nil {
 		t.Fatal(err)
 	}
 	state, err := store.CaptureVerifiedBackupState()
@@ -54,8 +57,8 @@ func migrationConfig() configuration.Config {
 	cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}}
 	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "old", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "old", Model: "claude", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
+	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	return cfg
 }
 
@@ -81,7 +84,7 @@ func renameFinalizationState(t *testing.T) (configuration.Store, configuration.S
 	if err := store.Save(current); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), current, configuration.AdmittedClientIDs()); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), current, clients.Admission().IDs()); err != nil {
 		t.Fatal(err)
 	}
 	state, err := store.CaptureVerifiedBackupState()
@@ -189,7 +192,7 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	}
 
 	invalid := cfg.Clone()
-	invalid.SetSelectedRoute(configuration.ClientCodex, "missing", "")
+	invalid.SetSelectedRoute(codex.ID, "missing", "")
 	if _, err := planAccount(invalid, "old", "new"); err == nil || !strings.Contains(err.Error(), "Validate") {
 		t.Fatalf("account error = %v", err)
 	}
@@ -197,10 +200,10 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 		t.Fatalf("route error = %v", err)
 	}
 
-	cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
-	cfg.SetRecommendedRoute(configuration.ClientCodex, "codex")
+	cfg.SetRecommendedRoute(claude.ID, "claude")
+	cfg.SetRecommendedRoute(codex.ID, "codex")
 	cfg.Routes["backup"] = cfg.Routes["codex"]
-	cfg.Recommendations[configuration.ClientHermes] = configuration.ClientRecommendation{
+	cfg.Recommendations[hermes.ID] = configuration.ClientRecommendation{
 		Primary: configuration.ClientSelection{Route: "claude", Protocol: configuration.ProtocolAnthropic},
 		Alternatives: []configuration.ClientSelection{
 			{Route: "backup", Protocol: configuration.ProtocolOpenAIResponses},
@@ -208,14 +211,14 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 		},
 	}
 	plan, err := planRoute(cfg, "codex", "new-codex")
-	if err != nil || plan.Config.SelectedRoute(configuration.ClientClaude) != "claude" ||
-		plan.Config.RecommendedRoute(configuration.ClientCodex) != "new-codex" ||
-		plan.Config.RecommendedRoute(configuration.ClientClaude) != "claude" {
+	if err != nil || plan.Config.SelectedRoute(claude.ID) != "claude" ||
+		plan.Config.RecommendedRoute(codex.ID) != "new-codex" ||
+		plan.Config.RecommendedRoute(claude.ID) != "claude" {
 		t.Fatalf("plan=%#v error=%v", plan, err)
 	}
-	want := cfg.Clone().Recommendations[configuration.ClientHermes]
+	want := cfg.Clone().Recommendations[hermes.ID]
 	want.Alternatives[1].Route = "new-codex"
-	if !reflect.DeepEqual(plan.Config.Recommendations[configuration.ClientHermes], want) || cfg.Recommendations[configuration.ClientHermes].Alternatives[1].Route != "codex" || !slices.Contains(plan.AffectedReferences, "recommendations.hermes.alternatives.1.route") {
+	if !reflect.DeepEqual(plan.Config.Recommendations[hermes.ID], want) || cfg.Recommendations[hermes.ID].Alternatives[1].Route != "codex" || !slices.Contains(plan.AffectedReferences, "recommendations.hermes.alternatives.1.route") {
 		t.Fatalf("rename changed alternative order, protocol or input configuration: %#v", plan)
 	}
 }
@@ -313,7 +316,7 @@ func TestPlanAccountFinalizeRejectsIncompleteRenameState(t *testing.T) {
 			if err := store.Save(test.config); err != nil {
 				t.Fatal(err)
 			}
-			if err := store.SaveVerifiedCheckpoint(t.Context(), test.config, configuration.AdmittedClientIDs()); err != nil {
+			if err := store.SaveVerifiedCheckpoint(t.Context(), test.config, clients.Admission().IDs()); err != nil {
 				t.Fatal(err)
 			}
 			deps := Renamer{Config: store, Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}

@@ -13,6 +13,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -23,7 +25,7 @@ func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Routes["gpt-5.6-sol"] = qualifiedRoute("GPT Route", "dmx", "gpt-5.6-sol", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-5.6-sol", "")
+	cfg.SetSelectedRoute(codex.ID, "gpt-5.6-sol", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +69,7 @@ func TestRotateWithoutNameRefusesAmbiguousAccounts(t *testing.T) {
 
 func TestRotateRejectsReadOnlyEnvironmentBackendBeforeInput(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "must-not-be-read\n")
-	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	app.Secrets = secrets.NewEnvironmentStore(func(string) string { return "" })
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secretErr: errors.New("prompt must not run")}
@@ -96,7 +98,7 @@ func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 
 	t.Run("unknown account", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "new-token\n")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 		err := cli.Execute(app, []string{"rotate", "missing", "--token-stdin"})
 		if err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown account or route") {
 			t.Fatalf("error = %v", err)
@@ -112,7 +114,7 @@ func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "new-token\n")
-			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 			app.Secrets = &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), getErr: test.get, setErr: test.set}
 			want := cmp.Or(test.get, test.set)
 			if err := cli.Execute(app, []string{"rotate", "one", "--token-stdin"}); !errors.Is(err, want) {
@@ -123,7 +125,7 @@ func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 
 	t.Run("non-interactive input", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 		err := cli.Execute(app, []string{"rotate", "one"})
 		if err == nil || !strings.Contains(err.Error(), "interactive terminal") {
 			t.Fatalf("error = %v", err)
@@ -132,7 +134,7 @@ func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 
 	t.Run("prompt", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 		want := errors.New("prompt cancelled")
 		app.Interactive = true
 		app.Prompt = &scriptedPrompt{secretErr: want}
@@ -143,7 +145,7 @@ func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 
 	t.Run("token validation", func(t *testing.T) {
 		app, _, _, _, httpClient := testApp(t, "new-token\n")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 		httpClient.status = http.StatusUnauthorized
 		err := cli.Execute(app, []string{"rotate", "one", "--token-stdin"})
 		if err == nil || !strings.Contains(err.Error(), "Token validation failed") {
@@ -155,9 +157,9 @@ func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 func TestRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "new-token\n")
 	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
-	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{t.TempDir()})
+	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+	cfg.SetSelectedRoute(codex.ID, "one", "")
+	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{t.TempDir()})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -182,12 +184,12 @@ func TestRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T) {
 				t.Fatal(err)
 			}
 			cfg := configuration.NewConfig(clients.Admission())
-			addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
-			cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
-			cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
+			addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+			cfg.SetSelectedRoute(codex.ID, "one", "")
+			cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 			wantMessage := "clients control their refresh timing"
 			if !hasTarget {
-				cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", nil)
+				cfg.SetClientActivation(codex.ID, true, "/opt/codex", nil)
 			}
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -204,7 +206,7 @@ func TestRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T) {
 
 func TestRotateValidationUsesCommandContext(t *testing.T) {
 	app, _, store, _, httpClient := testApp(t, "new-token\n")
-	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
+	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	httpClient.handler = func(req *http.Request) (*http.Response, error) {
@@ -230,9 +232,9 @@ func TestRotateClaudeOnlyAccountDoesNotTouchCodexTargets(t *testing.T) {
 	cfg.Accounts["claude-account"] = configuration.Account{Label: "Claude", Endpoints: configuration.Endpoints{Anthropic: "https://claude.test"}}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "codex-account", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "claude-account", "claude-test", configuration.ProtocolAnthropic)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetClientActivation(configuration.ClientCodex, true, "/missing/codex", []string{filepath.Join(t.TempDir(), "unavailable-codex-configuration.toml")})
+	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetClientActivation(codex.ID, true, "/missing/codex", []string{filepath.Join(t.TempDir(), "unavailable-codex-configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

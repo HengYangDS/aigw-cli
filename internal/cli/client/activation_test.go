@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/hermes"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 )
@@ -17,7 +20,7 @@ func TestClaudeDesktopLifecycleReportsRequiredRestart(t *testing.T) {
 		Label: "Desktop", Account: "gateway", Model: "claude-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "desktop", "")
+	cfg.SetSelectedRoute(claudedesktop.ID, "desktop", "")
 	runtime, out, secretStore, _ := adapterRuntime(t, cfg)
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
@@ -32,7 +35,7 @@ func TestClaudeDesktopLifecycleReportsRequiredRestart(t *testing.T) {
 	}
 	library := filepath.Join(root, "Claude-3p", "configLibrary")
 
-	if err := executeAdapter(t, runtime, "enable", configuration.ClientClaudeDesktop, "--executable", executable, "--target", library); err != nil {
+	if err := executeAdapter(t, runtime, "enable", claudedesktop.ID, "--executable", executable, "--target", library); err != nil {
 		t.Fatal(err)
 	}
 	enabled := out.String()
@@ -46,7 +49,7 @@ func TestClaudeDesktopLifecycleReportsRequiredRestart(t *testing.T) {
 	}
 
 	out.Reset()
-	if err := executeAdapter(t, runtime, "disable", configuration.ClientClaudeDesktop); err != nil {
+	if err := executeAdapter(t, runtime, "disable", claudedesktop.ID); err != nil {
 		t.Fatal(err)
 	}
 	disabled := out.String()
@@ -59,19 +62,19 @@ func TestClaudeDesktopLifecycleReportsRequiredRestart(t *testing.T) {
 
 func TestEnableMaterializesDeferredClientIntent(t *testing.T) {
 	cfg := adapterConfig()
-	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
+	cfg.SetClientActivation(claude.ID, true, "", nil)
 	runtime, out, secretStore, _ := adapterRuntime(t, cfg)
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := executeAdapter(t, runtime, "enable", configuration.ClientClaude, "--executable", "/opt/claude"); err != nil {
+	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", "/opt/claude"); err != nil {
 		t.Fatal(err)
 	}
 	got, err := runtime.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	binding := got.Clients[configuration.ClientClaude]
+	binding := got.Clients[claude.ID]
 	if !binding.Enabled || binding.Executable != "/opt/claude" {
 		t.Fatalf("materialized client = %#v", binding)
 	}
@@ -83,7 +86,7 @@ func TestEnableMaterializesDeferredClientIntent(t *testing.T) {
 func TestEnablePreservesExistingHermesTarget(t *testing.T) {
 	cfg := adapterConfig()
 	target := filepath.Join(t.TempDir(), "config.yaml")
-	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{
+	cfg.Clients[hermes.ID] = configuration.ClientBinding{
 		Route:      "claude",
 		Protocol:   configuration.ProtocolAnthropic,
 		Executable: "/previous/hermes",
@@ -93,28 +96,28 @@ func TestEnablePreservesExistingHermesTarget(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := executeAdapter(t, runtime, "enable", configuration.ClientHermes, "--executable", "/opt/hermes"); err != nil {
+	if err := executeAdapter(t, runtime, "enable", hermes.ID, "--executable", "/opt/hermes"); err != nil {
 		t.Fatal(err)
 	}
 	got, err := runtime.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	binding := got.Clients[configuration.ClientHermes]
+	binding := got.Clients[hermes.ID]
 	if !binding.Enabled || binding.Executable != "/opt/hermes" || !slices.Equal(binding.Targets, []string{target}) {
 		t.Fatalf("re-enabled client = %#v", binding)
 	}
-	if err := executeAdapter(t, runtime, "disable", configuration.ClientHermes); err != nil {
+	if err := executeAdapter(t, runtime, "disable", hermes.ID); err != nil {
 		t.Fatal(err)
 	}
 	disabled, err := runtime.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if disabled.Clients[configuration.ClientHermes].Enabled || !slices.Equal(disabled.Clients[configuration.ClientHermes].Targets, []string{target}) {
-		t.Fatalf("disabled client = %#v", disabled.Clients[configuration.ClientHermes])
+	if disabled.Clients[hermes.ID].Enabled || !slices.Equal(disabled.Clients[hermes.ID].Targets, []string{target}) {
+		t.Fatalf("disabled client = %#v", disabled.Clients[hermes.ID])
 	}
-	if err := executeAdapter(t, runtime, "enable", configuration.ClientHermes, "--executable", "/opt/hermes"); err != nil {
+	if err := executeAdapter(t, runtime, "enable", hermes.ID, "--executable", "/opt/hermes"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -123,9 +126,9 @@ func TestEnableWithExternalCredentialPreservesUnusedCachedEntrypoint(t *testing.
 	cfg := adapterConfig()
 	root := t.TempDir()
 	external := filepath.Join(root, "external-helper")
-	binding := cfg.Clients[configuration.ClientClaude]
+	binding := cfg.Clients[claude.ID]
 	binding.CredentialCommand = external
-	cfg.Clients[configuration.ClientClaude] = binding
+	cfg.Clients[claude.ID] = binding
 	runtime, _, _, _ := adapterRuntime(t, cfg)
 	if err := os.WriteFile(runtime.Executable, []byte("AIGW fixture"), 0o700); err != nil {
 		t.Fatal(err)
@@ -137,11 +140,11 @@ func TestEnableWithExternalCredentialPreservesUnusedCachedEntrypoint(t *testing.
 	if err := os.WriteFile(runtime.CredentialPath+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := executeAdapter(t, runtime, "enable", configuration.ClientClaude, "--executable", "/opt/claude"); err != nil {
+	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", "/opt/claude"); err != nil {
 		t.Fatalf("external credential enablement inspected an unused cached entrypoint: %v", err)
 	}
 	stored, loadErr := runtime.Config.Load()
-	if loadErr != nil || !stored.Clients[configuration.ClientClaude].Enabled {
+	if loadErr != nil || !stored.Clients[claude.ID].Enabled {
 		t.Fatalf("committed enablement was not preserved: %#v, %v", stored.Clients, loadErr)
 	}
 	if _, err := os.Lstat(runtime.CredentialPath); err != nil {

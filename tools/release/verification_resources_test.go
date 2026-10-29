@@ -19,7 +19,8 @@ import (
 	"testing"
 	"time"
 
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
@@ -37,12 +38,12 @@ func TestNativeVerificationResources(t *testing.T) {
 	program, _, _ := nativeReleaseCandidate(t, root, version)
 	// Hermes verification refuses on Windows before starting a client, so Codex
 	// carries the owned process tree there; other hosts exercise both clients.
-	clients := []string{configuration.ClientCodex}
+	clients := []string{codex.ID}
 	if runtime.GOOS != "windows" {
-		clients = append([]string{configuration.ClientHermes}, clients...)
+		clients = append([]string{hermes.ID}, clients...)
 	} else {
 		t.Run("hermes-refusal", func(t *testing.T) {
-			runNativeResourceCase(t, program, configuration.ClientHermes, "refusal")
+			runNativeResourceCase(t, program, hermes.ID, "refusal")
 		})
 	}
 	for _, client := range clients {
@@ -59,7 +60,7 @@ func runNativeResourceCase(t *testing.T, program, client, mode string) {
 	journey := newNativeJourney(t, program, "https://unused.example.test", false)
 	t.Cleanup(journey.uninstallAndRequireInstallationRemoved)
 	journey.installClientFixture(client)
-	if client == configuration.ClientHermes {
+	if client == hermes.ID {
 		hermesHome := filepath.Join(journey.root, "home", ".hermes")
 		journey.setEnvironment("HERMES_HOME", hermesHome)
 		if err := os.MkdirAll(filepath.Join(hermesHome, "profiles"), 0o700); err != nil {
@@ -113,7 +114,7 @@ func verifyNativeClientRefusal(t *testing.T, journey *journeyFixture, client str
 
 func nativeResourceManifest(client string) string {
 	protocol, capabilities := "openai_chat_completions", `["text"]`
-	if client == configuration.ClientCodex {
+	if client == codex.ID {
 		protocol, capabilities = "openai_responses", "[]"
 	}
 	return fmt.Sprintf(`version = 7

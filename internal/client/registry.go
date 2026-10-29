@@ -130,10 +130,13 @@ type Registry struct {
 	admission configuration.Admission
 }
 
-// NewRegistry validates that the operational adapters exactly implement the
-// supplied admission records, in their declared order.
-func NewRegistry(specs []configuration.ClientSpec, adapters ...Adapter) (Registry, error) {
+// NewRegistry registers the operational adapters in the given order. Each
+// adapter's Spec is its client's admission record, and that order is the
+// admission order of every configuration that the registry serves.
+func NewRegistry(adapters ...Adapter) (Registry, error) {
 	byID := make(map[string]Adapter, len(adapters))
+	ids := make([]string, 0, len(adapters))
+	specs := make([]configuration.ClientSpec, 0, len(adapters))
 	for _, adapter := range adapters {
 		if adapter == nil {
 			return Registry{}, fmt.Errorf("client adapter is nil")
@@ -146,25 +149,8 @@ func NewRegistry(specs []configuration.ClientSpec, adapters ...Adapter) (Registr
 			return Registry{}, fmt.Errorf("client adapter %q is registered more than once", spec.ID)
 		}
 		byID[spec.ID] = adapter
-	}
-	seen := make(map[string]bool, len(specs))
-	ids := make([]string, 0, len(specs))
-	for _, spec := range specs {
-		if seen[spec.ID] {
-			return Registry{}, fmt.Errorf("client admission %q is declared more than once", spec.ID)
-		}
-		seen[spec.ID] = true
-		adapter, ok := byID[spec.ID]
-		if !ok {
-			return Registry{}, fmt.Errorf("client admission %q has no operational adapter", spec.ID)
-		}
-		if !reflect.DeepEqual(adapter.Spec(), spec) {
-			return Registry{}, fmt.Errorf("client adapter %q does not match its admission record", spec.ID)
-		}
 		ids = append(ids, spec.ID)
-	}
-	if len(specs) != len(adapters) {
-		return Registry{}, fmt.Errorf("operational client registry contains an unadmitted adapter")
+		specs = append(specs, spec)
 	}
 	return Registry{byID: byID, ids: ids, admission: configuration.NewAdmission(specs...)}, nil
 }

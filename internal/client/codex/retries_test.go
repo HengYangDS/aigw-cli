@@ -17,7 +17,7 @@ func TestCodexConnectionRetryProjectionIsExplicitAndGuarded(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := configuration.Runtime{
-		Client: configuration.ClientCodex, RouteID: "test", RouteLabel: "Test",
+		Client: ID, RouteID: "test", RouteLabel: "Test",
 		AccountID: "test", Endpoint: "https://endpoint.test/v1", Model: "gpt-6.1-sol",
 		ModelProvider: "test-provider", Authentication: configuration.AuthenticationClientNative,
 	}

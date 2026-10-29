@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode"
 
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/presentation"
@@ -34,7 +35,7 @@ func configuredApp(t *testing.T) *App {
 		Label: "One", Purpose: "Primary", Account: "one", Model: "gpt",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
+	cfg.SetSelectedRoute(codex.ID, "one", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -123,14 +124,14 @@ func TestExecuteCredentialStaleProjectionExplainsRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", nil)
+	cfg.SetClientActivation(codex.ID, true, "codex", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
 	app.Out = &stdout
 	app.Err = &stderr
-	err = Execute(app, []string{"credential", configuration.ClientCodex, "stale-projection"})
+	err = Execute(app, []string{"credential", codex.ID, "stale-projection"})
 	if err == nil || stdout.Len() != 0 {
 		t.Fatalf("error=%v stdout=%q", err, app.Out)
 	}

@@ -12,7 +12,10 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -74,7 +77,7 @@ func assertDeferredJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer, co
 		t.Fatalf("doctor did not scope diagnostic success: %s", out)
 	}
 	if command != "sync" {
-		for _, client := range configuration.AdmittedClientIDs() {
+		for _, client := range clients.Admission().IDs() {
 			if result.Clients[client].State != "deferred" {
 				t.Fatalf("%s client %s = %+v", command, client, result.Clients[client])
 			}
@@ -159,7 +162,7 @@ func TestShippedTeamManifestImportsWithAnOfflineProvider(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "codex", "config.toml")
 	writeFile(t, target, []byte("model_provider = \"native\"\n"), 0o600)
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: executableFixture(t, "codex")},
+		Executables: map[string]string{codex.ID: executableFixture(t, "codex")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -183,8 +186,8 @@ func TestShippedTeamManifestImportsWithAnOfflineProvider(t *testing.T) {
 		t.Fatalf("decode setup: %v\n%s", err, out)
 	}
 	if len(setup.ConnectedAccounts) != 1 || setup.ConnectedAccounts[0] != "dmxapi" ||
-		setup.SelectedBindings[configuration.ClientCodex] == "" ||
-		len(setup.ProjectedClients) != 1 || setup.ProjectedClients[0] != configuration.ClientCodex ||
+		setup.SelectedBindings[codex.ID] == "" ||
+		len(setup.ProjectedClients) != 1 || setup.ProjectedClients[0] != codex.ID ||
 		setup.OnlineVerification != "not_checked" ||
 		!strings.Contains(setup.NextAction, "aigw sync") {
 		t.Fatalf("offline import state = %+v", setup)
@@ -263,7 +266,7 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneAccountChoice(t *testing
 		t.Fatalf("suggested Route selection failed: %v\n%s", err, out)
 	}
 	selected, err := app.Config.Load()
-	if err != nil || selected.SelectedRoute(configuration.ClientClaude) != "dmxapi-claude-opus-5-5" {
+	if err != nil || selected.SelectedRoute(claude.ID) != "dmxapi-claude-opus-5-5" {
 		t.Fatalf("suggested Route was not selected: %#v, %v", selected.Clients, err)
 	}
 }
@@ -273,7 +276,7 @@ func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T)
 	app.Interactive = true
 	app.Discovery = fakeDiscovery{}
 	app.Prompt = &scriptedPrompt{
-		selections: []string{configuration.ClientHermes, string(configuration.ProtocolAnthropic)},
+		selections: []string{hermes.ID, string(configuration.ProtocolAnthropic)},
 		secrets:    []string{"fixture-token"},
 		texts:      []string{"team", "Team", "https://messages.test", "hermes-route", "hermes-model"},
 	}
@@ -310,8 +313,8 @@ func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T)
 		if result.EnabledClients != 1 || result.State != "deferred" || result.NextAction != wantAction {
 			t.Fatalf("%s activation = %+v\n%s", command, result, out)
 		}
-		if command != "sync" && result.Clients[configuration.ClientHermes].State != "deferred" {
-			t.Fatalf("%s Hermes state = %+v", command, result.Clients[configuration.ClientHermes])
+		if command != "sync" && result.Clients[hermes.ID].State != "deferred" {
+			t.Fatalf("%s Hermes state = %+v", command, result.Clients[hermes.ID])
 		}
 	}
 	for _, command := range []string{"status", "check", "doctor"} {
@@ -376,7 +379,7 @@ func TestShippedTeamManifestMixedClientProjectionHasOneContinuation(t *testing.T
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
+		Executables: map[string]string{codex.ID: "/opt/codex"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -472,7 +475,7 @@ func assertTokenRemovedJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer
 	if command == "sync" {
 		return
 	}
-	codex := result.Clients[configuration.ClientCodex]
+	codex := result.Clients[codex.ID]
 	if codex.State != "deferred" || codex.NextAction != wantAction || !codex.ProjectionDeferred {
 		t.Fatalf("%s selected Codex = %+v", command, codex)
 	}

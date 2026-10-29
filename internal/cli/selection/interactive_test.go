@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -19,7 +21,7 @@ func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
 	cfg.Models["gpt-test"] = configuration.Model{Label: "GPT Test"}
 	choice := &promptStub{selected: "codex"}
 	runtime.Prompt = choice
-	selected, err := chooseRoute(runtime, cfg, configuration.ClientCodex, "Select Route")
+	selected, err := chooseRoute(runtime, cfg, codex.ID, "Select Route")
 	if err != nil || selected != "codex" || len(choice.choices) != 1 || choice.choices[0].Label != "Gateway · GPT Test" {
 		t.Fatalf("derived interactive Route choice = %q, %+v, %v", selected, choice.choices, err)
 	}
@@ -41,7 +43,7 @@ func TestUsePromptsForACompatibleClientOnASharedRoute(t *testing.T) {
 	if err := store.Set("gateway", "synthetic-token"); err != nil {
 		t.Fatal(err)
 	}
-	selector := &promptStub{selected: configuration.ClientClaude}
+	selector := &promptStub{selected: claude.ID}
 	runtime.Secrets = store
 	runtime.Prompt = selector
 	runtime.Interactive = true
@@ -56,11 +58,11 @@ func TestUsePromptsForACompatibleClientOnASharedRoute(t *testing.T) {
 	for _, choice := range selector.choices {
 		choices[choice.Value] = true
 	}
-	if !choices[configuration.ClientClaude] || !choices[configuration.ClientCodex] {
+	if !choices[claude.ID] || !choices[codex.ID] {
 		t.Fatalf("shared Route client choices = %#v", selector.choices)
 	}
 	stored, err := runtime.Config.Load()
-	if err != nil || stored.Clients[configuration.ClientClaude].Route != "shared" {
+	if err != nil || stored.Clients[claude.ID].Route != "shared" {
 		t.Fatalf("interactive client selection = %#v, %v", stored.Clients, err)
 	}
 }

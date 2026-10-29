@@ -11,6 +11,10 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -31,17 +35,17 @@ func configuredClient(t *testing.T, id string) (configuration.Config, client.Dep
 	}
 	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	spec, _ := configuration.ClientSpecFor(id)
+	spec, _ := clients.Admission().Spec(id)
 	cfg.Routes[id] = configuration.Route{
 		Account: "gateway", Model: "fixture", UpstreamModel: "fixture",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{spec.EndpointProtocols[0]: {}},
 	}
 	target := filepath.Join(root, "config.toml")
-	if id == configuration.ClientClaudeDesktop {
+	if id == claudedesktop.ID {
 		target = filepath.Join(root, "Claude-3p", "configLibrary")
 	}
 	adapter := configuration.ClientBinding{Route: id, Enabled: true, Protocol: spec.EndpointProtocols[0], Executable: executable}
-	if id != configuration.ClientClaude {
+	if id != claude.ID {
 		adapter.Targets = []string{target}
 	}
 	cfg.Clients[id] = adapter
@@ -78,10 +82,10 @@ func TestCredentialPolicyControlsProjectionAndSurvivesDiscovery(t *testing.T) {
 				t.Fatalf("projection plan = %v, %v", plans, err)
 			}
 			wantSurface := map[string]string{
-				configuration.ClientClaude:        "claude-settings",
-				configuration.ClientClaudeDesktop: "claude-desktop-config-library",
-				configuration.ClientCodex:         "codex-home-default",
-				configuration.ClientHermes:        "hermes-home-default",
+				claude.ID:        "claude-settings",
+				claudedesktop.ID: "claude-desktop-config-library",
+				codex.ID:         "codex-home-default",
+				hermes.ID:        "hermes-home-default",
 			}[id]
 			if plans[0].Surface != wantSurface {
 				t.Fatalf("projection surface = %q, want %q", plans[0].Surface, wantSurface)
@@ -144,18 +148,18 @@ func TestExplicitDisableSurvivesDiscoveryWithoutAnExternalHelper(t *testing.T) {
 }
 
 func TestMissingCodexTargetRetainsExplicitIntentAndCredentialPolicy(t *testing.T) {
-	cfg, deps, _ := configuredClient(t, configuration.ClientCodex)
+	cfg, deps, _ := configuredClient(t, codex.ID)
 	command := filepath.Join(t.TempDir(), "credential adapter")
-	adapter := cfg.Clients[configuration.ClientCodex]
+	adapter := cfg.Clients[codex.ID]
 	adapter.Targets = nil
 	adapter.CredentialCommand = command
-	cfg.Clients[configuration.ClientCodex] = adapter
-	after, err := clients.Registry().Converge(deps, cfg, discovery.Result{}, configuration.ClientCodex)
+	cfg.Clients[codex.ID] = adapter
+	after, err := clients.Registry().Converge(deps, cfg, discovery.Result{}, codex.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := cfg.Clients[configuration.ClientCodex]
-	if got := after.Clients[configuration.ClientCodex]; !reflect.DeepEqual(got, want) {
+	want := cfg.Clients[codex.ID]
+	if got := after.Clients[codex.ID]; !reflect.DeepEqual(got, want) {
 		t.Fatalf("missing-target policy = %#v", got)
 	}
 }
@@ -196,13 +200,13 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 			runner := &rejectingClient{}
 			deps.Runner = runner
 			_, err = registry.Verify(context.Background(), deps, cfg, id, clientRuntime, "")
-			if id == configuration.ClientClaudeDesktop {
+			if id == claudedesktop.ID {
 				if err == nil || !strings.Contains(err.Error(), "explicit native Chat, Cowork, or Code acceptance") || runner.calls != 0 {
 					t.Fatalf("Claude Desktop verification = %v, calls = %d", err, runner.calls)
 				}
 				return
 			}
-			if id == configuration.ClientHermes && runtime.GOOS == "windows" {
+			if id == hermes.ID && runtime.GOOS == "windows" {
 				if err == nil || strings.Contains(err.Error(), "public-secret-canary") || !strings.Contains(err.Error(), "cannot isolate") || runner.calls != 0 {
 					t.Fatalf("Windows Hermes verification = %v, calls = %d", err, runner.calls)
 				}
@@ -212,7 +216,7 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 				t.Fatalf("external client failure = %v", err)
 			}
 			wantCalls := 1
-			if id != configuration.ClientClaude {
+			if id != claude.ID {
 				wantCalls++
 			}
 			if runner.calls != wantCalls {

@@ -50,7 +50,7 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 		t.Fatal(err)
 	}
 	cfg := configuration.NewConfig(testAdmission())
-	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
+	cfg.SetClientActivation(ID, true, executable, nil)
 	settings := filepath.Join(root, ".claude", "settings.json")
 	deps := client.Dependencies{Host: hostAt(root), AIGWExecutable: filepath.Join(root, "aigw")}
 	runtime := configuration.Runtime{AccountID: "gateway", RouteID: "claude", Model: "claude-model", Endpoint: "https://gateway.test"}

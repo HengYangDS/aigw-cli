@@ -3,65 +3,11 @@ package configuration
 import (
 	"fmt"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
 )
-
-func TestAdmittedClientRegistryIsTheSingleProtocolBoundary(t *testing.T) {
-	want := []ClientSpec{
-		{ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic}},
-		{
-			ID:                     ClientClaudeDesktop,
-			Label:                  "Claude Desktop",
-			EndpointProtocols:      []EndpointProtocol{ProtocolAnthropic},
-			RestartAfterProjection: true,
-			QualifiedModes:         []string{"Chat", "Cowork", "Code"},
-			QualifiedPlatforms:     []string{"macOS"},
-		},
-		{ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses}},
-		{ID: ClientHermes, Label: "Hermes", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions}, SessionsKeepRoute: true},
-	}
-	claude, codex := &want[0], &want[2]
-	claude.ProductName, claude.ModelDiscoveryOptional = "Claude Code", true
-	claude.Doctor.AdapterStates = true
-	claude.PublishedProfileProtocol = ProtocolAnthropic
-	codex.TargetFile, codex.TargetsUsage, codex.RetryBudgets = "config.toml", "repeat for multiple Codex homes", true
-	codex.DefaultModelProvider, codex.ClientNativeAuthentication = ModelProviderAIGW, true
-	codex.PublishedProfileProtocol = ProtocolOpenAIResponses
-	codex.Doctor.AdapterStates, codex.Doctor.RouteBinding = true, true
-	if got := AdmittedClientSpecs(); !reflect.DeepEqual(got, want) {
-		t.Fatalf("client specs = %#v, want %#v", got, want)
-	}
-	if ClientProductName(ClientClaude) != "Claude Code" || ClientProductName(ClientCodex) != "Codex" || ClientProductName("gemini") != "gemini" {
-		t.Fatal("product names must fall back to the label and then the identifier")
-	}
-	if got := AdmittedClientIDs(); !reflect.DeepEqual(got, []string{ClientClaude, ClientClaudeDesktop, ClientCodex, ClientHermes}) {
-		t.Fatalf("client ids = %#v", got)
-	}
-	if !IsAdmittedClient(ClientClaude) || IsAdmittedClient("gemini") {
-		t.Fatal("registry must admit only implemented adapters")
-	}
-	if spec, ok := ClientSpecFor(ClientCodex); !ok || !reflect.DeepEqual(spec.EndpointProtocols, []EndpointProtocol{ProtocolOpenAIResponses}) {
-		t.Fatalf("Codex client spec = %#v, %v", spec, ok)
-	}
-}
-
-func TestAdmittedClientRegistryReturnsDefensiveCopies(t *testing.T) {
-	clients := AdmittedClientSpecs()
-	clients[0].ID = "mutated"
-	clients[1].QualifiedModes[0] = "mutated"
-	clients[1].QualifiedPlatforms[0] = "mutated"
-	if AdmittedClientSpecs()[0].ID != ClientClaude {
-		t.Fatal("caller mutation changed the registered client boundary")
-	}
-	desktop, ok := ClientSpecFor(ClientClaudeDesktop)
-	if !ok || desktop.QualifiedModes[0] != "Chat" || desktop.QualifiedPlatforms[0] != "macOS" {
-		t.Fatalf("caller mutation changed Claude Desktop qualification: %#v", desktop)
-	}
-}
 
 func TestRouteOwnsModelIdentityWithoutClientState(t *testing.T) {
 	route := Route{Model: "claude-test"}
@@ -84,7 +30,7 @@ func TestClientSpecResolvesItsDeclaredEndpoint(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.client, func(t *testing.T) {
-			spec, ok := ClientSpecFor(test.client)
+			spec, ok := testAdmission().Spec(test.client)
 			if !ok {
 				t.Fatalf("missing client spec %q", test.client)
 			}
@@ -99,22 +45,22 @@ func TestClientSpecResolvesItsDeclaredEndpoint(t *testing.T) {
 	}
 }
 
-func TestAdmittedClientUsageIsDerivedFromRegistry(t *testing.T) {
+func TestAdmissionUsageNamesTheAdmittedClientsInOrder(t *testing.T) {
 	if got := naturalChoices(nil); got != "" {
 		t.Fatalf("empty choices = %q", got)
 	}
 	if got := naturalChoices([]string{"codex"}); got != "codex" {
 		t.Fatalf("single choice = %q", got)
 	}
-	if got := AdmittedClientUsage(); got != "claude, claude-desktop, codex, or hermes" {
+	if got := testAdmission().Usage(); got != "claude, claude-desktop, codex, or hermes" {
 		t.Fatalf("usage = %q", got)
 	}
-	if got := AdmittedClientUsage("all"); got != "claude, claude-desktop, codex, hermes, or all" {
+	if got := testAdmission().Usage("all"); got != "claude, claude-desktop, codex, hermes, or all" {
 		t.Fatalf("usage with extra choice = %q", got)
 	}
 }
 
-func TestClientLabelNamesEachClientByItsRegistryLabel(t *testing.T) {
+func TestAdmissionLabelsEachClientByItsSpecification(t *testing.T) {
 	for id, want := range map[string]string{
 		ClientClaude:        "Claude",
 		ClientClaudeDesktop: "Claude Desktop",
@@ -122,8 +68,8 @@ func TestClientLabelNamesEachClientByItsRegistryLabel(t *testing.T) {
 		ClientHermes:        "Hermes",
 		"future":            "future",
 	} {
-		if got := ClientLabel(id); got != want {
-			t.Fatalf("ClientLabel(%q) = %q, want %q", id, got, want)
+		if got := testAdmission().Label(id); got != want {
+			t.Fatalf("Label(%q) = %q, want %q", id, got, want)
 		}
 	}
 }
@@ -142,7 +88,7 @@ func TestExplicitCredentialCommandSurvivesHostConfigRoundTrip(t *testing.T) {
 	cfg.SetSelectedRoute(ClientClaudeDesktop, ClientClaudeDesktop, "")
 	cfg.Routes[ClientHermes] = testRoute("Hermes", "backup", "model", ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(ClientHermes, ClientHermes, "")
-	for _, client := range AdmittedClientIDs() {
+	for _, client := range testAdmission().IDs() {
 		command := filepath.Join(t.TempDir(), "credential adapter")
 		var adapter ClientBinding
 		if err := toml.Unmarshal([]byte(fmt.Sprintf("enabled = true\ncredential_command = %q\n", command)), &adapter); err != nil {

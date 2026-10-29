@@ -11,7 +11,7 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	codexcatalog "aigw-cli/internal/client/codex/catalog"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/secrets"
 
 	"github.com/pelletier/go-toml/v2"
@@ -27,18 +27,18 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	selection := p.manifest.Recommendations[configuration.ClientCodex].Primary
+	selection := p.manifest.Recommendations[codex.ID].Primary
 	route := p.manifest.Routes[selection.Route]
 	protocol := selection.Protocol
 	if protocol == "" {
-		spec, _ := configuration.ClientSpecFor(configuration.ClientCodex)
+		spec, _ := clients.Admission().Spec(codex.ID)
 		protocol = spec.EndpointProtocols[0]
 	}
 	const token = "native-relative-catalog-token"
 	var completions atomic.Int64
-	server, _ := newNativeClientServer(t, configuration.ClientCodex, protocol, route.UpstreamModel, token, &completions)
+	server, _ := newNativeClientServer(t, codex.ID, protocol, route.UpstreamModel, token, &completions)
 	journey := newNativeJourney(t, p.candidate, server.URL+"/v1", false)
-	if err := journey.prepareNativeClient(configuration.ClientCodex, executable, p.team); err != nil {
+	if err := journey.prepareNativeClient(codex.ID, executable, p.team); err != nil {
 		t.Fatal(err)
 	}
 	_, bundled, err := codex.ReadBundledCatalog(executable)
@@ -64,10 +64,10 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	}
 	journey.setEnvironment(secrets.EnvironmentKey(route.Account), token)
 	journey.run("setup", "--from", journey.manifest, "--account", route.Account)
-	journey.enableNativeClient(configuration.ClientCodex, executable)
+	journey.enableNativeClient(codex.ID, executable)
 	for _, args := range [][]string{
-		{"verify", "--for", configuration.ClientCodex},
-		{"verify", "--for", configuration.ClientCodex, "--route", selection.Route},
+		{"verify", "--for", codex.ID},
+		{"verify", "--for", codex.ID, "--route", selection.Route},
 	} {
 		before := completions.Load()
 		journey.run(args...)

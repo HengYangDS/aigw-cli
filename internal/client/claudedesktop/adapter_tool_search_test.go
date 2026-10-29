@@ -28,7 +28,7 @@ func TestClaudeDesktopToolSearchRequiresEveryExposedRoute(t *testing.T) {
 	if readClaudeDesktopProfile(t, fixture.paths.Profile)["toolSearchEnabled"] != true {
 		t.Fatal("tool search stayed disabled although every exposed Route declares it")
 	}
-	runtime, err := qualified.ResolveRuntime(configuration.ClientClaudeDesktop, "")
+	runtime, err := qualified.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,11 +45,11 @@ func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := configuration.Parse(team, testAdmission())
+	manifest, err := configuration.Parse(team, builtInAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := configuration.Merge(configuration.NewConfig(testAdmission()), manifest)
+	cfg, err := configuration.Merge(configuration.NewConfig(builtInAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,8 +60,8 @@ func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.
 		"aihubmix-claude-opus-5-5": false,
 		"dmxapi-claude-opus-5-5":   false,
 	} {
-		cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, routeID, "")
-		runtime, err := cfg.ResolveRuntime(configuration.ClientClaudeDesktop, "")
+		cfg.SetSelectedRoute(ID, routeID, "")
+		runtime, err := cfg.ResolveRuntime(ID, "")
 		if err != nil {
 			t.Fatal(err)
 		}

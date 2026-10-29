@@ -289,7 +289,7 @@ func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, 
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := config.ResolveRuntime(configuration.ClientClaude, "")
+	resolved, err := config.ResolveRuntime(claude.ID, "")
 	if err != nil {
 		return nil, err
 	}
@@ -298,8 +298,8 @@ func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, 
 	if resolved.Endpoint != resolved.UpstreamEndpoint {
 		mode = "forwarding"
 	}
-	scope := resolved.CredentialProjectionFingerprint(configuration.ClientClaude)
-	reader, err := credential.ExecutableFromCommand(helperCommand, configuration.ClientClaude, scope, runtime.GOOS)
+	scope := resolved.CredentialProjectionFingerprint(claude.ID)
+	reader, err := credential.ExecutableFromCommand(helperCommand, claude.ID, scope, runtime.GOOS)
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +401,7 @@ func (j *journeyFixture) reviewPerformanceBinding(expected configuration.Runtime
 	if err != nil {
 		return err
 	}
-	actual, err := config.ResolveRuntime(configuration.ClientClaude, "")
+	actual, err := config.ResolveRuntime(claude.ID, "")
 	actual.CredentialCommand = ""
 	if err != nil || actual != expected {
 		return errors.Join(err, errors.New("measured forwarding differs from its selected native binding"))
@@ -458,7 +458,7 @@ func (j *journeyFixture) attributionCases(helper []string, shell, reader, scope 
 		{Name: "shell-startup", Command: startup},
 		{Name: "source-startup", Command: []string{j.source, "--version"}},
 		{Name: "reader-startup", Command: []string{reader, "--version"}},
-		{Name: "credential-direct", Command: []string{reader, "credential", configuration.ClientClaude, scope}},
+		{Name: "credential-direct", Command: []string{reader, "credential", claude.ID, scope}},
 		j.performanceCases(helper, "", configuration.Runtime{})[1],
 		j.performanceCases(helper, "", configuration.Runtime{})[3],
 	}
@@ -518,7 +518,7 @@ func TestNativeAttributionKeepsTheProjectedReaderBoundary(t *testing.T) {
 		{Name: "shell-startup", Command: []string{"selected shell", "/d", "/c", "exit", "0"}},
 		{Name: "source-startup", Command: []string{journey.source, "--version"}},
 		{Name: "reader-startup", Command: []string{"copied reader", "--version"}},
-		{Name: "credential-direct", Command: []string{"copied reader", "credential", configuration.ClientClaude, "exact-scope"}},
+		{Name: "credential-direct", Command: []string{"copied reader", "credential", claude.ID, "exact-scope"}},
 		journey.performanceCases([]string{"original shell helper"}, "", configuration.Runtime{})[1],
 		journey.performanceCases([]string{"original shell helper"}, "", configuration.Runtime{})[3],
 	}

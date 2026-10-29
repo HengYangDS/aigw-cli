@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
@@ -25,7 +26,7 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: "/usr/local/bin/codex"},
+		Executables: map[string]string{codex.ID: "/usr/local/bin/codex"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -40,8 +41,8 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 		Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
-	cfg.SetClientActivation(configuration.ClientCodex, true, "", nil)
+	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.SetClientActivation(codex.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +60,7 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter := after.Clients[configuration.ClientCodex]
+	adapter := after.Clients[codex.ID]
 	if !adapter.Enabled || adapter.Executable != "/usr/local/bin/codex" || len(adapter.Targets) != 1 {
 		t.Fatalf("Codex adapter after sync = %#v", adapter)
 	}
@@ -83,7 +84,7 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 	home := t.TempDir()
 	target := filepath.Join(home, ".codex", "config.toml")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: "/usr/local/bin/codex"},
+		Executables: map[string]string{codex.ID: "/usr/local/bin/codex"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -106,7 +107,7 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter := after.Clients[configuration.ClientCodex]
+	adapter := after.Clients[codex.ID]
 	if adapter.Route != "dmxapi-gpt" || !adapter.Enabled || adapter.Executable != "/usr/local/bin/codex" || len(adapter.Targets) != 1 {
 		t.Fatalf("Codex adapter after sync = %#v", adapter)
 	}
@@ -137,7 +138,7 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 	settingsPath := filepath.Join(settingsHome, ".claude", "settings.json")
 	app.Host = hostAt(settingsHome)
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientClaude: "/usr/local/bin/claude"},
+		Executables: map[string]string{claude.ID: "/usr/local/bin/claude"},
 	}}
 	before, err := app.Config.Load()
 	if err != nil {
@@ -159,11 +160,11 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatalf("decode sync preview: %v\n%s", err, out.String())
 	}
-	if !preview.DryRun || len(preview.Targets) != 1 || preview.Targets[0].Client != configuration.ClientClaude || preview.Targets[0].Target != settingsPath || preview.Targets[0].Action != "project" {
+	if !preview.DryRun || len(preview.Targets) != 1 || preview.Targets[0].Client != claude.ID || preview.Targets[0].Target != settingsPath || preview.Targets[0].Action != "project" {
 		t.Fatalf("sync preview = %#v", preview)
 	}
 	wantRoutes := map[string]string{
-		configuration.ClientClaude: "aihubmix-claude",
+		claude.ID: "aihubmix-claude",
 	}
 	if !maps.Equal(preview.Selections, wantRoutes) {
 		t.Fatalf("sync preview selections = %#v, want %#v", preview.Selections, wantRoutes)
@@ -173,7 +174,7 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 		t.Fatalf("render sync preview after setting one environment Token: %v", err)
 	}
 	for client, route := range wantRoutes {
-		row := regexp.MustCompile(`(?m)^  ` + regexp.QuoteMeta(configuration.ClientLabel(client)) + ` +` + regexp.QuoteMeta(route) + `$`)
+		row := regexp.MustCompile(`(?m)^  ` + regexp.QuoteMeta(clients.Admission().Label(client)) + ` +` + regexp.QuoteMeta(route) + `$`)
 		if !row.MatchString(out.String()) {
 			t.Fatalf("sync preview omitted %s route %s:\n%s", client, route, out.String())
 		}
@@ -182,8 +183,8 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := afterPreview.SelectedRoute(configuration.ClientClaude); got != before.SelectedRoute(configuration.ClientClaude) {
-		t.Fatalf("dry-run changed Claude selection from %q to %q", before.SelectedRoute(configuration.ClientClaude), got)
+	if got := afterPreview.SelectedRoute(claude.ID); got != before.SelectedRoute(claude.ID) {
+		t.Fatalf("dry-run changed Claude selection from %q to %q", before.SelectedRoute(claude.ID), got)
 	}
 	if _, err := os.Stat(settingsPath); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("dry-run wrote Claude settings: %v", err)
@@ -199,10 +200,10 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.SelectedRoute(configuration.ClientClaude) != wantRoutes[configuration.ClientClaude] {
+	if after.SelectedRoute(claude.ID) != wantRoutes[claude.ID] {
 		t.Fatalf("bindings = %#v, want selections %#v", after.Clients, wantRoutes)
 	}
-	adapter := after.Clients[configuration.ClientClaude]
+	adapter := after.Clients[claude.ID]
 	if !adapter.Enabled || adapter.Executable != "/usr/local/bin/claude" {
 		t.Fatalf("Claude adapter after sync = %#v", adapter)
 	}
@@ -223,9 +224,9 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	before.SetSelectedRoute(configuration.ClientClaude, "aihubmix-claude", "")
-	before.SetSelectedRoute(configuration.ClientCodex, "dmxapi-gpt", "")
-	before.SetClientActivation(configuration.ClientCodex, true, "", nil)
+	before.SetSelectedRoute(claude.ID, "aihubmix-claude", "")
+	before.SetSelectedRoute(codex.ID, "dmxapi-gpt", "")
+	before.SetClientActivation(codex.ID, true, "", nil)
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
 	}
@@ -233,8 +234,8 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
 	codexTarget := filepath.Join(t.TempDir(), "config.toml")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{
-			configuration.ClientClaude: executableFixture(t, "claude"),
-			configuration.ClientCodex:  executableFixture(t, "codex"),
+			claude.ID: executableFixture(t, "claude"),
+			codex.ID:  executableFixture(t, "codex"),
 		},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
@@ -254,14 +255,14 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.SelectedRoute(configuration.ClientClaude) != before.SelectedRoute(configuration.ClientClaude) ||
-		after.SelectedRoute(configuration.ClientCodex) != before.SelectedRoute(configuration.ClientCodex) {
+	if after.SelectedRoute(claude.ID) != before.SelectedRoute(claude.ID) ||
+		after.SelectedRoute(codex.ID) != before.SelectedRoute(codex.ID) {
 		t.Fatalf("sync changed independent bindings: got %#v, want %#v", after.Clients, before.Clients)
 	}
-	if after.Clients[configuration.ClientClaude].Enabled {
-		t.Fatalf("sync activated Claude through an unselected Account: %#v", after.Clients[configuration.ClientClaude])
+	if after.Clients[claude.ID].Enabled {
+		t.Fatalf("sync activated Claude through an unselected Account: %#v", after.Clients[claude.ID])
 	}
-	if adapter := after.Clients[configuration.ClientCodex]; !adapter.Enabled || adapter.Executable == "" || len(adapter.Targets) != 1 {
+	if adapter := after.Clients[codex.ID]; !adapter.Enabled || adapter.Executable == "" || len(adapter.Targets) != 1 {
 		t.Fatalf("sync did not activate the selected Codex Route: %#v", adapter)
 	}
 	if data := readFile(t, codexTarget); !strings.Contains(string(data), `model = "gpt-test" # managed by AIGW`) {
@@ -282,7 +283,7 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 		t.Fatal(err)
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: "/usr/local/bin/codex"},
+		Executables: map[string]string{codex.ID: "/usr/local/bin/codex"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
 			Authority:   string(surfaceidentity.AuthorityAIGW),
@@ -297,7 +298,7 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 		Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
+	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -312,7 +313,7 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if adapter := after.Clients[configuration.ClientCodex]; adapter.Enabled {
+	if adapter := after.Clients[codex.ID]; adapter.Enabled {
 		t.Fatalf("Codex adapter was enabled before Account connection: %#v", adapter)
 	}
 	data, err := os.ReadFile(target)

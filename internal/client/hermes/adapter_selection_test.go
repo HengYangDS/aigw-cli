@@ -16,11 +16,11 @@ func TestAdoptHermesSelectionLeavesUnprojectedBindingsUnchanged(t *testing.T) {
 	for name, prepare := range map[string]func(*configuration.Config){
 		"disabled": func(*configuration.Config) {},
 		"unselected": func(cfg *configuration.Config) {
-			cfg.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{"/missing/config.yaml"})
+			cfg.SetClientActivation(ID, true, "/opt/hermes", []string{"/missing/config.yaml"})
 		},
 		"two homes": func(cfg *configuration.Config) {
-			cfg.SetSelectedRoute(configuration.ClientHermes, "opus", "")
-			cfg.SetClientActivation(configuration.ClientHermes, true, "/opt/hermes", []string{"/a/config.yaml", "/b/config.yaml"})
+			cfg.SetSelectedRoute(ID, "opus", "")
+			cfg.SetClientActivation(ID, true, "/opt/hermes", []string{"/a/config.yaml", "/b/config.yaml"})
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -28,8 +28,8 @@ func TestAdoptHermesSelectionLeavesUnprojectedBindingsUnchanged(t *testing.T) {
 			prepare(&candidate)
 			before := candidate.Clone()
 			routeID, err := (hermesAdapter{}).AdoptSelection(client.Dependencies{}, &candidate)
-			if err != nil || routeID != "" || candidate.SelectedRoute(configuration.ClientHermes) != before.SelectedRoute(configuration.ClientHermes) {
-				t.Fatalf("adoption = %q, %v; binding %#v", routeID, err, candidate.Clients[configuration.ClientHermes])
+			if err != nil || routeID != "" || candidate.SelectedRoute(ID) != before.SelectedRoute(ID) {
+				t.Fatalf("adoption = %q, %v; binding %#v", routeID, err, candidate.Clients[ID])
 			}
 		})
 	}

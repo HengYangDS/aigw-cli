@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
@@ -20,7 +21,7 @@ func TestHomebrewRollbackDoesNotReleaseCredentialsBeforeRetryCapability(t *testi
 	cfg.Accounts["test"] = configuration.Account{Label: "Test", Endpoints: configuration.Endpoints{OpenAIResponses: "https://endpoint.test/v1"}}
 	cfg.Routes["test"] = configuration.Route{Label: "Test", Account: "test", Model: "gpt-6.1-sol", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	zero := uint64(0)
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Route: "test", RetryPolicy: &configuration.RetryPolicy{RequestMaxRetries: &zero}}
+	cfg.Clients[codex.ID] = configuration.ClientBinding{Route: "test", RetryPolicy: &configuration.RetryPolicy{RequestMaxRetries: &zero}}
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)

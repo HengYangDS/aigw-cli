@@ -17,7 +17,9 @@ import (
 	"strings"
 	"syscall"
 
-	"aigw-cli/internal/configuration"
+	claudeclient "aigw-cli/internal/client/claude"
+	codexclient "aigw-cli/internal/client/codex"
+	hermesclient "aigw-cli/internal/client/hermes"
 	"aigw-cli/tools/release/construction"
 
 	"github.com/rogpeppe/go-internal/robustio"
@@ -82,12 +84,12 @@ func (release clientRelease) validate(clients []string) error {
 		return errors.New("native client supply requires exact Codex and Claude releases")
 	}
 	for _, client := range clients {
-		if client != configuration.ClientClaude && client != configuration.ClientCodex && client != configuration.ClientHermes {
+		if client != claudeclient.ID && client != codexclient.ID && client != hermesclient.ID {
 			return fmt.Errorf("no official supply for native client %s", client)
 		}
 	}
 	pinned := release.hermesCommit != "" || release.hermesInstaller != ""
-	switch hermes := slices.Contains(clients, configuration.ClientHermes); {
+	switch hermes := slices.Contains(clients, hermesclient.ID); {
 	case hermes && (!exactCommit.MatchString(release.hermesCommit) || !exactSHA256.MatchString(release.hermesInstaller)):
 		return errors.New("native Hermes supply requires its exact release commit and installer checksum")
 	case !hermes && pinned:
@@ -183,7 +185,7 @@ func posixClientEnvironment(supply string, layout clientLayout, clients []string
 		"AIGW_ACCEPTANCE_CODEX=" + filepath.Join(codex, "bin", "codex"),
 		"AIGW_ACCEPTANCE_CLAUDE=" + filepath.Join(supply, filepath.FromSlash(layout.claudeExecutable())),
 	}
-	if slices.Contains(clients, configuration.ClientHermes) {
+	if slices.Contains(clients, hermesclient.ID) {
 		environment = append(environment,
 			"AIGW_ACCEPTANCE_HERMES="+hermesLauncher(supply),
 			"AIGW_ACCEPTANCE_HERMES_HOME="+filepath.Join(supply, "hermes"))
@@ -292,7 +294,7 @@ func supplyClients(host, root, githubEnvironment string, release clientRelease, 
 	if err != nil {
 		return err
 	}
-	if slices.Contains(clients, configuration.ClientHermes) {
+	if slices.Contains(clients, hermesclient.ID) {
 		if err := installHermes(supply, release, stdout, guarded); err != nil {
 			return err
 		}

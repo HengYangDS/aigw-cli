@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
@@ -95,7 +96,7 @@ func blockedConfigurationStore(t *testing.T) (configuration.Store, secrets.Store
 		Label: "Current", Account: "current", Model: "gpt-current",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "current", "")
+	cfg.SetSelectedRoute(codex.ID, "current", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

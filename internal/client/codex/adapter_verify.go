@@ -17,12 +17,12 @@ import (
 )
 
 func (codexAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg configuration.Config, runtime configuration.Runtime, explicitRoute string) (_ client.Verification, result error) {
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[ID]
 	reader := deps.AIGWExecutable
 	if binding.Enabled && binding.Executable != "" && len(binding.Targets) > 0 && binding.Route != "" {
 		targets := append([]string(nil), binding.Targets...)
 		sort.Strings(targets)
-		selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+		selected, err := cfg.ResolveRuntime(ID, "")
 		if err != nil {
 			return client.Verification{}, err
 		}
@@ -50,7 +50,7 @@ func (codexAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg co
 	verifyCtx, cancel := context.WithTimeout(ctx, 3*clientverification.ProtocolTimeout)
 	defer cancel()
 	runner := deps.Runner
-	if cfg.Clients[configuration.ClientCodex].CredentialCommand != "" && runner != nil {
+	if cfg.Clients[ID].CredentialCommand != "" && runner != nil {
 		runner = client.SuppressExternalCredentialDiagnostics(runner)
 	}
 	identity, err := VerifyInvocation(verifyCtx, runner, cfg, runtime, explicitRoute)
@@ -61,7 +61,7 @@ func retainedRuntime(target string, cfg configuration.Config, runtime configurat
 	if !runtime.RequiresAccountToken() || currentReader == "" {
 		return runtime, nil
 	}
-	if cfg.Clients[configuration.ClientCodex].CredentialCommand != "" {
+	if cfg.Clients[ID].CredentialCommand != "" {
 		runtime.CredentialCommand = runtime.CredentialExecutable(currentReader)
 		return runtime, nil
 	}
@@ -101,7 +101,7 @@ func isolateProjection(cfg configuration.Config, runtime configuration.Runtime, 
 	after := before
 	after.Executable = binding.Executable
 	after.CreateIfAbsent = true
-	selected, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	selected, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		return configuration.Config{}, workspace, fmt.Errorf("resolve selected Codex projection: %w", err)
 	}
@@ -113,6 +113,6 @@ func isolateProjection(cfg configuration.Config, runtime configuration.Runtime, 
 	}
 	isolated = cfg.Clone()
 	binding.Targets = []string{target}
-	isolated.Clients[configuration.ClientCodex] = binding
+	isolated.Clients[ID] = binding
 	return isolated, workspace, nil
 }

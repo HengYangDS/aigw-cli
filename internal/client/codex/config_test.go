@@ -19,7 +19,7 @@ func codexRuntime(profileID, label, endpoint, model string) configuration.Runtim
 		RouteID:           profileID,
 		RouteLabel:        label,
 		AccountID:         "dmx",
-		Client:            configuration.ClientCodex,
+		Client:            codex.ID,
 		Endpoint:          endpoint,
 		Model:             model,
 	}

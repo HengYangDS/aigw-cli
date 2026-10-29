@@ -1,6 +1,7 @@
 package performance
 
 import (
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/configuration"
 	"bytes"
 	"context"
@@ -33,7 +34,7 @@ func TestWorkloadAcceptsItsResolvedForwardingProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	binding := configuration.Runtime{Client: configuration.ClientClaude, RouteID: "selected-route", AccountID: "account",
+	binding := configuration.Runtime{Client: claude.ID, RouteID: "selected-route", AccountID: "account",
 		Protocol: configuration.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "http://127.0.0.1:18792/v1"}
 	workload := Workload{Name: "projection", Command: []string{program, "use", "--for", "claude", "selected-route", "--forwarding-endpoint", binding.Endpoint}, Mode: "forwarding", Runtime: binding}
 	if err := workload.Review(&selected); err != nil {

@@ -16,6 +16,9 @@ import (
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
+// ID identifies the admitted Codex client family.
+const ID = "codex"
+
 // codexAdapter is the Codex client adapter behind the client seam.
 type codexAdapter struct{}
 
@@ -23,13 +26,19 @@ type codexAdapter struct{}
 func New() client.Adapter { return codexAdapter{} }
 
 func (codexAdapter) Spec() configuration.ClientSpec {
-	return client.AdmittedSpec(configuration.ClientCodex)
+	return configuration.ClientSpec{
+		ID: ID, Label: "Codex", EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses},
+		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true,
+		DefaultModelProvider: configuration.ModelProviderAIGW, ClientNativeAuthentication: true,
+		PublishedProfileProtocol: configuration.ProtocolOpenAIResponses,
+		Doctor:                   configuration.DoctorWording{AdapterStates: true, RouteBinding: true},
+	}
 }
 
 func (codexAdapter) Discover(source client.DiscoverySource) discovery.Result {
 	path := filepath.Join(homeDirectory(source.Platform()), "config.toml")
 	return discovery.Result{
-		Executables: map[string]string{configuration.ClientCodex: source.Executable(configuration.ClientCodex)},
+		Executables: map[string]string{ID: source.Executable(ID)},
 		Surfaces: []discovery.Surface{{
 			ID:          string(HomeDefault),
 			Product:     "Codex",
@@ -62,19 +71,19 @@ func (codexAdapter) ValidateTarget(discovered discovery.Result, path string) err
 }
 
 func (codexAdapter) Converge(deps client.Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		if _, unselected := errors.AsType[*configuration.RuntimeBindingUnselectedError](err); unselected {
 			return nil
 		}
 		return err
 	}
-	binding, explicitlyConfigured := cfg.Clients[configuration.ClientCodex]
+	binding, explicitlyConfigured := cfg.Clients[ID]
 	if !explicitlyConfigured || !binding.Enabled {
 		return nil
 	}
 	targets := convergedTargets(discovered, binding.Targets)
-	executable, err := client.ResolveExecutable(configuration.ClientCodex, binding.Executable, discovered.Executable(configuration.ClientCodex))
+	executable, err := client.ResolveExecutable(ID, binding.Executable, discovered.Executable(ID))
 	if err != nil {
 		return err
 	}
@@ -86,7 +95,7 @@ func (codexAdapter) Converge(deps client.Dependencies, cfg *configuration.Config
 		}
 	}
 	if executable != "" && len(targets) > 0 && available {
-		cfg.SetClientActivation(configuration.ClientCodex, true, executable, targets)
+		cfg.SetClientActivation(ID, true, executable, targets)
 	}
 	return nil
 }
@@ -97,7 +106,7 @@ func (codexAdapter) Plan(deps client.Dependencies, before, after configuration.C
 		return nil, err
 	}
 	var plans []ProjectionPlan
-	if deps.AuthorizedSelectionClient == configuration.ClientCodex {
+	if deps.AuthorizedSelectionClient == ID {
 		plans, err = PlanReconciliationAuthorizedTransition(beforeRefs, afterRefs, previous, runtime)
 	} else {
 		plans, err = PlanReconciliationTransition(beforeRefs, afterRefs, previous, runtime)
@@ -107,7 +116,7 @@ func (codexAdapter) Plan(deps client.Dependencies, before, after configuration.C
 	}
 	result := make([]client.ProjectionPlan, 0, len(plans))
 	for _, plan := range plans {
-		result = append(result, client.ProjectionPlan{Client: configuration.ClientCodex, Target: plan.Target, Action: string(plan.Action), Surface: plan.SurfaceID, Effects: plan.Effects, ChangesState: plan.ChangesState()})
+		result = append(result, client.ProjectionPlan{Client: ID, Target: plan.Target, Action: string(plan.Action), Surface: plan.SurfaceID, Effects: plan.Effects, ChangesState: plan.ChangesState()})
 	}
 	return result, nil
 }
@@ -117,15 +126,15 @@ func (codexAdapter) Apply(_ context.Context, deps client.Dependencies, before, a
 	if err != nil {
 		return nil, err
 	}
-	if deps.AuthorizedSelectionClient == configuration.ClientCodex {
+	if deps.AuthorizedSelectionClient == ID {
 		return ReconcileConfigsAuthorizedTransition(beforeRefs, afterRefs, previous, runtime)
 	}
 	return ReconcileConfigsTransition(beforeRefs, afterRefs, previous, runtime)
 }
 
 func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
-	beforeBinding := before.Clients[configuration.ClientCodex]
-	afterBinding := after.Clients[configuration.ClientCodex]
+	beforeBinding := before.Clients[ID]
+	afterBinding := after.Clients[ID]
 	if beforeBinding.Enabled != afterBinding.Enabled || beforeBinding.CredentialCommand != afterBinding.CredentialCommand {
 		return true
 	}
@@ -135,8 +144,8 @@ func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
 	if !beforeBinding.Enabled || !slices.Equal(beforeBinding.Targets, afterBinding.Targets) {
 		return true
 	}
-	beforeRuntime, beforeErr := before.ResolveRuntime(configuration.ClientCodex, "")
-	afterRuntime, afterErr := after.ResolveRuntime(configuration.ClientCodex, "")
+	beforeRuntime, beforeErr := before.ResolveRuntime(ID, "")
+	afterRuntime, afterErr := after.ResolveRuntime(ID, "")
 	if beforeErr != nil || afterErr != nil {
 		return true
 	}
@@ -151,7 +160,7 @@ func (codexAdapter) ProjectionChanged(before, after configuration.Config) bool {
 }
 
 func (codexAdapter) Inspect(_ context.Context, deps client.Dependencies, cfg configuration.Config, runtime configuration.Runtime) client.Status {
-	binding := cfg.Clients[configuration.ClientCodex]
+	binding := cfg.Clients[ID]
 	if !binding.Enabled {
 		return client.Status{Issue: "Codex adapter is disabled", RepairAction: "aigw sync"}
 	}
@@ -193,7 +202,7 @@ func (codexAdapter) Inspect(_ context.Context, deps client.Dependencies, cfg con
 }
 
 func (codexAdapter) Withdraw(cfg *configuration.Config) {
-	delete(cfg.Clients, configuration.ClientCodex)
+	delete(cfg.Clients, ID)
 }
 
 func convergedTargets(discovered discovery.Result, current []string) []string {
@@ -221,8 +230,8 @@ func convergedTargets(discovered discovery.Result, current []string) []string {
 }
 
 func reconciliationInputs(deps client.Dependencies, before, after configuration.Config) ([]TargetRef, []TargetRef, configuration.Runtime, configuration.Runtime, error) {
-	beforeBinding := before.Clients[configuration.ClientCodex]
-	afterBinding := after.Clients[configuration.ClientCodex]
+	beforeBinding := before.Clients[ID]
+	afterBinding := after.Clients[ID]
 	if !beforeBinding.Enabled && !afterBinding.Enabled {
 		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, nil
 	}
@@ -238,14 +247,14 @@ func reconciliationInputs(deps client.Dependencies, before, after configuration.
 	if err != nil {
 		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
 	}
-	previous, _ := before.ResolveRuntime(configuration.ClientCodex, "")
+	previous, _ := before.ResolveRuntime(ID, "")
 	if previous.RequiresAccountToken() {
 		previous.CredentialCommand = previous.CredentialExecutable(deps.AIGWExecutable)
 	}
 	if !afterBinding.Enabled {
 		return beforeRefs, nil, previous, configuration.Runtime{}, nil
 	}
-	runtime, err := after.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := after.ResolveRuntime(ID, "")
 	if err != nil {
 		return nil, nil, configuration.Runtime{}, configuration.Runtime{}, err
 	}
@@ -266,7 +275,7 @@ func bindingExecutable(discovered discovery.Result, binding configuration.Client
 	if binding.Executable != "" {
 		return binding.Executable
 	}
-	return discovered.Executable(configuration.ClientCodex)
+	return discovered.Executable(ID)
 }
 
 func targetRefs(discovered discovery.Result, paths []string, executable string) ([]TargetRef, error) {

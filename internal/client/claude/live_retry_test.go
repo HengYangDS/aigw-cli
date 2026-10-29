@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"aigw-cli/internal/configuration"
 )
 
 // A failed request names a retry of the same invocation. An explicit Route
@@ -20,7 +18,7 @@ func TestFailedClaudeVerificationRetriesTheSameInvocation(t *testing.T) {
 		}
 		t.Run("route="+explicitRoute, func(t *testing.T) {
 			claudeConfig := verificationConfig()
-			claudeRuntime, err := claudeConfig.ResolveRuntime(configuration.ClientClaude, "")
+			claudeRuntime, err := claudeConfig.ResolveRuntime(ID, "")
 			if err != nil {
 				t.Fatal(err)
 			}

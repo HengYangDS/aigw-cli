@@ -188,7 +188,7 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 		},
 	}
 	config.Clients = map[string]configuration.ClientBinding{
-		configuration.ClientCodex: {
+		ID: {
 			Route:             routeID,
 			Enabled:           true,
 			Protocol:          configuration.ProtocolOpenAIResponses,
@@ -196,7 +196,7 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 			CredentialCommand: filepath.Join(t.TempDir(), "credential-reader"),
 		},
 	}
-	runtimeConfig, err := config.ResolveRuntime(configuration.ClientCodex, routeID)
+	runtimeConfig, err := config.ResolveRuntime(ID, routeID)
 	if err != nil {
 		t.Fatal(err)
 	}

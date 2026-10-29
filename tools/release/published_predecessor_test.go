@@ -15,6 +15,9 @@ import (
 	"testing"
 	"time"
 
+	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
@@ -122,7 +125,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	store := configuration.NewStore(journey.config, builtinclients.Admission())
 	before := capturePublishedSnapshot(t, store)
 	endpoint := forwarding.URL + "/selected/v1"
-	args := []string{"use", "native-codex", "--for", configuration.ClientCodex, "--forwarding-endpoint", endpoint}
+	args := []string{"use", "native-codex", "--for", codex.ID, "--forwarding-endpoint", endpoint}
 	preview := journey.run(append(slices.Clone(args), "--dry-run", "--json")...)
 	if bytes.Contains(preview, []byte("native-journey-token")) || !bytes.Contains(preview, []byte(endpoint)) {
 		t.Fatal("forwarding preview lost its destination or exposed credentials")
@@ -136,10 +139,10 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	}
 	journey.run(args...)
 	cfg, err := store.Load()
-	if err != nil || cfg.Clients[configuration.ClientCodex].ForwardingEndpoint != endpoint || cfg.Accounts["native-system-keyring-probe"].Endpoints.OpenAIResponses != upstream.URL+"/v1" {
+	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint || cfg.Accounts["native-system-keyring-probe"].Endpoints.OpenAIResponses != upstream.URL+"/v1" {
 		t.Fatalf("forwarding did not preserve Account ownership: %v", err)
 	}
-	journey.run("check", "--for", configuration.ClientCodex)
+	journey.run("check", "--for", codex.ID)
 	var got string
 	select {
 	case got = <-requests:
@@ -181,7 +184,7 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint s
 	store := configuration.NewStore(journey.config, builtinclients.Admission())
 	journey.run("rollback", "--last-change")
 	cfg, err := store.Load()
-	if err != nil || cfg.Clients[configuration.ClientCodex].ForwardingEndpoint != "" {
+	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != "" {
 		t.Fatalf("configuration rollback retained forwarding: %v", err)
 	}
 	journey.run("rollback", "--last-change")
@@ -198,13 +201,13 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint s
 	journey.run("update", "--candidate", state.archive, "--checksums", state.checksums)
 	journey.requireProgramBytes(state.candidate)
 	cfg, err = store.Load()
-	if err != nil || cfg.Clients[configuration.ClientCodex].ForwardingEndpoint != endpoint {
+	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint {
 		t.Fatalf("program rollback and forward restore lost forwarding: %v", err)
 	}
 	for _, client := range state.clients {
 		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
 	}
-	journey.run("use", "native-codex", "--for", configuration.ClientCodex, "--direct")
+	journey.run("use", "native-codex", "--for", codex.ID, "--direct")
 }
 
 func nativeCurrentSchemaManifest(endpoint string) string {
@@ -237,20 +240,20 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 		t.Fatal(err)
 	}
 	journey.prepareCodexLifecycle()
-	if slices.Contains(state.clients, configuration.ClientClaudeDesktop) {
-		journey.installClientFixture(configuration.ClientClaudeDesktop)
+	if slices.Contains(state.clients, claudedesktop.ID) {
+		journey.installClientFixture(claudedesktop.ID)
 	}
-	journey.installClientFixture(configuration.ClientHermes)
+	journey.installClientFixture(hermes.ID)
 	journey.setEnvironment("HERMES_HOME", filepath.Join(journey.root, "home", ".hermes"))
 	configured, err := configuration.Parse(readFile(t, journey.manifest), builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	configured.Recommendations[configuration.ClientHermes] = configuration.ClientRecommendation{
+	configured.Recommendations[hermes.ID] = configuration.ClientRecommendation{
 		Primary: configuration.ClientSelection{Route: "native-system-keyring-probe-claude", Protocol: configuration.ProtocolAnthropic},
 	}
-	if slices.Contains(state.clients, configuration.ClientClaudeDesktop) {
-		configured.Recommendations[configuration.ClientClaudeDesktop] = configuration.ClientRecommendation{
+	if slices.Contains(state.clients, claudedesktop.ID) {
+		configured.Recommendations[claudedesktop.ID] = configuration.ClientRecommendation{
 			Primary: configuration.ClientSelection{Route: "native-system-keyring-probe-claude"},
 		}
 	}

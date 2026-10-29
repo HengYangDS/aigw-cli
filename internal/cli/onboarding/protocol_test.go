@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -34,7 +35,7 @@ func TestSetupValidatesSelectedHermesProtocol(t *testing.T) {
 		Out: io.Discard, RenderOut: io.Discard,
 	}
 	request := Request{
-		Account: "team", Route: "shared", Client: configuration.ClientHermes, Model: "shared-model",
+		Account: "team", Route: "shared", Client: hermes.ID, Model: "shared-model",
 		OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
 		Protocol: string(configuration.ProtocolAnthropic),
 	}

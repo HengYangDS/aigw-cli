@@ -117,7 +117,7 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 	}) {
 		t.Fatalf("env = %#v", got["env"])
 	}
-	if got["model"] != "claude-team" || got["apiKeyHelper"] != credentialHelper(executable, runtime.CredentialProjectionFingerprint(configuration.ClientClaude)) {
+	if got["model"] != "claude-team" || got["apiKeyHelper"] != credentialHelper(executable, runtime.CredentialProjectionFingerprint(ID)) {
 		t.Fatalf("managed settings = %#v", got)
 	}
 
@@ -152,7 +152,7 @@ func TestSettingsRejectsRelativeExecutableAndProjectsAbsoluteHelper(t *testing.T
 	if err := json.Unmarshal(data, &document); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := document["apiKeyHelper"], credentialHelper(executable, runtime.CredentialProjectionFingerprint(configuration.ClientClaude)); got != want {
+	if got, want := document["apiKeyHelper"], credentialHelper(executable, runtime.CredentialProjectionFingerprint(ID)); got != want {
 		t.Fatalf("apiKeyHelper = %#v, want %#v", got, want)
 	}
 }

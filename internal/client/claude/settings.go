@@ -230,7 +230,7 @@ func prepareSettingsChange(path string, disabled bool, runtime configuration.Run
 	_ = json.Unmarshal(document["apiKeyHelper"], &observedHelper)
 	projectSettings(document, runtime, executable)
 	projectedHash := managedSettingsHash(document)
-	scope := runtime.CredentialProjectionFingerprint(configuration.ClientClaude)
+	scope := runtime.CredentialProjectionFingerprint(ID)
 	preserveModel := stateBefore.Exists && state.ManagedSHA256 != observedHash &&
 		previousModel == runtime.Model &&
 		strings.HasSuffix(observedHelper, " credential claude "+scope)
@@ -383,7 +383,7 @@ func projectSettings(document settingsDocument, runtime configuration.Runtime, e
 	} else {
 		document["model"] = encodeRaw(runtime.Model)
 	}
-	document["apiKeyHelper"] = encodeRaw(credentialHelper(executable, runtime.CredentialProjectionFingerprint(configuration.ClientClaude)))
+	document["apiKeyHelper"] = encodeRaw(credentialHelper(executable, runtime.CredentialProjectionFingerprint(ID)))
 }
 
 func validateExecutable(executable string) (string, error) {
@@ -394,14 +394,14 @@ func validateExecutable(executable string) (string, error) {
 	if executable == "" || !filepath.IsAbs(executable) {
 		return "", errors.New("AIGW executable path must be absolute")
 	}
-	if _, err := credential.Command(executable, configuration.ClientClaude, "validation", runtime.GOOS); err != nil {
+	if _, err := credential.Command(executable, ID, "validation", runtime.GOOS); err != nil {
 		return "", err
 	}
 	return executable, nil
 }
 
 func credentialHelper(executable, scope string) string {
-	command, _ := credential.Command(executable, configuration.ClientClaude, scope, runtime.GOOS)
+	command, _ := credential.Command(executable, ID, scope, runtime.GOOS)
 	return command
 }
 

@@ -39,9 +39,9 @@ func TestRenderRepairPreviewNamesEachClientAndItsSurface(t *testing.T) {
 	runtime := invocation.Context{Clients: clients.Registry(), Out: out, RenderOut: out, Width: 120}
 	explicit := string(codex.HomeExplicit("0123456789ab"))
 	plans := []client.ProjectionPlan{
-		{Client: configuration.ClientCodex, Target: "/known", Action: "update", Surface: string(codex.HomeDefault)},
-		{Client: configuration.ClientCodex, Target: "/explicit", Action: "create", Surface: explicit},
-		{Client: configuration.ClientClaudeDesktop, Target: "/library", Action: "update", Surface: string(claudedesktop.LibrarySurface)},
+		{Client: codex.ID, Target: "/known", Action: "update", Surface: string(codex.HomeDefault)},
+		{Client: codex.ID, Target: "/explicit", Action: "create", Surface: explicit},
+		{Client: claudedesktop.ID, Target: "/library", Action: "update", Surface: string(claudedesktop.LibrarySurface)},
 	}
 	if err := renderRepairResult(runtime, true, false, true, plans, nil); err != nil {
 		t.Fatal(err)
@@ -69,10 +69,10 @@ func TestRenderRepairPreviewJSONReportsEachPlannedSurface(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Out: out}
 	plans := []client.ProjectionPlan{
-		{Client: configuration.ClientClaude, Target: "/settings.json", Action: "update", ChangesState: true, Surface: string(claude.SettingsSurface)},
-		{Client: configuration.ClientClaudeDesktop, Target: "/library", Action: "unchanged", Surface: string(claudedesktop.LibrarySurface)},
-		{Client: configuration.ClientCodex, Target: "/known", Action: "update", ChangesState: true, Surface: string(codex.HomeDefault)},
-		{Client: configuration.ClientHermes, Target: "/hermes/config.yaml", Action: "unchanged", Surface: string(hermes.HomeSurface)},
+		{Client: claude.ID, Target: "/settings.json", Action: "update", ChangesState: true, Surface: string(claude.SettingsSurface)},
+		{Client: claudedesktop.ID, Target: "/library", Action: "unchanged", Surface: string(claudedesktop.LibrarySurface)},
+		{Client: codex.ID, Target: "/known", Action: "update", ChangesState: true, Surface: string(codex.HomeDefault)},
+		{Client: hermes.ID, Target: "/hermes/config.yaml", Action: "unchanged", Surface: string(hermes.HomeSurface)},
 	}
 
 	if err := renderRepairResult(runtime, true, true, false, plans, nil); err != nil {
@@ -97,7 +97,7 @@ func TestRunRepairReportsDiscoveryFailureWithoutMutatingConfiguration(t *testing
 	if err := runRepair(context.Background(), invocation.Context{Clients: clients.Registry(), Config: store}, false, false); err == nil || !strings.Contains(err.Error(), "discovery") {
 		t.Fatalf("runRepair() error = %v, want discovery failure", err)
 	}
-	if saved, err := store.Load(); err != nil || saved.SelectedRoute(configuration.ClientCodex) != cfg.SelectedRoute(configuration.ClientCodex) {
+	if saved, err := store.Load(); err != nil || saved.SelectedRoute(codex.ID) != cfg.SelectedRoute(codex.ID) {
 		t.Fatalf("configuration changed after discovery failure: cfg=%#v error=%v", saved, err)
 	}
 }
@@ -111,7 +111,7 @@ func configuredRepairStore(t *testing.T) (configuration.Store, configuration.Con
 		Label: "One", Account: "one", Model: "claude-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
+	cfg.SetSelectedRoute(claude.ID, "one", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -125,15 +125,15 @@ func TestRepairDesiredConfigPreservesExplicitCodexIntentWhenDiscoveryIsEmpty(t *
 		Label: "One", Account: "one", Model: "gpt",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	before.SetSelectedRoute(configuration.ClientCodex, "one", "")
-	before.SetClientActivation(configuration.ClientCodex, true, "/old", nil)
+	before.SetSelectedRoute(codex.ID, "one", "")
+	before.SetClientActivation(codex.ID, true, "/old", nil)
 	runtime := invocation.Context{Clients: clients.Registry(), Discovery: staticDiscovery{result: discovery.Result{}}}
 	after, _, err := invocation.Synchronizer(runtime).DesiredClientConfiguration(before)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := after.Clients[configuration.ClientCodex]; !reflect.DeepEqual(got, before.Clients[configuration.ClientCodex]) {
-		t.Fatalf("explicit client intent changed: got %#v, want %#v", got, before.Clients[configuration.ClientCodex])
+	if got := after.Clients[codex.ID]; !reflect.DeepEqual(got, before.Clients[codex.ID]) {
+		t.Fatalf("explicit client intent changed: got %#v, want %#v", got, before.Clients[codex.ID])
 	}
 }
 
@@ -149,7 +149,7 @@ func TestRunRepairReturnsConfigurationCommitFailure(t *testing.T) {
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Config: store,
 		Discovery: staticDiscovery{result: discovery.Result{Executables: map[string]string{
-			configuration.ClientClaude: "/opt/claude",
+			claude.ID: "/opt/claude",
 		}}},
 		Host: hostAt(t.TempDir()),
 	}
@@ -157,7 +157,7 @@ func TestRunRepairReturnsConfigurationCommitFailure(t *testing.T) {
 		t.Fatal("configuration commit failure was accepted")
 	}
 	got, err := store.Load()
-	if err != nil || got.SelectedRoute(configuration.ClientCodex) != cfg.SelectedRoute(configuration.ClientCodex) {
+	if err != nil || got.SelectedRoute(codex.ID) != cfg.SelectedRoute(codex.ID) {
 		t.Fatalf("configuration changed: %#v, %v", got, err)
 	}
 }
@@ -179,9 +179,9 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 				Label: "One", Account: "one", Model: "gpt-test",
 				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 			}
-			cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
+			cfg.SetSelectedRoute(codex.ID, "one", "")
 			missingTarget := filepath.Join(t.TempDir(), "missing", "configuration.toml")
-			cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{missingTarget})
+			cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{missingTarget})
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -220,8 +220,8 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 		Label: "One", Account: "one", Model: "claude-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+	cfg.SetSelectedRoute(claude.ID, "one", "")
+	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +229,7 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Executable: executable,
 		Config:     store,
-		Discovery:  staticDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/opt/claude"}}},
+		Discovery:  staticDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: "/opt/claude"}}},
 		Host:       hostAt(settingsHome),
 		Out:        out,
 	}
@@ -260,7 +260,7 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 		{"/updated/claude", "already-converged", "aigw check"},
 	} {
 		out.Reset()
-		runtime.Discovery = staticDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: test.label}}}
+		runtime.Discovery = staticDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: test.label}}}
 		if err := runRepair(t.Context(), runtime, true, true); err != nil {
 			t.Fatal(err)
 		}

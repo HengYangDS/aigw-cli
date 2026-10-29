@@ -14,7 +14,7 @@ import (
 
 // claudeRegistry registers only this adapter against its own admission record.
 func claudeRegistry() client.Registry {
-	registry, err := client.NewRegistry([]configuration.ClientSpec{client.AdmittedSpec(configuration.ClientClaude)}, New())
+	registry, err := client.NewRegistry(New())
 	if err != nil {
 		panic(err)
 	}
@@ -26,12 +26,12 @@ func TestClaudeProjectionTreatsAnInvalidRuntimeAsChanged(t *testing.T) {
 		before := configuration.NewConfig(testAdmission())
 		before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 		before.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
-		before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-		before.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
+		before.SetSelectedRoute(ID, "claude", "")
+		before.SetClientActivation(ID, true, "/opt/claude", nil)
 		after := before.Clone()
 		delete(before.Routes, "claude")
 		delete(after.Routes, "claude")
-		if changed := claudeRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != configuration.ClientClaude {
+		if changed := claudeRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != ID {
 			t.Fatal("invalid Claude runtime was treated as unchanged")
 		}
 	})
@@ -46,13 +46,13 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 	}}
 	cfg.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
 	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
-	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
-	cfg.SetClientActivation(configuration.ClientClaude, true, missing, nil)
+	cfg.SetSelectedRoute(ID, "claude", "")
+	cfg.SetSelectedRoute(otherClient.ID, "codex", "")
+	cfg.SetClientActivation(ID, true, missing, nil)
 
-	after, err := claudeRegistry().Converge(client.Dependencies{}, cfg, discovery.Result{}, configuration.ClientClaude)
-	if err != nil || after.Clients[configuration.ClientClaude].Executable != missing {
-		t.Fatalf("configured missing executable = %q, %v", after.Clients[configuration.ClientClaude].Executable, err)
+	after, err := claudeRegistry().Converge(client.Dependencies{}, cfg, discovery.Result{}, ID)
+	if err != nil || after.Clients[ID].Executable != missing {
+		t.Fatalf("configured missing executable = %q, %v", after.Clients[ID].Executable, err)
 	}
 	if runtime.GOOS == "windows" {
 		return
@@ -61,9 +61,9 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 	if err := os.Symlink(loop, loop); err != nil {
 		t.Skipf("symbolic link unavailable: %v", err)
 	}
-	cfg.SetClientActivation(configuration.ClientClaude, true, loop, nil)
-	discovered := discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/replacement/claude"}}
-	for _, clientID := range []string{configuration.ClientClaude} {
+	cfg.SetClientActivation(ID, true, loop, nil)
+	discovered := discovery.Result{Executables: map[string]string{ID: "/replacement/claude"}}
+	for _, clientID := range []string{ID} {
 		if _, err := claudeRegistry().Converge(client.Dependencies{}, cfg, discovered, clientID); err == nil || !strings.Contains(err.Error(), "inspect configured "+clientID+" executable") {
 			t.Fatalf("Converge(%q) error = %v", clientID, err)
 		}
@@ -71,7 +71,7 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 }
 
 func TestClaudeConvergenceIgnoresOnlyAnUnselectedRoute(t *testing.T) {
-	for _, clientID := range []string{configuration.ClientClaude} {
+	for _, clientID := range []string{ID} {
 		t.Run(clientID+" without a route", func(t *testing.T) {
 			if _, err := claudeRegistry().Converge(client.Dependencies{}, configuration.NewConfig(testAdmission()), discovery.Result{}, clientID); err != nil {
 				t.Fatalf("Converge(%q) without a route = %v", clientID, err)

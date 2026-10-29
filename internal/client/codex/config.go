@@ -372,7 +372,7 @@ func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 		projection.Auth = &struct {
 			Command string   `toml:"command"`
 			Args    []string `toml:"args"`
-		}{runtime.CredentialCommand, []string{"credential", "codex", runtime.CredentialProjectionFingerprint(configuration.ClientCodex)}}
+		}{runtime.CredentialCommand, []string{"credential", "codex", runtime.CredentialProjectionFingerprint(ID)}}
 	}
 	return projection.render(provider)
 }

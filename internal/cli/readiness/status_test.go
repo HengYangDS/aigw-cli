@@ -3,6 +3,9 @@ package readiness
 import (
 	"aigw-cli/internal/cli/invocation"
 	clientdomain "aigw-cli/internal/client"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	domainreadiness "aigw-cli/internal/readiness"
@@ -30,7 +33,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
-	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, client := range []string{claude.ID, codex.ID} {
 		cfg.SetClientActivation(client, true, "/opt/"+client, nil)
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -71,8 +74,8 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		Label: "Codex only", Purpose: "Selection", Account: "one", Model: "gpt-test",
 		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
 	}
-	delete(cfg.Clients, configuration.ClientCodex)
-	cfg.SetRecommendedRoute(configuration.ClientCodex, "codex-only")
+	delete(cfg.Clients, codex.ID)
+	cfg.SetRecommendedRoute(codex.ID, "codex-only")
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -90,15 +93,15 @@ func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
 	if err := runtime.Secrets.Set("one", "available-token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
-	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{"/opt/codex/config.toml"})
+	cfg.SetClientActivation(claude.ID, true, "", nil)
+	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{"/opt/codex/config.toml"})
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 	originalInspect := inspectAdapter
 	t.Cleanup(func() { inspectAdapter = originalInspect })
 	inspectAdapter = func(_ context.Context, _ invocation.Context, _ configuration.Config, client string, _ configuration.Runtime) clientdomain.Status {
-		return clientdomain.Status{Ready: client == configuration.ClientCodex}
+		return clientdomain.Status{Ready: client == codex.ID}
 	}
 	if err := RunStatus(runtime, true); err != nil {
 		t.Fatal(err)
@@ -108,7 +111,7 @@ func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := "Install Claude if needed, then run `aigw sync`"
-	if result.Clients[configuration.ClientClaude].NextAction != want || result.NextAction != want {
+	if result.Clients[claude.ID].NextAction != want || result.NextAction != want {
 		t.Fatalf("mixed-client JSON continuation = %+v", result)
 	}
 	output.Reset()
@@ -135,7 +138,7 @@ func TestStatusStatesClaudeDesktopQualifiedModesAndPlatforms(t *testing.T) {
 	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	desktop := result.Clients[configuration.ClientClaudeDesktop]
+	desktop := result.Clients[claudedesktop.ID]
 	if !slices.Equal(desktop.QualifiedModes, []string{"Chat", "Cowork", "Code"}) {
 		t.Fatalf("qualified modes = %#v", desktop.QualifiedModes)
 	}
@@ -244,7 +247,7 @@ func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *test
 	if err := json.Unmarshal(buffer.Bytes(), &status); err != nil {
 		t.Fatal(err)
 	}
-	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, client := range []string{claude.ID, codex.ID} {
 		if status.Clients[client].Transport != "external_loopback" {
 			t.Errorf("client %s transport = %q", client, status.Clients[client].Transport)
 		}
@@ -364,7 +367,7 @@ func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Routes["available"] = configuration.Route{Label: "Available"}
 	clients := map[string]clientStatus{}
-	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, client := range []string{claude.ID, codex.ID} {
 		state := domainreadiness.Client{State: domainreadiness.Invalid}
 		clients[client] = clientStatus{Client: state}
 	}
@@ -387,10 +390,10 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 		out := &bytes.Buffer{}
 		runtime := invocation.Context{Clients: clients.Registry(), Out: out, Width: 120}
 		renderClientStatus(invocation.Renderer(runtime), runtime.Clients.Admission(), statusOutput{
-			Clients: map[string]clientStatus{configuration.ClientClaude: {
+			Clients: map[string]clientStatus{claude.ID: {
 				Client: domainreadiness.Client{State: state, Route: "route"},
 			}},
-		}, []string{configuration.ClientClaude})
+		}, []string{claude.ID})
 		if !strings.Contains(out.String(), state.Label()) {
 			t.Fatalf("state %s rendering = %q", state, out)
 		}
@@ -399,8 +402,8 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 
 func TestStatusReportsSelectedUnknownRoute(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	cfg.SetSelectedRoute(configuration.ClientClaude, "missing", "")
-	state := inspectStatusClients(runtime, cfg, nil, "")[configuration.ClientClaude]
+	cfg.SetSelectedRoute(claude.ID, "missing", "")
+	state := inspectStatusClients(runtime, cfg, nil, "")[claude.ID]
 	if state.State != domainreadiness.Invalid || state.Route != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
 		t.Fatalf("Claude status = %#v", state)
 	}
@@ -424,15 +427,15 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 
 func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
-	codexBinding := cfg.Clients[configuration.ClientCodex]
+	codexBinding := cfg.Clients[codex.ID]
 	codexBinding.Enabled = true
 	codexBinding.Executable = "/opt/codex"
 	codexBinding.ModelProvider = "amazon-bedrock"
 	codexBinding.Authentication = configuration.AuthenticationClientNative
-	cfg.Clients[configuration.ClientCodex] = codexBinding
-	claudeBinding := cfg.Clients[configuration.ClientClaude]
+	cfg.Clients[codex.ID] = codexBinding
+	claudeBinding := cfg.Clients[claude.ID]
 	claudeBinding.Enabled = true
-	cfg.Clients[configuration.ClientClaude] = claudeBinding
+	cfg.Clients[claude.ID] = claudeBinding
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -478,7 +481,7 @@ func TestStatusClassifiesCredentialObservationFailureWithoutReadingValues(t *tes
 	store := &observingSecretStore{existsErr: want}
 	runtime.Secrets = store
 	result := collectStatus(runtime, cfg)
-	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {
+	for _, client := range []string{claude.ID, codex.ID} {
 		state := result.Clients[client]
 		if state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" || !strings.Contains(strings.ToLower(state.Detail), "credential metadata") {
 			t.Fatalf("%s state = %#v", client, state)
@@ -500,7 +503,7 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetClientActivation(configuration.ClientCodex, true, "codex", nil)
+	cfg.SetClientActivation(codex.ID, true, "codex", nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -521,7 +524,7 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	observed := result.Clients[configuration.ClientCodex]
+	observed := result.Clients[codex.ID]
 	if !observed.ProjectionReady || observed.Authentication != string(configuration.AuthenticationAccountToken) {
 		t.Fatalf("local projection observation = %#v", observed)
 	}

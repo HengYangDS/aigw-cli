@@ -16,8 +16,8 @@ func TestAdoptCodexSelectionRecordsTheOneMatchingRoute(t *testing.T) {
 	if err != nil || routeID != "terra" {
 		t.Fatalf("adopted Route = %q, %v", routeID, err)
 	}
-	if runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, ""); err != nil || runtime.RouteID != "terra" || runtime.Protocol != configuration.ProtocolOpenAIResponses {
-		t.Fatalf("Codex binding = %#v, %v", cfg.Clients[configuration.ClientCodex], err)
+	if runtime, err := cfg.ResolveRuntime(ID, ""); err != nil || runtime.RouteID != "terra" || runtime.Protocol != configuration.ProtocolOpenAIResponses {
+		t.Fatalf("Codex binding = %#v, %v", cfg.Clients[ID], err)
 	}
 	if after, err := os.ReadFile(targets[0]); err != nil || string(after) != native {
 		t.Fatalf("adoption wrote the Codex configuration: %v", err)
@@ -46,7 +46,7 @@ func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
 					t.Fatalf("adoption error = %v, want %s", err, want)
 				}
 			}
-			if cfg.SelectedRoute(configuration.ClientCodex) != "sol" {
+			if cfg.SelectedRoute(ID) != "sol" {
 				t.Fatal("a refused adoption changed the Codex binding")
 			}
 		})
@@ -60,7 +60,7 @@ func TestAdoptCodexSelectionRefusesDisagreeingTargets(t *testing.T) {
 	if _, err := (codexAdapter{}).AdoptSelection(client.Dependencies{}, &cfg); err == nil || !strings.Contains(err.Error(), "aigw use --for codex") {
 		t.Fatalf("disagreeing targets were adopted: %v", err)
 	}
-	if cfg.SelectedRoute(configuration.ClientCodex) != "sol" {
+	if cfg.SelectedRoute(ID) != "sol" {
 		t.Fatal("a refused adoption changed the Codex binding")
 	}
 }
@@ -70,9 +70,9 @@ func TestAdoptCodexSelectionLeavesUnchangedBindings(t *testing.T) {
 		"unchanged": func(*configuration.Config, string) {},
 		"disabled": func(cfg *configuration.Config, target string) {
 			chooseCodexModel(t, target, "gpt-terra")
-			binding := cfg.Clients[configuration.ClientCodex]
+			binding := cfg.Clients[ID]
 			binding.Enabled = false
-			cfg.Clients[configuration.ClientCodex] = binding
+			cfg.Clients[ID] = binding
 		},
 		"provider drift": func(_ *configuration.Config, target string) {
 			current := chooseCodexModel(t, target, "gpt-terra")
@@ -85,10 +85,10 @@ func TestAdoptCodexSelectionLeavesUnchangedBindings(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			cfg, targets := codexAdoptionFixture(t, 1)
 			prepare(&cfg, targets[0])
-			before := cfg.Clients[configuration.ClientCodex]
+			before := cfg.Clients[ID]
 			routeID, err := (codexAdapter{}).AdoptSelection(client.Dependencies{}, &cfg)
-			if err != nil || routeID != "" || cfg.Clients[configuration.ClientCodex].Route != before.Route {
-				t.Fatalf("adoption = %q, %v; binding %#v", routeID, err, cfg.Clients[configuration.ClientCodex])
+			if err != nil || routeID != "" || cfg.Clients[ID].Route != before.Route {
+				t.Fatalf("adoption = %q, %v; binding %#v", routeID, err, cfg.Clients[ID])
 			}
 		})
 	}
@@ -112,10 +112,10 @@ func codexAdoptionFixture(t *testing.T, count int) (configuration.Config, []stri
 		}
 		targets = append(targets, target)
 	}
-	cfg.SetSelectedRoute(configuration.ClientCodex, "sol", "")
-	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", targets)
+	cfg.SetSelectedRoute(ID, "sol", "")
+	cfg.SetClientActivation(ID, true, "/opt/codex", targets)
 	cfg.Normalize()
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}

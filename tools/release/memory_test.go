@@ -3,6 +3,7 @@
 package main
 
 import (
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
@@ -277,7 +278,7 @@ func (j *journeyFixture) measureMemory(variant string, block int) (performance.M
 	if err != nil {
 		return row, err
 	}
-	row.Runtime, err = config.ResolveRuntime(configuration.ClientClaude, "")
+	row.Runtime, err = config.ResolveRuntime(claude.ID, "")
 	if err != nil {
 		return row, err
 	}
@@ -422,7 +423,7 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 		config := configuration.NewConfig(clients.Admission())
 		config.Accounts["memory"] = configuration.Account{Label: "Memory", Endpoints: configuration.Endpoints{Anthropic: "https://unused.example.test"}}
 		config.Routes["memory"] = configuration.Route{Account: "memory", Model: "memory", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {configuration.CapabilityText}}}
-		config.SetSelectedRoute(configuration.ClientClaude, "memory", configuration.ProtocolAnthropic)
+		config.SetSelectedRoute(claude.ID, "memory", configuration.ProtocolAnthropic)
 		store := configuration.NewStore(filepath.Join(output, "config.toml"), clients.Admission())
 		if err := store.Save(config); err != nil {
 			t.Fatal(err)
@@ -470,7 +471,7 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 		t.Fatalf("interrupted block lost its two completed native observations: %#v", row)
 	}
 	identity := []string{row.Mode, row.Runtime.RouteID, row.Runtime.Client, string(readFile(t, filepath.Join(output, "observations")))}
-	if !slices.Equal(identity, []string{"direct", "memory", configuration.ClientClaude, "8"}) || row.Executable == nil {
+	if !slices.Equal(identity, []string{"direct", "memory", claude.ID, "8"}) || row.Executable == nil {
 		t.Fatalf("interrupted memory observations lost their Runtime or native provenance: %q", identity)
 	}
 	if err := performance.ReviewMemory([]performance.Memory{row}); err == nil {

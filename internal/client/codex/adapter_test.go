@@ -18,12 +18,12 @@ import (
 
 func TestCodexConvergencePreservesEnabledIntentWithoutDiscoveredTargets(t *testing.T) {
 	cfg := codexConfiguration("/explicit/config.toml")
-	before := cfg.Clients[configuration.ClientCodex]
+	before := cfg.Clients[ID]
 
 	if err := (codexAdapter{}).Converge(client.Dependencies{}, &cfg, discovery.Result{}); err != nil {
 		t.Fatal(err)
 	}
-	if got := cfg.Clients[configuration.ClientCodex]; !reflect.DeepEqual(got, before) {
+	if got := cfg.Clients[ID]; !reflect.DeepEqual(got, before) {
 		t.Fatalf("Codex convergence changed explicit intent without a discovered target: got %#v want %#v", got, before)
 	}
 }
@@ -38,8 +38,8 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		cfg := configuration.NewConfig(testAdmission())
 		cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 		cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-		cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Route: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
-		runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+		cfg.Clients[ID] = configuration.ClientBinding{Route: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
+		runtime, err := cfg.ResolveRuntime(ID, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,9 +52,9 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 
 	t.Run("missing executable", func(t *testing.T) {
 		cfg, runtime := newFixture(t, configuration.ModelProviderAIGW)
-		adapter := cfg.Clients[configuration.ClientCodex]
+		adapter := cfg.Clients[ID]
 		adapter.Executable = ""
-		cfg.Clients[configuration.ClientCodex] = adapter
+		cfg.Clients[ID] = adapter
 		status := (codexAdapter{}).Inspect(context.Background(), client.Dependencies{}, cfg, runtime)
 		if status.Ready || !strings.Contains(status.Issue, "executable") {
 			t.Fatalf("status = %#v", status)
@@ -63,9 +63,9 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 
 	t.Run("missing target", func(t *testing.T) {
 		cfg, runtime := newFixture(t, configuration.ModelProviderAIGW)
-		adapter := cfg.Clients[configuration.ClientCodex]
+		adapter := cfg.Clients[ID]
 		adapter.Targets = nil
-		cfg.Clients[configuration.ClientCodex] = adapter
+		cfg.Clients[ID] = adapter
 		status := (codexAdapter{}).Inspect(context.Background(), client.Dependencies{}, cfg, runtime)
 		if status.Ready || !strings.Contains(status.Issue, "target") {
 			t.Fatalf("status = %#v", status)
@@ -74,9 +74,9 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 
 	t.Run("projection drift", func(t *testing.T) {
 		cfg, runtime := newFixture(t, configuration.ModelProviderAIGW)
-		adapter := cfg.Clients[configuration.ClientCodex]
+		adapter := cfg.Clients[ID]
 		adapter.Targets = []string{filepath.Join(t.TempDir(), "missing.toml")}
-		cfg.Clients[configuration.ClientCodex] = adapter
+		cfg.Clients[ID] = adapter
 		status := (codexAdapter{}).Inspect(context.Background(), client.Dependencies{}, cfg, runtime)
 		if status.Ready || !strings.Contains(status.Issue, "projection drift") {
 			t.Fatalf("status = %#v", status)
@@ -114,7 +114,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 
 func TestCodexAdapterApplyRequiresDiscovery(t *testing.T) {
 	after := configuration.NewConfig(testAdmission())
-	after.SetClientActivation(configuration.ClientCodex, true, "", nil)
+	after.SetClientActivation(ID, true, "", nil)
 	if _, err := (codexAdapter{}).Apply(context.Background(), client.Dependencies{}, configuration.NewConfig(testAdmission()), after); err == nil || !strings.Contains(err.Error(), "surface discovery is unavailable") {
 		t.Fatalf("Apply() error = %v", err)
 	}
@@ -136,12 +136,12 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *tes
 			cfg := configuration.NewConfig(testAdmission())
 			cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 			cfg.Routes["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
+			cfg.Clients[ID] = configuration.ClientBinding{
 				Route: "codex", Enabled: true, ModelProvider: test.provider,
 				Authentication: test.authentication, Executable: "/usr/bin/codex", Targets: []string{target},
 			}
 			discovered := discovery.Result{
-				Executables: map[string]string{configuration.ClientCodex: "/usr/bin/codex"},
+				Executables: map[string]string{ID: "/usr/bin/codex"},
 				Surfaces: []discovery.Surface{{
 					ID:          "codex-home-default",
 					Authority:   "aigw",
@@ -184,9 +184,9 @@ func TestChangedClientsFollowPersistentCodexSemantics(t *testing.T) {
 	before := codexConfiguration(target)
 
 	disabled := before.Clone()
-	delete(disabled.Clients, configuration.ClientCodex)
+	delete(disabled.Clients, ID)
 	adapterRegistry := codexRegistry()
-	if changed := adapterRegistry.ChangedClients(before, disabled); len(changed) != 1 || changed[0] != configuration.ClientCodex {
+	if changed := adapterRegistry.ChangedClients(before, disabled); len(changed) != 1 || changed[0] != ID {
 		t.Fatalf("adapter removal scope = %v, want Codex only", changed)
 	}
 
@@ -249,7 +249,7 @@ func codexConfiguration(target string) configuration.Config {
 	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Clients[ID] = configuration.ClientBinding{Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }
 
@@ -260,13 +260,13 @@ func codexVerificationFixture(t *testing.T) (configuration.Config, configuration
 		t.Fatal(err)
 	}
 	cfg := codexConfiguration(target)
-	configured := cfg.Clients[configuration.ClientCodex]
+	configured := cfg.Clients[ID]
 	configured.Executable = filepath.Join(t.TempDir(), "codex")
-	cfg.Clients[configuration.ClientCodex] = configured
-	if err := os.WriteFile(cfg.Clients[configuration.ClientCodex].Executable, []byte("fixture"), 0o700); err != nil {
+	cfg.Clients[ID] = configured
+	if err := os.WriteFile(cfg.Clients[ID].Executable, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := cfg.ResolveRuntime(configuration.ClientCodex, "")
+	runtime, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}

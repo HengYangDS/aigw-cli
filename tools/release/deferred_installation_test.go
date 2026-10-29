@@ -1,7 +1,10 @@
 package main
 
 import (
+	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/claudedesktop"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	builtinclients "aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
@@ -23,11 +26,11 @@ func TestNativeClientFixtureMatchesClaudeDesktopDiscovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	journey := &journeyFixture{testing: t, root: root, clientBin: clientBin}
-	journey.installClientFixture(configuration.ClientClaudeDesktop)
+	journey.installClientFixture(claudedesktop.ID)
 	discovered := claudedesktop.New().Discover(discovery.System{
 		GOOS: runtime.GOOS, Home: filepath.Join(root, "home"),
 		Env: map[string]string{"XDG_CONFIG_HOME": filepath.Join(root, "config"), "LOCALAPPDATA": filepath.Join(root, "localappdata")}, Path: clientBin,
-	}).Executable(configuration.ClientClaudeDesktop)
+	}).Executable(claudedesktop.ID)
 	if runtime.GOOS == "linux" {
 		if discovered != "" {
 			t.Fatalf("Claude Desktop fixture was discovered on unsupported Linux host: %q", discovered)
@@ -40,12 +43,12 @@ func TestNativeClientFixtureMatchesClaudeDesktopDiscovery(t *testing.T) {
 }
 
 func deferredJourneyClientIDs() []string {
-	clients := slices.Clone(configuration.AdmittedClientIDs())
+	clients := slices.Clone(builtinclients.Admission().IDs())
 	if runtime.GOOS != "linux" {
 		return clients
 	}
 	return slices.DeleteFunc(clients, func(client string) bool {
-		return client == configuration.ClientClaudeDesktop
+		return client == claudedesktop.ID
 	})
 }
 
@@ -111,7 +114,7 @@ interfaces = { openai_responses = [] }
 				t.Fatal(err)
 			}
 			beforeProjections := make(map[string]map[string]string)
-			for _, candidate := range configuration.AdmittedClientIDs() {
+			for _, candidate := range builtinclients.Admission().IDs() {
 				beforeProjections[candidate] = journey.clientProjectionSnapshot(candidate)
 			}
 			if len(beforeProjections[clientID]) != 0 {
@@ -127,12 +130,12 @@ interfaces = { openai_responses = [] }
 				t.Fatal(err)
 			}
 			binding := after.Clients[clientID]
-			if !binding.Enabled || binding.Executable == "" || clientID != configuration.ClientClaude && len(binding.Targets) == 0 {
+			if !binding.Enabled || binding.Executable == "" || clientID != claude.ID && len(binding.Targets) == 0 {
 				t.Fatalf("%s binding was not activated: %#v", clientID, binding)
 			}
 			journey.requireClientProjection(clientID)
 			journey.requireUnownedClientConfiguration(userPath, userSentinel, "sync")
-			for _, candidate := range configuration.AdmittedClientIDs() {
+			for _, candidate := range builtinclients.Admission().IDs() {
 				if candidate == clientID {
 					continue
 				}
@@ -155,14 +158,14 @@ func (j *journeyFixture) seedUnownedClientConfiguration(clientID string) (string
 	const sentinel = "user-owned-before-aigw"
 	content := ""
 	switch clientID {
-	case configuration.ClientClaude:
+	case claude.ID:
 		content = fmt.Sprintf(`{"theme":%q}`, sentinel)
-	case configuration.ClientClaudeDesktop:
+	case claudedesktop.ID:
 		path = paths[1]
 		content = fmt.Sprintf(`{"theme":%q}`, sentinel)
-	case configuration.ClientCodex:
+	case codex.ID:
 		content = fmt.Sprintf("user_setting = %q\n", sentinel)
-	case configuration.ClientHermes:
+	case hermes.ID:
 		content = fmt.Sprintf("terminal:\n  backend: %s\n", sentinel)
 	default:
 		j.testing.Fatalf("unsupported client %q", clientID)
@@ -189,7 +192,7 @@ func (j *journeyFixture) requireDeferredWithdrawal(clientID, userPath, userSenti
 	if _, err := os.Stat(j.config + ".verified.json"); !os.IsNotExist(err) {
 		j.testing.Fatalf("uninstall retained verified checkpoint: %v", err)
 	}
-	for _, candidate := range configuration.AdmittedClientIDs() {
+	for _, candidate := range builtinclients.Admission().IDs() {
 		if candidate == clientID {
 			j.requireNoClientProjection(candidate, userPath)
 			j.requireUnownedClientConfiguration(userPath, userSentinel, "uninstall")
@@ -220,11 +223,11 @@ func (j *journeyFixture) requireClientProjection(clientID string) {
 		}
 	}
 	model := "claude-test"
-	if clientID == configuration.ClientCodex {
+	if clientID == codex.ID {
 		model = "gpt-test"
 	}
 	primary := paths[0]
-	if clientID == configuration.ClientClaudeDesktop {
+	if clientID == claudedesktop.ID {
 		primary = paths[2]
 	}
 	requireFileContains(j.testing, primary, j.endpoint, model)
@@ -250,15 +253,15 @@ func (j *journeyFixture) clientProjectionPaths(clientID string) []string {
 	j.testing.Helper()
 	home := filepath.Dir(filepath.Dir(j.settings))
 	switch clientID {
-	case configuration.ClientClaude:
+	case claude.ID:
 		return []string{j.settings, j.settings + ".aigw-state.json"}
-	case configuration.ClientCodex:
+	case codex.ID:
 		path := filepath.Join(home, ".codex", "config.toml")
 		return []string{path, path + ".aigw-state.json"}
-	case configuration.ClientHermes:
+	case hermes.ID:
 		path := filepath.Join(environmentValues(j.environment)["HERMES_HOME"], "config.yaml")
 		return []string{path, path + ".aigw-state.json"}
-	case configuration.ClientClaudeDesktop:
+	case claudedesktop.ID:
 		library, err := claudedesktop.LibraryPathFor(runtime.GOOS, environmentValues(j.environment))
 		if err != nil {
 			j.testing.Fatal(err)

@@ -8,7 +8,6 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/contract"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	surfaceidentity "aigw-cli/internal/surface"
 )
@@ -25,12 +24,12 @@ func TestCodexAdapterKeepsTheSeamContract(t *testing.T) {
 			t.Fatal(err)
 		}
 		after := codexConfiguration(target)
-		binding := after.Clients[configuration.ClientCodex]
+		binding := after.Clients[ID]
 		binding.Executable = executable
-		after.Clients[configuration.ClientCodex] = binding
+		after.Clients[ID] = binding
 		before := after.Clone()
-		delete(before.Clients, configuration.ClientCodex)
-		runtime, err := after.ResolveRuntime(configuration.ClientCodex, "")
+		delete(before.Clients, ID)
+		runtime, err := after.ResolveRuntime(ID, "")
 		if err != nil {
 			t.Fatal(err)
 		}

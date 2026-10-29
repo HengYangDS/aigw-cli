@@ -58,7 +58,7 @@ func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
 	})
 
-	if err := Validate(context.Background(), doer, testAdmission(), account, "secret", configuration.ClientClaude, configuration.ClientCodex, configuration.ClientCodex); err != nil {
+	if err := Validate(context.Background(), doer, testAdmission(), account, "secret", clientClaude, clientCodex, clientCodex); err != nil {
 		t.Fatal(err)
 	}
 	if len(requests) != 2 {
@@ -102,7 +102,7 @@ func TestValidateRuntimeUsesTheSelectedEndpointProtocol(t *testing.T) {
 	t.Parallel()
 
 	selected := configuration.Runtime{
-		Client:   configuration.ClientHermes,
+		Client:   clientHermes,
 		Endpoint: "https://chat.example/v1/",
 		Protocol: configuration.ProtocolOpenAIChatCompletions,
 	}
@@ -137,15 +137,15 @@ func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 		want    string
 	}{
 		{name: "unknown client", account: account, client: "unknown", want: `unsupported credential validation client "unknown"`},
-		{name: "missing endpoint", account: account, client: configuration.ClientClaude, want: "no Anthropic Messages endpoint"},
-		{name: "invalid URL", account: configuration.Account{ID: "team", Endpoints: configuration.Endpoints{OpenAIResponses: "://bad"}}, client: configuration.ClientCodex, want: "missing protocol scheme"},
-		{name: "unreachable", account: account, client: configuration.ClientCodex, doer: doerFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") }), want: "Codex endpoint is unreachable: offline"},
-		{name: "read body", account: account, client: configuration.ClientCodex, doer: staticResponse(http.StatusOK, responseBody{Reader: failingReader{err: errors.New("broken body")}}), want: "read Codex endpoint response: broken body"},
-		{name: "close body", account: account, client: configuration.ClientCodex, doer: staticResponse(http.StatusOK, responseBody{Reader: strings.NewReader("ok"), closeErr: errors.New("broken close")}), want: "close Codex endpoint response: broken close"},
-		{name: "unauthorized", account: account, client: configuration.ClientCodex, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Codex authentication was rejected (HTTP 401)"},
-		{name: "forbidden", account: account, client: configuration.ClientCodex, doer: staticResponse(http.StatusForbidden, http.NoBody), want: "Codex authentication was rejected (HTTP 403)"},
-		{name: "unexpected status", account: account, client: configuration.ClientCodex, doer: staticResponse(http.StatusBadGateway, http.NoBody), want: "Codex endpoint returned HTTP 502"},
-		{name: "multi-word client label", account: configuration.Account{ID: "team", Endpoints: configuration.Endpoints{Anthropic: "https://anthropic.test"}}, client: configuration.ClientClaudeDesktop, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Claude Desktop authentication was rejected (HTTP 401)"},
+		{name: "missing endpoint", account: account, client: clientClaude, want: "no Anthropic Messages endpoint"},
+		{name: "invalid URL", account: configuration.Account{ID: "team", Endpoints: configuration.Endpoints{OpenAIResponses: "://bad"}}, client: clientCodex, want: "missing protocol scheme"},
+		{name: "unreachable", account: account, client: clientCodex, doer: doerFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") }), want: "Codex endpoint is unreachable: offline"},
+		{name: "read body", account: account, client: clientCodex, doer: staticResponse(http.StatusOK, responseBody{Reader: failingReader{err: errors.New("broken body")}}), want: "read Codex endpoint response: broken body"},
+		{name: "close body", account: account, client: clientCodex, doer: staticResponse(http.StatusOK, responseBody{Reader: strings.NewReader("ok"), closeErr: errors.New("broken close")}), want: "close Codex endpoint response: broken close"},
+		{name: "unauthorized", account: account, client: clientCodex, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Codex authentication was rejected (HTTP 401)"},
+		{name: "forbidden", account: account, client: clientCodex, doer: staticResponse(http.StatusForbidden, http.NoBody), want: "Codex authentication was rejected (HTTP 403)"},
+		{name: "unexpected status", account: account, client: clientCodex, doer: staticResponse(http.StatusBadGateway, http.NoBody), want: "Codex endpoint returned HTTP 502"},
+		{name: "multi-word client label", account: configuration.Account{ID: "team", Endpoints: configuration.Endpoints{Anthropic: "https://anthropic.test"}}, client: clientClaudeDesktop, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Claude Desktop authentication was rejected (HTTP 401)"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -168,9 +168,9 @@ func TestProbeRequestRejectsUnknownOrAmbiguousProtocol(t *testing.T) {
 		want      string
 	}{
 		{name: "unknown client", client: "unknown", want: `unsupported credential validation client "unknown"`},
-		{name: "ambiguous Hermes protocol", client: configuration.ClientHermes, want: `requires an admitted endpoint protocol`},
-		{name: "unadmitted Claude protocol", client: configuration.ClientClaude, protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}, want: `requires an admitted endpoint protocol`},
-		{name: "multiple protocols", client: configuration.ClientCodex, protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses, configuration.ProtocolAnthropic}, want: `requires one protocol`},
+		{name: "ambiguous Hermes protocol", client: clientHermes, want: `requires an admitted endpoint protocol`},
+		{name: "unadmitted Claude protocol", client: clientClaude, protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}, want: `requires an admitted endpoint protocol`},
+		{name: "multiple protocols", client: clientCodex, protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses, configuration.ProtocolAnthropic}, want: `requires one protocol`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -245,7 +245,7 @@ func TestValidateHTTPClientDoesNotFollowRedirects(t *testing.T) {
 	account := configuration.Account{ID: "team", Endpoints: configuration.Endpoints{OpenAIResponses: server.URL + "/v1"}}
 
 	httpClient := server.Client()
-	err := Validate(context.Background(), httpClient, testAdmission(), account, "secret", configuration.ClientCodex)
+	err := Validate(context.Background(), httpClient, testAdmission(), account, "secret", clientCodex)
 	if err == nil || !strings.Contains(err.Error(), "HTTP 302") {
 		t.Fatalf("error = %v, want HTTP 302", err)
 	}

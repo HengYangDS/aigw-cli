@@ -1,7 +1,9 @@
 package construction
 
 import (
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/hermes"
 	upgradeartifact "aigw-cli/internal/upgrade/artifact"
 	releaseartifact "aigw-cli/tools/release/artifact"
 	"encoding/json"
@@ -76,9 +78,9 @@ func TestNativeClientSuccessionRequiresPublishedPredecessor(t *testing.T) {
 
 func TestNativeAcceptanceClientsSelectSupportedHostJourneys(t *testing.T) {
 	for _, platform := range []string{"darwin", "linux", "windows"} {
-		want := []string{configuration.ClientClaude, configuration.ClientCodex}
+		want := []string{claude.ID, codex.ID}
 		if platform != "windows" {
-			want = append(want, configuration.ClientHermes)
+			want = append(want, hermes.ID)
 		}
 		if got := NativeAcceptanceClients(platform); !slices.Equal(got, want) {
 			t.Fatalf("%s native clients: got %v, want %v", platform, got, want)
@@ -119,13 +121,13 @@ func TestNativeDiagnosticClientAdmission(t *testing.T) {
 	t.Setenv("AIGW_ACCEPTANCE_HERMES", executable)
 	t.Setenv("AIGW_ACCEPTANCE_HERMES_HOME", "")
 	if runtime.GOOS == "windows" {
-		if err := requireNativeClients(configuration.ClientHermes); err == nil || !strings.Contains(err.Error(), "unsupported native client") {
+		if err := requireNativeClients(hermes.ID); err == nil || !strings.Contains(err.Error(), "unsupported native client") {
 			t.Fatalf("unsupported Windows Hermes diagnostic was admitted: %v", err)
 		}
 		if _, err := ParseNativeAcceptance([]string{artifacts, "--candidate", "--diagnostic-client=hermes"}); err == nil {
 			t.Fatal("Windows Hermes diagnostic could succeed without a matching journey")
 		}
-	} else if err := requireNativeClients(configuration.ClientHermes); err == nil || !strings.Contains(err.Error(), "AIGW_ACCEPTANCE_HERMES_HOME") {
+	} else if err := requireNativeClients(hermes.ID); err == nil || !strings.Contains(err.Error(), "AIGW_ACCEPTANCE_HERMES_HOME") {
 		t.Fatalf("Hermes acceptance admitted an unbound native installation: %v", err)
 	}
 	for _, arguments := range [][]string{
