@@ -1,6 +1,6 @@
-// Package probe proves an Account's Token against the Account's endpoints: it
+// Package probe proves an Account's Token against the Account's endpoints. It
 // chooses the client that probes, sends each request without following a
-// redirect, and judges each status.
+// redirect, and turns a probe's status into a verdict on the Token.
 package probe
 
 import (

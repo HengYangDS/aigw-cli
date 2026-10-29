@@ -188,17 +188,17 @@ the probes, sending them and judging the answers is I/O; it goes to
 `secret/probe`, beside the Token store, and `domain` performs none. Each move
 keeps the exported names that callers outside the package use, unless a name
 would repeat its new package's name, and drops every exported identifier that
-has no caller outside its package.
+has no user outside its package, as the next paragraph counts one.
 
 The architecture gate's `used_exports_only` list holds `domain`, `store` and the
 `secret` subtree to that rule. An exported top-level function, type, variable or
 constant of a listed package is used when a Go file outside the package's
 directory selects it, the package's own tests excluded, or when the exported API
-of a used identifier names it: its signature or declared type, a used type's
-exported fields and methods, including those promoted from an embedded
-unexported type, and the constants declared with a used type. The gate does not
-check methods and fields on their own; Go's type checker checked stage 2's
-exported methods once.
+of a used identifier names it: the types in its signature or declared type, a
+used type's exported fields and methods, also those of an unexported type that
+such an API names, and the constants declared with a used type. The gate does
+not check methods and fields on their own; Go's type checker checked stage 2's
+exported methods and fields once.
 
 `domain` names no client. Each `Config` carries its `Admission`: the ordered
 client specifications that the composition root builds from the adapters'
@@ -277,7 +277,7 @@ scripts.
 | Stage     | Measured result at the stage head                                                                                                                                                                                                                                                                                                                                                                                                |
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1 Clients | Client-name confinement reports 0 packages outside the four adapters, the composition root, fixtures, `configuration` and `credential`, which stage 2 deletes (baseline: 19 packages; Codex 13, Claude Code 13, Claude Desktop 7, Hermes 6). The contract suite passes for all four adapters and the rehearsal adapter. The rehearsal adapter's diff touches only its own directory, the test composition root and its fixtures. |
-| 2 Domain  | `configuration`, `credential`, `secrets` and `transaction` are absent, and the confinement exception list is empty and removed. `domain` imports only the standard library. No exported identifier in `domain`, `store` or `secret` lacks a user outside its package, as `used_exports_only` counts one, and no exported method of an exported type lacks a caller outside its package.                                          |
+| 2 Domain  | `configuration`, `credential`, `secrets` and `transaction` are absent, and the confinement exception list is empty and removed. `domain` imports only the standard library. No exported identifier in `domain`, `store` or `secret` lacks a user outside its package, as `used_exports_only` counts one, and no exported method or field of an exported type lacks a user outside its package.                                   |
 | 3 CLI     | Each of the 25 top-level commands maps to one package named after it. Every command has passing acceptance scripts on macOS, Linux and Windows.                                                                                                                                                                                                                                                                                  |
 | 4 Layers  | `allowed_import_edges` is absent and the layer table has at most 12 entries. The `artifact` package name occurs once. `mise run build` writes to `build/artifacts/`.                                                                                                                                                                                                                                                             |
 | 5 Names   | No package base name repeats. The text gate refuses each declared rejected synonym. Every main specification fits within 512 lines.                                                                                                                                                                                                                                                                                              |
