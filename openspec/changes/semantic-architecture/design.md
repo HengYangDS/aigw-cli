@@ -58,19 +58,23 @@ Product packages form this stack, from top to bottom. A package may import its
 own subtree's seam package and any package in a lower layer. It may not import
 a package in its own layer or in a higher one.
 
-| Layer | Packages                                                 | Owns                                                                                                                            |
-| ----- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | `cmd/aigw`, `internal/clients`                           | binary entry and the composition root                                                                                           |
-| 2     | `internal/cli`                                           | the command tree, flags and exit codes                                                                                          |
-| 3     | `internal/app`, `internal/terminal`                      | use cases; human and JSON rendering, prompts, redaction                                                                         |
-| 4     | `internal/client`, `internal/program`                    | the client seam and its adapters; AIGW's own install, update, rollback and artifact format                                      |
-| 5     | `internal/provider`, `internal/store`, `internal/secret` | Provider-native observation; configuration files, schema versions and transactions; credential storage and native backends      |
-| 6     | `internal/domain`, `internal/platform`                   | Accounts, Models, Routes, Client Bindings and their validation, without I/O; operating-system paths and bounded child processes |
+| Layer | Packages                                                 | Owns                                                                                                                                                 |
+| ----- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | `cmd/aigw`                                               | binary entry, which injects the built-in adapters                                                                                                    |
+| 2     | `internal/cli`, `internal/clients`                       | the command tree, flags and exit codes; the list of built-in adapters                                                                                |
+| 3     | `internal/app`, `internal/terminal`                      | use cases; human and JSON rendering and prompts                                                                                                      |
+| 4     | `internal/client`, `internal/program`                    | the client seam and its adapters; AIGW's own install, update, rollback and artifact format                                                           |
+| 5     | `internal/provider`, `internal/store`, `internal/secret` | Provider-native observation; configuration files, schema versions and transactions; credential storage and native backends                           |
+| 6     | `internal/domain`, `internal/platform`                   | Accounts, Models, Routes, Client Bindings, their validation and the redaction rules, without I/O; operating-system paths and bounded child processes |
 
 `internal/client/<name>` may import `internal/client`, the seam. The seam
 never imports an adapter, and adapters never import each other. `domain`
 imports only the standard library. `terminal` renders values that `app`
-returns; neither imports the other.
+returns; neither imports the other. The adapter list shares layer 2 with the
+command tree because only `cmd/aigw` imports it. The redaction rules live
+in `domain`, which like them imports only the standard library, because
+provider diagnostics, client verification and release tooling apply them below
+`terminal`.
 
 Repository tools sit above the product stack. A package under `tools/` may
 import its own subtree and product packages in layers 4 to 6, and never
@@ -195,10 +199,12 @@ The architecture gate's `used_exports_only` list holds `domain`, `store` and the
 constant of a listed package is used when a Go file outside the package's
 directory selects it, the package's own tests excluded, or when the exported API
 of a used identifier names it: the types in its signature or declared type, a
-used type's exported fields and methods, also those of an unexported type that
-such an API names, and the constants declared with a used type. The gate does
-not check methods and fields on their own; Go's type checker checked stage 2's
-exported methods and fields once.
+used type's exported fields and methods, also those of an unexported or
+anonymous type that such an API names, and the constants declared with a used
+type. Type parameter names are not the package's types. The gate does not
+check methods and fields on their own; Go's type checker checked stage 2's
+exported methods and fields once, counting an encoder that reads a tagged field
+as a user.
 
 `domain` names no client. Each `Config` carries its `Admission`: the ordered
 client specifications that the composition root builds from the adapters'
@@ -274,13 +280,13 @@ to 5 must keep every existing test, the full ETHOS proof, the hosted
 three-platform graph and the real-client journeys unchanged. Stage 3 adds its
 scripts.
 
-| Stage     | Measured result at the stage head                                                                                                                                                                                                                                                                                                                                                                                                |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 Clients | Client-name confinement reports 0 packages outside the four adapters, the composition root, fixtures, `configuration` and `credential`, which stage 2 deletes (baseline: 19 packages; Codex 13, Claude Code 13, Claude Desktop 7, Hermes 6). The contract suite passes for all four adapters and the rehearsal adapter. The rehearsal adapter's diff touches only its own directory, the test composition root and its fixtures. |
-| 2 Domain  | `configuration`, `credential`, `secrets` and `transaction` are absent, and the confinement exception list is empty and removed. `domain` imports only the standard library. No exported identifier in `domain`, `store` or `secret` lacks a user outside its package, as `used_exports_only` counts one, and no exported method or field of an exported type lacks a user outside its package.                                   |
-| 3 CLI     | Each of the 25 top-level commands maps to one package named after it. Every command has passing acceptance scripts on macOS, Linux and Windows.                                                                                                                                                                                                                                                                                  |
-| 4 Layers  | `allowed_import_edges` is absent and the layer table has at most 12 entries. The `artifact` package name occurs once. `mise run build` writes to `build/artifacts/`.                                                                                                                                                                                                                                                             |
-| 5 Names   | No package base name repeats. The text gate refuses each declared rejected synonym. Every main specification fits within 512 lines.                                                                                                                                                                                                                                                                                              |
+| Stage     | Measured result at the stage head                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Clients | Client-name confinement reports 0 packages outside the four adapters, the composition root, fixtures, `configuration` and `credential`, which stage 2 deletes (baseline: 19 packages; Codex 13, Claude Code 13, Claude Desktop 7, Hermes 6). The contract suite passes for all four adapters and the rehearsal adapter. The rehearsal adapter's diff touches only its own directory, the test composition root and its fixtures.              |
+| 2 Domain  | `configuration`, `credential`, `secrets` and `transaction` are absent, and the confinement exception list is empty and removed. `domain` imports only the standard library. No exported identifier in `domain`, `store` or `secret` lacks a user outside its package, as `used_exports_only` counts one, and no exported method or field of an exported type lacks a user outside its package, counting an encoder that reads a tagged field. |
+| 3 CLI     | Each of the 25 top-level commands maps to one package named after it. Every command has passing acceptance scripts on macOS, Linux and Windows.                                                                                                                                                                                                                                                                                               |
+| 4 Layers  | `allowed_import_edges` is absent and the layer table has at most 12 entries. The `artifact` package name occurs once. `mise run build` writes to `build/artifacts/`.                                                                                                                                                                                                                                                                          |
+| 5 Names   | No package base name repeats. The text gate refuses each declared rejected synonym. Every main specification fits within 512 lines.                                                                                                                                                                                                                                                                                                           |
 
 Each stage is reviewed by its PR, and `tasks.md` holds each stage's bounded
 actions. Stage 6 needs its own written design and approval.

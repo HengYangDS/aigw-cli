@@ -20,7 +20,7 @@
 - [x] 2.2 Create `internal/store` from configuration loading, saving and schema migration, and fold `internal/transaction` into it. Both packages are gone, and the architecture gate admits `internal/store` in their place.
 - [x] 2.3 Create `internal/secret` from `internal/secrets`, `internal/secrets/native` and the credential readers of `internal/credential`; the requests that prove an Account's Token move to `domain`, and the probes that send them go to `internal/secret/probe`. Both packages are gone, and the architecture gate admits `internal/secret`, `internal/secret/native` and `internal/secret/probe` in their place.
 - [x] 2.4 Move the remaining client-specific code, such as Codex's model provider in `domain`, into the adapters. The Codex adapter owns its provider identifier, and no production file of `domain`, `store` or `secret` names a client.
-- [x] 2.5 Remove every exported identifier in `domain`, `store` and `secret` that has no user outside its package, and make the architecture gate report any new one. The gate's `used_exports_only` rule counts the top-level identifiers of the three packages and the `secret` subpackages, with the constants of a used type as part of its API, and it reports no finding. A type-checked scan finds no exported method or field of their exported types without a user outside its package.
+- [x] 2.5 Remove every exported identifier in `domain`, `store` and `secret` that has no user outside its package, and make the architecture gate report any new one. The gate's `used_exports_only` rule counts the top-level identifiers of the three packages and the `secret` subpackages, with the constants of a used type as part of its API, and it reports no finding. A type-checked scan finds no exported method or field of their exported types without a user outside its package, counting an encoder that reads a tagged field.
 - [x] 2.6 Run the local quality graph at the stage head.
 - [x] 2.7 Prove the stage head with the full ETHOS proof.
 - [ ] 2.8 Confirm the hosted three-platform graph and the real-client journeys at the stage head.
@@ -29,7 +29,7 @@
 
 - [ ] 3.1 Compare `rogpeppe/go-internal/testscript` with the current CLI test harness by the code each needs for the same scripts, and record the admitted choice and its measurement in `design.md`.
 - [ ] 3.2 Move each of the 25 top-level commands into one package under `internal/cli` named after it; the root keeps only group assembly.
-- [ ] 3.3 Move use-case logic out of the command packages into `internal/app` and rendering, prompts and redaction into `internal/terminal`.
+- [ ] 3.3 Move use-case logic out of the command packages into `internal/app`, rendering and prompts into `internal/terminal`, and the redaction rules into `internal/domain`.
 - [ ] 3.4 Add acceptance scripts that run the built binary against private homes for every command's help, a representative success, a representative refusal and its JSON output. The repository gate fails for a command without its package or scripts.
 - [ ] 3.5 Run the local quality graph, including the acceptance scripts, at the stage head.
 - [ ] 3.6 Prove the stage head with the full ETHOS proof.
@@ -39,7 +39,7 @@
 
 - [ ] 4.1 Move program install, update, rollback and uninstall from `internal/upgrade` into `internal/program`, and the Provider-native diagnostics from `internal/providers` into `internal/provider`.
 - [ ] 4.2 Move the release artifact format to `internal/program/artifact`. Release tooling and program update both import it, and the `artifact` package base name occurs once.
-- [ ] 4.3 Add the ordered `layers` table, with at most 12 entries, to the architecture policy, and make `tools/architecture` enforce it for product packages and repository tools; delete `allowed_import_edges`. First resolve the imports that the table would refuse. `secret` takes the file transactions from `store`, which move to a lower owner. `provider` takes diagnostic credentials and the redirect-free `probe.Send` from `secret`; sending is I/O, so it receives them through a seam instead. `providers/dmxapi`, `client/verification` and `tools/release/performance` import `redaction`, a layer 3 owner that imports nothing of the module, so it moves to the lowest layer. `cmd/aigw` imports `internal/clients` in its own layer, so the table puts the composition root below the binary entry.
+- [ ] 4.3 Add the ordered `layers` table, with at most 12 entries, to the architecture policy, and make `tools/architecture` enforce it for product packages and repository tools; delete `allowed_import_edges`. First resolve the imports that the table would refuse. `secret` takes the file transactions from `store`, which move to a lower owner. `provider` takes diagnostic credentials and the redirect-free `probe.Send` from `secret`; sending is I/O, so it receives them through a seam instead.
 - [ ] 4.4 Make the Mise `build` task write to `build/artifacts/<version>-<commit>/`; the repository root `dist/` default and its ignore entry are removed.
 - [ ] 4.5 Run the local quality graph at the stage head.
 - [ ] 4.6 Prove the stage head with the full ETHOS proof.
