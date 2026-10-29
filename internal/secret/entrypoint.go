@@ -122,7 +122,7 @@ func ValidateRetainedEntrypoint(current, retained string) error {
 	if currentErr != nil || retainedErr != nil || !os.SameFile(currentInfo, retainedInfo) {
 		return errors.New("retained credential reader belongs to another installation")
 	}
-	missing, err := EntrypointNeeded(retained)
+	missing, err := entrypointNeeded(retained)
 	if err != nil || missing {
 		return errors.New("retained credential reader is unavailable or invalid")
 	}
@@ -167,9 +167,9 @@ func privateEntrypointDirectories(path string) []string {
 	return []string{dataRoot, parent}
 }
 
-// EntrypointNeeded reports whether the AIGW-owned credential executable is
+// entrypointNeeded reports whether the AIGW-owned credential executable is
 // absent. An existing non-executable or redirected path is never adopted.
-func EntrypointNeeded(path string) (bool, error) {
+func entrypointNeeded(path string) (bool, error) {
 	return executables{}.needed(path)
 }
 

@@ -131,7 +131,7 @@ func TestAvailabilityObservationPreservesPurposeAndLiveReads(t *testing.T) {
 			t.Fatalf("metadata scope changed backend identity or read-only policy: %+v, %v", observed, err)
 		}
 	}
-	if err := store.Set("team", "refused"); !errors.Is(err, ErrReadOnly) {
+	if err := store.Set("team", "refused"); !errors.Is(err, errReadOnly) {
 		t.Fatalf("environment mutation = %v; want read-only refusal", err)
 	}
 }

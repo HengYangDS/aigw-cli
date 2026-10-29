@@ -63,11 +63,11 @@ func (s environmentStore) get(kind Kind, account string) (string, error) {
 }
 
 func (environmentStore) set(Kind, string, string) error {
-	return ErrReadOnly
+	return errReadOnly
 }
 
 func (environmentStore) delete(Kind, string) error {
-	return ErrReadOnly
+	return errReadOnly
 }
 
 func (s environmentStore) exists(kind Kind, account string) (bool, error) {

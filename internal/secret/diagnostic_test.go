@@ -166,11 +166,11 @@ func TestEnvironmentDiagnosticCredentialUsesItsDeclaredPair(t *testing.T) {
 	if got, err := diagnostics.Get("dmx"); err != nil || got != (DiagnosticCredential{SystemToken: "platform-system", UserID: "42"}) {
 		t.Fatalf("diagnostic credential = %#v, %v", got, err)
 	}
-	if err := diagnostics.Set("dmx", DiagnosticCredential{SystemToken: "platform-system", UserID: "42"}); !errors.Is(err, ErrReadOnly) {
-		t.Fatalf("Set() error = %v, want ErrReadOnly", err)
+	if err := diagnostics.Set("dmx", DiagnosticCredential{SystemToken: "platform-system", UserID: "42"}); !errors.Is(err, errReadOnly) {
+		t.Fatalf("Set() error = %v, want errReadOnly", err)
 	}
-	if err := diagnostics.Delete("dmx"); !errors.Is(err, ErrReadOnly) {
-		t.Fatalf("Delete() error = %v, want ErrReadOnly", err)
+	if err := diagnostics.Delete("dmx"); !errors.Is(err, errReadOnly) {
+		t.Fatalf("Delete() error = %v, want errReadOnly", err)
 	}
 }
 

@@ -76,6 +76,9 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	if err := checkStandardLibraryOnly(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}
+	if err := checkUsedExportsOnly(absRoot, goFiles, p, &report); err != nil {
+		return Report{}, err
+	}
 	return report, nil
 }
 

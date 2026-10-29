@@ -127,7 +127,7 @@ func TestVersionedEntrypointRejectsWritableDataDirectory(t *testing.T) {
 	if err := os.Chmod(data, 0o777); err != nil {
 		t.Fatal(err)
 	}
-	if needed, err := EntrypointNeeded(target); err == nil {
+	if needed, err := entrypointNeeded(target); err == nil {
 		t.Fatalf("writable data directory was accepted as a reader plan: needed = %t", needed)
 	}
 	if _, err := EnsureEntrypoint(source, target); err == nil {
@@ -265,7 +265,7 @@ func TestVersionedEntrypointRejectsBytesThatMatchOnlyTheirReceipt(t *testing.T) 
 	if err := os.WriteFile(target+".sha256", []byte(hex.EncodeToString(second[:])+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := EntrypointNeeded(target); err == nil {
+	if _, err := entrypointNeeded(target); err == nil {
 		t.Fatal("digest directory accepted different executable bytes")
 	}
 }
@@ -295,7 +295,7 @@ func TestEntrypointVerificationKeepsMemoryBounded(t *testing.T) {
 		run  func() error
 	}{
 		{"verify", func() error {
-			missing, err := EntrypointNeeded(target)
+			missing, err := entrypointNeeded(target)
 			if missing {
 				return errors.New("intact reader disappeared")
 			}

@@ -16,8 +16,8 @@ const Service = "AIGW_TOKEN"
 var (
 	// ErrNotFound reports that a requested credential slot is absent.
 	ErrNotFound = errors.New("secret not found")
-	// ErrReadOnly reports that the selected credential backend cannot persist mutations.
-	ErrReadOnly = errors.New("secret store is read-only")
+	// errReadOnly reports that the selected credential backend cannot persist mutations.
+	errReadOnly = errors.New("secret store is read-only")
 )
 
 // Store is the credential boundary used by Account-scoped AIGW operations.

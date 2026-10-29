@@ -20,7 +20,7 @@
 - [x] 2.2 Create `internal/store` from configuration loading, saving and schema migration, and fold `internal/transaction` into it. Both packages are gone, and the architecture gate admits `internal/store` in their place.
 - [x] 2.3 Create `internal/secret` from `internal/secrets`, `internal/secrets/native` and the credential readers of `internal/credential`; the requests that prove an Account's Token move to `domain`, and the probes that send them go to `internal/secret/probe`. Both packages are gone, and the architecture gate admits `internal/secret`, `internal/secret/native` and `internal/secret/probe` in their place.
 - [x] 2.4 Move the remaining client-specific code, such as Codex's model provider in `domain`, into the adapters. The Codex adapter owns its provider identifier, and no production file of `domain`, `store` or `secret` names a client.
-- [ ] 2.5 Remove every exported identifier in `domain`, `store` and `secret` that has no caller outside its package, and make the architecture gate report any new one.
+- [x] 2.5 Remove every exported identifier in `domain`, `store` and `secret` that has no caller outside its package, and make the architecture gate report any new one. The gate's `used_exports_only` rule covers the three packages and the `secret` subpackages, and it reports no finding.
 - [ ] 2.6 Run the local quality graph at the stage head.
 - [ ] 2.7 Prove the stage head with the full ETHOS proof.
 - [ ] 2.8 Confirm the hosted three-platform graph and the real-client journeys at the stage head.

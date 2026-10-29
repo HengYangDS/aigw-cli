@@ -75,6 +75,15 @@ package_children."tools/release" = [
 # Packages whose production files may import only the standard library.
 standard_library_only = ["internal/domain"]
 
+# Packages whose exported identifiers each have a user outside the package.
+used_exports_only = [
+  "internal/domain",
+  "internal/secret",
+  "internal/secret/native",
+  "internal/secret/probe",
+  "internal/store",
+]
+
 # Composition roots may contain only their declared production files. Command
 # behavior belongs to semantic subpackages, never beside the root assembler.
 composition_root_files."internal/cli" = ["app.go"]

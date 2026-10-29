@@ -76,7 +76,7 @@ func TestEntrypointRejectsUnknownOrChangedBytes(t *testing.T) {
 	if err := os.WriteFile(target, []byte("changed-after-install"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := EntrypointNeeded(target); err == nil {
+	if _, err := entrypointNeeded(target); err == nil {
 		t.Fatal("changed credential executable passed its retained identity check")
 	}
 }
@@ -143,7 +143,7 @@ func TestEntrypointRejectsMultiplyLinkedExecutable(t *testing.T) {
 	if err := os.Link(target, filepath.Join(root, "other-name")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := EntrypointNeeded(target); err == nil {
+	if _, err := entrypointNeeded(target); err == nil {
 		t.Fatal("multiply linked credential executable passed ownership validation")
 	}
 }
@@ -221,7 +221,7 @@ func TestEntrypointRejectsIncompleteOrDriftedReceipt(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if _, err := EntrypointNeeded(target); err == nil {
+			if _, err := entrypointNeeded(target); err == nil {
 				t.Fatalf("%s receipt was admitted", state)
 			}
 		})
@@ -282,7 +282,7 @@ func TestEntrypointCompensationPreservesReceiptIfExecutableChanged(t *testing.T)
 }
 
 func TestEntrypointRejectsNonAbsoluteAndMissingSource(t *testing.T) {
-	if _, err := EntrypointNeeded("relative/aigw"); err == nil {
+	if _, err := entrypointNeeded("relative/aigw"); err == nil {
 		t.Fatal("relative credential entrypoint was accepted")
 	}
 	root := t.TempDir()
@@ -308,7 +308,7 @@ func TestEntrypointPlansCreationBelowExistingDataDirectory(t *testing.T) {
 	if err := os.Mkdir(data, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if needed, err := EntrypointNeeded(filepath.Join(data, "credential", "aigw")); err != nil || !needed {
+	if needed, err := entrypointNeeded(filepath.Join(data, "credential", "aigw")); err != nil || !needed {
 		t.Fatalf("missing credential directory plan = %v, %v; want creation", needed, err)
 	}
 }
@@ -408,7 +408,7 @@ func TestEntrypointRejectsNonregularPaths(t *testing.T) {
 			if err := test.create(target); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := EntrypointNeeded(target); err == nil {
+			if _, err := entrypointNeeded(target); err == nil {
 				t.Fatalf("nonregular %s was accepted", test.name)
 			}
 		})
@@ -437,7 +437,7 @@ func TestEntrypointRejectsPermissiveFileModes(t *testing.T) {
 			if err := os.Chmod(path, 0o644); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := EntrypointNeeded(target); err == nil {
+			if _, err := entrypointNeeded(target); err == nil {
 				t.Fatalf("permissive %s mode was accepted", subject)
 			}
 		})

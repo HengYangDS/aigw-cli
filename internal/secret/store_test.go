@@ -104,10 +104,10 @@ func TestEnvironmentStoreUsesNormalizedReadOnlyVariable(t *testing.T) {
 	if !IsReadOnly(store) {
 		t.Fatal("IsReadOnly must detect the read-only reporter")
 	}
-	if err := store.Set("dmx-team.1", "new-secret"); !errors.Is(err, ErrReadOnly) {
+	if err := store.Set("dmx-team.1", "new-secret"); !errors.Is(err, errReadOnly) {
 		t.Fatalf("Set error = %v", err)
 	}
-	if err := store.Delete("dmx-team.1"); !errors.Is(err, ErrReadOnly) {
+	if err := store.Delete("dmx-team.1"); !errors.Is(err, errReadOnly) {
 		t.Fatalf("Delete error = %v", err)
 	}
 }

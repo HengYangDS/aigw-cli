@@ -189,6 +189,14 @@ the probes, sending them and judging the answers is I/O; it goes to
 keeps the exported names that callers outside the package use, and drops every
 exported identifier that has no caller outside its package.
 
+The architecture gate's `used_exports_only` list holds `domain`, `store` and the
+`secret` subtree to that rule. An exported top-level function, type, variable or
+constant of a listed package is used when a Go file outside the package's
+directory selects it, the package's own tests excluded, or when the exported API
+of a used identifier names it: its signature or declared type, a used type's
+exported fields and methods, and the constants declared with a used type.
+Methods and fields are not checked on their own.
+
 `domain` names no client. Each `Config` carries its `Admission`: the ordered
 client specifications that the composition root builds from the adapters'
 `Spec()`. `NewConfig` and the store take it, and every rule that iterates or

@@ -59,7 +59,7 @@ type Entrypoint struct {
 	file        os.FileInfo
 }
 
-// EntrypointNeededFrom reports, like EntrypointNeeded, whether the reader at
+// EntrypointNeededFrom reports, like entrypointNeeded, whether the reader at
 // path is absent, reading its bytes through files.
 func EntrypointNeededFrom(files Files, path string) (bool, error) {
 	return executables{files: files}.needed(path)

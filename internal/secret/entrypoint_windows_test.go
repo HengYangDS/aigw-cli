@@ -101,7 +101,7 @@ func TestEntrypointRejectsWritableWindowsExecutableACL(t *testing.T) {
 		t.Fatal(err)
 	}
 	allowEveryoneFullControl(t, target)
-	if _, err := EntrypointNeeded(target); err == nil {
+	if _, err := entrypointNeeded(target); err == nil {
 		t.Fatal("world-writable credential executable was accepted")
 	}
 }
