@@ -30,8 +30,8 @@ func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Client discovery")
 		r.Section("Installed clients")
-		rows := make([]presentation.Field, 0, len(configuration.AdmittedClientSpecs()))
-		for _, spec := range configuration.AdmittedClientSpecs() {
+		rows := make([]presentation.Field, 0, len(runtime.Clients.Admission().Specs()))
+		for _, spec := range runtime.Clients.Admission().Specs() {
 			row := presentation.Field{State: presentation.OK, Label: spec.Label, Value: discovered.Executable(spec.ID)}
 			if row.Value == "" {
 				row.State, row.Value = presentation.Info, "Not found"
@@ -46,11 +46,11 @@ func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	var executable string
 	var targets []string
-	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client projection", ValidArgs: configuration.AdmittedClientIDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument, func(_ *cobra.Command, args []string) error {
+	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client projection", ValidArgs: runtime.Clients.Admission().IDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument(runtime.Clients.Admission()), func(_ *cobra.Command, args []string) error {
 		if strings.TrimSpace(executable) == "" {
 			return fmt.Errorf("--executable is required; run `aigw client discover`")
 		}
-		if spec, _ := configuration.ClientSpecFor(args[0]); spec.TargetFile != "" && len(targets) == 0 {
+		if spec, _ := runtime.Clients.Admission().Spec(args[0]); spec.TargetFile != "" && len(targets) == 0 {
 			return fmt.Errorf("%s projection requires at least one --target %s; run `aigw client enable --help`", spec.Label, spec.TargetFile)
 		}
 		for _, target := range targets {
@@ -61,7 +61,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		return nil
 	}), RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
-		spec, _ := configuration.ClientSpecFor(client)
+		spec, _ := runtime.Clients.Admission().Spec(client)
 		cfg, err := runtime.Config.Load()
 		if err != nil {
 			return err
@@ -107,14 +107,14 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		return nil
 	}}
 	cmd.Flags().StringVar(&executable, "executable", "", "Path to the real client executable")
-	cmd.Flags().StringSliceVar(&targets, "target", nil, targetHelp())
+	cmd.Flags().StringSliceVar(&targets, "target", nil, targetHelp(runtime.Clients.Admission()))
 	return cmd
 }
 
 // targetHelp explains the target option with each client's repeated-target usage.
-func targetHelp() string {
+func targetHelp(admission configuration.Admission) string {
 	help := []string{"Client configuration path"}
-	for _, spec := range configuration.AdmittedClientSpecs() {
+	for _, spec := range admission.Specs() {
 		if spec.TargetsUsage != "" {
 			help = append(help, spec.TargetsUsage)
 		}
@@ -123,9 +123,9 @@ func targetHelp() string {
 }
 
 func newDisableCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{Use: "disable <client>", Short: "Disable a client and remove AIGW-owned projections", ValidArgs: configuration.AdmittedClientIDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument), RunE: func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "disable <client>", Short: "Disable a client and remove AIGW-owned projections", ValidArgs: runtime.Clients.Admission().IDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument(runtime.Clients.Admission())), RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
-		spec, _ := configuration.ClientSpecFor(client)
+		spec, _ := runtime.Clients.Admission().Spec(client)
 		cfg, err := runtime.Config.Load()
 		if err != nil {
 			return err
@@ -183,11 +183,14 @@ func renderDisabled(r *presentation.Renderer, spec configuration.ClientSpec) {
 	}
 }
 
-func validateClientArgument(command *cobra.Command, args []string) error {
-	if err := cobra.OnlyValidArgs(command, args); err != nil {
-		return fmt.Errorf("Client must be %s; run `%s --help`: %w", configuration.AdmittedClientUsage(), command.CommandPath(), err)
+// validateClientArgument refuses a client argument that admission does not name.
+func validateClientArgument(admission configuration.Admission) cobra.PositionalArgs {
+	return func(command *cobra.Command, args []string) error {
+		if err := cobra.OnlyValidArgs(command, args); err != nil {
+			return fmt.Errorf("Client must be %s; run `%s --help`: %w", admission.Usage(), command.CommandPath(), err)
+		}
+		return nil
 	}
-	return nil
 }
 
 func discover(runtime invocation.Context) (discovery.Result, error) {

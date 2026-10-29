@@ -58,7 +58,7 @@ func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
 	})
 
-	if err := Validate(context.Background(), doer, account, "secret", configuration.ClientClaude, configuration.ClientCodex, configuration.ClientCodex); err != nil {
+	if err := Validate(context.Background(), doer, testAdmission(), account, "secret", configuration.ClientClaude, configuration.ClientCodex, configuration.ClientCodex); err != nil {
 		t.Fatal(err)
 	}
 	if len(requests) != 2 {
@@ -81,7 +81,7 @@ func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 	}
 
 	requests = requests[:0]
-	if err := Validate(context.Background(), doer, account, "secret"); err != nil {
+	if err := Validate(context.Background(), doer, testAdmission(), account, "secret"); err != nil {
 		t.Fatal(err)
 	}
 	if len(requests) != 1 || requests[0].URL.Host != "responses.example" {
@@ -90,7 +90,7 @@ func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 
 	requests = requests[:0]
 	account.Endpoints.OpenAIResponses = ""
-	if err := Validate(context.Background(), doer, account, "secret"); err != nil {
+	if err := Validate(context.Background(), doer, testAdmission(), account, "secret"); err != nil {
 		t.Fatal(err)
 	}
 	if len(requests) != 1 || requests[0].URL.Host != "anthropic.example" {
@@ -115,7 +115,7 @@ func TestValidateRuntimeUsesTheSelectedEndpointProtocol(t *testing.T) {
 		}
 		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
 	})
-	if err := ValidateRuntime(context.Background(), doer, selected, "token"); err != nil || !called {
+	if err := ValidateRuntime(context.Background(), doer, testAdmission(), selected, "token"); err != nil || !called {
 		t.Fatalf("selected runtime validation: called=%t error=%v", called, err)
 	}
 }
@@ -150,7 +150,7 @@ func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			err := Validate(context.Background(), test.doer, test.account, "secret", test.client)
+			err := Validate(context.Background(), test.doer, testAdmission(), test.account, "secret", test.client)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want substring %q", err, test.want)
 			}
@@ -175,7 +175,7 @@ func TestProbeRequestRejectsUnknownOrAmbiguousProtocol(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := ProbeRequest(context.Background(), test.client, "https://gateway.example", "secret", test.protocols...); err == nil || !strings.Contains(err.Error(), test.want) {
+			if _, err := ProbeRequest(context.Background(), testAdmission(), test.client, "https://gateway.example", "secret", test.protocols...); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want substring %q", err, test.want)
 			}
 		})
@@ -245,7 +245,7 @@ func TestValidateHTTPClientDoesNotFollowRedirects(t *testing.T) {
 	account := configuration.Account{ID: "team", Endpoints: configuration.Endpoints{OpenAIResponses: server.URL + "/v1"}}
 
 	httpClient := server.Client()
-	err := Validate(context.Background(), httpClient, account, "secret", configuration.ClientCodex)
+	err := Validate(context.Background(), httpClient, testAdmission(), account, "secret", configuration.ClientCodex)
 	if err == nil || !strings.Contains(err.Error(), "HTTP 302") {
 		t.Fatalf("error = %v, want HTTP 302", err)
 	}

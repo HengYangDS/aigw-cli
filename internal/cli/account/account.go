@@ -32,8 +32,8 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 			if !configuration.ValidIdentifier(args[0]) {
 				return fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores; run `%s --help`", args[0], cmd.CommandPath())
 			}
-			if !configuration.IsAdmittedClient(client) || strings.TrimSpace(model) == "" {
-				return fmt.Errorf("--for and --model are required; --for must be %s; run `%s --help`", configuration.AdmittedClientUsage(), cmd.CommandPath())
+			if !runtime.Clients.Admission().Admits(client) || strings.TrimSpace(model) == "" {
+				return fmt.Errorf("--for and --model are required; --for must be %s; run `%s --help`", runtime.Clients.Admission().Usage(), cmd.CommandPath())
 			}
 			return nil
 		}),
@@ -51,7 +51,7 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 				Anthropic:       strings.TrimRight(anthropicURL, "/"),
 			}}
 			account.ID = name
-			spec, _ := configuration.ClientSpecFor(client)
+			spec, _ := runtime.Clients.Admission().Spec(client)
 			_, protocol, err := spec.ResolveEndpoint(account, "")
 			if err != nil {
 				return err
@@ -71,7 +71,7 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 				presentation.Field{Label: "Account", Value: label},
 				presentation.Field{Label: "Account ID", Value: name},
 				presentation.Field{Label: "Route ID", Value: name},
-				presentation.Field{Label: "Client", Value: configuration.ClientLabel(client)},
+				presentation.Field{Label: "Client", Value: runtime.Clients.Admission().Label(client)},
 				presentation.Field{Label: "Model", Value: route.Model},
 				presentation.Field{State: presentation.OK, Label: "Token", Value: "Securely stored"},
 			)
@@ -82,7 +82,7 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&label, "label", "", "Provider display name")
 	cmd.Flags().StringVar(&openAIURL, "openai-url", "", "OpenAI Responses base URL")
 	cmd.Flags().StringVar(&anthropicURL, "anthropic-url", "", "Anthropic base URL")
-	cmd.Flags().StringVar(&client, "for", "", "Client: "+configuration.AdmittedClientUsage())
+	cmd.Flags().StringVar(&client, "for", "", "Client: "+runtime.Clients.Admission().Usage())
 	cmd.Flags().StringVar(&model, "model", "", "Upstream model ID")
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one token line from standard input")
 	return cmd
@@ -187,7 +187,7 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			account.ID = accountName
-			if err := credential.Validate(cmd.Context(), runtime.HTTP, account, token); err != nil {
+			if err := credential.Validate(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), account, token); err != nil {
 				return fmt.Errorf("Token validation failed: %w", err)
 			}
 			if err := cmd.Context().Err(); err != nil {

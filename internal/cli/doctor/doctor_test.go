@@ -498,7 +498,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 	checks := executeJSON(t, deps, out).Checks
 	longest := 0
 	for _, check := range checks {
-		longest = max(longest, presentation.DisplayWidth("✓ "+Label(check)))
+		longest = max(longest, presentation.DisplayWidth("✓ "+Label(clients.Admission(), check)))
 	}
 	for _, width := range []int{0, 72, 100} {
 		out.Reset()
@@ -513,7 +513,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 			text := strings.TrimLeft(line, " ")
 			if symbol, rest, classified := strings.Cut(text, " "); classified && (symbol == "✓" || symbol == "✗") {
 				for _, check := range checks {
-					if label := Label(check); strings.HasPrefix(rest, label+" ") {
+					if label := Label(clients.Admission(), check); strings.HasPrefix(rest, label+" ") {
 						text = strings.TrimLeft(strings.TrimPrefix(rest, label), " ")
 						break
 					}
@@ -536,7 +536,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 func TestHumanDoctorNamesNativeClaudeModelPreferenceAndVerification(t *testing.T) {
 	var output bytes.Buffer
 	renderer := presentation.NewWithWidth(&output, false, 100)
-	renderClients(renderer, map[string]domainreadiness.Client{
+	renderClients(renderer, clients.Admission(), map[string]domainreadiness.Client{
 		configuration.ClientClaude: {
 			State:               domainreadiness.Configured,
 			Route:               "fable",

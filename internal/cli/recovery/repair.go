@@ -9,7 +9,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
+
 	"aigw-cli/internal/presentation"
 
 	"github.com/spf13/cobra"
@@ -103,7 +103,7 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 		r.ProductTitle("Repair preview")
 		rows := []presentation.Field{{Label: "Configuration", Value: result.ConfigurationAction}}
 		for _, plan := range result.Projections {
-			rows = append(rows, presentation.Field{Label: configuration.ClientLabel(plan.Client) + " · " + plan.SurfaceID, Value: plan.Action})
+			rows = append(rows, presentation.Field{Label: runtime.Clients.Admission().Label(plan.Client) + " · " + plan.SurfaceID, Value: plan.Action})
 		}
 		r.Rows(rows...)
 		if entrypoint != nil {

@@ -16,17 +16,17 @@ type retryOptions struct {
 	native          bool
 }
 
-func (options *retryOptions) bind(cmd *cobra.Command) {
-	clients := retryBudgetClients()
+func (options *retryOptions) bind(cmd *cobra.Command, admission configuration.Admission) {
+	clients := retryBudgetClients(admission)
 	cmd.Flags().Uint64Var(&options.request, "request-max-retries", 0, "Explicit native request retry budget for this "+clients+" connection; zero disables client request retries")
 	cmd.Flags().Uint64Var(&options.stream, "stream-max-retries", 0, "Explicit native stream retry budget for this "+clients+" connection; zero disables client stream retries")
 	cmd.Flags().BoolVar(&options.native, "native-retries", false, "Remove this connection's retry policy and use client native defaults")
 }
 
 // retryBudgetClients names the clients that honor per-connection retry budgets.
-func retryBudgetClients() string {
+func retryBudgetClients(admission configuration.Admission) string {
 	var labels []string
-	for _, spec := range configuration.AdmittedClientSpecs() {
+	for _, spec := range admission.Specs() {
 		if spec.RetryBudgets {
 			labels = append(labels, spec.Label)
 		}

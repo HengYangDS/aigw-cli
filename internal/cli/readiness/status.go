@@ -86,7 +86,7 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, 
 		if selected != "" && clientID != selected {
 			continue
 		}
-		spec, _ := configuration.ClientSpecFor(clientID)
+		spec, _ := runtime.Clients.Admission().Spec(clientID)
 		clientRuntime, resolveErr := cfg.ResolveRuntime(clientID, "")
 		if resolveErr != nil {
 			client := unresolvedClientStatus(&cfg, clientID, resolveErr)
@@ -115,7 +115,7 @@ func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, 
 		state := domainreadiness.ClassifyClient(facts)
 		if adapterStatus.NativeModelOverride && state.State == domainreadiness.Configured {
 			state.NativeModelOverride = true
-			state.Detail = configuration.ClientProductName(clientID) + " uses a native model preference; its AIGW endpoint and credential helper remain configured"
+			state.Detail = runtime.Clients.Admission().ProductName(clientID) + " uses a native model preference; its AIGW endpoint and credential helper remain configured"
 			state.NextAction = "aigw verify --for " + clientID
 		}
 		client := clientStatus{

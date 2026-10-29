@@ -386,7 +386,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 	} {
 		out := &bytes.Buffer{}
 		runtime := invocation.Context{Clients: clients.Registry(), Out: out, Width: 120}
-		renderClientStatus(invocation.Renderer(runtime), statusOutput{
+		renderClientStatus(invocation.Renderer(runtime), runtime.Clients.Admission(), statusOutput{
 			Clients: map[string]clientStatus{configuration.ClientClaude: {
 				Client: domainreadiness.Client{State: state, Route: "route"},
 			}},

@@ -126,11 +126,11 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			for _, item := range result.Routes {
 				state, stateText := presentation.Info, "Available"
 				if len(item.SelectedClients) > 0 {
-					state, stateText = presentation.OK, "Selected for "+clientLabels(item.SelectedClients)
+					state, stateText = presentation.OK, "Selected for "+clientLabels(runtime.Clients.Admission(), item.SelectedClients)
 				}
 				detail := []string{choiceLabel(configuration.Route{Label: item.Label, Purpose: item.Purpose}), stateText, "Account " + item.Account}
 				if len(item.ProtocolClients) > 0 {
-					detail = append(detail, "Clients "+clientLabels(item.ProtocolClients))
+					detail = append(detail, "Clients "+clientLabels(runtime.Clients.Admission(), item.ProtocolClients))
 				}
 				r.StatusLine(state, "Route", item.ID)
 				r.Detail(strings.Join(detail, " · "))
@@ -211,10 +211,10 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			rows = append(rows,
 				presentation.Field{Label: "Account", Value: accountName},
 				presentation.Field{Label: "Model", Value: route.Model},
-				presentation.Field{Label: "Protocol clients", Value: clientLabels(compatible)},
+				presentation.Field{Label: "Protocol clients", Value: clientLabels(runtime.Clients.Admission(), compatible)},
 			)
 			if len(selected) > 0 {
-				rows = append(rows, presentation.Field{Label: "Selected for", Value: clientLabels(selected)})
+				rows = append(rows, presentation.Field{Label: "Selected for", Value: clientLabels(runtime.Clients.Admission(), selected)})
 			}
 			if account.Endpoints.OpenAIResponses != "" {
 				rows = append(rows, presentation.Field{Label: "OpenAI", Value: account.Endpoints.OpenAIResponses})
@@ -343,10 +343,10 @@ func choiceLabel(route configuration.Route) string {
 }
 
 // clientLabels names clients in human output by their registry labels.
-func clientLabels(clients []string) string {
+func clientLabels(admission configuration.Admission, clients []string) string {
 	labels := make([]string, 0, len(clients))
 	for _, client := range clients {
-		labels = append(labels, configuration.ClientLabel(client))
+		labels = append(labels, admission.Label(client))
 	}
 	return strings.Join(labels, ", ")
 }

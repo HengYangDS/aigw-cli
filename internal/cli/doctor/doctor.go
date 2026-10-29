@@ -92,11 +92,12 @@ func NewCommand(deps Dependencies) *cobra.Command {
 			}
 			r := presentation.NewWithWidth(renderWriter(deps), deps.Color, deps.Width)
 			r.ProductTitle("Detailed diagnostics")
-			renderClients(r, result.Clients)
+			admission := deps.Config.Admission()
+			renderClients(r, admission, result.Clients)
 			r.Section("Checks")
 			checks := make([]presentation.Field, 0, len(result.Checks))
 			for _, check := range result.Checks {
-				field := presentation.Field{State: presentation.OK, Label: Label(check), Value: Detail(check)}
+				field := presentation.Field{State: presentation.OK, Label: Label(admission, check), Value: Detail(admission, check)}
 				if !check.OK {
 					field.State = presentation.Fail
 				}
@@ -157,7 +158,7 @@ func collectResult(ctx context.Context, deps Dependencies) commandResult {
 	if !result.OK {
 		result.NextAction = NextAction(checks)
 	}
-	for _, spec := range configuration.AdmittedClientSpecs() {
+	for _, spec := range deps.Config.Admission().Specs() {
 		client, observed := result.Clients[spec.ID]
 		if !observed {
 			continue
@@ -197,7 +198,7 @@ func applyActivation(result *commandResult, cfg configuration.Config, store secr
 		return
 	}
 	ordered := make([]domainreadiness.Client, 0, len(result.Clients))
-	for _, spec := range configuration.AdmittedClientSpecs() {
+	for _, spec := range cfg.Admission().Specs() {
 		ordered = append(ordered, result.Clients[spec.ID])
 	}
 	if action := activation.NextActionFor(ordered); action != "aigw check" {
@@ -217,13 +218,13 @@ func inspectClients(deps Dependencies) map[string]domainreadiness.Client {
 	return clients
 }
 
-func renderClients(renderer *presentation.Renderer, clients map[string]domainreadiness.Client) {
+func renderClients(renderer *presentation.Renderer, admission configuration.Admission, clients map[string]domainreadiness.Client) {
 	if len(clients) == 0 {
 		return
 	}
 	renderer.Section("Clients")
 	rows := make([]presentation.Field, 0, len(clients))
-	for _, spec := range configuration.AdmittedClientSpecs() {
+	for _, spec := range admission.Specs() {
 		client, ok := clients[spec.ID]
 		if !ok {
 			continue

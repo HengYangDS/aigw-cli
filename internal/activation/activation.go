@@ -24,6 +24,9 @@ type Activation struct {
 	ProjectionPrerequisites       map[string]string
 	VerificationPrerequisite      string
 	observedCredentials           map[string]credentialObservation
+	// admission orders the per-client prerequisites; AssessActivation takes it
+	// from the assessed configuration.
+	admission configuration.Admission
 }
 
 type credentialObservation struct {
@@ -62,8 +65,8 @@ func (a *Activation) NextActionFor(clients []domainreadiness.Client) string {
 		}
 	}
 	projectionAction := ""
-	for _, spec := range configuration.AdmittedClientSpecs() {
-		if action := a.ProjectionPrerequisites[spec.ID]; action != "" && a.ClientCredentialPrerequisites[spec.ID] == "" {
+	for _, client := range a.admission.IDs() {
+		if action := a.ProjectionPrerequisites[client]; action != "" && a.ClientCredentialPrerequisites[client] == "" {
 			projectionAction = action
 			break
 		}
@@ -77,13 +80,13 @@ func (a *Activation) NextActionFor(clients []domainreadiness.Client) string {
 	if projectionAction != "" {
 		return projectionAction
 	}
-	for _, spec := range configuration.AdmittedClientSpecs() {
-		if action := a.ClientCredentialPrerequisites[spec.ID]; action != "" {
+	for _, client := range a.admission.IDs() {
+		if action := a.ClientCredentialPrerequisites[client]; action != "" {
 			return action
 		}
 	}
-	for _, spec := range configuration.AdmittedClientSpecs() {
-		if action := a.ProjectionPrerequisites[spec.ID]; action != "" {
+	for _, client := range a.admission.IDs() {
+		if action := a.ProjectionPrerequisites[client]; action != "" {
 			return action
 		}
 	}
@@ -140,7 +143,7 @@ func enableAction(client, route string) string { return "aigw use --for " + clie
 // bindings without reading credential metadata or claiming projection health.
 func ProjectionPrerequisites(cfg configuration.Config) map[string]string {
 	prerequisites := map[string]string{}
-	for _, spec := range configuration.AdmittedClientSpecs() {
+	for _, spec := range cfg.Admission().Specs() {
 		binding := cfg.Clients[spec.ID]
 		if !binding.Enabled || binding.Executable != "" {
 			continue
@@ -156,7 +159,7 @@ func assessEnabledProjection(cfg configuration.Config, store secrets.Store, resu
 	result.observedCredentials = map[string]credentialObservation{}
 	blocked := 0
 	metadataUnavailable := false
-	for _, spec := range configuration.AdmittedClientSpecs() {
+	for _, spec := range cfg.Admission().Specs() {
 		if !cfg.Clients[spec.ID].Enabled {
 			continue
 		}
@@ -204,7 +207,7 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 	if err != nil {
 		return false
 	}
-	spec, _ := configuration.ClientSpecFor(client)
+	spec, _ := assessment.cfg.Admission().Spec(client)
 	assessment.result.ProjectionPrerequisites[client] = projectionAction(spec)
 	if selected {
 		// Every binding is disabled here; synchronization skips a disabled selection.
@@ -276,12 +279,12 @@ func assessInactiveClients(cfg configuration.Config, store secrets.Store, result
 	assessment := inactiveClientAssessment{
 		cfg: cfg, store: store, result: result, readOnly: secrets.IsReadOnly(store), seen: map[string]bool{},
 	}
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range cfg.Admission().IDs() {
 		if assessment.consider(client, cfg.SelectedRoute(client), true) {
 			return assessment.result
 		}
 	}
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range cfg.Admission().IDs() {
 		if cfg.SelectedRoute(client) != "" {
 			continue
 		}
@@ -302,7 +305,7 @@ func assessInactiveClients(cfg configuration.Config, store secrets.Store, result
 // a successful Token write. It does not inspect another Account's credential,
 // select a Route, or mutate client configuration.
 func NextActionAfterAccountConnection(cfg configuration.Config, accountID string) string {
-	for _, spec := range configuration.AdmittedClientSpecs() {
+	for _, spec := range cfg.Admission().Specs() {
 		runtime, resolveErr := cfg.ResolveRuntime(spec.ID, "")
 		if resolveErr != nil || runtime.AccountID != accountID {
 			continue
@@ -320,7 +323,7 @@ func NextActionAfterAccountConnection(cfg configuration.Config, accountID string
 	if err != nil {
 		return "aigw status"
 	}
-	for _, spec := range configuration.AdmittedClientSpecs() {
+	for _, spec := range cfg.Admission().Specs() {
 		if cfg.SelectedRoute(spec.ID) != "" {
 			continue
 		}
@@ -342,7 +345,7 @@ func NextActionAfterAccountConnection(cfg configuration.Config, accountID string
 // native credentials. Environment credential metadata is read only when that
 // backend is explicitly selected.
 func AssessActivation(cfg configuration.Config, store secrets.Store) Activation {
-	result := Activation{EnabledClients: len(cfg.EnabledClientIDs())}
+	result := Activation{EnabledClients: len(cfg.EnabledClientIDs()), admission: cfg.Admission()}
 	if result.EnabledClients != 0 {
 		return assessEnabledProjection(cfg, store, result)
 	}

@@ -7,16 +7,17 @@ import (
 )
 
 // Label maps a diagnostic to a stable human label. A check about one native
-// file under the home directory names that file.
-func Label(check Check) string {
+// file under the home directory names that file. Admission supplies the label
+// of the client that a check concerns.
+func Label(admission configuration.Admission, check Check) string {
 	name := check.Name
 	if clientID, ok := strings.CutPrefix(name, "adapter:"); ok {
-		if spec, admitted := configuration.ClientSpecFor(clientID); admitted {
+		if spec, admitted := admission.Spec(clientID); admitted {
 			return spec.Label + " adapter"
 		}
 	}
 	if clientID, ok := strings.CutPrefix(name, "projection:"); ok {
-		if spec, admitted := configuration.ClientSpecFor(clientID); admitted {
+		if spec, admitted := admission.Spec(clientID); admitted {
 			return spec.Label + " route"
 		}
 	}
@@ -29,8 +30,8 @@ func Label(check Check) string {
 		return "Credential backend"
 	case strings.HasPrefix(name, "secret:"):
 		return "Account Token"
-	case isTargetCheck(name):
-		spec, position, _ := targetCheck(name)
+	case isTargetCheck(admission, name):
+		spec, position, _ := targetCheck(admission, name)
 		switch {
 		case check.Target != "":
 			return spec.Label + " configuration " + check.Target
@@ -45,33 +46,34 @@ func Label(check Check) string {
 
 // targetCheck parses an adapter's configuration target check, which is named
 // "<client>:target-<position>".
-func targetCheck(name string) (configuration.ClientSpec, string, bool) {
+func targetCheck(admission configuration.Admission, name string) (configuration.ClientSpec, string, bool) {
 	clientID, position, ok := strings.Cut(name, ":target-")
 	if !ok {
 		return configuration.ClientSpec{}, "", false
 	}
-	spec, admitted := configuration.ClientSpecFor(clientID)
+	spec, admitted := admission.Spec(clientID)
 	return spec, position, admitted
 }
 
-func isTargetCheck(name string) bool {
-	_, _, ok := targetCheck(name)
+func isTargetCheck(admission configuration.Admission, name string) bool {
+	_, _, ok := targetCheck(admission, name)
 	return ok
 }
 
 // doctorWording returns the doctor wording of the client that a check named
 // "<prefix><client>" concerns.
-func doctorWording(name, prefix string) (configuration.ClientSpec, configuration.DoctorWording) {
+func doctorWording(admission configuration.Admission, name, prefix string) (configuration.ClientSpec, configuration.DoctorWording) {
 	clientID, ok := strings.CutPrefix(name, prefix)
-	spec, admitted := configuration.ClientSpecFor(clientID)
+	spec, admitted := admission.Spec(clientID)
 	if !ok || !admitted {
 		return configuration.ClientSpec{}, configuration.DoctorWording{}
 	}
 	return spec, spec.Doctor
 }
 
-// Detail maps machine diagnostics to non-sensitive human text.
-func Detail(check Check) string {
+// Detail maps machine diagnostics to non-sensitive human text. Admission
+// supplies the wording of the client that a check concerns.
+func Detail(admission configuration.Admission, check Check) string {
 	name, detail := check.Name, check.Detail
 	switch {
 	case name == "environment:client-token":
@@ -101,8 +103,8 @@ func Detail(check Check) string {
 			return account + " · credential backend unavailable"
 		}
 		return account + " · missing"
-	case adapterStates(name):
-		spec, _ := doctorWording(name, "adapter:")
+	case adapterStates(admission, name):
+		spec, _ := doctorWording(admission, name, "adapter:")
 		if check.OK {
 			return doctorTitle(detail)
 		}
@@ -112,10 +114,10 @@ func Detail(check Check) string {
 		if detail == spec.Label+" configuration target is missing" {
 			return "Enabled, but no " + spec.Label + " configuration file is configured"
 		}
-	case routeBinding(name):
-		spec, _ := doctorWording(name, "projection:")
+	case routeBinding(admission, name):
+		spec, _ := doctorWording(admission, name, "projection:")
 		return "Current " + spec.Label + " binding cannot be resolved"
-	case isTargetCheck(name):
+	case isTargetCheck(admission, name):
 		if check.OK {
 			return "Matches the current binding"
 		}
@@ -127,13 +129,13 @@ func Detail(check Check) string {
 	return "Check failed"
 }
 
-func adapterStates(name string) bool {
-	_, wording := doctorWording(name, "adapter:")
+func adapterStates(admission configuration.Admission, name string) bool {
+	_, wording := doctorWording(admission, name, "adapter:")
 	return wording.AdapterStates
 }
 
-func routeBinding(name string) bool {
-	_, wording := doctorWording(name, "projection:")
+func routeBinding(admission configuration.Admission, name string) bool {
+	_, wording := doctorWording(admission, name, "projection:")
 	return wording.RouteBinding
 }
 

@@ -71,15 +71,15 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 		presentation.Field{Label: "Accounts", Value: fmt.Sprintf("%d", len(result.Accounts))},
 		presentation.Field{Label: "Routes", Value: fmt.Sprintf("%d", len(result.Routes))},
 	)
-	if bindings := migrationClientRows(result.Clients); len(bindings) > 0 {
+	if bindings := migrationClientRows(runtime.Clients.Admission(), result.Clients); len(bindings) > 0 {
 		renderer.Section("Client Bindings")
 		renderer.Rows(bindings...)
 	}
 	if len(result.Recommendations) > 0 {
 		recommendations := make([]presentation.Field, 0, len(result.Recommendations))
-		for _, client := range configuration.AdmittedClientIDs() {
+		for _, client := range runtime.Clients.Admission().IDs() {
 			if recommendation, exists := result.Recommendations[client]; exists {
-				recommendations = append(recommendations, presentation.Field{Label: configuration.ClientLabel(client), Value: recommendation.Primary.Route})
+				recommendations = append(recommendations, presentation.Field{Label: runtime.Clients.Admission().Label(client), Value: recommendation.Primary.Route})
 			}
 		}
 		renderer.Section("Recommendations")
@@ -97,9 +97,9 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 	return renderer.Err()
 }
 
-func migrationClientRows(bindings map[string]configuration.ClientBinding) []presentation.Field {
+func migrationClientRows(admission configuration.Admission, bindings map[string]configuration.ClientBinding) []presentation.Field {
 	rows := make([]presentation.Field, 0, len(bindings))
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range admission.IDs() {
 		binding, exists := bindings[client]
 		if !exists {
 			continue
@@ -117,7 +117,7 @@ func migrationClientRows(bindings map[string]configuration.ClientBinding) []pres
 		case targets > 1:
 			detail += fmt.Sprintf(" · %d native targets", targets)
 		}
-		rows = append(rows, presentation.Field{Label: configuration.ClientLabel(client), Value: detail})
+		rows = append(rows, presentation.Field{Label: admission.Label(client), Value: detail})
 	}
 	return rows
 }

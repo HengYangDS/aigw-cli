@@ -36,8 +36,8 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if len(args) == 1 && client == "" && !runtime.Interactive {
 				return fmt.Errorf("non-interactive use requires --for; run `aigw use --for <client> <route>`")
 			}
-			if client != "" && !configuration.IsAdmittedClient(client) {
-				return fmt.Errorf("--for must be %s; run `aigw use --help`", configuration.AdmittedClientUsage())
+			if client != "" && !runtime.Clients.Admission().Admits(client) {
+				return fmt.Errorf("--for must be %s; run `aigw use --help`", runtime.Clients.Admission().Usage())
 			}
 			return nil
 		}),
@@ -84,11 +84,11 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			return renderUse(runtime, updated, selected, configurationChanged, projectionChanged, token != "", jsonMode)
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Client: "+configuration.AdmittedClientUsage())
+	cmd.Flags().StringVar(&client, "for", "", "Client: "+runtime.Clients.Admission().Usage())
 	cmd.Flags().StringVar(&protocol, "protocol", "", "Endpoint protocol for a multi-protocol Route")
 	cmd.Flags().StringVar(&forwardingEndpoint, "forwarding-endpoint", "", "Explicit client destination; the Account upstream remains unchanged")
 	cmd.Flags().BoolVar(&direct, "direct", false, "Connect this client directly to its Account upstream")
-	retries.bind(cmd)
+	retries.bind(cmd, runtime.Clients.Admission())
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview the selection without reading credentials or writing files")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the selection preview or result as JSON")
 	return cmd
@@ -121,7 +121,7 @@ func renderUse(runtime invocation.Context, cfg configuration.Config, selected co
 	case tokenStored:
 		title, detail = "Token stored", "Account token stored; selected client configuration synchronized"
 	}
-	spec, _ := configuration.ClientSpecFor(selected.Client)
+	spec, _ := runtime.Clients.Admission().Spec(selected.Client)
 	result := useResult{Changed: changed, ProjectionChanged: projectionChanged, Runtime: selected, NextAction: "aigw check"}
 	if action := clientactivation.ProjectionPrerequisites(cfg)[selected.Client]; action != "" {
 		result.ProjectionDeferred = true
@@ -213,12 +213,12 @@ func previewUse(runtime invocation.Context, cfg configuration.Config, selected c
 	r.ProductTitle("Selection preview")
 	r.Section("Selection")
 	rows := []presentation.Field{
-		{Label: "Client", Value: configuration.ClientLabel(selected.Client)},
+		{Label: "Client", Value: runtime.Clients.Admission().Label(selected.Client)},
 		{Label: "Route", Value: selected.RouteLabel},
 		{Label: "Endpoint", Value: selected.Endpoint},
 		{Label: "Account upstream", Value: selected.UpstreamEndpoint},
 	}
-	spec, _ := configuration.ClientSpecFor(selected.Client)
+	spec, _ := runtime.Clients.Admission().Spec(selected.Client)
 	if spec.RetryBudgets {
 		rows = append(rows, retryFields(selected.RetryPolicy)...)
 	}
@@ -245,7 +245,7 @@ func resolveUseRuntime(runtime invocation.Context, cfg configuration.Config, cli
 		return selected, err
 	}
 	route := cfg.Routes[routeID]
-	spec, _ := configuration.ClientSpecFor(client)
+	spec, _ := runtime.Clients.Admission().Spec(client)
 	compatible := spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route)
 	if len(compatible) < 2 {
 		return configuration.Runtime{}, err
@@ -275,7 +275,7 @@ func resolveUseSelection(runtime invocation.Context, cfg configuration.Config, c
 	if len(args) == 0 {
 		if client == "" {
 			var err error
-			client, err = chooseClient(runtime, configuration.AdmittedClientSpecs())
+			client, err = chooseClient(runtime, runtime.Clients.Admission().Specs())
 			if err != nil {
 				return "", "", err
 			}
@@ -310,7 +310,7 @@ func chooseClient(runtime invocation.Context, specs []configuration.ClientSpec) 
 func chooseClientIDs(runtime invocation.Context, clients []string) (string, error) {
 	specs := make([]configuration.ClientSpec, 0, len(clients))
 	for _, client := range clients {
-		spec, _ := configuration.ClientSpecFor(client)
+		spec, _ := runtime.Clients.Admission().Spec(client)
 		specs = append(specs, spec)
 	}
 	return chooseClient(runtime, specs)
@@ -330,7 +330,7 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg configu
 	instruction, writable := credential.TokenRecovery(runtime.Secrets, selected.AccountID)
 	if !writable {
 		retry := fmt.Sprintf("aigw use --for %s %s", selected.Client, selected.RouteID)
-		spec, _ := configuration.ClientSpecFor(selected.Client)
+		spec, _ := runtime.Clients.Admission().Spec(selected.Client)
 		if len(spec.CompatibleRouteProtocols(cfg.Accounts[selected.AccountID], cfg.Routes[selected.RouteID])) > 1 {
 			retry = fmt.Sprintf("aigw use --for %s --protocol %s %s", selected.Client, selected.Protocol, selected.RouteID)
 		}
@@ -344,7 +344,7 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg configu
 	if err != nil {
 		return "", err
 	}
-	if err := credential.ValidateRuntime(ctx, runtime.HTTP, selected, token); err != nil {
+	if err := credential.ValidateRuntime(ctx, runtime.HTTP, runtime.Clients.Admission(), selected, token); err != nil {
 		return "", fmt.Errorf("token validation failed: %w", err)
 	}
 	return token, nil

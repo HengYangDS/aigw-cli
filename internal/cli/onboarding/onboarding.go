@@ -81,7 +81,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")
 	cmd.Flags().StringVar(&request.AnthropicURL, "anthropic-url", "", "Anthropic base URL")
 	cmd.Flags().StringVar(&request.ChatURL, "chat-url", "", "OpenAI Chat Completions base URL")
-	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first route: "+configuration.AdmittedClientUsage())
+	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first route: "+runtime.Clients.Admission().Usage())
 	cmd.Flags().StringVar(&request.Model, "model", "", "Upstream model ID for --for")
 	cmd.Flags().StringVar(&request.Protocol, "protocol", "", "Endpoint protocol when more than one URL is configured")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
@@ -125,7 +125,7 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	if err != nil {
 		return err
 	}
-	if err := credential.ValidateRuntime(ctx, runtime.HTTP, selected, credentialChange.token); err != nil {
+	if err := credential.ValidateRuntime(ctx, runtime.HTTP, runtime.Clients.Admission(), selected, credentialChange.token); err != nil {
 		return fmt.Errorf("Token validation failed: %w", err)
 	}
 
@@ -167,11 +167,11 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 		OpenAIChatCompletions: strings.TrimRight(strings.TrimSpace(plan.request.ChatURL), "/"),
 	}
 	if plan.request.Client == "" {
-		return setupPlan{}, fmt.Errorf("--for is required and must be %s; a model route belongs to exactly one client", configuration.AdmittedClientUsage())
+		return setupPlan{}, fmt.Errorf("--for is required and must be %s; a model route belongs to exactly one client", cfg.Admission().Usage())
 	}
-	spec, ok := configuration.ClientSpecFor(plan.request.Client)
+	spec, ok := cfg.Admission().Spec(plan.request.Client)
 	if !ok {
-		return setupPlan{}, fmt.Errorf("--for must be %s; run `aigw setup --help`", configuration.AdmittedClientUsage())
+		return setupPlan{}, fmt.Errorf("--for must be %s; run `aigw setup --help`", cfg.Admission().Usage())
 	}
 	account := configuration.Account{ID: plan.request.Account, Endpoints: endpoints}
 	if compatible := spec.CompatibleProtocols(account); plan.request.Protocol == "" && len(compatible) > 1 {
@@ -228,8 +228,8 @@ func renderSetupClients(runtime invocation.Context, cfg configuration.Config, se
 	r := invocation.Renderer(runtime)
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	r.Section("Clients")
-	rows := make([]presentation.Field, 0, len(configuration.AdmittedClientSpecs()))
-	for _, spec := range configuration.AdmittedClientSpecs() {
+	rows := make([]presentation.Field, 0, len(runtime.Clients.Admission().Specs()))
+	for _, spec := range runtime.Clients.Admission().Specs() {
 		binding := cfg.Clients[spec.ID]
 		switch {
 		case !binding.Enabled:
@@ -305,7 +305,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	clientSpecs := configuration.AdmittedClientSpecs()
+	clientSpecs := runtime.Clients.Admission().Specs()
 	clientChoices := make([]prompt.Choice, 0, len(clientSpecs))
 	for _, spec := range clientSpecs {
 		clientChoices = append(clientChoices, prompt.Choice{Value: spec.ID, Label: spec.Label})
@@ -314,7 +314,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	spec, ok := configuration.ClientSpecFor(client)
+	spec, ok := runtime.Clients.Admission().Spec(client)
 	if !ok || len(spec.EndpointProtocols) == 0 {
 		return fmt.Errorf("unsupported setup client %q", client)
 	}

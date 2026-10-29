@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
@@ -14,14 +15,14 @@ func TestHumanProjectionFailsClosedForFutureChecks(t *testing.T) {
 		{Name: "future:internal", OK: true, Detail: "internal success detail"},
 		{Name: "future:internal", Detail: "internal failure detail", Fix: "internal repair instruction"},
 	} {
-		if got := Label(check); got != "Other check" {
+		if got := Label(clients.Admission(), check); got != "Other check" {
 			t.Fatalf("label = %q, want Other check", got)
 		}
 		want := "Check failed"
 		if check.OK {
 			want = "Healthy"
 		}
-		if got := Detail(check); got != want {
+		if got := Detail(clients.Admission(), check); got != want {
 			t.Fatalf("detail = %q, want %q", got, want)
 		}
 		if !check.OK && Fix(check) != "aigw doctor --json" {
@@ -59,7 +60,7 @@ func TestHumanFormattingBranches(t *testing.T) {
 		"codex:target-7":           "Codex configuration target 7",
 	}
 	for name, want := range labels {
-		if got := Label(Check{Name: name}); got != want {
+		if got := Label(clients.Admission(), Check{Name: name}); got != want {
 			t.Errorf("Label(%q) = %q, want %q", name, got, want)
 		}
 	}
@@ -86,7 +87,7 @@ func TestHumanFormattingBranches(t *testing.T) {
 		{Check{Name: "codex:target-1"}, "Does not match the current binding"},
 	}
 	for _, test := range details {
-		if got := Detail(test.check); got != test.want {
+		if got := Detail(clients.Admission(), test.check); got != test.want {
 			t.Errorf("Detail(%+v) = %q, want %q", test.check, got, test.want)
 		}
 	}
@@ -140,7 +141,7 @@ func TestCodexTargetLabelNamesOnlyFilesUnderHome(t *testing.T) {
 		{Check{Name: "codex:target-2", outsideHome: true}, "Codex configuration target 2 (outside the home directory)"},
 		{Check{Name: "codex:target-3"}, "Codex configuration target 3"},
 	} {
-		if got := Label(test.check); got != test.want {
+		if got := Label(clients.Admission(), test.check); got != test.want {
 			t.Errorf("Label(%+v) = %q, want %q", test.check, got, test.want)
 		}
 	}
@@ -205,10 +206,10 @@ func TestAllOKAndNextActionBranches(t *testing.T) {
 
 func TestUnknownCheckProjectionFailsClosed(t *testing.T) {
 	check := Check{Name: "future:internal", Detail: "private implementation detail", Fix: "private repair"}
-	if got := Label(check); got != "Other check" {
+	if got := Label(clients.Admission(), check); got != "Other check" {
 		t.Fatalf("Label() = %q, want Other check", got)
 	}
-	if got := Detail(check); got != "Check failed" {
+	if got := Detail(clients.Admission(), check); got != "Check failed" {
 		t.Fatalf("Detail() = %q, want Check failed", got)
 	}
 	if got := Fix(check); got != "aigw doctor --json" {

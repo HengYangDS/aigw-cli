@@ -122,7 +122,7 @@ func TestManifestSetupAvailabilityFollowsTheAdmittedClientRegistry(t *testing.T)
 	for _, clientID := range configuration.AdmittedClientIDs() {
 		executables[clientID] = "/installed/" + clientID
 	}
-	available := manifestSetupAvailableClients(executables)
+	available := manifestSetupAvailableClients(clients.Admission(), executables)
 	for _, clientID := range configuration.AdmittedClientIDs() {
 		if !available[clientID] {
 			t.Fatalf("admitted installed client %q is unavailable: %#v", clientID, available)

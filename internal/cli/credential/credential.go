@@ -25,8 +25,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Args:   cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			client := args[0]
-			if !configuration.IsAdmittedClient(client) {
-				return fmt.Errorf("credential helper requires an admitted client: %s", configuration.AdmittedClientUsage())
+			if !runtime.Clients.Admission().Admits(client) {
+				return fmt.Errorf("credential helper requires an admitted client: %s", runtime.Clients.Admission().Usage())
 			}
 			cfg, err := runtime.Config.LoadCredentialConfig()
 			if err != nil {
@@ -97,7 +97,7 @@ func configurationProblem(version string, err error) error {
 }
 
 func resolveProjectedRuntime(cfg configuration.Config, client, fingerprint string) (configuration.Runtime, error) {
-	spec, admitted := configuration.ClientSpecFor(client)
+	spec, admitted := cfg.Admission().Spec(client)
 	if !admitted {
 		return configuration.Runtime{}, fmt.Errorf("unknown client %q", client)
 	}

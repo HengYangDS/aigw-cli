@@ -366,7 +366,7 @@ func TestNextActionForUsesOneOrderedReadinessDecision(t *testing.T) {
 		},
 		{
 			name:       "specific route before generic synchronization",
-			activation: Activation{EnabledClients: 1, State: domainreadiness.Deferred, ProjectionPrerequisites: map[string]string{configuration.ClientClaude: "aigw sync"}},
+			activation: Activation{EnabledClients: 1, State: domainreadiness.Deferred, ProjectionPrerequisites: map[string]string{configuration.ClientClaude: "aigw sync"}, admission: builtinclients.Admission()},
 			clients:    []domainreadiness.Client{{State: domainreadiness.Deferred, NextAction: "aigw use --for claude selected-route"}},
 			want:       "aigw use --for claude selected-route",
 		},
@@ -422,14 +422,17 @@ func TestNextActionForWithoutClientInspectionHonorsKnownPrerequisites(t *testing
 		{"usable client first", Activation{
 			ClientCredentialPrerequisites: map[string]string{configuration.ClientClaude: rotateClaude},
 			ProjectionPrerequisites:       map[string]string{configuration.ClientClaude: installClaude, configuration.ClientCodex: installCodex},
+			admission:                     builtinclients.Admission(),
 		}, installCodex},
 		{"missing Token before its projection", Activation{
 			ClientCredentialPrerequisites: map[string]string{configuration.ClientClaude: rotateClaude},
 			ProjectionPrerequisites:       map[string]string{configuration.ClientClaude: installClaude},
+			admission:                     builtinclients.Admission(),
 		}, rotateClaude},
 		{"unavailable credential metadata", Activation{
 			ProjectionPrerequisites: map[string]string{configuration.ClientClaude: installClaude},
 			observedCredentials:     map[string]credentialObservation{"team": {err: errors.New("metadata denied")}},
+			admission:               builtinclients.Admission(),
 		}, "aigw doctor"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -79,7 +79,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	if err != nil {
 		return err
 	}
-	availableClients := manifestSetupAvailableClients(discovered.Executables)
+	availableClients := manifestSetupAvailableClients(cfg.Admission(), discovered.Executables)
 	selectedClients := manifestSetupSelectedClients(cfg, connected, availableClients)
 
 	cfg, err = invocation.Synchronizer(runtime).Setup(ctx, before, cfg, tokens, selectedClients...)
@@ -95,9 +95,9 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	return nil
 }
 
-func manifestSetupAvailableClients(executables map[string]string) map[string]bool {
-	available := make(map[string]bool, len(configuration.AdmittedClientIDs()))
-	for _, clientID := range configuration.AdmittedClientIDs() {
+func manifestSetupAvailableClients(admission configuration.Admission, executables map[string]string) map[string]bool {
+	available := make(map[string]bool, len(admission.IDs()))
+	for _, clientID := range admission.IDs() {
 		available[clientID] = executables[clientID] != ""
 	}
 	return available
@@ -140,7 +140,7 @@ func buildManifestSetupResult(
 	if activation.CredentialPrerequisite != "" && !explicitlyConnected {
 		result.DeferredActions = append(result.DeferredActions, activation.CredentialPrerequisite)
 	}
-	for _, spec := range configuration.AdmittedClientSpecs() {
+	for _, spec := range runtime.Clients.Admission().Specs() {
 		binding, selected := cfg.Clients[spec.ID]
 		if !selected || binding.Route == "" || !binding.Enabled || slices.Contains(result.ProjectedClients, spec.ID) {
 			continue
@@ -183,8 +183,8 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 	}
 	r.Rows(connections...)
 	r.Section("Selected Client Bindings")
-	bindings := make([]presentation.Field, 0, len(configuration.AdmittedClientSpecs()))
-	for _, spec := range configuration.AdmittedClientSpecs() {
+	bindings := make([]presentation.Field, 0, len(runtime.Clients.Admission().Specs()))
+	for _, spec := range runtime.Clients.Admission().Specs() {
 		binding := presentation.Field{State: presentation.Info, Label: spec.Label, Value: "Deferred"}
 		if route, selected := result.SelectedBindings[spec.ID]; selected {
 			binding.State, binding.Value = presentation.OK, route
@@ -198,7 +198,7 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 		projected = append(projected, presentation.Field{State: presentation.Info, Label: "None", Value: "Deferred"})
 	}
 	for _, client := range result.ProjectedClients {
-		spec, _ := configuration.ClientSpecFor(client)
+		spec, _ := runtime.Clients.Admission().Spec(client)
 		projected = append(projected, presentation.Field{State: presentation.OK, Label: spec.Label, Value: "Projected"})
 	}
 	r.Rows(append(projected, presentation.Field{State: presentation.Info, Label: "Online verification", Value: "Not checked"})...)
@@ -289,7 +289,7 @@ func configuredClientsForAccount(cfg configuration.Config, accountName string) [
 		}
 	}
 	clients := make([]string, 0, len(seen))
-	for _, client := range configuration.AdmittedClientIDs() {
+	for _, client := range cfg.Admission().IDs() {
 		if seen[client] {
 			clients = append(clients, client)
 		}
@@ -310,8 +310,8 @@ func accountHasRecommendedTokenSelection(cfg configuration.Config, accountName s
 }
 
 func manifestSetupSelectedClients(cfg configuration.Config, connected map[string]setupCredential, available map[string]bool) []string {
-	clients := make([]string, 0, len(configuration.AdmittedClientIDs()))
-	for _, client := range configuration.AdmittedClientIDs() {
+	clients := make([]string, 0, len(cfg.Admission().IDs()))
+	for _, client := range cfg.Admission().IDs() {
 		binding := cfg.Clients[client]
 		if !binding.Enabled {
 			continue

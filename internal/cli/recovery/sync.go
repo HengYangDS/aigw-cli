@@ -71,7 +71,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			result := syncResult{DryRun: dryRun, Selections: map[string]string{}, AdoptedSelections: adopted, NextAction: activation.NextActionFor(nil)}
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
-			for _, client := range configuration.AdmittedClientIDs() {
+			for _, client := range runtime.Clients.Admission().IDs() {
 				if route := after.SelectedRoute(client); route != "" {
 					result.Selections[client] = route
 				}
@@ -93,11 +93,11 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 				r.ProductTitle("Synchronization completed")
 			}
 			outcome := []presentation.Field{}
-			for _, client := range configuration.AdmittedClientIDs() {
+			for _, client := range runtime.Clients.Admission().IDs() {
 				if route, ok := result.AdoptedSelections[client]; ok {
 					outcome = append(outcome, presentation.Field{
 						State: presentation.Info, Label: "Adopted selection",
-						Value: configuration.ClientLabel(client) + " now uses " + after.RouteLabel(route) + ", chosen in " + configuration.ClientLabel(client),
+						Value: runtime.Clients.Admission().Label(client) + " now uses " + after.RouteLabel(route) + ", chosen in " + runtime.Clients.Admission().Label(client),
 					})
 				}
 			}
@@ -173,13 +173,13 @@ func renderSyncPreview(r *presentation.Renderer, after configuration.Config, res
 		r.Text(result.CredentialEntrypoint.humanAction())
 	}
 	r.Section("Client Bindings")
-	bindings := make([]presentation.Field, 0, len(configuration.AdmittedClientIDs()))
-	for _, client := range configuration.AdmittedClientIDs() {
+	bindings := make([]presentation.Field, 0, len(after.Admission().IDs()))
+	for _, client := range after.Admission().IDs() {
 		route := after.SelectedRoute(client)
 		if route == "" {
 			route = "Not selected"
 		}
-		bindings = append(bindings, presentation.Field{Label: configuration.ClientLabel(client), Value: route})
+		bindings = append(bindings, presentation.Field{Label: after.Admission().Label(client), Value: route})
 	}
 	r.Rows(bindings...)
 	r.Section("Projection targets")

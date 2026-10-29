@@ -112,7 +112,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, 
 		}
 		req, err = credential.ModelInferenceRequest(ctx, runtime.Endpoint, runtime.Protocol, token, runtime.Model)
 	} else {
-		req, err = credential.ProbeRequest(ctx, runtime.Client, runtime.Endpoint, token, runtime.Protocol)
+		req, err = credential.ModelCatalogRequest(ctx, runtime.Endpoint, runtime.Protocol, token)
 	}
 	if err != nil {
 		return Result{Kind: EndpointMismatch, Scope: scope, Summary: "Cannot construct the diagnostic request", Fix: "Check the endpoint and protocol for the active route"}

@@ -125,8 +125,9 @@ type HostValidator interface {
 
 // Registry is the sole ordered operational registry for admitted clients.
 type Registry struct {
-	byID map[string]Adapter
-	ids  []string
+	byID      map[string]Adapter
+	ids       []string
+	admission configuration.Admission
 }
 
 // NewRegistry validates that the operational adapters exactly implement the
@@ -165,18 +166,12 @@ func NewRegistry(specs []configuration.ClientSpec, adapters ...Adapter) (Registr
 	if len(specs) != len(adapters) {
 		return Registry{}, fmt.Errorf("operational client registry contains an unadmitted adapter")
 	}
-	return Registry{byID: byID, ids: ids}, nil
+	return Registry{byID: byID, ids: ids, admission: configuration.NewAdmission(specs...)}, nil
 }
 
 // Admission returns the admitted clients' specifications in admission order,
 // the client set that every configuration of this program admits.
-func (registry Registry) Admission() configuration.Admission {
-	specs := make([]configuration.ClientSpec, 0, len(registry.ids))
-	for _, id := range registry.ids {
-		specs = append(specs, registry.byID[id].Spec())
-	}
-	return configuration.NewAdmission(specs...)
-}
+func (registry Registry) Admission() configuration.Admission { return registry.admission }
 
 // Discover observes every admitted client through its adapter.
 func (registry Registry) Discover(source DiscoverySource) discovery.Result {

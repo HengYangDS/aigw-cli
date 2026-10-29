@@ -22,7 +22,8 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	r.ProductTitle("Configuration status")
 	r.Text("The selected Routes, client readiness, and the smallest next action.")
 	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
-	renderClientStatus(r, result, clientIDs)
+	admission := runtime.Clients.Admission()
+	renderClientStatus(r, admission, result, clientIDs)
 	if result.State == domainreadiness.Deferred {
 		r.Section("Activation")
 		message := "No client is enabled"
@@ -34,16 +35,16 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 			Details: []string{"The catalogue is available, but no client endpoint or model has been checked"},
 		})
 	}
-	renderTransportStatus(r, result, clientIDs)
+	renderTransportStatus(r, admission, result, clientIDs)
 	renderDiagnosticStatus(runtime, r, cfg)
 	r.Next(result.NextAction)
 }
 
-func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {
+func renderClientStatus(r *presentation.Renderer, admission configuration.Admission, result statusOutput, clientIDs []string) {
 	r.Section("Clients")
 	rows := make([]presentation.Field, 0, len(clientIDs))
 	for _, client := range clientIDs {
-		spec, _ := configuration.ClientSpecFor(client)
+		spec, _ := admission.Spec(client)
 		clientStatus := result.Clients[client]
 		message := clientStatus.Route + " · " + clientStatus.State.Label()
 		state := presentation.Info
@@ -70,11 +71,11 @@ func renderClientStatus(r *presentation.Renderer, result statusOutput, clientIDs
 	r.Rows(rows...)
 }
 
-func renderTransportStatus(r *presentation.Renderer, result statusOutput, clientIDs []string) {
+func renderTransportStatus(r *presentation.Renderer, admission configuration.Admission, result statusOutput, clientIDs []string) {
 	rows := []presentation.Field{}
 	for _, client := range clientIDs {
 		if result.Clients[client].Transport == endpointTransportExternalLoopback {
-			rows = append(rows, presentation.Field{State: presentation.Info, Label: configuration.ClientLabel(client), Value: "Loopback endpoint"})
+			rows = append(rows, presentation.Field{State: presentation.Info, Label: admission.Label(client), Value: "Loopback endpoint"})
 		}
 	}
 	if len(rows) == 0 {
