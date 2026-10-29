@@ -29,9 +29,6 @@ func TestConfigQueriesOwnAccountAndRouteSelectionSemantics(t *testing.T) {
 	if err != nil || accountID != "gateway" {
 		t.Fatalf("ResolveAccount(account) = %q, %v", accountID, err)
 	}
-	if !cfg.ClientUsesAccount(ClientClaude, "gateway") || cfg.ClientUsesAccount(ClientClaude, "other") {
-		t.Fatal("ClientUsesAccount() did not follow the selected binding")
-	}
 	if _, _, err := cfg.ResolveAccount("missing"); err == nil {
 		t.Fatal("ResolveAccount() accepted an unknown reference")
 	}

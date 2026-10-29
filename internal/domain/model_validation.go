@@ -167,7 +167,7 @@ func (c *Config) validateSelection(client string, selection ClientSelection) err
 	account := c.Accounts[route.Account]
 	account.ID = route.Account
 	spec, _ := c.admission.Spec(client)
-	if _, _, err := spec.ResolveRouteEndpoint(account, route, selection.Protocol); err != nil {
+	if _, _, err := spec.resolveRouteEndpoint(account, route, selection.Protocol); err != nil {
 		return fmt.Errorf("route %q: %w", selection.Route, err)
 	}
 	return selection.validate(spec, c.admission)

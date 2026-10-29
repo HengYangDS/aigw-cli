@@ -87,9 +87,9 @@ func (s ClientSpec) ResolveEndpoint(account Account, requested EndpointProtocol)
 	return s.resolveEndpoint(account, nil, requested)
 }
 
-// ResolveRouteEndpoint selects one endpoint admitted by the client, Account,
+// resolveRouteEndpoint selects one endpoint admitted by the client, Account,
 // and Route interface declaration.
-func (s ClientSpec) ResolveRouteEndpoint(account Account, route Route, requested EndpointProtocol) (string, EndpointProtocol, error) {
+func (s ClientSpec) resolveRouteEndpoint(account Account, route Route, requested EndpointProtocol) (string, EndpointProtocol, error) {
 	return s.resolveEndpoint(account, routeAdmittedProtocols(route), requested)
 }
 

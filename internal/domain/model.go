@@ -376,12 +376,6 @@ func (c *Config) EnabledClientIDs() []string {
 	return clients
 }
 
-// ClientUsesAccount reports whether the selected client binding uses an Account.
-func (c *Config) ClientUsesAccount(client, accountID string) bool {
-	runtime, err := c.ResolveRuntime(client, "")
-	return err == nil && runtime.AccountID != "" && runtime.AccountID == accountID
-}
-
 // SelectedAccountIDs returns the stable set of Accounts selected by resolvable
 // client bindings. Catalogue Accounts that no active binding selects are
 // capabilities available for later connection, not current runtime
@@ -552,7 +546,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 	if !admitted {
 		return Runtime{}, fmt.Errorf("unknown client %q", client)
 	}
-	endpoint, protocol, err := spec.ResolveRouteEndpoint(account, route, selection.Protocol)
+	endpoint, protocol, err := spec.resolveRouteEndpoint(account, route, selection.Protocol)
 	if err != nil {
 		return Runtime{}, err
 	}
