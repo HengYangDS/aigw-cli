@@ -32,8 +32,6 @@ const (
 	// LegacyConfigVersion is the immediate predecessor schema, which migration
 	// accepts. Normal configuration reads accept ConfigVersion only.
 	LegacyConfigVersion = 5
-	// ModelProviderAIGW is the stable provider identifier written into AIGW-owned Codex projections.
-	ModelProviderAIGW = "aigw"
 
 	// AuthenticationAccountToken selects an AIGW-managed account token.
 	AuthenticationAccountToken Authentication = "account-token"

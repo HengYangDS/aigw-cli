@@ -364,7 +364,7 @@ func codexManagedBlock(runtime domain.Runtime, endpoint string) string {
 		projection.RequestMaxRetries = runtime.RetryPolicy.RequestMaxRetries
 		projection.StreamMaxRetries = runtime.RetryPolicy.StreamMaxRetries
 	}
-	if provider == domain.ModelProviderAIGW {
+	if provider == modelProviderAIGW {
 		name := "AIGW: " + runtime.RouteLabel
 		projection.Name = &name
 	}
@@ -492,14 +492,14 @@ func selectionStringValue(line string) string {
 
 func codexRuntimeProvider(runtime domain.Runtime) string {
 	if runtime.ModelProvider == "" {
-		return domain.ModelProviderAIGW
+		return modelProviderAIGW
 	}
 	return runtime.ModelProvider
 }
 
 func codexStateProvider(state codexState) string {
 	if state.ProjectedProvider == "" {
-		return domain.ModelProviderAIGW
+		return modelProviderAIGW
 	}
 	return state.ProjectedProvider
 }

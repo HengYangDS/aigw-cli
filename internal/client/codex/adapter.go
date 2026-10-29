@@ -19,6 +19,10 @@ import (
 // ID identifies the admitted Codex client family.
 const ID = "codex"
 
+// modelProviderAIGW is the stable provider identifier written into
+// AIGW-owned Codex projections.
+const modelProviderAIGW = "aigw"
+
 // codexAdapter is the Codex client adapter behind the client seam.
 type codexAdapter struct{}
 
@@ -29,7 +33,7 @@ func (codexAdapter) Spec() domain.ClientSpec {
 	return domain.ClientSpec{
 		ID: ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses},
 		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true,
-		DefaultModelProvider: domain.ModelProviderAIGW, ClientNativeAuthentication: true,
+		DefaultModelProvider: modelProviderAIGW, ClientNativeAuthentication: true,
 		PublishedProfileProtocol: domain.ProtocolOpenAIResponses,
 		Doctor:                   domain.DoctorWording{AdapterStates: true, RouteBinding: true},
 	}

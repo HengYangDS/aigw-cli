@@ -281,7 +281,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	ownedCatalogHash := state.CatalogHash
 	provider := codexRuntimeProvider(runtime)
 	catalogModel := runtime.Model
-	if provider != domain.ModelProviderAIGW {
+	if provider != modelProviderAIGW {
 		catalogModel = ""
 	}
 	catalog := codexCatalogProjection(target.ref, catalogModel, runtime.CanonicalModelID, base, state, catalogSnapshot)
@@ -297,7 +297,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	}
 	state.ManagedBlockHash = hashText(block)
 	state.ProjectedModel = runtime.Model
-	if provider == domain.ModelProviderAIGW {
+	if provider == modelProviderAIGW {
 		state.ProjectedProvider = ""
 	} else {
 		state.ProjectedProvider = provider

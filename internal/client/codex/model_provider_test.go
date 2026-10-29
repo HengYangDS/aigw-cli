@@ -85,7 +85,7 @@ func TestCodexProviderNameDoesNotSelectCredentialOwnership(t *testing.T) {
 	}
 	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
 	runtime.Authentication = domain.AuthenticationClientNative
-	for _, provider := range []string{"amazon-bedrock", domain.ModelProviderAIGW} {
+	for _, provider := range []string{"amazon-bedrock", "aigw"} {
 		runtime.ModelProvider = provider
 		if err := codex.SyncConfig(path, runtime); err != nil {
 			t.Fatal(err)

@@ -43,7 +43,7 @@ func TestRouteModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtime.ModelProvider != domain.ModelProviderAIGW {
+	if runtime.ModelProvider != "aigw" {
 		t.Fatalf("default model provider = %q", runtime.ModelProvider)
 	}
 	if runtime.Authentication != domain.AuthenticationAccountToken || !runtime.RequiresAccountToken() {

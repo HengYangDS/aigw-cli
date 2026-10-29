@@ -192,7 +192,7 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 			Route:             routeID,
 			Enabled:           true,
 			Protocol:          domain.ProtocolOpenAIResponses,
-			ModelProvider:     domain.ModelProviderAIGW,
+			ModelProvider:     modelProviderAIGW,
 			CredentialCommand: filepath.Join(t.TempDir(), "credential-reader"),
 		},
 	}

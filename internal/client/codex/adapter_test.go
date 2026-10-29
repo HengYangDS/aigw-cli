@@ -51,7 +51,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	}
 
 	t.Run("missing executable", func(t *testing.T) {
-		cfg, runtime := newFixture(t, domain.ModelProviderAIGW)
+		cfg, runtime := newFixture(t, modelProviderAIGW)
 		adapter := cfg.Clients[ID]
 		adapter.Executable = ""
 		cfg.Clients[ID] = adapter
@@ -62,7 +62,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	})
 
 	t.Run("missing target", func(t *testing.T) {
-		cfg, runtime := newFixture(t, domain.ModelProviderAIGW)
+		cfg, runtime := newFixture(t, modelProviderAIGW)
 		adapter := cfg.Clients[ID]
 		adapter.Targets = nil
 		cfg.Clients[ID] = adapter
@@ -73,7 +73,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	})
 
 	t.Run("projection drift", func(t *testing.T) {
-		cfg, runtime := newFixture(t, domain.ModelProviderAIGW)
+		cfg, runtime := newFixture(t, modelProviderAIGW)
 		adapter := cfg.Clients[ID]
 		adapter.Targets = []string{filepath.Join(t.TempDir(), "missing.toml")}
 		cfg.Clients[ID] = adapter
@@ -95,7 +95,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	})
 
 	t.Run("capture unavailable", func(t *testing.T) {
-		cfg, runtime := newFixture(t, domain.ModelProviderAIGW)
+		cfg, runtime := newFixture(t, modelProviderAIGW)
 		status := (codexAdapter{}).Inspect(context.Background(), client.Dependencies{}, cfg, runtime)
 		if !status.Ready {
 			t.Fatalf("status = %#v", status)
@@ -103,7 +103,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	})
 
 	t.Run("inspection does not invoke the client", func(t *testing.T) {
-		cfg, runtime := newFixture(t, domain.ModelProviderAIGW)
+		cfg, runtime := newFixture(t, modelProviderAIGW)
 		runner := &captureAdapterRunner{err: errors.New("status failed")}
 		status := (codexAdapter{}).Inspect(context.Background(), client.Dependencies{Runner: runner}, cfg, runtime)
 		if !status.Ready || runner.calls != 0 {
@@ -127,7 +127,7 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *tes
 		authentication domain.Authentication
 		wantCommand    bool
 	}{
-		{name: "aigw account token", provider: domain.ModelProviderAIGW, authentication: domain.AuthenticationAccountToken, wantCommand: true},
+		{name: "aigw account token", provider: modelProviderAIGW, authentication: domain.AuthenticationAccountToken, wantCommand: true},
 		{name: "provider account token", provider: "amazon-bedrock", authentication: domain.AuthenticationAccountToken, wantCommand: true},
 		{name: "client native", provider: "amazon-bedrock", authentication: domain.AuthenticationClientNative},
 	} {
