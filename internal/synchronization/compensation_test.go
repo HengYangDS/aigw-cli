@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/transaction"
@@ -46,7 +47,7 @@ func TestFailedSelfCompensationPreservesTheReaderItProjected(t *testing.T) {
 	}
 	store := &configStoreStub{}
 	syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
-	err = syncer.CommitProjection(t.Context(), configuration.NewConfig(), testConfig(target), "sync")
+	err = syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), testConfig(target), "sync")
 	if !errors.Is(err, client.ErrProjectionRollbackFailed) || !errors.Is(err, transaction.ErrCompensationIncomplete) {
 		t.Fatalf("incomplete self-compensation was not reported as a failed rollback: %v", err)
 	}

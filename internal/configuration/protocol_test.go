@@ -9,7 +9,7 @@ import (
 )
 
 func TestRouteSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://responses.test/v1", Anthropic: "https://messages.test", OpenAIChatCompletions: "https://chat.test/v1"}}
 	cfg.Routes["hermes"] = Route{Label: "Hermes", Account: "team", Model: "model-test", Interfaces: map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}}
 	cfg.Clients[ClientHermes] = ClientBinding{Route: "hermes", Protocol: ProtocolAnthropic}
@@ -56,7 +56,7 @@ func TestExplicitProtocolMustBeSupportedByClient(t *testing.T) {
 }
 
 func TestRouteInterfacesConstrainClientCompatibilityAndRuntimeSelection(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{
 		OpenAIResponses:       "https://responses.test/v1",
 		OpenAIChatCompletions: "https://chat.test/v1",

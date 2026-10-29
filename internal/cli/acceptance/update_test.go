@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/upgrade"
@@ -38,7 +39,7 @@ func TestUpdateInvalidInputsLeaveOperationAndConfigurationUntouched(t *testing.T
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")
 			root := filepath.Join(t.TempDir(), "unconfigured")
-			app.Config = configuration.NewStore(filepath.Join(root, "config.toml"))
+			app.Config = configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 			updater := &fakeUpdater{}
 			app.Updater = updater
 			err := cli.Execute(app, append([]string{"update"}, args...))
@@ -175,7 +176,7 @@ func TestUpdateRollbackStopsBeforeUpdaterWhenConfigurationCannotBeRead(t *testin
 // requests, with a native keyring store that invokes it.
 func keychainRecorder(t *testing.T, app *cli.App, code string) string {
 	t.Helper()
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

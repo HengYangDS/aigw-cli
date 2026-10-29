@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	builtinclients "aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
@@ -38,7 +39,7 @@ func (deniedMetadataStore) Exists(string) (bool, error) {
 }
 
 func TestAssessActivationChoosesOneCompatibleEnvironmentAccount(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["ucloud"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://ucloud.test"}}
 	cfg.Accounts["dmx"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://dmx.test"}}
 	cfg.Routes["ucloud-claude"] = configuration.Route{Account: "ucloud", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
@@ -75,7 +76,7 @@ func TestAssessActivationChoosesOneCompatibleEnvironmentAccount(t *testing.T) {
 }
 
 func TestAssessActivationSeparatesCapabilityAndSelectionPrerequisites(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	store := secrets.NewMemoryStore()
 	capability := AssessActivation(cfg, store)
 	if capability.CapabilityPrerequisite != "aigw setup" || capability.SelectionPrerequisite != "" || capability.NextActionFor(nil) != "aigw setup" {
@@ -91,7 +92,7 @@ func TestAssessActivationSeparatesCapabilityAndSelectionPrerequisites(t *testing
 }
 
 func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}}
 	cfg.Routes["codex"] = configuration.Route{Account: "team", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	selection := AssessActivation(cfg, nil)
@@ -121,7 +122,7 @@ func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 }
 
 func TestNextActionAfterAccountConnectionPreservesExplicitSelection(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = configuration.Route{Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.Routes["hermes"] = configuration.Route{Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
@@ -147,7 +148,7 @@ func TestNextActionAfterAccountConnectionPreservesExplicitSelection(t *testing.T
 }
 
 func TestNextActionAfterAccountConnectionKeepsRequiredProtocolExplicit(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{
 		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
 	}}
@@ -164,7 +165,7 @@ func TestNextActionAfterAccountConnectionKeepsRequiredProtocolExplicit(t *testin
 }
 
 func TestAssessActivationListsUnselectedCompatibleEnvironmentAccounts(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["ucloud"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://ucloud.test"}}
 	cfg.Accounts["dmx"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://dmx.test"}}
 	cfg.Routes["ucloud-claude"] = configuration.Route{Account: "ucloud", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
@@ -182,7 +183,7 @@ func TestAssessActivationListsUnselectedCompatibleEnvironmentAccounts(t *testing
 }
 
 func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = configuration.Route{Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.SetRecommendedRoute(configuration.ClientClaude, "claude")
@@ -200,7 +201,7 @@ func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T)
 }
 
 func TestAssessActivationSelectedWritableAccountRequiresItsToken(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = configuration.Route{Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
@@ -220,7 +221,7 @@ func TestAssessActivationSelectedWritableAccountRequiresItsToken(t *testing.T) {
 }
 
 func TestAssessActivationDoesNotRecommendNoOpSyncBeforeClientActivation(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = configuration.Route{Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
@@ -238,7 +239,7 @@ func TestAssessActivationDoesNotRecommendNoOpSyncBeforeClientActivation(t *testi
 }
 
 func TestAssessActivationDoesNotInstallAClientWhoseSelectedTokenIsMissing(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["missing"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://missing.test"}}
 	cfg.Accounts["connected"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://connected.test/v1"}}
 	cfg.Routes["claude"] = configuration.Route{Account: "missing", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
@@ -267,7 +268,7 @@ func TestAssessActivationDoesNotInstallAClientWhoseSelectedTokenIsMissing(t *tes
 }
 
 func TestAssessActivationDoesNotVerifyWithoutCredentialMetadata(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = configuration.Route{Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
@@ -290,7 +291,7 @@ func TestAssessActivationDoesNotVerifyWithoutCredentialMetadata(t *testing.T) {
 }
 
 func TestAssessActivationDoesNotVerifyWithoutSelectedToken(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = configuration.Route{Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
@@ -303,7 +304,7 @@ func TestAssessActivationDoesNotVerifyWithoutSelectedToken(t *testing.T) {
 }
 
 func TestAssessActivationSeparatesEnabledIntentFromDeferredProjection(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["hermes"] = configuration.Route{Account: "team", Model: "model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(configuration.ClientHermes, "hermes", "")
@@ -324,7 +325,7 @@ func TestAssessActivationSeparatesEnabledIntentFromDeferredProjection(t *testing
 }
 
 func TestAssessActivationSeparatesMissingTokenFromDeferredProjection(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["hermes"] = configuration.Route{Account: "team", Model: "model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(configuration.ClientHermes, "hermes", "")

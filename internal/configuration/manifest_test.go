@@ -11,7 +11,7 @@ import (
 )
 
 func TestManifestExportOmitsDerivedRouteLabelsAndPreservesWireCase(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["dmxapi"] = Account{
 		Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
@@ -43,14 +43,14 @@ func TestManifestExportOmitsDerivedRouteLabelsAndPreservesWireCase(t *testing.T)
 	if got := raw.Routes["dmxapi-gpt-6-astra"]["upstream_model"]; got != "GPT-6-Astra" {
 		t.Fatalf("provider wire spelling = %#v", got)
 	}
-	parsed, err := Parse(data)
+	parsed, err := Parse(data, testAdmission())
 	if err != nil || parsed.Routes["dmxapi-gpt-6-astra"].Label != "" {
 		t.Fatalf("parsed derived Route label was materialized: %#v, %v", parsed.Routes["dmxapi-gpt-6-astra"], err)
 	}
 }
 
 func TestManifestMergeTreatsOldPlainLabelAsDerivedButPreservesCustomOverride(t *testing.T) {
-	current := NewConfig()
+	current := NewConfig(testAdmission())
 	current.Accounts["ucloud"] = Account{Label: "UCloud", Endpoints: Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
 	current.Models["gpt-6-sol"] = Model{Label: "GPT-6 Sol"}
 	route := Route{Label: "UCloud · GPT-6 Sol", Account: "ucloud", Model: "gpt-6-sol", UpstreamModel: "gpt-6-sol", Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {CapabilityText}}}
@@ -95,7 +95,7 @@ openai_responses = ["text", "reasoning", "streaming", "tools", "continuation"]
 
 [recommendations.codex.primary]
 route = "ucloud-gpt-6-astra"
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ model = "legacy"
 lifecycle = "deprecated"
 interfaces = { openai_responses = ["text"] }
 `)
-	manifest, err := Parse(raw)
+	manifest, err := Parse(raw, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ interfaces = { openai_responses = ["text"] }
 	}
 
 	withRecommendation := bytes.Replace(raw, []byte("[accounts.team]"), []byte("[recommendations.codex.primary]\nroute = \"legacy\"\n\n[accounts.team]"), 1)
-	if _, err := Parse(withRecommendation); err == nil || !strings.Contains(err.Error(), "deprecated route") {
+	if _, err := Parse(withRecommendation, testAdmission()); err == nil || !strings.Contains(err.Error(), "deprecated route") {
 		t.Fatalf("deprecated recommendation error = %v", err)
 	}
 }
@@ -186,7 +186,7 @@ label = "Synthetic Default"
 account = "team"
 model = "synthetic-model"
 interfaces = { openai_responses = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatalf("registry-admitted client was rejected: %v", err)
 	}
@@ -212,11 +212,11 @@ label = "Northstar Codex"
 account = "northstar"
 model = "northstar-model"
 interfaces = { openai_responses = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	merged, err := Merge(NewConfig(), incoming)
+	merged, err := Merge(NewConfig(testAdmission()), incoming)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,7 +247,7 @@ account = "team"
 model = "gpt-test"
 interfaces = { openai_responses = [] }
 `)
-	if _, err := Parse(raw); err == nil {
+	if _, err := Parse(raw, testAdmission()); err == nil {
 		t.Fatal("incompatible recommended route was accepted")
 	}
 }
@@ -263,13 +263,13 @@ label = "Claude"
 account = "team"
 model = "claude-test"
 `)
-	if _, err := Parse(legacy); err == nil || !strings.Contains(err.Error(), "expected 7") {
+	if _, err := Parse(legacy, testAdmission()); err == nil || !strings.Contains(err.Error(), "expected 7") {
 		t.Fatalf("v2 manifest error = %v", err)
 	}
 }
 
 func TestExportRejectsRouteThatCannotBeParsedBack(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
 	cfg.Routes["codex"] = testRoute("Codex", "team", "gpt-test", ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(ClientCodex, "codex", "")
@@ -296,7 +296,7 @@ label = "Codex"
 account = "gateway"
 model = "model"
 interfaces = { openai_responses = [] }
-`))
+`), testAdmission())
 	var missing *RuntimeMissingEndpointError
 	if !errors.As(err, &missing) || missing.AccountID != "gateway" || missing.Protocol != ProtocolOpenAIResponses {
 		t.Fatalf("manifest protocol validation = %v", err)
@@ -306,7 +306,7 @@ interfaces = { openai_responses = [] }
 func TestParseRejectsCredentialShapedFields(t *testing.T) {
 	for _, key := range []string{"token", "api_key", "password", "auth_header", "client_secret"} {
 		raw := []byte("version = 7\n" + key + " = \"must-not-exist\"\n")
-		_, err := Parse(raw)
+		_, err := Parse(raw, testAdmission())
 		if err == nil || !strings.Contains(err.Error(), "credential") {
 			t.Errorf("key %s: error = %v", key, err)
 		}
@@ -326,13 +326,13 @@ account = "team"
 model = "claude-team"
 interfaces = { anthropic = [] }
 `)
-	if _, err := Parse(oldSchema); err == nil ||
+	if _, err := Parse(oldSchema, testAdmission()); err == nil ||
 		!strings.Contains(err.Error(), "unsupported configuration manifest version 1") ||
 		!strings.Contains(err.Error(), "does not reinterpret schema versions") {
 		t.Fatalf("version 1 parse error = %v", err)
 	}
 	current := []byte(strings.Replace(string(oldSchema), "version = 1", "version = 7", 1))
-	parsed, err := Parse(current)
+	parsed, err := Parse(current, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,13 +352,13 @@ model = "claude-team"
 [routes.team.endpoints]
 openai_responses = "https://gateway.test/v1"
 `)
-	if _, err := Parse(raw); err == nil {
+	if _, err := Parse(raw, testAdmission()); err == nil {
 		t.Fatalf("legacyRoute endpoint error = %v", err)
 	}
 }
 
 func TestParseRejectsMalformedTOML(t *testing.T) {
-	if _, err := Parse([]byte("version = [1, 2\n")); err == nil || !strings.Contains(err.Error(), "parse configuration manifest") {
+	if _, err := Parse([]byte("version = [1, 2\n"), testAdmission()); err == nil || !strings.Contains(err.Error(), "parse configuration manifest") {
 		t.Fatalf("malformed TOML error = %v", err)
 	}
 }
@@ -370,7 +370,7 @@ label = "Team"
 [accounts.team.endpoints]
 anthropic = "https://team.test"
 `)
-	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "at least one route") {
+	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "at least one route") {
 		t.Fatalf("no-route error = %v", err)
 	}
 }
@@ -387,7 +387,7 @@ label = "Team"
 account = "team"
 model = "claude-team"
 `)
-	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "fields in the document are missing") {
+	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "fields in the document are missing") {
 		t.Fatalf("removed recommended_default error = %v", err)
 	}
 }
@@ -398,7 +398,7 @@ func TestParseInitializesMissingAccountsAndDefaultsToFirstRoute(t *testing.T) {
 label = "Solo"
 account = "missing"
 `)
-	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "invalid configuration manifest") {
+	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "invalid configuration manifest") {
 		t.Fatalf("account-less manifest error = %v", err)
 	}
 }
@@ -416,7 +416,7 @@ label = "Team"
 account = "team"
 model = "claude-team"
 `)
-	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "unsupported client") {
+	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "unsupported client") {
 		t.Fatalf("unsupported recommended route client error = %v", err)
 	}
 }
@@ -434,7 +434,7 @@ label = "Team"
 account = "team"
 model = "claude-team"
 `)
-	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "references unknown route") {
+	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "references unknown route") {
 		t.Fatalf("unknown recommended Route error = %v", err)
 	}
 }
@@ -446,7 +446,7 @@ password = "leak"
 [[entries]]
 token = "leak"
 `)
-	if _, err := Parse(raw); err == nil || !strings.Contains(err.Error(), "credential") {
+	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "credential") {
 		t.Fatalf("nested credential field error = %v", err)
 	}
 }
@@ -458,7 +458,7 @@ func TestExportRejectsInvalidConfiguration(t *testing.T) {
 }
 
 func TestExportOmitsSecretsAndAdaptersAndPublishesDeclaredRecommendations(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["team"] = testRoute("Team", "team", "claude-team", ProtocolAnthropic)
 	cfg.Recommendations[ClientClaude] = ClientRecommendation{Primary: ClientSelection{Route: "team"}}
@@ -486,7 +486,7 @@ func TestExportOmitsSecretsAndAdaptersAndPublishesDeclaredRecommendations(t *tes
 }
 
 func TestExportIsCanonicalTypedManifestProjection(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{
 		Label:     "Team",
 		Endpoints: Endpoints{Anthropic: "https://team.example.test"},
@@ -505,11 +505,11 @@ func TestExportIsCanonicalTypedManifestProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := Parse(first)
+	manifest, err := Parse(first, testAdmission())
 	if err != nil {
 		t.Fatalf("parse exported manifest: %v", err)
 	}
-	projected := NewConfig()
+	projected := NewConfig(testAdmission())
 	projected.Accounts = manifest.Accounts
 	projected.Routes = manifest.Routes
 	projected.Recommendations = manifest.Recommendations

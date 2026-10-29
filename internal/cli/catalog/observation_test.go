@@ -10,11 +10,12 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 )
 
 func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{
 		Label: "Gateway",
 		Endpoints: configuration.Endpoints{
@@ -184,7 +185,7 @@ func TestCatalogParsingRejectsAmbiguousContainers(t *testing.T) {
 }
 
 func TestAmbiguousCatalogueDoesNotReportRoutesAsNotListed(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://responses.test/v1"}}
 	cfg.Models["shared"] = configuration.Model{Label: "Shared"}
 	cfg.Routes["responses"] = configuration.Route{

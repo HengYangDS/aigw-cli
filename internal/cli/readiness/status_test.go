@@ -261,7 +261,7 @@ func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *test
 func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	emptyPath := filepath.Join(t.TempDir(), "configuration.toml")
 	emptyOut := &bytes.Buffer{}
-	emptyRuntime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(emptyPath), Out: emptyOut, RenderOut: emptyOut, Secrets: secrets.NewMemoryStore()}
+	emptyRuntime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(emptyPath, clients.Admission()), Out: emptyOut, RenderOut: emptyOut, Secrets: secrets.NewMemoryStore()}
 	if err := RunStatus(emptyRuntime, false); err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +280,7 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	if err := os.WriteFile(badPath, []byte("not = [toml"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	badRuntime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(badPath), Out: io.Discard}
+	badRuntime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(badPath, clients.Admission()), Out: io.Discard}
 	if err := RunStatus(badRuntime, false); err == nil {
 		t.Fatal("malformed configuration was accepted")
 	}
@@ -361,7 +361,7 @@ func TestStatusJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Out: out, RenderOut: out, Width: 120}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Routes["available"] = configuration.Route{Label: "Available"}
 	clients := map[string]clientStatus{}
 	for _, client := range []string{configuration.ClientClaude, configuration.ClientCodex} {

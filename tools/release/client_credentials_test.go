@@ -24,6 +24,8 @@ import (
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 
+	"aigw-cli/internal/clients"
+
 	"github.com/pelletier/go-toml/v2"
 	"go.yaml.in/yaml/v3"
 )
@@ -251,7 +253,7 @@ func TestSyncPreservesRetainedEntrypointAfterInterruptedLastClientWithdrawal(t *
 	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
 	retained := journey.retainedCredential(configuration.ClientClaude)
-	store := configuration.NewStore(journey.config)
+	store := configuration.NewStore(journey.config, clients.Admission())
 	before, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -307,7 +309,7 @@ func TestClientDisablePreservesRetainedEntrypointAcrossReenable(t *testing.T) {
 	journey := newNativeJourney(t, program, server.URL, true)
 	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
-	store := configuration.NewStore(journey.config)
+	store := configuration.NewStore(journey.config, clients.Admission())
 	cfg, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -428,7 +430,7 @@ func (j *journeyFixture) shellCredential(command string) process.Plan {
 }
 
 func (j *journeyFixture) retainedCredentials() []process.Plan {
-	cfg, err := configuration.NewStore(j.config).Load()
+	cfg, err := configuration.NewStore(j.config, clients.Admission()).Load()
 	if err != nil {
 		j.testing.Fatal(err)
 	}

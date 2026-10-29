@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/presentation"
@@ -130,7 +132,7 @@ func TestProblemFallsBackToCause(t *testing.T) {
 }
 
 func TestSynchronizerPreservesInvocationCapabilities(t *testing.T) {
-	config := configuration.NewStore("configuration.toml")
+	config := configuration.NewStore("configuration.toml", clients.Admission())
 	secretStore := secrets.NewMemoryStore()
 	runner := fakeRunner{}
 	discoverer := fakeDiscoverer{}
@@ -143,7 +145,7 @@ func TestSynchronizerPreservesInvocationCapabilities(t *testing.T) {
 	}
 	got := Synchronizer(runtime)
 
-	if got.Config != config {
+	if !reflect.DeepEqual(got.Config, config) {
 		t.Fatalf("Synchronizer().Config = %#v, want invocation config", got.Config)
 	}
 	if got.Secrets != secretStore {

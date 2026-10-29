@@ -39,7 +39,7 @@ func newClaudeDesktopFixture(t *testing.T) claudeDesktopFixture {
 		}
 	}
 	library := filepath.Join(root, "Claude-3p", "configLibrary")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test/v1"}}
 	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{Anthropic: "https://other.test/v1"}}
 	cfg.Routes["alternate"] = configuration.Route{Label: "Opus 5", Account: "gateway", Model: "claude-opus-5", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
@@ -117,11 +117,11 @@ func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := configuration.Parse(team)
+	manifest, err := configuration.Parse(team, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := configuration.Merge(configuration.NewConfig(), manifest)
+	cfg, err := configuration.Merge(configuration.NewConfig(testAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,14 +154,14 @@ func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T
 
 func (fixture claudeDesktopFixture) apply(t *testing.T) {
 	t.Helper()
-	if _, err := fixture.adapter.Apply(t.Context(), fixture.deps, configuration.NewConfig(), fixture.cfg); err != nil {
+	if _, err := fixture.adapter.Apply(t.Context(), fixture.deps, configuration.NewConfig(testAdmission()), fixture.cfg); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestClaudeDesktopAdapterProjectsSelectedAccountCatalogue(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
-	plans, err := fixture.adapter.Plan(fixture.deps, configuration.NewConfig(), fixture.cfg)
+	plans, err := fixture.adapter.Plan(fixture.deps, configuration.NewConfig(testAdmission()), fixture.cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +218,7 @@ func TestClaudeDesktopAdapterWithdrawsOwnedProjection(t *testing.T) {
 
 func TestClaudeDesktopAdapterReceiptRestoresThePreimage(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
-	receipt, err := fixture.adapter.Apply(t.Context(), fixture.deps, configuration.NewConfig(), fixture.cfg)
+	receipt, err := fixture.adapter.Apply(t.Context(), fixture.deps, configuration.NewConfig(testAdmission()), fixture.cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +279,7 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test/v1"}}
 	cfg.Routes["selected"] = configuration.Route{Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(configuration.ClientClaudeDesktop, "selected", "")

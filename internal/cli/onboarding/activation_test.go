@@ -12,7 +12,7 @@ import (
 )
 
 func TestManifestSetupOffersEqualCompatibleAccountsWithoutTokens(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	for _, account := range []string{"ucloud", "dmx"} {
 		cfg.Accounts[account] = configuration.Account{Label: account, Endpoints: configuration.Endpoints{Anthropic: "https://" + account + ".test"}}
 		cfg.Routes[account] = configuration.Route{Label: account, Account: account, Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}

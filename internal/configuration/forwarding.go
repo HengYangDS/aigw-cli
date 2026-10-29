@@ -53,8 +53,8 @@ func encodeForwarding(cfg Config) ([]byte, error) {
 	return separateTOMLTableBlocks(data), nil
 }
 
-func decodeStoreConfig(data []byte, forwarding transaction.FileSnapshot) (Config, error) {
-	cfg, err := decodeTOMLConfig(data)
+func decodeStoreConfig(data []byte, forwarding transaction.FileSnapshot, admission Admission) (Config, error) {
+	cfg, err := decodeTOMLConfig(data, admission)
 	if err != nil || !forwarding.Exists {
 		return cfg, err
 	}

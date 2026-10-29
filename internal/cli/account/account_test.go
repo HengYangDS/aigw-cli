@@ -30,7 +30,7 @@ func TestAccountReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(clients.Admission())
 			cfg.Accounts = test.accounts
 			got, err := accountReference(cfg, test.args)
 			if test.wantErr != "" {
@@ -48,7 +48,7 @@ func TestAccountReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
 
 func TestAccountCommandsRequireAnAccountBeforeProviderWork(t *testing.T) {
 	runtime := invocation.Context{Clients: clients.Registry(),
-		Config:      configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")),
+		Config:      configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()),
 		Interactive: true,
 		Out:         &bytes.Buffer{},
 		RenderOut:   &bytes.Buffer{},
@@ -85,8 +85,8 @@ func TestEditReturnsTransactionPreparationFailure(t *testing.T) {
 func blockedConfigurationStore(t *testing.T) (configuration.Store, secrets.Store) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
-	store := configuration.NewStore(path)
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(path, clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["current"] = configuration.Account{
 		Label:     "Current",
 		Endpoints: configuration.Endpoints{OpenAIResponses: "https://current.test/v1"},

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 )
 
@@ -77,7 +78,7 @@ func TestRollbackReportsUnavailableRecoveryWithoutChangingCurrentConfiguration(t
 
 func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&before, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	before.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	if err := app.Config.Save(before); err != nil {
@@ -100,7 +101,7 @@ func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
 
 func TestRollbackUsesPreviousConfigurationWhenVerifiedRecoveryIsInvalid(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	previous := configuration.NewConfig()
+	previous := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&previous, "stable", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-stable")
 	previous.SetSelectedRoute(configuration.ClientClaude, "stable", "")
 	if err := app.Config.Save(previous); err != nil {
@@ -134,7 +135,7 @@ func TestRollbackUsesPreviousConfigurationWhenVerifiedRecoveryIsInvalid(t *testi
 func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	target := t.TempDir()
-	verified := configuration.NewConfig()
+	verified := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&verified, "stable", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-stable")
 	verified.SetSelectedRoute(configuration.ClientCodex, "stable", "")
 	verified.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
@@ -173,7 +174,7 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 
 func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	verified := configuration.NewConfig()
+	verified := configuration.NewConfig(clients.Admission())
 	verified.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	verified.Routes["stable"] = qualifiedRoute("Stable", "dmx", "gpt-stable", configuration.ProtocolOpenAIResponses)
 	verified.SetSelectedRoute(configuration.ClientCodex, "stable", "")
@@ -193,7 +194,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	canonical := current.Clone()
 	account.Order = 0
 	canonical.Accounts["dmx"] = account
-	isolated := configuration.NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	isolated := configuration.NewStore(filepath.Join(t.TempDir(), "config.toml"), clients.Admission())
 	if err := isolated.Save(canonical); err != nil {
 		t.Fatal(err)
 	}

@@ -59,7 +59,7 @@ func (r *adapterRunner) RunCaptureStreams(ctx context.Context, plan process.Plan
 }
 
 func adapterConfig() configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{
 		Label: "Gateway",
 		Endpoints: configuration.Endpoints{
@@ -76,7 +76,7 @@ func adapterConfig() configuration.Config {
 
 func adapterRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, *bytes.Buffer, secrets.Store, *adapterRunner) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -460,7 +460,7 @@ func TestDisableCodexRestoresProjection(t *testing.T) {
 func TestCommandsPropagateConfigurationLoadErrors(t *testing.T) {
 	badPath := t.TempDir()
 	runtime := invocation.Context{Clients: clients.Registry(),
-		Config:    configuration.NewStore(badPath),
+		Config:    configuration.NewStore(badPath, clients.Admission()),
 		Secrets:   secrets.NewMemoryStore(),
 		Out:       &bytes.Buffer{},
 		RenderOut: &bytes.Buffer{},

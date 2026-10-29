@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
@@ -55,7 +56,7 @@ func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
 // variable that supplies it, in human and JSON output alike.
 func TestCheckNamesTheEnvironmentTokenForARejectedToken(t *testing.T) {
 	app, out, _, _, httpClient := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, configuration.ClientClaude, "claude-test")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "dmx", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)

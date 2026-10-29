@@ -236,7 +236,7 @@ func NewDefault(clients client.Registry) (*App, error) {
 		Executable:    executable,
 		InstallTarget: filepath.Join(paths.InstallDir, paths.InstallName),
 		Host:          host.Platform(),
-		Config:        configuration.NewStore(paths.Config),
+		Config:        configuration.NewStore(paths.Config, clients.Admission()),
 		Secrets:       secretStore,
 		Accounts:      diagnosticCredentialStore,
 		Env:           os.Environ(),

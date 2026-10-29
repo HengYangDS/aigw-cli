@@ -9,7 +9,7 @@ import (
 )
 
 func TestConfigQueriesOwnAccountAndRouteSelectionSemantics(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = Account{
 		Label:     "Gateway",
 		Endpoints: Endpoints{Anthropic: "https://gateway.test/anthropic"},
@@ -38,7 +38,7 @@ func TestConfigQueriesOwnAccountAndRouteSelectionSemantics(t *testing.T) {
 }
 
 func TestEnabledClientIDsFollowConfigurationNotSupportedCapabilities(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	if got := cfg.EnabledClientIDs(); len(got) != 0 {
 		t.Fatalf("empty scope = %v", got)
 	}
@@ -114,6 +114,7 @@ func validConfig() Config {
 			ClientClaude: {Route: "dmx"},
 			ClientCodex:  {Route: "backup"},
 		},
+		admission: testAdmission(),
 	}
 }
 
@@ -142,7 +143,7 @@ func TestValidateRejectsNonCanonicalSchemaVersion(t *testing.T) {
 }
 
 func TestNewConfigUsesCurrentSchema(t *testing.T) {
-	if got := NewConfig().Version; got != ConfigVersion {
+	if got := NewConfig(testAdmission()).Version; got != ConfigVersion {
 		t.Fatalf("new config version = %d, want %d", got, ConfigVersion)
 	}
 }
@@ -300,7 +301,7 @@ func TestValidateAllowsProviderNeutralExplicitDiagnostics(t *testing.T) {
 }
 
 func TestValidateRejectsRuntimeRouteReferencingUnknownAccountOrInvalidClientOptions(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
 	cfg.Routes["codex"] = testRoute("Codex", "missing", "gpt-5.6", ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(ClientCodex, "codex", "")

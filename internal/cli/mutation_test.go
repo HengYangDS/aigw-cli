@@ -91,7 +91,7 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 			root := filepath.Join(t.TempDir(), "configuration")
 			var output bytes.Buffer
 			app := &App{Clients: clients.Registry(),
-				Config: configuration.NewStore(filepath.Join(root, "config.toml")),
+				Config: configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
 				Out:    &output,
 				Err:    io.Discard,
 			}
@@ -184,7 +184,7 @@ func TestConfigurationLockUsesParsedOperations(t *testing.T) {
 func TestConfigImportPreviewDoesNotCreateConfigurationDirectoryOrLock(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "configuration")
 	var output bytes.Buffer
-	app := &App{Clients: clients.Registry(), Config: configuration.NewStore(filepath.Join(root, "config.toml")), Out: &output, Err: io.Discard}
+	app := &App{Clients: clients.Registry(), Config: configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission()), Out: &output, Err: io.Discard}
 	manifest := filepath.Join("..", "..", "manifests", "team.toml")
 	if err := Execute(app, []string{"config", "import", manifest, "--dry-run", "--json"}); err != nil {
 		t.Fatal(err)
@@ -198,19 +198,19 @@ func TestConfigImportPreviewDoesNotCreateConfigurationDirectoryOrLock(t *testing
 }
 
 func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
-	emptyStore := App{Config: configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml")), Interactive: true}
+	emptyStore := App{Config: configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission()), Interactive: true}
 	if !requiresConfigurationLock(&emptyStore, NewRoot(&emptyStore)) {
 		t.Fatal("an interactive terminal with no routes should trigger the onboarding wizard lock")
 	}
 
-	nonInteractive := App{Config: configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml")), Interactive: false}
+	nonInteractive := App{Config: configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission()), Interactive: false}
 	if requiresConfigurationLock(&nonInteractive, NewRoot(&nonInteractive)) {
 		t.Fatal("a non-interactive session with no routes must not take a mutation lock")
 	}
 
 	path := filepath.Join(t.TempDir(), "configuration.toml")
-	store := configuration.NewStore(path)
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(path, clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Routes["gpt"] = configuration.Route{
 		Label: "GPT", Account: "dmx", Model: "gpt-test",

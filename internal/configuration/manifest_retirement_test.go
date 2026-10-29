@@ -7,7 +7,7 @@ import (
 )
 
 func TestMergeRouteRetirementRejectsDanglingRecommendationWithoutMutatingInput(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = Account{
 		Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.example/v1"},
 	}
@@ -36,7 +36,7 @@ func TestMergeRouteRetirementRejectsDanglingRecommendationWithoutMutatingInput(t
 }
 
 func TestMergeFalseRetirementSelectorDoesNotRetireRoute(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = Account{
 		Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.example/v1"},
 	}

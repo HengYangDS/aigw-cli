@@ -10,7 +10,7 @@ import (
 )
 
 func TestConnectionRetryPolicyPreservesCachedCredentialConfiguration(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -37,7 +37,7 @@ func TestConnectionRetryPolicyPreservesCachedCredentialConfiguration(t *testing.
 }
 
 func TestConnectionRetryPolicyRoundTripsAndRestores(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -47,7 +47,7 @@ func TestConnectionRetryPolicyRoundTripsAndRestores(t *testing.T) {
 		t.Fatal(err)
 	}
 	declared := append(append([]byte(nil), before.Config.Data...), []byte("\n[clients.codex.retry_policy]\nrequest_max_retries = 0\nstream_max_retries = 0\n")...)
-	selected, err := decodeTOMLConfig(declared)
+	selected, err := decodeTOMLConfig(declared, testAdmission())
 	if err != nil {
 		t.Fatalf("explicit native connection policy refused: %v", err)
 	}

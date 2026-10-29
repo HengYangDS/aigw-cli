@@ -139,7 +139,7 @@ func decodeCatalogOrder(cfg Config, snapshot transaction.FileSnapshot) (Config, 
 }
 
 func (s Store) loadSnapshot(snapshot Snapshot) (Config, error) {
-	cfg, err := decodeStoreConfig(snapshot.Config.Data, snapshot.Forwarding)
+	cfg, err := decodeStoreConfig(snapshot.Config.Data, snapshot.Forwarding, s.admission)
 	if err != nil {
 		return Config{}, err
 	}

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/activation"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/secrets"
@@ -84,7 +85,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			route := selected.Routes["gpt"]
 			route.Account = account
 			selected.Routes["gpt"] = route
-			err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), selected, "test")
+			err := syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), selected, "test")
 			if err == nil {
 				t.Fatal("copied reader denied by the native store was accepted")
 			}
@@ -108,7 +109,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			route = deferred.Routes["gpt"]
 			route.Account = "missing"
 			deferred.Routes["gpt"] = route
-			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), deferred, "deferred", configuration.ClientCodex); err != nil {
+			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), deferred, "deferred", configuration.ClientCodex); err != nil {
 				t.Fatalf("absent Token blocked deferred selection: %v", err)
 			}
 			if current, err := os.ReadFile(target); err != nil || !bytes.Equal(current, original) {
@@ -130,7 +131,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			}
 			selected.SetSelectedRoute(configuration.ClientClaude, "blocked-claude", "")
 			selected.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
-			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), selected, "codex", configuration.ClientCodex); err != nil {
+			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), selected, "codex", configuration.ClientCodex); err != nil {
 				t.Fatalf("unrelated Claude Token blocked a Codex-only projection: %v", err)
 			}
 		})

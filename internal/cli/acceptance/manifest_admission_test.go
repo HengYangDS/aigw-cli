@@ -3,6 +3,7 @@ package cli_test
 import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	surfaceidentity "aigw-cli/internal/surface"
@@ -56,7 +57,7 @@ func TestSetupAdmitsArgumentsBeforeCreatingConfiguration(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")
 			root := filepath.Join(t.TempDir(), "unconfigured")
-			app.Config = configuration.NewStore(filepath.Join(root, "config.toml"))
+			app.Config = configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 			if err := cli.Execute(app, append([]string{"setup"}, args...)); err == nil {
 				t.Fatal("invalid setup arguments were admitted")
 			}
@@ -218,7 +219,7 @@ func TestManifestSetupSurfacesManifestAndConfigFailures(t *testing.T) {
 
 	t.Run("config load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		path := writeConfigurationManifest(t, configurationManifestFixture)
 		if err := cli.Execute(app, []string{"setup", "--from", path}); err == nil {
 			t.Fatal("expected config load failure")

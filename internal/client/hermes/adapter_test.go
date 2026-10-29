@@ -56,7 +56,7 @@ func TestHermesInspectionKeepsIntactRetainedReader(t *testing.T) {
 func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	home := t.TempDir()
 	source := discovery.System{GOOS: runtime.GOOS, Home: home, Path: home}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://provider.test"}}
 	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", configuration.ProtocolAnthropic)
 	cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic}
@@ -134,7 +134,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 }
 
 func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(testAdmission())
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	before.Routes["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", configuration.ProtocolOpenAIResponses)
 	before.Routes["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", configuration.ProtocolOpenAIResponses)
@@ -154,7 +154,7 @@ func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 }
 
 func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	for routeID, wireID := range map[string]string{"ordinary": "gpt-6-astra", "variant": "gpt-6-astra-ssvip"} {
 		cfg.Routes[routeID] = configuration.Route{
@@ -181,7 +181,7 @@ func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
 }
 
 func TestHermesCatalogueFollowsDeclaredAccountAndModelOrder(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	for id, order := range map[string]int{"alpha": 20, "zulu": 10} {
 		cfg.Accounts[id] = configuration.Account{Label: id, Order: order, Endpoints: configuration.Endpoints{
 			Anthropic: "https://messages.test", OpenAIResponses: "https://responses.test/v1",
@@ -215,11 +215,11 @@ func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := configuration.Parse(team)
+	manifest, err := configuration.Parse(team, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := configuration.Merge(configuration.NewConfig(), manifest)
+	cfg, err := configuration.Merge(configuration.NewConfig(testAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +244,7 @@ func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
 }
 
 func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(testAdmission())
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	before.Routes["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", configuration.ProtocolOpenAIResponses)
 	before.Routes["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", configuration.ProtocolOpenAIResponses)
@@ -264,7 +264,7 @@ func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *testing.T) {
 	home := t.TempDir()
 	target := filepath.Join(home, ".hermes", "config.yaml")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{
 		Anthropic:             "https://messages.test",
 		OpenAIResponses:       "https://responses.test/v1",
@@ -289,7 +289,7 @@ func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *
 		}
 	}
 
-	plans, _, err := hermesPlans(client.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(home, "aigw")}, configuration.NewConfig(), cfg)
+	plans, _, err := hermesPlans(client.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(home, "aigw")}, configuration.NewConfig(testAdmission()), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

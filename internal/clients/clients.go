@@ -22,6 +22,11 @@ func Registry() client.Registry {
 	return registry
 }
 
+// Admission returns the built-in clients that every configuration of this
+// program admits, in admission order. Tests that build configurations for the
+// built-in clients take it too.
+func Admission() configuration.Admission { return Registry().Admission() }
+
 // adapters lists every built-in client adapter in admission order.
 func adapters() []client.Adapter {
 	return []client.Adapter{

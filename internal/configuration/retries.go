@@ -64,7 +64,7 @@ func (c *Config) retryPolicyFor(client string, selection ClientSelection, upstre
 		selectedAuthentication(binding.selection()) != selectedAuthentication(selection) {
 		return nil
 	}
-	spec, _ := ClientSpecFor(client)
+	spec, _ := c.admission.Spec(client)
 	endpoint, boundProtocol, err := spec.ResolveRouteEndpoint(c.Accounts[bound.Account], bound, binding.Protocol)
 	if err != nil || endpoint != upstream || boundProtocol != protocol {
 		return nil

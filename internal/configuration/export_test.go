@@ -10,7 +10,7 @@ import (
 // choice; an import would otherwise treat it as reviewed preference.
 func TestExportKeepsClientBindingsLocal(t *testing.T) {
 	declared := func() Config {
-		cfg := NewConfig()
+		cfg := NewConfig(testAdmission())
 		cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
 		cfg.Routes["team-claude"] = testRoute("Team Claude", "team", "claude-test", ProtocolAnthropic)
 		cfg.Routes["team-claude-alternative"] = testRoute("Team Claude Alternative", "team", "claude-alternative", ProtocolAnthropic)
@@ -37,7 +37,7 @@ func TestExportKeepsClientBindingsLocal(t *testing.T) {
 	if !bytes.Equal(exported, unselected) {
 		t.Fatalf("bindings changed the exported manifest:\nwithout bindings:\n%s\nwith bindings:\n%s", unselected, exported)
 	}
-	manifest, err := Parse(exported)
+	manifest, err := Parse(exported, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}

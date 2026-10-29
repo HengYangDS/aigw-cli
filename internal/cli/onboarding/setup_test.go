@@ -126,7 +126,7 @@ func (candidate setupDiscovery) Discover() discovery.Result {
 }
 
 func manifestSetupConfig() configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
@@ -277,7 +277,7 @@ func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *t
 	}
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Executable: filepath.Join(t.TempDir(), "aigw"),
-		Config:     configuration.NewStore(configPath),
+		Config:     configuration.NewStore(configPath, clients.Admission()),
 		Secrets:    store,
 		Discovery:  setupDiscovery{},
 		HTTP: setupHTTPClient(func(request *http.Request) (*http.Response, error) {
@@ -313,7 +313,7 @@ func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 	}
 	configPath := filepath.Join(root, "configuration.toml")
 	run := invocation.Context{Clients: clients.Registry(),
-		Executable: filepath.Join(root, "aigw"), Config: configuration.NewStore(configPath), Secrets: store,
+		Executable: filepath.Join(root, "aigw"), Config: configuration.NewStore(configPath, clients.Admission()), Secrets: store,
 		Discovery: setupDiscovery{onDiscover: func() {
 			if err := store.Set("team", "newer-token"); err != nil {
 				t.Fatal(err)
@@ -391,7 +391,7 @@ interfaces = { openai_responses = ["text"] }
 	}
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Executable: filepath.Join(t.TempDir(), "aigw"),
-		Config:     configuration.NewStore(configPath),
+		Config:     configuration.NewStore(configPath, clients.Admission()),
 		Secrets:    store,
 		Discovery: setupDiscovery{result: discovery.Result{
 			Executables: map[string]string{configuration.ClientCodex: "/opt/codex"},
@@ -418,7 +418,7 @@ interfaces = { openai_responses = ["text"] }
 }
 
 func TestConfiguredClientsForAccount(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["legacy"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://legacy.test/v1"}}
 	cfg.Accounts["other"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://other.test"}}
 	cfg.Routes["legacy"] = configuration.Route{
@@ -437,7 +437,7 @@ func TestConfiguredClientsForAccount(t *testing.T) {
 }
 
 func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
-	_, err := planSetup(configuration.NewConfig(), Request{
+	_, err := planSetup(configuration.NewConfig(clients.Admission()), Request{
 		Route: "shared", Client: configuration.ClientHermes, Model: "shared-model",
 		OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
 	})
@@ -450,7 +450,7 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 		strings.Contains(rendered.String(), "aigw check") {
 		t.Fatalf("ambiguous Hermes setup recommendation = %q, want %q", rendered.String(), want)
 	}
-	_, err = planSetup(configuration.NewConfig(), Request{
+	_, err = planSetup(configuration.NewConfig(clients.Admission()), Request{
 		Route: "chat", Client: configuration.ClientHermes, Model: "chat-model",
 		Protocol: string(configuration.ProtocolOpenAIChatCompletions),
 	})
@@ -482,7 +482,7 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			plan, err := planSetup(configuration.NewConfig(), test.request)
+			plan, err := planSetup(configuration.NewConfig(clients.Admission()), test.request)
 			if err != nil || plan.config.Clients[configuration.ClientHermes].Protocol != test.protocol {
 				t.Fatalf("Hermes setup protocol = %#v, %v", plan.config.Clients[configuration.ClientHermes], err)
 			}
@@ -514,7 +514,7 @@ func TestSetupTokenPromptAndBackendErrors(t *testing.T) {
 
 func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
-	store := configuration.NewStore(path)
+	store := configuration.NewStore(path, clients.Admission())
 	secretStore := secrets.NewMemoryStore()
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)

@@ -12,6 +12,7 @@ import (
 
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
@@ -141,7 +142,7 @@ func TestDoctorReportsCredentialObservationFailure(t *testing.T) {
 
 func TestDoctorJSONDoesNotExposeConfigurationPath(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	bad := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	bad := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	app.Config = bad
 	if err := os.MkdirAll(bad.Path(), 0o700); err != nil {
 		t.Fatal(err)
@@ -220,7 +221,7 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 		t.Fatal(err)
 	}
 	route := qualifiedRoute("GPT 5.6 Sol Codex", "dmx", "gpt-5.6-sol", configuration.ProtocolOpenAIResponses)
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Routes["gpt-5.6-sol"] = route
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-5.6-sol", "")
@@ -310,7 +311,7 @@ func TestDoctorHumanOutputUsesConciseCheckLabels(t *testing.T) {
 
 func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "team", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
@@ -347,7 +348,7 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 	}
 	homeRelative := filepath.Join("~", ".codex", "config.toml")
 	route := qualifiedRoute("GPT", "team", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}}
 	cfg.Routes["gpt"] = route
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")

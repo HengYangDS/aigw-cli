@@ -225,8 +225,8 @@ func (do doerFunc) Do(request *http.Request) (*http.Response, error) { return do
 
 func configuredRuntime(t *testing.T) (invocation.Context, configuration.Config, *bytes.Buffer) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{
 		Label: "Gateway",
 		Endpoints: configuration.Endpoints{

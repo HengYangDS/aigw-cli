@@ -13,7 +13,7 @@ import (
 )
 
 func TestRollbackConfigurationPreservesRawBytesWithoutRetryComponent(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	original := []byte("version = 3\n# The retained reader owns schema admission.\n")
 	if err := os.WriteFile(store.Path(), original, 0o600); err != nil {
 		t.Fatal(err)
@@ -29,7 +29,7 @@ func TestRollbackConfigurationPreservesRawBytesWithoutRetryComponent(t *testing.
 }
 
 func TestRetryCheckpointDoesNotAdoptUnverifiedPolicy(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -58,7 +58,7 @@ func TestRetryCheckpointDoesNotAdoptUnverifiedPolicy(t *testing.T) {
 }
 
 func TestRetryPolicyCommitCompensatesLaterFailure(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -93,7 +93,7 @@ func TestRetryPolicyCommitCompensatesLaterFailure(t *testing.T) {
 }
 
 func TestRetryPolicyBackupAdmissionAndNativeReset(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
 	zero := uint64(0)
 	binding := cfg.Clients[ClientCodex]
@@ -110,7 +110,7 @@ func TestRetryPolicyBackupAdmissionAndNativeReset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	decoded, err := decodeTOMLConfig(admission)
+	decoded, err := decodeTOMLConfig(admission, testAdmission())
 	if err != nil || !reflect.DeepEqual(decoded.Clients[ClientCodex].RetryPolicy, binding.RetryPolicy) {
 		t.Fatalf("admission document lost policy: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestRetryPolicyBackupAdmissionAndNativeReset(t *testing.T) {
 }
 
 func TestRetryPolicyComponentsRefuseInvalidIdentityOrContent(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 	cfg := validConfig()
 	zero := uint64(0)
 	binding := cfg.Clients[ClientCodex]
@@ -190,7 +190,7 @@ func TestRetryPolicyAdmissionRefusesConflictingOrUnreadableComponents(t *testing
 	zero, two := uint64(0), uint64(2)
 	declared := func(t *testing.T) (Store, Config) {
 		t.Helper()
-		store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+		store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 		cfg := validConfig()
 		binding := cfg.Clients[ClientCodex]
 		binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &zero}

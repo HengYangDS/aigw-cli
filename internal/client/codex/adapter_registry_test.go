@@ -24,7 +24,7 @@ func codexRegistry() client.Registry {
 }
 
 func TestCodexProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(testAdmission())
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
 	before.Routes["route"] = qualifiedRoute("Route", "gateway", "model", configuration.ProtocolOpenAIResponses)
 	before.Clients[configuration.ClientCodex] = configuration.ClientBinding{Route: "route", Enabled: true}
@@ -89,13 +89,13 @@ func TestCodexConvergenceRefusesAnUninspectableConfiguredExecutable(t *testing.T
 
 func TestCodexConvergenceIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 	t.Run("without a route", func(t *testing.T) {
-		if _, err := codexRegistry().Converge(client.Dependencies{}, configuration.NewConfig(), discovery.Result{}, configuration.ClientCodex); err != nil {
+		if _, err := codexRegistry().Converge(client.Dependencies{}, configuration.NewConfig(testAdmission()), discovery.Result{}, configuration.ClientCodex); err != nil {
 			t.Fatalf("Converge(codex) without a route = %v", err)
 		}
 	})
 
 	t.Run("with a broken route", func(t *testing.T) {
-		cfg := configuration.NewConfig()
+		cfg := configuration.NewConfig(testAdmission())
 		cfg.SetSelectedRoute(configuration.ClientCodex, "missing-route", "")
 		if _, err := codexRegistry().Converge(client.Dependencies{}, cfg, discovery.Result{}, configuration.ClientCodex); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
 			t.Fatalf("Converge(codex) broken route error = %v", err)

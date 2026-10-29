@@ -35,7 +35,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		if err := os.WriteFile(target, nil, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		cfg := configuration.NewConfig()
+		cfg := configuration.NewConfig(testAdmission())
 		cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 		cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
 		cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Route: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
@@ -113,9 +113,9 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 }
 
 func TestCodexAdapterApplyRequiresDiscovery(t *testing.T) {
-	after := configuration.NewConfig()
+	after := configuration.NewConfig(testAdmission())
 	after.SetClientActivation(configuration.ClientCodex, true, "", nil)
-	if _, err := (codexAdapter{}).Apply(context.Background(), client.Dependencies{}, configuration.NewConfig(), after); err == nil || !strings.Contains(err.Error(), "surface discovery is unavailable") {
+	if _, err := (codexAdapter{}).Apply(context.Background(), client.Dependencies{}, configuration.NewConfig(testAdmission()), after); err == nil || !strings.Contains(err.Error(), "surface discovery is unavailable") {
 		t.Fatalf("Apply() error = %v", err)
 	}
 }
@@ -133,7 +133,7 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *tes
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			target := filepath.Join(t.TempDir(), "config.toml")
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(testAdmission())
 			cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 			cfg.Routes["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
 			cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{
@@ -153,7 +153,7 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *tes
 			_, err := (codexAdapter{}).Apply(context.Background(), client.Dependencies{
 				Discovery:      fixedDiscoverer{result: discovered},
 				AIGWExecutable: command,
-			}, configuration.NewConfig(), cfg)
+			}, configuration.NewConfig(testAdmission()), cfg)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -246,7 +246,7 @@ func (runner *captureAdapterRunner) RunCapture(ctx context.Context, plan process
 }
 
 func codexConfiguration(target string) configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}

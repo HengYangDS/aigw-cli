@@ -34,18 +34,18 @@ func TestHermesNativeProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			hermesHome := filepath.Join(home, "hermes")
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(testAdmission())
 			cfg.Accounts["fixture"] = configuration.Account{Label: "Fixture", Endpoints: configuration.Endpoints{Anthropic: "https://provider.invalid", OpenAIResponses: "https://provider.invalid/v1", OpenAIChatCompletions: "https://provider.invalid/v1"}}
 			cfg.Routes["hermes"] = configuration.Route{
 				Label: "Hermes", Account: "fixture", Model: "fixture-model",
 				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
 			}
 			cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
-			if err := configuration.NewStore(configPath).Save(cfg); err != nil {
+			if err := configuration.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
 				t.Fatal(err)
 			}
 			deps := client.Dependencies{AIGWExecutable: candidate}
-			if _, _, err := hermesRegistry().Apply(t.Context(), deps, configuration.NewConfig(), cfg, configuration.ClientHermes); err != nil {
+			if _, _, err := hermesRegistry().Apply(t.Context(), deps, configuration.NewConfig(testAdmission()), cfg, configuration.ClientHermes); err != nil {
 				t.Fatal(err)
 			}
 			env["HERMES_HOME"], env["AIGW_SECRET_BACKEND"], env["AIGW_TOKEN_FIXTURE"] = hermesHome, "env", "public-native-fixture"
@@ -92,11 +92,11 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := configuration.Parse(manifestData)
+	manifest, err := configuration.Parse(manifestData, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := configuration.Merge(configuration.NewConfig(), manifest)
+	cfg, err := configuration.Merge(configuration.NewConfig(testAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,10 +121,10 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := configuration.NewStore(configPath).Save(cfg); err != nil {
+	if err := configuration.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := hermesRegistry().Apply(t.Context(), client.Dependencies{Secrets: projectionSecrets, AIGWExecutable: candidate}, configuration.NewConfig(), cfg, configuration.ClientHermes); err != nil {
+	if _, _, err := hermesRegistry().Apply(t.Context(), client.Dependencies{Secrets: projectionSecrets, AIGWExecutable: candidate}, configuration.NewConfig(testAdmission()), cfg, configuration.ClientHermes); err != nil {
 		t.Fatal(err)
 	}
 	env["HERMES_HOME"], env["AIGW_SECRET_BACKEND"] = hermesHome, "env"

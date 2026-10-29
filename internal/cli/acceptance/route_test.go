@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 	"encoding/json"
@@ -24,7 +25,7 @@ func TestRouteAddValidation(t *testing.T) {
 
 	t.Run("route add load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"route", "add", "two", "--account", "one", "--model", "m"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -63,7 +64,7 @@ func TestRouteAddValidation(t *testing.T) {
 
 func TestRouteRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Routes["gpt-default"] = qualifiedRoute("GPT Default", "dmx", "gpt-default", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["gpt-unused"] = qualifiedRoute("GPT Unused", "dmx", "gpt-unused", configuration.ProtocolOpenAIResponses)
@@ -86,7 +87,7 @@ func TestRouteRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 
 func TestRouteAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "gpt", "dmx", "GPT", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, configuration.ClientCodex, "gpt-test")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -114,7 +115,7 @@ func TestRouteAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 
 func TestRouteAddDoesNotConflateRouteCreationWithClientCompatibility(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "gpt", "openai-only", "OpenAI Only", configuration.Endpoints{OpenAIResponses: "https://openai.test/v1"}, configuration.ClientCodex, "gpt-test")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -160,7 +161,7 @@ func TestRouteReadsDoNotInspectCredentials(t *testing.T) {
 
 func TestRouteReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["native"] = configuration.Account{
 		Label: "Native",
 		Endpoints: configuration.Endpoints{
@@ -223,7 +224,7 @@ func TestRouteReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
 
 func TestRouteListJSONIsStableAndClientIndependent(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["shared"] = configuration.Account{Label: "Shared", Endpoints: configuration.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
 	cfg.Routes["zeta"] = qualifiedRoute("Zeta", "shared", "claude-test", configuration.ProtocolAnthropic)
 	cfg.Routes["alpha"] = qualifiedRoute("Alpha", "shared", "gpt-test", configuration.ProtocolOpenAIResponses)
@@ -269,7 +270,7 @@ func TestRouteListJSONIsStableAndClientIndependent(t *testing.T) {
 
 func TestRouteShowRendersEverySecretFreeField(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["shared"] = configuration.Account{Label: "Shared", Endpoints: configuration.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
 	cfg.Routes["codex"] = qualifiedRoute("Codex Model", "shared", "gpt-test", configuration.ProtocolOpenAIResponses)
 	route := cfg.Routes["codex"]
@@ -309,7 +310,7 @@ func TestRouteShowRendersEverySecretFreeField(t *testing.T) {
 func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 	t.Run("list load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"route", "list"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -317,7 +318,7 @@ func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 
 	t.Run("show load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"route", "show", "one"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -340,7 +341,7 @@ func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 
 	t.Run("edit load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"route", "edit", "one", "--label", "New"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -357,7 +358,7 @@ func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 
 	t.Run("remove load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"route", "remove", "one"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -374,7 +375,7 @@ func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 
 	t.Run("remove override", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		cfg := configuration.NewConfig()
+		cfg := configuration.NewConfig(clients.Admission())
 		addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}, configuration.ClientClaude, "m1")
 		addAccountRoute(&cfg, "two", "one", "Two", configuration.Endpoints{}, configuration.ClientCodex, "m2")
 		cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
@@ -395,7 +396,7 @@ func TestRouteEditSynchronizesActiveCodexProjection(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
@@ -417,7 +418,7 @@ func TestRouteEditSynchronizesActiveCodexProjection(t *testing.T) {
 
 func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "current", "team", "Team Gateway", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-current")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "current", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -497,7 +498,7 @@ func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
 
 func TestRouteListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "gpt", "team", "Team Gateway", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "gpt-test")
 	cfg.Routes["gpt"] = qualifiedRoute("GPT Test", "team", "gpt-test", configuration.ProtocolOpenAIResponses)
 	route := cfg.Routes["gpt"]
@@ -529,7 +530,7 @@ func TestRouteListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T) 
 
 func TestRouteRemoveRefusesActiveRoute(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-test")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "team", "")
 	if err := app.Config.Save(cfg); err != nil {

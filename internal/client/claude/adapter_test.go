@@ -21,7 +21,7 @@ func TestSettingsSurfaceIdentityIsStable(t *testing.T) {
 }
 
 func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(testAdmission())
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
 	before.Routes["route"] = qualifiedRoute("Route", "gateway", "model", configuration.ProtocolAnthropic)
 	before.Clients[configuration.ClientClaude] = configuration.ClientBinding{Route: "route", Enabled: true}
@@ -38,18 +38,18 @@ func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.
 }
 
 func TestClaudeAdapterApplyValidatesIntentAndRestoresObservedPreimage(t *testing.T) {
-	enabledWithoutRoute := configuration.NewConfig()
+	enabledWithoutRoute := configuration.NewConfig(testAdmission())
 	enabledWithoutRoute.SetClientActivation(configuration.ClientClaude, true, "/usr/bin/claude", nil)
-	if _, err := (claudeAdapter{}).Apply(context.Background(), client.Dependencies{}, configuration.NewConfig(), enabledWithoutRoute); err == nil {
+	if _, err := (claudeAdapter{}).Apply(context.Background(), client.Dependencies{}, configuration.NewConfig(testAdmission()), enabledWithoutRoute); err == nil {
 		t.Fatal("Apply() accepted an enabled adapter without a route")
 	}
 
-	configured := configuration.NewConfig()
+	configured := configuration.NewConfig(testAdmission())
 	configured.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	configured.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
 	configured.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	configured.SetClientActivation(configuration.ClientClaude, true, "/usr/bin/claude", nil)
-	if _, err := (claudeAdapter{}).Apply(context.Background(), client.Dependencies{}, configuration.NewConfig(), configured); err == nil || !strings.Contains(err.Error(), "settings path is empty") {
+	if _, err := (claudeAdapter{}).Apply(context.Background(), client.Dependencies{}, configuration.NewConfig(testAdmission()), configured); err == nil || !strings.Contains(err.Error(), "settings path is empty") {
 		t.Fatalf("Apply() error = %v", err)
 	}
 

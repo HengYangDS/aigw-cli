@@ -15,12 +15,14 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 
+	"aigw-cli/internal/clients"
+
 	"github.com/spf13/cobra"
 )
 
 func catalogDependencies(t *testing.T, cfg configuration.Config, secretValues map[string]string, client HTTPDoer) (Dependencies, *bytes.Buffer) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if len(cfg.Routes) > 0 {
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
@@ -45,7 +47,7 @@ func executeCatalogCommand(t *testing.T, command *cobra.Command, args ...string)
 }
 
 func configuredCatalog() configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	cfg.Routes["codex"] = configuration.Route{
 		Label: "Codex", Account: "gateway", Model: "gpt-codex",
@@ -60,7 +62,7 @@ func configuredCatalog() configuration.Config {
 }
 
 func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
-	loadFailure := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	loadFailure := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := writeUnreadableConfig(loadFailure.Path()); err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +71,7 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 		t.Fatal("expected config load failure")
 	}
 
-	emptyDeps, _ := catalogDependencies(t, configuration.NewConfig(), nil, catalogHTTPClient(nil))
+	emptyDeps, _ := catalogDependencies(t, configuration.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
 	if err := executeCatalogCommand(t, NewModelsCommand(emptyDeps)); err == nil || !strings.Contains(err.Error(), "not configured") {
 		t.Fatalf("empty config error = %v", err)
 	}
@@ -91,7 +93,7 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 		}
 	}
 
-	if rows := modelRows(configuration.NewConfig(), catalogOutput{}); len(rows) != 0 {
+	if rows := modelRows(configuration.NewConfig(clients.Admission()), catalogOutput{}); len(rows) != 0 {
 		t.Fatalf("empty model rows = %#v", rows)
 	}
 }
@@ -143,12 +145,12 @@ func TestModelsCommandExplainsCredentialAndCatalogFailures(t *testing.T) {
 }
 
 func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
-	emptyDeps, emptyOut := catalogDependencies(t, configuration.NewConfig(), nil, catalogHTTPClient(nil))
+	emptyDeps, emptyOut := catalogDependencies(t, configuration.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
 	command := NewCatalogCommand(emptyDeps)
 	if err := executeCatalogCommand(t, command, "--json"); err != nil || !strings.Contains(emptyOut.String(), `"observations": []`) {
 		t.Fatalf("empty JSON output=%q error=%v", emptyOut.String(), err)
 	}
-	emptyDeps, _ = catalogDependencies(t, configuration.NewConfig(), nil, catalogHTTPClient(nil))
+	emptyDeps, _ = catalogDependencies(t, configuration.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
 	if err := executeCatalogCommand(t, NewCatalogCommand(emptyDeps)); err == nil || !strings.Contains(err.Error(), "not configured") {
 		t.Fatalf("empty human error = %v", err)
 	}
@@ -279,7 +281,7 @@ func (store *faultingSecrets) Exists(account string) (bool, error) {
 
 func saveCatalogConfig(t *testing.T, cfg configuration.Config) configuration.Store {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +293,7 @@ func writeUnreadableConfig(path string) error {
 }
 
 func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Routes["other"] = configuration.Route{Account: "other", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	cfg.Routes["matching"] = configuration.Route{Account: "one", Model: "canonical", UpstreamModel: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	models, missing := catalogDifference(cfg, "one", configuration.ProtocolOpenAIResponses, []string{"gpt"})

@@ -3,6 +3,7 @@ package cli_test
 import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -40,7 +41,7 @@ func TestUseSelectsClientNativeRouteWithoutAccessingAccountTokens(t *testing.T) 
 			AutoManaged: true,
 		}},
 	}}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["aws"] = configuration.Account{
 		Label:     "AWS Bedrock",
 		Endpoints: configuration.Endpoints{OpenAIResponses: "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"},
@@ -93,7 +94,7 @@ func TestUseForClaudeLeavesUnselectedCodexDriftUntouched(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["claude-fable"] = qualifiedRoute("Claude Fable", "gateway", "claude-fable", configuration.ProtocolAnthropic)
@@ -210,7 +211,7 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 			AutoManaged: true,
 		}},
 	}}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "claude", "claude-gateway", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
 	addAccountRoute(&cfg, "codex", "codex-gateway", "Codex", configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}, configuration.ClientCodex, "gpt-test")
 	if err := app.Config.Save(cfg); err != nil {
@@ -283,7 +284,7 @@ func TestRepeatedUseOfActiveRouteDoesNotRewriteOwnedState(t *testing.T) {
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{
 		configuration.ClientClaude: claudeExecutable,
 	}}}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "claude", "gateway", "Claude", configuration.Endpoints{Anthropic: "https://claude.test"}, configuration.ClientClaude, "claude-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -411,7 +412,7 @@ func TestUseRollsBackRouteWhenAdapterSyncFails(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-one")
 	addAccountRoute(&cfg, "two", "two", "Two", configuration.Endpoints{OpenAIResponses: "https://two.test/v1"}, configuration.ClientCodex, "gpt-two")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
@@ -438,7 +439,7 @@ func TestUseCodexRouteOnSameAccountDoesNotRebindCredentials(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Routes["sol"] = qualifiedRoute("Sol", "dmx", "gpt-5.6-sol", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["terra"] = qualifiedRoute("Terra", "dmx", "gpt-5.6-terra", configuration.ProtocolOpenAIResponses)
@@ -468,7 +469,7 @@ func TestUseCodexRouteOnSameAccountDoesNotRebindCredentials(t *testing.T) {
 
 func TestUseSurfacesConfigLoadFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	app.Config = configuration.NewStore(t.TempDir())
+	app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 	err := cli.Execute(app, []string{"use", "--for", "claude", "one"})
 	if err == nil {
 		t.Fatal("expected a config load failure")
@@ -477,7 +478,7 @@ func TestUseSurfacesConfigLoadFailure(t *testing.T) {
 
 func TestUseRejectsUnknownRoute(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-one")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -492,7 +493,7 @@ func TestUseRejectsUnknownRoute(t *testing.T) {
 
 func TestUseSurfacesUnknownAccountReference(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
 	cfg.Routes["one"] = qualifiedRoute("One", "one", "claude-one", configuration.ProtocolAnthropic)
 	cfg.SetSelectedRoute(configuration.ClientClaude, "one", "")

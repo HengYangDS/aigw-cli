@@ -122,8 +122,8 @@ func (store *observingSecretStore) Exists(account string) (bool, error) {
 func configuredReadinessRuntime(t *testing.T) (invocation.Context, configuration.Config, *bytes.Buffer) {
 	t.Helper()
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
-	store := configuration.NewStore(configPath)
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(configPath, clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = configuration.Account{
 		Label: "One",
 		Endpoints: configuration.Endpoints{

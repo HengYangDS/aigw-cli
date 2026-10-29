@@ -27,7 +27,7 @@ type VerifiedCheckpoint struct {
 // configuration remains current. It serializes with AIGW mutations, preserves
 // newer checkpoints, and compensates observed external configuration changes.
 func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg Config, clients []string) (resultErr error) {
-	if err := validateCheckpointClients(clients); err != nil {
+	if err := validateCheckpointClients(s.admission, clients); err != nil {
 		return err
 	}
 	_, err := encodeConfig(cfg)
@@ -117,7 +117,7 @@ func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
 	if err != nil {
 		return VerifiedCheckpoint{}, fmt.Errorf("read verified checkpoint: %w", err)
 	}
-	checkpoint, err := decodeVerifiedCheckpoint(data)
+	checkpoint, err := decodeVerifiedCheckpoint(data, s.admission)
 	if err != nil {
 		return VerifiedCheckpoint{}, err
 	}
@@ -130,7 +130,7 @@ func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
 	return checkpoint, err
 }
 
-func decodeVerifiedCheckpoint(data []byte) (VerifiedCheckpoint, error) {
+func decodeVerifiedCheckpoint(data []byte, admission Admission) (VerifiedCheckpoint, error) {
 	var checkpoint VerifiedCheckpoint
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
@@ -143,9 +143,10 @@ func decodeVerifiedCheckpoint(data []byte) (VerifiedCheckpoint, error) {
 	if checkpoint.VerifiedAt.IsZero() {
 		return VerifiedCheckpoint{}, errors.New("verified checkpoint is incomplete")
 	}
-	if err := validateCheckpointClients(checkpoint.Clients); err != nil {
+	if err := validateCheckpointClients(admission, checkpoint.Clients); err != nil {
 		return VerifiedCheckpoint{}, err
 	}
+	checkpoint.Config.admission = admission
 	checkpoint.Config.Normalize()
 	// The checkpoint keeps the shape a retained reader decodes, so it carries no
 	// recorded upstream; each forwarded binding is bound to the upstream it
@@ -159,12 +160,12 @@ func decodeVerifiedCheckpoint(data []byte) (VerifiedCheckpoint, error) {
 	return checkpoint, nil
 }
 
-func validateCheckpointClients(clients []string) error {
+func validateCheckpointClients(admission Admission, clients []string) error {
 	if len(clients) == 0 {
 		return errors.New("verified checkpoint is incomplete: no clients")
 	}
 	for index, client := range clients {
-		if !IsAdmittedClient(client) {
+		if !admission.Admits(client) {
 			return fmt.Errorf("verified checkpoint contains unknown client %q", client)
 		}
 		if slices.Contains(clients[:index], client) {

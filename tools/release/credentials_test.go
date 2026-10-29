@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/platform"
@@ -300,7 +301,7 @@ func (j *journeyFixture) requireExternalCredentialClient(client, executable, acc
 	if err := os.WriteFile(helper, readFile(j.testing, program), 0o700); err != nil {
 		j.testing.Fatal(err)
 	}
-	store := configuration.NewStore(j.config)
+	store := configuration.NewStore(j.config, clients.Admission())
 	cfg, err := store.Load()
 	if err != nil {
 		j.testing.Fatal(err)

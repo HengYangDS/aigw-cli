@@ -77,7 +77,7 @@ func TestFailedCodexVerificationProjectionRemovesItsWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("TMPDIR", root)
 	_, workspace, err := isolateProjection(
-		configuration.NewConfig(), configuration.Runtime{},
+		configuration.NewConfig(testAdmission()), configuration.Runtime{},
 		configuration.ClientBinding{Targets: []string{root}},
 	)
 	if err == nil {

@@ -16,7 +16,7 @@ import (
 )
 
 func TestSetupValidatesSelectedHermesProtocol(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	credentials := secrets.NewMemoryStore()
 	if err := credentials.Set("team", "token"); err != nil {
 		t.Fatal(err)

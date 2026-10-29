@@ -15,7 +15,7 @@ import (
 )
 
 func TestForwardingStorePreservesStrictPublishedConfiguration(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := validConfig()
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -50,7 +50,7 @@ func TestForwardingStorePreservesStrictPublishedConfiguration(t *testing.T) {
 }
 
 func TestForwardingSnapshotRestoresPresenceAndPriorBinding(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := validConfig()
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -80,7 +80,7 @@ func TestForwardingSnapshotRestoresPresenceAndPriorBinding(t *testing.T) {
 }
 
 func TestForwardingStoreRejectsMixedAccountGenerations(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := validConfig()
 	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
 		t.Fatal(err)
@@ -103,7 +103,7 @@ func TestForwardingStoreRejectsMixedAccountGenerations(t *testing.T) {
 }
 
 func TestForwardingMigrationPreviewPreservesAssembledBinding(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := validConfig()
 	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
@@ -119,7 +119,7 @@ func TestForwardingMigrationPreviewPreservesAssembledBinding(t *testing.T) {
 }
 
 func TestForwardingUnchangedCanonicalRejectsStalePreimage(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := validConfig()
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -169,7 +169,7 @@ codex = "gpt"
 	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	if _, err := store.Load(); err == nil {
 		t.Fatal("Legacy Profile-owned endpoint residue was accepted")
 	}
@@ -182,7 +182,7 @@ func TestLoadRequiresCanonicalSchemaVersion(t *testing.T) {
 	if err := os.WriteFile(path, raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := NewStore(path).Load()
+	_, err := NewStore(path, testAdmission()).Load()
 	var loadErr *LoadError
 	var versionErr *UnsupportedConfigVersionError
 	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseValidate || !errors.As(err, &versionErr) {
@@ -218,7 +218,7 @@ enabled = true
 	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := NewStore(path).Load()
+	_, err := NewStore(path, testAdmission()).Load()
 	var loadErr *LoadError
 	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseParse {
 		t.Fatalf("legacy selection load error = %v", err)
@@ -244,7 +244,7 @@ claude = "claude"
 	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := NewStore(path).Load()
+	_, err := NewStore(path, testAdmission()).Load()
 	var loadErr *LoadError
 	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseValidate {
 		t.Fatalf("unknown field load error = %v", err)
@@ -252,7 +252,7 @@ claude = "claude"
 }
 
 func TestLockSerializesMutations(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	unlock, err := store.Lock(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -272,13 +272,14 @@ func TestLockSerializesMutations(t *testing.T) {
 
 func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", " toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	want := Config{
 		Version:         ConfigVersion,
 		Accounts:        map[string]Account{"dmx": {Label: "DMXAPI", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
 		Routes:          map[string]Route{"dmx": testRoute("DMXAPI", "dmx", "claude-test", ProtocolAnthropic)},
 		Recommendations: map[string]ClientRecommendation{ClientClaude: {Primary: ClientSelection{Route: "dmx"}}},
 		Clients:         map[string]ClientBinding{ClientClaude: {Route: "dmx"}},
+		admission:       testAdmission(),
 	}
 	if err := store.Save(want); err != nil {
 		t.Fatal(err)
@@ -301,7 +302,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 
 func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	cfg := Config{
 		Version: ConfigVersion,
 		Accounts: map[string]Account{
@@ -310,7 +311,8 @@ func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 		Routes: map[string]Route{
 			"claude": testRoute("Claude", "dmx", "claude-test", ProtocolAnthropic),
 		},
-		Clients: map[string]ClientBinding{ClientClaude: {Route: "claude"}},
+		Clients:   map[string]ClientBinding{ClientClaude: {Route: "claude"}},
+		admission: testAdmission(),
 	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -345,7 +347,7 @@ func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
 	account.Endpoints.Anthropic = ""
 	incompatible.Accounts["dmx"] = account
 	for name, cfg := range map[string]Config{
-		"empty":                       {Version: ConfigVersion},
+		"empty":                       {Version: ConfigVersion, admission: testAdmission()},
 		"incompatible legacy Profile": incompatible,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -353,7 +355,7 @@ func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
 			if err := os.WriteFile(path, []byte("sentinel"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			store := NewStore(path)
+			store := NewStore(path, testAdmission())
 			if err := store.Save(cfg); err == nil {
 				t.Fatal("expected validation error")
 			}
@@ -367,16 +369,17 @@ func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
 
 func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	before, err := store.CaptureSnapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg := Config{
-		Version:  ConfigVersion,
-		Accounts: map[string]Account{"gateway": {Label: "Gateway", Endpoints: Endpoints{Anthropic: "https://gateway.test"}}},
-		Routes:   map[string]Route{"gateway": testRoute("Gateway", "gateway", "claude-test", ProtocolAnthropic)},
-		Clients:  map[string]ClientBinding{ClientClaude: {Route: "gateway"}},
+		Version:   ConfigVersion,
+		Accounts:  map[string]Account{"gateway": {Label: "Gateway", Endpoints: Endpoints{Anthropic: "https://gateway.test"}}},
+		Routes:    map[string]Route{"gateway": testRoute("Gateway", "gateway", "claude-test", ProtocolAnthropic)},
+		Clients:   map[string]ClientBinding{ClientClaude: {Route: "gateway"}},
+		admission: testAdmission(),
 	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -398,7 +401,7 @@ func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
 
 func TestCommitInvalidatesAndRestoreSnapshotRecoversVerifiedCheckpoint(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	beforeConfig := convergenceConfig("before")
 	if err := store.Save(beforeConfig); err != nil {
 		t.Fatal(err)
@@ -431,12 +434,13 @@ func TestCommitInvalidatesAndRestoreSnapshotRecoversVerifiedCheckpoint(t *testin
 
 func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	first := Config{
-		Version:  ConfigVersion,
-		Accounts: map[string]Account{"one": {Label: "One", Endpoints: Endpoints{Anthropic: "https://one.test"}}},
-		Routes:   map[string]Route{"one": testRoute("One", "one", "claude-one", ProtocolAnthropic)},
-		Clients:  map[string]ClientBinding{ClientClaude: {Route: "one"}},
+		Version:   ConfigVersion,
+		Accounts:  map[string]Account{"one": {Label: "One", Endpoints: Endpoints{Anthropic: "https://one.test"}}},
+		Routes:    map[string]Route{"one": testRoute("One", "one", "claude-one", ProtocolAnthropic)},
+		Clients:   map[string]ClientBinding{ClientClaude: {Route: "one"}},
+		admission: testAdmission(),
 	}
 	if err := store.Save(first); err != nil {
 		t.Fatal(err)

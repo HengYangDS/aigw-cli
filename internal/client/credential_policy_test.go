@@ -29,7 +29,7 @@ func configuredClient(t *testing.T, id string) (configuration.Config, client.Dep
 	if err := os.WriteFile(executable, []byte("public client fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	spec, _ := configuration.ClientSpecFor(id)
 	cfg.Routes[id] = configuration.Route{
@@ -70,7 +70,7 @@ func TestCredentialPolicyControlsProjectionAndSurvivesDiscovery(t *testing.T) {
 			if got := registry.ChangedClients(before, converged); !reflect.DeepEqual(got, []string{id}) {
 				t.Fatalf("command-only change selected %v", got)
 			}
-			if _, _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(), before, id); err != nil {
+			if _, _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(clients.Admission()), before, id); err != nil {
 				t.Fatal(err)
 			}
 			plans, err := registry.Plan(deps, before, converged, id)
@@ -186,7 +186,7 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 			adapter := cfg.Clients[id]
 			adapter.CredentialCommand = filepath.Join(t.TempDir(), "credential adapter")
 			cfg.Clients[id] = adapter
-			if _, _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(), cfg, id); err != nil {
+			if _, _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(clients.Admission()), cfg, id); err != nil {
 				t.Fatal(err)
 			}
 			clientRuntime, err := cfg.ResolveRuntime(id, "")

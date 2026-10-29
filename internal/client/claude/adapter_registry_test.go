@@ -23,7 +23,7 @@ func claudeRegistry() client.Registry {
 
 func TestClaudeProjectionTreatsAnInvalidRuntimeAsChanged(t *testing.T) {
 	t.Run("invalid enabled Claude runtime", func(t *testing.T) {
-		before := configuration.NewConfig()
+		before := configuration.NewConfig(testAdmission())
 		before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 		before.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
 		before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
@@ -39,7 +39,7 @@ func TestClaudeProjectionTreatsAnInvalidRuntimeAsChanged(t *testing.T) {
 
 func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
@@ -73,13 +73,13 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 func TestClaudeConvergenceIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 	for _, clientID := range []string{configuration.ClientClaude} {
 		t.Run(clientID+" without a route", func(t *testing.T) {
-			if _, err := claudeRegistry().Converge(client.Dependencies{}, configuration.NewConfig(), discovery.Result{}, clientID); err != nil {
+			if _, err := claudeRegistry().Converge(client.Dependencies{}, configuration.NewConfig(testAdmission()), discovery.Result{}, clientID); err != nil {
 				t.Fatalf("Converge(%q) without a route = %v", clientID, err)
 			}
 		})
 
 		t.Run(clientID+" with a broken route", func(t *testing.T) {
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(testAdmission())
 			cfg.SetSelectedRoute(clientID, "missing-route", "")
 			if _, err := claudeRegistry().Converge(client.Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
 				t.Fatalf("Converge(%q) broken route error = %v", clientID, err)

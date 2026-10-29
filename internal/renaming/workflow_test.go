@@ -50,7 +50,7 @@ func TestAccountFinalizationConvergesForwardingBackupBeforeRetirement(t *testing
 }
 
 func migrationConfig() configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}}
 	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "old", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "old", Model: "claude", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
@@ -73,7 +73,7 @@ func renamedConfig() configuration.Config {
 
 func renameFinalizationState(t *testing.T) (configuration.Store, configuration.Snapshot) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := store.Save(migrationConfig()); err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func renameFinalizationState(t *testing.T) (configuration.Store, configuration.S
 func TestCanceledAccountOperationPreservesOwnedState(t *testing.T) {
 	for _, operation := range []string{"rename", "finalize"} {
 		t.Run(operation, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			if operation == "finalize" {
 				store, _ = renameFinalizationState(t)
 			} else if err := store.Save(migrationConfig()); err != nil {
@@ -143,7 +143,7 @@ func TestCanceledAccountOperationPreservesOwnedState(t *testing.T) {
 func TestRenamerRetainsRetryStateWhenConfigurationCommitFails(t *testing.T) {
 	for _, resource := range []string{"account", "route"} {
 		t.Run(resource, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			if err := store.Save(migrationConfig()); err != nil {
 				t.Fatal(err)
 			}
@@ -309,7 +309,7 @@ func TestPlanAccountFinalizeRejectsIncompleteRenameState(t *testing.T) {
 		{"target account missing", renamedConfig(), "missing", "does not exist"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			if err := store.Save(test.config); err != nil {
 				t.Fatal(err)
 			}
@@ -354,7 +354,7 @@ func TestApplyAccountFinalizeCleanupFailures(t *testing.T) {
 
 	t.Run("backup convergence", func(t *testing.T) {
 		_, snapshot := renameFinalizationState(t)
-		deps := Renamer{Config: configuration.NewStore(t.TempDir()), Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
+		deps := Renamer{Config: configuration.NewStore(t.TempDir(), clients.Admission()), Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
 		if _, err := applyFinalize(context.Background(), deps, Plan{snapshot: snapshot}); err == nil || !strings.Contains(err.Error(), "Converge") {
 			t.Fatalf("error = %v", err)
 		}

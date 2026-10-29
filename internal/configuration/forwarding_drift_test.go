@@ -122,7 +122,7 @@ func TestDirectSelectionDropsForwardingWithItsUpstream(t *testing.T) {
 }
 
 func TestForwardedCheckpointKeepsTheShapeARetainedReaderDecodes(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := forwardedConfig(t)
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)

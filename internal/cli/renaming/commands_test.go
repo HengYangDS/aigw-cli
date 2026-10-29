@@ -19,8 +19,8 @@ import (
 
 func renameRuntime(t *testing.T) invocation.Context {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{OpenAIResponses: "https://old.test/v1"}}
 	cfg.Routes["old"] = configuration.Route{Label: "Old", Account: "old", Model: "gpt"}
 	if err := store.Save(cfg); err != nil {
@@ -92,7 +92,7 @@ func TestRenameCommandsPreserveInvocationAndDomainErrors(t *testing.T) {
 		})
 		t.Run(constructor.name+"/unreadable configuration", func(t *testing.T) {
 			runtime := renameRuntime(t)
-			runtime.Config = configuration.NewStore(t.TempDir())
+			runtime.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 			command := constructor.new(runtime)
 			command.SilenceErrors, command.SilenceUsage = true, true
 			command.SetArgs([]string{"old", "new"})
@@ -139,7 +139,7 @@ func TestInteractiveRenamePreservesConfigurationLoadFailure(t *testing.T) {
 	if err := os.WriteFile(path, []byte("invalid TOML = ["), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runtime.Config = configuration.NewStore(path)
+	runtime.Config = configuration.NewStore(path, clients.Admission())
 	runtime.Interactive = true
 	runtime.Prompt = selectionPrompt{}
 	if _, _, err := resolveIDs(runtime, "account", nil); err == nil {

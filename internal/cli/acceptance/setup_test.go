@@ -3,6 +3,7 @@ package cli_test
 import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -109,7 +110,7 @@ func TestSetupRejectsInvalidFlagCombinationsAndValues(t *testing.T) {
 func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "token\n")
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--token-stdin"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -127,7 +128,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("interactive load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"setup"}); err == nil {
 			t.Fatal("expected config load failure")
 		}

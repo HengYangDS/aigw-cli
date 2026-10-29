@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
@@ -51,7 +52,7 @@ type canonicalReadinessDocument struct {
 
 func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://example.invalid"}}
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "fixture", configuration.ProtocolAnthropic)
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
@@ -126,7 +127,7 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, secretStore, _, httpClient := testApp(t, "")
 			app.Version = "1.0.0"
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(clients.Admission())
 			addAccountRoute(
 				&cfg,
 				"claude",
@@ -169,7 +170,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 		t.Run(command, func(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			app.Version = "1.0.0"
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(clients.Admission())
 			addAccountRoute(
 				&cfg,
 				"claude",
@@ -205,7 +206,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Version = "1.0.0"
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(
 		&cfg,
 		"claude",
@@ -243,7 +244,7 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 		t.Run(command, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
 			app.Version = "1.0.0"
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(clients.Admission())
 			addAccountRoute(
 				&cfg,
 				"claude",
@@ -278,7 +279,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 	for _, command := range []string{"status", "doctor"} {
 		t.Run(command, func(t *testing.T) {
 			app, _, secretStore, runner, httpClient := testApp(t, "")
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(clients.Admission())
 			addAccountRoute(
 				&cfg,
 				"claude",
@@ -353,7 +354,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 
 func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(
 		&cfg,
 		"claude",

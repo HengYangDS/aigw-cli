@@ -13,7 +13,7 @@ import (
 func TestUnreadableCapabilityComponentStopsOnlyFullReads(t *testing.T) {
 	for _, suffix := range []string{"", ".bak"} {
 		t.Run("component"+suffix, func(t *testing.T) {
-			store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 			cfg := toolSearchConfig()
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -56,7 +56,7 @@ func TestUnreadableCapabilityComponentStopsOnlyFullReads(t *testing.T) {
 func TestCapabilityComponentWriteFailureRestoresOwnedFiles(t *testing.T) {
 	for _, suffix := range []string{"", ".bak"} {
 		t.Run("component"+suffix, func(t *testing.T) {
-			store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 			cfg := toolSearchConfig()
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -83,7 +83,7 @@ func TestCapabilityComponentWriteFailureRestoresOwnedFiles(t *testing.T) {
 func TestVerifiedBackupConvergenceGuardsTheCapabilityComponent(t *testing.T) {
 	for _, change := range []string{"preimage", "write"} {
 		t.Run(change, func(t *testing.T) {
-			store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 			if err := store.Save(toolSearchConfig()); err != nil {
 				t.Fatal(err)
 			}
@@ -110,7 +110,7 @@ func TestVerifiedBackupConvergenceGuardsTheCapabilityComponent(t *testing.T) {
 }
 
 func TestRestoreSnapshotReportsCapabilityComponentConflicts(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := toolSearchConfig()
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)

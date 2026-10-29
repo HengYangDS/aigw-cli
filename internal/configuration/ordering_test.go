@@ -41,11 +41,11 @@ account = 'zulu'
 model = 'first'
 [routes.zulu-z.interfaces]
 anthropic = []
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := Merge(NewConfig(), manifest)
+	cfg, err := Merge(NewConfig(testAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,14 +61,14 @@ anthropic = []
 	if err != nil {
 		t.Fatal(err)
 	}
-	reparsed, err := Parse(exported)
+	reparsed, err := Parse(exported, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if reparsed.Accounts["zulu"] != cfg.Accounts["zulu"] || reparsed.Models["first"] != cfg.Models["first"] {
 		t.Fatal("export lost declared presentation metadata")
 	}
-	store := NewStore(t.TempDir() + "/config.toml")
+	store := NewStore(t.TempDir()+"/config.toml", testAdmission())
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ anthropic = []
 func TestCatalogOrderRejectsNegativeRanksWithoutChangingStoredBytes(t *testing.T) {
 	for _, subject := range []string{"accounts", "models"} {
 		t.Run(subject, func(t *testing.T) {
-			store := NewStore(t.TempDir() + "/config.toml")
+			store := NewStore(t.TempDir()+"/config.toml", testAdmission())
 			cfg := convergenceConfig("current")
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -133,7 +133,7 @@ func TestCatalogRouteIDsGroupsServicesBeforeModels(t *testing.T) {
 			name = "ranked"
 		}
 		t.Run(name, func(t *testing.T) {
-			cfg := NewConfig()
+			cfg := NewConfig(testAdmission())
 			endpoints := Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1", OpenAIChatCompletions: "https://team.test/v1"}
 			rank := 0
 			if ranked {
@@ -182,7 +182,7 @@ func TestCatalogRouteIDsGroupsServicesBeforeModels(t *testing.T) {
 }
 
 func TestCatalogOrderSurvivesVerifiedBackupAndCompensation(t *testing.T) {
-	store := NewStore(t.TempDir() + "/config.toml")
+	store := NewStore(t.TempDir()+"/config.toml", testAdmission())
 	cfg := convergenceConfig("current")
 	account := cfg.Accounts["current"]
 	account.Order = 10

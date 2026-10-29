@@ -10,6 +10,7 @@ import (
 
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 )
@@ -88,7 +89,7 @@ func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	if _, err := credential.EnsureEntrypoint(filepath.Join(root, "predecessor"), retained); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
@@ -136,7 +137,7 @@ func TestCancelledProjectionAfterVersionedReaderPreparationRestoresOwnedState(t 
 		cancel()
 	}}
 	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
-	if err := syncer.CommitProjection(ctx, configuration.NewConfig(), testConfig(target), "test"); !errors.Is(err, context.Canceled) {
+	if err := syncer.CommitProjection(ctx, configuration.NewConfig(clients.Admission()), testConfig(target), "test"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled projection error = %v, want context cancellation", err)
 	}
 	if store.commits != 1 || store.restores != 1 {
@@ -178,7 +179,7 @@ func TestFailedSynchronizationRemovesOnlyItsNewCredentialEntrypoint(t *testing.T
 			}
 			syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
 			cfg := testConfig(target)
-			err := syncer.CommitProjection(t.Context(), configuration.NewConfig(), cfg, "test")
+			err := syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), cfg, "test")
 			if err == nil {
 				t.Fatal("injected failure did not fail synchronization")
 			}
@@ -348,7 +349,7 @@ func TestDisablingLastTokenClientRetainsUnprovenCachedEntrypoint(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store := configuration.NewStore(filepath.Join(root, "config.toml"))
+	store := configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 	before := testConfig(target)
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
@@ -394,7 +395,7 @@ func TestDisablingOneTokenClientRetainsEntrypointForAnother(t *testing.T) {
 	before.Routes["claude"] = configuration.Route{Account: "gateway", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
 	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	before.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
-	store := configuration.NewStore(filepath.Join(root, "config.toml"))
+	store := configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
@@ -433,7 +434,7 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	binding := before.Clients[configuration.ClientClaude]
 	binding.CredentialCommand = helper
 	before.Clients[configuration.ClientClaude] = binding
-	store := configuration.NewStore(filepath.Join(root, "config.toml"))
+	store := configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
@@ -463,7 +464,7 @@ func TestWithdrawingLastClientPreservesChangedCachedEntrypoint(t *testing.T) {
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store := configuration.NewStore(filepath.Join(root, "config.toml"))
+	store := configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 	before := testConfig(target)
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)

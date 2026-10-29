@@ -22,7 +22,7 @@ func TestClaudeAdapterKeepsTheSeamContract(t *testing.T) {
 		if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		before := configuration.NewConfig()
+		before := configuration.NewConfig(testAdmission())
 		before.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 		before.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
 		before.SetSelectedRoute(configuration.ClientClaude, "claude", "")

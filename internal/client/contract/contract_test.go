@@ -357,7 +357,7 @@ func newFixture(t *testing.T, breaks string) Fixture {
 	if err := adapter.write(filepath.Join(existingName, "readme.txt"), "user"); err != nil {
 		t.Fatal(err)
 	}
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(testAdmission())
 	before.SetClientActivation("foreign", true, "/fixture/foreign", nil)
 	after := before.Clone()
 	after.SetClientActivation(fixtureID, true, "/fixture/client", nil)

@@ -66,7 +66,7 @@ func TestMigrationPreviewAndApplyPreserveCredentialsAndClientFiles(t *testing.T)
 	}
 	credentialStore.reset()
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path), Secrets: credentialStore, Out: out, RenderOut: out, Width: 120}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path, clients.Admission()), Secrets: credentialStore, Out: out, RenderOut: out, Width: 120}
 
 	preview := newMigrateCommand(runtime)
 	preview.SetArgs([]string{"--dry-run", "--json"})
@@ -116,7 +116,7 @@ func TestMigrationRollbackUsesRetainedPredecessorWithoutTouchingCredentialsOrCli
 	}
 	credentialStore.reset()
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path), Secrets: credentialStore, Out: out, RenderOut: out, Width: 120}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path, clients.Admission()), Secrets: credentialStore, Out: out, RenderOut: out, Width: 120}
 
 	apply := newMigrateCommand(runtime)
 	if err := executeManifestCommand(apply); err != nil {
@@ -149,7 +149,7 @@ func TestMigrationPreviewRollbackAndCurrentStatePreserveRetainedInputs(t *testin
 	}
 	credentials := &observedSecretStore{Store: secrets.NewMemoryStore()}
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path), Secrets: credentials, Out: out, RenderOut: out, Width: 120}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path, clients.Admission()), Secrets: credentials, Out: out, RenderOut: out, Width: 120}
 	if err := executeManifestCommand(newMigrateCommand(runtime)); err != nil {
 		t.Fatal(err)
 	}

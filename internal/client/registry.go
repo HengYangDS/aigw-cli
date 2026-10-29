@@ -168,6 +168,16 @@ func NewRegistry(specs []configuration.ClientSpec, adapters ...Adapter) (Registr
 	return Registry{byID: byID, ids: ids}, nil
 }
 
+// Admission returns the admitted clients' specifications in admission order,
+// the client set that every configuration of this program admits.
+func (registry Registry) Admission() configuration.Admission {
+	specs := make([]configuration.ClientSpec, 0, len(registry.ids))
+	for _, id := range registry.ids {
+		specs = append(specs, registry.byID[id].Spec())
+	}
+	return configuration.NewAdmission(specs...)
+}
+
 // Discover observes every admitted client through its adapter.
 func (registry Registry) Discover(source DiscoverySource) discovery.Result {
 	result := discovery.Result{Executables: make(map[string]string)}

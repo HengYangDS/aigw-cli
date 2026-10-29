@@ -33,7 +33,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	if err != nil {
 		return fmt.Errorf("Failed to read configuration manifest: %w", err)
 	}
-	manifest, err := configuration.Parse(data)
+	manifest, err := configuration.Parse(data, runtime.Config.Admission())
 	if err != nil {
 		return err
 	}

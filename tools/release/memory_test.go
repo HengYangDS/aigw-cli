@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/redaction"
 	"aigw-cli/tools/release/performance"
 )
@@ -272,7 +273,7 @@ func TestNativeAttributionSummaryRetainsItsNonqualifyingScope(t *testing.T) {
 func (j *journeyFixture) measureMemory(variant string, block int) (performance.Memory, error) {
 	j.testing.Helper()
 	row := performance.Memory{Variant: variant, Case: "status", Block: block, Bytes: []uint64{}}
-	config, err := configuration.NewStore(j.config).Load()
+	config, err := configuration.NewStore(j.config, clients.Admission()).Load()
 	if err != nil {
 		return row, err
 	}
@@ -418,11 +419,11 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		config := configuration.NewConfig()
+		config := configuration.NewConfig(clients.Admission())
 		config.Accounts["memory"] = configuration.Account{Label: "Memory", Endpoints: configuration.Endpoints{Anthropic: "https://unused.example.test"}}
 		config.Routes["memory"] = configuration.Route{Account: "memory", Model: "memory", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {configuration.CapabilityText}}}
 		config.SetSelectedRoute(configuration.ClientClaude, "memory", configuration.ProtocolAnthropic)
-		store := configuration.NewStore(filepath.Join(output, "config.toml"))
+		store := configuration.NewStore(filepath.Join(output, "config.toml"), clients.Admission())
 		if err := store.Save(config); err != nil {
 			t.Fatal(err)
 		}

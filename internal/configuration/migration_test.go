@@ -15,7 +15,7 @@ import (
 func publishedV010Store(t *testing.T) (Store, []byte, string, string, string) {
 	t.Helper()
 	root := t.TempDir()
-	store := NewStore(filepath.Join(root, "config.toml"))
+	store := NewStore(filepath.Join(root, "config.toml"), testAdmission())
 	executable := filepath.Join(root, "bin", "codex")
 	target := filepath.Join(root, "home", ".codex", "config.toml")
 	credentialCommand := filepath.Join(root, "bin", "aigw")
@@ -236,7 +236,7 @@ func TestPrepareMigrationTranslatesImmediatePredecessorWithoutInventingCapabilit
 	if err != nil {
 		t.Fatal(err)
 	}
-	migrated, err := migrateLegacyConfig(legacy)
+	migrated, err := migrateLegacyConfig(legacy, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -310,8 +310,8 @@ func TestApplyMigrationRejectsChangedPreimage(t *testing.T) {
 }
 
 func TestCurrentConfigurationMigrationIsANoOp(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
-	cfg := NewConfig()
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = Account{Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Routes["codex"] = Route{
 		Label: "Codex", Account: "gateway", Model: "gpt-test",
@@ -396,5 +396,5 @@ func legacyStoreWith(t *testing.T, mutate func(*legacyConfig)) (Store, []byte) {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return NewStore(path), data
+	return NewStore(path, testAdmission()), data
 }

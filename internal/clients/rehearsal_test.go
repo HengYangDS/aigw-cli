@@ -140,7 +140,7 @@ func (rehearsalAdapter) Withdraw(cfg *configuration.Config) {
 }
 
 func rehearsalConfiguration() (configuration.Config, configuration.Config) {
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(Admission())
 	before.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	before.Routes["rehearsal"] = qualifiedRoute("", "gateway", "rehearsal-model", configuration.ProtocolOpenAIResponses)
 	after := before.Clone()

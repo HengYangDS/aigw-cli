@@ -74,7 +74,7 @@ func TestConfigurationCommandTreeMatchesItsManifestResponsibility(t *testing.T) 
 func TestPathPrintsTheConfiguredStorePath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	out := &bytes.Buffer{}
-	command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path), Out: out})
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path, clients.Admission()), Out: out})
 	command.SetArgs([]string{"path"})
 	if err := executeManifestCommand(command); err != nil {
 		t.Fatal(err)
@@ -85,7 +85,7 @@ func TestPathPrintsTheConfiguredStorePath(t *testing.T) {
 }
 
 func TestPathReturnsOutputFailure(t *testing.T) {
-	command := newPathCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore("configuration.toml"), Out: failingWriter{}})
+	command := newPathCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore("configuration.toml", clients.Admission()), Out: failingWriter{}})
 	if err := executeManifestCommand(command); err == nil || !strings.Contains(err.Error(), "write refused") {
 		t.Fatalf("error = %v", err)
 	}
@@ -106,7 +106,7 @@ func TestExportWritesASecretFreeRoundTripManifest(t *testing.T) {
 	if bytes.Contains(data, []byte("must-not-appear")) {
 		t.Fatal("export leaked a system secret")
 	}
-	parsed, err := configuration.Parse(data)
+	parsed, err := configuration.Parse(data, clients.Admission())
 	if err != nil {
 		t.Fatalf("parse exported manifest: %v\n%s", err, data)
 	}
@@ -122,7 +122,7 @@ func TestExportSurfacesLoadAndOutputFailures(t *testing.T) {
 		if err := os.WriteFile(path, []byte("not = [valid"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		command := newExportCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path), Out: io.Discard})
+		command := newExportCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path, clients.Admission()), Out: io.Discard})
 		if err := executeManifestCommand(command); err == nil {
 			t.Fatal("expected malformed configuration to fail")
 		}
@@ -138,7 +138,7 @@ func TestExportSurfacesLoadAndOutputFailures(t *testing.T) {
 }
 
 func TestExportSurfacesManifestValidationFailure(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission())
 	command := newExportCommand(invocation.Context{Clients: clients.Registry(), Config: store, Out: io.Discard})
 	if err := executeManifestCommand(command); err == nil || !strings.Contains(err.Error(), "at least one route") {
 		t.Fatalf("error = %v", err)
@@ -154,7 +154,7 @@ func TestImportMergesPublicConfigurationAndDefersReadiness(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	loaded, err := configuration.NewStore(path).Load()
+	loaded, err := configuration.NewStore(path, clients.Admission()).Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +293,7 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 	if !strings.Contains(out.String(), `"dry_run": false`) || !strings.Contains(out.String(), `"next_action": "aigw status"`) {
 		t.Fatalf("applied import omitted JSON result: %q", out.String())
 	}
-	loaded, err := configuration.NewStore(path).Load()
+	loaded, err := configuration.NewStore(path, clients.Admission()).Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -434,7 +434,7 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 				if err := os.WriteFile(path, []byte("not = [valid"), 0o600); err != nil {
 					t.Fatal(err)
 				}
-				return invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path), Secrets: secrets.NewMemoryStore(), Out: io.Discard}
+				return invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(path, clients.Admission()), Secrets: secrets.NewMemoryStore(), Out: io.Discard}
 			},
 			path: func(*testing.T) string { return validPath },
 			want: "parse config",
@@ -482,7 +482,7 @@ func TestImportReturnsConfigurationTransactionFailure(t *testing.T) {
 func savedRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, string, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
-	store := configuration.NewStore(path)
+	store := configuration.NewStore(path, clients.Admission())
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -498,7 +498,7 @@ func savedRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, s
 }
 
 func localConfig() configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["local"] = configuration.Account{Label: "Local", Endpoints: configuration.Endpoints{OpenAIResponses: "https://local.example/v1"}}
 	cfg.Routes["local"] = configuration.Route{
 		Label: "Local", Account: "local", Model: "gpt-local",

@@ -23,6 +23,8 @@ import (
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/transaction"
 
+	"aigw-cli/internal/clients"
+
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -119,7 +121,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	t.Logf("baseline version=%s sha256=%x; candidate version=%s sha256=%x", oldVersion, sha256.Sum256(readFile(t, baseline)), newVersion, sha256.Sum256(readFile(t, newArtifact)))
 	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
-	before, err := configuration.NewStore(journey.config).Load()
+	before, err := configuration.NewStore(journey.config, clients.Admission()).Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +158,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 	}
 	requireUserFiles()
 	clear(before.Clients)
-	if retained, err := configuration.NewStore(journey.config).Load(); err != nil || !reflect.DeepEqual(retained, before) {
+	if retained, err := configuration.NewStore(journey.config, clients.Admission()).Load(); err != nil || !reflect.DeepEqual(retained, before) {
 		t.Fatalf("capability configuration changed across program lifecycle\nwant: %#v\ngot: %#v\nerror: %v", before, retained, err)
 	}
 }
@@ -164,7 +166,7 @@ func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoin
 func (j *journeyFixture) prepareCodexLifecycle() (string, string) {
 	j.testing.Helper()
 	j.installClientFixture("codex")
-	manifest, err := configuration.Parse(readFile(j.testing, j.manifest))
+	manifest, err := configuration.Parse(readFile(j.testing, j.manifest), clients.Admission())
 	if err != nil {
 		j.testing.Fatal(err)
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"aigw-cli/internal/client/claudedesktop"
+	builtinclients "aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -105,7 +106,7 @@ interfaces = { openai_responses = [] }
 			journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 			journey.run("setup", "--from", journey.manifest)
 
-			before, err := configuration.NewStore(journey.config).Load()
+			before, err := configuration.NewStore(journey.config, builtinclients.Admission()).Load()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -121,7 +122,7 @@ interfaces = { openai_responses = [] }
 			journey.installClientFixture(clientID)
 			journey.run("sync")
 
-			after, err := configuration.NewStore(journey.config).Load()
+			after, err := configuration.NewStore(journey.config, builtinclients.Admission()).Load()
 			if err != nil {
 				t.Fatal(err)
 			}

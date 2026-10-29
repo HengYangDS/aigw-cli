@@ -80,7 +80,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 	target := filepath.Join(root, "codex.toml")
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Executable: source, CredentialPath: reader, Secrets: store,
-		Config: configuration.NewStore(filepath.Join(root, "configuration.toml")),
+		Config: configuration.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission()),
 		Discovery: setupDiscovery{result: discovery.Result{
 			Executables: map[string]string{configuration.ClientCodex: source},
 			Surfaces: []discovery.Surface{{

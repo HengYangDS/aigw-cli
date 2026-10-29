@@ -53,7 +53,7 @@ func TestMigrationPreviewRejectsAbsentOrUnsupportedConfiguration(t *testing.T) {
 		{"unsupported schema", "version = 4\n", "unsupported config version"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 			if test.data != "" {
 				if err := os.WriteFile(store.Path(), []byte(test.data), 0o600); err != nil {
 					t.Fatal(err)
@@ -106,7 +106,7 @@ func TestMigrationPlanRejectsAnotherConfigurationStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	other := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	other := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	if err := other.ApplyMigration(plan); err == nil || !strings.Contains(err.Error(), "different configuration store") {
 		t.Fatalf("foreign migration plan was admitted: %v", err)
 	}

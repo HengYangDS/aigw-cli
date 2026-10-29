@@ -90,7 +90,7 @@ func TestRegistryScopesProjectionToTheRequestedClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	if _, _, err := registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "first"); err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	if discovered := registry.Discover(nil); discovered.Executable("future") != "/future" {
 		t.Fatalf("discovered = %#v", discovered)
 	}
@@ -176,7 +176,7 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 	if _, _, err := registry.Apply(context.Background(), Dependencies{}, cfg, cfg); err != nil {
 		t.Fatal(err)
 	}
-	if changed := registry.ChangedClients(configuration.NewConfig(), cfg); !reflect.DeepEqual(changed, []string{"future"}) {
+	if changed := registry.ChangedClients(configuration.NewConfig(testAdmission()), cfg); !reflect.DeepEqual(changed, []string{"future"}) {
 		t.Fatalf("changed client scope = %v, want the admitted future client", changed)
 	}
 	if status := registry.Inspect(context.Background(), Dependencies{}, cfg, "future", configuration.Runtime{}); !status.Ready {
@@ -209,7 +209,7 @@ func TestRegistryCompensatesAppliedAdaptersInReverseOrder(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, _, err = registry.Apply(t.Context(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
+			_, _, err = registry.Apply(t.Context(), Dependencies{}, configuration.NewConfig(testAdmission()), configuration.NewConfig(testAdmission()))
 			if !errors.Is(err, failure) || !strings.Contains(err.Error(), "prior adapters were rolled back") {
 				t.Fatalf("Apply() error = %v", err)
 			}
@@ -234,7 +234,7 @@ func TestRegistryReturnsOneRollbackForSuccessfulProjection(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			before, after := configuration.NewConfig(), configuration.NewConfig()
+			before, after := configuration.NewConfig(testAdmission()), configuration.NewConfig(testAdmission())
 			if state == "changed-config" {
 				after.Accounts["new"] = configuration.Account{Label: "New"}
 			}
@@ -269,7 +269,7 @@ func TestRegistryReportsCompensationFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
+	_, _, err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(testAdmission()), configuration.NewConfig(testAdmission()))
 	if !errors.Is(err, applyFailure) || !errors.Is(err, firstRollbackFailure) || !errors.Is(err, secondRollbackFailure) || !errors.Is(err, ErrProjectionRollbackFailed) {
 		t.Fatalf("Apply() error = %v", err)
 	}
@@ -312,7 +312,7 @@ func TestRegistryCancellationStopsNewWritesAndCompensatesPriorAdapters(t *testin
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, _, err = registry.Apply(ctx, Dependencies{}, configuration.NewConfig(), configuration.NewConfig())
+			_, _, err = registry.Apply(ctx, Dependencies{}, configuration.NewConfig(testAdmission()), configuration.NewConfig(testAdmission()))
 			if !errors.Is(err, wantErr) || (conflict != nil && !errors.Is(err, conflict)) {
 				t.Errorf("Apply() error = %v; want %v and any compensation conflict", err, wantErr)
 			}
@@ -329,7 +329,7 @@ func TestRegistryRejectsUnknownClientOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	assertUnknown := func(name string, err error) {
 		t.Helper()
 		if err == nil || !strings.Contains(err.Error(), "no admitted operational adapter") {

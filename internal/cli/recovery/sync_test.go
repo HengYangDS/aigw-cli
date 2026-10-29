@@ -156,7 +156,7 @@ func TestSyncMetadataObservationScopeExpiresWithCommand(t *testing.T) {
 
 func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 	t.Run("configuration load", func(t *testing.T) {
-		command := NewSyncCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(t.TempDir())})
+		command := NewSyncCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(t.TempDir(), clients.Admission())})
 		command.SilenceErrors = true
 		command.SilenceUsage = true
 		if err := command.Execute(); err == nil {
@@ -172,8 +172,8 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 		{name: "reconciliation"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-			cfg := configuration.NewConfig()
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+			cfg := configuration.NewConfig(clients.Admission())
 			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 			cfg.Routes["one"] = configuration.Route{
 				Label: "One", Account: "one", Model: "gpt-test",
@@ -212,8 +212,8 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 
 func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 	t.Run("planning", func(t *testing.T) {
-		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-		cfg := configuration.NewConfig()
+		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+		cfg := configuration.NewConfig(clients.Admission())
 		cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 		cfg.Routes["one"] = configuration.Route{
 			Label: "One", Account: "one", Model: "gpt-test",
@@ -235,8 +235,8 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 }
 
 func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	cfg.Accounts["two"] = configuration.Account{Label: "Two", Endpoints: configuration.Endpoints{OpenAIResponses: "https://two.test/v1"}}
 	cfg.Routes["one"] = configuration.Route{
@@ -273,9 +273,9 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 }
 
 func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	target := t.TempDir()
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	cfg.Routes["one"] = configuration.Route{
 		Label: "One", Account: "one", Model: "gpt-test",
@@ -296,7 +296,7 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 
 func TestRollbackCoversLoadCheckpointAndBackupFailures(t *testing.T) {
 	t.Run("current config load", func(t *testing.T) {
-		command := NewRollbackCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(t.TempDir())})
+		command := NewRollbackCommand(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(t.TempDir(), clients.Admission())})
 		command.SilenceErrors = true
 		command.SilenceUsage = true
 		if err := command.Execute(); err == nil {
@@ -334,8 +334,8 @@ func TestRollbackCoversLoadCheckpointAndBackupFailures(t *testing.T) {
 
 func rollbackStore(t *testing.T) configuration.Store {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
 	cfg.Routes["one"] = configuration.Route{
 		Label: "One", Account: "one", Model: "claude-test",

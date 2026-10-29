@@ -88,8 +88,8 @@ func (c *Config) validateCollections() error {
 
 func (c *Config) validateRecommendations() error {
 	for _, client := range slices.Sorted(maps.Keys(c.Recommendations)) {
-		if !IsAdmittedClient(client) {
-			return fmt.Errorf("unknown client recommendation %q; supported clients are %s", client, AdmittedClientUsage())
+		if !c.admission.Admits(client) {
+			return fmt.Errorf("unknown client recommendation %q; supported clients are %s", client, c.admission.Usage())
 		}
 		recommendation := c.Recommendations[client]
 		if recommendation.Primary.Route == "" {
@@ -109,7 +109,7 @@ func (c *Config) validateRecommendations() error {
 
 func (c *Config) validateClientBindings() error {
 	for _, client := range slices.Sorted(maps.Keys(c.Clients)) {
-		if !IsAdmittedClient(client) {
+		if !c.admission.Admits(client) {
 			return fmt.Errorf("unknown client binding %q", client)
 		}
 		binding := c.clientBinding(client)
@@ -165,7 +165,7 @@ func (c *Config) validateSelection(client string, selection ClientSelection) err
 	}
 	account := c.Accounts[route.Account]
 	account.ID = route.Account
-	spec, _ := ClientSpecFor(client)
+	spec, _ := c.admission.Spec(client)
 	if _, _, err := spec.ResolveRouteEndpoint(account, route, selection.Protocol); err != nil {
 		return fmt.Errorf("route %q: %w", selection.Route, err)
 	}

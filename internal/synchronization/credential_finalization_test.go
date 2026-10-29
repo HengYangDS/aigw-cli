@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/presentation"
@@ -123,7 +124,7 @@ func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
 			if store.commits != 0 {
 				t.Fatal("reader resolution failure changed configuration")
 			}
-			for _, unused := range []configuration.Config{configuration.NewConfig(), cfg.Clone()} {
+			for _, unused := range []configuration.Config{configuration.NewConfig(clients.Admission()), cfg.Clone()} {
 				if len(unused.Clients) > 0 {
 					binding := unused.Clients[configuration.ClientCodex]
 					binding.CredentialCommand = filepath.Join(root, "external-reader")
@@ -320,7 +321,7 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 			}
 			before := testConfig(target)
 			before.SetClientActivation(configuration.ClientCodex, false, "", nil)
-			store := configuration.NewStore(filepath.Join(root, "config.toml"))
+			store := configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 			if err := store.Save(before); err != nil {
 				t.Fatal(err)
 			}
@@ -388,7 +389,7 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 			}
 			store := &configStoreStub{restoreErr: tc.configErr}
 			syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
-			err = syncer.CommitProjection(t.Context(), configuration.NewConfig(), testConfig(target), "sync")
+			err = syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), testConfig(target), "sync")
 			var recovery interface{ ConfigurationRestored() bool }
 			if !errors.Is(err, cause) || !errors.As(err, &recovery) || recovery.ConfigurationRestored() != tc.restored || store.restores != 1 {
 				t.Fatalf("finalization outcome: restores=%d error=%v", store.restores, err)

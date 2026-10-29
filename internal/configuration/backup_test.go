@@ -12,7 +12,7 @@ import (
 )
 
 func TestForwardingBackupConvergencePreservesCurrentGeneration(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := convergenceConfig("current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -67,7 +67,7 @@ func TestForwardingBackupConvergencePreservesCurrentGeneration(t *testing.T) {
 
 func TestCaptureVerifiedBackupStateRequiresExistingConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	_, err := NewStore(path).CaptureVerifiedBackupState()
+	_, err := NewStore(path, testAdmission()).CaptureVerifiedBackupState()
 	if err == nil || !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("missing config error = %v", err)
 	}
@@ -75,7 +75,7 @@ func TestCaptureVerifiedBackupStateRequiresExistingConfig(t *testing.T) {
 
 func TestCaptureVerifiedBackupStateSurfacesConfigReadErrors(t *testing.T) {
 	path := t.TempDir()
-	if _, err := NewStore(path).CaptureVerifiedBackupState(); err == nil {
+	if _, err := NewStore(path, testAdmission()).CaptureVerifiedBackupState(); err == nil {
 		t.Fatal("CaptureVerifiedBackupState succeeded despite a directory at the config path")
 	}
 }
@@ -84,7 +84,7 @@ func TestCaptureVerifiedBackupStateSurfacesRecoveryReadErrors(t *testing.T) {
 	for _, suffix := range []string{".bak", ".verified.json"} {
 		t.Run(suffix, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
-			store := NewStore(path)
+			store := NewStore(path, testAdmission())
 			if err := store.Save(convergenceConfig("current")); err != nil {
 				t.Fatal(err)
 			}
@@ -106,7 +106,7 @@ func TestCaptureVerifiedBackupStateSurfacesConfigDecodeErrors(t *testing.T) {
 	if err := os.WriteFile(path+".verified.json", []byte(`{}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := NewStore(path).CaptureVerifiedBackupState()
+	_, err := NewStore(path, testAdmission()).CaptureVerifiedBackupState()
 	if err == nil || !strings.Contains(err.Error(), "decode current config snapshot") {
 		t.Fatalf("malformed config decode error = %v", err)
 	}
@@ -114,7 +114,7 @@ func TestCaptureVerifiedBackupStateSurfacesConfigDecodeErrors(t *testing.T) {
 
 func TestCaptureVerifiedBackupStateSurfacesCheckpointDecodeErrors(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	current := convergenceConfig("current")
 	if err := store.Save(current); err != nil {
 		t.Fatal(err)
@@ -129,7 +129,7 @@ func TestCaptureVerifiedBackupStateSurfacesCheckpointDecodeErrors(t *testing.T) 
 
 func TestConvergeVerifiedBackupSurfacesConfigReadErrors(t *testing.T) {
 	path := t.TempDir()
-	err := NewStore(path).ConvergeVerifiedBackup(Snapshot{})
+	err := NewStore(path, testAdmission()).ConvergeVerifiedBackup(Snapshot{})
 	if err == nil {
 		t.Fatal("ConvergeVerifiedBackup succeeded despite a directory at the config path")
 	}
@@ -137,7 +137,7 @@ func TestConvergeVerifiedBackupSurfacesConfigReadErrors(t *testing.T) {
 
 func TestConvergeVerifiedBackupSurfacesVerifiedReadErrors(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("current")); err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func TestConvergeVerifiedBackupSurfacesVerifiedReadErrors(t *testing.T) {
 
 func TestLoadBackupRoundTrips(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("old")); err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func TestLoadBackupRoundTrips(t *testing.T) {
 
 func TestLoadBackupSurfacesMissingFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	if _, err := NewStore(path).LoadBackup(); err == nil || !strings.Contains(err.Error(), "read previous config backup") {
+	if _, err := NewStore(path, testAdmission()).LoadBackup(); err == nil || !strings.Contains(err.Error(), "read previous config backup") {
 		t.Fatalf("missing backup error = %v", err)
 	}
 }
@@ -182,7 +182,7 @@ func TestLoadBackupSurfacesMissingFile(t *testing.T) {
 func TestCaptureVerifiedBackupStateBindsCurrentConfiguration(t *testing.T) {
 	for _, changed := range []bool{false, true} {
 		t.Run(fmt.Sprintf("configuration-changed=%t", changed), func(t *testing.T) {
-			store := NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+			store := NewStore(filepath.Join(t.TempDir(), "configuration.toml"), testAdmission())
 			current := convergenceConfig("current")
 			if err := store.Save(current); err != nil {
 				t.Fatal(err)
@@ -224,7 +224,7 @@ func TestCaptureVerifiedBackupStateBindsCurrentConfiguration(t *testing.T) {
 
 func TestConvergeVerifiedBackupCopiesExactCurrentBytes(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	oldConfig := convergenceConfig("old")
 	currentConfig := convergenceConfig("current")
 	if err := store.Save(oldConfig); err != nil {
@@ -295,7 +295,7 @@ func TestConvergeVerifiedBackupRejectsChangedPreimages(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
-			store := NewStore(path)
+			store := NewStore(path, testAdmission())
 			if err := store.Save(convergenceConfig("old")); err != nil {
 				t.Fatal(err)
 			}
@@ -340,7 +340,7 @@ func TestConvergeVerifiedBackupRejectsChangedPreimages(t *testing.T) {
 
 func TestCaptureVerifiedBackupStateRequiresCheckpoint(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	current := convergenceConfig("current")
 	binding := current.Clients[ClientCodex]
 	binding.Enabled = true
@@ -355,7 +355,7 @@ func TestCaptureVerifiedBackupStateRequiresCheckpoint(t *testing.T) {
 }
 
 func TestCaptureVerifiedBackupStateWithoutEnabledClientsNeedsNoCheckpoint(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	if err := store.Save(convergenceConfig("current")); err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +374,7 @@ func TestCaptureVerifiedBackupStateWithoutEnabledClientsNeedsNoCheckpoint(t *tes
 }
 
 func convergenceConfig(id string) Config {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts[id] = Account{Label: strings.ToUpper(id), Endpoints: Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
 	cfg.Routes[id] = testRoute(strings.ToUpper(id), id, id+"-model", ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(ClientCodex, id, "")

@@ -3,6 +3,7 @@ package cli_test
 import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -392,7 +393,7 @@ func TestSetupFromConfigurationManifestProjectionFailureRestoresOwnedFiles(t *te
 	app.Prompt = &scriptedPrompt{secrets: []string{"aigw-test-dmxapi-token"}}
 	app.Executable = "relative-helper"
 	root := t.TempDir()
-	app.Config = configuration.NewStore(filepath.Join(root, "aigw", "config.toml"))
+	app.Config = configuration.NewStore(filepath.Join(root, "aigw", "config.toml"), clients.Admission())
 	app.Host = hostAt(filepath.Join(root, "claude"))
 	claudeExecutable := executableFixture(t, "claude")
 	originalExecutable, err := os.ReadFile(claudeExecutable)

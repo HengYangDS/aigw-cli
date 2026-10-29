@@ -48,8 +48,9 @@ func ManifestAccountNames(incoming Manifest) []string {
 	return names
 }
 
-// Parse decodes and validates one complete team manifest without applying it.
-func Parse(data []byte) (Manifest, error) {
+// Parse decodes and validates one complete team manifest for the admitted
+// clients without applying it.
+func Parse(data []byte, admission Admission) (Manifest, error) {
 	var raw map[string]any
 	if err := toml.Unmarshal(data, &raw); err != nil {
 		return Manifest{}, fmt.Errorf("parse configuration manifest: %w", err)
@@ -81,7 +82,7 @@ func Parse(data []byte) (Manifest, error) {
 	if len(result.Routes) == 0 {
 		return Manifest{}, fmt.Errorf("configuration manifest must define at least one route")
 	}
-	check := NewConfig()
+	check := NewConfig(admission)
 	check.Accounts = result.Accounts
 	check.Models = result.Models
 	check.Routes = result.Routes
@@ -89,7 +90,7 @@ func Parse(data []byte) (Manifest, error) {
 	result.Models = check.Models
 	result.Routes = check.Routes
 	for client, recommendation := range result.Recommendations {
-		if !IsAdmittedClient(client) {
+		if !admission.Admits(client) {
 			return Manifest{}, fmt.Errorf("recommendation uses unsupported client %q", client)
 		}
 		for _, selection := range append([]ClientSelection{recommendation.Primary}, recommendation.Alternatives...) {
@@ -325,7 +326,7 @@ func Export(cfg Config) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := Parse(data); err != nil {
+	if _, err := Parse(data, cfg.admission); err != nil {
 		return nil, fmt.Errorf("export configuration manifest: %w", err)
 	}
 	return data, nil

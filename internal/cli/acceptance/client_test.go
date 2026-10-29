@@ -178,7 +178,7 @@ func TestAdapterStateFailureBranches(t *testing.T) {
 func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "claude-model")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "team", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -233,7 +233,7 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 	if err := os.WriteFile(target, []byte(original), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "gpt-model")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "team", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -265,7 +265,7 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 	target := filepath.Join(root, "config.toml")
 	writeFile(t, target, []byte("model_provider = \"native\"\nforeign = true\n"), 0o600)
 	writeFile(t, claudeSettingsPath(t, app.Host), []byte(`{"theme":"dark","env":{"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS":"1"}}`), 0o600)
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
 		executable := filepath.Join(root, id)
@@ -378,7 +378,7 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 
 func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://example.invalid"}}
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "fixture-model", configuration.ProtocolAnthropic)
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")

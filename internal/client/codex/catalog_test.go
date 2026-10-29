@@ -166,36 +166,34 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 		return ExecutableIdentity{Version: "0.160.0", SHA256: "client-catalog"}, bundled, nil
 	}
-	config := configuration.Config{
-		Version: configuration.ConfigVersion,
-		Accounts: map[string]configuration.Account{
-			"dmxapi": {
-				Label:     "DMXAPI",
-				Endpoints: configuration.Endpoints{OpenAIResponses: "https://api.example.test/v1"},
+	config := configuration.NewConfig(testAdmission())
+	config.Accounts = map[string]configuration.Account{
+		"dmxapi": {
+			Label:     "DMXAPI",
+			Endpoints: configuration.Endpoints{OpenAIResponses: "https://api.example.test/v1"},
+		},
+	}
+	config.Models = map[string]configuration.Model{
+		canonicalModel: {ID: canonicalModel, Label: "GPT-6.1 Sol"},
+	}
+	config.Routes = map[string]configuration.Route{
+		routeID: {
+			Label:         "DMXAPI GPT-6.1 Sol CDX",
+			Account:       "dmxapi",
+			Model:         canonicalModel,
+			UpstreamModel: upstreamModel,
+			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
+				configuration.ProtocolOpenAIResponses: {},
 			},
 		},
-		Models: map[string]configuration.Model{
-			canonicalModel: {ID: canonicalModel, Label: "GPT-6.1 Sol"},
-		},
-		Routes: map[string]configuration.Route{
-			routeID: {
-				Label:         "DMXAPI GPT-6.1 Sol CDX",
-				Account:       "dmxapi",
-				Model:         canonicalModel,
-				UpstreamModel: upstreamModel,
-				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-					configuration.ProtocolOpenAIResponses: {},
-				},
-			},
-		},
-		Clients: map[string]configuration.ClientBinding{
-			configuration.ClientCodex: {
-				Route:             routeID,
-				Enabled:           true,
-				Protocol:          configuration.ProtocolOpenAIResponses,
-				ModelProvider:     configuration.ModelProviderAIGW,
-				CredentialCommand: filepath.Join(t.TempDir(), "credential-reader"),
-			},
+	}
+	config.Clients = map[string]configuration.ClientBinding{
+		configuration.ClientCodex: {
+			Route:             routeID,
+			Enabled:           true,
+			Protocol:          configuration.ProtocolOpenAIResponses,
+			ModelProvider:     configuration.ModelProviderAIGW,
+			CredentialCommand: filepath.Join(t.TempDir(), "credential-reader"),
 		},
 	}
 	runtimeConfig, err := config.ResolveRuntime(configuration.ClientCodex, routeID)

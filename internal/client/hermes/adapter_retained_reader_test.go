@@ -46,7 +46,7 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", configuration.ProtocolAnthropic)
 	cfg.SetSelectedRoute(configuration.ClientHermes, "hermes", "")
@@ -66,7 +66,7 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	if status := adapter.Inspect(t.Context(), unprojected, cfg, selected); status.Ready || !strings.Contains(status.Issue, "projection differs") {
 		t.Fatalf("unsynchronized Hermes projection = %#v", status)
 	}
-	if _, err := adapter.Apply(t.Context(), deps, configuration.NewConfig(), cfg); err != nil {
+	if _, err := adapter.Apply(t.Context(), deps, configuration.NewConfig(testAdmission()), cfg); err != nil {
 		t.Fatal(err)
 	}
 	before, err := os.ReadFile(target)

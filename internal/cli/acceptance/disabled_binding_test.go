@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
@@ -35,7 +36,7 @@ func (store *accountDenyingStore) Exists(account string) (bool, error) {
 func enabledCodexWithDisabledClaude(t *testing.T) (*cli.App, *bytes.Buffer, *accountDenyingStore) {
 	t.Helper()
 	app, out, memory, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "gpt", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
 	addAccountRoute(&cfg, "claude", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, configuration.ClientClaude, "claude-test")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")

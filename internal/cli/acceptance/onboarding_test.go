@@ -3,6 +3,7 @@ package cli_test
 import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -33,7 +34,7 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 			AutoManaged: true,
 		}},
 	}}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{
 		Label:     "DMXAPI",
 		Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
@@ -290,7 +291,7 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 			AutoManaged: true,
 		}},
 	}}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{
 		Label:     "DMXAPI",
 		Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},

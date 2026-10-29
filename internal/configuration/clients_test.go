@@ -155,7 +155,7 @@ func TestExplicitCredentialCommandSurvivesHostConfigRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var loaded Config
+		loaded := Config{admission: testAdmission()}
 		if err := toml.Unmarshal(encoded, &loaded); err != nil {
 			t.Fatal(err)
 		}

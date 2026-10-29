@@ -37,7 +37,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 		Args: cobra.MatchAll(cobra.NoArgs, validateEndpointTestSelection),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if configPath != "" {
-				runtime.Config = configuration.NewStore(configPath)
+				runtime.Config = configuration.NewStore(configPath, runtime.Config.Admission())
 			}
 			cfg, err := runtime.Config.Load()
 			if err != nil {

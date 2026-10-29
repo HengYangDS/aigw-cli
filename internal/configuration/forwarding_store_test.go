@@ -15,7 +15,7 @@ import (
 func TestStoreForwardingReadFailuresPreserveRecoveryInputs(t *testing.T) {
 	cfg := validConfig()
 	cfg.Normalize()
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	for _, endpoint := range []string{"http://127.0.0.1:8792/previous/v1", "http://127.0.0.1:8792/v1"} {
 		if err := cfg.SetForwardingEndpoint(ClientCodex, endpoint); err != nil {
 			t.Fatal(err)
@@ -92,7 +92,7 @@ func TestStoreRejectsOrphanForwardingWithoutChangingRecoveryInputs(t *testing.T)
 	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

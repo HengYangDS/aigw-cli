@@ -22,6 +22,8 @@ import (
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
 
+	builtinclients "aigw-cli/internal/clients"
+
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -117,7 +119,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	state := publishedNativeJourney{journey: journey, baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version, clients: deferredJourneyClientIDs()}
 	state.prepare(t, nativeCurrentSchemaManifest(upstream.URL+"/v1"))
 	journey.run("update", "--candidate", archive, "--checksums", checksums)
-	store := configuration.NewStore(journey.config)
+	store := configuration.NewStore(journey.config, builtinclients.Admission())
 	before := capturePublishedSnapshot(t, store)
 	endpoint := forwarding.URL + "/selected/v1"
 	args := []string{"use", "native-codex", "--for", configuration.ClientCodex, "--forwarding-endpoint", endpoint}
@@ -176,7 +178,7 @@ func capturePublishedSnapshot(t *testing.T, store configuration.Store) configura
 
 func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint string, selected configuration.Snapshot, baseline string) {
 	journey := state.journey
-	store := configuration.NewStore(journey.config)
+	store := configuration.NewStore(journey.config, builtinclients.Admission())
 	journey.run("rollback", "--last-change")
 	cfg, err := store.Load()
 	if err != nil || cfg.Clients[configuration.ClientCodex].ForwardingEndpoint != "" {
@@ -240,7 +242,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	}
 	journey.installClientFixture(configuration.ClientHermes)
 	journey.setEnvironment("HERMES_HOME", filepath.Join(journey.root, "home", ".hermes"))
-	configured, err := configuration.Parse(readFile(t, journey.manifest))
+	configured, err := configuration.Parse(readFile(t, journey.manifest), builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,7 +374,7 @@ func (state *publishedNativeJourney) upgrade(t *testing.T) {
 func (j *journeyFixture) importCatalogOrder() []byte {
 	j.testing.Helper()
 	before := readFile(j.testing, j.config)
-	ranked, err := configuration.Parse(readFile(j.testing, j.manifest))
+	ranked, err := configuration.Parse(readFile(j.testing, j.manifest), builtinclients.Admission())
 	if err != nil {
 		j.testing.Fatal(err)
 	}
@@ -387,7 +389,7 @@ func (j *journeyFixture) importCatalogOrder() []byte {
 		j.testing.Fatal(err)
 	}
 	j.run("config", "import", j.manifest, "--replace-account", "native-system-keyring-probe", "--replace-model", "claude-test")
-	store := configuration.NewStore(j.config)
+	store := configuration.NewStore(j.config, builtinclients.Admission())
 	updated := capturePublishedSnapshot(j.testing, store)
 	selected, err := store.Load()
 	if err != nil {
@@ -426,12 +428,12 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 		journey.requireCredential(successor[client], "native-journey-token")
 	}
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) ||
-		!bytes.Equal(capturePublishedSnapshot(t, configuration.NewStore(journey.config)).Catalog.Data, state.catalog) {
+		!bytes.Equal(capturePublishedSnapshot(t, configuration.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
 		t.Fatal("current-schema rollback changed published routing or catalogue presentation")
 	}
 	journey.run("sync")
 	journey.run("check")
-	if !bytes.Equal(capturePublishedSnapshot(t, configuration.NewStore(journey.config)).Catalog.Data, state.catalog) {
+	if !bytes.Equal(capturePublishedSnapshot(t, configuration.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
 		t.Fatal("published predecessor synchronization changed catalogue presentation")
 	}
 	for _, client := range state.clients {
@@ -448,7 +450,7 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 	journey.requireVersion(state.version)
 	journey.requireProgramBytes(state.candidate)
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) ||
-		!bytes.Equal(capturePublishedSnapshot(t, configuration.NewStore(journey.config)).Catalog.Data, state.catalog) {
+		!bytes.Equal(capturePublishedSnapshot(t, configuration.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
 		t.Fatal("current-schema recovery rewrote published routing or catalogue presentation")
 	}
 	state.finish(t)

@@ -45,11 +45,11 @@ func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest, err := configuration.Parse(team)
+	manifest, err := configuration.Parse(team, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := configuration.Merge(configuration.NewConfig(), manifest)
+	cfg, err := configuration.Merge(configuration.NewConfig(testAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}

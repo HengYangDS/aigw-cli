@@ -9,13 +9,14 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
 
 func TestAccountListJSONIsStableAndSecretFree(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "zeta", "zeta", "Zeta", configuration.Endpoints{Anthropic: "https://zeta.test"}, configuration.ClientClaude, "claude-test")
 	addAccountRoute(&cfg, "alpha", "alpha", "Alpha", configuration.Endpoints{OpenAIResponses: "https://alpha.test/v1"}, configuration.ClientCodex, "gpt-test")
 	if err := app.Config.Save(cfg); err != nil {
@@ -65,7 +66,7 @@ func TestAccountListJSONIsStableAndSecretFree(t *testing.T) {
 
 func TestAccountListFollowsDeclaredPresentationOrder(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	for _, account := range []struct {
 		id, label string
 		order     int
@@ -116,7 +117,7 @@ func TestAccountEditValidation(t *testing.T) {
 
 	t.Run("account edit load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"account", "edit", "one", "--label", "New"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -146,7 +147,7 @@ func TestAccountEditValidation(t *testing.T) {
 
 func TestAccountEditUpdatesSharedEndpointWithoutRouteDuplication(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "gpt", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, configuration.ClientCodex, "gpt-test")
 	addAccountRoute(&cfg, "claude", "dmx", "DMXAPI", configuration.Endpoints{}, configuration.ClientClaude, "claude-test")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
@@ -182,7 +183,7 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 	t.Run("config load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -305,7 +306,7 @@ func TestAccountDiagnosticsEnableRejectsIncompleteExplicitInputBeforeReading(t *
 func TestAccountDiagnosticsDisableBranches(t *testing.T) {
 	t.Run("load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"account", "diagnostics", "disable"}); err == nil {
 			t.Fatal("expected config load failure")
 		}

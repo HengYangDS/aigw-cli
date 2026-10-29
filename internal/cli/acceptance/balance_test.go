@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
@@ -16,7 +17,7 @@ import (
 func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 	t.Run("load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"balance"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -87,7 +88,7 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 
 func TestBalanceExplainsWhenConfiguredDiagnosticDriverIsNotBundled(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["future"] = configuration.Account{
 		Label:        "Future Gateway",
 		Endpoints:    configuration.Endpoints{OpenAIResponses: "https://future.test/v1"},
@@ -117,7 +118,7 @@ func handleDMXBalance(req *http.Request) (*http.Response, error) {
 
 func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-test")
 	account := cfg.Accounts["dmx"]
 	account.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
@@ -222,7 +223,7 @@ func TestBalanceNamesEnvironmentVariablesForAbsentDiagnostics(t *testing.T) {
 func TestAccountDiagnosticsEnableStoresSeparateCredentialAndBalanceShowsDetails(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	accountStore := app.Accounts
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, configuration.ClientCodex, "gpt-test")
 	providerAccount := cfg.Accounts["dmx"]
 	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}

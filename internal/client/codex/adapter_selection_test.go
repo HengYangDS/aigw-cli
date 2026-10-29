@@ -98,7 +98,7 @@ func TestAdoptCodexSelectionLeavesUnchangedBindings(t *testing.T) {
 // Account also offers terra, and another Account offers the same model.
 func codexAdoptionFixture(t *testing.T, count int) (configuration.Config, []string) {
 	t.Helper()
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{OpenAIResponses: "https://other.test/v1"}}
 	cfg.Routes["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", configuration.ProtocolOpenAIResponses)

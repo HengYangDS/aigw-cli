@@ -16,12 +16,12 @@ import (
 )
 
 func TestHomebrewRollbackDoesNotReleaseCredentialsBeforeRetryCapability(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["test"] = configuration.Account{Label: "Test", Endpoints: configuration.Endpoints{OpenAIResponses: "https://endpoint.test/v1"}}
 	cfg.Routes["test"] = configuration.Route{Label: "Test", Account: "test", Model: "gpt-6.1-sol", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	zero := uint64(0)
 	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Route: "test", RetryPolicy: &configuration.RetryPolicy{RequestMaxRetries: &zero}}
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestHomebrewRollbackDoesNotReleaseCredentialsBeforeRetryCapability(t *testi
 }
 
 func TestHomebrewRollbackRefusesUnreadableRetryPolicyBeforeCustody(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "config.toml"), clients.Admission())
 	if err := os.WriteFile(filepath.Join(filepath.Dir(store.Path()), "config.retries.toml"), []byte("["), 0o600); err != nil {
 		t.Fatal(err)
 	}

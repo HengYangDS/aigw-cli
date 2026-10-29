@@ -17,14 +17,14 @@ func TestRuntimeResolutionPreservesConfiguration(t *testing.T) {
 	if !reflect.DeepEqual(cfg, want) {
 		t.Fatal("runtime resolution changed the supplied configuration")
 	}
-	empty := Config{}
-	if _, err := empty.ResolveRuntime(ClientClaude, ""); err == nil || !reflect.DeepEqual(empty, Config{}) {
+	empty := Config{admission: testAdmission()}
+	if _, err := empty.ResolveRuntime(ClientClaude, ""); err == nil || !reflect.DeepEqual(empty, Config{admission: testAdmission()}) {
 		t.Fatalf("empty configuration resolution = %#v, %v", empty, err)
 	}
 }
 
 func TestResolveRuntimeClassifiesAnUnselectedRoute(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	_, err := cfg.ResolveRuntime(ClientClaude, "")
 	var routeErr *RuntimeBindingUnselectedError
 	if !errors.As(err, &routeErr) || routeErr.Client != ClientClaude {
@@ -69,7 +69,7 @@ func BenchmarkResolveRuntime(b *testing.B) {
 }
 
 func TestResolveRuntimeReturnsAccountEndpointAndModel(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
 	cfg.Routes["gpt-5.6"] = testRoute("GPT-5.6", "dmx", "gpt-5.6", ProtocolOpenAIResponses)
 	cfg.Routes["claude-opus"] = testRoute("Claude Opus", "dmx", "claude-opus", ProtocolAnthropic)
@@ -92,7 +92,7 @@ func TestResolveRuntimeReturnsAccountEndpointAndModel(t *testing.T) {
 }
 
 func TestResolveRuntimeRejectsUnknownRouteAccountAndEndpoint(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Routes["codex"] = testRoute("Codex", "dmx", "gpt-test", ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(ClientCodex, "codex", "")
@@ -122,7 +122,7 @@ func TestResolveRuntimeRejectsUnknownRouteAccountAndEndpoint(t *testing.T) {
 }
 
 func TestSelectRoutesForConnectedAccountsKeepsCapabilityAndChoosesUsableRoutes(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["alpha"] = Account{Label: "Alpha", Endpoints: Endpoints{Anthropic: "https://alpha.test", OpenAIResponses: "https://alpha.test/v1"}}
 	cfg.Accounts["beta"] = Account{Label: "Beta", Endpoints: Endpoints{Anthropic: "https://beta.test", OpenAIResponses: "https://beta.test/v1"}}
 	cfg.Routes["alpha-claude"] = testRoute("Alpha Claude", "alpha", "claude-test", ProtocolAnthropic)
@@ -166,7 +166,7 @@ func TestSelectRoutesForConnectedAccountsKeepsCapabilityAndChoosesUsableRoutes(t
 }
 
 func TestSelectRoutesForConnectedAccountsPreservesRecommendedModels(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["preferred"] = Account{Label: "Preferred", Endpoints: Endpoints{Anthropic: "https://preferred.test", OpenAIResponses: "https://preferred.test/v1"}}
 	cfg.Accounts["connected"] = Account{Label: "Connected", Endpoints: Endpoints{Anthropic: "https://connected.test", OpenAIResponses: "https://connected.test/v1"}}
 	cfg.Routes["preferred-claude"] = testRoute("Preferred Claude", "preferred", "claude-fable-5", ProtocolAnthropic)
@@ -196,7 +196,7 @@ func TestSelectRoutesForConnectedAccountsPreservesRecommendedModels(t *testing.T
 }
 
 func TestSelectRoutesForConnectedAccountsDoesNotSubstituteAnotherRecommendedModel(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["preferred"] = Account{Label: "Preferred", Endpoints: Endpoints{OpenAIResponses: "https://preferred.test/v1"}}
 	cfg.Accounts["connected"] = Account{Label: "Connected", Endpoints: Endpoints{OpenAIResponses: "https://connected.test/v1"}}
 	cfg.Routes["preferred"] = testRoute("Preferred", "preferred", "gpt-preferred", ProtocolOpenAIResponses)
@@ -222,7 +222,7 @@ func TestSelectRoutesPreservesUnavailableExplicitChoice(t *testing.T) {
 }
 
 func TestSelectRoutesPrefersUsableRecommendationOverIdentifierOrder(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["alpha"] = testRoute("Alpha", "team", "first-model", ProtocolAnthropic)
 	cfg.Routes["zeta"] = testRoute("Zeta", "team", "recommended-model", ProtocolAnthropic)
@@ -238,7 +238,7 @@ func TestSelectRoutesPrefersUsableRecommendationOverIdentifierOrder(t *testing.T
 }
 
 func TestSelectedAccountIDsReturnsUniqueStableActiveAccounts(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["alpha"] = Account{Label: "Alpha", Endpoints: Endpoints{Anthropic: "https://alpha.test", OpenAIResponses: "https://alpha.test/v1"}}
 	cfg.Accounts["optional"] = Account{Label: "Optional", Endpoints: Endpoints{OpenAIResponses: "https://optional.test/v1"}}
 	cfg.Routes["alpha-claude"] = testRoute("Alpha Claude", "alpha", "claude-test", ProtocolAnthropic)
@@ -253,7 +253,7 @@ func TestSelectedAccountIDsReturnsUniqueStableActiveAccounts(t *testing.T) {
 }
 
 func TestSelectRoutesForConnectedAccountsSelectsACompatibleRouteForAnUnselectedClient(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["claude-only"] = Account{Label: "Claude only", Endpoints: Endpoints{Anthropic: "https://claude.test"}}
 	cfg.Accounts["codex"] = Account{Label: "Codex", Endpoints: Endpoints{OpenAIResponses: "https://codex.test/v1"}}
 	cfg.Routes["claude"] = testRoute("Claude", "claude-only", "claude-test", ProtocolAnthropic)
@@ -271,7 +271,7 @@ func TestSelectRoutesForConnectedAccountsSelectsACompatibleRouteForAnUnselectedC
 }
 
 func TestSelectRoutesForConnectedAccountsDefaultsToRecommendedClients(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{
 		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
 	}}
@@ -294,7 +294,7 @@ func TestSelectRoutesForConnectedAccountsDefaultsToRecommendedClients(t *testing
 }
 
 func TestSelectRoutesForConnectedAccountsPreservesRecommendedProtocolForEquivalentRoute(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["preferred"] = Account{Label: "Preferred", Endpoints: Endpoints{
 		Anthropic: "https://preferred.test", OpenAIResponses: "https://preferred.test/v1",
 	}}
@@ -326,7 +326,7 @@ func TestSelectRoutesForConnectedAccountsPreservesRecommendedProtocolForEquivale
 }
 
 func TestExplicitRouteSelectionUsesUnboundRecommendationOptions(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{
 		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
 	}}
@@ -348,7 +348,7 @@ func TestExplicitRouteSelectionUsesUnboundRecommendationOptions(t *testing.T) {
 }
 
 func TestSelectRoutesForConnectedAccountsSkipsRoutesWithoutTheClientEndpoint(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test"}}
 	cfg.Routes["generic"] = testRoute("Generic", "team", "claude-test", ProtocolAnthropic)
 	cfg.Routes["invalid-codex"] = testRoute("Invalid Codex", "team", "gpt-test", ProtocolOpenAIResponses)
@@ -362,21 +362,24 @@ func TestSelectRoutesForConnectedAccountsSkipsRoutesWithoutTheClientEndpoint(t *
 	}
 }
 
-func TestEndpointForRejectsUnknownClientAndMissingProtocolEndpoint(t *testing.T) {
+func TestClientEndpointRejectsUnknownClientAndMissingProtocolEndpoint(t *testing.T) {
 	account := Account{ID: "dmx", Label: "DMXAPI", Endpoints: Endpoints{Anthropic: "https://dmx.test"}}
-	if _, err := account.EndpointFor("gemini"); err == nil || !strings.Contains(err.Error(), "unknown client") {
-		t.Fatalf("unknown client error = %v", err)
+	admission := testAdmission()
+	if _, admitted := admission.Spec("gemini"); admitted {
+		t.Fatal("an unknown client is admitted")
 	}
-	if _, err := account.EndpointFor(ClientCodex); err == nil || !strings.Contains(err.Error(), "no OpenAI Responses endpoint") {
+	codex, _ := admission.Spec(ClientCodex)
+	if _, _, err := codex.ResolveEndpoint(account, ""); err == nil || !strings.Contains(err.Error(), "no OpenAI Responses endpoint") {
 		t.Fatalf("missing OpenAI endpoint error = %v", err)
 	}
-	if endpoint, err := account.EndpointFor(ClientClaude); err != nil || endpoint != "https://dmx.test" {
-		t.Fatalf("EndpointFor = %q, %v", endpoint, err)
+	claude, _ := admission.Spec(ClientClaude)
+	if endpoint, _, err := claude.ResolveEndpoint(account, ""); err != nil || endpoint != "https://dmx.test" {
+		t.Fatalf("ResolveEndpoint = %q, %v", endpoint, err)
 	}
 }
 
 func TestResolveAccountRejectsRouteWithUnknownAccount(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Routes["orphan"] = testRoute("Orphan", "missing", "", ProtocolAnthropic)
 	_, _, err := cfg.ResolveAccount("orphan")
 	if err == nil || !strings.Contains(err.Error(), "references unknown account") {
@@ -401,7 +404,7 @@ func TestDomainErrorTextAndRouteSelectionBranches(t *testing.T) {
 		t.Fatalf("endpoint error = %q", got)
 	}
 
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["generic"] = Account{Label: "Generic", Endpoints: Endpoints{Anthropic: "https://one.test"}}
 	cfg.Routes["a-skip"] = testRoute("Skip", "generic", "", ProtocolAnthropic)
 	cfg.Routes["b-endpoint"] = testRoute("Endpoint", "generic", "claude-endpoint", ProtocolAnthropic)
@@ -416,7 +419,7 @@ func TestDomainErrorTextAndRouteSelectionBranches(t *testing.T) {
 }
 
 func TestSelectedRouteCopiesRecommendedOptionsOnlyForItsAccount(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["native"] = Account{Label: "Native", Endpoints: Endpoints{OpenAIResponses: "https://native.test/v1"}}
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://team.test/v1"}}
 	cfg.Routes["native-gpt"] = testRoute("Native", "native", "gpt-native", ProtocolOpenAIResponses)

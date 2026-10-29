@@ -237,7 +237,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secrets.Store
 		Executable:    filepath.Join(t.TempDir(), "aigw"),
 		InstallTarget: filepath.Join(t.TempDir(), "bin", "aigw"),
 		Host:          hostAt(t.TempDir()),
-		Config:        configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml")),
+		Config:        configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()),
 		Secrets:       secretStore,
 		Accounts:      diagnostics,
 		Env:           []string{},
@@ -305,7 +305,7 @@ func executableName(name string) string {
 
 func saveCommandRoute(t *testing.T, app *cli.App, endpoints configuration.Endpoints, client, model string) {
 	t.Helper()
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", endpoints, client, model)
 	cfg.SetSelectedRoute(client, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -400,7 +400,7 @@ func TestCredentialFixturePreservesRealStateAcrossInjectedFailures(t *testing.T)
 
 func saveProbeRoute(t *testing.T, appConfig configuration.Store) {
 	t.Helper()
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{
 		Label:        "DMXAPI",
 		Endpoints:    configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
@@ -414,7 +414,7 @@ func saveProbeRoute(t *testing.T, appConfig configuration.Store) {
 }
 
 func twoRouteConfig() configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One Gateway", configuration.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "model-one")
 	addAccountRoute(&cfg, "two", "two", "Two Gateway", configuration.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, configuration.ClientCodex, "model-two")
 	for _, routeID := range []string{"one", "two"} {
@@ -505,7 +505,7 @@ func (d fakeDiscovery) Discover() discovery.Result { return d.result }
 func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
 	t.Helper()
 	app, _, secretStore, runner, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", configuration.ProtocolAnthropic)

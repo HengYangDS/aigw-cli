@@ -51,7 +51,7 @@ func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing
 func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T) {
 	t.Run("configuration load", func(t *testing.T) {
 		root := t.TempDir()
-		command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: filepath.Join(root, "aigw"), Config: configuration.NewStore(root)})
+		command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: filepath.Join(root, "aigw"), Config: configuration.NewStore(root, clients.Admission())})
 		command.SetArgs(nil)
 		if err := command.Execute(); err == nil {
 			t.Fatal("uninstall succeeded despite an unreadable configuration path")
@@ -66,7 +66,7 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		}
 		command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),
 			Executable: target,
-			Config:     configuration.NewStore(filepath.Join(root, "invalid") + "\x00configuration.toml"),
+			Config:     configuration.NewStore(filepath.Join(root, "invalid")+"\x00configuration.toml", clients.Admission()),
 		})
 		command.SetArgs(nil)
 		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "inspect AIGW configuration") {
@@ -83,8 +83,8 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		if err := os.WriteFile(target, []byte("current"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		store := configuration.NewStore(filepath.Join(root, "configuration.toml"))
-		cfg := configuration.NewConfig()
+		store := configuration.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission())
+		cfg := configuration.NewConfig(clients.Admission())
 		cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 		cfg.Routes["claude"] = configuration.Route{
 			Label: "Claude", Account: "gateway", Model: "claude-test",
@@ -157,7 +157,7 @@ func TestUninstallPreservesEveryVersionedReader(t *testing.T) {
 		}
 	}
 	command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),
-		Executable: invoker, DataDir: dataDir, CredentialPath: invokerReader, Config: configuration.NewStore(filepath.Join(root, "config.toml")),
+		Executable: invoker, DataDir: dataDir, CredentialPath: invokerReader, Config: configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
 	})
 	command.SetArgs([]string{"--target", target})
 	if err := command.Execute(); err != nil {
@@ -204,7 +204,7 @@ func TestUninstallPreservesReaderSharedByIdenticalInstallations(t *testing.T) {
 	}
 	command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),
 		Executable: invoker, DataDir: dataDir, CredentialPath: invokerReader,
-		Config: configuration.NewStore(filepath.Join(root, "config.toml")),
+		Config: configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
 	})
 	command.SetArgs([]string{"--target", target})
 	if err := command.Execute(); err != nil {

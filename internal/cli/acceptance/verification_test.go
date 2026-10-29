@@ -13,13 +13,14 @@ import (
 
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 )
 
 func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{Anthropic: "https://example.test"}}
 	cfg.Routes["claude-fable-5"] = qualifiedRoute("Claude Fable", "dmx", "claude-fable-5", configuration.ProtocolAnthropic)
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude-fable-5", "")
@@ -61,7 +62,7 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 
 func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", configuration.ProtocolAnthropic)
@@ -195,7 +196,7 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 		prep func(*cli.App)
 		want string
 	}{
-		{name: "config load", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) { app.Config = configuration.NewStore(t.TempDir()) }, want: "read config"},
+		{name: "config load", args: []string{"verify", "--for", "codex"}, prep: func(app *cli.App) { app.Config = configuration.NewStore(t.TempDir(), clients.Admission()) }, want: "read config"},
 		{name: "unknown route", args: []string{"verify", "--for", "codex", "--route", "missing"}, prep: func(app *cli.App) {
 			saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		}, want: "unknown route"},
@@ -215,7 +216,7 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 			}
 		}, want: "token for account"},
 		{name: "all with unavailable Codex executable", args: []string{"verify", "--for", "all"}, prep: func(app *cli.App) {
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(clients.Admission())
 			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}}
 			cfg.Routes["claude"] = qualifiedRoute("Claude", "one", "claude-test", configuration.ProtocolAnthropic)
 			cfg.Routes["codex"] = qualifiedRoute("Codex", "one", "gpt-test", configuration.ProtocolOpenAIResponses)
@@ -245,7 +246,7 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 
 func TestVerifyCodexRunsTheConfiguredClientWithIsolatedContinuation(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
@@ -313,7 +314,7 @@ func TestVerifyCodexRunsTheConfiguredClientWithIsolatedContinuation(t *testing.T
 
 func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{
 		Label: "DMX",
 		Endpoints: configuration.Endpoints{
@@ -352,7 +353,7 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 
 func TestVerifyUsesExplicitClientWithRouteOverride(t *testing.T) {
 	app, _, _, runner, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{OpenAIResponses: "https://other.test/v1"}}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)

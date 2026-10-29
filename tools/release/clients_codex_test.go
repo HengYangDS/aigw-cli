@@ -26,6 +26,8 @@ import (
 	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
 
+	"aigw-cli/internal/clients"
+
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -207,7 +209,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	if afterCheckpoint, err := os.ReadFile(checkpoint); err != nil && !os.IsNotExist(err) || !bytes.Equal(beforeCheckpoint, afterCheckpoint) {
 		t.Fatalf("incomplete metadata changed the verification checkpoint: %v", err)
 	}
-	cfg, err := configuration.NewStore(journey.config).Load()
+	cfg, err := configuration.NewStore(journey.config, clients.Admission()).Load()
 	if err != nil {
 		t.Fatal(err)
 	}

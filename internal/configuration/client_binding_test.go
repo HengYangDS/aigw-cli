@@ -102,7 +102,7 @@ func TestCurrentSchemaRemovesLegacySelectionFields(t *testing.T) {
 }
 
 func TestConfigSerializationUsesClientBindingsOnly(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{
 		Label:     "Team",
 		Endpoints: Endpoints{Anthropic: "https://team.test/anthropic"},
@@ -158,7 +158,7 @@ func TestConfigSerializationUsesClientBindingsOnly(t *testing.T) {
 }
 
 func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{
 		Label: "Team",
 		Endpoints: Endpoints{
@@ -206,7 +206,7 @@ func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 }
 
 func TestClientBindingOwnsNativeAuthentication(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["native"] = Account{
 		Label:     "Native",
 		Endpoints: Endpoints{OpenAIResponses: "https://native.test/v1"},
@@ -234,7 +234,7 @@ func TestClientBindingOwnsNativeAuthentication(t *testing.T) {
 }
 
 func TestSetClientActivationPreservesSelectionAndClientOptions(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Clients[ClientCodex] = ClientBinding{
 		Route:             "reasoning",
 		Protocol:          ProtocolOpenAIResponses,

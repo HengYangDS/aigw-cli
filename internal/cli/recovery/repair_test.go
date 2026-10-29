@@ -104,8 +104,8 @@ func TestRunRepairReportsDiscoveryFailureWithoutMutatingConfiguration(t *testing
 
 func configuredRepairStore(t *testing.T) (configuration.Store, configuration.Config) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
 	cfg.Routes["one"] = configuration.Route{
 		Label: "One", Account: "one", Model: "claude-test",
@@ -119,7 +119,7 @@ func configuredRepairStore(t *testing.T) (configuration.Store, configuration.Con
 }
 
 func TestRepairDesiredConfigPreservesExplicitCodexIntentWhenDiscoveryIsEmpty(t *testing.T) {
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(clients.Admission())
 	before.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	before.Routes["one"] = configuration.Route{
 		Label: "One", Account: "one", Model: "gpt",
@@ -172,8 +172,8 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-			cfg := configuration.NewConfig()
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+			cfg := configuration.NewConfig(clients.Admission())
 			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 			cfg.Routes["one"] = configuration.Route{
 				Label: "One", Account: "one", Model: "gpt-test",
@@ -210,11 +210,11 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 }
 
 func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	settingsHome := t.TempDir()
 	settingsPath := filepath.Join(settingsHome, ".claude", "settings.json")
 	executable := filepath.Join(t.TempDir(), "aigw")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
 	cfg.Routes["one"] = configuration.Route{
 		Label: "One", Account: "one", Model: "claude-test",

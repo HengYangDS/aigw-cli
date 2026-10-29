@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 )
 
@@ -28,7 +29,7 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryAccountChoices(t *
 			if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(clients.Admission())
 			addAccountRoute(&cfg, "codex", "provider", "Provider", configuration.Endpoints{OpenAIResponses: test.endpoint}, configuration.ClientCodex, "gpt-test")
 			cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 			cfg.SetClientActivation(configuration.ClientCodex, true, "/usr/local/bin/codex", []string{target})
@@ -74,7 +75,7 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryAccountChoices(t *
 
 func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "local", "local", "Local Endpoint", configuration.Endpoints{Anthropic: "http://127.0.0.2:4567"}, configuration.ClientClaude, "model-test")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "local", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
@@ -101,7 +102,7 @@ func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *tes
 
 func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "remote", "remote", "Remote Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, configuration.ClientClaude, "model-test")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "remote", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, executableFixture(t, "claude"), nil)
@@ -142,7 +143,7 @@ func TestEndpointOnlyCheckUsesSelectedTLSOrLoopbackAccount(t *testing.T) {
 			if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(clients.Admission())
 			addAccountRoute(&cfg, "codex", "selected", "Selected", configuration.Endpoints{OpenAIResponses: server.URL + "/v1"}, configuration.ClientCodex, "gpt-test")
 			cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 			cfg.SetClientActivation(configuration.ClientCodex, true, "/usr/local/bin/codex", []string{target})
@@ -185,7 +186,7 @@ func TestSelectedAccountWorksWithoutInstalledClient(t *testing.T) {
 	app, _, secrets, runner, _ := testApp(t, "")
 	app.Discovery = fakeDiscovery{}
 	app.HTTP = server.Client()
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "codex", "provider", "Provider", configuration.Endpoints{OpenAIResponses: server.URL + "/v1"}, configuration.ClientCodex, "gpt-test")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "codex", "")
 	if err := app.Config.Save(cfg); err != nil {

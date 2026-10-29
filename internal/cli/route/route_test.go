@@ -19,8 +19,8 @@ import (
 )
 
 func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["ucloud"] = configuration.Account{Label: "UCloud", Endpoints: configuration.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
 	cfg.Models["gpt-6-sol"] = configuration.Model{Label: "GPT-6 Sol"}
 	cfg.Routes["ucloud-gpt-6-sol"] = configuration.Route{
@@ -65,8 +65,8 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 }
 
 func TestRouteHumanOutputNamesClientsByLabel(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["messages"] = configuration.Route{
 		Account: "gateway", Model: "model-a",
@@ -151,8 +151,8 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 		{Route: "reserve", Protocol: configuration.ProtocolAnthropic},
 	}} {
 		t.Run(fmt.Sprint(len(alternatives)), func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-			cfg := configuration.NewConfig()
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+			cfg := configuration.NewConfig(clients.Admission())
 			cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
 			cfg.Routes["claude"] = configuration.Route{
 				Label: "Claude", Account: "team", Model: "claude-test",
@@ -201,8 +201,8 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 func blockedRouteRuntime(t *testing.T) invocation.Context {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
-	store := configuration.NewStore(path)
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(path, clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["current"] = configuration.Account{
 		Label:     "Current",
 		Endpoints: configuration.Endpoints{OpenAIResponses: "https://current.test/v1"},
@@ -243,8 +243,8 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 		{name: "channel variant", upstream: "coding-minimax-m3", wantWire: "coding-minimax-m3"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-			cfg := configuration.NewConfig()
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+			cfg := configuration.NewConfig(clients.Admission())
 			cfg.Accounts["ucloud"] = configuration.Account{Label: "UCloud", Endpoints: configuration.Endpoints{OpenAIResponses: "https://provider.test/v1"}}
 			cfg.Models["minimax-m3"] = configuration.Model{Label: "MiniMax M3"}
 			cfg.Routes["ucloud-minimax-m3"] = configuration.Route{
@@ -281,7 +281,7 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 
 func TestRouteAddRejectsEmptyExplicitUpstreamBeforeConfigurationAccess(t *testing.T) {
 	for _, upstream := range []string{"", " \t"} {
-		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 		original := []byte("invalid configuration [")
 		if err := os.WriteFile(store.Path(), original, 0o600); err != nil {
 			t.Fatal(err)

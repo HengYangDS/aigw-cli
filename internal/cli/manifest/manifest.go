@@ -75,7 +75,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return fmt.Errorf("Failed to read configuration manifest: %w", err)
 		}
-		incoming, err := configuration.Parse(data)
+		incoming, err := configuration.Parse(data, runtime.Config.Admission())
 		if err != nil {
 			return err
 		}

@@ -16,6 +16,8 @@ import (
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 
+	builtinclients "aigw-cli/internal/clients"
+
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -126,7 +128,7 @@ func (state *publishedNativeJourney) requireRetainedRotationAfterRollback(
 
 func preprojectNativeCredentialJourney(t *testing.T, journey *journeyFixture, candidate, oldVersion, token string) []process.Plan {
 	t.Helper()
-	cfg, err := configuration.NewStore(journey.config).Load()
+	cfg, err := configuration.NewStore(journey.config, builtinclients.Admission()).Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +149,7 @@ func preprojectNativeCredentialJourney(t *testing.T, journey *journeyFixture, ca
 
 func configureNativeDiagnosticProbe(t *testing.T, journey *journeyFixture, accountID, endpoint string) {
 	t.Helper()
-	manifest, err := configuration.Parse(readFile(t, journey.manifest))
+	manifest, err := configuration.Parse(readFile(t, journey.manifest), builtinclients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -429,7 +431,7 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 			j.requireCredential(credential, token)
 		}
 		j.run("sync")
-		if !bytes.Equal(capturePublishedSnapshot(j.testing, configuration.NewStore(j.config)).Catalog.Data, catalog) {
+		if !bytes.Equal(capturePublishedSnapshot(j.testing, configuration.NewStore(j.config, builtinclients.Admission())).Catalog.Data, catalog) {
 			j.testing.Fatal("credential lifecycle changed catalogue presentation")
 		}
 		current := j.retainedCredentials()
@@ -452,7 +454,7 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 
 func (j *journeyFixture) requireCurrentVersionedReaders(current []process.Plan, version string) {
 	j.testing.Helper()
-	cfg, err := configuration.NewStore(j.config).Load()
+	cfg, err := configuration.NewStore(j.config, builtinclients.Admission()).Load()
 	if err != nil {
 		j.testing.Fatal(err)
 	}

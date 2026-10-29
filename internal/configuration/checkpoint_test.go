@@ -15,7 +15,7 @@ import (
 )
 
 func TestForwardingChangedDuringVerificationRejectsCheckpoint(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := convergenceConfig("current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ func TestForwardingChangedDuringVerificationRejectsCheckpoint(t *testing.T) {
 }
 
 func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := convergenceConfig("current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -78,12 +78,13 @@ func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) 
 
 func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	cfg := Config{
-		Version:  ConfigVersion,
-		Accounts: map[string]Account{"dmx": {Label: "DMX", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
-		Routes:   map[string]Route{"claude": testRoute("Claude", "dmx", "claude-test", ProtocolAnthropic)},
-		Clients:  map[string]ClientBinding{ClientClaude: {Route: "claude"}},
+		Version:   ConfigVersion,
+		Accounts:  map[string]Account{"dmx": {Label: "DMX", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
+		Routes:    map[string]Route{"claude": testRoute("Claude", "dmx", "claude-test", ProtocolAnthropic)},
+		Clients:   map[string]ClientBinding{ClientClaude: {Route: "claude"}},
+		admission: testAdmission(),
 	}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -108,7 +109,7 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 }
 
 func TestVerifiedCheckpointRequiresOneCompleteDocument(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "configuration.toml"), testAdmission())
 	cfg := convergenceConfig("verified")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -134,7 +135,7 @@ func TestVerifiedCheckpointRequiresOneCompleteDocument(t *testing.T) {
 }
 
 func TestVerifiedCheckpointUsesOneClientScopeContract(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "configuration.toml"), testAdmission())
 	cfg := convergenceConfig("verified")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -165,7 +166,7 @@ func TestVerifiedCheckpointUsesOneClientScopeContract(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := decodeVerifiedCheckpoint(data); err == nil {
+			if _, err := decodeVerifiedCheckpoint(data, testAdmission()); err == nil {
 				t.Errorf("reader accepted invalid client scope: %v", clients)
 			}
 		})
@@ -173,7 +174,7 @@ func TestVerifiedCheckpointUsesOneClientScopeContract(t *testing.T) {
 }
 
 func TestVerifiedCheckpointPreservesNewerConfigurationAndCheckpoint(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	verified := convergenceConfig("verified")
 	current := convergenceConfig("current")
 	if err := store.Save(current); err != nil {
@@ -199,7 +200,7 @@ func TestVerifiedCheckpointPreservesNewerConfigurationAndCheckpoint(t *testing.T
 }
 
 func TestVerifiedCheckpointRequiresExistingConfiguration(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	if err := store.SaveVerifiedCheckpoint(t.Context(), convergenceConfig("missing"), []string{ClientCodex}); err == nil {
 		t.Fatal("verification created a checkpoint without configuration")
 	}
@@ -209,7 +210,7 @@ func TestVerifiedCheckpointRequiresExistingConfiguration(t *testing.T) {
 }
 
 func TestVerifiedCheckpointWaitsForMutationLockAndHonorsCancellation(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := convergenceConfig("current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -234,7 +235,7 @@ func TestVerifiedCheckpointWaitsForMutationLockAndHonorsCancellation(t *testing.
 }
 
 func TestVerifiedCheckpointAcceptsEquivalentConfigurationFormatting(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := convergenceConfig("current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -284,14 +285,14 @@ func TestLoadVerifiedCheckpointRejectsLegacyProfileOwnedEndpointResidue(t *testi
 	if err := os.WriteFile(path+".verified.json", []byte(checkpoint), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewStore(path).LoadVerifiedCheckpoint(); err == nil {
+	if _, err := NewStore(path, testAdmission()).LoadVerifiedCheckpoint(); err == nil {
 		t.Fatal("Legacy Profile-owned checkpoint endpoint residue was accepted")
 	}
 }
 
 func TestSaveVerifiedCheckpointRejectsInvalidConfiguration(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	if err := NewStore(path).SaveVerifiedCheckpoint(t.Context(), Config{}, []string{"codex"}); err == nil {
+	if err := NewStore(path, testAdmission()).SaveVerifiedCheckpoint(t.Context(), Config{}, []string{"codex"}); err == nil {
 		t.Fatal("SaveVerifiedCheckpoint accepted an invalid configuration")
 	}
 }
@@ -304,7 +305,7 @@ func TestSaveVerifiedCheckpointSurfacesUnwritableConfigDirectory(t *testing.T) {
 	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(filepath.Join(blocked, "child", " toml"))
+	store := NewStore(filepath.Join(blocked, "child", " toml"), testAdmission())
 	if err := store.SaveVerifiedCheckpoint(t.Context(), convergenceConfig("current"), []string{"codex"}); err == nil {
 		t.Fatal("SaveVerifiedCheckpoint succeeded despite an unwritable config directory")
 	}
@@ -312,7 +313,7 @@ func TestSaveVerifiedCheckpointSurfacesUnwritableConfigDirectory(t *testing.T) {
 
 func TestLoadVerifiedCheckpointSurfacesMissingFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	if _, err := NewStore(path).LoadVerifiedCheckpoint(); err == nil || !strings.Contains(err.Error(), "read verified checkpoint") {
+	if _, err := NewStore(path, testAdmission()).LoadVerifiedCheckpoint(); err == nil || !strings.Contains(err.Error(), "read verified checkpoint") {
 		t.Fatalf("missing checkpoint error = %v", err)
 	}
 }
@@ -322,7 +323,7 @@ func TestLoadVerifiedCheckpointRejectsIncompleteCheckpoint(t *testing.T) {
 	if err := os.WriteFile(path+".verified.json", []byte(`{}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewStore(path).LoadVerifiedCheckpoint(); err == nil || !strings.Contains(err.Error(), "incomplete") {
+	if _, err := NewStore(path, testAdmission()).LoadVerifiedCheckpoint(); err == nil || !strings.Contains(err.Error(), "incomplete") {
 		t.Fatalf("incomplete checkpoint error = %v", err)
 	}
 }
@@ -342,14 +343,14 @@ func TestLoadVerifiedCheckpointRejectsNonCanonicalConfigVersion(t *testing.T) {
 	if err := os.WriteFile(path+".verified.json", []byte(checkpoint), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewStore(path).LoadVerifiedCheckpoint(); err == nil || !strings.Contains(err.Error(), "validate verified checkpoint") {
+	if _, err := NewStore(path, testAdmission()).LoadVerifiedCheckpoint(); err == nil || !strings.Contains(err.Error(), "validate verified checkpoint") {
 		t.Fatalf("non-canonical config version error = %v", err)
 	}
 }
 
 func TestSaveVerifiedCheckpointSurfacesInvalidCheckpointTarget(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	cfg := convergenceConfig("current")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -365,7 +366,7 @@ func TestSaveVerifiedCheckpointSurfacesInvalidCheckpointTarget(t *testing.T) {
 func TestVerifiedCheckpointCompensatesConfigurationChangeDuringWrite(t *testing.T) {
 	for _, replaceCheckpoint := range []bool{false, true} {
 		t.Run(fmt.Sprint(replaceCheckpoint), func(t *testing.T) {
-			store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 			cfg := convergenceConfig("verified")
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)

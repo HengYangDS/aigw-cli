@@ -23,6 +23,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"aigw-cli/internal/clients"
+
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -60,7 +62,7 @@ func TestNativeClientInputs(t *testing.T) {
 			endpoint: "http://127.0.0.1:1/v1",
 		}
 		team := readFile(t, filepath.Join("..", "..", "manifests", "team.toml"))
-		manifest, err := configuration.Parse(team)
+		manifest, err := configuration.Parse(team, clients.Admission())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -82,7 +84,7 @@ func TestNativeClientInputs(t *testing.T) {
 			t.Fatal("native client temporary directory is unavailable")
 		}
 		journey.requireNativePreferences(configuration.ClientCodex)
-		prepared, err := configuration.Parse(readFile(t, journey.manifest))
+		prepared, err := configuration.Parse(readFile(t, journey.manifest), clients.Admission())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -104,7 +106,7 @@ func TestNativeClientJourney(t *testing.T) {
 		t.Fatal(err)
 	}
 	team := readFile(t, filepath.Join(root, "manifests", "team.toml"))
-	manifest, err := configuration.Parse(team)
+	manifest, err := configuration.Parse(team, clients.Admission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,7 +237,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	if completions.Load() <= count {
 		t.Fatal("bulk verification did not invoke the enabled native client")
 	}
-	checkpoint, err := configuration.NewStore(journey.config).LoadVerifiedCheckpoint()
+	checkpoint, err := configuration.NewStore(journey.config, clients.Admission()).LoadVerifiedCheckpoint()
 	if err != nil || len(checkpoint.Clients) != 1 || checkpoint.Clients[0] != client {
 		t.Fatalf("single-client checkpoint = %v: %v", checkpoint.Clients, err)
 	}
@@ -257,7 +259,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 
 func (j *journeyFixture) requireNativeForwarding(client, token string, upstream *httptest.Server, continueClient func()) {
 	j.testing.Helper()
-	store := configuration.NewStore(j.config)
+	store := configuration.NewStore(j.config, clients.Admission())
 	cfg, err := store.Load()
 	if err != nil {
 		j.testing.Fatal(err)
@@ -447,7 +449,7 @@ terminal:
 			return err
 		}
 	}
-	manifest, err := configuration.Parse(team)
+	manifest, err := configuration.Parse(team, clients.Admission())
 	if err != nil {
 		return err
 	}

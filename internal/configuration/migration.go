@@ -133,7 +133,7 @@ func (s Store) PrepareMigration(rollback bool) (MigrationPlan, error) {
 	if version != LegacyConfigVersion && version != PublishedConfigVersion {
 		return MigrationPlan{}, newLoadError(LoadPhaseValidate, &UnsupportedConfigVersionError{Version: version, ExpectedVersion: ConfigVersion})
 	}
-	cfg, err := migratePredecessorConfig(before.Config.Data, version)
+	cfg, err := migratePredecessorConfig(before.Config.Data, version, s.admission)
 	if err != nil {
 		return MigrationPlan{}, err
 	}
@@ -155,7 +155,7 @@ func (s Store) prepareMigrationRollback(before Snapshot) (MigrationPlan, error) 
 	if err != nil {
 		return MigrationPlan{}, fmt.Errorf("configuration migration rollback is unavailable: %w", err)
 	}
-	cfg, err := migratePredecessorConfig(before.Backup.Data, version)
+	cfg, err := migratePredecessorConfig(before.Backup.Data, version, s.admission)
 	if err != nil {
 		return MigrationPlan{}, fmt.Errorf("configuration migration rollback is unavailable: %w", err)
 	}
@@ -192,20 +192,20 @@ func decodeLegacyConfig(data []byte) (legacyConfig, error) {
 	return legacy, nil
 }
 
-func migratePredecessorConfig(data []byte, version int) (Config, error) {
+func migratePredecessorConfig(data []byte, version int, admission Admission) (Config, error) {
 	switch version {
 	case LegacyConfigVersion:
 		legacy, err := decodeLegacyConfig(data)
 		if err != nil {
 			return Config{}, err
 		}
-		return migrateLegacyConfig(legacy)
+		return migrateLegacyConfig(legacy, admission)
 	case PublishedConfigVersion:
 		published, err := decodePublishedConfig(data)
 		if err != nil {
 			return Config{}, err
 		}
-		return migratePublishedConfig(published)
+		return migratePublishedConfig(published, admission)
 	default:
 		return Config{}, newLoadError(LoadPhaseValidate, &UnsupportedConfigVersionError{Version: version, ExpectedVersion: ConfigVersion})
 	}
@@ -231,8 +231,8 @@ func configurationVersion(data []byte) (int, error) {
 	return header.Version, nil
 }
 
-func migrateLegacyConfig(legacy legacyConfig) (Config, error) {
-	cfg := NewConfig()
+func migrateLegacyConfig(legacy legacyConfig, admission Admission) (Config, error) {
+	cfg := NewConfig(admission)
 	for id, account := range legacy.Accounts {
 		if account.AccountProbe != nil {
 			probe := *account.AccountProbe
@@ -280,8 +280,8 @@ func migrateLegacyConfig(legacy legacyConfig) (Config, error) {
 	return cfg, nil
 }
 
-func migratePublishedConfig(published publishedConfig) (Config, error) {
-	cfg := NewConfig()
+func migratePublishedConfig(published publishedConfig, admission Admission) (Config, error) {
+	cfg := NewConfig(admission)
 	maps.Copy(cfg.Accounts, published.Accounts)
 	selections := make(map[string]ClientSelection, len(published.Profiles))
 	for _, id := range slices.Sorted(maps.Keys(published.Profiles)) {

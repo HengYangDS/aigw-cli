@@ -2,6 +2,7 @@ package synchronization
 
 import (
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
@@ -72,7 +73,7 @@ func (s *configStoreStub) CaptureSnapshot() (configuration.Snapshot, error) {
 
 func (s *configStoreStub) bindConfiguration(t *testing.T, cfg configuration.Config) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +98,7 @@ func (s *configStoreStub) RestoreSnapshot(configuration.Snapshot, configuration.
 }
 
 func testConfig(target string) configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Routes["gpt"] = configuration.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
@@ -120,7 +121,7 @@ func targetDiscovery(target string) staticDiscovery {
 
 func TestWithdrawDefaultsToEveryAdmittedClientAndRejectsUnknownClients(t *testing.T) {
 	syncer := Synchronizer{Registry: builtinClients}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	for _, clientID := range syncer.ClientIDs() {
 		cfg.SetClientActivation(clientID, true, "", nil)
 	}
@@ -146,7 +147,7 @@ func TestCommitRestoresTargetRemovedFromAdapter(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := testConfig(target)
-	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
+	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
 	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target)}
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
@@ -180,7 +181,7 @@ func TestCommitRestoresTargetRemovedFromAdapter(t *testing.T) {
 func TestCancelledCommitPreservesConfiguration(t *testing.T) {
 	for _, operation := range []string{"commit", "projection", "repair"} {
 		t.Run(operation, func(t *testing.T) {
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 			before := testConfig("")
 			before.Clients = map[string]configuration.ClientBinding{}
 			if err := store.Save(before); err != nil {
@@ -215,10 +216,12 @@ func TestCancelledCommitPreservesConfiguration(t *testing.T) {
 }
 
 func TestCommitPersistenceFailureBoundaries(t *testing.T) {
-	before := configuration.NewConfig()
-	// The committed configuration must itself be savable, so the injected
-	// persistence failures are the ones that stop the commit.
-	after := configuration.NewConfig()
+	before := configuration.NewConfig(clients.
+		// The committed configuration must itself be savable, so the injected
+		// persistence failures are the ones that stop the commit.
+		Admission())
+
+	after := configuration.NewConfig(clients.Admission())
 	after.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	after.Routes["gpt"] = configuration.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
 	want := errors.New("failure")
@@ -270,7 +273,7 @@ func TestCommitCancellationAtPersistenceAndProjectionAdmission(t *testing.T) {
 			before := testConfig(target)
 			before.Clients = map[string]configuration.ClientBinding{}
 			after := testConfig(target)
-			store := cancellingConfigStore{Store: configuration.NewStore(filepath.Join(root, "aigw.toml")), phase: phase, cancel: cancel}
+			store := cancellingConfigStore{Store: configuration.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission()), phase: phase, cancel: cancel}
 			if err := store.Save(before); err != nil {
 				t.Fatal(err)
 			}
@@ -308,7 +311,7 @@ func TestCommitReportsSynchronizationRollbackFailure(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(clients.Admission())
 	after := testConfig(target)
 	want := errors.New("restore failed")
 	store := &configStoreStub{restoreErr: want, onCommit: func() {
@@ -341,7 +344,7 @@ func TestCommitReportsConfigurationRestoredAfterProjectionFailure(t *testing.T) 
 	}}
 	err := (Synchronizer{Registry: builtinClients,
 		Config: store, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
-	}).Commit(t.Context(), configuration.NewConfig(), testConfig(target), "change")
+	}).Commit(t.Context(), configuration.NewConfig(clients.Admission()), testConfig(target), "change")
 	var recovery interface{ ConfigurationRestored() bool }
 	if !errors.As(err, &recovery) || !recovery.ConfigurationRestored() || store.commits != 1 || store.restores != 1 {
 		t.Fatalf("restored configuration was not typed accurately: commits=%d restores=%d error=%v", store.commits, store.restores, err)
@@ -350,7 +353,7 @@ func TestCommitReportsConfigurationRestoredAfterProjectionFailure(t *testing.T) 
 
 func TestCommitRejectsProjectionConflictBeforePersistence(t *testing.T) {
 	target := t.TempDir()
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(clients.Admission())
 	after := testConfig(target)
 	store := &configStoreStub{}
 	err := (Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}).Commit(t.Context(), before, after, "route")
@@ -367,7 +370,7 @@ func TestCommitProjectionPreservesConfigurationWhenPreflightFails(t *testing.T) 
 	account.Label = "Renamed gateway"
 	after.Accounts["gateway"] = account
 	configPath := filepath.Join(t.TempDir(), "aigw.toml")
-	store := configuration.NewStore(configPath)
+	store := configuration.NewStore(configPath, clients.Admission())
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
@@ -405,7 +408,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	if err := os.WriteFile(settingsPath, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(clients.Admission())
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	before.Routes["claude"] = configuration.Route{
 		Label: "Claude", Account: "gateway", Model: "claude-team",
@@ -414,7 +417,7 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
-	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
+	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
@@ -479,7 +482,7 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	if err := os.WriteFile(settingsPath, []byte(`{"apiKeyHelper":"foreign"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(clients.Admission())
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	before.Routes["claude"] = configuration.Route{
 		Label: "Claude", Account: "gateway", Model: "claude-team",
@@ -488,7 +491,7 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	before.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	after := before.Clone()
 	after.SetClientActivation(configuration.ClientClaude, true, "/opt/claude", nil)
-	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"))
+	store := configuration.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}

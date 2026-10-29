@@ -35,7 +35,7 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 		if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		cfg := configuration.NewConfig()
+		cfg := configuration.NewConfig(clients.Admission())
 		addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt")
 		cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 		cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
@@ -71,7 +71,7 @@ func TestCodexSyncReconcilesEachConfiguredHomeWithoutLoggingIn(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, configuration.ClientCodex, "team-model")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "team", "")
 	cfg.SetClientActivation("codex", true, "/opt/codex-real", targets)
@@ -102,7 +102,7 @@ func TestSyncReconcilesCodexConfigWithoutRebindingCredentials(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt", "")
@@ -155,7 +155,7 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	app.Executable = filepath.Join(bin, executableName("aigw"))
 	app.Host = hostAt(home)
 	app.Discovery = client.NewDiscoverer(clients.Registry(), discovery.System{GOOS: runtime.GOOS, Home: home, Path: bin})
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
@@ -256,7 +256,7 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 		configuration.ClientClaude: claudeExecutable,
 	}}}
 
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "claude", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, configuration.ClientClaude, "claude-team")
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")
 	cfg.SetClientActivation(configuration.ClientClaude, true, "", nil)
@@ -352,7 +352,7 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 			t.Fatal(err)
 		}
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "http://127.0.0.1:48721/v1", Anthropic: "https://gateway.test"}}
 	cfg.Routes["terra"] = qualifiedRoute("GPT-5.6 Terra", "gateway", "gpt-5.6-terra", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
@@ -425,7 +425,7 @@ func TestSyncDryRunRecommendsCheckWhenProjectionIsConverged(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Host = hostAt(t.TempDir())
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{configuration.ClientClaude: "/usr/local/bin/claude"}}}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude", "")

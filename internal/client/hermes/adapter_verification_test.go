@@ -24,7 +24,7 @@ func hermesVerificationFixture(t *testing.T) (configuration.Config, configuratio
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["hermes"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
 	target := filepath.Join(t.TempDir(), "config.yaml")
@@ -217,7 +217,7 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 	}
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes fixture"), []byte("AIGW_OK")}}
 	deps.Runner = runner
-	if _, err := (hermesAdapter{}).Apply(t.Context(), deps, configuration.NewConfig(), cfg); err != nil {
+	if _, err := (hermesAdapter{}).Apply(t.Context(), deps, configuration.NewConfig(testAdmission()), cfg); err != nil {
 		t.Fatal(err)
 	}
 	original, err = os.ReadFile(target)
@@ -248,7 +248,7 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 
 func TestHermesVerificationRequiresOneConfiguredHome(t *testing.T) {
 	for _, targets := range [][]string{nil, {"one", "two"}} {
-		cfg := configuration.NewConfig()
+		cfg := configuration.NewConfig(testAdmission())
 		cfg.Clients[configuration.ClientHermes] = configuration.ClientBinding{Enabled: true, Targets: targets}
 		runner := &captureAdapterRunner{}
 		_, err := (hermesAdapter{}).Verify(t.Context(), client.Dependencies{Runner: runner}, cfg, configuration.Runtime{}, "")

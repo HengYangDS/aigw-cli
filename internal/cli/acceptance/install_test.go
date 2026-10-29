@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
@@ -341,7 +342,7 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 			AutoManaged: true,
 		}},
 	}}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
 	cfg.Routes["claude"] = qualifiedRoute("Claude", "team", "claude-model", configuration.ProtocolAnthropic)
 	cfg.Routes["codex"] = qualifiedRoute("Codex", "team", "gpt-model", configuration.ProtocolOpenAIResponses)

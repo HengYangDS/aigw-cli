@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
@@ -507,7 +508,7 @@ type droppingSecretStore struct{ secrets.Store }
 func (droppingSecretStore) Set(string, string) error { return nil }
 
 func accountRenameConfig() configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["alpha"] = configuration.Account{Label: "Alpha", Endpoints: configuration.Endpoints{OpenAIResponses: "https://alpha.test/v1"}}
 	cfg.Accounts["zeta-old"] = configuration.Account{
 		Label: "Zeta",

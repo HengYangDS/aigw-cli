@@ -78,6 +78,9 @@ type Config struct {
 	Routes          map[string]Route                `json:"routes"                    toml:"routes"`
 	Recommendations map[string]ClientRecommendation `json:"recommendations,omitempty" toml:"recommendations,omitempty"`
 	Clients         map[string]ClientBinding        `json:"clients,omitempty"         toml:"clients,omitempty"`
+	// admission is the client set that this configuration admits. It is not
+	// serialized: NewConfig and the store that loads a configuration set it.
+	admission Admission
 }
 
 // Account defines one provider capability and its protocol endpoints without containing credentials.
@@ -208,8 +211,9 @@ type Endpoints struct {
 	Anthropic             string `json:"anthropic,omitempty"        toml:"anthropic,omitempty"`
 }
 
-// NewConfig returns an empty configuration with all collection invariants initialized.
-func NewConfig() Config {
+// NewConfig returns an empty configuration that admits the given clients, with
+// all collection invariants initialized.
+func NewConfig(admission Admission) Config {
 	return Config{
 		Version:         ConfigVersion,
 		Accounts:        map[string]Account{},
@@ -217,14 +221,18 @@ func NewConfig() Config {
 		Routes:          map[string]Route{},
 		Recommendations: map[string]ClientRecommendation{},
 		Clients:         map[string]ClientBinding{},
+		admission:       admission,
 	}
 }
+
+// Admission returns the client set that this configuration admits.
+func (c *Config) Admission() Admission { return c.admission }
 
 // Clone returns an independent configuration value. Config is the semantic
 // owner of this copy operation so mutation workflows do not reproduce its
 // nested map and slice shape.
 func (c *Config) Clone() Config {
-	out := NewConfig()
+	out := NewConfig(c.admission)
 	out.Version = c.Version
 	for name, account := range c.Accounts {
 		if account.AccountProbe != nil {
@@ -283,10 +291,11 @@ func (c *Config) ProtocolClientIDs(name string) ([]string, error) {
 		return nil, fmt.Errorf("route %q references unknown account %q", name, route.Account)
 	}
 	account.ID = route.Account
-	compatible := make([]string, 0, len(admittedClientSpecs))
-	for _, client := range AdmittedClientIDs() {
-		if len(mustClientSpec(client).CompatibleRouteProtocols(account, route)) > 0 {
-			compatible = append(compatible, client)
+	specs := c.admission.Specs()
+	compatible := make([]string, 0, len(specs))
+	for _, spec := range specs {
+		if len(spec.CompatibleRouteProtocols(account, route)) > 0 {
+			compatible = append(compatible, spec.ID)
 		}
 	}
 	return compatible, nil
@@ -326,7 +335,7 @@ func (c *Config) SetRecommendedRoute(client, routeID string) {
 // SelectedClientsForRoute returns the stable client set selecting one Route.
 func (c *Config) SelectedClientsForRoute(routeID string) []string {
 	clients := make([]string, 0, len(c.Clients))
-	for _, client := range AdmittedClientIDs() {
+	for _, client := range c.admission.IDs() {
 		if c.Clients[client].Route == routeID {
 			clients = append(clients, client)
 		}
@@ -356,7 +365,7 @@ func (c *Config) ResolveAccount(reference string) (string, Account, error) {
 // EnabledClientIDs returns the stable client scope explicitly enabled by this configuration.
 func (c *Config) EnabledClientIDs() []string {
 	clients := make([]string, 0, len(c.Clients))
-	for _, client := range AdmittedClientIDs() {
+	for _, client := range c.admission.IDs() {
 		if c.Clients[client].Enabled {
 			clients = append(clients, client)
 		}
@@ -376,7 +385,7 @@ func (c *Config) ClientUsesAccount(client, accountID string) bool {
 // dependencies.
 func (c *Config) SelectedAccountIDs() []string {
 	selected := map[string]bool{}
-	for _, client := range AdmittedClientIDs() {
+	for _, client := range c.admission.IDs() {
 		runtime, err := c.ResolveRuntime(client, "")
 		if err == nil && runtime.AccountID != "" {
 			selected[runtime.AccountID] = true
@@ -536,7 +545,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		return Runtime{}, &RuntimeRouteUnknownAccountError{RouteID: name, AccountID: route.Account}
 	}
 	account.ID = route.Account
-	spec, admitted := ClientSpecFor(client)
+	spec, admitted := c.admission.Spec(client)
 	if !admitted {
 		return Runtime{}, fmt.Errorf("unknown client %q", client)
 	}
@@ -610,19 +619,4 @@ func selectedAuthentication(selection ClientSelection) Authentication {
 		return selection.Authentication
 	}
 	return AuthenticationAccountToken
-}
-
-func mustClientSpec(client string) ClientSpec {
-	spec, _ := ClientSpecFor(client)
-	return spec
-}
-
-// EndpointFor returns the endpoint whose protocol is required by the requested admitted client.
-func (account Account) EndpointFor(client string) (string, error) {
-	spec, ok := ClientSpecFor(client)
-	if !ok {
-		return "", fmt.Errorf("unknown client %q", client)
-	}
-	endpoint, _, err := spec.ResolveEndpoint(account, "")
-	return endpoint, err
 }

@@ -27,8 +27,8 @@ import (
 
 func configuredApp(t *testing.T) *App {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "http://127.0.0.1:1234/v1", Anthropic: "https://one.test"}}
 	cfg.Routes["one"] = configuration.Route{
 		Label: "One", Purpose: "Primary", Account: "one", Model: "gpt",
@@ -73,7 +73,7 @@ func TestNewDefaultBuildsAFunctioningApp(t *testing.T) {
 }
 
 func TestExecuteReturnsBusyLockErrorWhenAnotherMutationHoldsIt(t *testing.T) {
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
 	unlock, err := store.Lock(ctx)
@@ -167,7 +167,7 @@ func TestFinishExecutionPreservesCommandAndUnlockFailures(t *testing.T) {
 
 func TestExecuteReturnsConfigurationLoadFailure(t *testing.T) {
 	out := new(bytes.Buffer)
-	app := &App{Clients: clients.Registry(), Config: configuration.NewStore(t.TempDir()), Out: out, Err: out}
+	app := &App{Clients: clients.Registry(), Config: configuration.NewStore(t.TempDir(), clients.Admission()), Out: out, Err: out}
 	if err := Execute(app, nil); err == nil {
 		t.Fatal("expected configuration load error")
 	}
@@ -509,7 +509,7 @@ func TestCommandHelpLeavesConfigurationStorageAbsent(t *testing.T) {
 			configRoot := filepath.Join(t.TempDir(), "configuration")
 			var output bytes.Buffer
 			app := &App{Clients: clients.Registry(),
-				Config: configuration.NewStore(filepath.Join(configRoot, "aigw.toml")),
+				Config: configuration.NewStore(filepath.Join(configRoot, "aigw.toml"), clients.Admission()),
 				Out:    &output,
 				Err:    io.Discard,
 			}

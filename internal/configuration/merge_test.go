@@ -31,11 +31,11 @@ account = "team"
 model = "gpt-test"
 interfaces = { openai_responses = [] }
 `)
-	team, err := Parse(raw)
+	team, err := Parse(raw, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := Merge(NewConfig(), team)
+	got, err := Merge(NewConfig(testAdmission()), team)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	exportedTeam, err := Parse(exported)
+	exportedTeam, err := Parse(exported, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,11 +83,11 @@ account = "team"
 model = "claude-team"
 interfaces = { anthropic = [] }
 `)
-	m, err := Parse(raw)
+	m, err := Parse(raw, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.SetClientActivation(ClientClaude, true, "/personal/claude", nil)
 	cfg.SetSelectedRoute(ClientClaude, "personal", "")
 	cfg.Accounts["personal"] = Account{Label: "Personal", Endpoints: Endpoints{Anthropic: "https://personal.test"}}
@@ -120,11 +120,11 @@ label = "TeamRoute"
 account = "team"
 model = "claude-team"
 interfaces = { anthropic = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Personal Gateway", Endpoints: Endpoints{Anthropic: "https://personal.example.test"}}
 	cfg.Routes["local"] = testRoute("Local", "team", "claude-local", ProtocolAnthropic)
 
@@ -156,11 +156,11 @@ label = "Team Model"
 account = "team"
 model = "team-model"
 interfaces = { openai_responses = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team Gateway", Endpoints: Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
 	cfg.Routes["shared"] = testRoute("Personal Model", "team", "personal-model", ProtocolOpenAIResponses)
 
@@ -187,11 +187,11 @@ purpose = "Default agent"
 account = "team"
 model = "claude-team"
 interfaces = { anthropic = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team Gateway", Endpoints: Endpoints{Anthropic: "https://team.example.test/"}}
 	cfg.Routes["shared"] = testRoute("TeamRoute", "team", "claude-team", ProtocolAnthropic)
 	route := cfg.Routes["shared"]
@@ -223,11 +223,11 @@ label = "Team Model"
 account = "team"
 model = "team-model"
 interfaces = { openai_responses = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Personal Gateway", Endpoints: Endpoints{OpenAIResponses: "https://personal.example.test/v1"}}
 	cfg.Routes["shared"] = testRoute("Personal Model", "team", "personal-model", ProtocolOpenAIResponses)
 
@@ -270,11 +270,11 @@ label = "Team Model"
 account = "team"
 model = "team-model"
 interfaces = { openai_chat_completions = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{
 		Label: "Team Gateway",
 		Endpoints: Endpoints{
@@ -312,11 +312,11 @@ label = "TeamRoute"
 account = "team"
 model = "claude-team"
 interfaces = { anthropic = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["local"] = Account{Label: "Local", Endpoints: Endpoints{Anthropic: "https://local.example.test"}}
 	cfg.Routes["local"] = testRoute("Local", "local", "claude-local", ProtocolAnthropic)
 
@@ -359,7 +359,7 @@ label = "Team"
 account = "team"
 model = "claude-team"
 interfaces = { anthropic = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -371,7 +371,8 @@ interfaces = { anthropic = [] }
 		Routes: map[string]Route{
 			"local": {Label: "Local", Account: "team"},
 		},
-		Clients: nil,
+		Clients:   nil,
+		admission: testAdmission(),
 	}
 
 	_, err = MergeWithOptions(cfg, team, MergeOptions{})
@@ -395,11 +396,11 @@ purpose = "Default agent"
 account = "team"
 model = "claude-team"
 interfaces = { anthropic = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Version = 1
 	cfg.Accounts["local"] = Account{Label: "Local", Endpoints: Endpoints{Anthropic: "https://local.test"}}
 	cfg.Routes["local"] = testRoute("Local", "local", "claude-local", ProtocolAnthropic)
@@ -410,7 +411,7 @@ interfaces = { anthropic = [] }
 
 func TestMergeWithOptionsRejectsNonCanonicalConfigurationManifestVersion(t *testing.T) {
 	team := Manifest{Version: 99, Routes: map[string]Route{"team": {Label: "Team", Account: "team"}}}
-	if _, err := MergeWithOptions(NewConfig(), team, MergeOptions{}); err == nil || !strings.Contains(err.Error(), "unsupported configuration manifest version 99") {
+	if _, err := MergeWithOptions(NewConfig(testAdmission()), team, MergeOptions{}); err == nil || !strings.Contains(err.Error(), "unsupported configuration manifest version 99") {
 		t.Fatalf("unsupported manifest version error = %v", err)
 	}
 }
@@ -426,11 +427,11 @@ label = "Solo"
 account = "team"
 model = "claude-solo"
 interfaces = { anthropic = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := Merge(NewConfig(), team)
+	got, err := Merge(NewConfig(testAdmission()), team)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -450,11 +451,11 @@ label = "TeamRoute"
 account = "team"
 model = "team-model"
 interfaces = { openai_responses = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team Gateway", Endpoints: Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
 	cfg.Routes["shared"] = testRoute("TeamRoute", "team", "personal-model", ProtocolOpenAIResponses)
 
@@ -477,11 +478,11 @@ label = "Team"
 account = "team"
 model = "claude-team"
 interfaces = { anthropic = [] }
-`))
+`), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{
 		Label:        "Team Gateway",
 		Endpoints:    Endpoints{Anthropic: "https://team.example.test"},

@@ -410,7 +410,7 @@ func TestVerifyCodexRequiresSuccessfulFinalMessage(t *testing.T) {
 }
 
 func verificationConfig() configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{
 		OpenAIResponses: "https://one.test/v1",
 		Anthropic:       "https://one.test",

@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
@@ -15,7 +16,7 @@ import (
 func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	before := setupConfiguration()
 	before.Routes["next"] = configuration.Route{Label: "Next", Account: "team", Model: "claude-next", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +130,7 @@ func TestRouteSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 			binding.ModelProvider = "provider"
 			binding.Authentication = configuration.AuthenticationClientNative
 			cfg.Clients[configuration.ClientCodex] = binding
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 			credentials := &setupCredentials{Store: secrets.NewMemoryStore()}
 			client := configuration.ClientClaude
 			if route == "native" {

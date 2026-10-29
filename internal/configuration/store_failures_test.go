@@ -29,7 +29,7 @@ func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *tes
 		{name: "concurrent", component: "forwarding", oldEndpoint: oldEndpoint, nextEndpoint: nextEndpoint, concurrent: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 			cfg := convergenceConfig("current")
 			forwardTo(t, &cfg, test.oldEndpoint)
 			if err := store.Save(cfg); err != nil {
@@ -112,14 +112,14 @@ func replaceConcurrentConfig(t *testing.T, path string, data []byte) {
 
 func TestPathReturnsConfiguredPath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	if got := NewStore(path).Path(); got != path {
+	if got := NewStore(path, testAdmission()).Path(); got != path {
 		t.Fatalf("Path() = %q, want %q", got, path)
 	}
 }
 
 func TestCaptureSnapshotSurfacesConfigReadErrors(t *testing.T) {
 	path := t.TempDir()
-	if _, err := NewStore(path).CaptureSnapshot(); err == nil {
+	if _, err := NewStore(path, testAdmission()).CaptureSnapshot(); err == nil {
 		t.Fatal("CaptureSnapshot succeeded despite a directory at the config path")
 	}
 }
@@ -129,7 +129,7 @@ func TestCaptureSnapshotSurfacesBackupReadErrors(t *testing.T) {
 	if err := os.Mkdir(path+".bak", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewStore(path).CaptureSnapshot(); err == nil {
+	if _, err := NewStore(path, testAdmission()).CaptureSnapshot(); err == nil {
 		t.Fatal("CaptureSnapshot succeeded despite a directory at the backup path")
 	}
 }
@@ -139,14 +139,14 @@ func TestCaptureSnapshotSurfacesVerifiedCheckpointReadErrors(t *testing.T) {
 	if err := os.Mkdir(path+".verified.json", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewStore(path).CaptureSnapshot(); err == nil {
+	if _, err := NewStore(path, testAdmission()).CaptureSnapshot(); err == nil {
 		t.Fatal("CaptureSnapshot succeeded despite a directory at the verified checkpoint path")
 	}
 }
 
 func TestRestoreSnapshotSurfacesConfigPostimageMismatch(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	before, err := store.CaptureSnapshot()
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +168,7 @@ func TestRestoreSnapshotSurfacesConfigPostimageMismatch(t *testing.T) {
 
 func TestRestoreSnapshotSurfacesBackupPostimageMismatch(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("old")); err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestLockSurfacesUnwritableConfigDirectory(t *testing.T) {
 	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(filepath.Join(blocked, "child", " toml"))
+	store := NewStore(filepath.Join(blocked, "child", " toml"), testAdmission())
 	if _, err := store.Lock(context.Background()); err == nil {
 		t.Fatal("Lock succeeded despite an unwritable config directory")
 	}
@@ -209,7 +209,7 @@ func TestLockSurfacesUnwritableConfigDirectory(t *testing.T) {
 
 func TestLoadOfMissingConfigReturnsDefault(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	got, err := NewStore(path).Load()
+	got, err := NewStore(path, testAdmission()).Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestLoadOfMissingConfigReturnsDefault(t *testing.T) {
 
 func TestLoadSurfacesUnderlyingReadErrors(t *testing.T) {
 	path := t.TempDir()
-	_, err := NewStore(path).Load()
+	_, err := NewStore(path, testAdmission()).Load()
 	var loadErr *LoadError
 	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseRead || loadErr.Err == nil || !strings.Contains(err.Error(), "read config") {
 		t.Fatalf("Load(directory) error = %v", err)
@@ -232,7 +232,7 @@ func TestLoadSurfacesTypedParseErrors(t *testing.T) {
 	if err := os.WriteFile(path, []byte("version = [\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := NewStore(path).Load()
+	_, err := NewStore(path, testAdmission()).Load()
 	var loadErr *LoadError
 	if !errors.As(err, &loadErr) || loadErr.Phase != LoadPhaseParse || loadErr.Err == nil || !strings.Contains(err.Error(), "parse config") {
 		t.Fatalf("malformed config load error = %v", err)
@@ -247,7 +247,7 @@ func TestSaveSurfacesUnwritableConfigDirectory(t *testing.T) {
 	if err := os.WriteFile(blocked, []byte("not a directory"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	store := NewStore(filepath.Join(blocked, "child", " toml"))
+	store := NewStore(filepath.Join(blocked, "child", " toml"), testAdmission())
 	if err := store.Save(convergenceConfig("current")); err == nil {
 		t.Fatal("Save succeeded despite an unwritable config directory")
 	}
@@ -260,7 +260,7 @@ func TestSaveSurfacesBackupWriteFailures(t *testing.T) {
 	// (access denied), unlike a chmod-restricted parent directory.
 	dir := t.TempDir()
 	path := filepath.Join(dir, " toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("old")); err != nil {
 		t.Fatal(err)
 	}
@@ -274,14 +274,14 @@ func TestSaveSurfacesBackupWriteFailures(t *testing.T) {
 
 func TestSaveSurfacesUnderlyingCurrentReadErrors(t *testing.T) {
 	path := t.TempDir()
-	if err := NewStore(path).Save(convergenceConfig("current")); err == nil || !strings.Contains(err.Error(), "capture current config") {
+	if err := NewStore(path, testAdmission()).Save(convergenceConfig("current")); err == nil || !strings.Contains(err.Error(), "capture current config") {
 		t.Fatalf("Save(directory) error = %v", err)
 	}
 }
 
 func TestCommitRestoresPreparedSnapshotWhenPostimageCaptureFails(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("old")); err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +314,7 @@ func TestCommitRestoresPreparedSnapshotWhenPostimageCaptureFails(t *testing.T) {
 
 func TestCommitLeavesConfigurationUntouchedWhenBackupWriteFails(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("old")); err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +346,7 @@ func TestCommitLeavesConfigurationUntouchedWhenBackupWriteFails(t *testing.T) {
 
 func TestCommitPreservesNewerBackupWhenConfigurationWriteAndCompensationConflict(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("old")); err != nil {
 		t.Fatal(err)
 	}
@@ -388,7 +388,7 @@ func TestCommitPreservesNewerBackupWhenConfigurationWriteAndCompensationConflict
 
 func TestCommitReportsConfigurationRestoreFailureAfterCheckpointInvalidationFailure(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("before")); err != nil {
 		t.Fatal(err)
 	}
@@ -430,7 +430,7 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.toml")
-			store := NewStore(path)
+			store := NewStore(path, testAdmission())
 			cfg := convergenceConfig("before")
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -486,7 +486,7 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 
 func TestCommitReportsBackupRestoreFailureAfterCheckpointInvalidationFailure(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	if err := store.Save(convergenceConfig("before")); err != nil {
 		t.Fatal(err)
 	}
@@ -510,7 +510,7 @@ func TestCommitReportsBackupRestoreFailureAfterCheckpointInvalidationFailure(t *
 
 func TestRestoreSnapshotSurfacesVerifiedCheckpointPostimageMismatch(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	beforeConfig := convergenceConfig("before")
 	if err := store.Save(beforeConfig); err != nil {
 		t.Fatal(err)

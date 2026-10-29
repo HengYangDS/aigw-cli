@@ -37,7 +37,7 @@ func qualifiedRoute(label, account, model string, protocols ...configuration.End
 }
 
 func codexConfiguration(target string) configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
 	cfg.Clients[configuration.ClientCodex] = configuration.ClientBinding{Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
@@ -85,7 +85,7 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(Admission())
 	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
@@ -138,7 +138,7 @@ func (adapter futureAdapter) Converge(_ client.Dependencies, cfg *configuration.
 
 func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing.T) {
 	baselineClientIDs := Registry().IDs()
-	before := configuration.NewConfig()
+	before := configuration.NewConfig(Admission())
 	before.Accounts["direct"] = configuration.Account{
 		Label: "Direct",
 		Endpoints: configuration.Endpoints{
@@ -187,7 +187,7 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 }
 
 func TestRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Routes["claude"] = configuration.Route{
 		Account: "gateway", Model: "claude-test",
@@ -204,7 +204,7 @@ func TestRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 			deferred := cfg.Clone()
 			deferred.SetSelectedRoute(clientID, "claude", "")
 			deferred.SetClientActivation(clientID, true, "", nil)
-			plans, err := Registry().Plan(deps, configuration.NewConfig(), deferred, clientID)
+			plans, err := Registry().Plan(deps, configuration.NewConfig(Admission()), deferred, clientID)
 			if err != nil {
 				t.Fatalf("Plan(%q) deferred binding: %v", clientID, err)
 			}

@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"encoding/json"
 	"os"
@@ -13,7 +14,7 @@ import (
 
 func TestRouteRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Routes["gpt-old"] = qualifiedRoute("GPT Old", "dmx", "gpt-old", configuration.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-old", "")
@@ -234,7 +235,7 @@ func TestRouteRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testing.
 }
 
 func routeRenameConfig() configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	route := qualifiedRoute("Zeta", "gateway", "zeta-model", configuration.ProtocolOpenAIResponses)
 	route.Purpose = "Keep this label and purpose"

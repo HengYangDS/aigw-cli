@@ -49,7 +49,7 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(testAdmission())
 	cfg.SetClientActivation(configuration.ClientClaude, true, executable, nil)
 	settings := filepath.Join(root, ".claude", "settings.json")
 	deps := client.Dependencies{Host: hostAt(root), AIGWExecutable: filepath.Join(root, "aigw")}

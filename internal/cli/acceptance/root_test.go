@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 )
 
@@ -233,7 +234,7 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(clients.Admission())
 			addAccountRoute(&cfg, "claude", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, configuration.ClientClaude, "claude-test")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)

@@ -27,7 +27,7 @@ func loadTeamManifest(t *testing.T) ([]byte, Manifest) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsedManifest, err := Parse(data)
+	parsedManifest, err := Parse(data, testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ func TestTeamManifestSelectsOnlyDeclaredRecommendationsForConnectedAccount(t *te
 		ClientCodex: ProtocolOpenAIResponses, ClientHermes: ProtocolOpenAIResponses,
 	}
 	for accountID := range manifest.Accounts {
-		cfg, err := Merge(NewConfig(), manifest)
+		cfg, err := Merge(NewConfig(testAdmission()), manifest)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -111,7 +111,7 @@ func TestTeamManifestSelectsOnlyDeclaredRecommendationsForConnectedAccount(t *te
 }
 
 func TestTeamRecommendationsPermitSparseAccountsAndPreserveExplicitBindings(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["aihubmix"] = Account{Label: "AIHubMix", Endpoints: Endpoints{Anthropic: "https://hub.test"}}
 	cfg.Accounts["ucloud"] = Account{Label: "UCloud", Endpoints: Endpoints{OpenAIResponses: "https://cloud.test/v1"}}
 	cfg.Models["fable"] = Model{Label: "Fable"}
@@ -305,7 +305,7 @@ func TestTeamManifestRefreshPreservesExplicitSupersededRoutes(t *testing.T) {
 		{"nemotron-3-super-120b-a12b", "NVIDIA Nemotron 3 Super", "aihubmix-nemotron-3-super-120b-a12b-free", "nemotron-3-super-120b-a12b-free"},
 	} {
 		t.Run(selected.model, func(t *testing.T) {
-			cfg := NewConfig()
+			cfg := NewConfig(testAdmission())
 			cfg.Accounts["aihubmix"] = manifest.Accounts["aihubmix"]
 			cfg.Models[selected.model] = Model{Label: selected.label}
 			cfg.Routes[selected.route] = Route{Account: "aihubmix", Model: selected.model, UpstreamModel: selected.wire,
@@ -325,7 +325,7 @@ func TestTeamManifestRefreshPreservesExplicitSupersededRoutes(t *testing.T) {
 
 func TestTeamManifestRoutesUseCanonicalIDsAndExactProviderWireIDs(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	cfg, err := Merge(NewConfig(), manifest)
+	cfg, err := Merge(NewConfig(testAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func TestTeamManifestRecommendationsRespectQualifiedModels(t *testing.T) {
 			}
 		}
 	}
-	cfg, err := Merge(NewConfig(), manifest)
+	cfg, err := Merge(NewConfig(testAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -437,7 +437,7 @@ func TestTeamAccountEndpointsHaveHosts(t *testing.T) {
 
 func TestTeamManifestDerivesPlainRouteLabelsAndKeepsChannelOverrides(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
-	cfg, err := Merge(NewConfig(), manifest)
+	cfg, err := Merge(NewConfig(testAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -465,7 +465,7 @@ func TestTeamManifestDerivesPlainRouteLabelsAndKeepsChannelOverrides(t *testing.
 }
 
 func TestRouteLabelDerivesDisplayWithoutChangingExactWireModel(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["ucloud"] = Account{
 		Label: "UCloud", Endpoints: Endpoints{OpenAIResponses: "https://ucloud.test/v1"},
 	}
@@ -491,7 +491,7 @@ func TestRouteLabelDerivesDisplayWithoutChangingExactWireModel(t *testing.T) {
 
 func TestTeamManifestUsesNativeExportLayout(t *testing.T) {
 	data, manifest := loadTeamManifest(t)
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts = manifest.Accounts
 	cfg.Models = manifest.Models
 	cfg.Routes = manifest.Routes

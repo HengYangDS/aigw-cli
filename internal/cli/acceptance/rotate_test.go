@@ -13,13 +13,14 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/secrets"
 )
 
 func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Routes["gpt-5.6-sol"] = qualifiedRoute("GPT Route", "dmx", "gpt-5.6-sol", configuration.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(configuration.ClientCodex, "gpt-5.6-sol", "")
@@ -87,7 +88,7 @@ func TestRotateRejectsReadOnlyEnvironmentBackendBeforeInput(t *testing.T) {
 func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 	t.Run("config load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "new-token\n")
-		app.Config = configuration.NewStore(t.TempDir())
+		app.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"rotate", "one", "--token-stdin"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
@@ -153,7 +154,7 @@ func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 
 func TestRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "new-token\n")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
 	cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 	cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{t.TempDir()})
@@ -180,7 +181,7 @@ func TestRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T) {
 			if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(clients.Admission())
 			addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, configuration.ClientCodex, "gpt-test")
 			cfg.SetSelectedRoute(configuration.ClientCodex, "one", "")
 			cfg.SetClientActivation(configuration.ClientCodex, true, "/opt/codex", []string{target})
@@ -224,7 +225,7 @@ func TestRotateValidationUsesCommandContext(t *testing.T) {
 
 func TestRotateClaudeOnlyAccountDoesNotTouchCodexTargets(t *testing.T) {
 	app, _, secretStore, runner, httpClient := testApp(t, "new-claude-token\n")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["codex-account"] = configuration.Account{Label: "Codex", Endpoints: configuration.Endpoints{OpenAIResponses: "https://codex.test/v1"}}
 	cfg.Accounts["claude-account"] = configuration.Account{Label: "Claude", Endpoints: configuration.Endpoints{Anthropic: "https://claude.test"}}
 	cfg.Routes["gpt"] = qualifiedRoute("GPT", "codex-account", "gpt-test", configuration.ProtocolOpenAIResponses)

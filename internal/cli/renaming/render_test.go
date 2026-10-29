@@ -39,7 +39,7 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 
 func TestAccountRenameContinuationFollowsEnabledClients(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
-		cfg := configuration.NewConfig()
+		cfg := configuration.NewConfig(clients.Admission())
 		cfg.SetClientActivation(configuration.ClientClaude, enabled, "", nil)
 		var out bytes.Buffer
 		plan := renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Config: cfg}

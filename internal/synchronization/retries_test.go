@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 )
 
@@ -65,7 +66,7 @@ func TestRetryPolicySelectionPreservesOnlyTheSameConnection(t *testing.T) {
 
 func retryTransitionFixture(t *testing.T) configuration.Config {
 	t.Helper()
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	cfg.Models["gpt"] = configuration.Model{Label: "GPT"}
 	cfg.Routes["one"] = configuration.Route{Label: "One", Account: "one", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
@@ -82,7 +83,7 @@ func TestRetryConnectionTransitionGenericAccountCommit(t *testing.T) {
 	for _, change := range []string{"label", "endpoint"} {
 		t.Run(change, func(t *testing.T) {
 			cfg := retryTransitionFixture(t)
-			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"))
+			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}

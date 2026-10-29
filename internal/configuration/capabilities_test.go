@@ -17,11 +17,11 @@ var publishedSchemaSixCapabilities = []Capability{
 }
 
 func TestUnpublishedRouteCapabilityStaysOutOfCanonicalConfiguration(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	if err := store.Save(toolSearchConfig()); err != nil {
 		t.Fatal(err)
 	}
-	canonical, err := decodeTOMLConfig(readStoreFile(t, store.Path()))
+	canonical, err := decodeTOMLConfig(readStoreFile(t, store.Path()), testAdmission())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestUnpublishedRouteCapabilityStaysOutOfCanonicalConfiguration(t *testing.T
 }
 
 func TestCanonicalLocationCapabilityMovesOnTheNextWrite(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	writePredecessorConfiguration(t, store, toolSearchConfig())
 	loaded, err := store.Load()
 	if err != nil {
@@ -84,7 +84,7 @@ func TestCanonicalLocationCapabilityMovesOnTheNextWrite(t *testing.T) {
 func TestStoredCapabilityAppliesOnlyToItsRecordedRoute(t *testing.T) {
 	for _, change := range []string{"none", "upstream model", "endpoint", "account", "interface", "route"} {
 		t.Run(change, func(t *testing.T) {
-			store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 			if err := store.Save(toolSearchConfig()); err != nil {
 				t.Fatal(err)
 			}
@@ -143,7 +143,7 @@ func TestDamagedCapabilityComponentFailsOnlyFullReads(t *testing.T) {
 		"wrong interface": "[routes.gpt.openai_responses]\nidentity = '" + responses + "'\ncapabilities = ['tool_search']\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+			store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 			if err := store.Save(toolSearchConfig()); err != nil {
 				t.Fatal(err)
 			}
@@ -165,7 +165,7 @@ func TestDamagedCapabilityComponentFailsOnlyFullReads(t *testing.T) {
 }
 
 func TestStoredCapabilitySurvivesRecovery(t *testing.T) {
-	store := NewStore(filepath.Join(t.TempDir(), "config.toml"))
+	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := toolSearchConfig()
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -221,7 +221,7 @@ func TestStoredCapabilitySurvivesRecovery(t *testing.T) {
 // toolSearchConfig declares every published schema-six capability and the
 // later tool_search capability on one Anthropic Route.
 func toolSearchConfig() Config {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["ucloud"] = Account{Label: "UCloud", Endpoints: Endpoints{
 		Anthropic: "https://ucloud.test", OpenAIResponses: "https://ucloud.test/v1",
 	}}

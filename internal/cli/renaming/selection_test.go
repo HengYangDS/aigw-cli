@@ -31,7 +31,7 @@ func TestResolveRenameIDsErrorBranches(t *testing.T) {
 	if err := NewRouteCommand(invocation.Context{Clients: clients.Registry(), Interactive: true}).ValidateArgs(nil); err == nil {
 		t.Fatal("expected missing prompt error")
 	}
-	if _, _, err := resolveIDs(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(filepath.Join(t.TempDir(), "empty.toml")), Interactive: true, Prompt: selectionPrompt{}}, "route", nil); err == nil || !strings.Contains(err.Error(), "No routes") {
+	if _, _, err := resolveIDs(invocation.Context{Clients: clients.Registry(), Config: configuration.NewStore(filepath.Join(t.TempDir(), "empty.toml"), clients.Admission()), Interactive: true, Prompt: selectionPrompt{}}, "route", nil); err == nil || !strings.Contains(err.Error(), "No routes") {
 		t.Fatalf("error = %v", err)
 	}
 	want := errors.New("select failed")

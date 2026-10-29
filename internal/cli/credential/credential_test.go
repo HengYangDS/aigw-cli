@@ -285,7 +285,7 @@ func TestClaudeCredentialHelperFailsClosedWithoutWritingStdout(t *testing.T) {
 			args := helperArgs(t, runtime, configuration.ClientClaude)
 			switch name {
 			case "load":
-				runtime.Config = configuration.NewStore(t.TempDir())
+				runtime.Config = configuration.NewStore(t.TempDir(), clients.Admission())
 			case "disabled":
 				runtime, buffer = helperRuntime(t, configuration.ClientClaude, false)
 			case "route":
@@ -380,8 +380,8 @@ func TestCredentialHelperRedactsBackendDiagnostics(t *testing.T) {
 
 func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Context, *bytes.Buffer) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
-	cfg := configuration.NewConfig()
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	cfg := configuration.NewConfig(clients.Admission())
 	account := configuration.Account{Label: "Gateway"}
 	spec, _ := configuration.ClientSpecFor(client)
 	if spec.EndpointProtocols[0] == configuration.ProtocolAnthropic {

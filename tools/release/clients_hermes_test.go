@@ -26,6 +26,8 @@ import (
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/process"
 
+	"aigw-cli/internal/clients"
+
 	"go.yaml.in/yaml/v3"
 )
 
@@ -41,7 +43,7 @@ type hermesSessionRecorder struct {
 
 func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 	j.testing.Helper()
-	store := configuration.NewStore(j.config)
+	store := configuration.NewStore(j.config, clients.Admission())
 	before, err := store.Load()
 	if err != nil {
 		j.testing.Fatal(err)

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 )
 
@@ -36,7 +37,7 @@ func TestCatalogJSONUnconfiguredIsEmptyAndMachineReadable(t *testing.T) {
 
 func TestCatalogDiscoversSortedModelsWithoutWritingConfigOrLeakingToken(t *testing.T) {
 	app, out, secretStore, runner, httpClient := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://responses.dmx.test/v1", Anthropic: "https://anthropic.dmx.test"}}
 	cfg.Routes["gpt-configured"] = qualifiedRoute("GPT", "dmx", "gpt-5.6", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["claude-configured"] = qualifiedRoute("Claude", "dmx", "gpt-5.6", configuration.ProtocolAnthropic)
@@ -151,7 +152,7 @@ func assertCatalogObservations(t *testing.T, result catalogJSON) {
 
 func TestCatalogDefaultHumanOutputShowsOnlyConfiguredModels(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Routes["configured"] = qualifiedRoute("Configured", "gateway", "configured-model", configuration.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(configuration.ClientCodex, "configured", "")
@@ -181,7 +182,7 @@ func TestCatalogDefaultHumanOutputShowsOnlyConfiguredModels(t *testing.T) {
 
 func TestCatalogAllHumanAndJSONOutputIncludeEveryModel(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Routes["configured"] = qualifiedRoute("Configured", "gateway", "configured-model", configuration.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(configuration.ClientCodex, "configured", "")
@@ -218,7 +219,7 @@ func TestCatalogAllHumanAndJSONOutputIncludeEveryModel(t *testing.T) {
 
 func TestCatalogReportsUnavailableAccountWithoutBlockingHealthyAccount(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["healthy"] = configuration.Account{Label: "Healthy", Endpoints: configuration.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
 	cfg.Accounts["missing-token"] = configuration.Account{Label: "Missing Token", Endpoints: configuration.Endpoints{OpenAIResponses: "https://missing.test/v1"}}
 	cfg.Accounts["anthropic-only"] = configuration.Account{Label: "Anthropic Only", Endpoints: configuration.Endpoints{Anthropic: "https://anthropic.test"}}
@@ -249,7 +250,7 @@ func TestCatalogReportsUnavailableAccountWithoutBlockingHealthyAccount(t *testin
 
 func TestCatalogReportsMalformedAccountPayloadWithoutBlockingHealthyAccount(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["broken"] = configuration.Account{Label: "Broken", Endpoints: configuration.Endpoints{OpenAIResponses: "https://broken.test/v1"}}
 	cfg.Accounts["healthy"] = configuration.Account{Label: "Healthy", Endpoints: configuration.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
 	cfg.Routes["healthy-model"] = qualifiedRoute("Healthy", "healthy", "healthy-model", configuration.ProtocolOpenAIResponses)
@@ -282,7 +283,7 @@ func TestCatalogReportsMalformedAccountPayloadWithoutBlockingHealthyAccount(t *t
 
 func TestModelsCommandReportsCatalogMembershipWithoutClaimingReachability(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Routes["gpt-5.6-sol"] = qualifiedRoute("GPT-5.6 Sol Codex", "dmx", "gpt-5.6-sol", configuration.ProtocolOpenAIResponses)
 	cfg.Routes["gpt-5.6"] = qualifiedRoute("GPT-5.6", "dmx", "gpt-5.6", configuration.ProtocolOpenAIResponses)
@@ -309,7 +310,7 @@ func TestModelsCommandReportsCatalogMembershipWithoutClaimingReachability(t *tes
 
 func TestModelsCommandKeepsLongRouteNamesOnOneLine(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
 	cfg.Routes["claude-opus-5"] = qualifiedRoute("Claude Opus 5", "dmx", "claude-opus-5", configuration.ProtocolAnthropic)
 	cfg.SetSelectedRoute(configuration.ClientClaude, "claude-opus-5", "")
@@ -335,7 +336,7 @@ func TestModelsCommandKeepsLongRouteNamesOnOneLine(t *testing.T) {
 
 func TestCatalogContinuationUsesTheActualRouteAddContract(t *testing.T) {
 	app, out, _, runner, httpClient := testApp(t, "")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://provider.test/v1"}}
 	cfg.Routes["gateway-current"] = qualifiedRoute("Current", "gateway", "current-model", configuration.ProtocolOpenAIResponses)
 	if err := app.Config.Save(cfg); err != nil {

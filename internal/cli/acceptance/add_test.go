@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secrets"
@@ -22,7 +23,7 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			cfg := configuration.NewConfig()
+			cfg := configuration.NewConfig(clients.Admission())
 			cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{Anthropic: "https://old.test", OpenAIResponses: "https://old.test/v1"}}
 			paths := map[string]string{configuration.ClientCodex: target, configuration.ClientClaude: claudeSettingsPath(t, app.Host)}
 			for _, id := range []string{configuration.ClientClaude, configuration.ClientCodex} {
@@ -127,7 +128,7 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 
 func TestAddPreservesExistingAccountWithDifferentRouteID(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "new-token\n")
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "existing-route", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, configuration.ClientClaude, "old-model")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -159,7 +160,7 @@ func TestAddSurfacesConfigLoadFailure(t *testing.T) {
 	// A config path that is itself an existing directory makes os.ReadFile
 	// fail with something other than os.ErrNotExist.
 	dir := t.TempDir()
-	app.Config = configuration.NewStore(dir)
+	app.Config = configuration.NewStore(dir, clients.Admission())
 	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
 	if err == nil || strings.Contains(err.Error(), "Invalid account ID") {
 		t.Fatalf("error = %v, want a config load failure", err)
@@ -227,7 +228,7 @@ func TestAddRejectsUnavailableLockBeforeCredentialAccess(t *testing.T) {
 	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	app.Config = configuration.NewStore(filepath.Join(blocker, "nested", "configuration.toml"))
+	app.Config = configuration.NewStore(filepath.Join(blocker, "nested", "configuration.toml"), clients.Admission())
 	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "create config directory for lock") {
 		t.Fatalf("lock admission error = %v", err)

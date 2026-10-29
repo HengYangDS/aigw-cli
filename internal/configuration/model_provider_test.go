@@ -70,7 +70,7 @@ func TestClientModelProviderPersistsAndParticipatesInManifestSelection(t *testin
 	binding.Authentication = AuthenticationClientNative
 	cfg.Clients[ClientCodex] = binding
 
-	store := NewStore(path)
+	store := NewStore(path, testAdmission())
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +164,7 @@ func TestClientBindingAuthenticationRejectsInvalidValuesAndClientNativeWithoutPr
 }
 
 func TestSelectRoutesForConnectedAccountsHonorsRecommendationAuthentication(t *testing.T) {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["native"] = Account{
 		Label:     "Native",
 		Endpoints: Endpoints{OpenAIResponses: "https://native.test/v1"},
@@ -242,7 +242,7 @@ func TestValidateKeepsUnselectedBindingsWithinTheDeclarationContract(t *testing.
 }
 
 func modelProviderConfig() Config {
-	cfg := NewConfig()
+	cfg := NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = Account{
 		Label: "Gateway",
 		Endpoints: Endpoints{

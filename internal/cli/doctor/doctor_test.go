@@ -45,7 +45,7 @@ func executeDoctorCommand(command *cobra.Command) error {
 }
 
 func validDoctorConfig() configuration.Config {
-	cfg := configuration.NewConfig()
+	cfg := configuration.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = configuration.Account{
 		Label: "Team",
 		Endpoints: configuration.Endpoints{
@@ -62,7 +62,7 @@ func validDoctorConfig() configuration.Config {
 
 func doctorDependencies(t *testing.T, cfg configuration.Config) (Dependencies, *bytes.Buffer, secrets.Store) {
 	t.Helper()
-	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	if check.OK || check.Detail != "Codex configuration target is missing" || check.Fix != "run `aigw repair`" {
 		t.Fatalf("Codex adapter check = %#v", check)
 	}
-	bad := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"))
+	bad := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := os.MkdirAll(bad.Path(), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if check := findCheck(t, adapterChecks(context.Background(), deps.Clients, cfg, ""), "projection:codex"); check.OK || check.Detail != "selected client route cannot be resolved" {
 		t.Fatalf("route check = %#v", check)
 	}
-	if got := adapterChecks(context.Background(), deps.Clients, configuration.NewConfig(), ""); len(got) != len(configuration.AdmittedClientIDs()) {
+	if got := adapterChecks(context.Background(), deps.Clients, configuration.NewConfig(clients.Admission()), ""); len(got) != len(configuration.AdmittedClientIDs()) {
 		t.Fatalf("disabled adapter checks = %#v", got)
 	}
 }
