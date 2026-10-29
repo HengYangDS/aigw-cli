@@ -20,9 +20,11 @@ import (
 // selects it through an import of the package; the package's own tests do not
 // count. A used identifier also uses what its exported API names: the types in
 // its signature or declared type, the exported fields and methods of a used
-// type, and the constants declared with a used type. Methods and fields are not
-// checked themselves. A listed package without production Go files is a stale
-// entry.
+// type, including those promoted from an embedded unexported type, and the
+// constants declared with a used type. Methods and fields are not checked
+// themselves. Go syntax stays with the Go toolchain: a file with a syntax
+// error contributes what parses before the error. A listed package without
+// production Go files is a stale entry.
 func checkUsedExportsOnly(root string, files []goFileInfo, p policy, report *Report) error {
 	if len(p.UsedExportsOnly) == 0 {
 		return nil
@@ -41,10 +43,9 @@ func checkUsedExportsOnly(root string, files []goFileInfo, p policy, report *Rep
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", file.relPath, err)
 		}
-		tree, err := parser.ParseFile(fset, file.relPath, data, 0)
-		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", file.relPath, err)
-		}
+		// A syntax error is the Go toolchain's to report; the partial tree keeps
+		// what parsed before it, and a file that yields no tree contributes nothing.
+		tree, _ := parser.ParseFile(fset, file.relPath, data, 0)
 		parsed[file.relPath] = tree
 		return tree, nil
 	}
@@ -68,7 +69,7 @@ func checkUsedExportsOnly(root string, files []goFileInfo, p policy, report *Rep
 		}
 		reached := surface.reach(used)
 		for _, declaration := range surface.sorted() {
-			if reached[declaration.name] {
+			if !declaration.exported || reached[declaration.name] {
 				continue
 			}
 			report.addFinding(Finding{
@@ -83,23 +84,27 @@ func checkUsedExportsOnly(root string, files []goFileInfo, p policy, report *Rep
 	return nil
 }
 
-type exportedDeclaration struct {
-	name string
-	path string
-	line int
-	// api holds the parts of the declaration that a caller outside the package reaches.
+type surfaceEntry struct {
+	name     string
+	exported bool
+	path     string
+	line     int
+	// api holds the parts of the declaration that a caller outside the package
+	// reaches, gathered from every file that declares the name.
 	api []ast.Node
 }
 
+// exportedSurface holds a package's exported top-level declarations and its
+// unexported types, which an exported type can embed.
 type exportedSurface struct {
 	production   bool
-	declarations map[string]exportedDeclaration
+	declarations map[string]surfaceEntry
 	// constants maps a type name to the exported constants declared with it.
 	constants map[string][]string
 }
 
 func collectExportedSurface(files []goFileInfo, dir string, fset *token.FileSet, parse func(goFileInfo) (*ast.File, error)) (exportedSurface, error) {
-	surface := exportedSurface{declarations: map[string]exportedDeclaration{}, constants: map[string][]string{}}
+	surface := exportedSurface{declarations: map[string]surfaceEntry{}, constants: map[string][]string{}}
 	methods := map[string][]ast.Node{}
 	for _, file := range files {
 		if file.dir != dir || file.isTest {
@@ -110,19 +115,30 @@ func collectExportedSurface(files []goFileInfo, dir string, fset *token.FileSet,
 		if err != nil {
 			return exportedSurface{}, err
 		}
+		if tree == nil {
+			continue
+		}
+		// declare records one declaration; a name declared in several files,
+		// such as one per platform, keeps its first position and every file's API.
 		declare := func(name *ast.Ident, api ...ast.Node) {
-			if name.IsExported() {
-				surface.declarations[name.Name] = exportedDeclaration{
-					name: name.Name, path: file.relPath, line: fset.Position(name.Pos()).Line, api: api,
+			declaration, ok := surface.declarations[name.Name]
+			if !ok {
+				declaration = surfaceEntry{
+					name: name.Name, exported: name.IsExported(), path: file.relPath, line: fset.Position(name.Pos()).Line,
 				}
 			}
+			declaration.api = append(declaration.api, api...)
+			surface.declarations[name.Name] = declaration
 		}
 		for _, decl := range tree.Decls {
 			switch decl := decl.(type) {
 			case *ast.FuncDecl:
-				if decl.Recv == nil {
-					declare(decl.Name, decl.Type)
-				} else if decl.Name.IsExported() {
+				switch {
+				case decl.Recv == nil:
+					if decl.Name.IsExported() {
+						declare(decl.Name, decl.Type)
+					}
+				case len(decl.Recv.List) > 0 && decl.Name.IsExported():
 					owner := receiverTypeName(decl.Recv.List[0].Type)
 					methods[owner] = append(methods[owner], decl.Type)
 				}
@@ -140,9 +156,9 @@ func collectExportedSurface(files []goFileInfo, dir string, fset *token.FileSet,
 	return surface, nil
 }
 
-// collectGenDecl declares the exported types, variables and constants of one
-// declaration. A constant without its own type or value repeats the type of
-// the one before it, as Go's implicit repetition does.
+// collectGenDecl declares the types, exported variables and exported
+// constants of one declaration. A constant without its own type or value
+// repeats the type of the one before it, as Go's implicit repetition does.
 func collectGenDecl(decl *ast.GenDecl, declare func(*ast.Ident, ...ast.Node), constants map[string][]string) {
 	var repeated ast.Expr
 	for _, spec := range decl.Specs {
@@ -161,12 +177,15 @@ func collectGenDecl(decl *ast.GenDecl, declare func(*ast.Ident, ...ast.Node), co
 				declared = repeated
 			}
 			for _, name := range spec.Names {
+				if !name.IsExported() {
+					continue
+				}
 				if declared != nil {
 					declare(name, declared)
 				} else {
 					declare(name)
 				}
-				if typeName, ok := declared.(*ast.Ident); ok && decl.Tok == token.CONST && name.IsExported() {
+				if typeName, ok := declared.(*ast.Ident); ok && decl.Tok == token.CONST {
 					constants[typeName.Name] = append(constants[typeName.Name], name.Name)
 				}
 			}
@@ -175,8 +194,8 @@ func collectGenDecl(decl *ast.GenDecl, declare func(*ast.Ident, ...ast.Node), co
 }
 
 // exportedShape returns what a caller outside the package reaches through a
-// type: its type parameters, and its exported fields and methods, or else its
-// whole underlying type.
+// type: its type parameters, and its embedded and exported fields and methods,
+// or else its whole underlying type.
 func exportedShape(spec *ast.TypeSpec) []ast.Node {
 	var nodes []ast.Node
 	if spec.TypeParams != nil {
@@ -245,8 +264,8 @@ func (s exportedSurface) reach(used map[string]bool) map[string]bool {
 	return reached
 }
 
-func (s exportedSurface) sorted() []exportedDeclaration {
-	declarations := make([]exportedDeclaration, 0, len(s.declarations))
+func (s exportedSurface) sorted() []surfaceEntry {
+	declarations := make([]surfaceEntry, 0, len(s.declarations))
 	for _, declaration := range s.declarations {
 		declarations = append(declarations, declaration)
 	}
@@ -271,6 +290,9 @@ func externalSelections(files []goFileInfo, importPath, dir string, parse func(g
 		tree, err := parse(file)
 		if err != nil {
 			return nil, err
+		}
+		if tree == nil {
+			continue
 		}
 		local := ""
 		for _, spec := range tree.Imports {
