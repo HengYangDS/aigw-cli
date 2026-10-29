@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret/probe"
 )
 
 // Kind classifies a provider endpoint diagnostic outcome.
@@ -116,7 +117,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 	if err != nil {
 		return Result{Kind: EndpointMismatch, Scope: scope, Summary: "Cannot construct the diagnostic request", Fix: "Check the endpoint and protocol for the active route"}
 	}
-	resp, err := domain.DoProbe(client, req)
+	resp, err := probe.Send(client, req)
 	if err != nil {
 		return Result{Kind: NetworkFailure, Scope: scope, Summary: "Cannot reach the endpoint", Fix: unreachableEndpointFix(runtime.Client), Retryable: true, Attempts: 1}
 	}

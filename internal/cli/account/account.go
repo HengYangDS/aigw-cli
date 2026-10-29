@@ -16,6 +16,7 @@ import (
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/probe"
 
 	"github.com/spf13/cobra"
 )
@@ -186,7 +187,7 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			account.ID = accountName
-			if err := domain.Validate(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), account, token); err != nil {
+			if err := probe.Validate(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), account, token); err != nil {
 				return fmt.Errorf("Token validation failed: %w", err)
 			}
 			if err := cmd.Context().Err(); err != nil {

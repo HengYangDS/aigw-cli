@@ -16,6 +16,7 @@ import (
 	"aigw-cli/internal/providers/diagnostic"
 	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/probe"
 )
 
 // Kind is the stable manifest identifier for the bundled DMXAPI diagnostic.
@@ -28,7 +29,7 @@ const (
 )
 
 // Probe obtains and classifies DMXAPI account diagnostics without changing provider or AIGW state.
-func Probe(ctx context.Context, client domain.HTTPDoer, providerAccount domain.Account, apiToken string, auth secret.DiagnosticCredential) (diagnostic.Report, error) {
+func Probe(ctx context.Context, client probe.HTTPDoer, providerAccount domain.Account, apiToken string, auth secret.DiagnosticCredential) (diagnostic.Report, error) {
 	if providerAccount.AccountProbe == nil || providerAccount.AccountProbe.Kind != Kind {
 		return diagnostic.Report{}, fmt.Errorf("DMXAPI diagnostic provider is not configured")
 	}
@@ -85,7 +86,7 @@ type token struct {
 	ExpiredTime    int64  `json:"expired_time"`
 }
 
-func fetchTokens(ctx context.Context, client domain.HTTPDoer, base string, auth secret.DiagnosticCredential) ([]token, error) {
+func fetchTokens(ctx context.Context, client probe.HTTPDoer, base string, auth secret.DiagnosticCredential) ([]token, error) {
 	items := []token{}
 	for page := 1; page <= tokenPageLimit; page++ {
 		endpoint := fmt.Sprintf("%s/api/token/search?page=%d&page_size=%d", base, page, tokenPageSize)
@@ -111,7 +112,7 @@ func fetchTokens(ctx context.Context, client domain.HTTPDoer, base string, auth 
 	return nil, fmt.Errorf("DMXAPI token search is incomplete after %d pages; token presence is unverified", tokenPageLimit)
 }
 
-func getJSON(ctx context.Context, client domain.HTTPDoer, endpoint string, auth secret.DiagnosticCredential, target any) (resultErr error) {
+func getJSON(ctx context.Context, client probe.HTTPDoer, endpoint string, auth secret.DiagnosticCredential, target any) (resultErr error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return err
@@ -120,7 +121,7 @@ func getJSON(ctx context.Context, client domain.HTTPDoer, endpoint string, auth 
 	req.Header.Set("Authorization", "Bearer "+auth.SystemToken)
 	req.Header.Set("Rix-Api-User", auth.UserID)
 	req.Header.Set("Dmx-Api-User", auth.UserID)
-	resp, err := domain.DoProbe(client, req)
+	resp, err := probe.Send(client, req)
 	if err != nil {
 		return err
 	}

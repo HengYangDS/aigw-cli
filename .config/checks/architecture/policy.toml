@@ -147,17 +147,20 @@ allowed_import_edges."internal/secret" = [
   "internal/store",
 ]
 allowed_import_edges."internal/secret/native" = ["internal/process"]
+allowed_import_edges."internal/secret/probe" = ["internal/domain"]
 allowed_import_edges."internal/providers" = [
   "internal/domain",
   "internal/providers/diagnostic",
   "internal/providers/dmxapi",
   "internal/secret",
+  "internal/secret/probe",
 ]
 allowed_import_edges."internal/providers/dmxapi" = [
   "internal/domain",
   "internal/providers/diagnostic",
   "internal/redaction",
   "internal/secret",
+  "internal/secret/probe",
 ]
 allowed_import_edges."internal/platform" = []
 allowed_import_edges."internal/client/claude" = [
@@ -276,6 +279,7 @@ allowed_import_edges."internal/cli/selection" = [
   "internal/presentation",
   "internal/prompt",
   "internal/secret",
+  "internal/secret/probe",
 ]
 allowed_import_edges."internal/cli/update" = [
   "internal/cli/invocation",
@@ -302,6 +306,7 @@ allowed_import_edges."internal/cli/catalog" = [
   "internal/domain",
   "internal/presentation",
   "internal/secret",
+  "internal/secret/probe",
   "internal/store",
 ]
 allowed_import_edges."internal/cli/manifest" = [
@@ -349,6 +354,7 @@ allowed_import_edges."internal/cli/readiness" = [
   "internal/providers",
   "internal/readiness",
   "internal/secret",
+  "internal/secret/probe",
   "internal/store",
 ]
 allowed_import_edges."internal/cli/account" = [
@@ -358,6 +364,7 @@ allowed_import_edges."internal/cli/account" = [
   "internal/presentation",
   "internal/providers",
   "internal/secret",
+  "internal/secret/probe",
 ]
 allowed_import_edges."internal/cli/onboarding" = [
   "internal/activation",
@@ -366,12 +373,14 @@ allowed_import_edges."internal/cli/onboarding" = [
   "internal/presentation",
   "internal/prompt",
   "internal/secret",
+  "internal/secret/probe",
   "internal/store",
 ]
 allowed_import_edges."internal/prompt" = []
 allowed_import_edges."internal/redaction" = []
 allowed_import_edges."internal/diagnostics" = [
   "internal/domain",
+  "internal/secret/probe",
 ]
 allowed_import_edges."internal/providers/diagnostic" = []
 allowed_import_edges."internal/presentation" = [

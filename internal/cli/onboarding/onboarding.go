@@ -9,6 +9,7 @@ import (
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/probe"
 
 	"context"
 	"errors"
@@ -125,7 +126,7 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	if err != nil {
 		return err
 	}
-	if err := domain.ValidateRuntime(ctx, runtime.HTTP, runtime.Clients.Admission(), selected, credentialChange.token); err != nil {
+	if err := probe.ValidateRuntime(ctx, runtime.HTTP, runtime.Clients.Admission(), selected, credentialChange.token); err != nil {
 		return fmt.Errorf("Token validation failed: %w", err)
 	}
 

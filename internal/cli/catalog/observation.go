@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret/probe"
 )
 
 type catalogModel struct {
@@ -210,7 +211,7 @@ func FetchIDs(parent context.Context, client HTTPDoer, endpoint string, protocol
 	if err != nil {
 		return nil, "", err
 	}
-	response, err := domain.DoProbe(client, request)
+	response, err := probe.Send(client, request)
 	if err != nil {
 		return nil, request.URL.String(), err
 	}

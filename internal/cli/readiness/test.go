@@ -11,6 +11,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/probe"
 
 	"aigw-cli/internal/store"
 
@@ -82,7 +83,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("token for account %q is unavailable: %w; %s", accountName, err, instruction)
 				}
-				status, err := domain.ProbeStatus(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), target, clientRuntime.Endpoint, token, clientRuntime.Protocol)
+				status, err := probe.Status(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), target, clientRuntime.Endpoint, token, clientRuntime.Protocol)
 				if err != nil {
 					return err
 				}

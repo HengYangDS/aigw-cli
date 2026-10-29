@@ -182,11 +182,12 @@ Stage 2 divides `configuration` by reason to change. Model types, validation
 and manifest semantics go to `domain`; loading, saving, schema migration and
 `transaction` go to `store`; client-specific projection code goes to the
 adapters. `secrets`, `secrets/native` and the credential readers of
-`credential` become `secret`. Validation that `credential` performs against
-Account data moves to `domain`; it sends its requests only through a
-caller-supplied `HTTPDoer`, so `domain` opens no connection of its own. Each
-move keeps the exported names that callers outside the package use, and drops
-every exported identifier that has no caller outside its package.
+`credential` become `secret`. The requests that prove an Account's Token, each
+protocol's models path and authentication headers, move to `domain`. Choosing
+the probes, sending them and judging the answers is I/O; it goes to
+`secret/probe`, beside the Token store, and `domain` performs none. Each move
+keeps the exported names that callers outside the package use, and drops every
+exported identifier that has no caller outside its package.
 
 `domain` names no client. Each `Config` carries its `Admission`: the ordered
 client specifications that the composition root builds from the adapters'

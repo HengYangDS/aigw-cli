@@ -14,6 +14,7 @@ import (
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/probe"
 
 	"github.com/spf13/cobra"
 )
@@ -343,7 +344,7 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg domain.
 	if err != nil {
 		return "", err
 	}
-	if err := domain.ValidateRuntime(ctx, runtime.HTTP, runtime.Clients.Admission(), selected, token); err != nil {
+	if err := probe.ValidateRuntime(ctx, runtime.HTTP, runtime.Clients.Admission(), selected, token); err != nil {
 		return "", fmt.Errorf("token validation failed: %w", err)
 	}
 	return token, nil
