@@ -51,7 +51,7 @@ func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {
 		for _, field := range []struct{ got, want string }{
 			{supply.If, selection}, {steps[cleanupIndex].If, "always() && " + selection},
 			{supply.Env["GIT_TERMINAL_PROMPT"], "0"},
-			{supply.Run, `mise exec --locked -- go run ./tools/ci native-clients supply --root "` + prefix + `RUNNER_TEMP" --github-env "` + prefix + `GITHUB_ENV" --codex 0.163.0 --claude 2.1.302` + pins},
+			{supply.Run, `mise exec --locked -- go run ./tools/ci native-clients supply --root "` + prefix + `RUNNER_TEMP" --github-env "` + prefix + `GITHUB_ENV" --codex 0.164.0 --claude 2.1.310` + pins},
 			{steps[cleanupIndex].Run, "mise exec --locked -- go run ./tools/ci native-clients retire"},
 			{job.TimeoutMinutes, "${{ inputs.native_clients && 45 || 25 }}"},
 		} {
