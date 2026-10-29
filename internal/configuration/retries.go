@@ -29,11 +29,11 @@ func (policy *RetryPolicy) Clone() *RetryPolicy {
 	return &cloned
 }
 
-func (policy *RetryPolicy) validate(client string) error {
+func (policy *RetryPolicy) validate(client string, spec ClientSpec) error {
 	if policy == nil {
 		return nil
 	}
-	if client != ClientCodex {
+	if !spec.RetryBudgets {
 		return fmt.Errorf("client %q has no admitted native retry-budget capability", client)
 	}
 	if policy.RequestMaxRetries == nil && policy.StreamMaxRetries == nil {
@@ -59,12 +59,12 @@ func (c *Config) retryPolicyFor(client string, selection ClientSelection, upstre
 	binding := c.Clients[client]
 	bound, exists := c.Routes[binding.Route]
 	selected := c.Routes[selection.Route]
+	spec, _ := c.admission.Spec(client)
 	if !exists || bound.Account != selected.Account || binding.RetryPolicy == nil ||
-		selectedModelProvider(client, binding.selection()) != selectedModelProvider(client, selection) ||
+		selectedModelProvider(spec, binding.selection()) != selectedModelProvider(spec, selection) ||
 		selectedAuthentication(binding.selection()) != selectedAuthentication(selection) {
 		return nil
 	}
-	spec, _ := c.admission.Spec(client)
 	endpoint, boundProtocol, err := spec.ResolveRouteEndpoint(c.Accounts[bound.Account], bound, binding.Protocol)
 	if err != nil || endpoint != upstream || boundProtocol != protocol {
 		return nil

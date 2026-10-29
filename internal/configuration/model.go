@@ -572,7 +572,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		Protocol:          protocol,
 		Model:             route.UpstreamModelID(),
 		CanonicalModelID:  route.Model,
-		ModelProvider:     selectedModelProvider(client, selection),
+		ModelProvider:     selectedModelProvider(spec, selection),
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
 	}, nil
@@ -604,14 +604,11 @@ func routeLabel(route Route, account Account, model Model) string {
 	return accountLabel + " · " + modelLabel
 }
 
-func selectedModelProvider(client string, selection ClientSelection) string {
+func selectedModelProvider(spec ClientSpec, selection ClientSelection) string {
 	if selection.ModelProvider != "" {
 		return selection.ModelProvider
 	}
-	if client == ClientCodex {
-		return ModelProviderAIGW
-	}
-	return ""
+	return spec.DefaultModelProvider
 }
 
 func selectedAuthentication(selection ClientSelection) Authentication {

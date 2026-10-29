@@ -286,13 +286,9 @@ func migratePublishedConfig(published publishedConfig, admission Admission) (Con
 	selections := make(map[string]ClientSelection, len(published.Profiles))
 	for _, id := range slices.Sorted(maps.Keys(published.Profiles)) {
 		profile := published.Profiles[id]
-		var protocol EndpointProtocol
-		switch profile.Client {
-		case ClientClaude:
-			protocol = ProtocolAnthropic
-		case ClientCodex:
-			protocol = ProtocolOpenAIResponses
-		default:
+		spec, _ := admission.Spec(profile.Client)
+		protocol := spec.PublishedProfileProtocol
+		if protocol == "" {
 			return Config{}, fmt.Errorf("published profile %q has no admitted client protocol for %q", id, profile.Client)
 		}
 		if _, exists := cfg.Accounts[profile.Account]; !exists {

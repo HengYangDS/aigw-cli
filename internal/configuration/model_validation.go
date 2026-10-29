@@ -109,7 +109,8 @@ func (c *Config) validateRecommendations() error {
 
 func (c *Config) validateClientBindings() error {
 	for _, client := range slices.Sorted(maps.Keys(c.Clients)) {
-		if !c.admission.Admits(client) {
+		spec, admitted := c.admission.Spec(client)
+		if !admitted {
 			return fmt.Errorf("unknown client binding %q", client)
 		}
 		binding := c.clientBinding(client)
@@ -117,7 +118,7 @@ func (c *Config) validateClientBindings() error {
 			if binding.Enabled || binding.Protocol != "" || binding.ModelProvider != "" || binding.Authentication != "" || binding.ForwardingEndpoint != "" || binding.RetryPolicy != nil {
 				return fmt.Errorf("client binding %q must select a route before it can be enabled or define runtime options", client)
 			}
-			if err := binding.validate(client); err != nil {
+			if err := binding.validate(client, spec); err != nil {
 				return err
 			}
 			continue
@@ -125,7 +126,7 @@ func (c *Config) validateClientBindings() error {
 		if err := c.validateSelection(client, binding.selection()); err != nil {
 			return fmt.Errorf("client binding %q: %w", client, err)
 		}
-		if err := binding.validate(client); err != nil {
+		if err := binding.validate(client, spec); err != nil {
 			return err
 		}
 		if err := c.validateForwarding(client, binding); err != nil {
@@ -169,21 +170,21 @@ func (c *Config) validateSelection(client string, selection ClientSelection) err
 	if _, _, err := spec.ResolveRouteEndpoint(account, route, selection.Protocol); err != nil {
 		return fmt.Errorf("route %q: %w", selection.Route, err)
 	}
-	return selection.validate(client)
+	return selection.validate(spec, c.admission)
 }
 
-func (selection ClientSelection) validate(client string) error {
+func (selection ClientSelection) validate(spec ClientSpec, admission Admission) error {
 	if selection.ModelProvider != "" && !modelProviderPattern.MatchString(selection.ModelProvider) {
 		return fmt.Errorf("invalid model provider %q", selection.ModelProvider)
 	}
-	if selection.ModelProvider != "" && client != ClientCodex {
-		return fmt.Errorf("model_provider is only supported for codex")
+	if selection.ModelProvider != "" && spec.DefaultModelProvider == "" {
+		return fmt.Errorf("model_provider is only supported for %s", admission.usageWith(func(spec ClientSpec) bool { return spec.DefaultModelProvider != "" }))
 	}
 	switch authentication := selectedAuthentication(selection); authentication {
 	case AuthenticationAccountToken:
 	case AuthenticationClientNative:
-		if client != ClientCodex {
-			return fmt.Errorf("client-native authentication is only supported for codex")
+		if !spec.ClientNativeAuthentication {
+			return fmt.Errorf("client-native authentication is only supported for %s", admission.usageWith(func(spec ClientSpec) bool { return spec.ClientNativeAuthentication }))
 		}
 		if selection.ModelProvider == "" {
 			return fmt.Errorf("client-native authentication requires model_provider")
@@ -194,8 +195,8 @@ func (selection ClientSelection) validate(client string) error {
 	return nil
 }
 
-func (binding ClientBinding) validate(client string) error {
-	if err := binding.RetryPolicy.validate(client); err != nil {
+func (binding ClientBinding) validate(client string, spec ClientSpec) error {
+	if err := binding.RetryPolicy.validate(client, spec); err != nil {
 		return err
 	}
 	if binding.ForwardingEndpoint != "" {

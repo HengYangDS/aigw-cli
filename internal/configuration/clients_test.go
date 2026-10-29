@@ -27,7 +27,10 @@ func TestAdmittedClientRegistryIsTheSingleProtocolBoundary(t *testing.T) {
 	claude, codex := &want[0], &want[2]
 	claude.ProductName, claude.ModelDiscoveryOptional = "Claude Code", true
 	claude.Doctor.AdapterStates = true
+	claude.PublishedProfileProtocol = ProtocolAnthropic
 	codex.TargetFile, codex.TargetsUsage, codex.RetryBudgets = "config.toml", "repeat for multiple Codex homes", true
+	codex.DefaultModelProvider, codex.ClientNativeAuthentication = ModelProviderAIGW, true
+	codex.PublishedProfileProtocol = ProtocolOpenAIResponses
 	codex.Doctor.AdapterStates, codex.Doctor.RouteBinding = true, true
 	if got := AdmittedClientSpecs(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("client specs = %#v, want %#v", got, want)

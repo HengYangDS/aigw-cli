@@ -41,6 +41,16 @@ type ClientSpec struct {
 	TargetsUsage string
 	// RetryBudgets marks a client that honors per-connection retry budgets.
 	RetryBudgets bool
+	// DefaultModelProvider is the model provider that a selection uses when it
+	// names none. Only a client with one accepts an explicit model provider.
+	DefaultModelProvider string
+	// ClientNativeAuthentication marks a client that can authenticate with its
+	// own native credentials instead of an Account Token.
+	ClientNativeAuthentication bool
+	// PublishedProfileProtocol is the endpoint protocol of this client's
+	// profiles in the published version 3 configuration, which migration turns
+	// into Routes. A client without one had no published profiles.
+	PublishedProfileProtocol EndpointProtocol
 	// ModelDiscoveryOptional marks a client that works without its endpoint's
 	// model discovery, so a missing discovery endpoint still counts as reachable.
 	ModelDiscoveryOptional bool
@@ -62,6 +72,7 @@ var admittedClientSpecs = []ClientSpec{
 	{
 		ID: ClientClaude, Label: "Claude", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic},
 		ProductName: "Claude Code", ModelDiscoveryOptional: true, Doctor: DoctorWording{AdapterStates: true},
+		PublishedProfileProtocol: ProtocolAnthropic,
 	},
 	{
 		ID:                     ClientClaudeDesktop,
@@ -74,7 +85,9 @@ var admittedClientSpecs = []ClientSpec{
 	{
 		ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses},
 		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true,
-		Doctor: DoctorWording{AdapterStates: true, RouteBinding: true},
+		DefaultModelProvider: ModelProviderAIGW, ClientNativeAuthentication: true,
+		PublishedProfileProtocol: ProtocolOpenAIResponses,
+		Doctor:                   DoctorWording{AdapterStates: true, RouteBinding: true},
 	},
 	{
 		ID:                ClientHermes,

@@ -70,6 +70,18 @@ func (admission Admission) Usage(extra ...string) string {
 	return naturalChoices(append(admission.IDs(), extra...))
 }
 
+// usageWith renders, in admission order, the admitted clients that have a
+// capability, so an error that names them stays true for any admission.
+func (admission Admission) usageWith(capable func(ClientSpec) bool) string {
+	var ids []string
+	for _, spec := range admission.specs {
+		if capable(spec) {
+			ids = append(ids, spec.ID)
+		}
+	}
+	return naturalChoices(ids)
+}
+
 // Label returns the presentation label that human output uses for an admitted
 // client, or the identifier itself for any other value.
 func (admission Admission) Label(id string) string {
