@@ -122,12 +122,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.10.19
+          version: 2026.10.22
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -148,12 +148,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.10.19
+          version: 2026.10.22
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -213,12 +213,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.10.19
+          version: 2026.10.22
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -246,12 +246,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.10.19
+          version: 2026.10.22
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -277,12 +277,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.10.19
+          version: 2026.10.22
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -321,7 +321,7 @@ jobs:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
-        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.163.0 --claude 2.1.302 --hermes-commit bf0203a794a07aac3ff764972ab9087baa4e4f4e --hermes-installer-sha256 99cb3691d55019c6973a7acb775a915648666cc24e483ca827a1cdbb3531a674
+        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.164.0 --claude 2.1.310 --hermes-commit bf0203a794a07aac3ff764972ab9087baa4e4f4e --hermes-installer-sha256 99cb3691d55019c6973a7acb775a915648666cc24e483ca827a1cdbb3531a674
         timeout-minutes: 20
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
@@ -408,12 +408,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.10.19
+          version: 2026.10.22
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -468,7 +468,7 @@ jobs:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
-        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.163.0 --claude 2.1.302 --hermes-commit bf0203a794a07aac3ff764972ab9087baa4e4f4e --hermes-installer-sha256 99cb3691d55019c6973a7acb775a915648666cc24e483ca827a1cdbb3531a674
+        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.164.0 --claude 2.1.310 --hermes-commit bf0203a794a07aac3ff764972ab9087baa4e4f4e --hermes-installer-sha256 99cb3691d55019c6973a7acb775a915648666cc24e483ca827a1cdbb3531a674
         timeout-minutes: 20
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
@@ -561,12 +561,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.10.19
+          version: 2026.10.22
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}
@@ -605,7 +605,7 @@ jobs:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
-        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$env:RUNNER_TEMP" --github-env "$env:GITHUB_ENV" --codex 0.163.0 --claude 2.1.302
+        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$env:RUNNER_TEMP" --github-env "$env:GITHUB_ENV" --codex 0.164.0 --claude 2.1.310
         timeout-minutes: 12
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
