@@ -39,7 +39,7 @@
 
 - [ ] 4.1 Move program install, update, rollback and uninstall from `internal/upgrade` into `internal/program`, and the Provider-native diagnostics from `internal/providers` into `internal/provider`.
 - [ ] 4.2 Move the release artifact format to `internal/program/artifact`. Release tooling and program update both import it, and the `artifact` package base name occurs once.
-- [ ] 4.3 Add the ordered `layers` table, with at most 12 entries, to the architecture policy, and make `tools/architecture` enforce it for product packages and repository tools; delete `allowed_import_edges`.
+- [ ] 4.3 Add the ordered `layers` table, with at most 12 entries, to the architecture policy, and make `tools/architecture` enforce it for product packages and repository tools; delete `allowed_import_edges`. First move the behavior behind the same-layer edges that stage 2 leaves to a lower owner: the file transactions that `secret` takes from `store`, and the diagnostic credentials and Token probes that `provider` takes from `secret`.
 - [ ] 4.4 Make the Mise `build` task write to `build/artifacts/<version>-<commit>/`; the repository root `dist/` default and its ignore entry are removed.
 - [ ] 4.5 Run the local quality graph at the stage head.
 - [ ] 4.6 Prove the stage head with the full ETHOS proof.
