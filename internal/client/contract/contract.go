@@ -17,7 +17,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 )
 
@@ -29,9 +29,9 @@ type Fixture struct {
 	Adapter      client.Adapter
 	Home         string
 	Dependencies client.Dependencies
-	Before       configuration.Config
-	After        configuration.Config
-	Runtime      configuration.Runtime
+	Before       domain.Config
+	After        domain.Config
+	Runtime      domain.Runtime
 }
 
 // Run checks the seam invariants for the fixtures that newFixture prepares:
@@ -316,7 +316,7 @@ func withdrawalLeavesNoOwnedFile(ctx context.Context, fixture Fixture) error {
 
 // plan returns the adapter's plans for the transition and requires planning to
 // leave both of the caller's configurations as they were.
-func plan(fixture Fixture, before, after configuration.Config) ([]client.ProjectionPlan, error) {
+func plan(fixture Fixture, before, after domain.Config) ([]client.ProjectionPlan, error) {
 	callerBefore, callerAfter := before.Clone(), after.Clone()
 	plans, err := fixture.Adapter.Plan(fixture.Dependencies, before, after)
 	if err != nil {
@@ -327,7 +327,7 @@ func plan(fixture Fixture, before, after configuration.Config) ([]client.Project
 
 // apply runs Apply for the transition and requires it to leave both of the
 // caller's configurations as they were.
-func apply(ctx context.Context, fixture Fixture, before, after configuration.Config) (client.ProjectionReceipt, error) {
+func apply(ctx context.Context, fixture Fixture, before, after domain.Config) (client.ProjectionReceipt, error) {
 	callerBefore, callerAfter := before.Clone(), after.Clone()
 	receipt, err := fixture.Adapter.Apply(ctx, fixture.Dependencies, before, after)
 	if err != nil {
@@ -338,7 +338,7 @@ func apply(ctx context.Context, fixture Fixture, before, after configuration.Con
 
 // unchangedCaller requires an operation to leave the caller's configuration as
 // it was; caller is the configuration's clone from before the call.
-func unchangedCaller(operation string, caller, current configuration.Config) error {
+func unchangedCaller(operation string, caller, current domain.Config) error {
 	if !reflect.DeepEqual(caller, current.Clone()) {
 		return fmt.Errorf("%s changed the caller's configuration", operation)
 	}

@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/providers/dmxapi"
 	"aigw-cli/internal/secrets"
 )
@@ -33,7 +33,7 @@ func TestProbeReturnsAccountAndCurrentTokenDetails(t *testing.T) {
 		}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
-	providerAccount := configuration.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	providerAccount := domain.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
 	report, err := dmxapi.Probe(context.Background(), client, providerAccount, "sk-abcd-middle-wxyz", secrets.DiagnosticCredential{SystemToken: "system-secret", UserID: "10000"})
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestProbeRedactsPlatformCredentialsEchoedByTheProvider(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader("provider echoed " + systemToken + " for " + userID)),
 		}, nil
 	})
-	providerAccount := configuration.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	providerAccount := domain.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
 	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "api-token", secrets.DiagnosticCredential{SystemToken: systemToken, UserID: userID})
 	if err == nil {
 		t.Fatal("provider probe unexpectedly succeeded")
@@ -71,7 +71,7 @@ func TestProbeRedactsPlatformCredentialsFromJSONFailureMessage(t *testing.T) {
 			Body:       io.NopCloser(strings.NewReader(`{"success":false,"message":"provider echoed platform-message-token-must-not-leak for sensitive-message-user"}`)),
 		}, nil
 	})
-	providerAccount := configuration.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	providerAccount := domain.Account{ID: "dmx", Label: "DMXAPI", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
 	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "api-token", secrets.DiagnosticCredential{SystemToken: systemToken, UserID: userID})
 	if err == nil {
 		t.Fatal("provider probe unexpectedly succeeded")
@@ -89,13 +89,13 @@ func TestProbeHandlesConfigurationErrors(t *testing.T) {
 	cred := secrets.DiagnosticCredential{}
 
 	// nil AccountProbe
-	_, err := dmxapi.Probe(ctx, client, configuration.Account{AccountProbe: nil}, "", cred)
+	_, err := dmxapi.Probe(ctx, client, domain.Account{AccountProbe: nil}, "", cred)
 	if err == nil || !strings.Contains(err.Error(), "not configured") {
 		t.Errorf("expected error for nil AccountProbe, got %v", err)
 	}
 
 	// Wrong Kind
-	_, err = dmxapi.Probe(ctx, client, configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "other"}}, "", cred)
+	_, err = dmxapi.Probe(ctx, client, domain.Account{AccountProbe: &domain.AccountProbe{Kind: "other"}}, "", cred)
 	if err == nil || !strings.Contains(err.Error(), "not configured") {
 		t.Errorf("expected error for wrong Kind, got %v", err)
 	}
@@ -109,7 +109,7 @@ func TestProbeTokenNotFound(t *testing.T) {
 		}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
-	providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+	providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "sk-no-match", secrets.DiagnosticCredential{})
 	if err == nil || !strings.Contains(err.Error(), "not found in the DMXAPI account") {
 		t.Errorf("expected 'not found' error, got %v", err)
@@ -124,7 +124,7 @@ func TestProbeTokenDisabled(t *testing.T) {
 		}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
-	providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+	providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 	report, err := dmxapi.Probe(context.Background(), client, providerAccount, "sk-abcd-middle-wxyz", secrets.DiagnosticCredential{})
 	if err != nil {
 		t.Fatal(err)
@@ -152,7 +152,7 @@ func TestProbePagination(t *testing.T) {
 		}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
-	providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+	providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "sk-abcd-middle-wxyz", secrets.DiagnosticCredential{})
 	if err != nil {
 		t.Fatal(err)
@@ -183,7 +183,7 @@ func TestMaskedToken(t *testing.T) {
 			}
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
 		})
-		providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+		providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 		_, err := dmxapi.Probe(context.Background(), client, providerAccount, c.input, secrets.DiagnosticCredential{})
 		if err != nil {
 			t.Errorf("input %q: unexpected error %v", c.input, err)
@@ -206,7 +206,7 @@ func TestProbeFetchTokensFailures(t *testing.T) {
 				}
 				return &http.Response{StatusCode: test.status, Body: io.NopCloser(strings.NewReader(test.body))}, nil
 			})
-			providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+			providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 			_, err := dmxapi.Probe(context.Background(), client, providerAccount, "api-token", secrets.DiagnosticCredential{})
 			if err == nil || !strings.Contains(err.Error(), test.message) {
 				t.Errorf("token search error = %v, want %q", err, test.message)
@@ -219,7 +219,7 @@ func TestProbeNetworkError(t *testing.T) {
 	client := roundTrip(func(req *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("network error")
 	})
-	providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+	providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
 	_, err := dmxapi.Probe(context.Background(), client, providerAccount, "api-token", secrets.DiagnosticCredential{})
 	if err == nil || !strings.Contains(err.Error(), "network error") {
 		t.Errorf("expected network error, got %v", err)
@@ -227,7 +227,7 @@ func TestProbeNetworkError(t *testing.T) {
 }
 
 func TestProbeRejectsInvalidBaseURL(t *testing.T) {
-	providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "://bad"}}
+	providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "://bad"}}
 	_, err := dmxapi.Probe(context.Background(), nil, providerAccount, "api-token", secrets.DiagnosticCredential{})
 	if err == nil || !strings.Contains(err.Error(), "missing protocol scheme") {
 		t.Fatalf("invalid base URL error = %v", err)
@@ -261,7 +261,7 @@ func TestProbeKeepsPlatformCredentialsAtTheSelectedEndpoint(t *testing.T) {
 			defer origin.Close()
 			client := origin.Client()
 			client.CheckRedirect = func(*http.Request, []*http.Request) error { redirectChecks++; return nil }
-			providerAccount := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: origin.URL}}
+			providerAccount := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: origin.URL}}
 			_, err := dmxapi.Probe(t.Context(), client, providerAccount, "sk-abcd-middle-wxyz", secrets.DiagnosticCredential{SystemToken: "platform-secret", UserID: "account-owner"})
 			if err == nil || !strings.Contains(err.Error(), "HTTP 302") || destinationCalls.Load() != 0 || redirectChecks != 0 {
 				t.Fatalf("redirect result = %v, destination calls = %d, client redirect checks = %d", err, destinationCalls.Load(), redirectChecks)
@@ -312,7 +312,7 @@ func TestProbeRequiresOneCompleteBoundedResponse(t *testing.T) {
 				}
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"success":true,"data":{"items":[{"key":"abcd**********wxyz"}]}}`))}, nil
 			})
-			cfg := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostic.test"}}
+			cfg := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostic.test"}}
 			_, err := dmxapi.Probe(t.Context(), client, cfg, "sk-abcd-middle-wxyz", secrets.DiagnosticCredential{})
 			if err == nil || (test.wantErr != nil && !errors.Is(err, test.wantErr)) || requests != 1 || body.closed != 1 {
 				t.Fatalf("probe error = %v; want %v, requests = %d, close count = %d", err, test.wantErr, requests, body.closed)
@@ -331,7 +331,7 @@ func TestProbeReportsIncompletePaginationInsteadOfTokenAbsence(t *testing.T) {
 		}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
-	cfg := configuration.Account{AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostic.test"}}
+	cfg := domain.Account{AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostic.test"}}
 	_, err := dmxapi.Probe(t.Context(), client, cfg, "sk-abcd-middle-wxyz", secrets.DiagnosticCredential{})
 	if err == nil || !strings.Contains(err.Error(), "incomplete") || tokenCalls != 100 {
 		t.Fatalf("bounded pagination error = %v, token calls = %d", err, tokenCalls)

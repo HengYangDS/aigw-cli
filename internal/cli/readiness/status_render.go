@@ -2,7 +2,7 @@ package readiness
 
 import (
 	"aigw-cli/internal/cli/invocation"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
 	domainreadiness "aigw-cli/internal/readiness"
@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func renderStatus(runtime invocation.Context, cfg configuration.Config, result statusOutput) {
+func renderStatus(runtime invocation.Context, cfg domain.Config, result statusOutput) {
 	r := invocation.Renderer(runtime)
 	if len(cfg.Routes) == 0 {
 		r.ProductTitle("Not configured")
@@ -40,7 +40,7 @@ func renderStatus(runtime invocation.Context, cfg configuration.Config, result s
 	r.Next(result.NextAction)
 }
 
-func renderClientStatus(r *presentation.Renderer, admission configuration.Admission, result statusOutput, clientIDs []string) {
+func renderClientStatus(r *presentation.Renderer, admission domain.Admission, result statusOutput, clientIDs []string) {
 	r.Section("Clients")
 	rows := make([]presentation.Field, 0, len(clientIDs))
 	for _, client := range clientIDs {
@@ -71,7 +71,7 @@ func renderClientStatus(r *presentation.Renderer, admission configuration.Admiss
 	r.Rows(rows...)
 }
 
-func renderTransportStatus(r *presentation.Renderer, admission configuration.Admission, result statusOutput, clientIDs []string) {
+func renderTransportStatus(r *presentation.Renderer, admission domain.Admission, result statusOutput, clientIDs []string) {
 	rows := []presentation.Field{}
 	for _, client := range clientIDs {
 		if result.Clients[client].Transport == endpointTransportExternalLoopback {
@@ -87,7 +87,7 @@ func renderTransportStatus(r *presentation.Renderer, admission configuration.Adm
 	r.Detail("AIGW does not start, stop, or configure the endpoint runtime")
 }
 
-func renderDiagnosticStatus(runtime invocation.Context, r *presentation.Renderer, cfg configuration.Config) {
+func renderDiagnosticStatus(runtime invocation.Context, r *presentation.Renderer, cfg domain.Config) {
 	r.Section("Optional diagnostics")
 	accountIDs := cfg.SelectedAccountIDs()
 	if len(accountIDs) == 0 {

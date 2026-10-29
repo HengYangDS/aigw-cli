@@ -7,8 +7,8 @@ import (
 	"runtime"
 	"strings"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 )
 
 // SettingsInspection identifies a native model preference while retaining
@@ -19,7 +19,7 @@ type SettingsInspection struct {
 
 // ObservedCredentialExecutable reads the exact AIGW helper grammar without
 // trusting the settings. InspectSettings must still verify its ownership state.
-func ObservedCredentialExecutable(path string, selected configuration.Runtime) (string, error) {
+func ObservedCredentialExecutable(path string, selected domain.Runtime) (string, error) {
 	snapshot, err := captureSnapshot(path)
 	if err != nil {
 		return "", fmt.Errorf("read Claude settings: %w", err)
@@ -38,7 +38,7 @@ func ObservedCredentialExecutable(path string, selected configuration.Runtime) (
 // InspectSettings checks Claude's owned connection without writing settings,
 // sidecar state, or credentials. A model-only native preference is not a Route
 // wire-model observation.
-func InspectSettings(path string, runtime configuration.Runtime, executable string) (SettingsInspection, error) {
+func InspectSettings(path string, runtime domain.Runtime, executable string) (SettingsInspection, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized: settings path is empty")
@@ -89,7 +89,7 @@ func InspectSettings(path string, runtime configuration.Runtime, executable stri
 
 // ValidateSettings accepts a sidecar-proven native model preference while
 // rejecting endpoint, helper, and managed-credential changes.
-func ValidateSettings(path string, runtime configuration.Runtime, executable string) error {
+func ValidateSettings(path string, runtime domain.Runtime, executable string) error {
 	_, err := InspectSettings(path, runtime, executable)
 	return err
 }

@@ -8,14 +8,14 @@ import (
 
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/hermes"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 func TestDisableScopesProjectionToTheSelectedClient(t *testing.T) {
 	cfg := adapterConfig()
-	cfg.Routes["desktop"] = configuration.Route{
+	cfg.Routes["desktop"] = domain.Route{
 		Label: "Desktop", Account: "gateway", Model: "claude-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedRoute(claudedesktop.ID, "desktop", "")
 	runtime, _, secretStore, _ := adapterRuntime(t, cfg)

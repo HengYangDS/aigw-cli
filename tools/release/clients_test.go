@@ -6,7 +6,9 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/readiness"
@@ -24,8 +26,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-
-	"aigw-cli/internal/clients"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -68,7 +68,7 @@ func TestNativeClientInputs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		manifest.Recommendations = map[string]configuration.ClientRecommendation{codex.ID: manifest.Recommendations[codex.ID]}
+		manifest.Recommendations = map[string]domain.ClientRecommendation{codex.ID: manifest.Recommendations[codex.ID]}
 		if err := journey.prepareNativeClient(codex.ID, file, team); err != nil {
 			t.Fatal(err)
 		}
@@ -136,7 +136,7 @@ func TestNativeClientJourney(t *testing.T) {
 type nativeClientJourneyPlan struct {
 	version                                 string
 	team                                    []byte
-	manifest                                configuration.Manifest
+	manifest                                domain.Manifest
 	baseline, candidate, archive, checksums string
 }
 
@@ -455,7 +455,7 @@ terminal:
 	if err != nil {
 		return err
 	}
-	manifest.Recommendations = map[string]configuration.ClientRecommendation{client: manifest.Recommendations[client]}
+	manifest.Recommendations = map[string]domain.ClientRecommendation{client: manifest.Recommendations[client]}
 	// The retained reader predates presentation order; this journey owns connections.
 	for name, account := range manifest.Accounts {
 		account.Order = 0
@@ -501,34 +501,4 @@ func (j *journeyFixture) enableNativeClient(client, executable string) {
 		}
 	}
 	j.testing.Logf("client %s version=%s", client, version)
-}
-
-func (j *journeyFixture) requireNativePreferences(client string) {
-	j.testing.Helper()
-	switch client {
-	case codex.ID:
-		j.requireNativeCodexPreferences()
-	case claude.ID:
-		var preferences struct {
-			Effort  string `json:"effortLevel"`
-			Compact int    `json:"autoCompactWindow"`
-		}
-		if err := json.Unmarshal(readFile(j.testing, j.settings), &preferences); err != nil {
-			j.testing.Fatal(err)
-		}
-		if preferences.Effort != "high" || preferences.Compact != 180000 {
-			j.testing.Fatalf("Claude preferences changed: %+v", preferences)
-		}
-	case hermes.ID:
-		requireFileContains(
-			j.testing,
-			filepath.Join(environmentValues(j.environment)["HERMES_HOME"], "config.yaml"),
-			"temperature: 0.3",
-			"personal:",
-			"backend: local",
-			"updates:\n  check: false",
-		)
-	default:
-		j.testing.Fatalf("unsupported native client %q", client)
-	}
 }

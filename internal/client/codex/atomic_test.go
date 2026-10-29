@@ -9,16 +9,16 @@ import (
 	"strings"
 	"testing"
 
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 )
 
-func atomicTestRuntime() configuration.Runtime {
+func atomicTestRuntime() domain.Runtime {
 	executable, err := os.Executable()
 	if err != nil {
 		panic(err)
 	}
-	return configuration.Runtime{
+	return domain.Runtime{
 		CredentialCommand: executable,
 		RouteID:           "gpt-5.6-terra",
 		RouteLabel:        "GPT-5.6 Terra",

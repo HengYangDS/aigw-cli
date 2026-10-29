@@ -20,6 +20,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 )
@@ -253,9 +254,9 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secrets.Store
 	return app, out, secretStore, runner, httpClient
 }
 
-func addAccountRoute(cfg *configuration.Config, routeName, accountName, label string, endpoints configuration.Endpoints, client, model string) {
+func addAccountRoute(cfg *domain.Config, routeName, accountName, label string, endpoints domain.Endpoints, client, model string) {
 	if _, exists := cfg.Accounts[accountName]; !exists {
-		cfg.Accounts[accountName] = configuration.Account{Label: label, Endpoints: endpoints}
+		cfg.Accounts[accountName] = domain.Account{Label: label, Endpoints: endpoints}
 	}
 	account := cfg.Accounts[accountName]
 	account.ID = accountName
@@ -270,14 +271,14 @@ func addAccountRoute(cfg *configuration.Config, routeName, accountName, label st
 	cfg.Routes[routeName] = qualifiedRoute(label, accountName, model, protocol)
 }
 
-func qualifiedRoute(label, account, model string, protocol configuration.EndpointProtocol) configuration.Route {
-	return configuration.Route{
+func qualifiedRoute(label, account, model string, protocol domain.EndpointProtocol) domain.Route {
+	return domain.Route{
 		Label: label, Account: account, Model: model, UpstreamModel: model,
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 	}
 }
 
-func synchronizeClaudeProjection(t *testing.T, app *cli.App, cfg configuration.Config) {
+func synchronizeClaudeProjection(t *testing.T, app *cli.App, cfg domain.Config) {
 	t.Helper()
 	runtime, err := cfg.ResolveRuntime(claude.ID, "")
 	if err != nil {
@@ -304,9 +305,9 @@ func executableName(name string) string {
 	return name
 }
 
-func saveCommandRoute(t *testing.T, app *cli.App, endpoints configuration.Endpoints, client, model string) {
+func saveCommandRoute(t *testing.T, app *cli.App, endpoints domain.Endpoints, client, model string) {
 	t.Helper()
-	cfg := configuration.NewConfig(clients.Admission())
+	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", endpoints, client, model)
 	cfg.SetSelectedRoute(client, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -401,26 +402,26 @@ func TestCredentialFixturePreservesRealStateAcrossInjectedFailures(t *testing.T)
 
 func saveProbeRoute(t *testing.T, appConfig configuration.Store) {
 	t.Helper()
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = configuration.Account{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["dmx"] = domain.Account{
 		Label:        "DMXAPI",
-		Endpoints:    configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
-		AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"},
+		Endpoints:    domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
+		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"},
 	}
-	cfg.Routes["gpt"] = configuration.Route{Label: "GPT", Account: "dmx", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["gpt"] = domain.Route{Label: "GPT", Account: "dmx", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	if err := appConfig.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func twoRouteConfig() configuration.Config {
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "one", "one", "One Gateway", configuration.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, codex.ID, "model-one")
-	addAccountRoute(&cfg, "two", "two", "Two Gateway", configuration.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, codex.ID, "model-two")
+func twoRouteConfig() domain.Config {
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "one", "one", "One Gateway", domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, codex.ID, "model-one")
+	addAccountRoute(&cfg, "two", "two", "Two Gateway", domain.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, codex.ID, "model-two")
 	for _, routeID := range []string{"one", "two"} {
 		route := cfg.Routes[routeID]
-		route.Interfaces[configuration.ProtocolAnthropic] = []configuration.Capability{}
+		route.Interfaces[domain.ProtocolAnthropic] = []domain.Capability{}
 		cfg.Routes[routeID] = route
 	}
 	cfg.SetSelectedRoute(codex.ID, "one", "")
@@ -506,10 +507,10 @@ func (d fakeDiscovery) Discover() discovery.Result { return d.result }
 func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
 	t.Helper()
 	app, _, secretStore, runner, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg.Routes["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", configuration.ProtocolAnthropic)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
+	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Routes["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)

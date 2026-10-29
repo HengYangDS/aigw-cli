@@ -8,24 +8,25 @@ import (
 	"aigw-cli/internal/client"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 )
 
 // Commit persists one configuration transition and converges affected client
 // projections. Failures compensate owned writes without changing native credentials.
-func (s Synchronizer) Commit(ctx context.Context, before, after configuration.Config, subject string) error {
+func (s Synchronizer) Commit(ctx context.Context, before, after domain.Config, subject string) error {
 	clients := s.registry().ChangedClients(before, after)
-	_, err := s.commit(ctx, before, after, subject, len(clients) > 0, configuration.ConnectionChange{}, clients...)
+	_, err := s.commit(ctx, before, after, subject, len(clients) > 0, domain.ConnectionChange{}, clients...)
 	return err
 }
 
 // CommitProjection persists configuration and reconciles every client projection,
 // including missing or out-of-date projections of unchanged configuration.
-func (s Synchronizer) CommitProjection(ctx context.Context, before, after configuration.Config, subject string, clientIDs ...string) error {
-	_, err := s.commit(ctx, before, after, subject, true, configuration.ConnectionChange{}, clientIDs...)
+func (s Synchronizer) CommitProjection(ctx context.Context, before, after domain.Config, subject string, clientIDs ...string) error {
+	_, err := s.commit(ctx, before, after, subject, true, domain.ConnectionChange{}, clientIDs...)
 	return err
 }
 
-func (s Synchronizer) commit(ctx context.Context, before, after configuration.Config, subject string, reconcileProjection bool, connection configuration.ConnectionChange, clientIDs ...string) (bool, error) {
+func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, subject string, reconcileProjection bool, connection domain.ConnectionChange, clientIDs ...string) (bool, error) {
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
@@ -123,7 +124,7 @@ func (s Synchronizer) finalizeCredentialEntrypoint(entrypoint *credential.Entryp
 
 func (s Synchronizer) applyProjection(
 	ctx context.Context,
-	before, after configuration.Config,
+	before, after domain.Config,
 	configBefore, configAfter configuration.Snapshot,
 	undoEntrypoint func() error,
 	clientIDs ...string,

@@ -1,7 +1,7 @@
 package codex
 
 import (
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 	"encoding/json"
 	"fmt"
@@ -166,33 +166,33 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 		return ExecutableIdentity{Version: "0.160.0", SHA256: "client-catalog"}, bundled, nil
 	}
-	config := configuration.NewConfig(testAdmission())
-	config.Accounts = map[string]configuration.Account{
+	config := domain.NewConfig(testAdmission())
+	config.Accounts = map[string]domain.Account{
 		"dmxapi": {
 			Label:     "DMXAPI",
-			Endpoints: configuration.Endpoints{OpenAIResponses: "https://api.example.test/v1"},
+			Endpoints: domain.Endpoints{OpenAIResponses: "https://api.example.test/v1"},
 		},
 	}
-	config.Models = map[string]configuration.Model{
+	config.Models = map[string]domain.Model{
 		canonicalModel: {ID: canonicalModel, Label: "GPT-6.1 Sol"},
 	}
-	config.Routes = map[string]configuration.Route{
+	config.Routes = map[string]domain.Route{
 		routeID: {
 			Label:         "DMXAPI GPT-6.1 Sol CDX",
 			Account:       "dmxapi",
 			Model:         canonicalModel,
 			UpstreamModel: upstreamModel,
-			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-				configuration.ProtocolOpenAIResponses: {},
+			Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+				domain.ProtocolOpenAIResponses: {},
 			},
 		},
 	}
-	config.Clients = map[string]configuration.ClientBinding{
+	config.Clients = map[string]domain.ClientBinding{
 		ID: {
 			Route:             routeID,
 			Enabled:           true,
-			Protocol:          configuration.ProtocolOpenAIResponses,
-			ModelProvider:     configuration.ModelProviderAIGW,
+			Protocol:          domain.ProtocolOpenAIResponses,
+			ModelProvider:     domain.ModelProviderAIGW,
 			CredentialCommand: filepath.Join(t.TempDir(), "credential-reader"),
 		},
 	}
@@ -397,7 +397,7 @@ func TestCodexCatalogDesiredSnapshotFailsClosedOnForeignFile(t *testing.T) {
 
 // catalogTestRuntime selects a provider-prefixed id, which is the reproduction
 // this work exists for.
-func catalogTestRuntime(model string) configuration.Runtime {
+func catalogTestRuntime(model string) domain.Runtime {
 	runtime := atomicTestRuntime()
 	runtime.Model = model
 	return runtime

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 
 	"github.com/spf13/cobra"
@@ -16,7 +16,7 @@ type retryOptions struct {
 	native          bool
 }
 
-func (options *retryOptions) bind(cmd *cobra.Command, admission configuration.Admission) {
+func (options *retryOptions) bind(cmd *cobra.Command, admission domain.Admission) {
 	clients := retryBudgetClients(admission)
 	cmd.Flags().Uint64Var(&options.request, "request-max-retries", 0, "Explicit native request retry budget for this "+clients+" connection; zero disables client request retries")
 	cmd.Flags().Uint64Var(&options.stream, "stream-max-retries", 0, "Explicit native stream retry budget for this "+clients+" connection; zero disables client stream retries")
@@ -24,7 +24,7 @@ func (options *retryOptions) bind(cmd *cobra.Command, admission configuration.Ad
 }
 
 // retryBudgetClients names the clients that honor per-connection retry budgets.
-func retryBudgetClients(admission configuration.Admission) string {
+func retryBudgetClients(admission domain.Admission) string {
 	var labels []string
 	for _, spec := range admission.Specs() {
 		if spec.RetryBudgets {
@@ -34,14 +34,14 @@ func retryBudgetClients(admission configuration.Admission) string {
 	return strings.Join(labels, " or ")
 }
 
-func (options *retryOptions) connection(cmd *cobra.Command, forwarding *string) (configuration.ConnectionChange, error) {
-	change := configuration.ConnectionChange{ForwardingEndpoint: forwarding, NativeRetries: options.native}
+func (options *retryOptions) connection(cmd *cobra.Command, forwarding *string) (domain.ConnectionChange, error) {
+	change := domain.ConnectionChange{ForwardingEndpoint: forwarding, NativeRetries: options.native}
 	request, stream := cmd.Flags().Changed("request-max-retries"), cmd.Flags().Changed("stream-max-retries")
 	if options.native && (request || stream) {
 		return change, fmt.Errorf("--native-retries and explicit retry budgets are mutually exclusive")
 	}
 	if request || stream {
-		change.RetryPolicy = &configuration.RetryPolicy{}
+		change.RetryPolicy = &domain.RetryPolicy{}
 		if request {
 			change.RetryPolicy.RequestMaxRetries = &options.request
 		}
@@ -52,7 +52,7 @@ func (options *retryOptions) connection(cmd *cobra.Command, forwarding *string) 
 	return change, nil
 }
 
-func retryFields(policy *configuration.RetryPolicy) []presentation.Field {
+func retryFields(policy *domain.RetryPolicy) []presentation.Field {
 	if policy == nil {
 		return []presentation.Field{{Label: "Retries", Value: "Client native defaults"}}
 	}

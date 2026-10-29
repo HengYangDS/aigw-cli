@@ -10,6 +10,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 
 	"github.com/spf13/cobra"
@@ -86,7 +87,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		before := cfg.Clone()
 		keeping := selectorSet(keepAccounts)
 		retiring := selectorSet(retireRoutes)
-		cfg, err = configuration.MergeWithOptions(cfg, incoming, configuration.MergeOptions{
+		cfg, err = domain.MergeWithOptions(cfg, incoming, domain.MergeOptions{
 			KeepAccounts:    keeping,
 			ReplaceAccounts: selectorSet(replaceAccounts),
 			ReplaceModels:   selectorSet(replaceModels),
@@ -98,7 +99,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		}
 		result := importResult{
 			DryRun:               dryRun,
-			ImportedAccounts:     len(configuration.ManifestAccountNames(incoming)),
+			ImportedAccounts:     len(domain.ManifestAccountNames(incoming)),
 			ImportedRoutes:       len(incoming.Routes),
 			KeptAccounts:         slices.Sorted(maps.Keys(keeping)),
 			RetiredRoutes:        slices.Sorted(maps.Keys(retiring)),

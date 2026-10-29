@@ -4,8 +4,8 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -29,7 +29,7 @@ func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, credentials, runner, _ := testApp(t, "")
-			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+			saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 			if err := credentials.Set("one", "test-token"); err != nil {
 				t.Fatal(err)
 			}
@@ -141,7 +141,7 @@ func TestRecoveryJSONSeparatesPreviewFromAppliedProjection(t *testing.T) {
 	} {
 		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
 			app, out, credentials, _, _ := testApp(t, "")
-			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+			saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 			cfg, err := app.Config.Load()
 			if err != nil {
 				t.Fatal(err)
@@ -199,7 +199,7 @@ func TestRecoveryJSONOutputFailurePreservesCommittedProjection(t *testing.T) {
 	for _, command := range []string{"sync", "repair"} {
 		t.Run(command, func(t *testing.T) {
 			app, _, credentials, _, _ := testApp(t, "")
-			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+			saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 			cfg, err := app.Config.Load()
 			if err != nil {
 				t.Fatal(err)

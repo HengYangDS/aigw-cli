@@ -14,6 +14,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -25,13 +26,13 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			cfg := configuration.NewConfig(clients.Admission())
-			cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{Anthropic: "https://old.test", OpenAIResponses: "https://old.test/v1"}}
+			cfg := domain.NewConfig(clients.Admission())
+			cfg.Accounts["old"] = domain.Account{Label: "Old", Endpoints: domain.Endpoints{Anthropic: "https://old.test", OpenAIResponses: "https://old.test/v1"}}
 			paths := map[string]string{codex.ID: target, claude.ID: claudeSettingsPath(t, app.Host)}
 			for _, id := range []string{claude.ID, codex.ID} {
-				protocol := configuration.ProtocolOpenAIResponses
+				protocol := domain.ProtocolOpenAIResponses
 				if id == claude.ID {
-					protocol = configuration.ProtocolAnthropic
+					protocol = domain.ProtocolAnthropic
 				}
 				cfg.Routes[id] = qualifiedRoute(id, "old", "old-model", protocol)
 				cfg.SetSelectedRoute(id, id, "")
@@ -92,7 +93,7 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "new-token\n")
 	claudeExecutable := executableFixture(t, "claude")
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: claudeExecutable}}}
-	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://old.test"}, claude.ID, "old-model")
+	saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://old.test"}, claude.ID, "old-model")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -130,8 +131,8 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 
 func TestAddPreservesExistingAccountWithDifferentRouteID(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "new-token\n")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "existing-route", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, claude.ID, "old-model")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "existing-route", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "old-model")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -249,7 +250,7 @@ func TestAddCompensatesCredentialAfterConfigurationFailure(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			app, _, backend, _, _ := testApp(t, "token\n")
-			saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://current.test"}, claude.ID, "current")
+			saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://current.test"}, claude.ID, "current")
 			before := readFile(t, app.Config.Path())
 			if err := os.Mkdir(app.Config.Path()+".bak", 0o700); err != nil {
 				t.Fatal(err)

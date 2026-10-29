@@ -2,7 +2,7 @@ package construction
 
 import (
 	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/tools/release/performance"
 	"bytes"
 	"encoding/json"
@@ -23,8 +23,8 @@ func TestNativeForwardingPerformanceOwnsItsCandidateOnlyScope(t *testing.T) {
 	summary.Blocks = slices.DeleteFunc(summary.Blocks, func(row performance.Measurement) bool {
 		return row.Variant != "candidate" || !slices.Contains([]string{"credential", "projection", "sync", "status", "export"}, row.Case)
 	})
-	binding := configuration.Runtime{Client: claude.ID, RouteID: "selected-route", AccountID: "account",
-		Protocol: configuration.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "http://127.0.0.1:18792/v1"}
+	binding := domain.Runtime{Client: claude.ID, RouteID: "selected-route", AccountID: "account",
+		Protocol: domain.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "http://127.0.0.1:18792/v1"}
 	for index := range summary.Blocks {
 		row := &summary.Blocks[index]
 		if row.Case == "projection" {

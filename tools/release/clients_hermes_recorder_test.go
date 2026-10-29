@@ -12,13 +12,13 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 func newHermesSessionRecorderForTest(model, token string, completions *atomic.Int64) *hermesSessionRecorder {
 	return &hermesSessionRecorder{
 		Handler: clientResponseHandler(
-			configuration.ProtocolOpenAIResponses,
+			domain.ProtocolOpenAIResponses,
 			map[string]*atomic.Int64{model: completions},
 			token,
 			"",

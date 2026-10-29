@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 )
@@ -56,10 +57,10 @@ func TestHermesInspectionKeepsIntactRetainedReader(t *testing.T) {
 func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	home := t.TempDir()
 	source := discovery.System{GOOS: runtime.GOOS, Home: home, Path: home}
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://provider.test"}}
-	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", configuration.ProtocolAnthropic)
-	cfg.Clients[ID] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: configuration.ProtocolAnthropic}
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://provider.test"}}
+	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", domain.ProtocolAnthropic)
+	cfg.Clients[ID] = domain.ClientBinding{Route: "hermes", Enabled: true, Protocol: domain.ProtocolAnthropic}
 	store := secrets.NewMemoryStore()
 	if err := store.Set("team", "fixture-token"); err != nil {
 		t.Fatal(err)
@@ -134,10 +135,10 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 }
 
 func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
-	before := configuration.NewConfig(testAdmission())
-	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	before.Routes["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", configuration.ProtocolOpenAIResponses)
-	before.Routes["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", configuration.ProtocolOpenAIResponses)
+	before := domain.NewConfig(testAdmission())
+	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	before.Routes["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", domain.ProtocolOpenAIResponses)
+	before.Routes["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", domain.ProtocolOpenAIResponses)
 	before.SetSelectedRoute(ID, "selected", "")
 	before.SetClientActivation(ID, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
 	before.Normalize()
@@ -154,12 +155,12 @@ func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 }
 
 func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	for routeID, wireID := range map[string]string{"ordinary": "gpt-6-astra", "variant": "gpt-6-astra-ssvip"} {
-		cfg.Routes[routeID] = configuration.Route{
+		cfg.Routes[routeID] = domain.Route{
 			Account: "gateway", Model: "gpt-6-astra", UpstreamModel: wireID,
-			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+			Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 		}
 	}
 	cfg.SetSelectedRoute(ID, "variant", "")
@@ -181,15 +182,15 @@ func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
 }
 
 func TestHermesCatalogueFollowsDeclaredAccountAndModelOrder(t *testing.T) {
-	cfg := configuration.NewConfig(testAdmission())
+	cfg := domain.NewConfig(testAdmission())
 	for id, order := range map[string]int{"alpha": 20, "zulu": 10} {
-		cfg.Accounts[id] = configuration.Account{Label: id, Order: order, Endpoints: configuration.Endpoints{
+		cfg.Accounts[id] = domain.Account{Label: id, Order: order, Endpoints: domain.Endpoints{
 			Anthropic: "https://messages.test", OpenAIResponses: "https://responses.test/v1",
 		}}
 		for model, rank := range map[string]int{"first": 10, "second": 20} {
-			cfg.Models[model] = configuration.Model{Label: model, Order: rank}
-			cfg.Routes[id+"-"+model] = configuration.Route{Account: id, Model: model, UpstreamModel: map[string]string{"first": "wire-z", "second": "wire-a"}[model], Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-				configuration.ProtocolAnthropic: {}, configuration.ProtocolOpenAIResponses: {},
+			cfg.Models[model] = domain.Model{Label: model, Order: rank}
+			cfg.Routes[id+"-"+model] = domain.Route{Account: id, Model: model, UpstreamModel: map[string]string{"first": "wire-z", "second": "wire-a"}[model], Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+				domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
 			}}
 		}
 	}
@@ -219,7 +220,7 @@ func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := configuration.Merge(configuration.NewConfig(builtInAdmission()), manifest)
+	cfg, err := domain.Merge(domain.NewConfig(builtInAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,10 +245,10 @@ func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
 }
 
 func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
-	before := configuration.NewConfig(testAdmission())
-	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	before.Routes["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", configuration.ProtocolOpenAIResponses)
-	before.Routes["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", configuration.ProtocolOpenAIResponses)
+	before := domain.NewConfig(testAdmission())
+	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	before.Routes["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", domain.ProtocolOpenAIResponses)
+	before.Routes["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", domain.ProtocolOpenAIResponses)
 	before.SetSelectedRoute(ID, "selected", "")
 	before.SetClientActivation(ID, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
 	before.Normalize()
@@ -264,24 +265,24 @@ func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *testing.T) {
 	home := t.TempDir()
 	target := filepath.Join(home, ".hermes", "config.yaml")
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{
 		Anthropic:             "https://messages.test",
 		OpenAIResponses:       "https://responses.test/v1",
 		OpenAIChatCompletions: "https://chat.test/v1",
 	}}
-	cfg.Accounts["connected"] = configuration.Account{Label: "Connected", Endpoints: configuration.Endpoints{
+	cfg.Accounts["connected"] = domain.Account{Label: "Connected", Endpoints: domain.Endpoints{
 		OpenAIResponses: "https://connected.test/v1",
 	}}
-	cfg.Accounts["offline"] = configuration.Account{Label: "Offline", Endpoints: configuration.Endpoints{
+	cfg.Accounts["offline"] = domain.Account{Label: "Offline", Endpoints: domain.Endpoints{
 		OpenAIResponses: "https://offline.test/v1",
 	}}
-	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-fable-5-1", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.Routes["grok"] = configuration.Route{Label: "Grok", Account: "team", Model: "grok-4.6", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.Routes["gemini"] = configuration.Route{Label: "Gemini", Account: "team", Model: "gemini-3.8-flash", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIChatCompletions: {}}}
-	cfg.Routes["qwen"] = configuration.Route{Label: "Qwen", Account: "connected", Model: "qwen-max", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.Routes["deepseek"] = configuration.Route{Label: "DeepSeek", Account: "offline", Model: "deepseek-v3", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.Clients[ID] = configuration.ClientBinding{Route: "claude", Enabled: true, Protocol: configuration.ProtocolAnthropic, Targets: []string{target}}
+	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "team", Model: "claude-fable-5-1", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Routes["grok"] = domain.Route{Label: "Grok", Account: "team", Model: "grok-4.6", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["gemini"] = domain.Route{Label: "Gemini", Account: "team", Model: "gemini-3.8-flash", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}}
+	cfg.Routes["qwen"] = domain.Route{Label: "Qwen", Account: "connected", Model: "qwen-max", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["deepseek"] = domain.Route{Label: "DeepSeek", Account: "offline", Model: "deepseek-v3", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Clients[ID] = domain.ClientBinding{Route: "claude", Enabled: true, Protocol: domain.ProtocolAnthropic, Targets: []string{target}}
 	store := secrets.NewMemoryStore()
 	for _, accountID := range []string{"team", "connected"} {
 		if err := store.Set(accountID, "fixture-token"); err != nil {
@@ -289,7 +290,7 @@ func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *
 		}
 	}
 
-	plans, _, err := hermesPlans(client.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(home, "aigw")}, configuration.NewConfig(testAdmission()), cfg)
+	plans, _, err := hermesPlans(client.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(home, "aigw")}, domain.NewConfig(testAdmission()), cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -315,12 +316,12 @@ func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *
 	}
 }
 
-func qualifiedRoute(label, account, model string, protocols ...configuration.EndpointProtocol) configuration.Route {
-	interfaces := make(map[configuration.EndpointProtocol][]configuration.Capability, len(protocols))
+func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Route {
+	interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(protocols))
 	for _, protocol := range protocols {
-		interfaces[protocol] = []configuration.Capability{}
+		interfaces[protocol] = []domain.Capability{}
 	}
-	return configuration.Route{
+	return domain.Route{
 		Label: label, Account: account, Model: model, UpstreamModel: model, Interfaces: interfaces,
 	}
 }

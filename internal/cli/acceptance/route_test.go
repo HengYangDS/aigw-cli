@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"encoding/json"
 	"errors"
@@ -35,7 +36,7 @@ func TestRouteAddValidation(t *testing.T) {
 
 	t.Run("route add duplicate", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"route", "add", "one", "--account", "one", "--model", "m", "--protocol", "anthropic"})
 		if err == nil || !strings.Contains(err.Error(), "already exists") {
 			t.Fatalf("error = %v", err)
@@ -44,7 +45,7 @@ func TestRouteAddValidation(t *testing.T) {
 
 	t.Run("route add unknown account", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"route", "add", "two", "--account", "missing", "--model", "m", "--protocol", "anthropic"})
 		if err == nil || !strings.Contains(err.Error(), "Unknown account") {
 			t.Fatalf("error = %v", err)
@@ -53,7 +54,7 @@ func TestRouteAddValidation(t *testing.T) {
 
 	t.Run("route add default label", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		if err := cli.Execute(app, []string{"route", "add", "two", "--account", "one", "--model", "m2", "--protocol", "anthropic"}); err != nil {
 			t.Fatal(err)
 		}
@@ -66,10 +67,10 @@ func TestRouteAddValidation(t *testing.T) {
 
 func TestRouteRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Routes["gpt-default"] = qualifiedRoute("GPT Default", "dmx", "gpt-default", configuration.ProtocolOpenAIResponses)
-	cfg.Routes["gpt-unused"] = qualifiedRoute("GPT Unused", "dmx", "gpt-unused", configuration.ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Routes["gpt-default"] = qualifiedRoute("GPT Default", "dmx", "gpt-default", domain.ProtocolOpenAIResponses)
+	cfg.Routes["gpt-unused"] = qualifiedRoute("GPT Unused", "dmx", "gpt-unused", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(codex.ID, "gpt-default", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -89,8 +90,8 @@ func TestRouteRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 
 func TestRouteAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "gpt", "dmx", "GPT", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, codex.ID, "gpt-test")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "gpt", "dmx", "GPT", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, codex.ID, "gpt-test")
 	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -117,8 +118,8 @@ func TestRouteAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 
 func TestRouteAddDoesNotConflateRouteCreationWithClientCompatibility(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "gpt", "openai-only", "OpenAI Only", configuration.Endpoints{OpenAIResponses: "https://openai.test/v1"}, codex.ID, "gpt-test")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "gpt", "openai-only", "OpenAI Only", domain.Endpoints{OpenAIResponses: "https://openai.test/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -147,7 +148,7 @@ func TestRouteAddDoesNotConflateRouteCreationWithClientCompatibility(t *testing.
 
 func TestRouteReadsDoNotInspectCredentials(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
+	saveCommandRoute(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 	observed := &recordingCredentialStore[string]{backend: secrets.NewMemoryStore(), existsErr: errors.New("credential observation must not run")}
 	app.Secrets = observed
 
@@ -163,24 +164,24 @@ func TestRouteReadsDoNotInspectCredentials(t *testing.T) {
 
 func TestRouteReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["native"] = configuration.Account{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["native"] = domain.Account{
 		Label: "Native",
-		Endpoints: configuration.Endpoints{
+		Endpoints: domain.Endpoints{
 			OpenAIResponses: "https://native.test/v1",
 		},
 	}
-	cfg.Routes["native"] = configuration.Route{
+	cfg.Routes["native"] = domain.Route{
 		Label:   "Native",
 		Account: "native",
 		Model:   "native-model",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolOpenAIResponses: {},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolOpenAIResponses: {},
 		},
 	}
-	cfg.Clients[codex.ID] = configuration.ClientBinding{
+	cfg.Clients[codex.ID] = domain.ClientBinding{
 		Route: "native", ModelProvider: "amazon-bedrock",
-		Authentication: configuration.AuthenticationClientNative,
+		Authentication: domain.AuthenticationClientNative,
 	}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -226,13 +227,13 @@ func TestRouteReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
 
 func TestRouteListJSONIsStableAndClientIndependent(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["shared"] = configuration.Account{Label: "Shared", Endpoints: configuration.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
-	cfg.Routes["zeta"] = qualifiedRoute("Zeta", "shared", "claude-test", configuration.ProtocolAnthropic)
-	cfg.Routes["alpha"] = qualifiedRoute("Alpha", "shared", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg.Clients[codex.ID] = configuration.ClientBinding{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["shared"] = domain.Account{Label: "Shared", Endpoints: domain.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
+	cfg.Routes["zeta"] = qualifiedRoute("Zeta", "shared", "claude-test", domain.ProtocolAnthropic)
+	cfg.Routes["alpha"] = qualifiedRoute("Alpha", "shared", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Clients[codex.ID] = domain.ClientBinding{
 		Route: "alpha", ModelProvider: "amazon-bedrock",
-		Authentication: configuration.AuthenticationClientNative,
+		Authentication: domain.AuthenticationClientNative,
 	}
 	cfg.SetSelectedRoute(claude.ID, "zeta", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -272,9 +273,9 @@ func TestRouteListJSONIsStableAndClientIndependent(t *testing.T) {
 
 func TestRouteShowRendersEverySecretFreeField(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["shared"] = configuration.Account{Label: "Shared", Endpoints: configuration.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
-	cfg.Routes["codex"] = qualifiedRoute("Codex Model", "shared", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["shared"] = domain.Account{Label: "Shared", Endpoints: domain.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
+	cfg.Routes["codex"] = qualifiedRoute("Codex Model", "shared", "gpt-test", domain.ProtocolOpenAIResponses)
 	route := cfg.Routes["codex"]
 	route.Purpose = "Daily work"
 	cfg.Routes["codex"] = route
@@ -351,7 +352,7 @@ func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 
 	t.Run("edit unknown", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"route", "edit", "missing", "--label", "New"})
 		if err == nil || !strings.Contains(err.Error(), "Unknown route") {
 			t.Fatalf("error = %v", err)
@@ -368,7 +369,7 @@ func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 
 	t.Run("remove unknown", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"route", "remove", "missing"})
 		if err == nil || !strings.Contains(err.Error(), "Unknown route") {
 			t.Fatalf("error = %v", err)
@@ -377,9 +378,9 @@ func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 
 	t.Run("remove override", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		cfg := configuration.NewConfig(clients.Admission())
-		addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}, claude.ID, "m1")
-		addAccountRoute(&cfg, "two", "one", "Two", configuration.Endpoints{}, codex.ID, "m2")
+		cfg := domain.NewConfig(clients.Admission())
+		addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}, claude.ID, "m1")
+		addAccountRoute(&cfg, "two", "one", "Two", domain.Endpoints{}, codex.ID, "m2")
 		cfg.SetSelectedRoute(claude.ID, "one", "")
 		cfg.SetSelectedRoute(codex.ID, "two", "")
 		if err := app.Config.Save(cfg); err != nil {
@@ -398,8 +399,8 @@ func TestRouteEditSynchronizesActiveCodexProjection(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 	cfg.SetSelectedRoute(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
@@ -420,8 +421,8 @@ func TestRouteEditSynchronizesActiveCodexProjection(t *testing.T) {
 
 func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "current", "team", "Team Gateway", configuration.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-current")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "current", "team", "Team Gateway", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-current")
 	cfg.SetSelectedRoute(claude.ID, "current", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -500,9 +501,9 @@ func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
 
 func TestRouteListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "gpt", "team", "Team Gateway", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "gpt-test")
-	cfg.Routes["gpt"] = qualifiedRoute("GPT Test", "team", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "gpt", "team", "Team Gateway", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "gpt-test")
+	cfg.Routes["gpt"] = qualifiedRoute("GPT Test", "team", "gpt-test", domain.ProtocolOpenAIResponses)
 	route := cfg.Routes["gpt"]
 	route.Purpose = "native Codex picker-aligned daily default"
 	cfg.Routes["gpt"] = route
@@ -532,8 +533,8 @@ func TestRouteListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T) 
 
 func TestRouteRemoveRefusesActiveRoute(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedRoute(claude.ID, "team", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

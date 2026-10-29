@@ -13,6 +13,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 )
@@ -23,7 +24,7 @@ func (s Synchronizer) ClientIDs() []string {
 }
 
 // Inspect observes one admitted client through its operational adapter.
-func (s Synchronizer) Inspect(ctx context.Context, cfg configuration.Config, clientID string, runtime configuration.Runtime) client.Status {
+func (s Synchronizer) Inspect(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) client.Status {
 	dependencies, err := s.clientDependencies([]string{clientID}, cfg)
 	if err != nil {
 		return client.Status{Issue: "AIGW credential reader identity is unavailable", RepairAction: "aigw doctor"}
@@ -32,7 +33,7 @@ func (s Synchronizer) Inspect(ctx context.Context, cfg configuration.Config, cli
 }
 
 // Verify runs one explicit live request through the admitted client adapter.
-func (s Synchronizer) Verify(ctx context.Context, cfg configuration.Config, clientID string, runtime configuration.Runtime, explicitRoute string) (client.Verification, error) {
+func (s Synchronizer) Verify(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime, explicitRoute string) (client.Verification, error) {
 	selected := cfg.Clone()
 	selected.SetSelectedRoute(clientID, runtime.RouteID, runtime.Protocol)
 	binding := selected.Clients[clientID]
@@ -47,7 +48,7 @@ func (s Synchronizer) Verify(ctx context.Context, cfg configuration.Config, clie
 
 // ReconcileClient projects one unchanged Route without saving configuration or
 // touching other clients. Converged settings remain a byte-exact no-op.
-func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Config, clientID string) error {
+func (s Synchronizer) ReconcileClient(ctx context.Context, cfg domain.Config, clientID string) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -86,7 +87,7 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg configuration.Con
 	return errors.Join(fmt.Errorf("credential entrypoint finalization failed; client projection was rolled back: %w", finalizeErr), undoCreatedEntrypoint(undoEntrypoint))
 }
 
-func (s Synchronizer) prepareCredentialEntrypoint(cfg configuration.Config, clientIDs ...string) (*credential.Entrypoint, func() error, error) {
+func (s Synchronizer) prepareCredentialEntrypoint(cfg domain.Config, clientIDs ...string) (*credential.Entrypoint, func() error, error) {
 	accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
 	if err != nil || len(accounts) == 0 {
 		return nil, nil, err
@@ -124,7 +125,7 @@ func (s Synchronizer) program() (credential.Program, error) {
 // transaction.
 type ConfigStore interface {
 	CaptureSnapshot() (configuration.Snapshot, error)
-	Commit(before configuration.Snapshot, cfg configuration.Config) (configuration.Snapshot, error)
+	Commit(before configuration.Snapshot, cfg domain.Config) (configuration.Snapshot, error)
 	RestoreSnapshot(before, after configuration.Snapshot) error
 }
 
@@ -148,14 +149,14 @@ type Synchronizer struct {
 // DesiredClientConfiguration discovers the requested clients and derives the
 // configuration that can be activated now. An empty list means every admitted
 // client; unrequested adapters remain unchanged.
-func (s Synchronizer) DesiredClientConfiguration(before configuration.Config, clientIDs ...string) (configuration.Config, discovery.Result, error) {
+func (s Synchronizer) DesiredClientConfiguration(before domain.Config, clientIDs ...string) (domain.Config, discovery.Result, error) {
 	discovered, err := s.discoveredResult()
 	if err != nil {
-		return configuration.Config{}, discovery.Result{}, err
+		return domain.Config{}, discovery.Result{}, err
 	}
 	dependencies, err := s.clientDependencies(nil)
 	if err != nil {
-		return configuration.Config{}, discovered, err
+		return domain.Config{}, discovered, err
 	}
 	after, err := s.registry().Converge(dependencies, before, discovered, clientIDs...)
 	return after, discovered, err
@@ -165,15 +166,15 @@ func (s Synchronizer) DesiredClientConfiguration(before configuration.Config, cl
 // AIGW's projected catalogue recorded as its Client Binding, and the adopted
 // Route per client. Only synchronization adopts: an explicit selection names
 // the Route that wins.
-func (s Synchronizer) AdoptNativeSelections(before configuration.Config) (configuration.Config, map[string]string, error) {
+func (s Synchronizer) AdoptNativeSelections(before domain.Config) (domain.Config, map[string]string, error) {
 	after := before.Clone()
 	dependencies, err := s.clientDependencies(nil)
 	if err != nil {
-		return configuration.Config{}, nil, err
+		return domain.Config{}, nil, err
 	}
 	adopted, err := s.registry().AdoptSelections(dependencies, &after)
 	if err != nil {
-		return configuration.Config{}, nil, err
+		return domain.Config{}, nil, err
 	}
 	return after, adopted, nil
 }
@@ -181,7 +182,7 @@ func (s Synchronizer) AdoptNativeSelections(before configuration.Config) (config
 // DesiredSyncConfiguration activates unselected recommendations when a
 // read-only credential source gains an Account Token after catalogue import.
 // Writable native stores are not searched for unselected credentials.
-func (s Synchronizer) DesiredSyncConfiguration(before configuration.Config) (configuration.Config, discovery.Result, error) {
+func (s Synchronizer) DesiredSyncConfiguration(before domain.Config) (domain.Config, discovery.Result, error) {
 	if !secrets.IsReadOnly(s.Secrets) {
 		return s.DesiredClientConfiguration(before)
 	}
@@ -189,7 +190,7 @@ func (s Synchronizer) DesiredSyncConfiguration(before configuration.Config) (con
 	for _, accountID := range slices.Sorted(maps.Keys(before.Accounts)) {
 		available, err := s.Secrets.Exists(accountID)
 		if err != nil {
-			return configuration.Config{}, discovery.Result{}, fmt.Errorf("inspect Account %q Token availability: %w", accountID, err)
+			return domain.Config{}, discovery.Result{}, fmt.Errorf("inspect Account %q Token availability: %w", accountID, err)
 		}
 		if available {
 			connected = append(connected, accountID)
@@ -197,14 +198,14 @@ func (s Synchronizer) DesiredSyncConfiguration(before configuration.Config) (con
 	}
 	selected, err := before.SelectRoutesForConnectedAccounts(connected)
 	if err != nil {
-		return configuration.Config{}, discovery.Result{}, err
+		return domain.Config{}, discovery.Result{}, err
 	}
 	return s.DesiredClientConfiguration(selected)
 }
 
 // Withdraw removes selected adapters from desired configuration. With no
 // explicit IDs it withdraws every admitted adapter for portable uninstall.
-func (s Synchronizer) Withdraw(cfg *configuration.Config, clientIDs ...string) error {
+func (s Synchronizer) Withdraw(cfg *domain.Config, clientIDs ...string) error {
 	if len(clientIDs) == 0 {
 		clientIDs = s.registry().IDs()
 	}
@@ -242,7 +243,7 @@ func (s Synchronizer) CredentialEntrypointPath() (string, error) {
 	return path, nil
 }
 
-func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...configuration.Config) (client.Dependencies, error) {
+func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...domain.Config) (client.Dependencies, error) {
 	executable := s.AIGWExecutable
 	if s.CredentialPath != "" {
 		executable = s.CredentialPath
@@ -275,7 +276,7 @@ func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...c
 // credentialReadyClients excludes default-Token consumers only when their
 // selected Account Token is known absent. Disabled and external-credential
 // clients remain eligible for withdrawal or independent convergence.
-func (s Synchronizer) credentialReadyClients(cfg configuration.Config, clientIDs ...string) ([]string, error) {
+func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...string) ([]string, error) {
 	if len(clientIDs) == 0 {
 		clientIDs = s.ClientIDs()
 	}
@@ -307,7 +308,7 @@ func (s Synchronizer) credentialReadyClients(cfg configuration.Config, clientIDs
 	return projectable, nil
 }
 
-func (s Synchronizer) credentialEntrypointAccounts(cfg configuration.Config, clientIDs ...string) ([]string, error) {
+func (s Synchronizer) credentialEntrypointAccounts(cfg domain.Config, clientIDs ...string) ([]string, error) {
 	if s.CredentialPath == "" && s.ResolveCredentialPath == nil {
 		return nil, nil
 	}
@@ -344,7 +345,7 @@ const (
 // CredentialEntrypointPlan prepares the current version only for clients that
 // can project now. A deferred client does not prove that cached or rollback
 // callers have stopped using an earlier command.
-func (s Synchronizer) CredentialEntrypointPlan(cfg configuration.Config, clientIDs ...string) (CredentialEntrypointAction, error) {
+func (s Synchronizer) CredentialEntrypointPlan(cfg domain.Config, clientIDs ...string) (CredentialEntrypointAction, error) {
 	if s.CredentialPath == "" && s.ResolveCredentialPath == nil {
 		return CredentialEntrypointUnchanged, nil
 	}

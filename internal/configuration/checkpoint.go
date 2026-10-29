@@ -11,6 +11,7 @@ import (
 	"slices"
 	"time"
 
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 )
 
@@ -18,15 +19,15 @@ import (
 // client protocol verifications succeed. It is suitable for rollback, not for
 // credential recovery.
 type VerifiedCheckpoint struct {
-	Config     Config    `json:"config"`
-	Clients    []string  `json:"clients"`
-	VerifiedAt time.Time `json:"verified_at"`
+	Config     domain.Config `json:"config"`
+	Clients    []string      `json:"clients"`
+	VerifiedAt time.Time     `json:"verified_at"`
 }
 
 // SaveVerifiedCheckpoint records a completed verification only while its
 // configuration remains current. It serializes with AIGW mutations, preserves
 // newer checkpoints, and compensates observed external configuration changes.
-func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg Config, clients []string) (resultErr error) {
+func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, clients []string) (resultErr error) {
 	if err := validateCheckpointClients(s.admission, clients); err != nil {
 		return err
 	}
@@ -95,7 +96,7 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg Config, clients [
 
 // publishedCheckpointConfig omits display order and later Route capabilities,
 // which their components restore when the checkpoint is read.
-func publishedCheckpointConfig(current Config) Config {
+func publishedCheckpointConfig(current domain.Config) domain.Config {
 	cfg := current.Clone()
 	for id, account := range cfg.Accounts {
 		account.Order = 0
@@ -130,7 +131,7 @@ func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
 	return checkpoint, err
 }
 
-func decodeVerifiedCheckpoint(data []byte, admission Admission) (VerifiedCheckpoint, error) {
+func decodeVerifiedCheckpoint(data []byte, admission domain.Admission) (VerifiedCheckpoint, error) {
 	var checkpoint VerifiedCheckpoint
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
@@ -146,12 +147,12 @@ func decodeVerifiedCheckpoint(data []byte, admission Admission) (VerifiedCheckpo
 	if err := validateCheckpointClients(admission, checkpoint.Clients); err != nil {
 		return VerifiedCheckpoint{}, err
 	}
-	checkpoint.Config.admission = admission
+	checkpoint.Config.SetAdmission(admission)
 	checkpoint.Config.Normalize()
 	// The checkpoint keeps the shape a retained reader decodes, so it carries no
 	// recorded upstream; each forwarded binding is bound to the upstream it
 	// reaches in the checkpoint itself.
-	if err := checkpoint.Config.recordForwardingUpstreams(); err != nil {
+	if err := recordForwardingUpstreams(&checkpoint.Config); err != nil {
 		return VerifiedCheckpoint{}, fmt.Errorf("validate verified checkpoint: %w", err)
 	}
 	if err := checkpoint.Config.Validate(); err != nil {
@@ -160,7 +161,7 @@ func decodeVerifiedCheckpoint(data []byte, admission Admission) (VerifiedCheckpo
 	return checkpoint, nil
 }
 
-func validateCheckpointClients(admission Admission, clients []string) error {
+func validateCheckpointClients(admission domain.Admission, clients []string) error {
 	if len(clients) == 0 {
 		return errors.New("verified checkpoint is incomplete: no clients")
 	}

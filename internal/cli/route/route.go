@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 
 	"github.com/spf13/cobra"
@@ -27,10 +27,10 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "add <route>", Short: "Add a model route to an existing account",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
-			if !configuration.ValidIdentifier(args[0]) {
+			if !domain.ValidIdentifier(args[0]) {
 				return fmt.Errorf("Invalid route ID %q; use letters, numbers, dots, hyphens, or underscores; run `%s --help`", args[0], cmd.CommandPath())
 			}
-			if accountName != "" && !configuration.ValidIdentifier(accountName) {
+			if accountName != "" && !domain.ValidIdentifier(accountName) {
 				return fmt.Errorf("Invalid account ID %q; run `%s --help`", accountName, cmd.CommandPath())
 			}
 			if strings.TrimSpace(accountName) == "" || strings.TrimSpace(model) == "" || strings.TrimSpace(protocolName) == "" {
@@ -39,9 +39,9 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			if cmd.Flags().Changed("upstream-model") && strings.TrimSpace(upstreamModel) == "" {
 				return fmt.Errorf("--upstream-model requires a non-empty value; run `%s --help`", cmd.CommandPath())
 			}
-			protocol := configuration.EndpointProtocol(protocolName)
+			protocol := domain.EndpointProtocol(protocolName)
 			switch protocol {
-			case configuration.ProtocolAnthropic, configuration.ProtocolOpenAIResponses, configuration.ProtocolOpenAIChatCompletions:
+			case domain.ProtocolAnthropic, domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions:
 				return nil
 			default:
 				return fmt.Errorf("Unsupported protocol %q; run `%s --help`", protocolName, cmd.CommandPath())
@@ -64,10 +64,10 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 				label = routeName
 			}
 			before := cfg.Clone()
-			protocol := configuration.EndpointProtocol(protocolName)
-			cfg.Routes[routeName] = configuration.Route{
+			protocol := domain.EndpointProtocol(protocolName)
+			cfg.Routes[routeName] = domain.Route{
 				Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Model: model, UpstreamModel: upstreamModel,
-				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
+				Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
 			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "route add"); err != nil {
 				return err
@@ -128,7 +128,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				if len(item.SelectedClients) > 0 {
 					state, stateText = presentation.OK, "Selected for "+clientLabels(runtime.Clients.Admission(), item.SelectedClients)
 				}
-				detail := []string{choiceLabel(configuration.Route{Label: item.Label, Purpose: item.Purpose}), stateText, "Account " + item.Account}
+				detail := []string{choiceLabel(domain.Route{Label: item.Label, Purpose: item.Purpose}), stateText, "Account " + item.Account}
 				if len(item.ProtocolClients) > 0 {
 					detail = append(detail, "Clients "+clientLabels(runtime.Clients.Admission(), item.ProtocolClients))
 				}
@@ -157,7 +157,7 @@ type routeListItem struct {
 	Model           string   `json:"model"`
 }
 
-func collectRouteListItem(runtime invocation.Context, cfg configuration.Config, name string) (routeListItem, error) {
+func collectRouteListItem(runtime invocation.Context, cfg domain.Config, name string) (routeListItem, error) {
 	route := cfg.Routes[name]
 	compatible, err := cfg.ProtocolClientIDs(name)
 	if err != nil {
@@ -235,7 +235,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "edit <route>", Short: "Update route display metadata",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
-			if !configuration.ValidIdentifier(args[0]) {
+			if !domain.ValidIdentifier(args[0]) {
 				return fmt.Errorf("Invalid route ID %q; run `%s --help`", args[0], cmd.CommandPath())
 			}
 			if cmd.Flags().Changed("label") && strings.TrimSpace(label) == "" {
@@ -281,7 +281,7 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 	return &cobra.Command{
 		Use: "remove <route>", Short: "Remove an unused route",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
-			if !configuration.ValidIdentifier(args[0]) {
+			if !domain.ValidIdentifier(args[0]) {
 				return fmt.Errorf("Invalid route ID %q; run `%s --help`", args[0], cmd.CommandPath())
 			}
 			return nil
@@ -304,7 +304,7 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			}
 			delete(cfg.Routes, name)
 			for client, recommendation := range cfg.Recommendations {
-				recommendation.Alternatives = slices.DeleteFunc(recommendation.Alternatives, func(selection configuration.ClientSelection) bool {
+				recommendation.Alternatives = slices.DeleteFunc(recommendation.Alternatives, func(selection domain.ClientSelection) bool {
 					return selection.Route == name
 				})
 				if recommendation.Primary.Route != name {
@@ -334,7 +334,7 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 	}
 }
 
-func choiceLabel(route configuration.Route) string {
+func choiceLabel(route domain.Route) string {
 	label := route.Label
 	if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 		return label + " · " + purpose
@@ -343,7 +343,7 @@ func choiceLabel(route configuration.Route) string {
 }
 
 // clientLabels names clients in human output by their registry labels.
-func clientLabels(admission configuration.Admission, clients []string) string {
+func clientLabels(admission domain.Admission, clients []string) string {
 	labels := make([]string, 0, len(clients))
 	for _, client := range clients {
 		labels = append(labels, admission.Label(client))

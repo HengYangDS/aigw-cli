@@ -16,8 +16,8 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 )
@@ -26,25 +26,25 @@ type fixedDiscovery struct{ result discovery.Result }
 
 func (source fixedDiscovery) Discover() discovery.Result { return source.result }
 
-func configuredClient(t *testing.T, id string) (configuration.Config, client.Dependencies, discovery.Result) {
+func configuredClient(t *testing.T, id string) (domain.Config, client.Dependencies, discovery.Result) {
 	t.Helper()
 	root := t.TempDir()
 	executable := filepath.Join(root, id)
 	if err := os.WriteFile(executable, []byte("public client fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	spec, _ := clients.Admission().Spec(id)
-	cfg.Routes[id] = configuration.Route{
+	cfg.Routes[id] = domain.Route{
 		Account: "gateway", Model: "fixture", UpstreamModel: "fixture",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{spec.EndpointProtocols[0]: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
 	}
 	target := filepath.Join(root, "config.toml")
 	if id == claudedesktop.ID {
 		target = filepath.Join(root, "Claude-3p", "configLibrary")
 	}
-	adapter := configuration.ClientBinding{Route: id, Enabled: true, Protocol: spec.EndpointProtocols[0], Executable: executable}
+	adapter := domain.ClientBinding{Route: id, Enabled: true, Protocol: spec.EndpointProtocols[0], Executable: executable}
 	if id != claude.ID {
 		adapter.Targets = []string{target}
 	}
@@ -74,7 +74,7 @@ func TestCredentialPolicyControlsProjectionAndSurvivesDiscovery(t *testing.T) {
 			if got := registry.ChangedClients(before, converged); !reflect.DeepEqual(got, []string{id}) {
 				t.Fatalf("command-only change selected %v", got)
 			}
-			if _, _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(clients.Admission()), before, id); err != nil {
+			if _, _, err := registry.Apply(context.Background(), deps, domain.NewConfig(clients.Admission()), before, id); err != nil {
 				t.Fatal(err)
 			}
 			plans, err := registry.Plan(deps, before, converged, id)
@@ -109,7 +109,7 @@ func TestDisabledCredentialPolicyRequiresExplicitEnable(t *testing.T) {
 	for _, id := range registry.IDs() {
 		cfg, deps, discovered := configuredClient(t, id)
 		command := filepath.Join(t.TempDir(), "credential adapter")
-		cfg.Clients[id] = configuration.ClientBinding{CredentialCommand: command}
+		cfg.Clients[id] = domain.ClientBinding{CredentialCommand: command}
 		after, err := registry.Converge(deps, cfg, discovered, id)
 		if err != nil {
 			t.Fatal(err)
@@ -190,7 +190,7 @@ func TestExternalCredentialFailuresKeepUnknownSecretsOutOfDiagnostics(t *testing
 			adapter := cfg.Clients[id]
 			adapter.CredentialCommand = filepath.Join(t.TempDir(), "credential adapter")
 			cfg.Clients[id] = adapter
-			if _, _, err := registry.Apply(context.Background(), deps, configuration.NewConfig(clients.Admission()), cfg, id); err != nil {
+			if _, _, err := registry.Apply(context.Background(), deps, domain.NewConfig(clients.Admission()), cfg, id); err != nil {
 				t.Fatal(err)
 			}
 			clientRuntime, err := cfg.ResolveRuntime(id, "")

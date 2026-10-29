@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 )
 
 type rollbackFunc func() error
@@ -27,19 +27,19 @@ type failingProjectionAdapter struct {
 	onApply     func()
 }
 
-func (adapter failingProjectionAdapter) Spec() configuration.ClientSpec {
-	return configuration.ClientSpec{ID: adapter.id, Label: adapter.id, EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
+func (adapter failingProjectionAdapter) Spec() domain.ClientSpec {
+	return domain.ClientSpec{ID: adapter.id, Label: adapter.id, EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
 }
 
 func (adapter failingProjectionAdapter) Discover(DiscoverySource) discovery.Result {
 	return discovery.Result{}
 }
 
-func (adapter failingProjectionAdapter) Converge(Dependencies, *configuration.Config, discovery.Result) error {
+func (adapter failingProjectionAdapter) Converge(Dependencies, *domain.Config, discovery.Result) error {
 	return nil
 }
 
-func (adapter failingProjectionAdapter) Plan(Dependencies, configuration.Config, configuration.Config) ([]ProjectionPlan, error) {
+func (adapter failingProjectionAdapter) Plan(Dependencies, domain.Config, domain.Config) ([]ProjectionPlan, error) {
 	*adapter.events = append(*adapter.events, "plan:"+adapter.id)
 	if adapter.onPlan != nil {
 		adapter.onPlan()
@@ -47,7 +47,7 @@ func (adapter failingProjectionAdapter) Plan(Dependencies, configuration.Config,
 	return adapter.plans, nil
 }
 
-func (adapter failingProjectionAdapter) Apply(context.Context, Dependencies, configuration.Config, configuration.Config) (ProjectionReceipt, error) {
+func (adapter failingProjectionAdapter) Apply(context.Context, Dependencies, domain.Config, domain.Config) (ProjectionReceipt, error) {
 	*adapter.events = append(*adapter.events, "apply:"+adapter.id)
 	if adapter.onApply != nil {
 		adapter.onApply()
@@ -64,23 +64,23 @@ func (adapter failingProjectionAdapter) Apply(context.Context, Dependencies, con
 	}), nil
 }
 
-func (failingProjectionAdapter) ProjectionChanged(configuration.Config, configuration.Config) bool {
+func (failingProjectionAdapter) ProjectionChanged(domain.Config, domain.Config) bool {
 	return false
 }
 
-func (failingProjectionAdapter) Inspect(context.Context, Dependencies, configuration.Config, configuration.Runtime) Status {
+func (failingProjectionAdapter) Inspect(context.Context, Dependencies, domain.Config, domain.Runtime) Status {
 	return Status{}
 }
 
-func (failingProjectionAdapter) Verify(context.Context, Dependencies, configuration.Config, configuration.Runtime, string) (Verification, error) {
+func (failingProjectionAdapter) Verify(context.Context, Dependencies, domain.Config, domain.Runtime, string) (Verification, error) {
 	return Verification{}, nil
 }
 
-func (failingProjectionAdapter) AdoptSelection(Dependencies, *configuration.Config) (string, error) {
+func (failingProjectionAdapter) AdoptSelection(Dependencies, *domain.Config) (string, error) {
 	return "", nil
 }
 
-func (failingProjectionAdapter) Withdraw(*configuration.Config) {}
+func (failingProjectionAdapter) Withdraw(*domain.Config) {}
 
 func TestRegistryScopesProjectionToTheRequestedClient(t *testing.T) {
 	var events []string
@@ -90,7 +90,7 @@ func TestRegistryScopesProjectionToTheRequestedClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(registry.Admission())
+	cfg := domain.NewConfig(registry.Admission())
 	if _, _, err := registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "first"); err != nil {
 		t.Fatal(err)
 	}
@@ -103,8 +103,8 @@ type recordingAdapter struct {
 	calls []string
 }
 
-func (adapter *recordingAdapter) Spec() configuration.ClientSpec {
-	return configuration.ClientSpec{ID: "future", Label: "Future", EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
+func (adapter *recordingAdapter) Spec() domain.ClientSpec {
+	return domain.ClientSpec{ID: "future", Label: "Future", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
 }
 
 func (adapter *recordingAdapter) Discover(DiscoverySource) discovery.Result {
@@ -112,18 +112,18 @@ func (adapter *recordingAdapter) Discover(DiscoverySource) discovery.Result {
 	return discovery.Result{Executables: map[string]string{adapter.Spec().ID: "/future"}}
 }
 
-func (adapter *recordingAdapter) Converge(_ Dependencies, cfg *configuration.Config, _ discovery.Result) error {
+func (adapter *recordingAdapter) Converge(_ Dependencies, cfg *domain.Config, _ discovery.Result) error {
 	adapter.calls = append(adapter.calls, "converge")
 	cfg.SetClientActivation(adapter.Spec().ID, true, "", nil)
 	return nil
 }
 
-func (adapter *recordingAdapter) Plan(_ Dependencies, _, _ configuration.Config) ([]ProjectionPlan, error) {
+func (adapter *recordingAdapter) Plan(_ Dependencies, _, _ domain.Config) ([]ProjectionPlan, error) {
 	adapter.calls = append(adapter.calls, "plan")
 	return []ProjectionPlan{{Client: adapter.Spec().ID, Target: "/future", Action: "project", ChangesState: true}}, nil
 }
 
-func (adapter *recordingAdapter) Apply(_ context.Context, _ Dependencies, _, _ configuration.Config) (ProjectionReceipt, error) {
+func (adapter *recordingAdapter) Apply(_ context.Context, _ Dependencies, _, _ domain.Config) (ProjectionReceipt, error) {
 	adapter.calls = append(adapter.calls, "apply")
 	return rollbackFunc(func() error {
 		adapter.calls = append(adapter.calls, "rollback")
@@ -131,27 +131,27 @@ func (adapter *recordingAdapter) Apply(_ context.Context, _ Dependencies, _, _ c
 	}), nil
 }
 
-func (adapter *recordingAdapter) ProjectionChanged(_, _ configuration.Config) bool {
+func (adapter *recordingAdapter) ProjectionChanged(_, _ domain.Config) bool {
 	adapter.calls = append(adapter.calls, "projection-change")
 	return true
 }
 
-func (adapter *recordingAdapter) Inspect(_ context.Context, _ Dependencies, _ configuration.Config, _ configuration.Runtime) Status {
+func (adapter *recordingAdapter) Inspect(_ context.Context, _ Dependencies, _ domain.Config, _ domain.Runtime) Status {
 	adapter.calls = append(adapter.calls, "status")
 	return Status{Ready: true}
 }
 
-func (adapter *recordingAdapter) Verify(_ context.Context, _ Dependencies, _ configuration.Config, _ configuration.Runtime, _ string) (Verification, error) {
+func (adapter *recordingAdapter) Verify(_ context.Context, _ Dependencies, _ domain.Config, _ domain.Runtime, _ string) (Verification, error) {
 	adapter.calls = append(adapter.calls, "verify")
 	return Verification{Version: "verified"}, nil
 }
 
-func (adapter *recordingAdapter) AdoptSelection(Dependencies, *configuration.Config) (string, error) {
+func (adapter *recordingAdapter) AdoptSelection(Dependencies, *domain.Config) (string, error) {
 	adapter.calls = append(adapter.calls, "adopt")
 	return "", nil
 }
 
-func (adapter *recordingAdapter) Withdraw(cfg *configuration.Config) {
+func (adapter *recordingAdapter) Withdraw(cfg *domain.Config) {
 	adapter.calls = append(adapter.calls, "withdraw")
 	delete(cfg.Clients, adapter.Spec().ID)
 }
@@ -163,7 +163,7 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := configuration.NewConfig(registry.Admission())
+	cfg := domain.NewConfig(registry.Admission())
 	if discovered := registry.Discover(nil); discovered.Executable("future") != "/future" {
 		t.Fatalf("discovered = %#v", discovered)
 	}
@@ -176,13 +176,13 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 	if _, _, err := registry.Apply(context.Background(), Dependencies{}, cfg, cfg); err != nil {
 		t.Fatal(err)
 	}
-	if changed := registry.ChangedClients(configuration.NewConfig(registry.Admission()), cfg); !reflect.DeepEqual(changed, []string{"future"}) {
+	if changed := registry.ChangedClients(domain.NewConfig(registry.Admission()), cfg); !reflect.DeepEqual(changed, []string{"future"}) {
 		t.Fatalf("changed client scope = %v, want the admitted future client", changed)
 	}
-	if status := registry.Inspect(context.Background(), Dependencies{}, cfg, "future", configuration.Runtime{}); !status.Ready {
+	if status := registry.Inspect(context.Background(), Dependencies{}, cfg, "future", domain.Runtime{}); !status.Ready {
 		t.Fatalf("status = %#v", status)
 	}
-	if result, err := registry.Verify(context.Background(), Dependencies{}, cfg, "future", configuration.Runtime{}, ""); err != nil || result.Version != "verified" {
+	if result, err := registry.Verify(context.Background(), Dependencies{}, cfg, "future", domain.Runtime{}, ""); err != nil || result.Version != "verified" {
 		t.Fatalf("verification = %#v, %v", result, err)
 	}
 	if err := registry.Withdraw(&cfg, "future"); err != nil {
@@ -209,7 +209,7 @@ func TestRegistryCompensatesAppliedAdaptersInReverseOrder(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, _, err = registry.Apply(t.Context(), Dependencies{}, configuration.NewConfig(registry.Admission()), configuration.NewConfig(registry.Admission()))
+			_, _, err = registry.Apply(t.Context(), Dependencies{}, domain.NewConfig(registry.Admission()), domain.NewConfig(registry.Admission()))
 			if !errors.Is(err, failure) || !strings.Contains(err.Error(), "prior adapters were rolled back") {
 				t.Fatalf("Apply() error = %v", err)
 			}
@@ -234,9 +234,9 @@ func TestRegistryReturnsOneRollbackForSuccessfulProjection(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			before, after := configuration.NewConfig(registry.Admission()), configuration.NewConfig(registry.Admission())
+			before, after := domain.NewConfig(registry.Admission()), domain.NewConfig(registry.Admission())
 			if state == "changed-config" {
-				after.Accounts["new"] = configuration.Account{Label: "New"}
+				after.Accounts["new"] = domain.Account{Label: "New"}
 			}
 			receipt, changed, err := registry.Apply(t.Context(), Dependencies{}, before, after)
 			if err != nil || receipt == nil {
@@ -269,7 +269,7 @@ func TestRegistryReportsCompensationFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err = registry.Apply(context.Background(), Dependencies{}, configuration.NewConfig(registry.Admission()), configuration.NewConfig(registry.Admission()))
+	_, _, err = registry.Apply(context.Background(), Dependencies{}, domain.NewConfig(registry.Admission()), domain.NewConfig(registry.Admission()))
 	if !errors.Is(err, applyFailure) || !errors.Is(err, firstRollbackFailure) || !errors.Is(err, secondRollbackFailure) || !errors.Is(err, ErrProjectionRollbackFailed) {
 		t.Fatalf("Apply() error = %v", err)
 	}
@@ -312,7 +312,7 @@ func TestRegistryCancellationStopsNewWritesAndCompensatesPriorAdapters(t *testin
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, _, err = registry.Apply(ctx, Dependencies{}, configuration.NewConfig(registry.Admission()), configuration.NewConfig(registry.Admission()))
+			_, _, err = registry.Apply(ctx, Dependencies{}, domain.NewConfig(registry.Admission()), domain.NewConfig(registry.Admission()))
 			if !errors.Is(err, wantErr) || (conflict != nil && !errors.Is(err, conflict)) {
 				t.Errorf("Apply() error = %v; want %v and any compensation conflict", err, wantErr)
 			}
@@ -329,7 +329,7 @@ func TestRegistryRejectsUnknownClientOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(registry.Admission())
+	cfg := domain.NewConfig(registry.Admission())
 	assertUnknown := func(name string, err error) {
 		t.Helper()
 		if err == nil || !strings.Contains(err.Error(), "no admitted operational adapter") {
@@ -342,10 +342,10 @@ func TestRegistryRejectsUnknownClientOperations(t *testing.T) {
 	assertUnknown("plan", err)
 	_, _, err = registry.Apply(t.Context(), Dependencies{}, cfg, cfg, "unknown")
 	assertUnknown("apply", err)
-	if status := registry.Inspect(context.Background(), Dependencies{}, cfg, "unknown", configuration.Runtime{}); status.Ready || !strings.Contains(status.Issue, "no admitted operational adapter") {
+	if status := registry.Inspect(context.Background(), Dependencies{}, cfg, "unknown", domain.Runtime{}); status.Ready || !strings.Contains(status.Issue, "no admitted operational adapter") {
 		t.Fatalf("unknown inspection = %#v", status)
 	}
-	_, err = registry.Verify(context.Background(), Dependencies{}, cfg, "unknown", configuration.Runtime{}, "")
+	_, err = registry.Verify(context.Background(), Dependencies{}, cfg, "unknown", domain.Runtime{}, "")
 	assertUnknown("verify", err)
 	assertUnknown("withdraw", registry.Withdraw(&cfg, "unknown"))
 	if len(adapter.calls) != 0 {

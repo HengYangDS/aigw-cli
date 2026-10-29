@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 )
 
 func TestCodexInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
@@ -89,9 +90,9 @@ func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	if _, err := credential.EnsureEntrypoint(filepath.Join(root, "predecessor"), retained); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, filepath.Join(root, "predecessor"), nil)
 	runtime, err := cfg.ResolveRuntime(claude.ID, "")
@@ -137,7 +138,7 @@ func TestCancelledProjectionAfterVersionedReaderPreparationRestoresOwnedState(t 
 		cancel()
 	}}
 	syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
-	if err := syncer.CommitProjection(ctx, configuration.NewConfig(clients.Admission()), testConfig(target), "test"); !errors.Is(err, context.Canceled) {
+	if err := syncer.CommitProjection(ctx, domain.NewConfig(clients.Admission()), testConfig(target), "test"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled projection error = %v, want context cancellation", err)
 	}
 	if store.commits != 1 || store.restores != 1 {
@@ -179,7 +180,7 @@ func TestFailedSynchronizationRemovesOnlyItsNewCredentialEntrypoint(t *testing.T
 			}
 			syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: helper}
 			cfg := testConfig(target)
-			err := syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), cfg, "test")
+			err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), cfg, "test")
 			if err == nil {
 				t.Fatal("injected failure did not fail synchronization")
 			}
@@ -269,7 +270,7 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	account := otherActive.Accounts["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	otherActive.Accounts["gateway"] = account
-	otherActive.Routes["claude"] = configuration.Route{Account: "gateway", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	otherActive.Routes["claude"] = domain.Route{Account: "gateway", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	otherActive.SetSelectedRoute(claude.ID, "claude", "")
 	otherActive.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	if action, err := syncer.CredentialEntrypointPlan(otherActive); err != nil || action != CredentialEntrypointUnchanged {
@@ -392,7 +393,7 @@ func TestDisablingOneTokenClientRetainsEntrypointForAnother(t *testing.T) {
 	account := before.Accounts["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Accounts["gateway"] = account
-	before.Routes["claude"] = configuration.Route{Account: "gateway", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	before.Routes["claude"] = domain.Route{Account: "gateway", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedRoute(claude.ID, "claude", "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	store := configuration.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
@@ -428,7 +429,7 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	account := before.Accounts["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Accounts["gateway"] = account
-	before.Routes["claude"] = configuration.Route{Account: "gateway", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	before.Routes["claude"] = domain.Route{Account: "gateway", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedRoute(claude.ID, "claude", "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	binding := before.Clients[claude.ID]

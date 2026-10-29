@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 	"bytes"
 	"context"
@@ -213,7 +214,7 @@ func TestLoadOfMissingConfigReturnsDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Version != ConfigVersion || len(got.Routes) != 0 {
+	if got.Version != domain.ConfigVersion || len(got.Routes) != 0 {
 		t.Fatalf("default config = %#v", got)
 	}
 }

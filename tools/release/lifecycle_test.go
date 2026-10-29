@@ -21,6 +21,7 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/transaction"
 
@@ -174,12 +175,12 @@ func (j *journeyFixture) prepareCodexLifecycle() (string, string) {
 	account := manifest.Accounts["native-system-keyring-probe"]
 	account.Endpoints.OpenAIResponses = j.endpoint
 	manifest.Accounts["native-system-keyring-probe"] = account
-	manifest.Models["gpt-test"] = configuration.Model{Label: "GPT Test"}
-	manifest.Routes["native-codex"] = configuration.Route{
+	manifest.Models["gpt-test"] = domain.Model{Label: "GPT Test"}
+	manifest.Routes["native-codex"] = domain.Route{
 		Label: "Native Codex", Account: "native-system-keyring-probe", Model: "gpt-test", UpstreamModel: "gpt-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	manifest.Recommendations[codex.ID] = configuration.ClientRecommendation{Primary: configuration.ClientSelection{Route: "native-codex"}}
+	manifest.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Route: "native-codex"}}
 	manifestData, err := toml.Marshal(manifest)
 	if err != nil {
 		j.testing.Fatal(err)

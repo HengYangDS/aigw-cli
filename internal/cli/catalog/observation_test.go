@@ -11,49 +11,49 @@ import (
 	"testing"
 
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testing.T) {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{
 		Label: "Gateway",
-		Endpoints: configuration.Endpoints{
+		Endpoints: domain.Endpoints{
 			OpenAIChatCompletions: "https://chat.test/v1",
 			OpenAIResponses:       "https://responses.test/v1",
 		},
 	}
-	cfg.Models["shared"] = configuration.Model{Label: "Shared"}
-	cfg.Models["missing"] = configuration.Model{Label: "Missing"}
-	cfg.Routes["chat"] = configuration.Route{
+	cfg.Models["shared"] = domain.Model{Label: "Shared"}
+	cfg.Models["missing"] = domain.Model{Label: "Missing"}
+	cfg.Routes["chat"] = domain.Route{
 		Label:         "Chat",
 		Account:       "gateway",
 		Model:         "shared",
 		UpstreamModel: "provider-shared",
-		Lifecycle:     configuration.RouteDeprecated,
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolOpenAIChatCompletions: {configuration.CapabilityText},
+		Lifecycle:     domain.RouteDeprecated,
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolOpenAIChatCompletions: {domain.CapabilityText},
 		},
 	}
-	cfg.Routes["responses"] = configuration.Route{
+	cfg.Routes["responses"] = domain.Route{
 		Label:         "Responses",
 		Account:       "gateway",
 		Model:         "shared",
 		UpstreamModel: "provider-shared",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolOpenAIResponses: {
-				configuration.CapabilityText,
-				configuration.CapabilityReasoning,
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolOpenAIResponses: {
+				domain.CapabilityText,
+				domain.CapabilityReasoning,
 			},
 		},
 	}
-	cfg.Routes["missing"] = configuration.Route{
+	cfg.Routes["missing"] = domain.Route{
 		Label:         "Missing",
 		Account:       "gateway",
 		Model:         "missing",
 		UpstreamModel: "provider-missing",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolOpenAIResponses: {configuration.CapabilityText},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolOpenAIResponses: {domain.CapabilityText},
 		},
 	}
 
@@ -84,12 +84,12 @@ func assertObservationIdentityAndSources(t *testing.T, result catalogOutput) {
 		t.Fatalf("observations = %#v", result.Observations)
 	}
 
-	chat := observationForProtocol(t, result, configuration.ProtocolOpenAIChatCompletions)
-	responses := observationForProtocol(t, result, configuration.ProtocolOpenAIResponses)
+	chat := observationForProtocol(t, result, domain.ProtocolOpenAIChatCompletions)
+	responses := observationForProtocol(t, result, domain.ProtocolOpenAIResponses)
 	if chat.ObservationID == "" || responses.ObservationID == "" || chat.ObservationID == responses.ObservationID {
 		t.Fatalf("observation identities do not bind protocol: chat=%q responses=%q", chat.ObservationID, responses.ObservationID)
 	}
-	if got := catalogObservationID("gateway", configuration.ProtocolOpenAIResponses, responses.Source.Endpoint, []string{"provider-new", "provider-shared"}); got != responses.ObservationID {
+	if got := catalogObservationID("gateway", domain.ProtocolOpenAIResponses, responses.Source.Endpoint, []string{"provider-new", "provider-shared"}); got != responses.ObservationID {
 		t.Fatalf("observation identity depends on provider order: got %q want %q", got, responses.ObservationID)
 	}
 	if chat.Source.Endpoint != "https://chat.test/v1/models" || responses.Source.Endpoint != "https://responses.test/v1/models" {
@@ -99,38 +99,38 @@ func assertObservationIdentityAndSources(t *testing.T, result catalogOutput) {
 
 func assertRouteCapabilityIsolation(t *testing.T, result catalogOutput) {
 	t.Helper()
-	chat := observationForProtocol(t, result, configuration.ProtocolOpenAIChatCompletions)
-	responses := observationForProtocol(t, result, configuration.ProtocolOpenAIResponses)
+	chat := observationForProtocol(t, result, domain.ProtocolOpenAIChatCompletions)
+	responses := observationForProtocol(t, result, domain.ProtocolOpenAIResponses)
 	chatShared := observedModel(t, chat, "provider-shared")
 	if chatShared.State != catalogDeprecated || len(chatShared.Routes) != 1 || chatShared.Routes[0].ID != "chat" ||
-		chatShared.Routes[0].Lifecycle != configuration.RouteDeprecated || chatShared.Routes[0].Evidence != catalogObserved ||
-		!reflect.DeepEqual(chatShared.Routes[0].Capabilities, []configuration.Capability{configuration.CapabilityText}) {
+		chatShared.Routes[0].Lifecycle != domain.RouteDeprecated || chatShared.Routes[0].Evidence != catalogObserved ||
+		!reflect.DeepEqual(chatShared.Routes[0].Capabilities, []domain.Capability{domain.CapabilityText}) {
 		t.Fatalf("chat admission = %#v", chatShared.Routes)
 	}
 	responsesShared := observedModel(t, responses, "provider-shared")
 	if responsesShared.State != catalogAdmitted || len(responsesShared.Routes) != 1 || responsesShared.Routes[0].ID != "responses" ||
-		responsesShared.Routes[0].Lifecycle != configuration.RouteAdmitted || responsesShared.Routes[0].Evidence != catalogObserved ||
-		!reflect.DeepEqual(responsesShared.Routes[0].Capabilities, []configuration.Capability{
-			configuration.CapabilityReasoning,
-			configuration.CapabilityText,
+		responsesShared.Routes[0].Lifecycle != domain.RouteAdmitted || responsesShared.Routes[0].Evidence != catalogObserved ||
+		!reflect.DeepEqual(responsesShared.Routes[0].Capabilities, []domain.Capability{
+			domain.CapabilityReasoning,
+			domain.CapabilityText,
 		}) {
 		t.Fatalf("Responses admission = %#v", responsesShared.Routes)
 	}
-	if slices.Contains(chatShared.Routes[0].Capabilities, configuration.CapabilityReasoning) {
+	if slices.Contains(chatShared.Routes[0].Capabilities, domain.CapabilityReasoning) {
 		t.Fatalf("Responses reasoning leaked into Chat Completions: %#v", chatShared.Routes[0])
 	}
 }
 
 func assertCatalogCandidateAndMissingRoute(t *testing.T, result catalogOutput) {
 	t.Helper()
-	chat := observationForProtocol(t, result, configuration.ProtocolOpenAIChatCompletions)
-	responses := observationForProtocol(t, result, configuration.ProtocolOpenAIResponses)
+	chat := observationForProtocol(t, result, domain.ProtocolOpenAIChatCompletions)
+	responses := observationForProtocol(t, result, domain.ProtocolOpenAIResponses)
 	candidate := observedModel(t, responses, "provider-new")
 	if candidate.State != catalogCandidate || len(candidate.Routes) != 0 {
 		t.Fatalf("candidate = %#v", candidate)
 	}
 	if len(responses.MissingRoutes) != 1 || responses.MissingRoutes[0].ID != "missing" ||
-		responses.MissingRoutes[0].Lifecycle != configuration.RouteAdmitted || responses.MissingRoutes[0].Evidence != catalogRequalificationRequired {
+		responses.MissingRoutes[0].Lifecycle != domain.RouteAdmitted || responses.MissingRoutes[0].Evidence != catalogRequalificationRequired {
 		t.Fatalf("missing Routes = %#v", responses.MissingRoutes)
 	}
 	if len(chat.MissingRoutes) != 0 {
@@ -185,12 +185,12 @@ func TestCatalogParsingRejectsAmbiguousContainers(t *testing.T) {
 }
 
 func TestAmbiguousCatalogueDoesNotReportRoutesAsNotListed(t *testing.T) {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://responses.test/v1"}}
-	cfg.Models["shared"] = configuration.Model{Label: "Shared"}
-	cfg.Routes["responses"] = configuration.Route{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://responses.test/v1"}}
+	cfg.Models["shared"] = domain.Model{Label: "Shared"}
+	cfg.Routes["responses"] = domain.Route{
 		Label: "Responses", Account: "gateway", Model: "shared", UpstreamModel: "provider-shared",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {configuration.CapabilityText}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
 	}
 	for body, want := range map[string]string{
 		`{"data":null}`: "Catalog request failed",
@@ -214,7 +214,7 @@ func TestDeprecatedCatalogEntryDoesNotPresentAsAdmitted(t *testing.T) {
 		ID:    "legacy",
 		State: catalogDeprecated,
 		Routes: []catalogRoute{{
-			ID: "legacy-route", Lifecycle: configuration.RouteDeprecated, Evidence: catalogObserved,
+			ID: "legacy-route", Lifecycle: domain.RouteDeprecated, Evidence: catalogObserved,
 		}},
 	})
 	if state == 0 || detail != "Deprecated Routes: legacy-route" {
@@ -243,7 +243,7 @@ func TestDefaultCatalogRenderingKeepsDeprecatedRoutesSeparateFromCandidates(t *t
 	}
 }
 
-func observationForProtocol(t *testing.T, output catalogOutput, protocol configuration.EndpointProtocol) catalogObservation {
+func observationForProtocol(t *testing.T, output catalogOutput, protocol domain.EndpointProtocol) catalogObservation {
 	t.Helper()
 	for _, observation := range output.Observations {
 		if observation.Source.Protocol == protocol {

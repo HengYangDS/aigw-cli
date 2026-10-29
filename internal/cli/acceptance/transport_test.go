@@ -12,7 +12,7 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryAccountChoices(t *testing.T) {
@@ -31,8 +31,8 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryAccountChoices(t *
 			if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			cfg := configuration.NewConfig(clients.Admission())
-			addAccountRoute(&cfg, "codex", "provider", "Provider", configuration.Endpoints{OpenAIResponses: test.endpoint}, codex.ID, "gpt-test")
+			cfg := domain.NewConfig(clients.Admission())
+			addAccountRoute(&cfg, "codex", "provider", "Provider", domain.Endpoints{OpenAIResponses: test.endpoint}, codex.ID, "gpt-test")
 			cfg.SetSelectedRoute(codex.ID, "codex", "")
 			cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 			if err := app.Config.Save(cfg); err != nil {
@@ -77,8 +77,8 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryAccountChoices(t *
 
 func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "local", "local", "Local Endpoint", configuration.Endpoints{Anthropic: "http://127.0.0.2:4567"}, claude.ID, "model-test")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "local", "local", "Local Endpoint", domain.Endpoints{Anthropic: "http://127.0.0.2:4567"}, claude.ID, "model-test")
 	cfg.SetSelectedRoute(claude.ID, "local", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
@@ -104,8 +104,8 @@ func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *tes
 
 func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "remote", "remote", "Remote Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "model-test")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "remote", "remote", "Remote Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "model-test")
 	cfg.SetSelectedRoute(claude.ID, "remote", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
@@ -145,8 +145,8 @@ func TestEndpointOnlyCheckUsesSelectedTLSOrLoopbackAccount(t *testing.T) {
 			if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			cfg := configuration.NewConfig(clients.Admission())
-			addAccountRoute(&cfg, "codex", "selected", "Selected", configuration.Endpoints{OpenAIResponses: server.URL + "/v1"}, codex.ID, "gpt-test")
+			cfg := domain.NewConfig(clients.Admission())
+			addAccountRoute(&cfg, "codex", "selected", "Selected", domain.Endpoints{OpenAIResponses: server.URL + "/v1"}, codex.ID, "gpt-test")
 			cfg.SetSelectedRoute(codex.ID, "codex", "")
 			cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 			if err := app.Config.Save(cfg); err != nil {
@@ -188,8 +188,8 @@ func TestSelectedAccountWorksWithoutInstalledClient(t *testing.T) {
 	app, _, secrets, runner, _ := testApp(t, "")
 	app.Discovery = fakeDiscovery{}
 	app.HTTP = server.Client()
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "codex", "provider", "Provider", configuration.Endpoints{OpenAIResponses: server.URL + "/v1"}, codex.ID, "gpt-test")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "codex", "provider", "Provider", domain.Endpoints{OpenAIResponses: server.URL + "/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

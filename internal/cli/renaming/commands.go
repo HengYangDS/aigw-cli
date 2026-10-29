@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/renaming"
 
 	"github.com/spf13/cobra"
@@ -76,7 +76,7 @@ func renameArguments(runtime invocation.Context, resource string) cobra.Position
 			return err
 		}
 		for _, id := range args {
-			if !configuration.ValidIdentifier(id) {
+			if !domain.ValidIdentifier(id) {
 				return fmt.Errorf("Invalid %s ID %q; run `%s --help`", resource, id, cmd.CommandPath())
 			}
 		}

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 func TestInspectSettingsPreservesSidecarProvenNativeModelPreference(t *testing.T) {
@@ -32,7 +32,7 @@ func TestInspectSettingsPreservesSidecarProvenNativeModelPreference(t *testing.T
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			selected := configuration.Runtime{RouteID: "fable", AccountID: "ucloud", Endpoint: "https://ucloud.test", Model: "claude-fable-5-1"}
+			selected := domain.Runtime{RouteID: "fable", AccountID: "ucloud", Endpoint: "https://ucloud.test", Model: "claude-fable-5-1"}
 			if _, err := ReconcileSettings(path, false, selected, testExecutable(), selected.Model); err != nil {
 				t.Fatal(err)
 			}
@@ -96,7 +96,7 @@ func TestInspectSettingsRejectsConnectionEditsAlongsideModelPreference(t *testin
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			selected := configuration.Runtime{RouteID: "fable", AccountID: "ucloud", Endpoint: "https://ucloud.test", Model: "claude-fable-5-1"}
+			selected := domain.Runtime{RouteID: "fable", AccountID: "ucloud", Endpoint: "https://ucloud.test", Model: "claude-fable-5-1"}
 			if _, err := ReconcileSettings(path, false, selected, testExecutable(), selected.Model); err != nil {
 				t.Fatal(err)
 			}

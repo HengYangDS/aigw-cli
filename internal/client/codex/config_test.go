@@ -2,19 +2,19 @@ package codex_test
 
 import (
 	"aigw-cli/internal/client/codex"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func codexRuntime(profileID, label, endpoint, model string) configuration.Runtime {
+func codexRuntime(profileID, label, endpoint, model string) domain.Runtime {
 	executable, err := os.Executable()
 	if err != nil {
 		panic(err)
 	}
-	return configuration.Runtime{
+	return domain.Runtime{
 		CredentialCommand: executable,
 		RouteID:           profileID,
 		RouteLabel:        label,

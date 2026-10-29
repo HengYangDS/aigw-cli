@@ -5,8 +5,8 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
 	"encoding/json"
@@ -35,12 +35,12 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 			AutoManaged: true,
 		}},
 	}}
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = configuration.Account{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["dmx"] = domain.Account{
 		Label:     "DMXAPI",
-		Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
+		Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	cfg.SetClientActivation(codex.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -292,12 +292,12 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 			AutoManaged: true,
 		}},
 	}}
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = configuration.Account{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["dmx"] = domain.Account{
 		Label:     "DMXAPI",
-		Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
+		Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

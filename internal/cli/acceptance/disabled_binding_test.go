@@ -13,7 +13,7 @@ import (
 	claudeclient "aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -38,9 +38,9 @@ func (store *accountDenyingStore) Exists(account string) (bool, error) {
 func enabledCodexWithDisabledClaude(t *testing.T) (*cli.App, *bytes.Buffer, *accountDenyingStore) {
 	t.Helper()
 	app, out, memory, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "gpt", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
-	addAccountRoute(&cfg, "claude", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, claudeclient.ID, "claude-test")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "gpt", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+	addAccountRoute(&cfg, "claude", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claudeclient.ID, "claude-test")
 	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	cfg.SetSelectedRoute(claudeclient.ID, "claude", "")
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")

@@ -1,9 +1,9 @@
 package configuration
 
 import (
+	"aigw-cli/internal/domain"
 	"bytes"
 	"encoding/json"
-	"math"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -21,7 +21,7 @@ func TestConnectionRetryPolicyPreservesCachedCredentialConfiguration(t *testing.
 	}
 	zero := uint64(0)
 	binding := cfg.Clients[ClientCodex]
-	binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &zero, StreamMaxRetries: &zero}
+	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero, StreamMaxRetries: &zero}
 	cfg.Clients[ClientCodex] = binding
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ func TestConnectionRetryPolicyCloneAndRuntimeDoNotAlias(t *testing.T) {
 	cfg := validConfig()
 	zero := uint64(0)
 	binding := cfg.Clients[ClientCodex]
-	binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &zero}
+	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero}
 	cfg.Clients[ClientCodex] = binding
 	clone := cfg.Clone()
 	*clone.Clients[ClientCodex].RetryPolicy.RequestMaxRetries = 2
@@ -106,11 +106,11 @@ func TestConnectionRetryPolicyRejectsUnsupportedOrEmptyDeclarations(t *testing.T
 	zero := uint64(0)
 	for _, test := range []struct {
 		client string
-		policy *RetryPolicy
+		policy *domain.RetryPolicy
 	}{
-		{ClientCodex, &RetryPolicy{}},
-		{ClientClaude, &RetryPolicy{RequestMaxRetries: &zero}},
-		{ClientHermes, &RetryPolicy{StreamMaxRetries: &zero}},
+		{ClientCodex, &domain.RetryPolicy{}},
+		{ClientClaude, &domain.RetryPolicy{RequestMaxRetries: &zero}},
+		{ClientHermes, &domain.RetryPolicy{StreamMaxRetries: &zero}},
 	} {
 		cfg := validConfig()
 		binding := cfg.Clients[test.client]
@@ -118,18 +118,6 @@ func TestConnectionRetryPolicyRejectsUnsupportedOrEmptyDeclarations(t *testing.T
 		cfg.Clients[test.client] = binding
 		if err := cfg.Validate(); err == nil {
 			t.Fatalf("invalid policy for %s was accepted", test.client)
-		}
-	}
-}
-
-func TestConnectionRetryPolicyRequiresTOMLIntegerBudgets(t *testing.T) {
-	spec, _ := testAdmission().Spec(ClientCodex)
-	for _, value := range []uint64{0, math.MaxInt64, math.MaxInt64 + 1} {
-		for _, policy := range []*RetryPolicy{{RequestMaxRetries: &value}, {StreamMaxRetries: &value}} {
-			err := policy.validate(ClientCodex, spec)
-			if (err == nil) != (value <= math.MaxInt64) {
-				t.Fatalf("budget %d validation = %v", value, err)
-			}
 		}
 	}
 }

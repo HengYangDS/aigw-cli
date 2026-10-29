@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 )
 
@@ -187,7 +187,7 @@ func finalMessagePath(arguments []string) string {
 	return ""
 }
 
-func configuredCodexVerification(t *testing.T, targets ...string) (configuration.Config, configuration.Runtime) {
+func configuredCodexVerification(t *testing.T, targets ...string) (domain.Config, domain.Runtime) {
 	t.Helper()
 	cfg := verificationConfig()
 	runtime, err := cfg.ResolveRuntime(ID, "")
@@ -321,7 +321,7 @@ func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 	executable := cfg.Clients[ID].Executable
 
 	disabled := cfg.Clone()
-	disabled.Clients[ID] = configuration.ClientBinding{}
+	disabled.Clients[ID] = domain.ClientBinding{}
 	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, disabled, runtime, ""); err == nil || !strings.Contains(err.Error(), "adapter is disabled") {
 		t.Fatalf("disabled adapter error = %v", err)
 	}
@@ -349,8 +349,8 @@ func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 		t.Fatalf("missing executable file error = %v", err)
 	}
 	drifted := cfg.Clone()
-	drifted.Routes["codex"] = configuration.Route{Label: "Codex", Account: "one", Model: "other"}
-	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, drifted, configuration.Runtime{RouteID: "codex", Model: "other"}, ""); err == nil || !strings.Contains(err.Error(), "synchronized") {
+	drifted.Routes["codex"] = domain.Route{Label: "Codex", Account: "one", Model: "other"}
+	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, drifted, domain.Runtime{RouteID: "codex", Model: "other"}, ""); err == nil || !strings.Contains(err.Error(), "synchronized") {
 		t.Fatalf("projection error = %v", err)
 	}
 }
@@ -409,14 +409,14 @@ func TestVerifyCodexRequiresSuccessfulFinalMessage(t *testing.T) {
 	}
 }
 
-func verificationConfig() configuration.Config {
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{
+func verificationConfig() domain.Config {
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{
 		OpenAIResponses: "https://one.test/v1",
 		Anthropic:       "https://one.test",
 	}}
-	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "one", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "one", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "one", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "one", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(ID, "codex", "")
 	cfg.SetSelectedRoute(otherClient.ID, "claude", "")
 	return cfg

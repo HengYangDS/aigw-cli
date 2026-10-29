@@ -14,6 +14,7 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 
 	"aigw-cli/internal/clients"
@@ -21,7 +22,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func catalogDependencies(t *testing.T, cfg configuration.Config, secretValues map[string]string, client HTTPDoer) (Dependencies, *bytes.Buffer) {
+func catalogDependencies(t *testing.T, cfg domain.Config, secretValues map[string]string, client HTTPDoer) (Dependencies, *bytes.Buffer) {
 	t.Helper()
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if len(cfg.Routes) > 0 {
@@ -47,16 +48,16 @@ func executeCatalogCommand(t *testing.T, command *cobra.Command, args ...string)
 	return command.Execute()
 }
 
-func configuredCatalog() configuration.Config {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	cfg.Routes["codex"] = configuration.Route{
+func configuredCatalog() domain.Config {
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
+	cfg.Routes["codex"] = domain.Route{
 		Label: "Codex", Account: "gateway", Model: "gpt-codex",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.Routes["claude"] = configuration.Route{
+	cfg.Routes["claude"] = domain.Route{
 		Label: "Claude", Account: "gateway", Model: "gpt-claude",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
 	return cfg
@@ -72,14 +73,14 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 		t.Fatal("expected config load failure")
 	}
 
-	emptyDeps, _ := catalogDependencies(t, configuration.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
+	emptyDeps, _ := catalogDependencies(t, domain.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
 	if err := executeCatalogCommand(t, NewModelsCommand(emptyDeps)); err == nil || !strings.Contains(err.Error(), "not configured") {
 		t.Fatalf("empty config error = %v", err)
 	}
 
 	cfg := configuredCatalog()
-	cfg.Accounts["anthropic"] = configuration.Account{Label: "Anthropic", Endpoints: configuration.Endpoints{Anthropic: "https://anthropic.test"}}
-	cfg.Routes["anthropic"] = configuration.Route{Label: "Anthropic", Account: "anthropic", Model: "claude-only"}
+	cfg.Accounts["anthropic"] = domain.Account{Label: "Anthropic", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}
+	cfg.Routes["anthropic"] = domain.Route{Label: "Anthropic", Account: "anthropic", Model: "claude-only"}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt-codex"]}`)), Request: request}, nil
 	})
@@ -94,25 +95,25 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 		}
 	}
 
-	if rows := modelRows(configuration.NewConfig(clients.Admission()), catalogOutput{}); len(rows) != 0 {
+	if rows := modelRows(domain.NewConfig(clients.Admission()), catalogOutput{}); len(rows) != 0 {
 		t.Fatalf("empty model rows = %#v", rows)
 	}
 }
 
 func TestModelRowsGroupAccountsThenProtocolsThenDeclaredModels(t *testing.T) {
 	cfg := configuredCatalog()
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Order: 10, Endpoints: cfg.Accounts["gateway"].Endpoints}
-	cfg.Models["first"] = configuration.Model{Label: "First", Order: 10}
-	cfg.Models["second"] = configuration.Model{Label: "Second", Order: 20}
-	cfg.Routes = map[string]configuration.Route{}
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Order: 10, Endpoints: cfg.Accounts["gateway"].Endpoints}
+	cfg.Models["first"] = domain.Model{Label: "First", Order: 10}
+	cfg.Models["second"] = domain.Model{Label: "Second", Order: 20}
+	cfg.Routes = map[string]domain.Route{}
 	for _, model := range []string{"second", "first"} {
-		cfg.Routes[model] = configuration.Route{Account: "gateway", Model: model, Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolAnthropic: {}, configuration.ProtocolOpenAIResponses: {}, configuration.ProtocolOpenAIChatCompletions: {},
+		cfg.Routes[model] = domain.Route{Account: "gateway", Model: model, Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {}, domain.ProtocolOpenAIChatCompletions: {},
 		}}
 	}
 	rows := modelRows(cfg, catalogOutput{})
 	index := 0
-	for _, protocol := range []configuration.EndpointProtocol{configuration.ProtocolAnthropic, configuration.ProtocolOpenAIResponses, configuration.ProtocolOpenAIChatCompletions} {
+	for _, protocol := range []domain.EndpointProtocol{domain.ProtocolAnthropic, domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions} {
 		for _, model := range []string{"first", "second"} {
 			if rows[index].Protocol != protocol || rows[index].Model != model {
 				t.Fatalf("catalog row %d = %#v; want protocol=%s model=%s", index, rows[index], protocol, model)
@@ -146,25 +147,25 @@ func TestModelsCommandExplainsCredentialAndCatalogFailures(t *testing.T) {
 }
 
 func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
-	emptyDeps, emptyOut := catalogDependencies(t, configuration.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
+	emptyDeps, emptyOut := catalogDependencies(t, domain.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
 	command := NewCatalogCommand(emptyDeps)
 	if err := executeCatalogCommand(t, command, "--json"); err != nil || !strings.Contains(emptyOut.String(), `"observations": []`) {
 		t.Fatalf("empty JSON output=%q error=%v", emptyOut.String(), err)
 	}
-	emptyDeps, _ = catalogDependencies(t, configuration.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
+	emptyDeps, _ = catalogDependencies(t, domain.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
 	if err := executeCatalogCommand(t, NewCatalogCommand(emptyDeps)); err == nil || !strings.Contains(err.Error(), "not configured") {
 		t.Fatalf("empty human error = %v", err)
 	}
 
 	cfg := configuredCatalog()
-	cfg.Accounts["anthropic"] = configuration.Account{Label: "Anthropic", Endpoints: configuration.Endpoints{Anthropic: "https://anthropic.test"}}
-	cfg.Accounts["missing"] = configuration.Account{Label: "Missing", Endpoints: configuration.Endpoints{OpenAIResponses: "https://missing.test/v1"}}
-	cfg.Accounts["denied"] = configuration.Account{Label: "Denied", Endpoints: configuration.Endpoints{OpenAIResponses: "https://denied.test/v1"}}
-	cfg.Accounts["broken"] = configuration.Account{Label: "Broken", Endpoints: configuration.Endpoints{OpenAIResponses: "https://broken.test/v1"}}
-	cfg.Routes["anthropic"] = configuration.Route{Label: "Anthropic", Account: "anthropic", Model: "claude"}
-	cfg.Routes["missing"] = configuration.Route{Label: "Missing", Account: "missing", Model: "missing"}
-	cfg.Routes["denied"] = configuration.Route{Label: "Denied", Account: "denied", Model: "denied"}
-	cfg.Routes["broken"] = configuration.Route{Label: "Broken", Account: "broken", Model: "broken"}
+	cfg.Accounts["anthropic"] = domain.Account{Label: "Anthropic", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}
+	cfg.Accounts["missing"] = domain.Account{Label: "Missing", Endpoints: domain.Endpoints{OpenAIResponses: "https://missing.test/v1"}}
+	cfg.Accounts["denied"] = domain.Account{Label: "Denied", Endpoints: domain.Endpoints{OpenAIResponses: "https://denied.test/v1"}}
+	cfg.Accounts["broken"] = domain.Account{Label: "Broken", Endpoints: domain.Endpoints{OpenAIResponses: "https://broken.test/v1"}}
+	cfg.Routes["anthropic"] = domain.Route{Label: "Anthropic", Account: "anthropic", Model: "claude"}
+	cfg.Routes["missing"] = domain.Route{Label: "Missing", Account: "missing", Model: "missing"}
+	cfg.Routes["denied"] = domain.Route{Label: "Denied", Account: "denied", Model: "denied"}
+	cfg.Routes["broken"] = domain.Route{Label: "Broken", Account: "broken", Model: "broken"}
 	secretStore := &faultingSecrets{values: map[string]string{"gateway": "token", "denied": "token", "broken": "token"}, failAccount: "denied", getErr: errors.New("denied")}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		if request.URL.Host == "broken.test" {
@@ -239,7 +240,7 @@ func TestCatalogOutputFailuresAndHelpers(t *testing.T) {
 	if len(rows) != 2 || rows[0].Route != "claude" || rows[1].Route != "codex" {
 		t.Fatalf("route rows = %#v", rows)
 	}
-	cfg.Accounts["alpha"] = configuration.Account{Label: "Alpha"}
+	cfg.Accounts["alpha"] = domain.Account{Label: "Alpha"}
 	observations := discoverCatalog(context.Background(), deps, cfg).Observations
 	if len(observations) != 3 || observations[0].Account != "alpha" || observations[1].Account != "gateway" || observations[2].Account != "gateway" {
 		t.Fatalf("catalog observations = %#v", observations)
@@ -280,7 +281,7 @@ func (store *faultingSecrets) Exists(account string) (bool, error) {
 	return ok, nil
 }
 
-func saveCatalogConfig(t *testing.T, cfg configuration.Config) configuration.Store {
+func saveCatalogConfig(t *testing.T, cfg domain.Config) configuration.Store {
 	t.Helper()
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := store.Save(cfg); err != nil {
@@ -294,10 +295,10 @@ func writeUnreadableConfig(path string) error {
 }
 
 func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Routes["other"] = configuration.Route{Account: "other", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.Routes["matching"] = configuration.Route{Account: "one", Model: "canonical", UpstreamModel: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	models, missing := catalogDifference(cfg, "one", configuration.ProtocolOpenAIResponses, []string{"gpt"})
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Routes["other"] = domain.Route{Account: "other", Model: "gpt", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["matching"] = domain.Route{Account: "one", Model: "canonical", UpstreamModel: "gpt", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	models, missing := catalogDifference(cfg, "one", domain.ProtocolOpenAIResponses, []string{"gpt"})
 	if len(models) != 1 || models[0].State != catalogAdmitted || len(models[0].Routes) != 1 || models[0].Routes[0].ID != "matching" || len(missing) != 0 {
 		t.Fatalf("difference models=%#v missing=%#v", models, missing)
 	}
@@ -341,14 +342,14 @@ func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
 
 func TestFetchModelIDsRequestErrorsAndEndpointForms(t *testing.T) {
 	endpoint := "://bad"
-	if _, _, err := FetchIDs(context.Background(), catalogHTTPClient(nil), endpoint, configuration.ProtocolOpenAIResponses, "token"); err == nil {
+	if _, _, err := FetchIDs(context.Background(), catalogHTTPClient(nil), endpoint, domain.ProtocolOpenAIResponses, "token"); err == nil {
 		t.Fatal("expected URL error")
 	}
 
 	want := errors.New("network failed")
 	endpoint = "https://one.test/v1"
 	client := catalogHTTPClient(func(*http.Request) (*http.Response, error) { return nil, want })
-	if _, _, err := FetchIDs(context.Background(), client, endpoint, configuration.ProtocolOpenAIResponses, "token"); !errors.Is(err, want) {
+	if _, _, err := FetchIDs(context.Background(), client, endpoint, domain.ProtocolOpenAIResponses, "token"); !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}
 
@@ -360,7 +361,7 @@ func TestFetchModelIDsRequestErrorsAndEndpointForms(t *testing.T) {
 				}
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt"]}`)), Request: request}, nil
 			})
-			ids, source, err := FetchIDs(context.Background(), client, endpoint, configuration.ProtocolOpenAIResponses, "token")
+			ids, source, err := FetchIDs(context.Background(), client, endpoint, domain.ProtocolOpenAIResponses, "token")
 			if err != nil || len(ids) != 1 || ids[0] != "gpt" {
 				t.Fatalf("ids=%#v error=%v", ids, err)
 			}
@@ -374,7 +375,7 @@ func TestFetchModelIDsRequestErrorsAndEndpointForms(t *testing.T) {
 	client = catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusBadGateway, Body: io.NopCloser(strings.NewReader("bad")), Request: request}, nil
 	})
-	if _, _, err := FetchIDs(context.Background(), client, endpoint, configuration.ProtocolOpenAIResponses, "token"); err == nil || !strings.Contains(err.Error(), "HTTP 502") {
+	if _, _, err := FetchIDs(context.Background(), client, endpoint, domain.ProtocolOpenAIResponses, "token"); err == nil || !strings.Contains(err.Error(), "HTTP 502") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -392,7 +393,7 @@ func TestCatalogMembershipRequiresACompleteResponse(t *testing.T) {
 			client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(test.body), Request: request}, nil
 			})
-			if ids, _, err := FetchIDs(context.Background(), client, "https://catalog.test/v1", configuration.ProtocolOpenAIResponses, "token"); err == nil || len(ids) != 0 {
+			if ids, _, err := FetchIDs(context.Background(), client, "https://catalog.test/v1", domain.ProtocolOpenAIResponses, "token"); err == nil || len(ids) != 0 {
 				t.Fatalf("incomplete catalog established membership: ids=%v error=%v", ids, err)
 			}
 		})
@@ -418,7 +419,7 @@ func (client *recordingClient) Do(request *http.Request) (*http.Response, error)
 
 func TestFetchIDsOwnsCatalogProtocol(t *testing.T) {
 	client := &recordingClient{}
-	ids, _, err := FetchIDs(context.Background(), client, "https://gateway.test/v1", configuration.ProtocolOpenAIResponses, "token")
+	ids, _, err := FetchIDs(context.Background(), client, "https://gateway.test/v1", domain.ProtocolOpenAIResponses, "token")
 	if err != nil {
 		t.Fatal(err)
 	}

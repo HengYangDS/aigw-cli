@@ -20,6 +20,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
@@ -127,15 +128,15 @@ func (candidate setupDiscovery) Discover() discovery.Result {
 	return candidate.result
 }
 
-func manifestSetupConfig() configuration.Config {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+func manifestSetupConfig() domain.Config {
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
+	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
-	cfg.Recommendations[codex.ID] = configuration.ClientRecommendation{Primary: configuration.ClientSelection{Route: "codex"}}
-	cfg.Recommendations[claude.ID] = configuration.ClientRecommendation{Primary: configuration.ClientSelection{Route: "claude"}}
+	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Route: "codex"}}
+	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Route: "claude"}}
 	cfg.SetClientActivation(codex.ID, true, "", nil)
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	return cfg
@@ -420,16 +421,16 @@ interfaces = { openai_responses = ["text"] }
 }
 
 func TestConfiguredClientsForAccount(t *testing.T) {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["legacy"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://legacy.test/v1"}}
-	cfg.Accounts["other"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://other.test"}}
-	cfg.Routes["legacy"] = configuration.Route{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["legacy"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://legacy.test/v1"}}
+	cfg.Accounts["other"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://other.test"}}
+	cfg.Routes["legacy"] = domain.Route{
 		Account: "legacy", Model: "model",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.Routes["other"] = configuration.Route{
+	cfg.Routes["other"] = domain.Route{
 		Account: "other", Model: "model",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 
 	clients := configuredClientsForAccount(cfg, "legacy")
@@ -439,7 +440,7 @@ func TestConfiguredClientsForAccount(t *testing.T) {
 }
 
 func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
-	_, err := planSetup(configuration.NewConfig(clients.Admission()), Request{
+	_, err := planSetup(domain.NewConfig(clients.Admission()), Request{
 		Route: "shared", Client: hermes.ID, Model: "shared-model",
 		OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
 	})
@@ -452,9 +453,9 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 		strings.Contains(rendered.String(), "aigw check") {
 		t.Fatalf("ambiguous Hermes setup recommendation = %q, want %q", rendered.String(), want)
 	}
-	_, err = planSetup(configuration.NewConfig(clients.Admission()), Request{
+	_, err = planSetup(domain.NewConfig(clients.Admission()), Request{
 		Route: "chat", Client: hermes.ID, Model: "chat-model",
-		Protocol: string(configuration.ProtocolOpenAIChatCompletions),
+		Protocol: string(domain.ProtocolOpenAIChatCompletions),
 	})
 	if err == nil || !strings.Contains(err.Error(), "--chat-url") {
 		t.Fatalf("missing Chat endpoint error = %v, want exact URL guidance", err)
@@ -463,28 +464,28 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 	for _, test := range []struct {
 		name     string
 		request  Request
-		protocol configuration.EndpointProtocol
+		protocol domain.EndpointProtocol
 	}{
 		{
 			name: "Anthropic among two endpoints",
 			request: Request{
 				Route: "shared", Client: hermes.ID, Model: "shared-model",
 				OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
-				Protocol: string(configuration.ProtocolAnthropic),
+				Protocol: string(domain.ProtocolAnthropic),
 			},
-			protocol: configuration.ProtocolAnthropic,
+			protocol: domain.ProtocolAnthropic,
 		},
 		{
 			name: "Chat Completions",
 			request: Request{
 				Route: "chat", Client: hermes.ID, Model: "chat-model",
-				ChatURL: "https://chat.test/v1", Protocol: string(configuration.ProtocolOpenAIChatCompletions),
+				ChatURL: "https://chat.test/v1", Protocol: string(domain.ProtocolOpenAIChatCompletions),
 			},
-			protocol: configuration.ProtocolOpenAIChatCompletions,
+			protocol: domain.ProtocolOpenAIChatCompletions,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			plan, err := planSetup(configuration.NewConfig(clients.Admission()), test.request)
+			plan, err := planSetup(domain.NewConfig(clients.Admission()), test.request)
 			if err != nil || plan.config.Clients[hermes.ID].Protocol != test.protocol {
 				t.Fatalf("Hermes setup protocol = %#v, %v", plan.config.Clients[hermes.ID], err)
 			}

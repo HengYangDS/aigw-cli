@@ -6,8 +6,8 @@ import (
 	"slices"
 
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	surfaceidentity "aigw-cli/internal/surface"
 	"aigw-cli/internal/transaction"
 )
@@ -25,11 +25,11 @@ type claudeDesktopAdapter struct{}
 // New returns the Claude Desktop adapter for the composition root to register.
 func New() client.Adapter { return claudeDesktopAdapter{} }
 
-func (claudeDesktopAdapter) Spec() configuration.ClientSpec {
-	return configuration.ClientSpec{
+func (claudeDesktopAdapter) Spec() domain.ClientSpec {
+	return domain.ClientSpec{
 		ID:                     ID,
 		Label:                  "Claude Desktop",
-		EndpointProtocols:      []configuration.EndpointProtocol{configuration.ProtocolAnthropic},
+		EndpointProtocols:      []domain.EndpointProtocol{domain.ProtocolAnthropic},
 		RestartAfterProjection: true,
 		QualifiedModes:         []string{"Chat", "Cowork", "Code"},
 		QualifiedPlatforms:     []string{"macOS"},
@@ -62,10 +62,10 @@ func (claudeDesktopAdapter) Discover(source client.DiscoverySource) discovery.Re
 	}
 }
 
-func (claudeDesktopAdapter) Converge(deps client.Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
+func (claudeDesktopAdapter) Converge(deps client.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
 	runtime, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
-		if _, unselected := errors.AsType[*configuration.RuntimeBindingUnselectedError](err); unselected {
+		if _, unselected := errors.AsType[*domain.RuntimeBindingUnselectedError](err); unselected {
 			return nil
 		}
 		return err
@@ -92,7 +92,7 @@ func (claudeDesktopAdapter) Converge(deps client.Dependencies, cfg *configuratio
 	return nil
 }
 
-func (claudeDesktopAdapter) Plan(deps client.Dependencies, before, after configuration.Config) ([]client.ProjectionPlan, error) {
+func (claudeDesktopAdapter) Plan(deps client.Dependencies, before, after domain.Config) ([]client.ProjectionPlan, error) {
 	plans, targets, err := claudeDesktopPlans(deps, before, after)
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func (receipt claudeDesktopReceipt) Rollback() error {
 	return result
 }
 
-func (claudeDesktopAdapter) Apply(_ context.Context, deps client.Dependencies, before, after configuration.Config) (client.ProjectionReceipt, error) {
+func (claudeDesktopAdapter) Apply(_ context.Context, deps client.Dependencies, before, after domain.Config) (client.ProjectionReceipt, error) {
 	plans, _, err := claudeDesktopPlans(deps, before, after)
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func (claudeDesktopAdapter) Apply(_ context.Context, deps client.Dependencies, b
 	return receipts, nil
 }
 
-func (claudeDesktopAdapter) ProjectionChanged(before, after configuration.Config) bool {
+func (claudeDesktopAdapter) ProjectionChanged(before, after domain.Config) bool {
 	previous, current := before.Clients[ID], after.Clients[ID]
 	if previous.Enabled != current.Enabled || previous.Executable != current.Executable || previous.CredentialCommand != current.CredentialCommand || !slices.Equal(previous.Targets, current.Targets) {
 		return true
@@ -147,7 +147,7 @@ func (claudeDesktopAdapter) ProjectionChanged(before, after configuration.Config
 		claudeDesktopToolSearch(before, left) != claudeDesktopToolSearch(after, right)
 }
 
-func (claudeDesktopAdapter) Inspect(ctx context.Context, deps client.Dependencies, cfg configuration.Config, selected configuration.Runtime) client.Status {
+func (claudeDesktopAdapter) Inspect(ctx context.Context, deps client.Dependencies, cfg domain.Config, selected domain.Runtime) client.Status {
 	if err := ctx.Err(); err != nil {
 		return client.Status{Issue: err.Error()}
 	}
@@ -172,7 +172,7 @@ func (claudeDesktopAdapter) Inspect(ctx context.Context, deps client.Dependencie
 	return client.Status{Ready: true}
 }
 
-func claudeDesktopInspectionPlan(deps client.Dependencies, cfg configuration.Config, selected configuration.Runtime, paths Paths) (Plan, error) {
+func claudeDesktopInspectionPlan(deps client.Dependencies, cfg domain.Config, selected domain.Runtime, paths Paths) (Plan, error) {
 	desired, err := claudeDesktopDesired(deps, cfg, selected)
 	if err != nil {
 		return Plan{}, err
@@ -194,21 +194,21 @@ func claudeDesktopInspectionPlan(deps client.Dependencies, cfg configuration.Con
 	return Prepare(paths, &desired)
 }
 
-func (claudeDesktopAdapter) Verify(context.Context, client.Dependencies, configuration.Config, configuration.Runtime, string) (client.Verification, error) {
+func (claudeDesktopAdapter) Verify(context.Context, client.Dependencies, domain.Config, domain.Runtime, string) (client.Verification, error) {
 	return client.Verification{}, errors.New("Claude Desktop verification requires explicit native Chat, Cowork, or Code acceptance")
 }
 
 // AdoptSelection adopts nothing: Claude Desktop has no native selection that AIGW
 // records as its Client Binding.
-func (claudeDesktopAdapter) AdoptSelection(client.Dependencies, *configuration.Config) (string, error) {
+func (claudeDesktopAdapter) AdoptSelection(client.Dependencies, *domain.Config) (string, error) {
 	return "", nil
 }
 
-func (claudeDesktopAdapter) Withdraw(cfg *configuration.Config) {
+func (claudeDesktopAdapter) Withdraw(cfg *domain.Config) {
 	delete(cfg.Clients, ID)
 }
 
-func claudeDesktopPlans(deps client.Dependencies, before, after configuration.Config) ([]Plan, []string, error) {
+func claudeDesktopPlans(deps client.Dependencies, before, after domain.Config) ([]Plan, []string, error) {
 	previous, current := before.Clients[ID], after.Clients[ID]
 	if !previous.Enabled && !current.Enabled {
 		return nil, nil, nil
@@ -249,7 +249,7 @@ func claudeDesktopPlans(deps client.Dependencies, before, after configuration.Co
 	return plans, targets, nil
 }
 
-func claudeDesktopDesired(deps client.Dependencies, cfg configuration.Config, selected configuration.Runtime) (Desired, error) {
+func claudeDesktopDesired(deps client.Dependencies, cfg domain.Config, selected domain.Runtime) (Desired, error) {
 	helper := selected.CredentialExecutable(deps.AIGWExecutable)
 	arguments := []string{}
 	if selected.UsesAIGWCredentialStore() {
@@ -267,7 +267,7 @@ func claudeDesktopDesired(deps client.Dependencies, cfg configuration.Config, se
 
 // claudeDesktopRouteIDs lists the Routes the profile exposes: the selected
 // Route, then each compatible Route of its Account with a distinct Model.
-func claudeDesktopRouteIDs(cfg configuration.Config, selected configuration.Runtime) []string {
+func claudeDesktopRouteIDs(cfg domain.Config, selected domain.Runtime) []string {
 	routeIDs := []string{selected.RouteID}
 	seen := map[string]bool{cfg.Routes[selected.RouteID].Model: true}
 	spec := claudeDesktopAdapter{}.Spec()
@@ -289,7 +289,7 @@ func claudeDesktopRouteIDs(cfg configuration.Config, selected configuration.Runt
 	return routeIDs
 }
 
-func claudeDesktopModels(cfg configuration.Config, selected configuration.Runtime) []Model {
+func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {
 	routeIDs := claudeDesktopRouteIDs(cfg, selected)
 	models := []Model{{Name: selected.Model, Label: selected.RouteLabel}}
 	for _, routeID := range routeIDs[1:] {
@@ -300,9 +300,9 @@ func claudeDesktopModels(cfg configuration.Config, selected configuration.Runtim
 
 // claudeDesktopToolSearch enables Desktop's profile-wide host tool search only
 // when every exposed Route qualified it on the selected protocol.
-func claudeDesktopToolSearch(cfg configuration.Config, selected configuration.Runtime) bool {
+func claudeDesktopToolSearch(cfg domain.Config, selected domain.Runtime) bool {
 	for _, routeID := range claudeDesktopRouteIDs(cfg, selected) {
-		if !cfg.Routes[routeID].Declares(selected.Protocol, configuration.CapabilityToolSearch) {
+		if !cfg.Routes[routeID].Declares(selected.Protocol, domain.CapabilityToolSearch) {
 			return false
 		}
 	}

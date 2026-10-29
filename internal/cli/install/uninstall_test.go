@@ -15,6 +15,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 )
 
 // hostAt observes home as the user's home directory, so Claude Code's settings
@@ -85,11 +86,11 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 			t.Fatal(err)
 		}
 		store := configuration.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission())
-		cfg := configuration.NewConfig(clients.Admission())
-		cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-		cfg.Routes["claude"] = configuration.Route{
+		cfg := domain.NewConfig(clients.Admission())
+		cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+		cfg.Routes["claude"] = domain.Route{
 			Label: "Claude", Account: "gateway", Model: "claude-test",
-			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+			Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 		}
 		cfg.SetSelectedRoute(claude.ID, "claude", "")
 		cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)

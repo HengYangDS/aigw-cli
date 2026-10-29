@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"aigw-cli/internal/domain"
 	"bytes"
 	"os"
 	"slices"
@@ -45,14 +46,14 @@ anthropic = []
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := Merge(NewConfig(testAdmission()), manifest)
+	cfg, err := domain.Merge(domain.NewConfig(testAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Accounts["unranked"] = Account{Label: "Unranked", Endpoints: Endpoints{Anthropic: "https://unranked.test"}}
-	cfg.Models["unranked"] = Model{Label: "Unranked"}
-	cfg.Routes["zulu-unranked"] = testRoute("Unranked", "zulu", "unranked", ProtocolAnthropic)
-	cfg.Routes["unranked"] = testRoute("Unranked", "unranked", "first", ProtocolAnthropic)
+	cfg.Accounts["unranked"] = domain.Account{Label: "Unranked", Endpoints: domain.Endpoints{Anthropic: "https://unranked.test"}}
+	cfg.Models["unranked"] = domain.Model{Label: "Unranked"}
+	cfg.Routes["zulu-unranked"] = testRoute("Unranked", "zulu", "unranked", domain.ProtocolAnthropic)
+	cfg.Routes["unranked"] = testRoute("Unranked", "unranked", "first", domain.ProtocolAnthropic)
 	want := []string{"zulu-z", "zulu-a", "zulu-unranked", "alpha", "unranked"}
 	if got := cfg.CatalogRouteIDs(); !slices.Equal(got, want) {
 		t.Fatalf("declared Account/Model order = %v, want %v", got, want)
@@ -133,30 +134,30 @@ func TestCatalogRouteIDsGroupsServicesBeforeModels(t *testing.T) {
 			name = "ranked"
 		}
 		t.Run(name, func(t *testing.T) {
-			cfg := NewConfig(testAdmission())
-			endpoints := Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1", OpenAIChatCompletions: "https://team.test/v1"}
+			cfg := domain.NewConfig(testAdmission())
+			endpoints := domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1", OpenAIChatCompletions: "https://team.test/v1"}
 			rank := 0
 			if ranked {
 				rank = 10
 			}
-			cfg.Accounts["alpha"] = Account{Label: "Alpha", Endpoints: endpoints, Order: 2 * rank}
-			cfg.Accounts["zulu"] = Account{Label: "Zulu", Endpoints: endpoints, Order: rank}
-			cfg.Models["strong"] = Model{Label: "Strong", Order: rank}
-			cfg.Models["weak"] = Model{Label: "Weak", Order: 2 * rank}
+			cfg.Accounts["alpha"] = domain.Account{Label: "Alpha", Endpoints: endpoints, Order: 2 * rank}
+			cfg.Accounts["zulu"] = domain.Account{Label: "Zulu", Endpoints: endpoints, Order: rank}
+			cfg.Models["strong"] = domain.Model{Label: "Strong", Order: rank}
+			cfg.Models["weak"] = domain.Model{Label: "Weak", Order: 2 * rank}
 			for _, row := range []struct {
 				id, account, model string
-				protocol           EndpointProtocol
+				protocol           domain.EndpointProtocol
 			}{
-				{"z-chat", "zulu", "strong", ProtocolOpenAIChatCompletions},
-				{"z-responses-strong", "zulu", "strong", ProtocolOpenAIResponses},
-				{"z-responses-weak", "zulu", "weak", ProtocolOpenAIResponses},
-				{"z-native-strong", "zulu", "strong", ProtocolAnthropic},
-				{"z-native-weak", "zulu", "weak", ProtocolAnthropic},
-				{"a-native", "alpha", "strong", ProtocolAnthropic},
+				{"z-chat", "zulu", "strong", domain.ProtocolOpenAIChatCompletions},
+				{"z-responses-strong", "zulu", "strong", domain.ProtocolOpenAIResponses},
+				{"z-responses-weak", "zulu", "weak", domain.ProtocolOpenAIResponses},
+				{"z-native-strong", "zulu", "strong", domain.ProtocolAnthropic},
+				{"z-native-weak", "zulu", "weak", domain.ProtocolAnthropic},
+				{"a-native", "alpha", "strong", domain.ProtocolAnthropic},
 			} {
 				cfg.Routes[row.id] = testRoute(row.id, row.account, row.model, row.protocol)
 			}
-			cfg.Routes["z-multi"] = Route{Account: "zulu", Model: "strong", Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}, ProtocolAnthropic: {}}}
+			cfg.Routes["z-multi"] = domain.Route{Account: "zulu", Model: "strong", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}, domain.ProtocolAnthropic: {}}}
 			cfg.SetSelectedRoute(ClientCodex, "z-responses-strong", "")
 			cfg.Normalize()
 			canonical := cfg.RouteIDs()

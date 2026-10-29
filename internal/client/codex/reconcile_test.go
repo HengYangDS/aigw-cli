@@ -1,7 +1,7 @@
 package codex
 
 import (
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/surface"
 	"aigw-cli/internal/transaction"
 	"bytes"
@@ -329,7 +329,7 @@ func TestRollbackCodexArtifactsPreservesExternalEdit(t *testing.T) {
 }
 
 func TestPrepareCodexReconciliationRejectsInvalidTarget(t *testing.T) {
-	_, err := prepareCodexReconciliation([]TargetRef{{Path: ""}}, nil, configuration.Runtime{})
+	_, err := prepareCodexReconciliation([]TargetRef{{Path: ""}}, nil, domain.Runtime{})
 	if err == nil {
 		t.Error("expected error for invalid target")
 	}
@@ -399,7 +399,7 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 	t.Run("endpoint missing", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		writeCodexFixture(t, path, "external = true\n")
-		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, configuration.Runtime{RouteID: "missing-endpoint"}); err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
+		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, domain.Runtime{RouteID: "missing-endpoint"}); err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
 			t.Fatalf("PlanReconciliation() error = %v", err)
 		}
 	})

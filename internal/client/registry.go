@@ -11,8 +11,8 @@ import (
 	"reflect"
 	"slices"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/transaction"
@@ -92,22 +92,22 @@ type Verification struct {
 
 // Adapter is the complete operational boundary for one admitted client.
 type Adapter interface {
-	Spec() configuration.ClientSpec
+	Spec() domain.ClientSpec
 	Discover(source DiscoverySource) discovery.Result
-	Converge(deps Dependencies, cfg *configuration.Config, discovered discovery.Result) error
+	Converge(deps Dependencies, cfg *domain.Config, discovered discovery.Result) error
 	// Plan completely describes Apply's owned projection effects at observation
 	// time. Nil or empty plans mean no projection effects; ChangesState covers
 	// every effect that would alter the current native state.
-	Plan(deps Dependencies, before, after configuration.Config) ([]ProjectionPlan, error)
-	Apply(ctx context.Context, deps Dependencies, before, after configuration.Config) (ProjectionReceipt, error)
-	ProjectionChanged(before, after configuration.Config) bool
-	Inspect(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime) Status
-	Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, runtime configuration.Runtime, prompt string) (Verification, error)
+	Plan(deps Dependencies, before, after domain.Config) ([]ProjectionPlan, error)
+	Apply(ctx context.Context, deps Dependencies, before, after domain.Config) (ProjectionReceipt, error)
+	ProjectionChanged(before, after domain.Config) bool
+	Inspect(ctx context.Context, deps Dependencies, cfg domain.Config, runtime domain.Runtime) Status
+	Verify(ctx context.Context, deps Dependencies, cfg domain.Config, runtime domain.Runtime, prompt string) (Verification, error)
 	// AdoptSelection records the client's own selection inside AIGW's projected
 	// catalogue as its Client Binding and returns the adopted Route, or an empty
 	// string when the client shows its bound selection or adopts nothing.
-	AdoptSelection(deps Dependencies, cfg *configuration.Config) (string, error)
-	Withdraw(cfg *configuration.Config)
+	AdoptSelection(deps Dependencies, cfg *domain.Config) (string, error)
+	Withdraw(cfg *domain.Config)
 }
 
 // TargetValidator is implemented by an adapter whose configuration targets the
@@ -127,7 +127,7 @@ type HostValidator interface {
 type Registry struct {
 	byID      map[string]Adapter
 	ids       []string
-	admission configuration.Admission
+	admission domain.Admission
 }
 
 // NewRegistry registers the operational adapters in the given order. Each
@@ -136,7 +136,7 @@ type Registry struct {
 func NewRegistry(adapters ...Adapter) (Registry, error) {
 	byID := make(map[string]Adapter, len(adapters))
 	ids := make([]string, 0, len(adapters))
-	specs := make([]configuration.ClientSpec, 0, len(adapters))
+	specs := make([]domain.ClientSpec, 0, len(adapters))
 	for _, adapter := range adapters {
 		if adapter == nil {
 			return Registry{}, fmt.Errorf("client adapter is nil")
@@ -152,12 +152,12 @@ func NewRegistry(adapters ...Adapter) (Registry, error) {
 		ids = append(ids, spec.ID)
 		specs = append(specs, spec)
 	}
-	return Registry{byID: byID, ids: ids, admission: configuration.NewAdmission(specs...)}, nil
+	return Registry{byID: byID, ids: ids, admission: domain.NewAdmission(specs...)}, nil
 }
 
 // Admission returns the admitted clients' specifications in admission order,
 // the client set that every configuration of this program admits.
-func (registry Registry) Admission() configuration.Admission { return registry.admission }
+func (registry Registry) Admission() domain.Admission { return registry.admission }
 
 // Discover observes every admitted client through its adapter.
 func (registry Registry) Discover(source DiscoverySource) discovery.Result {
@@ -173,15 +173,15 @@ func (registry Registry) Discover(source DiscoverySource) discovery.Result {
 
 // Converge derives adapter configuration for the requested clients. An empty
 // list means every admitted adapter.
-func (registry Registry) Converge(deps Dependencies, before configuration.Config, discovered discovery.Result, clients ...string) (configuration.Config, error) {
+func (registry Registry) Converge(deps Dependencies, before domain.Config, discovered discovery.Result, clients ...string) (domain.Config, error) {
 	after := before.Clone()
 	adapters, err := registry.selectAdapters(clients)
 	if err != nil {
-		return configuration.Config{}, err
+		return domain.Config{}, err
 	}
 	for _, adapter := range adapters {
 		if err := adapter.Converge(deps, &after, discovered); err != nil {
-			return configuration.Config{}, err
+			return domain.Config{}, err
 		}
 	}
 	return after, nil
@@ -189,7 +189,7 @@ func (registry Registry) Converge(deps Dependencies, before configuration.Config
 
 // Plan prepares requested adapters before any projection is written. An empty
 // client list selects every admitted adapter.
-func (registry Registry) Plan(deps Dependencies, before, after configuration.Config, clientIDs ...string) ([]ProjectionPlan, error) {
+func (registry Registry) Plan(deps Dependencies, before, after domain.Config, clientIDs ...string) ([]ProjectionPlan, error) {
 	adapters, err := registry.selectAdapters(clientIDs)
 	if err != nil {
 		return nil, err
@@ -208,7 +208,7 @@ func (registry Registry) Plan(deps Dependencies, before, after configuration.Con
 // Apply rechecks current plans and skips converged, unchanged configurations.
 // On success it reports native state changes and returns one compensation
 // receipt. Earlier adapters are compensated on failure.
-func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, after configuration.Config, clientIDs ...string) (resultReceipt ProjectionReceipt, projectionChanged bool, resultErr error) {
+func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, after domain.Config, clientIDs ...string) (resultReceipt ProjectionReceipt, projectionChanged bool, resultErr error) {
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
 	}
@@ -259,7 +259,7 @@ type projectionReceipts []ProjectionReceipt
 func (receipts projectionReceipts) Rollback() error { return rollbackReceipts(receipts) }
 
 // ChangedClients returns clients whose persistent projection changes, in admission order.
-func (registry Registry) ChangedClients(before, after configuration.Config) []string {
+func (registry Registry) ChangedClients(before, after domain.Config) []string {
 	var changed []string
 	for _, id := range registry.ids {
 		adapter := registry.byID[id]
@@ -272,7 +272,7 @@ func (registry Registry) ChangedClients(before, after configuration.Config) []st
 
 // Inspect observes one client without mutating it. Unknown clients are reported
 // as an unavailable status so read-only callers need no parallel error path.
-func (registry Registry) Inspect(ctx context.Context, deps Dependencies, cfg configuration.Config, clientID string, runtime configuration.Runtime) Status {
+func (registry Registry) Inspect(ctx context.Context, deps Dependencies, cfg domain.Config, clientID string, runtime domain.Runtime) Status {
 	adapter, ok := registry.byID[clientID]
 	if !ok {
 		return Status{Issue: fmt.Sprintf("client %q has no admitted operational adapter", clientID), RepairAction: "aigw repair"}
@@ -281,7 +281,7 @@ func (registry Registry) Inspect(ctx context.Context, deps Dependencies, cfg con
 }
 
 // Verify runs one explicit live verification through the admitted adapter.
-func (registry Registry) Verify(ctx context.Context, deps Dependencies, cfg configuration.Config, clientID string, runtime configuration.Runtime, explicitRoute string) (Verification, error) {
+func (registry Registry) Verify(ctx context.Context, deps Dependencies, cfg domain.Config, clientID string, runtime domain.Runtime, explicitRoute string) (Verification, error) {
 	adapter, err := registry.adapter(clientID)
 	if err != nil {
 		return Verification{}, err
@@ -291,7 +291,7 @@ func (registry Registry) Verify(ctx context.Context, deps Dependencies, cfg conf
 
 // Withdraw removes the selected adapter from desired configuration. The
 // synchronization transaction then uses the same adapter to remove owned state.
-func (registry Registry) Withdraw(cfg *configuration.Config, clientID string) error {
+func (registry Registry) Withdraw(cfg *domain.Config, clientID string) error {
 	adapter, err := registry.adapter(clientID)
 	if err != nil {
 		return err
@@ -302,7 +302,7 @@ func (registry Registry) Withdraw(cfg *configuration.Config, clientID string) er
 
 // AdoptSelections records each admitted client's own selection as its Client
 // Binding in admission order, and returns the adopted Route per client.
-func (registry Registry) AdoptSelections(deps Dependencies, cfg *configuration.Config) (map[string]string, error) {
+func (registry Registry) AdoptSelections(deps Dependencies, cfg *domain.Config) (map[string]string, error) {
 	adopted := map[string]string{}
 	for _, id := range registry.ids {
 		routeID, err := registry.byID[id].AdoptSelection(deps, cfg)

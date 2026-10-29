@@ -12,8 +12,8 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/contract"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 )
 
@@ -24,8 +24,8 @@ const rehearsalID = "rehearsal"
 // and its fixtures. It projects its bound Route into one file of its home.
 type rehearsalAdapter struct{ home string }
 
-func (rehearsalAdapter) Spec() configuration.ClientSpec {
-	return configuration.ClientSpec{ID: rehearsalID, Label: "Rehearsal", EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
+func (rehearsalAdapter) Spec() domain.ClientSpec {
+	return domain.ClientSpec{ID: rehearsalID, Label: "Rehearsal", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
 }
 
 func (adapter rehearsalAdapter) target() string {
@@ -39,12 +39,12 @@ func (adapter rehearsalAdapter) Discover(source client.DiscoverySource) discover
 	}
 }
 
-func (rehearsalAdapter) Converge(client.Dependencies, *configuration.Config, discovery.Result) error {
+func (rehearsalAdapter) Converge(client.Dependencies, *domain.Config, discovery.Result) error {
 	return nil
 }
 
 // projection returns the bytes that cfg projects, or none without an enabled binding.
-func (rehearsalAdapter) projection(cfg configuration.Config) ([]byte, error) {
+func (rehearsalAdapter) projection(cfg domain.Config) ([]byte, error) {
 	binding := cfg.Clients[rehearsalID]
 	if !binding.Enabled {
 		return nil, nil
@@ -57,7 +57,7 @@ func (rehearsalAdapter) projection(cfg configuration.Config) ([]byte, error) {
 }
 
 // change compares the current projection with the one that cfg wants.
-func (adapter rehearsalAdapter) change(cfg configuration.Config) (current transaction.FileSnapshot, desired []byte, changes bool, err error) {
+func (adapter rehearsalAdapter) change(cfg domain.Config) (current transaction.FileSnapshot, desired []byte, changes bool, err error) {
 	if desired, err = adapter.projection(cfg); err != nil {
 		return transaction.FileSnapshot{}, nil, false, err
 	}
@@ -67,7 +67,7 @@ func (adapter rehearsalAdapter) change(cfg configuration.Config) (current transa
 	return current, desired, current.Exists != (desired != nil) || desired != nil && !bytes.Equal(current.Data, desired), nil
 }
 
-func (adapter rehearsalAdapter) Plan(_ client.Dependencies, before, after configuration.Config) ([]client.ProjectionPlan, error) {
+func (adapter rehearsalAdapter) Plan(_ client.Dependencies, before, after domain.Config) ([]client.ProjectionPlan, error) {
 	if !before.Clients[rehearsalID].Enabled && !after.Clients[rehearsalID].Enabled {
 		return nil, nil
 	}
@@ -94,7 +94,7 @@ func (receipt rehearsalReceipt) Rollback() error {
 	return transaction.RestoreFileAtomicIfPostimage(receipt.path, receipt.preimage, receipt.postimage)
 }
 
-func (adapter rehearsalAdapter) Apply(_ context.Context, _ client.Dependencies, before, after configuration.Config) (client.ProjectionReceipt, error) {
+func (adapter rehearsalAdapter) Apply(_ context.Context, _ client.Dependencies, before, after domain.Config) (client.ProjectionReceipt, error) {
 	if !before.Clients[rehearsalID].Enabled && !after.Clients[rehearsalID].Enabled {
 		return nil, nil
 	}
@@ -114,39 +114,39 @@ func (adapter rehearsalAdapter) Apply(_ context.Context, _ client.Dependencies, 
 	return rehearsalReceipt{path: adapter.target(), preimage: current, postimage: written}, nil
 }
 
-func (adapter rehearsalAdapter) ProjectionChanged(before, after configuration.Config) bool {
+func (adapter rehearsalAdapter) ProjectionChanged(before, after domain.Config) bool {
 	previous, previousErr := adapter.projection(before)
 	current, currentErr := adapter.projection(after)
 	return previousErr != nil || currentErr != nil || !bytes.Equal(previous, current)
 }
 
-func (adapter rehearsalAdapter) Inspect(_ context.Context, _ client.Dependencies, cfg configuration.Config, _ configuration.Runtime) client.Status {
+func (adapter rehearsalAdapter) Inspect(_ context.Context, _ client.Dependencies, cfg domain.Config, _ domain.Runtime) client.Status {
 	if _, _, changes, err := adapter.change(cfg); err != nil || changes {
 		return client.Status{Issue: "Rehearsal projection differs from the selected Route", RepairAction: "aigw sync"}
 	}
 	return client.Status{Ready: true}
 }
 
-func (rehearsalAdapter) Verify(context.Context, client.Dependencies, configuration.Config, configuration.Runtime, string) (client.Verification, error) {
+func (rehearsalAdapter) Verify(context.Context, client.Dependencies, domain.Config, domain.Runtime, string) (client.Verification, error) {
 	return client.Verification{}, errors.New("rehearsal verification runs no client")
 }
 
-func (rehearsalAdapter) AdoptSelection(client.Dependencies, *configuration.Config) (string, error) {
+func (rehearsalAdapter) AdoptSelection(client.Dependencies, *domain.Config) (string, error) {
 	return "", nil
 }
 
-func (rehearsalAdapter) Withdraw(cfg *configuration.Config) {
+func (rehearsalAdapter) Withdraw(cfg *domain.Config) {
 	delete(cfg.Clients, rehearsalID)
 }
 
 // rehearsalConfiguration returns a configuration pair that the given admission
 // governs, before and after the rehearsal client selects its Route.
-func rehearsalConfiguration(admission configuration.Admission) (configuration.Config, configuration.Config) {
-	before := configuration.NewConfig(admission)
-	before.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	before.Routes["rehearsal"] = qualifiedRoute("", "gateway", "rehearsal-model", configuration.ProtocolOpenAIResponses)
+func rehearsalConfiguration(admission domain.Admission) (domain.Config, domain.Config) {
+	before := domain.NewConfig(admission)
+	before.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	before.Routes["rehearsal"] = qualifiedRoute("", "gateway", "rehearsal-model", domain.ProtocolOpenAIResponses)
 	after := before.Clone()
-	after.Clients[rehearsalID] = configuration.ClientBinding{Route: "rehearsal", Enabled: true}
+	after.Clients[rehearsalID] = domain.ClientBinding{Route: "rehearsal", Enabled: true}
 	return before, after
 }
 
@@ -154,7 +154,7 @@ func TestRehearsalAdapterKeepsTheSeamContract(t *testing.T) {
 	contract.Run(t, func(t *testing.T) contract.Fixture {
 		home := t.TempDir()
 		adapter := rehearsalAdapter{home: home}
-		before, after := rehearsalConfiguration(configuration.NewAdmission(adapter.Spec()))
+		before, after := rehearsalConfiguration(domain.NewAdmission(adapter.Spec()))
 		return contract.Fixture{Adapter: adapter, Home: home, Before: before, After: after}
 	})
 }
@@ -184,7 +184,7 @@ func TestRehearsalClientJoinsTheBuiltInSet(t *testing.T) {
 	if _, _, err := registry.Apply(t.Context(), client.Dependencies{}, before, after, rehearsalID); err != nil {
 		t.Fatal(err)
 	}
-	if status := registry.Inspect(t.Context(), client.Dependencies{}, after, rehearsalID, configuration.Runtime{}); !status.Ready {
+	if status := registry.Inspect(t.Context(), client.Dependencies{}, after, rehearsalID, domain.Runtime{}); !status.Ready {
 		t.Fatalf("rehearsal status = %#v", status)
 	}
 }

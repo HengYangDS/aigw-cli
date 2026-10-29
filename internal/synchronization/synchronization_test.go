@@ -7,6 +7,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
@@ -72,7 +73,7 @@ func (s *configStoreStub) CaptureSnapshot() (configuration.Snapshot, error) {
 	return s.snapshot, s.captureErr
 }
 
-func (s *configStoreStub) bindConfiguration(t *testing.T, cfg configuration.Config) {
+func (s *configStoreStub) bindConfiguration(t *testing.T, cfg domain.Config) {
 	t.Helper()
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 	if err := store.Save(cfg); err != nil {
@@ -85,7 +86,7 @@ func (s *configStoreStub) bindConfiguration(t *testing.T, cfg configuration.Conf
 	s.snapshot = snapshot
 }
 
-func (s *configStoreStub) Commit(configuration.Snapshot, configuration.Config) (configuration.Snapshot, error) {
+func (s *configStoreStub) Commit(configuration.Snapshot, domain.Config) (configuration.Snapshot, error) {
 	s.commits++
 	if s.onCommit != nil {
 		s.onCommit()
@@ -98,10 +99,10 @@ func (s *configStoreStub) RestoreSnapshot(configuration.Snapshot, configuration.
 	return s.restoreErr
 }
 
-func testConfig(target string) configuration.Config {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Routes["gpt"] = configuration.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+func testConfig(target string) domain.Config {
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Routes["gpt"] = domain.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	return cfg
@@ -122,7 +123,7 @@ func targetDiscovery(target string) staticDiscovery {
 
 func TestWithdrawDefaultsToEveryAdmittedClientAndRejectsUnknownClients(t *testing.T) {
 	syncer := Synchronizer{Registry: builtinClients}
-	cfg := configuration.NewConfig(clients.Admission())
+	cfg := domain.NewConfig(clients.Admission())
 	for _, clientID := range syncer.ClientIDs() {
 		cfg.SetClientActivation(clientID, true, "", nil)
 	}
@@ -184,7 +185,7 @@ func TestCancelledCommitPreservesConfiguration(t *testing.T) {
 		t.Run(operation, func(t *testing.T) {
 			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 			before := testConfig("")
-			before.Clients = map[string]configuration.ClientBinding{}
+			before.Clients = map[string]domain.ClientBinding{}
 			if err := store.Save(before); err != nil {
 				t.Fatal(err)
 			}
@@ -193,7 +194,7 @@ func TestCancelledCommitPreservesConfiguration(t *testing.T) {
 				t.Fatal(err)
 			}
 			after := before.Clone()
-			after.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
+			after.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 			syncer := Synchronizer{Registry: builtinClients, Config: store}
 			ctx, cancel := context.WithCancel(t.Context())
 			cancel()
@@ -217,12 +218,12 @@ func TestCancelledCommitPreservesConfiguration(t *testing.T) {
 }
 
 func TestCommitPersistenceFailureBoundaries(t *testing.T) {
-	before := configuration.NewConfig(clients.Admission())
+	before := domain.NewConfig(clients.Admission())
 	// The committed configuration must itself be savable, so the injected
 	// persistence failures are the ones that stop the commit.
-	after := configuration.NewConfig(clients.Admission())
-	after.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	after.Routes["gpt"] = configuration.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	after := domain.NewConfig(clients.Admission())
+	after.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	after.Routes["gpt"] = domain.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	want := errors.New("failure")
 	tests := []struct {
 		name  string
@@ -254,7 +255,7 @@ func (store cancellingConfigStore) CaptureSnapshot() (configuration.Snapshot, er
 	return snapshot, err
 }
 
-func (store cancellingConfigStore) Commit(before configuration.Snapshot, cfg configuration.Config) (configuration.Snapshot, error) {
+func (store cancellingConfigStore) Commit(before configuration.Snapshot, cfg domain.Config) (configuration.Snapshot, error) {
 	snapshot, err := store.Store.Commit(before, cfg)
 	if store.phase == "persistence" {
 		store.cancel()
@@ -270,7 +271,7 @@ func TestCommitCancellationAtPersistenceAndProjectionAdmission(t *testing.T) {
 			root := t.TempDir()
 			target := filepath.Join(root, "config.toml")
 			before := testConfig(target)
-			before.Clients = map[string]configuration.ClientBinding{}
+			before.Clients = map[string]domain.ClientBinding{}
 			after := testConfig(target)
 			store := cancellingConfigStore{Store: configuration.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission()), phase: phase, cancel: cancel}
 			if err := store.Save(before); err != nil {
@@ -310,7 +311,7 @@ func TestCommitReportsSynchronizationRollbackFailure(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	before := configuration.NewConfig(clients.Admission())
+	before := domain.NewConfig(clients.Admission())
 	after := testConfig(target)
 	want := errors.New("restore failed")
 	store := &configStoreStub{restoreErr: want, onCommit: func() {
@@ -343,7 +344,7 @@ func TestCommitReportsConfigurationRestoredAfterProjectionFailure(t *testing.T) 
 	}}
 	err := (Synchronizer{Registry: builtinClients,
 		Config: store, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
-	}).Commit(t.Context(), configuration.NewConfig(clients.Admission()), testConfig(target), "change")
+	}).Commit(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "change")
 	var recovery interface{ ConfigurationRestored() bool }
 	if !errors.As(err, &recovery) || !recovery.ConfigurationRestored() || store.commits != 1 || store.restores != 1 {
 		t.Fatalf("restored configuration was not typed accurately: commits=%d restores=%d error=%v", store.commits, store.restores, err)
@@ -352,7 +353,7 @@ func TestCommitReportsConfigurationRestoredAfterProjectionFailure(t *testing.T) 
 
 func TestCommitRejectsProjectionConflictBeforePersistence(t *testing.T) {
 	target := t.TempDir()
-	before := configuration.NewConfig(clients.Admission())
+	before := domain.NewConfig(clients.Admission())
 	after := testConfig(target)
 	store := &configStoreStub{}
 	err := (Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}).Commit(t.Context(), before, after, "route")
@@ -407,11 +408,11 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	if err := os.WriteFile(settingsPath, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	before := configuration.NewConfig(clients.Admission())
-	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Routes["claude"] = configuration.Route{
+	before := domain.NewConfig(clients.Admission())
+	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	before.Routes["claude"] = domain.Route{
 		Label: "Claude", Account: "gateway", Model: "claude-team",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	before.SetSelectedRoute(claude.ID, "claude", "")
 	after := before.Clone()
@@ -481,11 +482,11 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	if err := os.WriteFile(settingsPath, []byte(`{"apiKeyHelper":"foreign"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	before := configuration.NewConfig(clients.Admission())
-	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Routes["claude"] = configuration.Route{
+	before := domain.NewConfig(clients.Admission())
+	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	before.Routes["claude"] = domain.Route{
 		Label: "Claude", Account: "gateway", Model: "claude-team",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	before.SetSelectedRoute(claude.ID, "claude", "")
 	after := before.Clone()

@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"aigw-cli/internal/domain"
 	"errors"
 	"os"
 	"path/filepath"
@@ -30,7 +31,7 @@ func TestStoreForwardingReadFailuresPreserveRecoveryInputs(t *testing.T) {
 	}
 	for _, reader := range []struct {
 		name, suffix string
-		read         func(Store) (Config, error)
+		read         func(Store) (domain.Config, error)
 	}{
 		{"current", "", Store.Load},
 		{"backup", ".bak", Store.LoadBackup},

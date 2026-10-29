@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 // Command renders a native client's shell-based credential helper invocation.
@@ -15,7 +15,7 @@ func Command(executable, client, scope, goos string) (string, error) {
 	if !filepath.IsAbs(executable) || strings.TrimSpace(executable) != executable || strings.ContainsFunc(executable, unicode.IsControl) {
 		return "", fmt.Errorf("credential executable must be one absolute path without control characters")
 	}
-	if !configuration.ValidIdentifier(client) || !configuration.ValidIdentifier(scope) {
+	if !domain.ValidIdentifier(client) || !domain.ValidIdentifier(scope) {
 		return "", fmt.Errorf("credential client and projection identity must be safe identifiers")
 	}
 	if goos == "windows" && strings.ContainsAny(executable, "\"%!^&|<>()") {

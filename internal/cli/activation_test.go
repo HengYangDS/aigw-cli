@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -24,9 +25,9 @@ func (noClientDiscovery) Discover() discovery.Result {
 
 func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing.T) {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
+	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -85,11 +86,11 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 
 func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["missing"] = configuration.Account{Label: "Missing", Endpoints: configuration.Endpoints{Anthropic: "https://missing.test"}}
-	cfg.Accounts["connected"] = configuration.Account{Label: "Connected", Endpoints: configuration.Endpoints{OpenAIResponses: "https://connected.test/v1"}}
-	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "missing", Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "connected", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["missing"] = domain.Account{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
+	cfg.Accounts["connected"] = domain.Account{Label: "Connected", Endpoints: domain.Endpoints{OpenAIResponses: "https://connected.test/v1"}}
+	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "missing", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "connected", Model: "gpt", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetRecommendedRoute(codex.ID, "codex")
 	if err := store.Save(cfg); err != nil {

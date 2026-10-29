@@ -7,7 +7,7 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 // Registry registers every built-in adapter in admission order; each adapter's
@@ -26,7 +26,7 @@ func Registry() client.Registry {
 // Admission returns the built-in clients that every configuration of this
 // program admits, in admission order. Tests that build configurations for the
 // built-in clients take it too.
-func Admission() configuration.Admission { return Registry().Admission() }
+func Admission() domain.Admission { return Registry().Admission() }
 
 // adapters lists every built-in client adapter in admission order.
 func adapters() []client.Adapter {

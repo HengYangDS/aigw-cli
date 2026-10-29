@@ -2,7 +2,7 @@ package codex
 
 import (
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"context"
 	"fmt"
@@ -36,7 +36,7 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", domain.ProtocolOpenAIResponses)
 	runtime, err := cfg.ResolveRuntime(ID, "alternate")
 	if err != nil {
 		t.Fatal(err)
@@ -77,8 +77,8 @@ func TestFailedCodexVerificationProjectionRemovesItsWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("TMPDIR", root)
 	_, workspace, err := isolateProjection(
-		configuration.NewConfig(testAdmission()), configuration.Runtime{},
-		configuration.ClientBinding{Targets: []string{root}},
+		domain.NewConfig(testAdmission()), domain.Runtime{},
+		domain.ClientBinding{Targets: []string{root}},
 	)
 	if err == nil {
 		t.Fatal("directory source unexpectedly copied as a Codex config")
@@ -108,7 +108,7 @@ func TestCodexVerificationRepairsCosmeticRootSelectionDriftInIsolation(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", domain.ProtocolOpenAIResponses)
 	runtime, err := cfg.ResolveRuntime(ID, "alternate")
 	if err != nil {
 		t.Fatal(err)

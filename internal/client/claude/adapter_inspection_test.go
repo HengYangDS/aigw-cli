@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 )
 
@@ -49,11 +49,11 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(testAdmission())
+	cfg := domain.NewConfig(testAdmission())
 	cfg.SetClientActivation(ID, true, executable, nil)
 	settings := filepath.Join(root, ".claude", "settings.json")
 	deps := client.Dependencies{Host: hostAt(root), AIGWExecutable: filepath.Join(root, "aigw")}
-	runtime := configuration.Runtime{AccountID: "gateway", RouteID: "claude", Model: "claude-model", Endpoint: "https://gateway.test"}
+	runtime := domain.Runtime{AccountID: "gateway", RouteID: "claude", Model: "claude-model", Endpoint: "https://gateway.test"}
 	if test.sync {
 		if _, err := ReconcileSettings(settings, false, runtime, deps.AIGWExecutable, runtime.Model); err != nil {
 			t.Fatal(err)

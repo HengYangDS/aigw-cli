@@ -10,6 +10,7 @@ import (
 	clientverification "aigw-cli/internal/client/verification"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 
@@ -53,7 +54,7 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 			if len(clients) == 0 {
 				return invocation.Problem(runtime, "No Client Binding is selected", "Routes exist, but no client has a selected Route.", "There is no selected endpoint to test.", "aigw use --for <client> <route>", fmt.Errorf("no Client Binding selected"))
 			}
-			resolved := make(map[string]configuration.Runtime, len(clients))
+			resolved := make(map[string]domain.Runtime, len(clients))
 			for _, spec := range clients {
 				clientRuntime, err := cfg.ResolveRuntime(spec.ID, routeName)
 				if err != nil {
@@ -137,15 +138,15 @@ func endpointTestToken(runtime invocation.Context, account string, stdinMode boo
 	return token, instruction, err
 }
 
-func endpointTestClients(cfg configuration.Config, client, routeName string) ([]configuration.ClientSpec, error) {
+func endpointTestClients(cfg domain.Config, client, routeName string) ([]domain.ClientSpec, error) {
 	if client != "" {
 		spec, ok := cfg.Admission().Spec(client)
 		if !ok {
 			return nil, fmt.Errorf("--for must be %s; run `aigw test --help`", cfg.Admission().Usage())
 		}
-		return []configuration.ClientSpec{spec}, nil
+		return []domain.ClientSpec{spec}, nil
 	}
-	selected := make([]configuration.ClientSpec, 0, len(cfg.Clients))
+	selected := make([]domain.ClientSpec, 0, len(cfg.Clients))
 	for _, spec := range cfg.Admission().Specs() {
 		if cfg.SelectedRoute(spec.ID) != "" {
 			selected = append(selected, spec)
@@ -156,7 +157,7 @@ func endpointTestClients(cfg configuration.Config, client, routeName string) ([]
 
 // validateEndpointTestSelection refuses an incomplete or inconsistent endpoint
 // test selection; a client must be one that admission names.
-func validateEndpointTestSelection(admission configuration.Admission) cobra.PositionalArgs {
+func validateEndpointTestSelection(admission domain.Admission) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, _ []string) error {
 		for _, name := range []string{"for", "route", "config", "token-format"} {
 			flag := cmd.Flags().Lookup(name)

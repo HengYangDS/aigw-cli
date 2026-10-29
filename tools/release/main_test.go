@@ -2,7 +2,7 @@ package main
 
 import (
 	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/tools/gitfixture"
 	"aigw-cli/tools/release/construction"
@@ -91,7 +91,7 @@ func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected := configuration.Runtime{
+	selected := domain.Runtime{
 		RouteID: "fixture", RouteLabel: "Fixture", AccountID: "fixture",
 		Client: codex.ID, Endpoint: "https://api.example.invalid/v1",
 		Model: "gpt-test", CredentialCommand: reader,
@@ -103,7 +103,7 @@ func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
 	if err := codex.SyncConfig(target, selected); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.Config{}
+	cfg := domain.Config{}
 	cfg.SetClientActivation(codex.ID, true, executable, []string{target})
 	if _, err := codex.VerifyInvocation(t.Context(), process.Runner{}, cfg, selected, ""); err != nil {
 		t.Fatalf("copied Codex fixture cannot satisfy the current verifier: %v", err)

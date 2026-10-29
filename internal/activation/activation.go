@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 )
@@ -26,7 +26,7 @@ type Activation struct {
 	observedCredentials           map[string]credentialObservation
 	// admission orders the per-client prerequisites; AssessActivation takes it
 	// from the assessed configuration.
-	admission configuration.Admission
+	admission domain.Admission
 }
 
 type credentialObservation struct {
@@ -131,7 +131,7 @@ func observeCredential(store secrets.Store, observed map[string]credentialObserv
 	return observation, true
 }
 
-func projectionAction(spec configuration.ClientSpec) string {
+func projectionAction(spec domain.ClientSpec) string {
 	return "Install " + spec.Label + " if needed, then run `aigw sync`"
 }
 
@@ -141,7 +141,7 @@ func enableAction(client, route string) string { return "aigw use --for " + clie
 
 // ProjectionPrerequisites derives pending native-client work from selected
 // bindings without reading credential metadata or claiming projection health.
-func ProjectionPrerequisites(cfg configuration.Config) map[string]string {
+func ProjectionPrerequisites(cfg domain.Config) map[string]string {
 	prerequisites := map[string]string{}
 	for _, spec := range cfg.Admission().Specs() {
 		binding := cfg.Clients[spec.ID]
@@ -153,7 +153,7 @@ func ProjectionPrerequisites(cfg configuration.Config) map[string]string {
 	return prerequisites
 }
 
-func assessEnabledProjection(cfg configuration.Config, store secrets.Store, result Activation) Activation {
+func assessEnabledProjection(cfg domain.Config, store secrets.Store, result Activation) Activation {
 	result.ProjectionPrerequisites = ProjectionPrerequisites(cfg)
 	result.ClientCredentialPrerequisites = map[string]string{}
 	result.observedCredentials = map[string]credentialObservation{}
@@ -189,7 +189,7 @@ func assessEnabledProjection(cfg configuration.Config, store secrets.Store, resu
 }
 
 type inactiveClientAssessment struct {
-	cfg            configuration.Config
+	cfg            domain.Config
 	store          secrets.Store
 	result         Activation
 	readOnly       bool
@@ -272,7 +272,7 @@ func (assessment *inactiveClientAssessment) finish() Activation {
 	return assessment.result
 }
 
-func assessInactiveClients(cfg configuration.Config, store secrets.Store, result Activation) Activation {
+func assessInactiveClients(cfg domain.Config, store secrets.Store, result Activation) Activation {
 	result.observedCredentials = map[string]credentialObservation{}
 	result.ClientCredentialPrerequisites = map[string]string{}
 	result.ProjectionPrerequisites = map[string]string{}
@@ -304,7 +304,7 @@ func assessInactiveClients(cfg configuration.Config, store secrets.Store, result
 // NextActionAfterAccountConnection derives the next explicit client step after
 // a successful Token write. It does not inspect another Account's credential,
 // select a Route, or mutate client configuration.
-func NextActionAfterAccountConnection(cfg configuration.Config, accountID string) string {
+func NextActionAfterAccountConnection(cfg domain.Config, accountID string) string {
 	for _, spec := range cfg.Admission().Specs() {
 		runtime, resolveErr := cfg.ResolveRuntime(spec.ID, "")
 		if resolveErr != nil || runtime.AccountID != accountID {
@@ -344,7 +344,7 @@ func NextActionAfterAccountConnection(cfg configuration.Config, accountID string
 // AssessActivation selects a safe continuation without observing unselected
 // native credentials. Environment credential metadata is read only when that
 // backend is explicitly selected.
-func AssessActivation(cfg configuration.Config, store secrets.Store) Activation {
+func AssessActivation(cfg domain.Config, store secrets.Store) Activation {
 	result := Activation{EnabledClients: len(cfg.EnabledClientIDs()), admission: cfg.Admission()}
 	if result.EnabledClients != 0 {
 		return assessEnabledProjection(cfg, store, result)

@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 )
 
 const (
@@ -81,27 +81,27 @@ type fixtureAdapter struct {
 	breaks                      string
 }
 
-func (fixtureAdapter) Spec() configuration.ClientSpec {
-	return configuration.ClientSpec{ID: fixtureID, Label: "Fixture"}
+func (fixtureAdapter) Spec() domain.ClientSpec {
+	return domain.ClientSpec{ID: fixtureID, Label: "Fixture"}
 }
 
 func (fixtureAdapter) Discover(client.DiscoverySource) discovery.Result { return discovery.Result{} }
 
-func (fixtureAdapter) Converge(client.Dependencies, *configuration.Config, discovery.Result) error {
+func (fixtureAdapter) Converge(client.Dependencies, *domain.Config, discovery.Result) error {
 	return nil
 }
 
-func (fixtureAdapter) AdoptSelection(client.Dependencies, *configuration.Config) (string, error) {
+func (fixtureAdapter) AdoptSelection(client.Dependencies, *domain.Config) (string, error) {
 	return "", nil
 }
 
-func (fixtureAdapter) ProjectionChanged(before, after configuration.Config) bool {
+func (fixtureAdapter) ProjectionChanged(before, after domain.Config) bool {
 	return enabled(before) != enabled(after)
 }
 
-func (fixtureAdapter) Withdraw(cfg *configuration.Config) { delete(cfg.Clients, fixtureID) }
+func (fixtureAdapter) Withdraw(cfg *domain.Config) { delete(cfg.Clients, fixtureID) }
 
-func enabled(cfg configuration.Config) bool { return cfg.Clients[fixtureID].Enabled }
+func enabled(cfg domain.Config) bool { return cfg.Clients[fixtureID].Enabled }
 
 func (adapter fixtureAdapter) path(name string) string { return filepath.Join(adapter.home, name) }
 
@@ -111,7 +111,7 @@ func (adapter fixtureAdapter) write(name, content string) error {
 
 // mutate changes another client's binding through the caller's configuration
 // when operation is the promise that the fixture breaks.
-func (adapter fixtureAdapter) mutate(operation string, cfg configuration.Config) {
+func (adapter fixtureAdapter) mutate(operation string, cfg domain.Config) {
 	if adapter.breaks == operation {
 		binding := cfg.Clients["foreign"]
 		binding.Executable += "/mutated"
@@ -119,7 +119,7 @@ func (adapter fixtureAdapter) mutate(operation string, cfg configuration.Config)
 	}
 }
 
-func (adapter fixtureAdapter) Inspect(_ context.Context, _ client.Dependencies, cfg configuration.Config, _ configuration.Runtime) client.Status {
+func (adapter fixtureAdapter) Inspect(_ context.Context, _ client.Dependencies, cfg domain.Config, _ domain.Runtime) client.Status {
 	adapter.mutate(inspectMutates, cfg)
 	if data, _ := os.ReadFile(adapter.path(targetName)); adapter.breaks == inspectWritesProjected && string(data) == "projected" {
 		_ = adapter.write("inspected.txt", "inspected")
@@ -127,7 +127,7 @@ func (adapter fixtureAdapter) Inspect(_ context.Context, _ client.Dependencies, 
 	return client.Status{Ready: true}
 }
 
-func (adapter fixtureAdapter) Verify(_ context.Context, _ client.Dependencies, cfg configuration.Config, _ configuration.Runtime, route string) (client.Verification, error) {
+func (adapter fixtureAdapter) Verify(_ context.Context, _ client.Dependencies, cfg domain.Config, _ domain.Runtime, route string) (client.Verification, error) {
 	adapter.mutate(verifyMutates, cfg)
 	if adapter.breaks == verifyWritesForRoute && route != "" {
 		return client.Verification{}, adapter.write("verified.txt", route)
@@ -135,7 +135,7 @@ func (adapter fixtureAdapter) Verify(_ context.Context, _ client.Dependencies, c
 	return client.Verification{Scope: fixtureID}, nil
 }
 
-func (adapter fixtureAdapter) Plan(_ client.Dependencies, before, after configuration.Config) ([]client.ProjectionPlan, error) {
+func (adapter fixtureAdapter) Plan(_ client.Dependencies, before, after domain.Config) ([]client.ProjectionPlan, error) {
 	adapter.mutate(planMutates, after)
 	enabling, withdrawing := enabled(after) && !enabled(before), enabled(before) && !enabled(after)
 	if err := adapter.planSideEffects(enabling, withdrawing); err != nil {
@@ -176,7 +176,7 @@ func (adapter fixtureAdapter) planSideEffects(enabling, withdrawing bool) error 
 	return nil
 }
 
-func (adapter fixtureAdapter) Apply(_ context.Context, _ client.Dependencies, before, after configuration.Config) (client.ProjectionReceipt, error) {
+func (adapter fixtureAdapter) Apply(_ context.Context, _ client.Dependencies, before, after domain.Config) (client.ProjectionReceipt, error) {
 	adapter.mutate(applyMutates, after)
 	switch {
 	case enabled(before) && enabled(after):
@@ -357,7 +357,7 @@ func newFixture(t *testing.T, breaks string) Fixture {
 	if err := adapter.write(filepath.Join(existingName, "readme.txt"), "user"); err != nil {
 		t.Fatal(err)
 	}
-	before := configuration.NewConfig(testAdmission())
+	before := domain.NewConfig(testAdmission())
 	before.SetClientActivation("foreign", true, "/fixture/foreign", nil)
 	after := before.Clone()
 	after.SetClientActivation(fixtureID, true, "/fixture/client", nil)

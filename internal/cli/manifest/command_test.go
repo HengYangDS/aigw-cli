@@ -16,6 +16,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 
 	"github.com/spf13/cobra"
@@ -201,11 +202,11 @@ func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *tes
 	account := cfg.Accounts["local"]
 	account.Endpoints.OpenAIResponses = "http://127.0.0.1:8792/local/v1"
 	cfg.Accounts["local"] = account
-	cfg.Routes["old"] = configuration.Route{
+	cfg.Routes["old"] = domain.Route{
 		Label: "Old", Account: "local", Model: "gpt-old",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.Models["gpt-old"] = configuration.Model{Label: "Old"}
+	cfg.Models["gpt-old"] = domain.Model{Label: "Old"}
 	cfg.SetSelectedRoute(hermes.ID, "local", "")
 	clientTarget := filepath.Join(t.TempDir(), "hermes.yaml")
 	cfg.SetClientActivation(hermes.ID, true, "/opt/hermes", []string{clientTarget})
@@ -307,21 +308,21 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 	cfg := localConfig()
 	addRoute := func(id, label, model string) {
-		cfg.Routes[id] = configuration.Route{
+		cfg.Routes[id] = domain.Route{
 			Label: label, Account: "local", Model: model,
-			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+			Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 		}
 	}
 	addRoute("old", "Old", "gpt-old")
 	addRoute("shared-old", "Shared Old", "gpt-shared")
 	addRoute("shared-current", "Shared Current", "gpt-shared")
 	addRoute("declared-old", "Declared Old", "gpt-declared")
-	cfg.Models["gpt-old"] = configuration.Model{Label: "Old"}
-	cfg.Models["gpt-shared"] = configuration.Model{Label: "Shared"}
-	cfg.Models["gpt-declared"] = configuration.Model{Label: "Declared"}
-	cfg.Recommendations[codex.ID] = configuration.ClientRecommendation{
-		Primary:      configuration.ClientSelection{Route: "old"},
-		Alternatives: []configuration.ClientSelection{{Route: "shared-old"}},
+	cfg.Models["gpt-old"] = domain.Model{Label: "Old"}
+	cfg.Models["gpt-shared"] = domain.Model{Label: "Shared"}
+	cfg.Models["gpt-declared"] = domain.Model{Label: "Declared"}
+	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{
+		Primary:      domain.ClientSelection{Route: "old"},
+		Alternatives: []domain.ClientSelection{{Route: "shared-old"}},
 	}
 	runtime, _, _, renderOut := savedRuntime(t, cfg)
 	command := newImportCommand(runtime)
@@ -481,7 +482,7 @@ func TestImportReturnsConfigurationTransactionFailure(t *testing.T) {
 	}
 }
 
-func savedRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, string, *bytes.Buffer, *bytes.Buffer) {
+func savedRuntime(t *testing.T, cfg domain.Config) (invocation.Context, string, *bytes.Buffer, *bytes.Buffer) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	store := configuration.NewStore(path, clients.Admission())
@@ -499,12 +500,12 @@ func savedRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, s
 	}, path, out, renderOut
 }
 
-func localConfig() configuration.Config {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["local"] = configuration.Account{Label: "Local", Endpoints: configuration.Endpoints{OpenAIResponses: "https://local.example/v1"}}
-	cfg.Routes["local"] = configuration.Route{
+func localConfig() domain.Config {
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["local"] = domain.Account{Label: "Local", Endpoints: domain.Endpoints{OpenAIResponses: "https://local.example/v1"}}
+	cfg.Routes["local"] = domain.Route{
 		Label: "Local", Account: "local", Model: "gpt-local",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedRoute(codex.ID, "local", "")
 	return cfg

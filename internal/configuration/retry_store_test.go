@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 )
 
@@ -39,7 +40,7 @@ func TestRetryCheckpointDoesNotAdoptUnverifiedPolicy(t *testing.T) {
 	}
 	zero := uint64(0)
 	binding := cfg.Clients[ClientCodex]
-	binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &zero}
+	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero}
 	cfg.Clients[ClientCodex] = binding
 	data, err := encodeRetryPolicies(cfg)
 	if err != nil {
@@ -72,7 +73,7 @@ func TestRetryPolicyCommitCompensatesLaterFailure(t *testing.T) {
 	}
 	zero := uint64(0)
 	binding := cfg.Clients[ClientCodex]
-	binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &zero}
+	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero}
 	cfg.Clients[ClientCodex] = binding
 	remove := removeConfigurationFileIfUnchanged
 	t.Cleanup(func() { removeConfigurationFileIfUnchanged = remove })
@@ -97,7 +98,7 @@ func TestRetryPolicyBackupAdmissionAndNativeReset(t *testing.T) {
 	cfg := validConfig()
 	zero := uint64(0)
 	binding := cfg.Clients[ClientCodex]
-	binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &zero}
+	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero}
 	cfg.Clients[ClientCodex] = binding
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -142,7 +143,7 @@ func TestRetryPolicyComponentsRefuseInvalidIdentityOrContent(t *testing.T) {
 	cfg := validConfig()
 	zero := uint64(0)
 	binding := cfg.Clients[ClientCodex]
-	binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &zero}
+	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero}
 	cfg.Clients[ClientCodex] = binding
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -188,12 +189,12 @@ func TestRetryPolicyComponentsRefuseInvalidIdentityOrContent(t *testing.T) {
 // or catalogue that cannot be read as written.
 func TestRetryPolicyAdmissionRefusesConflictingOrUnreadableComponents(t *testing.T) {
 	zero, two := uint64(0), uint64(2)
-	declared := func(t *testing.T) (Store, Config) {
+	declared := func(t *testing.T) (Store, domain.Config) {
 		t.Helper()
 		store := NewStore(filepath.Join(t.TempDir(), "aigw.toml"), testAdmission())
 		cfg := validConfig()
 		binding := cfg.Clients[ClientCodex]
-		binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &zero}
+		binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero}
 		cfg.Clients[ClientCodex] = binding
 		if err := store.Save(cfg); err != nil {
 			t.Fatal(err)
@@ -211,7 +212,7 @@ func TestRetryPolicyAdmissionRefusesConflictingOrUnreadableComponents(t *testing
 			t.Fatal(err)
 		}
 		binding := cfg.Clients[ClientCodex]
-		binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &two}
+		binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &two}
 		cfg.Clients[ClientCodex] = binding
 		data, err := encodeRetryPolicies(cfg)
 		if err != nil {

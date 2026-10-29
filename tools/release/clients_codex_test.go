@@ -22,6 +22,7 @@ import (
 	codexcatalog "aigw-cli/internal/client/codex/catalog"
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
@@ -66,7 +67,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	routeIDs := make([]string, 0, len(p.manifest.Routes))
 	completions := map[string]*atomic.Int64{}
 	for routeID, route := range p.manifest.Routes {
-		if route.Account != account || !slices.Contains(route.AdmittedProtocols(), configuration.ProtocolOpenAIResponses) {
+		if route.Account != account || !slices.Contains(route.AdmittedProtocols(), domain.ProtocolOpenAIResponses) {
 			continue
 		}
 		if _, duplicate := completions[route.UpstreamModel]; duplicate {
@@ -79,7 +80,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 		t.Fatal("team manifest has no AIHubMix OpenAI Responses Routes")
 	}
 	slices.Sort(routeIDs)
-	server := httptest.NewServer(clientResponseHandler(configuration.ProtocolOpenAIResponses, completions, token, "high", nativeCodexToolShell(t)))
+	server := httptest.NewServer(clientResponseHandler(domain.ProtocolOpenAIResponses, completions, token, "high", nativeCodexToolShell(t)))
 	t.Cleanup(server.Close)
 	executable, err := requiredClientInput("AIGW_ACCEPTANCE_CODEX", false)
 	if err != nil {
@@ -131,7 +132,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 }
 
-func requireNativeCodexRouteOutcome(t *testing.T, executable string, route configuration.Route, stdout, stderr []byte, runErr error, token string) bool {
+func requireNativeCodexRouteOutcome(t *testing.T, executable string, route domain.Route, stdout, stderr []byte, runErr error, token string) bool {
 	t.Helper()
 	if runErr == nil {
 		if !bytes.Contains(stdout, []byte("Completed")) || process.DiagnosticFailure(stderr) {
@@ -291,7 +292,7 @@ type codexToolLoopProbe struct {
 
 func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToolLoopProbe, shell string) http.Handler {
 	var completions atomic.Int64
-	base := clientResponseHandler(configuration.ProtocolOpenAIResponses, map[string]*atomic.Int64{"grok-4.7": &completions}, token, "high", shell)
+	base := clientResponseHandler(domain.ProtocolOpenAIResponses, map[string]*atomic.Int64{"grok-4.7": &completions}, token, "high", shell)
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		probe.requests.Add(1)
 		if request.Method != http.MethodPost || request.URL.Path != "/v1/responses" {

@@ -8,6 +8,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 	"bytes"
@@ -27,7 +28,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
 	originalInspect := inspectAdapter
 	t.Cleanup(func() { inspectAdapter = originalInspect })
-	inspectAdapter = func(context.Context, invocation.Context, configuration.Config, string, configuration.Runtime) clientdomain.Status {
+	inspectAdapter = func(context.Context, invocation.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
 		return clientdomain.Status{Ready: true}
 	}
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
@@ -47,7 +48,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	}
 
 	accountConfig := cfg.Accounts["one"]
-	accountConfig.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
+	accountConfig.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
 	cfg.Accounts["one"] = accountConfig
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -70,9 +71,9 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		t.Fatalf("enabled diagnostic status = %q", got)
 	}
 
-	cfg.Routes["codex-only"] = configuration.Route{
+	cfg.Routes["codex-only"] = domain.Route{
 		Label: "Codex only", Purpose: "Selection", Account: "one", Model: "gpt-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	delete(cfg.Clients, codex.ID)
 	cfg.SetRecommendedRoute(codex.ID, "codex-only")
@@ -100,7 +101,7 @@ func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
 	}
 	originalInspect := inspectAdapter
 	t.Cleanup(func() { inspectAdapter = originalInspect })
-	inspectAdapter = func(_ context.Context, _ invocation.Context, _ configuration.Config, client string, _ configuration.Runtime) clientdomain.Status {
+	inspectAdapter = func(_ context.Context, _ invocation.Context, _ domain.Config, client string, _ domain.Runtime) clientdomain.Status {
 		return clientdomain.Status{Ready: client == codex.ID}
 	}
 	if err := RunStatus(runtime, true); err != nil {
@@ -158,16 +159,16 @@ func TestStatusStatesClaudeDesktopQualifiedModesAndPlatforms(t *testing.T) {
 func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T) {
 	for _, test := range []struct {
 		name        string
-		probe       *configuration.AccountProbe
+		probe       *domain.AccountProbe
 		credential  bool
 		environment bool
 		want        string
 	}{
 		{name: "no probe", want: "Provider does not expose a balance probe"},
-		{name: "unsupported probe", probe: &configuration.AccountProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "Provider diagnostics unavailable in this version"},
-		{name: "missing probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance not ready"},
-		{name: "available probe credential", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Diagnostic credential present · content not verified"},
-		{name: "incomplete environment pair", probe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, environment: true, want: secrets.DiagnosticUserIDEnvironmentKey("one")},
+		{name: "unsupported probe", probe: &domain.AccountProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "Provider diagnostics unavailable in this version"},
+		{name: "missing probe credential", probe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance not ready"},
+		{name: "available probe credential", probe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Diagnostic credential present · content not verified"},
+		{name: "incomplete environment pair", probe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, environment: true, want: secrets.DiagnosticUserIDEnvironmentKey("one")},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, buffer := configuredReadinessRuntime(t)
@@ -212,7 +213,7 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
 	account := cfg.Accounts["one"]
-	account.Endpoints = configuration.Endpoints{Anthropic: "http://127.0.0.2:4567", OpenAIResponses: "http://[::ffff:127.0.0.2]:4568/v1"}
+	account.Endpoints = domain.Endpoints{Anthropic: "http://127.0.0.2:4567", OpenAIResponses: "http://[::ffff:127.0.0.2]:4568/v1"}
 	cfg.Accounts["one"] = account
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -364,8 +365,8 @@ func TestStatusJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Out: out, RenderOut: out, Width: 120}
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Routes["available"] = configuration.Route{Label: "Available"}
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Routes["available"] = domain.Route{Label: "Available"}
 	clients := map[string]clientStatus{}
 	for _, client := range []string{claude.ID, codex.ID} {
 		state := domainreadiness.Client{State: domainreadiness.Invalid}
@@ -415,7 +416,7 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 	runtime.Secrets = store
 	originalInspect := inspectAdapter
 	t.Cleanup(func() { inspectAdapter = originalInspect })
-	inspectAdapter = func(context.Context, invocation.Context, configuration.Config, string, configuration.Runtime) clientdomain.Status {
+	inspectAdapter = func(context.Context, invocation.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
 		return clientdomain.Status{Ready: true}
 	}
 
@@ -431,7 +432,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	codexBinding.Enabled = true
 	codexBinding.Executable = "/opt/codex"
 	codexBinding.ModelProvider = "amazon-bedrock"
-	codexBinding.Authentication = configuration.AuthenticationClientNative
+	codexBinding.Authentication = domain.AuthenticationClientNative
 	cfg.Clients[codex.ID] = codexBinding
 	claudeBinding := cfg.Clients[claude.ID]
 	claudeBinding.Enabled = true
@@ -443,7 +444,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	runtime.Secrets = store
 	originalInspect := inspectAdapter
 	t.Cleanup(func() { inspectAdapter = originalInspect })
-	inspectAdapter = func(context.Context, invocation.Context, configuration.Config, string, configuration.Runtime) clientdomain.Status {
+	inspectAdapter = func(context.Context, invocation.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
 		return clientdomain.Status{Ready: true}
 	}
 
@@ -509,7 +510,7 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 	}
 	originalInspect := inspectAdapter
 	t.Cleanup(func() { inspectAdapter = originalInspect })
-	inspectAdapter = func(context.Context, invocation.Context, configuration.Config, string, configuration.Runtime) clientdomain.Status {
+	inspectAdapter = func(context.Context, invocation.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
 		return clientdomain.Status{Ready: true}
 	}
 	if err := RunStatus(runtime, true); err != nil {
@@ -525,7 +526,7 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 		t.Fatal(err)
 	}
 	observed := result.Clients[codex.ID]
-	if !observed.ProjectionReady || observed.Authentication != string(configuration.AuthenticationAccountToken) {
+	if !observed.ProjectionReady || observed.Authentication != string(domain.AuthenticationAccountToken) {
 		t.Fatalf("local projection observation = %#v", observed)
 	}
 }

@@ -10,13 +10,13 @@ import (
 
 	"aigw-cli/internal/client"
 	clientverification "aigw-cli/internal/client/verification"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	surfaceidentity "aigw-cli/internal/surface"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )
 
-func (codexAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg configuration.Config, runtime configuration.Runtime, explicitRoute string) (_ client.Verification, result error) {
+func (codexAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg domain.Config, runtime domain.Runtime, explicitRoute string) (_ client.Verification, result error) {
 	binding := cfg.Clients[ID]
 	reader := deps.AIGWExecutable
 	if binding.Enabled && binding.Executable != "" && len(binding.Targets) > 0 && binding.Route != "" {
@@ -57,7 +57,7 @@ func (codexAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg co
 	return client.Verification{Version: identity.Version, SHA256: identity.SHA256, Scope: "Native file-tool execution and same-session recall"}, err
 }
 
-func retainedRuntime(target string, cfg configuration.Config, runtime configuration.Runtime, currentReader string) (configuration.Runtime, error) {
+func retainedRuntime(target string, cfg domain.Config, runtime domain.Runtime, currentReader string) (domain.Runtime, error) {
 	if !runtime.RequiresAccountToken() || currentReader == "" {
 		return runtime, nil
 	}
@@ -76,10 +76,10 @@ func retainedRuntime(target string, cfg configuration.Config, runtime configurat
 	return runtime, nil
 }
 
-func isolateProjection(cfg configuration.Config, runtime configuration.Runtime, binding configuration.ClientBinding) (isolated configuration.Config, workspace string, result error) {
+func isolateProjection(cfg domain.Config, runtime domain.Runtime, binding domain.ClientBinding) (isolated domain.Config, workspace string, result error) {
 	workspace, err := os.MkdirTemp("", "aigw-codex-route-verification-")
 	if err != nil {
-		return configuration.Config{}, "", fmt.Errorf("create isolated Codex verification projection: %w", err)
+		return domain.Config{}, "", fmt.Errorf("create isolated Codex verification projection: %w", err)
 	}
 	defer func() {
 		if result == nil {
@@ -95,7 +95,7 @@ func isolateProjection(cfg configuration.Config, runtime configuration.Runtime, 
 	sort.Strings(selectedTargets)
 	target := filepath.Join(workspace, "config.toml")
 	if err := CopyProjection(selectedTargets[0], target); err != nil {
-		return configuration.Config{}, workspace, fmt.Errorf("copy Codex verification input: %w", err)
+		return domain.Config{}, workspace, fmt.Errorf("copy Codex verification input: %w", err)
 	}
 	before := TargetRef{SurfaceID: string(HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ProjectionMode: ProjectionFullSelection, Path: target}
 	after := before
@@ -103,13 +103,13 @@ func isolateProjection(cfg configuration.Config, runtime configuration.Runtime, 
 	after.CreateIfAbsent = true
 	selected, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
-		return configuration.Config{}, workspace, fmt.Errorf("resolve selected Codex projection: %w", err)
+		return domain.Config{}, workspace, fmt.Errorf("resolve selected Codex projection: %w", err)
 	}
 	if selected.RequiresAccountToken() {
 		selected.CredentialCommand = selected.CredentialExecutable(runtime.CredentialCommand)
 	}
 	if _, err := ReconcileConfigsAuthorizedTransition([]TargetRef{before}, []TargetRef{after}, selected, runtime); err != nil {
-		return configuration.Config{}, workspace, fmt.Errorf("prepare isolated Codex verification projection: %w", err)
+		return domain.Config{}, workspace, fmt.Errorf("prepare isolated Codex verification projection: %w", err)
 	}
 	isolated = cfg.Clone()
 	binding.Targets = []string{target}

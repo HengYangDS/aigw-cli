@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -35,7 +35,7 @@ type HTTPDoer interface {
 // admission resolves the clients. When clients is empty, the account's OpenAI
 // Responses endpoint, or else its Anthropic endpoint, selects the probe, and
 // the first admitted client that speaks only that protocol names it.
-func Validate(ctx context.Context, httpClient HTTPDoer, admission configuration.Admission, account configuration.Account, token string, clients ...string) error {
+func Validate(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, account domain.Account, token string, clients ...string) error {
 	if len(clients) == 0 {
 		client, err := defaultValidationClient(admission, account)
 		if err != nil {
@@ -66,26 +66,26 @@ func Validate(ctx context.Context, httpClient HTTPDoer, admission configuration.
 
 // defaultValidationClient names the client whose protocol probes an Account
 // Token when the caller requests none.
-func defaultValidationClient(admission configuration.Admission, account configuration.Account) (string, error) {
-	protocol := configuration.ProtocolAnthropic
+func defaultValidationClient(admission domain.Admission, account domain.Account) (string, error) {
+	protocol := domain.ProtocolAnthropic
 	if account.Endpoints.OpenAIResponses != "" {
-		protocol = configuration.ProtocolOpenAIResponses
+		protocol = domain.ProtocolOpenAIResponses
 	}
 	for _, spec := range admission.Specs() {
-		if slices.Equal(spec.EndpointProtocols, []configuration.EndpointProtocol{protocol}) {
+		if slices.Equal(spec.EndpointProtocols, []domain.EndpointProtocol{protocol}) {
 			return spec.ID, nil
 		}
 	}
-	return "", fmt.Errorf("no admitted client probes an Account Token over %s", configuration.ProtocolLabel(protocol))
+	return "", fmt.Errorf("no admitted client probes an Account Token over %s", domain.ProtocolLabel(protocol))
 }
 
 // ValidateRuntime verifies one fully resolved client endpoint without
 // re-selecting or guessing its protocol; admission names its client.
-func ValidateRuntime(ctx context.Context, httpClient HTTPDoer, admission configuration.Admission, runtime configuration.Runtime, token string) error {
+func ValidateRuntime(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, runtime domain.Runtime, token string) error {
 	return validateEndpoint(ctx, httpClient, admission, runtime.Client, runtime.Endpoint, runtime.Protocol, token)
 }
 
-func validateEndpoint(ctx context.Context, httpClient HTTPDoer, admission configuration.Admission, client, endpoint string, protocol configuration.EndpointProtocol, token string) error {
+func validateEndpoint(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, client, endpoint string, protocol domain.EndpointProtocol, token string) error {
 	status, err := ProbeStatus(ctx, httpClient, admission, client, endpoint, token, protocol)
 	if err != nil {
 		return err
@@ -102,7 +102,7 @@ func validateEndpoint(ctx context.Context, httpClient HTTPDoer, admission config
 // ProbeStatus executes one bounded authenticated endpoint request and closes
 // its response before returning the status. A status is transport evidence;
 // callers own its interpretation as credential validation or diagnostics.
-func ProbeStatus(ctx context.Context, httpClient HTTPDoer, admission configuration.Admission, client, endpoint, token string, protocols ...configuration.EndpointProtocol) (int, error) {
+func ProbeStatus(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, client, endpoint, token string, protocols ...domain.EndpointProtocol) (int, error) {
 	ctx, cancel := context.WithTimeout(ctx, validationTimeout)
 	defer cancel()
 	request, err := ProbeRequest(ctx, admission, client, endpoint, token, protocols...)
@@ -137,12 +137,12 @@ func DoProbe(httpClient HTTPDoer, request *http.Request) (*http.Response, error)
 
 // ProbeRequest constructs the authentication request declared by one admitted
 // client's endpoint protocol.
-func ProbeRequest(ctx context.Context, admission configuration.Admission, client, endpoint, token string, protocols ...configuration.EndpointProtocol) (*http.Request, error) {
+func ProbeRequest(ctx context.Context, admission domain.Admission, client, endpoint, token string, protocols ...domain.EndpointProtocol) (*http.Request, error) {
 	spec, ok := admission.Spec(client)
 	if !ok {
 		return nil, fmt.Errorf("unsupported credential validation client %q", client)
 	}
-	protocol := configuration.EndpointProtocol("")
+	protocol := domain.EndpointProtocol("")
 	if len(protocols) > 1 {
 		return nil, fmt.Errorf("credential probe requires one protocol")
 	}
@@ -160,11 +160,11 @@ func ProbeRequest(ctx context.Context, admission configuration.Admission, client
 
 // ModelCatalogRequest constructs the authenticated model-catalogue request for
 // one exact wire protocol. It does not infer model or inference capabilities.
-func ModelCatalogRequest(ctx context.Context, endpoint string, protocol configuration.EndpointProtocol, token string) (*http.Request, error) {
+func ModelCatalogRequest(ctx context.Context, endpoint string, protocol domain.EndpointProtocol, token string) (*http.Request, error) {
 	switch protocol {
-	case configuration.ProtocolAnthropic,
-		configuration.ProtocolOpenAIResponses,
-		configuration.ProtocolOpenAIChatCompletions:
+	case domain.ProtocolAnthropic,
+		domain.ProtocolOpenAIResponses,
+		domain.ProtocolOpenAIChatCompletions:
 	default:
 		return nil, fmt.Errorf("unsupported model catalogue protocol %q", protocol)
 	}
@@ -177,22 +177,22 @@ func ModelCatalogRequest(ctx context.Context, endpoint string, protocol configur
 	return req, nil
 }
 
-func authenticate(request *http.Request, protocol configuration.EndpointProtocol, token string) {
+func authenticate(request *http.Request, protocol domain.EndpointProtocol, token string) {
 	switch protocol {
-	case configuration.ProtocolAnthropic:
+	case domain.ProtocolAnthropic:
 		request.Header.Set("X-Api-Key", token)
 		request.Header.Set("Anthropic-Version", "2023-06-01")
-	case configuration.ProtocolOpenAIResponses, configuration.ProtocolOpenAIChatCompletions:
+	case domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions:
 		request.Header.Set("Authorization", "Bearer "+token)
 	}
 }
 
-func modelsEndpoint(endpoint string, protocol configuration.EndpointProtocol) string {
+func modelsEndpoint(endpoint string, protocol domain.EndpointProtocol) string {
 	endpoint = strings.TrimRight(endpoint, "/")
 	if strings.HasSuffix(endpoint, "/models") {
 		return endpoint
 	}
-	if protocol == configuration.ProtocolAnthropic && !strings.HasSuffix(endpoint, "/v1") {
+	if protocol == domain.ProtocolAnthropic && !strings.HasSuffix(endpoint, "/v1") {
 		return endpoint + "/v1/models"
 	}
 	return endpoint + "/models"

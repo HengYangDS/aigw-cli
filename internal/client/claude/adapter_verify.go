@@ -9,14 +9,14 @@ import (
 
 	"aigw-cli/internal/client"
 	clientverification "aigw-cli/internal/client/verification"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )
 
-func retainedExecutable(path string, cfg configuration.Config, runtime configuration.Runtime, currentReader string) (string, error) {
+func retainedExecutable(path string, cfg domain.Config, runtime domain.Runtime, currentReader string) (string, error) {
 	if !runtime.RequiresAccountToken() {
 		return runtime.CredentialExecutable(currentReader), nil
 	}
@@ -29,7 +29,7 @@ func retainedExecutable(path string, cfg configuration.Config, runtime configura
 	return runtime.CredentialExecutable(reader), nil
 }
 
-func (claudeAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg configuration.Config, runtime configuration.Runtime, explicitRoute string) (_ client.Verification, result error) {
+func (claudeAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg domain.Config, runtime domain.Runtime, explicitRoute string) (_ client.Verification, result error) {
 	adapter := cfg.Clients[ID]
 	token := ""
 	if adapter.CredentialCommand == "" {
@@ -91,7 +91,7 @@ func (claudeAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg c
 	return client.Verification{Scope: "Native text response; tools and continuation are not probed"}, verifyRuntime(verifyCtx, runner, adapter.Executable, settingsPath, runtime, token, explicitRoute)
 }
 
-func isolateProjection(cfg configuration.Config, runtime configuration.Runtime, source string) (settingsPath, workspace string, result error) {
+func isolateProjection(cfg domain.Config, runtime domain.Runtime, source string) (settingsPath, workspace string, result error) {
 	workspace, err := os.MkdirTemp("", "aigw-claude-route-verification-")
 	if err != nil {
 		return "", "", fmt.Errorf("create isolated Claude verification projection: %w", err)

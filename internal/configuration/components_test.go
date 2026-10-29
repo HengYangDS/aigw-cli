@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 )
 
@@ -121,7 +122,7 @@ func TestRestoreSnapshotReportsCapabilityComponentConflicts(t *testing.T) {
 	}
 	changed := cfg.Clone()
 	route := changed.Routes["claude"]
-	route.Interfaces = map[EndpointProtocol][]Capability{ProtocolAnthropic: {CapabilityText}}
+	route.Interfaces = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}
 	changed.Routes["claude"] = route
 	after, err := store.Commit(before, changed)
 	if err != nil {

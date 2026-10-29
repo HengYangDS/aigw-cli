@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"strings"
 
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 const inferenceProbeMaxTokens = 512
@@ -17,7 +17,7 @@ const inferenceProbePrompt = "Reply with exactly pong."
 
 // ModelInferenceRequest constructs one capped, non-streaming request carrying
 // the Route's exact upstream model. It does not read credentials or responses.
-func ModelInferenceRequest(ctx context.Context, endpoint string, protocol configuration.EndpointProtocol, token, model string) (*http.Request, error) {
+func ModelInferenceRequest(ctx context.Context, endpoint string, protocol domain.EndpointProtocol, token, model string) (*http.Request, error) {
 	if strings.TrimSpace(model) == "" {
 		return nil, fmt.Errorf("inference probe requires an upstream model")
 	}
@@ -31,7 +31,7 @@ func ModelInferenceRequest(ctx context.Context, endpoint string, protocol config
 	var path string
 	var body any
 	switch protocol {
-	case configuration.ProtocolAnthropic:
+	case domain.ProtocolAnthropic:
 		path = "/v1/messages"
 		if strings.HasSuffix(base, "/v1") {
 			path = "/messages"
@@ -41,7 +41,7 @@ func ModelInferenceRequest(ctx context.Context, endpoint string, protocol config
 			MaxTokens int               `json:"max_tokens"`
 			Messages  []inferencePrompt `json:"messages"`
 		}{Model: model, MaxTokens: inferenceProbeMaxTokens, Messages: []inferencePrompt{{Role: "user", Content: inferenceProbePrompt}}}
-	case configuration.ProtocolOpenAIResponses:
+	case domain.ProtocolOpenAIResponses:
 		path = "/responses"
 		body = struct {
 			Model           string `json:"model"`
@@ -49,7 +49,7 @@ func ModelInferenceRequest(ctx context.Context, endpoint string, protocol config
 			MaxOutputTokens int    `json:"max_output_tokens"`
 			Store           bool   `json:"store"`
 		}{Model: model, Input: inferenceProbePrompt, MaxOutputTokens: inferenceProbeMaxTokens, Store: false}
-	case configuration.ProtocolOpenAIChatCompletions:
+	case domain.ProtocolOpenAIChatCompletions:
 		path = "/chat/completions"
 		body = struct {
 			Model     string            `json:"model"`

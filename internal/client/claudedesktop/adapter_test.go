@@ -14,14 +14,15 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
 type claudeDesktopFixture struct {
 	adapter claudeDesktopAdapter
-	cfg     configuration.Config
+	cfg     domain.Config
 	deps    client.Dependencies
-	runtime configuration.Runtime
+	runtime domain.Runtime
 	paths   Paths
 }
 
@@ -39,13 +40,13 @@ func newClaudeDesktopFixture(t *testing.T) claudeDesktopFixture {
 		}
 	}
 	library := filepath.Join(root, "Claude-3p", "configLibrary")
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test/v1"}}
-	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{Anthropic: "https://other.test/v1"}}
-	cfg.Routes["alternate"] = configuration.Route{Label: "Opus 5", Account: "gateway", Model: "claude-opus-5", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.Routes["manual"] = configuration.Route{Label: "Manual", Account: "gateway", Model: "manual-model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.Routes["other-account"] = configuration.Route{Label: "Other", Account: "other", Model: "other-model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.Routes["selected"] = configuration.Route{Label: "Fable 5.1", Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test/v1"}}
+	cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{Anthropic: "https://other.test/v1"}}
+	cfg.Routes["alternate"] = domain.Route{Label: "Opus 5", Account: "gateway", Model: "claude-opus-5", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Routes["manual"] = domain.Route{Label: "Manual", Account: "gateway", Model: "manual-model", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Routes["other-account"] = domain.Route{Label: "Other", Account: "other", Model: "other-model", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Routes["selected"] = domain.Route{Label: "Fable 5.1", Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(ID, "selected", "")
 	cfg.SetClientActivation(ID, true, executable, []string{library})
 	store := secrets.NewMemoryStore()
@@ -76,7 +77,7 @@ func TestClaudeDesktopCatalogueDerivesUnlabeledAlternative(t *testing.T) {
 	route := fixture.cfg.Routes["alternate"]
 	route.Label = ""
 	fixture.cfg.Routes["alternate"] = route
-	fixture.cfg.Models["claude-opus-5"] = configuration.Model{Label: "Claude Opus 5"}
+	fixture.cfg.Models["claude-opus-5"] = domain.Model{Label: "Claude Opus 5"}
 	models := claudeDesktopModels(fixture.cfg, fixture.runtime)
 	for _, model := range models {
 		if model.Name == "claude-opus-5" {
@@ -95,9 +96,9 @@ func TestClaudeDesktopCatalogueDeduplicatesLogicalModelsButUsesWireNames(t *test
 	selected.Label = "Sonnet 5.5 CC"
 	selected.Model, selected.UpstreamModel = "claude-sonnet-5-5", "claude-sonnet-5-5-cc"
 	fixture.cfg.Routes["selected"] = selected
-	fixture.cfg.Routes["ordinary"] = configuration.Route{
+	fixture.cfg.Routes["ordinary"] = domain.Route{
 		Account: "gateway", Model: "claude-sonnet-5-5", UpstreamModel: "claude-sonnet-5-5",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	alternate := fixture.cfg.Routes["alternate"]
 	alternate.UpstreamModel = "claude-opus-5-ssvip"
@@ -121,7 +122,7 @@ func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := configuration.Merge(configuration.NewConfig(builtInAdmission()), manifest)
+	cfg, err := domain.Merge(domain.NewConfig(builtInAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,14 +155,14 @@ func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T
 
 func (fixture claudeDesktopFixture) apply(t *testing.T) {
 	t.Helper()
-	if _, err := fixture.adapter.Apply(t.Context(), fixture.deps, configuration.NewConfig(testAdmission()), fixture.cfg); err != nil {
+	if _, err := fixture.adapter.Apply(t.Context(), fixture.deps, domain.NewConfig(testAdmission()), fixture.cfg); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestClaudeDesktopAdapterProjectsSelectedAccountCatalogue(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
-	plans, err := fixture.adapter.Plan(fixture.deps, configuration.NewConfig(testAdmission()), fixture.cfg)
+	plans, err := fixture.adapter.Plan(fixture.deps, domain.NewConfig(testAdmission()), fixture.cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +219,7 @@ func TestClaudeDesktopAdapterWithdrawsOwnedProjection(t *testing.T) {
 
 func TestClaudeDesktopAdapterReceiptRestoresThePreimage(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
-	receipt, err := fixture.adapter.Apply(t.Context(), fixture.deps, configuration.NewConfig(testAdmission()), fixture.cfg)
+	receipt, err := fixture.adapter.Apply(t.Context(), fixture.deps, domain.NewConfig(testAdmission()), fixture.cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +253,7 @@ func TestClaudeDesktopProjectionChangeDetection(t *testing.T) {
 		t.Fatal("target change was not detected")
 	}
 	recatalogued := fixture.cfg.Clone()
-	recatalogued.Routes["daily"] = configuration.Route{Label: "Daily", Account: "gateway", Model: "claude-daily", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	recatalogued.Routes["daily"] = domain.Route{Label: "Daily", Account: "gateway", Model: "claude-daily", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	if !fixture.adapter.ProjectionChanged(fixture.cfg, recatalogued) {
 		t.Fatal("catalogue change was not detected")
 	}
@@ -279,9 +280,9 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test/v1"}}
-	cfg.Routes["selected"] = configuration.Route{Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test/v1"}}
+	cfg.Routes["selected"] = domain.Route{Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(ID, "selected", "")
 	cfg.SetClientActivation(ID, true, "", nil)
 	store := secrets.NewMemoryStore()

@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"aigw-cli/internal/domain"
 	"bytes"
 	"errors"
 	"fmt"
@@ -373,10 +374,10 @@ func TestCaptureVerifiedBackupStateWithoutEnabledClientsNeedsNoCheckpoint(t *tes
 	}
 }
 
-func convergenceConfig(id string) Config {
-	cfg := NewConfig(testAdmission())
-	cfg.Accounts[id] = Account{Label: strings.ToUpper(id), Endpoints: Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
-	cfg.Routes[id] = testRoute(strings.ToUpper(id), id, id+"-model", ProtocolOpenAIResponses)
+func convergenceConfig(id string) domain.Config {
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts[id] = domain.Account{Label: strings.ToUpper(id), Endpoints: domain.Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
+	cfg.Routes[id] = testRoute(strings.ToUpper(id), id, id+"-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(ClientCodex, id, "")
 	return cfg
 }

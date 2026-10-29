@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 )
 
 // Kind classifies a provider endpoint diagnostic outcome.
@@ -77,7 +77,7 @@ const (
 )
 
 // ProbeBounded makes one authenticated request within the selected scope's deadline.
-func ProbeBounded(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, scope Scope) Result {
+func ProbeBounded(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token string, scope Scope) Result {
 	timeout := endpointTimeout
 	if scope == ScopeInference {
 		timeout = inferenceTimeout
@@ -97,7 +97,7 @@ func unreachableEndpointFix(client string) string {
 }
 
 // Probe performs one authenticated diagnostic request using the caller's context.
-func Probe(ctx context.Context, client HTTPDoer, runtime configuration.Runtime, token string, scope Scope) Result {
+func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token string, scope Scope) Result {
 	if scope != ScopeEndpoint && scope != ScopeInference {
 		return Result{Kind: Unexpected, Scope: scope, Summary: "Unsupported diagnostic scope", Fix: "Run `aigw doctor` for detailed status"}
 	}
@@ -227,7 +227,7 @@ func isHardQuotaFailure(status int, message string) bool {
 		"insufficient_quota", "quota_exhausted", "insufficient balance", "balance exhausted", "credits exhausted")
 }
 
-func classifySuccessfulResponse(result Result, protocol configuration.EndpointProtocol, body []byte) Result {
+func classifySuccessfulResponse(result Result, protocol domain.EndpointProtocol, body []byte) Result {
 	if result.Scope == ScopeInference {
 		if !hasInferenceOutput(protocol, body) {
 			result.Kind, result.Summary = Unexpected, "Inference response did not contain usable model output"
@@ -241,7 +241,7 @@ func classifySuccessfulResponse(result Result, protocol configuration.EndpointPr
 	return result
 }
 
-func hasInferenceOutput(protocol configuration.EndpointProtocol, body []byte) bool {
+func hasInferenceOutput(protocol domain.EndpointProtocol, body []byte) bool {
 	var payload struct {
 		Type    string `json:"type"`
 		Role    string `json:"role"`
@@ -270,7 +270,7 @@ func hasInferenceOutput(protocol configuration.EndpointProtocol, body []byte) bo
 		return false
 	}
 	switch protocol {
-	case configuration.ProtocolAnthropic:
+	case domain.ProtocolAnthropic:
 		if payload.Type != "message" || payload.Role != "assistant" {
 			return false
 		}
@@ -279,7 +279,7 @@ func hasInferenceOutput(protocol configuration.EndpointProtocol, body []byte) bo
 				return true
 			}
 		}
-	case configuration.ProtocolOpenAIResponses:
+	case domain.ProtocolOpenAIResponses:
 		if payload.Status != "completed" {
 			return false
 		}
@@ -293,7 +293,7 @@ func hasInferenceOutput(protocol configuration.EndpointProtocol, body []byte) bo
 				}
 			}
 		}
-	case configuration.ProtocolOpenAIChatCompletions:
+	case domain.ProtocolOpenAIChatCompletions:
 		for _, choice := range payload.Choices {
 			if choice.Message.Role == "assistant" && strings.TrimSpace(choice.Message.Content) != "" {
 				return true

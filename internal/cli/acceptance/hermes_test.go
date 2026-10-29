@@ -15,8 +15,8 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -325,7 +325,7 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 		t.Fatal(err)
 	}
 	binding := after.Clients[hermes.ID]
-	if binding.Route != "dmxapi-claude-opus-5-5" || binding.Protocol != configuration.ProtocolAnthropic {
+	if binding.Route != "dmxapi-claude-opus-5-5" || binding.Protocol != domain.ProtocolAnthropic {
 		t.Fatalf("Hermes binding = %#v", binding)
 	}
 	for _, client := range []string{codex.ID, claude.ID, claudedesktop.ID} {

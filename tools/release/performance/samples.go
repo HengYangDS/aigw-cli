@@ -2,7 +2,7 @@
 package performance
 
 import (
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -40,22 +40,22 @@ func (s Samples) Percentile() (float64, error) {
 // Measurement binds one retained timing block to its workload and budget.
 // A zero budget denotes component diagnosis, never performance qualification.
 type Measurement struct {
-	Mode                string                `json:"mode,omitempty"`
-	Runtime             configuration.Runtime `json:"runtime,omitzero"`
-	Variant             string                `json:"variant"`
-	Backend             string                `json:"backend"`
-	Case                string                `json:"case"`
-	Command             []string              `json:"command"`
-	Block               int                   `json:"block"`
-	P95                 float64               `json:"p95_seconds"`
-	Budget              float64               `json:"budget_seconds"`
-	Raw                 string                `json:"raw"`
-	Diagnostics         bool                  `json:"diagnostics"`
-	Samples             Samples               `json:"-"`
-	Executable          *Identity             `json:"selected_executable,omitempty"`
-	Reader              *Identity             `json:"selected_credential_reader,omitempty"`
-	Execution           []Execution           `json:"execution,omitempty"`
-	ControllerExecution []Execution           `json:"controller_execution,omitempty"`
+	Mode                string         `json:"mode,omitempty"`
+	Runtime             domain.Runtime `json:"runtime,omitzero"`
+	Variant             string         `json:"variant"`
+	Backend             string         `json:"backend"`
+	Case                string         `json:"case"`
+	Command             []string       `json:"command"`
+	Block               int            `json:"block"`
+	P95                 float64        `json:"p95_seconds"`
+	Budget              float64        `json:"budget_seconds"`
+	Raw                 string         `json:"raw"`
+	Diagnostics         bool           `json:"diagnostics"`
+	Samples             Samples        `json:"-"`
+	Executable          *Identity      `json:"selected_executable,omitempty"`
+	Reader              *Identity      `json:"selected_credential_reader,omitempty"`
+	Execution           []Execution    `json:"execution,omitempty"`
+	ControllerExecution []Execution    `json:"controller_execution,omitempty"`
 }
 
 // Pooled combines exactly two forty-sample blocks for each measured boundary.
@@ -131,13 +131,13 @@ type Program struct {
 
 // Memory retains per-child native peak observations for one workload block.
 type Memory struct {
-	Mode       string                `json:"mode,omitempty"`
-	Runtime    configuration.Runtime `json:"runtime,omitzero"`
-	Executable *Identity             `json:"selected_executable,omitempty"`
-	Variant    string                `json:"variant"`
-	Case       string                `json:"case"`
-	Block      int                   `json:"block"`
-	Bytes      []uint64              `json:"bytes"`
+	Mode       string         `json:"mode,omitempty"`
+	Runtime    domain.Runtime `json:"runtime,omitzero"`
+	Executable *Identity      `json:"selected_executable,omitempty"`
+	Variant    string         `json:"variant"`
+	Case       string         `json:"case"`
+	Block      int            `json:"block"`
+	Bytes      []uint64       `json:"bytes"`
 }
 
 // ReviewMemory applies the retained two-block native peak-memory budget.
@@ -286,7 +286,7 @@ func reviewWorkloads(pooled []Measurement, programs map[string]Program, scope st
 }
 
 func (s Summary) reviewMemoryBindings(programs map[string]Program) error {
-	bindings := make(map[string]configuration.Runtime)
+	bindings := make(map[string]domain.Runtime)
 	for _, row := range s.Memory {
 		if err := reviewRuntime(row.Mode, row.Runtime); err != nil {
 			return err

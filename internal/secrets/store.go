@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 // Service is the stable native-credential service identity owned by AIGW.
@@ -41,7 +41,7 @@ func IsReadOnly(store Store) bool {
 }
 
 func validate(account, value string, requireValue bool) error {
-	if !configuration.ValidIdentifier(account) {
+	if !domain.ValidIdentifier(account) {
 		return fmt.Errorf("invalid Account identifier %q", account)
 	}
 	if requireValue && value == "" {

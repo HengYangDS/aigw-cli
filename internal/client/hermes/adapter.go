@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	surfaceidentity "aigw-cli/internal/surface"
 	"aigw-cli/internal/transaction"
 )
@@ -31,12 +31,12 @@ const HomeSurface surfaceidentity.ID = "hermes-home-default"
 
 const hermesSurface = string(HomeSurface)
 
-func (hermesAdapter) Spec() configuration.ClientSpec {
-	return configuration.ClientSpec{
+func (hermesAdapter) Spec() domain.ClientSpec {
+	return domain.ClientSpec{
 		ID:    ID,
 		Label: "Hermes",
-		EndpointProtocols: []configuration.EndpointProtocol{
-			configuration.ProtocolOpenAIResponses, configuration.ProtocolAnthropic, configuration.ProtocolOpenAIChatCompletions,
+		EndpointProtocols: []domain.EndpointProtocol{
+			domain.ProtocolOpenAIResponses, domain.ProtocolAnthropic, domain.ProtocolOpenAIChatCompletions,
 		},
 		SessionsKeepRoute: true,
 	}
@@ -59,9 +59,9 @@ func homeDirectory(host discovery.Host) string {
 	return filepath.Join(host.Home, ".hermes")
 }
 
-func (hermesAdapter) Converge(deps client.Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
+func (hermesAdapter) Converge(deps client.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
 	selected, err := cfg.ResolveRuntime(ID, "")
-	if _, absent := errors.AsType[*configuration.RuntimeBindingUnselectedError](err); absent {
+	if _, absent := errors.AsType[*domain.RuntimeBindingUnselectedError](err); absent {
 		return nil
 	}
 	if err != nil {
@@ -103,7 +103,7 @@ func (hermesAdapter) Converge(deps client.Dependencies, cfg *configuration.Confi
 	return nil
 }
 
-func hermesDesired(deps client.Dependencies, cfg configuration.Config, selected configuration.Runtime) (Desired, error) {
+func hermesDesired(deps client.Dependencies, cfg domain.Config, selected domain.Runtime) (Desired, error) {
 	catalogue, err := hermesCatalogue(cfg)
 	if err != nil {
 		return Desired{}, err
@@ -139,13 +139,13 @@ type hermesCatalogueProvider struct {
 	ID       string
 	Name     string
 	Account  string
-	Protocol configuration.EndpointProtocol
+	Protocol domain.EndpointProtocol
 	Endpoint string
-	Runtime  configuration.Runtime
+	Runtime  domain.Runtime
 	Models   []string
 }
 
-func hermesCatalogue(cfg configuration.Config) ([]hermesCatalogueProvider, error) {
+func hermesCatalogue(cfg domain.Config) ([]hermesCatalogueProvider, error) {
 	spec := hermesAdapter{}.Spec()
 	providers := make(map[string]hermesCatalogueProvider)
 	var ids []string
@@ -161,7 +161,7 @@ func hermesCatalogue(cfg configuration.Config) ([]hermesCatalogueProvider, error
 				if err != nil {
 					return nil, err
 				}
-				item = hermesCatalogueProvider{ID: id, Name: account.Label + " · " + configuration.ProtocolLabel(protocol), Account: route.Account, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected}
+				item = hermesCatalogueProvider{ID: id, Name: account.Label + " · " + domain.ProtocolLabel(protocol), Account: route.Account, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected}
 			}
 			if !slices.Contains(item.Models, route.UpstreamModelID()) {
 				item.Models = append(item.Models, route.UpstreamModelID())
@@ -177,16 +177,16 @@ func hermesCatalogue(cfg configuration.Config) ([]hermesCatalogueProvider, error
 		if order := cfg.CompareAccounts(left.Account, right.Account); order != 0 {
 			return order
 		}
-		return configuration.CompareProtocols(left.Protocol, right.Protocol)
+		return domain.CompareProtocols(left.Protocol, right.Protocol)
 	})
 	return result, nil
 }
 
-func hermesProviderID(accountID string, protocol configuration.EndpointProtocol) string {
+func hermesProviderID(accountID string, protocol domain.EndpointProtocol) string {
 	return "aigw-" + accountID + "-" + strings.ReplaceAll(string(protocol), "_", "-")
 }
 
-func hermesPlans(deps client.Dependencies, before, after configuration.Config) ([]Plan, []string, error) {
+func hermesPlans(deps client.Dependencies, before, after domain.Config) ([]Plan, []string, error) {
 	previous, current := before.Clients[ID], after.Clients[ID]
 	if !previous.Enabled && !current.Enabled {
 		return nil, nil, nil
@@ -240,7 +240,7 @@ func hermesPlans(deps client.Dependencies, before, after configuration.Config) (
 	return plans, targets, nil
 }
 
-func hermesPreviousDesired(deps client.Dependencies, before configuration.Config) (Desired, error) {
+func hermesPreviousDesired(deps client.Dependencies, before domain.Config) (Desired, error) {
 	selected, err := before.ResolveRuntime(ID, "")
 	if err != nil {
 		return Desired{}, err
@@ -252,7 +252,7 @@ func hermesPreviousDesired(deps client.Dependencies, before configuration.Config
 // when the operator selected another model of AIGW's projected catalogue in
 // Hermes and nothing else that AIGW owns changed. It returns the adopted Route,
 // or an empty string when Hermes still shows the bound selection.
-func (hermesAdapter) AdoptSelection(deps client.Dependencies, cfg *configuration.Config) (string, error) {
+func (hermesAdapter) AdoptSelection(deps client.Dependencies, cfg *domain.Config) (string, error) {
 	binding := cfg.Clients[ID]
 	if !binding.Enabled || len(binding.Targets) != 1 {
 		return "", nil
@@ -283,7 +283,7 @@ func (hermesAdapter) AdoptSelection(deps client.Dependencies, cfg *configuration
 
 // hermesRouteFor maps a projected provider and model to the one catalogue
 // Route with that provider's Account, protocol and upstream model.
-func hermesRouteFor(cfg configuration.Config, native Selection) (string, configuration.EndpointProtocol, error) {
+func hermesRouteFor(cfg domain.Config, native Selection) (string, domain.EndpointProtocol, error) {
 	catalogue, err := hermesCatalogue(cfg)
 	if err != nil {
 		return "", "", err
@@ -318,7 +318,7 @@ func hermesRouteFor(cfg configuration.Config, native Selection) (string, configu
 	}
 }
 
-func (hermesAdapter) Plan(deps client.Dependencies, before, after configuration.Config) ([]client.ProjectionPlan, error) {
+func (hermesAdapter) Plan(deps client.Dependencies, before, after domain.Config) ([]client.ProjectionPlan, error) {
 	plans, targets, err := hermesPlans(deps, before, after)
 	if err != nil {
 		return nil, err
@@ -340,7 +340,7 @@ func (receipt hermesReceipt) Rollback() error {
 	return result
 }
 
-func (hermesAdapter) Apply(_ context.Context, deps client.Dependencies, before, after configuration.Config) (client.ProjectionReceipt, error) {
+func (hermesAdapter) Apply(_ context.Context, deps client.Dependencies, before, after domain.Config) (client.ProjectionReceipt, error) {
 	plans, _, err := hermesPlans(deps, before, after)
 	if err != nil {
 		return nil, err
@@ -356,7 +356,7 @@ func (hermesAdapter) Apply(_ context.Context, deps client.Dependencies, before, 
 	return receipts, nil
 }
 
-func (hermesAdapter) ProjectionChanged(before, after configuration.Config) bool {
+func (hermesAdapter) ProjectionChanged(before, after domain.Config) bool {
 	previous, current := before.Clients[ID], after.Clients[ID]
 	if previous.Enabled != current.Enabled {
 		return true
@@ -382,7 +382,7 @@ func (hermesAdapter) ProjectionChanged(before, after configuration.Config) bool 
 	})
 }
 
-func (hermesAdapter) Inspect(ctx context.Context, deps client.Dependencies, cfg configuration.Config, selected configuration.Runtime) client.Status {
+func (hermesAdapter) Inspect(ctx context.Context, deps client.Dependencies, cfg domain.Config, selected domain.Runtime) client.Status {
 	if err := ctx.Err(); err != nil {
 		return client.Status{Issue: err.Error()}
 	}
@@ -401,7 +401,7 @@ func (hermesAdapter) Inspect(ctx context.Context, deps client.Dependencies, cfg 
 	return client.Status{Ready: true}
 }
 
-func hermesInspectionPlan(deps client.Dependencies, cfg configuration.Config, selected configuration.Runtime, target string) (Plan, error) {
+func hermesInspectionPlan(deps client.Dependencies, cfg domain.Config, selected domain.Runtime, target string) (Plan, error) {
 	desired, err := hermesDesired(deps, cfg, selected)
 	if err != nil {
 		return Plan{}, err
@@ -426,7 +426,7 @@ func hermesInspectionPlan(deps client.Dependencies, cfg configuration.Config, se
 	return Prepare(target, &desired)
 }
 
-func hermesRetainedReader(cfg configuration.Config, desired Desired, plan Plan, current string) (string, error) {
+func hermesRetainedReader(cfg domain.Config, desired Desired, plan Plan, current string) (string, error) {
 	return client.RetainedDefaultReader(current, false, func() (string, error) {
 		catalogue, err := hermesCatalogue(cfg)
 		if err != nil {
@@ -454,11 +454,11 @@ func hermesRetainedReader(cfg configuration.Config, desired Desired, plan Plan, 
 	})
 }
 
-func (hermesAdapter) Withdraw(cfg *configuration.Config) {
+func (hermesAdapter) Withdraw(cfg *domain.Config) {
 	delete(cfg.Clients, ID)
 }
 
-func (adapter hermesAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg configuration.Config, selected configuration.Runtime, _ string) (client.Verification, error) {
+func (adapter hermesAdapter) Verify(ctx context.Context, deps client.Dependencies, cfg domain.Config, selected domain.Runtime, _ string) (client.Verification, error) {
 	if deps.Runner == nil {
 		return client.Verification{}, errors.New("hermes verification requires a process runner")
 	}

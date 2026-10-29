@@ -7,16 +7,16 @@ import (
 	"strings"
 	"testing"
 
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/providers"
 	"aigw-cli/internal/secrets"
 )
 
 func TestUnknownDiagnosticProviderIsRejectedAtExecutionNotConfiguration(t *testing.T) {
-	providerAccount := configuration.Account{
+	providerAccount := domain.Account{
 		ID:           "future",
 		Label:        "Future Gateway",
-		AccountProbe: &configuration.AccountProbe{Kind: "future-provider", BaseURL: "https://diagnostics.example.test"},
+		AccountProbe: &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://diagnostics.example.test"},
 	}
 	if providers.Supports(providerAccount.AccountProbe.Kind) {
 		t.Fatal("an unbundled provider must not report support")
@@ -34,7 +34,7 @@ func TestBundledDMXAPIDiagnosticsAreExplicitlyRegistered(t *testing.T) {
 }
 
 func TestProbeRequiresAccountProbeConfiguration(t *testing.T) {
-	_, err := providers.Probe(context.Background(), nil, configuration.Account{ID: "no-probe"}, "api-token", secrets.DiagnosticCredential{})
+	_, err := providers.Probe(context.Background(), nil, domain.Account{ID: "no-probe"}, "api-token", secrets.DiagnosticCredential{})
 	if err == nil || !strings.Contains(err.Error(), "no exact diagnostic provider") {
 		t.Fatalf("error = %v", err)
 	}
@@ -57,9 +57,9 @@ func TestProbeDispatchesToDMXAPI(t *testing.T) {
 		}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
-	providerAccount := configuration.Account{
+	providerAccount := domain.Account{
 		ID:           "dmx",
-		AccountProbe: &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostic.test"},
+		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostic.test"},
 	}
 	report, err := providers.Probe(t.Context(), client, providerAccount, "sk-abcd-middle-wxyz", secrets.DiagnosticCredential{SystemToken: "platform-token"})
 	if err != nil || report.AccountBalance != 12.5 || report.TokenRemaining != 5 || report.TokenName != "Selected Token" || report.TokenStatus != "enabled" {

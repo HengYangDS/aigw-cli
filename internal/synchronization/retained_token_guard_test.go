@@ -11,8 +11,8 @@ import (
 
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -60,8 +60,8 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	afterConfig := cfg.Clone()
-	afterConfig.Accounts["ready"] = configuration.Account{Label: "Ready", Endpoints: configuration.Endpoints{Anthropic: "https://ready.test"}}
-	afterConfig.Routes["claude"] = configuration.Route{Label: "Claude", Account: "ready", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	afterConfig.Accounts["ready"] = domain.Account{Label: "Ready", Endpoints: domain.Endpoints{Anthropic: "https://ready.test"}}
+	afterConfig.Routes["claude"] = domain.Route{Label: "Claude", Account: "ready", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	afterConfig.SetSelectedRoute(claude.ID, "claude", "")
 	afterConfig.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 
@@ -116,11 +116,11 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	}
 	cfg := testConfig(target)
 	codexBinding := cfg.Clients[codex.ID]
-	codexBinding.Authentication = configuration.AuthenticationClientNative
+	codexBinding.Authentication = domain.AuthenticationClientNative
 	codexBinding.ModelProvider = "amazon-bedrock"
 	cfg.Clients[codex.ID] = codexBinding
-	cfg.Accounts["missing"] = configuration.Account{Label: "Missing", Endpoints: configuration.Endpoints{Anthropic: "https://missing.test"}}
-	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "missing", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.Accounts["missing"] = domain.Account{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
+	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "missing", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	if err := cfg.Validate(); err != nil {

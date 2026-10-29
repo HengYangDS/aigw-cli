@@ -21,6 +21,7 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/upgrade"
@@ -62,7 +63,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	route := p.manifest.Routes[selection.Route]
 	const token = "native-retry-fixture-token"
 	var failures, mode, completions atomic.Int64
-	base := clientResponseHandler(configuration.ProtocolOpenAIResponses, map[string]*atomic.Int64{route.UpstreamModel: &completions}, token, "high", nativeCodexToolShell(t))
+	base := clientResponseHandler(domain.ProtocolOpenAIResponses, map[string]*atomic.Int64{route.UpstreamModel: &completions}, token, "high", nativeCodexToolShell(t))
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if mode.Load() == 0 || r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/responses") {
 			base.ServeHTTP(w, r)
@@ -100,13 +101,13 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	canonical := readFile(t, journey.config)
 	args := []string{"use", "--for", codex.ID, selection.Route, "--request-max-retries", "0", "--stream-max-retries", "0"}
 	preview := journey.runWith(p.candidate, append(args, "--dry-run", "--json")...)
-	var selected configuration.Runtime
+	var selected domain.Runtime
 	if err := json.Unmarshal(preview, &selected); err != nil || selected.RetryPolicy == nil {
 		t.Fatalf("retry preview omitted policy: %v", err)
 	}
 	journey.runWith(p.candidate, args...)
 	if !bytes.Equal(canonical, readFile(t, journey.config)) {
-		var before, after configuration.Config
+		var before, after domain.Config
 		if err := toml.Unmarshal(canonical, &before); err != nil {
 			t.Fatal(err)
 		}

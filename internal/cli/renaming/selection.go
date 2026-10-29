@@ -2,7 +2,7 @@ package renaming
 
 import (
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/prompt"
 	"fmt"
 	"sort"
@@ -41,7 +41,7 @@ func resolveIDs(runtime invocation.Context, resource string, args []string) (str
 	return oldID, strings.TrimSpace(newID), nil
 }
 
-func routeChoices(cfg configuration.Config) []prompt.Choice {
+func routeChoices(cfg domain.Config) []prompt.Choice {
 	names := make([]string, 0, len(cfg.Routes))
 	for name := range cfg.Routes {
 		names = append(names, name)
@@ -59,7 +59,7 @@ func routeChoices(cfg configuration.Config) []prompt.Choice {
 	return choices
 }
 
-func accountChoices(cfg configuration.Config) []prompt.Choice {
+func accountChoices(cfg domain.Config) []prompt.Choice {
 	names := make([]string, 0, len(cfg.Accounts))
 	for name := range cfg.Accounts {
 		names = append(names, name)

@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 	"bytes"
 	"context"
@@ -79,13 +80,12 @@ func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) 
 func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := NewStore(path, testAdmission())
-	cfg := Config{
-		Version:   ConfigVersion,
-		Accounts:  map[string]Account{"dmx": {Label: "DMX", Endpoints: Endpoints{Anthropic: "https://example.test"}}},
-		Routes:    map[string]Route{"claude": testRoute("Claude", "dmx", "claude-test", ProtocolAnthropic)},
-		Clients:   map[string]ClientBinding{ClientClaude: {Route: "claude"}},
-		admission: testAdmission(),
-	}
+	cfg := admitted(domain.Config{
+		Version:  domain.ConfigVersion,
+		Accounts: map[string]domain.Account{"dmx": {Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
+		Routes:   map[string]domain.Route{"claude": testRoute("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)},
+		Clients:  map[string]domain.ClientBinding{ClientClaude: {Route: "claude"}},
+	})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +292,7 @@ func TestLoadVerifiedCheckpointRejectsLegacyProfileOwnedEndpointResidue(t *testi
 
 func TestSaveVerifiedCheckpointRejectsInvalidConfiguration(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	if err := NewStore(path, testAdmission()).SaveVerifiedCheckpoint(t.Context(), Config{}, []string{"codex"}); err == nil {
+	if err := NewStore(path, testAdmission()).SaveVerifiedCheckpoint(t.Context(), domain.Config{}, []string{"codex"}); err == nil {
 		t.Fatal("SaveVerifiedCheckpoint accepted an invalid configuration")
 	}
 }

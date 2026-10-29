@@ -15,6 +15,7 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 
 	"github.com/pelletier/go-toml/v2"
@@ -106,7 +107,7 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 
 func TestLocalFailureKeepsOtherErrorsUnchanged(t *testing.T) {
 	recovery := presentationProjectionError{restored: true, cause: &os.PathError{Op: "write", Path: "/private/x", Err: os.ErrPermission}}
-	unsupported := &configuration.LoadError{Phase: configuration.LoadPhaseValidate, Err: &configuration.UnsupportedConfigVersionError{Version: 0, ExpectedVersion: configuration.ConfigVersion}}
+	unsupported := &configuration.LoadError{Phase: configuration.LoadPhaseValidate, Err: &domain.UnsupportedConfigVersionError{Version: 0, ExpectedVersion: domain.ConfigVersion}}
 	for _, err := range []error{nil, errors.New("plain failure"), ProblemError("Problem", "", "", "", nil), recovery, unsupported} {
 		if got := LocalFailure("1.2.3", err); !errors.Is(got, err) || !errors.Is(err, got) {
 			t.Fatalf("LocalFailure changed %#v into %#v", err, got)
@@ -294,14 +295,14 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 		err  error
 		want string
 	}{
-		{name: "route client mismatch", err: &configuration.RuntimeRouteClientMismatchError{RouteID: "one", ExpectedClient: codex.ID, ActualClient: claude.ID}, want: `route "one" is for codex, not claude`},
-		{name: "route unknown account", err: &configuration.RuntimeRouteUnknownAccountError{RouteID: "one", AccountID: "missing"}, want: `route "one" references unknown account "missing"`},
-		{name: "Anthropic endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolAnthropic}, want: `account "one" has no Anthropic Messages endpoint`},
-		{name: "OpenAI Responses endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolOpenAIResponses}, want: `account "one" has no OpenAI Responses endpoint`},
-		{name: "OpenAI Chat Completions endpoint", err: &configuration.RuntimeMissingEndpointError{AccountID: "one", Protocol: configuration.ProtocolOpenAIChatCompletions}, want: `account "one" has no OpenAI Chat Completions endpoint`},
-		{name: "unsupported version", err: &configuration.UnsupportedConfigVersionError{Version: 3, ExpectedVersion: 2}, want: "unsupported configuration version: found 3, expected 2. AIGW does not reinterpret configuration schemas"},
-		{name: "migratable version", err: &configuration.UnsupportedConfigVersionError{Version: configuration.LegacyConfigVersion, ExpectedVersion: configuration.ConfigVersion}, want: fmt.Sprintf("unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`", configuration.LegacyConfigVersion, configuration.ConfigVersion)},
-		{name: "published migratable version", err: &configuration.UnsupportedConfigVersionError{Version: configuration.PublishedConfigVersion, ExpectedVersion: configuration.ConfigVersion}, want: fmt.Sprintf("unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`", configuration.PublishedConfigVersion, configuration.ConfigVersion)},
+		{name: "route client mismatch", err: &domain.RuntimeRouteClientMismatchError{RouteID: "one", ExpectedClient: codex.ID, ActualClient: claude.ID}, want: `route "one" is for codex, not claude`},
+		{name: "route unknown account", err: &domain.RuntimeRouteUnknownAccountError{RouteID: "one", AccountID: "missing"}, want: `route "one" references unknown account "missing"`},
+		{name: "Anthropic endpoint", err: &domain.RuntimeMissingEndpointError{AccountID: "one", Protocol: domain.ProtocolAnthropic}, want: `account "one" has no Anthropic Messages endpoint`},
+		{name: "OpenAI Responses endpoint", err: &domain.RuntimeMissingEndpointError{AccountID: "one", Protocol: domain.ProtocolOpenAIResponses}, want: `account "one" has no OpenAI Responses endpoint`},
+		{name: "OpenAI Chat Completions endpoint", err: &domain.RuntimeMissingEndpointError{AccountID: "one", Protocol: domain.ProtocolOpenAIChatCompletions}, want: `account "one" has no OpenAI Chat Completions endpoint`},
+		{name: "unsupported version", err: &domain.UnsupportedConfigVersionError{Version: 3, ExpectedVersion: 2}, want: "unsupported configuration version: found 3, expected 2. AIGW does not reinterpret configuration schemas"},
+		{name: "migratable version", err: &domain.UnsupportedConfigVersionError{Version: domain.LegacyConfigVersion, ExpectedVersion: domain.ConfigVersion}, want: fmt.Sprintf("unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`", domain.LegacyConfigVersion, domain.ConfigVersion)},
+		{name: "published migratable version", err: &domain.UnsupportedConfigVersionError{Version: domain.PublishedConfigVersion, ExpectedVersion: domain.ConfigVersion}, want: fmt.Sprintf("unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`", domain.PublishedConfigVersion, domain.ConfigVersion)},
 		{name: "config load", err: &configuration.LoadError{Phase: configuration.LoadPhaseRead, Err: errors.New("details changed")}, want: "Cannot read local configuration; run `aigw doctor` to inspect or restore it"},
 	}
 	for _, test := range tests {

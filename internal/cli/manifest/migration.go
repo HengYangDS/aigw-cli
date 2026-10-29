@@ -5,6 +5,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 
 	"github.com/spf13/cobra"
@@ -97,7 +98,7 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 	return renderer.Err()
 }
 
-func migrationClientRows(admission configuration.Admission, bindings map[string]configuration.ClientBinding) []presentation.Field {
+func migrationClientRows(admission domain.Admission, bindings map[string]domain.ClientBinding) []presentation.Field {
 	rows := make([]presentation.Field, 0, len(bindings))
 	for _, client := range admission.IDs() {
 		binding, exists := bindings[client]
@@ -109,7 +110,7 @@ func migrationClientRows(admission configuration.Admission, bindings map[string]
 			detail = "disabled"
 		}
 		if binding.Protocol != "" {
-			detail += " · " + configuration.ProtocolLabel(binding.Protocol)
+			detail += " · " + domain.ProtocolLabel(binding.Protocol)
 		}
 		switch targets := len(binding.Targets); {
 		case targets == 1:

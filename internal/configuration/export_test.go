@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"aigw-cli/internal/domain"
 	"bytes"
 	"testing"
 )
@@ -9,18 +10,18 @@ import (
 // operator's bindings. An alternative or manual-only selection is a local
 // choice; an import would otherwise treat it as reviewed preference.
 func TestExportKeepsClientBindingsLocal(t *testing.T) {
-	declared := func() Config {
-		cfg := NewConfig(testAdmission())
-		cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
-		cfg.Routes["team-claude"] = testRoute("Team Claude", "team", "claude-test", ProtocolAnthropic)
-		cfg.Routes["team-claude-alternative"] = testRoute("Team Claude Alternative", "team", "claude-alternative", ProtocolAnthropic)
-		cfg.Routes["team-codex"] = testRoute("Team Codex", "team", "gpt-test", ProtocolOpenAIResponses)
-		cfg.Routes["manual-codex"] = testRoute("Manual Codex", "team", "gpt-manual", ProtocolOpenAIResponses)
-		cfg.Recommendations[ClientClaude] = ClientRecommendation{
-			Primary:      ClientSelection{Route: "team-claude"},
-			Alternatives: []ClientSelection{{Route: "team-claude-alternative"}},
+	declared := func() domain.Config {
+		cfg := domain.NewConfig(testAdmission())
+		cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
+		cfg.Routes["team-claude"] = testRoute("Team Claude", "team", "claude-test", domain.ProtocolAnthropic)
+		cfg.Routes["team-claude-alternative"] = testRoute("Team Claude Alternative", "team", "claude-alternative", domain.ProtocolAnthropic)
+		cfg.Routes["team-codex"] = testRoute("Team Codex", "team", "gpt-test", domain.ProtocolOpenAIResponses)
+		cfg.Routes["manual-codex"] = testRoute("Manual Codex", "team", "gpt-manual", domain.ProtocolOpenAIResponses)
+		cfg.Recommendations[ClientClaude] = domain.ClientRecommendation{
+			Primary:      domain.ClientSelection{Route: "team-claude"},
+			Alternatives: []domain.ClientSelection{{Route: "team-claude-alternative"}},
 		}
-		cfg.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{Route: "team-codex"}}
+		cfg.Recommendations[ClientCodex] = domain.ClientRecommendation{Primary: domain.ClientSelection{Route: "team-codex"}}
 		return cfg
 	}
 	unselected, err := Export(declared())

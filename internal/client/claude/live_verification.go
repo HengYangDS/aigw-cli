@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	clientverification "aigw-cli/internal/client/verification"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 )
 
@@ -26,7 +26,7 @@ var failureAdvice = []clientverification.Advice{{
 
 // verifyRuntime performs one bounded Claude CLI request. explicitRoute is
 // the invocation's --route, which its retry advice repeats.
-func verifyRuntime(ctx context.Context, runner process.VerificationRunner, executable, settingsPath string, clientRuntime configuration.Runtime, token, explicitRoute string) error {
+func verifyRuntime(ctx context.Context, runner process.VerificationRunner, executable, settingsPath string, clientRuntime domain.Runtime, token, explicitRoute string) error {
 	if clientRuntime.Model == "" {
 		return fmt.Errorf("Route %q has no Claude model", clientRuntime.RouteID)
 	}

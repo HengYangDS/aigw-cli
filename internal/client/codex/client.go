@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 )
 
@@ -67,7 +67,7 @@ var verificationSessionID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f
 // VerificationPlan builds one native turn in an operation-owned Codex home.
 // An exact session ID resumes that home's synthetic history, never the newest
 // operator session. JSON events and the private final file are separate evidence.
-func VerificationPlan(executable, configPath, outputPath string, runtime configuration.Runtime, prompt, sessionID string) (process.Plan, error) {
+func VerificationPlan(executable, configPath, outputPath string, runtime domain.Runtime, prompt, sessionID string) (process.Plan, error) {
 	if strings.TrimSpace(executable) == "" {
 		return process.Plan{}, fmt.Errorf("Codex executable is not configured")
 	}

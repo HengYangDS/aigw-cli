@@ -10,15 +10,15 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/hermes"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 )
 
 func TestClaudeDesktopLifecycleReportsRequiredRestart(t *testing.T) {
 	cfg := adapterConfig()
-	cfg.Routes["desktop"] = configuration.Route{
+	cfg.Routes["desktop"] = domain.Route{
 		Label: "Desktop", Account: "gateway", Model: "claude-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedRoute(claudedesktop.ID, "desktop", "")
 	runtime, out, secretStore, _ := adapterRuntime(t, cfg)
@@ -86,9 +86,9 @@ func TestEnableMaterializesDeferredClientIntent(t *testing.T) {
 func TestEnablePreservesExistingHermesTarget(t *testing.T) {
 	cfg := adapterConfig()
 	target := filepath.Join(t.TempDir(), "config.yaml")
-	cfg.Clients[hermes.ID] = configuration.ClientBinding{
+	cfg.Clients[hermes.ID] = domain.ClientBinding{
 		Route:      "claude",
-		Protocol:   configuration.ProtocolAnthropic,
+		Protocol:   domain.ProtocolAnthropic,
 		Executable: "/previous/hermes",
 		Targets:    []string{target},
 	}

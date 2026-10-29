@@ -7,6 +7,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
 	"context"
@@ -119,7 +120,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 
 	t.Run("already configured", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "token\n")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"setup", "--route", "two", "--for", "claude", "--model", "m", "--anthropic-url", "https://two.test", "--token-stdin"})
 		if err == nil || !strings.Contains(err.Error(), "already configured") {
 			t.Fatalf("error = %v", err)
@@ -138,7 +139,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("interactive already configured", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"setup"})
 		if err == nil || !strings.Contains(err.Error(), "already configured") {
 			t.Fatalf("error = %v", err)

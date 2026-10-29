@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"sort"
 
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
-func planAccount(cfg configuration.Config, oldID, newID string) (Plan, error) {
-	if !configuration.ValidIdentifier(newID) {
+func planAccount(cfg domain.Config, oldID, newID string) (Plan, error) {
+	if !domain.ValidIdentifier(newID) {
 		return Plan{}, fmt.Errorf("Invalid new account ID %q", newID)
 	}
 	providerAccount, ok := cfg.Accounts[oldID]
@@ -55,8 +55,8 @@ func planAccount(cfg configuration.Config, oldID, newID string) (Plan, error) {
 	}, nil
 }
 
-func planRoute(cfg configuration.Config, oldID, newID string) (Plan, error) {
-	if !configuration.ValidIdentifier(newID) {
+func planRoute(cfg domain.Config, oldID, newID string) (Plan, error) {
+	if !domain.ValidIdentifier(newID) {
 		return Plan{}, fmt.Errorf("Invalid new route ID %q", newID)
 	}
 	route, ok := cfg.Routes[oldID]

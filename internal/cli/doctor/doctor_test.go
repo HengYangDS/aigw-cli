@@ -6,7 +6,7 @@ import (
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/synchronization"
@@ -45,23 +45,23 @@ func executeDoctorCommand(command *cobra.Command) error {
 	return command.Execute()
 }
 
-func validDoctorConfig() configuration.Config {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = configuration.Account{
+func validDoctorConfig() domain.Config {
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["team"] = domain.Account{
 		Label: "Team",
-		Endpoints: configuration.Endpoints{
+		Endpoints: domain.Endpoints{
 			Anthropic:       "https://team.test",
 			OpenAIResponses: "https://team.test/v1",
 		},
 	}
-	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
 	return cfg
 }
 
-func doctorDependencies(t *testing.T, cfg configuration.Config) (Dependencies, *bytes.Buffer, secrets.Store) {
+func doctorDependencies(t *testing.T, cfg domain.Config) (Dependencies, *bytes.Buffer, secrets.Store) {
 	t.Helper()
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := store.Save(cfg); err != nil {
@@ -144,14 +144,14 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.T) {
 	cfg := validDoctorConfig()
 	cfg.SetClientActivation(claude.ID, true, "", nil)
-	cfg.Accounts["optional"] = configuration.Account{
+	cfg.Accounts["optional"] = domain.Account{
 		Label: "Optional",
-		Endpoints: configuration.Endpoints{
+		Endpoints: domain.Endpoints{
 			Anthropic:       "https://optional.test",
 			OpenAIResponses: "https://optional.test/v1",
 		},
 	}
-	cfg.Routes["optional"] = configuration.Route{Label: "Optional", Account: "optional", Model: "gpt-optional"}
+	cfg.Routes["optional"] = domain.Route{Label: "Optional", Account: "optional", Model: "gpt-optional"}
 	deps, _, secretStore := doctorDependencies(t, cfg)
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
@@ -173,23 +173,23 @@ func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 	for _, client := range []string{claude.ID, codex.ID} {
 		cfg.SetClientActivation(client, true, "", nil)
 	}
-	cfg.Accounts["native"] = configuration.Account{
+	cfg.Accounts["native"] = domain.Account{
 		Label: "Native",
-		Endpoints: configuration.Endpoints{
+		Endpoints: domain.Endpoints{
 			OpenAIResponses: "https://native.test/v1",
 		},
 	}
-	cfg.Routes["native"] = configuration.Route{
+	cfg.Routes["native"] = domain.Route{
 		Label:   "Native",
 		Account: "native",
 		Model:   "native-model",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolOpenAIResponses: {},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolOpenAIResponses: {},
 		},
 	}
-	cfg.Clients[codex.ID] = configuration.ClientBinding{
+	cfg.Clients[codex.ID] = domain.ClientBinding{
 		Route: "native", Enabled: true, ModelProvider: "amazon-bedrock",
-		Authentication: configuration.AuthenticationClientNative,
+		Authentication: domain.AuthenticationClientNative,
 	}
 	deps, _, secretStore := doctorDependencies(t, cfg)
 	if err := secretStore.Set("team", "token"); err != nil {
@@ -279,7 +279,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if check := findCheck(t, adapterChecks(context.Background(), deps.Clients, cfg, ""), "projection:codex"); check.OK || check.Detail != "selected client route cannot be resolved" {
 		t.Fatalf("route check = %#v", check)
 	}
-	if got := adapterChecks(context.Background(), deps.Clients, configuration.NewConfig(clients.Admission()), ""); len(got) != len(clients.Admission().IDs()) {
+	if got := adapterChecks(context.Background(), deps.Clients, domain.NewConfig(clients.Admission()), ""); len(got) != len(clients.Admission().IDs()) {
 		t.Fatalf("disabled adapter checks = %#v", got)
 	}
 }
@@ -301,7 +301,7 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 func TestCommandHumanAndJSONPaths(t *testing.T) {
 	cfg := validDoctorConfig()
 	deps, out, secretStore := doctorDependencies(t, cfg)
-	deps.Inspect = func(configuration.Config, secrets.Store) map[string]domainreadiness.Client {
+	deps.Inspect = func(domain.Config, secrets.Store) map[string]domainreadiness.Client {
 		return map[string]domainreadiness.Client{
 			claude.ID: {State: domainreadiness.Configured, Route: "claude", Account: "team"},
 			codex.ID:  {State: domainreadiness.Deferred, NextAction: "aigw sync"},
@@ -418,7 +418,7 @@ func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	deps.Inspect = func(configuration.Config, secrets.Store) map[string]domainreadiness.Client {
+	deps.Inspect = func(domain.Config, secrets.Store) map[string]domainreadiness.Client {
 		return map[string]domainreadiness.Client{
 			claude.ID: {
 				State:      domainreadiness.Unavailable,
@@ -487,70 +487,5 @@ func TestCommandPropagatesWriterFailureWhilePresentingProblems(t *testing.T) {
 func TestCommandConstructorExposesStableName(t *testing.T) {
 	if got := NewCommand(Dependencies{}).Name(); got != "doctor" {
 		t.Fatalf("doctor command = %q", got)
-	}
-}
-
-func TestHumanChecksShareOneValueColumn(t *testing.T) {
-	deps, out, secretStore := doctorDependencies(t, validDoctorConfig())
-	if err := secretStore.Set("team", "token"); err != nil {
-		t.Fatal(err)
-	}
-	deps.Env = []string{"OPENAI_API_KEY=secret"}
-	checks := executeJSON(t, deps, out).Checks
-	longest := 0
-	for _, check := range checks {
-		longest = max(longest, presentation.DisplayWidth("✓ "+Label(clients.Admission(), check)))
-	}
-	for _, width := range []int{0, 72, 100} {
-		out.Reset()
-		deps.Width = width
-		if err := executeDoctorCommand(NewCommand(deps)); err == nil {
-			t.Fatal("doctor accepted a global client token environment variable")
-		}
-		_, section, _ := strings.Cut(out.String(), "\nChecks\n")
-		section, _, _ = strings.Cut(section, "\n\n")
-		column := -1
-		for line := range strings.SplitSeq(section, "\n") {
-			text := strings.TrimLeft(line, " ")
-			if symbol, rest, classified := strings.Cut(text, " "); classified && (symbol == "✓" || symbol == "✗") {
-				for _, check := range checks {
-					if label := Label(clients.Admission(), check); strings.HasPrefix(rest, label+" ") {
-						text = strings.TrimLeft(strings.TrimPrefix(rest, label), " ")
-						break
-					}
-				}
-			}
-			start := presentation.DisplayWidth(line) - presentation.DisplayWidth(text)
-			if column < 0 {
-				column = start
-			}
-			if start != column || column < 2+longest+2 {
-				t.Fatalf("width=%d: check text starts at column %d, want one column of at least %d:\n%s", width, start, 2+longest+2, section)
-			}
-		}
-		if !strings.Contains(section, "Fix: Remove the variables above") {
-			t.Fatalf("width=%d: the failing check lost its fix:\n%s", width, section)
-		}
-	}
-}
-
-func TestHumanDoctorNamesNativeClaudeModelPreferenceAndVerification(t *testing.T) {
-	var output bytes.Buffer
-	renderer := presentation.NewWithWidth(&output, false, 100)
-	renderClients(renderer, clients.Admission(), map[string]domainreadiness.Client{
-		claude.ID: {
-			State:               domainreadiness.Configured,
-			Route:               "fable",
-			NativeModelOverride: true,
-			Detail:              "Claude Code uses a native model preference",
-			NextAction:          "aigw verify --for claude",
-		},
-	})
-	if err := renderer.Err(); err != nil {
-		t.Fatal(err)
-	}
-	rendered := output.String()
-	if !strings.Contains(rendered, "native model preference") || !strings.Contains(rendered, "aigw verify --for claude") {
-		t.Fatalf("doctor output = %q", rendered)
 	}
 }

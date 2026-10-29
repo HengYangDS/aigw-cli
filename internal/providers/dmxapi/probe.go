@@ -12,8 +12,8 @@ import (
 	"net/url"
 	"strings"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/providers/diagnostic"
 	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
@@ -29,7 +29,7 @@ const (
 )
 
 // Probe obtains and classifies DMXAPI account diagnostics without changing provider or AIGW state.
-func Probe(ctx context.Context, client credential.HTTPDoer, providerAccount configuration.Account, apiToken string, auth secrets.DiagnosticCredential) (diagnostic.Report, error) {
+func Probe(ctx context.Context, client credential.HTTPDoer, providerAccount domain.Account, apiToken string, auth secrets.DiagnosticCredential) (diagnostic.Report, error) {
 	if providerAccount.AccountProbe == nil || providerAccount.AccountProbe.Kind != Kind {
 		return diagnostic.Report{}, fmt.Errorf("DMXAPI diagnostic provider is not configured")
 	}

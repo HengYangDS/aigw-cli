@@ -16,9 +16,9 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/surface"
 )
 
@@ -343,10 +343,10 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 			AutoManaged: true,
 		}},
 	}}
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
-	cfg.Routes["claude"] = qualifiedRoute("Claude", "team", "claude-model", configuration.ProtocolAnthropic)
-	cfg.Routes["codex"] = qualifiedRoute("Codex", "team", "gpt-model", configuration.ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
+	cfg.Routes["claude"] = qualifiedRoute("Claude", "team", "claude-model", domain.ProtocolAnthropic)
+	cfg.Routes["codex"] = qualifiedRoute("Codex", "team", "gpt-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
 	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)

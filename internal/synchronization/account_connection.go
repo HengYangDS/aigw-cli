@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 // ConnectAccount adds one Account and its first Model and Route, selects the Route for
@@ -13,7 +13,7 @@ import (
 // and configuration admission. Existing identities are never implicitly replaced.
 // Configuration, credential and projection failures retain their shared recovery
 // semantics; the caller owns no compensation after this operation returns.
-func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.Config, name, client string, account configuration.Account, route configuration.Route, acquireToken func() (string, error)) error {
+func (s Synchronizer) ConnectAccount(ctx context.Context, before domain.Config, name, client string, account domain.Account, route domain.Route, acquireToken func() (string, error)) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -31,10 +31,10 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.C
 	}
 	after.Accounts[name] = account
 	if _, exists := after.Models[route.Model]; !exists {
-		after.Models[route.Model] = configuration.Model{Label: route.Model}
+		after.Models[route.Model] = domain.Model{Label: route.Model}
 	}
 	after.Routes[name] = route
-	after, _, err := s.PrepareSelection(after, client, name, "", configuration.ConnectionChange{})
+	after, _, err := s.PrepareSelection(after, client, name, "", domain.ConnectionChange{})
 	if err != nil {
 		return err
 	}
@@ -45,6 +45,6 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before configuration.C
 	if strings.TrimSpace(token) == "" {
 		return fmt.Errorf("Account connection requires a non-empty Token")
 	}
-	_, _, _, err = s.selectRoute(ctx, before, after, client, configuration.ConnectionChange{}, token)
+	_, _, _, err = s.selectRoute(ctx, before, after, client, domain.ConnectionChange{}, token)
 	return err
 }

@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -211,7 +211,7 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 	app, out, secretStore, _, _ := testApp(t, "")
 	before := accountRenameConfig()
 	providerAccount := before.Accounts["zeta-old"]
-	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://dmx.test"}
+	providerAccount.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://dmx.test"}
 	before.Accounts["zeta-old"] = providerAccount
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
@@ -374,7 +374,7 @@ func decodeFinalizeResult(t *testing.T, data []byte) finalizeResult {
 	return result
 }
 
-func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.Buffer, secrets.Store, configuration.Config) {
+func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.Buffer, secrets.Store, domain.Config) {
 	t.Helper()
 	app, out, secretStore, _, _ := testApp(t, "")
 	before := accountRenameConfig()
@@ -400,7 +400,7 @@ func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.B
 	return app, out, secretStore, current
 }
 
-func renamedAccountConfig(cfg configuration.Config) configuration.Config {
+func renamedAccountConfig(cfg domain.Config) domain.Config {
 	providerAccount := cfg.Accounts["zeta-old"]
 	delete(cfg.Accounts, "zeta-old")
 	cfg.Accounts["zeta-new"] = providerAccount
@@ -421,7 +421,7 @@ func assertFinalizeRefused(t *testing.T, app *cli.App, message string) {
 	}
 }
 
-func assertCurrentAccountConfig(t *testing.T, app *cli.App, want configuration.Config) {
+func assertCurrentAccountConfig(t *testing.T, app *cli.App, want domain.Config) {
 	t.Helper()
 	got, err := app.Config.Load()
 	if err != nil {

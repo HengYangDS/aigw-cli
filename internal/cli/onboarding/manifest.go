@@ -4,6 +4,7 @@ import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	"context"
@@ -45,12 +46,12 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 		return err
 	}
 	before := cfg.Clone()
-	cfg, err = configuration.Merge(cfg, manifest)
+	cfg, err = domain.Merge(cfg, manifest)
 	if err != nil {
 		return err
 	}
 
-	accountNames := configuration.ManifestAccountNames(manifest)
+	accountNames := domain.ManifestAccountNames(manifest)
 	discovered, err := invocation.Discover(runtime)
 	if err != nil {
 		return err
@@ -95,7 +96,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	return nil
 }
 
-func manifestSetupAvailableClients(admission configuration.Admission, executables map[string]string) map[string]bool {
+func manifestSetupAvailableClients(admission domain.Admission, executables map[string]string) map[string]bool {
 	available := make(map[string]bool, len(admission.IDs()))
 	for _, clientID := range admission.IDs() {
 		available[clientID] = executables[clientID] != ""
@@ -105,7 +106,7 @@ func manifestSetupAvailableClients(admission configuration.Admission, executable
 
 func buildManifestSetupResult(
 	runtime invocation.Context,
-	cfg configuration.Config,
+	cfg domain.Config,
 	accountNames []string,
 	selectedAccount string,
 	connected map[string]setupCredential,
@@ -211,7 +212,7 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 	r.Next(result.NextAction)
 }
 
-func collectManifestSetupCredentials(runtime invocation.Context, cfg configuration.Config, accountNames []string, selectedAccount string, tokenStdin bool) ([]setupCredential, error) {
+func collectManifestSetupCredentials(runtime invocation.Context, cfg domain.Config, accountNames []string, selectedAccount string, tokenStdin bool) ([]setupCredential, error) {
 	if selectedAccount != "" {
 		if _, ok := cfg.Accounts[selectedAccount]; !ok {
 			return nil, fmt.Errorf("unknown Account %q; choose one of %s", selectedAccount, strings.Join(accountNames, ", "))
@@ -274,7 +275,7 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg configurati
 	return []setupCredential{{account: selectedAccount, token: token, write: true}}, nil
 }
 
-func configuredClientsForAccount(cfg configuration.Config, accountName string) []string {
+func configuredClientsForAccount(cfg domain.Config, accountName string) []string {
 	seen := map[string]bool{}
 	for routeID, route := range cfg.Routes {
 		if route.Account != accountName {
@@ -297,11 +298,11 @@ func configuredClientsForAccount(cfg configuration.Config, accountName string) [
 	return clients
 }
 
-func accountHasRecommendedTokenSelection(cfg configuration.Config, accountName string) bool {
+func accountHasRecommendedTokenSelection(cfg domain.Config, accountName string) bool {
 	for _, recommendation := range cfg.Recommendations {
 		for _, selection := range recommendation.Selections() {
 			route := cfg.Routes[selection.Route]
-			if route.Account == accountName && selection.Authentication != configuration.AuthenticationClientNative {
+			if route.Account == accountName && selection.Authentication != domain.AuthenticationClientNative {
 				return true
 			}
 		}
@@ -309,7 +310,7 @@ func accountHasRecommendedTokenSelection(cfg configuration.Config, accountName s
 	return false
 }
 
-func manifestSetupSelectedClients(cfg configuration.Config, connected map[string]setupCredential, available map[string]bool) []string {
+func manifestSetupSelectedClients(cfg domain.Config, connected map[string]setupCredential, available map[string]bool) []string {
 	clients := make([]string, 0, len(cfg.Admission().IDs()))
 	for _, client := range cfg.Admission().IDs() {
 		binding := cfg.Clients[client]

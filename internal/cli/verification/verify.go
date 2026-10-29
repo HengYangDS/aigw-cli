@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"aigw-cli/internal/cli/invocation"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 
 	"github.com/spf13/cobra"
@@ -48,7 +48,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					return fmt.Errorf("no enabled clients to verify; run `aigw status`")
 				}
 			}
-			clientRuntimes := make(map[string]configuration.Runtime, len(clients))
+			clientRuntimes := make(map[string]domain.Runtime, len(clients))
 			for _, target := range clients {
 				clientRuntime, err := cfg.ResolveRuntime(target, routeName)
 				if err != nil {

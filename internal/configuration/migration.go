@@ -8,14 +8,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/pelletier/go-toml/v2"
-)
+	"aigw-cli/internal/domain"
 
-// Migration accepts the published 0.1.0 schema and the immediate predecessor.
-// Normal configuration reads accept ConfigVersion only.
-const (
-	PublishedConfigVersion = 3
-	LegacyConfigVersion    = 5
+	"github.com/pelletier/go-toml/v2"
 )
 
 // MigrationDirection identifies the only two bounded schema transitions.
@@ -31,14 +26,14 @@ const (
 // MigrationPlan is a secret-free preview bound to the exact configuration
 // preimage from which it was prepared.
 type MigrationPlan struct {
-	Required        bool                            `json:"required"`
-	Direction       MigrationDirection              `json:"direction"`
-	FromVersion     int                             `json:"from_version"`
-	ToVersion       int                             `json:"to_version"`
-	Accounts        []string                        `json:"accounts"`
-	Routes          []string                        `json:"routes"`
-	Clients         map[string]ClientBinding        `json:"clients"`
-	Recommendations map[string]ClientRecommendation `json:"recommendations"`
+	Required        bool                                   `json:"required"`
+	Direction       MigrationDirection                     `json:"direction"`
+	FromVersion     int                                    `json:"from_version"`
+	ToVersion       int                                    `json:"to_version"`
+	Accounts        []string                               `json:"accounts"`
+	Routes          []string                               `json:"routes"`
+	Clients         map[string]domain.ClientBinding        `json:"clients"`
+	Recommendations map[string]domain.ClientRecommendation `json:"recommendations"`
 
 	path   string
 	before Snapshot
@@ -47,42 +42,42 @@ type MigrationPlan struct {
 
 type legacyConfig struct {
 	Version         int                        `toml:"version"`
-	Accounts        map[string]Account         `toml:"accounts"`
+	Accounts        map[string]domain.Account  `toml:"accounts"`
 	Profiles        map[string]legacyProfile   `toml:"profiles"`
 	Recommendations map[string]legacySelection `toml:"recommendations,omitempty"`
 	Clients         map[string]legacyBinding   `toml:"clients,omitempty"`
 }
 
 type legacyProfile struct {
-	Label     string             `toml:"label"`
-	Purpose   string             `toml:"purpose,omitempty"`
-	Account   string             `toml:"account"`
-	Model     string             `toml:"model"`
-	Tier      string             `toml:"tier,omitempty"`
-	Protocols []EndpointProtocol `toml:"protocols,omitempty"`
+	Label     string                    `toml:"label"`
+	Purpose   string                    `toml:"purpose,omitempty"`
+	Account   string                    `toml:"account"`
+	Model     string                    `toml:"model"`
+	Tier      string                    `toml:"tier,omitempty"`
+	Protocols []domain.EndpointProtocol `toml:"protocols,omitempty"`
 }
 
 type legacySelection struct {
-	Profile        string           `toml:"profile,omitempty"`
-	Protocol       EndpointProtocol `toml:"protocol,omitempty"`
-	ModelProvider  string           `toml:"model_provider,omitempty"`
-	Authentication Authentication   `toml:"authentication,omitempty"`
+	Profile        string                  `toml:"profile,omitempty"`
+	Protocol       domain.EndpointProtocol `toml:"protocol,omitempty"`
+	ModelProvider  string                  `toml:"model_provider,omitempty"`
+	Authentication domain.Authentication   `toml:"authentication,omitempty"`
 }
 
 type legacyBinding struct {
-	Profile           string           `toml:"profile,omitempty"`
-	Enabled           bool             `toml:"enabled"`
-	Protocol          EndpointProtocol `toml:"protocol,omitempty"`
-	ModelProvider     string           `toml:"model_provider,omitempty"`
-	Authentication    Authentication   `toml:"authentication,omitempty"`
-	Executable        string           `toml:"executable,omitempty"`
-	Targets           []string         `toml:"targets,omitempty"`
-	CredentialCommand string           `toml:"credential_command,omitempty"`
+	Profile           string                  `toml:"profile,omitempty"`
+	Enabled           bool                    `toml:"enabled"`
+	Protocol          domain.EndpointProtocol `toml:"protocol,omitempty"`
+	ModelProvider     string                  `toml:"model_provider,omitempty"`
+	Authentication    domain.Authentication   `toml:"authentication,omitempty"`
+	Executable        string                  `toml:"executable,omitempty"`
+	Targets           []string                `toml:"targets,omitempty"`
+	CredentialCommand string                  `toml:"credential_command,omitempty"`
 }
 
 type publishedConfig struct {
 	Version           int                         `toml:"version"`
-	Accounts          map[string]Account          `toml:"accounts"`
+	Accounts          map[string]domain.Account   `toml:"accounts"`
 	Profiles          map[string]publishedProfile `toml:"profiles"`
 	Routes            map[string]string           `toml:"routes"`
 	RecommendedRoutes map[string]string           `toml:"recommended_routes,omitempty"`
@@ -90,13 +85,13 @@ type publishedConfig struct {
 }
 
 type publishedProfile struct {
-	Label          string         `toml:"label"`
-	Purpose        string         `toml:"purpose,omitempty"`
-	Account        string         `toml:"account"`
-	Client         string         `toml:"client"`
-	Model          string         `toml:"model"`
-	ModelProvider  string         `toml:"model_provider,omitempty"`
-	Authentication Authentication `toml:"authentication,omitempty"`
+	Label          string                `toml:"label"`
+	Purpose        string                `toml:"purpose,omitempty"`
+	Account        string                `toml:"account"`
+	Client         string                `toml:"client"`
+	Model          string                `toml:"model"`
+	ModelProvider  string                `toml:"model_provider,omitempty"`
+	Authentication domain.Authentication `toml:"authentication,omitempty"`
 }
 
 type publishedAdapter struct {
@@ -123,15 +118,15 @@ func (s Store) PrepareMigration(rollback bool) (MigrationPlan, error) {
 	if err != nil {
 		return MigrationPlan{}, err
 	}
-	if version == ConfigVersion {
+	if version == domain.ConfigVersion {
 		cfg, err := s.loadSnapshot(before)
 		if err != nil {
 			return MigrationPlan{}, err
 		}
-		return summarizeMigration(s.path, before, cfg, before.Config.Data, false, MigrationUpgrade, ConfigVersion), nil
+		return summarizeMigration(s.path, before, cfg, before.Config.Data, false, MigrationUpgrade, domain.ConfigVersion), nil
 	}
-	if version != LegacyConfigVersion && version != PublishedConfigVersion {
-		return MigrationPlan{}, newLoadError(LoadPhaseValidate, &UnsupportedConfigVersionError{Version: version, ExpectedVersion: ConfigVersion})
+	if version != domain.LegacyConfigVersion && version != domain.PublishedConfigVersion {
+		return MigrationPlan{}, newLoadError(LoadPhaseValidate, &domain.UnsupportedConfigVersionError{Version: version, ExpectedVersion: domain.ConfigVersion})
 	}
 	cfg, err := migratePredecessorConfig(before.Config.Data, version, s.admission)
 	if err != nil {
@@ -180,8 +175,8 @@ func decodeLegacyConfig(data []byte) (legacyConfig, error) {
 	if err != nil {
 		return legacyConfig{}, err
 	}
-	if version != LegacyConfigVersion {
-		return legacyConfig{}, newLoadError(LoadPhaseValidate, &UnsupportedConfigVersionError{Version: version, ExpectedVersion: LegacyConfigVersion})
+	if version != domain.LegacyConfigVersion {
+		return legacyConfig{}, newLoadError(LoadPhaseValidate, &domain.UnsupportedConfigVersionError{Version: version, ExpectedVersion: domain.LegacyConfigVersion})
 	}
 	var legacy legacyConfig
 	decoder := toml.NewDecoder(bytes.NewReader(data))
@@ -192,22 +187,22 @@ func decodeLegacyConfig(data []byte) (legacyConfig, error) {
 	return legacy, nil
 }
 
-func migratePredecessorConfig(data []byte, version int, admission Admission) (Config, error) {
+func migratePredecessorConfig(data []byte, version int, admission domain.Admission) (domain.Config, error) {
 	switch version {
-	case LegacyConfigVersion:
+	case domain.LegacyConfigVersion:
 		legacy, err := decodeLegacyConfig(data)
 		if err != nil {
-			return Config{}, err
+			return domain.Config{}, err
 		}
 		return migrateLegacyConfig(legacy, admission)
-	case PublishedConfigVersion:
+	case domain.PublishedConfigVersion:
 		published, err := decodePublishedConfig(data)
 		if err != nil {
-			return Config{}, err
+			return domain.Config{}, err
 		}
 		return migratePublishedConfig(published, admission)
 	default:
-		return Config{}, newLoadError(LoadPhaseValidate, &UnsupportedConfigVersionError{Version: version, ExpectedVersion: ConfigVersion})
+		return domain.Config{}, newLoadError(LoadPhaseValidate, &domain.UnsupportedConfigVersionError{Version: version, ExpectedVersion: domain.ConfigVersion})
 	}
 }
 
@@ -231,8 +226,8 @@ func configurationVersion(data []byte) (int, error) {
 	return header.Version, nil
 }
 
-func migrateLegacyConfig(legacy legacyConfig, admission Admission) (Config, error) {
-	cfg := NewConfig(admission)
+func migrateLegacyConfig(legacy legacyConfig, admission domain.Admission) (domain.Config, error) {
+	cfg := domain.NewConfig(admission)
 	for id, account := range legacy.Accounts {
 		if account.AccountProbe != nil {
 			probe := *account.AccountProbe
@@ -243,31 +238,31 @@ func migrateLegacyConfig(legacy legacyConfig, admission Admission) (Config, erro
 	for _, id := range slices.Sorted(maps.Keys(legacy.Profiles)) {
 		profile := legacy.Profiles[id]
 		if strings.TrimSpace(profile.Model) == "" {
-			return Config{}, fmt.Errorf("profile %q has no model", id)
+			return domain.Config{}, fmt.Errorf("profile %q has no model", id)
 		}
 		if _, exists := cfg.Accounts[profile.Account]; !exists {
-			return Config{}, fmt.Errorf("profile %q references unknown account %q", id, profile.Account)
+			return domain.Config{}, fmt.Errorf("profile %q references unknown account %q", id, profile.Account)
 		}
 		if len(profile.Protocols) == 0 {
-			return Config{}, fmt.Errorf("profile %q has no explicit protocol and cannot be migrated without guessing", id)
+			return domain.Config{}, fmt.Errorf("profile %q has no explicit protocol and cannot be migrated without guessing", id)
 		}
 		if _, exists := cfg.Models[profile.Model]; !exists {
-			cfg.Models[profile.Model] = Model{Label: profile.Model}
+			cfg.Models[profile.Model] = domain.Model{Label: profile.Model}
 		}
-		interfaces := make(map[EndpointProtocol][]Capability, len(profile.Protocols))
+		interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(profile.Protocols))
 		for _, protocol := range profile.Protocols {
-			interfaces[protocol] = []Capability{}
+			interfaces[protocol] = []domain.Capability{}
 		}
-		cfg.Routes[id] = Route{
+		cfg.Routes[id] = domain.Route{
 			Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account,
 			Model: profile.Model, UpstreamModel: profile.Model, Interfaces: interfaces,
 		}
 	}
 	for client, selection := range legacy.Recommendations {
-		cfg.Recommendations[client] = ClientRecommendation{Primary: migrateLegacySelection(selection)}
+		cfg.Recommendations[client] = domain.ClientRecommendation{Primary: migrateLegacySelection(selection)}
 	}
 	for client, binding := range legacy.Clients {
-		cfg.Clients[client] = ClientBinding{
+		cfg.Clients[client] = domain.ClientBinding{
 			Route: binding.Profile, Enabled: binding.Enabled, Protocol: binding.Protocol,
 			ModelProvider: binding.ModelProvider, Authentication: binding.Authentication,
 			Executable: binding.Executable, Targets: slices.Clone(binding.Targets),
@@ -275,37 +270,37 @@ func migrateLegacyConfig(legacy legacyConfig, admission Admission) (Config, erro
 		}
 	}
 	if err := cfg.Validate(); err != nil {
-		return Config{}, fmt.Errorf("migrated configuration is invalid: %w", err)
+		return domain.Config{}, fmt.Errorf("migrated configuration is invalid: %w", err)
 	}
 	return cfg, nil
 }
 
-func migratePublishedConfig(published publishedConfig, admission Admission) (Config, error) {
-	cfg := NewConfig(admission)
+func migratePublishedConfig(published publishedConfig, admission domain.Admission) (domain.Config, error) {
+	cfg := domain.NewConfig(admission)
 	maps.Copy(cfg.Accounts, published.Accounts)
-	selections := make(map[string]ClientSelection, len(published.Profiles))
+	selections := make(map[string]domain.ClientSelection, len(published.Profiles))
 	for _, id := range slices.Sorted(maps.Keys(published.Profiles)) {
 		profile := published.Profiles[id]
 		spec, _ := admission.Spec(profile.Client)
 		protocol := spec.PublishedProfileProtocol
 		if protocol == "" {
-			return Config{}, fmt.Errorf("published profile %q has no admitted client protocol for %q", id, profile.Client)
+			return domain.Config{}, fmt.Errorf("published profile %q has no admitted client protocol for %q", id, profile.Client)
 		}
 		if _, exists := cfg.Accounts[profile.Account]; !exists {
-			return Config{}, fmt.Errorf("published profile %q references unknown account %q", id, profile.Account)
+			return domain.Config{}, fmt.Errorf("published profile %q references unknown account %q", id, profile.Account)
 		}
 		if strings.TrimSpace(profile.Model) == "" {
-			return Config{}, fmt.Errorf("published profile %q has no model", id)
+			return domain.Config{}, fmt.Errorf("published profile %q has no model", id)
 		}
 		if _, exists := cfg.Models[profile.Model]; !exists {
-			cfg.Models[profile.Model] = Model{Label: profile.Model}
+			cfg.Models[profile.Model] = domain.Model{Label: profile.Model}
 		}
-		cfg.Routes[id] = Route{
+		cfg.Routes[id] = domain.Route{
 			Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account,
 			Model: profile.Model, UpstreamModel: profile.Model,
-			Interfaces: map[EndpointProtocol][]Capability{protocol: {}},
+			Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 		}
-		selections[id] = ClientSelection{
+		selections[id] = domain.ClientSelection{
 			Route: id, Protocol: protocol,
 			ModelProvider: profile.ModelProvider, Authentication: profile.Authentication,
 		}
@@ -313,16 +308,16 @@ func migratePublishedConfig(published publishedConfig, admission Admission) (Con
 	for client, id := range published.RecommendedRoutes {
 		selection, exists := selections[id]
 		if !exists {
-			return Config{}, fmt.Errorf("published recommendation %q references unknown profile %q", client, id)
+			return domain.Config{}, fmt.Errorf("published recommendation %q references unknown profile %q", client, id)
 		}
-		cfg.Recommendations[client] = ClientRecommendation{Primary: selection}
+		cfg.Recommendations[client] = domain.ClientRecommendation{Primary: selection}
 	}
 	for client, id := range published.Routes {
 		selection, exists := selections[id]
 		if !exists {
-			return Config{}, fmt.Errorf("published selection %q references unknown profile %q", client, id)
+			return domain.Config{}, fmt.Errorf("published selection %q references unknown profile %q", client, id)
 		}
-		cfg.Clients[client] = ClientBinding{
+		cfg.Clients[client] = domain.ClientBinding{
 			Route: selection.Route, Protocol: selection.Protocol,
 			ModelProvider: selection.ModelProvider, Authentication: selection.Authentication,
 		}
@@ -341,24 +336,24 @@ func migratePublishedConfig(published publishedConfig, admission Admission) (Con
 		}
 		selected := published.Routes[profile.Client] == id || published.RecommendedRoutes[profile.Client] == id
 		if !selected {
-			return Config{}, fmt.Errorf("published profile %q has client-specific options without a selected or recommended owner", id)
+			return domain.Config{}, fmt.Errorf("published profile %q has client-specific options without a selected or recommended owner", id)
 		}
 	}
 	if err := cfg.Validate(); err != nil {
-		return Config{}, fmt.Errorf("migrated published configuration is invalid: %w", err)
+		return domain.Config{}, fmt.Errorf("migrated published configuration is invalid: %w", err)
 	}
 	return cfg, nil
 }
 
-func migrateLegacySelection(selection legacySelection) ClientSelection {
-	return ClientSelection{
+func migrateLegacySelection(selection legacySelection) domain.ClientSelection {
+	return domain.ClientSelection{
 		Route: selection.Profile, Protocol: selection.Protocol,
 		ModelProvider: selection.ModelProvider, Authentication: selection.Authentication,
 	}
 }
 
-func summarizeMigration(path string, before Snapshot, cfg Config, data []byte, required bool, direction MigrationDirection, predecessorVersion int) MigrationPlan {
-	from, to := ConfigVersion, ConfigVersion
+func summarizeMigration(path string, before Snapshot, cfg domain.Config, data []byte, required bool, direction MigrationDirection, predecessorVersion int) MigrationPlan {
+	from, to := domain.ConfigVersion, domain.ConfigVersion
 	if required && direction == MigrationUpgrade {
 		from = predecessorVersion
 	} else if required {

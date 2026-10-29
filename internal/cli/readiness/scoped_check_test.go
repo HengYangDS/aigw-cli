@@ -15,8 +15,8 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	claudeclient "aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/diagnostics"
+	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
 )
 
@@ -53,7 +53,7 @@ func TestCheckForLimitsCredentialsAndInferenceToOneEnabledClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{Anthropic: "https://other.example.test"}}
+	cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{Anthropic: "https://other.example.test"}}
 	claude := cfg.Routes["claude"]
 	claude.Account = "other"
 	cfg.Routes["claude"] = claude
@@ -144,7 +144,7 @@ func TestCheckEndpointReadinessIsIndependentOfDiagnosticCredentials(t *testing.T
 	configureClaudeExecutable(t, &runtime, &cfg)
 	synchronizeClaudeSettings(t, runtime, cfg)
 	providerAccount := cfg.Accounts["one"]
-	providerAccount.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
+	providerAccount.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
 	cfg.Accounts["one"] = providerAccount
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)

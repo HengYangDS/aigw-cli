@@ -11,6 +11,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 
 	"github.com/spf13/cobra"
@@ -19,19 +20,19 @@ import (
 func TestAccountReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
 	tests := []struct {
 		name     string
-		accounts map[string]configuration.Account
+		accounts map[string]domain.Account
 		args     []string
 		want     string
 		wantErr  string
 	}{
-		{name: "explicit", accounts: map[string]configuration.Account{"one": {}, "two": {}}, args: []string{"two"}, want: "two"},
-		{name: "only account", accounts: map[string]configuration.Account{"one": {}}, want: "one"},
-		{name: "none", accounts: map[string]configuration.Account{}, wantErr: "0 accounts"},
-		{name: "ambiguous", accounts: map[string]configuration.Account{"one": {}, "two": {}}, wantErr: "2 accounts"},
+		{name: "explicit", accounts: map[string]domain.Account{"one": {}, "two": {}}, args: []string{"two"}, want: "two"},
+		{name: "only account", accounts: map[string]domain.Account{"one": {}}, want: "one"},
+		{name: "none", accounts: map[string]domain.Account{}, wantErr: "0 accounts"},
+		{name: "ambiguous", accounts: map[string]domain.Account{"one": {}, "two": {}}, wantErr: "2 accounts"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := configuration.NewConfig(clients.Admission())
+			cfg := domain.NewConfig(clients.Admission())
 			cfg.Accounts = test.accounts
 			got, err := accountReference(cfg, test.args)
 			if test.wantErr != "" {
@@ -87,14 +88,14 @@ func blockedConfigurationStore(t *testing.T) (configuration.Store, secrets.Store
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	store := configuration.NewStore(path, clients.Admission())
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["current"] = configuration.Account{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["current"] = domain.Account{
 		Label:     "Current",
-		Endpoints: configuration.Endpoints{OpenAIResponses: "https://current.test/v1"},
+		Endpoints: domain.Endpoints{OpenAIResponses: "https://current.test/v1"},
 	}
-	cfg.Routes["current"] = configuration.Route{
+	cfg.Routes["current"] = domain.Route{
 		Label: "Current", Account: "current", Model: "gpt-current",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedRoute(codex.ID, "current", "")
 	if err := store.Save(cfg); err != nil {

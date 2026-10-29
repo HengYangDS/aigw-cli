@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 
 	"github.com/pelletier/go-toml/v2"
@@ -81,7 +82,7 @@ func LocalFailure(version string, err error) error {
 	if _, recovery := ConfigurationRecoveryImpact(err); recovery {
 		return err
 	}
-	if _, unsupported := errors.AsType[*configuration.UnsupportedConfigVersionError](err); unsupported {
+	if _, unsupported := errors.AsType[*domain.UnsupportedConfigVersionError](err); unsupported {
 		return err
 	}
 	failure, ok := errors.AsType[*configuration.LoadError](err)
@@ -223,22 +224,22 @@ func typedErrorMessage(err error) (string, bool) {
 		// surrounding context still names the target.
 		return err.Error(), true
 	}
-	if mismatch, ok := errors.AsType[*configuration.RuntimeRouteClientMismatchError](err); ok {
+	if mismatch, ok := errors.AsType[*domain.RuntimeRouteClientMismatchError](err); ok {
 		return fmt.Sprintf("route %q is for %s, not %s", mismatch.RouteID, mismatch.ExpectedClient, mismatch.ActualClient), true
 	}
-	if unknownAccount, ok := errors.AsType[*configuration.RuntimeRouteUnknownAccountError](err); ok {
+	if unknownAccount, ok := errors.AsType[*domain.RuntimeRouteUnknownAccountError](err); ok {
 		return fmt.Sprintf("route %q references unknown account %q", unknownAccount.RouteID, unknownAccount.AccountID), true
 	}
-	if missingEndpoint, ok := errors.AsType[*configuration.RuntimeMissingEndpointError](err); ok {
+	if missingEndpoint, ok := errors.AsType[*domain.RuntimeMissingEndpointError](err); ok {
 		return missingEndpoint.Error(), true
 	}
-	if version, ok := errors.AsType[*configuration.UnsupportedConfigVersionError](err); ok {
+	if version, ok := errors.AsType[*domain.UnsupportedConfigVersionError](err); ok {
 		message := fmt.Sprintf(
 			"unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas",
 			version.Version,
 			version.ExpectedVersion,
 		)
-		if (version.Version == configuration.LegacyConfigVersion || version.Version == configuration.PublishedConfigVersion) && version.ExpectedVersion == configuration.ConfigVersion {
+		if (version.Version == domain.LegacyConfigVersion || version.Version == domain.PublishedConfigVersion) && version.ExpectedVersion == domain.ConfigVersion {
 			message += "; run `aigw config migrate --dry-run`"
 		}
 		return message, true

@@ -8,7 +8,7 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/contract"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -22,9 +22,9 @@ func TestClaudeAdapterKeepsTheSeamContract(t *testing.T) {
 		if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		before := configuration.NewConfig(testAdmission())
-		before.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-		before.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
+		before := domain.NewConfig(testAdmission())
+		before.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+		before.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
 		before.SetSelectedRoute(ID, "claude", "")
 		after := before.Clone()
 		after.SetClientActivation(ID, true, executable, nil)

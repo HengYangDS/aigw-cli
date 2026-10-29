@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -211,11 +212,11 @@ func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
 
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	store := configuration.NewStore(path, clients.Admission())
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Routes["gpt"] = configuration.Route{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	cfg.Routes["gpt"] = domain.Route{
 		Label: "GPT", Account: "dmx", Model: "gpt-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	if err := store.Save(cfg); err != nil {

@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 )
 
@@ -21,16 +21,16 @@ func TestSettingsSurfaceIdentityIsStable(t *testing.T) {
 }
 
 func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
-	before := configuration.NewConfig(testAdmission())
-	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
-	before.Routes["route"] = qualifiedRoute("Route", "gateway", "model", configuration.ProtocolAnthropic)
-	before.Clients[ID] = configuration.ClientBinding{Route: "route", Enabled: true}
+	before := domain.NewConfig(testAdmission())
+	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
+	before.Routes["route"] = qualifiedRoute("Route", "gateway", "model", domain.ProtocolAnthropic)
+	before.Clients[ID] = domain.ClientBinding{Route: "route", Enabled: true}
 	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
 	after := before.Clone()
 	account := after.Accounts["gateway"]
-	account.Endpoints = configuration.Endpoints{OpenAIResponses: "https://second.test/v1", Anthropic: "https://second.test"}
+	account.Endpoints = domain.Endpoints{OpenAIResponses: "https://second.test/v1", Anthropic: "https://second.test"}
 	after.Accounts["gateway"] = account
 	if !(claudeAdapter{}).ProjectionChanged(before, after) {
 		t.Fatal("unchanged forwarding hid a changed credential projection identity")
@@ -38,18 +38,18 @@ func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.
 }
 
 func TestClaudeAdapterApplyValidatesIntentAndRestoresObservedPreimage(t *testing.T) {
-	enabledWithoutRoute := configuration.NewConfig(testAdmission())
+	enabledWithoutRoute := domain.NewConfig(testAdmission())
 	enabledWithoutRoute.SetClientActivation(ID, true, "/usr/bin/claude", nil)
-	if _, err := (claudeAdapter{}).Apply(context.Background(), client.Dependencies{}, configuration.NewConfig(testAdmission()), enabledWithoutRoute); err == nil {
+	if _, err := (claudeAdapter{}).Apply(context.Background(), client.Dependencies{}, domain.NewConfig(testAdmission()), enabledWithoutRoute); err == nil {
 		t.Fatal("Apply() accepted an enabled adapter without a route")
 	}
 
-	configured := configuration.NewConfig(testAdmission())
-	configured.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	configured.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
+	configured := domain.NewConfig(testAdmission())
+	configured.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	configured.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
 	configured.SetSelectedRoute(ID, "claude", "")
 	configured.SetClientActivation(ID, true, "/usr/bin/claude", nil)
-	if _, err := (claudeAdapter{}).Apply(context.Background(), client.Dependencies{}, configuration.NewConfig(testAdmission()), configured); err == nil || !strings.Contains(err.Error(), "settings path is empty") {
+	if _, err := (claudeAdapter{}).Apply(context.Background(), client.Dependencies{}, domain.NewConfig(testAdmission()), configured); err == nil || !strings.Contains(err.Error(), "settings path is empty") {
 		t.Fatalf("Apply() error = %v", err)
 	}
 
@@ -78,12 +78,12 @@ func hostAt(home string) discovery.Host {
 	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
 }
 
-func qualifiedRoute(label, account, model string, protocols ...configuration.EndpointProtocol) configuration.Route {
-	interfaces := make(map[configuration.EndpointProtocol][]configuration.Capability, len(protocols))
+func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Route {
+	interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(protocols))
 	for _, protocol := range protocols {
-		interfaces[protocol] = []configuration.Capability{}
+		interfaces[protocol] = []domain.Capability{}
 	}
-	return configuration.Route{
+	return domain.Route{
 		Label: label, Account: account, Model: model, UpstreamModel: model, Interfaces: interfaces,
 	}
 }

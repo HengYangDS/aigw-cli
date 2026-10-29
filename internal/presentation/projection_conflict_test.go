@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 func TestManagedProviderSchemaConflictIsNotTOMLSyntax(t *testing.T) {
@@ -17,10 +17,10 @@ func TestManagedProviderSchemaConflictIsNotTOMLSyntax(t *testing.T) {
 	if err := os.WriteFile(path, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runtime := configuration.Runtime{
+	runtime := domain.Runtime{
 		Client: codex.ID, RouteID: "test", RouteLabel: "Test",
 		AccountID: "test", Endpoint: "https://endpoint.test/v1", Model: "gpt-6.1-sol",
-		ModelProvider: "test-provider", Authentication: configuration.AuthenticationClientNative,
+		ModelProvider: "test-provider", Authentication: domain.AuthenticationClientNative,
 	}
 	if err := codex.SyncConfig(path, runtime); err != nil {
 		t.Fatal(err)

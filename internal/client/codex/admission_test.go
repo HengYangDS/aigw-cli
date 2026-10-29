@@ -1,14 +1,14 @@
 package codex
 
-import configuration "aigw-cli/internal/configuration"
+import "aigw-cli/internal/domain"
 
 // otherClient is a second admitted client for the fixtures that show Codex
 // ignoring another client's binding.
-var otherClient = configuration.ClientSpec{
-	ID: "other", Label: "Other", EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic},
+var otherClient = domain.ClientSpec{
+	ID: "other", Label: "Other", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolAnthropic},
 }
 
 // testAdmission admits this adapter's own specification and otherClient.
-func testAdmission() configuration.Admission {
-	return configuration.NewAdmission(New().Spec(), otherClient)
+func testAdmission() domain.Admission {
+	return domain.NewAdmission(New().Spec(), otherClient)
 }

@@ -13,14 +13,15 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
 func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-model")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-model")
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -49,8 +50,8 @@ func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 func TestRepairCanRestoreClaudeWithoutAnyCodexRoute(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "claude", "claude", "Claude", configuration.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -84,7 +85,7 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 
 	t.Run("discovery", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
+		saveCommandRoute(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		app.Discovery = nil
 		if err := cli.Execute(app, []string{"repair", "--dry-run"}); err == nil || err.Error() != "Repair prerequisites are unavailable" {
 			t.Fatalf("error = %v", err)
@@ -106,7 +107,7 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 
 	t.Run("human preview", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
+		saveCommandRoute(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		if err := cli.Execute(app, []string{"repair", "--dry-run"}); err != nil {
 			t.Fatal(err)
 		}
@@ -118,9 +119,9 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 
 func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "dmx-claude", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, claude.ID, "claude-model")
-	addAccountRoute(&cfg, "dmx-codex", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-model")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "dmx-claude", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, claude.ID, "claude-model")
+	addAccountRoute(&cfg, "dmx-codex", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-model")
 	cfg.SetSelectedRoute(claude.ID, "dmx-claude", "")
 	cfg.SetSelectedRoute(codex.ID, "dmx-codex", "")
 	cfg.SetClientActivation(claude.ID, true, "", nil)
@@ -169,8 +170,8 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 		}
 	}
 
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-test")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedRoute(codex.ID, "dmx", "")
 	cfg.SetClientActivation(codex.ID, true, trustedExecutable, []string{existingTarget})
 	if err := app.Config.Save(cfg); err != nil {
@@ -231,9 +232,9 @@ func TestRepairMigratesMissingClientExecutables(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "claude", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, claude.ID, "claude-model")
-	addAccountRoute(&cfg, "codex", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, codex.ID, "gpt-model")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "claude", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, claude.ID, "claude-model")
+	addAccountRoute(&cfg, "codex", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, codex.ID, "gpt-model")
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
 	cfg.SetClientActivation(claude.ID, true, oldClaude, nil)
@@ -279,8 +280,8 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-5.6-terra")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-5.6-terra")
 	cfg.SetSelectedRoute(codex.ID, "dmx", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {

@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"aigw-cli/internal/domain"
 	"slices"
 	"testing"
 )
@@ -12,24 +13,24 @@ func TestTeamManifestKeepsOnlyQualifiedRefreshRoutes(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	for id, expected := range map[string]struct {
 		model, wire string
-		protocol    EndpointProtocol
+		protocol    domain.EndpointProtocol
 	}{
-		"aihubmix-kimi-k3.1-pro":      {"kimi-k3.1-pro", "kimi-k3.1-pro", ProtocolOpenAIChatCompletions},
-		"dmxapi-kimi-k3.1-pro":        {"kimi-k3.1-pro", "kimi-k3.1-pro", ProtocolOpenAIResponses},
-		"ucloud-kimi-k3.1-pro":        {"kimi-k3.1-pro", "kimi-k3.1-pro", ProtocolOpenAIResponses},
-		"aihubmix-minimax-m3.1-flash": {"minimax-m3.1-flash", "minimax-m3.1-flash", ProtocolOpenAIResponses},
-		"dmxapi-minimax-m3.1-flash":   {"minimax-m3.1-flash", "MiniMax-M3.1-Flash", ProtocolOpenAIResponses},
-		"ucloud-minimax-m3.1-flash":   {"minimax-m3.1-flash", "minimax-m3.1-flash", ProtocolOpenAIResponses},
-		"aihubmix-muse-wonder":        {"muse-wonder", "muse-wonder", ProtocolOpenAIResponses},
-		"dmxapi-muse-wonder":          {"muse-wonder", "muse-wonder", ProtocolOpenAIResponses},
-		"ucloud-muse-wonder":          {"muse-wonder", "muse-wonder-1.0", ProtocolOpenAIResponses},
-		"aihubmix-qwen3.8-max-0902":   {"qwen3.8-max-0902", "qwen3.8-max-2026-09-02", ProtocolOpenAIResponses},
-		"dmxapi-qwen3.8-max-0902":     {"qwen3.8-max-0902", "qwen3.8-max-0902", ProtocolOpenAIResponses},
-		"aihubmix-solar-pro4":         {"solar-pro4", "solar-pro4", ProtocolOpenAIChatCompletions},
+		"aihubmix-kimi-k3.1-pro":      {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolOpenAIChatCompletions},
+		"dmxapi-kimi-k3.1-pro":        {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolOpenAIResponses},
+		"ucloud-kimi-k3.1-pro":        {"kimi-k3.1-pro", "kimi-k3.1-pro", domain.ProtocolOpenAIResponses},
+		"aihubmix-minimax-m3.1-flash": {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolOpenAIResponses},
+		"dmxapi-minimax-m3.1-flash":   {"minimax-m3.1-flash", "MiniMax-M3.1-Flash", domain.ProtocolOpenAIResponses},
+		"ucloud-minimax-m3.1-flash":   {"minimax-m3.1-flash", "minimax-m3.1-flash", domain.ProtocolOpenAIResponses},
+		"aihubmix-muse-wonder":        {"muse-wonder", "muse-wonder", domain.ProtocolOpenAIResponses},
+		"dmxapi-muse-wonder":          {"muse-wonder", "muse-wonder", domain.ProtocolOpenAIResponses},
+		"ucloud-muse-wonder":          {"muse-wonder", "muse-wonder-1.0", domain.ProtocolOpenAIResponses},
+		"aihubmix-qwen3.8-max-0902":   {"qwen3.8-max-0902", "qwen3.8-max-2026-09-02", domain.ProtocolOpenAIResponses},
+		"dmxapi-qwen3.8-max-0902":     {"qwen3.8-max-0902", "qwen3.8-max-0902", domain.ProtocolOpenAIResponses},
+		"aihubmix-solar-pro4":         {"solar-pro4", "solar-pro4", domain.ProtocolOpenAIChatCompletions},
 	} {
 		route, ok := manifest.Routes[id]
 		if !ok || route.Model != expected.model || route.UpstreamModelID() != expected.wire ||
-			!slices.Equal(route.AdmittedProtocols(), []EndpointProtocol{expected.protocol}) {
+			!slices.Equal(route.AdmittedProtocols(), []domain.EndpointProtocol{expected.protocol}) {
 			t.Errorf("qualified Route %q = %+v, want Model %q, wire %q and %s", id, route, expected.model, expected.wire, expected.protocol)
 		}
 	}

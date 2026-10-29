@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"aigw-cli/internal/domain"
 	"strings"
 	"testing"
 )
@@ -35,7 +36,7 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := Merge(NewConfig(testAdmission()), team)
+	got, err := domain.Merge(domain.NewConfig(testAdmission()), team)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,10 +44,10 @@ interfaces = { openai_responses = [] }
 		t.Fatalf("import converted recommendations into client bindings: %#v", got.Clients)
 	}
 
-	got.Accounts["personal"] = Account{Label: "Personal", Endpoints: Endpoints{Anthropic: "https://personal.test"}}
-	got.Routes["personal-claude"] = testRoute("Personal Claude", "personal", "personal-model", ProtocolAnthropic)
+	got.Accounts["personal"] = domain.Account{Label: "Personal", Endpoints: domain.Endpoints{Anthropic: "https://personal.test"}}
+	got.Routes["personal-claude"] = testRoute("Personal Claude", "personal", "personal-model", domain.ProtocolAnthropic)
 	got.SetSelectedRoute(ClientClaude, "personal-claude", "")
-	merged, err := Merge(got, team)
+	merged, err := domain.Merge(got, team)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,12 +88,12 @@ interfaces = { anthropic = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig(testAdmission())
+	cfg := domain.NewConfig(testAdmission())
 	cfg.SetClientActivation(ClientClaude, true, "/personal/claude", nil)
 	cfg.SetSelectedRoute(ClientClaude, "personal", "")
-	cfg.Accounts["personal"] = Account{Label: "Personal", Endpoints: Endpoints{Anthropic: "https://personal.test"}}
-	cfg.Routes["personal"] = testRoute("Personal", "personal", "claude-personal", ProtocolAnthropic)
-	got, err := Merge(cfg, m)
+	cfg.Accounts["personal"] = domain.Account{Label: "Personal", Endpoints: domain.Endpoints{Anthropic: "https://personal.test"}}
+	cfg.Routes["personal"] = testRoute("Personal", "personal", "claude-personal", domain.ProtocolAnthropic)
+	got, err := domain.Merge(cfg, m)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,11 +125,11 @@ interfaces = { anthropic = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{Label: "Personal Gateway", Endpoints: Endpoints{Anthropic: "https://personal.example.test"}}
-	cfg.Routes["local"] = testRoute("Local", "team", "claude-local", ProtocolAnthropic)
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["team"] = domain.Account{Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}}
+	cfg.Routes["local"] = testRoute("Local", "team", "claude-local", domain.ProtocolAnthropic)
 
-	_, err = Merge(cfg, team)
+	_, err = domain.Merge(cfg, team)
 	if err == nil || !strings.Contains(err.Error(), `account "team" conflicts`) {
 		t.Fatalf("merge error = %v", err)
 	}
@@ -160,11 +161,11 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{Label: "Team Gateway", Endpoints: Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Routes["shared"] = testRoute("Personal Model", "team", "personal-model", ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["team"] = domain.Account{Label: "Team Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
+	cfg.Routes["shared"] = testRoute("Personal Model", "team", "personal-model", domain.ProtocolOpenAIResponses)
 
-	_, err = Merge(cfg, team)
+	_, err = domain.Merge(cfg, team)
 	if err == nil || !strings.Contains(err.Error(), `route "shared" conflicts`) {
 		t.Fatalf("merge error = %v", err)
 	}
@@ -191,14 +192,14 @@ interfaces = { anthropic = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{Label: "Team Gateway", Endpoints: Endpoints{Anthropic: "https://team.example.test/"}}
-	cfg.Routes["shared"] = testRoute("TeamRoute", "team", "claude-team", ProtocolAnthropic)
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["team"] = domain.Account{Label: "Team Gateway", Endpoints: domain.Endpoints{Anthropic: "https://team.example.test/"}}
+	cfg.Routes["shared"] = testRoute("TeamRoute", "team", "claude-team", domain.ProtocolAnthropic)
 	route := cfg.Routes["shared"]
 	route.Purpose = "Default agent"
 	cfg.Routes["shared"] = route
 
-	got, err := Merge(cfg, team)
+	got, err := domain.Merge(cfg, team)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,11 +228,11 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{Label: "Personal Gateway", Endpoints: Endpoints{OpenAIResponses: "https://personal.example.test/v1"}}
-	cfg.Routes["shared"] = testRoute("Personal Model", "team", "personal-model", ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["team"] = domain.Account{Label: "Personal Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://personal.example.test/v1"}}
+	cfg.Routes["shared"] = testRoute("Personal Model", "team", "personal-model", domain.ProtocolOpenAIResponses)
 
-	got, err := MergeWithOptions(cfg, team, MergeOptions{
+	got, err := domain.MergeWithOptions(cfg, team, domain.MergeOptions{
 		ReplaceAccounts: map[string]bool{"team": true},
 		ReplaceRoutes:   map[string]bool{"shared": true},
 	})
@@ -244,7 +245,7 @@ interfaces = { openai_responses = [] }
 	if got.Routes["shared"].Model != "team-model" {
 		t.Fatalf("route replacement = %#v", got.Routes["shared"])
 	}
-	kept, err := MergeWithOptions(cfg, team, MergeOptions{
+	kept, err := domain.MergeWithOptions(cfg, team, domain.MergeOptions{
 		KeepAccounts:  map[string]bool{"team": true},
 		ReplaceRoutes: map[string]bool{"shared": true},
 	})
@@ -274,27 +275,27 @@ interfaces = { openai_chat_completions = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["team"] = domain.Account{
 		Label: "Team Gateway",
-		Endpoints: Endpoints{
+		Endpoints: domain.Endpoints{
 			OpenAIResponses:       "https://team.example.test/v1",
 			OpenAIChatCompletions: "https://team.example.test/v1",
 		},
 	}
-	cfg.Routes["shared"] = testRoute("Team Model", "team", "team-model", ProtocolOpenAIResponses)
+	cfg.Routes["shared"] = testRoute("Team Model", "team", "team-model", domain.ProtocolOpenAIResponses)
 
-	if _, err := MergeWithOptions(cfg, team, MergeOptions{}); err == nil || !strings.Contains(err.Error(), `route "shared" conflicts`) {
+	if _, err := domain.MergeWithOptions(cfg, team, domain.MergeOptions{}); err == nil || !strings.Contains(err.Error(), `route "shared" conflicts`) {
 		t.Fatalf("different protocol keys must conflict even when capabilities are empty: %v", err)
 	}
-	got, err := MergeWithOptions(cfg, team, MergeOptions{ReplaceRoutes: map[string]bool{"shared": true}})
+	got, err := domain.MergeWithOptions(cfg, team, domain.MergeOptions{ReplaceRoutes: map[string]bool{"shared": true}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, oldProtocol := got.Routes["shared"].Interfaces[ProtocolOpenAIResponses]; oldProtocol {
+	if _, oldProtocol := got.Routes["shared"].Interfaces[domain.ProtocolOpenAIResponses]; oldProtocol {
 		t.Fatalf("Responses protocol remained after explicit Route replacement: %#v", got.Routes["shared"].Interfaces)
 	}
-	if _, newProtocol := got.Routes["shared"].Interfaces[ProtocolOpenAIChatCompletions]; !newProtocol {
+	if _, newProtocol := got.Routes["shared"].Interfaces[domain.ProtocolOpenAIChatCompletions]; !newProtocol {
 		t.Fatalf("Chat Completions protocol was not applied: %#v", got.Routes["shared"].Interfaces)
 	}
 }
@@ -316,29 +317,29 @@ interfaces = { anthropic = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig(testAdmission())
-	cfg.Accounts["local"] = Account{Label: "Local", Endpoints: Endpoints{Anthropic: "https://local.example.test"}}
-	cfg.Routes["local"] = testRoute("Local", "local", "claude-local", ProtocolAnthropic)
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["local"] = domain.Account{Label: "Local", Endpoints: domain.Endpoints{Anthropic: "https://local.example.test"}}
+	cfg.Routes["local"] = testRoute("Local", "local", "claude-local", domain.ProtocolAnthropic)
 
-	_, err = MergeWithOptions(cfg, team, MergeOptions{ReplaceAccounts: map[string]bool{"missing": true}})
+	_, err = domain.MergeWithOptions(cfg, team, domain.MergeOptions{ReplaceAccounts: map[string]bool{"missing": true}})
 	if err == nil || !strings.Contains(err.Error(), `--replace-account "missing"`) {
 		t.Fatalf("unused account replacement error = %v", err)
 	}
-	_, err = MergeWithOptions(cfg, team, MergeOptions{ReplaceRoutes: map[string]bool{"missing": true}})
+	_, err = domain.MergeWithOptions(cfg, team, domain.MergeOptions{ReplaceRoutes: map[string]bool{"missing": true}})
 	if err == nil || !strings.Contains(err.Error(), `--replace-route "missing"`) {
 		t.Fatalf("unused Route replacement error = %v", err)
 	}
 	for _, test := range []struct {
 		name    string
-		options MergeOptions
+		options domain.MergeOptions
 		want    string
 	}{
-		{"missing local", MergeOptions{KeepAccounts: map[string]bool{"team": true}}, "does not name an existing local Account"},
-		{"missing incoming", MergeOptions{KeepAccounts: map[string]bool{"local": true}}, "does not name an Account in the imported"},
-		{"conflicting selectors", MergeOptions{KeepAccounts: map[string]bool{"team": true}, ReplaceAccounts: map[string]bool{"team": true}}, "conflicts with --replace-account"},
+		{"missing local", domain.MergeOptions{KeepAccounts: map[string]bool{"team": true}}, "does not name an existing local Account"},
+		{"missing incoming", domain.MergeOptions{KeepAccounts: map[string]bool{"local": true}}, "does not name an Account in the imported"},
+		{"conflicting selectors", domain.MergeOptions{KeepAccounts: map[string]bool{"team": true}, ReplaceAccounts: map[string]bool{"team": true}}, "conflicts with --replace-account"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := MergeWithOptions(cfg, team, test.options)
+			_, err := domain.MergeWithOptions(cfg, team, test.options)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("Account retention error = %v, want %q", err, test.want)
 			}
@@ -363,19 +364,18 @@ interfaces = { anthropic = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := Config{
-		Version: ConfigVersion,
-		Accounts: map[string]Account{
-			"team": {Label: "Personal Gateway", Endpoints: Endpoints{Anthropic: "https://personal.example.test"}},
+	cfg := admitted(domain.Config{
+		Version: domain.ConfigVersion,
+		Accounts: map[string]domain.Account{
+			"team": {Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}},
 		},
-		Routes: map[string]Route{
+		Routes: map[string]domain.Route{
 			"local": {Label: "Local", Account: "team"},
 		},
-		Clients:   nil,
-		admission: testAdmission(),
-	}
+		Clients: nil,
+	})
 
-	_, err = MergeWithOptions(cfg, team, MergeOptions{})
+	_, err = domain.MergeWithOptions(cfg, team, domain.MergeOptions{})
 	if err == nil {
 		t.Fatal("expected conflict")
 	}
@@ -400,18 +400,18 @@ interfaces = { anthropic = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig(testAdmission())
+	cfg := domain.NewConfig(testAdmission())
 	cfg.Version = 1
-	cfg.Accounts["local"] = Account{Label: "Local", Endpoints: Endpoints{Anthropic: "https://local.test"}}
-	cfg.Routes["local"] = testRoute("Local", "local", "claude-local", ProtocolAnthropic)
-	if _, err := Merge(cfg, team); err == nil || !strings.Contains(err.Error(), "unsupported config version 1") {
+	cfg.Accounts["local"] = domain.Account{Label: "Local", Endpoints: domain.Endpoints{Anthropic: "https://local.test"}}
+	cfg.Routes["local"] = testRoute("Local", "local", "claude-local", domain.ProtocolAnthropic)
+	if _, err := domain.Merge(cfg, team); err == nil || !strings.Contains(err.Error(), "unsupported config version 1") {
 		t.Fatalf("merge error = %v", err)
 	}
 }
 
 func TestMergeWithOptionsRejectsNonCanonicalConfigurationManifestVersion(t *testing.T) {
-	team := Manifest{Version: 99, Routes: map[string]Route{"team": {Label: "Team", Account: "team"}}}
-	if _, err := MergeWithOptions(NewConfig(testAdmission()), team, MergeOptions{}); err == nil || !strings.Contains(err.Error(), "unsupported configuration manifest version 99") {
+	team := domain.Manifest{Version: 99, Routes: map[string]domain.Route{"team": {Label: "Team", Account: "team"}}}
+	if _, err := domain.MergeWithOptions(domain.NewConfig(testAdmission()), team, domain.MergeOptions{}); err == nil || !strings.Contains(err.Error(), "unsupported configuration manifest version 99") {
 		t.Fatalf("unsupported manifest version error = %v", err)
 	}
 }
@@ -431,7 +431,7 @@ interfaces = { anthropic = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := Merge(NewConfig(testAdmission()), team)
+	got, err := domain.Merge(domain.NewConfig(testAdmission()), team)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -455,11 +455,11 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{Label: "Team Gateway", Endpoints: Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Routes["shared"] = testRoute("TeamRoute", "team", "personal-model", ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["team"] = domain.Account{Label: "Team Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
+	cfg.Routes["shared"] = testRoute("TeamRoute", "team", "personal-model", domain.ProtocolOpenAIResponses)
 
-	if _, err := Merge(cfg, team); err == nil || !strings.Contains(err.Error(), `route "shared" conflicts`) {
+	if _, err := domain.Merge(cfg, team); err == nil || !strings.Contains(err.Error(), `route "shared" conflicts`) {
 		t.Fatalf("model-only conflict error = %v", err)
 	}
 }
@@ -482,15 +482,15 @@ interfaces = { anthropic = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["team"] = domain.Account{
 		Label:        "Team Gateway",
-		Endpoints:    Endpoints{Anthropic: "https://team.example.test"},
-		AccountProbe: &AccountProbe{Kind: "dmxapi", BaseURL: "https://team.example.test/probe/"},
+		Endpoints:    domain.Endpoints{Anthropic: "https://team.example.test"},
+		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://team.example.test/probe/"},
 	}
-	cfg.Routes["local"] = testRoute("Local", "team", "claude-local", ProtocolAnthropic)
+	cfg.Routes["local"] = testRoute("Local", "team", "claude-local", domain.ProtocolAnthropic)
 
-	got, err := Merge(cfg, team)
+	got, err := domain.Merge(cfg, team)
 	if err != nil {
 		t.Fatalf("equivalent account probes must not conflict: %v", err)
 	}

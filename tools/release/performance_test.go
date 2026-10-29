@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/performance"
 	"bytes"
@@ -356,7 +357,7 @@ func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, 
 	return measurements, nil
 }
 
-func (j *journeyFixture) performanceCases(helper []string, preparer string, binding configuration.Runtime) []performance.Workload {
+func (j *journeyFixture) performanceCases(helper []string, preparer string, binding domain.Runtime) []performance.Workload {
 	selectArgs := []string{j.binary, "use", "--for", "claude", "performance-second"}
 	resetArgs := []string{j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
 	commands := map[string]performance.Workload{
@@ -377,7 +378,7 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 	for _, name := range performance.WorkloadNames(scope) {
 		workload := commands[name]
 		workload.Name, workload.Budget, workload.Runtime = name, performance.Budget(name), binding
-		if binding != (configuration.Runtime{}) {
+		if binding != (domain.Runtime{}) {
 			workload.Mode = "direct"
 		}
 		if scope == "forwarding-performance" {
@@ -387,7 +388,7 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 			}
 			workload.Prepare = append(slices.Clone(resetArgs), "--forwarding-endpoint", binding.Endpoint)
 		}
-		if workload.Name == "projection" && binding != (configuration.Runtime{}) {
+		if workload.Name == "projection" && binding != (domain.Runtime{}) {
 			workload.Runtime.RouteID, workload.Runtime.RouteLabel = "performance-second", "Performance Second"
 			workload.Runtime.Model, workload.Runtime.CanonicalModelID = "claude-second", "claude-second"
 		}
@@ -396,7 +397,7 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 	return cases
 }
 
-func (j *journeyFixture) reviewPerformanceBinding(expected configuration.Runtime) error {
+func (j *journeyFixture) reviewPerformanceBinding(expected domain.Runtime) error {
 	config, err := configuration.NewStore(j.config, clients.Admission()).Load()
 	if err != nil {
 		return err
@@ -459,8 +460,8 @@ func (j *journeyFixture) attributionCases(helper []string, shell, reader, scope 
 		{Name: "source-startup", Command: []string{j.source, "--version"}},
 		{Name: "reader-startup", Command: []string{reader, "--version"}},
 		{Name: "credential-direct", Command: []string{reader, "credential", claude.ID, scope}},
-		j.performanceCases(helper, "", configuration.Runtime{})[1],
-		j.performanceCases(helper, "", configuration.Runtime{})[3],
+		j.performanceCases(helper, "", domain.Runtime{})[1],
+		j.performanceCases(helper, "", domain.Runtime{})[3],
 	}
 }
 
@@ -495,7 +496,7 @@ func TestNativeAttributionKeepsTheProjectionWorkload(t *testing.T) {
 func TestNativePerformanceCases(t *testing.T) {
 	journey := &journeyFixture{root: "owned root", binary: "installed program", config: filepath.Join("owned config directory", "config.toml"), settings: filepath.Join("owned settings directory", "settings.json"), manifest: "team manifest"}
 	reset := []string{journey.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
-	cases := journey.performanceCases([]string{"projected helper"}, "test preparer", configuration.Runtime{})
+	cases := journey.performanceCases([]string{"projected helper"}, "test preparer", domain.Runtime{})
 	want := []performance.Workload{
 		{Name: "credential", Command: []string{"projected helper"}, Budget: 0.1},
 		{Name: "projection", Command: []string{journey.binary, "use", "--for", "claude", "performance-second"}, Prepare: reset, Budget: 0.25},
@@ -519,8 +520,8 @@ func TestNativeAttributionKeepsTheProjectedReaderBoundary(t *testing.T) {
 		{Name: "source-startup", Command: []string{journey.source, "--version"}},
 		{Name: "reader-startup", Command: []string{"copied reader", "--version"}},
 		{Name: "credential-direct", Command: []string{"copied reader", "credential", claude.ID, "exact-scope"}},
-		journey.performanceCases([]string{"original shell helper"}, "", configuration.Runtime{})[1],
-		journey.performanceCases([]string{"original shell helper"}, "", configuration.Runtime{})[3],
+		journey.performanceCases([]string{"original shell helper"}, "", domain.Runtime{})[1],
+		journey.performanceCases([]string{"original shell helper"}, "", domain.Runtime{})[3],
 	}
 	if runtime.GOOS != "windows" {
 		want[1].Command = []string{"selected shell", "-c", "exit 0"}

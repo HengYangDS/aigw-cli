@@ -1,7 +1,7 @@
 package claude
 
 import (
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 	"bytes"
 	"encoding/json"
@@ -16,7 +16,7 @@ func TestSettingsReconcilesOnlyProvenModelPreferenceDrift(t *testing.T) {
 	for _, changedModel := range []string{"", `"user-selected-model"`} {
 		t.Run(changedModel, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			selected := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
+			selected := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
 			if _, err := ReconcileSettings(path, false, selected, testExecutable(), selected.Model); err != nil {
 				t.Fatal(err)
 			}
@@ -61,7 +61,7 @@ func TestHelperOnlyMigrationRetainsNativeModelPreference(t *testing.T) {
 	path := filepath.Join(root, "settings.json")
 	oldHelper := filepath.Join(root, "old-aigw")
 	newHelper := filepath.Join(root, "new-aigw")
-	runtime := configuration.Runtime{
+	runtime := domain.Runtime{
 		RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-opus-5-5",
 	}
 	if _, err := ReconcileSettings(path, false, runtime, oldHelper, ""); err != nil {
@@ -112,16 +112,16 @@ func TestHelperOnlyMigrationRetainsNativeModelPreference(t *testing.T) {
 func TestHelperMigrationDoesNotCarryModelPreferenceAcrossRouteChanges(t *testing.T) {
 	for _, test := range []struct {
 		name   string
-		change func(*configuration.Runtime)
+		change func(*domain.Runtime)
 	}{
-		{name: "account", change: func(runtime *configuration.Runtime) { runtime.AccountID = "another" }},
-		{name: "endpoint", change: func(runtime *configuration.Runtime) { runtime.Endpoint = "https://another.test" }},
-		{name: "model", change: func(runtime *configuration.Runtime) { runtime.Model = "claude-sonnet-5-5" }},
+		{name: "account", change: func(runtime *domain.Runtime) { runtime.AccountID = "another" }},
+		{name: "endpoint", change: func(runtime *domain.Runtime) { runtime.Endpoint = "https://another.test" }},
+		{name: "model", change: func(runtime *domain.Runtime) { runtime.Model = "claude-sonnet-5-5" }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			root := t.TempDir()
 			path := filepath.Join(root, "settings.json")
-			previous := configuration.Runtime{
+			previous := domain.Runtime{
 				RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-opus-5-5",
 			}
 			if _, err := ReconcileSettings(path, false, previous, filepath.Join(root, "old-aigw"), ""); err != nil {
@@ -164,7 +164,7 @@ func TestSettingsWithdrawalPreservesLaterModelPreference(t *testing.T) {
 			if err := os.WriteFile(path, []byte(`{"model":"original","theme":"dark"}`), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			runtime := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
+			runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
 			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
 				t.Fatal(err)
 			}
@@ -183,7 +183,7 @@ func TestSettingsWithdrawalPreservesLaterModelPreference(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if _, err := ReconcileSettings(path, true, configuration.Runtime{}, "", runtime.Model); err != nil {
+			if _, err := ReconcileSettings(path, true, domain.Runtime{}, "", runtime.Model); err != nil {
 				t.Fatal(err)
 			}
 			if got := readSettingsFile(t, path); !reflect.DeepEqual(got, want) {
@@ -200,7 +200,7 @@ func TestSettingsModelRecoveryRequiresUnchangedConnectionOwnership(t *testing.T)
 	for _, field := range []string{"apiKeyHelper", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL"} {
 		t.Run(field, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			runtime := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
+			runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
 			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
 				t.Fatal(err)
 			}
@@ -260,7 +260,7 @@ func TestSettingsReceiptRestoresExactObservedFiles(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			runtime := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+			runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 			if test.projected {
 				if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
 					t.Fatal(err)
@@ -300,7 +300,7 @@ func TestSettingsReceiptPreservesNewerFiles(t *testing.T) {
 	for _, suffix := range []string{"", settingsStateSuffix} {
 		t.Run("edited"+suffix, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			runtime := configuration.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+			runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 			receipt, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model)
 			if err != nil {
 				t.Fatal(err)

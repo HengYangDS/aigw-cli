@@ -7,16 +7,16 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 )
 
 // hostRefusingAdapter is an admitted client that derives no native path on any
 // host. AIGW calls nothing else on it before it refuses to start.
 type hostRefusingAdapter struct{ client.Adapter }
 
-func (hostRefusingAdapter) Spec() configuration.ClientSpec {
-	return configuration.ClientSpec{ID: "host-refusing", Label: "Host refusing", EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
+func (hostRefusingAdapter) Spec() domain.ClientSpec {
+	return domain.ClientSpec{ID: "host-refusing", Label: "Host refusing", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
 }
 
 func (hostRefusingAdapter) ValidateHost(discovery.Host) error {

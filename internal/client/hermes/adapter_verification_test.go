@@ -10,25 +10,25 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 
 	"go.yaml.in/yaml/v3"
 )
 
-func hermesVerificationFixture(t *testing.T) (configuration.Config, configuration.Runtime, client.Dependencies) {
+func hermesVerificationFixture(t *testing.T) (domain.Config, domain.Runtime, client.Dependencies) {
 	t.Helper()
 	t.Setenv("HERMES_DISABLE_LAZY_INSTALLS", "0")
 	executable := filepath.Join(t.TempDir(), "hermes")
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["hermes"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["hermes"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
 	target := filepath.Join(t.TempDir(), "config.yaml")
-	cfg.SetSelectedRoute(ID, "hermes", configuration.ProtocolAnthropic)
+	cfg.SetSelectedRoute(ID, "hermes", domain.ProtocolAnthropic)
 	cfg.SetClientActivation(ID, true, executable, []string{target})
 	if err := os.WriteFile(target, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -200,8 +200,8 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIChatCompletions: "https://gateway.test/v1"}}
-	cfg.Routes["selected"] = qualifiedRoute("", "gateway", "mistral-large-3", configuration.ProtocolOpenAIChatCompletions)
+	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIChatCompletions: "https://gateway.test/v1"}}
+	cfg.Routes["selected"] = qualifiedRoute("", "gateway", "mistral-large-3", domain.ProtocolOpenAIChatCompletions)
 	cfg.SetSelectedRoute(ID, "selected", "")
 	selected, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
@@ -217,7 +217,7 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 	}
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes fixture"), []byte("AIGW_OK")}}
 	deps.Runner = runner
-	if _, err := (hermesAdapter{}).Apply(t.Context(), deps, configuration.NewConfig(testAdmission()), cfg); err != nil {
+	if _, err := (hermesAdapter{}).Apply(t.Context(), deps, domain.NewConfig(testAdmission()), cfg); err != nil {
 		t.Fatal(err)
 	}
 	original, err = os.ReadFile(target)
@@ -248,10 +248,10 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 
 func TestHermesVerificationRequiresOneConfiguredHome(t *testing.T) {
 	for _, targets := range [][]string{nil, {"one", "two"}} {
-		cfg := configuration.NewConfig(testAdmission())
-		cfg.Clients[ID] = configuration.ClientBinding{Enabled: true, Targets: targets}
+		cfg := domain.NewConfig(testAdmission())
+		cfg.Clients[ID] = domain.ClientBinding{Enabled: true, Targets: targets}
 		runner := &captureAdapterRunner{}
-		_, err := (hermesAdapter{}).Verify(t.Context(), client.Dependencies{Runner: runner}, cfg, configuration.Runtime{}, "")
+		_, err := (hermesAdapter{}).Verify(t.Context(), client.Dependencies{Runner: runner}, cfg, domain.Runtime{}, "")
 		if err == nil || !strings.Contains(err.Error(), "one configured home") || len(runner.plans) != 0 {
 			t.Fatalf("ambiguous configuration home reached native verification: %v", err)
 		}

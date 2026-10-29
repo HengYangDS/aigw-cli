@@ -3,13 +3,13 @@ package doctor
 import (
 	"strings"
 
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 // Label maps a diagnostic to a stable human label. A check about one native
 // file under the home directory names that file. Admission supplies the label
 // of the client that a check concerns.
-func Label(admission configuration.Admission, check Check) string {
+func Label(admission domain.Admission, check Check) string {
 	name := check.Name
 	if clientID, ok := strings.CutPrefix(name, "adapter:"); ok {
 		if spec, admitted := admission.Spec(clientID); admitted {
@@ -46,34 +46,34 @@ func Label(admission configuration.Admission, check Check) string {
 
 // targetCheck parses an adapter's configuration target check, which is named
 // "<client>:target-<position>".
-func targetCheck(admission configuration.Admission, name string) (configuration.ClientSpec, string, bool) {
+func targetCheck(admission domain.Admission, name string) (domain.ClientSpec, string, bool) {
 	clientID, position, ok := strings.Cut(name, ":target-")
 	if !ok {
-		return configuration.ClientSpec{}, "", false
+		return domain.ClientSpec{}, "", false
 	}
 	spec, admitted := admission.Spec(clientID)
 	return spec, position, admitted
 }
 
-func isTargetCheck(admission configuration.Admission, name string) bool {
+func isTargetCheck(admission domain.Admission, name string) bool {
 	_, _, ok := targetCheck(admission, name)
 	return ok
 }
 
 // doctorWording returns the doctor wording of the client that a check named
 // "<prefix><client>" concerns.
-func doctorWording(admission configuration.Admission, name, prefix string) (configuration.ClientSpec, configuration.DoctorWording) {
+func doctorWording(admission domain.Admission, name, prefix string) (domain.ClientSpec, domain.DoctorWording) {
 	clientID, ok := strings.CutPrefix(name, prefix)
 	spec, admitted := admission.Spec(clientID)
 	if !ok || !admitted {
-		return configuration.ClientSpec{}, configuration.DoctorWording{}
+		return domain.ClientSpec{}, domain.DoctorWording{}
 	}
 	return spec, spec.Doctor
 }
 
 // Detail maps machine diagnostics to non-sensitive human text. Admission
 // supplies the wording of the client that a check concerns.
-func Detail(admission configuration.Admission, check Check) string {
+func Detail(admission domain.Admission, check Check) string {
 	name, detail := check.Name, check.Detail
 	switch {
 	case name == "environment:client-token":
@@ -129,12 +129,12 @@ func Detail(admission configuration.Admission, check Check) string {
 	return "Check failed"
 }
 
-func adapterStates(admission configuration.Admission, name string) bool {
+func adapterStates(admission domain.Admission, name string) bool {
 	_, wording := doctorWording(admission, name, "adapter:")
 	return wording.AdapterStates
 }
 
-func routeBinding(admission configuration.Admission, name string) bool {
+func routeBinding(admission domain.Admission, name string) bool {
 	_, wording := doctorWording(admission, name, "projection:")
 	return wording.RouteBinding
 }

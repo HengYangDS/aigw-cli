@@ -18,8 +18,8 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 )
 
 type responsesToolDefinition struct {
@@ -148,7 +148,7 @@ func (input clientInferenceRequest) codexCommandTool() (custom bool, err error) 
 	return false, fmt.Errorf("native challenge requires the client's declared command tool")
 }
 
-func newNativeClientServer(t *testing.T, client string, protocol configuration.EndpointProtocol, model, token string, completions *atomic.Int64) (*httptest.Server, *hermesSessionRecorder) {
+func newNativeClientServer(t *testing.T, client string, protocol domain.EndpointProtocol, model, token string, completions *atomic.Int64) (*httptest.Server, *hermesSessionRecorder) {
 	t.Helper()
 	requiredEffort := "high"
 	if client == hermes.ID {
@@ -186,10 +186,10 @@ func newNativeClientServer(t *testing.T, client string, protocol configuration.E
 }
 
 func TestNativeClientStreamEnvelope(t *testing.T) {
-	for _, protocol := range []configuration.EndpointProtocol{
-		configuration.ProtocolAnthropic,
-		configuration.ProtocolOpenAIResponses,
-		configuration.ProtocolOpenAIChatCompletions,
+	for _, protocol := range []domain.EndpointProtocol{
+		domain.ProtocolAnthropic,
+		domain.ProtocolOpenAIResponses,
+		domain.ProtocolOpenAIChatCompletions,
 	} {
 		t.Run(string(protocol), func(t *testing.T) {
 			var completions atomic.Int64
@@ -225,10 +225,10 @@ func TestNativeClientStreamEnvelope(t *testing.T) {
 }
 
 func TestNativeClientInferenceEnvelope(t *testing.T) {
-	for _, protocol := range []configuration.EndpointProtocol{
-		configuration.ProtocolAnthropic,
-		configuration.ProtocolOpenAIResponses,
-		configuration.ProtocolOpenAIChatCompletions,
+	for _, protocol := range []domain.EndpointProtocol{
+		domain.ProtocolAnthropic,
+		domain.ProtocolOpenAIResponses,
+		domain.ProtocolOpenAIChatCompletions,
 	} {
 		t.Run(string(protocol), func(t *testing.T) {
 			request, err := credential.ModelInferenceRequest(t.Context(), "https://fixture.test/v1", protocol, "synthetic", "configured-model")
@@ -252,10 +252,10 @@ func TestNativeClientInferenceEnvelope(t *testing.T) {
 	}
 }
 
-func assertStreamEvents(t *testing.T, protocol configuration.EndpointProtocol, body string) {
+func assertStreamEvents(t *testing.T, protocol domain.EndpointProtocol, body string) {
 	t.Helper()
 	for _, data := range clientResponseEvents(protocol, "configured-model", "AIGW_OK") {
-		if protocol == configuration.ProtocolOpenAIChatCompletions {
+		if protocol == domain.ProtocolOpenAIChatCompletions {
 			if !strings.Contains(body, "data: "+data+"\n\n") {
 				t.Fatalf("missing Chat Completions event: %s", body)
 			}
@@ -273,7 +273,7 @@ func assertStreamEvents(t *testing.T, protocol configuration.EndpointProtocol, b
 	}
 }
 
-func clientResponseHandler(protocol configuration.EndpointProtocol, completions map[string]*atomic.Int64, token, requiredEffort, shell string) http.Handler {
+func clientResponseHandler(protocol domain.EndpointProtocol, completions map[string]*atomic.Int64, token, requiredEffort, shell string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /v1/models", func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
@@ -294,15 +294,15 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, completions 
 		if !input.Stream {
 			var body string
 			switch protocol {
-			case configuration.ProtocolAnthropic:
+			case domain.ProtocolAnthropic:
 				body = `{"type":"message","role":"assistant","content":[{"type":"text","text":"pong"}],"stop_reason":"end_turn"}`
-			case configuration.ProtocolOpenAIResponses:
+			case domain.ProtocolOpenAIResponses:
 				body = `{"status":"completed","output":[{"type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"pong"}]}]}`
-			case configuration.ProtocolOpenAIChatCompletions:
+			case domain.ProtocolOpenAIChatCompletions:
 				body = `{"choices":[{"message":{"role":"assistant","content":"pong"},"finish_reason":"stop"}]}`
 			}
-			valid := protocol == configuration.ProtocolOpenAIResponses && len(input.Input) > 0 && input.MaxOutputTokens > 0 && !input.Store ||
-				protocol != configuration.ProtocolOpenAIResponses && len(input.Messages) > 0 && input.MaxTokens > 0
+			valid := protocol == domain.ProtocolOpenAIResponses && len(input.Input) > 0 && input.MaxOutputTokens > 0 && !input.Store ||
+				protocol != domain.ProtocolOpenAIResponses && len(input.Messages) > 0 && input.MaxTokens > 0
 			if !valid || body == "" {
 				http.Error(response, "configured inference request required", http.StatusBadRequest)
 				return
@@ -332,9 +332,9 @@ func clientResponseHandler(protocol configuration.EndpointProtocol, completions 
 	})
 }
 
-func (input clientInferenceRequest) writeStream(response http.ResponseWriter, protocol configuration.EndpointProtocol, shell string) error {
+func (input clientInferenceRequest) writeStream(response http.ResponseWriter, protocol domain.EndpointProtocol, shell string) error {
 	text := "AIGW_OK"
-	if protocol == configuration.ProtocolOpenAIResponses && strings.Contains(string(input.Input), "challenge.txt") {
+	if protocol == domain.ProtocolOpenAIResponses && strings.Contains(string(input.Input), "challenge.txt") {
 		var err error
 		text, err = codexChallengeReply(input)
 		if err != nil {
@@ -359,10 +359,10 @@ func (input clientInferenceRequest) writeStream(response http.ResponseWriter, pr
 	return writeNativeResponseEvents(response, protocol, clientResponseEvents(protocol, input.Model, text))
 }
 
-func writeNativeResponseEvents(response http.ResponseWriter, protocol configuration.EndpointProtocol, events []string) error {
+func writeNativeResponseEvents(response http.ResponseWriter, protocol domain.EndpointProtocol, events []string) error {
 	response.Header().Set("Content-Type", "text/event-stream")
 	for _, data := range events {
-		if protocol == configuration.ProtocolOpenAIChatCompletions {
+		if protocol == domain.ProtocolOpenAIChatCompletions {
 			if _, err := fmt.Fprintf(response, "data: %s\n\n", data); err != nil {
 				return err
 			}
@@ -381,34 +381,34 @@ func writeNativeResponseEvents(response http.ResponseWriter, protocol configurat
 	return nil
 }
 
-func streamEffort(protocol configuration.EndpointProtocol, responses, messages, chat string) string {
+func streamEffort(protocol domain.EndpointProtocol, responses, messages, chat string) string {
 	switch protocol {
-	case configuration.ProtocolAnthropic:
+	case domain.ProtocolAnthropic:
 		return messages
-	case configuration.ProtocolOpenAIResponses:
+	case domain.ProtocolOpenAIResponses:
 		return responses
-	case configuration.ProtocolOpenAIChatCompletions:
+	case domain.ProtocolOpenAIChatCompletions:
 		return chat
 	default:
 		return ""
 	}
 }
 
-func streamRequest(protocol configuration.EndpointProtocol, model string) (string, string) {
+func streamRequest(protocol domain.EndpointProtocol, model string) (string, string) {
 	switch protocol {
-	case configuration.ProtocolAnthropic:
+	case domain.ProtocolAnthropic:
 		return "/v1/messages", fmt.Sprintf(`{"model":%q,"stream":true,"output_config":{"effort":"high"}}`, model)
-	case configuration.ProtocolOpenAIResponses:
+	case domain.ProtocolOpenAIResponses:
 		return "/v1/responses", fmt.Sprintf(`{"model":%q,"stream":true,"reasoning":{"effort":"high"},"input":[{"role":"user","content":[{"type":"input_text","text":"ping"}]}]}`, model)
-	case configuration.ProtocolOpenAIChatCompletions:
+	case domain.ProtocolOpenAIChatCompletions:
 		return "/v1/chat/completions", fmt.Sprintf(`{"model":%q,"stream":true,"reasoning_effort":"high"}`, model)
 	default:
 		return "", ""
 	}
 }
 
-func clientResponseEvents(protocol configuration.EndpointProtocol, model, text string) []string {
-	if protocol == configuration.ProtocolAnthropic {
+func clientResponseEvents(protocol domain.EndpointProtocol, model, text string) []string {
+	if protocol == domain.ProtocolAnthropic {
 		return []string{
 			fmt.Sprintf(`{"type":"message_start","message":{"id":"msg_fixture","type":"message","role":"assistant","model":%q,"content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"output_tokens":0}}}`, model),
 			`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
@@ -418,7 +418,7 @@ func clientResponseEvents(protocol configuration.EndpointProtocol, model, text s
 			`{"type":"message_stop"}`,
 		}
 	}
-	if protocol == configuration.ProtocolOpenAIChatCompletions {
+	if protocol == domain.ProtocolOpenAIChatCompletions {
 		return []string{
 			fmt.Sprintf(`{"id":"chatcmpl_fixture","object":"chat.completion.chunk","model":%q,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}`, model),
 			fmt.Sprintf(`{"id":"chatcmpl_fixture","object":"chat.completion.chunk","model":%q,"choices":[{"index":0,"delta":{"content":"AIGW_OK"},"finish_reason":null}]}`, model),
@@ -459,7 +459,7 @@ func TestNativeCodexChallengeStreamRequiresToolOutputAndRecall(t *testing.T) {
 	} {
 		t.Run(client.name, func(t *testing.T) {
 			var completed atomic.Int64
-			handler := clientResponseHandler(configuration.ProtocolOpenAIResponses, map[string]*atomic.Int64{"configured-model": &completed}, "synthetic", "high", "")
+			handler := clientResponseHandler(domain.ProtocolOpenAIResponses, map[string]*atomic.Int64{"configured-model": &completed}, "synthetic", "high", "")
 			challenge := client.declaration + `{"role":"user","content":"Use a shell tool to read challenge.txt"}`
 			result := `"Process exited with code 0\nFinal output:\n` + marker + `"`
 			if client.outputType == "custom_tool_call_output" {
@@ -524,5 +524,5 @@ func writeResponsesToolCall(response http.ResponseWriter, responseID, itemID, ca
 		fmt.Sprintf(`{"type":"response.output_item.done","output_index":0,"item":%s}`, completed),
 		fmt.Sprintf(`{"type":"response.completed","response":{"id":%q,"object":"response","status":"completed","output":[%s],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`, responseID, completed),
 	}
-	return writeNativeResponseEvents(response, configuration.ProtocolOpenAIResponses, events)
+	return writeNativeResponseEvents(response, domain.ProtocolOpenAIResponses, events)
 }

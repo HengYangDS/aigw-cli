@@ -20,6 +20,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secrets"
@@ -249,12 +250,12 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	configured.Recommendations[hermes.ID] = configuration.ClientRecommendation{
-		Primary: configuration.ClientSelection{Route: "native-system-keyring-probe-claude", Protocol: configuration.ProtocolAnthropic},
+	configured.Recommendations[hermes.ID] = domain.ClientRecommendation{
+		Primary: domain.ClientSelection{Route: "native-system-keyring-probe-claude", Protocol: domain.ProtocolAnthropic},
 	}
 	if slices.Contains(state.clients, claudedesktop.ID) {
-		configured.Recommendations[claudedesktop.ID] = configuration.ClientRecommendation{
-			Primary: configuration.ClientSelection{Route: "native-system-keyring-probe-claude"},
+		configured.Recommendations[claudedesktop.ID] = domain.ClientRecommendation{
+			Primary: domain.ClientSelection{Route: "native-system-keyring-probe-claude"},
 		}
 	}
 	data, err := toml.Marshal(configured)
@@ -281,7 +282,7 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 	journey.setEnvironment(secrets.EnvironmentKey("native-system-keyring-probe"), "native-journey-token")
 	journey.run("setup", "--from", journey.manifest, "--account", "native-system-keyring-probe")
 	predecessor := readFile(t, journey.config)
-	if !bytes.HasPrefix(predecessor, []byte(fmt.Sprintf("version = %d\n", configuration.ConfigVersion))) {
+	if !bytes.HasPrefix(predecessor, []byte(fmt.Sprintf("version = %d\n", domain.ConfigVersion))) {
 		t.Fatal("published predecessor did not create its own schema")
 	}
 	journey.run("check")
@@ -356,7 +357,7 @@ func (state *publishedNativeJourney) upgrade(t *testing.T) {
 	if err := json.Unmarshal(journey.run("config", "migrate", "--dry-run", "--json"), &preview); err != nil {
 		t.Fatal(err)
 	}
-	if preview.Required || preview.FromVersion != configuration.ConfigVersion || preview.ToVersion != configuration.ConfigVersion {
+	if preview.Required || preview.FromVersion != domain.ConfigVersion || preview.ToVersion != domain.ConfigVersion {
 		t.Fatalf("unchanged published configuration requires migration: %#v", preview)
 	}
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) {

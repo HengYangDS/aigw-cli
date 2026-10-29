@@ -4,7 +4,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -15,9 +15,9 @@ import (
 
 func TestRouteRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = configuration.Account{Label: "DMXAPI", Endpoints: configuration.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Routes["gpt-old"] = qualifiedRoute("GPT Old", "dmx", "gpt-old", configuration.ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Routes["gpt-old"] = qualifiedRoute("GPT Old", "dmx", "gpt-old", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(codex.ID, "gpt-old", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -41,7 +41,7 @@ func TestRouteRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 func TestRouteRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := routeRenameConfig()
-	cfg.Routes["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(codex.ID, "zeta-old", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -212,7 +212,7 @@ func TestRouteRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testing.
 		t.Run(target, func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")
 			cfg := routeRenameConfig()
-			cfg.Routes["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha-model", configuration.ProtocolOpenAIResponses)
+			cfg.Routes["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha-model", domain.ProtocolOpenAIResponses)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -235,10 +235,10 @@ func TestRouteRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testing.
 	}
 }
 
-func routeRenameConfig() configuration.Config {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	route := qualifiedRoute("Zeta", "gateway", "zeta-model", configuration.ProtocolOpenAIResponses)
+func routeRenameConfig() domain.Config {
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	route := qualifiedRoute("Zeta", "gateway", "zeta-model", domain.ProtocolOpenAIResponses)
 	route.Purpose = "Keep this label and purpose"
 	cfg.Routes["zeta-old"] = route
 	cfg.SetSelectedRoute(codex.ID, "zeta-old", "")

@@ -14,8 +14,8 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -87,7 +87,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			route := selected.Routes["gpt"]
 			route.Account = account
 			selected.Routes["gpt"] = route
-			err := syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), selected, "test")
+			err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), selected, "test")
 			if err == nil {
 				t.Fatal("copied reader denied by the native store was accepted")
 			}
@@ -111,7 +111,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			route = deferred.Routes["gpt"]
 			route.Account = "missing"
 			deferred.Routes["gpt"] = route
-			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), deferred, "deferred", codex.ID); err != nil {
+			if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), deferred, "deferred", codex.ID); err != nil {
 				t.Fatalf("absent Token blocked deferred selection: %v", err)
 			}
 			if current, err := os.ReadFile(target); err != nil || !bytes.Equal(current, original) {
@@ -124,16 +124,16 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			selected = testConfig(target)
-			selected.Accounts["blocked"] = configuration.Account{
-				Label: "Blocked", Endpoints: configuration.Endpoints{Anthropic: "https://blocked.test"},
+			selected.Accounts["blocked"] = domain.Account{
+				Label: "Blocked", Endpoints: domain.Endpoints{Anthropic: "https://blocked.test"},
 			}
-			selected.Routes["blocked-claude"] = configuration.Route{
+			selected.Routes["blocked-claude"] = domain.Route{
 				Account: "blocked", Model: "claude-test",
-				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 			}
 			selected.SetSelectedRoute(claude.ID, "blocked-claude", "")
 			selected.SetClientActivation(claude.ID, true, "/opt/claude", nil)
-			if err := syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), selected, "codex", codex.ID); err != nil {
+			if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), selected, "codex", codex.ID); err != nil {
 				t.Fatalf("unrelated Claude Token blocked a Codex-only projection: %v", err)
 			}
 		})
@@ -195,7 +195,7 @@ func TestSyncObservesNativeAvailabilityOncePerInvocation(t *testing.T) {
 	}
 }
 
-func requireSingleCopiedCredentialRead(t *testing.T, syncer Synchronizer, cfg configuration.Config, account string) {
+func requireSingleCopiedCredentialRead(t *testing.T, syncer Synchronizer, cfg domain.Config, account string) {
 	t.Helper()
 	logs := []string{filepath.Join(filepath.Dir(syncer.AIGWExecutable), "operations"), filepath.Join(filepath.Dir(syncer.CredentialPath), "operations")}
 	for _, path := range logs {

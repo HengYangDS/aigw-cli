@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
@@ -17,7 +17,7 @@ func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
 	tests := []struct {
 		name       string
 		endpoint   string
-		protocol   configuration.EndpointProtocol
+		protocol   domain.EndpointProtocol
 		model      string
 		wantURL    string
 		wantHeader string
@@ -27,7 +27,7 @@ func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
 		{
 			name:       "anthropic messages",
 			endpoint:   "https://anthropic.example/v1/",
-			protocol:   configuration.ProtocolAnthropic,
+			protocol:   domain.ProtocolAnthropic,
 			model:      "claude-opus-5-5[1m]",
 			wantURL:    "https://anthropic.example/v1/messages",
 			wantHeader: "X-Api-Key",
@@ -41,7 +41,7 @@ func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
 		{
 			name:       "openai responses",
 			endpoint:   "https://responses.example/v1",
-			protocol:   configuration.ProtocolOpenAIResponses,
+			protocol:   domain.ProtocolOpenAIResponses,
 			model:      "gpt-6-sol",
 			wantURL:    "https://responses.example/v1/responses",
 			wantHeader: "Authorization",
@@ -56,7 +56,7 @@ func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
 		{
 			name:       "openai chat completions",
 			endpoint:   "https://chat.example/v1/",
-			protocol:   configuration.ProtocolOpenAIChatCompletions,
+			protocol:   domain.ProtocolOpenAIChatCompletions,
 			model:      "chat-model",
 			wantURL:    "https://chat.example/v1/chat/completions",
 			wantHeader: "Authorization",
@@ -85,7 +85,7 @@ func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
 			if request.Header.Get("Accept") != "application/json" || request.Header.Get("Content-Type") != "application/json" {
 				t.Fatalf("content negotiation headers are missing")
 			}
-			if test.protocol == configuration.ProtocolAnthropic && request.Header.Get("Anthropic-Version") != "2023-06-01" {
+			if test.protocol == domain.ProtocolAnthropic && request.Header.Get("Anthropic-Version") != "2023-06-01" {
 				t.Fatal("Anthropic version header is missing")
 			}
 			var body map[string]any
@@ -102,11 +102,11 @@ func TestModelInferenceRequestUsesExactWireModelAndProtocol(t *testing.T) {
 func TestModelInferenceRequestRejectsMissingModelAndUnknownProtocol(t *testing.T) {
 	t.Parallel()
 
-	_, err := ModelInferenceRequest(context.Background(), "https://example.test/v1", configuration.ProtocolOpenAIResponses, "fixture-token", "  ")
+	_, err := ModelInferenceRequest(context.Background(), "https://example.test/v1", domain.ProtocolOpenAIResponses, "fixture-token", "  ")
 	if err == nil || !strings.Contains(err.Error(), "model") {
 		t.Fatalf("empty model error = %v", err)
 	}
-	_, err = ModelInferenceRequest(context.Background(), "https://example.test/v1", configuration.EndpointProtocol("unknown"), "fixture-token", "model")
+	_, err = ModelInferenceRequest(context.Background(), "https://example.test/v1", domain.EndpointProtocol("unknown"), "fixture-token", "model")
 	if err == nil || !strings.Contains(err.Error(), "protocol") {
 		t.Fatalf("unknown protocol error = %v", err)
 	}

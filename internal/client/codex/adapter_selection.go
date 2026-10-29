@@ -6,14 +6,14 @@ import (
 	"strings"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 // AdoptSelection records Codex's own model choice as its Client Binding when
 // the root model is the only changed value AIGW owns in the Codex targets and
 // it names the upstream model of one Route of the selected Account and
 // protocol. The binding keeps its protocol, provider and forwarding.
-func (codexAdapter) AdoptSelection(_ client.Dependencies, cfg *configuration.Config) (string, error) {
+func (codexAdapter) AdoptSelection(_ client.Dependencies, cfg *domain.Config) (string, error) {
 	binding := cfg.Clients[ID]
 	if !binding.Enabled || len(binding.Targets) == 0 {
 		return "", nil
@@ -48,7 +48,7 @@ func (codexAdapter) AdoptSelection(_ client.Dependencies, cfg *configuration.Con
 
 // routeFor maps Codex's model to the one Route with the selected Account,
 // protocol and that upstream model, which the managed provider already reaches.
-func routeFor(cfg configuration.Config, selected configuration.Runtime, model string) (string, error) {
+func routeFor(cfg domain.Config, selected domain.Runtime, model string) (string, error) {
 	spec := codexAdapter{}.Spec()
 	var matches []string
 	for _, routeID := range cfg.CatalogRouteIDs() {

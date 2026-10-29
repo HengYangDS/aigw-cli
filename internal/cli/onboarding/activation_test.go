@@ -9,19 +9,19 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
 func TestManifestSetupOffersEqualCompatibleAccountsWithoutTokens(t *testing.T) {
-	cfg := configuration.NewConfig(clients.Admission())
+	cfg := domain.NewConfig(clients.Admission())
 	for _, account := range []string{"ucloud", "dmx"} {
-		cfg.Accounts[account] = configuration.Account{Label: account, Endpoints: configuration.Endpoints{Anthropic: "https://" + account + ".test"}}
-		cfg.Routes[account] = configuration.Route{Label: account, Account: account, Model: "fable", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+		cfg.Accounts[account] = domain.Account{Label: account, Endpoints: domain.Endpoints{Anthropic: "https://" + account + ".test"}}
+		cfg.Routes[account] = domain.Route{Label: account, Account: account, Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	}
 	cfg.SetRecommendedRoute(claude.ID, "ucloud")
 	recommendation := cfg.Recommendations[claude.ID]
-	recommendation.Alternatives = []configuration.ClientSelection{{Route: "dmx"}}
+	recommendation.Alternatives = []domain.ClientSelection{{Route: "dmx"}}
 	cfg.Recommendations[claude.ID] = recommendation
 	output := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secrets.NewMemoryStore(), Out: output, RenderOut: output}

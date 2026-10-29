@@ -16,6 +16,7 @@ import (
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
@@ -58,23 +59,23 @@ func (r *adapterRunner) RunCaptureStreams(ctx context.Context, plan process.Plan
 	return output, nil, err
 }
 
-func adapterConfig() configuration.Config {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{
+func adapterConfig() domain.Config {
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{
 		Label: "Gateway",
-		Endpoints: configuration.Endpoints{
+		Endpoints: domain.Endpoints{
 			Anthropic:       "https://gateway.test",
 			OpenAIResponses: "https://gateway.test/v1",
 		},
 	}
-	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "gateway", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
-	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "gateway", Model: "codex-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "gateway", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "gateway", Model: "codex-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
 	return cfg
 }
 
-func adapterRuntime(t *testing.T, cfg configuration.Config) (invocation.Context, *bytes.Buffer, secrets.Store, *adapterRunner) {
+func adapterRuntime(t *testing.T, cfg domain.Config) (invocation.Context, *bytes.Buffer, secrets.Store, *adapterRunner) {
 	t.Helper()
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := store.Save(cfg); err != nil {
@@ -250,7 +251,7 @@ func TestEnableCodexWithClientNativeAuthenticationDoesNotAccessAccountTokens(t *
 	cfg := adapterConfig()
 	binding := cfg.Clients[codex.ID]
 	binding.ModelProvider = "amazon-bedrock"
-	binding.Authentication = configuration.AuthenticationClientNative
+	binding.Authentication = domain.AuthenticationClientNative
 	cfg.Clients[codex.ID] = binding
 	runtime, _, _, runner := adapterRuntime(t, cfg)
 	runtime.Secrets = unavailableAdapterSecretStore{}

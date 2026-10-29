@@ -2,8 +2,8 @@ package codex
 
 import (
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"context"
 	"errors"
@@ -29,16 +29,16 @@ func TestCodexConvergencePreservesEnabledIntentWithoutDiscoveredTargets(t *testi
 }
 
 func TestCodexAdapterReportsReadinessStates(t *testing.T) {
-	newFixture := func(t *testing.T, provider string) (configuration.Config, configuration.Runtime) {
+	newFixture := func(t *testing.T, provider string) (domain.Config, domain.Runtime) {
 		t.Helper()
 		target := filepath.Join(t.TempDir(), "config.toml")
 		if err := os.WriteFile(target, nil, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		cfg := configuration.NewConfig(testAdmission())
-		cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-		cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-		cfg.Clients[ID] = configuration.ClientBinding{Route: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
+		cfg := domain.NewConfig(testAdmission())
+		cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+		cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+		cfg.Clients[ID] = domain.ClientBinding{Route: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
 		runtime, err := cfg.ResolveRuntime(ID, "")
 		if err != nil {
 			t.Fatal(err)
@@ -51,7 +51,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	}
 
 	t.Run("missing executable", func(t *testing.T) {
-		cfg, runtime := newFixture(t, configuration.ModelProviderAIGW)
+		cfg, runtime := newFixture(t, domain.ModelProviderAIGW)
 		adapter := cfg.Clients[ID]
 		adapter.Executable = ""
 		cfg.Clients[ID] = adapter
@@ -62,7 +62,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	})
 
 	t.Run("missing target", func(t *testing.T) {
-		cfg, runtime := newFixture(t, configuration.ModelProviderAIGW)
+		cfg, runtime := newFixture(t, domain.ModelProviderAIGW)
 		adapter := cfg.Clients[ID]
 		adapter.Targets = nil
 		cfg.Clients[ID] = adapter
@@ -73,7 +73,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	})
 
 	t.Run("projection drift", func(t *testing.T) {
-		cfg, runtime := newFixture(t, configuration.ModelProviderAIGW)
+		cfg, runtime := newFixture(t, domain.ModelProviderAIGW)
 		adapter := cfg.Clients[ID]
 		adapter.Targets = []string{filepath.Join(t.TempDir(), "missing.toml")}
 		cfg.Clients[ID] = adapter
@@ -95,7 +95,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	})
 
 	t.Run("capture unavailable", func(t *testing.T) {
-		cfg, runtime := newFixture(t, configuration.ModelProviderAIGW)
+		cfg, runtime := newFixture(t, domain.ModelProviderAIGW)
 		status := (codexAdapter{}).Inspect(context.Background(), client.Dependencies{}, cfg, runtime)
 		if !status.Ready {
 			t.Fatalf("status = %#v", status)
@@ -103,7 +103,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	})
 
 	t.Run("inspection does not invoke the client", func(t *testing.T) {
-		cfg, runtime := newFixture(t, configuration.ModelProviderAIGW)
+		cfg, runtime := newFixture(t, domain.ModelProviderAIGW)
 		runner := &captureAdapterRunner{err: errors.New("status failed")}
 		status := (codexAdapter{}).Inspect(context.Background(), client.Dependencies{Runner: runner}, cfg, runtime)
 		if !status.Ready || runner.calls != 0 {
@@ -113,9 +113,9 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 }
 
 func TestCodexAdapterApplyRequiresDiscovery(t *testing.T) {
-	after := configuration.NewConfig(testAdmission())
+	after := domain.NewConfig(testAdmission())
 	after.SetClientActivation(ID, true, "", nil)
-	if _, err := (codexAdapter{}).Apply(context.Background(), client.Dependencies{}, configuration.NewConfig(testAdmission()), after); err == nil || !strings.Contains(err.Error(), "surface discovery is unavailable") {
+	if _, err := (codexAdapter{}).Apply(context.Background(), client.Dependencies{}, domain.NewConfig(testAdmission()), after); err == nil || !strings.Contains(err.Error(), "surface discovery is unavailable") {
 		t.Fatalf("Apply() error = %v", err)
 	}
 }
@@ -124,19 +124,19 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *tes
 	for _, test := range []struct {
 		name           string
 		provider       string
-		authentication configuration.Authentication
+		authentication domain.Authentication
 		wantCommand    bool
 	}{
-		{name: "aigw account token", provider: configuration.ModelProviderAIGW, authentication: configuration.AuthenticationAccountToken, wantCommand: true},
-		{name: "provider account token", provider: "amazon-bedrock", authentication: configuration.AuthenticationAccountToken, wantCommand: true},
-		{name: "client native", provider: "amazon-bedrock", authentication: configuration.AuthenticationClientNative},
+		{name: "aigw account token", provider: domain.ModelProviderAIGW, authentication: domain.AuthenticationAccountToken, wantCommand: true},
+		{name: "provider account token", provider: "amazon-bedrock", authentication: domain.AuthenticationAccountToken, wantCommand: true},
+		{name: "client native", provider: "amazon-bedrock", authentication: domain.AuthenticationClientNative},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			target := filepath.Join(t.TempDir(), "config.toml")
-			cfg := configuration.NewConfig(testAdmission())
-			cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-			cfg.Routes["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-			cfg.Clients[ID] = configuration.ClientBinding{
+			cfg := domain.NewConfig(testAdmission())
+			cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+			cfg.Routes["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+			cfg.Clients[ID] = domain.ClientBinding{
 				Route: "codex", Enabled: true, ModelProvider: test.provider,
 				Authentication: test.authentication, Executable: "/usr/bin/codex", Targets: []string{target},
 			}
@@ -153,7 +153,7 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *tes
 			_, err := (codexAdapter{}).Apply(context.Background(), client.Dependencies{
 				Discovery:      fixedDiscoverer{result: discovered},
 				AIGWExecutable: command,
-			}, configuration.NewConfig(testAdmission()), cfg)
+			}, domain.NewConfig(testAdmission()), cfg)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -203,12 +203,12 @@ type fixedDiscoverer struct{ result discovery.Result }
 
 func (discoverer fixedDiscoverer) Discover() discovery.Result { return discoverer.result }
 
-func qualifiedRoute(label, account, model string, protocols ...configuration.EndpointProtocol) configuration.Route {
-	interfaces := make(map[configuration.EndpointProtocol][]configuration.Capability, len(protocols))
+func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Route {
+	interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(protocols))
 	for _, protocol := range protocols {
-		interfaces[protocol] = []configuration.Capability{}
+		interfaces[protocol] = []domain.Capability{}
 	}
-	return configuration.Route{
+	return domain.Route{
 		Label: label, Account: account, Model: model, UpstreamModel: model, Interfaces: interfaces,
 	}
 }
@@ -245,15 +245,15 @@ func (runner *captureAdapterRunner) RunCapture(ctx context.Context, plan process
 	return nil, runner.err
 }
 
-func codexConfiguration(target string) configuration.Config {
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg.Clients[ID] = configuration.ClientBinding{Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+func codexConfiguration(target string) domain.Config {
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Clients[ID] = domain.ClientBinding{Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }
 
-func codexVerificationFixture(t *testing.T) (configuration.Config, configuration.Runtime) {
+func codexVerificationFixture(t *testing.T) (domain.Config, domain.Runtime) {
 	t.Helper()
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, nil, 0o600); err != nil {

@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"aigw-cli/internal/domain"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -14,14 +15,14 @@ const forwardingTestEndpoint = "http://127.0.0.1:8792/v1"
 
 // forwardTo selects Codex's forwarding endpoint, or its direct connection when
 // endpoint is empty, for a test fixture.
-func forwardTo(t *testing.T, cfg *Config, endpoint string) {
+func forwardTo(t *testing.T, cfg *domain.Config, endpoint string) {
 	t.Helper()
 	if err := cfg.SetForwardingEndpoint(ClientCodex, endpoint); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func forwardedConfig(t *testing.T) Config {
+func forwardedConfig(t *testing.T) domain.Config {
 	t.Helper()
 	cfg := validConfig()
 	forwardTo(t, &cfg, forwardingTestEndpoint)
@@ -32,13 +33,13 @@ func forwardedConfig(t *testing.T) Config {
 }
 
 func TestForwardingRefusesAChangeThatMovesItsUpstream(t *testing.T) {
-	for name, move := range map[string]func(*Config){
-		"Account endpoint": func(cfg *Config) {
+	for name, move := range map[string]func(*domain.Config){
+		"Account endpoint": func(cfg *domain.Config) {
 			account := cfg.Accounts["backup"]
 			account.Endpoints.OpenAIResponses = "https://moved.test/v1"
 			cfg.Accounts["backup"] = account
 		},
-		"Account rename": func(cfg *Config) {
+		"Account rename": func(cfg *domain.Config) {
 			cfg.Accounts["renamed"] = cfg.Accounts["backup"]
 			delete(cfg.Accounts, "backup")
 			route := cfg.Routes["backup"]
@@ -61,9 +62,9 @@ func TestForwardingRefusesAChangeThatMovesItsUpstream(t *testing.T) {
 
 func TestForwardingRefusesAProtocolChange(t *testing.T) {
 	cfg := validConfig()
-	cfg.Accounts["multi"] = Account{Label: "Multi", Endpoints: Endpoints{OpenAIResponses: "https://multi.test/v1", OpenAIChatCompletions: "https://multi.test/v1"}}
-	cfg.Routes["multi"] = testRoute("Multi", "multi", "multi-model", ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions)
-	cfg.SetSelectedRoute(ClientHermes, "multi", ProtocolOpenAIResponses)
+	cfg.Accounts["multi"] = domain.Account{Label: "Multi", Endpoints: domain.Endpoints{OpenAIResponses: "https://multi.test/v1", OpenAIChatCompletions: "https://multi.test/v1"}}
+	cfg.Routes["multi"] = testRoute("Multi", "multi", "multi-model", domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions)
+	cfg.SetSelectedRoute(ClientHermes, "multi", domain.ProtocolOpenAIResponses)
 	if err := cfg.SetForwardingEndpoint(ClientHermes, forwardingTestEndpoint); err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +73,7 @@ func TestForwardingRefusesAProtocolChange(t *testing.T) {
 	}
 	// The same Account URL serves both protocols, so only the protocol moves.
 	binding := cfg.Clients[ClientHermes]
-	binding.Protocol = ProtocolOpenAIChatCompletions
+	binding.Protocol = domain.ProtocolOpenAIChatCompletions
 	cfg.Clients[ClientHermes] = binding
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "`aigw use --for hermes multi --direct`") {
 		t.Fatalf("a forwarded protocol change was accepted or not explained: %v", err)
@@ -83,7 +84,7 @@ func TestForwardingRefusalResetsASelectedRetryPolicy(t *testing.T) {
 	cfg := forwardedConfig(t)
 	retries := uint64(2)
 	binding := cfg.Clients[ClientCodex]
-	binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &retries}
+	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &retries}
 	cfg.Clients[ClientCodex] = binding
 	account := cfg.Accounts["backup"]
 	account.Endpoints.OpenAIResponses = "https://moved.test/v1"
@@ -95,7 +96,7 @@ func TestForwardingRefusalResetsASelectedRetryPolicy(t *testing.T) {
 
 func TestForwardingSurvivesASelectionOfTheSameUpstream(t *testing.T) {
 	cfg := forwardedConfig(t)
-	cfg.Routes["other"] = testRoute("Other", "backup", "other-model", ProtocolOpenAIResponses)
+	cfg.Routes["other"] = testRoute("Other", "backup", "other-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(ClientCodex, "other", "")
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)

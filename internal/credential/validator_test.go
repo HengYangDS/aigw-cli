@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -45,9 +45,9 @@ func (reader failingReader) Read([]byte) (int, error) { return 0, reader.err }
 func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 	t.Parallel()
 
-	account := configuration.Account{
+	account := domain.Account{
 		ID: "team",
-		Endpoints: configuration.Endpoints{
+		Endpoints: domain.Endpoints{
 			Anthropic:       "https://anthropic.example/api",
 			OpenAIResponses: "https://responses.example/v1/",
 		},
@@ -101,10 +101,10 @@ func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 func TestValidateRuntimeUsesTheSelectedEndpointProtocol(t *testing.T) {
 	t.Parallel()
 
-	selected := configuration.Runtime{
+	selected := domain.Runtime{
 		Client:   clientHermes,
 		Endpoint: "https://chat.example/v1/",
-		Protocol: configuration.ProtocolOpenAIChatCompletions,
+		Protocol: domain.ProtocolOpenAIChatCompletions,
 	}
 	called := false
 	doer := doerFunc(func(request *http.Request) (*http.Response, error) {
@@ -123,29 +123,29 @@ func TestValidateRuntimeUsesTheSelectedEndpointProtocol(t *testing.T) {
 func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 	t.Parallel()
 
-	account := configuration.Account{
+	account := domain.Account{
 		ID: "team",
-		Endpoints: configuration.Endpoints{
+		Endpoints: domain.Endpoints{
 			OpenAIResponses: "https://responses.example/v1",
 		},
 	}
 	tests := []struct {
 		name    string
-		account configuration.Account
+		account domain.Account
 		client  string
 		doer    HTTPDoer
 		want    string
 	}{
 		{name: "unknown client", account: account, client: "unknown", want: `unsupported credential validation client "unknown"`},
 		{name: "missing endpoint", account: account, client: clientClaude, want: "no Anthropic Messages endpoint"},
-		{name: "invalid URL", account: configuration.Account{ID: "team", Endpoints: configuration.Endpoints{OpenAIResponses: "://bad"}}, client: clientCodex, want: "missing protocol scheme"},
+		{name: "invalid URL", account: domain.Account{ID: "team", Endpoints: domain.Endpoints{OpenAIResponses: "://bad"}}, client: clientCodex, want: "missing protocol scheme"},
 		{name: "unreachable", account: account, client: clientCodex, doer: doerFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") }), want: "Codex endpoint is unreachable: offline"},
 		{name: "read body", account: account, client: clientCodex, doer: staticResponse(http.StatusOK, responseBody{Reader: failingReader{err: errors.New("broken body")}}), want: "read Codex endpoint response: broken body"},
 		{name: "close body", account: account, client: clientCodex, doer: staticResponse(http.StatusOK, responseBody{Reader: strings.NewReader("ok"), closeErr: errors.New("broken close")}), want: "close Codex endpoint response: broken close"},
 		{name: "unauthorized", account: account, client: clientCodex, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Codex authentication was rejected (HTTP 401)"},
 		{name: "forbidden", account: account, client: clientCodex, doer: staticResponse(http.StatusForbidden, http.NoBody), want: "Codex authentication was rejected (HTTP 403)"},
 		{name: "unexpected status", account: account, client: clientCodex, doer: staticResponse(http.StatusBadGateway, http.NoBody), want: "Codex endpoint returned HTTP 502"},
-		{name: "multi-word client label", account: configuration.Account{ID: "team", Endpoints: configuration.Endpoints{Anthropic: "https://anthropic.test"}}, client: clientClaudeDesktop, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Claude Desktop authentication was rejected (HTTP 401)"},
+		{name: "multi-word client label", account: domain.Account{ID: "team", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}, client: clientClaudeDesktop, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Claude Desktop authentication was rejected (HTTP 401)"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -164,13 +164,13 @@ func TestProbeRequestRejectsUnknownOrAmbiguousProtocol(t *testing.T) {
 	tests := []struct {
 		name      string
 		client    string
-		protocols []configuration.EndpointProtocol
+		protocols []domain.EndpointProtocol
 		want      string
 	}{
 		{name: "unknown client", client: "unknown", want: `unsupported credential validation client "unknown"`},
 		{name: "ambiguous Hermes protocol", client: clientHermes, want: `requires an admitted endpoint protocol`},
-		{name: "unadmitted Claude protocol", client: clientClaude, protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}, want: `requires an admitted endpoint protocol`},
-		{name: "multiple protocols", client: clientCodex, protocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses, configuration.ProtocolAnthropic}, want: `requires one protocol`},
+		{name: "unadmitted Claude protocol", client: clientClaude, protocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}, want: `requires an admitted endpoint protocol`},
+		{name: "multiple protocols", client: clientCodex, protocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses, domain.ProtocolAnthropic}, want: `requires one protocol`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -186,7 +186,7 @@ func TestModelCatalogRequestKeepsProtocolAuthenticationDistinct(t *testing.T) {
 	tests := []struct {
 		name        string
 		endpoint    string
-		protocol    configuration.EndpointProtocol
+		protocol    domain.EndpointProtocol
 		wantURL     string
 		wantBearer  string
 		wantAPIKey  string
@@ -195,21 +195,21 @@ func TestModelCatalogRequestKeepsProtocolAuthenticationDistinct(t *testing.T) {
 		{
 			name:       "OpenAI Chat Completions",
 			endpoint:   "https://chat.test/v1",
-			protocol:   configuration.ProtocolOpenAIChatCompletions,
+			protocol:   domain.ProtocolOpenAIChatCompletions,
 			wantURL:    "https://chat.test/v1/models",
 			wantBearer: "Bearer token",
 		},
 		{
 			name:       "OpenAI Responses",
 			endpoint:   "https://responses.test/v1",
-			protocol:   configuration.ProtocolOpenAIResponses,
+			protocol:   domain.ProtocolOpenAIResponses,
 			wantURL:    "https://responses.test/v1/models",
 			wantBearer: "Bearer token",
 		},
 		{
 			name:        "Anthropic Messages",
 			endpoint:    "https://anthropic.test",
-			protocol:    configuration.ProtocolAnthropic,
+			protocol:    domain.ProtocolAnthropic,
 			wantURL:     "https://anthropic.test/v1/models",
 			wantAPIKey:  "token",
 			wantVersion: "2023-06-01",
@@ -242,7 +242,7 @@ func TestValidateHTTPClientDoesNotFollowRedirects(t *testing.T) {
 		writer.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(server.Close)
-	account := configuration.Account{ID: "team", Endpoints: configuration.Endpoints{OpenAIResponses: server.URL + "/v1"}}
+	account := domain.Account{ID: "team", Endpoints: domain.Endpoints{OpenAIResponses: server.URL + "/v1"}}
 
 	httpClient := server.Client()
 	err := Validate(context.Background(), httpClient, testAdmission(), account, "secret", clientCodex)
@@ -264,7 +264,7 @@ func TestCredentialHelpers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := modelsEndpoint("https://example.test/models", configuration.ProtocolOpenAIResponses); got != "https://example.test/models" {
+	if got := modelsEndpoint("https://example.test/models", domain.ProtocolOpenAIResponses); got != "https://example.test/models" {
 		t.Fatalf("models endpoint = %q", got)
 	}
 	called := false

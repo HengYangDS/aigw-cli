@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	surfaceidentity "aigw-cli/internal/surface"
 )
 
@@ -22,11 +22,11 @@ type claudeAdapter struct{}
 // New returns the Claude Code adapter for the composition root to register.
 func New() client.Adapter { return claudeAdapter{} }
 
-func (claudeAdapter) Spec() configuration.ClientSpec {
-	return configuration.ClientSpec{
-		ID: ID, Label: "Claude", EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolAnthropic},
-		ProductName: "Claude Code", ModelDiscoveryOptional: true, Doctor: configuration.DoctorWording{AdapterStates: true},
-		PublishedProfileProtocol: configuration.ProtocolAnthropic,
+func (claudeAdapter) Spec() domain.ClientSpec {
+	return domain.ClientSpec{
+		ID: ID, Label: "Claude", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolAnthropic},
+		ProductName: "Claude Code", ModelDiscoveryOptional: true, Doctor: domain.DoctorWording{AdapterStates: true},
+		PublishedProfileProtocol: domain.ProtocolAnthropic,
 	}
 }
 
@@ -34,10 +34,10 @@ func (claudeAdapter) Discover(source client.DiscoverySource) discovery.Result {
 	return discovery.Result{Executables: map[string]string{ID: source.Executable(ID)}}
 }
 
-func (claudeAdapter) Converge(deps client.Dependencies, cfg *configuration.Config, discovered discovery.Result) error {
+func (claudeAdapter) Converge(deps client.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
 	runtime, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
-		if _, unselected := errors.AsType[*configuration.RuntimeBindingUnselectedError](err); unselected {
+		if _, unselected := errors.AsType[*domain.RuntimeBindingUnselectedError](err); unselected {
 			return nil
 		}
 		return err
@@ -63,7 +63,7 @@ func (claudeAdapter) Converge(deps client.Dependencies, cfg *configuration.Confi
 	return nil
 }
 
-func (claudeAdapter) Plan(deps client.Dependencies, before, after configuration.Config) ([]client.ProjectionPlan, error) {
+func (claudeAdapter) Plan(deps client.Dependencies, before, after domain.Config) ([]client.ProjectionPlan, error) {
 	if !projectionRequired(before, after) {
 		return nil, nil
 	}
@@ -83,7 +83,7 @@ func (claudeAdapter) Plan(deps client.Dependencies, before, after configuration.
 	return []client.ProjectionPlan{{Client: ID, Target: plan.Target, Action: string(plan.Action), Surface: string(SettingsSurface), Effects: plan.Effects(), ChangesState: plan.ChangesState()}}, nil
 }
 
-func (claudeAdapter) Apply(_ context.Context, deps client.Dependencies, before, after configuration.Config) (client.ProjectionReceipt, error) {
+func (claudeAdapter) Apply(_ context.Context, deps client.Dependencies, before, after domain.Config) (client.ProjectionReceipt, error) {
 	if !projectionRequired(before, after) {
 		return nil, nil
 	}
@@ -99,7 +99,7 @@ func (claudeAdapter) Apply(_ context.Context, deps client.Dependencies, before, 
 	return ReconcileSettings(settings, disabled, runtime, runtime.CredentialExecutable(deps.AIGWExecutable), previous.Model)
 }
 
-func (claudeAdapter) ProjectionChanged(before, after configuration.Config) bool {
+func (claudeAdapter) ProjectionChanged(before, after domain.Config) bool {
 	beforeAdapter := before.Clients[ID]
 	afterAdapter := after.Clients[ID]
 	if beforeAdapter.Enabled != afterAdapter.Enabled || beforeAdapter.CredentialCommand != afterAdapter.CredentialCommand {
@@ -116,7 +116,7 @@ func (claudeAdapter) ProjectionChanged(before, after configuration.Config) bool 
 	return !beforeRuntime.SameUpstream(afterRuntime) || beforeRuntime.Endpoint != afterRuntime.Endpoint || beforeRuntime.Model != afterRuntime.Model
 }
 
-func (claudeAdapter) Inspect(_ context.Context, deps client.Dependencies, cfg configuration.Config, runtime configuration.Runtime) client.Status {
+func (claudeAdapter) Inspect(_ context.Context, deps client.Dependencies, cfg domain.Config, runtime domain.Runtime) client.Status {
 	adapter := cfg.Clients[ID]
 	if !adapter.Enabled {
 		return client.Status{Issue: "Claude adapter is disabled", RepairAction: "aigw sync"}
@@ -148,24 +148,24 @@ func (claudeAdapter) Inspect(_ context.Context, deps client.Dependencies, cfg co
 
 // AdoptSelection adopts nothing: Claude Code has no native selection that AIGW
 // records as its Client Binding.
-func (claudeAdapter) AdoptSelection(client.Dependencies, *configuration.Config) (string, error) {
+func (claudeAdapter) AdoptSelection(client.Dependencies, *domain.Config) (string, error) {
 	return "", nil
 }
 
-func (claudeAdapter) Withdraw(cfg *configuration.Config) {
+func (claudeAdapter) Withdraw(cfg *domain.Config) {
 	delete(cfg.Clients, ID)
 }
 
-func projectionRequired(before, after configuration.Config) bool {
+func projectionRequired(before, after domain.Config) bool {
 	previous := before.Clients[ID]
 	current := after.Clients[ID]
 	return previous.Enabled && previous.Executable != "" || current.Enabled && current.Executable != ""
 }
 
-func projectionInput(cfg configuration.Config) (bool, configuration.Runtime, error) {
+func projectionInput(cfg domain.Config) (bool, domain.Runtime, error) {
 	disabled := !cfg.Clients[ID].Enabled
 	if disabled {
-		return true, configuration.Runtime{}, nil
+		return true, domain.Runtime{}, nil
 	}
 	runtime, err := cfg.ResolveRuntime(ID, "")
 	return false, runtime, err

@@ -11,7 +11,7 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/prompt"
 )
 
@@ -68,7 +68,7 @@ func (candidate *scriptedWizardPrompt) Select(_ string, choices []prompt.Choice)
 func TestWizardOffersAdmittedClientsAndHermesProtocols(t *testing.T) {
 	prompt := &scriptedWizardPrompt{
 		texts:      []string{"team", "Team", "https://messages.test"},
-		selections: []string{hermes.ID, string(configuration.ProtocolAnthropic)},
+		selections: []string{hermes.ID, string(domain.ProtocolAnthropic)},
 		failTextAt: 4,
 	}
 	if err := RunWizard(context.Background(), invocation.Context{Clients: clients.Registry(), Prompt: prompt}); err == nil {
@@ -88,7 +88,7 @@ func TestWizardOffersAdmittedClientsAndHermesProtocols(t *testing.T) {
 	for _, choice := range prompt.choiceSets[1] {
 		protocols = append(protocols, choice.Value)
 	}
-	if !slices.Equal(protocols, []string{string(configuration.ProtocolOpenAIResponses), string(configuration.ProtocolAnthropic), string(configuration.ProtocolOpenAIChatCompletions)}) {
+	if !slices.Equal(protocols, []string{string(domain.ProtocolOpenAIResponses), string(domain.ProtocolAnthropic), string(domain.ProtocolOpenAIChatCompletions)}) {
 		t.Fatalf("Hermes protocols = %#v", protocols)
 	}
 	if len(prompt.textPrompts) != 4 || prompt.textPrompts[2] != "Anthropic Messages URL: " || strings.Contains(strings.ToLower(prompt.textPrompts[3]), "gpt-5.6") {

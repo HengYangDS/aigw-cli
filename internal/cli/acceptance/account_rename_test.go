@@ -13,7 +13,7 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -441,8 +441,8 @@ func TestAccountRenameProjectionFailureRollsBackConfigAndRetainsBothCredentialSl
 func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) {
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := accountRenameConfig()
-	cfg.Accounts["active"] = configuration.Account{Label: "Active", Endpoints: configuration.Endpoints{OpenAIResponses: "https://active.test/v1"}}
-	cfg.Routes["active-route"] = qualifiedRoute("Active", "active", "active-model", configuration.ProtocolOpenAIResponses)
+	cfg.Accounts["active"] = domain.Account{Label: "Active", Endpoints: domain.Endpoints{OpenAIResponses: "https://active.test/v1"}}
+	cfg.Routes["active-route"] = qualifiedRoute("Active", "active", "active-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(codex.ID, "active-route", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
@@ -509,22 +509,22 @@ type droppingSecretStore struct{ secrets.Store }
 
 func (droppingSecretStore) Set(string, string) error { return nil }
 
-func accountRenameConfig() configuration.Config {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["alpha"] = configuration.Account{Label: "Alpha", Endpoints: configuration.Endpoints{OpenAIResponses: "https://alpha.test/v1"}}
-	cfg.Accounts["zeta-old"] = configuration.Account{
+func accountRenameConfig() domain.Config {
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["alpha"] = domain.Account{Label: "Alpha", Endpoints: domain.Endpoints{OpenAIResponses: "https://alpha.test/v1"}}
+	cfg.Accounts["zeta-old"] = domain.Account{
 		Label: "Zeta",
-		Endpoints: configuration.Endpoints{
+		Endpoints: domain.Endpoints{
 			OpenAIResponses: "https://zeta.test/v1",
 			Anthropic:       "https://zeta.test/anthropic",
 		},
-		AccountProbe: &configuration.AccountProbe{Kind: "future-provider", BaseURL: "https://probe.zeta.test"},
+		AccountProbe: &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://probe.zeta.test"},
 	}
-	cfg.Routes["codex-route"] = qualifiedRoute("Codex", "zeta-old", "codex-model", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["codex-route"] = qualifiedRoute("Codex", "zeta-old", "codex-model", domain.ProtocolOpenAIResponses)
 	codexRoute := cfg.Routes["codex-route"]
 	codexRoute.Purpose = "Codex purpose"
 	cfg.Routes["codex-route"] = codexRoute
-	cfg.Routes["claude-route"] = qualifiedRoute("Claude", "zeta-old", "claude-model", configuration.ProtocolAnthropic)
+	cfg.Routes["claude-route"] = qualifiedRoute("Claude", "zeta-old", "claude-model", domain.ProtocolAnthropic)
 	claudeRoute := cfg.Routes["claude-route"]
 	claudeRoute.Purpose = "Claude purpose"
 	cfg.Routes["claude-route"] = claudeRoute

@@ -13,19 +13,20 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
 func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	before := setupConfiguration()
-	before.Routes["next"] = configuration.Route{Label: "Next", Account: "team", Model: "claude-next", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	before.Routes["next"] = domain.Route{Label: "Next", Account: "team", Model: "claude-next", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 	if err := store.Save(before); err != nil {
 		t.Fatal(err)
 	}
 	credentials := setupTokenStore(t, "existing-token")
 	syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials, Discovery: setupDiscovery(nil)}
-	changed, _, _, err := syncer.SelectRoute(t.Context(), before, claude.ID, "next", "", configuration.ConnectionChange{}, "")
+	changed, _, _, err := syncer.SelectRoute(t.Context(), before, claude.ID, "next", "", domain.ConnectionChange{}, "")
 	if err != nil || !changed {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
 	}
@@ -37,7 +38,7 @@ func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changed, _, _, err = syncer.SelectRoute(t.Context(), current, claude.ID, "next", "", configuration.ConnectionChange{}, "")
+	changed, _, _, err = syncer.SelectRoute(t.Context(), current, claude.ID, "next", "", domain.ConnectionChange{}, "")
 	if err != nil || changed || credentials.writes != 0 {
 		t.Fatalf("repeated selection = %t, %v; credential writes=%d", changed, err, credentials.writes)
 	}
@@ -51,24 +52,24 @@ func TestRouteSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 	direct := ""
 	for _, test := range []struct {
 		name, route, wantEndpoint string
-		protocol                  configuration.EndpointProtocol
+		protocol                  domain.EndpointProtocol
 		forwarding                *string
 	}{
-		{name: "same upstream", route: "dual", protocol: configuration.ProtocolOpenAIChatCompletions, wantEndpoint: "http://127.0.0.1:8792/selected/v1"},
-		{name: "explicit direct", route: "dual", protocol: configuration.ProtocolOpenAIChatCompletions, forwarding: &direct, wantEndpoint: "https://team.test/v1"},
-		{name: "new protocol", route: "dual", protocol: configuration.ProtocolOpenAIResponses, wantEndpoint: "https://team.test/responses/v1"},
-		{name: "new Account", route: "other", protocol: configuration.ProtocolOpenAIChatCompletions, wantEndpoint: "https://other.test/v1"},
+		{name: "same upstream", route: "dual", protocol: domain.ProtocolOpenAIChatCompletions, wantEndpoint: "http://127.0.0.1:8792/selected/v1"},
+		{name: "explicit direct", route: "dual", protocol: domain.ProtocolOpenAIChatCompletions, forwarding: &direct, wantEndpoint: "https://team.test/v1"},
+		{name: "new protocol", route: "dual", protocol: domain.ProtocolOpenAIResponses, wantEndpoint: "https://team.test/responses/v1"},
+		{name: "new Account", route: "other", protocol: domain.ProtocolOpenAIChatCompletions, wantEndpoint: "https://other.test/v1"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := setupConfiguration()
-			cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{
+			cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{
 				Anthropic: "https://team.test", OpenAIChatCompletions: "https://team.test/v1", OpenAIResponses: "https://team.test/responses/v1",
 			}}
-			cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{OpenAIChatCompletions: "https://other.test/v1"}}
-			cfg.Routes["chat"] = configuration.Route{Label: "Chat", Account: "team", Model: "shared", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIChatCompletions: {}}}
-			cfg.Routes["dual"] = configuration.Route{Label: "Dual", Account: "team", Model: "shared", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIChatCompletions: {}, configuration.ProtocolOpenAIResponses: {}}}
-			cfg.Routes["other"] = configuration.Route{Label: "Other", Account: "other", Model: "shared", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIChatCompletions: {}}}
-			cfg.Clients[hermes.ID] = configuration.ClientBinding{Route: "chat", Enabled: true}
+			cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{OpenAIChatCompletions: "https://other.test/v1"}}
+			cfg.Routes["chat"] = domain.Route{Label: "Chat", Account: "team", Model: "shared", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}}
+			cfg.Routes["dual"] = domain.Route{Label: "Dual", Account: "team", Model: "shared", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}, domain.ProtocolOpenAIResponses: {}}}
+			cfg.Routes["other"] = domain.Route{Label: "Other", Account: "other", Model: "shared", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}}
+			cfg.Clients[hermes.ID] = domain.ClientBinding{Route: "chat", Enabled: true}
 			if err := cfg.SetForwardingEndpoint(hermes.ID, "http://127.0.0.1:8792/selected/v1"); err != nil {
 				t.Fatal(err)
 			}
@@ -76,7 +77,7 @@ func TestRouteSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 			if err := cfg.Validate(); err != nil {
 				t.Fatal(err)
 			}
-			proposed, selected, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, hermes.ID, test.route, test.protocol, configuration.ConnectionChange{ForwardingEndpoint: test.forwarding})
+			proposed, selected, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, hermes.ID, test.route, test.protocol, domain.ConnectionChange{ForwardingEndpoint: test.forwarding})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -110,7 +111,7 @@ func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 				syncer.Discovery = setupDiscovery(cancel)
 				failure = context.Canceled
 			}
-			_, _, _, err := syncer.SelectRoute(ctx, before, claude.ID, "claude", "", configuration.ConnectionChange{}, "new-token")
+			_, _, _, err := syncer.SelectRoute(ctx, before, claude.ID, "claude", "", domain.ConnectionChange{}, "new-token")
 			if !errors.Is(err, failure) {
 				t.Fatalf("selection error = %v, want %v", err, failure)
 			}
@@ -128,10 +129,10 @@ func TestRouteSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 	for _, route := range []string{"unknown", "native"} {
 		t.Run(route, func(t *testing.T) {
 			cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
-			cfg.Routes["native"] = configuration.Route{Label: "Native", Account: "gateway", Model: "model", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
+			cfg.Routes["native"] = domain.Route{Label: "Native", Account: "gateway", Model: "model", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 			binding := cfg.Clients[codex.ID]
 			binding.ModelProvider = "provider"
-			binding.Authentication = configuration.AuthenticationClientNative
+			binding.Authentication = domain.AuthenticationClientNative
 			cfg.Clients[codex.ID] = binding
 			store := configuration.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 			credentials := &setupCredentials{Store: secrets.NewMemoryStore()}
@@ -139,7 +140,7 @@ func TestRouteSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 			if route == "native" {
 				client = codex.ID
 			}
-			_, _, _, err := (Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials}).SelectRoute(t.Context(), cfg, client, route, "", configuration.ConnectionChange{}, "token")
+			_, _, _, err := (Synchronizer{Registry: builtinClients, Config: store, Secrets: credentials}).SelectRoute(t.Context(), cfg, client, route, "", domain.ConnectionChange{}, "token")
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid selection reached credential mutation: writes=%d, error=%v", credentials.writes, err)
 			}

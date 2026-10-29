@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
 
@@ -46,9 +46,9 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["team"] = configuration.Account{Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", configuration.ProtocolAnthropic)
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["hermes"] = qualifiedRoute("Hermes", "team", "model-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedRoute(ID, "hermes", "")
 	cfg.SetClientActivation(ID, true, executable, []string{target})
 	store := secrets.NewMemoryStore()
@@ -66,7 +66,7 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	if status := adapter.Inspect(t.Context(), unprojected, cfg, selected); status.Ready || !strings.Contains(status.Issue, "projection differs") {
 		t.Fatalf("unsynchronized Hermes projection = %#v", status)
 	}
-	if _, err := adapter.Apply(t.Context(), deps, configuration.NewConfig(testAdmission()), cfg); err != nil {
+	if _, err := adapter.Apply(t.Context(), deps, domain.NewConfig(testAdmission()), cfg); err != nil {
 		t.Fatal(err)
 	}
 	before, err := os.ReadFile(target)
@@ -123,7 +123,7 @@ func requireHermesVerificationRefusal(t *testing.T, err error, calls int) {
 	}
 }
 
-func requireHermesVerificationReader(t *testing.T, deps client.Dependencies, cfg configuration.Config, selected configuration.Runtime, retained string, before []byte) {
+func requireHermesVerificationReader(t *testing.T, deps client.Dependencies, cfg domain.Config, selected domain.Runtime, retained string, before []byte) {
 	t.Helper()
 	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes fixture"), []byte("AIGW_OK")}}
 	runner.observe = func(plan process.Plan) {

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -16,8 +16,8 @@ func TestAccountConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
 		t.Run(phase, func(t *testing.T) {
 			before := setupConfiguration()
 			original := before.Clone()
-			account := configuration.Account{Label: "New", Endpoints: configuration.Endpoints{Anthropic: "https://new.test"}}
-			route := configuration.Route{Label: "New", Model: "new-model"}
+			account := domain.Account{Label: "New", Endpoints: domain.Endpoints{Anthropic: "https://new.test"}}
+			route := domain.Route{Label: "New", Model: "new-model"}
 			name := "new"
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()

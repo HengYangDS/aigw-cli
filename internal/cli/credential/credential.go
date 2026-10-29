@@ -9,6 +9,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
@@ -96,10 +97,10 @@ func configurationProblem(version string, err error) error {
 	return presentation.ProblemError("Cannot read AIGW configuration", evidence, "Credential lookup did not start.", fix, err)
 }
 
-func resolveProjectedRuntime(cfg configuration.Config, client, fingerprint string) (configuration.Runtime, error) {
+func resolveProjectedRuntime(cfg domain.Config, client, fingerprint string) (domain.Runtime, error) {
 	spec, admitted := cfg.Admission().Spec(client)
 	if !admitted {
-		return configuration.Runtime{}, fmt.Errorf("unknown client %q", client)
+		return domain.Runtime{}, fmt.Errorf("unknown client %q", client)
 	}
 	for _, routeID := range cfg.RouteIDs() {
 		route := cfg.Routes[routeID]
@@ -119,5 +120,5 @@ func resolveProjectedRuntime(cfg configuration.Config, client, fingerprint strin
 			}
 		}
 	}
-	return configuration.Runtime{}, fmt.Errorf("unknown credential projection fingerprint")
+	return domain.Runtime{}, fmt.Errorf("unknown credential projection fingerprint")
 }

@@ -7,6 +7,7 @@ import (
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
 	"bytes"
@@ -119,25 +120,25 @@ func (store *observingSecretStore) Exists(account string) (bool, error) {
 	return store.value != "", store.existsErr
 }
 
-func configuredReadinessRuntime(t *testing.T) (invocation.Context, configuration.Config, *bytes.Buffer) {
+func configuredReadinessRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.Buffer) {
 	t.Helper()
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
 	store := configuration.NewStore(configPath, clients.Admission())
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = configuration.Account{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["one"] = domain.Account{
 		Label: "One",
-		Endpoints: configuration.Endpoints{
+		Endpoints: domain.Endpoints{
 			Anthropic:       "https://claude.example.test",
 			OpenAIResponses: "https://codex.example.test/v1",
 		},
 	}
-	cfg.Routes["claude"] = configuration.Route{
+	cfg.Routes["claude"] = domain.Route{
 		Label: "Claude", Account: "one", Model: "claude-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.Routes["codex"] = configuration.Route{
+	cfg.Routes["codex"] = domain.Route{
 		Label: "Codex", Account: "one", Model: "gpt-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
@@ -157,7 +158,7 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, configuration
 	return runtime, cfg, out
 }
 
-func configureClaudeExecutable(t *testing.T, runtime *invocation.Context, cfg *configuration.Config) {
+func configureClaudeExecutable(t *testing.T, runtime *invocation.Context, cfg *domain.Config) {
 	t.Helper()
 	root := t.TempDir()
 	executable := filepath.Join(root, "claude")
@@ -172,7 +173,7 @@ func configureClaudeExecutable(t *testing.T, runtime *invocation.Context, cfg *c
 	cfg.SetClientActivation(claude.ID, true, executable, nil)
 }
 
-func synchronizeClaudeSettings(t *testing.T, runtime invocation.Context, cfg configuration.Config) {
+func synchronizeClaudeSettings(t *testing.T, runtime invocation.Context, cfg domain.Config) {
 	t.Helper()
 	clientRuntime, err := cfg.ResolveRuntime(claude.ID, "")
 	if err != nil {
@@ -403,7 +404,7 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	runtime.Version = "1.0.0"
 	binding := cfg.Clients[codex.ID]
 	binding.ModelProvider = "amazon-bedrock"
-	binding.Authentication = configuration.AuthenticationClientNative
+	binding.Authentication = domain.AuthenticationClientNative
 	delete(cfg.Clients, claude.ID)
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, nil, 0o600); err != nil {
@@ -484,7 +485,7 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 func TestCheckJSONReportsOutputFailure(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	runtime.Version = "1.0.0"
-	cfg.Clients = map[string]configuration.ClientBinding{}
+	cfg.Clients = map[string]domain.ClientBinding{}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

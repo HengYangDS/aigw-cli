@@ -1,7 +1,7 @@
 package codex
 
 import (
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -57,7 +57,7 @@ func assertCodexSyncRejectsDrift(t *testing.T, path, drifted, want string) {
 	}
 }
 
-func ownershipTestRuntime() configuration.Runtime {
+func ownershipTestRuntime() domain.Runtime {
 	runtime := atomicTestRuntime()
 	runtime.RouteID = "gpt"
 	runtime.RouteLabel = "GPT"

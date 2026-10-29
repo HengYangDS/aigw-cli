@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -12,8 +13,8 @@ type failingRenameConfigStore struct{ err error }
 func (store failingRenameConfigStore) CaptureSnapshot() (configuration.Snapshot, error) {
 	return configuration.Snapshot{}, store.err
 }
-func (failingRenameConfigStore) Save(configuration.Config) error { return nil }
-func (store failingRenameConfigStore) Commit(before configuration.Snapshot, _ configuration.Config) (configuration.Snapshot, error) {
+func (failingRenameConfigStore) Save(domain.Config) error { return nil }
+func (store failingRenameConfigStore) Commit(before configuration.Snapshot, _ domain.Config) (configuration.Snapshot, error) {
 	return before, store.err
 }
 func (failingRenameConfigStore) RestoreSnapshot(configuration.Snapshot, configuration.Snapshot) error {

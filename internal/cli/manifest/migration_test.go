@@ -12,6 +12,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 
 	"github.com/pelletier/go-toml/v2"
@@ -21,12 +22,12 @@ func TestMigrationPreviewNamesClientsAndProtocolsByLabel(t *testing.T) {
 	out := &bytes.Buffer{}
 	plan := configuration.MigrationPlan{
 		Required: true, FromVersion: 5, ToVersion: 6, Accounts: []string{"gateway"}, Routes: []string{"messages", "responses"},
-		Clients: map[string]configuration.ClientBinding{
-			claudedesktop.ID: {Route: "messages", Protocol: configuration.ProtocolAnthropic, Targets: []string{"/library"}},
-			codex.ID:         {Route: "responses", Protocol: configuration.ProtocolOpenAIResponses, Targets: []string{"/a", "/b"}},
+		Clients: map[string]domain.ClientBinding{
+			claudedesktop.ID: {Route: "messages", Protocol: domain.ProtocolAnthropic, Targets: []string{"/library"}},
+			codex.ID:         {Route: "responses", Protocol: domain.ProtocolOpenAIResponses, Targets: []string{"/a", "/b"}},
 		},
-		Recommendations: map[string]configuration.ClientRecommendation{
-			claudedesktop.ID: {Primary: configuration.ClientSelection{Route: "messages"}},
+		Recommendations: map[string]domain.ClientRecommendation{
+			claudedesktop.ID: {Primary: domain.ClientSelection{Route: "messages"}},
 		},
 	}
 	if err := renderMigration(invocation.Context{Clients: clients.Registry(), Out: out, RenderOut: out}, migrationOutput{DryRun: true, MigrationPlan: plan, NextAction: "aigw config migrate"}); err != nil {
@@ -226,7 +227,7 @@ func (store *observedSecretStore) reset() {
 func legacyMigrationFixture(t *testing.T, target string) []byte {
 	t.Helper()
 	data, err := toml.Marshal(map[string]any{
-		"version": configuration.LegacyConfigVersion,
+		"version": domain.LegacyConfigVersion,
 		"accounts": map[string]any{"gateway": map[string]any{
 			"label": "Gateway", "endpoints": map[string]string{"openai_responses": "https://gateway.test/v1"},
 		}},

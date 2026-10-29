@@ -14,7 +14,7 @@ import (
 
 	"aigw-cli/internal/client"
 	clientverification "aigw-cli/internal/client/verification"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 )
 
@@ -29,7 +29,7 @@ var (
 
 // verifyIsolated runs the bounded probes from a disposable home that borrows the
 // configured installation's committed dependencies.
-func verifyIsolated(ctx context.Context, deps client.Dependencies, configured configuration.ClientBinding, data []byte) (_ client.Verification, result error) {
+func verifyIsolated(ctx context.Context, deps client.Dependencies, configured domain.ClientBinding, data []byte) (_ client.Verification, result error) {
 	home, cleanup, err := CreateVerificationHome(configured.Targets[0])
 	if err != nil {
 		return client.Verification{}, err

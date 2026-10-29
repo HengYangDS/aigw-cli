@@ -14,7 +14,7 @@ import (
 	"slices"
 	"strings"
 
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 
 	"github.com/pelletier/go-toml/v2"
@@ -89,7 +89,7 @@ func (plan ProjectionPlan) ChangesState() bool {
 }
 
 // SyncConfig reconciles one Codex configuration target to the resolved runtime.
-func SyncConfig(path string, runtime configuration.Runtime) error {
+func SyncConfig(path string, runtime domain.Runtime) error {
 	_, err := ReconcileConfigs(nil, codexHomeTargets([]string{path}), runtime)
 	return err
 }
@@ -97,7 +97,7 @@ func SyncConfig(path string, runtime configuration.Runtime) error {
 // ObservedCredentialCommand reads the projected command without treating it as
 // trusted. The caller must validate the intact reader and the complete owned
 // projection before executing it.
-func ObservedCredentialCommand(path string, runtime configuration.Runtime) (string, error) {
+func ObservedCredentialCommand(path string, runtime domain.Runtime) (string, error) {
 	if !runtime.RequiresAccountToken() {
 		return "", fmt.Errorf("Codex Route %q does not use an Account Token", runtime.RouteID)
 	}
@@ -118,7 +118,7 @@ func ObservedCredentialCommand(path string, runtime configuration.Runtime) (stri
 // ValidateConfig verifies that a Codex target still matches the resolved
 // AIGW Route. It never changes the target; callers can safely use it for
 // diagnostics before offering an explicit sync.
-func ValidateConfig(path string, runtime configuration.Runtime) error {
+func ValidateConfig(path string, runtime domain.Runtime) error {
 	if runtime.RequiresAccountToken() && runtime.CredentialCommand == "" {
 		executable, err := os.Executable()
 		if err != nil {
@@ -265,17 +265,17 @@ func validateCodexCatalogReference(path, text string, state codexState) error {
 
 // DisableConfig removes AIGW's owned projection from one Codex configuration target.
 func DisableConfig(path string) error {
-	_, err := ReconcileConfigs(codexHomeTargets([]string{path}), nil, configuration.Runtime{})
+	_, err := ReconcileConfigs(codexHomeTargets([]string{path}), nil, domain.Runtime{})
 	return err
 }
 
 func codexUserConfig(configSnapshot, stateSnapshot transaction.FileSnapshot) (string, codexState, error) {
-	return codexUserConfigTransition(configSnapshot, stateSnapshot, configuration.Runtime{}, "", false)
+	return codexUserConfigTransition(configSnapshot, stateSnapshot, domain.Runtime{}, "", false)
 }
 
 // codexUserConfigTransition removes the recorded projection from a target
 // before chosen, the root model about to be projected, replaces it.
-func codexUserConfigTransition(configSnapshot, stateSnapshot transaction.FileSnapshot, previous configuration.Runtime, chosen string, replaceRootSelections bool) (string, codexState, error) {
+func codexUserConfigTransition(configSnapshot, stateSnapshot transaction.FileSnapshot, previous domain.Runtime, chosen string, replaceRootSelections bool) (string, codexState, error) {
 	text := string(configSnapshot.Data)
 	if !stateSnapshot.Exists {
 		scheduler, err := captureCodexScheduler(text)
@@ -308,7 +308,7 @@ func codexUserConfigTransition(configSnapshot, stateSnapshot transaction.FileSna
 	return base, state, nil
 }
 
-func codexEndpoint(runtime configuration.Runtime) (string, error) {
+func codexEndpoint(runtime domain.Runtime) (string, error) {
 	if runtime.Endpoint == "" {
 		return "", fmt.Errorf("Route %q has no Codex endpoint", runtime.RouteID)
 	}
@@ -357,14 +357,14 @@ func projectCodex(original, block, model, catalogPath, provider string) (string,
 	return base + "\n" + codexBegin + "\n" + block, nil
 }
 
-func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
+func codexManagedBlock(runtime domain.Runtime, endpoint string) string {
 	provider := codexRuntimeProvider(runtime)
 	projection := codexProviderProjection{BaseURL: endpoint, WireAPI: "responses"}
 	if runtime.RetryPolicy != nil {
 		projection.RequestMaxRetries = runtime.RetryPolicy.RequestMaxRetries
 		projection.StreamMaxRetries = runtime.RetryPolicy.StreamMaxRetries
 	}
-	if provider == configuration.ModelProviderAIGW {
+	if provider == domain.ModelProviderAIGW {
 		name := "AIGW: " + runtime.RouteLabel
 		projection.Name = &name
 	}
@@ -378,13 +378,13 @@ func codexManagedBlock(runtime configuration.Runtime, endpoint string) string {
 }
 
 func removeCodexProjection(current string, state codexState) (string, error) {
-	return removeCodexProjectionTransition(current, state, configuration.Runtime{}, "", false)
+	return removeCodexProjectionTransition(current, state, domain.Runtime{}, "", false)
 }
 
 // removeCodexProjectionTransition refuses a changed root model unless it already
 // holds chosen, the model about to be projected, because writing that value
 // cannot lose an edit.
-func removeCodexProjectionTransition(current string, state codexState, previous configuration.Runtime, chosen string, replaceRootSelections bool) (string, error) {
+func removeCodexProjectionTransition(current string, state codexState, previous domain.Runtime, chosen string, replaceRootSelections bool) (string, error) {
 	provider := codexStateProvider(state)
 	block, err := codexManagedBlockForProviderIn(current, provider)
 	if err != nil {
@@ -490,16 +490,16 @@ func selectionStringValue(line string) string {
 	return decoded
 }
 
-func codexRuntimeProvider(runtime configuration.Runtime) string {
+func codexRuntimeProvider(runtime domain.Runtime) string {
 	if runtime.ModelProvider == "" {
-		return configuration.ModelProviderAIGW
+		return domain.ModelProviderAIGW
 	}
 	return runtime.ModelProvider
 }
 
 func codexStateProvider(state codexState) string {
 	if state.ProjectedProvider == "" {
-		return configuration.ModelProviderAIGW
+		return domain.ModelProviderAIGW
 	}
 	return state.ProjectedProvider
 }

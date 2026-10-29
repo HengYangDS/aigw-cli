@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
@@ -24,13 +25,13 @@ import (
 type teamManifestJourney struct {
 	program  string
 	team     []byte
-	manifest configuration.Manifest
+	manifest domain.Manifest
 	clients  []string
 }
 
 type manualRouteSelection struct {
 	route    string
-	protocol configuration.EndpointProtocol
+	protocol domain.EndpointProtocol
 }
 
 func TestNativeTeamManifestJourney(t *testing.T) {
@@ -48,7 +49,7 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 		}
 	})
 	plan := newTeamManifestJourney(t)
-	for _, account := range append([]string{""}, configuration.ManifestAccountNames(plan.manifest)...) {
+	for _, account := range append([]string{""}, domain.ManifestAccountNames(plan.manifest)...) {
 		if account == "" {
 			t.Run("no-token-no-client", func(t *testing.T) { plan.runAccount(t, account, false) })
 			continue
@@ -73,7 +74,7 @@ func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testi
 		if len(route.Interfaces) != 1 {
 			t.Fatalf("%s 6.1 Sol protocols = %#v", account, route.Interfaces)
 		}
-		if _, ok := route.Interfaces[configuration.ProtocolOpenAIResponses]; !ok {
+		if _, ok := route.Interfaces[domain.ProtocolOpenAIResponses]; !ok {
 			t.Fatalf("%s 6.1 Sol lacks Responses: %#v", account, route.Interfaces)
 		}
 	}
@@ -155,7 +156,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 		requireNoActivationBeforeToken(t, journey)
 		journey.setEnvironment(secrets.EnvironmentKey(account), "team-journey-token")
 	}
-	selected, err := configuration.Merge(configuration.NewConfig(builtinclients.Admission()), plan.manifest)
+	selected, err := domain.Merge(domain.NewConfig(builtinclients.Admission()), plan.manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +203,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 }
 
 func (plan teamManifestJourney) manualSelections(
-	t *testing.T, account string, selected configuration.Config,
+	t *testing.T, account string, selected domain.Config,
 ) map[string]manualRouteSelection {
 	t.Helper()
 	manual := make(map[string]manualRouteSelection)
@@ -299,7 +300,7 @@ func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *jo
 	journey.uninstallAndRequireInstallationRemoved()
 }
 
-func (plan teamManifestJourney) requireHermesWireCatalogue(t *testing.T, journey *journeyFixture, cfg configuration.Config, account string) {
+func (plan teamManifestJourney) requireHermesWireCatalogue(t *testing.T, journey *journeyFixture, cfg domain.Config, account string) {
 	t.Helper()
 	var projected struct {
 		Model struct {

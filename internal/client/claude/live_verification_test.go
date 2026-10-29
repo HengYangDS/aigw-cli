@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 )
 
@@ -26,7 +26,7 @@ func (runner captureRunner) RunCaptureStreams(context.Context, process.Plan) ([]
 }
 
 func TestClaudeWarningsDoNotQualifyVerification(t *testing.T) {
-	selected := configuration.Runtime{RouteID: "claude", Model: "claude-test", CredentialCommand: filepath.Join(t.TempDir(), "aigw")}
+	selected := domain.Runtime{RouteID: "claude", Model: "claude-test", CredentialCommand: filepath.Join(t.TempDir(), "aigw")}
 	for _, diagnostic := range []string{"warning: native capability incomplete\n", "ERROR client could not initialize\n"} {
 		runner := captureRunner{output: []byte("AIGW_OK\n"), stderr: []byte(diagnostic)}
 		if err := verifyRuntime(t.Context(), runner, "claude", filepath.Join(t.TempDir(), "settings.json"), selected, "token", ""); err == nil {
@@ -35,14 +35,14 @@ func TestClaudeWarningsDoNotQualifyVerification(t *testing.T) {
 	}
 }
 
-func verificationConfig() configuration.Config {
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{
+func verificationConfig() domain.Config {
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{
 		OpenAIResponses: "https://one.test/v1",
 		Anthropic:       "https://one.test",
 	}}
-	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "one", Model: "gpt-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "one", Model: "claude-test", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "one", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "one", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(otherClient.ID, "codex", "")
 	cfg.SetSelectedRoute(ID, "claude", "")
 	return cfg
@@ -59,7 +59,7 @@ func TestVerifyClaude(t *testing.T) {
 	if _, err := ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.Model); err != nil {
 		t.Fatal(err)
 	}
-	if err := verifyRuntime(t.Context(), nil, "claude", settings, configuration.Runtime{RouteID: "one"}, "token", ""); err == nil || !strings.Contains(err.Error(), "no Claude model") {
+	if err := verifyRuntime(t.Context(), nil, "claude", settings, domain.Runtime{RouteID: "one"}, "token", ""); err == nil || !strings.Contains(err.Error(), "no Claude model") {
 		t.Fatalf("model error = %v", err)
 	}
 	if err := verifyRuntime(t.Context(), nil, "", settings, runtime, "token", ""); err == nil || !strings.Contains(err.Error(), "executable is not configured") {

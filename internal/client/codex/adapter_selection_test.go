@@ -2,7 +2,7 @@ package codex
 
 import (
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,7 +16,7 @@ func TestAdoptCodexSelectionRecordsTheOneMatchingRoute(t *testing.T) {
 	if err != nil || routeID != "terra" {
 		t.Fatalf("adopted Route = %q, %v", routeID, err)
 	}
-	if runtime, err := cfg.ResolveRuntime(ID, ""); err != nil || runtime.RouteID != "terra" || runtime.Protocol != configuration.ProtocolOpenAIResponses {
+	if runtime, err := cfg.ResolveRuntime(ID, ""); err != nil || runtime.RouteID != "terra" || runtime.Protocol != domain.ProtocolOpenAIResponses {
 		t.Fatalf("Codex binding = %#v, %v", cfg.Clients[ID], err)
 	}
 	if after, err := os.ReadFile(targets[0]); err != nil || string(after) != native {
@@ -36,7 +36,7 @@ func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg, targets := codexAdoptionFixture(t, 1)
 			if test.copy {
-				cfg.Routes["terra-copy"] = qualifiedRoute("Terra copy", "gateway", "gpt-terra", configuration.ProtocolOpenAIResponses)
+				cfg.Routes["terra-copy"] = qualifiedRoute("Terra copy", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
 				cfg.Normalize()
 			}
 			chooseCodexModel(t, targets[0], test.model)
@@ -66,15 +66,15 @@ func TestAdoptCodexSelectionRefusesDisagreeingTargets(t *testing.T) {
 }
 
 func TestAdoptCodexSelectionLeavesUnchangedBindings(t *testing.T) {
-	for name, prepare := range map[string]func(*configuration.Config, string){
-		"unchanged": func(*configuration.Config, string) {},
-		"disabled": func(cfg *configuration.Config, target string) {
+	for name, prepare := range map[string]func(*domain.Config, string){
+		"unchanged": func(*domain.Config, string) {},
+		"disabled": func(cfg *domain.Config, target string) {
 			chooseCodexModel(t, target, "gpt-terra")
 			binding := cfg.Clients[ID]
 			binding.Enabled = false
 			cfg.Clients[ID] = binding
 		},
-		"provider drift": func(_ *configuration.Config, target string) {
+		"provider drift": func(_ *domain.Config, target string) {
 			current := chooseCodexModel(t, target, "gpt-terra")
 			current = strings.Replace(current, `base_url = "https://gateway.test/v1"`, `base_url = "https://drift.test/v1"`, 1)
 			if err := os.WriteFile(target, []byte(current), 0o600); err != nil {
@@ -96,14 +96,14 @@ func TestAdoptCodexSelectionLeavesUnchangedBindings(t *testing.T) {
 
 // codexAdoptionFixture projects Route sol into count Codex targets. The selected
 // Account also offers terra, and another Account offers the same model.
-func codexAdoptionFixture(t *testing.T, count int) (configuration.Config, []string) {
+func codexAdoptionFixture(t *testing.T, count int) (domain.Config, []string) {
 	t.Helper()
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Accounts["other"] = configuration.Account{Label: "Other", Endpoints: configuration.Endpoints{OpenAIResponses: "https://other.test/v1"}}
-	cfg.Routes["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", configuration.ProtocolOpenAIResponses)
-	cfg.Routes["terra"] = qualifiedRoute("Terra", "gateway", "gpt-terra", configuration.ProtocolOpenAIResponses)
-	cfg.Routes["other-terra"] = qualifiedRoute("Other terra", "other", "gpt-terra", configuration.ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
+	cfg.Routes["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", domain.ProtocolOpenAIResponses)
+	cfg.Routes["terra"] = qualifiedRoute("Terra", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
+	cfg.Routes["other-terra"] = qualifiedRoute("Other terra", "other", "gpt-terra", domain.ProtocolOpenAIResponses)
 	targets := make([]string, 0, count)
 	for range count {
 		target := filepath.Join(t.TempDir(), "config.toml")

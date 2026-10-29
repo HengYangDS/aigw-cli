@@ -1,6 +1,7 @@
-// Package configuration owns AIGW's complete configuration domain: its
-// schema, validation, persistence, and token-free interchange format.
-package configuration
+// Package domain owns AIGW's configuration model: its schema, the clients a
+// configuration admits, validation, and the semantics of the token-free team
+// manifest. It imports only the standard library and names no client.
+package domain
 
 import (
 	"crypto/sha256"
@@ -24,6 +25,12 @@ type RouteLifecycle string
 const (
 	// ConfigVersion is the only configuration schema version accepted by this build.
 	ConfigVersion = 6
+	// PublishedConfigVersion is the published 0.1.0 schema, which migration
+	// accepts.
+	PublishedConfigVersion = 3
+	// LegacyConfigVersion is the immediate predecessor schema, which migration
+	// accepts. Normal configuration reads accept ConfigVersion only.
+	LegacyConfigVersion = 5
 	// ModelProviderAIGW is the stable provider identifier written into AIGW-owned Codex projections.
 	ModelProviderAIGW = "aigw"
 
@@ -219,6 +226,11 @@ func NewConfig(admission Admission) Config {
 
 // Admission returns the client set that this configuration admits.
 func (c *Config) Admission() Admission { return c.admission }
+
+// SetAdmission makes admission the client set that this configuration admits.
+// A store calls it on a configuration that it decodes, because a decoder cannot
+// carry the admission into the value it fills.
+func (c *Config) SetAdmission(admission Admission) { c.admission = admission }
 
 // Clone returns an independent configuration value. Config is the semantic
 // owner of this copy operation so mutation workflows do not reproduce its

@@ -5,20 +5,20 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 func TestAdoptHermesSelectionLeavesUnprojectedBindingsUnchanged(t *testing.T) {
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["opus"] = qualifiedRoute("Opus", "gateway", "claude-opus-5-5", configuration.ProtocolAnthropic)
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["opus"] = qualifiedRoute("Opus", "gateway", "claude-opus-5-5", domain.ProtocolAnthropic)
 	cfg.Normalize()
-	for name, prepare := range map[string]func(*configuration.Config){
-		"disabled": func(*configuration.Config) {},
-		"unselected": func(cfg *configuration.Config) {
+	for name, prepare := range map[string]func(*domain.Config){
+		"disabled": func(*domain.Config) {},
+		"unselected": func(cfg *domain.Config) {
 			cfg.SetClientActivation(ID, true, "/opt/hermes", []string{"/missing/config.yaml"})
 		},
-		"two homes": func(cfg *configuration.Config) {
+		"two homes": func(cfg *domain.Config) {
 			cfg.SetSelectedRoute(ID, "opus", "")
 			cfg.SetClientActivation(ID, true, "/opt/hermes", []string{"/a/config.yaml", "/b/config.yaml"})
 		},
@@ -36,16 +36,16 @@ func TestAdoptHermesSelectionLeavesUnprojectedBindingsUnchanged(t *testing.T) {
 }
 
 func TestHermesRouteForAdoptsOnlyOneExactRoute(t *testing.T) {
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{
 		Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1",
 	}}
-	cfg.Routes["opus"] = qualifiedRoute("Opus", "gateway", "claude-opus-5-5", configuration.ProtocolAnthropic)
-	cfg.Routes["sol"] = qualifiedRoute("Sol", "gateway", "gpt-6.1-sol", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["opus"] = qualifiedRoute("Opus", "gateway", "claude-opus-5-5", domain.ProtocolAnthropic)
+	cfg.Routes["sol"] = qualifiedRoute("Sol", "gateway", "gpt-6.1-sol", domain.ProtocolOpenAIResponses)
 	cfg.Normalize()
 
 	routeID, protocol, err := hermesRouteFor(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "claude-opus-5-5"})
-	if err != nil || routeID != "opus" || protocol != configuration.ProtocolAnthropic {
+	if err != nil || routeID != "opus" || protocol != domain.ProtocolAnthropic {
 		t.Fatalf("adopted Route = %q %q, %v", routeID, protocol, err)
 	}
 	// The model must belong to the selected provider's protocol, not any protocol.
@@ -56,7 +56,7 @@ func TestHermesRouteForAdoptsOnlyOneExactRoute(t *testing.T) {
 		t.Fatalf("an unprojected provider was not refused with a selection command: %v", err)
 	}
 
-	cfg.Routes["opus-copy"] = qualifiedRoute("Opus copy", "gateway", "claude-opus-5-5", configuration.ProtocolAnthropic)
+	cfg.Routes["opus-copy"] = qualifiedRoute("Opus copy", "gateway", "claude-opus-5-5", domain.ProtocolAnthropic)
 	cfg.Normalize()
 	_, _, err = hermesRouteFor(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "claude-opus-5-5"})
 	if err == nil {

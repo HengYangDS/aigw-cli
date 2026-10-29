@@ -10,8 +10,8 @@ import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secrets"
@@ -63,7 +63,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			selected, err := resolveUseRuntime(operation, cfg, client, name, configuration.EndpointProtocol(protocol), connection)
+			selected, err := resolveUseRuntime(operation, cfg, client, name, domain.EndpointProtocol(protocol), connection)
 			if err != nil {
 				return err
 			}
@@ -111,7 +111,7 @@ func forwardingChoice(endpoint string, specified, direct bool) (*string, error) 
 	return nil, nil
 }
 
-func renderUse(runtime invocation.Context, cfg configuration.Config, selected configuration.Runtime, changed, projectionChanged, tokenStored, jsonMode bool) error {
+func renderUse(runtime invocation.Context, cfg domain.Config, selected domain.Runtime, changed, projectionChanged, tokenStored, jsonMode bool) error {
 	title, detail := "Route already selected", "Selected client configuration synchronized; binding unchanged"
 	switch {
 	case changed && tokenStored:
@@ -142,7 +142,7 @@ func renderUse(runtime invocation.Context, cfg configuration.Config, selected co
 	}
 	rows = append(rows,
 		presentation.Field{Label: "Client", Value: spec.Label},
-		presentation.Field{Label: "Protocol", Value: configuration.ProtocolLabel(selected.Protocol)},
+		presentation.Field{Label: "Protocol", Value: domain.ProtocolLabel(selected.Protocol)},
 		presentation.Field{Label: "Endpoint", Value: selected.Endpoint},
 	)
 	if selected.Endpoint != selected.UpstreamEndpoint {
@@ -183,11 +183,11 @@ type useResult struct {
 	ProjectionDeferred bool   `json:"projection_deferred,omitempty"`
 	RestartRequired    bool   `json:"restart_required,omitempty"`
 	NextAction         string `json:"next_action,omitempty"`
-	configuration.Runtime
+	domain.Runtime
 	Targets []client.ProjectionPlan `json:"targets,omitempty"`
 }
 
-func previewUse(runtime invocation.Context, cfg configuration.Config, selected configuration.Runtime, connection configuration.ConnectionChange, jsonMode bool) error {
+func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.Runtime, connection domain.ConnectionChange, jsonMode bool) error {
 	synchronizer := invocation.Synchronizer(runtime)
 	synchronizer.AuthorizedSelectionClient = selected.Client
 	proposed, _, err := synchronizer.PrepareSelection(cfg, selected.Client, selected.RouteID, selected.Protocol, connection)
@@ -239,7 +239,7 @@ func previewUse(runtime invocation.Context, cfg configuration.Config, selected c
 	return r.Err()
 }
 
-func resolveUseRuntime(runtime invocation.Context, cfg configuration.Config, client, routeID string, requested configuration.EndpointProtocol, connection configuration.ConnectionChange) (configuration.Runtime, error) {
+func resolveUseRuntime(runtime invocation.Context, cfg domain.Config, client, routeID string, requested domain.EndpointProtocol, connection domain.ConnectionChange) (domain.Runtime, error) {
 	_, selected, err := invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, requested, connection)
 	if err == nil || requested != "" {
 		return selected, err
@@ -248,7 +248,7 @@ func resolveUseRuntime(runtime invocation.Context, cfg configuration.Config, cli
 	spec, _ := runtime.Clients.Admission().Spec(client)
 	compatible := spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route)
 	if len(compatible) < 2 {
-		return configuration.Runtime{}, err
+		return domain.Runtime{}, err
 	}
 	choices := make([]prompt.Choice, 0, len(compatible))
 	names := make([]string, 0, len(compatible))
@@ -260,18 +260,18 @@ func resolveUseRuntime(runtime invocation.Context, cfg configuration.Config, cli
 	if !runtime.Interactive {
 		choice := strings.Join(names, "|")
 		refusal := fmt.Errorf("Route %q has multiple compatible protocols for %s; pass --protocol <%s>", routeID, client, choice)
-		return configuration.Runtime{}, invocation.Problem(runtime, refusal.Error(), "", "No Client Binding changed.",
+		return domain.Runtime{}, invocation.Problem(runtime, refusal.Error(), "", "No Client Binding changed.",
 			fmt.Sprintf("aigw use --for %s --protocol <%s> %s", client, choice, routeID), refusal)
 	}
 	choice, err := runtime.Prompt.Select("Select the endpoint protocol: ", choices)
 	if err != nil {
-		return configuration.Runtime{}, err
+		return domain.Runtime{}, err
 	}
-	_, selected, err = invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, configuration.EndpointProtocol(choice), connection)
+	_, selected, err = invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, domain.EndpointProtocol(choice), connection)
 	return selected, err
 }
 
-func resolveUseSelection(runtime invocation.Context, cfg configuration.Config, client string, args []string) (string, string, error) {
+func resolveUseSelection(runtime invocation.Context, cfg domain.Config, client string, args []string) (string, string, error) {
 	if len(args) == 0 {
 		if client == "" {
 			var err error
@@ -299,7 +299,7 @@ func resolveUseSelection(runtime invocation.Context, cfg configuration.Config, c
 	return client, route, err
 }
 
-func chooseClient(runtime invocation.Context, specs []configuration.ClientSpec) (string, error) {
+func chooseClient(runtime invocation.Context, specs []domain.ClientSpec) (string, error) {
 	choices := make([]prompt.Choice, 0, len(specs))
 	for _, spec := range specs {
 		choices = append(choices, prompt.Choice{Value: spec.ID, Label: spec.Label})
@@ -308,7 +308,7 @@ func chooseClient(runtime invocation.Context, specs []configuration.ClientSpec) 
 }
 
 func chooseClientIDs(runtime invocation.Context, clients []string) (string, error) {
-	specs := make([]configuration.ClientSpec, 0, len(clients))
+	specs := make([]domain.ClientSpec, 0, len(clients))
 	for _, client := range clients {
 		spec, _ := runtime.Clients.Admission().Spec(client)
 		specs = append(specs, spec)
@@ -316,7 +316,7 @@ func chooseClientIDs(runtime invocation.Context, clients []string) (string, erro
 	return chooseClient(runtime, specs)
 }
 
-func selectionToken(ctx context.Context, runtime invocation.Context, cfg configuration.Config, selected configuration.Runtime) (string, error) {
+func selectionToken(ctx context.Context, runtime invocation.Context, cfg domain.Config, selected domain.Runtime) (string, error) {
 	if !selected.UsesAIGWCredentialStore() {
 		return "", nil
 	}
@@ -350,7 +350,7 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg configu
 	return token, nil
 }
 
-func chooseRoute(runtime invocation.Context, cfg configuration.Config, client, label string) (string, error) {
+func chooseRoute(runtime invocation.Context, cfg domain.Config, client, label string) (string, error) {
 	choices := make([]prompt.Choice, 0, len(cfg.Routes))
 	for _, id := range cfg.CatalogRouteIDs() {
 		compatible, err := cfg.ProtocolClientIDs(id)
@@ -362,7 +362,7 @@ func chooseRoute(runtime invocation.Context, cfg configuration.Config, client, l
 	return runtime.Prompt.Select(label, choices)
 }
 
-func routeChoiceLabel(cfg configuration.Config, routeID string) string {
+func routeChoiceLabel(cfg domain.Config, routeID string) string {
 	label := cfg.RouteLabel(routeID)
 	route := cfg.Routes[routeID]
 	if purpose := strings.TrimSpace(route.Purpose); purpose != "" {

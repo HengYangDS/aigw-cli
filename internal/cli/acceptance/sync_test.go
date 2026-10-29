@@ -6,8 +6,8 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"bytes"
 	"encoding/json"
@@ -37,8 +37,8 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 		if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		cfg := configuration.NewConfig(clients.Admission())
-		addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
+		cfg := domain.NewConfig(clients.Admission())
+		addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		cfg.SetSelectedRoute(codex.ID, "one", "")
 		cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 		if err := app.Config.Save(cfg); err != nil {
@@ -73,8 +73,8 @@ func TestCodexSyncReconcilesEachConfiguredHomeWithoutLoggingIn(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "team-model")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "team-model")
 	cfg.SetSelectedRoute(codex.ID, "team", "")
 	cfg.SetClientActivation("codex", true, "/opt/codex-real", targets)
 	if err := app.Config.Save(cfg); err != nil {
@@ -104,9 +104,9 @@ func TestSyncReconcilesCodexConfigWithoutRebindingCredentials(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
@@ -157,14 +157,14 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	app.Executable = filepath.Join(bin, executableName("aigw"))
 	app.Host = hostAt(home)
 	app.Discovery = client.NewDiscoverer(clients.Registry(), discovery.System{GOOS: runtime.GOOS, Home: home, Path: bin})
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	cfg.Routes = map[string]configuration.Route{
-		"claude": qualifiedRoute("Claude", "gateway", "claude-team", configuration.ProtocolAnthropic),
-		"codex":  qualifiedRoute("Codex", "gateway", "gpt-team", configuration.ProtocolOpenAIResponses),
+	cfg.Routes = map[string]domain.Route{
+		"claude": qualifiedRoute("Claude", "gateway", "claude-team", domain.ProtocolAnthropic),
+		"codex":  qualifiedRoute("Codex", "gateway", "gpt-team", domain.ProtocolOpenAIResponses),
 	}
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
@@ -236,7 +236,7 @@ func requireFilesUnchanged(t *testing.T, files map[string][]byte) {
 	}
 }
 
-func requireRouteSelectionsUnchanged(t *testing.T, before, after configuration.Config) {
+func requireRouteSelectionsUnchanged(t *testing.T, before, after domain.Config) {
 	t.Helper()
 	if !reflect.DeepEqual(after.Routes, before.Routes) ||
 		after.SelectedRoute(claude.ID) != before.SelectedRoute(claude.ID) ||
@@ -258,8 +258,8 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 		claude.ID: claudeExecutable,
 	}}}
 
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "claude", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-team")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "claude", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-team")
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -311,7 +311,7 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 
 func TestSyncSurfacesCredentialObservationFailure(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+	saveCommandRoute(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -354,10 +354,10 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 			t.Fatal(err)
 		}
 	}
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "http://127.0.0.1:48721/v1", Anthropic: "https://gateway.test"}}
-	cfg.Routes["terra"] = qualifiedRoute("GPT-5.6 Terra", "gateway", "gpt-5.6-terra", configuration.ProtocolOpenAIResponses)
-	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "http://127.0.0.1:48721/v1", Anthropic: "https://gateway.test"}}
+	cfg.Routes["terra"] = qualifiedRoute("GPT-5.6 Terra", "gateway", "gpt-5.6-terra", domain.ProtocolOpenAIResponses)
+	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedRoute(codex.ID, "terra", "")
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{first, second})
@@ -427,9 +427,9 @@ func TestSyncDryRunRecommendsCheckWhenProjectionIsConverged(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Host = hostAt(t.TempDir())
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: "/usr/local/bin/claude"}}}
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {

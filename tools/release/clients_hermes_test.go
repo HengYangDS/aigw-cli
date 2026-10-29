@@ -24,6 +24,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 
 	"aigw-cli/internal/clients"
@@ -52,7 +53,7 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	var alternative configuration.Runtime
+	var alternative domain.Runtime
 	for _, id := range before.RouteIDs() {
 		candidate, err := before.ResolveRuntime(hermes.ID, id)
 		if err == nil && candidate.AccountID == selected.AccountID && candidate.Protocol == selected.Protocol && candidate.Model != selected.Model {

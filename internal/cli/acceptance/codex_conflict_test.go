@@ -10,7 +10,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 // An outside edit to AIGW-managed Codex settings is refused rather than
@@ -22,9 +22,9 @@ func TestCodexOutsideRetryEditRecoveryDoesNotLoop(t *testing.T) {
 	app, output, secretStore, _, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Routes["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", configuration.ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Routes["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(codex.ID, "sol", "")
 	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {

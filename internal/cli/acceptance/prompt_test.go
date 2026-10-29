@@ -6,8 +6,8 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
@@ -125,8 +125,8 @@ func TestUseWithoutNameSelectsRouteAndCollectsMissingToken(t *testing.T) {
 
 func TestUseWithoutRouteRequiresInteractiveTerminal(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
 	cfg.SetSelectedRoute(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -140,9 +140,9 @@ func TestUseWithoutRouteRequiresInteractiveTerminal(t *testing.T) {
 
 func TestUseWithoutRoutePromptsInteractively(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addAccountRoute(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addAccountRoute(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
 	cfg.SetSelectedRoute(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -165,8 +165,8 @@ func TestUseWithoutRoutePromptsInteractively(t *testing.T) {
 
 func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
 	cfg.SetSelectedRoute(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -183,9 +183,9 @@ func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
 
 func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addAccountRoute(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addAccountRoute(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
 	cfg.SetSelectedRoute(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -198,9 +198,9 @@ func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 
 func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addAccountRoute(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addAccountRoute(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
 	cfg.SetSelectedRoute(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -215,9 +215,9 @@ func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 
 func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 	app, _, secretStore, _, httpClient := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addAccountRoute(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addAccountRoute(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
 	cfg.SetSelectedRoute(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -237,9 +237,9 @@ func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 
 func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "one", "one", "One", configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addAccountRoute(&cfg, "two", "two", "Two", configuration.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addAccountRoute(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
 	cfg.SetSelectedRoute(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -325,12 +325,12 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 
 func TestFirstRunDefersSelectedHermesProtocolUntilClientInstallation(t *testing.T) {
 	for _, test := range []struct {
-		protocol configuration.EndpointProtocol
+		protocol domain.EndpointProtocol
 		endpoint string
 	}{
-		{configuration.ProtocolAnthropic, "https://messages.test"},
-		{configuration.ProtocolOpenAIResponses, "https://responses.test/v1"},
-		{configuration.ProtocolOpenAIChatCompletions, "https://chat.test/v1"},
+		{domain.ProtocolAnthropic, "https://messages.test"},
+		{domain.ProtocolOpenAIResponses, "https://responses.test/v1"},
+		{domain.ProtocolOpenAIChatCompletions, "https://chat.test/v1"},
 	} {
 		t.Run(string(test.protocol), func(t *testing.T) {
 			app, out, secretStore, runner, _ := testApp(t, "")
@@ -436,9 +436,9 @@ func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 func TestSetupWithoutFlagsRefusesBeforePromptingWhenAlreadyConfigured(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	app.Interactive = true
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

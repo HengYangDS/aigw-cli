@@ -16,6 +16,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -175,11 +176,11 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-			cfg := configuration.NewConfig(clients.Admission())
-			cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-			cfg.Routes["one"] = configuration.Route{
+			cfg := domain.NewConfig(clients.Admission())
+			cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+			cfg.Routes["one"] = domain.Route{
 				Label: "One", Account: "one", Model: "gpt-test",
-				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
 			cfg.SetSelectedRoute(codex.ID, "one", "")
 			cfg.SetClientActivation(codex.ID, true, "/portable/codex", []string{"/portable/config.toml"})
@@ -215,11 +216,11 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 	t.Run("planning", func(t *testing.T) {
 		store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-		cfg := configuration.NewConfig(clients.Admission())
-		cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-		cfg.Routes["one"] = configuration.Route{
+		cfg := domain.NewConfig(clients.Admission())
+		cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+		cfg.Routes["one"] = domain.Route{
 			Label: "One", Account: "one", Model: "gpt-test",
-			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+			Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 		}
 		cfg.SetSelectedRoute(codex.ID, "one", "")
 		cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{""})
@@ -238,16 +239,16 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 
 func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-	cfg.Accounts["two"] = configuration.Account{Label: "Two", Endpoints: configuration.Endpoints{OpenAIResponses: "https://two.test/v1"}}
-	cfg.Routes["one"] = configuration.Route{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	cfg.Accounts["two"] = domain.Account{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
+	cfg.Routes["one"] = domain.Route{
 		Label: "One", Account: "one", Model: "gpt-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.Routes["two"] = configuration.Route{
+	cfg.Routes["two"] = domain.Route{
 		Label: "Two", Account: "two", Model: "gpt-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedRoute(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{t.TempDir()})
@@ -277,11 +278,11 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	target := t.TempDir()
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-	cfg.Routes["one"] = configuration.Route{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	cfg.Routes["one"] = domain.Route{
 		Label: "One", Account: "one", Model: "gpt-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedRoute(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
@@ -337,11 +338,11 @@ func TestRollbackCoversLoadCheckpointAndBackupFailures(t *testing.T) {
 func rollbackStore(t *testing.T) configuration.Store {
 	t.Helper()
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Routes["one"] = configuration.Route{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
+	cfg.Routes["one"] = domain.Route{
 		Label: "One", Account: "one", Model: "claude-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedRoute(claude.ID, "one", "")
 	if err := store.Save(cfg); err != nil {

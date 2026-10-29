@@ -9,8 +9,8 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 )
 
@@ -21,7 +21,7 @@ type selfCompensationAdapter struct {
 	removedEntrypointAdapter
 }
 
-func (adapter selfCompensationAdapter) Apply(context.Context, client.Dependencies, configuration.Config, configuration.Config) (client.ProjectionReceipt, error) {
+func (adapter selfCompensationAdapter) Apply(context.Context, client.Dependencies, domain.Config, domain.Config) (client.ProjectionReceipt, error) {
 	if err := os.WriteFile(adapter.target, []byte("reader="+adapter.reader), 0o600); err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func TestFailedSelfCompensationPreservesTheReaderItProjected(t *testing.T) {
 	}
 	store := &configStoreStub{}
 	syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
-	err = syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), testConfig(target), "sync")
+	err = syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "sync")
 	if !errors.Is(err, client.ErrProjectionRollbackFailed) || !errors.Is(err, transaction.ErrCompensationIncomplete) {
 		t.Fatalf("incomplete self-compensation was not reported as a failed rollback: %v", err)
 	}

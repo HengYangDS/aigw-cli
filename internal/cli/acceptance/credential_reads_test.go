@@ -10,8 +10,8 @@ import (
 
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 )
 
 // countingFiles counts the opens of each path. It serves the program from
@@ -89,7 +89,7 @@ func addNextClaudeRoute(t *testing.T, app *cli.App) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	addAccountRoute(&cfg, "claude-next", "gateway", "Gateway", configuration.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-next")
+	addAccountRoute(&cfg, "claude-next", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-next")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

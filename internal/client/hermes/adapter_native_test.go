@@ -14,6 +14,7 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
@@ -25,7 +26,7 @@ import (
 // command without requesting inference or touching a user's credential store.
 func TestHermesNativeProjection(t *testing.T) {
 	candidate, python := nativeHermesExecutables(t)
-	for _, protocol := range []configuration.EndpointProtocol{configuration.ProtocolAnthropic, configuration.ProtocolOpenAIResponses, configuration.ProtocolOpenAIChatCompletions} {
+	for _, protocol := range []domain.EndpointProtocol{domain.ProtocolAnthropic, domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions} {
 		t.Run(string(protocol), func(t *testing.T) {
 			home := t.TempDir()
 			env := map[string]string{"HOME": home, "USERPROFILE": home, "APPDATA": home, "LOCALAPPDATA": home, "XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home}
@@ -34,18 +35,18 @@ func TestHermesNativeProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			hermesHome := filepath.Join(home, "hermes")
-			cfg := configuration.NewConfig(testAdmission())
-			cfg.Accounts["fixture"] = configuration.Account{Label: "Fixture", Endpoints: configuration.Endpoints{Anthropic: "https://provider.invalid", OpenAIResponses: "https://provider.invalid/v1", OpenAIChatCompletions: "https://provider.invalid/v1"}}
-			cfg.Routes["hermes"] = configuration.Route{
+			cfg := domain.NewConfig(testAdmission())
+			cfg.Accounts["fixture"] = domain.Account{Label: "Fixture", Endpoints: domain.Endpoints{Anthropic: "https://provider.invalid", OpenAIResponses: "https://provider.invalid/v1", OpenAIChatCompletions: "https://provider.invalid/v1"}}
+			cfg.Routes["hermes"] = domain.Route{
 				Label: "Hermes", Account: "fixture", Model: "fixture-model",
-				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
+				Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
-			cfg.Clients[ID] = configuration.ClientBinding{Route: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
+			cfg.Clients[ID] = domain.ClientBinding{Route: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
 			if err := configuration.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
 				t.Fatal(err)
 			}
 			deps := client.Dependencies{AIGWExecutable: candidate}
-			if _, _, err := hermesRegistry().Apply(t.Context(), deps, configuration.NewConfig(testAdmission()), cfg, ID); err != nil {
+			if _, _, err := hermesRegistry().Apply(t.Context(), deps, domain.NewConfig(testAdmission()), cfg, ID); err != nil {
 				t.Fatal(err)
 			}
 			env["HERMES_HOME"], env["AIGW_SECRET_BACKEND"], env["AIGW_TOKEN_FIXTURE"] = hermesHome, "env", "public-native-fixture"
@@ -96,7 +97,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := configuration.Merge(configuration.NewConfig(testAdmission()), manifest)
+	cfg, err := domain.Merge(domain.NewConfig(testAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +125,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err := configuration.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := hermesRegistry().Apply(t.Context(), client.Dependencies{Secrets: projectionSecrets, AIGWExecutable: candidate}, configuration.NewConfig(testAdmission()), cfg, ID); err != nil {
+	if _, _, err := hermesRegistry().Apply(t.Context(), client.Dependencies{Secrets: projectionSecrets, AIGWExecutable: candidate}, domain.NewConfig(testAdmission()), cfg, ID); err != nil {
 		t.Fatal(err)
 	}
 	env["HERMES_HOME"], env["AIGW_SECRET_BACKEND"] = hermesHome, "env"
@@ -180,7 +181,7 @@ func runHermesNativeScript(t *testing.T, python, home string, env map[string]str
 	return output
 }
 
-func assertNativeHermesCatalogue(t *testing.T, routes map[string]configuration.Route, accounts []string, providers map[string][]string) {
+func assertNativeHermesCatalogue(t *testing.T, routes map[string]domain.Route, accounts []string, providers map[string][]string) {
 	t.Helper()
 	connected := map[string]bool{}
 	for _, accountID := range accounts {
@@ -210,13 +211,13 @@ func assertNativeHermesCatalogue(t *testing.T, routes map[string]configuration.R
 	}
 }
 
-func expectedNativeHermesMode(protocol configuration.EndpointProtocol) string {
+func expectedNativeHermesMode(protocol domain.EndpointProtocol) string {
 	switch protocol {
-	case configuration.ProtocolAnthropic:
+	case domain.ProtocolAnthropic:
 		return "anthropic_messages"
-	case configuration.ProtocolOpenAIResponses:
+	case domain.ProtocolOpenAIResponses:
 		return "codex_responses"
-	case configuration.ProtocolOpenAIChatCompletions:
+	case domain.ProtocolOpenAIChatCompletions:
 		return "chat_completions"
 	default:
 		return ""

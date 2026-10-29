@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client/codex"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 func TestCodexSyncProjectsExplicitProviderAndRestoresOriginal(t *testing.T) {
@@ -19,7 +19,7 @@ func TestCodexSyncProjectsExplicitProviderAndRestoresOriginal(t *testing.T) {
 	}
 	runtime := codexRuntime("aws", "AWS", "https://gateway.test/openai/v1", "openai.gpt-5.6-sol")
 	runtime.ModelProvider = "amazon-bedrock"
-	runtime.Authentication = configuration.AuthenticationClientNative
+	runtime.Authentication = domain.AuthenticationClientNative
 	runtime.CredentialCommand = credentialCommand
 
 	if err := codex.SyncConfig(path, runtime); err != nil {
@@ -84,8 +84,8 @@ func TestCodexProviderNameDoesNotSelectCredentialOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
-	runtime.Authentication = configuration.AuthenticationClientNative
-	for _, provider := range []string{"amazon-bedrock", configuration.ModelProviderAIGW} {
+	runtime.Authentication = domain.AuthenticationClientNative
+	for _, provider := range []string{"amazon-bedrock", domain.ModelProviderAIGW} {
 		runtime.ModelProvider = provider
 		if err := codex.SyncConfig(path, runtime); err != nil {
 			t.Fatal(err)
@@ -98,7 +98,7 @@ func TestCodexProviderNameDoesNotSelectCredentialOwnership(t *testing.T) {
 			t.Fatalf("provider name changed client-owned authentication:\n%s", data)
 		}
 	}
-	runtime.Authentication = configuration.AuthenticationAccountToken
+	runtime.Authentication = domain.AuthenticationAccountToken
 	if err := codex.SyncConfig(path, runtime); err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestCodexSyncRejectsAccountTokenProviderWithoutCredentialCommand(t *testing
 	}
 	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
 	runtime.ModelProvider = "synthetic-provider"
-	runtime.Authentication = configuration.AuthenticationAccountToken
+	runtime.Authentication = domain.AuthenticationAccountToken
 	for _, command := range []string{"", "aigw"} {
 		runtime.CredentialCommand = command
 		if err := codex.SyncConfig(path, runtime); err == nil {
@@ -143,7 +143,7 @@ func TestCodexSyncAcceptsClientNativeProviderWithoutCredentialCommand(t *testing
 	}
 	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
 	runtime.ModelProvider = "amazon-bedrock"
-	runtime.Authentication = configuration.AuthenticationClientNative
+	runtime.Authentication = domain.AuthenticationClientNative
 	if err := codex.SyncConfig(path, runtime); err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestCodexValidateResolvesCurrentAIGWExecutable(t *testing.T) {
 	}
 	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
 	runtime.ModelProvider = "synthetic-provider"
-	runtime.Authentication = configuration.AuthenticationAccountToken
+	runtime.Authentication = domain.AuthenticationAccountToken
 	runtime.CredentialCommand = executable
 	if err := codex.SyncConfig(path, runtime); err != nil {
 		t.Fatal(err)

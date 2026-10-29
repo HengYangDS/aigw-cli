@@ -1,7 +1,7 @@
 package codex
 
 import (
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"bytes"
 	"encoding/json"
 	"os"
@@ -100,7 +100,7 @@ func TestReconcileConfigsRejectsUnattributedSidecarBesideSymlinkTarget(t *testin
 	}
 	runtime := atomicTestRuntime()
 	block := codexManagedBlock(runtime, runtime.Endpoint)
-	projection, err := projectCodex(original, block, runtime.Model, "", configuration.ModelProviderAIGW)
+	projection, err := projectCodex(original, block, runtime.Model, "", domain.ModelProviderAIGW)
 	if err != nil {
 		t.Fatal(err)
 	}

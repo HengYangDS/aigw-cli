@@ -12,14 +12,15 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
 func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesToken(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = configuration.Account{Label: "Personal Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://personal.example.test"}}
-	cfg.Routes["local"] = qualifiedRoute("Local", "team", "local-model", configuration.ProtocolAnthropic)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["team"] = domain.Account{Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}}
+	cfg.Routes["local"] = qualifiedRoute("Local", "team", "local-model", domain.ProtocolAnthropic)
 	cfg.SetSelectedRoute(claude.ID, "local", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -121,7 +122,7 @@ func TestConfigCommandIOFailures(t *testing.T) {
 
 	t.Run("export output", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		want := errors.New("output failed")
 		app.Out = failingOutput{err: want}
 		if err := cli.Execute(app, []string{"config", "export"}); !errors.Is(err, want) {
@@ -188,9 +189,9 @@ interfaces = { anthropic = ["text"] }
 
 func TestConfigImportRefusesRouteConflictUntilExplicitReplacement(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = configuration.Account{Label: "Team Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Routes["shared"] = qualifiedRoute("Personal Model", "team", "personal-model", configuration.ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["team"] = domain.Account{Label: "Team Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
+	cfg.Routes["shared"] = qualifiedRoute("Personal Model", "team", "personal-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(codex.ID, "shared", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

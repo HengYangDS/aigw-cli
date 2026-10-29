@@ -16,8 +16,8 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
 )
@@ -276,7 +276,7 @@ func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T)
 	app.Interactive = true
 	app.Discovery = fakeDiscovery{}
 	app.Prompt = &scriptedPrompt{
-		selections: []string{hermes.ID, string(configuration.ProtocolAnthropic)},
+		selections: []string{hermes.ID, string(domain.ProtocolAnthropic)},
 		secrets:    []string{"fixture-token"},
 		texts:      []string{"team", "Team", "https://messages.test", "hermes-route", "hermes-model"},
 	}

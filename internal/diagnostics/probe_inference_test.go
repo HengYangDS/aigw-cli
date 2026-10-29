@@ -8,13 +8,13 @@ import (
 	"testing"
 	"time"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/diagnostics"
+	"aigw-cli/internal/domain"
 )
 
-func inferenceRuntime() configuration.Runtime {
+func inferenceRuntime() domain.Runtime {
 	selected := runtime()
-	selected.Protocol = configuration.ProtocolOpenAIResponses
+	selected.Protocol = domain.ProtocolOpenAIResponses
 	selected.Model = "gpt-6-sol"
 	return selected
 }
@@ -131,14 +131,14 @@ func TestInferenceScopeRejectsSuccessfulHTTPWithoutCompletedOutput(t *testing.T)
 
 	tests := []struct {
 		name     string
-		protocol configuration.EndpointProtocol
+		protocol domain.EndpointProtocol
 		body     string
 	}{
-		{"responses incomplete", configuration.ProtocolOpenAIResponses, `{"status":"incomplete","output":[],"incomplete_details":{"reason":"max_output_tokens"}}`},
-		{"responses empty", configuration.ProtocolOpenAIResponses, `{"status":"completed","output":[]}`},
-		{"responses error", configuration.ProtocolOpenAIResponses, `{"error":{"message":"provider failed"}}`},
-		{"anthropic empty", configuration.ProtocolAnthropic, `{"type":"message","role":"assistant","content":[]}`},
-		{"chat empty", configuration.ProtocolOpenAIChatCompletions, `{"choices":[]}`},
+		{"responses incomplete", domain.ProtocolOpenAIResponses, `{"status":"incomplete","output":[],"incomplete_details":{"reason":"max_output_tokens"}}`},
+		{"responses empty", domain.ProtocolOpenAIResponses, `{"status":"completed","output":[]}`},
+		{"responses error", domain.ProtocolOpenAIResponses, `{"error":{"message":"provider failed"}}`},
+		{"anthropic empty", domain.ProtocolAnthropic, `{"type":"message","role":"assistant","content":[]}`},
+		{"chat empty", domain.ProtocolOpenAIChatCompletions, `{"choices":[]}`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -161,12 +161,12 @@ func TestInferenceScopeAcceptsTextOutputForEachProtocol(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		protocol configuration.EndpointProtocol
+		protocol domain.EndpointProtocol
 		body     string
 	}{
-		{"responses", configuration.ProtocolOpenAIResponses, `{"status":"completed","output":[{"type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"pong"}]}]}`},
-		{"anthropic", configuration.ProtocolAnthropic, `{"type":"message","role":"assistant","content":[{"type":"text","text":"pong"}],"stop_reason":"end_turn"}`},
-		{"chat", configuration.ProtocolOpenAIChatCompletions, `{"choices":[{"message":{"role":"assistant","content":"pong"},"finish_reason":"stop"}]}`},
+		{"responses", domain.ProtocolOpenAIResponses, `{"status":"completed","output":[{"type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"pong"}]}]}`},
+		{"anthropic", domain.ProtocolAnthropic, `{"type":"message","role":"assistant","content":[{"type":"text","text":"pong"}],"stop_reason":"end_turn"}`},
+		{"chat", domain.ProtocolOpenAIChatCompletions, `{"choices":[{"message":{"role":"assistant","content":"pong"},"finish_reason":"stop"}]}`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -184,7 +184,7 @@ func TestInferenceScopeAcceptsTextOutputForEachProtocol(t *testing.T) {
 
 func TestExplicitModelUnavailableAtHTTP400(t *testing.T) {
 	selected := runtime()
-	selected.Protocol = configuration.ProtocolAnthropic
+	selected.Protocol = domain.ProtocolAnthropic
 	selected.Model = "claude-fable-5-1"
 	cases := []struct {
 		name, message string

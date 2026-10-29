@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 )
 
 // codexRegistry registers only this adapter against its own admission record.
@@ -24,16 +24,16 @@ func codexRegistry() client.Registry {
 }
 
 func TestCodexProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
-	before := configuration.NewConfig(testAdmission())
-	before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
-	before.Routes["route"] = qualifiedRoute("Route", "gateway", "model", configuration.ProtocolOpenAIResponses)
-	before.Clients[ID] = configuration.ClientBinding{Route: "route", Enabled: true}
+	before := domain.NewConfig(testAdmission())
+	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
+	before.Routes["route"] = qualifiedRoute("Route", "gateway", "model", domain.ProtocolOpenAIResponses)
+	before.Clients[ID] = domain.ClientBinding{Route: "route", Enabled: true}
 	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
 	after := before.Clone()
 	account := after.Accounts["gateway"]
-	account.Endpoints = configuration.Endpoints{OpenAIResponses: "https://second.test/v1", Anthropic: "https://second.test"}
+	account.Endpoints = domain.Endpoints{OpenAIResponses: "https://second.test/v1", Anthropic: "https://second.test"}
 	after.Accounts["gateway"] = account
 	if !(codexAdapter{}).ProjectionChanged(before, after) {
 		t.Fatal("unchanged forwarding hid a changed credential projection identity")
@@ -89,13 +89,13 @@ func TestCodexConvergenceRefusesAnUninspectableConfiguredExecutable(t *testing.T
 
 func TestCodexConvergenceIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 	t.Run("without a route", func(t *testing.T) {
-		if _, err := codexRegistry().Converge(client.Dependencies{}, configuration.NewConfig(testAdmission()), discovery.Result{}, ID); err != nil {
+		if _, err := codexRegistry().Converge(client.Dependencies{}, domain.NewConfig(testAdmission()), discovery.Result{}, ID); err != nil {
 			t.Fatalf("Converge(codex) without a route = %v", err)
 		}
 	})
 
 	t.Run("with a broken route", func(t *testing.T) {
-		cfg := configuration.NewConfig(testAdmission())
+		cfg := domain.NewConfig(testAdmission())
 		cfg.SetSelectedRoute(ID, "missing-route", "")
 		if _, err := codexRegistry().Converge(client.Dependencies{}, cfg, discovery.Result{}, ID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
 			t.Fatalf("Converge(codex) broken route error = %v", err)

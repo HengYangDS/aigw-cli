@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"bytes"
 	"encoding/base64"
@@ -181,7 +182,7 @@ func TestEndpointTestRejectsMalformedEphemeralTokenBeforeHTTP(t *testing.T) {
 
 func TestEndpointTestRequiresASelectedClientBindingByDefault(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	cfg.Clients = map[string]configuration.ClientBinding{}
+	cfg.Clients = map[string]domain.ClientBinding{}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +267,7 @@ func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testi
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	binding := cfg.Clients[codex.ID]
 	binding.ModelProvider = "amazon-bedrock"
-	binding.Authentication = configuration.AuthenticationClientNative
+	binding.Authentication = domain.AuthenticationClientNative
 	cfg.Clients[codex.ID] = binding
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -296,13 +297,13 @@ func TestEndpointTestDefersToVerifyForTheSameRoute(t *testing.T) {
 	helper := filepath.Join(t.TempDir(), "credential-helper")
 	for _, test := range []struct {
 		name      string
-		configure func(*configuration.ClientBinding)
+		configure func(*domain.ClientBinding)
 	}{
-		{name: "client-owned authentication", configure: func(binding *configuration.ClientBinding) {
+		{name: "client-owned authentication", configure: func(binding *domain.ClientBinding) {
 			binding.ModelProvider = "amazon-bedrock"
-			binding.Authentication = configuration.AuthenticationClientNative
+			binding.Authentication = domain.AuthenticationClientNative
 		}},
-		{name: "external credential helper", configure: func(binding *configuration.ClientBinding) { binding.CredentialCommand = helper }},
+		{name: "external credential helper", configure: func(binding *domain.ClientBinding) { binding.CredentialCommand = helper }},
 	} {
 		for _, args := range [][]string{{"--for", "codex"}, {"--for", "codex", "--route", "codex"}} {
 			t.Run(test.name+" "+strings.Join(args, " "), func(t *testing.T) {

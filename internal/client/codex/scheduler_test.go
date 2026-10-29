@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/surface"
 	"aigw-cli/internal/transaction"
 
@@ -357,10 +357,10 @@ func TestCodexReconciliationRejectsManagedDrift(t *testing.T) {
 }
 
 func TestCodexReconciliationRejectsMalformedHelpers(t *testing.T) {
-	if _, err := codexManagedBlockForProviderIn(codexBegin+"\n"+codexEnd, configuration.ModelProviderAIGW); err == nil {
+	if _, err := codexManagedBlockForProviderIn(codexBegin+"\n"+codexEnd, domain.ModelProviderAIGW); err == nil {
 		t.Fatal("managed block without provider table was accepted")
 	}
-	if _, err := codexManagedBlockForProviderIn(codexBegin+"\n[model_providers.aigw]\n", configuration.ModelProviderAIGW); err == nil {
+	if _, err := codexManagedBlockForProviderIn(codexBegin+"\n[model_providers.aigw]\n", domain.ModelProviderAIGW); err == nil {
 		t.Fatal("incomplete managed block was accepted")
 	}
 	if got := removeCodexProviderMarkers("plain"); got != "plain" {

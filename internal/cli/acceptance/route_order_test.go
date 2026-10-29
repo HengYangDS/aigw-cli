@@ -10,25 +10,25 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 func TestRouteListGroupsServicesAndPreservesStoredBindings(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	endpoints := configuration.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1", OpenAIChatCompletions: "https://team.test/v1"}
-	cfg.Accounts["team"] = configuration.Account{Label: "Team", Order: 10, Endpoints: endpoints}
-	cfg.Models["strong"] = configuration.Model{Label: "Strong", Order: 10}
-	cfg.Models["weak"] = configuration.Model{Label: "Weak", Order: 20}
+	cfg := domain.NewConfig(clients.Admission())
+	endpoints := domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1", OpenAIChatCompletions: "https://team.test/v1"}
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Order: 10, Endpoints: endpoints}
+	cfg.Models["strong"] = domain.Model{Label: "Strong", Order: 10}
+	cfg.Models["weak"] = domain.Model{Label: "Weak", Order: 20}
 	for _, row := range []struct {
 		id, model string
-		protocol  configuration.EndpointProtocol
+		protocol  domain.EndpointProtocol
 	}{
-		{"a-chat", "strong", configuration.ProtocolOpenAIChatCompletions},
-		{"b-responses-weak", "weak", configuration.ProtocolOpenAIResponses},
-		{"c-native-weak", "weak", configuration.ProtocolAnthropic},
-		{"d-responses-strong", "strong", configuration.ProtocolOpenAIResponses},
-		{"e-native-strong", "strong", configuration.ProtocolAnthropic},
+		{"a-chat", "strong", domain.ProtocolOpenAIChatCompletions},
+		{"b-responses-weak", "weak", domain.ProtocolOpenAIResponses},
+		{"c-native-weak", "weak", domain.ProtocolAnthropic},
+		{"d-responses-strong", "strong", domain.ProtocolOpenAIResponses},
+		{"e-native-strong", "strong", domain.ProtocolAnthropic},
 	} {
 		cfg.Routes[row.id] = qualifiedRoute(row.id, "team", row.model, row.protocol)
 	}

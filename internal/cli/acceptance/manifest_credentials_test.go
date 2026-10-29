@@ -4,8 +4,8 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
 	"bytes"
@@ -233,10 +233,10 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if httpClient.calls != 0 {
 		t.Fatalf("declarative import made %d provider requests", httpClient.calls)
 	}
-	wantRoutes := map[string]configuration.Route{
-		"aihubmix-claude": qualifiedRoute("AIHubMix Claude", "aihubmix", "claude-test", configuration.ProtocolAnthropic),
-		"dmxapi-claude":   qualifiedRoute("DMXAPI Claude", "dmxapi", "claude-test", configuration.ProtocolAnthropic),
-		"dmxapi-gpt":      qualifiedRoute("DMXAPI GPT", "dmxapi", "gpt-test", configuration.ProtocolOpenAIResponses),
+	wantRoutes := map[string]domain.Route{
+		"aihubmix-claude": qualifiedRoute("AIHubMix Claude", "aihubmix", "claude-test", domain.ProtocolAnthropic),
+		"dmxapi-claude":   qualifiedRoute("DMXAPI Claude", "dmxapi", "claude-test", domain.ProtocolAnthropic),
+		"dmxapi-gpt":      qualifiedRoute("DMXAPI GPT", "dmxapi", "gpt-test", domain.ProtocolOpenAIResponses),
 	}
 	if !reflect.DeepEqual(cfg.Routes, wantRoutes) {
 		t.Fatalf("manifest model matrix was not preserved: %#v", cfg.Routes)

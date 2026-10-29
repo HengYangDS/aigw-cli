@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 )
 
 // VerificationPlan consumes synchronized settings and their credential helper
 // without overriding them or loading unrelated client customizations.
-func VerificationPlan(executable, settingsPath, prompt string, currentEnv []string, runtime configuration.Runtime) (process.Plan, error) {
+func VerificationPlan(executable, settingsPath, prompt string, currentEnv []string, runtime domain.Runtime) (process.Plan, error) {
 	if executable == "" {
 		return process.Plan{}, fmt.Errorf("Claude executable is not configured")
 	}

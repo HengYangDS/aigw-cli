@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 func TestClaudeDesktopToolSearchRequiresEveryExposedRoute(t *testing.T) {
@@ -49,7 +50,7 @@ func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg, err := configuration.Merge(configuration.NewConfig(builtInAdmission()), manifest)
+	cfg, err := domain.Merge(domain.NewConfig(builtInAdmission()), manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,11 +73,11 @@ func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.
 }
 
 // declareToolSearch qualifies tool search on the Anthropic interface of each Route.
-func declareToolSearch(cfg configuration.Config, routeIDs ...string) {
+func declareToolSearch(cfg domain.Config, routeIDs ...string) {
 	for _, routeID := range routeIDs {
 		route := cfg.Routes[routeID]
-		route.Interfaces = map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolAnthropic: {configuration.CapabilityTools, configuration.Capability("tool_search")},
+		route.Interfaces = map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolAnthropic: {domain.CapabilityTools, domain.Capability("tool_search")},
 		}
 		cfg.Routes[routeID] = route
 	}

@@ -7,7 +7,7 @@ import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
@@ -130,7 +130,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
-func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after configuration.Config, result *syncResult) error {
+func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after domain.Config, result *syncResult) error {
 	plans, err := synchronizer.Plan(before, after)
 	if err != nil {
 		return err
@@ -153,7 +153,7 @@ func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after
 	return nil
 }
 
-func planCredentialEntrypoint(synchronizer synchronization.Synchronizer, after configuration.Config) (*credentialEntrypointPlan, error) {
+func planCredentialEntrypoint(synchronizer synchronization.Synchronizer, after domain.Config) (*credentialEntrypointPlan, error) {
 	action, err := synchronizer.CredentialEntrypointPlan(after)
 	if err != nil || action == synchronization.CredentialEntrypointUnchanged {
 		return nil, err
@@ -165,7 +165,7 @@ func planCredentialEntrypoint(synchronizer synchronization.Synchronizer, after c
 	return &credentialEntrypointPlan{Path: path, Action: string(action)}, nil
 }
 
-func renderSyncPreview(r *presentation.Renderer, after configuration.Config, result syncResult) {
+func renderSyncPreview(r *presentation.Renderer, after domain.Config, result syncResult) {
 	r.ProductTitle("Synchronization preview")
 	if result.CredentialEntrypoint != nil {
 		// The entrypoint path is too long to share the target column.
@@ -221,7 +221,7 @@ func NewRollbackCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			restored := configuration.Config{}
+			restored := domain.Config{}
 			source := ""
 			var checkpointErr error
 			if !lastChange {

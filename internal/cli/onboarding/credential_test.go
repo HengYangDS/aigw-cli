@@ -11,12 +11,12 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 )
 
 func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
-	account := configuration.Account{ID: "one", Endpoints: configuration.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}}
+	account := domain.Account{ID: "one", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}}
 
 	t.Run("unknown client", func(t *testing.T) {
 		err := credential.Validate(context.Background(), nil, clients.Admission(), account, "token", "other")
@@ -26,7 +26,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 	})
 
 	t.Run("missing endpoint", func(t *testing.T) {
-		err := credential.Validate(context.Background(), nil, clients.Admission(), configuration.Account{ID: "one", Endpoints: configuration.Endpoints{Anthropic: "https://one.test"}}, "token", codex.ID)
+		err := credential.Validate(context.Background(), nil, clients.Admission(), domain.Account{ID: "one", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}, "token", codex.ID)
 		if err == nil || !strings.Contains(err.Error(), "no OpenAI") {
 			t.Fatalf("error = %v", err)
 		}

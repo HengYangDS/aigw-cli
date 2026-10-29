@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client/codex"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -92,9 +92,9 @@ func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
 					}
 				}
 			}}
-			cfg.Routes["next"] = configuration.Route{
+			cfg.Routes["next"] = domain.Route{
 				Label: "Next", Account: "gateway", Model: "gpt-next",
-				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
 			cfg.SetClientActivation(codex.ID, true, "", []string{filepath.Join(t.TempDir(), "missing.toml")})
 			if err := run.Config.Save(cfg); err != nil {

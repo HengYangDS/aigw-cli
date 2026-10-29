@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/domain"
+
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -70,23 +72,23 @@ func TestPrepareMigrationPreservesPublishedV010Selection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !plan.Required || plan.FromVersion != 3 || plan.ToVersion != ConfigVersion {
+	if !plan.Required || plan.FromVersion != 3 || plan.ToVersion != domain.ConfigVersion {
 		t.Fatalf("published predecessor migration = %#v", plan)
 	}
-	if actual := plan.Clients[ClientClaude]; !reflect.DeepEqual(actual, ClientBinding{Route: "claude", Protocol: ProtocolAnthropic}) {
+	if actual := plan.Clients[ClientClaude]; !reflect.DeepEqual(actual, domain.ClientBinding{Route: "claude", Protocol: domain.ProtocolAnthropic}) {
 		t.Fatalf("disabled Claude selection = %#v", actual)
 	}
-	wantCodex := ClientBinding{
-		Route: "codex", Enabled: true, Protocol: ProtocolOpenAIResponses,
-		ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
+	wantCodex := domain.ClientBinding{
+		Route: "codex", Enabled: true, Protocol: domain.ProtocolOpenAIResponses,
+		ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative,
 		Executable: executable, Targets: []string{target}, CredentialCommand: credentialCommand,
 	}
 	if actual := plan.Clients[ClientCodex]; !reflect.DeepEqual(actual, wantCodex) {
 		t.Fatalf("Codex selection = %#v", actual)
 	}
-	wantRecommendation := ClientRecommendation{Primary: ClientSelection{
-		Route: "codex", Protocol: ProtocolOpenAIResponses,
-		ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
+	wantRecommendation := domain.ClientRecommendation{Primary: domain.ClientSelection{
+		Route: "codex", Protocol: domain.ProtocolOpenAIResponses,
+		ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative,
 	}}
 	if actual := plan.Recommendations[ClientCodex]; !reflect.DeepEqual(actual, wantRecommendation) {
 		t.Fatalf("Codex recommendation = %#v", actual)
@@ -96,7 +98,7 @@ func TestPrepareMigrationPreservesPublishedV010Selection(t *testing.T) {
 	}
 }
 
-func appliedPublishedV010Store(t *testing.T) (Store, Config, []byte) {
+func appliedPublishedV010Store(t *testing.T) (Store, domain.Config, []byte) {
 	t.Helper()
 	store, predecessor, _, _, _ := publishedV010Store(t)
 	plan, err := store.PrepareMigration(false)
@@ -176,7 +178,7 @@ func TestPublishedV010RollbackRestoresExactBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rollback.FromVersion != ConfigVersion || rollback.ToVersion != 3 {
+	if rollback.FromVersion != domain.ConfigVersion || rollback.ToVersion != 3 {
 		t.Fatalf("published predecessor rollback = %#v", rollback)
 	}
 	if err := store.ApplyMigration(rollback); err != nil {
@@ -188,7 +190,7 @@ func TestPublishedV010RollbackRestoresExactBytes(t *testing.T) {
 }
 
 func TestPublishedConfigurationVersionDiagnosticOffersExplicitMigration(t *testing.T) {
-	message := (&UnsupportedConfigVersionError{Version: PublishedConfigVersion, ExpectedVersion: ConfigVersion}).Error()
+	message := (&domain.UnsupportedConfigVersionError{Version: domain.PublishedConfigVersion, ExpectedVersion: domain.ConfigVersion}).Error()
 	if !strings.Contains(message, "aigw config migrate --dry-run") {
 		t.Fatalf("published predecessor diagnostic omitted its admitted migration: %s", message)
 	}
@@ -201,7 +203,7 @@ func TestPrepareMigrationTranslatesImmediatePredecessorWithoutInventingCapabilit
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plan.FromVersion != LegacyConfigVersion || plan.ToVersion != ConfigVersion ||
+	if plan.FromVersion != domain.LegacyConfigVersion || plan.ToVersion != domain.ConfigVersion ||
 		len(plan.Accounts) != 1 || len(plan.Routes) != 2 ||
 		len(plan.Clients) != 2 || len(plan.Recommendations) != 1 {
 		t.Fatalf("migration plan = %#v", plan)
@@ -211,22 +213,22 @@ func TestPrepareMigrationTranslatesImmediatePredecessorWithoutInventingCapabilit
 	}
 
 	root := filepath.Dir(store.Path())
-	wantClaude := ClientBinding{Route: "claude", Protocol: ProtocolAnthropic, Executable: filepath.Join(root, "bin", "claude")}
+	wantClaude := domain.ClientBinding{Route: "claude", Protocol: domain.ProtocolAnthropic, Executable: filepath.Join(root, "bin", "claude")}
 	if actual := plan.Clients[ClientClaude]; !reflect.DeepEqual(actual, wantClaude) {
 		t.Fatalf("Claude binding = %#v", actual)
 	}
-	wantCodex := ClientBinding{
-		Route: "codex", Enabled: true, Protocol: ProtocolOpenAIResponses,
-		ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
+	wantCodex := domain.ClientBinding{
+		Route: "codex", Enabled: true, Protocol: domain.ProtocolOpenAIResponses,
+		ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative,
 		Executable: filepath.Join(root, "bin", "codex"), Targets: []string{filepath.Join(root, "home", ".codex", "config.toml")},
 		CredentialCommand: filepath.Join(root, "bin", "aigw"),
 	}
 	if actual := plan.Clients[ClientCodex]; !reflect.DeepEqual(actual, wantCodex) {
 		t.Fatalf("Codex binding = %#v", actual)
 	}
-	wantRecommendation := ClientRecommendation{Primary: ClientSelection{
-		Route: "codex", Protocol: ProtocolOpenAIResponses,
-		ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
+	wantRecommendation := domain.ClientRecommendation{Primary: domain.ClientSelection{
+		Route: "codex", Protocol: domain.ProtocolOpenAIResponses,
+		ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative,
 	}}
 	if actual := plan.Recommendations[ClientCodex]; !reflect.DeepEqual(actual, wantRecommendation) {
 		t.Fatalf("Codex recommendation = %#v", actual)
@@ -277,7 +279,7 @@ func TestApplyMigrationRetainsExactPredecessorBytesAndRollbackSwapsThemBack(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rollback.FromVersion != ConfigVersion || rollback.ToVersion != LegacyConfigVersion {
+	if rollback.FromVersion != domain.ConfigVersion || rollback.ToVersion != domain.LegacyConfigVersion {
 		t.Fatalf("rollback plan = %#v", rollback)
 	}
 	if err := store.ApplyMigration(rollback); err != nil {
@@ -311,11 +313,11 @@ func TestApplyMigrationRejectsChangedPreimage(t *testing.T) {
 
 func TestCurrentConfigurationMigrationIsANoOp(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
-	cfg := NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = Account{Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Routes["codex"] = Route{
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Routes["codex"] = domain.Route{
 		Label: "Codex", Account: "gateway", Model: "gpt-test",
-		Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedRoute(ClientCodex, "codex", "")
 	if err := store.Save(cfg); err != nil {
@@ -329,7 +331,7 @@ func TestCurrentConfigurationMigrationIsANoOp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if plan.Required || plan.FromVersion != ConfigVersion || plan.ToVersion != ConfigVersion {
+	if plan.Required || plan.FromVersion != domain.ConfigVersion || plan.ToVersion != domain.ConfigVersion {
 		t.Fatalf("current migration plan = %#v", plan)
 	}
 	if err := store.ApplyMigration(plan); err != nil {
@@ -364,23 +366,23 @@ func legacyStoreWith(t *testing.T, mutate func(*legacyConfig)) (Store, []byte) {
 	root := t.TempDir()
 	path := filepath.Join(root, "config.toml")
 	config := legacyConfig{
-		Version: LegacyConfigVersion,
-		Accounts: map[string]Account{"gateway": {
-			Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"},
+		Version: domain.LegacyConfigVersion,
+		Accounts: map[string]domain.Account{"gateway": {
+			Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"},
 		}},
 		Profiles: map[string]legacyProfile{
-			ClientClaude: {Label: "Claude", Purpose: "Conversation", Account: "gateway", Model: "claude-test", Protocols: []EndpointProtocol{ProtocolAnthropic}},
-			ClientCodex:  {Label: "Codex", Account: "gateway", Model: "gpt-test", Tier: "flagship", Protocols: []EndpointProtocol{ProtocolOpenAIResponses}},
+			ClientClaude: {Label: "Claude", Purpose: "Conversation", Account: "gateway", Model: "claude-test", Protocols: []domain.EndpointProtocol{domain.ProtocolAnthropic}},
+			ClientCodex:  {Label: "Codex", Account: "gateway", Model: "gpt-test", Tier: "flagship", Protocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}},
 		},
 		Recommendations: map[string]legacySelection{ClientCodex: {
-			Profile: ClientCodex, Protocol: ProtocolOpenAIResponses,
-			ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
+			Profile: ClientCodex, Protocol: domain.ProtocolOpenAIResponses,
+			ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative,
 		}},
 		Clients: map[string]legacyBinding{
-			ClientClaude: {Profile: ClientClaude, Protocol: ProtocolAnthropic, Executable: filepath.Join(root, "bin", "claude")},
+			ClientClaude: {Profile: ClientClaude, Protocol: domain.ProtocolAnthropic, Executable: filepath.Join(root, "bin", "claude")},
 			ClientCodex: {
-				Profile: ClientCodex, Enabled: true, Protocol: ProtocolOpenAIResponses,
-				ModelProvider: "amazon-bedrock", Authentication: AuthenticationClientNative,
+				Profile: ClientCodex, Enabled: true, Protocol: domain.ProtocolOpenAIResponses,
+				ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative,
 				Executable: filepath.Join(root, "bin", "codex"), Targets: []string{filepath.Join(root, "home", ".codex", "config.toml")},
 				CredentialCommand: filepath.Join(root, "bin", "aigw"),
 			},

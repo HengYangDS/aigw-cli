@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -31,9 +31,9 @@ func TestUseTellsHermesUsersThatExistingSessionsKeepTheirRoute(t *testing.T) {
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
 	}}
 	for _, id := range []string{"first", "second"} {
-		cfg.Routes[id] = configuration.Route{
+		cfg.Routes[id] = domain.Route{
 			Label: id, Account: "gateway", Model: id + "-model",
-			Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+			Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 		}
 	}
 	if err := runtime.Config.Save(cfg); err != nil {

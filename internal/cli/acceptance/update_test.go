@@ -14,6 +14,7 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/upgrade"
 )
@@ -177,8 +178,8 @@ func TestUpdateRollbackStopsBeforeUpdaterWhenConfigurationCannotBeRead(t *testin
 // requests, with a native keyring store that invokes it.
 func keychainRecorder(t *testing.T, app *cli.App, code string) string {
 	t.Helper()
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

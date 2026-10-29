@@ -11,14 +11,14 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
 )
 
 func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
-	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+	saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -57,8 +57,8 @@ func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
 // variable that supplies it, in human and JSON output alike.
 func TestCheckNamesTheEnvironmentTokenForARejectedToken(t *testing.T) {
 	app, out, _, _, httpClient := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", configuration.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedRoute(claude.ID, "dmx", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)

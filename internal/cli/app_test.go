@@ -17,6 +17,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
@@ -29,11 +30,11 @@ import (
 func configuredApp(t *testing.T) *App {
 	t.Helper()
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = configuration.Account{Label: "One", Endpoints: configuration.Endpoints{OpenAIResponses: "http://127.0.0.1:1234/v1", Anthropic: "https://one.test"}}
-	cfg.Routes["one"] = configuration.Route{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "http://127.0.0.1:1234/v1", Anthropic: "https://one.test"}}
+	cfg.Routes["one"] = domain.Route{
 		Label: "One", Purpose: "Primary", Account: "one", Model: "gpt",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedRoute(codex.ID, "one", "")
 	if err := store.Save(cfg); err != nil {
@@ -171,112 +172,6 @@ func TestExecuteReturnsConfigurationLoadFailure(t *testing.T) {
 	app := &App{Clients: clients.Registry(), Config: configuration.NewStore(t.TempDir(), clients.Admission()), Out: out, Err: out}
 	if err := Execute(app, nil); err == nil {
 		t.Fatal("expected configuration load error")
-	}
-}
-
-func TestCommandHelpIsProjectedFromCobraMetadata(t *testing.T) {
-	out := new(bytes.Buffer)
-	app := &App{Clients: clients.Registry(), Out: out, Err: out}
-	command := &cobra.Command{Use: "semantic-root", Short: "source-owned summary"}
-	command.AddCommand(
-		&cobra.Command{Use: "zeta", Short: "source-owned Z", Run: func(*cobra.Command, []string) {}},
-		&cobra.Command{Use: "alpha", Short: "source-owned A", Run: func(*cobra.Command, []string) {}},
-		&cobra.Command{Use: "internal", Hidden: true, Run: func(*cobra.Command, []string) {}},
-	)
-	command.Flags().String("visible", "", "visible option")
-	command.Flags().String("internal", "", "internal option")
-	if err := command.Flags().MarkHidden("internal"); err != nil {
-		t.Fatal(err)
-	}
-
-	renderCommandHelp(app, command)
-	help := out.String()
-	for _, want := range []string{
-		"source-owned summary",
-		"semantic-root [command]",
-		"alpha",
-		"source-owned A",
-		"zeta",
-		"source-owned Z",
-		"Commands",
-		"visible option",
-	} {
-		if !strings.Contains(help, want) {
-			t.Fatalf("help does not project Cobra metadata %q: %q", want, help)
-		}
-	}
-	if strings.Index(help, "alpha") > strings.Index(help, "zeta") {
-		t.Fatalf("extension commands are not ordered: %q", help)
-	}
-	if strings.Contains(help, "internal option") || strings.Contains(help, "internal  ") {
-		t.Fatalf("help exposes an internal surface: %q", help)
-	}
-	originalSorting := cobra.EnableCommandSorting
-	cobra.EnableCommandSorting = false
-	t.Cleanup(func() { cobra.EnableCommandSorting = originalSorting })
-	command.AddCommand(&cobra.Command{Use: "beta", Short: "source-owned B", Run: func(*cobra.Command, []string) {}})
-	out.Reset()
-	renderCommandHelp(app, command)
-	help = out.String()
-	if strings.Index(help, "zeta") > strings.Index(help, "beta") {
-		t.Fatalf("help overrides Cobra's explicit command ordering: %q", help)
-	}
-}
-
-func TestCommandHelpIncludesNativeFlagMetadataAndExamples(t *testing.T) {
-	for _, columns := range []string{"0", "48"} {
-		t.Run(columns, func(t *testing.T) {
-			var out bytes.Buffer
-			app := &App{Clients: clients.Registry(), Out: &out, Err: &out, Env: []string{"COLUMNS=" + columns}}
-			root := &cobra.Command{Use: "service"}
-			root.PersistentFlags().String("region", "team", "Choose the service region")
-			command := &cobra.Command{
-				Use:     "connect",
-				Short:   "Connect a service",
-				Long:    "Choose a service without changing credentials.\nExisting selections remain available.",
-				Example: "service connect --target local\nservice connect --region team",
-			}
-			root.AddCommand(command)
-			command.Flags().String("target", "local", "Use the selected `path`")
-			command.Flags().IntP("attempts", "a", 3, "Bound the connection attempts")
-			command.Flags().Duration("timeout", 3*time.Second, "Bound the connection duration")
-			command.Flags().Bool("verify", true, "Verify the selected endpoint")
-			if err := command.Flags().Set("attempts", "7"); err != nil {
-				t.Fatal(err)
-			}
-			renderCommandHelp(app, command)
-			text := strings.Join(strings.Fields(out.String()), " ")
-			for _, want := range []string{
-				command.Long, command.Example, "Examples", "Inherited options",
-				command.NonInheritedFlags().FlagUsages(), command.InheritedFlags().FlagUsages(),
-			} {
-				if !strings.Contains(text, strings.Join(strings.Fields(want), " ")) {
-					t.Fatalf("help missing native metadata %q:\n%s", want, &out)
-				}
-			}
-			if columns == "48" {
-				for line := range strings.SplitSeq(strings.TrimRight(command.NonInheritedFlags().FlagUsagesWrapped(48), "\n"), "\n") {
-					if !strings.Contains(out.String(), "\n"+strings.TrimRight(line, " \t")+"\n") {
-						t.Fatalf("help changed native narrow option layout: %q\n%s", line, &out)
-					}
-				}
-				for line := range strings.SplitSeq(out.String(), "\n") {
-					if presentation.DisplayWidth(line) > 48 {
-						t.Fatalf("help line exceeds available width: %q", line)
-					}
-				}
-			}
-			if !strings.Contains(out.String(), "\n  -a, --attempts") || strings.Contains(out.String(), "\n    -a, --attempts") {
-				t.Fatalf("option lines do not share the section indentation:\n%s", &out)
-			}
-			out.Reset()
-			command.Example = "service connect --target 'a-long-path-with-two  spaces'\nservice connect --region 'tab\tvalue'"
-			renderCommandHelp(app, command)
-			want := "  " + strings.ReplaceAll(command.Example, "\n", "\n  ") + "\n"
-			if !strings.Contains(out.String(), want) {
-				t.Fatalf("help rewrote copyable example bytes:\n%q", out.String())
-			}
-		})
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/synchronization"
 )
@@ -52,17 +53,17 @@ func TestAccountFinalizationConvergesForwardingBackupBeforeRetirement(t *testing
 	}
 }
 
-func migrationConfig() configuration.Config {
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}}
-	cfg.Routes["codex"] = configuration.Route{Label: "Codex", Account: "old", Model: "gpt", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}}}
-	cfg.Routes["claude"] = configuration.Route{Label: "Claude", Account: "old", Model: "claude", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}}}
+func migrationConfig() domain.Config {
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["old"] = domain.Account{Label: "Old", Endpoints: domain.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}}
+	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "old", Model: "gpt", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "old", Model: "claude", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
 	cfg.SetSelectedRoute(claude.ID, "claude", "")
 	return cfg
 }
 
-func renamedConfig() configuration.Config {
+func renamedConfig() domain.Config {
 	cfg := migrationConfig()
 	providerAccount := cfg.Accounts["old"]
 	delete(cfg.Accounts, "old")
@@ -203,11 +204,11 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	cfg.SetRecommendedRoute(claude.ID, "claude")
 	cfg.SetRecommendedRoute(codex.ID, "codex")
 	cfg.Routes["backup"] = cfg.Routes["codex"]
-	cfg.Recommendations[hermes.ID] = configuration.ClientRecommendation{
-		Primary: configuration.ClientSelection{Route: "claude", Protocol: configuration.ProtocolAnthropic},
-		Alternatives: []configuration.ClientSelection{
-			{Route: "backup", Protocol: configuration.ProtocolOpenAIResponses},
-			{Route: "codex", Protocol: configuration.ProtocolOpenAIResponses},
+	cfg.Recommendations[hermes.ID] = domain.ClientRecommendation{
+		Primary: domain.ClientSelection{Route: "claude", Protocol: domain.ProtocolAnthropic},
+		Alternatives: []domain.ClientSelection{
+			{Route: "backup", Protocol: domain.ProtocolOpenAIResponses},
+			{Route: "codex", Protocol: domain.ProtocolOpenAIResponses},
 		},
 	}
 	plan, err := planRoute(cfg, "codex", "new-codex")
@@ -304,7 +305,7 @@ func TestPlanAccountFinalizeCredentialReadErrors(t *testing.T) {
 func TestPlanAccountFinalizeRejectsIncompleteRenameState(t *testing.T) {
 	for _, test := range []struct {
 		name    string
-		config  configuration.Config
+		config  domain.Config
 		target  string
 		problem string
 	}{
@@ -381,7 +382,7 @@ func TestFinalizeVerifiesDeletedSlotsWithoutReadingCredentialValues(t *testing.T
 
 func TestApplyFinalizeStopsBeforeCleanupWhenProbeVerificationFails(t *testing.T) {
 	store, snapshot := renameFinalizationState(t)
-	plan := Plan{NewID: "new", verifyProbe: true, snapshot: snapshot, Account: configuration.Account{Label: "New"}}
+	plan := Plan{NewID: "new", verifyProbe: true, snapshot: snapshot, Account: domain.Account{Label: "New"}}
 	deps := Renamer{Config: store, Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
 	if _, err := applyFinalize(context.Background(), deps, plan); err == nil || !strings.Contains(err.Error(), "does not declare precise diagnostics") {
 		t.Fatalf("applyFinalize() error = %v", err)
@@ -389,18 +390,18 @@ func TestApplyFinalizeStopsBeforeCleanupWhenProbeVerificationFails(t *testing.T)
 }
 
 func TestVerifyFinalizedAccountProbeFailures(t *testing.T) {
-	base := Plan{NewID: "new", Account: configuration.Account{Label: "New"}}
+	base := Plan{NewID: "new", Account: domain.Account{Label: "New"}}
 	deps := Renamer{Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
 	if err := verifyFinalizedAccountProbe(context.Background(), deps, base); err == nil || !strings.Contains(err.Error(), "does not declare") {
 		t.Fatalf("error = %v", err)
 	}
 
-	base.Account.AccountProbe = &configuration.AccountProbe{Kind: "future", BaseURL: "https://new.test"}
+	base.Account.AccountProbe = &domain.AccountProbe{Kind: "future", BaseURL: "https://new.test"}
 	if err := verifyFinalizedAccountProbe(context.Background(), deps, base); err == nil || !strings.Contains(err.Error(), "not included") {
 		t.Fatalf("error = %v", err)
 	}
 
-	base.Account.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: "https://new.test"}
+	base.Account.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://new.test"}
 	want := errors.New("read failed")
 	deps.Secrets = &faultTokenStore{getErrors: map[string]error{"new": want}}
 	if err := verifyFinalizedAccountProbe(context.Background(), deps, base); !errors.Is(err, want) {

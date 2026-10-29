@@ -1,9 +1,9 @@
 package contract
 
-import configuration "aigw-cli/internal/configuration"
+import "aigw-cli/internal/domain"
 
 // testAdmission admits the suite's own fixture client and the foreign client
 // that its fixture configuration also binds.
-func testAdmission() configuration.Admission {
-	return configuration.NewAdmission(fixtureAdapter{}.Spec(), configuration.ClientSpec{ID: "foreign", Label: "Foreign"})
+func testAdmission() domain.Admission {
+	return domain.NewAdmission(fixtureAdapter{}.Spec(), domain.ClientSpec{ID: "foreign", Label: "Foreign"})
 }

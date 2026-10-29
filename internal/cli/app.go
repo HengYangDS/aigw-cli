@@ -37,6 +37,7 @@ import (
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
@@ -288,7 +289,7 @@ func environmentMap(values []string) map[string]string {
 func (a *App) doctorCommand() *cobra.Command {
 	return doctor.NewCommand(doctor.Dependencies{
 		Config: a.Config, Secrets: a.Secrets, Clients: invocation.Synchronizer(a.invocationContext()), Env: a.Env, Out: a.outputWriter(),
-		Inspect: func(cfg configuration.Config, store secrets.Store) map[string]domainreadiness.Client {
+		Inspect: func(cfg domain.Config, store secrets.Store) map[string]domainreadiness.Client {
 			operation := a.invocationContext()
 			operation.Secrets = store
 			return readiness.InspectClients(operation, cfg)

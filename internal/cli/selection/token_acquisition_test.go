@@ -10,11 +10,11 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/codex"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
-func tokenAcquisitionRuntime(t *testing.T) (invocation.Context, configuration.Config, secrets.Store, *bytes.Buffer) {
+func tokenAcquisitionRuntime(t *testing.T) (invocation.Context, domain.Config, secrets.Store, *bytes.Buffer) {
 	t.Helper()
 	run, cfg, out := configuredRuntime(t)
 	store := secrets.NewMemoryStore()
@@ -48,31 +48,31 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 
 	for _, test := range []struct {
 		name    string
-		prepare func(invocation.Context, configuration.Config) invocation.Context
+		prepare func(invocation.Context, domain.Config) invocation.Context
 		want    string
 	}{
-		{name: "noninteractive", prepare: func(value invocation.Context, _ configuration.Config) invocation.Context {
+		{name: "noninteractive", prepare: func(value invocation.Context, _ domain.Config) invocation.Context {
 			value.Interactive = false
 			return value
 		}, want: "missing a token"},
-		{name: "prompt", prepare: func(value invocation.Context, _ configuration.Config) invocation.Context {
+		{name: "prompt", prepare: func(value invocation.Context, _ domain.Config) invocation.Context {
 			value.Prompt = &promptStub{err: errors.New("cancelled")}
 			return value
 		}, want: "cancelled"},
-		{name: "validation", prepare: func(value invocation.Context, _ configuration.Config) invocation.Context {
+		{name: "validation", prepare: func(value invocation.Context, _ domain.Config) invocation.Context {
 			value.HTTP = doerFunc(func(*http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: http.StatusUnauthorized, Body: http.NoBody}, nil
 			})
 			return value
 		}, want: "token validation failed"},
-		{name: "client convergence", prepare: func(value invocation.Context, _ configuration.Config) invocation.Context {
+		{name: "client convergence", prepare: func(value invocation.Context, _ domain.Config) invocation.Context {
 			value.Discovery = nil
 			return value
 		}, want: "client discovery is unavailable"},
-		{name: "commit", prepare: func(value invocation.Context, cfg configuration.Config) invocation.Context {
-			cfg.Routes["next"] = configuration.Route{
+		{name: "commit", prepare: func(value invocation.Context, cfg domain.Config) invocation.Context {
+			cfg.Routes["next"] = domain.Route{
 				Label: "Next", Account: "gateway", Model: "gpt-next",
-				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
 			cfg.SetClientActivation(codex.ID, true, "", []string{filepath.Join(t.TempDir(), "missing-configuration.toml")})
 			if err := value.Config.Save(cfg); err != nil {

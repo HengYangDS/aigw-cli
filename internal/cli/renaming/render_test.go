@@ -4,7 +4,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/renaming"
 	"bytes"
 	"strings"
@@ -16,14 +16,14 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 		title string
 		plan  renaming.Plan
 	}{
-		{"Account finalization plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "blocked", Finalize: true, Account: configuration.Account{Label: "New"}, ExternalTODOs: []string{"external action"}}},
-		{"Account finalization plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "planned", Finalize: true, Account: configuration.Account{Label: "New"}}},
-		{"Account already finalized", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "already-finalized", Finalize: true, Account: configuration.Account{Label: "New"}}},
-		{"Account finalization complete", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "finalized", Finalize: true, Account: configuration.Account{Label: "New"}}},
-		{"Account rename plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "planned", Account: configuration.Account{Label: "New"}}},
-		{"Route rename plan", renaming.Plan{Resource: "route", OldID: "old", NewID: "new", Status: "planned", Route: configuration.Route{Account: "account"}, AffectedReferences: []string{"routes.codex"}}},
-		{"Account renamed", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Account: configuration.Account{Label: "New"}, AffectedReferences: []string{"routes.codex.account"}}},
-		{"Route renamed", renaming.Plan{Resource: "route", OldID: "old", NewID: "new", Status: "applied", Route: configuration.Route{Account: "account"}}},
+		{"Account finalization plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "blocked", Finalize: true, Account: domain.Account{Label: "New"}, ExternalTODOs: []string{"external action"}}},
+		{"Account finalization plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "planned", Finalize: true, Account: domain.Account{Label: "New"}}},
+		{"Account already finalized", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "already-finalized", Finalize: true, Account: domain.Account{Label: "New"}}},
+		{"Account finalization complete", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "finalized", Finalize: true, Account: domain.Account{Label: "New"}}},
+		{"Account rename plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "planned", Account: domain.Account{Label: "New"}}},
+		{"Route rename plan", renaming.Plan{Resource: "route", OldID: "old", NewID: "new", Status: "planned", Route: domain.Route{Account: "account"}, AffectedReferences: []string{"routes.codex"}}},
+		{"Account renamed", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Account: domain.Account{Label: "New"}, AffectedReferences: []string{"routes.codex.account"}}},
+		{"Route renamed", renaming.Plan{Resource: "route", OldID: "old", NewID: "new", Status: "applied", Route: domain.Route{Account: "account"}}},
 	}
 	for _, test := range statuses {
 		t.Run(test.title+"/"+string(test.plan.Status), func(t *testing.T) {
@@ -40,7 +40,7 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 
 func TestAccountRenameContinuationFollowsEnabledClients(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
-		cfg := configuration.NewConfig(clients.Admission())
+		cfg := domain.NewConfig(clients.Admission())
 		cfg.SetClientActivation(claude.ID, enabled, "", nil)
 		var out bytes.Buffer
 		plan := renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Config: cfg}

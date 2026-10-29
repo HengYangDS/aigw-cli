@@ -12,8 +12,8 @@ import (
 
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
 	"aigw-cli/internal/secrets"
@@ -29,7 +29,7 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 		Use:   "add <account>",
 		Short: "Add and connect one Account with its first Route",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
-			if !configuration.ValidIdentifier(args[0]) {
+			if !domain.ValidIdentifier(args[0]) {
 				return fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores; run `%s --help`", args[0], cmd.CommandPath())
 			}
 			if !runtime.Clients.Admission().Admits(client) || strings.TrimSpace(model) == "" {
@@ -46,7 +46,7 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 			if label == "" {
 				label = name
 			}
-			account := configuration.Account{Label: label, Endpoints: configuration.Endpoints{
+			account := domain.Account{Label: label, Endpoints: domain.Endpoints{
 				OpenAIResponses: strings.TrimRight(openAIURL, "/"),
 				Anthropic:       strings.TrimRight(anthropicURL, "/"),
 			}}
@@ -56,9 +56,9 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			route := configuration.Route{
+			route := domain.Route{
 				Label: label, Account: name, Model: strings.TrimSpace(model),
-				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
+				Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
 			acquireToken := func() (string, error) { return invocation.ReadToken(runtime, tokenStdin, true) }
 			if err := invocation.Synchronizer(runtime).ConnectAccount(cmd.Context(), cfg, name, client, account, route, acquireToken); err != nil {
@@ -95,7 +95,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "edit <account>", Short: "Update account metadata and protocol endpoints",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
-			if !configuration.ValidIdentifier(args[0]) {
+			if !domain.ValidIdentifier(args[0]) {
 				return fmt.Errorf("Invalid account ID %q; run `%s --help`", args[0], cmd.CommandPath())
 			}
 			for _, name := range []string{"label", "openai-url", "anthropic-url"} {
@@ -319,7 +319,7 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 }
 
 type accountListOutput struct {
-	Accounts []configuration.Account `json:"accounts"`
+	Accounts []domain.Account `json:"accounts"`
 }
 
 func newListCommand(runtime invocation.Context) *cobra.Command {
@@ -331,7 +331,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			result := accountListOutput{Accounts: make([]configuration.Account, 0, len(cfg.Accounts))}
+			result := accountListOutput{Accounts: make([]domain.Account, 0, len(cfg.Accounts))}
 			for _, id := range cfg.CatalogAccountIDs() {
 				account := cfg.Accounts[id]
 				account.ID = id
@@ -451,7 +451,7 @@ func NewBalanceCommand(runtime invocation.Context) *cobra.Command {
 	}}
 }
 
-func accountReference(cfg configuration.Config, args []string) (string, error) {
+func accountReference(cfg domain.Config, args []string) (string, error) {
 	if len(args) == 1 {
 		return args[0], nil
 	}

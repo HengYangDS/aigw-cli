@@ -11,7 +11,7 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secrets"
@@ -20,10 +20,10 @@ import (
 func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
 	runtime.Problem = presentation.ProblemError
-	cfg.Routes["shared"] = configuration.Route{
+	cfg.Routes["shared"] = domain.Route{
 		Account: "gateway", Model: "shared-model",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolAnthropic: {}, configuration.ProtocolOpenAIResponses: {},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
 		},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -58,10 +58,10 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Secrets = store
-	cfg.Routes["shared"] = configuration.Route{
+	cfg.Routes["shared"] = domain.Route{
 		Account: "gateway", Model: "shared-model",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolAnthropic: {}, configuration.ProtocolOpenAIResponses: {},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
 		},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -91,7 +91,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	command = NewUseCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", hermes.ID, "--protocol", string(configuration.ProtocolAnthropic), "shared"})
+	command.SetArgs([]string{"--for", hermes.ID, "--protocol", string(domain.ProtocolAnthropic), "shared"})
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "--protocol anthropic") {
 		t.Fatalf("missing Token recovery lost the protocol choice: %v", err)
 	}
@@ -101,13 +101,13 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	command = NewUseCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", hermes.ID, "--protocol", string(configuration.ProtocolAnthropic), "shared"})
+	command.SetArgs([]string{"--for", hermes.ID, "--protocol", string(domain.ProtocolAnthropic), "shared"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	selected, err := runtime.Config.Load()
 	if err != nil || selected.SelectedRoute(hermes.ID) != "shared" ||
-		selected.Clients[hermes.ID].Protocol != configuration.ProtocolAnthropic ||
+		selected.Clients[hermes.ID].Protocol != domain.ProtocolAnthropic ||
 		selected.SelectedRoute(codex.ID) != "codex" {
 		t.Fatalf("explicit Hermes protocol selection = %#v, %v", selected.Clients, err)
 	}
@@ -116,19 +116,19 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	}
 
 	runtime.Interactive = true
-	runtime.Prompt = &promptStub{selected: string(configuration.ProtocolOpenAIResponses)}
-	interactive, err := resolveUseRuntime(runtime, cfg, hermes.ID, "shared", "", configuration.ConnectionChange{})
-	if err != nil || interactive.Protocol != configuration.ProtocolOpenAIResponses {
+	runtime.Prompt = &promptStub{selected: string(domain.ProtocolOpenAIResponses)}
+	interactive, err := resolveUseRuntime(runtime, cfg, hermes.ID, "shared", "", domain.ConnectionChange{})
+	if err != nil || interactive.Protocol != domain.ProtocolOpenAIResponses {
 		t.Fatalf("interactive Hermes protocol = %#v, %v", interactive, err)
 	}
 }
 
 func TestUseValidatesSelectedProtocolWhenAcquiringToken(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
-	cfg.Routes["shared"] = configuration.Route{
+	cfg.Routes["shared"] = domain.Route{
 		Account: "gateway", Model: "shared-model",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolAnthropic: {}, configuration.ProtocolOpenAIResponses: {},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
 		},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -148,7 +148,7 @@ func TestUseValidatesSelectedProtocolWhenAcquiringToken(t *testing.T) {
 	command := NewUseCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", hermes.ID, "--protocol", string(configuration.ProtocolAnthropic), "shared"})
+	command.SetArgs([]string{"--for", hermes.ID, "--protocol", string(domain.ProtocolAnthropic), "shared"})
 	if err := command.Execute(); err != nil || requests != 1 {
 		t.Fatalf("selected-protocol Token validation: requests=%d error=%v", requests, err)
 	}

@@ -20,6 +20,7 @@ import (
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secrets"
 	surfaceidentity "aigw-cli/internal/surface"
@@ -225,23 +226,23 @@ type doerFunc func(*http.Request) (*http.Response, error)
 
 func (do doerFunc) Do(request *http.Request) (*http.Response, error) { return do(request) }
 
-func configuredRuntime(t *testing.T) (invocation.Context, configuration.Config, *bytes.Buffer) {
+func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.Buffer) {
 	t.Helper()
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = configuration.Account{
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["gateway"] = domain.Account{
 		Label: "Gateway",
-		Endpoints: configuration.Endpoints{
+		Endpoints: domain.Endpoints{
 			Anthropic:       "https://gateway.example.test",
 			OpenAIResponses: "https://gateway.example.test/v1",
 		},
 	}
-	cfg.Routes["codex"] = configuration.Route{
+	cfg.Routes["codex"] = domain.Route{
 		Label:   "Codex",
 		Account: "gateway",
 		Model:   "gpt-test",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolOpenAIResponses: {},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolOpenAIResponses: {},
 		},
 	}
 	cfg.SetSelectedRoute(codex.ID, "codex", "")
@@ -259,13 +260,13 @@ func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Routes["claude"] = configuration.Route{
+	cfg.Routes["claude"] = domain.Route{
 		Label:   "Claude",
 		Purpose: "Team reviewer",
 		Account: "gateway",
 		Model:   "claude-next",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolAnthropic: {},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolAnthropic: {},
 		},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -342,9 +343,9 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 			if err := store.Set("gateway", "token"); err != nil {
 				t.Fatal(err)
 			}
-			cfg.Routes["desktop"] = configuration.Route{
+			cfg.Routes["desktop"] = domain.Route{
 				Label: "Desktop", Account: "gateway", Model: "claude-test",
-				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {}},
+				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 			}
 			var executable, library string
 			if test.installed {

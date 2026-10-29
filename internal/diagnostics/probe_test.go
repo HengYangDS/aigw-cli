@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"aigw-cli/internal/client/codex"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/diagnostics"
+	"aigw-cli/internal/domain"
 )
 
 type clientFunc func(*http.Request) (*http.Response, error)
@@ -36,8 +36,8 @@ func assertDiagnosticOmits(t *testing.T, result diagnostics.Result, forbidden ..
 	}
 }
 
-func runtime() configuration.Runtime {
-	return configuration.Runtime{RouteID: "dmx", RouteLabel: "DMXAPI", AccountID: "dmx", AccountLabel: "DMXAPI", Client: codex.ID, Protocol: configuration.ProtocolOpenAIResponses, Endpoint: "https://service.test/v1"}
+func runtime() domain.Runtime {
+	return domain.Runtime{RouteID: "dmx", RouteLabel: "DMXAPI", AccountID: "dmx", AccountLabel: "DMXAPI", Client: codex.ID, Protocol: domain.ProtocolOpenAIResponses, Endpoint: "https://service.test/v1"}
 }
 
 func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {
@@ -265,11 +265,11 @@ func TestProbeBoundedPreflightDoesNotClaimHTTPAttempt(t *testing.T) {
 	missingModel.Model = ""
 	for _, test := range []struct {
 		name    string
-		runtime configuration.Runtime
+		runtime domain.Runtime
 		scope   diagnostics.Scope
 		want    diagnostics.Kind
 	}{
-		{name: "missing endpoint", runtime: configuration.Runtime{Client: codex.ID}, scope: diagnostics.ScopeEndpoint, want: diagnostics.EndpointMismatch},
+		{name: "missing endpoint", runtime: domain.Runtime{Client: codex.ID}, scope: diagnostics.ScopeEndpoint, want: diagnostics.EndpointMismatch},
 		{name: "missing model", runtime: missingModel, scope: diagnostics.ScopeInference, want: diagnostics.ModelUnresolved},
 	} {
 		t.Run(test.name, func(t *testing.T) {

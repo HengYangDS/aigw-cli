@@ -16,6 +16,7 @@ import (
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 )
 
@@ -65,7 +66,7 @@ func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *tes
 func TestExplicitTokenVerificationRefusesUnresolvedReaderFromNativeBinding(t *testing.T) {
 	cfg := testConfig(filepath.Join(t.TempDir(), "codex.toml"))
 	binding := cfg.Clients[codex.ID]
-	binding.Authentication = configuration.AuthenticationClientNative
+	binding.Authentication = domain.AuthenticationClientNative
 	binding.ModelProvider = "amazon-bedrock"
 	cfg.Clients[codex.ID] = binding
 	cfg.Accounts["explicit"] = cfg.Accounts["gateway"]
@@ -125,7 +126,7 @@ func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
 			if store.commits != 0 {
 				t.Fatal("reader resolution failure changed configuration")
 			}
-			for _, unused := range []configuration.Config{configuration.NewConfig(clients.Admission()), cfg.Clone()} {
+			for _, unused := range []domain.Config{domain.NewConfig(clients.Admission()), cfg.Clone()} {
 				if len(unused.Clients) > 0 {
 					binding := unused.Clients[codex.ID]
 					binding.CredentialCommand = filepath.Join(root, "external-reader")
@@ -146,15 +147,15 @@ type removedEntrypointAdapter struct {
 	rollbackErr error
 }
 
-func (adapter removedEntrypointAdapter) Spec() configuration.ClientSpec {
-	return configuration.ClientSpec{ID: codex.ID, Label: "Codex", EndpointProtocols: []configuration.EndpointProtocol{configuration.ProtocolOpenAIResponses}}
+func (adapter removedEntrypointAdapter) Spec() domain.ClientSpec {
+	return domain.ClientSpec{ID: codex.ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
 }
 
-func (adapter removedEntrypointAdapter) Plan(client.Dependencies, configuration.Config, configuration.Config) ([]client.ProjectionPlan, error) {
+func (adapter removedEntrypointAdapter) Plan(client.Dependencies, domain.Config, domain.Config) ([]client.ProjectionPlan, error) {
 	return []client.ProjectionPlan{{Client: codex.ID, Target: adapter.target, Action: "update", ChangesState: true}}, nil
 }
 
-func (adapter removedEntrypointAdapter) Apply(context.Context, client.Dependencies, configuration.Config, configuration.Config) (client.ProjectionReceipt, error) {
+func (adapter removedEntrypointAdapter) Apply(context.Context, client.Dependencies, domain.Config, domain.Config) (client.ProjectionReceipt, error) {
 	previous, err := os.ReadFile(adapter.target)
 	if err != nil {
 		return nil, err
@@ -182,11 +183,11 @@ type convergedProjectionAdapter struct {
 	applied *int
 }
 
-func (adapter convergedProjectionAdapter) Plan(client.Dependencies, configuration.Config, configuration.Config) ([]client.ProjectionPlan, error) {
+func (adapter convergedProjectionAdapter) Plan(client.Dependencies, domain.Config, domain.Config) ([]client.ProjectionPlan, error) {
 	return []client.ProjectionPlan{{Client: codex.ID, Target: adapter.target, Action: "unchanged"}}, nil
 }
 
-func (adapter convergedProjectionAdapter) Apply(context.Context, client.Dependencies, configuration.Config, configuration.Config) (client.ProjectionReceipt, error) {
+func (adapter convergedProjectionAdapter) Apply(context.Context, client.Dependencies, domain.Config, domain.Config) (client.ProjectionReceipt, error) {
 	*adapter.applied++
 	return projectionUndo(func() error { return nil }), nil
 }
@@ -390,7 +391,7 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 			}
 			store := &configStoreStub{restoreErr: tc.configErr}
 			syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
-			err = syncer.CommitProjection(t.Context(), configuration.NewConfig(clients.Admission()), testConfig(target), "sync")
+			err = syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "sync")
 			var recovery interface{ ConfigurationRestored() bool }
 			if !errors.Is(err, cause) || !errors.As(err, &recovery) || recovery.ConfigurationRestored() != tc.restored || store.restores != 1 {
 				t.Fatalf("finalization outcome: restores=%d error=%v", store.restores, err)

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/synchronization"
 )
@@ -67,13 +68,13 @@ type Plan struct {
 	Actions            Actions  `json:"actions"`
 	ExternalTODOs      []string `json:"external_todos"`
 
-	Config               configuration.Config  `json:"-"`
-	Route                configuration.Route   `json:"-"`
-	Account              configuration.Account `json:"-"`
-	tokenCopy            tokenCopy             `json:"-"`
-	probeCopy            probeCopy             `json:"-"`
-	blockedReason        string                `json:"-"`
-	Finalize             bool                  `json:"-"`
+	Config               domain.Config  `json:"-"`
+	Route                domain.Route   `json:"-"`
+	Account              domain.Account `json:"-"`
+	tokenCopy            tokenCopy      `json:"-"`
+	probeCopy            probeCopy      `json:"-"`
+	blockedReason        string         `json:"-"`
+	Finalize             bool           `json:"-"`
 	snapshot             configuration.Snapshot
 	deleteToken          bool `json:"-"`
 	deleteProbe          bool `json:"-"`

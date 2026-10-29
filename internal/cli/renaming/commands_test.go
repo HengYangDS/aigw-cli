@@ -12,6 +12,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 
 	"github.com/spf13/cobra"
@@ -20,9 +21,9 @@ import (
 func renameRuntime(t *testing.T) invocation.Context {
 	t.Helper()
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["old"] = configuration.Account{Label: "Old", Endpoints: configuration.Endpoints{OpenAIResponses: "https://old.test/v1"}}
-	cfg.Routes["old"] = configuration.Route{Label: "Old", Account: "old", Model: "gpt"}
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["old"] = domain.Account{Label: "Old", Endpoints: domain.Endpoints{OpenAIResponses: "https://old.test/v1"}}
+	cfg.Routes["old"] = domain.Route{Label: "Old", Account: "old", Model: "gpt"}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-package configuration
+package domain
 
 import (
 	"reflect"
@@ -21,7 +21,7 @@ func TestMergeRouteRetirementRejectsDanglingRecommendationWithoutMutatingInput(t
 	}
 	before := cfg.Clone()
 	incoming := Manifest{
-		Version: currentVersion,
+		Version: ManifestVersion,
 		Routes: map[string]Route{
 			"new": testRoute("New", "gateway", "gpt-new", ProtocolOpenAIResponses),
 		},
@@ -43,7 +43,7 @@ func TestMergeFalseRetirementSelectorDoesNotRetireRoute(t *testing.T) {
 	cfg.Routes["old"] = testRoute("Old", "gateway", "gpt-old", ProtocolOpenAIResponses)
 	cfg.Normalize()
 	incoming := Manifest{
-		Version: currentVersion,
+		Version: ManifestVersion,
 		Routes: map[string]Route{
 			"new": testRoute("New", "gateway", "gpt-new", ProtocolOpenAIResponses),
 		},

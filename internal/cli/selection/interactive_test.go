@@ -10,6 +10,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -18,7 +19,7 @@ func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
 	route := cfg.Routes["codex"]
 	route.Label = ""
 	cfg.Routes["codex"] = route
-	cfg.Models["gpt-test"] = configuration.Model{Label: "GPT Test"}
+	cfg.Models["gpt-test"] = domain.Model{Label: "GPT Test"}
 	choice := &promptStub{selected: "codex"}
 	runtime.Prompt = choice
 	selected, err := chooseRoute(runtime, cfg, codex.ID, "Select Route")
@@ -29,11 +30,11 @@ func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
 
 func TestUsePromptsForACompatibleClientOnASharedRoute(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
-	cfg.Routes["shared"] = configuration.Route{
+	cfg.Routes["shared"] = domain.Route{
 		Label: "Shared", Account: "gateway", Model: "shared-model",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{
-			configuration.ProtocolAnthropic:       {},
-			configuration.ProtocolOpenAIResponses: {},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolAnthropic:       {},
+			domain.ProtocolOpenAIResponses: {},
 		},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -77,9 +78,9 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Routes["purpose"] = configuration.Route{
+	cfg.Routes["purpose"] = domain.Route{
 		Label: "Purpose", Purpose: "Research", Account: "gateway", Model: "claude-research",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolOpenAIResponses: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)

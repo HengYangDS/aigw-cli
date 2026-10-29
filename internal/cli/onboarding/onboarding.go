@@ -5,8 +5,8 @@ package onboarding
 import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secrets"
@@ -94,9 +94,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 
 type setupPlan struct {
 	request Request
-	before  configuration.Config
-	config  configuration.Config
-	route   configuration.Route
+	before  domain.Config
+	config  domain.Config
+	route   domain.Route
 }
 
 type setupCredential struct {
@@ -142,7 +142,7 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	return nil
 }
 
-func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
+func planSetup(cfg domain.Config, request Request) (setupPlan, error) {
 	plan := setupPlan{request: request, before: cfg.Clone(), config: cfg}
 	plan.request.Route = strings.TrimSpace(plan.request.Route)
 	plan.request.Account = strings.TrimSpace(plan.request.Account)
@@ -152,16 +152,16 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 	if plan.request.Account == "" {
 		plan.request.Account = plan.request.Route
 	}
-	if !configuration.ValidIdentifier(plan.request.Account) {
+	if !domain.ValidIdentifier(plan.request.Account) {
 		return setupPlan{}, fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Account)
 	}
-	if !configuration.ValidIdentifier(plan.request.Route) {
+	if !domain.ValidIdentifier(plan.request.Route) {
 		return setupPlan{}, fmt.Errorf("Invalid route ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Route)
 	}
 	if plan.request.Label == "" {
 		plan.request.Label = plan.request.Account
 	}
-	endpoints := configuration.Endpoints{
+	endpoints := domain.Endpoints{
 		OpenAIResponses:       strings.TrimRight(strings.TrimSpace(plan.request.OpenAIURL), "/"),
 		Anthropic:             strings.TrimRight(strings.TrimSpace(plan.request.AnthropicURL), "/"),
 		OpenAIChatCompletions: strings.TrimRight(strings.TrimSpace(plan.request.ChatURL), "/"),
@@ -173,7 +173,7 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 	if !ok {
 		return setupPlan{}, fmt.Errorf("--for must be %s; run `aigw setup --help`", cfg.Admission().Usage())
 	}
-	account := configuration.Account{ID: plan.request.Account, Endpoints: endpoints}
+	account := domain.Account{ID: plan.request.Account, Endpoints: endpoints}
 	if compatible := spec.CompatibleProtocols(account); plan.request.Protocol == "" && len(compatible) > 1 {
 		names := make([]string, 0, len(compatible))
 		for _, candidate := range compatible {
@@ -184,28 +184,28 @@ func planSetup(cfg configuration.Config, request Request) (setupPlan, error) {
 			"No Account, Route or Client Binding was changed.",
 			"Rerun the same aigw setup command with --protocol <"+strings.Join(names, "|")+">", refusal)
 	}
-	_, protocol, err := spec.ResolveEndpoint(account, configuration.EndpointProtocol(plan.request.Protocol))
+	_, protocol, err := spec.ResolveEndpoint(account, domain.EndpointProtocol(plan.request.Protocol))
 	if err != nil {
-		if _, ok := errors.AsType[*configuration.RuntimeMissingEndpointError](err); !ok {
+		if _, ok := errors.AsType[*domain.RuntimeMissingEndpointError](err); !ok {
 			return setupPlan{}, err
 		}
 		required := spec.EndpointProtocols[0]
 		if plan.request.Protocol != "" {
-			required = configuration.EndpointProtocol(plan.request.Protocol)
+			required = domain.EndpointProtocol(plan.request.Protocol)
 		}
 		return setupPlan{}, fmt.Errorf("--for %s requires %s", plan.request.Client, setupEndpointFlag(required))
 	}
 	if strings.TrimSpace(plan.request.Model) == "" {
 		return setupPlan{}, fmt.Errorf("--for %s requires --model", plan.request.Client)
 	}
-	storedAccount := configuration.Account{Label: plan.request.Label, Endpoints: endpoints}
-	plan.route = configuration.Route{
+	storedAccount := domain.Account{Label: plan.request.Label, Endpoints: endpoints}
+	plan.route = domain.Route{
 		Label: plan.request.Label, Account: plan.request.Account, Model: strings.TrimSpace(plan.request.Model),
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{protocol: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 	}
 	plan.config.Accounts[plan.request.Account] = storedAccount
 	plan.config.Routes[plan.request.Route] = plan.route
-	plan.config.Clients[plan.request.Client] = configuration.ClientBinding{Route: plan.request.Route, Enabled: true, Protocol: protocol}
+	plan.config.Clients[plan.request.Client] = domain.ClientBinding{Route: plan.request.Route, Enabled: true, Protocol: protocol}
 	if err := plan.config.Validate(); err != nil {
 		return setupPlan{}, err
 	}
@@ -224,7 +224,7 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 	)
 }
 
-func renderSetupClients(runtime invocation.Context, cfg configuration.Config, selectedClient string) {
+func renderSetupClients(runtime invocation.Context, cfg domain.Config, selectedClient string) {
 	r := invocation.Renderer(runtime)
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	r.Section("Clients")
@@ -250,13 +250,13 @@ func renderSetupClients(runtime invocation.Context, cfg configuration.Config, se
 	r.Next(activation.NextActionFor(nil))
 }
 
-func setupEndpointFlag(protocol configuration.EndpointProtocol) string {
+func setupEndpointFlag(protocol domain.EndpointProtocol) string {
 	switch protocol {
-	case configuration.ProtocolAnthropic:
+	case domain.ProtocolAnthropic:
 		return "--anthropic-url"
-	case configuration.ProtocolOpenAIChatCompletions:
+	case domain.ProtocolOpenAIChatCompletions:
 		return "--chat-url"
-	case configuration.ProtocolOpenAIResponses:
+	case domain.ProtocolOpenAIResponses:
 		return "--openai-url"
 	default:
 		return "--protocol"
@@ -298,7 +298,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	if !configuration.ValidIdentifier(account) {
+	if !domain.ValidIdentifier(account) {
 		return fmt.Errorf("invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", account)
 	}
 	label, err := runtime.Prompt.Text("Provider display name: ")
@@ -328,7 +328,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 		if selectErr != nil {
 			return selectErr
 		}
-		protocol = configuration.EndpointProtocol(selected)
+		protocol = domain.EndpointProtocol(selected)
 		if !slices.Contains(spec.EndpointProtocols, protocol) {
 			return fmt.Errorf("unsupported %s endpoint protocol %q", spec.Label, selected)
 		}
@@ -337,11 +337,11 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	var endpointLabel string
 	var endpointURL *string
 	switch protocol {
-	case configuration.ProtocolAnthropic:
+	case domain.ProtocolAnthropic:
 		endpointLabel, endpointURL = "Anthropic Messages URL: ", &request.AnthropicURL
-	case configuration.ProtocolOpenAIResponses:
+	case domain.ProtocolOpenAIResponses:
 		endpointLabel, endpointURL = "OpenAI Responses URL: ", &request.OpenAIURL
-	case configuration.ProtocolOpenAIChatCompletions:
+	case domain.ProtocolOpenAIChatCompletions:
 		endpointLabel, endpointURL = "OpenAI Chat Completions URL: ", &request.ChatURL
 	default:
 		return fmt.Errorf("unsupported endpoint protocol %q", protocol)

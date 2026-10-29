@@ -8,12 +8,14 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/domain"
+
 	"github.com/pelletier/go-toml/v2"
 )
 
-var publishedSchemaSixCapabilities = []Capability{
-	CapabilityText, CapabilityReasoning, CapabilityStreaming, CapabilityTools,
-	CapabilityStructuredOutput, CapabilityContinuation, CapabilityCompaction, CapabilityMultimodalInput,
+var publishedSchemaSixCapabilities = []domain.Capability{
+	domain.CapabilityText, domain.CapabilityReasoning, domain.CapabilityStreaming, domain.CapabilityTools,
+	domain.CapabilityStructuredOutput, domain.CapabilityContinuation, domain.CapabilityCompaction, domain.CapabilityMultimodalInput,
 }
 
 func TestUnpublishedRouteCapabilityStaysOutOfCanonicalConfiguration(t *testing.T) {
@@ -25,18 +27,18 @@ func TestUnpublishedRouteCapabilityStaysOutOfCanonicalConfiguration(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := canonical.Routes["claude"].Interfaces[ProtocolAnthropic]; !slices.Equal(got, publishedSchemaSixCapabilities) {
+	if got := canonical.Routes["claude"].Interfaces[domain.ProtocolAnthropic]; !slices.Equal(got, publishedSchemaSixCapabilities) {
 		t.Fatalf("canonical Anthropic capabilities = %v, want the published schema-six vocabulary", got)
 	}
-	if got := canonical.Routes["gpt"].Interfaces[ProtocolOpenAIResponses]; !slices.Equal(got, []Capability{CapabilityText, CapabilityReasoning}) {
+	if got := canonical.Routes["gpt"].Interfaces[domain.ProtocolOpenAIResponses]; !slices.Equal(got, []domain.Capability{domain.CapabilityText, domain.CapabilityReasoning}) {
 		t.Fatalf("canonical Responses capabilities = %v", got)
 	}
 	loaded, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, capability := range append(slices.Clone(publishedSchemaSixCapabilities), CapabilityToolSearch) {
-		if !loaded.Routes["claude"].Declares(ProtocolAnthropic, capability) {
+	for _, capability := range append(slices.Clone(publishedSchemaSixCapabilities), domain.CapabilityToolSearch) {
+		if !loaded.Routes["claude"].Declares(domain.ProtocolAnthropic, capability) {
 			t.Fatalf("stored Route lost %q: %v", capability, loaded.Routes["claude"].Interfaces)
 		}
 	}
@@ -44,7 +46,7 @@ func TestUnpublishedRouteCapabilityStaysOutOfCanonicalConfiguration(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if credential.Routes["claude"].Declares(ProtocolAnthropic, CapabilityToolSearch) {
+	if credential.Routes["claude"].Declares(domain.ProtocolAnthropic, domain.CapabilityToolSearch) {
 		t.Fatal("credential configuration read the capability component")
 	}
 }
@@ -56,7 +58,7 @@ func TestCanonicalLocationCapabilityMovesOnTheNextWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !loaded.Routes["claude"].Declares(ProtocolAnthropic, CapabilityToolSearch) {
+	if !loaded.Routes["claude"].Declares(domain.ProtocolAnthropic, domain.CapabilityToolSearch) {
 		t.Fatal("the earlier canonical location was not accepted")
 	}
 	before, err := store.CaptureSnapshot()
@@ -66,7 +68,7 @@ func TestCanonicalLocationCapabilityMovesOnTheNextWrite(t *testing.T) {
 	if _, err := store.Commit(before, loaded); err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Contains(readStoreFile(t, store.Path()), []byte(CapabilityToolSearch)) {
+	if bytes.Contains(readStoreFile(t, store.Path()), []byte(domain.CapabilityToolSearch)) {
 		t.Fatal("the next write kept the capability in the canonical configuration")
 	}
 	if _, err := os.Stat(capabilityComponentPath(store)); err != nil {
@@ -104,7 +106,7 @@ func TestStoredCapabilityAppliesOnlyToItsRecordedRoute(t *testing.T) {
 				cfg.Accounts["other"] = cfg.Accounts["ucloud"]
 				route.Account = "other"
 			case "interface":
-				route.Interfaces = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {CapabilityText}}
+				route.Interfaces = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}}
 			}
 			cfg.Routes["claude"] = route
 			if change == "route" {
@@ -115,7 +117,7 @@ func TestStoredCapabilityAppliesOnlyToItsRecordedRoute(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got, want := loaded.Routes["claude"].Declares(ProtocolAnthropic, CapabilityToolSearch), change == "none"; got != want {
+			if got, want := loaded.Routes["claude"].Declares(domain.ProtocolAnthropic, domain.CapabilityToolSearch), change == "none"; got != want {
 				t.Fatalf("stored capability applies = %v, want %v", got, want)
 			}
 			if err := store.Save(loaded); err != nil {
@@ -131,7 +133,7 @@ func TestStoredCapabilityAppliesOnlyToItsRecordedRoute(t *testing.T) {
 
 func TestDamagedCapabilityComponentFailsOnlyFullReads(t *testing.T) {
 	fixture := toolSearchConfig()
-	responses := capabilityIdentity(fixture, fixture.Routes["gpt"], ProtocolOpenAIResponses)
+	responses := capabilityIdentity(fixture, fixture.Routes["gpt"], domain.ProtocolOpenAIResponses)
 	for name, component := range map[string]string{
 		"syntax":          "[routes",
 		"empty":           "",
@@ -173,11 +175,11 @@ func TestStoredCapabilitySurvivesRecovery(t *testing.T) {
 	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientClaude}); err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Contains(readStoreFile(t, store.Path()+".verified.json"), []byte(CapabilityToolSearch)) {
+	if bytes.Contains(readStoreFile(t, store.Path()+".verified.json"), []byte(domain.CapabilityToolSearch)) {
 		t.Fatal("verified checkpoint carries an unpublished capability")
 	}
 	checkpoint, err := store.LoadVerifiedCheckpoint()
-	if err != nil || !checkpoint.Config.Routes["claude"].Declares(ProtocolAnthropic, CapabilityToolSearch) {
+	if err != nil || !checkpoint.Config.Routes["claude"].Declares(domain.ProtocolAnthropic, domain.CapabilityToolSearch) {
 		t.Fatalf("verified checkpoint lost the stored capability: %v", err)
 	}
 	state, err := store.CaptureVerifiedBackupState()
@@ -188,7 +190,7 @@ func TestStoredCapabilitySurvivesRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	backup, err := store.LoadBackup()
-	if err != nil || !backup.Routes["claude"].Declares(ProtocolAnthropic, CapabilityToolSearch) {
+	if err != nil || !backup.Routes["claude"].Declares(domain.ProtocolAnthropic, domain.CapabilityToolSearch) {
 		t.Fatalf("verified backup lost the stored capability: %v", err)
 	}
 	before, err := store.CaptureSnapshot()
@@ -197,20 +199,20 @@ func TestStoredCapabilitySurvivesRecovery(t *testing.T) {
 	}
 	changed := cfg.Clone()
 	route := changed.Routes["claude"]
-	route.Interfaces = map[EndpointProtocol][]Capability{ProtocolAnthropic: {CapabilityText}}
+	route.Interfaces = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}
 	changed.Routes["claude"] = route
 	after, err := store.Commit(before, changed)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if current, err := store.Load(); err != nil || current.Routes["claude"].Declares(ProtocolAnthropic, CapabilityToolSearch) {
+	if current, err := store.Load(); err != nil || current.Routes["claude"].Declares(domain.ProtocolAnthropic, domain.CapabilityToolSearch) {
 		t.Fatalf("committed removal kept the stored capability: %v", err)
 	}
 	if err := store.RestoreSnapshot(before, after); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := store.Load()
-	if err != nil || !restored.Routes["claude"].Declares(ProtocolAnthropic, CapabilityToolSearch) {
+	if err != nil || !restored.Routes["claude"].Declares(domain.ProtocolAnthropic, domain.CapabilityToolSearch) {
 		t.Fatalf("compensation did not restore the stored capability: %v", err)
 	}
 	if got, err := store.CaptureSnapshot(); err != nil || !before.equal(got) {
@@ -220,27 +222,27 @@ func TestStoredCapabilitySurvivesRecovery(t *testing.T) {
 
 // toolSearchConfig declares every published schema-six capability and the
 // later tool_search capability on one Anthropic Route.
-func toolSearchConfig() Config {
-	cfg := NewConfig(testAdmission())
-	cfg.Accounts["ucloud"] = Account{Label: "UCloud", Endpoints: Endpoints{
+func toolSearchConfig() domain.Config {
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{
 		Anthropic: "https://ucloud.test", OpenAIResponses: "https://ucloud.test/v1",
 	}}
-	cfg.Routes["claude"] = Route{
+	cfg.Routes["claude"] = domain.Route{
 		Label: "Claude", Account: "ucloud", Model: "claude", UpstreamModel: "claude-wire",
-		Interfaces: map[EndpointProtocol][]Capability{
-			ProtocolAnthropic: append(slices.Clone(publishedSchemaSixCapabilities), CapabilityToolSearch),
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			domain.ProtocolAnthropic: append(slices.Clone(publishedSchemaSixCapabilities), domain.CapabilityToolSearch),
 		},
 	}
-	cfg.Routes["gpt"] = Route{
+	cfg.Routes["gpt"] = domain.Route{
 		Label: "GPT", Account: "ucloud", Model: "gpt",
-		Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {CapabilityText, CapabilityReasoning}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText, domain.CapabilityReasoning}},
 	}
 	return cfg
 }
 
 // writePredecessorConfiguration replaces only the canonical file, as a release
 // that knows no capability component writes it.
-func writePredecessorConfiguration(t *testing.T, store Store, cfg Config) {
+func writePredecessorConfiguration(t *testing.T, store Store, cfg domain.Config) {
 	t.Helper()
 	cfg.Normalize()
 	data, err := toml.Marshal(cfg)

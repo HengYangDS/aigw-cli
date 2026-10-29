@@ -12,6 +12,7 @@ import (
 
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secrets"
@@ -154,7 +155,7 @@ func configureNativeDiagnosticProbe(t *testing.T, journey *journeyFixture, accou
 		t.Fatal(err)
 	}
 	account := manifest.Accounts[accountID]
-	account.AccountProbe = &configuration.AccountProbe{Kind: "dmxapi", BaseURL: endpoint}
+	account.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: endpoint}
 	manifest.Accounts[accountID] = account
 	data, err := toml.Marshal(manifest)
 	if err != nil {

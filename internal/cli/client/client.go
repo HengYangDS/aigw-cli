@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 
 	"github.com/spf13/cobra"
@@ -112,7 +112,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 }
 
 // targetHelp explains the target option with each client's repeated-target usage.
-func targetHelp(admission configuration.Admission) string {
+func targetHelp(admission domain.Admission) string {
 	help := []string{"Client configuration path"}
 	for _, spec := range admission.Specs() {
 		if spec.TargetsUsage != "" {
@@ -154,7 +154,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 	}}
 }
 
-func renderEnabled(r *presentation.Renderer, spec configuration.ClientSpec) {
+func renderEnabled(r *presentation.Renderer, spec domain.ClientSpec) {
 	rows := []presentation.Field{
 		{Label: "Client", Value: spec.Label},
 		{State: presentation.OK, Label: "Projection", Value: "Configured"},
@@ -170,7 +170,7 @@ func renderEnabled(r *presentation.Renderer, spec configuration.ClientSpec) {
 	r.Next(fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label))
 }
 
-func renderDisabled(r *presentation.Renderer, spec configuration.ClientSpec) {
+func renderDisabled(r *presentation.Renderer, spec domain.ClientSpec) {
 	r.ProductTitle("Client disabled")
 	rows := []presentation.Field{{Label: "Client", Value: spec.Label}}
 	if spec.RestartAfterProjection {
@@ -184,7 +184,7 @@ func renderDisabled(r *presentation.Renderer, spec configuration.ClientSpec) {
 }
 
 // validateClientArgument refuses a client argument that admission does not name.
-func validateClientArgument(admission configuration.Admission) cobra.PositionalArgs {
+func validateClientArgument(admission domain.Admission) cobra.PositionalArgs {
 	return func(command *cobra.Command, args []string) error {
 		if err := cobra.OnlyValidArgs(command, args); err != nil {
 			return fmt.Errorf("Client must be %s; run `%s --help`: %w", admission.Usage(), command.CommandPath(), err)

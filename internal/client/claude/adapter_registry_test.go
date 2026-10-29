@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/configuration"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 )
 
 // claudeRegistry registers only this adapter against its own admission record.
@@ -23,9 +23,9 @@ func claudeRegistry() client.Registry {
 
 func TestClaudeProjectionTreatsAnInvalidRuntimeAsChanged(t *testing.T) {
 	t.Run("invalid enabled Claude runtime", func(t *testing.T) {
-		before := configuration.NewConfig(testAdmission())
-		before.Accounts["gateway"] = configuration.Account{Label: "Gateway", Endpoints: configuration.Endpoints{Anthropic: "https://gateway.test"}}
-		before.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", configuration.ProtocolAnthropic)
+		before := domain.NewConfig(testAdmission())
+		before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+		before.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
 		before.SetSelectedRoute(ID, "claude", "")
 		before.SetClientActivation(ID, true, "/opt/claude", nil)
 		after := before.Clone()
@@ -39,13 +39,13 @@ func TestClaudeProjectionTreatsAnInvalidRuntimeAsChanged(t *testing.T) {
 
 func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing")
-	cfg := configuration.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = configuration.Account{Endpoints: configuration.Endpoints{
+	cfg := domain.NewConfig(testAdmission())
+	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	cfg.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", configuration.ProtocolAnthropic)
-	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", configuration.ProtocolOpenAIResponses)
+	cfg.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedRoute(ID, "claude", "")
 	cfg.SetSelectedRoute(otherClient.ID, "codex", "")
 	cfg.SetClientActivation(ID, true, missing, nil)
@@ -73,13 +73,13 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 func TestClaudeConvergenceIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 	for _, clientID := range []string{ID} {
 		t.Run(clientID+" without a route", func(t *testing.T) {
-			if _, err := claudeRegistry().Converge(client.Dependencies{}, configuration.NewConfig(testAdmission()), discovery.Result{}, clientID); err != nil {
+			if _, err := claudeRegistry().Converge(client.Dependencies{}, domain.NewConfig(testAdmission()), discovery.Result{}, clientID); err != nil {
 				t.Fatalf("Converge(%q) without a route = %v", clientID, err)
 			}
 		})
 
 		t.Run(clientID+" with a broken route", func(t *testing.T) {
-			cfg := configuration.NewConfig(testAdmission())
+			cfg := domain.NewConfig(testAdmission())
 			cfg.SetSelectedRoute(clientID, "missing-route", "")
 			if _, err := claudeRegistry().Converge(client.Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
 				t.Fatalf("Converge(%q) broken route error = %v", clientID, err)

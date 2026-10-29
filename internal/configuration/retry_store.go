@@ -10,6 +10,8 @@ import (
 
 	"aigw-cli/internal/transaction"
 
+	"aigw-cli/internal/domain"
+
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -18,15 +20,15 @@ type retryPolicies struct {
 }
 
 type retryConnection struct {
-	Identity string      `toml:"connection_identity"`
-	Policy   RetryPolicy `toml:"retry_policy"`
+	Identity string             `toml:"connection_identity"`
+	Policy   domain.RetryPolicy `toml:"retry_policy"`
 }
 
 func (s Store) retriesPath() string {
 	return strings.TrimSuffix(s.path, filepath.Ext(s.path)) + ".retries.toml"
 }
 
-func encodeRetryPolicies(cfg Config) ([]byte, error) {
+func encodeRetryPolicies(cfg domain.Config) ([]byte, error) {
 	policies := retryPolicies{Clients: map[string]retryConnection{}}
 	for client, binding := range cfg.Clients {
 		if binding.RetryPolicy == nil {
@@ -48,31 +50,31 @@ func encodeRetryPolicies(cfg Config) ([]byte, error) {
 	return separateTOMLTableBlocks(data), nil
 }
 
-func decodeRetryPolicies(cfg Config, component transaction.FileSnapshot) (Config, error) {
+func decodeRetryPolicies(cfg domain.Config, component transaction.FileSnapshot) (domain.Config, error) {
 	if !component.Exists {
 		return cfg, nil
 	}
 	var policies retryPolicies
 	if err := toml.NewDecoder(bytes.NewReader(component.Data)).DisallowUnknownFields().Decode(&policies); err != nil {
-		return Config{}, newLoadError(LoadPhaseParse, fmt.Errorf("parse client retry policies: %w", err))
+		return domain.Config{}, newLoadError(LoadPhaseParse, fmt.Errorf("parse client retry policies: %w", err))
 	}
 	if len(policies.Clients) == 0 {
-		return Config{}, newLoadError(LoadPhaseValidate, errors.New("client retry policy component has no policies"))
+		return domain.Config{}, newLoadError(LoadPhaseValidate, errors.New("client retry policy component has no policies"))
 	}
 	for client, connection := range policies.Clients {
 		binding, exists := cfg.Clients[client]
 		runtime, err := cfg.ResolveRuntime(client, "")
 		if !exists || err != nil || runtime.ConnectionFingerprint() != connection.Identity {
-			return Config{}, newLoadError(LoadPhaseValidate, fmt.Errorf("client %q retry policy does not match its selected connection", client))
+			return domain.Config{}, newLoadError(LoadPhaseValidate, fmt.Errorf("client %q retry policy does not match its selected connection", client))
 		}
 		if binding.RetryPolicy != nil && !reflect.DeepEqual(binding.RetryPolicy, &connection.Policy) {
-			return Config{}, newLoadError(LoadPhaseValidate, fmt.Errorf("client %q retry policy conflicts with its recorded declaration", client))
+			return domain.Config{}, newLoadError(LoadPhaseValidate, fmt.Errorf("client %q retry policy conflicts with its recorded declaration", client))
 		}
 		binding.RetryPolicy = connection.Policy.Clone()
 		cfg.Clients[client] = binding
 	}
 	if err := cfg.Validate(); err != nil {
-		return Config{}, newLoadError(LoadPhaseValidate, err)
+		return domain.Config{}, newLoadError(LoadPhaseValidate, err)
 	}
 	return cfg, nil
 }

@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"aigw-cli/internal/domain"
 	"bytes"
 	"os"
 	"path/filepath"
@@ -136,7 +137,7 @@ func TestImmediatePredecessorMigrationRejectsInvalidProfiles(t *testing.T) {
 		}, "references unknown account"},
 		{"incompatible binding", func(config *legacyConfig) {
 			binding := config.Clients[ClientCodex]
-			binding.Protocol = ProtocolAnthropic
+			binding.Protocol = domain.ProtocolAnthropic
 			config.Clients[ClientCodex] = binding
 		}, "migrated configuration is invalid"},
 	} {

@@ -9,9 +9,9 @@ import (
 
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/diagnostics"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
@@ -90,7 +90,7 @@ func activationCheckIssue(activation clientactivation.Activation) (problem, evid
 
 type evaluatedClient struct {
 	client              string
-	runtime             configuration.Runtime
+	runtime             domain.Runtime
 	resolveErr          error
 	credentialErr       error
 	credentialState     domainreadiness.State
@@ -123,7 +123,7 @@ func selectedCheckClient(cmd *cobra.Command) string {
 	return flag.Value.String()
 }
 
-func checkConfigurationFor(cfg configuration.Config, client string) (configuration.Config, string, error) {
+func checkConfigurationFor(cfg domain.Config, client string) (domain.Config, string, error) {
 	if client == "" {
 		return cfg, "", nil
 	}
@@ -145,7 +145,7 @@ func checkConfigurationFor(cfg configuration.Config, client string) (configurati
 	return scoped, "", nil
 }
 
-func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config) checkEvaluation {
+func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg domain.Config) checkEvaluation {
 	var evaluation checkEvaluation
 	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
 		if !cfg.Clients[client].Enabled {
@@ -156,7 +156,7 @@ func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg configura
 	return evaluation
 }
 
-func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg configuration.Config, client string) evaluatedClient {
+func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg domain.Config, client string) evaluatedClient {
 	result := evaluatedClient{client: client}
 	clientRuntime, err := cfg.ResolveRuntime(client, "")
 	if err != nil {
@@ -289,7 +289,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	return nil
 }
 
-func checkedClientStatuses(runtime invocation.Context, cfg configuration.Config, activation *clientactivation.Activation, evaluation checkEvaluation, selected string) map[string]clientStatus {
+func checkedClientStatuses(runtime invocation.Context, cfg domain.Config, activation *clientactivation.Activation, evaluation checkEvaluation, selected string) map[string]clientStatus {
 	clients := inspectStatusClients(runtime, cfg, activation, selected)
 	for _, client := range evaluation.clients {
 		status := clients[client.client]

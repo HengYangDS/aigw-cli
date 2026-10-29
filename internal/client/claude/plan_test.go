@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client/claude"
-	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 )
 
 func TestVerificationPlanConsumesTheSynchronizedSettings(t *testing.T) {
@@ -57,16 +57,16 @@ func TestVerificationPlanRequiresConvergedSettings(t *testing.T) {
 }
 
 func TestVerificationPlanRequiresExecutable(t *testing.T) {
-	_, err := claude.VerificationPlan("", "", "", nil, configuration.Runtime{})
+	_, err := claude.VerificationPlan("", "", "", nil, domain.Runtime{})
 	if err == nil || !strings.Contains(err.Error(), "executable is not configured") {
 		t.Fatalf("executable error = %v", err)
 	}
 }
 
-func verificationSettings(t *testing.T) (string, configuration.Runtime) {
+func verificationSettings(t *testing.T) (string, domain.Runtime) {
 	t.Helper()
 	root := t.TempDir()
-	runtime := configuration.Runtime{RouteID: "claude", AccountID: "gateway", Endpoint: "https://example.test", Model: "claude-sonnet-4-6", CredentialCommand: filepath.Join(root, "aigw")}
+	runtime := domain.Runtime{RouteID: "claude", AccountID: "gateway", Endpoint: "https://example.test", Model: "claude-sonnet-4-6", CredentialCommand: filepath.Join(root, "aigw")}
 	settings := filepath.Join(root, "settings.json")
 	if _, err := claude.ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.Model); err != nil {
 		t.Fatal(err)

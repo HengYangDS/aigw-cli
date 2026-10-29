@@ -11,6 +11,7 @@ import (
 	clientactivation "aigw-cli/internal/activation"
 	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
@@ -25,7 +26,7 @@ type Dependencies struct {
 	Secrets   secrets.Store
 	Clients   synchronization.Synchronizer
 	Env       []string
-	Inspect   func(configuration.Config, secrets.Store) map[string]domainreadiness.Client
+	Inspect   func(domain.Config, secrets.Store) map[string]domainreadiness.Client
 	Out       io.Writer
 	Color     bool
 	Width     int
@@ -185,7 +186,7 @@ func collectResult(ctx context.Context, deps Dependencies) commandResult {
 	return result
 }
 
-func applyActivation(result *commandResult, cfg configuration.Config, store secrets.Store) {
+func applyActivation(result *commandResult, cfg domain.Config, store secrets.Store) {
 	activation := clientactivation.AssessActivation(cfg, store)
 	result.EnabledClients = activation.EnabledClients
 	result.State = activation.State
@@ -218,7 +219,7 @@ func inspectClients(deps Dependencies) map[string]domainreadiness.Client {
 	return clients
 }
 
-func renderClients(renderer *presentation.Renderer, admission configuration.Admission, clients map[string]domainreadiness.Client) {
+func renderClients(renderer *presentation.Renderer, admission domain.Admission, clients map[string]domainreadiness.Client) {
 	if len(clients) == 0 {
 		return
 	}
@@ -307,7 +308,7 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 	return checks
 }
 
-func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cfg configuration.Config, home string) []Check {
+func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cfg domain.Config, home string) []Check {
 	checks := make([]Check, 0)
 	projectionPrerequisites := clientactivation.ProjectionPrerequisites(cfg)
 	for _, clientID := range clients.ClientIDs() {

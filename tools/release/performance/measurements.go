@@ -1,7 +1,7 @@
 package performance
 
 import (
-	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -315,8 +315,8 @@ type Workload struct {
 	Name             string
 	Command, Prepare []string
 	Budget           float64
-	Mode             string                `json:"mode,omitempty"`
-	Runtime          configuration.Runtime `json:"runtime,omitzero"`
+	Mode             string         `json:"mode,omitempty"`
+	Runtime          domain.Runtime `json:"runtime,omitzero"`
 }
 
 // Review binds a qualifying case to its native operation and selected executable.
@@ -358,11 +358,11 @@ func (c Workload) Review(selected *Identity) error {
 	return nil
 }
 
-func reviewRuntime(mode string, binding configuration.Runtime) error {
+func reviewRuntime(mode string, binding domain.Runtime) error {
 	if mode != "" && mode != "direct" && mode != "forwarding" {
 		return errors.New("performance mode is not direct or forwarding")
 	}
-	if mode == "" && binding == (configuration.Runtime{}) {
+	if mode == "" && binding == (domain.Runtime{}) {
 		return nil
 	}
 	if binding.Client == "" || binding.RouteID == "" || binding.AccountID == "" || binding.Protocol == "" || binding.Endpoint == "" || binding.UpstreamEndpoint == "" {

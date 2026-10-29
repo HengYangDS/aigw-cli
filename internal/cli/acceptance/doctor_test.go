@@ -15,6 +15,7 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 )
 
@@ -116,7 +117,7 @@ func TestDoctorAcceptsDeferredTeamSetupWithoutTokensOrClients(t *testing.T) {
 
 func TestDoctorReportsCredentialObservationFailure(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+	saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -177,7 +178,7 @@ func TestDoctorJSONDoesNotExposeConfigurationPath(t *testing.T) {
 
 func TestDoctorJSONDoesNotExposeMissingCodexTarget(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, configuration.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+	saveCommandRoute(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -221,9 +222,9 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	route := qualifiedRoute("GPT 5.6 Sol Codex", "dmx", "gpt-5.6-sol", configuration.ProtocolOpenAIResponses)
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = configuration.Account{Label: "DMX", Endpoints: configuration.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	route := qualifiedRoute("GPT 5.6 Sol Codex", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Routes["gpt-5.6-sol"] = route
 	cfg.SetSelectedRoute(codex.ID, "gpt-5.6-sol", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
@@ -280,7 +281,7 @@ func TestDoctorReportsGlobalClientTokenEnvironmentWithoutLeakingValue(t *testing
 
 func TestDoctorPreservesUnrelatedEnvironment(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+	saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	if err := secretStore.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -312,8 +313,8 @@ func TestDoctorHumanOutputUsesConciseCheckLabels(t *testing.T) {
 
 func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	cfg := configuration.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "team", "team", "Team", configuration.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
+	cfg := domain.NewConfig(clients.Admission())
+	addAccountRoute(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedRoute(claude.ID, "team", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
@@ -348,9 +349,9 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 		t.Fatal(err)
 	}
 	homeRelative := filepath.Join("~", ".codex", "config.toml")
-	route := qualifiedRoute("GPT", "team", "gpt-test", configuration.ProtocolOpenAIResponses)
-	cfg := configuration.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = configuration.Account{Label: "Team", Endpoints: configuration.Endpoints{OpenAIResponses: "https://team.test/v1"}}
+	route := qualifiedRoute("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
 	cfg.Routes["gpt"] = route
 	cfg.SetSelectedRoute(codex.ID, "gpt", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
@@ -476,7 +477,7 @@ func TestDoctorFormatsPreserveTheDiagnosticOutcome(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			if test.configured {
-				saveCommandRoute(t, app, configuration.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+				saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 				if err := secretStore.Set("one", "token"); err != nil {
 					t.Fatal(err)
 				}

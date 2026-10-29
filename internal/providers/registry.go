@@ -8,14 +8,14 @@ import (
 	"context"
 	"fmt"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/providers/diagnostic"
 	"aigw-cli/internal/providers/dmxapi"
 	"aigw-cli/internal/secrets"
 )
 
-type probeFunc func(context.Context, credential.HTTPDoer, configuration.Account, string, secrets.DiagnosticCredential) (diagnostic.Report, error)
+type probeFunc func(context.Context, credential.HTTPDoer, domain.Account, string, secrets.DiagnosticCredential) (diagnostic.Report, error)
 
 var registry = map[string]probeFunc{
 	dmxapi.Kind: dmxapi.Probe,
@@ -30,7 +30,7 @@ func Supports(kind string) bool {
 }
 
 // Probe dispatches an optional account diagnostic to the provider adapter declared by the account.
-func Probe(ctx context.Context, client credential.HTTPDoer, providerAccount configuration.Account, apiToken string, auth secrets.DiagnosticCredential) (diagnostic.Report, error) {
+func Probe(ctx context.Context, client credential.HTTPDoer, providerAccount domain.Account, apiToken string, auth secrets.DiagnosticCredential) (diagnostic.Report, error) {
 	if providerAccount.AccountProbe == nil {
 		return diagnostic.Report{}, fmt.Errorf("account %q has no exact diagnostic provider", providerAccount.ID)
 	}

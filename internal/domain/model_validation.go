@@ -1,4 +1,4 @@
-package configuration
+package domain
 
 import (
 	"errors"
@@ -313,7 +313,7 @@ func (route Route) validate(name string, accounts map[string]Account, models map
 	for protocol, capabilities := range route.Interfaces {
 		seenCapabilities := make(map[Capability]bool, len(capabilities))
 		for _, capability := range capabilities {
-			if !knownCapability(capability) {
+			if !capability.Known() {
 				return fmt.Errorf("route %q interface %q has unknown capability %q", name, protocol, capability)
 			}
 			if seenCapabilities[capability] {
@@ -328,7 +328,8 @@ func (route Route) validate(name string, accounts map[string]Account, models map
 	return nil
 }
 
-func knownCapability(capability Capability) bool {
+// Known reports whether AIGW defines this capability.
+func (capability Capability) Known() bool {
 	switch capability {
 	case CapabilityText, CapabilityReasoning, CapabilityStreaming, CapabilityTools,
 		CapabilityStructuredOutput, CapabilityContinuation, CapabilityCompaction,

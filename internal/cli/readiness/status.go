@@ -8,9 +8,9 @@ import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	clientdomain "aigw-cli/internal/client"
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
 	"aigw-cli/internal/diagnostics"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secrets"
@@ -20,17 +20,17 @@ import (
 
 type clientStatus struct {
 	domainreadiness.Client
-	Authentication     configuration.Authentication `json:"authentication"`
-	EndpointConfigured bool                         `json:"endpoint_configured"`
-	Transport          endpointTransportKind        `json:"transport,omitempty"`
-	ProjectionReady    bool                         `json:"projection_ready"`
-	QualifiedModes     []string                     `json:"qualified_modes,omitempty"`
-	QualifiedPlatforms []string                     `json:"qualified_platforms,omitempty"`
-	CheckPassed        *bool                        `json:"check_passed,omitempty"`
-	DiagnosticKind     string                       `json:"diagnostic_kind,omitempty"`
-	DiagnosticScope    diagnostics.Scope            `json:"diagnostic_scope,omitempty"`
-	Attempts           int                          `json:"attempts,omitempty"`
-	Retryable          bool                         `json:"retryable,omitempty"`
+	Authentication     domain.Authentication `json:"authentication"`
+	EndpointConfigured bool                  `json:"endpoint_configured"`
+	Transport          endpointTransportKind `json:"transport,omitempty"`
+	ProjectionReady    bool                  `json:"projection_ready"`
+	QualifiedModes     []string              `json:"qualified_modes,omitempty"`
+	QualifiedPlatforms []string              `json:"qualified_platforms,omitempty"`
+	CheckPassed        *bool                 `json:"check_passed,omitempty"`
+	DiagnosticKind     string                `json:"diagnostic_kind,omitempty"`
+	DiagnosticScope    diagnostics.Scope     `json:"diagnostic_scope,omitempty"`
+	Attempts           int                   `json:"attempts,omitempty"`
+	Retryable          bool                  `json:"retryable,omitempty"`
 }
 
 type endpointTransportKind string
@@ -46,7 +46,7 @@ type statusOutput struct {
 	NextAction        string                   `json:"next_action,omitempty"`
 }
 
-var inspectAdapter = func(ctx context.Context, runtime invocation.Context, cfg configuration.Config, clientID string, clientRuntime configuration.Runtime) clientdomain.Status {
+var inspectAdapter = func(ctx context.Context, runtime invocation.Context, cfg domain.Config, clientID string, clientRuntime domain.Runtime) clientdomain.Status {
 	return invocation.Synchronizer(runtime).Inspect(ctx, cfg, clientID, clientRuntime)
 }
 
@@ -75,7 +75,7 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 
 // inspectStatusClients observes every admitted client without authenticating
 // an endpoint or reading Token values.
-func inspectStatusClients(runtime invocation.Context, cfg configuration.Config, activation *clientactivation.Activation, selected string) map[string]clientStatus {
+func inspectStatusClients(runtime invocation.Context, cfg domain.Config, activation *clientactivation.Activation, selected string) map[string]clientStatus {
 	if activation == nil {
 		assessed := clientactivation.AssessActivation(cfg, runtime.Secrets)
 		activation = &assessed
@@ -168,7 +168,7 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 	}
 }
 
-func unresolvedClientStatus(cfg *configuration.Config, clientID string, resolveErr error) clientStatus {
+func unresolvedClientStatus(cfg *domain.Config, clientID string, resolveErr error) clientStatus {
 	facts := domainreadiness.ClientFacts{}
 	if route := cfg.SelectedRoute(clientID); route != "" {
 		facts.Route = route
@@ -187,7 +187,7 @@ func unresolvedClientStatus(cfg *configuration.Config, clientID string, resolveE
 
 // InspectClients returns the canonical, secret-free local state of every
 // admitted client without authenticating an endpoint or reading Token values.
-func InspectClients(runtime invocation.Context, cfg configuration.Config) map[string]domainreadiness.Client {
+func InspectClients(runtime invocation.Context, cfg domain.Config) map[string]domainreadiness.Client {
 	observed := inspectStatusClients(runtime, cfg, nil, "")
 	clients := make(map[string]domainreadiness.Client, len(observed))
 	for client, status := range observed {
@@ -204,7 +204,7 @@ func orderedClientStates(runtime invocation.Context, clients map[string]clientSt
 	return ordered
 }
 
-func collectStatus(runtime invocation.Context, cfg configuration.Config) statusOutput {
+func collectStatus(runtime invocation.Context, cfg domain.Config) statusOutput {
 	backend, backendErr := secrets.Inspect(runtime.Secrets)
 	if backendErr != nil {
 		backend.RecoveryAction = domainreadiness.CredentialBackendRecovery
@@ -223,7 +223,7 @@ func collectStatus(runtime invocation.Context, cfg configuration.Config) statusO
 
 func endpointTransport(endpoint string) endpointTransportKind {
 	parsed, err := url.Parse(endpoint)
-	if err == nil && configuration.IsLoopbackHost(parsed.Hostname()) {
+	if err == nil && domain.IsLoopbackHost(parsed.Hostname()) {
 		return endpointTransportExternalLoopback
 	}
 	return ""

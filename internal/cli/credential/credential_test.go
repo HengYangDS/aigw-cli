@@ -16,6 +16,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
@@ -162,17 +163,17 @@ func TestCredentialHelperResolvesAnUnselectedRouteProjection(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			account := configuration.Account{Label: "Alternate"}
+			account := domain.Account{Label: "Alternate"}
 			spec, _ := clients.Admission().Spec(client)
-			if spec.EndpointProtocols[0] == configuration.ProtocolAnthropic {
+			if spec.EndpointProtocols[0] == domain.ProtocolAnthropic {
 				account.Endpoints.Anthropic = "https://alternate.test"
 			} else {
 				account.Endpoints.OpenAIResponses = "https://alternate.test/v1"
 			}
 			cfg.Accounts["alternate"] = account
-			cfg.Routes["alternate"] = configuration.Route{
+			cfg.Routes["alternate"] = domain.Route{
 				Label: "Alternate", Account: "alternate", Model: client + "-alternate",
-				Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{spec.EndpointProtocols[0]: {}},
+				Interfaces: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
 			}
 			if err := runtime.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -206,9 +207,9 @@ func TestCredentialHelperResolvesEveryProjectedRouteProtocol(t *testing.T) {
 	account.Endpoints.OpenAIChatCompletions = "https://gateway.test/chat/v1"
 	cfg.Accounts["gateway"] = account
 	route := cfg.Routes[hermes.ID]
-	route.Interfaces = map[configuration.EndpointProtocol][]configuration.Capability{
-		configuration.ProtocolOpenAIResponses:       {},
-		configuration.ProtocolOpenAIChatCompletions: {},
+	route.Interfaces = map[domain.EndpointProtocol][]domain.Capability{
+		domain.ProtocolOpenAIResponses:       {},
+		domain.ProtocolOpenAIChatCompletions: {},
 	}
 	cfg.Routes[hermes.ID] = route
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -221,7 +222,7 @@ func TestCredentialHelperResolvesEveryProjectedRouteProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection.Protocol = configuration.ProtocolOpenAIChatCompletions
+	projection.Protocol = domain.ProtocolOpenAIChatCompletions
 	projection.Endpoint = account.Endpoints.OpenAIChatCompletions
 
 	command := NewCommand(runtime)
@@ -257,7 +258,7 @@ func TestCredentialHelperRejectsStaleBindingBeforeSecretAccess(t *testing.T) {
 					cfg.Routes[client] = route
 				case "endpoint":
 					account := cfg.Accounts[projection.AccountID]
-					account.Endpoints = configuration.Endpoints{
+					account.Endpoints = domain.Endpoints{
 						Anthropic:       "https://other.test",
 						OpenAIResponses: "https://other.test/v1",
 					}
@@ -384,20 +385,20 @@ func TestCredentialHelperRedactsBackendDiagnostics(t *testing.T) {
 func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Context, *bytes.Buffer) {
 	t.Helper()
 	store := configuration.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	cfg := configuration.NewConfig(clients.Admission())
-	account := configuration.Account{Label: "Gateway"}
+	cfg := domain.NewConfig(clients.Admission())
+	account := domain.Account{Label: "Gateway"}
 	spec, _ := clients.Admission().Spec(client)
-	if spec.EndpointProtocols[0] == configuration.ProtocolAnthropic {
+	if spec.EndpointProtocols[0] == domain.ProtocolAnthropic {
 		account.Endpoints.Anthropic = "https://gateway.test"
 	} else {
 		account.Endpoints.OpenAIResponses = "https://gateway.test/v1"
 	}
 	cfg.Accounts["gateway"] = account
-	cfg.Routes[client] = configuration.Route{
+	cfg.Routes[client] = domain.Route{
 		Label: client, Account: "gateway", Model: client + "-team",
-		Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{spec.EndpointProtocols[0]: {}},
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
 	}
-	cfg.Clients[client] = configuration.ClientBinding{Route: client, Enabled: enabled, Protocol: spec.EndpointProtocols[0], Executable: client}
+	cfg.Clients[client] = domain.ClientBinding{Route: client, Enabled: enabled, Protocol: spec.EndpointProtocols[0], Executable: client}
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -464,7 +465,7 @@ func TestCredentialHelperRejectsClientNativeBeforeSecretAccess(t *testing.T) {
 	}
 	binding := cfg.Clients[codex.ID]
 	binding.ModelProvider = "amazon-bedrock"
-	binding.Authentication = configuration.AuthenticationClientNative
+	binding.Authentication = domain.AuthenticationClientNative
 	cfg.Clients[codex.ID] = binding
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)

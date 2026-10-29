@@ -5,6 +5,7 @@ package main
 import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secrets"
 	"aigw-cli/internal/secrets/native"
 	"bytes"
@@ -420,10 +421,10 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		config := configuration.NewConfig(clients.Admission())
-		config.Accounts["memory"] = configuration.Account{Label: "Memory", Endpoints: configuration.Endpoints{Anthropic: "https://unused.example.test"}}
-		config.Routes["memory"] = configuration.Route{Account: "memory", Model: "memory", Interfaces: map[configuration.EndpointProtocol][]configuration.Capability{configuration.ProtocolAnthropic: {configuration.CapabilityText}}}
-		config.SetSelectedRoute(claude.ID, "memory", configuration.ProtocolAnthropic)
+		config := domain.NewConfig(clients.Admission())
+		config.Accounts["memory"] = domain.Account{Label: "Memory", Endpoints: domain.Endpoints{Anthropic: "https://unused.example.test"}}
+		config.Routes["memory"] = domain.Route{Account: "memory", Model: "memory", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
+		config.SetSelectedRoute(claude.ID, "memory", domain.ProtocolAnthropic)
 		store := configuration.NewStore(filepath.Join(output, "config.toml"), clients.Admission())
 		if err := store.Save(config); err != nil {
 			t.Fatal(err)

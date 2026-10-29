@@ -13,8 +13,8 @@ import (
 	"strings"
 	"unicode"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/transaction"
 )
 
@@ -136,7 +136,7 @@ func CopyProjection(source, target string) error {
 // ReconcileSettings would apply without writing either the settings file or
 // its ownership state. previousModel is the selection before this transition,
 // not a replacement inferred from the user's settings.
-func PlanSettings(path string, disabled bool, runtime configuration.Runtime, executable, previousModel string) (SettingsPlan, error) {
+func PlanSettings(path string, disabled bool, runtime domain.Runtime, executable, previousModel string) (SettingsPlan, error) {
 	change, err := prepareSettingsChange(path, disabled, runtime, executable, previousModel)
 	if err != nil {
 		return SettingsPlan{}, err
@@ -148,7 +148,7 @@ func PlanSettings(path string, disabled bool, runtime configuration.Runtime, exe
 // user settings. It preserves every foreign setting, never writes a token, and
 // preserves a proven native model preference while the Route model and
 // credential scope stay unchanged. Connection and credential conflicts remain protected.
-func ReconcileSettings(path string, disabled bool, runtime configuration.Runtime, executable, previousModel string) (SettingsReceipt, error) {
+func ReconcileSettings(path string, disabled bool, runtime domain.Runtime, executable, previousModel string) (SettingsReceipt, error) {
 	change, err := prepareSettingsChange(path, disabled, runtime, executable, previousModel)
 	if err != nil {
 		return SettingsReceipt{}, err
@@ -163,7 +163,7 @@ func ReconcileSettings(path string, disabled bool, runtime configuration.Runtime
 	}
 }
 
-func prepareSettingsChange(path string, disabled bool, runtime configuration.Runtime, executable, previousModel string) (settingsChange, error) {
+func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, executable, previousModel string) (settingsChange, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		return settingsChange{}, errors.New("Claude settings path is empty")
@@ -371,7 +371,7 @@ func encodeRaw(value string) json.RawMessage {
 	return data
 }
 
-func projectSettings(document settingsDocument, runtime configuration.Runtime, executable string) {
+func projectSettings(document settingsDocument, runtime domain.Runtime, executable string) {
 	environment, _ := decodeEnvironment(document)
 	for _, key := range managedEnvironmentKeys {
 		delete(environment, key)

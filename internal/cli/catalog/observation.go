@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	configuration "aigw-cli/internal/configuration"
 	"aigw-cli/internal/credential"
+	"aigw-cli/internal/domain"
 )
 
 type catalogModel struct {
@@ -24,17 +24,17 @@ type catalogModel struct {
 }
 
 type catalogRoute struct {
-	ID            string                       `json:"id"`
-	Model         string                       `json:"model"`
-	UpstreamModel string                       `json:"upstream_model"`
-	Capabilities  []configuration.Capability   `json:"capabilities"`
-	Lifecycle     configuration.RouteLifecycle `json:"lifecycle"`
-	Evidence      catalogEvidence              `json:"evidence"`
+	ID            string                `json:"id"`
+	Model         string                `json:"model"`
+	UpstreamModel string                `json:"upstream_model"`
+	Capabilities  []domain.Capability   `json:"capabilities"`
+	Lifecycle     domain.RouteLifecycle `json:"lifecycle"`
+	Evidence      catalogEvidence       `json:"evidence"`
 }
 
 type catalogSource struct {
-	Protocol configuration.EndpointProtocol `json:"protocol"`
-	Endpoint string                         `json:"endpoint"`
+	Protocol domain.EndpointProtocol `json:"protocol"`
+	Endpoint string                  `json:"endpoint"`
 }
 
 type catalogObservation struct {
@@ -73,7 +73,7 @@ type catalogOutput struct {
 	Observations []catalogObservation `json:"observations"`
 }
 
-func discoverCatalog(ctx context.Context, deps Dependencies, cfg configuration.Config) catalogOutput {
+func discoverCatalog(ctx context.Context, deps Dependencies, cfg domain.Config) catalogOutput {
 	result := catalogOutput{Observations: []catalogObservation{}}
 	for _, accountName := range cfg.CatalogAccountIDs() {
 		account := cfg.Accounts[accountName]
@@ -117,13 +117,13 @@ func discoverCatalog(ctx context.Context, deps Dependencies, cfg configuration.C
 	return result
 }
 
-func catalogSources(account configuration.Account) []catalogSource {
-	protocols := []configuration.EndpointProtocol{
-		configuration.ProtocolAnthropic,
-		configuration.ProtocolOpenAIChatCompletions,
-		configuration.ProtocolOpenAIResponses,
+func catalogSources(account domain.Account) []catalogSource {
+	protocols := []domain.EndpointProtocol{
+		domain.ProtocolAnthropic,
+		domain.ProtocolOpenAIChatCompletions,
+		domain.ProtocolOpenAIResponses,
 	}
-	slices.SortFunc(protocols, configuration.CompareProtocols)
+	slices.SortFunc(protocols, domain.CompareProtocols)
 	sources := make([]catalogSource, 0, len(protocols))
 	for _, protocol := range protocols {
 		if endpoint := strings.TrimRight(account.Endpoints.For(protocol), "/"); endpoint != "" {
@@ -133,7 +133,7 @@ func catalogSources(account configuration.Account) []catalogSource {
 	return sources
 }
 
-func catalogDifference(cfg configuration.Config, account string, protocol configuration.EndpointProtocol, ids []string) ([]catalogModel, []catalogRoute) {
+func catalogDifference(cfg domain.Config, account string, protocol domain.EndpointProtocol, ids []string) ([]catalogModel, []catalogRoute) {
 	ids = slices.Clone(ids)
 	slices.Sort(ids)
 	observed := make(map[string]bool, len(ids))
@@ -167,7 +167,7 @@ func catalogDifference(cfg configuration.Config, account string, protocol config
 		routes := routesByModel[id]
 		state := catalogCandidate
 		for _, route := range routes {
-			if route.Lifecycle == configuration.RouteAdmitted {
+			if route.Lifecycle == domain.RouteAdmitted {
 				state = catalogAdmitted
 				break
 			}
@@ -192,19 +192,19 @@ func catalogDifference(cfg configuration.Config, account string, protocol config
 	return models, missing
 }
 
-func catalogObservationID(account string, protocol configuration.EndpointProtocol, endpoint string, ids []string) string {
+func catalogObservationID(account string, protocol domain.EndpointProtocol, endpoint string, ids []string) string {
 	ids = slices.Clone(ids)
 	slices.Sort(ids)
 	parts := append([]string{account, string(protocol), endpoint}, ids...)
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(parts, "\x00"))))
 }
 
-func observationKey(account string, protocol configuration.EndpointProtocol) string {
+func observationKey(account string, protocol domain.EndpointProtocol) string {
 	return account + "\x00" + string(protocol)
 }
 
 // FetchIDs fetches and parses the model catalogue exposed by one exact wire protocol.
-func FetchIDs(parent context.Context, client HTTPDoer, endpoint string, protocol configuration.EndpointProtocol, token string) ([]string, string, error) {
+func FetchIDs(parent context.Context, client HTTPDoer, endpoint string, protocol domain.EndpointProtocol, token string) ([]string, string, error) {
 	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
 	defer cancel()
 	request, err := credential.ModelCatalogRequest(ctx, endpoint, protocol, token)

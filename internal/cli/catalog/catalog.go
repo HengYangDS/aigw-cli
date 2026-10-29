@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	configuration "aigw-cli/internal/configuration"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secrets"
 
@@ -34,7 +35,7 @@ type Dependencies struct {
 type modelRow struct {
 	Route    string
 	Account  string
-	Protocol configuration.EndpointProtocol
+	Protocol domain.EndpointProtocol
 	Model    string
 	Catalog  string
 }
@@ -72,7 +73,7 @@ func NewModelsCommand(deps Dependencies) *cobra.Command {
 	}
 }
 
-func modelRows(cfg configuration.Config, catalog catalogOutput) []modelRow {
+func modelRows(cfg domain.Config, catalog catalogOutput) []modelRow {
 	observations := make(map[string]catalogObservation, len(catalog.Observations))
 	for _, observation := range catalog.Observations {
 		observations[observationKey(observation.Account, observation.Source.Protocol)] = observation
@@ -103,7 +104,7 @@ func modelRows(cfg configuration.Config, catalog catalogOutput) []modelRow {
 		if result := cfg.CompareAccounts(left.Account, right.Account); result != 0 {
 			return result
 		}
-		if result := configuration.CompareProtocols(left.Protocol, right.Protocol); result != 0 {
+		if result := domain.CompareProtocols(left.Protocol, right.Protocol); result != 0 {
 			return result
 		}
 		return cfg.CompareModels(cfg.Routes[left.Route].Model, cfg.Routes[right.Route].Model)
@@ -252,6 +253,6 @@ func modelTitle(value string) string {
 	return strings.ToUpper(value[:1]) + value[1:]
 }
 
-func protocolTitle(protocol configuration.EndpointProtocol) string {
-	return configuration.ProtocolLabel(protocol)
+func protocolTitle(protocol domain.EndpointProtocol) string {
+	return domain.ProtocolLabel(protocol)
 }

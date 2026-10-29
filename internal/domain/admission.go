@@ -1,4 +1,4 @@
-package configuration
+package domain
 
 import (
 	"fmt"

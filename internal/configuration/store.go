@@ -1,3 +1,6 @@
+// Package configuration persists AIGW's configuration: the canonical file and
+// its components, verified checkpoints, backups, schema migration, and the TOML
+// form of the team manifest.
 package configuration
 
 import (
@@ -13,6 +16,8 @@ import (
 
 	"aigw-cli/internal/transaction"
 
+	"aigw-cli/internal/domain"
+
 	"github.com/gofrs/flock"
 	"github.com/pelletier/go-toml/v2"
 )
@@ -21,7 +26,7 @@ import (
 // rollback backup at one path, and decodes them for the clients it admits.
 type Store struct {
 	path      string
-	admission Admission
+	admission domain.Admission
 }
 
 // Snapshot captures the exact config and one-version backup state around a
@@ -65,13 +70,13 @@ func (snapshot Snapshot) BackupConverged(mode os.FileMode) bool {
 // VerifiedBackupState pairs current backup bytes with client evidence when any client is enabled.
 type VerifiedBackupState struct {
 	Snapshot   Snapshot
-	Current    Config
+	Current    domain.Config
 	Checkpoint VerifiedCheckpoint
 }
 
 // NewStore binds configuration persistence to one canonical path and the
 // clients that its configurations admit.
-func NewStore(path string, admission Admission) Store {
+func NewStore(path string, admission domain.Admission) Store {
 	return Store{path: path, admission: admission}
 }
 
@@ -79,7 +84,7 @@ func NewStore(path string, admission Admission) Store {
 func (s Store) Path() string { return s.path }
 
 // Admission returns the clients that the Store's configurations admit.
-func (s Store) Admission() Admission { return s.admission }
+func (s Store) Admission() domain.Admission { return s.admission }
 
 // CaptureSnapshot reads the current configuration and owned recovery files without mutation.
 func (s Store) CaptureSnapshot() (Snapshot, error) {
@@ -127,7 +132,7 @@ func (s Store) CaptureSnapshot() (Snapshot, error) {
 // Commit saves one configuration and returns the exact postimage needed for a
 // guarded rollback. If postimage observation fails, it restores the prepared
 // preimage before returning the error.
-func (s Store) Commit(before Snapshot, cfg Config) (Snapshot, error) {
+func (s Store) Commit(before Snapshot, cfg domain.Config) (Snapshot, error) {
 	data, err := encodeConfig(cfg)
 	if err != nil {
 		return Snapshot{}, err
@@ -213,23 +218,23 @@ func (s Store) commitComponents(before Snapshot, data, forwarding, catalog, capa
 
 // MatchesConfiguration binds an earlier assembled selection to these exact
 // canonical and component preimages, including the empty pre-setup state.
-func (snapshot Snapshot) MatchesConfiguration(expected Config) (bool, error) {
+func (snapshot Snapshot) MatchesConfiguration(expected domain.Config) (bool, error) {
 	if !snapshot.Config.Exists {
 		if snapshot.Forwarding.Exists || snapshot.Catalog.Exists || snapshot.Capabilities.Exists || snapshot.Retries.Exists {
 			return false, errors.New("configuration component has no canonical configuration")
 		}
 		expected = expected.Clone()
 		expected.Normalize()
-		return reflect.DeepEqual(expected, NewConfig(expected.admission)), nil
+		return reflect.DeepEqual(expected, domain.NewConfig(expected.Admission())), nil
 	}
-	current, err := (Store{admission: expected.admission}).loadSnapshot(snapshot)
+	current, err := (Store{admission: expected.Admission()}).loadSnapshot(snapshot)
 	if err != nil {
 		return false, err
 	}
 	return configurationsEqual(current, expected)
 }
 
-func configurationDataEquivalent(before, after []byte, admission Admission) bool {
+func configurationDataEquivalent(before, after []byte, admission domain.Admission) bool {
 	if bytes.Equal(before, after) {
 		return true
 	}
@@ -343,7 +348,7 @@ func (s Store) preserveMigrationRollbackInput(expected transaction.FileSnapshot)
 		return false, nil
 	}
 	version, err := configurationVersion(expected.Data)
-	if err != nil || (version != PublishedConfigVersion && version != LegacyConfigVersion) {
+	if err != nil || (version != domain.PublishedConfigVersion && version != domain.LegacyConfigVersion) {
 		return false, nil
 	}
 	if _, err := migratePredecessorConfig(expected.Data, version, s.admission); err != nil {
@@ -419,10 +424,10 @@ func (s Store) Lock(ctx context.Context) (func() error, error) {
 }
 
 // Load reads, parses, normalizes, and validates the current configuration.
-func (s Store) Load() (Config, error) {
+func (s Store) Load() (domain.Config, error) {
 	cfg, err := s.LoadCredentialConfig()
 	if err != nil {
-		return Config{}, err
+		return domain.Config{}, err
 	}
 	return s.withComponents(cfg, "")
 }
@@ -430,27 +435,27 @@ func (s Store) Load() (Config, error) {
 // LoadCredentialConfig reads only the routing and credential authority. Display
 // metadata and later Route capabilities cannot interrupt a cached native
 // credential reader.
-func (s Store) LoadCredentialConfig() (Config, error) {
+func (s Store) LoadCredentialConfig() (domain.Config, error) {
 	data, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
 		forwarding, forwardingErr := transaction.CaptureFileSnapshot(s.forwardingPath())
 		if forwardingErr != nil || forwarding.Exists {
-			return Config{}, newLoadError(LoadPhaseRead, errors.Join(errors.New("client forwarding has no canonical configuration"), forwardingErr))
+			return domain.Config{}, newLoadError(LoadPhaseRead, errors.Join(errors.New("client forwarding has no canonical configuration"), forwardingErr))
 		}
-		return NewConfig(s.admission), nil
+		return domain.NewConfig(s.admission), nil
 	}
 	if err != nil {
-		return Config{}, newLoadError(LoadPhaseRead, err)
+		return domain.Config{}, newLoadError(LoadPhaseRead, err)
 	}
 	forwarding, err := transaction.CaptureFileSnapshot(s.forwardingPath())
 	if err != nil {
-		return Config{}, newLoadError(LoadPhaseRead, err)
+		return domain.Config{}, newLoadError(LoadPhaseRead, err)
 	}
 	return decodeStoreConfig(data, forwarding, s.admission)
 }
 
 // Save validates and atomically persists configuration while maintaining its recovery boundary.
-func (s Store) Save(cfg Config) error {
+func (s Store) Save(cfg domain.Config) error {
 	before, err := s.CaptureSnapshot()
 	if err != nil {
 		return fmt.Errorf("capture current config: %w", err)
@@ -462,7 +467,7 @@ func (s Store) Save(cfg Config) error {
 var writeConfigurationFileIfUnchanged = transaction.WriteFileAtomicExactModeIfUnchanged
 var removeConfigurationFileIfUnchanged = transaction.RemoveFileIfUnchanged
 
-func encodeConfig(cfg Config) ([]byte, error) {
+func encodeConfig(cfg domain.Config) ([]byte, error) {
 	cfg.Normalize()
 	cfg = cfg.Clone()
 	if err := cfg.Validate(); err != nil {
@@ -508,46 +513,46 @@ func separateTOMLTableBlocks(data []byte) []byte {
 }
 
 // LoadBackup returns the validated rollback configuration retained by the Store.
-func (s Store) LoadBackup() (Config, error) {
+func (s Store) LoadBackup() (domain.Config, error) {
 	data, err := os.ReadFile(s.path + ".bak")
 	if err != nil {
-		return Config{}, fmt.Errorf("read previous config backup: %w", err)
+		return domain.Config{}, fmt.Errorf("read previous config backup: %w", err)
 	}
 	forwarding, err := transaction.CaptureFileSnapshot(s.forwardingPath() + ".bak")
 	if err != nil {
-		return Config{}, newLoadError(LoadPhaseRead, err)
+		return domain.Config{}, newLoadError(LoadPhaseRead, err)
 	}
 	cfg, err := decodeStoreConfig(data, forwarding, s.admission)
 	if err != nil {
-		return Config{}, err
+		return domain.Config{}, err
 	}
 	return s.withComponents(cfg, ".bak")
 }
 
-func decodeTOMLConfig(data []byte, admission Admission) (Config, error) {
+func decodeTOMLConfig(data []byte, admission domain.Admission) (domain.Config, error) {
 	var header struct {
 		Version int `toml:"version"`
 	}
 	if err := toml.Unmarshal(data, &header); err != nil {
-		return Config{}, newLoadError(LoadPhaseParse, err)
+		return domain.Config{}, newLoadError(LoadPhaseParse, err)
 	}
-	if header.Version != ConfigVersion {
-		return Config{}, newLoadError(LoadPhaseValidate, &UnsupportedConfigVersionError{
+	if header.Version != domain.ConfigVersion {
+		return domain.Config{}, newLoadError(LoadPhaseValidate, &domain.UnsupportedConfigVersionError{
 			Version:         header.Version,
-			ExpectedVersion: ConfigVersion,
+			ExpectedVersion: domain.ConfigVersion,
 		})
 	}
 
-	var cfg Config
+	var cfg domain.Config
 	decoder := toml.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&cfg); err != nil {
-		return Config{}, newLoadError(LoadPhaseParse, err)
+		return domain.Config{}, newLoadError(LoadPhaseParse, err)
 	}
-	cfg.admission = admission
+	cfg.SetAdmission(admission)
 	cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
-		return Config{}, newLoadError(LoadPhaseValidate, err)
+		return domain.Config{}, newLoadError(LoadPhaseValidate, err)
 	}
 	return cfg, nil
 }
