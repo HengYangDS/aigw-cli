@@ -16,7 +16,7 @@
 
 ## 2. Stage 2 — Domain, store and secret
 
-- [ ] 2.1 Create `internal/domain` from the model types, validation and manifest semantics of `internal/configuration`; the architecture gate admits only standard-library imports in `domain`.
+- [ ] 2.1 Create `internal/domain` from the model types, validation and manifest semantics of `internal/configuration`. Each `Config` carries the `Admission` that the composition root builds from the adapters' `Spec()`, client-specific rules become `ClientSpec` capabilities, and the architecture gate admits only standard-library imports in `domain`, which names no client.
 - [ ] 2.2 Create `internal/store` from configuration loading, saving and schema migration, and fold `internal/transaction` into it.
 - [ ] 2.3 Create `internal/secret` from `internal/secrets`, `internal/secrets/native` and the credential readers of `internal/credential`; Account credential validation moves to `domain`.
 - [ ] 2.4 Move the remaining client-specific configuration code into the adapters and delete `internal/configuration`, `internal/credential`, `internal/secrets` and `internal/transaction`. The confinement list is then empty and is removed from the policy.

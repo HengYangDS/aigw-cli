@@ -187,6 +187,22 @@ Account data moves to `domain`. Each move keeps the exported names that
 callers outside the package use, and drops every exported identifier that has
 no caller outside its package.
 
+`domain` names no client. Each `Config` carries its `Admission`: the ordered
+client specifications that the composition root builds from the adapters'
+`Spec()`. `NewConfig` and the store take it, and every rule that iterates or
+looks up clients reads it from the configuration instead of a package list.
+Client-specific rules become `ClientSpec` capabilities: the default model
+provider, model-provider selection, client-native authentication and the
+protocol of a pre-catalogue profile join the existing retry budgets. An error
+that named the one client with a capability derives that name from the
+admitted clients that have it, so its text is unchanged. Tests that need the
+built-in clients take the composition root's admission; an adapter's own tests
+admit its specification, because the composition root imports the adapters.
+
+Alternative considered: one registration of the admitted specifications at
+start-up. Rejected because it keeps a package-level dependency that every
+program and test must remember to install before it builds a configuration.
+
 ### Command packages mirror the command tree
 
 Stage 3 gives each top-level command one package under `internal/cli` named
