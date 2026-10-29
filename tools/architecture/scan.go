@@ -73,6 +73,9 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	if err := repositoryAnalysis.importEdges(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}
+	if err := checkStandardLibraryOnly(absRoot, goFiles, p, &report); err != nil {
+		return Report{}, err
+	}
 	return report, nil
 }
 

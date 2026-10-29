@@ -29,6 +29,7 @@ type policy struct {
 	CompositionRootFiles  map[string][]string     `toml:"composition_root_files"`
 	PeerPackageRoots      map[string][]string     `toml:"peer_package_roots"`
 	AllowedImportEdges    map[string][]string     `toml:"allowed_import_edges"`
+	StandardLibraryOnly   []string                `toml:"standard_library_only"`
 	IgnoreRoots           []string                `toml:"ignore_roots"`
 	IgnoreDirectoryNames  []string                `toml:"ignore_directory_names"`
 	CheckDecisionRecords  bool                    `toml:"check_decision_records"`
@@ -145,6 +146,13 @@ func validatePackagePolicy(p policy) error {
 				seen[member] = true
 			}
 		}
+	}
+	seen := make(map[string]bool, len(p.StandardLibraryOnly))
+	for _, dir := range p.StandardLibraryOnly {
+		if !isPortableRelativePath(dir) || seen[dir] {
+			return fmt.Errorf("standard_library_only has an invalid or duplicate package %q", dir)
+		}
+		seen[dir] = true
 	}
 	return nil
 }
