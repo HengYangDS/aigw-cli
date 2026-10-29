@@ -74,9 +74,9 @@ func (s Store) loadSnapshot(snapshot Snapshot) (domain.Config, error) {
 	if err != nil {
 		return domain.Config{}, err
 	}
-	cfg, err = decodeComponents(cfg, snapshot.Catalog, snapshot.Capabilities)
+	cfg, err = decodeComponents(cfg, snapshot.Catalog, snapshot.capabilities)
 	if err != nil {
 		return domain.Config{}, err
 	}
-	return decodeRetryPolicies(cfg, snapshot.Retries)
+	return decodeRetryPolicies(cfg, snapshot.retries)
 }

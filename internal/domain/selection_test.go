@@ -27,7 +27,7 @@ func TestResolveRuntimeClassifiesAnUnselectedRoute(t *testing.T) {
 	cfg := NewConfig(testAdmission())
 	_, err := cfg.ResolveRuntime(ClientClaude, "")
 	var routeErr *RuntimeBindingUnselectedError
-	if !errors.As(err, &routeErr) || routeErr.Client != ClientClaude {
+	if !errors.As(err, &routeErr) || routeErr.client != ClientClaude {
 		t.Fatalf("unselected route error = %#v, %v", routeErr, err)
 	}
 }

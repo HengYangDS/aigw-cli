@@ -492,7 +492,7 @@ func (c *Config) ResolveRuntime(client, explicitRoute string) (Runtime, error) {
 	binding := c.clientBinding(client)
 	selection := binding.selection()
 	if explicitRoute == "" && selection.Route == "" {
-		return Runtime{}, &RuntimeBindingUnselectedError{Client: client}
+		return Runtime{}, &RuntimeBindingUnselectedError{client: client}
 	}
 	if explicitRoute == "" || explicitRoute == selection.Route {
 		return c.resolveSelection(client, selection)

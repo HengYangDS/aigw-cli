@@ -36,22 +36,22 @@ type Snapshot struct {
 	Config             FileSnapshot
 	Backup             FileSnapshot
 	Forwarding         FileSnapshot
-	ForwardingBackup   FileSnapshot
-	Retries            FileSnapshot
-	RetriesBackup      FileSnapshot
+	forwardingBackup   FileSnapshot
+	retries            FileSnapshot
+	retriesBackup      FileSnapshot
 	Catalog            FileSnapshot
-	CatalogBackup      FileSnapshot
-	Capabilities       FileSnapshot
-	CapabilitiesBackup FileSnapshot
+	catalogBackup      FileSnapshot
+	capabilities       FileSnapshot
+	capabilitiesBackup FileSnapshot
 	Verified           FileSnapshot
 }
 
 func (snapshot Snapshot) equal(other Snapshot) bool {
 	return snapshot.Config.Equal(other.Config) && snapshot.Backup.Equal(other.Backup) &&
-		snapshot.Forwarding.Equal(other.Forwarding) && snapshot.ForwardingBackup.Equal(other.ForwardingBackup) &&
-		snapshot.Catalog.Equal(other.Catalog) && snapshot.CatalogBackup.Equal(other.CatalogBackup) &&
-		snapshot.Capabilities.Equal(other.Capabilities) && snapshot.CapabilitiesBackup.Equal(other.CapabilitiesBackup) &&
-		snapshot.Retries.Equal(other.Retries) && snapshot.RetriesBackup.Equal(other.RetriesBackup) &&
+		snapshot.Forwarding.Equal(other.Forwarding) && snapshot.forwardingBackup.Equal(other.forwardingBackup) &&
+		snapshot.Catalog.Equal(other.Catalog) && snapshot.catalogBackup.Equal(other.catalogBackup) &&
+		snapshot.capabilities.Equal(other.capabilities) && snapshot.capabilitiesBackup.Equal(other.capabilitiesBackup) &&
+		snapshot.retries.Equal(other.retries) && snapshot.retriesBackup.Equal(other.retriesBackup) &&
 		snapshot.Verified.Equal(other.Verified)
 }
 
@@ -60,10 +60,10 @@ func (snapshot Snapshot) equal(other Snapshot) bool {
 func (snapshot Snapshot) BackupConverged(mode os.FileMode) bool {
 	return snapshot.Backup.Exists && snapshot.Backup.Mode == mode &&
 		bytes.Equal(snapshot.Backup.Data, snapshot.Config.Data) &&
-		backupComponentConverged(snapshot.Forwarding, snapshot.ForwardingBackup, mode) &&
-		backupComponentConverged(snapshot.Retries, snapshot.RetriesBackup, mode) &&
-		backupComponentConverged(snapshot.Catalog, snapshot.CatalogBackup, mode) &&
-		backupComponentConverged(snapshot.Capabilities, snapshot.CapabilitiesBackup, mode)
+		backupComponentConverged(snapshot.Forwarding, snapshot.forwardingBackup, mode) &&
+		backupComponentConverged(snapshot.retries, snapshot.retriesBackup, mode) &&
+		backupComponentConverged(snapshot.Catalog, snapshot.catalogBackup, mode) &&
+		backupComponentConverged(snapshot.capabilities, snapshot.capabilitiesBackup, mode)
 }
 
 // VerifiedBackupState pairs current backup bytes with client evidence when any client is enabled.
@@ -125,7 +125,7 @@ func (s Store) CaptureSnapshot() (Snapshot, error) {
 	if failure := errors.Join(err, backupErr); failure != nil {
 		return Snapshot{}, failure
 	}
-	return Snapshot{Config: configSnapshot, Backup: backupSnapshot, Forwarding: forwarding, ForwardingBackup: forwardingBackup, Retries: retries, RetriesBackup: retriesBackup, Catalog: catalog, CatalogBackup: catalogBackup, Capabilities: capabilities, CapabilitiesBackup: capabilitiesBackup, Verified: verifiedSnapshot}, nil
+	return Snapshot{Config: configSnapshot, Backup: backupSnapshot, Forwarding: forwarding, forwardingBackup: forwardingBackup, retries: retries, retriesBackup: retriesBackup, Catalog: catalog, catalogBackup: catalogBackup, capabilities: capabilities, capabilitiesBackup: capabilitiesBackup, Verified: verifiedSnapshot}, nil
 }
 
 // Commit saves one configuration and returns the exact postimage needed for a
@@ -158,7 +158,7 @@ func (s Store) commitData(before Snapshot, data []byte) (Snapshot, error) {
 
 func (s Store) commitComponents(before Snapshot, data, forwarding, catalog, capabilities, retries []byte) (Snapshot, error) {
 	if before.Config.Exists && configurationDataEquivalent(before.Config.Data, data, s.admission) && componentUnchanged(before.Forwarding, forwarding) &&
-		componentUnchanged(before.Catalog, catalog) && componentUnchanged(before.Capabilities, capabilities) && componentUnchanged(before.Retries, retries) {
+		componentUnchanged(before.Catalog, catalog) && componentUnchanged(before.capabilities, capabilities) && componentUnchanged(before.retries, retries) {
 		current, err := s.CaptureSnapshot()
 		if err != nil {
 			return Snapshot{}, err
@@ -188,21 +188,21 @@ func (s Store) commitComponents(before Snapshot, data, forwarding, catalog, capa
 		return Snapshot{}, errors.Join(fmt.Errorf("write client forwarding: %w", err), s.RestoreSnapshot(before, after))
 	}
 	after.Forwarding = forwardingAfter
-	retriesAfter, err := s.writeOptional(s.retriesPath(), before.Retries, retries)
+	retriesAfter, err := s.writeOptional(s.retriesPath(), before.retries, retries)
 	if err != nil {
 		return Snapshot{}, errors.Join(fmt.Errorf("write client retry policies: %w", err), s.RestoreSnapshot(before, after))
 	}
-	after.Retries = retriesAfter
+	after.retries = retriesAfter
 	catalogAfter, err := s.writeOptional(s.catalogPath(), before.Catalog, catalog)
 	if err != nil {
 		return Snapshot{}, errors.Join(fmt.Errorf("write catalogue presentation: %w", err), s.RestoreSnapshot(before, after))
 	}
 	after.Catalog = catalogAfter
-	capabilitiesAfter, err := s.writeOptional(s.capabilitiesPath(), before.Capabilities, capabilities)
+	capabilitiesAfter, err := s.writeOptional(s.capabilitiesPath(), before.capabilities, capabilities)
 	if err != nil {
 		return Snapshot{}, errors.Join(fmt.Errorf("write route capabilities: %w", err), s.RestoreSnapshot(before, after))
 	}
-	after.Capabilities = capabilitiesAfter
+	after.capabilities = capabilitiesAfter
 	verified, err := removeConfigurationFileIfUnchanged(s.path+".verified.json", before.Verified)
 	if err != nil {
 		return Snapshot{}, errors.Join(fmt.Errorf("invalidate verified checkpoint: %w", err), s.RestoreSnapshot(before, after))
@@ -219,7 +219,7 @@ func (s Store) commitComponents(before Snapshot, data, forwarding, catalog, capa
 // canonical and component preimages, including the empty pre-setup state.
 func (snapshot Snapshot) MatchesConfiguration(expected domain.Config) (bool, error) {
 	if !snapshot.Config.Exists {
-		if snapshot.Forwarding.Exists || snapshot.Catalog.Exists || snapshot.Capabilities.Exists || snapshot.Retries.Exists {
+		if snapshot.Forwarding.Exists || snapshot.Catalog.Exists || snapshot.capabilities.Exists || snapshot.retries.Exists {
 			return false, errors.New("configuration component has no canonical configuration")
 		}
 		expected = expected.Clone()
@@ -265,7 +265,7 @@ func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
 	if err != nil {
 		return VerifiedBackupState{}, err
 	}
-	checkpoint.Config, err = decodeComponents(checkpoint.Config, snapshot.Catalog, snapshot.Capabilities)
+	checkpoint.Config, err = decodeComponents(checkpoint.Config, snapshot.Catalog, snapshot.capabilities)
 	if err != nil {
 		return VerifiedBackupState{}, err
 	}
@@ -288,16 +288,16 @@ func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
 	if !current.Config.Equal(expected.Config) {
 		return errors.New("config preimage changed; refusing to converge backup")
 	}
-	if !current.Forwarding.Equal(expected.Forwarding) || !current.ForwardingBackup.Equal(expected.ForwardingBackup) {
+	if !current.Forwarding.Equal(expected.Forwarding) || !current.forwardingBackup.Equal(expected.forwardingBackup) {
 		return errors.New("client forwarding preimage changed; refusing to converge backup")
 	}
-	if !current.Catalog.Equal(expected.Catalog) || !current.CatalogBackup.Equal(expected.CatalogBackup) {
+	if !current.Catalog.Equal(expected.Catalog) || !current.catalogBackup.Equal(expected.catalogBackup) {
 		return errors.New("catalogue presentation preimage changed; refusing to converge backup")
 	}
-	if !current.Capabilities.Equal(expected.Capabilities) || !current.CapabilitiesBackup.Equal(expected.CapabilitiesBackup) {
+	if !current.capabilities.Equal(expected.capabilities) || !current.capabilitiesBackup.Equal(expected.capabilitiesBackup) {
 		return errors.New("route capability preimage changed; refusing to converge backup")
 	}
-	if !current.Retries.Equal(expected.Retries) || !current.RetriesBackup.Equal(expected.RetriesBackup) {
+	if !current.retries.Equal(expected.retries) || !current.retriesBackup.Equal(expected.retriesBackup) {
 		return errors.New("client retry policy preimage changed; refusing to converge backup")
 	}
 	if !current.Verified.Equal(expected.Verified) {
@@ -315,26 +315,26 @@ func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
 	if err != nil {
 		return fmt.Errorf("converge verified config backup: %w", err)
 	}
-	forwardingBackup, err := s.writeOptional(s.forwardingPath()+".bak", expected.ForwardingBackup, expected.Forwarding.Data)
+	forwardingBackup, err := s.writeOptional(s.forwardingPath()+".bak", expected.forwardingBackup, expected.Forwarding.Data)
 	if err != nil {
 		return errors.Join(fmt.Errorf("converge verified forwarding backup: %w", err), s.RestoreSnapshot(expected, after))
 	}
-	after.ForwardingBackup = forwardingBackup
-	retriesBackup, err := s.writeOptional(s.retriesPath()+".bak", expected.RetriesBackup, expected.Retries.Data)
+	after.forwardingBackup = forwardingBackup
+	retriesBackup, err := s.writeOptional(s.retriesPath()+".bak", expected.retriesBackup, expected.retries.Data)
 	if err != nil {
 		return errors.Join(fmt.Errorf("converge verified retry policy backup: %w", err), s.RestoreSnapshot(expected, after))
 	}
-	after.RetriesBackup = retriesBackup
-	catalogBackup, err := s.writeOptional(s.catalogPath()+".bak", expected.CatalogBackup, expected.Catalog.Data)
+	after.retriesBackup = retriesBackup
+	catalogBackup, err := s.writeOptional(s.catalogPath()+".bak", expected.catalogBackup, expected.Catalog.Data)
 	if err != nil {
 		return errors.Join(fmt.Errorf("converge verified catalogue backup: %w", err), s.RestoreSnapshot(expected, after))
 	}
-	after.CatalogBackup = catalogBackup
-	capabilitiesBackup, err := s.writeOptional(s.capabilitiesPath()+".bak", expected.CapabilitiesBackup, expected.Capabilities.Data)
+	after.catalogBackup = catalogBackup
+	capabilitiesBackup, err := s.writeOptional(s.capabilitiesPath()+".bak", expected.capabilitiesBackup, expected.capabilities.Data)
 	if err != nil {
 		return errors.Join(fmt.Errorf("converge verified route capability backup: %w", err), s.RestoreSnapshot(expected, after))
 	}
-	after.CapabilitiesBackup = capabilitiesBackup
+	after.capabilitiesBackup = capabilitiesBackup
 	current, err = s.CaptureSnapshot()
 	if err != nil || !current.equal(after) {
 		return errors.Join(errors.New("configuration changed during backup convergence"), err, s.RestoreSnapshot(expected, after))
@@ -380,25 +380,25 @@ func (s Store) RestoreSnapshot(before, after Snapshot) error {
 	if err := RestoreFileAtomicIfPostimage(s.forwardingPath(), before.Forwarding, after.Forwarding); err != nil {
 		failures = append(failures, fmt.Errorf("restore client forwarding snapshot: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.forwardingPath()+".bak", before.ForwardingBackup, after.ForwardingBackup); err != nil {
+	if err := RestoreFileAtomicIfPostimage(s.forwardingPath()+".bak", before.forwardingBackup, after.forwardingBackup); err != nil {
 		failures = append(failures, fmt.Errorf("restore client forwarding backup snapshot: %w", err))
 	}
 	if err := RestoreFileAtomicIfPostimage(s.catalogPath(), before.Catalog, after.Catalog); err != nil {
 		failures = append(failures, fmt.Errorf("restore catalogue presentation snapshot: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.catalogPath()+".bak", before.CatalogBackup, after.CatalogBackup); err != nil {
+	if err := RestoreFileAtomicIfPostimage(s.catalogPath()+".bak", before.catalogBackup, after.catalogBackup); err != nil {
 		failures = append(failures, fmt.Errorf("restore catalogue presentation backup: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.capabilitiesPath(), before.Capabilities, after.Capabilities); err != nil {
+	if err := RestoreFileAtomicIfPostimage(s.capabilitiesPath(), before.capabilities, after.capabilities); err != nil {
 		failures = append(failures, fmt.Errorf("restore route capability snapshot: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.capabilitiesPath()+".bak", before.CapabilitiesBackup, after.CapabilitiesBackup); err != nil {
+	if err := RestoreFileAtomicIfPostimage(s.capabilitiesPath()+".bak", before.capabilitiesBackup, after.capabilitiesBackup); err != nil {
 		failures = append(failures, fmt.Errorf("restore route capability backup: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.retriesPath(), before.Retries, after.Retries); err != nil {
+	if err := RestoreFileAtomicIfPostimage(s.retriesPath(), before.retries, after.retries); err != nil {
 		failures = append(failures, fmt.Errorf("restore client retry policy snapshot: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.retriesPath()+".bak", before.RetriesBackup, after.RetriesBackup); err != nil {
+	if err := RestoreFileAtomicIfPostimage(s.retriesPath()+".bak", before.retriesBackup, after.retriesBackup); err != nil {
 		failures = append(failures, fmt.Errorf("restore client retry policy backup: %w", err))
 	}
 	return errors.Join(failures...)

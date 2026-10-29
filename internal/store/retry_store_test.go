@@ -103,7 +103,7 @@ func TestRetryPolicyBackupAdmissionAndNativeReset(t *testing.T) {
 		t.Fatal(err)
 	}
 	before, err := store.CaptureSnapshot()
-	if err != nil || !before.Retries.Exists {
+	if err != nil || !before.retries.Exists {
 		t.Fatalf("selected policy was not recorded: %v", err)
 	}
 	admission, err := store.RollbackConfiguration()
@@ -121,7 +121,7 @@ func TestRetryPolicyBackupAdmissionAndNativeReset(t *testing.T) {
 	binding.RetryPolicy = nil
 	cfg.Clients[ClientCodex] = binding
 	after, err := store.Commit(before, cfg)
-	if err != nil || after.Retries.Exists || !bytes.Equal(before.Config.Data, after.Config.Data) {
+	if err != nil || after.retries.Exists || !bytes.Equal(before.Config.Data, after.Config.Data) {
 		t.Fatalf("native reset changed canonical bytes or retained policy: %v", err)
 	}
 	backup, err := store.LoadBackup()
@@ -151,7 +151,7 @@ func TestRetryPolicyComponentsRefuseInvalidIdentityOrContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	valid := string(snapshot.Retries.Data)
+	valid := string(snapshot.retries.Data)
 	runtime, err := cfg.ResolveRuntime(ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)

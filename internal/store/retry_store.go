@@ -86,7 +86,7 @@ func (s Store) RollbackConfiguration() ([]byte, error) {
 	if err != nil || !snapshot.Config.Exists {
 		return nil, err
 	}
-	if !snapshot.Retries.Exists {
+	if !snapshot.retries.Exists {
 		return snapshot.Config.Data, nil
 	}
 	cfg, err := s.loadSnapshot(snapshot)

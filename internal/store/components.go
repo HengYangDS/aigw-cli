@@ -22,26 +22,26 @@ func (s Store) backUp(before Snapshot) (Snapshot, error) {
 		return Snapshot{}, fmt.Errorf("back up current config: %w", err)
 	}
 	after.Backup = backup
-	forwardingBackup, err := s.writeOptional(s.forwardingPath()+".bak", before.ForwardingBackup, before.Forwarding.Data)
+	forwardingBackup, err := s.writeOptional(s.forwardingPath()+".bak", before.forwardingBackup, before.Forwarding.Data)
 	if err != nil {
 		return Snapshot{}, errors.Join(fmt.Errorf("back up client forwarding: %w", err), s.RestoreSnapshot(before, after))
 	}
-	after.ForwardingBackup = forwardingBackup
-	retriesBackup, err := s.writeOptional(s.retriesPath()+".bak", before.RetriesBackup, before.Retries.Data)
+	after.forwardingBackup = forwardingBackup
+	retriesBackup, err := s.writeOptional(s.retriesPath()+".bak", before.retriesBackup, before.retries.Data)
 	if err != nil {
 		return Snapshot{}, errors.Join(fmt.Errorf("back up client retry policies: %w", err), s.RestoreSnapshot(before, after))
 	}
-	after.RetriesBackup = retriesBackup
-	catalogBackup, err := s.writeOptional(s.catalogPath()+".bak", before.CatalogBackup, before.Catalog.Data)
+	after.retriesBackup = retriesBackup
+	catalogBackup, err := s.writeOptional(s.catalogPath()+".bak", before.catalogBackup, before.Catalog.Data)
 	if err != nil {
 		return Snapshot{}, errors.Join(fmt.Errorf("back up catalogue presentation: %w", err), s.RestoreSnapshot(before, after))
 	}
-	after.CatalogBackup = catalogBackup
-	capabilitiesBackup, err := s.writeOptional(s.capabilitiesPath()+".bak", before.CapabilitiesBackup, before.Capabilities.Data)
+	after.catalogBackup = catalogBackup
+	capabilitiesBackup, err := s.writeOptional(s.capabilitiesPath()+".bak", before.capabilitiesBackup, before.capabilities.Data)
 	if err != nil {
 		return Snapshot{}, errors.Join(fmt.Errorf("back up route capabilities: %w", err), s.RestoreSnapshot(before, after))
 	}
-	after.CapabilitiesBackup = capabilitiesBackup
+	after.capabilitiesBackup = capabilitiesBackup
 	return after, nil
 }
 
@@ -56,12 +56,12 @@ func (s Store) captureCurrent() (Snapshot, error) {
 	if failure := errors.Join(err, forwardingErr, retriesErr, catalogErr, capabilitiesErr); failure != nil {
 		return Snapshot{}, failure
 	}
-	return Snapshot{Config: config, Forwarding: forwarding, Retries: retries, Catalog: catalog, Capabilities: capabilities}, nil
+	return Snapshot{Config: config, Forwarding: forwarding, retries: retries, Catalog: catalog, capabilities: capabilities}, nil
 }
 
 func (snapshot Snapshot) sameCurrent(other Snapshot) bool {
 	return snapshot.Config.Equal(other.Config) && snapshot.Forwarding.Equal(other.Forwarding) &&
-		snapshot.Catalog.Equal(other.Catalog) && snapshot.Capabilities.Equal(other.Capabilities) && snapshot.Retries.Equal(other.Retries)
+		snapshot.Catalog.Equal(other.Catalog) && snapshot.capabilities.Equal(other.capabilities) && snapshot.retries.Equal(other.retries)
 }
 
 // withComponents reads the optional components of one generation, the
