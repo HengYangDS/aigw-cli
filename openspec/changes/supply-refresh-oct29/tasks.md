@@ -17,5 +17,6 @@
 
 ## 2. Verification
 
-- [ ] 2.1 The dependency tasks, `mise run check` and the full proof of the lane
-      head pass.
+- [x] 2.1 The dependency tasks, `mise run check` and the full proof of the lane
+      head pass (`afd01280`: statement coverage 95.25%, Attestation
+      `ba39a085`).
