@@ -20,9 +20,10 @@ import (
 // selects it through an import of the package; the package's own tests do not
 // count. A used identifier also uses the types that its exported API names:
 // those in its signature or declared type, the exported fields and methods of a
-// used type, also of an unexported type such as an embedded one, and the
-// constants declared with a used type. Parameter and result names are not
-// types. Methods and fields are not checked themselves. Go syntax stays with
+// used type, also of an unexported type or anonymous struct or interface that
+// such an API names, and the constants declared with a used type. Parameter,
+// result and type parameter names are not the package's types. Methods and
+// fields are not checked themselves. Go syntax stays with
 // the Go toolchain: a file with a syntax error contributes what the parser
 // recovers. A listed package without production Go files is a stale entry.
 func checkUsedExportsOnly(root string, files []goFileInfo, p policy, report *Report) error {
@@ -91,11 +92,18 @@ type surfaceEntry struct {
 	line     int
 	// api holds the parts of the declaration that a caller outside the package
 	// reaches, gathered from every file that declares the name.
-	api []ast.Node
+	api []apiNode
+}
+
+// apiNode is one part of a declaration's API with the type parameters in scope
+// there, whose names do not refer to the package's types.
+type apiNode struct {
+	node   ast.Node
+	params map[string]bool
 }
 
 // exportedSurface holds a package's exported top-level declarations and its
-// unexported types, which an exported type can embed.
+// unexported types, which a used API can name.
 type exportedSurface struct {
 	production   bool
 	declarations map[string]surfaceEntry
@@ -105,7 +113,7 @@ type exportedSurface struct {
 
 func collectExportedSurface(files []goFileInfo, dir string, fset *token.FileSet, parse func(goFileInfo) (*ast.File, error)) (exportedSurface, error) {
 	surface := exportedSurface{declarations: map[string]surfaceEntry{}, constants: map[string][]string{}}
-	methods := map[string][]ast.Node{}
+	methods := map[string][]apiNode{}
 	for _, file := range files {
 		if file.dir != dir || file.isTest {
 			continue
@@ -117,7 +125,7 @@ func collectExportedSurface(files []goFileInfo, dir string, fset *token.FileSet,
 		}
 		// declare records one declaration; a name declared in several files,
 		// such as one per platform, keeps its first position and every file's API.
-		declare := func(name *ast.Ident, api ...ast.Node) {
+		declare := func(name *ast.Ident, api ...apiNode) {
 			declaration, ok := surface.declarations[name.Name]
 			if !ok {
 				declaration = surfaceEntry{
@@ -133,11 +141,11 @@ func collectExportedSurface(files []goFileInfo, dir string, fset *token.FileSet,
 				switch {
 				case decl.Recv == nil:
 					if decl.Name.IsExported() {
-						declare(decl.Name, decl.Type)
+						declare(decl.Name, apiNode{decl.Type, fieldNames(decl.Type.TypeParams)})
 					}
 				case len(decl.Recv.List) > 0 && decl.Name.IsExported():
 					owner := receiverTypeName(decl.Recv.List[0].Type)
-					methods[owner] = append(methods[owner], decl.Type)
+					methods[owner] = append(methods[owner], apiNode{decl.Type, receiverParams(decl.Recv.List[0].Type)})
 				}
 			case *ast.GenDecl:
 				collectGenDecl(decl, declare, surface.constants)
@@ -156,12 +164,17 @@ func collectExportedSurface(files []goFileInfo, dir string, fset *token.FileSet,
 // collectGenDecl declares the types, exported variables and exported
 // constants of one declaration. A constant without its own type or value
 // repeats the type of the one before it, as Go's implicit repetition does.
-func collectGenDecl(decl *ast.GenDecl, declare func(*ast.Ident, ...ast.Node), constants map[string][]string) {
+func collectGenDecl(decl *ast.GenDecl, declare func(*ast.Ident, ...apiNode), constants map[string][]string) {
 	var repeated ast.Expr
 	for _, spec := range decl.Specs {
 		switch spec := spec.(type) {
 		case *ast.TypeSpec:
-			declare(spec.Name, exportedShape(spec)...)
+			params := fieldNames(spec.TypeParams)
+			var api []apiNode
+			for _, node := range exportedShape(spec) {
+				api = append(api, apiNode{node, params})
+			}
+			declare(spec.Name, api...)
 		case *ast.ValueSpec:
 			declared := spec.Type
 			if decl.Tok == token.CONST {
@@ -178,7 +191,7 @@ func collectGenDecl(decl *ast.GenDecl, declare func(*ast.Ident, ...ast.Node), co
 					continue
 				}
 				if declared != nil {
-					declare(name, declared)
+					declare(name, apiNode{node: declared})
 				} else {
 					declare(name)
 				}
@@ -190,29 +203,48 @@ func collectGenDecl(decl *ast.GenDecl, declare func(*ast.Ident, ...ast.Node), co
 	}
 }
 
-// exportedShape returns what a caller outside the package reaches through a
-// type: its type parameters, and its embedded and exported fields and methods,
-// or else its whole underlying type.
+// exportedShape returns the parts of a type declaration that reach follows:
+// its type parameters and its type, whose unexported members reach skips.
 func exportedShape(spec *ast.TypeSpec) []ast.Node {
-	var nodes []ast.Node
 	if spec.TypeParams != nil {
-		nodes = append(nodes, spec.TypeParams)
+		return []ast.Node{spec.TypeParams, spec.Type}
 	}
-	var members *ast.FieldList
-	switch shape := spec.Type.(type) {
-	case *ast.StructType:
-		members = shape.Fields
-	case *ast.InterfaceType:
-		members = shape.Methods
-	default:
-		return append(nodes, spec.Type)
-	}
-	for _, member := range members.List {
-		if len(member.Names) == 0 || slices.ContainsFunc(member.Names, (*ast.Ident).IsExported) {
-			nodes = append(nodes, member.Type)
+	return []ast.Node{spec.Type}
+}
+
+// fieldNames returns the names that a field list declares, such as type
+// parameters.
+func fieldNames(fields *ast.FieldList) map[string]bool {
+	names := map[string]bool{}
+	if fields != nil {
+		for _, field := range fields.List {
+			for _, name := range field.Names {
+				names[name.Name] = true
+			}
 		}
 	}
-	return nodes
+	return names
+}
+
+// receiverParams returns the type parameter names that a method's receiver
+// declares, as in func (Box[T]) Get() T.
+func receiverParams(expr ast.Expr) map[string]bool {
+	names := map[string]bool{}
+	var indices []ast.Expr
+	switch receiver := expr.(type) {
+	case *ast.StarExpr:
+		return receiverParams(receiver.X)
+	case *ast.IndexExpr:
+		indices = []ast.Expr{receiver.Index}
+	case *ast.IndexListExpr:
+		indices = receiver.Indices
+	}
+	for _, index := range indices {
+		if name, ok := index.(*ast.Ident); ok {
+			names[name.Name] = true
+		}
+	}
+	return names
 }
 
 func receiverTypeName(expr ast.Expr) string {
@@ -236,11 +268,25 @@ func (s exportedSurface) reach(used map[string]bool) map[string]bool {
 	for name := range used {
 		queue = append(queue, name)
 	}
+	var params map[string]bool
 	var visit func(ast.Node) bool
+	members := func(fields *ast.FieldList) {
+		for _, field := range fields.List {
+			if len(field.Names) == 0 || slices.ContainsFunc(field.Names, (*ast.Ident).IsExported) {
+				ast.Inspect(field.Type, visit)
+			}
+		}
+	}
 	visit = func(node ast.Node) bool {
 		switch node := node.(type) {
 		case *ast.SelectorExpr:
 			// Another package's identifier.
+			return false
+		case *ast.StructType:
+			members(node.Fields)
+			return false
+		case *ast.InterfaceType:
+			members(node.Methods)
 			return false
 		case *ast.Field:
 			// A parameter, result or type parameter name is not a type.
@@ -249,7 +295,9 @@ func (s exportedSurface) reach(used map[string]bool) map[string]bool {
 			}
 			return false
 		case *ast.Ident:
-			queue = append(queue, node.Name)
+			if !params[node.Name] {
+				queue = append(queue, node.Name)
+			}
 		}
 		return true
 	}
@@ -262,8 +310,9 @@ func (s exportedSurface) reach(used map[string]bool) map[string]bool {
 		}
 		reached[name] = true
 		queue = append(queue, s.constants[name]...)
-		for _, node := range declaration.api {
-			ast.Inspect(node, visit)
+		for _, part := range declaration.api {
+			params = part.params
+			ast.Inspect(part.node, visit)
 		}
 	}
 	return reached
@@ -284,8 +333,8 @@ func (s exportedSurface) sorted() []surfaceEntry {
 }
 
 // externalSelections names the identifiers of importPath that Go files outside
-// dir select through their import of it. A dot import makes every identifier
-// that its file leaves unresolved a possible selection.
+// dir select through their import of it. A dot import makes every exported
+// identifier that its file leaves unresolved a possible selection.
 func externalSelections(files []goFileInfo, importPath, dir string, parse func(goFileInfo) (*ast.File, error)) (map[string]bool, error) {
 	used := map[string]bool{}
 	for _, file := range files {

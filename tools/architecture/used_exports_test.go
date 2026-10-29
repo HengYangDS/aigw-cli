@@ -98,6 +98,35 @@ func Resolve(account string) {}
 
 func Hook() func(account string) { return nil }
 
+type Gen[Token any] struct{ Value Token }
+
+func (Gen[Token]) Get() Token { var zero Token; return zero }
+
+func UseGen() Gen[int] { return Gen[int]{} }
+
+func Pick[Token any](value Token) Token { return value }
+
+type Outer struct {
+	Inner struct {
+		hidden Concealed
+		Shown  Revealed
+	}
+	Port interface {
+		hidden(Masked)
+		Open(Opened)
+	}
+}
+
+type Concealed struct{}
+
+type Revealed struct{}
+
+type Masked struct{}
+
+type Opened struct{}
+
+func UseOuter() Outer { return Outer{} }
+
 func (*Result) PointerMethod() ViaPointer { return ViaPointer{} }
 
 type Constraint interface{ ~int }
@@ -172,7 +201,9 @@ func writeUsedExportsFixture(t *testing.T, root string) []goFileInfo {
 
 import "example.com/aigw/internal/model"
 
-var _, _, _, _, _, _, _, _ = model.Used, model.UseBox, model.UsePair, model.Serve, model.Bridge, model.Platform, model.Resolve, model.Hook
+var _, _, _, _, _, _, _, _, _, _ = model.Used, model.UseBox, model.UsePair, model.Serve, model.Bridge, model.Platform, model.Resolve, model.Hook, model.UseGen, model.UseOuter
+
+var _ = model.Pick[int]
 
 func shadow() int {
 	model := struct{ Variable int }{}
@@ -218,7 +249,7 @@ func TestUsedExportsOnlyCountsOnlyUsersOutsideThePackage(t *testing.T) {
 		unused = append(unused, name)
 	}
 	slices.Sort(unused)
-	want := []string{"AfterReset", "Hidden", "HiddenArg", "OnlyExternalTest", "OnlyOwnTests", "Reset", "Secretive", "Thing", "Token", "Untyped", "Variable"}
+	want := []string{"AfterReset", "Concealed", "Hidden", "HiddenArg", "Masked", "OnlyExternalTest", "OnlyOwnTests", "Reset", "Secretive", "Thing", "Token", "Untyped", "Variable"}
 	if !slices.Equal(unused, want) {
 		t.Fatalf("unused exports = %v, want %v", unused, want)
 	}
