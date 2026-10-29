@@ -69,12 +69,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Install the locked toolchain
-        uses: jdx/mise-action@82a612c5ab8bcda7cc5db6b7e81a8e7584c3dc6e
+        uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d
         env:
           GODEBUG: http2client=0
           MISE_URL_REPLACEMENTS: ${{ inputs.tool_source == 'peer' && format('{{"regex:^https://gitlab[.]com/gitlab-org/cli/-/releases/([^/]+)/downloads/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2","regex:^https://gitlab[.]com/api/v4/projects/gitlab-org%2Fcli/packages/generic/glab/([^/]+)/([^/?]+)$":"{0}/{1}/releases/download/native-inputs-f3c7f87fc3b4df21782e954b71e4481072284db6/$2"}}', github.server_url, github.repository) || '' }}
         with:
-          version: 2026.10.19
+          version: 2026.10.22
           install: true
           install_args: --locked
           cache: ${{ inputs.tool_source != 'peer' }}

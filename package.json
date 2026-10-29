@@ -2,7 +2,7 @@
   "name": "aigw-repository-tools",
   "private": true,
   "devDependencies": {
-    "@fission-ai/openspec": "1.14.3",
+    "@fission-ai/openspec": "1.15.0",
     "@mermaid-lint/core": "0.53.1",
     "js-yaml": "5.5.0",
     "markdownlint": "0.42.0",
@@ -14,6 +14,9 @@
         ".": "30.1.3"
       }
     },
-    "katex": "0.19.0"
+    "katex": "0.19.1",
+    "markdownlint": {
+      "re2js": "2.9.1"
+    }
   }
 }

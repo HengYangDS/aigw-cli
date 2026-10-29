@@ -1,4 +1,4 @@
-min_version = "2026.10.19"
+min_version = "2026.10.22"
 
 [settings]
 legacy_version_file = false
@@ -25,7 +25,7 @@ NPM_CONFIG_GLOBALCONFIG = "{% if os() == 'windows' %}NUL{% else %}/dev/null{% en
 NPM_CONFIG_CACHE = "{{ config_root }}/build/runtime/tool-cache/npm{% if env.CI_JOB_ID | default(value='') != '' %}/{{ env.CI_JOB_ID }}{% endif %}"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.181.7@sha256:4f5a2621afd6629fda621e5c66221d1000f0ef3330ec14c828d7e8d357f03522"
+renovate_image = "ghcr.io/renovatebot/renovate:44.192.2@sha256:37960a62ba1faa9079a7c4eead9b3f4470748a64ecd207e06c09fd8858673e17"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.
@@ -34,17 +34,17 @@ npm = "npm:npm"
 [tools]
 # Language runtimes
 go = "1.27.3"
-node = "26.12.1"
+node = "26.13.0"
 npm = "12.2.1"
 # Native client acceptance only; not an AIGW runtime dependency.
-uv = "0.13.5"
+uv = "0.13.6"
 
 # Specification and CI modeling
 cue = "0.17.1"
 
 # Release transport conformance
-gh = "2.103.2"
-glab = "1.124.0"
+gh = "2.103.3"
+glab = "1.126.0"
 
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.19.0"
