@@ -1,15 +1,15 @@
-package redaction_test
+package domain_test
 
 import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/redaction"
+	"aigw-cli/internal/domain"
 )
 
-func TestTextRemovesKnownAndBearerCredentials(t *testing.T) {
+func TestRedactRemovesKnownAndBearerCredentials(t *testing.T) {
 	secret := "sk value/+?"
-	text := redaction.Text("raw sk value/+? encoded sk+value%2F%2B%3F bearer unknown-token", secret)
+	text := domain.Redact("raw sk value/+? encoded sk+value%2F%2B%3F bearer unknown-token", secret)
 	for _, forbidden := range []string{secret, "sk+value%2F%2B%3F", "unknown-token"} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("redacted text contains %q: %q", forbidden, text)
@@ -20,15 +20,15 @@ func TestTextRemovesKnownAndBearerCredentials(t *testing.T) {
 	}
 }
 
-func TestTextSkipsBlankSecretsAndReturnsUnchangedInput(t *testing.T) {
-	text := redaction.Text("nothing secret here", "", "   ")
+func TestRedactSkipsBlankSecretsAndReturnsUnchangedInput(t *testing.T) {
+	text := domain.Redact("nothing secret here", "", "   ")
 	if text != "nothing secret here" {
-		t.Fatalf("Text = %q", text)
+		t.Fatalf("Redact = %q", text)
 	}
 }
 
-func TestTextRemovesUnknownStructuredCredentialFields(t *testing.T) {
-	text := redaction.Text(`{"api_key":"unknown-json-key","token":"unknown-token","nested":{"client_secret":"unknown-secret"},"safe":"kept"} query api_key=unknown-query-key&mode=read`)
+func TestRedactRemovesUnknownStructuredCredentialFields(t *testing.T) {
+	text := domain.Redact(`{"api_key":"unknown-json-key","token":"unknown-token","nested":{"client_secret":"unknown-secret"},"safe":"kept"} query api_key=unknown-query-key&mode=read`)
 	for _, forbidden := range []string{"unknown-json-key", "unknown-token", "unknown-secret", "unknown-query-key"} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("redacted text contains %q: %q", forbidden, text)

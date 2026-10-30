@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"aigw-cli/internal/redaction"
+	"aigw-cli/internal/domain"
 )
 
 // ProtocolTimeout bounds each native turn, including cold client startup.
@@ -91,7 +91,7 @@ func Command(client, explicitRoute string) string {
 }
 
 func verificationFailureSummary(diagnostic []byte, cause error, advice []Advice, secrets ...string) string {
-	text := strings.ToLower(redaction.Text(string(diagnostic), secrets...))
+	text := strings.ToLower(domain.Redact(string(diagnostic), secrets...))
 	if errors.Is(cause, context.DeadlineExceeded) || strings.Contains(text, "deadline exceeded") || strings.Contains(text, "timed out") {
 		return "client verification timed out"
 	}

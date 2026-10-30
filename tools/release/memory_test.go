@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/redaction"
 	"aigw-cli/tools/release/performance"
 )
 
@@ -108,7 +107,7 @@ func (j *journeyFixture) measureWorkloadProcesses(parent context.Context, path s
 			if err != nil {
 				return errors.Join(runErr, err)
 			}
-			_, writeErr := fmt.Fprintf(file, "%s warmup=%t index=%d\n%s", phase, index < 5, index, redaction.Text(string(data), j.sensitiveInputs...))
+			_, writeErr := fmt.Fprintf(file, "%s warmup=%t index=%d\n%s", phase, index < 5, index, domain.Redact(string(data), j.sensitiveInputs...))
 			runErr = errors.Join(runErr, writeErr, file.Close())
 		}
 		return errors.Join(runErr, ctx.Err())

@@ -23,7 +23,6 @@ import (
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
@@ -136,13 +135,13 @@ func requireNativeCodexRouteOutcome(t *testing.T, executable string, route domai
 	t.Helper()
 	if runErr == nil {
 		if !bytes.Contains(stdout, []byte("Completed")) || process.DiagnosticFailure(stderr) {
-			t.Fatalf("native Route verification did not complete cleanly: %s", redaction.Text(string(stderr), token))
+			t.Fatalf("native Route verification did not complete cleanly: %s", domain.Redact(string(stderr), token))
 		}
 		return true
 	}
 	diagnostic := string(stdout) + string(stderr)
 	if !strings.Contains(diagnostic, "model-metadata warning") {
-		t.Fatalf("native Route verification: %v\n%s", runErr, redaction.Text(diagnostic, token))
+		t.Fatalf("native Route verification: %v\n%s", runErr, domain.Redact(diagnostic, token))
 	}
 	_, bundled, err := codex.ReadBundledCatalog(executable)
 	if err != nil {
@@ -232,7 +231,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	cancel()
 	if runErr != nil {
 		t.Fatalf("Codex native tool loop: %v\nstdout:\n%s\nstderr:\n%s", runErr,
-			redaction.Text(string(stdout), token), redaction.Text(string(stderr), token))
+			domain.Redact(string(stdout), token), domain.Redact(string(stderr), token))
 	}
 	requireNativeCodexMetadataDiagnostic(t, runtime.Model, stdout, stderr, token)
 	if !toolOutput.Load() || probe.toolCalls.Load()-callsBefore != 1 || probe.toolResults.Load()-resultsBefore != 1 || probe.rejected.Load() != 0 {
@@ -243,7 +242,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 		t.Fatalf("Codex final tool-loop response = %q, %v", got, err)
 	}
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
-	t.Logf("Codex tool loop completed; native model metadata remains unqualified; stderr:\n%s", redaction.Text(string(stderr), token))
+	t.Logf("Codex tool loop completed; native model metadata remains unqualified; stderr:\n%s", domain.Redact(string(stderr), token))
 }
 
 func requireNativeCodexMetadataDiagnostic(t *testing.T, model string, stdout, stderr []byte, token string) {
@@ -256,7 +255,7 @@ func requireNativeCodexMetadataDiagnostic(t *testing.T, model string, stdout, st
 			continue
 		}
 		if process.DiagnosticFailure([]byte(line)) {
-			t.Fatalf("Codex tool loop emitted an unexpected diagnostic: %s", redaction.Text(line, token))
+			t.Fatalf("Codex tool loop emitted an unexpected diagnostic: %s", domain.Redact(line, token))
 		}
 	}
 	decoder := json.NewDecoder(bytes.NewReader(stdout))
@@ -332,7 +331,7 @@ func codexToolLoopHandler(token string, toolOutput *atomic.Bool, probe *codexToo
 			result := string(item.Output)
 			sawResult = true
 			probe.toolResults.Add(1)
-			preview := redaction.Text(result, token)
+			preview := domain.Redact(result, token)
 			preview = preview[:min(len(preview), 512)]
 			probe.firstResult.CompareAndSwap(nil, &preview)
 			if strings.Contains(result, "AIGW_TOOL_OK") &&

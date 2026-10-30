@@ -29,7 +29,6 @@ package_children."internal" = [
   "prompt",
   "providers",
   "readiness",
-  "redaction",
   "renaming",
   "secret",
   "store",
@@ -127,7 +126,7 @@ allowed_import_edges."internal/client" = [
   "internal/secret",
   "internal/store",
 ]
-allowed_import_edges."internal/client/verification" = ["internal/redaction"]
+allowed_import_edges."internal/client/verification" = ["internal/domain"]
 # Upgrade reuses neutral process and durable staging owners.
 allowed_import_edges."internal/upgrade" = [
   "internal/platform",
@@ -168,7 +167,6 @@ allowed_import_edges."internal/providers" = [
 allowed_import_edges."internal/providers/dmxapi" = [
   "internal/domain",
   "internal/providers/diagnostic",
-  "internal/redaction",
   "internal/secret",
   "internal/secret/probe",
 ]
@@ -387,7 +385,6 @@ allowed_import_edges."internal/cli/onboarding" = [
   "internal/store",
 ]
 allowed_import_edges."internal/prompt" = []
-allowed_import_edges."internal/redaction" = []
 allowed_import_edges."internal/diagnostics" = [
   "internal/domain",
   "internal/secret/probe",
@@ -437,7 +434,6 @@ allowed_import_edges."tools/release/construction" = [
 allowed_import_edges."tools/release/performance" = [
   "internal/domain",
   "internal/process",
-  "internal/redaction",
 ]
 allowed_import_edges."tools/release/publication" = ["tools/release/artifact"]
 allowed_import_edges."tools/release/readiness" = []

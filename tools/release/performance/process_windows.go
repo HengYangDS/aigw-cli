@@ -3,8 +3,8 @@
 package performance
 
 import (
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/redaction"
 	"context"
 	"errors"
 	"fmt"
@@ -149,7 +149,7 @@ func ObserveCommand(parent context.Context, input Command, workload Workload) (r
 		out, diagnostics, err := (process.Runner{StdoutLimit: 4 << 20}).RunCaptureStreams(ctx, process.Plan{Executable: workload.Prepare[0], Args: workload.Prepare[1:], Env: input.Environment, Directory: input.Directory})
 		prepared, preparedDiagnostics = out, diagnostics
 		if err != nil {
-			return nil, nil, errors.Join(fmt.Errorf("native preflight preparation: %s", redaction.Text(err.Error(), input.Sensitive...)), writePreflightStreams(input, prepared, preparedDiagnostics))
+			return nil, nil, errors.Join(fmt.Errorf("native preflight preparation: %s", domain.Redact(err.Error(), input.Sensitive...)), writePreflightStreams(input, prepared, preparedDiagnostics))
 		}
 	}
 	selected, err := Identify(input.Tool)
@@ -168,7 +168,7 @@ func ObserveCommand(parent context.Context, input Command, workload Workload) (r
 	row.Execution, row.ControllerExecution = rows, controllers
 	runErr = errors.Join(runErr, reviewWorkloadExecution(row, selected, "windows"))
 	if runErr != nil {
-		return rows, controllers, errors.New(redaction.Text(runErr.Error(), input.Sensitive...))
+		return rows, controllers, errors.New(domain.Redact(runErr.Error(), input.Sensitive...))
 	}
 	return rows, controllers, nil
 }

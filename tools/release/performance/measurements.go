@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/redaction"
 )
 
 // Identity describes the selected file, not an executed process or shell redirection.
@@ -137,7 +136,7 @@ func Measure(parent context.Context, input Command) (Measurement, error) {
 		runErr = errors.Join(runErr, row.Executable.verify())
 	}
 	for stream, log := range map[string][]byte{"stdout": stdout, "stderr": stderr} {
-		if err := os.WriteFile(strings.TrimSuffix(input.Output, ".json")+"."+stream, []byte(redaction.Text(string(log), input.Sensitive...)), 0o600); err != nil {
+		if err := os.WriteFile(strings.TrimSuffix(input.Output, ".json")+"."+stream, []byte(domain.Redact(string(log), input.Sensitive...)), 0o600); err != nil {
 			runErr = errors.Join(runErr, err)
 		}
 	}
@@ -146,7 +145,7 @@ func Measure(parent context.Context, input Command) (Measurement, error) {
 	// retained as evidence only.
 	row.Diagnostics = preflightDiagnostics(input.Output)
 	if runErr != nil {
-		runErr = fmt.Errorf("Hyperfine: %s; separate redacted streams retained", redaction.Text(runErr.Error(), input.Sensitive...))
+		runErr = fmt.Errorf("Hyperfine: %s; separate redacted streams retained", domain.Redact(runErr.Error(), input.Sensitive...))
 	}
 	data, err := os.ReadFile(input.Output)
 	if err != nil {
@@ -289,7 +288,7 @@ func preflightStream(output, name string) string {
 func writePreflightStreams(input Command, stdout, stderr []byte) error {
 	var err error
 	for name, stream := range map[string][]byte{"stdout": stdout, "stderr": stderr} {
-		err = errors.Join(err, os.WriteFile(preflightStream(input.Output, name), []byte(redaction.Text(string(stream), input.Sensitive...)), 0o600))
+		err = errors.Join(err, os.WriteFile(preflightStream(input.Output, name), []byte(domain.Redact(string(stream), input.Sensitive...)), 0o600))
 	}
 	return err
 }

@@ -5,9 +5,9 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secret"
 
 	"aigw-cli/internal/store"
@@ -233,14 +233,14 @@ func (j *journeyFixture) requireCredential(plan process.Plan, want string) {
 	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, plan)
 	sensitive := append(slices.Clone(j.sensitiveInputs), want)
 	if len(stderr) != 0 {
-		j.testing.Logf("retained credential stderr:\n%s", redaction.Text(string(stderr), sensitive...))
+		j.testing.Logf("retained credential stderr:\n%s", domain.Redact(string(stderr), sensitive...))
 	}
 	if process.DiagnosticFailure(stderr) {
 		err = errors.Join(err, fmt.Errorf("retained credential diagnostics prevent qualification"))
 	}
 	if err != nil {
 		j.testing.Fatalf("execute retained credential command: %v\nstderr:\n%s", err,
-			redaction.Text(string(stderr), sensitive...))
+			domain.Redact(string(stderr), sensitive...))
 	}
 	if strings.TrimSpace(string(stdout)) != want {
 		j.testing.Fatal("retained credential command returned unexpected content")

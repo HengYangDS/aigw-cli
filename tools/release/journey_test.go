@@ -4,8 +4,8 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/claudedesktop"
 	clientverification "aigw-cli/internal/client/verification"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secret"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
@@ -375,15 +375,15 @@ func (j *journeyFixture) runStreamsWithContext(parent context.Context, binary, i
 	defer cancel()
 	stdout, stderr, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: binary, Args: args, Env: j.environment, Stdin: input})
 	if len(stderr) != 0 {
-		j.testing.Logf("command stderr:\n%s", redaction.Text(string(stderr), j.sensitiveInputs...))
+		j.testing.Logf("command stderr:\n%s", domain.Redact(string(stderr), j.sensitiveInputs...))
 	}
 	if err == nil && process.DiagnosticFailure(stderr) {
 		err = fmt.Errorf("native product diagnostics prevent qualification")
 	}
 	if err != nil {
 		j.testing.Fatalf("%s %s: %v\nstdout:\n%s\nstderr:\n%s", binary,
-			redaction.Text(strings.Join(args, " "), j.sensitiveInputs...), err,
-			redaction.Text(string(stdout), j.sensitiveInputs...), redaction.Text(string(stderr), j.sensitiveInputs...))
+			domain.Redact(strings.Join(args, " "), j.sensitiveInputs...), err,
+			domain.Redact(string(stdout), j.sensitiveInputs...), domain.Redact(string(stderr), j.sensitiveInputs...))
 	}
 	return stdout, stderr
 }

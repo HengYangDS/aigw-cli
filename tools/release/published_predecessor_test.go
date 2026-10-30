@@ -21,7 +21,6 @@ import (
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/redaction"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/readiness"
@@ -418,12 +417,12 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 	})
 	cancel()
 	if len(stderr) != 0 {
-		t.Logf("Original public rollback stderr:\n%s", redaction.Text(string(stderr), journey.sensitiveInputs...))
+		t.Logf("Original public rollback stderr:\n%s", domain.Redact(string(stderr), journey.sensitiveInputs...))
 	}
 	if rollbackErr != nil {
 		t.Fatalf("Original public rollback failed: %s\nstdout:\n%s\nstderr:\n%s",
-			redaction.Text(rollbackErr.Error(), journey.sensitiveInputs...),
-			redaction.Text(string(stdout), journey.sensitiveInputs...), redaction.Text(string(stderr), journey.sensitiveInputs...))
+			domain.Redact(rollbackErr.Error(), journey.sensitiveInputs...),
+			domain.Redact(string(stdout), journey.sensitiveInputs...), domain.Redact(string(stderr), journey.sensitiveInputs...))
 	}
 	journey.requireVersion(predecessorVersion)
 	journey.requireProgramBytes(state.baseline)

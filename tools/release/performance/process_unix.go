@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/redaction"
 )
 
 func preparationCommand(arguments []string) string { return Argv(arguments...) }
@@ -42,7 +42,7 @@ func ObserveCommand(parent context.Context, input Command, workload Workload) ([
 	}
 	runErr = errors.Join(runErr, writePreflightStreams(input, stdout, stderr))
 	if runErr != nil {
-		return nil, nil, fmt.Errorf("native preflight: %s", redaction.Text(runErr.Error(), input.Sensitive...))
+		return nil, nil, fmt.Errorf("native preflight: %s", domain.Redact(runErr.Error(), input.Sensitive...))
 	}
 	return nil, nil, nil
 }
