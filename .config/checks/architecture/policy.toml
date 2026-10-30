@@ -233,6 +233,7 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/credential",
   "internal/cli/doctor",
   "internal/cli/install",
+  "internal/cli/installation",
   "internal/cli/invocation",
   "internal/cli/manifest",
   "internal/cli/onboarding",
@@ -241,6 +242,7 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/renaming",
   "internal/cli/route",
   "internal/cli/selection",
+  "internal/cli/uninstall",
   "internal/cli/update",
   "internal/cli/verification",
   "internal/client",
@@ -279,7 +281,14 @@ allowed_import_edges."internal/cli/credential" = [
 ]
 allowed_import_edges."internal/cli/install" = [
   "internal/cli/invocation",
-  "internal/store",
+  "internal/upgrade",
+]
+allowed_import_edges."internal/cli/uninstall" = [
+  "internal/cli/invocation",
+  "internal/upgrade",
+]
+allowed_import_edges."internal/cli/installation" = [
+  "internal/cli/invocation",
   "internal/terminal",
   "internal/upgrade",
 ]

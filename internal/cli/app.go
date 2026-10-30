@@ -48,6 +48,10 @@ import (
 	"aigw-cli/internal/upgrade"
 
 	"github.com/spf13/cobra"
+
+	"aigw-cli/internal/cli/installation"
+
+	"aigw-cli/internal/cli/uninstall"
 )
 
 // App owns the dependencies and presentation state for one AIGW invocation.
@@ -371,10 +375,10 @@ func NewRoot(app *App) *cobra.Command {
 	recoveryCommands := []*cobra.Command{
 		app.doctorCommand(), recovery.NewRepairCommand(runtime), recovery.NewSyncCommand(runtime),
 		recovery.NewRollbackCommand(runtime), updatecli.NewCommand(runtime),
-		installcli.NewInstallCommand(runtime), installcli.NewUninstallCommand(runtime),
+		installcli.NewCommand(runtime), uninstall.NewCommand(runtime),
 	}
 	advanced := []*cobra.Command{
-		installcli.NewInspectionCommand(runtime),
+		installation.NewCommand(runtime),
 		accountcli.NewAddCommand(runtime), accountcli.NewCommand(runtime, renaming.NewAccountCommand(runtime)),
 		route.NewCommand(runtime, renaming.NewRouteCommand(runtime)),
 		clientcli.NewCommand(runtime),

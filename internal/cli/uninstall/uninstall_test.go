@@ -1,4 +1,4 @@
-package install
+package uninstall
 
 import (
 	"bytes"
@@ -31,7 +31,7 @@ func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing
 		t.Fatal(err)
 	}
 	out := new(bytes.Buffer)
-	command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: target, Out: out})
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Executable: target, Out: out})
 	command.SetArgs(nil)
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
@@ -43,7 +43,7 @@ func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing
 		!strings.Contains(out.String(), "credential readers were retained") {
 		t.Fatalf("output = %q", out.String())
 	}
-	command = NewUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: ""})
+	command = NewCommand(invocation.Context{Clients: clients.Registry(), Executable: ""})
 	command.SetArgs(nil)
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "target is empty") {
 		t.Fatalf("empty target error = %v", err)
@@ -53,7 +53,7 @@ func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing
 func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T) {
 	t.Run("configuration load", func(t *testing.T) {
 		root := t.TempDir()
-		command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(), Executable: filepath.Join(root, "aigw"), Config: store.NewStore(root, clients.Admission())})
+		command := NewCommand(invocation.Context{Clients: clients.Registry(), Executable: filepath.Join(root, "aigw"), Config: store.NewStore(root, clients.Admission())})
 		command.SetArgs(nil)
 		if err := command.Execute(); err == nil {
 			t.Fatal("uninstall succeeded despite an unreadable configuration path")
@@ -66,7 +66,7 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		if err := os.WriteFile(target, []byte("current"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),
+		command := NewCommand(invocation.Context{Clients: clients.Registry(),
 			Executable: target,
 			Config:     store.NewStore(filepath.Join(root, "invalid")+"\x00configuration.toml", clients.Admission()),
 		})
@@ -101,7 +101,7 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		if err := os.MkdirAll(filepath.Join(blockedHome, ".claude", "settings.json"), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),
+		command := NewCommand(invocation.Context{Clients: clients.Registry(),
 			Executable: target,
 			Config:     configStore,
 			Host:       hostAt(blockedHome),
@@ -158,7 +158,7 @@ func TestUninstallPreservesEveryVersionedReader(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),
+	command := NewCommand(invocation.Context{Clients: clients.Registry(),
 		Executable: invoker, DataDir: dataDir, CredentialPath: invokerReader, Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
 	})
 	command.SetArgs([]string{"--target", target})
@@ -204,7 +204,7 @@ func TestUninstallPreservesReaderSharedByIdenticalInstallations(t *testing.T) {
 	if _, err := secret.EnsureEntrypoint(invoker, invokerReader); err != nil {
 		t.Fatal(err)
 	}
-	command := NewUninstallCommand(invocation.Context{Clients: clients.Registry(),
+	command := NewCommand(invocation.Context{Clients: clients.Registry(),
 		Executable: invoker, DataDir: dataDir, CredentialPath: invokerReader,
 		Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
 	})
