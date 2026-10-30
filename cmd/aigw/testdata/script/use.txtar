@@ -14,9 +14,9 @@ exec aigw use --for claude team
 normalize stdout team.out
 cmp team.out team.txt
 
-! exec aigw use --for claude missing
+exitcode 1 aigw use --for claude missing
 cmp stdout refusal.txt
-! exec aigw use --for claude missing --json
+exitcode 1 aigw use --for claude missing --json
 cmp stdout refusal.json
 
 -- token.txt --

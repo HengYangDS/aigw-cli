@@ -4,9 +4,9 @@
 exec aigw update --help
 cmp stdout help.txt
 
-! exec aigw update
+exitcode 1 aigw update
 cmp stdout unconfigured.txt
-! exec aigw update --rollback
+exitcode 1 aigw update --rollback
 cmp stdout rollback.txt
 
 env AIGW_GITHUB_RELEASE_ORIGIN=$UPSTREAM

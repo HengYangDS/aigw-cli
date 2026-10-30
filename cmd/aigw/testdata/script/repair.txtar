@@ -3,8 +3,10 @@
 exec aigw repair --help
 cmp stdout help.txt
 
-! exec aigw repair
+exitcode 1 aigw repair
 cmp stdout empty.txt
+exitcode 1 aigw repair --json
+cmp stdout empty.json
 
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
@@ -65,3 +67,11 @@ Results
 
 Next
   aigw check
+-- empty.json --
+{
+  "ok": false,
+  "error": "Not configured",
+  "evidence": "No Routes have been created.",
+  "impact": "Cannot check, synchronize, or repair configuration that does not exist.",
+  "next_action": "aigw setup"
+}

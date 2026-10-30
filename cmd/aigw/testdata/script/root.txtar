@@ -7,7 +7,7 @@ cmp stdout help.txt
 exec aigw --version
 cmp stdout version.txt
 
-! exec aigw nothing
+exitcode 1 aigw nothing
 cmp stdout unknown.txt
 
 -- help.txt --

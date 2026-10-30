@@ -3,16 +3,18 @@
 exec aigw installation --help
 cmp stdout help.txt
 
+# The payload's digest and size vary with the build.
 exec aigw installation --json
-stdout '"schema_version": 1,'
-stdout '"version": "0.1.0-dev",'
-stdout '"sha256": "[0-9a-f]{64}",'
-stdout '"rollback": null'
+normalize stdout installation.out '[0-9a-f]{64}' '[0-9]{5,}'
+[!windows] cmp installation.out installation.json
+[windows] cmp installation.out installation-windows.json
 exec aigw installation
 stdout 'Version +0\.1\.0-dev'
 
-! exec aigw installation extra
+exitcode 1 aigw installation extra
 cmp stdout refusal.txt
+exitcode 1 aigw installation extra --json
+cmp stdout refusal.json
 
 -- help.txt --
 AIGW  aigw installation
@@ -37,3 +39,34 @@ Impact
 
 Recommended action
   aigw --help
+-- refusal.json --
+{
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw --help"
+}
+-- installation.json --
+{
+  "schema_version": 1,
+  "version": "0.1.0-dev",
+  "command_path": "$BIN/aigw",
+  "payload": {
+    "path": "$BIN/aigw",
+    "sha256": "<varies>",
+    "size_bytes": <varies>
+  },
+  "rollback": null
+}
+-- installation-windows.json --
+{
+  "schema_version": 1,
+  "version": "0.1.0-dev",
+  "command_path": "$BIN\\aigw.exe",
+  "payload": {
+    "path": "$BIN\\aigw.exe",
+    "sha256": "<varies>",
+    "size_bytes": <varies>
+  },
+  "rollback": null
+}

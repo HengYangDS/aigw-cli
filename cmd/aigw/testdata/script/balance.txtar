@@ -5,7 +5,7 @@ cmp stdout help.txt
 
 envsubst manifest.in manifest.toml
 exec aigw config import manifest.toml
-! exec aigw balance plain
+exitcode 1 aigw balance plain
 cmp stdout refusal.txt
 
 stdin token.txt

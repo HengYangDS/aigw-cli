@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"net/http/httptest"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -33,8 +35,8 @@ func TestScripts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Under coverage each program process writes the same meta-data file when
-	// it starts, and on Windows a concurrent second writer of that file fails.
+	// Under coverage each program process writes the same meta-data file as
+	// it exits, and on Windows a concurrent second writer of that file fails.
 	// One run before the parallel scripts writes it first.
 	warmup := exec.Command(program, "--version")
 	warmup.Env = append(os.Environ(), "AIGW_SECRET_BACKEND=file")
@@ -70,6 +72,7 @@ func TestScripts(t *testing.T) {
 		Cmds: map[string]func(*testscript.TestScript, bool, []string){
 			"apikeyhelper": apiKeyHelper,
 			"envsubst":     envsubst,
+			"exitcode":     exitCode,
 			"normalize":    normalize,
 		},
 	})
@@ -90,8 +93,8 @@ func envsubst(ts *testscript.TestScript, neg bool, args []string) {
 // normalize writes a command's output with the values that differ between
 // runs spelled $HOME, $WORK, $BIN and $UPSTREAM, so that cmp can compare and
 // update it. Each further argument is a pattern whose matches become
-// <varies>. Path separators stay native; scripts match a path on Windows by
-// pattern.
+// <varies>. Path separators stay native, so a script compares Windows output
+// with its own expected file.
 func normalize(ts *testscript.TestScript, neg bool, args []string) {
 	if neg || len(args) < 2 {
 		ts.Fatalf("usage: normalize stdout|stderr <target> [pattern...]")
@@ -111,7 +114,9 @@ func normalize(ts *testscript.TestScript, neg bool, args []string) {
 }
 
 // spellings returns a value as given and as its resolved path, longest
-// first. On macOS a temporary path may also appear without /private.
+// first. On macOS a temporary path may also appear without /private, and on
+// Windows a path also appears with doubled separators, as JSON and quoted
+// strings write it.
 func spellings(value string) []string {
 	if value == "" {
 		return nil
@@ -127,10 +132,38 @@ func spellings(value string) []string {
 			}
 		}
 	}
+	if runtime.GOOS == "windows" {
+		for _, candidate := range slices.Clone(values) {
+			values = append(values, strings.ReplaceAll(candidate, `\`, `\\`))
+		}
+	}
 	slices.Sort(values)
 	values = slices.Compact(values)
 	slices.SortStableFunc(values, func(a, b string) int { return len(b) - len(a) })
 	return values
+}
+
+// exitCode runs a command and requires its exit status, which `! exec` checks
+// only for being non-zero.
+func exitCode(ts *testscript.TestScript, neg bool, args []string) {
+	if neg || len(args) < 2 {
+		ts.Fatalf("usage: exitcode <status> <command> [argument...]")
+	}
+	want, err := strconv.Atoi(args[0])
+	if err != nil {
+		ts.Fatalf("exit status %q: %v", args[0], err)
+	}
+	got := 0
+	if err := ts.Exec(args[1], args[2:]...); err != nil {
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) {
+			ts.Fatalf("%s: %v", args[1], err)
+		}
+		got = exit.ExitCode()
+	}
+	if got != want {
+		ts.Fatalf("%s exited with status %d, want %d", args[1], got, want)
+	}
 }
 
 // apiKeyHelper runs the credential helper that AIGW projected into a Claude

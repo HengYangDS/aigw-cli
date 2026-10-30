@@ -1,10 +1,14 @@
-# catalog refuses an empty home, then reports each Account's catalogue in
-# text and as JSON.
+# catalog refuses an empty home in text but reports it as JSON, refuses an
+# argument as JSON, then reports each Account's catalogue in text and as JSON.
 exec aigw catalog --help
 cmp stdout help.txt
 
-! exec aigw catalog
+exitcode 1 aigw catalog
 cmp stdout empty.txt
+exec aigw catalog --json
+cmp stdout empty.json
+exitcode 1 aigw catalog extra --json
+cmp stdout refusal.json
 
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
@@ -94,4 +98,15 @@ Next
       "missing_routes": []
     }
   ]
+}
+-- empty.json --
+{
+  "observations": []
+}
+-- refusal.json --
+{
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw --help"
 }

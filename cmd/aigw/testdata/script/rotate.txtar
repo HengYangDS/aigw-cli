@@ -2,7 +2,7 @@
 exec aigw rotate --help
 cmp stdout help.txt
 
-! exec aigw rotate
+exitcode 1 aigw rotate
 cmp stdout empty.txt
 
 stdin token.txt
@@ -11,7 +11,7 @@ stdin rotated.txt
 exec aigw rotate team --token-stdin
 cmp stdout rotated.txt.out
 stdin rejected.txt
-! exec aigw rotate team --token-stdin
+exitcode 1 aigw rotate team --token-stdin
 cmp stdout rejected.txt.out
 
 -- token.txt --

@@ -7,7 +7,7 @@ exec aigw config path
 normalize stdout path.out
 [darwin] cmp path.out path-darwin.txt
 [linux] cmp path.out path-linux.txt
-[windows] stdout 'aigw\\config\.toml'
+[windows] cmp path.out path-windows.txt
 
 envsubst manifest.in manifest.toml
 exec aigw config import manifest.toml --json
@@ -16,8 +16,10 @@ exec aigw config export
 normalize stdout export.out
 cmp export.out export.toml
 
-! exec aigw config import broken.toml
+exitcode 1 aigw config import broken.toml
 cmp stdout refusal.txt
+exitcode 1 aigw config import broken.toml --json
+cmp stdout refusal.json
 
 -- manifest.in --
 version = 7
@@ -99,3 +101,12 @@ Impact
 
 Recommended action
   Correct the value at the reported document location and rerun the command.
+-- refusal.json --
+{
+  "ok": false,
+  "error": "Cannot decode TOML document at line 2, column 15",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "Correct the value at the reported document location and rerun the command."
+}
+-- path-windows.txt --
+$HOME\aigw\config.toml

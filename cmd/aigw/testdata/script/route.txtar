@@ -13,8 +13,10 @@ exec aigw route show spare --json
 normalize stdout spare.out
 cmp spare.out spare.json
 
-! exec aigw route remove team
+exitcode 1 aigw route remove team
 cmp stdout refusal.txt
+exitcode 1 aigw route show missing --json
+cmp stdout missing.json
 
 -- token.txt --
 sk-team-token-0001
@@ -106,3 +108,10 @@ Impact
 
 Recommended action
   aigw use --for claude <other-route>
+-- missing.json --
+{
+  "ok": false,
+  "error": "Unknown route \"missing\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw check"
+}

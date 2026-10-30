@@ -15,9 +15,9 @@ cmp stdout connected.txt
 
 [darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/config.toml
 [!darwin] cp broken.toml $HOME/aigw/config.toml
-! exec aigw status
+exitcode 1 aigw status
 cmp stdout refusal.txt
-! exec aigw status --json
+exitcode 1 aigw status --json
 cmp stdout refusal.json
 
 -- token.txt --

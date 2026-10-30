@@ -3,7 +3,7 @@
 exec aigw rollback --help
 cmp stdout help.txt
 
-! exec aigw rollback
+exitcode 1 aigw rollback
 cmp stdout empty.txt
 
 stdin token.txt

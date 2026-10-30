@@ -3,9 +3,9 @@
 exec aigw doctor --help
 cmp stdout help.txt
 
-! exec aigw doctor
+exitcode 1 aigw doctor
 cmp stdout empty.txt
-! exec aigw doctor --json
+exitcode 1 aigw doctor --json
 cmp stdout empty.json
 
 stdin token.txt

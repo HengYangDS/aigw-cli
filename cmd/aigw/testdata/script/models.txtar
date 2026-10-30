@@ -3,7 +3,7 @@
 exec aigw models --help
 cmp stdout help.txt
 
-! exec aigw models
+exitcode 1 aigw models
 cmp stdout empty.txt
 
 stdin token.txt

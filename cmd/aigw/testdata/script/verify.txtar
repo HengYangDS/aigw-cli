@@ -3,14 +3,14 @@
 exec aigw verify --help
 cmp stdout help.txt
 
-! exec aigw verify
+exitcode 1 aigw verify
 cmp stdout client.txt
 
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
 exec aigw verify --for claude
 cmp stdout verified.txt
-! exec aigw verify --for codex
+exitcode 1 aigw verify --for codex
 cmp stdout codex.txt
 
 -- token.txt --

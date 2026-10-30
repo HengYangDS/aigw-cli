@@ -2,20 +2,21 @@
 # the target. The help quotes its default path, so on Windows each separator
 # appears as two backslashes.
 exec aigw install --help
-[!windows] normalize stdout help.out
+normalize stdout help.out
 [!windows] cmp help.out help.txt
-[windows] stdout 'default ".*\\\\Programs\\\\aigw\\\\bin\\\\aigw\.exe"'
+[windows] cmp help.out help-windows.txt
 
 exec aigw install --target $WORK/bin/aigw$exe
-[!windows] normalize stdout installed.out
+normalize stdout installed.out
 [!windows] cmp installed.out installed.txt
-[windows] stdout 'bin\\aigw\.exe'
+[windows] cmp installed.out installed-windows.txt
 exists $WORK/bin/aigw$exe
 
-! exec aigw install --target $WORK
+exitcode 1 aigw install --target $WORK
 [!windows] normalize stdout refusal.out
+[windows] normalize stdout refusal.out '\([a-z]+: [^)]*\)'
 [!windows] cmp refusal.out refusal.txt
-[windows] stdout 'Problem'
+[windows] cmp refusal.out refusal-windows.txt
 
 -- help.txt --
 AIGW  aigw install
@@ -42,6 +43,37 @@ AIGW  Action required
 
 Problem
   Local file access failed (read: is a directory); run `aigw doctor` to inspect current state
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw doctor
+-- help-windows.txt --
+AIGW  aigw install
+────────────────────────────────────────
+  Install this portable AIGW executable
+
+Usage
+  aigw install [flags]
+
+Options
+  -h, --help            help for install
+      --target string   destination executable path (default "$HOME\\Programs\\aigw\\bin\\aigw.exe")
+-- installed-windows.txt --
+AIGW  Portable installation
+────────────────────────────────────────
+  ✓ Installed $WORK\bin\aigw.exe
+  PATH is unchanged. Use the installed path directly, or add its directory to PATH before running the command below.
+
+Next
+  aigw setup
+-- refusal-windows.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Local file access failed <varies>; run `aigw doctor` to inspect current state
 
 Impact
   The command could not finish; inspect current state before retrying.

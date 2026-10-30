@@ -8,10 +8,9 @@ exec aigw uninstall --target $WORK/bin/aigw$exe
 cmp stdout removed.txt
 ! exists $WORK/bin/aigw$exe
 
-! exec aigw uninstall --target $WORK
-[!windows] normalize stdout refusal.out
-[!windows] cmp refusal.out refusal.txt
-[windows] stdout 'Problem'
+exitcode 1 aigw uninstall --target $WORK
+normalize stdout refusal.out
+cmp refusal.out refusal.txt
 
 -- help.txt --
 AIGW  aigw uninstall

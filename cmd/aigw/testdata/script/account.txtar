@@ -14,8 +14,10 @@ exec aigw account list
 normalize stdout list.out
 cmp list.out list.txt
 
-! exec aigw account rename missing other
+exitcode 1 aigw account rename missing other
 cmp stdout refusal.txt
+exitcode 1 aigw account rename missing other --json
+cmp stdout refusal.json
 
 -- token.txt --
 sk-team-token-0001
@@ -76,3 +78,10 @@ Impact
 
 Recommended action
   aigw check
+-- refusal.json --
+{
+  "ok": false,
+  "error": "Unknown account \"missing\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw check"
+}

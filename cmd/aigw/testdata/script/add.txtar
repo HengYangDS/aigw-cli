@@ -4,7 +4,7 @@ exec aigw add --help
 cmp stdout help.txt
 
 stdin token.txt
-! exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --for claude --token-stdin
+exitcode 1 aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --for claude --token-stdin
 cmp stdout model.txt
 
 stdin token.txt
@@ -15,7 +15,7 @@ normalize stdout accounts.out
 cmp accounts.out accounts.json
 
 stdin token.txt
-! exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exitcode 1 aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
 cmp stdout exists.txt
 
 -- token.txt --

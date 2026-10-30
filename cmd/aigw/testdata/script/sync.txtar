@@ -3,18 +3,20 @@
 exec aigw sync --help
 cmp stdout help.txt
 
-! exec aigw sync
+exitcode 1 aigw sync
 cmp stdout empty.txt
+exitcode 1 aigw sync --json
+cmp stdout empty.json
 
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
 exec aigw sync --dry-run --json
-[!windows] normalize stdout preview.out
+normalize stdout preview.out
 [!windows] cmp preview.out preview.json
-[windows] stdout '"target": ".*\\\\.claude\\\\settings\.json"'
+[windows] cmp preview.out preview-windows.json
 exec aigw sync
 normalize stdout synced.out
-[!windows] cmp synced.out synced.txt
+cmp synced.out synced.txt
 
 -- token.txt --
 sk-team-token-0001
@@ -65,3 +67,26 @@ AIGW  Synchronization completed
 
 Next
   aigw check
+-- empty.json --
+{
+  "ok": false,
+  "error": "refuse invalid config: at least one route is required",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw check"
+}
+-- preview-windows.json --
+{
+  "dry_run": true,
+  "selections": {
+    "claude": "team"
+  },
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME\\.claude\\settings.json",
+      "action": "already-converged"
+    }
+  ],
+  "enabled_clients": 1,
+  "next_action": "aigw check"
+}

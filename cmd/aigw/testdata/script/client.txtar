@@ -13,7 +13,7 @@ exec aigw client enable claude --executable $BIN/claude$exe
 normalize stdout enabled.out
 cmp enabled.out enabled.txt
 
-! exec aigw client enable unknown
+exitcode 1 aigw client enable unknown
 cmp stdout refusal.txt
 
 -- token.txt --

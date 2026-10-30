@@ -3,14 +3,14 @@
 exec aigw test --help
 cmp stdout help.txt
 
-! exec aigw test
+exitcode 1 aigw test
 cmp stdout empty.txt
 
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
 exec aigw test --for claude
 cmp stdout tested.txt
-! exec aigw test --for codex
+exitcode 1 aigw test --for codex
 cmp stdout codex.txt
 
 -- token.txt --

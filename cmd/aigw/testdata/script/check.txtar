@@ -3,9 +3,9 @@
 exec aigw check --help
 cmp stdout help.txt
 
-! exec aigw check
+exitcode 1 aigw check
 cmp stdout empty.txt
-! exec aigw check --json
+exitcode 1 aigw check --json
 cmp stdout empty.json
 
 stdin token.txt
@@ -14,7 +14,7 @@ exec aigw check --json
 cmp stdout checked.json
 exec aigw check
 cmp stdout checked.txt
-! exec aigw check --for codex
+exitcode 1 aigw check --for codex
 cmp stdout codex.txt
 
 -- token.txt --

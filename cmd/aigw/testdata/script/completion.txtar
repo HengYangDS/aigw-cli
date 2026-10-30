@@ -12,7 +12,7 @@ stdout '^# fish completion for aigw'
 exec aigw completion powershell
 stdout '^# powershell completion for aigw'
 
-! exec aigw completion tcsh
+exitcode 1 aigw completion tcsh
 cmp stdout refusal.txt
 
 -- help.txt --
