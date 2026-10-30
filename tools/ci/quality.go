@@ -94,6 +94,7 @@ var repositoryQualityGraph = qualityGraph{
 	CommonGates: []string{"text-layout", "secrets", "architecture"},
 	Carriers: []carrierQuality{
 		{Class: "go-source", Required: []qualityConcern{qualityFormat, qualityLint, qualityType, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"spelling", "go-analysis", "source-size", "client-acceptance", "native-resource-fixture", "performance-acceptance", "dependency-acceptance", "coverage"}},
+		{Class: "acceptance-scripts", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"spelling", "coverage"}},
 		{Class: "native-check-adapters", Required: []qualityConcern{qualityFormat, qualityLint, qualityTest, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "spelling", "npm-signatures", "node-source"}},
 		{Class: "current-documentation", Required: []qualityConcern{qualityFormat, qualityLint, qualityDocumentation, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "markdown", "mermaid", "links", "spelling", "changelog"}},
 		{Class: "active-openspec", Required: []qualityConcern{qualityFormat, qualityLint, qualityDocumentation, qualitySchema, qualitySecurity, qualityArchitecture}, Gates: []string{"format", "markdown", "mermaid", "links", "spelling", "openspec"}},
