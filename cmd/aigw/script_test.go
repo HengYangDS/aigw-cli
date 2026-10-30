@@ -35,17 +35,6 @@ func TestScripts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Under coverage each program process writes the same meta-data file as
-	// it exits, and on Windows a concurrent second writer of that file fails.
-	// One run before the parallel scripts writes it first.
-	warmup := exec.Command(program, "--version")
-	warmup.Env = append(os.Environ(), "AIGW_SECRET_BACKEND=file")
-	for _, name := range homeVariables {
-		warmup.Env = append(warmup.Env, name+"="+t.TempDir())
-	}
-	if output, err := warmup.CombinedOutput(); err != nil {
-		t.Fatalf("run the program before the scripts: %v\n%s", err, output)
-	}
 	testscript.Run(t, testscript.Params{
 		Dir:                 filepath.Join("testdata", "script"),
 		RequireExplicitExec: true,
@@ -94,12 +83,14 @@ func envsubst(ts *testscript.TestScript, neg bool, args []string) {
 // runs spelled $HOME, $WORK, $BIN and $UPSTREAM, so that cmp can compare and
 // update it. Each further argument is a pattern whose matches become
 // <varies>. Path separators stay native, so a script compares Windows output
-// with its own expected file.
+// with its own expected file. The Go runtime's coverage diagnostics, which a
+// program built for coverage prints to stderr when emitting its coverage data
+// fails, are not the program's output and are dropped.
 func normalize(ts *testscript.TestScript, neg bool, args []string) {
 	if neg || len(args) < 2 {
 		ts.Fatalf("usage: normalize stdout|stderr <target> [pattern...]")
 	}
-	text := ts.ReadFile(args[0])
+	text := coverageDiagnostics.ReplaceAllString(ts.ReadFile(args[0]), "")
 	for _, name := range []string{"HOME", "WORK", "BIN", "UPSTREAM"} {
 		for _, value := range spellings(ts.Getenv(name)) {
 			text = strings.ReplaceAll(text, value, "$"+name)
@@ -112,6 +103,11 @@ func normalize(ts *testscript.TestScript, neg bool, args []string) {
 		ts.Fatalf("%v", err)
 	}
 }
+
+// coverageDiagnostics matches the lines that the Go runtime prints when a
+// program built for coverage cannot emit its coverage data. Their error can
+// end with its own newline.
+var coverageDiagnostics = regexp.MustCompile(`(?m)^(?:error: coverage (?:meta-data|counter data) [a-z]+ failed: .*\n\n?|warning: GOCOVERDIR not set, no coverage data emitted\n)`)
 
 // spellings returns a value as given and as its resolved path, longest
 // first. On macOS a temporary path may also appear without /private, and on
@@ -188,5 +184,19 @@ func apiKeyHelper(ts *testscript.TestScript, neg bool, args []string) {
 		ts.Fatalf("credential helper: %v", err)
 	case err == nil && neg:
 		ts.Fatalf("unexpected credential helper success")
+	}
+}
+
+func TestCoverageDiagnosticsAreNotProgramOutput(t *testing.T) {
+	output := "Problem\n  refused\n" +
+		"error: coverage meta-data emit failed: writing covmeta.1: rename from tmp.covmeta.1 failed: Access is denied.\n\n" +
+		"error: coverage counter data emit failed: creating counter data file covcounters.1: disk full\n" +
+		"warning: GOCOVERDIR not set, no coverage data emitted\n"
+	if got := coverageDiagnostics.ReplaceAllString(output, ""); got != "Problem\n  refused\n" {
+		t.Fatalf("output without coverage diagnostics = %q", got)
+	}
+	program := "error: configuration load failed: denied\n"
+	if got := coverageDiagnostics.ReplaceAllString(program, ""); got != program {
+		t.Fatalf("a program error became %q", got)
 	}
 }

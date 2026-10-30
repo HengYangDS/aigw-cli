@@ -2,7 +2,8 @@
 # version, and an unknown command is refused.
 exec aigw --help
 cmp stdout help.txt
-! stderr .
+normalize stderr help.err
+! grep . help.err
 
 exec aigw --version
 cmp stdout version.txt

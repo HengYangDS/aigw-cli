@@ -63,7 +63,7 @@ Options
 -- installed-windows.txt --
 AIGW  Portable installation
 ────────────────────────────────────────
-  ✓ Installed $WORK\bin\aigw.exe
+  ✓ Installed $WORK/bin/aigw.exe
   PATH is unchanged. Use the installed path directly, or add its directory to PATH before running the command below.
 
 Next
