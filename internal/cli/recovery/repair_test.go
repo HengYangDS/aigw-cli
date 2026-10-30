@@ -129,7 +129,7 @@ func TestRepairDesiredConfigPreservesExplicitCodexIntentWhenDiscoveryIsEmpty(t *
 	before.SetSelectedRoute(codex.ID, "one", "")
 	before.SetClientActivation(codex.ID, true, "/old", nil)
 	runtime := invocation.Context{Clients: clients.Registry(), Discovery: staticDiscovery{result: discovery.Result{}}}
-	after, _, err := invocation.Synchronizer(runtime).DesiredClientConfiguration(before)
+	after, _, err := runtime.Synchronizer().DesiredClientConfiguration(before)
 	if err != nil {
 		t.Fatal(err)
 	}

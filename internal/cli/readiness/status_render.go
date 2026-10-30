@@ -21,7 +21,7 @@ func renderStatus(runtime invocation.Context, cfg domain.Config, result statusOu
 	}
 	r.ProductTitle("Configuration status")
 	r.Text("The selected Routes, client readiness, and the smallest next action.")
-	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
+	clientIDs := runtime.Synchronizer().ClientIDs()
 	admission := runtime.Clients.Admission()
 	renderClientStatus(r, admission, result, clientIDs)
 	if result.State == domainreadiness.Deferred {

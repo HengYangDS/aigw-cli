@@ -116,7 +116,7 @@ func NewUninstallCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 				after := before.Clone()
-				synchronizer := invocation.Synchronizer(runtime)
+				synchronizer := runtime.Synchronizer()
 				if err := synchronizer.Withdraw(&after); err != nil {
 					return err
 				}

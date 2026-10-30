@@ -69,7 +69,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 				Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Model: model, UpstreamModel: upstreamModel,
 				Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
-			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "route add"); err != nil {
+			if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "route add"); err != nil {
 				return err
 			}
 			r := invocation.Renderer(runtime)
@@ -260,7 +260,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 				route.Purpose = strings.TrimSpace(purpose)
 			}
 			cfg.Routes[args[0]] = route
-			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "route"); err != nil {
+			if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "route"); err != nil {
 				return err
 			}
 			r := invocation.Renderer(runtime)
@@ -319,7 +319,7 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 				recommendation.Alternatives = recommendation.Alternatives[1:]
 				cfg.Recommendations[client] = recommendation
 			}
-			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "route remove"); err != nil {
+			if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "route remove"); err != nil {
 				return err
 			}
 			r := invocation.Renderer(runtime)

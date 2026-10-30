@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"aigw-cli/internal/app"
 	"errors"
 	"fmt"
 	"io"
@@ -72,12 +73,12 @@ type App struct {
 	Interactive           bool
 	Color                 bool
 	Runner                process.VerificationRunner
-	HTTP                  invocation.HTTPDoer
+	HTTP                  app.HTTPDoer
 	Prompt                invocation.Prompter
 	Discovery             discovery.Discoverer
 	// Clients is the composition root's adapter registry.
 	Clients client.Registry
-	Updater invocation.Updater
+	Updater app.Updater
 	output  *commandOutput
 }
 
@@ -288,7 +289,7 @@ func environmentMap(values []string) map[string]string {
 
 func (a *App) doctorCommand() *cobra.Command {
 	return doctor.NewCommand(doctor.Dependencies{
-		Config: a.Config, Secrets: a.Secrets, Clients: invocation.Synchronizer(a.invocationContext()), Env: a.Env, Out: a.outputWriter(),
+		Config: a.Config, Secrets: a.Secrets, Clients: a.invocationContext().Synchronizer(), Env: a.Env, Out: a.outputWriter(),
 		Inspect: func(cfg domain.Config, store secret.Store) map[string]domainreadiness.Client {
 			operation := a.invocationContext()
 			operation.Secrets = store

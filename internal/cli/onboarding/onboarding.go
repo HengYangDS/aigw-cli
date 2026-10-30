@@ -67,7 +67,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if err := invocation.Synchronizer(operation).AdmitSetup(cfg); err != nil {
+				if err := operation.Synchronizer().AdmitSetup(cfg); err != nil {
 					return err
 				}
 				return RunWizard(cmd.Context(), operation)
@@ -111,7 +111,7 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	if err != nil {
 		return err
 	}
-	if err := invocation.Synchronizer(runtime).AdmitSetup(cfg); err != nil {
+	if err := runtime.Synchronizer().AdmitSetup(cfg); err != nil {
 		return err
 	}
 	plan, err := planSetup(cfg, request)
@@ -134,7 +134,7 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	if credentialChange.write {
 		tokens[credentialChange.account] = credentialChange.token
 	}
-	plan.config, err = invocation.Synchronizer(runtime).Setup(ctx, plan.before, plan.config, tokens, plan.request.Client)
+	plan.config, err = runtime.Synchronizer().Setup(ctx, plan.before, plan.config, tokens, plan.request.Client)
 	if err != nil {
 		return err
 	}

@@ -61,7 +61,7 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 				Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
 			acquireToken := func() (string, error) { return invocation.ReadToken(runtime, tokenStdin, true) }
-			if err := invocation.Synchronizer(runtime).ConnectAccount(cmd.Context(), cfg, name, client, account, route, acquireToken); err != nil {
+			if err := runtime.Synchronizer().ConnectAccount(cmd.Context(), cfg, name, client, account, route, acquireToken); err != nil {
 				return fmt.Errorf("%w; run `%s --help`", err, cmd.CommandPath())
 			}
 			r := invocation.Renderer(runtime)
@@ -126,7 +126,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 				providerAccount.Endpoints.Anthropic = strings.TrimRight(anthropicURL, "/")
 			}
 			cfg.Accounts[args[0]] = providerAccount
-			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "account edit"); err != nil {
+			if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "account edit"); err != nil {
 				return err
 			}
 			r := invocation.Renderer(runtime)

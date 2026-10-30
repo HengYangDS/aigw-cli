@@ -96,6 +96,6 @@ func renameArguments(runtime invocation.Context, resource string) cobra.Position
 func renamer(runtime invocation.Context) renaming.Renamer {
 	return renaming.Renamer{
 		Config: runtime.Config, Secrets: runtime.Secrets, Accounts: runtime.Accounts,
-		HTTP: runtime.HTTP, Synchronizer: invocation.Synchronizer(runtime),
+		HTTP: runtime.HTTP, Synchronizer: runtime.Synchronizer(),
 	}
 }

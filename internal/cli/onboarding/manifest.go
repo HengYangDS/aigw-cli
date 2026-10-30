@@ -42,7 +42,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	if err != nil {
 		return err
 	}
-	if err := invocation.Synchronizer(runtime).AdmitSetup(cfg); err != nil {
+	if err := runtime.Synchronizer().AdmitSetup(cfg); err != nil {
 		return err
 	}
 	before := cfg.Clone()
@@ -52,7 +52,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	}
 
 	accountNames := domain.ManifestAccountNames(manifest)
-	discovered, err := invocation.Discover(runtime)
+	discovered, err := runtime.Discover()
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 	availableClients := manifestSetupAvailableClients(cfg.Admission(), discovered.Executables)
 	selectedClients := manifestSetupSelectedClients(cfg, connected, availableClients)
 
-	cfg, err = invocation.Synchronizer(runtime).Setup(ctx, before, cfg, tokens, selectedClients...)
+	cfg, err = runtime.Synchronizer().Setup(ctx, before, cfg, tokens, selectedClients...)
 	if err != nil {
 		return err
 	}

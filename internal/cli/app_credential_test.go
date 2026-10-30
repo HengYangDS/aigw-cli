@@ -13,7 +13,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/synchronization"
 )
@@ -51,14 +50,14 @@ func TestNewDefaultBindsCredentialEntrypointToExecutableBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := filepath.Join(app.DataDir, "credential", hex.EncodeToString(hash.Sum(nil)), filepath.Base(app.InstallTarget))
-	path, err := invocation.Synchronizer(app.invocationContext()).CredentialEntrypointPath()
+	path, err := app.invocationContext().Synchronizer().CredentialEntrypointPath()
 	if err != nil || path != want {
 		t.Fatalf("credential entrypoint = %q, want exact executable identity %q: %v", path, want, err)
 	}
 	var wait sync.WaitGroup
 	for range 8 {
 		wait.Go(func() {
-			if repeated, err := invocation.Synchronizer(app.invocationContext()).CredentialEntrypointPath(); err != nil || repeated != path {
+			if repeated, err := app.invocationContext().Synchronizer().CredentialEntrypointPath(); err != nil || repeated != path {
 				t.Errorf("shared invocation reader identity = %q, %v", repeated, err)
 			}
 		})
@@ -69,7 +68,7 @@ func TestNewDefaultBindsCredentialEntrypointToExecutableBytes(t *testing.T) {
 		t.Fatal("explicit reader path invoked the default resolver")
 		return "", nil
 	}
-	if explicit, err := invocation.Synchronizer(app.invocationContext()).CredentialEntrypointPath(); err != nil || explicit != app.CredentialPath {
+	if explicit, err := app.invocationContext().Synchronizer().CredentialEntrypointPath(); err != nil || explicit != app.CredentialPath {
 		t.Fatalf("explicit reader path = %q, %v", explicit, err)
 	}
 	if _, err := os.Lstat(want); !errors.Is(err, os.ErrNotExist) {
@@ -104,7 +103,7 @@ func TestInvocationReaderIdentityIsMemoizedWithoutGlobalState(t *testing.T) {
 			return "exact-reader", nil
 		})}
 		for range 3 {
-			path, err := invocation.Synchronizer(app.invocationContext()).CredentialEntrypointPath()
+			path, err := app.invocationContext().Synchronizer().CredentialEntrypointPath()
 			if fail && !errors.Is(err, problem) || !fail && (path != "exact-reader" || err != nil) {
 				t.Fatalf("memoized reader = %q, %v", path, err)
 			}

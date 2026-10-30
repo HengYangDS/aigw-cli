@@ -46,7 +46,7 @@ type statusOutput struct {
 }
 
 var inspectAdapter = func(ctx context.Context, runtime invocation.Context, cfg domain.Config, clientID string, clientRuntime domain.Runtime) clientdomain.Status {
-	return invocation.Synchronizer(runtime).Inspect(ctx, cfg, clientID, clientRuntime)
+	return runtime.Synchronizer().Inspect(ctx, cfg, clientID, clientRuntime)
 }
 
 // NewStatusCommand constructs the read-only configuration and client readiness command.
@@ -79,7 +79,7 @@ func inspectStatusClients(runtime invocation.Context, cfg domain.Config, activat
 		assessed := clientactivation.AssessActivation(cfg, runtime.Secrets)
 		activation = &assessed
 	}
-	clientIDs := invocation.Synchronizer(runtime).ClientIDs()
+	clientIDs := runtime.Synchronizer().ClientIDs()
 	clients := make(map[string]clientStatus, len(clientIDs))
 	for _, clientID := range clientIDs {
 		if selected != "" && clientID != selected {
@@ -197,7 +197,7 @@ func InspectClients(runtime invocation.Context, cfg domain.Config) map[string]do
 
 func orderedClientStates(runtime invocation.Context, clients map[string]clientStatus) []domainreadiness.Client {
 	ordered := make([]domainreadiness.Client, 0, len(clients))
-	for _, clientID := range invocation.Synchronizer(runtime).ClientIDs() {
+	for _, clientID := range runtime.Synchronizer().ClientIDs() {
 		ordered = append(ordered, clients[clientID].Client)
 	}
 	return ordered

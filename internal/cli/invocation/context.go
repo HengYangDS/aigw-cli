@@ -2,31 +2,13 @@
 package invocation
 
 import (
-	"context"
 	"fmt"
 	"io"
-	"maps"
-	"net/http"
-	"slices"
 	"strings"
-	"time"
 
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/process"
-
-	"aigw-cli/internal/secret"
+	"aigw-cli/internal/app"
 	"aigw-cli/internal/terminal"
-
-	"aigw-cli/internal/store"
-	"aigw-cli/internal/synchronization"
-	"aigw-cli/internal/upgrade"
 )
-
-// HTTPDoer executes one HTTP request.
-type HTTPDoer interface {
-	Do(request *http.Request) (*http.Response, error)
-}
 
 // Prompter supplies interactive secret, text, and bounded-choice input.
 type Prompter interface {
@@ -35,45 +17,19 @@ type Prompter interface {
 	Select(label string, choices []terminal.Choice) (string, error)
 }
 
-// Updater performs one verified program lifecycle transition.
-type Updater interface {
-	Update(ctx context.Context, currentVersion string) (string, error)
-	UpdateCandidate(ctx context.Context, currentVersion string, candidate upgrade.CandidateArchive) (string, error)
-	Rollback(ctx context.Context, config []byte, custody upgrade.CredentialCustody) (string, error)
-}
-
-// Context carries capabilities for one command execution without product-global state.
+// Context carries capabilities for one command execution without
+// product-global state: the use cases' Dependencies and the terminal that
+// this invocation reads from and renders to.
 type Context struct {
-	Version               string
-	Executable            string
-	DataDir               string
-	CredentialPath        string
-	ResolveCredentialPath func() (string, error)
-	ResolveProgram        func() (secret.Program, error)
-	Files                 secret.Files
-	InstallTarget         string
-	// Host is the observed platform from which client adapters derive their
-	// native paths.
-	Host        discovery.Host
-	Config      store.Store
-	Secrets     secret.Store
-	Accounts    secret.DiagnosticCredentialStore
+	app.Dependencies
 	In          io.Reader
 	Out         io.Writer
 	Color       bool
 	Width       int
 	Interactive bool
-	Runner      process.VerificationRunner
-	HTTP        HTTPDoer
 	Prompt      Prompter
-	Discovery   discovery.Discoverer
-	// Clients is the composition root's adapter registry; every client
-	// operation of this invocation goes through it.
-	Clients   client.Registry
-	Updater   Updater
-	RenderOut io.Writer
-	Now       func() time.Time
-	Problem   func(title, evidence, impact, fix string, cause error) error
+	RenderOut   io.Writer
+	Problem     func(title, evidence, impact, fix string, cause error) error
 }
 
 // ReadToken reads an explicitly requested token source without consulting
@@ -131,64 +87,10 @@ func Renderer(runtime Context) *terminal.Renderer {
 	return terminal.NewRendererWithWidth(out, runtime.Color, runtime.Width)
 }
 
-// Discover reads client discovery through the invocation capability boundary.
-func Discover(runtime Context) (discovery.Result, error) {
-	if runtime.Discovery == nil {
-		return discovery.Result{}, fmt.Errorf("client discovery is unavailable")
-	}
-	return runtime.Discovery.Discover(), nil
-}
-
 // Problem preserves a structured user-facing error when the composition root supplies one.
 func Problem(runtime Context, title, evidence, impact, fix string, cause error) error {
 	if runtime.Problem != nil {
 		return runtime.Problem(title, evidence, impact, fix, cause)
 	}
 	return cause
-}
-
-// Synchronizer assembles the synchronization domain from invocation
-// capabilities without leaking CLI composition details into domain packages.
-func Synchronizer(runtime Context) synchronization.Synchronizer {
-	return synchronization.Synchronizer{
-		Config:                runtime.Config,
-		Secrets:               runtime.Secrets,
-		Runner:                runtime.Runner,
-		Discovery:             runtime.Discovery,
-		Registry:              runtime.Clients,
-		Host:                  runtime.Host,
-		AIGWExecutable:        runtime.Executable,
-		CredentialPath:        runtime.CredentialPath,
-		ResolveCredentialPath: runtime.ResolveCredentialPath,
-		ResolveProgram:        runtime.ResolveProgram,
-		Files:                 runtime.Files,
-	}
-}
-
-// CredentialCustody moves the configured Accounts' native items between the
-// active program and a program that a rollback activates. When this program
-// cannot load the routing and credential authority, the custody names no
-// credential and the error says why; a missing configuration names none
-// without an error.
-func CredentialCustody(runtime Context) (upgrade.CredentialCustody, error) {
-	custody := credentialCustody{store: runtime.Secrets, executable: runtime.Executable}
-	cfg, err := runtime.Config.LoadCredentialConfig()
-	if err == nil {
-		custody.accounts = slices.Sorted(maps.Keys(cfg.Accounts))
-	}
-	return custody, err
-}
-
-type credentialCustody struct {
-	store      secret.Store
-	executable string
-	accounts   []string
-}
-
-func (custody credentialCustody) Release(version string) error {
-	return secret.RestorePredecessorCredentials(custody.store, custody.executable, custody.accounts, version)
-}
-
-func (custody credentialCustody) Reclaim() error {
-	return secret.ReclaimPredecessorCredentials(custody.store, custody.executable, custody.accounts)
 }

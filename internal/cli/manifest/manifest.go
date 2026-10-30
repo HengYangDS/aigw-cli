@@ -108,7 +108,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		}
 		if dryRun {
 			result.NextAction = "Review the preview, then rerun without --dry-run"
-		} else if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "configuration manifest"); err != nil {
+		} else if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "configuration manifest"); err != nil {
 			return err
 		}
 		if jsonMode {

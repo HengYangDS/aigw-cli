@@ -51,7 +51,7 @@ func NewSyncCommand(runtime invocation.Context) *cobra.Command {
 			}
 			operation := runtime
 			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
-			synchronizer := invocation.Synchronizer(operation)
+			synchronizer := operation.Synchronizer()
 			adoptedConfig, adopted, err := synchronizer.AdoptNativeSelections(before)
 			if err != nil {
 				return fmt.Errorf("sync synchronization preflight failed; configuration and client files were unchanged: %w", err)
@@ -251,7 +251,7 @@ func NewRollbackCommand(runtime invocation.Context) *cobra.Command {
 				}
 				source = "Previous configuration"
 			}
-			if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), current, restored, "rollback"); err != nil {
+			if err := runtime.Synchronizer().Commit(cmd.Context(), current, restored, "rollback"); err != nil {
 				return invocation.Problem(
 					runtime,
 					"Configuration rollback did not complete",

@@ -100,7 +100,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 			targets = current.Targets
 		}
 		cfg.SetClientActivation(client, true, executable, targets)
-		if err := invocation.Synchronizer(runtime).Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
+		if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
 			return fmt.Errorf("Client enablement could not finish: %w", err)
 		}
 		renderEnabled(invocation.Renderer(runtime), spec)
@@ -138,7 +138,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 			r.Rows(terminal.Field{State: terminal.Info, Label: spec.Label, Value: "Already disabled"})
 			return nil
 		}
-		if err := invocation.Synchronizer(runtime).Withdraw(&cfg, client); err != nil {
+		if err := runtime.Synchronizer().Withdraw(&cfg, client); err != nil {
 			return err
 		}
 		// Disabled intent is durable; discovery must not turn it back into activation.
@@ -146,7 +146,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		binding.Enabled = false
 		cfg.Clients[client] = binding
 
-		if err := invocation.Synchronizer(runtime).CommitProjection(cmd.Context(), before, cfg, "client disable", client); err != nil {
+		if err := runtime.Synchronizer().CommitProjection(cmd.Context(), before, cfg, "client disable", client); err != nil {
 			return err
 		}
 		renderDisabled(invocation.Renderer(runtime), spec)

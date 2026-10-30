@@ -36,7 +36,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		}),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			synchronizer := invocation.Synchronizer(runtime)
+			synchronizer := runtime.Synchronizer()
 			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err

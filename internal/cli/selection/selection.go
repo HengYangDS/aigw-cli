@@ -74,7 +74,7 @@ func NewUseCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			synchronizer := invocation.Synchronizer(operation)
+			synchronizer := operation.Synchronizer()
 			configurationChanged, projectionChanged, binding, err := synchronizer.SelectRoute(cmd.Context(), cfg, client, name, selected.Protocol, connection, token)
 			if err != nil {
 				return err
@@ -188,7 +188,7 @@ type useResult struct {
 }
 
 func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.Runtime, connection domain.ConnectionChange, jsonMode bool) error {
-	synchronizer := invocation.Synchronizer(runtime)
+	synchronizer := runtime.Synchronizer()
 	synchronizer.AuthorizedSelectionClient = selected.Client
 	proposed, _, err := synchronizer.PrepareSelection(cfg, selected.Client, selected.RouteID, selected.Protocol, connection)
 	if err != nil {
@@ -240,7 +240,7 @@ func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.R
 }
 
 func resolveUseRuntime(runtime invocation.Context, cfg domain.Config, client, routeID string, requested domain.EndpointProtocol, connection domain.ConnectionChange) (domain.Runtime, error) {
-	_, selected, err := invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, requested, connection)
+	_, selected, err := runtime.Synchronizer().PrepareSelection(cfg, client, routeID, requested, connection)
 	if err == nil || requested != "" {
 		return selected, err
 	}
@@ -267,7 +267,7 @@ func resolveUseRuntime(runtime invocation.Context, cfg domain.Config, client, ro
 	if err != nil {
 		return domain.Runtime{}, err
 	}
-	_, selected, err = invocation.Synchronizer(runtime).PrepareSelection(cfg, client, routeID, domain.EndpointProtocol(choice), connection)
+	_, selected, err = runtime.Synchronizer().PrepareSelection(cfg, client, routeID, domain.EndpointProtocol(choice), connection)
 	return selected, err
 }
 

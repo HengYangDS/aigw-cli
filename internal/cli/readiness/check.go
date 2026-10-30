@@ -146,7 +146,7 @@ func checkConfigurationFor(cfg domain.Config, client string) (domain.Config, str
 
 func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg domain.Config) checkEvaluation {
 	var evaluation checkEvaluation
-	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
+	for _, client := range runtime.Synchronizer().ClientIDs() {
 		if !cfg.Clients[client].Enabled {
 			continue
 		}
@@ -165,7 +165,7 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg domain.C
 	}
 	result.runtime = clientRuntime
 	result.endpointConfigured = strings.TrimSpace(clientRuntime.Endpoint) != ""
-	status := invocation.Synchronizer(runtime).Inspect(cmd.Context(), cfg, client, clientRuntime)
+	status := runtime.Synchronizer().Inspect(cmd.Context(), cfg, client, clientRuntime)
 	result.adapter = status.Ready
 	result.nativeModelOverride = status.NativeModelOverride
 	result.issue = status.Issue
@@ -393,7 +393,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	rows := []terminal.Field{}
 	verificationCommands := []string{}
 	inferenceUnverified := false
-	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
+	for _, client := range runtime.Synchronizer().ClientIDs() {
 		if selected != "" && client != selected {
 			continue
 		}
