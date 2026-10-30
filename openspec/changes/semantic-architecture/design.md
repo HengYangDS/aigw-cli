@@ -92,9 +92,9 @@ every new package needs a policy edit.
 ### The existing architecture gate enforces the layers
 
 `tools/architecture` gains a `layers` table. The table is an ordered list of
-package-path prefixes, and the gate checks every import of a production file
-against it. The table
-replaces `allowed_import_edges`. `package_children` stays as the closed list of
+rows of package-path prefixes, and the gate checks every import of a
+production file against it. A package belongs to the row of its longest
+matching prefix. The table replaces `allowed_import_edges`. `package_children` stays as the closed list of
 direct owners. A violation names the importing package, the imported package
 and both layers. Client-name confinement uses the same scan: identifiers and
 string literals that spell an admitted client ID are refused in product
@@ -105,6 +105,22 @@ as a native term of its client: the gate accepts it only in that client's
 package and fails when it no longer occurs. Repository tools are outside the
 confinement rule because they import the client's package rather than
 re-encode it.
+
+Inside layer 3, the packages that task 4.1 moves under `internal/app` stay
+packages and take ordered rows below `internal/app`: `renaming` above
+`synchronization` and `activation`, which are above `readiness`, which is
+above `diagnostics`. Each imports only rows below it, and `internal/app`
+imports its descendants. The table then has ten rows. The adapters share
+the declared seams `internal/client`, `internal/client/verification`,
+`internal/client/discovery` and `internal/client/surface`. The Providers
+share `internal/provider/diagnostic`.
+
+Alternative considered: merge the five packages into `internal/app`. A
+merge needs renames: `HTTPDoer` is declared in `app`, `diagnostics` and
+`renaming`, and names such as `readiness.State` and `readiness.Client` lose
+the qualifier that explains them. It also merges five test packages and their
+fixtures into one. Rejected because it turns a move into renames, and
+stage 5 owns names.
 
 Alternative considered: golangci-lint `depguard`. Rejected because it would
 add a second authority next to `tools/architecture`. Its rules are deny lists
@@ -365,7 +381,5 @@ carries the completed stages; none of them needs a release of its own.
 
 ## Open Questions
 
-Stage 4 decides whether the packages that task 4.1 moves under `internal/app`
-merge into it or stay subpackages in an ordered part of the layer table,
-before task 4.3 adds the table. Stage 3 settled that `terminal` stays one
-package.
+None. Stage 4 settled the last one: the packages that task 4.1 moves under
+`internal/app` stay subpackages in ordered rows of the layer table.
