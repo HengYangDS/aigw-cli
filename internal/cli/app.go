@@ -71,6 +71,8 @@ import (
 	"aigw-cli/internal/cli/rollback"
 
 	synccli "aigw-cli/internal/cli/sync"
+
+	"aigw-cli/internal/cli/models"
 )
 
 // App owns the dependencies and presentation state for one AIGW invocation.
@@ -394,8 +396,8 @@ func NewRoot(app *App) *cobra.Command {
 		route.NewCommand(runtime, renaming.NewRouteCommand(runtime)),
 		clientcli.NewCommand(runtime),
 		config.NewCommand(runtime), readiness.NewTestCommand(runtime),
-		verify.NewCommand(runtime), catalog.NewModelsCommand(runtime),
-		catalog.NewCatalogCommand(runtime), balance.NewCommand(runtime),
+		verify.NewCommand(runtime), models.NewCommand(runtime),
+		catalog.NewCommand(runtime), balance.NewCommand(runtime),
 	}
 	for group, commands := range map[string][]*cobra.Command{
 		"connect": connect, "daily": daily, "recover": recoveryCommands, "advanced": advanced,

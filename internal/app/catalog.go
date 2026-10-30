@@ -1,6 +1,9 @@
-package catalog
+package app
 
 import (
+	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/probe"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -12,77 +15,104 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secret"
-	"aigw-cli/internal/secret/probe"
 )
 
-type catalogModel struct {
-	ID     string            `json:"id"`
-	State  catalogEntryState `json:"state"`
-	Routes []catalogRoute    `json:"routes,omitempty"`
+// Label describes the status for a person.
+func (status CatalogStatus) Label() string {
+	switch status {
+	case CatalogOK:
+		return string(status)
+	case CatalogEndpointUnavailable:
+		return "No supported model catalogue endpoint is configured"
+	case CatalogTokenUnavailable:
+		return "Token unavailable"
+	case CatalogCredentialUnavailable:
+		return "Credential backend failed; catalog was not queried"
+	case CatalogRequestFailed:
+		return "Catalog request failed; configuration was not changed"
+	default:
+		return string(status)
+	}
 }
 
-type catalogRoute struct {
+// CatalogModel is one model that a provider catalogue lists, with the Routes
+// that use it.
+type CatalogModel struct {
+	ID     string            `json:"id"`
+	State  CatalogEntryState `json:"state"`
+	Routes []CatalogRoute    `json:"routes,omitempty"`
+}
+
+// CatalogRoute is a Route as one catalogue observation sees it.
+type CatalogRoute struct {
 	ID            string                `json:"id"`
 	Model         string                `json:"model"`
 	UpstreamModel string                `json:"upstream_model"`
 	Capabilities  []domain.Capability   `json:"capabilities"`
 	Lifecycle     domain.RouteLifecycle `json:"lifecycle"`
-	Evidence      catalogEvidence       `json:"evidence"`
+	Evidence      CatalogEvidence       `json:"evidence"`
 }
 
-type catalogSource struct {
+// CatalogSource is the endpoint and protocol that one observation read.
+type CatalogSource struct {
 	Protocol domain.EndpointProtocol `json:"protocol"`
 	Endpoint string                  `json:"endpoint"`
 }
 
-type catalogObservation struct {
+// CatalogObservation is one Account's catalogue for one protocol.
+type CatalogObservation struct {
 	ObservationID   string         `json:"observation_id,omitempty"`
 	Account         string         `json:"account"`
 	Label           string         `json:"label"`
-	Source          catalogSource  `json:"source"`
+	Source          CatalogSource  `json:"source"`
 	SecretAvailable bool           `json:"secret_available"`
-	Status          catalogStatus  `json:"status"`
-	Models          []catalogModel `json:"models"`
-	MissingRoutes   []catalogRoute `json:"missing_routes"`
+	Status          CatalogStatus  `json:"status"`
+	Models          []CatalogModel `json:"models"`
+	MissingRoutes   []CatalogRoute `json:"missing_routes"`
 }
 
-type catalogStatus string
+// CatalogStatus is the outcome of one catalogue observation.
+type CatalogStatus string
 
-type catalogEntryState string
+// CatalogEntryState says whether a listed model is admitted, deprecated or a
+// candidate for qualification.
+type CatalogEntryState string
 
-type catalogEvidence string
+// CatalogEvidence says how a Route's catalogue membership is known.
+type CatalogEvidence string
 
+// The catalogue statuses, entry states and evidence kinds.
 const (
-	catalogOK                    catalogStatus = "ok"
-	catalogEndpointUnavailable   catalogStatus = "catalog_endpoint_unavailable"
-	catalogCredentialUnavailable catalogStatus = "credential_backend_failed"
-	catalogTokenUnavailable      catalogStatus = "token_unavailable"
-	catalogRequestFailed         catalogStatus = "request_failed"
+	CatalogOK                    CatalogStatus = "ok"
+	CatalogEndpointUnavailable   CatalogStatus = "catalog_endpoint_unavailable"
+	CatalogCredentialUnavailable CatalogStatus = "credential_backend_failed"
+	CatalogTokenUnavailable      CatalogStatus = "token_unavailable"
+	CatalogRequestFailed         CatalogStatus = "request_failed"
 
-	catalogCandidate  catalogEntryState = "candidate"
-	catalogAdmitted   catalogEntryState = "admitted"
-	catalogDeprecated catalogEntryState = "deprecated"
+	CatalogCandidate  CatalogEntryState = "candidate"
+	CatalogAdmitted   CatalogEntryState = "admitted"
+	CatalogDeprecated CatalogEntryState = "deprecated"
 
-	catalogObserved                catalogEvidence = "observed"
-	catalogRequalificationRequired catalogEvidence = "requalification_required"
+	CatalogObserved                CatalogEvidence = "observed"
+	CatalogRequalificationRequired CatalogEvidence = "requalification_required"
 )
 
-type catalogOutput struct {
-	Observations []catalogObservation `json:"observations"`
+// CatalogReport holds every catalogue observation of one discovery.
+type CatalogReport struct {
+	Observations []CatalogObservation `json:"observations"`
 }
 
-func discoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer, cfg domain.Config) catalogOutput {
-	result := catalogOutput{Observations: []catalogObservation{}}
+// DiscoverCatalog reads each configured Account's catalogue for each protocol
+// it serves, without changing configuration.
+func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer, cfg domain.Config) CatalogReport {
+	result := CatalogReport{Observations: []CatalogObservation{}}
 	for _, accountName := range cfg.CatalogAccountIDs() {
 		account := cfg.Accounts[accountName]
 		sources := catalogSources(account)
 		if len(sources) == 0 {
-			result.Observations = append(result.Observations, catalogObservation{
-				Account: accountName, Label: account.Label, Status: catalogEndpointUnavailable,
-				Models: []catalogModel{}, MissingRoutes: []catalogRoute{},
+			result.Observations = append(result.Observations, CatalogObservation{
+				Account: accountName, Label: account.Label, Status: CatalogEndpointUnavailable,
+				Models: []CatalogModel{}, MissingRoutes: []CatalogRoute{},
 			})
 			continue
 		}
@@ -92,22 +122,22 @@ func discoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 			token, observationErr = secrets.Get(accountName)
 		}
 		for _, source := range sources {
-			entry := catalogObservation{
+			entry := CatalogObservation{
 				Account: accountName, Label: account.Label, Source: source,
-				SecretAvailable: secretAvailable, Models: []catalogModel{}, MissingRoutes: []catalogRoute{},
+				SecretAvailable: secretAvailable, Models: []CatalogModel{}, MissingRoutes: []CatalogRoute{},
 			}
 			switch {
 			case observationErr != nil:
-				entry.Status = catalogCredentialUnavailable
+				entry.Status = CatalogCredentialUnavailable
 			case !entry.SecretAvailable:
-				entry.Status = catalogTokenUnavailable
+				entry.Status = CatalogTokenUnavailable
 			default:
 				ids, endpoint, err := FetchIDs(ctx, client, source.Endpoint, source.Protocol, token)
 				if err != nil {
-					entry.Status = catalogRequestFailed
+					entry.Status = CatalogRequestFailed
 					break
 				}
-				entry.Status = catalogOK
+				entry.Status = CatalogOK
 				entry.Source.Endpoint = endpoint
 				entry.Models, entry.MissingRoutes = catalogDifference(cfg, accountName, source.Protocol, ids)
 				entry.ObservationID = catalogObservationID(accountName, source.Protocol, endpoint, ids)
@@ -118,23 +148,23 @@ func discoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 	return result
 }
 
-func catalogSources(account domain.Account) []catalogSource {
+func catalogSources(account domain.Account) []CatalogSource {
 	protocols := []domain.EndpointProtocol{
 		domain.ProtocolAnthropic,
 		domain.ProtocolOpenAIChatCompletions,
 		domain.ProtocolOpenAIResponses,
 	}
 	slices.SortFunc(protocols, domain.CompareProtocols)
-	sources := make([]catalogSource, 0, len(protocols))
+	sources := make([]CatalogSource, 0, len(protocols))
 	for _, protocol := range protocols {
 		if endpoint := strings.TrimRight(account.Endpoints.For(protocol), "/"); endpoint != "" {
-			sources = append(sources, catalogSource{Protocol: protocol, Endpoint: endpoint})
+			sources = append(sources, CatalogSource{Protocol: protocol, Endpoint: endpoint})
 		}
 	}
 	return sources
 }
 
-func catalogDifference(cfg domain.Config, account string, protocol domain.EndpointProtocol, ids []string) ([]catalogModel, []catalogRoute) {
+func catalogDifference(cfg domain.Config, account string, protocol domain.EndpointProtocol, ids []string) ([]CatalogModel, []CatalogRoute) {
 	ids = slices.Clone(ids)
 	slices.Sort(ids)
 	observed := make(map[string]bool, len(ids))
@@ -142,8 +172,8 @@ func catalogDifference(cfg domain.Config, account string, protocol domain.Endpoi
 		observed[id] = true
 	}
 
-	routesByModel := make(map[string][]catalogRoute)
-	missing := []catalogRoute{}
+	routesByModel := make(map[string][]CatalogRoute)
+	missing := []CatalogRoute{}
 	for _, routeID := range cfg.CatalogRouteIDs() {
 		route := cfg.Routes[routeID]
 		capabilities, admitted := route.Interfaces[protocol]
@@ -152,31 +182,31 @@ func catalogDifference(cfg domain.Config, account string, protocol domain.Endpoi
 		}
 		capabilities = slices.Clone(capabilities)
 		slices.Sort(capabilities)
-		entry := catalogRoute{
+		entry := CatalogRoute{
 			ID: routeID, Model: route.Model, UpstreamModel: route.UpstreamModelID(),
-			Capabilities: capabilities, Lifecycle: route.LifecycleState(), Evidence: catalogObserved,
+			Capabilities: capabilities, Lifecycle: route.LifecycleState(), Evidence: CatalogObserved,
 		}
 		routesByModel[entry.UpstreamModel] = append(routesByModel[entry.UpstreamModel], entry)
 		if !observed[entry.UpstreamModel] {
-			entry.Evidence = catalogRequalificationRequired
+			entry.Evidence = CatalogRequalificationRequired
 			missing = append(missing, entry)
 		}
 	}
 
-	models := make([]catalogModel, 0, len(ids))
+	models := make([]CatalogModel, 0, len(ids))
 	for _, id := range ids {
 		routes := routesByModel[id]
-		state := catalogCandidate
+		state := CatalogCandidate
 		for _, route := range routes {
 			if route.Lifecycle == domain.RouteAdmitted {
-				state = catalogAdmitted
+				state = CatalogAdmitted
 				break
 			}
-			state = catalogDeprecated
+			state = CatalogDeprecated
 		}
-		models = append(models, catalogModel{ID: id, State: state, Routes: routes})
+		models = append(models, CatalogModel{ID: id, State: state, Routes: routes})
 	}
-	slices.SortStableFunc(models, func(left, right catalogModel) int {
+	slices.SortStableFunc(models, func(left, right CatalogModel) int {
 		if len(left.Routes) == 0 && len(right.Routes) > 0 {
 			return 1
 		}
@@ -200,7 +230,8 @@ func catalogObservationID(account string, protocol domain.EndpointProtocol, endp
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(parts, "\x00"))))
 }
 
-func observationKey(account string, protocol domain.EndpointProtocol) string {
+// ObservationKey identifies the observation of one Account and protocol.
+func ObservationKey(account string, protocol domain.EndpointProtocol) string {
 	return account + "\x00" + string(protocol)
 }
 

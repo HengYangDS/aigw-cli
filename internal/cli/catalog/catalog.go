@@ -1,10 +1,10 @@
-// Package catalog owns provider-neutral model discovery and presentation.
+// Package catalog implements `aigw catalog`, which reports each Account's
+// authenticated model catalogue.
 package catalog
 
 import (
 	"fmt"
-	"net/http"
-	"slices"
+
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
@@ -12,95 +12,12 @@ import (
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
+
+	"aigw-cli/internal/app"
 )
 
-// HTTPDoer executes catalog requests.
-type HTTPDoer interface {
-	Do(request *http.Request) (*http.Response, error)
-}
-
-type modelRow struct {
-	Route    string
-	Account  string
-	Protocol domain.EndpointProtocol
-	Model    string
-	Catalog  string
-}
-
-// NewModelsCommand constructs the configured-model availability command.
-func NewModelsCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{
-		Use:   "models",
-		Short: "Compare configured model IDs with provider catalogs; does not test inference",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := runtime.Config.Load()
-			if err != nil {
-				return err
-			}
-			if len(cfg.Routes) == 0 {
-				return fmt.Errorf("not configured; run `aigw setup`")
-			}
-			rows := modelRows(cfg, discoverCatalog(cmd.Context(), runtime.Secrets, runtime.HTTP, cfg))
-			r := invocation.Renderer(runtime)
-			r.ProductTitle("Configured model catalog")
-			r.Text("Catalog membership does not prove protocol capabilities, inference, or client readiness.")
-			r.Section("Routes")
-			for _, row := range rows {
-				state := terminal.Warn
-				if row.Catalog == "Listed" || row.Catalog == "Not listed" {
-					state = terminal.Info
-				}
-				r.StatusLine(state, "Route", row.Route)
-				r.Detail(fmt.Sprintf("%s · %s · %s · account %s", row.Model, protocolTitle(row.Protocol), row.Catalog, row.Account))
-			}
-			r.Next("aigw use")
-			return r.Err()
-		},
-	}
-}
-
-func modelRows(cfg domain.Config, catalog catalogOutput) []modelRow {
-	observations := make(map[string]catalogObservation, len(catalog.Observations))
-	for _, observation := range catalog.Observations {
-		observations[observationKey(observation.Account, observation.Source.Protocol)] = observation
-	}
-	rows := []modelRow{}
-	for _, routeID := range cfg.CatalogRouteIDs() {
-		route := cfg.Routes[routeID]
-		protocols := route.AdmittedProtocols()
-		if len(protocols) == 0 {
-			rows = append(rows, modelRow{Route: routeID, Account: route.Account, Model: route.UpstreamModelID(), Catalog: "Catalog not observed"})
-			continue
-		}
-		for _, protocol := range protocols {
-			membership := "Catalog not observed"
-			if observation, ok := observations[observationKey(route.Account, protocol)]; ok {
-				membership = catalogStatusText(observation.Status)
-				if observation.Status == catalogOK {
-					membership = "Not listed"
-					if slices.ContainsFunc(observation.Models, func(model catalogModel) bool { return model.ID == route.UpstreamModelID() }) {
-						membership = "Listed"
-					}
-				}
-			}
-			rows = append(rows, modelRow{Route: routeID, Account: route.Account, Protocol: protocol, Model: route.UpstreamModelID(), Catalog: membership})
-		}
-	}
-	slices.SortStableFunc(rows, func(left, right modelRow) int {
-		if result := cfg.CompareAccounts(left.Account, right.Account); result != 0 {
-			return result
-		}
-		if result := domain.CompareProtocols(left.Protocol, right.Protocol); result != 0 {
-			return result
-		}
-		return cfg.CompareModels(cfg.Routes[left.Route].Model, cfg.Routes[right.Route].Model)
-	})
-	return rows
-}
-
-// NewCatalogCommand constructs authenticated catalog discovery.
-func NewCatalogCommand(runtime invocation.Context) *cobra.Command {
+// NewCommand constructs authenticated catalog discovery.
+func NewCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode, all bool
 	cmd := &cobra.Command{Use: "catalog", Short: "Discover authenticated model catalogs for each account (compact summary by default)", Args: cobra.NoArgs}
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
@@ -110,11 +27,11 @@ func NewCatalogCommand(runtime invocation.Context) *cobra.Command {
 		}
 		if len(cfg.Routes) == 0 {
 			if jsonMode {
-				return terminal.WriteJSON(runtime.Out, catalogOutput{Observations: []catalogObservation{}})
+				return terminal.WriteJSON(runtime.Out, app.CatalogReport{Observations: []app.CatalogObservation{}})
 			}
 			return fmt.Errorf("not configured; run `aigw setup`")
 		}
-		result := discoverCatalog(cmd.Context(), runtime.Secrets, runtime.HTTP, cfg)
+		result := app.DiscoverCatalog(cmd.Context(), runtime.Secrets, runtime.HTTP, cfg)
 		if jsonMode {
 			return terminal.WriteJSON(runtime.Out, result)
 		}
@@ -124,11 +41,11 @@ func NewCatalogCommand(runtime invocation.Context) *cobra.Command {
 		for _, observation := range result.Observations {
 			title := observation.Label + " · " + observation.Account
 			if observation.Source.Protocol != "" {
-				title += " · " + protocolTitle(observation.Source.Protocol)
+				title += " · " + domain.ProtocolLabel(observation.Source.Protocol)
 			}
 			r.Section(title)
-			if observation.Status != catalogOK {
-				r.Rows(terminal.Field{State: terminal.Warn, Label: "Catalog", Value: catalogStatusText(observation.Status)})
+			if observation.Status != app.CatalogOK {
+				r.Rows(terminal.Field{State: terminal.Warn, Label: "Catalog", Value: observation.Status.Label()})
 				continue
 			}
 			rows := []terminal.Field{
@@ -152,18 +69,18 @@ func NewCatalogCommand(runtime invocation.Context) *cobra.Command {
 
 // renderCatalogObservation completes an observation's group with its counts and
 // visible models, then notes the candidates that compact output omits.
-func renderCatalogObservation(r *terminal.Renderer, rows []terminal.Field, observation catalogObservation, all bool) {
-	visible := make([]catalogModel, 0, len(observation.Models))
+func renderCatalogObservation(r *terminal.Renderer, rows []terminal.Field, observation app.CatalogObservation, all bool) {
+	visible := make([]app.CatalogModel, 0, len(observation.Models))
 	admitted, deprecated, candidates := 0, 0, 0
 	for _, model := range observation.Models {
 		switch model.State {
-		case catalogAdmitted:
+		case app.CatalogAdmitted:
 			admitted++
 			visible = append(visible, model)
-		case catalogDeprecated:
+		case app.CatalogDeprecated:
 			deprecated++
 			visible = append(visible, model)
-		case catalogCandidate:
+		case app.CatalogCandidate:
 			candidates++
 		}
 	}
@@ -187,41 +104,24 @@ func renderCatalogObservation(r *terminal.Renderer, rows []terminal.Field, obser
 	}
 }
 
-func catalogModelDisplay(model catalogModel) (terminal.State, string) {
-	if model.State == catalogCandidate {
+func catalogModelDisplay(model app.CatalogModel) (terminal.State, string) {
+	if model.State == app.CatalogCandidate {
 		return terminal.Info, "Candidate; protocol and client capabilities are unqualified"
 	}
 	routes := make([]string, 0, len(model.Routes))
 	for _, route := range model.Routes {
 		routes = append(routes, route.ID)
 	}
-	if model.State == catalogDeprecated {
+	if model.State == app.CatalogDeprecated {
 		return terminal.Warn, "Deprecated Routes: " + strings.Join(routes, ", ")
 	}
 	return terminal.OK, "Admitted Routes: " + strings.Join(routes, ", ")
 }
 
-func renderMissingRoutes(r *terminal.Renderer, routes []catalogRoute) {
+func renderMissingRoutes(r *terminal.Renderer, routes []app.CatalogRoute) {
 	for _, route := range routes {
 		r.StatusLine(terminal.Warn, "Route", route.ID)
 		r.Detail(route.UpstreamModel + " · missing from this observation; requalification required")
-	}
-}
-
-func catalogStatusText(status catalogStatus) string {
-	switch status {
-	case catalogOK:
-		return string(status)
-	case catalogEndpointUnavailable:
-		return "No supported model catalogue endpoint is configured"
-	case catalogTokenUnavailable:
-		return "Token unavailable"
-	case catalogCredentialUnavailable:
-		return "Credential backend failed; catalog was not queried"
-	case catalogRequestFailed:
-		return "Catalog request failed; configuration was not changed"
-	default:
-		return string(status)
 	}
 }
 
@@ -230,8 +130,4 @@ func modelTitle(value string) string {
 		return ""
 	}
 	return strings.ToUpper(value[:1]) + value[1:]
-}
-
-func protocolTitle(protocol domain.EndpointProtocol) string {
-	return domain.ProtocolLabel(protocol)
 }

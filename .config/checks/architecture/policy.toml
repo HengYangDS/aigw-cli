@@ -238,6 +238,7 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/install",
   "internal/cli/installation",
   "internal/cli/invocation",
+  "internal/cli/models",
   "internal/cli/readiness",
   "internal/cli/renaming",
   "internal/cli/repair",
@@ -269,6 +270,7 @@ allowed_import_edges."internal/app" = [
   "internal/domain",
   "internal/process",
   "internal/secret",
+  "internal/secret/probe",
   "internal/store",
   "internal/synchronization",
   "internal/upgrade",
@@ -309,10 +311,15 @@ allowed_import_edges."internal/cli/renaming" = [
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/catalog" = [
+  "internal/app",
   "internal/cli/invocation",
   "internal/domain",
-  "internal/secret",
-  "internal/secret/probe",
+  "internal/terminal",
+]
+allowed_import_edges."internal/cli/models" = [
+  "internal/app",
+  "internal/cli/invocation",
+  "internal/domain",
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/doctor" = [
