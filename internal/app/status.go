@@ -34,16 +34,6 @@ type EndpointTransportKind string
 // interface, whose runtime AIGW does not manage.
 const EndpointTransportExternalLoopback EndpointTransportKind = "external_loopback"
 
-// StatusReport is the local readiness of every admitted client.
-type StatusReport struct {
-	CredentialBackend secret.BackendSelection `json:"credential_backend"`
-	Clients           map[string]ClientStatus `json:"clients"`
-	Routes            int                     `json:"routes"`
-	EnabledClients    int                     `json:"enabled_clients"`
-	State             domainreadiness.State   `json:"state,omitempty"`
-	NextAction        string                  `json:"next_action,omitempty"`
-}
-
 // InspectStatusClients observes every admitted client without authenticating
 // an endpoint or reading Token values.
 func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *clientactivation.Activation, selected string) map[string]ClientStatus {
@@ -154,44 +144,6 @@ func unresolvedClientStatus(cfg *domain.Config, clientID string, resolveErr erro
 		state.NextAction = ""
 	}
 	return ClientStatus{Client: state}
-}
-
-// InspectClients returns the canonical, secret-free local state of every
-// admitted client without authenticating an endpoint or reading Token values.
-func InspectClients(runtime Dependencies, cfg domain.Config) map[string]domainreadiness.Client {
-	observed := InspectStatusClients(runtime, cfg, nil, "")
-	clients := make(map[string]domainreadiness.Client, len(observed))
-	for client, status := range observed {
-		clients[client] = status.Client
-	}
-	return clients
-}
-
-func orderedClientStates(runtime Dependencies, clients map[string]ClientStatus) []domainreadiness.Client {
-	ordered := make([]domainreadiness.Client, 0, len(clients))
-	for _, clientID := range runtime.Synchronizer().ClientIDs() {
-		ordered = append(ordered, clients[clientID].Client)
-	}
-	return ordered
-}
-
-// CollectStatus observes the credential backend and every admitted client
-// without reading Token values or changing state.
-func CollectStatus(runtime Dependencies, cfg domain.Config) StatusReport {
-	backend, backendErr := secret.Inspect(runtime.Secrets)
-	if backendErr != nil {
-		backend.RecoveryAction = domainreadiness.CredentialBackendRecovery
-	}
-	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
-	clients := InspectStatusClients(runtime, cfg, &activation, "")
-	return StatusReport{
-		CredentialBackend: backend,
-		Clients:           clients,
-		Routes:            len(cfg.Routes),
-		EnabledClients:    activation.EnabledClients,
-		State:             activation.State,
-		NextAction:        activation.NextActionFor(orderedClientStates(runtime, clients)),
-	}
 }
 
 // EndpointTransport classifies how a client reaches endpoint.

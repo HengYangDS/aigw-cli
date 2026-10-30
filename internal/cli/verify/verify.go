@@ -58,7 +58,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if client != "all" {
 					continue
 				}
-				status := synchronizer.Inspect(cmd.Context(), cfg, target, clientRuntime)
+				status := runtime.InspectClient(cmd.Context(), cfg, target, clientRuntime)
 				if !status.Ready {
 					return terminal.ProblemError(
 						fmt.Sprintf("Full verification requires a ready %s adapter: %s", runtime.Clients.Admission().Label(target), status.Issue), "",

@@ -276,10 +276,10 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 
 	cfg.SetClientActivation(codex.ID, true, "codex", []string{"unused"})
 	delete(cfg.Accounts, "team")
-	if check := findCheck(t, adapterChecks(context.Background(), deps.Synchronizer(), cfg, ""), "projection:codex"); check.OK || check.Detail != "selected client route cannot be resolved" {
+	if check := findCheck(t, adapterChecks(context.Background(), deps.Dependencies, cfg, ""), "projection:codex"); check.OK || check.Detail != "selected client route cannot be resolved" {
 		t.Fatalf("route check = %#v", check)
 	}
-	if got := adapterChecks(context.Background(), deps.Synchronizer(), domain.NewConfig(clients.Admission()), ""); len(got) != len(clients.Admission().IDs()) {
+	if got := adapterChecks(context.Background(), deps.Dependencies, domain.NewConfig(clients.Admission()), ""); len(got) != len(clients.Admission().IDs()) {
 		t.Fatalf("disabled adapter checks = %#v", got)
 	}
 }

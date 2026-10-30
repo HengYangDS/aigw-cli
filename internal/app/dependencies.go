@@ -7,9 +7,7 @@ package app
 import (
 	"context"
 	"fmt"
-	"maps"
 	"net/http"
-	"slices"
 	"time"
 
 	"aigw-cli/internal/client"
@@ -63,7 +61,8 @@ type Dependencies struct {
 	Updater Updater
 	Now     func() time.Time
 	// ClientInspector observes one client's projection in place of the
-	// synchronizer; nil means the synchronizer inspects it.
+	// synchronizer in every inspection of this invocation; nil means the
+	// synchronizer inspects it.
 	ClientInspector func(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) client.Status
 }
 
@@ -106,32 +105,4 @@ func (d Dependencies) Renamer() renaming.Renamer {
 		Config: d.Config, Secrets: d.Secrets, Accounts: d.Accounts,
 		HTTP: d.HTTP, Synchronizer: d.Synchronizer(),
 	}
-}
-
-// CredentialCustody moves the configured Accounts' native items between the
-// active program and a program that a rollback activates. When this program
-// cannot load the routing and credential authority, the custody names no
-// credential and the error says why; a missing configuration names none
-// without an error.
-func (d Dependencies) CredentialCustody() (upgrade.CredentialCustody, error) {
-	custody := credentialCustody{store: d.Secrets, executable: d.Executable}
-	cfg, err := d.Config.LoadCredentialConfig()
-	if err == nil {
-		custody.accounts = slices.Sorted(maps.Keys(cfg.Accounts))
-	}
-	return custody, err
-}
-
-type credentialCustody struct {
-	store      secret.Store
-	executable string
-	accounts   []string
-}
-
-func (custody credentialCustody) Release(version string) error {
-	return secret.RestorePredecessorCredentials(custody.store, custody.executable, custody.accounts, version)
-}
-
-func (custody credentialCustody) Reclaim() error {
-	return secret.ReclaimPredecessorCredentials(custody.store, custody.executable, custody.accounts)
 }

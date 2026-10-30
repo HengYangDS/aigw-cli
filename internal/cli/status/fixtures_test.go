@@ -1,7 +1,6 @@
 package status
 
 import (
-	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/check"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/claude"
@@ -166,7 +165,7 @@ func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
 		if err := RunStatus(runtime, true); err != nil {
 			t.Fatal(err)
 		}
-		var status app.StatusReport
+		var status statusReport
 		if err := json.Unmarshal(buffer.Bytes(), &status); err != nil {
 			t.Fatal(err)
 		}

@@ -57,7 +57,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 	observations := make(map[string]app.CatalogObservation, len(catalog.Observations))
 	for _, observation := range catalog.Observations {
-		observations[app.ObservationKey(observation.Account, observation.Source.Protocol)] = observation
+		observations[observationKey(observation.Account, observation.Source.Protocol)] = observation
 	}
 	rows := []modelRow{}
 	for _, routeID := range cfg.CatalogRouteIDs() {
@@ -69,7 +69,7 @@ func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 		}
 		for _, protocol := range protocols {
 			membership := "Catalog not observed"
-			if observation, ok := observations[app.ObservationKey(route.Account, protocol)]; ok {
+			if observation, ok := observations[observationKey(route.Account, protocol)]; ok {
 				membership = observation.Status.Label()
 				if observation.Status == app.CatalogOK {
 					membership = "Not listed"
@@ -91,4 +91,9 @@ func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 		return cfg.CompareModels(cfg.Routes[left.Route].Model, cfg.Routes[right.Route].Model)
 	})
 	return rows
+}
+
+// observationKey identifies the observation of one Account and protocol.
+func observationKey(account string, protocol domain.EndpointProtocol) string {
+	return account + "\x00" + string(protocol)
 }

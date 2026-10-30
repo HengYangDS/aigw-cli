@@ -3,7 +3,6 @@
 package status
 
 import (
-	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
 
 	"aigw-cli/internal/terminal"
@@ -26,7 +25,7 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 	if err != nil {
 		return err
 	}
-	result := app.CollectStatus(runtime.Dependencies, cfg)
+	result := collectStatus(runtime.Dependencies, cfg)
 	if jsonMode {
 		return terminal.WriteJSON(runtime.Out, result)
 	}

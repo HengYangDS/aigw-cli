@@ -12,7 +12,7 @@ import (
 	"aigw-cli/internal/app"
 )
 
-func renderStatus(runtime invocation.Context, cfg domain.Config, result app.StatusReport) {
+func renderStatus(runtime invocation.Context, cfg domain.Config, result statusReport) {
 	r := invocation.Renderer(runtime)
 	if len(cfg.Routes) == 0 {
 		r.ProductTitle("Not configured")
@@ -42,7 +42,7 @@ func renderStatus(runtime invocation.Context, cfg domain.Config, result app.Stat
 	r.Next(result.NextAction)
 }
 
-func renderClientStatus(r *terminal.Renderer, admission domain.Admission, result app.StatusReport, clientIDs []string) {
+func renderClientStatus(r *terminal.Renderer, admission domain.Admission, result statusReport, clientIDs []string) {
 	r.Section("Clients")
 	rows := make([]terminal.Field, 0, len(clientIDs))
 	for _, client := range clientIDs {
@@ -73,7 +73,7 @@ func renderClientStatus(r *terminal.Renderer, admission domain.Admission, result
 	r.Rows(rows...)
 }
 
-func renderTransportStatus(r *terminal.Renderer, admission domain.Admission, result app.StatusReport, clientIDs []string) {
+func renderTransportStatus(r *terminal.Renderer, admission domain.Admission, result statusReport, clientIDs []string) {
 	rows := []terminal.Field{}
 	for _, client := range clientIDs {
 		if result.Clients[client].Transport == app.EndpointTransportExternalLoopback {

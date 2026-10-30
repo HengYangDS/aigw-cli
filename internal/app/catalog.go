@@ -230,11 +230,6 @@ func catalogObservationID(account string, protocol domain.EndpointProtocol, endp
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(parts, "\x00"))))
 }
 
-// ObservationKey identifies the observation of one Account and protocol.
-func ObservationKey(account string, protocol domain.EndpointProtocol) string {
-	return account + "\x00" + string(protocol)
-}
-
 // fetchIDs fetches and parses the model catalogue exposed by one exact wire protocol.
 func fetchIDs(parent context.Context, client HTTPDoer, endpoint string, protocol domain.EndpointProtocol, token string) ([]string, string, error) {
 	ctx, cancel := context.WithTimeout(parent, 15*time.Second)

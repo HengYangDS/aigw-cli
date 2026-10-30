@@ -105,7 +105,7 @@ func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
 	if err := RunStatus(runtime, true); err != nil {
 		t.Fatal(err)
 	}
-	var result app.StatusReport
+	var result statusReport
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *test
 	if err := RunStatus(runtime, true); err != nil {
 		t.Fatal(err)
 	}
-	var status app.StatusReport
+	var status statusReport
 	if err := json.Unmarshal(buffer.Bytes(), &status); err != nil {
 		t.Fatal(err)
 	}
@@ -371,7 +371,7 @@ func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 		clients[client] = app.ClientStatus{Client: state}
 	}
 
-	renderStatus(runtime, cfg, app.StatusReport{Clients: clients, NextAction: "aigw repair"})
+	renderStatus(runtime, cfg, statusReport{Clients: clients, NextAction: "aigw repair"})
 	got := out.String()
 	if !strings.Contains(got, "aigw repair") || !strings.Contains(got, "No selected account") {
 		t.Fatalf("status fallback = %q", got)
@@ -388,7 +388,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 	} {
 		out := &bytes.Buffer{}
 		runtime := invocation.Context{Clients: clients.Registry(), Out: out, Width: 120}
-		renderClientStatus(invocation.Renderer(runtime), runtime.Clients.Admission(), app.StatusReport{
+		renderClientStatus(invocation.Renderer(runtime), runtime.Clients.Admission(), statusReport{
 			Clients: map[string]app.ClientStatus{claude.ID: {
 				Client: domainreadiness.Client{State: state, Route: "route"},
 			}},
@@ -416,7 +416,7 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 		return clientdomain.Status{Ready: true}
 	}
 
-	app.CollectStatus(runtime.Dependencies, cfg)
+	collectStatus(runtime.Dependencies, cfg)
 	if store.existsCalls != 1 || store.getCalls != 0 {
 		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
 	}
@@ -475,7 +475,7 @@ func TestStatusClassifiesCredentialObservationFailureWithoutReadingValues(t *tes
 	want := errors.New("credential metadata unavailable")
 	store := &observingSecretStore{existsErr: want}
 	runtime.Secrets = store
-	result := app.CollectStatus(runtime.Dependencies, cfg)
+	result := collectStatus(runtime.Dependencies, cfg)
 	for _, client := range []string{claude.ID, codex.ID} {
 		state := result.Clients[client]
 		if state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" || !strings.Contains(strings.ToLower(state.Detail), "credential metadata") {

@@ -13,7 +13,6 @@ import (
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
-	"aigw-cli/internal/synchronization"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -61,7 +60,7 @@ type inspector func(app.Dependencies, domain.Config) map[string]domainreadiness.
 
 // NewCommand constructs the diagnostic command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	return newCommand(runtime, app.InspectClients)
+	return newCommand(runtime, clientStates)
 }
 
 func newCommand(runtime invocation.Context, inspect inspector) *cobra.Command {
@@ -199,6 +198,17 @@ func applyActivation(result *commandResult, cfg domain.Config, store secret.Stor
 	}
 }
 
+// clientStates returns the canonical, secret-free local state of every
+// admitted client without authenticating an endpoint or reading Token values.
+func clientStates(deps app.Dependencies, cfg domain.Config) map[string]domainreadiness.Client {
+	observed := app.InspectStatusClients(deps, cfg, nil, "")
+	clients := make(map[string]domainreadiness.Client, len(observed))
+	for client, status := range observed {
+		clients[client] = status.Client
+	}
+	return clients
+}
+
 func inspectClients(deps app.Dependencies, inspect inspector) map[string]domainreadiness.Client {
 	if inspect == nil {
 		return map[string]domainreadiness.Client{}
@@ -288,14 +298,14 @@ func Collect(ctx context.Context, deps app.Dependencies) []Check {
 		}
 		checks = append(checks, Check{Name: "secret:" + name, OK: ok, Detail: detail, Fix: fix})
 	}
-	checks = append(checks, adapterChecks(ctx, deps.Synchronizer(), cfg, homeDirectory(deps.Env))...)
+	checks = append(checks, adapterChecks(ctx, deps, cfg, homeDirectory(deps.Env))...)
 	return checks
 }
 
-func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cfg domain.Config, home string) []Check {
+func adapterChecks(ctx context.Context, deps app.Dependencies, cfg domain.Config, home string) []Check {
 	checks := make([]Check, 0)
 	projectionPrerequisites := clientactivation.ProjectionPrerequisites(cfg)
-	for _, clientID := range clients.ClientIDs() {
+	for _, clientID := range deps.Synchronizer().ClientIDs() {
 		adapter := cfg.Clients[clientID]
 		if !adapter.Enabled {
 			checks = append(checks, Check{Name: "adapter:" + clientID, OK: true, Detail: "disabled"})
@@ -309,7 +319,7 @@ func adapterChecks(ctx context.Context, clients synchronization.Synchronizer, cf
 		if projectionPrerequisites[clientID] != "" {
 			continue
 		}
-		status := clients.Inspect(ctx, cfg, clientID, runtime)
+		status := deps.InspectClient(ctx, cfg, clientID, runtime)
 		adapterReady := status.Ready || len(status.Checks) > 0
 		detail, fix := "enabled", ""
 		if status.NativeModelOverride {

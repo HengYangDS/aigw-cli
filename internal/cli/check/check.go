@@ -167,7 +167,7 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg domain.C
 	}
 	result.runtime = clientRuntime
 	result.endpointConfigured = strings.TrimSpace(clientRuntime.Endpoint) != ""
-	status := runtime.Synchronizer().Inspect(cmd.Context(), cfg, client, clientRuntime)
+	status := runtime.InspectClient(cmd.Context(), cfg, client, clientRuntime)
 	result.adapter = status.Ready
 	result.nativeModelOverride = status.NativeModelOverride
 	result.issue = status.Issue

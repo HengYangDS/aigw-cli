@@ -38,7 +38,7 @@ func prepareHomebrewRollback(runtime invocation.Context) error {
 				fmt.Errorf("Homebrew rollback cannot prove the selected retry policy"))
 		}
 	}
-	custody, err := runtime.CredentialCustody()
+	custody, err := credentialCustody(runtime.Dependencies)
 	if err != nil {
 		return invocation.Problem(runtime,
 			"Credentials are not ready for a Homebrew rollback",
@@ -108,7 +108,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 				// A configuration this program cannot load names no credential;
 				// the retained program's own compatibility check then decides.
-				custody, _ := runtime.CredentialCustody()
+				custody, _ := credentialCustody(runtime.Dependencies)
 				result, err = runtime.Updater.Rollback(ctx.Context(), config, custody)
 			} else if candidateArchive != "" {
 				result, err = runtime.Updater.UpdateCandidate(ctx.Context(), runtime.Version, upgrade.CandidateArchive{

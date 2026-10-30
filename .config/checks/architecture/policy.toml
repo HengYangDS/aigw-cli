@@ -310,7 +310,9 @@ allowed_import_edges."internal/cli/installation" = [
   "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/update" = [
+  "internal/app",
   "internal/cli/invocation",
+  "internal/secret",
   "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/catalog" = [
@@ -332,7 +334,6 @@ allowed_import_edges."internal/cli/doctor" = [
   "internal/domain",
   "internal/readiness",
   "internal/secret",
-  "internal/synchronization",
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/client" = [
@@ -489,6 +490,7 @@ allowed_import_edges."internal/cli/rollback" = [
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/status" = [
+  "internal/activation",
   "internal/app",
   "internal/cli/invocation",
   "internal/domain",

@@ -340,7 +340,9 @@ func assertClaudeNativeOverrideOutput(t *testing.T, runtime invocation.Context, 
 	if err := status.RunStatus(runtime, true); err != nil {
 		t.Fatal(err)
 	}
-	var status app.StatusReport
+	var status struct {
+		Clients map[string]app.ClientStatus `json:"clients"`
+	}
 	if err := json.Unmarshal(output.Bytes(), &status); err != nil {
 		t.Fatal(err)
 	}
