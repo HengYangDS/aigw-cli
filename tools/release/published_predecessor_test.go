@@ -400,7 +400,7 @@ func (j *journeyFixture) importCatalogOrder() []byte {
 	}
 	if selected.Accounts["native-system-keyring-probe"].Order != 10 || selected.Models["claude-test"].Order != 20 ||
 		!updated.Catalog.Exists || !bytes.Equal(updated.Config.Data, before) {
-		j.testing.Fatal("catalogue ranks were not isolated from published routing")
+		j.testing.Fatal("catalog ranks were not isolated from published routing")
 	}
 	return updated.Catalog.Data
 }
@@ -432,12 +432,12 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 	}
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) ||
 		!bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
-		t.Fatal("current-schema rollback changed published routing or catalogue presentation")
+		t.Fatal("current-schema rollback changed published routing or catalog presentation")
 	}
 	journey.run("sync")
 	journey.run("check")
 	if !bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
-		t.Fatal("published predecessor synchronization changed catalogue presentation")
+		t.Fatal("published predecessor synchronization changed catalog presentation")
 	}
 	for _, client := range state.clients {
 		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
@@ -454,7 +454,7 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 	journey.requireProgramBytes(state.candidate)
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) ||
 		!bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
-		t.Fatal("current-schema recovery rewrote published routing or catalogue presentation")
+		t.Fatal("current-schema recovery rewrote published routing or catalog presentation")
 	}
 	state.finish(t)
 }

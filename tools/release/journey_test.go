@@ -102,7 +102,7 @@ func TestNativeProductJourney(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !diagnosis.OK {
-			t.Fatal("doctor rejected a healthy partially connected catalogue")
+			t.Fatal("doctor rejected a healthy partially connected catalog")
 		}
 		journey.requireCredentialBackend("native-journey-token", secret.BackendSelection{
 			Kind: "env", Availability: "available", Mutability: "read_only", Persistence: "explicit",

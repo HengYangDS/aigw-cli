@@ -94,7 +94,7 @@ func TestConfigImportDefersCredentialObservationToStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(cfg.Accounts) != 2 || len(cfg.Routes) != 3 {
-		t.Fatalf("imported public catalogue = %#v", cfg)
+		t.Fatalf("imported public catalog = %#v", cfg)
 	}
 	output := out.String()
 	if !strings.Contains(output, "Configuration manifest imported") || !strings.Contains(output, "aigw status") || strings.Contains(output, "Token") || strings.Contains(output, "credential observation") {

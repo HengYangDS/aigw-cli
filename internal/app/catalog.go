@@ -23,7 +23,7 @@ func (status CatalogStatus) Label() string {
 	case CatalogOK:
 		return string(status)
 	case CatalogEndpointUnavailable:
-		return "No supported model catalogue endpoint is configured"
+		return "No supported model catalog endpoint is configured"
 	case CatalogTokenUnavailable:
 		return "Token unavailable"
 	case CatalogCredentialUnavailable:
@@ -35,7 +35,7 @@ func (status CatalogStatus) Label() string {
 	}
 }
 
-// CatalogModel is one model that a provider catalogue lists, with the Routes
+// CatalogModel is one model that a provider catalog lists, with the Routes
 // that use it.
 type CatalogModel struct {
 	ID     string            `json:"id"`
@@ -43,7 +43,7 @@ type CatalogModel struct {
 	Routes []CatalogRoute    `json:"routes,omitempty"`
 }
 
-// CatalogRoute is a Route as one catalogue observation sees it.
+// CatalogRoute is a Route as one catalog observation sees it.
 type CatalogRoute struct {
 	ID            string                `json:"id"`
 	Model         string                `json:"model"`
@@ -59,7 +59,7 @@ type CatalogSource struct {
 	Endpoint string                  `json:"endpoint"`
 }
 
-// CatalogObservation is one Account's catalogue for one protocol.
+// CatalogObservation is one Account's catalog for one protocol.
 type CatalogObservation struct {
 	ObservationID   string         `json:"observation_id,omitempty"`
 	Account         string         `json:"account"`
@@ -71,17 +71,17 @@ type CatalogObservation struct {
 	MissingRoutes   []CatalogRoute `json:"missing_routes"`
 }
 
-// CatalogStatus is the outcome of one catalogue observation.
+// CatalogStatus is the outcome of one catalog observation.
 type CatalogStatus string
 
 // CatalogEntryState says whether a listed model is admitted, deprecated or a
 // candidate for qualification.
 type CatalogEntryState string
 
-// CatalogEvidence says how a Route's catalogue membership is known.
+// CatalogEvidence says how a Route's catalog membership is known.
 type CatalogEvidence string
 
-// The catalogue statuses, entry states and evidence kinds.
+// The catalog statuses, entry states and evidence kinds.
 const (
 	CatalogOK                    CatalogStatus = "ok"
 	CatalogEndpointUnavailable   CatalogStatus = "catalog_endpoint_unavailable"
@@ -97,12 +97,12 @@ const (
 	CatalogRequalificationRequired CatalogEvidence = "requalification_required"
 )
 
-// CatalogReport holds every catalogue observation of one discovery.
+// CatalogReport holds every catalog observation of one discovery.
 type CatalogReport struct {
 	Observations []CatalogObservation `json:"observations"`
 }
 
-// DiscoverCatalog reads each configured Account's catalogue for each protocol
+// DiscoverCatalog reads each configured Account's catalog for each protocol
 // it serves, without changing configuration.
 func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer, cfg domain.Config) CatalogReport {
 	result := CatalogReport{Observations: []CatalogObservation{}}
@@ -230,7 +230,7 @@ func catalogObservationID(account string, protocol domain.EndpointProtocol, endp
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(strings.Join(parts, "\x00"))))
 }
 
-// fetchIDs fetches and parses the model catalogue exposed by one exact wire protocol.
+// fetchIDs fetches and parses the model catalog exposed by one exact wire protocol.
 func fetchIDs(parent context.Context, client HTTPDoer, endpoint string, protocol domain.EndpointProtocol, token string) ([]string, string, error) {
 	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
 	defer cancel()

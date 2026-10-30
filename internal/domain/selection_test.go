@@ -146,7 +146,7 @@ func TestSelectRoutesForConnectedAccountsKeepsCapabilityAndChoosesUsableRoutes(t
 		t.Fatalf("one connected Account bindings = %#v", one.Clients)
 	}
 	if len(one.Accounts) != 2 || len(one.Routes) != 4 {
-		t.Fatalf("route selection discarded catalogue capability: %#v", one)
+		t.Fatalf("route selection discarded catalog capability: %#v", one)
 	}
 	if !one.Clients[ClientClaude].Enabled || !one.Clients[ClientCodex].Enabled {
 		t.Fatalf("explicit setup selection did not retain deferred activation intent: %#v", one.Clients)

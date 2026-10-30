@@ -80,7 +80,7 @@ func TestHermesNativeProjection(t *testing.T) {
 }
 
 // TestHermesNativeCuratedCatalog proves the real Hermes picker and runtime
-// consume AIGW's provider-native model catalogue without network discovery.
+// consume AIGW's provider-native model catalog without network discovery.
 func TestHermesNativeCuratedCatalog(t *testing.T) {
 	candidate, python := nativeHermesExecutables(t)
 	home := t.TempDir()
@@ -140,9 +140,9 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 		Credential bool                `json:"credential"`
 	}
 	if err := json.Unmarshal(output, &result); err != nil {
-		t.Fatalf("native catalogue result: %v\n%s", err, output)
+		t.Fatalf("native catalog result: %v\n%s", err, output)
 	}
-	assertNativeHermesCatalogue(t, manifest.Routes, connectedAccounts, result.Providers)
+	assertNativeHermesCatalog(t, manifest.Routes, connectedAccounts, result.Providers)
 	if result.Model != selected.Model || result.Protocol != expectedNativeHermesMode(selected.Protocol) || !result.Credential {
 		t.Fatalf("native selected route = %+v", result)
 	}
@@ -181,7 +181,7 @@ func runHermesNativeScript(t *testing.T, python, home string, env map[string]str
 	return output
 }
 
-func assertNativeHermesCatalogue(t *testing.T, routes map[string]domain.Route, accounts []string, providers map[string][]string) {
+func assertNativeHermesCatalog(t *testing.T, routes map[string]domain.Route, accounts []string, providers map[string][]string) {
 	t.Helper()
 	connected := map[string]bool{}
 	for _, accountID := range accounts {

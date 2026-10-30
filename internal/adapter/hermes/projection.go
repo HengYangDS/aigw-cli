@@ -53,7 +53,7 @@ func (desired Desired) Validate() error {
 		}
 	}
 	if !selected {
-		return errors.New("Hermes selected model is absent from its provider catalogue")
+		return errors.New("Hermes selected model is absent from its provider catalog")
 	}
 	return nil
 }

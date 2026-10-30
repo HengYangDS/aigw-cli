@@ -14,6 +14,12 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Changed
+
+- Human output spells "catalog" everywhere, as the `aigw catalog` command
+  does. For example, `aigw setup` reports "Configuration catalog imported"
+  after importing a team manifest. JSON fields and commands do not change.
+
 ### Security
 
 - Each release's vulnerability and license reports name the OSV-Scanner image

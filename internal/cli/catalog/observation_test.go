@@ -36,10 +36,10 @@ func TestDefaultCatalogRenderingKeepsDeprecatedRoutesSeparateFromCandidates(t *t
 	text := out.String()
 	for _, want := range []string{"1 admitted", "1 deprecated", "legacy", "Deprecated Routes: legacy-route", "1 candidate models require qualification"} {
 		if !strings.Contains(text, want) {
-			t.Fatalf("default catalogue output lacks %q:\n%s", want, text)
+			t.Fatalf("default catalog output lacks %q:\n%s", want, text)
 		}
 	}
 	if strings.Contains(text, "future") {
-		t.Fatalf("default catalogue output exposed candidate detail:\n%s", text)
+		t.Fatalf("default catalog output exposed candidate detail:\n%s", text)
 	}
 }

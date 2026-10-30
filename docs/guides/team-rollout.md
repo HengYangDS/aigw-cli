@@ -37,7 +37,7 @@ boundaries follow [Adapter admission](../governance/adapter-admission.md).
 
 ### Manifest authoring contract
 
-The team manifest is a curated catalogue, not a collection of personal notes.
+The team manifest is a curated catalog, not a collection of personal notes.
 
 - **Route ID:** stable lower-case selection key, independent of the provider's
   exact-case wire spelling. An Account prefix and channel suffix may make the
@@ -55,14 +55,14 @@ The team manifest is a curated catalogue, not a collection of personal notes.
   `Account label · Model display name` from the declared labels; channel Routes
   retain an explicit `· CHANNEL` distinction when needed.
 - **`purpose`:** optional workflow description; omit throughout this
-  model catalogue.
+  model catalog.
 - **`recommendations.<client>`:** sole team recommendation owner, with a
   primary Route and optional reviewed alternatives; recommendations do not
   belong in display text.
 
 Use product capitalization, dotted display versions, uppercase channel names,
 and spaces around `·`. Labels contain identity, not performance promises,
-review status, or instructions. The catalogue assigns no workflow roles, so
+review status, or instructions. The catalog assigns no workflow roles, so
 every Route consistently omits `purpose`; do not invent use cases to fill it.
 The lower-case key `dmxapi-claude-opus-5-5` selects the exact
 `upstream_model = 'claude-opus-5-5'`; its derived display label is
@@ -95,7 +95,7 @@ ranks the current provider first and other providers by model count. AIGW does
 not modify that client behavior.
 
 Verify exact provider identifiers before admitting Routes. `aigw catalog`
-observes every configured catalogue surface separately and records its Account,
+observes every configured catalog surface separately and records its Account,
 protocol, endpoint, normalized IDs, and deterministic observation identity.
 The default human view expands admitted and deprecated IDs and counts other
 candidates. Use `aigw catalog --all` to see every observed candidate, or
@@ -110,9 +110,9 @@ stronger model, while a serving tier such as `-cc` or `-free` is not.
 
 `aigw models` compares each configured Route's exact `upstream_model` against
 the observation for that Route's protocol. `Listed` and `Not listed` describe
-catalogue membership only. New IDs are candidates; missing admitted Routes are
+catalog membership only. New IDs are candidates; missing admitted Routes are
 reported for requalification without changing configuration. Missing
-credentials, a failed request, an incomplete response, or an absent catalogue
+credentials, a failed request, an incomplete response, or an absent catalog
 endpoint remain unknown observations, not unavailable models.
 
 Route admission requires a successful authenticated inference call carrying
@@ -122,7 +122,7 @@ listing alone never admits a Route. Admission is a reviewed Model and Route
 change. Deprecation sets `lifecycle = "deprecated"`, removes the Route
 from recommendations, and preserves existing explicit bindings. Retirement is
 an explicit Route removal after no binding or recommendation depends on it.
-Catalogue refresh performs none of those transitions.
+Catalog refresh performs none of those transitions.
 
 ### Reviewed model defaults
 
@@ -133,7 +133,7 @@ vendor. Fable, Astra, and Luna await qualified identities meeting the version
 floors.
 The [dated qualification
 evidence](../research/provider-model-qualification.md) explains the observed
-IDs, protocol tests, exclusions, and limits. A catalogue listing is not a live
+IDs, protocol tests, exclusions, and limits. A catalog listing is not a live
 Route or native-client availability guarantee.
 
 Claude Code and Claude Desktop recommend DMXAPI Opus 5.5 before UCloud Opus 5.5.
@@ -245,7 +245,7 @@ The examples below use `aigw` after its installed directory is on `PATH`; the
 installed executable's explicit path works with the same arguments. Importing
 team configuration does not install the program or change shell discovery.
 
-Import the reviewed catalogue without requiring every provider Token or any
+Import the reviewed catalog without requiring every provider Token or any
 installed client. Save the maintainer's `team.toml` in the current directory,
 or pass its actual path to `--from`:
 
@@ -294,7 +294,7 @@ canonical envelope, validates the decoded Token, and rejects malformed or nested
 encoding before HTTP. It does not infer a format, recursively decode, or rewrite
 Keychain items. Linux and Windows native stores do not imply this macOS format.
 
-If the catalogue is already imported, do not repeat setup. With the
+If the catalog is already imported, do not repeat setup. With the
 environment backend, supplying one compatible Account variable and running
 `aigw sync` selects unbound reviewed recommendations and projects available
 clients. With a writable backend, store the Token and select its Route
@@ -370,7 +370,7 @@ endpoint URL is supplied. Its `--chat-url` supplies an OpenAI Chat Completions
 endpoint for Hermes; the protocol is stored in that Client Binding.
 Guided single-Route setup and interactive selection validate the selected
 protocol and endpoint before activation. Manifest setup is declarative: it
-imports the catalogue and projects installed clients with a locally available
+imports the catalog and projects installed clients with a locally available
 Token without contacting the provider. This does not prove that the Token is
 accepted or that inference works. Run `aigw check` after import; it reports
 unreachable endpoints and rejected Tokens without exposing credential values.

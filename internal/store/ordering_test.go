@@ -78,14 +78,14 @@ anthropic = []
 		t.Fatal(err)
 	}
 	if bytes.Contains(canonical, []byte("order =")) {
-		t.Fatal("catalogue metadata reached the published credential reader's strict configuration")
+		t.Fatal("catalog metadata reached the published credential reader's strict configuration")
 	}
 	reloaded, err := store.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got := reloaded.CatalogRouteIDs(); !slices.Equal(got, want) {
-		t.Fatalf("stored catalogue order = %v, want %v", got, want)
+		t.Fatalf("stored catalog order = %v, want %v", got, want)
 	}
 }
 
@@ -110,7 +110,7 @@ func TestCatalogOrderRejectsNegativeRanksWithoutChangingStoredBytes(t *testing.T
 				t.Fatal(err)
 			}
 			if _, err := store.Load(); err == nil || !strings.Contains(err.Error(), "order must not be negative") {
-				t.Fatalf("invalid catalogue rank was admitted: %v", err)
+				t.Fatalf("invalid catalog rank was admitted: %v", err)
 			}
 			after, err := os.ReadFile(store.Path())
 			if err != nil {
@@ -121,7 +121,7 @@ func TestCatalogOrderRejectsNegativeRanksWithoutChangingStoredBytes(t *testing.T
 				t.Fatal(err)
 			}
 			if !bytes.Equal(after, before) || !bytes.Equal(afterCatalog, catalog) {
-				t.Fatal("refused catalogue read changed stored bytes")
+				t.Fatal("refused catalog read changed stored bytes")
 			}
 		})
 	}
@@ -232,6 +232,6 @@ func TestCatalogOrderSurvivesVerifiedBackupAndCompensation(t *testing.T) {
 	}
 	got, err := store.CaptureSnapshot()
 	if err != nil || !before.equal(got) {
-		t.Fatalf("catalogue compensation changed the preimage: %v", err)
+		t.Fatalf("catalog compensation changed the preimage: %v", err)
 	}
 }

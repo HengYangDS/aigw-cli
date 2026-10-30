@@ -445,7 +445,7 @@ func TestTeamManifestDerivesPlainRouteLabelsAndKeepsChannelOverrides(t *testing.
 	channel := regexp.MustCompile(`^[A-Z][A-Z0-9]*$`)
 	for routeID, route := range manifest.Routes {
 		if route.Purpose != "" {
-			t.Errorf("model catalogue Route %q must omit workflow purpose", routeID)
+			t.Errorf("model catalog Route %q must omit workflow purpose", routeID)
 		}
 		base := manifest.Accounts[route.Account].Label + " · " + manifest.Models[route.Model].Label
 		if route.Label == "" {

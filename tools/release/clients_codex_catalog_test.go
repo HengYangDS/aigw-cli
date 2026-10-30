@@ -19,7 +19,7 @@ import (
 
 // A model_catalog_json that the user names relative to the Codex configuration
 // stays the user's, and both verification paths reach it from their private
-// homes. The fixture is the installed client's own bundled catalogue projected
+// homes. The fixture is the installed client's own bundled catalog projected
 // for the Route's model, so every Codex version parses it.
 func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	t.Helper()
@@ -51,7 +51,7 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	}
 	catalog, _ := document.Project(route.UpstreamModel, route.Model)
 	if catalog == nil {
-		t.Fatalf("the installed Codex catalogue has no entry for %s", route.UpstreamModel)
+		t.Fatalf("the installed Codex catalog has no entry for %s", route.UpstreamModel)
 	}
 	configPath := filepath.Join(journey.root, "home", ".codex", "config.toml")
 	catalogPath := filepath.Join(filepath.Dir(configPath), "user-catalog.json")
@@ -78,9 +78,9 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 			t.Fatal(err)
 		}
 		if completions.Load() == before || document.Catalog != "user-catalog.json" || !bytes.Equal(readFile(t, catalogPath), catalog) {
-			t.Fatalf("%v: requests=%d reference=%q; the user's catalogue must stay as written", args, completions.Load()-before, document.Catalog)
+			t.Fatalf("%v: requests=%d reference=%q; the user's catalog must stay as written", args, completions.Load()-before, document.Catalog)
 		}
 	}
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
-	t.Logf("Codex verification reached the user's relative catalogue on both paths; requests=%d", completions.Load())
+	t.Logf("Codex verification reached the user's relative catalog on both paths; requests=%d", completions.Load())
 }

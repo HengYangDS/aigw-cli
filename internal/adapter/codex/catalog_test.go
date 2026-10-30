@@ -465,7 +465,7 @@ func TestCodexCatalogProjectionKeepsNamedProfilePolicy(t *testing.T) {
 		t.Fatal(err)
 	}
 	if settings.Catalog != codexCatalogPath(path) || settings.Profiles["user"].Model != "user-model" || settings.Profiles["user"].Catalog != "user-catalog.json" {
-		t.Fatalf("root and named-profile catalogue ownership merged: %+v", settings)
+		t.Fatalf("root and named-profile catalog ownership merged: %+v", settings)
 	}
 	if err := ValidateConfig(path, runtime); err != nil {
 		t.Fatal(err)
@@ -477,7 +477,7 @@ func TestCodexCatalogProjectionKeepsNamedProfilePolicy(t *testing.T) {
 		t.Fatalf("withdrawal changed named-profile policy: %v\n%s", err, restored)
 	}
 	if _, err := os.Stat(codexCatalogPath(path)); !os.IsNotExist(err) {
-		t.Fatalf("owned catalogue remains after withdrawal: %v", err)
+		t.Fatalf("owned catalog remains after withdrawal: %v", err)
 	}
 }
 

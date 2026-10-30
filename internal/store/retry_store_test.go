@@ -186,7 +186,7 @@ func TestRetryPolicyComponentsRefuseInvalidIdentityOrContent(t *testing.T) {
 
 // A retry declaration in the canonical file must agree with the component that
 // recorded it, and rollback admission, snapshots and loads refuse a component
-// or catalogue that cannot be read as written.
+// or catalog that cannot be read as written.
 func TestRetryPolicyAdmissionRefusesConflictingOrUnreadableComponents(t *testing.T) {
 	zero, two := uint64(0), uint64(2)
 	declared := func(t *testing.T) (Store, domain.Config) {
@@ -234,13 +234,13 @@ func TestRetryPolicyAdmissionRefusesConflictingOrUnreadableComponents(t *testing
 			t.Fatalf("rollback admission with a corrupt retry component = %v", err)
 		}
 	})
-	t.Run("invalid catalogue", func(t *testing.T) {
+	t.Run("invalid catalog", func(t *testing.T) {
 		store, _ := declared(t)
 		if err := os.WriteFile(store.catalogPath(), []byte("["), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := store.RollbackConfiguration(); err == nil {
-			t.Fatal("rollback admission accepted an invalid catalogue")
+			t.Fatal("rollback admission accepted an invalid catalog")
 		}
 	})
 	t.Run("unreadable component", func(t *testing.T) {

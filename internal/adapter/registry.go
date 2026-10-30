@@ -104,7 +104,7 @@ type Adapter interface {
 	Inspect(ctx context.Context, deps Dependencies, cfg domain.Config, runtime domain.Runtime) Status
 	Verify(ctx context.Context, deps Dependencies, cfg domain.Config, runtime domain.Runtime, prompt string) (Verification, error)
 	// AdoptSelection records the client's own selection inside AIGW's projected
-	// catalogue as its Client Binding and returns the adopted Route, or an empty
+	// catalog as its Client Binding and returns the adopted Route, or an empty
 	// string when the client shows its bound selection or adopts nothing.
 	AdoptSelection(deps Dependencies, cfg *domain.Config) (string, error)
 	Withdraw(cfg *domain.Config)

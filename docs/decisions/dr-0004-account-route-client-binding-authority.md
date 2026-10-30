@@ -53,7 +53,7 @@ Route or Adapter compatibility authority.
 
 ## Consequences and Boundary
 
-Adding an ordinary provider changes catalogue data rather than shared client
+Adding an ordinary provider changes catalog data rather than shared client
 logic. Selecting one binding never copies a Token into client files, changes
 another binding, or retries traffic through an unselected provider. Status and
 check expose one client-keyed state tree; no parallel Route inventory exists.

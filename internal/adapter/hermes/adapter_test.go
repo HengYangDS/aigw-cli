@@ -154,7 +154,7 @@ func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 	}
 }
 
-func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
+func TestHermesCatalogUsesProviderWireModelIDs(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	for routeID, wireID := range map[string]string{"ordinary": "gpt-6-astra", "variant": "gpt-6-astra-ssvip"} {
@@ -177,11 +177,11 @@ func TestHermesCatalogueUsesProviderWireModelIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if desired.SelectedModel != "gpt-6-astra-ssvip" || len(desired.Providers) != 1 || !slices.Equal(desired.Providers[0].Models, []string{"gpt-6-astra", "gpt-6-astra-ssvip"}) {
-		t.Fatalf("Hermes wire catalogue = %#v", desired)
+		t.Fatalf("Hermes wire catalog = %#v", desired)
 	}
 }
 
-func TestHermesCatalogueFollowsDeclaredAccountAndModelOrder(t *testing.T) {
+func TestHermesCatalogFollowsDeclaredAccountAndModelOrder(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	for id, order := range map[string]int{"alpha": 20, "zulu": 10} {
 		cfg.Accounts[id] = domain.Account{Label: id, Order: order, Endpoints: domain.Endpoints{
@@ -194,12 +194,12 @@ func TestHermesCatalogueFollowsDeclaredAccountAndModelOrder(t *testing.T) {
 			}}
 		}
 	}
-	catalogue, err := hermesCatalogue(cfg)
+	catalog, err := hermesCatalog(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var got []string
-	for _, provider := range catalogue {
+	for _, provider := range catalog {
 		got = append(got, provider.ID)
 		if !slices.Equal(provider.Models, []string{"wire-z", "wire-a"}) {
 			t.Fatalf("provider %s reordered exact wires lexically: %v", provider.ID, provider.Models)
@@ -211,7 +211,7 @@ func TestHermesCatalogueFollowsDeclaredAccountAndModelOrder(t *testing.T) {
 	}
 }
 
-func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
+func TestHermesCatalogCoversShippedRouteWireIDs(t *testing.T) {
 	team, err := os.ReadFile(filepath.Join("..", "..", "..", "manifests", "team.toml"))
 	if err != nil {
 		t.Fatal(err)
@@ -224,12 +224,12 @@ func TestHermesCatalogueCoversShippedRouteWireIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalogue, err := hermesCatalogue(cfg)
+	catalog, err := hermesCatalog(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	models := make(map[string][]string, len(catalogue))
-	for _, provider := range catalogue {
+	models := make(map[string][]string, len(catalog))
+	for _, provider := range catalog {
 		models[provider.ID] = provider.Models
 	}
 	spec := New().Spec()

@@ -378,7 +378,7 @@ func (c *Config) EnabledClientIDs() []string {
 }
 
 // SelectedAccountIDs returns the stable set of Accounts selected by resolvable
-// client bindings. Catalogue Accounts that no active binding selects are
+// client bindings. Catalog Accounts that no active binding selects are
 // capabilities available for later connection, not current runtime
 // dependencies.
 func (c *Config) SelectedAccountIDs() []string {
@@ -416,7 +416,7 @@ func (c *Config) RequiredAccountTokenIDs() []string {
 	return accountIDs
 }
 
-// SelectRoutesForConnectedAccounts preserves the complete capability catalogue
+// SelectRoutesForConnectedAccounts preserves the complete capability catalog
 // while filling unselected bindings whose authentication is currently usable. A
 // client-native Route is usable without an AIGW Account Token; an account-token
 // Route is usable only when its Account is connected. The first usable reviewed

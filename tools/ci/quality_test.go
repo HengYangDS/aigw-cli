@@ -149,6 +149,7 @@ func TestSpellingUsesCurrentCheckoutAndNativePolicy(t *testing.T) {
 		}
 	}
 	write(".config/checks/spelling/policy.toml", string(readFile(t, filepath.Join(repository, ".config", "checks", "spelling", "policy.toml"))))
+	write(glossaryPath, string(readFile(t, filepath.Join(repository, filepath.FromSlash(glossaryPath)))))
 	write(".gitignore", "ignored.md\n")
 	misspelling := string([]byte{'t', 'e', 'h'})
 	write("README.md", "This sentence contains "+misspelling+" defect.\n")

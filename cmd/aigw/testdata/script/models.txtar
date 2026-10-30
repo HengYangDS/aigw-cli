@@ -1,5 +1,5 @@
 # models refuses an empty home, then compares the configured models with
-# the provider's catalogue.
+# the provider's catalog.
 exec aigw models --help
 cmp stdout help.txt
 

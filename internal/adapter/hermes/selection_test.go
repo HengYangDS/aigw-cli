@@ -68,7 +68,7 @@ func TestObserveSelectionReportsOnlyAProvedNativeChoice(t *testing.T) {
 	}
 	foreign := projectedSelection(t, desired, "other", "unlisted-model")
 	if _, _, err := ObserveSelection(foreign, desired); err == nil {
-		t.Fatal("a model outside the projected catalogue was observed as a choice")
+		t.Fatal("a model outside the projected catalog was observed as a choice")
 	}
 	invalid := desired
 	invalid.SelectedModel = ""

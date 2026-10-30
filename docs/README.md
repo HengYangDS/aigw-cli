@@ -62,8 +62,9 @@ They answer different questions; none substitutes for all the others.
 
 - **Architecture:** [Architecture](architecture/README.md) explains current
   authority, projections and security.
-- **Concepts:** [Product concepts](concepts/product-concepts.md) defines Accounts,
-  Routes, Client Bindings, Adapters, endpoints and updates.
+- **Concepts:** [Product concepts](concepts/product-concepts.md) holds the
+  product glossary and defines Accounts, Routes, Client Bindings, Adapters,
+  endpoints and updates.
 - **Decisions:** [Decision Records](decisions/README.md) preserves durable
   rulings and their rationale.
 - **Experience:** [Terminal experience](experience/terminal-experience.md)

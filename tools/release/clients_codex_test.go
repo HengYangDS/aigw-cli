@@ -149,7 +149,7 @@ func requireNativeCodexRouteOutcome(t *testing.T, executable string, route domai
 	}
 	document, err := modelcatalog.Parse(bundled)
 	if err != nil || document.Model(route.Model) != nil {
-		t.Fatalf("model-metadata refusal is not supported by the native catalogue: %v", err)
+		t.Fatalf("model-metadata refusal is not supported by the native catalog: %v", err)
 	}
 	t.Logf("Route %s issued the native request; metadata qualification remains incomplete", route.ID)
 	return false

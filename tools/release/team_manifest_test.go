@@ -292,7 +292,7 @@ func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *jo
 		}
 	}
 	before := readFile(t, journey.config)
-	plan.requireHermesWireCatalogue(t, journey, cfg, account)
+	plan.requireHermesWireCatalog(t, journey, cfg, account)
 	journey.run("sync")
 	if !bytes.Equal(before, readFile(t, journey.config)) {
 		t.Fatal("repeated team synchronization rewrote configuration")
@@ -300,7 +300,7 @@ func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *jo
 	journey.uninstallAndRequireInstallationRemoved()
 }
 
-func (plan teamManifestJourney) requireHermesWireCatalogue(t *testing.T, journey *journeyFixture, cfg domain.Config, account string) {
+func (plan teamManifestJourney) requireHermesWireCatalog(t *testing.T, journey *journeyFixture, cfg domain.Config, account string) {
 	t.Helper()
 	var projected struct {
 		Model struct {
@@ -338,7 +338,7 @@ func (plan teamManifestJourney) requireHermesWireCatalogue(t *testing.T, journey
 		actual := slices.Clone(projected.Providers[id].Models)
 		slices.Sort(actual)
 		if !slices.Equal(actual, models) {
-			t.Errorf("native Hermes provider %q wire catalogue = %q, want %q", id, actual, models)
+			t.Errorf("native Hermes provider %q wire catalog = %q, want %q", id, actual, models)
 		}
 	}
 }

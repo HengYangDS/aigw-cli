@@ -293,7 +293,7 @@ func TestReconcileConfigsKeepsUserAuthoredCatalogSelections(t *testing.T) {
 		t.Fatalf("user catalog selection was rewritten:\n%s", projected)
 	}
 	if state := readCodexSidecar(t, path); state.CatalogHash != "" || state.CatalogState != "" {
-		t.Fatalf("AIGW claimed ownership of the user catalogue: %+v", state)
+		t.Fatalf("AIGW claimed ownership of the user catalog: %+v", state)
 	}
 	if _, err := os.Stat(codexCatalogPath(path)); !os.IsNotExist(err) {
 		t.Fatalf("AIGW wrote a catalog beside a user-authored one: %v", err)

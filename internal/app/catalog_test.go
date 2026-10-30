@@ -289,7 +289,7 @@ func TestCatalogParsingRejectsAmbiguousProviderIdentifiers(t *testing.T) {
 		`{"data":[" "]}`,
 	} {
 		if ids, err := parseIDs([]byte(body)); err == nil || len(ids) != 0 {
-			t.Fatalf("ambiguous catalogue item established identity: body=%s ids=%#v error=%v", body, ids, err)
+			t.Fatalf("ambiguous catalog item established identity: body=%s ids=%#v error=%v", body, ids, err)
 		}
 	}
 
@@ -313,7 +313,7 @@ func TestCatalogParsingRejectsAmbiguousContainers(t *testing.T) {
 		`{"data":[{"name":"one","name":"two"}]}`,
 	} {
 		if ids, err := parseIDs([]byte(body)); err == nil || len(ids) != 0 {
-			t.Fatalf("ambiguous catalogue established membership: body=%s ids=%#v error=%v", body, ids, err)
+			t.Fatalf("ambiguous catalog established membership: body=%s ids=%#v error=%v", body, ids, err)
 		}
 	}
 	for body, want := range map[string][]string{
@@ -321,7 +321,7 @@ func TestCatalogParsingRejectsAmbiguousContainers(t *testing.T) {
 		`{"object":"list","data":[{"id":"one","object":"model","owned_by":"x","owned_by":"y"}],"has_more":false,"has_more":true}`: {"one"},
 	} {
 		if ids, err := parseIDs([]byte(body)); err != nil || !reflect.DeepEqual(ids, want) {
-			t.Fatalf("valid catalogue body=%s ids=%#v error=%v", body, ids, err)
+			t.Fatalf("valid catalog body=%s ids=%#v error=%v", body, ids, err)
 		}
 	}
 }

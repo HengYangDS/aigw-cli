@@ -1,5 +1,5 @@
 // Package catalog implements `aigw catalog`, which reports each Account's
-// authenticated model catalogue.
+// authenticated model catalog.
 package catalog
 
 import (
@@ -35,7 +35,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		}
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Authenticated model catalog")
-		r.Text("Each observation proves catalogue membership only for its named protocol source.")
+		r.Text("Each observation proves catalog membership only for its named protocol source.")
 		for _, observation := range result.Observations {
 			title := observation.Label + " · " + observation.Account
 			if observation.Source.Protocol != "" {

@@ -507,11 +507,11 @@ Public client verification requires both bounded process streams. Explicit nativ
 stderr warnings, errors and tracebacks prevent successful qualification and
 checkpoint publication, even after an exit-zero response. Ordinary stderr progress remains admissible;
 private diagnostic content never reaches the public error. Unknown native model
-metadata is an incomplete client contract, not permission to fabricate a catalogue
+metadata is an incomplete client contract, not permission to fabricate a catalog
 or call successful transport complete qualification.
 
-Codex catalogue and verification probes own their temporary environment. The
-selected `CODEX_HOME` must not lie below the child's temporary root: catalogue
+Codex catalog and verification probes own their temporary environment. The
+selected `CODEX_HOME` must not lie below the child's temporary root: catalog
 probes keep native temporary files below their owned home, while verification
 uses the `tmp` directory of its disposable `CODEX_HOME`. All three native temporary variables select
 that exact root without changing the parent process or user configuration.

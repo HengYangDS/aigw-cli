@@ -163,7 +163,7 @@ projection fingerprint cannot retrieve a Token for the new endpoint.
 
 | Client                    | AIGW-owned projection                                             | Preserved client state                                                    |
 | ------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Codex                     | Recorded provider, selections, scheduler, catalogue and sidecar   | Native credentials, conversations, models chosen in the App and GUI state |
+| Codex                     | Recorded provider, selections, scheduler, catalog and sidecar     | Native credentials, conversations, models chosen in the App and GUI state |
 | Claude Code               | Endpoint, guarded model preference, credential helper and sidecar | Native credentials, sessions, shell profiles and unrelated settings       |
 | Missing or foreign client | None                                                              | Existing files, directories and runtime state                             |
 
@@ -230,7 +230,7 @@ and redirect failures are terminal.
 ## Uninstall
 
 Uninstall first withdraws AIGW-owned client projections, including marked
-configuration blocks, sidecars, generated catalogues, and credential helpers.
+configuration blocks, sidecars, generated catalogs, and credential helpers.
 It then removes the selected program and its rollback copy. Accounts, Routes,
 Client Bindings, Tokens, explicit configuration backup, client conversations, and
 neighboring user-authored settings remain intact.

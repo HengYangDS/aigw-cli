@@ -167,7 +167,7 @@ both the required and forbidden headers and prove that neither the credential
 nor its header name appears in command output.
 
 Until a Client Adapter completes admission, it remains outside the operational
-registry and compatible Routes. Model and Account catalogue discovery does not
+registry and compatible Routes. Model and Account catalog discovery does not
 create Routes or select Client Bindings. Comparative product observations belong to
 [research](../research/provider-tooling-assessment.md), not a second admission
 registry in this policy.

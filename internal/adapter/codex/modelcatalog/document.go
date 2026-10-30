@@ -9,7 +9,7 @@ import (
 	"slices"
 )
 
-// Document is a validated client catalogue, including fields AIGW does not own.
+// Document is a validated client catalog, including fields AIGW does not own.
 type Document struct {
 	fields map[string]json.RawMessage
 	models []map[string]json.RawMessage

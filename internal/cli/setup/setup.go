@@ -291,7 +291,7 @@ func setupToken(runtime invocation.Context, request setupRequest) (setupCredenti
 }
 
 // RunWizard is deliberately provider-neutral. AIGW never assumes a gateway,
-// token slot, URL, or model catalogue for a new user; the user may instead
+// token slot, URL, or model catalog for a new user; the user may instead
 // import a secret-free configuration manifest before running this flow.
 func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	account, err := runtime.Prompt.Text("Account ID (for example, team-primary): ")

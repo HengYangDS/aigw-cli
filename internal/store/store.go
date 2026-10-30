@@ -195,7 +195,7 @@ func (s Store) commitComponents(before Snapshot, data, forwarding, catalog, capa
 	after.retries = retriesAfter
 	catalogAfter, err := s.writeOptional(s.catalogPath(), before.Catalog, catalog)
 	if err != nil {
-		return Snapshot{}, errors.Join(fmt.Errorf("write catalogue presentation: %w", err), s.RestoreSnapshot(before, after))
+		return Snapshot{}, errors.Join(fmt.Errorf("write catalog presentation: %w", err), s.RestoreSnapshot(before, after))
 	}
 	after.Catalog = catalogAfter
 	capabilitiesAfter, err := s.writeOptional(s.capabilitiesPath(), before.capabilities, capabilities)
@@ -292,7 +292,7 @@ func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
 		return errors.New("client forwarding preimage changed; refusing to converge backup")
 	}
 	if !current.Catalog.Equal(expected.Catalog) || !current.catalogBackup.Equal(expected.catalogBackup) {
-		return errors.New("catalogue presentation preimage changed; refusing to converge backup")
+		return errors.New("catalog presentation preimage changed; refusing to converge backup")
 	}
 	if !current.capabilities.Equal(expected.capabilities) || !current.capabilitiesBackup.Equal(expected.capabilitiesBackup) {
 		return errors.New("route capability preimage changed; refusing to converge backup")
@@ -327,7 +327,7 @@ func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
 	after.retriesBackup = retriesBackup
 	catalogBackup, err := s.writeOptional(s.catalogPath()+".bak", expected.catalogBackup, expected.Catalog.Data)
 	if err != nil {
-		return errors.Join(fmt.Errorf("converge verified catalogue backup: %w", err), s.RestoreSnapshot(expected, after))
+		return errors.Join(fmt.Errorf("converge verified catalog backup: %w", err), s.RestoreSnapshot(expected, after))
 	}
 	after.catalogBackup = catalogBackup
 	capabilitiesBackup, err := s.writeOptional(s.capabilitiesPath()+".bak", expected.capabilitiesBackup, expected.capabilities.Data)
@@ -384,10 +384,10 @@ func (s Store) RestoreSnapshot(before, after Snapshot) error {
 		failures = append(failures, fmt.Errorf("restore client forwarding backup snapshot: %w", err))
 	}
 	if err := platform.RestoreFileAtomicIfPostimage(s.catalogPath(), before.Catalog, after.Catalog); err != nil {
-		failures = append(failures, fmt.Errorf("restore catalogue presentation snapshot: %w", err))
+		failures = append(failures, fmt.Errorf("restore catalog presentation snapshot: %w", err))
 	}
 	if err := platform.RestoreFileAtomicIfPostimage(s.catalogPath()+".bak", before.catalogBackup, after.catalogBackup); err != nil {
-		failures = append(failures, fmt.Errorf("restore catalogue presentation backup: %w", err))
+		failures = append(failures, fmt.Errorf("restore catalog presentation backup: %w", err))
 	}
 	if err := platform.RestoreFileAtomicIfPostimage(s.capabilitiesPath(), before.capabilities, after.capabilities); err != nil {
 		failures = append(failures, fmt.Errorf("restore route capability snapshot: %w", err))

@@ -163,7 +163,7 @@ func (s Synchronizer) DesiredClientConfiguration(before domain.Config, clientIDs
 }
 
 // AdoptNativeSelections returns before with each client's own selection inside
-// AIGW's projected catalogue recorded as its Client Binding, and the adopted
+// AIGW's projected catalog recorded as its Client Binding, and the adopted
 // Route per client. Only synchronization adopts: an explicit selection names
 // the Route that wins.
 func (s Synchronizer) AdoptNativeSelections(before domain.Config) (domain.Config, map[string]string, error) {
@@ -180,7 +180,7 @@ func (s Synchronizer) AdoptNativeSelections(before domain.Config) (domain.Config
 }
 
 // DesiredSyncConfiguration activates unselected recommendations when a
-// read-only credential source gains an Account Token after catalogue import.
+// read-only credential source gains an Account Token after catalog import.
 // Writable native stores are not searched for unselected credentials.
 func (s Synchronizer) DesiredSyncConfiguration(before domain.Config) (domain.Config, discovery.Result, error) {
 	if !secret.IsReadOnly(s.Secrets) {

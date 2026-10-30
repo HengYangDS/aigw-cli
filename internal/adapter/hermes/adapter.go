@@ -104,13 +104,13 @@ func (hermesAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, dis
 }
 
 func hermesDesired(deps adapter.Dependencies, cfg domain.Config, selected domain.Runtime) (Desired, error) {
-	catalogue, err := hermesCatalogue(cfg)
+	catalog, err := hermesCatalog(cfg)
 	if err != nil {
 		return Desired{}, err
 	}
 	connected := map[string]bool{selected.AccountID: true}
 	desired := Desired{SelectedProvider: hermesProviderID(selected.AccountID, selected.Protocol), SelectedModel: selected.Model}
-	for _, item := range catalogue {
+	for _, item := range catalog {
 		if _, observed := connected[item.Account]; !observed {
 			available, err := adapter.SecretAvailable(deps.Secrets, item.Account)
 			if err != nil {
@@ -135,7 +135,7 @@ func hermesDesired(deps adapter.Dependencies, cfg domain.Config, selected domain
 	return desired, nil
 }
 
-type hermesCatalogueProvider struct {
+type hermesCatalogProvider struct {
 	ID       string
 	Name     string
 	Account  string
@@ -145,9 +145,9 @@ type hermesCatalogueProvider struct {
 	Models   []string
 }
 
-func hermesCatalogue(cfg domain.Config) ([]hermesCatalogueProvider, error) {
+func hermesCatalog(cfg domain.Config) ([]hermesCatalogProvider, error) {
 	spec := hermesAdapter{}.Spec()
-	providers := make(map[string]hermesCatalogueProvider)
+	providers := make(map[string]hermesCatalogProvider)
 	var ids []string
 	for _, routeID := range cfg.CatalogRouteIDs() {
 		route := cfg.Routes[routeID]
@@ -161,7 +161,7 @@ func hermesCatalogue(cfg domain.Config) ([]hermesCatalogueProvider, error) {
 				if err != nil {
 					return nil, err
 				}
-				item = hermesCatalogueProvider{ID: id, Name: account.Label + " · " + domain.ProtocolLabel(protocol), Account: route.Account, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected}
+				item = hermesCatalogProvider{ID: id, Name: account.Label + " · " + domain.ProtocolLabel(protocol), Account: route.Account, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected}
 			}
 			if !slices.Contains(item.Models, route.UpstreamModelID()) {
 				item.Models = append(item.Models, route.UpstreamModelID())
@@ -169,11 +169,11 @@ func hermesCatalogue(cfg domain.Config) ([]hermesCatalogueProvider, error) {
 			providers[id] = item
 		}
 	}
-	result := make([]hermesCatalogueProvider, 0, len(providers))
+	result := make([]hermesCatalogProvider, 0, len(providers))
 	for _, id := range ids {
 		result = append(result, providers[id])
 	}
-	slices.SortFunc(result, func(left, right hermesCatalogueProvider) int {
+	slices.SortFunc(result, func(left, right hermesCatalogProvider) int {
 		if order := cfg.CompareAccounts(left.Account, right.Account); order != 0 {
 			return order
 		}
@@ -249,7 +249,7 @@ func hermesPreviousDesired(deps adapter.Dependencies, before domain.Config) (Des
 }
 
 // AdoptSelection records Hermes' own model choice as its Client Binding
-// when the operator selected another model of AIGW's projected catalogue in
+// when the operator selected another model of AIGW's projected catalog in
 // Hermes and nothing else that AIGW owns changed. It returns the adopted Route,
 // or an empty string when Hermes still shows the bound selection.
 func (hermesAdapter) AdoptSelection(deps adapter.Dependencies, cfg *domain.Config) (string, error) {
@@ -281,18 +281,18 @@ func (hermesAdapter) AdoptSelection(deps adapter.Dependencies, cfg *domain.Confi
 	return routeID, nil
 }
 
-// hermesRouteFor maps a projected provider and model to the one catalogue
+// hermesRouteFor maps a projected provider and model to the one catalog
 // Route with that provider's Account, protocol and upstream model.
 func hermesRouteFor(cfg domain.Config, native Selection) (string, domain.EndpointProtocol, error) {
-	catalogue, err := hermesCatalogue(cfg)
+	catalog, err := hermesCatalog(cfg)
 	if err != nil {
 		return "", "", err
 	}
-	index := slices.IndexFunc(catalogue, func(item hermesCatalogueProvider) bool { return item.ID == native.Provider })
+	index := slices.IndexFunc(catalog, func(item hermesCatalogProvider) bool { return item.ID == native.Provider })
 	if index < 0 {
 		return "", "", fmt.Errorf("Hermes selects provider %q, which AIGW no longer projects; run `aigw use --for hermes <route>`", native.Provider)
 	}
-	provider := catalogue[index]
+	provider := catalog[index]
 	spec := hermesAdapter{}.Spec()
 	var matches []string
 	for _, routeID := range cfg.CatalogRouteIDs() {
@@ -372,12 +372,12 @@ func (hermesAdapter) ProjectionChanged(before, after domain.Config) bool {
 	if leftErr != nil || rightErr != nil || left != right {
 		return true
 	}
-	oldCatalogue, oldErr := hermesCatalogue(before)
-	newCatalogue, newErr := hermesCatalogue(after)
+	oldCatalog, oldErr := hermesCatalog(before)
+	newCatalog, newErr := hermesCatalog(after)
 	if oldErr != nil || newErr != nil {
 		return true
 	}
-	return !slices.EqualFunc(oldCatalogue, newCatalogue, func(left, right hermesCatalogueProvider) bool {
+	return !slices.EqualFunc(oldCatalog, newCatalog, func(left, right hermesCatalogProvider) bool {
 		return left.ID == right.ID && left.Name == right.Name && left.Account == right.Account && left.Protocol == right.Protocol && left.Endpoint == right.Endpoint && slices.Equal(left.Models, right.Models)
 	})
 }
@@ -428,12 +428,12 @@ func hermesInspectionPlan(deps adapter.Dependencies, cfg domain.Config, selected
 
 func hermesRetainedReader(cfg domain.Config, desired Desired, plan Plan, current string) (string, error) {
 	return adapter.RetainedDefaultReader(current, false, func() (string, error) {
-		catalogue, err := hermesCatalogue(cfg)
+		catalog, err := hermesCatalog(cfg)
 		if err != nil {
 			return "", err
 		}
 		var observedReader string
-		for _, item := range catalogue {
+		for _, item := range catalog {
 			if !slices.ContainsFunc(desired.Providers, func(provider Provider) bool { return provider.ID == item.ID }) {
 				continue
 			}

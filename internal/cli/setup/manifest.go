@@ -166,7 +166,7 @@ func buildManifestSetupResult(
 
 func renderManifestSetupResult(runtime invocation.Context, result manifestSetupResult) {
 	r := invocation.Renderer(runtime)
-	r.ProductTitle("Configuration catalogue imported")
+	r.ProductTitle("Configuration catalog imported")
 	r.Section("Imported capability")
 	r.Rows(
 		terminal.Field{Label: "Accounts", Value: strings.Join(result.Imported.Accounts, ", ")},

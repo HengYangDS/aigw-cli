@@ -251,7 +251,7 @@ func ReadBundledCatalog(executable string) (client ExecutableIdentity, data []by
 	return client, data, result
 }
 
-// ReadEffectiveCatalog asks the installed client to render its selected catalogue
+// ReadEffectiveCatalog asks the installed client to render its selected catalog
 // in an isolated home. It neither reads user configuration nor sends inference.
 func ReadEffectiveCatalog(executable, catalogPath string) (data []byte, result error) {
 	args := []string{"debug", "models"}

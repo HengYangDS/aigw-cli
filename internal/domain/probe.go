@@ -31,7 +31,7 @@ func ProbeRequest(ctx context.Context, admission Admission, client, endpoint, to
 	return ModelCatalogRequest(ctx, endpoint, protocol, token)
 }
 
-// ModelCatalogRequest constructs the authenticated model-catalogue request for
+// ModelCatalogRequest constructs the authenticated model-catalog request for
 // one exact wire protocol. It does not infer model or inference capabilities.
 func ModelCatalogRequest(ctx context.Context, endpoint string, protocol EndpointProtocol, token string) (*http.Request, error) {
 	switch protocol {
@@ -39,7 +39,7 @@ func ModelCatalogRequest(ctx context.Context, endpoint string, protocol Endpoint
 		ProtocolOpenAIResponses,
 		ProtocolOpenAIChatCompletions:
 	default:
-		return nil, fmt.Errorf("unsupported model catalogue protocol %q", protocol)
+		return nil, fmt.Errorf("unsupported model catalog protocol %q", protocol)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsEndpoint(endpoint, protocol), nil)
 	if err != nil {

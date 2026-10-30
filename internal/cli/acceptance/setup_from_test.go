@@ -35,16 +35,16 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 		t.Fatal(err)
 	}
 	if len(cfg.Accounts) != 2 || len(cfg.Routes) != 3 {
-		t.Fatalf("imported catalogue = %#v", cfg)
+		t.Fatalf("imported catalog = %#v", cfg)
 	}
 	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
-		t.Fatal("catalogue import wrote a Token")
+		t.Fatal("catalog import wrote a Token")
 	}
 	if len(cfg.Clients) != 0 || len(runner.plans) != 0 {
-		t.Fatalf("catalogue import activated absent clients: adapters=%#v plans=%#v", cfg.Clients, runner.plans)
+		t.Fatalf("catalog import activated absent clients: adapters=%#v plans=%#v", cfg.Clients, runner.plans)
 	}
 	for _, want := range []string{
-		"Configuration catalogue imported",
+		"Configuration catalog imported",
 		"Imported capability",
 		"Connected accounts",
 		"0 of 2",
@@ -167,7 +167,7 @@ func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *test
 	if !slices.Equal(result.Imported.Accounts, []string{"aihubmix", "dmxapi"}) ||
 		!slices.Equal(result.Imported.Routes, []string{"aihubmix-claude", "dmxapi-claude", "dmxapi-gpt"}) ||
 		len(result.ConnectedAccounts) != 0 {
-		t.Fatalf("setup JSON catalogue state = %#v", result)
+		t.Fatalf("setup JSON catalog state = %#v", result)
 	}
 	if len(result.SelectedBindings) != 0 {
 		t.Fatalf("setup turned unavailable recommendations into selections: %#v", result.SelectedBindings)

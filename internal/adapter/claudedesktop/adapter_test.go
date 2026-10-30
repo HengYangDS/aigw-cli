@@ -72,7 +72,7 @@ func TestLibrarySurfaceIdentityIsStable(t *testing.T) {
 	}
 }
 
-func TestClaudeDesktopCatalogueDerivesUnlabeledAlternative(t *testing.T) {
+func TestClaudeDesktopCatalogDerivesUnlabeledAlternative(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
 	route := fixture.cfg.Routes["alternate"]
 	route.Label = ""
@@ -90,7 +90,7 @@ func TestClaudeDesktopCatalogueDerivesUnlabeledAlternative(t *testing.T) {
 	t.Fatal("Claude Desktop alternative was omitted")
 }
 
-func TestClaudeDesktopCatalogueDeduplicatesLogicalModelsButUsesWireNames(t *testing.T) {
+func TestClaudeDesktopCatalogDeduplicatesLogicalModelsButUsesWireNames(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
 	selected := fixture.cfg.Routes["selected"]
 	selected.Label = "Sonnet 5.5 CC"
@@ -160,7 +160,7 @@ func (fixture claudeDesktopFixture) apply(t *testing.T) {
 	}
 }
 
-func TestClaudeDesktopAdapterProjectsSelectedAccountCatalogue(t *testing.T) {
+func TestClaudeDesktopAdapterProjectsSelectedAccountCatalog(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
 	plans, err := fixture.clientAdapter.Plan(fixture.deps, domain.NewConfig(testAdmission()), fixture.cfg)
 	if err != nil {
@@ -252,10 +252,10 @@ func TestClaudeDesktopProjectionChangeDetection(t *testing.T) {
 	if !fixture.clientAdapter.ProjectionChanged(fixture.cfg, retargeted) {
 		t.Fatal("target change was not detected")
 	}
-	recatalogued := fixture.cfg.Clone()
-	recatalogued.Routes["daily"] = domain.Route{Label: "Daily", Account: "gateway", Model: "claude-daily", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	if !fixture.clientAdapter.ProjectionChanged(fixture.cfg, recatalogued) {
-		t.Fatal("catalogue change was not detected")
+	recatalogd := fixture.cfg.Clone()
+	recatalogd.Routes["daily"] = domain.Route{Label: "Daily", Account: "gateway", Model: "claude-daily", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	if !fixture.clientAdapter.ProjectionChanged(fixture.cfg, recatalogd) {
+		t.Fatal("catalog change was not detected")
 	}
 }
 

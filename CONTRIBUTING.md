@@ -121,8 +121,8 @@ client restart or projection write. Sync prepares all configured Codex targets
 before writing and compensates in reverse order only where its own postimage
 still matches. Preserve newer edits; see the [transaction contract](docs/decisions/dr-0006-transactional-client-projection.md).
 
-Only Codex can establish that its projected model catalogue actually loaded.
-After a catalogue or client-version change, use the tracked verifier:
+Only Codex can establish that its projected model catalog actually loaded.
+After a catalog or client-version change, use the tracked verifier:
 
 ```bash
 mise exec --locked -- go run ./tools/codex/catalogcheck -model openai.gpt-6.1-sol
@@ -136,7 +136,7 @@ metadata apart from `slug`. Retain client version, executable checksum and
 entry digests. Exit 2 means a missing client or unproved input, not acceptance.
 
 Live-client Route qualification instead uses `aigw verify --for codex` or
-`aigw verify --for claude`; catalogue inspection and direct HTTP probes cannot
+`aigw verify --for claude`; catalog inspection and direct HTTP probes cannot
 replace it. The commands require the synchronized selection and report the real
 client version/digest without Token or response content. Claude runs in official
 [bare mode](https://code.claude.com/docs/en/headless#start-faster-with-bare-mode),

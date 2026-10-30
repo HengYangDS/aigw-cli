@@ -116,7 +116,7 @@ Use the least powerful command that answers the current question:
 2. `aigw check` validates configuration, credentials, and client projections,
    then makes one capped inference request carrying each eligible selected
    Route's exact upstream model. `--endpoint-only` instead authenticates through
-   a model-free catalogue request and incurs no inference call.
+   a model-free catalog request and incurs no inference call.
 3. `aigw doctor` explains structural or host integration failures without
    mutation.
 4. `aigw repair --dry-run --json` previews only AIGW-owned reconciliation;

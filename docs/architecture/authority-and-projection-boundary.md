@@ -103,7 +103,7 @@ Configuration admission checks every declared Route protocol against its
 Account's corresponding endpoint, including Routes not selected by a Client
 Binding. Runtime resolution intersects that explicit Route capability with
 the selected client's protocol contract. A manually authored Route may omit
-the capability set until it is qualified, but the reviewed team catalogue does
+the capability set until it is qualified, but the reviewed team catalog does
 not. Manifest import and local persistence share that validation. This is a
 structural check, not evidence of credentials, installed clients, endpoint
 availability, or successful inference.
@@ -335,8 +335,8 @@ have different output ownership and memory limits.
 Repository-only executables follow the same ontology: [CI](../../tools/ci/),
 [coverage](../../tools/coverage/), [Forge operations](../../tools/forge/), and
 [releases](../../tools/release/) own cross-cutting repository concerns, while client-specific verification is nested
-under its client owner. [Codex catalogue verification](../../tools/codex/catalogcheck/) owns catalogue acceptance,
-measurements and reporting. It consumes the same [catalogue projection](../../internal/adapter/codex/modelcatalog/)
+under its client owner. [Codex catalog verification](../../tools/codex/catalogcheck/) owns catalog acceptance,
+measurements and reporting. It consumes the same [catalog projection](../../internal/adapter/codex/modelcatalog/)
 document transformation as product projection, not a second parser or alias
 builder. That document owner preserves all client metadata and adds only
 uniquely established aliases. [Codex integration](../../internal/adapter/codex/) owns isolated client reads,
@@ -441,7 +441,7 @@ uses no AIGW Token helper.
 
 Codex CLI and Desktop discover the same default Codex Home; additional homes
 are explicit Adapter targets. AIGW owns the recorded provider tables, root
-selections, configured scheduler fields, derived catalogue and sidecar, including
+selections, configured scheduler fields, derived catalog and sidecar, including
 its credential-helper configuration. Decorative markers are not the ownership
 boundary. Dry-run exposes
 the plan without reading credentials or changing files. A Codex-scoped Route
@@ -449,7 +449,7 @@ may select one explicit native provider identity. AIGW then projects that exact
 table with the Account endpoint and an absolute command-authentication helper;
 the Account still owns the Token and Codex still owns conversation state.
 Client-native authentication projects no AIGW credential helper. The Provider
-name and model catalogue are independent of credential ownership.
+name and model catalog are independent of credential ownership.
 
 Codex provider ownership binds the recorded canonical values, not the text span
 between decorative comments. The native TOML parser locates the provider and
@@ -466,7 +466,7 @@ regular expression. Named profiles, dotted keys, arrays of tables, and text insi
 strings are outside that selection boundary. AIGW edits only the located source
 range, preserving unrelated text and restoring recorded original assignments on
 withdrawal. Quoted keys and multiline original values retain their meaning;
-model identifiers and catalogue paths are literal values, not replacement syntax.
+model identifiers and catalog paths are literal values, not replacement syntax.
 Malformed or ambiguous input fails before the transaction writes files.
 
 Scheduler tables also use native TOML boundaries. Example headers inside user
@@ -519,7 +519,7 @@ provider-named implementation of all of them.
 Account admission owns protocol endpoints and credential references. Models own
 canonical identity. Routes own exact Account-to-Model access paths and verified
 protocol capabilities. Client Bindings own
-selection and native client options. Catalogue
+selection and native client options. Catalog
 observations, authenticated probes and client verification provide separate
 evidence rather than becoming configuration facts. Code is needed only when
 authentication or discovery exceeds the admitted Account contract. Client

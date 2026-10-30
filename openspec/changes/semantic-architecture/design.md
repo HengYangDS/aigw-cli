@@ -245,7 +245,7 @@ looks up clients reads it from the configuration instead of a package list.
 Client-specific rules become `ClientSpec` capabilities beside the existing
 retry budgets: a default model provider, which also admits an explicit one;
 client-native authentication, which needs a default model provider; and the
-protocol of a pre-catalogue profile. An error that named the one client with a
+protocol of a pre-catalog profile. An error that named the one client with a
 capability derives that name from the admitted clients that have it, so its
 text is unchanged. Tests that need the built-in clients take the composition
 root's admission. A package that the composition root imports cannot import it
@@ -348,8 +348,10 @@ The text gate is the existing spelling gate. `tools/ci` reads the glossary and
 runs typos a second time with each rejected synonym mapped to its canonical
 term, so a finding names the path, the line and the canonical term. typos
 splits identifiers and prose into words and matches whole words, so the
-glossary lists each inflected form. The gate skips history: archived OpenSpec
-changes and CHANGELOG's released sections. It also skips a main specification
+glossary lists each inflected form. The gate skips history and the text that
+must name a rejected synonym: archived OpenSpec changes, CHANGELOG's released
+sections, an active Change's proposal, design and tasks, the glossary's table
+and the requirements that a delta removes. It also skips a main specification
 that an active Change rewrites, whose delta it checks instead; that main
 specification is checked once the Change archives.
 

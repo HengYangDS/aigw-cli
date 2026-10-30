@@ -115,7 +115,7 @@ func runCodexReadOnly(ctx context.Context, runner process.VerificationRunner, ex
 		return nil, fmt.Errorf("run %s %s: %w", filepath.Base(executable), strings.Join(args, " "), err)
 	}
 	if process.DiagnosticFailure(diagnostic) {
-		return nil, fmt.Errorf("Codex catalogue probe emitted a native-client warning or error; catalogue identity is unqualified")
+		return nil, fmt.Errorf("Codex catalog probe emitted a native-client warning or error; catalog identity is unqualified")
 	}
 	return output, nil
 }

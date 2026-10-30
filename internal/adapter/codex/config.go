@@ -410,7 +410,7 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 	}
 	if replaceRootSelections {
 		// Explicit Route selection owns these root values. Provider tables,
-		// scheduler state, and catalogue bytes remain independently guarded.
+		// scheduler state, and catalog bytes remain independently guarded.
 	} else if projectedModel == "" {
 		if !isManagedSelection(modelLine, "model", selectionStringValue(modelLine)) {
 			return "", newConflictError("Codex config conflict: AIGW-managed model selection cannot be attributed; refusing to overwrite user edits", nil)

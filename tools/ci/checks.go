@@ -245,12 +245,15 @@ func checkSpelling(root string, runner commandRunner) error {
 		}
 		files[index] = filepath.ToSlash(relative)
 	}
-	return runner(command{
+	if err := runner(command{
 		Name:  "typos",
 		Dir:   root,
 		Args:  []string{"--config", ".config/checks/spelling/policy.toml", "--force-exclude", "--file-list", "-"},
 		Input: strings.Join(files, "\n") + "\n",
-	})
+	}); err != nil {
+		return err
+	}
+	return checkRejectedSynonyms(root, files, runner)
 }
 
 func checkTOML(root string, runner commandRunner) error {

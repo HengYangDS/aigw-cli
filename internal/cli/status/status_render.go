@@ -34,7 +34,7 @@ func renderStatus(runtime invocation.Context, cfg domain.Config, result statusRe
 		}
 		r.Rows(terminal.Field{
 			State: terminal.Info, Label: "Client activation", Value: message,
-			Details: []string{"The catalogue is available, but no client endpoint or model has been checked"},
+			Details: []string{"The catalog is available, but no client endpoint or model has been checked"},
 		})
 	}
 	renderTransportStatus(r, admission, result, clientIDs)

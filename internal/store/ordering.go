@@ -50,7 +50,7 @@ func decodeCatalogOrder(cfg domain.Config, snapshot platform.FileSnapshot) (doma
 	decoder := toml.NewDecoder(bytes.NewReader(snapshot.Data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&order); err != nil {
-		return domain.Config{}, fmt.Errorf("parse catalogue presentation: %w", err)
+		return domain.Config{}, fmt.Errorf("parse catalog presentation: %w", err)
 	}
 	for id, rank := range order.Accounts {
 		if account, exists := cfg.Accounts[id]; exists {

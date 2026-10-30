@@ -93,7 +93,7 @@ func TestDocumentProjectionKeepsTheCompleteBundledTable(t *testing.T) {
 	bundled := testBundledCatalog("gpt-5.6-sol", "gpt-5.5")
 	data, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "")
 	if data == nil {
-		t.Fatal("Document.Project() returned no catalogue")
+		t.Fatal("Document.Project() returned no catalog")
 	}
 	var source, generated catalogDocument
 	if err := json.Unmarshal(bundled, &source); err != nil {

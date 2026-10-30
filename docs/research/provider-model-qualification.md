@@ -8,7 +8,7 @@ relations: {}
 # Provider Model Qualification Evidence
 
 These observations inform the October 27, 2026 team manifest; they neither
-maintain a live catalogue nor override the [Route inventory](../../manifests/team.toml).
+maintain a live catalog nor override the [Route inventory](../../manifests/team.toml).
 For setup/selection, use the [team rollout guide](../guides/team-rollout.md#reviewed-model-defaults).
 Listings, bounded inference and native-client tool loops prove distinct claims.
 
@@ -37,7 +37,7 @@ M3 for coding; [H3](https://www.minimax.io/blog/minimax-h3) generates video and
 sound, not text-agent inference. Step 5 Preview was discovery-only at the
 September 25 read; its later [admission](#october-56-model-refresh) supersedes that observation.
 
-Public catalogues returned 417 AIHubMix and 128 UCloud IDs; anonymous UCloud omitted
+Public catalogs returned 417 AIHubMix and 128 UCloud IDs; anonymous UCloud omitted
 GPT/Claude, while DMXAPI required authentication. Neither omission nor anonymous
 401/disabled-pricing 403 proves model absence. Bindings, credentials and models were unchanged.
 
@@ -103,7 +103,7 @@ Responses and UCloud Chat (37.9/15.2, 60.5/11.8, 14.3/16.8 s). An earlier AIHubM
 Eight authenticated observations list `claude-haiku-5-5` at AIHubMix/UCloud and
 `claude-haiku-5-5-cc` at DMXAPI, with 420/277/528 IDs respectively. This supersedes
 only the dated Haiku absence, not the Fable 5.5 or Gemini 4 limits. The October 10
-catalogue withdraws Fable 5.1 and Astra/Luna 6 under the Claude 5.5+/GPT 6.1+
+catalog withdraws Fable 5.1 and Astra/Luna 6 under the Claude 5.5+/GPT 6.1+
 floors. No qualified Fable, Astra, Terra, or Luna successor was observed.
 
 Claude Code 2.1.296 at `xhigh` passed exact text, `Read` and same-process recall
@@ -155,18 +155,18 @@ Models and 58 Routes and preserved Account endpoints, client selections and
 credential commands; installed AIGW 0.3.1 still reported Hermes drift because its
 checker compared logical IDs.
 
-## Provider catalogue and route evidence
+## Provider catalog and route evidence
 
 The October 9, 2026 review matched all 57 shipped Routes to dated authenticated
 inference: 48 unchanged October 1 matrix entries, seven October 5–6 entries
 bound to post-acceptance source `de3982f3`, and the two isolated October 1
 additions below. Each retained the same Account endpoints, wire ID and protocol.
-This qualifies the frozen reviewed catalogue, not current service health,
+This qualifies the frozen reviewed catalog, not current service health,
 an independent strongest-model ranking, every native tool/resume mode or final
 signed artifacts.
 
 At an earlier September 30, 2026 read, AIGW observed 417 AIHubMix, 565 DMXAPI,
-and 276 UCloud IDs across eight Account/protocol catalogue surfaces. All 60
+and 276 UCloud IDs across eight Account/protocol catalog surfaces. All 60
 Routes shipped at that time had wire IDs on their declared surfaces. The later
 September 30 curation yielded 56 after retiring the Solar Route, three GPT-6
 Sol Routes, the DMXAPI Fable 5.1 CC channel, and unavailable AIHubMix Fable 5.1
@@ -174,7 +174,7 @@ and MiMo Routes, then adding AIHubMix, DMXAPI, and UCloud GPT-6.1 Sol Routes.
 The earlier DMXAPI Responses observation used the locally configured
 `127.0.0.1:8792` Proxy,
 whereas the team manifest declares direct `https://www.dmxapi.cn/v1`.
-Catalogue membership therefore does not qualify that direct endpoint or
+Catalog membership therefore does not qualify that direct endpoint or
 prove the newly preferred Route can sustain inference.
 
 The DMXAPI `claude-fable-5-1-cc` wire ID remained listed, but two bounded
@@ -197,7 +197,7 @@ separate from Account authentication and does not change explicit local bindings
 On September 30, 2026,
 [OpenAI's GPT-6.1 Sol model page](https://developers.openai.com/api/docs/models/gpt-6.1-sol)
 identified `gpt-6.1-sol` and Responses tool calling. AIHubMix's
-[public catalogue](https://api.inferera.com/v1/models)
+[public catalog](https://api.inferera.com/v1/models)
 initially listed only `gpt-6-sol`, but a later September 30 read returned 418 IDs
 and included `gpt-6.1-sol`. A later authenticated DMXAPI listing also included
 that exact ID; UCloud's did not. Direct Responses text requests completed on
@@ -207,7 +207,7 @@ with `missing_required_parameter` for `tools[4].tools`. A later authenticated
 DMXAPI listing returned the exact `gpt-6.1-sol` ID; direct Responses text and a
 strict function-call request both completed. The installed official Codex CLI
 0.159.2 then completed two isolated direct-DMXAPI tool loops. Its bundled
-catalogue includes GPT-6.1 Sol. AIGW's earlier base-model projection also
+catalog includes GPT-6.1 Sol. AIGW's earlier base-model projection also
 omitted `model_catalog_json`: real Codex tool use succeeded, but its model
 manager logged two errors decoding DMXAPI's standard `/v1/models` response as
 Codex metadata. An isolated comparison using the client's unmodified bundled
@@ -219,7 +219,7 @@ The official Hermes v0.21.5 release source completed two named-session turns
 against direct DMXAPI GPT-6.1 Sol. AIGW 0.3.3 then completed an isolated
 `verify --for hermes --route dmxapi-gpt-6.1-sol` against that endpoint after
 its versioned credential reader was staged. This distinguishes a missing test
-reader from a product failure. The public AIHubMix catalogue also listed the
+reader from a product failure. The public AIHubMix catalog also listed the
 model, while an earlier UCloud request rejected it. Later on September 30, a
 direct UCloud Responses request completed with exact wire model `gpt-6.1-sol`.
 
@@ -250,7 +250,7 @@ a continuation compatibility trigger, not a provider-internal root cause.
 Earlier successful probes do not qualify this later failure, and AIGW does
 not rewrite transport items to hide it.
 
-An authenticated DMXAPI catalogue then listed `gpt-6.1-sol-cdx`. The exact
+An authenticated DMXAPI catalog then listed `gpt-6.1-sol-cdx`. The exact
 `9cf23cb8` candidate with one isolated Route addition passed public
 setup/use/check/verify, official Codex 0.159.3 shell execution, and a two-turn
 tool-context replay. Unmodified official Hermes `f97608f` separately passed
@@ -289,13 +289,13 @@ At the September 25, 2026 read, the public
 [AIHubMix](https://api.inferera.com/v1/models) and
 [UCloud](https://api.modelverse.cn/v1/models) endpoints returned 416 and 132
 IDs respectively. This is a dated provider listing, not Route inference or a
-claim that private catalogues contain no further models. OpenAI/Openai,
+claim that private catalogs contain no further models. OpenAI/Openai,
 InclusionAI/Inclusionai, and ByteDance/Doubao owner labels refer to the same
 vendors; Llama entries belong to Meta, already represented by Muse Spark.
 Those labels do not create extra general-model slots.
 
 The public
-AIHubMix catalogue also lists Cohere Command A+ and Microsoft's MAI Thinking 1.
+AIHubMix catalog also lists Cohere Command A+ and Microsoft's MAI Thinking 1.
 Command A+ returned HTTP 400 on the tested Responses and Chat endpoints;
 At that September 25 read, MAI Thinking 1 and Step 5 Preview lacked completed
 general-agent qualification. The later October 5–6 results supersede that
@@ -310,7 +310,7 @@ also returned Chat text, but that aggregator alias does not identify a specific 
 [InternLM's Intern-S2 model collection](https://huggingface.co/collections/internlm/intern-s2).
 
 On September 29, 2026, [Anthropic's model overview](https://platform.claude.com/docs/en/models/overview)
-identified `claude-sonnet-5-5`. Authenticated catalogues and one direct
+identified `claude-sonnet-5-5`. Authenticated catalogs and one direct
 Anthropic Messages request per exact wire ID qualified AIHubMix and UCloud's
 ordinary Sonnet 5.5 Routes and DMXAPI's ordinary, CC, and SSVIP Routes. Each
 request returned HTTP 200, model `claude-sonnet-5-5`, and nonempty text; these
@@ -320,7 +320,7 @@ The October 2 continuation review subsequently withdrew the ordinary DMXAPI
 Sonnet 5.5 Route; only its CC and SSVIP variants remain. The earlier one-turn
 response does not qualify continuation or restore the retired Route.
 
-Specialized, small, unidentified or unqualified public catalogue entries from
+Specialized, small, unidentified or unqualified public catalog entries from
 Jina AI, Liquid, Dots Studio, Sao10k, and Stealth are not general-model Routes.
 
 MiniMax M3 has AIHubMix and UCloud Routes; its DMXAPI candidate timed out.
@@ -332,7 +332,7 @@ protocol membership alone must not expose a failed tool-continuation channel
 as a usable Codex choice. The qualified CC Route and UCloud Route remain.
 This manifest retirement does not alter an operator's existing Route or binding.
 
-Its authenticated catalogue also listed `cc-minimax-m3`. With native effort
+Its authenticated catalog also listed `cc-minimax-m3`. With native effort
 `none`, that exact channel and UCloud's `MiniMax-M3` each completed a real
 Codex shell tool and same-thread note/follow-up sequence on October 1, 2026.
 The current `7a5c1da6` candidate separately passed public Route addition,
@@ -361,7 +361,7 @@ Model entries carry identity only; client-scoped
 recommendations express preference without a global benchmark or cost claim.
 
 All three configured Accounts listed the retained September 21 set in
-authenticated catalogue observations, and their selected protocols completed
+authenticated catalog observations, and their selected protocols completed
 minimal inference calls at that time. On September 23, 2026, UCloud also
 listed `gpt-6-sol` and `gpt-6-luna`; both completed minimal OpenAI Responses
 requests. On September 25, all three Accounts completed minimal authenticated
@@ -379,10 +379,10 @@ proves sustained availability or runtime failover.
 AIHubMix and DMXAPI GPT-6 Luna also completed exact Responses requests; all
 three Accounts have evidenced Luna
 Routes. Existing local Route and Client Binding state remains separate and is
-not rewritten by this catalogue change.
+not rewritten by this catalog change.
 
 The earlier two rejected UCloud Opus IDs remain historical observations.
-Catalogue membership and one successful text call remain narrower than
+Catalog membership and one successful text call remain narrower than
 complete tool, streaming, long-context, cost, or latency qualification.
 
 DMXAPI's retained CC, SSVIP, and CDX channels remain separate Routes within
@@ -391,7 +391,7 @@ the Claude and GPT families. Each Route retains its exact wire ID while its
 Other Accounts use their ordinary model identifiers. Channel names are not
 substitutes for the native model selected in an existing Codex conversation.
 
-The September 27 [DMXAPI public catalogue](https://rmb.dmxapi.cn/) listed ordinary
+The September 27 [DMXAPI public catalog](https://rmb.dmxapi.cn/) listed ordinary
 and CC Fable 5.1, ordinary/CC/SSVIP Sonnet 5, and ordinary/CDX/SSVIP GPT-6
 Astra. The Sonnet channels were superseded by the September 29 qualification
 above; Fable 5.1 and Astra 6 channels were withdrawn on October 10. Opus 5
@@ -408,17 +408,17 @@ Seed 2.1 Pro, and `MiniMax-H3-Max`. These listings are discovery evidence,
 not newly qualified Routes.
 
 A second read on September 24, 2026 at 10:28 UTC returned 416
-[AIHubMix catalogue IDs](https://api.inferera.com/v1/models) and 132
-[UCloud catalogue IDs](https://api.modelverse.cn/v1/models). AIHubMix also
+[AIHubMix catalog IDs](https://api.inferera.com/v1/models) and 132
+[UCloud catalog IDs](https://api.modelverse.cn/v1/models). AIHubMix also
 listed `cc-minimax-m3`, `coding-minimax-m3`, and `grok-4.7`. The public UCloud
 response listed no GPT-6 or Claude IDs; that omission does not contradict
-prior authenticated UCloud inference. Neither catalogue identifies a model's
+prior authenticated UCloud inference. Neither catalog identifies a model's
 protocol, and a prefixed MiniMax wire ID is not a separate logical Model by
 itself.
 
 MiniMax's [H3 announcement](https://www.minimax.io/blog/minimax-h3)
 describes a multimodal generation model that outputs video with sound. H3
-family names in a provider catalogue are not evidence of a general text
+family names in a provider catalog are not evidence of a general text
 model. Its [M3 announcement](https://www.minimax.io/blog/minimax-m3)
 positions M3 as an LLM for coding and agentic work. AIHubMix's `minimax-m3`
 and UCloud's `MiniMax-M3` completed bounded text inference; DMXAPI's
@@ -429,14 +429,14 @@ claims benchmark results ahead of V4 Pro and says `deepseek-v4-pro` requests
 on DeepSeek's own API now route to V4.1 Flash. That does not establish what
 an aggregator serves for `deepseek-v4-pro-0813`. The exact
 `deepseek-v4.1-flash` ID completed bounded text inference on all three
-Accounts, so it replaced V4 Pro 0813 in the September 27, 2026 one-DeepSeek catalogue.
+Accounts, so it replaced V4 Pro 0813 in the September 27, 2026 one-DeepSeek catalog.
 Existing explicit local selections of the old Route are not deleted by a
 manifest import. Do not rank model quality from `Pro`, `Max`, or `Flash` in an ID.
 
 ByteDance [positions Seed2.1](https://seed.bytedance.com/en/seed2_1) for
 general agent and coding work. All three Accounts completed bounded text
 inference for `doubao-seed-2-1-pro-260628`, the exact version listed in their
-catalogues. A newer `260915` appears in the vendor's documentation but was
+catalogs. A newer `260915` appears in the vendor's documentation but was
 not listed by these Accounts, so the reviewed Route did not claim it.
 
 Meta [positions Muse Spark 1.3](https://research.meta.ai/blog/introducing-muse-spark-1-3)
@@ -553,14 +553,14 @@ On 2026-10-14, official Codex 0.162.1 passed real-Provider `aigw verify` through
 the signed 0.4.0 candidate on the UCloud GPT-6.1 Sol Route, with native file tools
 and same-session recall, but emitted that warning on UCloud DeepSeek V4.1 Flash.
 
-On October 4, 2026, the installed official Codex 0.160.0 bundled catalogue contained
+On October 4, 2026, the installed official Codex 0.160.0 bundled catalog contained
 11 models. The team manifest then had 37 Responses Routes: nine matched native wire
 IDs, three DMXAPI Routes required canonical alias projection, and 25 Routes across
 11 non-GPT Models lacked native metadata, 11 on AIHubMix and seven each on DMXAPI
 and UCloud. Client acceptance remains Route-specific, including the recorded Sol 6.1
 CDX acceptance. The selected GPT-6.1 Sol entry existed in both the native and
-preserved user catalogues. This identity audit does not qualify live inference or
-authorize replacing the user's catalogue. The earlier fourteen-Route observation
+preserved user catalogs. This identity audit does not qualify live inference or
+authorize replacing the user's catalog. The earlier fourteen-Route observation
 described a provider's complete test scope, not the current missing metadata count.
 
 Every Claude Route in the [shipped team manifest](../../manifests/team.toml)

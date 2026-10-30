@@ -1,5 +1,5 @@
 # catalog refuses an empty home in text but reports it as JSON, refuses an
-# argument as JSON, then reports each Account's catalogue in text and as JSON.
+# argument as JSON, then reports each Account's catalog in text and as JSON.
 exec aigw catalog --help
 cmp stdout help.txt
 
@@ -49,7 +49,7 @@ Recommended action
 -- catalog.txt --
 AIGW  Authenticated model catalog
 ────────────────────────────────────────
-  Each observation proves catalogue membership only for its named protocol source.
+  Each observation proves catalog membership only for its named protocol source.
 
 Team Gateway · team · Anthropic Messages
   Observation          <varies>

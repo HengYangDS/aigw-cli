@@ -184,7 +184,7 @@ func ReconcileConfigsTransition(before, after []TargetRef, previous, runtime dom
 }
 
 // ReconcileConfigsAuthorizedTransition applies an explicit Route selection
-// after the sidecar, provider block, scheduler, and catalogue establish the
+// after the sidecar, provider block, scheduler, and catalog establish the
 // existing projection's ownership.
 func ReconcileConfigsAuthorizedTransition(before, after []TargetRef, previous, runtime domain.Runtime) (ReconciliationReceipt, error) {
 	return reconcileCodexConfigsTransition(before, after, previous, runtime, true)

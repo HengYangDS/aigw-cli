@@ -1,5 +1,5 @@
 // Package models implements `aigw models`, which compares the configured model
-// IDs with each provider's catalogue.
+// IDs with each provider's catalog.
 package models
 
 import (

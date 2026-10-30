@@ -98,3 +98,51 @@ func validateOpenSpecReport(raw []byte, root string, stdout io.Writer) error {
 	_, err := fmt.Fprintln(stdout, strings.Join(append([]string{summary}, findings...), "\n"))
 	return err
 }
+
+// openSpecTransition holds the active Changes and the main specifications that
+// their deltas rewrite. A rewritten main specification changes only when its
+// Change archives, so a gate reads the Change's delta instead.
+type openSpecTransition struct {
+	changes   []string
+	rewritten map[string]bool
+}
+
+// readOpenSpecTransition lists the active Changes under openspec/changes and
+// the main specifications that their deltas rewrite, as slash-separated paths.
+func readOpenSpecTransition(root string) (openSpecTransition, error) {
+	transition := openSpecTransition{rewritten: map[string]bool{}}
+	changes, err := os.ReadDir(filepath.Join(root, "openspec", "changes"))
+	if errors.Is(err, os.ErrNotExist) {
+		return transition, nil
+	}
+	if err != nil {
+		return transition, fmt.Errorf("list OpenSpec changes: %w", err)
+	}
+	for _, change := range changes {
+		if !change.IsDir() || change.Name() == "archive" {
+			continue
+		}
+		transition.changes = append(transition.changes, "openspec/changes/"+change.Name())
+		capabilities, err := os.ReadDir(filepath.Join(root, "openspec", "changes", change.Name(), "specs"))
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return transition, fmt.Errorf("list the deltas of OpenSpec change %s: %w", change.Name(), err)
+		}
+		for _, capability := range capabilities {
+			if capability.IsDir() {
+				transition.rewritten["openspec/specs/"+capability.Name()+"/spec.md"] = true
+			}
+		}
+	}
+	return transition, nil
+}
+
+// changeRecord reports whether file is one of an active Change's own records,
+// such as its proposal, design or tasks, rather than one of its deltas.
+func (transition openSpecTransition) changeRecord(file string) bool {
+	for _, change := range transition.changes {
+		if rest, ok := strings.CutPrefix(file, change+"/"); ok && !strings.Contains(rest, "/") {
+			return true
+		}
+	}
+	return false
+}

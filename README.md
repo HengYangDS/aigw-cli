@@ -98,7 +98,7 @@ A team can instead distribute a reviewed, token-free manifest. Save the tracked
 aigw setup --from team.toml
 ```
 
-Importing the team catalogue requires neither every provider Token nor an
+Importing the team catalog requires neither every provider Token nor an
 installed client. To connect one Account during setup, select only that Account.
 Its Token must be available: a writable backend prompts for it, while `env`
 mode reads `AIGW_TOKEN_DMXAPI` from the invoking process:

@@ -118,7 +118,7 @@ func TestModelRowsWithoutObservations(t *testing.T) {
 	}
 }
 
-func TestAmbiguousCatalogueDoesNotReportRoutesAsNotListed(t *testing.T) {
+func TestAmbiguousCatalogDoesNotReportRoutesAsNotListed(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://responses.test/v1"}}
 	cfg.Models["shared"] = domain.Model{Label: "Shared"}

@@ -42,7 +42,7 @@ func ObserveSelection(path string) (string, bool, error) {
 }
 
 // ownedSelectionIntact reports whether the provider selection, provider table,
-// scheduler and catalogue still match the sidecar.
+// scheduler and catalog still match the sidecar.
 func ownedSelectionIntact(path, text string, state codexState, catalog platform.FileSnapshot) bool {
 	provider := codexStateProvider(state)
 	block, err := codexManagedBlockForProviderIn(text, provider)

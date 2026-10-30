@@ -19,7 +19,7 @@ type Selection struct {
 }
 
 // ObserveSelection reports Hermes' own selection when the operator changed it to
-// another model in AIGW's projected catalogue and nothing else that AIGW owns
+// another model in AIGW's projected catalog and nothing else that AIGW owns
 // changed. It reports nothing when the owned settings are unchanged or absent,
 // and refuses any other managed drift.
 func ObserveSelection(path string, current Desired) (Selection, bool, error) {

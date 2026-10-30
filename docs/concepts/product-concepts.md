@@ -3,7 +3,7 @@ subject: aigw:product-vocabulary
 role: reference
 state: canonical
 relations:
-  canonical_for: Account, Model, Route, Client Binding, and Native Projection vocabulary
+  canonical_for: The product glossary and the Account, Model, Route, Client Binding, and Native Projection vocabulary
 ---
 
 # Product Concepts
@@ -22,6 +22,25 @@ flowchart TB
     R -->|exposes| M["Model"]
     B -->|produces| N["Native Projection"]
 ```
+
+## Glossary
+
+Each concept has one canonical term. Code identifiers, package names,
+specifications, documentation and human output use it. The spelling gate
+refuses a rejected synonym outside history and reports the canonical term.
+
+| Term              | Meaning                                                                                | Rejected synonyms         |
+| ----------------- | -------------------------------------------------------------------------------------- | ------------------------- |
+| Account           | A provider's endpoints, with one Account Token slot                                    |                           |
+| Account Token     | The secret that authenticates an Account; it stays in the credential backend           |                           |
+| Model             | One canonical upstream product, independent of Account, protocol and client            |                           |
+| Route             | One Account and Model, the exact upstream model ID and its qualified protocols         |                           |
+| Client            | An AI tool that AIGW supports: Claude Code, Codex, Claude Desktop or Hermes            |                           |
+| Client Binding    | One client's selected Route and its client-specific options                            |                           |
+| Native Projection | The AIGW-owned part of a client's native configuration                                 |                           |
+| Adapter           | The code that supports one client behind the `internal/adapter` seam                   |                           |
+| Provider          | A service whose endpoints an Account holds, such as AIHubMix, DMXAPI or UCloud         |                           |
+| Catalog           | The model IDs that one Account lists for one protocol, as `aigw catalog` observes them | `catalogue`, `catalogues` |
 
 ## Core entities
 
@@ -92,7 +111,7 @@ deliberate selection changes.
 - **Claude Code:** official user-settings endpoint/model projection and
   credential helper.
 - **Claude Desktop:** its separate third-party inference library.
-- **Hermes:** its native provider catalogue, explicit protocol/model selection,
+- **Hermes:** its native provider catalog, explicit protocol/model selection,
   and credential commands.
 
 An admitted client adapter produces and withdraws only its AIGW-owned native
@@ -123,11 +142,11 @@ bundled diagnostic provider.
 An unknown diagnostic kind does not invalidate the Account or Client Binding. It makes
 only the optional diagnostic unavailable.
 
-## Provider catalogue lifecycle
+## Provider catalog lifecycle
 
-Provider catalogues are observations, not configuration. `aigw catalog`
+Provider catalogs are observations, not configuration. `aigw catalog`
 queries each configured Anthropic Messages, OpenAI Chat Completions, and OpenAI
-Responses catalogue surface independently. Its source endpoint and content
+Responses catalog surface independently. Its source endpoint and content
 identity make the result reproducible; membership proves neither inference nor
 any capability.
 
@@ -135,14 +154,14 @@ The lifecycle uses existing owners rather than another state store:
 
 | State      | Owner and meaning                                                                                               |
 | ---------- | --------------------------------------------------------------------------------------------------------------- |
-| Observed   | One successful, protocol-scoped catalogue response                                                              |
+| Observed   | One successful, protocol-scoped catalog response                                                                |
 | Candidate  | An observed upstream ID with no matching Route on that Account and protocol                                     |
 | Qualified  | Explicit protocol and real-client evidence for named capabilities                                               |
 | Admitted   | A reviewed Route in configuration; omitted `lifecycle` means `admitted`                                         |
 | Deprecated | A retained Route with `lifecycle = "deprecated"`; it may preserve an existing binding but cannot be recommended |
 | Retired    | The Route has been explicitly removed after bindings and recommendations no longer require it                   |
 
-Catalogue comparison uses `Route.upstream_model`, never the canonical Model ID.
+Catalog comparison uses `Route.upstream_model`, never the canonical Model ID.
 A missing Route is reported for requalification; it is not renamed, deprecated,
 retired, or removed automatically. Chat Completions success does not qualify
 Responses, and Responses text success does not qualify reasoning, tools,

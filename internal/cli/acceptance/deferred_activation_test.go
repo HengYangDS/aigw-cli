@@ -108,7 +108,7 @@ func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 	app.Discovery = fakeDiscovery{}
 
 	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
-		t.Fatalf("setup shipped catalogue: %v\n%s", err, out)
+		t.Fatalf("setup shipped catalog: %v\n%s", err, out)
 	}
 	var setup struct {
 		SelectedBindings map[string]string `json:"selected_bindings"`
@@ -173,7 +173,7 @@ func TestShippedTeamManifestImportsWithAnOfflineProvider(t *testing.T) {
 	}}
 
 	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
-		t.Fatalf("offline catalogue import: %v\n%s", err, out)
+		t.Fatalf("offline catalog import: %v\n%s", err, out)
 	}
 	var setup struct {
 		ConnectedAccounts  []string          `json:"connected_accounts"`
@@ -211,7 +211,7 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneAccountChoice(t *testing
 	app.Discovery = fakeDiscovery{}
 
 	if err := cli.Execute(app, []string{"setup", "--from", shippedTeamManifest(t), "--json"}); err != nil {
-		t.Fatalf("setup shipped catalogue: %v\n%s", err, out)
+		t.Fatalf("setup shipped catalog: %v\n%s", err, out)
 	}
 	var setup struct {
 		SelectedBindings map[string]string `json:"selected_bindings"`

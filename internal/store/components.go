@@ -35,7 +35,7 @@ func (s Store) backUp(before Snapshot) (Snapshot, error) {
 	after.retriesBackup = retriesBackup
 	catalogBackup, err := s.writeOptional(s.catalogPath()+".bak", before.catalogBackup, before.Catalog.Data)
 	if err != nil {
-		return Snapshot{}, errors.Join(fmt.Errorf("back up catalogue presentation: %w", err), s.RestoreSnapshot(before, after))
+		return Snapshot{}, errors.Join(fmt.Errorf("back up catalog presentation: %w", err), s.RestoreSnapshot(before, after))
 	}
 	after.catalogBackup = catalogBackup
 	capabilitiesBackup, err := s.writeOptional(s.capabilitiesPath()+".bak", before.capabilitiesBackup, before.capabilities.Data)
@@ -84,7 +84,7 @@ func (s Store) withComponents(cfg domain.Config, suffix string) (domain.Config, 
 	return decodeRetryPolicies(cfg, retries)
 }
 
-// decodeComponents merges catalogue presentation and recorded Route
+// decodeComponents merges catalog presentation and recorded Route
 // capabilities into a decoded canonical configuration.
 func decodeComponents(cfg domain.Config, catalog, capabilities platform.FileSnapshot) (domain.Config, error) {
 	cfg, err := decodeCatalogOrder(cfg, catalog)

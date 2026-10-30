@@ -15,7 +15,7 @@ import (
 const rejectedToken = "sk-rejected-token"
 
 // upstream answers the requests AIGW and the scripted clients send: model
-// catalogues, one capped inference request per protocol, the DMXAPI account
+// catalogs, one capped inference request per protocol, the DMXAPI account
 // diagnostics and the GitHub release metadata of repository team/aigw. It
 // refuses rejectedToken with HTTP 401, and an inference request that asks
 // for AIGW_OK receives it.

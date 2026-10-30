@@ -181,15 +181,15 @@ func TestVerificationPlanOwnsNativeTemporaryRoot(t *testing.T) {
 func TestReadOnlyCodexCommandsRejectNativeDiagnostics(t *testing.T) {
 	runner := &identityCaptureRunner{
 		output: []byte(`{"models":[]}`),
-		stderr: []byte("WARNING: native catalogue probe failed /private/operator canary-token\n"),
+		stderr: []byte("WARNING: native catalog probe failed /private/operator canary-token\n"),
 	}
 	_, err := runCodexReadOnly(t.Context(), runner, "codex", t.TempDir(), t.TempDir(), "debug", "models", "--bundled")
 	if err == nil || !strings.Contains(err.Error(), "warning") {
-		t.Fatalf("native catalogue diagnostics qualified a successful result: %v", err)
+		t.Fatalf("native catalog diagnostics qualified a successful result: %v", err)
 	}
 	for _, private := range []string{"/private/operator", "canary-token"} {
 		if strings.Contains(err.Error(), private) {
-			t.Fatalf("catalogue error exposed private diagnostic %q", private)
+			t.Fatalf("catalog error exposed private diagnostic %q", private)
 		}
 	}
 }
