@@ -42,8 +42,8 @@
 - [x] 4.3 Add the ordered `layers` table, with at most 12 entries, to the architecture policy, and make `tools/architecture` enforce it for product packages and repository tools; delete `allowed_import_edges`. First resolve the imports that the table would refuse. A package belongs to the row of its longest matching prefix. The table admits a package's imports of its descendants and of its subtree's declared seams: `internal/cli/invocation` for the commands; `internal/client`, `internal/client/verification`, `internal/client/discovery` and `internal/client/surface` for the adapters; and `internal/provider/diagnostic` for the Providers. `secret` takes the file transactions from `store`, which move to a lower owner. `provider` takes diagnostic credentials and the redirect-free `probe.Send` from `secret`; sending is I/O, so it receives them through a seam instead.
 - [x] 4.4 Make the Mise `release` task, which builds the release matrix, write to `build/artifacts/<version>-<commit>/`; the repository root `dist/` default and its ignore entry are removed.
 - [x] 4.5 Run the local quality graph at the stage head.
-- [ ] 4.6 Prove the stage head with the full ETHOS proof.
-- [ ] 4.7 Confirm the hosted three-platform graph, including release construction, passes at the stage head.
+- [x] 4.6 Prove the stage head with the full ETHOS proof.
+- [x] 4.7 Confirm the hosted three-platform graph, including release construction, passes at the stage head.
 
 ## 5. Stage 5 — Names, specifications and documentation
 
