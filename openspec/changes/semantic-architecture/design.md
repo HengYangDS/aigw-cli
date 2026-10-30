@@ -28,7 +28,7 @@ See `proposal.md` for the motivation and the measured baseline on `dev`
   artifact matrix. `internal/upgrade/artifact` verifies and reads the same
   archives for program update.
 - The ignored `dist/` at the repository root is the default output of the Mise
-  `build` task (`go run ./tools/release build dist`).
+  `release` task (`go run ./tools/release build dist`).
 
 ## Goals / Non-Goals
 
@@ -322,7 +322,7 @@ tool refuses a manifest with any other line, and program update reads only its
 archive's line and skips the others, as it always has. The release tool accepts
 a signature envelope only as `ssh-keygen` writes it, and its remaining
 package, `tools/release/provenance`, holds its source provenance, its scanner
-lock and its signer check. The Mise `build` task writes to
+lock and its signer check. The Mise `release` task writes to
 `build/artifacts/<version>-<commit>/`, and the root `dist/` disappears.
 
 Alternative considered: keep two owners and add a parity test. Rejected,
@@ -368,7 +368,7 @@ scripts.
 | 1 Clients | Client-name confinement reports 0 packages outside the four adapters, the composition root, fixtures, `configuration` and `credential`, which stage 2 deletes (baseline: 19 packages; Codex 13, Claude Code 13, Claude Desktop 7, Hermes 6). The contract suite passes for all four adapters and the rehearsal adapter. The rehearsal adapter's diff touches only its own directory, the test composition root and its fixtures.              |
 | 2 Domain  | `configuration`, `credential`, `secrets` and `transaction` are absent, and the confinement exception list is empty and removed. `domain` imports only the standard library. No exported identifier in `domain`, `store` or `secret` lacks a user outside its package, as `used_exports_only` counts one, and no exported method or field of an exported type lacks a user outside its package, counting an encoder that reads a tagged field. |
 | 3 CLI     | Each of the 25 top-level commands maps to one package named after it. Every command has passing acceptance scripts on macOS, Linux and Windows.                                                                                                                                                                                                                                                                                               |
-| 4 Layers  | `allowed_import_edges` is absent and the layer table has at most 12 entries. The `artifact` package name occurs once. `mise run build` writes to `build/artifacts/`.                                                                                                                                                                                                                                                                          |
+| 4 Layers  | `allowed_import_edges` is absent and the layer table has at most 12 entries. The `artifact` package name occurs once. `mise run release` writes to `build/artifacts/`.                                                                                                                                                                                                                                                                        |
 | 5 Names   | No package base name repeats. The text gate refuses each declared rejected synonym. Every main specification fits within 512 lines.                                                                                                                                                                                                                                                                                                           |
 
 Each stage is reviewed by its PR, and `tasks.md` holds each stage's bounded

@@ -58,7 +58,6 @@ package_children."internal/client" = [
 ]
 package_children."internal/program" = ["acceptance", "artifact"]
 package_children."tools/ci" = [
-  "bootstrap",
   "evidence",
   "markdown",
   "projection",
@@ -231,11 +230,6 @@ exact_paths = [".config/ci/pipeline.cue"]
 [tracked_carrier_classes.ci-retention]
 responsibility = "recorded operating-system glue that projected CI steps keep as shell"
 exact_paths = [".config/ci/retained-steps.toml"]
-
-[tracked_carrier_classes.ci-bootstrap]
-responsibility = "job-local CI toolchain bootstrap implementation"
-prefixes = ["tools/ci/bootstrap"]
-suffixes = [".ps1"]
 
 [tracked_carrier_classes.ci-projection]
 responsibility = "generated GitHub and GitLab CI projections"

@@ -4,7 +4,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"aigw-cli/internal/cli"
@@ -259,5 +261,43 @@ func TestAccountDiagnosticsEnableStoresSeparateCredentialAndBalanceShowsDetails(
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("balance lacks %q:\n%s", want, out.String())
 		}
+	}
+}
+
+// The command, not the Provider, chooses how a diagnostic is sent, so it must
+// pass a sender that keeps the Account's credentials at their origin.
+func TestBalanceKeepsDiagnosticCredentialsAtTheirOrigin(t *testing.T) {
+	var followed atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		followed.Add(1)
+		writer.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(target.Close)
+	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		http.Redirect(writer, request, target.URL+request.URL.RequestURI(), http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+	app, _, secretStore, _, _ := testApp(t, "")
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["dmx"] = domain.Account{
+		Label:        "DMXAPI",
+		Endpoints:    domain.Endpoints{OpenAIResponses: origin.URL + "/v1"},
+		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: origin.URL},
+	}
+	cfg.Routes["gpt"] = domain.Route{Label: "GPT", Account: "dmx", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Accounts.Set("dmx", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("dmx", "sk-abcd-middle-wxyz"); err != nil {
+		t.Fatal(err)
+	}
+	app.HTTP = origin.Client()
+	err := cli.Execute(app, []string{"balance", "dmx"})
+	if followed.Load() != 0 || err == nil || !strings.Contains(err.Error(), "HTTP 302") {
+		t.Fatalf("balance followed=%d, error=%v; want the origin's redirect refused", followed.Load(), err)
 	}
 }

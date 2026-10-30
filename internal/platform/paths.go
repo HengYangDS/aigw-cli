@@ -1,7 +1,8 @@
 // Package platform derives portable AIGW-owned paths from the target operating
 // system and explicit environment inputs. Its guarded, byte-exact filesystem
 // mutation and compensation primitives serve the configuration store, the
-// credential entrypoint and the client adapters' native files.
+// credential entrypoint, the program's installation and the client adapters'
+// native files.
 package platform
 
 import (

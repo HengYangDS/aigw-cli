@@ -18,7 +18,7 @@ func TestDefaultReleaseOutputNamesTheVersionAndCommit(t *testing.T) {
 		_, err := call.Stdout.Write([]byte(commit + "\n"))
 		return err
 	})
-	if err != nil || output != filepath.Join(root, "build", "artifacts", "1.2.3-aaaaaaaaaaaa") {
+	if err != nil || output != filepath.Join(root, "build", "artifacts", "1.2.3-aaaaaaaa") {
 		t.Fatalf("output = %q, error = %v", output, err)
 	}
 	if _, err := defaultReleaseOutput(root, "1.2.3", func(toolCall) error { return errors.New("no repository") }); err == nil {

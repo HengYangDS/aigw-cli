@@ -102,7 +102,7 @@ work on the proxy repository.
 ## Impact
 
 Go packages under `internal/` and `tools/`, their tests and fixtures, the
-architecture policy and its gate, the Mise `build` task, the OpenSpec main
+architecture policy and its gate, the Mise `release` task, the OpenSpec main
 specifications (split in stage 5) and the documentation. There is no change
 to installed behavior, configuration files, client projections, release
 assets or the command surface. Each stage's PR is reviewed on its own.

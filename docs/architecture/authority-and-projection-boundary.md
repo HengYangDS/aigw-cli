@@ -65,7 +65,7 @@ process.
 - **[Platform](../../internal/platform/):** Portable AIGW-owned paths, guarded filesystem mutation and rollback, and bounded child processes
 - **[Secret](../../internal/secret/):** Account credential backends, typed diagnostic credentials and replacement, and the private credential reader that native clients run
 - **[Token probes](../../internal/secret/probe/):** Proof of an Account's Token against its endpoints: the probing client, sending without redirects, and the verdict on each status
-- **[Diagnostic contract](../../internal/provider/diagnostic/):** Optional provider-account diagnostic results
+- **[Diagnostic contract](../../internal/provider/diagnostic/):** The seam of optional provider-account diagnostics: their results, the credential values they read and the sender they use
 - **[Codex integration](../../internal/client/codex/):** Projection planning and reconciliation
 - **[Claude integration](../../internal/client/claude/):** Settings projection, credential-safe process plans, and readiness
 - **[Provider diagnostics](../../internal/provider/):** Optional provider-native diagnostics only

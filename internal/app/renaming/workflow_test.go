@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"aigw-cli/internal/app/synchronization"
@@ -424,3 +426,28 @@ func TestVerifyFinalizedAccountProbeFailures(t *testing.T) {
 type probeTransport func(*http.Request) (*http.Response, error)
 
 func (do probeTransport) Do(request *http.Request) (*http.Response, error) { return do(request) }
+
+// Finalization, not the Provider, chooses how the diagnostic is sent, so it must
+// pass a sender that keeps the Account's credentials at their origin.
+func TestVerifyFinalizedAccountProbeKeepsCredentialsAtTheirOrigin(t *testing.T) {
+	var followed atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		followed.Add(1)
+		writer.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(target.Close)
+	origin := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		http.Redirect(writer, request, target.URL+request.URL.RequestURI(), http.StatusFound)
+	}))
+	t.Cleanup(origin.Close)
+	plan := Plan{NewID: "new", Account: domain.Account{Label: "New", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: origin.URL}}}
+	deps := Renamer{
+		Secrets:  &faultTokenStore{values: map[string]string{"new": "token"}},
+		Accounts: &faultProbeStore{values: map[string]secret.DiagnosticCredential{"new": {SystemToken: "s", UserID: "u"}}},
+		HTTP:     origin.Client(),
+	}
+	err := verifyFinalizedAccountProbe(context.Background(), deps, plan)
+	if followed.Load() != 0 || err == nil || !strings.Contains(err.Error(), "HTTP 302") {
+		t.Fatalf("finalization followed=%d, error=%v; want the origin's redirect refused", followed.Load(), err)
+	}
+}

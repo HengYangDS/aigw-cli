@@ -413,14 +413,14 @@ func Build(ctx context.Context, output string) error {
 	return buildRelease(ctx, request, run)
 }
 
-// defaultReleaseOutput names a matrix after its version and the first twelve
+// defaultReleaseOutput names a matrix after its version and the first eight
 // digits of its commit, inside the repository's ignored build output.
 func defaultReleaseOutput(root, version string, run toolRunner) (string, error) {
 	commit, err := resolveGitObject(root, "HEAD^{commit}", run)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(root, "build", "artifacts", version+"-"+commit[:12]), nil
+	return filepath.Join(root, "build", "artifacts", version+"-"+commit[:8]), nil
 }
 
 // BuildCI constructs the release twice and admits only an identical matrix.
