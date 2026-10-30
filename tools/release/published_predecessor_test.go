@@ -23,7 +23,7 @@ import (
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-	"aigw-cli/tools/release/readiness"
+	"aigw-cli/tools/release/identity"
 
 	builtinclients "aigw-cli/internal/clients"
 
@@ -56,7 +56,7 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadProductVersion(root)
+	version, err := identity.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadProductVersion(root)
+	version, err := identity.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,5 +1,5 @@
-// Package readiness validates release identity and admission evidence.
-package readiness
+// Package identity validates release identity and admission evidence.
+package identity
 
 import (
 	"errors"

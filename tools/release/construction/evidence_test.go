@@ -2,7 +2,7 @@ package construction
 
 import (
 	"aigw-cli/internal/program/artifact"
-	"aigw-cli/tools/release/readiness"
+	"aigw-cli/tools/release/identity"
 	"bytes"
 	"cmp"
 	"crypto/sha256"
@@ -92,7 +92,7 @@ func TestNormalizedSPDXIsDeterministicAndPortable(t *testing.T) {
 	if err := os.WriteFile(source, spdxFixture(t, root, "1.2.3"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	instant, err := readiness.ParseEpoch("1784246400")
+	instant, err := identity.ParseEpoch("1784246400")
 	if err != nil {
 		t.Fatal(err)
 	}

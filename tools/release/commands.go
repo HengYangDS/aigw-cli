@@ -3,9 +3,9 @@ package main
 import (
 	"aigw-cli/internal/program/artifact"
 	"aigw-cli/tools/release/construction"
+	"aigw-cli/tools/release/identity"
 	"aigw-cli/tools/release/provenance"
 	"aigw-cli/tools/release/publication"
-	"aigw-cli/tools/release/readiness"
 	"context"
 	"errors"
 	"fmt"
@@ -69,7 +69,7 @@ func policyCommands() commandSet {
 			if err != nil {
 				return err
 			}
-			return readiness.ValidateChangelog(root, "CHANGELOG.md", readiness.SelectedReleaseTag())
+			return identity.ValidateChangelog(root, "CHANGELOG.md", identity.SelectedReleaseTag())
 		},
 		"validate-release-sources": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 0, "usage: release validate-release-sources"); err != nil {
@@ -81,13 +81,13 @@ func policyCommands() commandSet {
 			if err := requireArguments(args, 1, "usage: release validate-toolchain <go.mod>"); err != nil {
 				return err
 			}
-			return readiness.ValidateToolchain(args[0], runtime.Version())
+			return identity.ValidateToolchain(args[0], runtime.Version())
 		},
 		"validate-version": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release validate-version <version>"); err != nil {
 				return err
 			}
-			return readiness.ValidateVersion(args[0])
+			return identity.ValidateVersion(args[0])
 		},
 		"validate-version-tag": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 0, "usage: release validate-version-tag"); err != nil {
@@ -97,7 +97,7 @@ func policyCommands() commandSet {
 			if !strings.HasPrefix(tag, "v") {
 				return errors.New("CI_COMMIT_TAG must use v<semver>")
 			}
-			return readiness.ValidateVersion(strings.TrimPrefix(tag, "v"))
+			return identity.ValidateVersion(strings.TrimPrefix(tag, "v"))
 		},
 	}
 }
@@ -205,7 +205,7 @@ func publicationCommands(ctx context.Context) commandSet {
 }
 
 func verifyArtifacts(ctx context.Context, directory string) error {
-	version, err := readiness.ReadProductVersion(".")
+	version, err := identity.ReadProductVersion(".")
 	if err != nil {
 		return err
 	}
@@ -213,7 +213,7 @@ func verifyArtifacts(ctx context.Context, directory string) error {
 	if err := provenance.VerifyMatrix(ctx, directory, version, trust); err != nil {
 		return err
 	}
-	return provenance.VerifyProvenance(ctx, directory, readiness.SelectedReleaseTag(), provenance.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")})
+	return provenance.VerifyProvenance(ctx, directory, identity.SelectedReleaseTag(), provenance.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")})
 }
 
 func verifyMacOSPublication(ctx context.Context, directory, version string) error {

@@ -2,8 +2,8 @@ package main
 
 import (
 	"aigw-cli/internal/program/artifact"
+	"aigw-cli/tools/release/identity"
 	"aigw-cli/tools/release/performance"
-	"aigw-cli/tools/release/readiness"
 	"archive/tar"
 	"archive/zip"
 	"bytes"
@@ -69,7 +69,7 @@ func nativePerformancePrograms(t *testing.T) []performance.Program {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadProductVersion(root)
+	version, err := identity.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}

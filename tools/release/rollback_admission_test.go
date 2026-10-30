@@ -3,7 +3,7 @@ package main
 import (
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/program"
-	"aigw-cli/tools/release/readiness"
+	"aigw-cli/tools/release/identity"
 	"errors"
 	"os"
 	"os/exec"
@@ -17,7 +17,7 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadProductVersion(root)
+	version, err := identity.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}

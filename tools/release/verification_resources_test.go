@@ -23,7 +23,7 @@ import (
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
-	"aigw-cli/tools/release/readiness"
+	"aigw-cli/tools/release/identity"
 )
 
 func TestNativeVerificationResources(t *testing.T) {
@@ -31,7 +31,7 @@ func TestNativeVerificationResources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadProductVersion(root)
+	version, err := identity.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}

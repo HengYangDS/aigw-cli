@@ -345,7 +345,7 @@ not carry repository acceptance verdicts.
 
 Native product journeys belong to [release acceptance](../../tools/release/): they exercise built artifacts,
 credential backends, client projections, upgrades, rollback and uninstall. CI
-schedules those tests but does not own their fixtures. [Release readiness](../../tools/release/readiness/)
+schedules those tests but does not own their fixtures. [Release identity](../../tools/release/identity/)
 reads and validates the [canonical version](../../VERSION) once for CI admission, release
 construction and native journeys; malformed SemVer fails before execution.
 Package-local test file readers do not expose a shared test-support API.
@@ -353,7 +353,7 @@ Package-local test file readers do not expose a shared test-support API.
 CI projection binds the shared accepted `dev` and release `main` roles in its
 existing CUE owner and reads no repository branch policy, so a competing branch
 policy cannot produce a projection.
-Release readiness also owns Changelog chronology, exact tag-to-HEAD binding,
+Release identity also owns Changelog chronology, exact tag-to-HEAD binding,
 and release-epoch lookup. CI invokes that owner directly; no generic repository
 command layer or duplicated Changelog parser remains.
 

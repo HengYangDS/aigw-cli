@@ -4,8 +4,8 @@ package construction
 import (
 	"aigw-cli/internal/program"
 	"aigw-cli/internal/program/artifact"
+	"aigw-cli/tools/release/identity"
 	"aigw-cli/tools/release/provenance"
-	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"context"
 	"encoding/hex"
@@ -42,7 +42,7 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	if err != nil {
 		return err
 	}
-	instant, _ := readiness.ParseEpoch(request.Epoch)
+	instant, _ := identity.ParseEpoch(request.Epoch)
 	output, err := filepath.Abs(request.Output)
 	if err != nil {
 		return fmt.Errorf("resolve release output: %w", err)
@@ -211,7 +211,7 @@ func releasePublicKey(signingKey string) (string, error) {
 }
 
 func goReleaserEnvironment(request buildRequest) ([]string, error) {
-	instant, err := readiness.ParseEpoch(request.Epoch)
+	instant, err := identity.ParseEpoch(request.Epoch)
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +266,7 @@ func validateRequest(request buildRequest) error {
 	if _, err := semver.StrictNewVersion(request.Version); err != nil {
 		return fmt.Errorf("invalid release version %q: %w", request.Version, err)
 	}
-	if _, err := readiness.ParseEpoch(request.Epoch); err != nil {
+	if _, err := identity.ParseEpoch(request.Epoch); err != nil {
 		return err
 	}
 	if request.MacOSSigningIdentity != "" {
@@ -437,7 +437,7 @@ func buildRequestFromEnvironment(ctx context.Context, output string) (buildReque
 	if err != nil {
 		return buildRequest{}, err
 	}
-	version, err := readiness.ReadProductVersion(root)
+	version, err := identity.ReadProductVersion(root)
 	if err != nil {
 		return buildRequest{}, err
 	}
@@ -466,7 +466,7 @@ func buildCI(root, workspace, output string, build releaseBuilder, epoch release
 	if _, err := semver.StrictNewVersion(version); err != nil {
 		return fmt.Errorf("invalid CI release version %q: %w", version, err)
 	}
-	carrier, err := readiness.ReadProductVersion(root)
+	carrier, err := identity.ReadProductVersion(root)
 	if err != nil {
 		return err
 	}
@@ -503,7 +503,7 @@ func buildCI(root, workspace, output string, build releaseBuilder, epoch release
 }
 
 func resolveReleaseEpoch(ctx context.Context, root, version string) (string, error) {
-	epoch, found, err := readiness.LookupReleaseEpoch(filepath.Join(root, "CHANGELOG.md"), version)
+	epoch, found, err := identity.LookupReleaseEpoch(filepath.Join(root, "CHANGELOG.md"), version)
 	if err != nil {
 		return "", err
 	}
@@ -518,7 +518,7 @@ func resolveReleaseEpoch(ctx context.Context, root, version string) (string, err
 		return "", fmt.Errorf("resolve candidate source epoch: %w", err)
 	}
 	candidateEpoch := strings.TrimSpace(output.String())
-	if _, err := readiness.ParseEpoch(candidateEpoch); err != nil {
+	if _, err := identity.ParseEpoch(candidateEpoch); err != nil {
 		return "", fmt.Errorf("candidate source epoch: %w", err)
 	}
 	return candidateEpoch, nil

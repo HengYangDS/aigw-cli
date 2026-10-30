@@ -5,9 +5,9 @@ import (
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/program/artifact"
+	"aigw-cli/tools/release/identity"
 	"aigw-cli/tools/release/performance"
 	"aigw-cli/tools/release/provenance"
-	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"context"
 	"errors"
@@ -131,7 +131,7 @@ func acceptNativeInput(ctx context.Context, input NativeAcceptance, request buil
 			return fmt.Errorf("read candidate VERSION: %w", err)
 		}
 		request.Version = strings.TrimSpace(version.String())
-		if err := readiness.ValidateVersion(request.Version); err != nil {
+		if err := identity.ValidateVersion(request.Version); err != nil {
 			return err
 		}
 	}
@@ -165,7 +165,7 @@ func (input *NativeAcceptance) validate() error {
 	if input.Candidate && !input.UsesPrebuiltArtifacts() {
 		return errors.New("candidate acceptance requires an explicit artifact matrix or input package")
 	}
-	if input.Candidate && (input.Tag != "" || readiness.SelectedReleaseTag() != "") {
+	if input.Candidate && (input.Tag != "" || identity.SelectedReleaseTag() != "") {
 		return errors.New("candidate acceptance cannot select a release tag")
 	}
 	if input.Peer != "" && (input.Peer != "github" && input.Peer != "gitlab" || input.Repository == "") {
@@ -269,7 +269,7 @@ func (input *NativeAcceptance) prepareCandidate(ctx context.Context, request bui
 	}
 	tag := input.Tag
 	if tag == "" {
-		tag = readiness.SelectedReleaseTag()
+		tag = identity.SelectedReleaseTag()
 	}
 	return provenance.VerifyProvenance(ctx, input.Artifacts, tag, source)
 }

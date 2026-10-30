@@ -7,7 +7,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
-	"aigw-cli/tools/release/readiness"
+	"aigw-cli/tools/release/identity"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -26,7 +26,7 @@ func TestNativeProductJourney(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	newVersion, err := readiness.ReadProductVersion(root)
+	newVersion, err := identity.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}

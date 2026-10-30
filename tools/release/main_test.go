@@ -6,7 +6,7 @@ import (
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/tools/gitfixture"
 	"aigw-cli/tools/release/construction"
-	"aigw-cli/tools/release/readiness"
+	"aigw-cli/tools/release/identity"
 	"bytes"
 	"context"
 	"errors"
@@ -405,7 +405,7 @@ func TestNativeSourceCandidateReusesProductBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadProductVersion(root)
+	version, err := identity.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -421,7 +421,7 @@ func TestNativeProductSelectionDoesNotBuildUnselectedFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadProductVersion(root)
+	version, err := identity.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}

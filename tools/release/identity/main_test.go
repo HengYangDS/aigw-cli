@@ -1,4 +1,4 @@
-package readiness
+package identity
 
 import (
 	"aigw-cli/tools/gitfixture"

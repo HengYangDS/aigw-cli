@@ -6,7 +6,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-	"aigw-cli/tools/release/readiness"
+	"aigw-cli/tools/release/identity"
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
@@ -108,7 +108,7 @@ func newTeamManifestJourney(t *testing.T) teamManifestJourney {
 	if err != nil {
 		t.Fatal(err)
 	}
-	version, err := readiness.ReadProductVersion(root)
+	version, err := identity.ReadProductVersion(root)
 	if err != nil {
 		t.Fatal(err)
 	}

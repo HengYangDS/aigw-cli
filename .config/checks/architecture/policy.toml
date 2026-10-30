@@ -66,10 +66,10 @@ package_children."tools/ci" = [
 package_children."tools/codex" = ["catalogcheck"]
 package_children."tools/release" = [
   "construction",
+  "identity",
   "performance",
   "provenance",
   "publication",
-  "readiness",
 ]
 
 # Packages whose production files may import only the standard library.
@@ -143,7 +143,7 @@ layers = [
 # use case that several commands share belongs to internal/app. Adapters share
 # the client seam and its discovery, surface and verification packages, and
 # never import each other. The Providers share their diagnostic seam, and the
-# release tool's packages share its performance, provenance and readiness
+# release tool's packages share its identity, performance and provenance
 # libraries.
 layer_seams."internal/cli" = ["internal/cli/invocation"]
 layer_seams."internal/adapter" = [
@@ -154,9 +154,9 @@ layer_seams."internal/adapter" = [
 ]
 layer_seams."internal/provider" = ["internal/provider/diagnostic"]
 layer_seams."tools/release" = [
+  "tools/release/identity",
   "tools/release/performance",
   "tools/release/provenance",
-  "tools/release/readiness",
 ]
 
 # Repository tools import product packages from internal/adapter's row down,

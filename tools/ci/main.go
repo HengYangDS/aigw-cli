@@ -18,7 +18,7 @@ import (
 	"aigw-cli/tools/ci/markdown"
 	"aigw-cli/tools/ci/projection"
 	"aigw-cli/tools/release/construction"
-	"aigw-cli/tools/release/readiness"
+	"aigw-cli/tools/release/identity"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )
@@ -220,7 +220,7 @@ func runNativeRequest(request nativeRequest, stdout io.Writer, runner commandRun
 			return err
 		}
 	}
-	_, err := readiness.ReadProductVersion(".")
+	_, err := identity.ReadProductVersion(".")
 	if err != nil {
 		return err
 	}

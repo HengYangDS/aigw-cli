@@ -1,4 +1,4 @@
-package readiness
+package identity
 
 import (
 	"errors"
