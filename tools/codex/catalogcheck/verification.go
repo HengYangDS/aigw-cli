@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"aigw-cli/internal/adapter/codex"
-	"aigw-cli/internal/adapter/codex/catalog"
+	"aigw-cli/internal/adapter/codex/modelcatalog"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )
@@ -77,7 +77,7 @@ func verifyCatalog(executable, model, canonicalModelID string) (verification ver
 		ClientSHA256:  client.SHA256,
 		Model:         model,
 	}
-	bundledDocument, err := catalog.Parse(bundled)
+	bundledDocument, err := modelcatalog.Parse(bundled)
 	if err != nil {
 		return verification, err
 	}
@@ -113,19 +113,19 @@ func verifyCatalog(executable, model, canonicalModelID string) (verification ver
 	return verification, nil
 }
 
-func probeCodexCatalog(executable, catalogPath string) (catalog.Document, error) {
+func probeCodexCatalog(executable, catalogPath string) (modelcatalog.Document, error) {
 	output, err := codex.ReadEffectiveCatalog(executable, catalogPath)
 	if err != nil {
-		return catalog.Document{}, err
+		return modelcatalog.Document{}, err
 	}
-	document, err := catalog.Parse(output)
+	document, err := modelcatalog.Parse(output)
 	if err != nil {
-		return catalog.Document{}, fmt.Errorf("read Codex effective model catalog: %w", err)
+		return modelcatalog.Document{}, fmt.Errorf("read Codex effective model catalog: %w", err)
 	}
 	return document, nil
 }
 
-func catalogProbe(document catalog.Document, model string) modelProbe {
+func catalogProbe(document modelcatalog.Document, model string) modelProbe {
 	probe := modelProbe{Model: model}
 	metadata := document.Model(model)
 	if metadata == nil {

@@ -1,4 +1,4 @@
-// Command catalog verifies, against a real installed Codex client, that a
+// Command catalogcheck verifies, against a real installed Codex client, that a
 // selected model is present with metadata copied from an exact bundled base.
 // Provider-prefixed ids require a unique bundled suffix; non-native wire ids
 // require the route's explicit canonical model.
@@ -8,8 +8,8 @@
 // the client itself can show that it loaded the projected catalog. Run it when
 // changing the catalog projection or when qualifying a new client build:
 //
-//	go run ./tools/codex/catalog -model openai.gpt-6.1-sol
-//	go run ./tools/codex/catalog -model gpt-6.1-sol-cdx -canonical-model gpt-6.1-sol
+//	go run ./tools/codex/catalogcheck -model openai.gpt-6.1-sol
+//	go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -canonical-model gpt-6.1-sol
 //
 // The client renders its effective model catalog through a throwaway client
 // home, so the run makes no model request. Nothing outside a temporary directory

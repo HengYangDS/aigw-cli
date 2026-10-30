@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"aigw-cli/internal/adapter/codex/catalog"
+	"aigw-cli/internal/adapter/codex/modelcatalog"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
 
@@ -151,7 +151,7 @@ func codexCatalogProjection(target TargetRef, model, canonicalModelID, base stri
 		return codexCatalogPlan{}
 	}
 	live, bundled, err := codexBundledCatalog(target.Executable)
-	document, parseErr := catalog.Parse(bundled)
+	document, parseErr := modelcatalog.Parse(bundled)
 	if err == nil && parseErr == nil {
 		data, _ := document.Project(model, canonicalModelID)
 		if data == nil {

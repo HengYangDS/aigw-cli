@@ -335,8 +335,8 @@ have different output ownership and memory limits.
 Repository-only executables follow the same ontology: [CI](../../tools/ci/),
 [coverage](../../tools/coverage/), [Forge operations](../../tools/forge/), and
 [releases](../../tools/release/) own cross-cutting repository concerns, while client-specific verification is nested
-under its client owner. [Codex catalogue verification](../../tools/codex/catalog/) owns catalogue acceptance,
-measurements and reporting. It consumes the same [catalogue projection](../../internal/adapter/codex/catalog/)
+under its client owner. [Codex catalogue verification](../../tools/codex/catalogcheck/) owns catalogue acceptance,
+measurements and reporting. It consumes the same [catalogue projection](../../internal/adapter/codex/modelcatalog/)
 document transformation as product projection, not a second parser or alias
 builder. That document owner preserves all client metadata and adds only
 uniquely established aliases. [Codex integration](../../internal/adapter/codex/) owns isolated client reads,

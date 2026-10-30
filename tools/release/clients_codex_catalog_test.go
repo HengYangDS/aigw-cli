@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/codex"
-	codexcatalog "aigw-cli/internal/adapter/codex/catalog"
+	"aigw-cli/internal/adapter/codex/modelcatalog"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/secret"
 
@@ -45,7 +45,7 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	document, err := codexcatalog.Parse(bundled)
+	document, err := modelcatalog.Parse(bundled)
 	if err != nil {
 		t.Fatal(err)
 	}

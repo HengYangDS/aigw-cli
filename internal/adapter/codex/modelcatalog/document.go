@@ -1,6 +1,6 @@
-// Package catalog preserves Codex-owned model metadata while adding aliases
+// Package modelcatalog preserves Codex-owned model metadata while adding aliases
 // whose base identity is uniquely established by the installed client's table.
-package catalog
+package modelcatalog
 
 import (
 	"encoding/json"

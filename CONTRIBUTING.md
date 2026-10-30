@@ -125,8 +125,8 @@ Only Codex can establish that its projected model catalogue actually loaded.
 After a catalogue or client-version change, use the tracked verifier:
 
 ```bash
-mise exec --locked -- go run ./tools/codex/catalog -model openai.gpt-6.1-sol
-mise exec --locked -- go run ./tools/codex/catalog -model gpt-6.1-sol-cdx -canonical-model gpt-6.1-sol
+mise exec --locked -- go run ./tools/codex/catalogcheck -model openai.gpt-6.1-sol
+mise exec --locked -- go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -canonical-model gpt-6.1-sol
 ```
 
 The optional `-canonical-model` must be the exact manifest Model ID for a

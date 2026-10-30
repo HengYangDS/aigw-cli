@@ -45,7 +45,7 @@ package_children."tools" = [
   "gitfixture",
   "release",
 ]
-package_children."internal/adapter/codex" = ["catalog"]
+package_children."internal/adapter/codex" = ["modelcatalog"]
 package_children."internal/adapter" = [
   "claude",
   "claudedesktop",
@@ -63,7 +63,7 @@ package_children."tools/ci" = [
   "projection",
   "test",
 ]
-package_children."tools/codex" = ["catalog"]
+package_children."tools/codex" = ["catalogcheck"]
 package_children."tools/release" = [
   "construction",
   "performance",

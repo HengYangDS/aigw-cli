@@ -85,7 +85,7 @@ the other tools, because CI drives the release tool. A production file under
 tools row below its own, and product packages from the row of `internal/adapter`
 down, never `cmd`, `cli` or `app`. The release tool's packages share its
 performance, provenance and readiness libraries as seams. The release tool
-imports `internal/program/artifact`, and `tools/codex/catalog` imports
+imports `internal/program/artifact`, and `tools/codex/catalogcheck` imports
 `internal/adapter/codex`; both keep importing the owner instead of re-encoding
 its knowledge.
 

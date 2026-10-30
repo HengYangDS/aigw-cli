@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/codex"
-	codexcatalog "aigw-cli/internal/adapter/codex/catalog"
+	"aigw-cli/internal/adapter/codex/modelcatalog"
 	clientverification "aigw-cli/internal/adapter/verification"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
@@ -147,7 +147,7 @@ func requireNativeCodexRouteOutcome(t *testing.T, executable string, route domai
 	if err != nil {
 		t.Fatal(err)
 	}
-	document, err := codexcatalog.Parse(bundled)
+	document, err := modelcatalog.Parse(bundled)
 	if err != nil || document.Model(route.Model) != nil {
 		t.Fatalf("model-metadata refusal is not supported by the native catalogue: %v", err)
 	}
