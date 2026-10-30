@@ -555,18 +555,15 @@ ssh-add -T "$AIGW_RELEASE_SIGNING_KEY"
 mise run release
 ```
 
-The build writes the matrix to `build/artifacts/<version>-<commit>/`, named
-after `VERSION` and the first eight digits of the commit. PowerShell uses the
-same process variables via `$env:`. Product Git transport,
+PowerShell uses the same process variables via `$env:`. Product Git transport,
 Git signatures, artifact signatures and Apple publisher identity are distinct.
 The build signs `checksums.txt` in `aigw-release`; Git's namespace alone does
 not authorize this signature. Use independently approved public trust:
 
 ```bash
 ARTIFACTS="build/artifacts/$(cat VERSION)-$(git rev-parse HEAD | cut -c1-8)"
-ssh-keygen -Y verify -f /absolute/path/to/release-allowed-signers \
-  -I '<approved release principal>' -n aigw-release \
-  -s "$ARTIFACTS/checksums.txt.sig" < "$ARTIFACTS/checksums.txt"
+ssh-keygen -Y verify -f /absolute/path/to/release-allowed-signers -I '<approved release principal>' \
+  -n aigw-release -s "$ARTIFACTS/checksums.txt.sig" < "$ARTIFACTS/checksums.txt"
 mise exec --locked -- go run ./tools/release validate-artifacts "$ARTIFACTS" "$(cat VERSION)"
 ```
 
