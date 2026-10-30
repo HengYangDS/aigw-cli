@@ -1,7 +1,7 @@
 package performance
 
 import (
-	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/domain"
 	"encoding/json"
 	"errors"

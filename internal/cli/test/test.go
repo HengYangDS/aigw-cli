@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	clientverification "aigw-cli/internal/adapter/verification"
 	"aigw-cli/internal/cli/invocation"
-	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"

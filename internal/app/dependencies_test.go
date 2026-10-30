@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/discovery"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"

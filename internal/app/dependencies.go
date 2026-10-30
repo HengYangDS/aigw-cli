@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/app/renaming"
 	"aigw-cli/internal/app/synchronization"
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/program"
@@ -55,16 +55,16 @@ type Dependencies struct {
 	Discovery discovery.Discoverer
 	// Clients is the composition root's adapter registry; every client
 	// operation of this invocation goes through it.
-	Clients client.Registry
+	Clients adapter.Registry
 	Updater Updater
 	// ClientInspector observes one client's projection in place of the
 	// synchronizer in every inspection of this invocation; nil means the
 	// synchronizer inspects it.
-	ClientInspector func(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) client.Status
+	ClientInspector func(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) adapter.Status
 }
 
 // InspectClient observes one client's projection without changing it.
-func (d Dependencies) InspectClient(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) client.Status {
+func (d Dependencies) InspectClient(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) adapter.Status {
 	if d.ClientInspector != nil {
 		return d.ClientInspector(ctx, cfg, clientID, runtime)
 	}

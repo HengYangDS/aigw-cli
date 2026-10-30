@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/app"
 	accountcli "aigw-cli/internal/cli/account"
 	"aigw-cli/internal/cli/add"
@@ -42,8 +44,6 @@ import (
 	updatecli "aigw-cli/internal/cli/update"
 	"aigw-cli/internal/cli/use"
 	"aigw-cli/internal/cli/verify"
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/program"
@@ -81,7 +81,7 @@ type App struct {
 	Prompt                invocation.Prompter
 	Discovery             discovery.Discoverer
 	// Clients is the composition root's adapter registry.
-	Clients client.Registry
+	Clients adapter.Registry
 	Updater app.Updater
 	output  *commandOutput
 }
@@ -206,7 +206,7 @@ func requiresConfigurationLock(app *App, command *cobra.Command) bool {
 
 // NewDefault constructs an App from the current platform, environment, configuration, and credential backend,
 // operating clients only through the composition root's registry.
-func NewDefault(clients client.Registry) (*App, error) {
+func NewDefault(clients adapter.Registry) (*App, error) {
 	env := environmentMap(os.Environ())
 	paths, err := platform.PathsFor(runtime.GOOS, env)
 	if err != nil {
@@ -253,7 +253,7 @@ func NewDefault(clients client.Registry) (*App, error) {
 		Runner:        process.Runner{},
 		HTTP:          &http.Client{},
 		Prompt:        terminal.NewPrompter(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
-		Discovery:     client.NewDiscoverer(clients, host),
+		Discovery:     adapter.NewDiscoverer(clients, host),
 		Clients:       clients,
 		Updater:       program.Current(executable),
 	}

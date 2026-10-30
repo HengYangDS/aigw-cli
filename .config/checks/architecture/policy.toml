@@ -16,9 +16,9 @@ go_roots = ["cmd", "internal", "tools"]
 # the declared provider owner.
 package_children."cmd" = ["aigw"]
 package_children."internal" = [
+  "adapter",
   "app",
   "cli",
-  "client",
   "clients",
   "domain",
   "platform",
@@ -45,8 +45,8 @@ package_children."tools" = [
   "gitfixture",
   "release",
 ]
-package_children."internal/client/codex" = ["catalog"]
-package_children."internal/client" = [
+package_children."internal/adapter/codex" = ["catalog"]
+package_children."internal/adapter" = [
   "claude",
   "claudedesktop",
   "codex",
@@ -134,7 +134,7 @@ layers = [
   ["internal/app/activation", "internal/app/synchronization"],
   ["internal/app/readiness"],
   ["internal/app/diagnostics"],
-  ["internal/client", "internal/program"],
+  ["internal/adapter", "internal/program"],
   ["internal/provider", "internal/secret", "internal/store"],
   ["internal/domain", "internal/platform"],
 ]
@@ -146,11 +146,11 @@ layers = [
 # release tool's packages share its performance, provenance and readiness
 # libraries.
 layer_seams."internal/cli" = ["internal/cli/invocation"]
-layer_seams."internal/client" = [
-  "internal/client",
-  "internal/client/discovery",
-  "internal/client/surface",
-  "internal/client/verification",
+layer_seams."internal/adapter" = [
+  "internal/adapter",
+  "internal/adapter/discovery",
+  "internal/adapter/surface",
+  "internal/adapter/verification",
 ]
 layer_seams."internal/provider" = ["internal/provider/diagnostic"]
 layer_seams."tools/release" = [
@@ -159,11 +159,11 @@ layer_seams."tools/release" = [
   "tools/release/readiness",
 ]
 
-# Repository tools import product packages from internal/client's row down,
+# Repository tools import product packages from internal/adapter's row down,
 # never the command tree or its use cases. internal/terminal renders what the
 # use cases return and imports none of them.
-layer_floors."internal/terminal" = "internal/client"
-layer_floors."tools" = "internal/client"
+layer_floors."internal/terminal" = "internal/adapter"
+layer_floors."tools" = "internal/adapter"
 
 # Top-level roots skipped entirely while walking the repository.
 ignore_roots = ["vendor", ".git", "build"]
@@ -181,7 +181,7 @@ check_semantic_names = true
 [client_confinement]
 clients = ["claude", "claude-desktop", "codex", "hermes"]
 product_roots = ["cmd", "internal"]
-adapter_root = "internal/client"
+adapter_root = "internal/adapter"
 composition_roots = ["cmd/aigw", "internal/clients"]
 # Hermes names its OpenAI Responses API mode codex_responses; that value is
 # Hermes vocabulary, not Codex knowledge.

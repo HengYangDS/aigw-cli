@@ -9,10 +9,10 @@ import (
 	"reflect"
 	"testing"
 
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/discovery"
-	surfaceidentity "aigw-cli/internal/client/surface"
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/discovery"
+	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/secret"
 )
 
@@ -108,7 +108,7 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	var preview struct {
-		Targets []client.ProjectionPlan `json:"targets"`
+		Targets []adapter.ProjectionPlan `json:"targets"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatal(err)

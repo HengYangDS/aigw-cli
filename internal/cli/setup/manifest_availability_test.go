@@ -7,13 +7,13 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/secret"
 
-	surfaceidentity "aigw-cli/internal/client/surface"
+	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/store"
 )
 

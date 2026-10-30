@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/claudedesktop"
-	"aigw-cli/internal/client/hermes"
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/claudedesktop"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 )

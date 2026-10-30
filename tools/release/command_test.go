@@ -1,7 +1,7 @@
 package main
 
 import (
-	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/program/artifact"
 	"aigw-cli/internal/secret"
 	"aigw-cli/tools/release/provenance"

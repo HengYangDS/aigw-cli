@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"reflect"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/client"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -61,7 +61,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 			err,
 		)
 	}
-	var plans []client.ProjectionPlan
+	var plans []adapter.ProjectionPlan
 	var entrypoint *app.CredentialEntrypointPlan
 	if dryRun {
 		plans, err = synchronizer.Plan(before, after)
@@ -78,7 +78,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	return renderRepairResult(runtime, dryRun, jsonMode, !reflect.DeepEqual(before, after), plans, entrypoint)
 }
 
-func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, plans []client.ProjectionPlan, entrypoint *app.CredentialEntrypointPlan) error {
+func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, plans []adapter.ProjectionPlan, entrypoint *app.CredentialEntrypointPlan) error {
 	result := repairResult{DryRun: dryRun, ConfigurationAction: "already-converged", CredentialEntrypoint: entrypoint, NextAction: "aigw check"}
 	if dryRun && configurationChanged {
 		result.NextAction = "aigw repair"

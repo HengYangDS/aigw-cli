@@ -1,7 +1,7 @@
 package cli_test
 
 import (
-	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/program"
 	"crypto/sha256"
 	"encoding/json"
@@ -13,10 +13,10 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/discovery"
-	"aigw-cli/internal/client/surface"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"

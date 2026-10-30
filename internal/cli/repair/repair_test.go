@@ -11,13 +11,13 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/claudedesktop"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/claudedesktop"
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/discovery"
-	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -29,7 +29,7 @@ func TestRenderRepairPreviewNamesEachClientAndItsSurface(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Out: out, RenderOut: out, Width: 120}
 	explicit := string(codex.HomeExplicit("0123456789ab"))
-	plans := []client.ProjectionPlan{
+	plans := []adapter.ProjectionPlan{
 		{Client: codex.ID, Target: "/known", Action: "update", Surface: string(codex.HomeDefault)},
 		{Client: codex.ID, Target: "/explicit", Action: "create", Surface: explicit},
 		{Client: claudedesktop.ID, Target: "/library", Action: "update", Surface: string(claudedesktop.LibrarySurface)},
@@ -59,7 +59,7 @@ func TestRenderRepairPreviewNamesEachClientAndItsSurface(t *testing.T) {
 func TestRenderRepairPreviewJSONReportsEachPlannedSurface(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Out: out}
-	plans := []client.ProjectionPlan{
+	plans := []adapter.ProjectionPlan{
 		{Client: claude.ID, Target: "/settings.json", Action: "update", ChangesState: true, Surface: string(claude.SettingsSurface)},
 		{Client: claudedesktop.ID, Target: "/library", Action: "unchanged", Surface: string(claudedesktop.LibrarySurface)},
 		{Client: codex.ID, Target: "/known", Action: "update", ChangesState: true, Surface: string(codex.HomeDefault)},

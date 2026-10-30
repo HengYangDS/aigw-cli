@@ -197,12 +197,12 @@ private. This is an upstream-layout-dependent adapter, not an isolation API.
 `PrepareVerification` disables lazy installs, update checks and PATH exposure.
 Hermes 0.21.6 ignores the last on Windows; AIGW refuses before launch.
 
-The [Unix native regressions](../../../../internal/client/hermes/adapter_native_unix_test.go)
+The [Unix native regressions](../../../../internal/adapter/hermes/adapter_native_unix_test.go)
 exercise Hermes' boot resolver with stubbed steps and the native dependency-member
-union. [Configuration custody](../../../../internal/client/hermes/verification_home_unix_test.go)
+union. [Configuration custody](../../../../internal/adapter/hermes/verification_home_unix_test.go)
 owns physical-lock identity, refusal and private placement. The
-[Windows home factory](../../../../internal/client/hermes/verification_home_windows.go)
-refuses before launch; [credential diagnostics](../../../../internal/client/credential_policy_test.go)
+[Windows home factory](../../../../internal/adapter/hermes/verification_home_windows.go)
+refuses before launch; [credential diagnostics](../../../../internal/adapter/credential_policy_test.go)
 assert zero client calls and no canary disclosure. Windows compiles neither Unix
 borrowing nor Unix probes. A real journey separately qualifies launch effects.
 

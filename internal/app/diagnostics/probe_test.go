@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/app/diagnostics"
-	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/domain"
 )
 

@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/hermes"
 	domainreadiness "aigw-cli/internal/app/readiness"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/hermes"
 	builtinclients "aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"

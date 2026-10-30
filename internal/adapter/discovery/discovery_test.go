@@ -1,0 +1,179 @@
+package discovery_test
+
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"testing"
+
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/clients"
+)
+
+func TestDiscoverFindsClientsAndAutoManagedCodexTargets(t *testing.T) {
+	home := t.TempDir()
+	bin := filepath.Join(home, "bin")
+	if err := os.MkdirAll(bin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	goos := "linux"
+	names := []string{"claude", "codex"}
+	if runtime.GOOS == "windows" {
+		goos = "windows"
+		names = []string{"claude.exe", "codex.exe"}
+	}
+	for _, name := range names {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	target := filepath.Join(home, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d := adapter.NewDiscoverer(clients.Registry(), discovery.System{GOOS: goos, Home: home, Path: bin})
+	got := d.Discover()
+	wantClaude, wantCodex := filepath.Join(bin, names[0]), filepath.Join(bin, names[1])
+	if got.Executable("claude") != wantClaude || got.Executable("codex") != wantCodex {
+		t.Fatalf("executables = %#v", got)
+	}
+	if targets := codex.AutoManagedTargets(got); len(targets) != 1 || targets[0] != target {
+		t.Fatalf("targets = %#v", targets)
+	}
+}
+
+func TestDiscoverReturnsClaudeExecutableWithoutPrivateMarkers(t *testing.T) {
+	home := t.TempDir()
+	bin := filepath.Join(home, "bin")
+	if err := os.MkdirAll(bin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	goos, name := "linux", "claude"
+	if runtime.GOOS == "windows" {
+		goos, name = "windows", "claude.cmd"
+	}
+	if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\nnative Claude fixture\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got := adapter.NewDiscoverer(clients.Registry(), discovery.System{GOOS: goos, Home: home, Path: bin}).Discover()
+	want, err := filepath.Abs(filepath.Join(bin, name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Executable("claude") != want {
+		t.Fatalf("Claude executable = %q, want %q", got.Executable("claude"), want)
+	}
+}
+
+func TestCurrentReflectsProcessPlatformAndPath(t *testing.T) {
+	wantPath := filepath.Join(t.TempDir(), "bin")
+	wantHome := filepath.Join(t.TempDir(), "client-home")
+	t.Setenv("PATH", wantPath)
+	t.Setenv("AIGW_DISCOVERY_PROBE", wantHome)
+
+	system := discovery.Current()
+	if system.GOOS != runtime.GOOS || system.Path != wantPath || system.Platform().Getenv("AIGW_DISCOVERY_PROBE") != wantHome {
+		t.Fatalf("Current() = %#v, want GOOS %q, PATH %q and the process environment", system, runtime.GOOS, wantPath)
+	}
+}
+
+func TestResultIndexesExecutablesByAdmittedClient(t *testing.T) {
+	result := discovery.Result{Executables: map[string]string{
+		"claude": "/portable/claude",
+		"codex":  "/portable/codex",
+	}}
+	if got := result.Executable("claude"); got != "/portable/claude" {
+		t.Fatalf("Claude executable = %q", got)
+	}
+	if got := result.Executable("codex"); got != "/portable/codex" {
+		t.Fatalf("Codex executable = %q", got)
+	}
+	if got := result.Executable("unknown"); got != "" {
+		t.Fatalf("unknown executable = %q", got)
+	}
+}
+
+func TestResultRejectsUnknownSurfacePaths(t *testing.T) {
+	result := discovery.Result{Surfaces: []discovery.Surface{{ID: "known", ConfigPath: "/known/config", Executable: "/known/executable"}}}
+	if surface, ok := result.Surface("unknown"); ok {
+		t.Fatalf("Surface(unknown) = %#v, true", surface)
+	}
+	if surface, ok := result.SurfaceForConfigPath("/unknown/config"); ok {
+		t.Fatalf("SurfaceForConfigPath(unknown) = %#v, true", surface)
+	}
+	if surface, ok := result.SurfaceForExecutablePath("/unknown/executable"); ok {
+		t.Fatalf("SurfaceForExecutablePath(unknown) = %#v, true", surface)
+	}
+}
+
+func TestResultFindsKnownSurfaceByEachIdentity(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "configuration.toml")
+	executablePath := filepath.Join(dir, "codex")
+	known := discovery.Surface{ID: "known", ConfigPath: configPath, Executable: executablePath}
+	result := discovery.Result{Surfaces: []discovery.Surface{known}}
+
+	lookups := []struct {
+		name string
+		find func() (discovery.Surface, bool)
+	}{
+		{name: "ID", find: func() (discovery.Surface, bool) { return result.Surface("known") }},
+		{name: "config path", find: func() (discovery.Surface, bool) { return result.SurfaceForConfigPath(configPath) }},
+		{name: "executable path", find: func() (discovery.Surface, bool) { return result.SurfaceForExecutablePath(executablePath) }},
+	}
+	for _, lookup := range lookups {
+		t.Run(lookup.name, func(t *testing.T) {
+			got, ok := lookup.find()
+			if !ok || got != known {
+				t.Fatalf("lookup = %#v, %t; want %#v, true", got, ok, known)
+			}
+		})
+	}
+
+	if _, ok := result.SurfaceForConfigPath(""); ok {
+		t.Fatal("blank config path unexpectedly matched")
+	}
+}
+
+func TestLinuxDiscoveryKeepsDefaultClientHomesIndependent(t *testing.T) {
+	home := t.TempDir()
+	result := adapter.NewDiscoverer(clients.Registry(), discovery.System{GOOS: "linux", Home: home}).Discover()
+	if len(result.Surfaces) != 3 {
+		t.Fatalf("Linux surfaces = %#v", result.Surfaces)
+	}
+	surface, ok := result.Surface(string(codex.HomeDefault))
+	if !ok {
+		t.Fatalf("default Codex Home missing from %#v", result.Surfaces)
+	}
+	wantConfig := filepath.Join(home, ".codex", "config.toml")
+	if surface.ID != string(codex.HomeDefault) || surface.ConfigPath != wantConfig || surface.Present {
+		t.Fatalf("default Codex Home = %#v", surface)
+	}
+	if targets := codex.AutoManagedTargets(result); len(targets) != 1 || targets[0] != wantConfig {
+		t.Fatalf("auto-managed targets = %#v, want absent but creatable default %q", targets, wantConfig)
+	}
+}
+
+// On Windows, a variable's exact spelling wins over other spellings of the same
+// name, and a lookup without the exact spelling finds the same spelling every
+// time. Elsewhere, names match exactly.
+func TestHostGetenvIsDeterministicForSpellingsOfOneName(t *testing.T) {
+	env := map[string]string{"USERPROFILE": `C:\Users\alex`, "UserProfile": `D:\profile`, "userprofile": `E:\alex`}
+	windows := discovery.Host{GOOS: "windows", Env: env}
+	for range 100 {
+		if got := windows.Getenv("UserProfile"); got != `D:\profile` {
+			t.Fatalf("Getenv(UserProfile) = %q, want the exact spelling's value", got)
+		}
+		if got := windows.Getenv("UsErPrOfIlE"); got != `C:\Users\alex` {
+			t.Fatalf("Getenv(UsErPrOfIlE) = %q, want the first spelling in sorted order", got)
+		}
+	}
+	if got := (discovery.Host{GOOS: "linux", Env: env}).Getenv("Userprofile"); got != "" {
+		t.Fatalf("Linux Getenv(Userprofile) = %q, want exact matches only", got)
+	}
+}

@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"aigw-cli/internal/client/codex"
-	codexcatalog "aigw-cli/internal/client/codex/catalog"
+	"aigw-cli/internal/adapter/codex"
+	codexcatalog "aigw-cli/internal/adapter/codex/catalog"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/secret"
 

@@ -17,9 +17,9 @@ import (
 	"strings"
 	"syscall"
 
-	claudeclient "aigw-cli/internal/client/claude"
-	codexclient "aigw-cli/internal/client/codex"
-	hermesclient "aigw-cli/internal/client/hermes"
+	claudeclient "aigw-cli/internal/adapter/claude"
+	codexclient "aigw-cli/internal/adapter/codex"
+	hermesclient "aigw-cli/internal/adapter/hermes"
 	"aigw-cli/tools/release/construction"
 
 	"github.com/rogpeppe/go-internal/robustio"

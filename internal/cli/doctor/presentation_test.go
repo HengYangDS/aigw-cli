@@ -1,9 +1,9 @@
 package doctor
 
 import (
+	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/app"
 	domainreadiness "aigw-cli/internal/app/readiness"
-	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/terminal"

@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/claudedesktop"
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/discovery"
-	"aigw-cli/internal/client/hermes"
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/claudedesktop"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 )
@@ -134,7 +134,7 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 	after := before.Clone()
 	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	after.SetClientActivation(codex.ID, true, "/opt/codex", []string{codexTarget})
-	deps := client.Dependencies{
+	deps := adapter.Dependencies{
 		Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{
 			ID: "codex-home-default", Authority: "aigw", ConfigPath: codexTarget, Present: true, AutoManaged: true,
 		}}}},
@@ -162,21 +162,21 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 
 // futureAdapter is a client admitted after the built-in set. It embeds the seam,
 // so it implements only the two methods that admission reaches.
-type futureAdapter struct{ client.Adapter }
+type futureAdapter struct{ adapter.Adapter }
 
 func (futureAdapter) Spec() domain.ClientSpec {
 	return domain.ClientSpec{ID: "future", Label: "Future", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
 }
 
-func (adapter futureAdapter) Converge(_ client.Dependencies, cfg *domain.Config, _ discovery.Result) error {
-	cfg.SetClientActivation(adapter.Spec().ID, true, "", nil)
+func (clientAdapter futureAdapter) Converge(_ adapter.Dependencies, cfg *domain.Config, _ discovery.Result) error {
+	cfg.SetClientActivation(clientAdapter.Spec().ID, true, "", nil)
 	return nil
 }
 
 func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing.T) {
 	baselineClientIDs := Registry().IDs()
 	future := futureAdapter{}
-	registry, err := client.NewRegistry(append(adapters(), future)...)
+	registry, err := adapter.NewRegistry(append(adapters(), future)...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +203,7 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 	before.SetClientActivation(codex.ID, true, "/clients/codex", []string{"/clients/codex.toml"})
 	wantUnchanged := before.Clone()
 
-	after, err := registry.Converge(client.Dependencies{}, before, discovery.Result{}, future.Spec().ID)
+	after, err := registry.Converge(adapter.Dependencies{}, before, discovery.Result{}, future.Spec().ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,7 +233,7 @@ func TestRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 	if err := store.Set("gateway", "fixture-token"); err != nil {
 		t.Fatal(err)
 	}
-	deps := client.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
+	deps := adapter.Dependencies{Secrets: store, AIGWExecutable: filepath.Join(t.TempDir(), "aigw")}
 
 	for _, clientID := range []string{claudedesktop.ID, hermes.ID} {
 		t.Run(clientID, func(t *testing.T) {

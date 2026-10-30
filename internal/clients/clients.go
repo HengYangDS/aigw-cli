@@ -2,11 +2,11 @@
 package clients
 
 import (
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/claudedesktop"
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/hermes"
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/claudedesktop"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/domain"
 )
 
@@ -15,8 +15,8 @@ import (
 // and tests that exercise real adapters use it too. An adapter set that the
 // registry refuses is a build defect, so it panics rather than starting
 // without one.
-func Registry() client.Registry {
-	registry, err := client.NewRegistry(adapters()...)
+func Registry() adapter.Registry {
+	registry, err := adapter.NewRegistry(adapters()...)
 	if err != nil {
 		panic(err)
 	}
@@ -29,8 +29,8 @@ func Registry() client.Registry {
 func Admission() domain.Admission { return Registry().Admission() }
 
 // adapters lists every built-in client adapter in admission order.
-func adapters() []client.Adapter {
-	return []client.Adapter{
+func adapters() []adapter.Adapter {
+	return []adapter.Adapter{
 		claude.New(),
 		claudedesktop.New(),
 		codex.New(),

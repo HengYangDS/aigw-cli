@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/domain"
 	"aigw-cli/tools/release/performance"
 	"bytes"

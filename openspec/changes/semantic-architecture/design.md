@@ -64,11 +64,11 @@ its own layer or a package in a higher layer.
 | 1     | `cmd/aigw`                                               | binary entry, which injects the built-in adapters                                                                                                                           |
 | 2     | `internal/cli`, `internal/clients`                       | the command tree, flags, exit codes and each command's own behavior; the list of built-in adapters                                                                          |
 | 3     | `internal/app`, `internal/terminal`                      | use cases that several commands share; human and JSON rendering and prompts                                                                                                 |
-| 4     | `internal/client`, `internal/program`                    | the client seam and its adapters; AIGW's own install, update, rollback and artifact format                                                                                  |
+| 4     | `internal/adapter`, `internal/program`                   | the client seam and its adapters; AIGW's own install, update, rollback and artifact format                                                                                  |
 | 5     | `internal/provider`, `internal/store`, `internal/secret` | Provider-native observation; configuration files, schema versions and transactions; credential storage and native backends                                                  |
 | 6     | `internal/domain`, `internal/platform`                   | Accounts, Models, Routes, Client Bindings, their validation and the redaction rules, without I/O; operating-system paths, guarded file mutation and bounded child processes |
 
-`internal/client/<name>` may import `internal/client`, the seam. The seam
+`internal/adapter/<name>` may import `internal/adapter`, the seam. The seam
 never imports an adapter, and adapters never import each other. `domain`
 imports only the standard library. `terminal` renders values that `app`
 returns; neither imports the other. The adapter list shares layer 2 with the
@@ -82,11 +82,11 @@ provider diagnostics, client verification and release tooling apply them below
 Repository tools sit above the product stack, in two rows: `tools/ci` above
 the other tools, because CI drives the release tool. A production file under
 `tools/` imports its own descendants, the seams that its tool declares, the
-tools row below its own, and product packages from the row of `internal/client`
+tools row below its own, and product packages from the row of `internal/adapter`
 down, never `cmd`, `cli` or `app`. The release tool's packages share its
 performance, provenance and readiness libraries as seams. The release tool
 imports `internal/program/artifact`, and `tools/codex/catalog` imports
-`internal/client/codex`; both keep importing the owner instead of re-encoding
+`internal/adapter/codex`; both keep importing the owner instead of re-encoding
 its knowledge.
 
 Alternative considered: keep the closed topology and keep extending the edge
@@ -100,7 +100,7 @@ rows of package-path prefixes, and the gate checks every import of a
 production file against it. A package belongs to the row of its longest
 matching prefix. `layer_seams` declares a subtree's seams, and `layer_floors`
 names the highest product row that a subtree's packages may import. The tools
-have a floor at `internal/client`'s row, and so does `internal/terminal`, which
+have a floor at `internal/adapter`'s row, and so does `internal/terminal`, which
 shares the row of `internal/app` but imports none of the use cases. The table
 replaces `allowed_import_edges` and the peer rule for command packages. A
 production package that no row places, a prefix that places no package and a
@@ -122,8 +122,8 @@ packages and take ordered rows below `internal/app`: `renaming` above
 above `diagnostics`. Each imports only rows below it, and `internal/app`
 imports its descendants. The product then takes ten rows, and with the two
 tool rows the table has twelve, its limit. The adapters share
-the declared seams `internal/client`, `internal/client/verification`,
-`internal/client/discovery` and `internal/client/surface`. The Providers
+the declared seams `internal/adapter`, `internal/adapter/verification`,
+`internal/adapter/discovery` and `internal/adapter/surface`. The Providers
 share `internal/provider/diagnostic`.
 
 Alternative considered: merge the five packages into `internal/app`. A

@@ -9,8 +9,8 @@ import (
 	"maps"
 	"slices"
 
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/discovery"
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
@@ -24,16 +24,16 @@ func (s Synchronizer) ClientIDs() []string {
 }
 
 // Inspect observes one admitted client through its operational adapter.
-func (s Synchronizer) Inspect(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) client.Status {
+func (s Synchronizer) Inspect(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) adapter.Status {
 	dependencies, err := s.clientDependencies([]string{clientID}, cfg)
 	if err != nil {
-		return client.Status{Issue: "AIGW credential reader identity is unavailable", RepairAction: "aigw doctor"}
+		return adapter.Status{Issue: "AIGW credential reader identity is unavailable", RepairAction: "aigw doctor"}
 	}
 	return s.registry().Inspect(ctx, dependencies, cfg, clientID, runtime)
 }
 
 // Verify runs one explicit live request through the admitted client adapter.
-func (s Synchronizer) Verify(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime, explicitRoute string) (client.Verification, error) {
+func (s Synchronizer) Verify(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime, explicitRoute string) (adapter.Verification, error) {
 	selected := cfg.Clone()
 	selected.SetSelectedRoute(clientID, runtime.RouteID, runtime.Protocol)
 	binding := selected.Clients[clientID]
@@ -41,7 +41,7 @@ func (s Synchronizer) Verify(ctx context.Context, cfg domain.Config, clientID st
 	selected.Clients[clientID] = binding
 	dependencies, err := s.clientDependencies([]string{clientID}, cfg, selected)
 	if err != nil {
-		return client.Verification{}, err
+		return adapter.Verification{}, err
 	}
 	return s.registry().Verify(ctx, dependencies, cfg, clientID, runtime, explicitRoute)
 }
@@ -72,7 +72,7 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg domain.Config, cl
 	}
 	receipt, _, err := s.registry().Apply(ctx, dependencies, cfg, cfg, clientID)
 	if err != nil {
-		if !errors.Is(err, client.ErrProjectionRollbackFailed) {
+		if !errors.Is(err, adapter.ErrProjectionRollbackFailed) {
 			err = errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 		}
 		return err
@@ -82,7 +82,7 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg domain.Config, cl
 		return nil
 	}
 	if rollbackErr := receipt.Rollback(); rollbackErr != nil {
-		return fmt.Errorf("%w: credential entrypoint finalization failed: %w; client rollback also failed: %w", client.ErrProjectionRollbackFailed, finalizeErr, rollbackErr)
+		return fmt.Errorf("%w: credential entrypoint finalization failed: %w; client rollback also failed: %w", adapter.ErrProjectionRollbackFailed, finalizeErr, rollbackErr)
 	}
 	return errors.Join(fmt.Errorf("credential entrypoint finalization failed; client projection was rolled back: %w", finalizeErr), undoCreatedEntrypoint(undoEntrypoint))
 }
@@ -136,7 +136,7 @@ type Synchronizer struct {
 	Secrets                   secret.Store
 	Runner                    process.VerificationRunner
 	Discovery                 discovery.Discoverer
-	Registry                  client.Registry
+	Registry                  adapter.Registry
 	Host                      discovery.Host
 	AIGWExecutable            string
 	CredentialPath            string
@@ -219,7 +219,7 @@ func (s Synchronizer) Withdraw(cfg *domain.Config, clientIDs ...string) error {
 
 // registry is the composition root's adapter registry. A synchronizer
 // without one is a wiring defect, so it refuses instead of guessing clients.
-func (s Synchronizer) registry() client.Registry {
+func (s Synchronizer) registry() adapter.Registry {
 	if s.Registry.Empty() {
 		panic("synchronization requires the composition root's client registry")
 	}
@@ -243,7 +243,7 @@ func (s Synchronizer) CredentialEntrypointPath() (string, error) {
 	return path, nil
 }
 
-func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...domain.Config) (client.Dependencies, error) {
+func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...domain.Config) (adapter.Dependencies, error) {
 	executable := s.AIGWExecutable
 	if s.CredentialPath != "" {
 		executable = s.CredentialPath
@@ -251,19 +251,19 @@ func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...d
 	for _, cfg := range configurations {
 		accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
 		if err != nil {
-			return client.Dependencies{}, err
+			return adapter.Dependencies{}, err
 		}
 		if len(accounts) == 0 {
 			continue
 		}
 		path, err := s.CredentialEntrypointPath()
 		if err != nil {
-			return client.Dependencies{}, err
+			return adapter.Dependencies{}, err
 		}
 		executable = path
 		break
 	}
-	return client.Dependencies{
+	return adapter.Dependencies{
 		Secrets:                   s.Secrets,
 		Runner:                    s.Runner,
 		Discovery:                 s.Discovery,

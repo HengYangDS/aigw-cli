@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"aigw-cli/internal/client/hermes"
-	clientverification "aigw-cli/internal/client/verification"
+	"aigw-cli/internal/adapter/hermes"
+	clientverification "aigw-cli/internal/adapter/verification"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/store"

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"aigw-cli/internal/client/claudedesktop"
-	"aigw-cli/internal/client/hermes"
+	"aigw-cli/internal/adapter/claudedesktop"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/domain"
 )
 

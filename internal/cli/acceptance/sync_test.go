@@ -1,11 +1,11 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -156,7 +156,7 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 	app, _, secretStore, runner, _ := testApp(t, "")
 	app.Executable = filepath.Join(bin, executableName("aigw"))
 	app.Host = hostAt(home)
-	app.Discovery = client.NewDiscoverer(clients.Registry(), discovery.System{GOOS: runtime.GOOS, Home: home, Path: bin})
+	app.Discovery = adapter.NewDiscoverer(clients.Registry(), discovery.System{GOOS: runtime.GOOS, Home: home, Path: bin})
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{
 		Anthropic:       "https://gateway.test",
@@ -188,9 +188,9 @@ func TestSyncUsesSharedCodexHomeAndOfficialClaudeSettingsWithoutTouchingClientSt
 		t.Fatal(err)
 	}
 	requireRouteSelectionsUnchanged(t, cfg, after)
-	adapter := after.Clients[codex.ID]
-	if !adapter.Enabled || len(adapter.Targets) != 1 || adapter.Targets[0] != codexTarget {
-		t.Fatalf("Codex did not use the single discovered shared home: %#v", adapter)
+	clientAdapter := after.Clients[codex.ID]
+	if !clientAdapter.Enabled || len(clientAdapter.Targets) != 1 || clientAdapter.Targets[0] != codexTarget {
+		t.Fatalf("Codex did not use the single discovered shared home: %#v", clientAdapter)
 	}
 	codexConfig := readFile(t, codexTarget)
 	if !strings.Contains(string(codexConfig), "desktop_feature = true") || !strings.Contains(string(codexConfig), `model = "gpt-team" # managed by AIGW`) {
@@ -446,8 +446,8 @@ func TestSyncDryRunRecommendsCheckWhenProjectionIsConverged(t *testing.T) {
 		t.Fatal(err)
 	}
 	var result struct {
-		Targets    []client.ProjectionPlan `json:"targets"`
-		NextAction string                  `json:"next_action"`
+		Targets    []adapter.ProjectionPlan `json:"targets"`
+		NextAction string                   `json:"next_action"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)

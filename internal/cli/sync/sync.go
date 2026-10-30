@@ -6,12 +6,12 @@ package sync
 import (
 	"fmt"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/app"
 	clientactivation "aigw-cli/internal/app/activation"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/client"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
@@ -23,7 +23,7 @@ type syncResult struct {
 	DryRun               bool                          `json:"dry_run"`
 	Selections           map[string]string             `json:"selections"`
 	AdoptedSelections    map[string]string             `json:"adopted_selections,omitempty"`
-	Targets              []client.ProjectionPlan       `json:"targets,omitempty"`
+	Targets              []adapter.ProjectionPlan      `json:"targets,omitempty"`
 	CredentialEntrypoint *app.CredentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
 	EnabledClients       int                           `json:"enabled_clients"`
 	State                string                        `json:"state,omitempty"`

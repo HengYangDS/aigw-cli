@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/client/discovery"
-	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"

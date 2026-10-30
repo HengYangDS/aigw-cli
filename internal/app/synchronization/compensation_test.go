@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"aigw-cli/internal/client"
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
@@ -21,8 +21,8 @@ type selfCompensationAdapter struct {
 	removedEntrypointAdapter
 }
 
-func (adapter selfCompensationAdapter) Apply(context.Context, client.Dependencies, domain.Config, domain.Config) (client.ProjectionReceipt, error) {
-	if err := os.WriteFile(adapter.target, []byte("reader="+adapter.reader), 0o600); err != nil {
+func (clientAdapter selfCompensationAdapter) Apply(context.Context, adapter.Dependencies, domain.Config, domain.Config) (adapter.ProjectionReceipt, error) {
+	if err := os.WriteFile(clientAdapter.target, []byte("reader="+clientAdapter.reader), 0o600); err != nil {
 		return nil, err
 	}
 	return nil, platform.CompensationFailed(errors.New("write projection state"), errors.New("restore projection: newer edit"))
@@ -40,15 +40,15 @@ func TestFailedSelfCompensationPreservesTheReaderItProjected(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	adapter := selfCompensationAdapter{removedEntrypointAdapter{target: target, reader: reader}}
-	registry, err := client.NewRegistry(adapter)
+	clientAdapter := selfCompensationAdapter{removedEntrypointAdapter{target: target, reader: reader}}
+	registry, err := adapter.NewRegistry(clientAdapter)
 	if err != nil {
 		t.Fatal(err)
 	}
 	configStore := &configStoreStub{}
 	syncer := Synchronizer{Config: configStore, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
 	err = syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "sync")
-	if !errors.Is(err, client.ErrProjectionRollbackFailed) || !errors.Is(err, platform.ErrCompensationIncomplete) {
+	if !errors.Is(err, adapter.ErrProjectionRollbackFailed) || !errors.Is(err, platform.ErrCompensationIncomplete) {
 		t.Fatalf("incomplete self-compensation was not reported as a failed rollback: %v", err)
 	}
 	if _, statErr := os.Stat(reader); statErr != nil {

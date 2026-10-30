@@ -1,10 +1,10 @@
 package check
 
 import (
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/codex"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"

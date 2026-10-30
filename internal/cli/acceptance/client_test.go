@@ -11,11 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -87,7 +87,7 @@ func TestClientDiscoveryBranches(t *testing.T) {
 			resolved[name] = path
 		}
 		app, out, _, _, _ := testApp(t, "")
-		app.Discovery = client.NewDiscoverer(clients.Registry(), discovery.System{GOOS: runtime.GOOS, Home: t.TempDir(), Path: dir})
+		app.Discovery = adapter.NewDiscoverer(clients.Registry(), discovery.System{GOOS: runtime.GOOS, Home: t.TempDir(), Path: dir})
 		if err := cli.Execute(app, []string{"client", "discover"}); err != nil {
 			t.Fatal(err)
 		}
@@ -280,9 +280,9 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 		cfg.SetSelectedRoute(id, id, "")
 		cfg.SetClientActivation(id, true, executable, nil)
 	}
-	adapter := cfg.Clients[codex.ID]
-	adapter.Targets = []string{target}
-	cfg.Clients[codex.ID] = adapter
+	clientAdapter := cfg.Clients[codex.ID]
+	clientAdapter.Targets = []string{target}
+	cfg.Clients[codex.ID] = clientAdapter
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -300,9 +300,9 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 	}
 	command := filepath.Join(root, "credential adapter")
 	for _, id := range []string{claude.ID, codex.ID} {
-		adapter := cfg.Clients[id]
-		adapter.CredentialCommand = command
-		cfg.Clients[id] = adapter
+		clientAdapter := cfg.Clients[id]
+		clientAdapter.CredentialCommand = command
+		cfg.Clients[id] = clientAdapter
 	}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -355,9 +355,9 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 		t.Fatal(err)
 	}
 	for _, id := range []string{claude.ID, codex.ID} {
-		adapter := disabled.Clients[id]
-		if adapter.Enabled || adapter.CredentialCommand != command {
-			t.Fatalf("sync did not preserve disabled %s policy: %#v", id, adapter)
+		clientAdapter := disabled.Clients[id]
+		if clientAdapter.Enabled || clientAdapter.CredentialCommand != command {
+			t.Fatalf("sync did not preserve disabled %s policy: %#v", id, clientAdapter)
 		}
 		args := []string{"client", "enable", id, "--executable", filepath.Join(root, id)}
 		if id == codex.ID {
@@ -372,8 +372,8 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 		t.Fatal(err)
 	}
 	for _, id := range []string{claude.ID, codex.ID} {
-		if adapter := reenabled.Clients[id]; !adapter.Enabled || adapter.CredentialCommand != command {
-			t.Fatalf("reenable replaced %s credential policy: %#v", id, adapter)
+		if clientAdapter := reenabled.Clients[id]; !clientAdapter.Enabled || clientAdapter.CredentialCommand != command {
+			t.Fatalf("reenable replaced %s credential policy: %#v", id, clientAdapter)
 		}
 	}
 }

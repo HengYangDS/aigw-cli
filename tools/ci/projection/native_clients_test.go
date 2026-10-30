@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	hermesclient "aigw-cli/internal/client/hermes"
+	hermesclient "aigw-cli/internal/adapter/hermes"
 	"aigw-cli/tools/release/construction"
 
 	"go.yaml.in/yaml/v3"

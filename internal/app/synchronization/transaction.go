@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"aigw-cli/internal/client"
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
@@ -93,7 +93,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 		projectionErr := receipt.Rollback()
 		configErr := s.Config.RestoreSnapshot(configBefore, configAfter)
 		if projectionErr != nil {
-			projectionErr = fmt.Errorf("%w: %w", client.ErrProjectionRollbackFailed, projectionErr)
+			projectionErr = fmt.Errorf("%w: %w", adapter.ErrProjectionRollbackFailed, projectionErr)
 		}
 		var entrypointErr error
 		if projectionErr == nil && configErr == nil {
@@ -128,9 +128,9 @@ func (s Synchronizer) applyProjection(
 	configBefore, configAfter store.Snapshot,
 	undoEntrypoint func() error,
 	clientIDs ...string,
-) (client.ProjectionReceipt, bool, error) {
+) (adapter.ProjectionReceipt, bool, error) {
 	dependencies, err := s.clientDependencies(clientIDs, before, after)
-	var receipt client.ProjectionReceipt
+	var receipt adapter.ProjectionReceipt
 	var changed bool
 	if err == nil {
 		receipt, changed, err = s.registry().Apply(ctx, dependencies, before, after, clientIDs...)
@@ -139,7 +139,7 @@ func (s Synchronizer) applyProjection(
 		if rollbackErr := s.Config.RestoreSnapshot(configBefore, configAfter); rollbackErr != nil {
 			return nil, false, projectionError{cause: fmt.Errorf("synchronization failed: %w; rollback also failed: %w", err, rollbackErr)}
 		}
-		if !errors.Is(err, client.ErrProjectionRollbackFailed) {
+		if !errors.Is(err, adapter.ErrProjectionRollbackFailed) {
 			err = errors.Join(err, undoCreatedEntrypoint(undoEntrypoint))
 		}
 		return nil, false, projectionError{cause: fmt.Errorf("synchronization failed; configuration was rolled back: %w", err), restored: true}

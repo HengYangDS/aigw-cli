@@ -1,9 +1,9 @@
 package main
 
 import (
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/claudedesktop"
-	clientverification "aigw-cli/internal/client/verification"
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/claudedesktop"
+	clientverification "aigw-cli/internal/adapter/verification"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"

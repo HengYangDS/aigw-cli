@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/claudedesktop"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/claudedesktop"
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/discovery"
-	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/domain"
 
 	"go.yaml.in/yaml/v3"

@@ -5,15 +5,15 @@ import (
 	"runtime"
 	"testing"
 
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/discovery"
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 )
 
 // hostRefusingAdapter is an admitted client that derives no native path on any
 // host. AIGW calls nothing else on it before it refuses to start.
-type hostRefusingAdapter struct{ client.Adapter }
+type hostRefusingAdapter struct{ adapter.Adapter }
 
 func (hostRefusingAdapter) Spec() domain.ClientSpec {
 	return domain.ClientSpec{ID: "host-refusing", Label: "Host refusing", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
@@ -27,7 +27,7 @@ func (hostRefusingAdapter) ValidateHost(discovery.Host) error {
 // native paths, and it reports that client's refusal unchanged.
 func TestNewDefaultRefusesAHostThatAClientCannotServe(t *testing.T) {
 	refusing := hostRefusingAdapter{}
-	registry, err := client.NewRegistry(refusing)
+	registry, err := adapter.NewRegistry(refusing)
 	if err != nil {
 		t.Fatal(err)
 	}

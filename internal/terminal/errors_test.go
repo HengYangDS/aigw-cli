@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"testing"
 
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"

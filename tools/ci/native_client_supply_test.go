@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"aigw-cli/internal/client/claude"
-	codexclient "aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/hermes"
+	"aigw-cli/internal/adapter/claude"
+	codexclient "aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/tools/release/construction"
 )
 

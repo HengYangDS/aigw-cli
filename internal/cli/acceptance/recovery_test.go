@@ -1,10 +1,10 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/domain"
 	"bytes"
 	"encoding/json"
@@ -104,8 +104,8 @@ func assertClaudeNativePreferencePreview(t *testing.T, app *cli.App, out *bytes.
 		t.Fatal(err)
 	}
 	var preview struct {
-		Targets     []client.ProjectionPlan `json:"targets"`
-		Projections []client.ProjectionPlan `json:"projections"`
+		Targets     []adapter.ProjectionPlan `json:"targets"`
+		Projections []adapter.ProjectionPlan `json:"projections"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatal(err)

@@ -66,10 +66,10 @@ process.
 - **[Secret](../../internal/secret/):** Account credential backends, typed diagnostic credentials and replacement, and the private credential reader that native clients run
 - **[Token probes](../../internal/secret/probe/):** Proof of an Account's Token against its endpoints: the probing client, sending without redirects, and the verdict on each status
 - **[Diagnostic contract](../../internal/provider/diagnostic/):** The seam of optional provider-account diagnostics: their results, the credential values they read and the sender they use
-- **[Codex integration](../../internal/client/codex/):** Projection planning and reconciliation
-- **[Claude integration](../../internal/client/claude/):** Settings projection, credential-safe process plans, and readiness
+- **[Codex integration](../../internal/adapter/codex/):** Projection planning and reconciliation
+- **[Claude integration](../../internal/adapter/claude/):** Settings projection, credential-safe process plans, and readiness
 - **[Provider diagnostics](../../internal/provider/):** Optional provider-native diagnostics only
-- **[Client orchestration](../../internal/client/):** Admitted client discovery, projection, inspection, verification, compensation, and withdrawal
+- **[Client orchestration](../../internal/adapter/):** Admitted client discovery, projection, inspection, verification, compensation, and withdrawal
 - **[Synchronization](../../internal/app/synchronization/):** Client Binding convergence and multi-client projection transaction
 - **[Terminal](../../internal/terminal/):** Terminal capability detection, human and JSON rendering of command results, and prompts
 - **[CLI](../../internal/cli/):** Command composition; domain behavior remains in semantic owners
@@ -336,10 +336,10 @@ Repository-only executables follow the same ontology: [CI](../../tools/ci/),
 [coverage](../../tools/coverage/), [Forge operations](../../tools/forge/), and
 [releases](../../tools/release/) own cross-cutting repository concerns, while client-specific verification is nested
 under its client owner. [Codex catalogue verification](../../tools/codex/catalog/) owns catalogue acceptance,
-measurements and reporting. It consumes the same [catalogue projection](../../internal/client/codex/catalog/)
+measurements and reporting. It consumes the same [catalogue projection](../../internal/adapter/codex/catalog/)
 document transformation as product projection, not a second parser or alias
 builder. That document owner preserves all client metadata and adds only
-uniquely established aliases. [Codex integration](../../internal/client/codex/) owns isolated client reads,
+uniquely established aliases. [Codex integration](../../internal/adapter/codex/) owns isolated client reads,
 executable identity, projection state and transactional file ownership; it does
 not carry repository acceptance verdicts.
 

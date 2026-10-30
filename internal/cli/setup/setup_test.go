@@ -1,8 +1,8 @@
 package setup
 
 import (
+	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 
 	"bytes"
@@ -16,10 +16,10 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/discovery"
-	"aigw-cli/internal/client/hermes"
-	surfaceidentity "aigw-cli/internal/client/surface"
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/adapter/hermes"
+	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"

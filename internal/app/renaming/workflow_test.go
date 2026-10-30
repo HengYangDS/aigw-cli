@@ -13,10 +13,10 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/app/synchronization"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"

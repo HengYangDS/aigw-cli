@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/client"
-	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -141,36 +141,36 @@ func TestUnresolvedReaderIdentityRefusesConsumersBeforeMutation(t *testing.T) {
 }
 
 type removedEntrypointAdapter struct {
-	client.Adapter
+	adapter.Adapter
 	target      string
 	reader      string
 	rollbackErr error
 }
 
-func (adapter removedEntrypointAdapter) Spec() domain.ClientSpec {
+func (clientAdapter removedEntrypointAdapter) Spec() domain.ClientSpec {
 	return domain.ClientSpec{ID: codex.ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
 }
 
-func (adapter removedEntrypointAdapter) Plan(client.Dependencies, domain.Config, domain.Config) ([]client.ProjectionPlan, error) {
-	return []client.ProjectionPlan{{Client: codex.ID, Target: adapter.target, Action: "update", ChangesState: true}}, nil
+func (clientAdapter removedEntrypointAdapter) Plan(adapter.Dependencies, domain.Config, domain.Config) ([]adapter.ProjectionPlan, error) {
+	return []adapter.ProjectionPlan{{Client: codex.ID, Target: clientAdapter.target, Action: "update", ChangesState: true}}, nil
 }
 
-func (adapter removedEntrypointAdapter) Apply(context.Context, client.Dependencies, domain.Config, domain.Config) (client.ProjectionReceipt, error) {
-	previous, err := os.ReadFile(adapter.target)
+func (clientAdapter removedEntrypointAdapter) Apply(context.Context, adapter.Dependencies, domain.Config, domain.Config) (adapter.ProjectionReceipt, error) {
+	previous, err := os.ReadFile(clientAdapter.target)
 	if err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(adapter.target, []byte("reader="+adapter.reader), 0o600); err != nil {
+	if err := os.WriteFile(clientAdapter.target, []byte("reader="+clientAdapter.reader), 0o600); err != nil {
 		return nil, err
 	}
-	if err := errors.Join(os.Remove(adapter.reader), os.Remove(adapter.reader+".sha256")); err != nil {
+	if err := errors.Join(os.Remove(clientAdapter.reader), os.Remove(clientAdapter.reader+".sha256")); err != nil {
 		return nil, err
 	}
 	return projectionUndo(func() error {
-		if adapter.rollbackErr != nil {
-			return adapter.rollbackErr
+		if clientAdapter.rollbackErr != nil {
+			return clientAdapter.rollbackErr
 		}
-		return os.WriteFile(adapter.target, previous, 0o600)
+		return os.WriteFile(clientAdapter.target, previous, 0o600)
 	}), nil
 }
 
@@ -183,12 +183,12 @@ type convergedProjectionAdapter struct {
 	applied *int
 }
 
-func (adapter convergedProjectionAdapter) Plan(client.Dependencies, domain.Config, domain.Config) ([]client.ProjectionPlan, error) {
-	return []client.ProjectionPlan{{Client: codex.ID, Target: adapter.target, Action: "unchanged"}}, nil
+func (clientAdapter convergedProjectionAdapter) Plan(adapter.Dependencies, domain.Config, domain.Config) ([]adapter.ProjectionPlan, error) {
+	return []adapter.ProjectionPlan{{Client: codex.ID, Target: clientAdapter.target, Action: "unchanged"}}, nil
 }
 
-func (adapter convergedProjectionAdapter) Apply(context.Context, client.Dependencies, domain.Config, domain.Config) (client.ProjectionReceipt, error) {
-	*adapter.applied++
+func (clientAdapter convergedProjectionAdapter) Apply(context.Context, adapter.Dependencies, domain.Config, domain.Config) (adapter.ProjectionReceipt, error) {
+	*clientAdapter.applied++
 	return projectionUndo(func() error { return nil }), nil
 }
 
@@ -222,8 +222,8 @@ func TestConvergedProjectionValidatesReaderWithoutApplying(t *testing.T) {
 				}
 			}
 			applied := 0
-			adapter := convergedProjectionAdapter{target: filepath.Join(root, "codex.toml"), applied: &applied}
-			registry, err := client.NewRegistry(adapter)
+			clientAdapter := convergedProjectionAdapter{target: filepath.Join(root, "codex.toml"), applied: &applied}
+			registry, err := adapter.NewRegistry(clientAdapter)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -236,7 +236,7 @@ func TestConvergedProjectionValidatesReaderWithoutApplying(t *testing.T) {
 				}
 			}
 			syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
-			cfg := testConfig(adapter.target)
+			cfg := testConfig(clientAdapter.target)
 			store.bindConfiguration(t, cfg)
 			err = syncer.CommitProjection(t.Context(), cfg, cfg, "sync")
 			if wantError := tc.changedTarget != "" || tc.duringCommit; (err != nil) != wantError || store.commits != tc.commits || store.restores != tc.restores {
@@ -273,7 +273,7 @@ func TestConvergedProjectionRechecksTargetsAfterConfigurationCommit(t *testing.T
 				t.Fatal(err)
 			}
 			plans, err := syncer.registry().Plan(dependencies, cfg, cfg, codex.ID)
-			if err != nil || len(plans) == 0 || slices.ContainsFunc(plans, func(plan client.ProjectionPlan) bool { return plan.ChangesState }) {
+			if err != nil || len(plans) == 0 || slices.ContainsFunc(plans, func(plan adapter.ProjectionPlan) bool { return plan.ChangesState }) {
 				t.Fatalf("initial managed projection plan = %v, %v", plans, err)
 			}
 			store.commits = 0
@@ -327,8 +327,8 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 			if err := configStore.Save(before); err != nil {
 				t.Fatal(err)
 			}
-			adapter := removedEntrypointAdapter{target: target, reader: reader}
-			registry, err := client.NewRegistry(adapter)
+			clientAdapter := removedEntrypointAdapter{target: target, reader: reader}
+			registry, err := adapter.NewRegistry(clientAdapter)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -384,8 +384,8 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 			if err != nil {
 				t.Fatal(err)
 			}
-			adapter := removedEntrypointAdapter{target: target, reader: reader, rollbackErr: tc.projectionErr}
-			registry, err := client.NewRegistry(adapter)
+			clientAdapter := removedEntrypointAdapter{target: target, reader: reader, rollbackErr: tc.projectionErr}
+			registry, err := adapter.NewRegistry(clientAdapter)
 			if err != nil {
 				t.Fatal(err)
 			}

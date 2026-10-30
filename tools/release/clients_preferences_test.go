@@ -6,9 +6,9 @@ import (
 	"encoding/json"
 	"path/filepath"
 
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/hermes"
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/hermes"
 )
 
 // requireNativePreferences requires that each client still holds the native

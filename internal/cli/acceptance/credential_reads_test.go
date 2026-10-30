@@ -8,9 +8,9 @@ import (
 	"sync"
 	"testing"
 
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/domain"
 )
 

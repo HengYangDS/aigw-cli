@@ -1,12 +1,12 @@
 package status
 
 import (
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/claudedesktop"
+	"aigw-cli/internal/adapter/codex"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
-	clientdomain "aigw-cli/internal/client"
-	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/claudedesktop"
-	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -28,8 +28,8 @@ import (
 
 func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
-	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
-		return clientdomain.Status{Ready: true}
+	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) adapter.Status {
+		return adapter.Status{Ready: true}
 	}
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
@@ -99,8 +99,8 @@ func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	runtime.ClientInspector = func(_ context.Context, _ domain.Config, client string, _ domain.Runtime) clientdomain.Status {
-		return clientdomain.Status{Ready: client == codex.ID}
+	runtime.ClientInspector = func(_ context.Context, _ domain.Config, client string, _ domain.Runtime) adapter.Status {
+		return adapter.Status{Ready: client == codex.ID}
 	}
 	if err := RunStatus(runtime, true); err != nil {
 		t.Fatal(err)
@@ -412,8 +412,8 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	store := &observingSecretStore{value: "must-not-be-read"}
 	runtime.Secrets = store
-	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
-		return clientdomain.Status{Ready: true}
+	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) adapter.Status {
+		return adapter.Status{Ready: true}
 	}
 
 	collectStatus(runtime.Dependencies, cfg)
@@ -438,8 +438,8 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	}
 	store := &observingSecretStore{value: "account-token"}
 	runtime.Secrets = store
-	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
-		return clientdomain.Status{Ready: true}
+	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) adapter.Status {
+		return adapter.Status{Ready: true}
 	}
 
 	if err := RunStatus(runtime, false); err != nil {
@@ -502,8 +502,8 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
-		return clientdomain.Status{Ready: true}
+	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) adapter.Status {
+		return adapter.Status{Ready: true}
 	}
 	if err := RunStatus(runtime, true); err != nil {
 		t.Fatal(err)

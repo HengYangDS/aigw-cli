@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/cli"
-	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 )

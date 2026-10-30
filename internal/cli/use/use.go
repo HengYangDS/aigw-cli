@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 
+	"aigw-cli/internal/adapter"
 	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/client"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
@@ -183,7 +183,7 @@ type useResult struct {
 	RestartRequired    bool   `json:"restart_required,omitempty"`
 	NextAction         string `json:"next_action,omitempty"`
 	domain.Runtime
-	Targets []client.ProjectionPlan `json:"targets,omitempty"`
+	Targets []adapter.ProjectionPlan `json:"targets,omitempty"`
 }
 
 func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.Runtime, connection domain.ConnectionChange, jsonMode bool) error {
@@ -222,7 +222,7 @@ func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.R
 		rows = append(rows, retryFields(selected.RetryPolicy)...)
 	}
 	if spec.SessionsKeepRoute &&
-		slices.ContainsFunc(plans, func(plan client.ProjectionPlan) bool { return plan.ChangesState }) {
+		slices.ContainsFunc(plans, func(plan adapter.ProjectionPlan) bool { return plan.ChangesState }) {
 		rows = append(rows, existingSessionsField)
 	}
 	r.Rows(rows...)

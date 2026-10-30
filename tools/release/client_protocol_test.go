@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/client/hermes"
+	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/hermes"
 
 	"aigw-cli/internal/domain"
 )

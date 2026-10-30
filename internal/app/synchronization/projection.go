@@ -1,13 +1,13 @@
 package synchronization
 
 import (
-	"aigw-cli/internal/client"
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
 )
 
 // Plan returns side-effect-free changes for credential-ready clients,
 // including target removals. Known-missing Tokens leave projections untouched.
-func (s Synchronizer) Plan(before, after domain.Config, clients ...string) ([]client.ProjectionPlan, error) {
+func (s Synchronizer) Plan(before, after domain.Config, clients ...string) ([]adapter.ProjectionPlan, error) {
 	projectable, err := s.credentialReadyClients(after, clients...)
 	if err != nil || len(projectable) == 0 {
 		return nil, err

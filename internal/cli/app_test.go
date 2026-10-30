@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode"
 
-	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"

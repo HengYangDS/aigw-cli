@@ -327,9 +327,9 @@ Responses and Chat Completions. Responses resolves to Hermes's canonical
 `codex_responses` transport. This establishes native parsing and credential
 delivery on the observed macOS host, not live model inference or Windows/Linux
 acceptance. The reproducible owner is the explicitly invoked
-[`TestHermesNativeProjection`](../../internal/client/hermes/adapter_native_test.go),
+[`TestHermesNativeProjection`](../../internal/adapter/hermes/adapter_native_test.go),
 with explicit candidate and installed Hermes Python executable inputs. Run it
-with `go test -tags native_hermes ./internal/client -run TestHermesNativeProjection`
+with `go test -tags native_hermes ./internal/adapter/hermes -run TestHermesNativeProjection`
 inside the locked tool environment; `AIGW_NATIVE_CANDIDATE` and
 `HERMES_NATIVE_PYTHON` are required absolute paths. Missing inputs fail rather
 than silently skip.

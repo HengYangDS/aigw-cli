@@ -12,13 +12,13 @@ import (
 	"strings"
 	"testing"
 
+	claudeclient "aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/app"
 	"aigw-cli/internal/app/diagnostics"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/cli/status"
-	claudeclient "aigw-cli/internal/client/claude"
-	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/domain"
 )
 
