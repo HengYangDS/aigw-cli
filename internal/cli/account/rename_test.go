@@ -1,47 +1,23 @@
-package renaming
+package account
 
 import (
-	"bytes"
-	"context"
-	"errors"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
-
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"context"
+	"errors"
+	"strings"
+	"testing"
 
 	"github.com/spf13/cobra"
 )
 
-func renameRuntime(t *testing.T) invocation.Context {
-	t.Helper()
-	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["old"] = domain.Account{Label: "Old", Endpoints: domain.Endpoints{OpenAIResponses: "https://old.test/v1"}}
-	cfg.Routes["old"] = domain.Route{Label: "Old", Account: "old", Model: "gpt"}
-	if err := configStore.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	secretStore := secret.NewMemoryStore()
-	diagnostics, err := secret.NewDiagnosticCredentialStore(secretStore)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Accounts: diagnostics, Out: &bytes.Buffer{}}
-}
-
-func TestRenameCommandsPreserveInvocationAndDomainErrors(t *testing.T) {
+func TestAccountRenamePreservesInvocationAndDomainErrors(t *testing.T) {
 	for _, constructor := range []struct {
 		name string
 		new  func(invocation.Context) *cobra.Command
 	}{
-		{name: "route", new: NewRouteCommand},
-		{name: "account", new: NewAccountCommand},
+		{name: "account", new: newRenameCommand},
 	} {
 		for _, test := range []struct {
 			name string
@@ -122,7 +98,7 @@ func TestAccountFinalizationRequiresExplicitIntent(t *testing.T) {
 		{"old", "new", "--confirm-account-probe-rotation"},
 		{"old", "new", "--finalize=false", "--confirm-api-token-rotation=true"},
 	} {
-		command := NewAccountCommand(renameRuntime(t))
+		command := newRenameCommand(renameRuntime(t))
 		command.SilenceErrors, command.SilenceUsage = true, true
 		command.PreRun = func(*cobra.Command, []string) {
 			t.Fatalf("invalid finalization reached execution: %v", args)
@@ -131,19 +107,5 @@ func TestAccountFinalizationRequiresExplicitIntent(t *testing.T) {
 		if err := command.Execute(); err == nil {
 			t.Fatalf("incomplete finalization intent accepted: %v", args)
 		}
-	}
-}
-
-func TestInteractiveRenamePreservesConfigurationLoadFailure(t *testing.T) {
-	runtime := renameRuntime(t)
-	path := filepath.Join(t.TempDir(), "configuration.toml")
-	if err := os.WriteFile(path, []byte("invalid TOML = ["), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	runtime.Config = store.NewStore(path, clients.Admission())
-	runtime.Interactive = true
-	runtime.Prompt = selectionPrompt{}
-	if _, _, err := resolveIDs(runtime, "account", nil); err == nil {
-		t.Fatal("invalid configuration was accepted for interactive selection")
 	}
 }

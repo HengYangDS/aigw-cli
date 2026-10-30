@@ -240,7 +240,6 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/installation",
   "internal/cli/invocation",
   "internal/cli/models",
-  "internal/cli/renaming",
   "internal/cli/repair",
   "internal/cli/rollback",
   "internal/cli/rotate",
@@ -274,6 +273,7 @@ allowed_import_edges."internal/app" = [
   "internal/domain",
   "internal/process",
   "internal/readiness",
+  "internal/renaming",
   "internal/secret",
   "internal/secret/probe",
   "internal/store",
@@ -282,6 +282,8 @@ allowed_import_edges."internal/app" = [
 ]
 allowed_import_edges."internal/cli/invocation" = [
   "internal/app",
+  "internal/domain",
+  "internal/renaming",
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/credential" = [
@@ -308,12 +310,6 @@ allowed_import_edges."internal/cli/installation" = [
 allowed_import_edges."internal/cli/update" = [
   "internal/cli/invocation",
   "internal/upgrade",
-]
-allowed_import_edges."internal/cli/renaming" = [
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/renaming",
-  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/catalog" = [
   "internal/app",
@@ -353,6 +349,7 @@ allowed_import_edges."internal/cli/account" = [
   "internal/cli/invocation",
   "internal/domain",
   "internal/providers",
+  "internal/renaming",
   "internal/secret",
   "internal/terminal",
 ]

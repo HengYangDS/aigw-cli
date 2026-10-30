@@ -75,7 +75,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 }
 
 // NewCommand constructs the account command group from one invocation context.
-func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra.Command {
+func NewCommand(runtime invocation.Context) *cobra.Command {
 	root := &cobra.Command{Use: "account", Short: "Manage account endpoints and optional precise diagnostics"}
 	diagnostics := &cobra.Command{Use: "diagnostics", Short: "Manage optional precise provider diagnostics"}
 	var systemTokenStdin bool
@@ -172,7 +172,7 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 	root.AddCommand(
 		newListCommand(runtime),
 		newEditCommand(runtime),
-		renameCommand,
+		newRenameCommand(runtime),
 		diagnostics,
 	)
 	return root

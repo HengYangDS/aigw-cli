@@ -26,7 +26,6 @@ import (
 	installcli "aigw-cli/internal/cli/install"
 	"aigw-cli/internal/cli/invocation"
 
-	"aigw-cli/internal/cli/renaming"
 	"aigw-cli/internal/cli/route"
 
 	updatecli "aigw-cli/internal/cli/update"
@@ -396,8 +395,8 @@ func NewRoot(app *App) *cobra.Command {
 	}
 	advanced := []*cobra.Command{
 		installation.NewCommand(runtime),
-		add.NewCommand(runtime), accountcli.NewCommand(runtime, renaming.NewAccountCommand(runtime)),
-		route.NewCommand(runtime, renaming.NewRouteCommand(runtime)),
+		add.NewCommand(runtime), accountcli.NewCommand(runtime),
+		route.NewCommand(runtime),
 		clientcli.NewCommand(runtime),
 		config.NewCommand(runtime), testcli.NewCommand(runtime),
 		verify.NewCommand(runtime), models.NewCommand(runtime),

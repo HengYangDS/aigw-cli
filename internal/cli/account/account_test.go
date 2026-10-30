@@ -13,13 +13,11 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-
-	"github.com/spf13/cobra"
 )
 
 func TestAccountDiagnosticsRequireAnAccountBeforeProviderWork(t *testing.T) {
 	runtime := emptyAccountRuntime(t)
-	accountCommand := NewCommand(runtime, &cobra.Command{Use: "rename"})
+	accountCommand := NewCommand(runtime)
 	accountCommand.SetArgs([]string{"diagnostics", "enable"})
 	accountCommand.SilenceErrors = true
 	accountCommand.SilenceUsage = true

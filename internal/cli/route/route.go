@@ -13,12 +13,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewCommand constructs the route command tree. renameCommand is supplied
-// by the rename domain because rename is a credential-aware transaction, not
-// ordinary route metadata editing.
-func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra.Command {
+// NewCommand constructs the route command tree, whose rename subcommand is a
+// credential-aware transaction rather than ordinary route metadata editing.
+func NewCommand(runtime invocation.Context) *cobra.Command {
 	root := &cobra.Command{Use: "route", Short: "Manage Routes"}
-	root.AddCommand(newAddCommand(runtime), newListCommand(runtime), newShowCommand(runtime), newEditCommand(runtime), renameCommand, newRemoveCommand(runtime))
+	root.AddCommand(newAddCommand(runtime), newListCommand(runtime), newShowCommand(runtime), newEditCommand(runtime), newRenameCommand(runtime), newRemoveCommand(runtime))
 	return root
 }
 
