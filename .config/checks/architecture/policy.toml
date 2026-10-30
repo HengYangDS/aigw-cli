@@ -480,6 +480,11 @@ responsibility = "product and repository-tool Go source"
 prefixes = ["cmd", "internal", "tools"]
 suffixes = [".go"]
 
+[tracked_carrier_classes.acceptance-scripts]
+responsibility = "command acceptance scripts that hold the CLI's behavior baseline"
+prefixes = ["cmd/aigw/testdata/script"]
+suffixes = [".txtar"]
+
 [tracked_carrier_classes.native-check-adapters]
 responsibility = "repository adapters for native Node quality libraries"
 prefixes = ["tools/ci"]
