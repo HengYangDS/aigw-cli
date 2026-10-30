@@ -54,9 +54,10 @@ See `proposal.md` for the motivation and the measured baseline on `dev`
 
 ### The target is one layer stack
 
-Product packages form this stack, from top to bottom. A package may import its
-own subtree's seam package and any package in a lower layer. It may not import
-a package in its own layer or in a higher one.
+Product packages form this stack, from top to bottom. A package may import
+any package in a lower layer, its own descendants, and the seam packages that
+the policy declares for its subtree. It may not import any other package of
+its own layer or a package in a higher layer.
 
 | Layer | Packages                                                 | Owns                                                                                                                                                 |
 | ----- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -198,7 +199,8 @@ would repeat its new package's name, and drops every exported identifier that
 has no user outside its package, as the next paragraph counts one.
 
 The architecture gate's `used_exports_only` list holds `domain`, `store` and the
-`secret` subtree to that rule. An exported top-level function, type, variable or
+`secret` subtree to that rule, and since stage 3 also `app`, `terminal` and the
+CLI's `invocation` package, which several commands share. An exported top-level function, type, variable or
 constant of a listed package is used when a Go file outside the package's
 directory selects it, the package's own tests excluded, or when the exported API
 of a used identifier names it: the types in its signature or declared type, a
@@ -264,8 +266,11 @@ without removing knowledge from any caller.
 A use case belongs to `internal/app` when more than one command, or the root
 on a command's behalf, runs it, such as the client inspection that `status`,
 `check` and `doctor` share. A command's own behavior stays in its package
-beside its flags and rendering, and every command receives the invocation
-context.
+beside its flags and rendering. A command that needs capabilities receives
+them through the invocation context. CLI behavior that several commands
+share, such as the optional Account argument and the rename subcommands'
+argument rule, selection and plan output, lives in `internal/cli/invocation`;
+no command package imports another.
 
 Alternative considered: one `internal/app` use case per command, with the
 command packages reduced to flags, rendering and exit codes. Rejected
@@ -358,4 +363,7 @@ carries the completed stages; none of them needs a release of its own.
 
 ## Open Questions
 
-None. Stage 3 settled the last one: `terminal` stays one package.
+Stage 4 decides whether the packages that task 4.1 moves under `internal/app`
+merge into it or stay subpackages in an ordered part of the layer table,
+before task 4.3 adds the table. Stage 3 settled that `terminal` stays one
+package.

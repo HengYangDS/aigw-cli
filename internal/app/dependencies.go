@@ -1,7 +1,7 @@
 // Package app holds the use cases that several AIGW commands, or the CLI root
-// on a command's behalf, share. A use case receives the invocation's
-// Dependencies and returns values for the terminal to render; it imports
-// neither the command tree nor the terminal.
+// on a command's behalf, share. A use case receives the capabilities that it
+// needs, usually the invocation's Dependencies, and returns values for the
+// terminal to render; it imports neither the command tree nor the terminal.
 package app
 
 import (

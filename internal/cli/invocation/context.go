@@ -1,6 +1,7 @@
 // Package invocation defines the capabilities available to one CLI invocation
 // and the CLI behavior that several commands share: Token input, rendering,
-// problems, and the rename subcommands' arguments, selection and plan output.
+// problems, the optional Account argument, and the rename subcommands'
+// arguments, selection and plan output.
 package invocation
 
 import (

@@ -1,5 +1,6 @@
-// Package cli composes the AIGW command tree and owns root-level workflows.
-// Cohesive command groups live in semantic subpackages below this package.
+// Package cli composes the AIGW command tree. It builds the App, runs one
+// command under the configuration lock, presents help and errors, and groups
+// the top-level commands, each implemented by its own subpackage.
 package cli
 
 import (

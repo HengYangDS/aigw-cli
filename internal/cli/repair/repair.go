@@ -1,5 +1,5 @@
 // Package repair implements `aigw repair`, which rediscovers the clients and
-// repairs their configuration.
+// repairs their configuration. It never changes client conversation history or model metadata.
 package repair
 
 import (

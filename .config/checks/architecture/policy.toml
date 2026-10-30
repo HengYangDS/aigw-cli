@@ -92,9 +92,9 @@ used_exports_only = [
 composition_root_files."internal/cli" = ["app.go"]
 composition_root_files."tools/release" = ["commands.go", "main.go"]
 
-# CLI leaf packages are peers. They may depend on the invocation capability
-# contract, but never on another command leaf; shared behavior belongs to a
-# domain package outside internal/cli.
+# Command packages are peers. They share CLI behavior only through
+# internal/cli/invocation and never import another command package; a use case
+# that several commands share belongs to internal/app.
 peer_package_roots."internal/cli" = ["invocation"]
 
 # Repository tools are independent composition roots. Only declared product

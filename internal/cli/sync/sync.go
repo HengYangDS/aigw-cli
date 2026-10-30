@@ -1,5 +1,6 @@
 // Package sync implements `aigw sync`, which resynchronizes the enabled
-// clients' configuration with the selected Routes.
+// clients' configuration with the selected Routes. It never changes client
+// conversation history or model metadata.
 package sync
 
 import (

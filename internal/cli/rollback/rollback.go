@@ -1,5 +1,6 @@
 // Package rollback implements `aigw rollback`, which restores configuration
-// and client projections from a verified checkpoint or the previous backup.
+// and client projections from a verified checkpoint or the previous backup. It
+// never changes client conversation history or model metadata.
 package rollback
 
 import (

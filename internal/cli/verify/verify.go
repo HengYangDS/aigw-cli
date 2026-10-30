@@ -1,5 +1,6 @@
 // Package verify implements `aigw verify`, which verifies a Route through a
-// real native client.
+// real native client and may use provider quota. Only a complete success of
+// --for all writes the secret-free verified checkpoint.
 package verify
 
 import (
