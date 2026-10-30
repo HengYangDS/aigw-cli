@@ -99,7 +99,9 @@ every new package needs a policy edit.
 rows of package-path prefixes, and the gate checks every import of a
 production file against it. A package belongs to the row of its longest
 matching prefix. `layer_seams` declares a subtree's seams, and `layer_floors`
-names the highest product row that a subtree's packages may import. The table
+names the highest product row that a subtree's packages may import. The tools
+have a floor at `internal/client`'s row, and so does `internal/terminal`, which
+shares the row of `internal/app` but imports none of the use cases. The table
 replaces `allowed_import_edges` and the peer rule for command packages. A
 production package that no row places, a prefix that places no package and a
 seam that nothing imports are findings. `package_children` stays as the closed

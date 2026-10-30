@@ -90,22 +90,54 @@ func TestLayersRefuseTheirOwnRowAndHigherRows(t *testing.T) {
 		"internal/secret":        {"internal/store"},
 		"internal/client/claude": {"internal/client/codex"},
 		"internal/client/codex":  nil,
-		"internal/domain":        {"internal/app"},
+		"internal/domain":        {"internal/app", "internal/unplaced"},
 		"internal/app":           nil,
 		"internal/store":         nil,
 	})
 	want := []string{
 		"internal/client/claude -> internal/client/codex",
 		"internal/domain -> internal/app",
+		"internal/domain -> internal/unplaced",
 		"internal/secret -> internal/store",
 	}
 	if got := refusedImports(report); !slices.Equal(got, want) {
 		t.Fatalf("refused = %v, want %v", got, want)
 	}
-	for _, finding := range report.Findings {
-		if finding.Rule == "layer_import" && finding.Package == "internal/app" && !strings.Contains(finding.Message, `"internal/domain" in layer 9 may not import "internal/app" in layer 5`) {
-			t.Fatalf("finding does not name both layers: %s", finding.Message)
+	for target, phrase := range map[string]string{
+		"internal/app":      `"internal/domain" in row 9 of the layer table may not import "internal/app" in row 5`,
+		"internal/unplaced": `may not import "internal/unplaced" which no row places`,
+	} {
+		for _, finding := range report.Findings {
+			if finding.Rule == "layer_import" && finding.Package == target && !strings.Contains(finding.Message, phrase) {
+				t.Fatalf("finding does not name both rows: %s", finding.Message)
+			}
 		}
+	}
+}
+
+func TestLayerSeamsServeOnlyTheirOwnSubtree(t *testing.T) {
+	report := layerReport(t, layerPolicy(), map[string][]string{
+		"internal/app":    {"internal/cli/invocation"},
+		"internal/store":  {"internal/client"},
+		"internal/client": nil,
+	})
+	want := []string{"internal/app -> internal/cli/invocation", "internal/store -> internal/client"}
+	if got := refusedImports(report); !slices.Equal(got, want) {
+		t.Fatalf("refused = %v, want %v", got, want)
+	}
+}
+
+func TestLayersCountOnlyImportsThroughASeamAsItsUse(t *testing.T) {
+	p := policy{
+		Layers:     [][]string{{"internal/client"}},
+		LayerSeams: map[string][]string{"internal/client": {"internal/client/discovery"}},
+	}
+	report := layerReport(t, p, map[string][]string{
+		"internal/client":           {"internal/client/discovery"},
+		"internal/client/discovery": nil,
+	})
+	if got := countRule(report, "unused_layer_seam"); got != 1 {
+		t.Fatalf("an import of a descendant counted as a use of the seam: %+v", report.Findings)
 	}
 }
 
@@ -129,7 +161,7 @@ func TestLayerFloorsKeepToolsOffTheCommandTree(t *testing.T) {
 		t.Fatalf("refused = %v, want %v", got, want)
 	}
 	for _, finding := range report.Findings {
-		if finding.Package == "internal/cli" && !strings.Contains(finding.Message, `packages of "tools" import outside it only from the layer of "internal/client" down`) {
+		if finding.Package == "internal/cli" && !strings.Contains(finding.Message, `packages of "tools" import outside it only from the row of "internal/client" down`) {
 			t.Fatalf("a floor's refusal does not name the floor: %s", finding.Message)
 		}
 	}
@@ -137,8 +169,9 @@ func TestLayerFloorsKeepToolsOffTheCommandTree(t *testing.T) {
 
 func TestLayersReportUnplacedPackagesAndUnusedEntries(t *testing.T) {
 	p := policy{
-		Layers:     [][]string{{"internal/domain"}, {"internal/retired"}},
-		LayerSeams: map[string][]string{"internal/domain": {"internal/domain/unused"}},
+		Layers:      [][]string{{"internal/domain"}, {"internal/retired"}},
+		LayerSeams:  map[string][]string{"internal/domain": {"internal/domain/unused"}},
+		LayerFloors: map[string]string{"internal/domain/typo": "internal/retired"},
 	}
 	root, files := layerFixture(t, map[string][]string{"internal/domain": nil, "internal/other": nil})
 	writeFile(t, filepath.Join(root, "internal", "other", "second.go"), "package other\n")
@@ -147,7 +180,7 @@ func TestLayersReportUnplacedPackagesAndUnusedEntries(t *testing.T) {
 	if err := checkLayers(root, files, p, &report); err != nil {
 		t.Fatal(err)
 	}
-	for rule, want := range map[string]int{"layer_unplaced": 1, "unused_layer_prefix": 1, "unused_layer_seam": 1, "layer_import": 0} {
+	for rule, want := range map[string]int{"layer_unplaced": 1, "unused_layer_prefix": 1, "unused_layer_seam": 1, "unused_layer_floor": 1, "layer_import": 0} {
 		if got := countRule(report, rule); got != want {
 			t.Fatalf("%s findings = %d, want %d: %+v", rule, got, want, report.Findings)
 		}
@@ -187,5 +220,45 @@ func TestLayersRequireModuleIdentityAndReadableSources(t *testing.T) {
 	files[0].relPath = "internal/cli/source.go"
 	if err := checkLayers(root, files, p, &report); err == nil || !strings.Contains(err.Error(), "internal/cli/source.go") {
 		t.Fatalf("unreadable import syntax error = %v", err)
+	}
+}
+
+func TestValidateLayersRefusesEachInvalidTable(t *testing.T) {
+	thirteenRows := make([][]string, maxLayerRows+1)
+	for i := range thirteenRows {
+		thirteenRows[i] = []string{"internal/row" + string(rune('a'+i))}
+	}
+	twelve := policy{
+		Layers:      thirteenRows[:maxLayerRows],
+		LayerSeams:  map[string][]string{"internal/rowa": {"internal/rowa/seam"}},
+		LayerFloors: map[string]string{"internal/rowa": "internal/rowb"},
+	}
+	if err := validateLayers(twelve); err != nil {
+		t.Fatalf("a table of %d rows with a seam and a floor was refused: %v", maxLayerRows, err)
+	}
+	for name, test := range map[string]struct {
+		p    policy
+		want string
+	}{
+		"too many rows":              {policy{Layers: thirteenRows}, "at most 12 rows"},
+		"empty row":                  {policy{Layers: [][]string{{}}}, "rows must be non-empty"},
+		"repeated prefix":            {policy{Layers: [][]string{{"internal"}, {"internal"}}}, "invalid or repeated prefix"},
+		"invalid prefix":             {policy{Layers: [][]string{{"../internal"}}}, "invalid or repeated prefix"},
+		"seams without layers":       {policy{LayerSeams: map[string][]string{"internal/cli": {"internal/cli/invocation"}}}, "which is empty"},
+		"floors without layers":      {policy{LayerFloors: map[string]string{"tools": "internal"}}, "which is empty"},
+		"unplaced seam subtree":      {policy{Layers: [][]string{{"internal/app"}}, LayerSeams: map[string][]string{"internal/cli": {"internal/cli/invocation"}}}, "has no row"},
+		"seam outside its subtree":   {policy{Layers: [][]string{{"internal/cli"}, {"internal/app"}}, LayerSeams: map[string][]string{"internal/cli": {"internal/app"}}}, "its own subtree's packages"},
+		"seam above its subtree":     {policy{Layers: [][]string{{"internal/client/x"}, {"internal/client"}}, LayerSeams: map[string][]string{"internal/client": {"internal/client/x"}}}, "at or below its row"},
+		"invalid floor subtree":      {policy{Layers: [][]string{{"internal"}}, LayerFloors: map[string]string{"../tools": "internal"}}, "has no row"},
+		"unplaced floor subtree":     {policy{Layers: [][]string{{"internal/client"}}, LayerFloors: map[string]string{"tools": "internal/client"}}, "has no row"},
+		"floor outside the layers":   {policy{Layers: [][]string{{"internal"}, {"tools"}}, LayerFloors: map[string]string{"tools": "internal/client"}}, "must name a prefix"},
+		"floor above its subtree":    {policy{Layers: [][]string{{"internal/cli"}, {"tools"}}, LayerFloors: map[string]string{"tools": "internal/cli"}}, "row below the subtree"},
+		"floor on its subtree's row": {policy{Layers: [][]string{{"internal/client", "tools"}}, LayerFloors: map[string]string{"tools": "internal/client"}}, "row below the subtree"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := validateLayers(test.p); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }

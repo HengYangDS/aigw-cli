@@ -4,8 +4,8 @@ owner = "product-toolchain"
 source = "repository architecture layout"
 risk_model = "undeclared semantic owners and dependency edges create hidden coupling, ambiguous authority, and non-local change risk"
 measurement = "parse tracked Go packages, layered imports, composition roots, semantic carriers, Decision Records, and deterministic text bytes against this declared contract"
-false_positive_cost = "a valid new semantic owner or dependency requires an intentional policy update reviewed with the implementation"
-remediation = "move behavior to an existing owner, delete an unused allowance, or declare a required owner and dependency here with focused contract tests"
+false_positive_cost = "a valid new semantic owner, layer row, seam or floor requires an intentional policy update reviewed with the implementation"
+remediation = "move behavior to an existing owner or a lower layer, delete an unused prefix, seam or floor, or declare a required owner, row, seam or floor here with focused contract tests"
 review_condition = "reassess when the product topology changes or when two legitimate changes in one release train are blocked by the same contract"
 
 # Managed Go trees subject to topology, naming, and AST rules.
@@ -161,7 +161,9 @@ layer_seams."tools/release" = [
 ]
 
 # Repository tools import product packages from internal/client's row down,
-# never the command tree or its use cases.
+# never the command tree or its use cases. internal/terminal renders what the
+# use cases return and imports none of them.
+layer_floors."internal/terminal" = "internal/client"
 layer_floors."tools" = "internal/client"
 
 # Top-level roots skipped entirely while walking the repository.

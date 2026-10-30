@@ -2,11 +2,12 @@
 
 ### Requirement: Product packages form one downward layer stack
 
-The architecture gate SHALL declare product packages as one ordered stack of
-layers. A package's production files SHALL import only its own subtree's seam
-and packages in lower layers, and a repository tool's production files SHALL
-import only its own subtree and product packages below the use-case layer.
-Test files are fixtures and stay outside the stack.
+The architecture gate SHALL declare product packages and repository tools as
+one ordered stack of layers. A package's production files SHALL import only
+its own descendants, the seams that the policy declares for its subtree, and
+packages in lower layers. A repository tool's production files SHALL import
+product packages only below the use-case layer. Test files are fixtures and
+stay outside the stack.
 
 #### Scenario: An import points upward or sideways
 

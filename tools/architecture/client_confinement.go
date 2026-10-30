@@ -230,19 +230,25 @@ func namedClients(relPath string, source []byte, clients [][]string, native map[
 }
 
 // clientsInWords returns the clients that a word sequence contains, preferring
-// the longest ID at each word position.
+// the longest ID at each word position. A multi-word ID also matches one word
+// that joins its words, as its adapter package name spells it.
 func clientsInWords(words []string, clients [][]string) [][]string {
 	var named [][]string
 	for index := 0; index < len(words); index++ {
 		var match []string
+		width := 0
 		for _, client := range clients {
-			if len(client) > len(match) && index+len(client) <= len(words) && slices.Equal(words[index:index+len(client)], client) {
-				match = client
+			switch {
+			case len(client) <= len(match):
+			case index+len(client) <= len(words) && slices.Equal(words[index:index+len(client)], client):
+				match, width = client, len(client)
+			case len(client) > 1 && words[index] == strings.Join(client, ""):
+				match, width = client, 1
 			}
 		}
 		if match != nil {
 			named = append(named, match)
-			index += len(match) - 1
+			index += width - 1
 		}
 	}
 	return named

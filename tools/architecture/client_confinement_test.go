@@ -76,6 +76,25 @@ func TestClientConfinementRefusesPackagesThatNameAnotherClient(t *testing.T) {
 	}
 }
 
+// An adapter's package name joins its client ID's words, so a command that
+// imports the Claude Desktop adapter names that client.
+func TestClientConfinementReadsTheAdapterPackageNameOfAMultiWordID(t *testing.T) {
+	if got := clientsInWords([]string{"internal", "client", "claudedesktop"}, clientWords(confinementPolicy().Clients)); !reflect.DeepEqual(got, [][]string{{"claude", "desktop"}}) {
+		t.Fatalf("clients = %q", got)
+	}
+	root, files := confinementFixture(t, map[string]string{
+		"internal/cli/sync/desktop.go":           "package sync\n\nimport \"aigw-cli/internal/client/claudedesktop\"\n\nvar _ = claudedesktop.LibraryPathFor\n",
+		"internal/client/claudedesktop/paths.go": "package claudedesktop\n\nfunc LibraryPathFor() {}\n",
+	})
+	report := newReport("policy.toml", root)
+	if err := checkClientConfinement(root, files, confinementPolicy(), &report); err != nil {
+		t.Fatal(err)
+	}
+	if want := map[string][]string{"claude-desktop": {"internal/cli/sync"}}; !reflect.DeepEqual(report.ClientPackages, want) {
+		t.Fatalf("client packages = %v, want %v", report.ClientPackages, want)
+	}
+}
+
 func TestClientConfinementReportsNamingPackagesPerClient(t *testing.T) {
 	root, files := confinementFixture(t, confinementSources)
 	report := newReport("policy.toml", root)

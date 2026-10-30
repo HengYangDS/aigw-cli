@@ -82,9 +82,17 @@ func (table layerTable) admits(source, target string) bool {
 	return !refused
 }
 
+// rowName describes a row for a finding; row -1 places no package.
+func rowName(row int) string {
+	if row < 0 {
+		return "which no row places"
+	}
+	return fmt.Sprintf("in row %d", row+1)
+}
+
 // checkLayers checks every module import of every production file against the
 // layer table. It reports a production package that no row places, an import
-// that the table refuses, and a prefix or seam that nothing uses.
+// that the table refuses, and a prefix, seam or floor that nothing uses.
 func checkLayers(root string, files []goFileInfo, p policy, report *Report) error {
 	if len(p.Layers) == 0 {
 		return nil
@@ -96,6 +104,7 @@ func checkLayers(root string, files []goFileInfo, p policy, report *Report) erro
 	table := layerTable{rows: p.Layers, seams: p.LayerSeams, floors: p.LayerFloors}
 	fset := token.NewFileSet()
 	unplaced := map[string]bool{}
+	placed := map[string]bool{}
 	usedPrefixes := map[string]bool{}
 	usedSeams := map[string]bool{}
 	for _, file := range files {
@@ -111,6 +120,7 @@ func checkLayers(root string, files []goFileInfo, p policy, report *Report) erro
 			continue
 		}
 		usedPrefixes[prefix] = true
+		placed[file.dir] = true
 		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file.relPath)))
 		if err != nil {
 			return fmt.Errorf("read %s: %w", file.relPath, err)
@@ -132,9 +142,9 @@ func checkLayers(root string, files []goFileInfo, p policy, report *Report) erro
 				continue
 			}
 			targetRow, _ := table.row(target)
-			message := fmt.Sprintf("package %q in layer %d may not import %q in layer %d; import a lower layer, a descendant or a declared seam", file.dir, sourceRow+1, target, targetRow+1)
+			message := fmt.Sprintf("package %q in row %d of the layer table may not import %q %s; import a lower row, a descendant or a declared seam", file.dir, sourceRow+1, target, rowName(targetRow))
 			if subtree, floor, ok := table.floorAbove(file.dir, target); ok {
-				message = fmt.Sprintf("package %q in layer %d may not import %q in layer %d; packages of %q import outside it only from the layer of %q down", file.dir, sourceRow+1, target, targetRow+1, subtree, floor)
+				message = fmt.Sprintf("package %q in row %d of the layer table may not import %q %s; packages of %q import outside it only from the row of %q down", file.dir, sourceRow+1, target, rowName(targetRow), subtree, floor)
 			}
 			report.addFinding(Finding{
 				Rule:    "layer_import",
@@ -159,15 +169,28 @@ func checkLayers(root string, files []goFileInfo, p policy, report *Report) erro
 			}
 		}
 	}
+	for _, subtree := range slices.Sorted(maps.Keys(p.LayerFloors)) {
+		used := false
+		for dir := range placed {
+			used = used || pathContains(subtree, dir)
+		}
+		if !used {
+			report.addFinding(Finding{Rule: "unused_layer_floor", Path: subtree, Message: fmt.Sprintf("the floor of %q holds no production package; delete it", subtree)})
+		}
+	}
 	return nil
 }
 
 // validateLayers admits at most maxLayerRows non-empty rows of distinct portable
-// prefixes, seams inside the subtree that declares them, and floors that name
-// a prefix of the table.
+// prefixes. A seam lies inside the placed subtree that declares it and never in
+// a row above that subtree; a floor names a prefix of a row below its placed
+// subtree.
 func validateLayers(p policy) error {
 	if len(p.Layers) > maxLayerRows {
 		return fmt.Errorf("layers holds at most %d rows, not %d", maxLayerRows, len(p.Layers))
+	}
+	if len(p.Layers) == 0 && (len(p.LayerSeams) > 0 || len(p.LayerFloors) > 0) {
+		return fmt.Errorf("layer_seams and layer_floors refine layers, which is empty")
 	}
 	prefixes := map[string]bool{}
 	for _, row := range p.Layers {
@@ -181,16 +204,28 @@ func validateLayers(p policy) error {
 			prefixes[prefix] = true
 		}
 	}
+	table := layerTable{rows: p.Layers}
 	for _, subtree := range slices.Sorted(maps.Keys(p.LayerSeams)) {
+		subtreeRow, _ := table.row(subtree)
+		if subtreeRow < 0 {
+			return fmt.Errorf("layer_seams subtree %q has no row in layers", subtree)
+		}
 		for _, seam := range p.LayerSeams[subtree] {
-			if !pathContains(subtree, seam) {
-				return fmt.Errorf("layer_seams of %q may name only its own subtree's packages, not %q", subtree, seam)
+			if seamRow, _ := table.row(seam); !pathContains(subtree, seam) || seamRow < subtreeRow {
+				return fmt.Errorf("layer_seams of %q may name only its own subtree's packages at or below its row, not %q", subtree, seam)
 			}
 		}
 	}
 	for _, subtree := range slices.Sorted(maps.Keys(p.LayerFloors)) {
-		if floor := p.LayerFloors[subtree]; !isPortableRelativePath(subtree) || !prefixes[floor] {
+		floor := p.LayerFloors[subtree]
+		subtreeRow, _ := table.row(subtree)
+		switch floorRow, _ := table.row(floor); {
+		case !isPortableRelativePath(subtree) || subtreeRow < 0:
+			return fmt.Errorf("layer_floors subtree %q has no row in layers", subtree)
+		case !prefixes[floor]:
 			return fmt.Errorf("layer_floors of %q must name a prefix of layers, not %q", subtree, floor)
+		case floorRow <= subtreeRow:
+			return fmt.Errorf("layer_floors of %q must name a row below the subtree's own row, not %q", subtree, floor)
 		}
 	}
 	return nil

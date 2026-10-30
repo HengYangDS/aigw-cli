@@ -59,28 +59,15 @@ func TestValidatePolicyEdgeEntries(t *testing.T) {
 			}
 		})
 	}
-	thirteenRows := make([][]string, maxLayerRows+1)
-	for i := range thirteenRows {
-		thirteenRows[i] = []string{"internal/row" + string(rune('a'+i))}
-	}
-	if err := validatePackagePolicy(policy{GoRoots: base.GoRoots, Layers: thirteenRows[:maxLayerRows], LayerSeams: map[string][]string{"internal/rowa": {"internal/rowa/seam"}}, LayerFloors: map[string]string{"internal/rowa": "internal/rowb"}}); err != nil {
-		t.Fatalf("a table of %d rows with a seam and a floor was refused: %v", maxLayerRows, err)
-	}
 	for name, p := range map[string]policy{
 		"parent traversal go root": {GoRoots: []string{"internal/../x"}},
 		"empty package children":   {PackageChildren: map[string][]string{"tools": {}}},
 		"invalid package root":     {PackageChildren: map[string][]string{"../tools": {"release"}}},
 		"duplicate package child":  {PackageChildren: map[string][]string{"tools": {"release", "release"}}},
 		"nested package child":     {PackageChildren: map[string][]string{"tools": {"release/legacy"}}},
-		"too many layer rows":      {Layers: thirteenRows},
-		"empty layer row":          {Layers: [][]string{{}}},
-		"repeated layer prefix":    {Layers: [][]string{{"internal"}, {"internal"}}},
-		"invalid layer prefix":     {Layers: [][]string{{"../internal"}}},
 		"empty layer seams":        {LayerSeams: map[string][]string{"internal/cli": {}}},
 		"duplicate layer seam":     {LayerSeams: map[string][]string{"internal/cli": {"internal/cli/invocation", "internal/cli/invocation"}}},
-		"seam outside its subtree": {LayerSeams: map[string][]string{"internal/cli": {"internal/app"}}},
-		"floor outside the layers": {Layers: [][]string{{"internal"}}, LayerFloors: map[string]string{"tools": "internal/client"}},
-		"invalid floor subtree":    {Layers: [][]string{{"internal"}}, LayerFloors: map[string]string{"../tools": "internal"}},
+		"refused layer table":      {Layers: [][]string{{}}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if p.GoRoots == nil {
