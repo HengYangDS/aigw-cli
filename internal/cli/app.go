@@ -318,7 +318,7 @@ func (a *App) doctorCommand() *cobra.Command {
 		Inspect: func(cfg domain.Config, store secret.Store) map[string]domainreadiness.Client {
 			operation := a.invocationContext()
 			operation.Secrets = store
-			return readiness.InspectClients(operation, cfg)
+			return readiness.InspectClients(operation.Dependencies, cfg)
 		},
 		RenderOut: a.outputWriter(),
 		Color:     a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)),

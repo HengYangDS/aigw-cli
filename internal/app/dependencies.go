@@ -13,6 +13,7 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
@@ -57,6 +58,17 @@ type Dependencies struct {
 	Clients client.Registry
 	Updater Updater
 	Now     func() time.Time
+	// ClientInspector observes one client's projection in place of the
+	// synchronizer; nil means the synchronizer inspects it.
+	ClientInspector func(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) client.Status
+}
+
+// InspectClient observes one client's projection without changing it.
+func (d Dependencies) InspectClient(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) client.Status {
+	if d.ClientInspector != nil {
+		return d.ClientInspector(ctx, cfg, clientID, runtime)
+	}
+	return d.Synchronizer().Inspect(ctx, cfg, clientID, runtime)
 }
 
 // Discover reads client discovery through the invocation's discoverer.

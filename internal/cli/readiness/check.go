@@ -250,7 +250,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
 		_, _, issue, cause := activationCheckIssue(activation)
 		result := checkJSON{
-			Clients:        inspectStatusClients(runtime, cfg, &activation, selected),
+			Clients:        inspectStatusClients(runtime.Dependencies, cfg, &activation, selected),
 			EnabledClients: activation.EnabledClients,
 			OK:             false,
 			State:          activation.State,
@@ -289,7 +289,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 }
 
 func checkedClientStatuses(runtime invocation.Context, cfg domain.Config, activation *clientactivation.Activation, evaluation checkEvaluation, selected string) map[string]clientStatus {
-	clients := inspectStatusClients(runtime, cfg, activation, selected)
+	clients := inspectStatusClients(runtime.Dependencies, cfg, activation, selected)
 	for _, client := range evaluation.clients {
 		status := clients[client.client]
 		status.Route = client.runtime.RouteID

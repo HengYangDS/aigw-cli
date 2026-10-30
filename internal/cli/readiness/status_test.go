@@ -26,9 +26,7 @@ import (
 
 func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
-	originalInspect := inspectAdapter
-	t.Cleanup(func() { inspectAdapter = originalInspect })
-	inspectAdapter = func(context.Context, invocation.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
+	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
 		return clientdomain.Status{Ready: true}
 	}
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
@@ -99,9 +97,7 @@ func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	originalInspect := inspectAdapter
-	t.Cleanup(func() { inspectAdapter = originalInspect })
-	inspectAdapter = func(_ context.Context, _ invocation.Context, _ domain.Config, client string, _ domain.Runtime) clientdomain.Status {
+	runtime.ClientInspector = func(_ context.Context, _ domain.Config, client string, _ domain.Runtime) clientdomain.Status {
 		return clientdomain.Status{Ready: client == codex.ID}
 	}
 	if err := RunStatus(runtime, true); err != nil {
@@ -404,7 +400,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 func TestStatusReportsSelectedUnknownRoute(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	cfg.SetSelectedRoute(claude.ID, "missing", "")
-	state := inspectStatusClients(runtime, cfg, nil, "")[claude.ID]
+	state := inspectStatusClients(runtime.Dependencies, cfg, nil, "")[claude.ID]
 	if state.State != domainreadiness.Invalid || state.Route != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
 		t.Fatalf("Claude status = %#v", state)
 	}
@@ -414,13 +410,11 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	store := &observingSecretStore{value: "must-not-be-read"}
 	runtime.Secrets = store
-	originalInspect := inspectAdapter
-	t.Cleanup(func() { inspectAdapter = originalInspect })
-	inspectAdapter = func(context.Context, invocation.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
+	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
 		return clientdomain.Status{Ready: true}
 	}
 
-	collectStatus(runtime, cfg)
+	collectStatus(runtime.Dependencies, cfg)
 	if store.existsCalls != 1 || store.getCalls != 0 {
 		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
 	}
@@ -442,9 +436,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	}
 	store := &observingSecretStore{value: "account-token"}
 	runtime.Secrets = store
-	originalInspect := inspectAdapter
-	t.Cleanup(func() { inspectAdapter = originalInspect })
-	inspectAdapter = func(context.Context, invocation.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
+	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
 		return clientdomain.Status{Ready: true}
 	}
 
@@ -481,7 +473,7 @@ func TestStatusClassifiesCredentialObservationFailureWithoutReadingValues(t *tes
 	want := errors.New("credential metadata unavailable")
 	store := &observingSecretStore{existsErr: want}
 	runtime.Secrets = store
-	result := collectStatus(runtime, cfg)
+	result := collectStatus(runtime.Dependencies, cfg)
 	for _, client := range []string{claude.ID, codex.ID} {
 		state := result.Clients[client]
 		if state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" || !strings.Contains(strings.ToLower(state.Detail), "credential metadata") {
@@ -508,9 +500,7 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	originalInspect := inspectAdapter
-	t.Cleanup(func() { inspectAdapter = originalInspect })
-	inspectAdapter = func(context.Context, invocation.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
+	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) clientdomain.Status {
 		return clientdomain.Status{Ready: true}
 	}
 	if err := RunStatus(runtime, true); err != nil {

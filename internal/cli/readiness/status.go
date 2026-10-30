@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	clientactivation "aigw-cli/internal/activation"
+	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
-	clientdomain "aigw-cli/internal/client"
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
@@ -45,10 +45,6 @@ type statusOutput struct {
 	NextAction        string                  `json:"next_action,omitempty"`
 }
 
-var inspectAdapter = func(ctx context.Context, runtime invocation.Context, cfg domain.Config, clientID string, clientRuntime domain.Runtime) clientdomain.Status {
-	return runtime.Synchronizer().Inspect(ctx, cfg, clientID, clientRuntime)
-}
-
 // NewStatusCommand constructs the read-only configuration and client readiness command.
 func NewStatusCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
@@ -64,7 +60,7 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 	if err != nil {
 		return err
 	}
-	result := collectStatus(runtime, cfg)
+	result := collectStatus(runtime.Dependencies, cfg)
 	if jsonMode {
 		return terminal.WriteJSON(runtime.Out, result)
 	}
@@ -74,7 +70,7 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 
 // inspectStatusClients observes every admitted client without authenticating
 // an endpoint or reading Token values.
-func inspectStatusClients(runtime invocation.Context, cfg domain.Config, activation *clientactivation.Activation, selected string) map[string]clientStatus {
+func inspectStatusClients(runtime app.Dependencies, cfg domain.Config, activation *clientactivation.Activation, selected string) map[string]clientStatus {
 	if activation == nil {
 		assessed := clientactivation.AssessActivation(cfg, runtime.Secrets)
 		activation = &assessed
@@ -94,7 +90,7 @@ func inspectStatusClients(runtime invocation.Context, cfg domain.Config, activat
 			clients[clientID] = client
 			continue
 		}
-		adapterStatus := inspectAdapter(context.Background(), runtime, cfg, clientID, clientRuntime)
+		adapterStatus := runtime.InspectClient(context.Background(), cfg, clientID, clientRuntime)
 		projectionPrerequisite := activation.ProjectionPrerequisites[clientID]
 		projectionAction := adapterStatus.RepairAction
 		if projectionPrerequisite != "" {
@@ -186,7 +182,7 @@ func unresolvedClientStatus(cfg *domain.Config, clientID string, resolveErr erro
 
 // InspectClients returns the canonical, secret-free local state of every
 // admitted client without authenticating an endpoint or reading Token values.
-func InspectClients(runtime invocation.Context, cfg domain.Config) map[string]domainreadiness.Client {
+func InspectClients(runtime app.Dependencies, cfg domain.Config) map[string]domainreadiness.Client {
 	observed := inspectStatusClients(runtime, cfg, nil, "")
 	clients := make(map[string]domainreadiness.Client, len(observed))
 	for client, status := range observed {
@@ -195,7 +191,7 @@ func InspectClients(runtime invocation.Context, cfg domain.Config) map[string]do
 	return clients
 }
 
-func orderedClientStates(runtime invocation.Context, clients map[string]clientStatus) []domainreadiness.Client {
+func orderedClientStates(runtime app.Dependencies, clients map[string]clientStatus) []domainreadiness.Client {
 	ordered := make([]domainreadiness.Client, 0, len(clients))
 	for _, clientID := range runtime.Synchronizer().ClientIDs() {
 		ordered = append(ordered, clients[clientID].Client)
@@ -203,7 +199,7 @@ func orderedClientStates(runtime invocation.Context, clients map[string]clientSt
 	return ordered
 }
 
-func collectStatus(runtime invocation.Context, cfg domain.Config) statusOutput {
+func collectStatus(runtime app.Dependencies, cfg domain.Config) statusOutput {
 	backend, backendErr := secret.Inspect(runtime.Secrets)
 	if backendErr != nil {
 		backend.RecoveryAction = domainreadiness.CredentialBackendRecovery
