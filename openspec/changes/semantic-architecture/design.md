@@ -79,11 +79,15 @@ in `domain`, which like them imports only the standard library, because
 provider diagnostics, client verification and release tooling apply them below
 `terminal`.
 
-Repository tools sit above the product stack. A production file under `tools/`
-may import its own subtree and product packages in layers 4 to 6, and never
-`cmd`, `cli` or `app`. The release tool already imports
-`internal/program/artifact`, and `tools/codex/catalog` imports `internal/client/codex`;
-both keep importing the owner instead of re-encoding its knowledge.
+Repository tools sit above the product stack, in two rows: `tools/ci` above
+the other tools, because CI drives the release tool. A production file under
+`tools/` imports its own descendants, the seams that its tool declares, the
+tools row below its own, and product packages from the row of `internal/client`
+down, never `cmd`, `cli` or `app`. The release tool's packages share its
+performance, provenance and readiness libraries as seams. The release tool
+imports `internal/program/artifact`, and `tools/codex/catalog` imports
+`internal/client/codex`; both keep importing the owner instead of re-encoding
+its knowledge.
 
 Alternative considered: keep the closed topology and keep extending the edge
 list. Rejected, because 220 hand-written targets cannot show a direction and
@@ -94,8 +98,12 @@ every new package needs a policy edit.
 `tools/architecture` gains a `layers` table. The table is an ordered list of
 rows of package-path prefixes, and the gate checks every import of a
 production file against it. A package belongs to the row of its longest
-matching prefix. The table replaces `allowed_import_edges`. `package_children` stays as the closed list of
-direct owners. A violation names the importing package, the imported package
+matching prefix. `layer_seams` declares a subtree's seams, and `layer_floors`
+names the highest product row that a subtree's packages may import. The table
+replaces `allowed_import_edges` and the peer rule for command packages. A
+production package that no row places, a prefix that places no package and a
+seam that nothing imports are findings. `package_children` stays as the closed
+list of direct owners. A violation names the importing package, the imported package
 and both layers. Client-name confinement uses the same scan: identifiers and
 string literals that spell an admitted client ID are refused in product
 packages outside that client's package, the composition root and test
@@ -110,7 +118,8 @@ Inside layer 3, the packages that task 4.1 moves under `internal/app` stay
 packages and take ordered rows below `internal/app`: `renaming` above
 `synchronization` and `activation`, which are above `readiness`, which is
 above `diagnostics`. Each imports only rows below it, and `internal/app`
-imports its descendants. The table then has ten rows. The adapters share
+imports its descendants. The product then takes ten rows, and with the two
+tool rows the table has twelve, its limit. The adapters share
 the declared seams `internal/client`, `internal/client/verification`,
 `internal/client/discovery` and `internal/client/surface`. The Providers
 share `internal/provider/diagnostic`.

@@ -32,7 +32,6 @@ tracked_carrier_classes = {
   scripts = { responsibility = "script fixture", prefixes = ["scripts"] },
 }
 composition_root_files = { "internal/cli" = ["app.go"], "tools/release" = ["commands.go", "main.go"] }
-peer_package_roots = { "internal/cli" = ["invocation"] }
 ignore_roots = ["vendor", ".git", "build"]
 ignore_directory_names = ["vendor", ".git", "node_modules"]
 `
@@ -111,8 +110,11 @@ func TestRunCleanFixture(t *testing.T) {
 
 func TestRunDetectsCoreViolations(t *testing.T) {
 	root := t.TempDir()
-	body := strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = ["internal", "tools"]`, 1)
+	body := strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = ["internal", "tools"]`, 1) +
+		"layers = [[\"tools\"], [\"internal/cli\"], [\"internal/shims\"]]\n" +
+		"layer_seams = { \"internal/cli\" = [\"internal/cli/invocation\"] }\n"
 	policyPath := writePolicy(t, root, body)
+	writeFile(t, filepath.Join(root, "go.mod"), "module fixture\n")
 
 	// forbidden directory name
 	writeFile(t, filepath.Join(root, "internal", "shims", "launcher.go"), "package shims\n\nfunc X() {}\n")
@@ -137,7 +139,7 @@ func TestRunDetectsCoreViolations(t *testing.T) {
 	}
 	for _, rule := range []string{
 		"composition_root_file",
-		"peer_package_import",
+		"layer_import",
 	} {
 		if !hasRule(report, rule) {
 			t.Fatalf("missing rule %s in %v\nstdout=%s", rule, findingRules(report), stdout.String())
@@ -187,7 +189,7 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 		{name: "parent traversal go root", body: strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = ["internal/../cmd"]`, 1), want: "go_roots", code: 1},
 		{name: "windows composition root", body: strings.Replace(validPolicy, `"internal/cli" = ["app.go"]`, `"C:/internal/cli" = ["app.go"]`, 1), want: "composition_root_files", code: 1},
 		{name: "duplicate composition file", body: strings.Replace(validPolicy, `"internal/cli" = ["app.go"]`, `"internal/cli" = ["app.go", "app.go"]`, 1), want: "composition_root_files", code: 1},
-		{name: "parent peer root", body: strings.Replace(validPolicy, `peer_package_roots = { "internal/cli" = ["invocation"] }`, `peer_package_roots = { "internal/../cli" = ["invocation"] }`, 1), want: "peer_package_roots", code: 1},
+		{name: "parent layer prefix", body: validPolicy + "layers = [[\"internal/../cli\"]]\n", want: "layers", code: 1},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

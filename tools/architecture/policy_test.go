@@ -59,18 +59,28 @@ func TestValidatePolicyEdgeEntries(t *testing.T) {
 			}
 		})
 	}
+	thirteenRows := make([][]string, maxLayerRows+1)
+	for i := range thirteenRows {
+		thirteenRows[i] = []string{"internal/row" + string(rune('a'+i))}
+	}
+	if err := validatePackagePolicy(policy{GoRoots: base.GoRoots, Layers: thirteenRows[:maxLayerRows], LayerSeams: map[string][]string{"internal/rowa": {"internal/rowa/seam"}}, LayerFloors: map[string]string{"internal/rowa": "internal/rowb"}}); err != nil {
+		t.Fatalf("a table of %d rows with a seam and a floor was refused: %v", maxLayerRows, err)
+	}
 	for name, p := range map[string]policy{
-		"parent traversal go root":    {GoRoots: []string{"internal/../x"}},
-		"empty peer package root":     {PeerPackageRoots: map[string][]string{"": {"invocation"}}},
-		"nested peer package name":    {PeerPackageRoots: map[string][]string{"internal/cli": {"bad/name"}}},
-		"duplicate peer package name": {PeerPackageRoots: map[string][]string{"internal/cli": {"invocation", "invocation"}}},
-		"empty package children":      {PackageChildren: map[string][]string{"tools": {}}},
-		"invalid package root":        {PackageChildren: map[string][]string{"../tools": {"release"}}},
-		"duplicate package child":     {PackageChildren: map[string][]string{"tools": {"release", "release"}}},
-		"nested package child":        {PackageChildren: map[string][]string{"tools": {"release/legacy"}}},
-		"duplicate import edge":       {AllowedImportEdges: map[string][]string{"tools/release": {"internal/program", "internal/program"}}},
-		"invalid import source":       {AllowedImportEdges: map[string][]string{"../tools/release": {}}},
-		"invalid import target":       {AllowedImportEdges: map[string][]string{"tools/release": {"../internal/program"}}},
+		"parent traversal go root": {GoRoots: []string{"internal/../x"}},
+		"empty package children":   {PackageChildren: map[string][]string{"tools": {}}},
+		"invalid package root":     {PackageChildren: map[string][]string{"../tools": {"release"}}},
+		"duplicate package child":  {PackageChildren: map[string][]string{"tools": {"release", "release"}}},
+		"nested package child":     {PackageChildren: map[string][]string{"tools": {"release/legacy"}}},
+		"too many layer rows":      {Layers: thirteenRows},
+		"empty layer row":          {Layers: [][]string{{}}},
+		"repeated layer prefix":    {Layers: [][]string{{"internal"}, {"internal"}}},
+		"invalid layer prefix":     {Layers: [][]string{{"../internal"}}},
+		"empty layer seams":        {LayerSeams: map[string][]string{"internal/cli": {}}},
+		"duplicate layer seam":     {LayerSeams: map[string][]string{"internal/cli": {"internal/cli/invocation", "internal/cli/invocation"}}},
+		"seam outside its subtree": {LayerSeams: map[string][]string{"internal/cli": {"internal/app"}}},
+		"floor outside the layers": {Layers: [][]string{{"internal"}}, LayerFloors: map[string]string{"tools": "internal/client"}},
+		"invalid floor subtree":    {Layers: [][]string{{"internal"}}, LayerFloors: map[string]string{"../tools": "internal"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if p.GoRoots == nil {
@@ -90,8 +100,8 @@ func TestPackageMembershipUsesOnePortableNameContract(t *testing.T) {
 				"package_children": func(p *policy) {
 					p.PackageChildren = map[string][]string{"internal": {name}}
 				},
-				"peer_package_roots": func(p *policy) {
-					p.PeerPackageRoots = map[string][]string{"internal": {name}}
+				"layer_seams": func(p *policy) {
+					p.LayerSeams = map[string][]string{"internal": {name}}
 				},
 			} {
 				p := policy{GoRoots: []string{"internal"}}
@@ -116,13 +126,11 @@ func TestCompositionMembershipUsesPortableGoBaseNames(t *testing.T) {
 	}
 }
 
-func TestPackageMembershipPreservesEmptyAllowancesAndRootOrder(t *testing.T) {
+func TestPackageMembershipOrdersDiagnosticsByRoot(t *testing.T) {
 	p := policy{
 		GoRoots:              []string{"internal"},
 		PackageChildren:      map[string][]string{"internal": {"client", "credential"}},
 		CompositionRootFiles: map[string][]string{"internal/cli": {"app.go"}},
-		PeerPackageRoots:     map[string][]string{"internal/client": {}},
-		AllowedImportEdges:   map[string][]string{"internal/client": {}, "tools/ci": {"tools/ci/projection"}},
 	}
 	if err := validatePackagePolicy(p); err != nil {
 		t.Fatal(err)
@@ -243,162 +251,5 @@ func TestPackageChildrenIgnoreHiddenDirectories(t *testing.T) {
 	}
 	if !report.OK {
 		t.Fatalf("hidden directory produced findings: %+v", report.Findings)
-	}
-}
-
-func TestImportEdgesAcceptAllowedDependenciesAndExcludeTestEdges(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
-	writeFile(t, filepath.Join(root, "tools", "release", "test.go"), "package main\n")
-	writeFile(t, filepath.Join(root, "tools", "release", "allowed.go"), "package main\nimport (\n _ \"example.com/aigw/tools/release\"\n _ \"example.com/aigw/tools/repository\"\n)\n")
-	files := []goFileInfo{
-		{relPath: "tools/release/test.go", dir: "tools/release", isTest: true},
-		{relPath: "tools/release/allowed.go", dir: "tools/release"},
-	}
-	report := newReport("policy", root)
-	p := policy{AllowedImportEdges: map[string][]string{"tools/release": {"tools/repository"}}}
-	if err := checkImportEdges(root, files, p, &report); err != nil {
-		t.Fatal(err)
-	}
-	if got := report.Summary["import_edge"]; got != 0 {
-		t.Fatalf("allowed or inert imports produced findings: %+v", report.Findings)
-	}
-}
-
-func TestImportEdgesRejectStaleAllowance(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
-	writeFile(t, filepath.Join(root, "tools", "release", "main.go"), "package main\n\nimport _ \"example.com/aigw/tools/current\"\n")
-	files := []goFileInfo{{relPath: "tools/release/main.go", dir: "tools/release"}}
-	report := newReport("policy", root)
-	policy := policy{AllowedImportEdges: map[string][]string{"tools/release": {"tools/current", "tools/retired"}}}
-	if err := checkImportEdges(root, files, policy, &report); err != nil {
-		t.Fatal(err)
-	}
-	if countRule(report, "unused_import_allowance") != 1 {
-		t.Fatalf("stale import allowance was not rejected: %+v", report.Findings)
-	}
-}
-
-func TestImportEdgesReportUnavailableManagedSource(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
-	files := []goFileInfo{{relPath: "tools/release/missing.go", dir: "tools/release"}}
-	report := newReport("policy", root)
-	p := policy{AllowedImportEdges: map[string][]string{"tools/release": {}}}
-	if err := checkImportEdges(root, files, p, &report); err == nil {
-		t.Fatal("missing managed source was accepted")
-	}
-}
-
-func TestImportEdgesRequireModuleIdentity(t *testing.T) {
-	root := t.TempDir()
-	report := newReport("policy", root)
-	p := policy{AllowedImportEdges: map[string][]string{"tools/release": {}}}
-	if err := checkImportEdges(root, nil, p, &report); err == nil || !strings.Contains(err.Error(), "read go.mod") {
-		t.Fatalf("module identity error = %v", err)
-	}
-}
-
-func TestPeerPackageImportBranches(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "internal", "cli", "account", "account.go"), `package account
-
-import (
-	_ "bad\\path"
-	_ "fixture/internal/cli/account/subpackage"
-	_ "fixture/internal/cli/invocation"
-	_ "fixture/internal/other"
-)
-`)
-	files := []goFileInfo{{relPath: "internal/cli/account/account.go", dir: "internal/cli/account"}}
-	report := newReport("policy", root)
-	p := policy{PeerPackageRoots: map[string][]string{"internal/cli": {"invocation"}}}
-	if err := checkPeerPackageImports(root, files, p, &report); err != nil {
-		t.Fatal(err)
-	}
-	if report.Summary["peer_package_import"] != 0 {
-		t.Fatalf("allowed/self/non-peer imports were rejected: %+v", report.Findings)
-	}
-
-	writeFile(t, filepath.Join(root, "internal", "cli", "account", "account.go"), "package account\n\nimport _ \"fixture/internal/cli/route\"\n")
-	if err := checkPeerPackageImports(root, files, p, &report); err != nil {
-		t.Fatal(err)
-	}
-	if report.Summary["peer_package_import"] != 1 {
-		t.Fatalf("peer import not rejected: %+v", report.Findings)
-	}
-
-	files[0].relPath = "internal/cli/account/missing.go"
-	if err := checkPeerPackageImports(root, files, p, &report); err == nil {
-		t.Fatal("missing peer package source was accepted")
-	}
-}
-
-func TestImportAnalysisRequiresReadableSyntax(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
-	source := "internal/cli/account/account.go"
-	writeFile(t, filepath.Join(root, filepath.FromSlash(source)), "package account\nimport (\n")
-	files := []goFileInfo{{relPath: source, dir: "internal/cli/account"}}
-	p := policy{
-		AllowedImportEdges: map[string][]string{"internal/cli/account": {}},
-		PeerPackageRoots:   map[string][]string{"internal/cli": {}},
-	}
-	for name, check := range map[string]func(string, []goFileInfo, policy, *Report) error{
-		"import edges": checkImportEdges,
-		"peer imports": checkPeerPackageImports,
-	} {
-		t.Run(name, func(t *testing.T) {
-			report := newReport("policy", root)
-			err := check(root, files, p, &report)
-			if err == nil || !strings.Contains(err.Error(), source) {
-				t.Fatalf("unreadable import syntax must fail with its source path: %v", err)
-			}
-		})
-	}
-}
-
-func TestImportEdgesRejectToolToProductRuntimeDependency(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
-	path := filepath.Join(root, "tools", "release", "main.go")
-	writeFile(t, path, "package main\n\nimport _ \"example.com/aigw/internal/program\"\n")
-	files := []goFileInfo{{relPath: "tools/release/main.go", dir: "tools/release"}}
-	report := newReport("policy", root)
-	policy := policy{AllowedImportEdges: map[string][]string{"tools/release": {}}}
-	if err := checkImportEdges(root, files, policy, &report); err != nil {
-		t.Fatal(err)
-	}
-	if report.Summary["import_edge"] != 1 {
-		t.Fatalf("tool-to-runtime import not rejected: %+v", report.Findings)
-	}
-
-	writeFile(t, path, "package main\n\nimport _ \"github.com/example/library\"\n")
-	report = newReport("policy", root)
-	if err := checkImportEdges(root, files, policy, &report); err != nil {
-		t.Fatal(err)
-	}
-	if report.Summary["import_edge"] != 0 {
-		t.Fatalf("third-party import rejected: %+v", report.Findings)
-	}
-}
-
-func TestImportEdgesRequireEveryProductionPackageOwner(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
-	writeFile(t, filepath.Join(root, "internal", "managed", "managed.go"), "package managed\n")
-	writeFile(t, filepath.Join(root, "internal", "unmanaged", "unmanaged.go"), "package unmanaged\n")
-	p := policy{
-		GoRoots:             []string{"internal"},
-		AllowedImportEdges:  map[string][]string{"internal/managed": {}},
-		RequireImportOwners: true,
-	}
-	report, err := analyzeRepository(root, p, "policy.toml")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if countRule(report, "unmanaged_import_owner") != 1 {
-		t.Fatalf("findings = %+v", report.Findings)
 	}
 }

@@ -27,15 +27,15 @@ type policy struct {
 	TrackedCarrierClasses map[string]carrierClass `toml:"tracked_carrier_classes"`
 	PackageChildren       map[string][]string     `toml:"package_children"`
 	CompositionRootFiles  map[string][]string     `toml:"composition_root_files"`
-	PeerPackageRoots      map[string][]string     `toml:"peer_package_roots"`
-	AllowedImportEdges    map[string][]string     `toml:"allowed_import_edges"`
+	Layers                [][]string              `toml:"layers"`
+	LayerSeams            map[string][]string     `toml:"layer_seams"`
+	LayerFloors           map[string]string       `toml:"layer_floors"`
 	StandardLibraryOnly   []string                `toml:"standard_library_only"`
 	UsedExportsOnly       []string                `toml:"used_exports_only"`
 	IgnoreRoots           []string                `toml:"ignore_roots"`
 	IgnoreDirectoryNames  []string                `toml:"ignore_directory_names"`
 	CheckDecisionRecords  bool                    `toml:"check_decision_records"`
 	CheckSemanticNames    bool                    `toml:"check_semantic_names"`
-	RequireImportOwners   bool                    `toml:"require_import_owners"`
 	ClientConfinement     clientConfinement       `toml:"client_confinement"`
 }
 
@@ -128,11 +128,10 @@ func validatePackagePolicy(p policy) error {
 		accepts func(string) bool
 	}{
 		{"package_children", p.PackageChildren, 1, isPortableBaseName},
-		{"peer_package_roots", p.PeerPackageRoots, 0, isPortableBaseName},
 		{"composition_root_files", p.CompositionRootFiles, 1, func(name string) bool {
 			return isPortableBaseName(name) && strings.HasSuffix(name, ".go")
 		}},
-		{"allowed_import_edges", p.AllowedImportEdges, 0, isPortableRelativePath},
+		{"layer_seams", p.LayerSeams, 1, isPortableRelativePath},
 	} {
 		for _, root := range slices.Sorted(maps.Keys(membership.roots)) {
 			members := membership.roots[root]
@@ -159,7 +158,7 @@ func validatePackagePolicy(p policy) error {
 			seen[dir] = true
 		}
 	}
-	return nil
+	return validateLayers(p)
 }
 
 func isPortableBaseName(value string) bool {

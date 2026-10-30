@@ -180,11 +180,8 @@ func TestAnalyzeRepositoryPropagatesSemanticStageFailures(t *testing.T) {
 		"Go files": func() {
 			repositoryAnalysis.goFiles = func(string, policy) ([]goFileInfo, error) { return nil, want }
 		},
-		"peer imports": func() {
-			repositoryAnalysis.peerImports = func(string, []goFileInfo, policy, *Report) error { return want }
-		},
-		"import edges": func() {
-			repositoryAnalysis.importEdges = func(string, []goFileInfo, policy, *Report) error { return want }
+		"layers": func() {
+			repositoryAnalysis.layers = func(string, []goFileInfo, policy, *Report) error { return want }
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -285,7 +282,7 @@ func TestMainCoversEntry(t *testing.T) {
 func TestRunReportsAnalysisFailure(t *testing.T) {
 	original := repositoryAnalysis
 	t.Cleanup(func() { repositoryAnalysis = original })
-	repositoryAnalysis.importEdges = func(string, []goFileInfo, policy, *Report) error {
+	repositoryAnalysis.layers = func(string, []goFileInfo, policy, *Report) error {
 		return errors.New("stage failed")
 	}
 

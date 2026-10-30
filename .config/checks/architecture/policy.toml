@@ -3,7 +3,7 @@
 owner = "product-toolchain"
 source = "repository architecture layout"
 risk_model = "undeclared semantic owners and dependency edges create hidden coupling, ambiguous authority, and non-local change risk"
-measurement = "parse tracked Go packages, exact import edges, composition roots, semantic carriers, Decision Records, and deterministic text bytes against this declared contract"
+measurement = "parse tracked Go packages, layered imports, composition roots, semantic carriers, Decision Records, and deterministic text bytes against this declared contract"
 false_positive_cost = "a valid new semantic owner or dependency requires an intentional policy update reviewed with the implementation"
 remediation = "move behavior to an existing owner, delete an unused allowance, or declare a required owner and dependency here with focused contract tests"
 review_condition = "reassess when the product topology changes or when two legitimate changes in one release train are blocked by the same contract"
@@ -119,432 +119,51 @@ used_exports_only = [
 composition_root_files."internal/cli" = ["app.go"]
 composition_root_files."tools/release" = ["commands.go", "main.go"]
 
-# Command packages are peers. They share CLI behavior only through
-# internal/cli/invocation and never import another command package; a use case
-# that several commands share belongs to internal/app.
-peer_package_roots."internal/cli" = ["invocation"]
+# Packages form one ordered stack of layers, from the top. A package belongs to
+# the row of its longest matching prefix. A production file may import its own
+# descendants, the seams that layer_seams declares for a subtree that contains
+# it, and the packages of lower rows. Test files are fixtures and are not
+# checked. Repository tools sit above the product, and CI drives the release
+# tool.
+layers = [
+  ["tools/ci"],
+  ["tools"],
+  ["cmd/aigw"],
+  ["internal/cli", "internal/clients"],
+  ["internal/app", "internal/terminal"],
+  ["internal/app/renaming"],
+  ["internal/app/activation", "internal/app/synchronization"],
+  ["internal/app/readiness"],
+  ["internal/app/diagnostics"],
+  ["internal/client", "internal/program"],
+  ["internal/provider", "internal/secret", "internal/store"],
+  ["internal/domain", "internal/platform"],
+]
 
-# Repository tools are independent composition roots. Only declared product
-# contracts needed by native and real-client acceptance cross into runtime packages.
-# Bootstrap failures and command failures share the safe diagnostic owner.
-# Installation ownership decides the native credential worker's role.
-allowed_import_edges."cmd/aigw" = [
-  "internal/cli",
-  "internal/clients",
-  "internal/program",
-  "internal/secret",
-  "internal/secret/native",
-  "internal/terminal",
-]
-# The built-in adapter set is the only list of every client outside its adapters.
-allowed_import_edges."internal/clients" = [
-  "internal/client",
-  "internal/client/claude",
-  "internal/client/claudedesktop",
-  "internal/client/codex",
-  "internal/client/hermes",
-  "internal/domain",
-]
-allowed_import_edges."internal/domain" = []
-allowed_import_edges."internal/store" = [
-  "internal/domain",
-  "internal/platform",
-]
-allowed_import_edges."internal/client" = [
-  "internal/client/discovery",
-  "internal/domain",
-  "internal/platform",
-  "internal/platform/process",
-  "internal/secret",
-]
-allowed_import_edges."internal/client/verification" = ["internal/domain"]
-# Upgrade reuses neutral process and durable staging owners.
-allowed_import_edges."internal/program" = [
-  "internal/platform",
-  "internal/platform/process",
-  "internal/program/artifact",
-]
-allowed_import_edges."internal/program/artifact" = []
-allowed_import_edges."internal/app/renaming" = [
-  "internal/app/synchronization",
-  "internal/domain",
-  "internal/provider",
-  "internal/provider/diagnostic",
-  "internal/secret",
-  "internal/secret/probe",
-  "internal/store",
-]
-allowed_import_edges."internal/app/synchronization" = [
-  "internal/client",
-  "internal/client/discovery",
-  "internal/domain",
-  "internal/platform/process",
-  "internal/secret",
-  "internal/store",
-]
-allowed_import_edges."internal/secret" = [
-  "internal/domain",
-  "internal/platform",
-  "internal/secret/native",
-]
-allowed_import_edges."internal/secret/native" = ["internal/platform/process"]
-allowed_import_edges."internal/secret/probe" = ["internal/domain"]
-allowed_import_edges."internal/provider" = [
-  "internal/domain",
-  "internal/provider/diagnostic",
-  "internal/provider/dmxapi",
-]
-allowed_import_edges."internal/provider/dmxapi" = [
-  "internal/domain",
-  "internal/provider/diagnostic",
-]
-allowed_import_edges."internal/platform" = []
-allowed_import_edges."internal/client/claude" = [
+# Command packages share CLI behavior only through internal/cli/invocation; a
+# use case that several commands share belongs to internal/app. Adapters share
+# the client seam and its discovery, surface and verification packages, and
+# never import each other. The Providers share their diagnostic seam, and the
+# release tool's packages share its performance, provenance and readiness
+# libraries.
+layer_seams."internal/cli" = ["internal/cli/invocation"]
+layer_seams."internal/client" = [
   "internal/client",
   "internal/client/discovery",
   "internal/client/surface",
   "internal/client/verification",
-  "internal/domain",
-  "internal/platform",
-  "internal/platform/process",
-  "internal/secret",
 ]
-allowed_import_edges."internal/client/claudedesktop" = [
-  "internal/client",
-  "internal/client/discovery",
-  "internal/client/surface",
-  "internal/domain",
-  "internal/platform",
-]
-allowed_import_edges."internal/client/codex" = [
-  "internal/client",
-  "internal/client/codex/catalog",
-  "internal/client/discovery",
-  "internal/client/surface",
-  "internal/client/verification",
-  "internal/domain",
-  "internal/platform",
-  "internal/platform/process",
-]
-allowed_import_edges."internal/client/codex/catalog" = []
-# The seam's contract suite checks any adapter against the seam alone.
-allowed_import_edges."internal/client/contract" = [
-  "internal/client",
-  "internal/domain",
-  "internal/platform",
-]
-allowed_import_edges."internal/client/hermes" = [
-  "internal/client",
-  "internal/client/discovery",
-  "internal/client/surface",
-  "internal/client/verification",
-  "internal/domain",
-  "internal/platform",
-  "internal/platform/process",
-  "internal/secret",
-]
-allowed_import_edges."internal/client/discovery" = []
-allowed_import_edges."internal/client/surface" = []
-allowed_import_edges."internal/app/readiness" = ["internal/app/diagnostics"]
-allowed_import_edges."internal/app/activation" = [
-  "internal/app/readiness",
-  "internal/domain",
-  "internal/secret",
-]
-allowed_import_edges."internal/cli" = [
-  "internal/app",
-  "internal/cli/account",
-  "internal/cli/add",
-  "internal/cli/balance",
-  "internal/cli/catalog",
-  "internal/cli/check",
-  "internal/cli/client",
-  "internal/cli/completion",
-  "internal/cli/config",
-  "internal/cli/credential",
-  "internal/cli/doctor",
-  "internal/cli/install",
-  "internal/cli/installation",
-  "internal/cli/invocation",
-  "internal/cli/models",
-  "internal/cli/repair",
-  "internal/cli/rollback",
-  "internal/cli/rotate",
-  "internal/cli/route",
-  "internal/cli/setup",
-  "internal/cli/status",
-  "internal/cli/sync",
-  "internal/cli/test",
-  "internal/cli/uninstall",
-  "internal/cli/update",
-  "internal/cli/use",
-  "internal/cli/verify",
-  "internal/client",
-  "internal/client/discovery",
-  "internal/platform",
-  "internal/platform/process",
-  "internal/program",
-  "internal/secret",
-  "internal/store",
-  "internal/terminal",
-]
-# Use cases receive the invocation's capabilities and import no command or
-# terminal package.
-allowed_import_edges."internal/app" = [
-  "internal/app/activation",
-  "internal/app/diagnostics",
-  "internal/app/readiness",
-  "internal/app/renaming",
-  "internal/app/synchronization",
-  "internal/client",
-  "internal/client/discovery",
-  "internal/domain",
-  "internal/platform/process",
-  "internal/program",
-  "internal/secret",
-  "internal/secret/probe",
-  "internal/store",
-]
-allowed_import_edges."internal/cli/invocation" = [
-  "internal/app",
-  "internal/app/renaming",
-  "internal/domain",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/credential" = [
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/secret",
-  "internal/secret/native",
-  "internal/store",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/install" = [
-  "internal/cli/invocation",
-  "internal/program",
-]
-allowed_import_edges."internal/cli/uninstall" = [
-  "internal/cli/invocation",
-  "internal/program",
-]
-allowed_import_edges."internal/cli/installation" = [
-  "internal/cli/invocation",
-  "internal/program",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/update" = [
-  "internal/app",
-  "internal/cli/invocation",
-  "internal/program",
-  "internal/secret",
-]
-allowed_import_edges."internal/cli/catalog" = [
-  "internal/app",
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/models" = [
-  "internal/app",
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/doctor" = [
-  "internal/app",
-  "internal/app/activation",
-  "internal/app/readiness",
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/secret",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/client" = [
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/secret",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/route" = [
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/account" = [
-  "internal/app/renaming",
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/provider",
-  "internal/secret",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/balance" = [
-  "internal/cli/invocation",
-  "internal/provider",
-  "internal/provider/diagnostic",
-  "internal/secret",
-  "internal/secret/probe",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/rotate" = [
-  "internal/app/activation",
-  "internal/cli/invocation",
-  "internal/secret",
-  "internal/secret/probe",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/add" = [
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/terminal",
-]
-allowed_import_edges."internal/app/diagnostics" = [
-  "internal/domain",
-  "internal/secret/probe",
-]
-allowed_import_edges."internal/provider/diagnostic" = []
-allowed_import_edges."internal/terminal" = [
-  "internal/domain",
-  "internal/secret",
-  "internal/store",
-]
-allowed_import_edges."internal/platform/process" = []
-allowed_import_edges."tools/ci" = [
-  "internal/client/claude",
-  "internal/client/codex",
-  "internal/client/hermes",
-  "internal/platform/process",
-  "tools/ci/evidence",
-  "tools/ci/markdown",
-  "tools/ci/projection",
-  "tools/release/construction",
-  "tools/release/readiness",
-]
-allowed_import_edges."tools/ci/evidence" = []
-allowed_import_edges."tools/ci/markdown" = []
-allowed_import_edges."tools/ci/projection" = []
-allowed_import_edges."tools/release" = [
-  "internal/program/artifact",
-  "tools/release/construction",
-  "tools/release/provenance",
-  "tools/release/publication",
-  "tools/release/readiness",
-]
-allowed_import_edges."tools/release/provenance" = ["internal/program/artifact"]
-# Construction reuses the adapters' canonical client IDs, neutral execution and
-# release contracts.
-allowed_import_edges."tools/release/construction" = [
-  "internal/client/claude",
-  "internal/client/codex",
-  "internal/client/hermes",
-  "internal/platform/process",
-  "internal/program",
-  "internal/program/artifact",
+layer_seams."internal/provider" = ["internal/provider/diagnostic"]
+layer_seams."tools/release" = [
   "tools/release/performance",
   "tools/release/provenance",
   "tools/release/readiness",
 ]
-allowed_import_edges."tools/release/performance" = [
-  "internal/domain",
-  "internal/platform/process",
-]
-allowed_import_edges."tools/release/publication" = [
-  "internal/program/artifact",
-  "tools/release/provenance",
-]
-allowed_import_edges."tools/release/readiness" = []
-allowed_import_edges."tools/architecture" = []
-allowed_import_edges."tools/forge" = []
-allowed_import_edges."tools/gitfixture" = []
-allowed_import_edges."tools/codex/catalog" = [
-  "internal/client/codex",
-  "internal/client/codex/catalog",
-]
-allowed_import_edges."tools/coverage" = []
 
-allowed_import_edges."internal/cli/setup" = [
-  "internal/app/activation",
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/secret",
-  "internal/secret/probe",
-  "internal/store",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/use" = [
-  "internal/app/activation",
-  "internal/cli/invocation",
-  "internal/client",
-  "internal/domain",
-  "internal/secret",
-  "internal/secret/probe",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/config" = [
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/store",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/verify" = [
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/sync" = [
-  "internal/app",
-  "internal/app/activation",
-  "internal/app/readiness",
-  "internal/app/synchronization",
-  "internal/cli/invocation",
-  "internal/client",
-  "internal/domain",
-  "internal/secret",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/repair" = [
-  "internal/app",
-  "internal/cli/invocation",
-  "internal/client",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/rollback" = [
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/status" = [
-  "internal/app",
-  "internal/app/activation",
-  "internal/app/readiness",
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/provider",
-  "internal/secret",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/check" = [
-  "internal/app",
-  "internal/app/activation",
-  "internal/app/diagnostics",
-  "internal/app/readiness",
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/secret",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/test" = [
-  "internal/cli/invocation",
-  # aigw test defers a Route it cannot probe to the verify command that
-  # verification owns.
-  "internal/client/verification",
-  "internal/domain",
-  "internal/secret",
-  "internal/secret/probe",
-  "internal/store",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/completion" = []
+# Repository tools import product packages from internal/client's row down,
+# never the command tree or its use cases.
+layer_floors."tools" = "internal/client"
+
 # Top-level roots skipped entirely while walking the repository.
 ignore_roots = ["vendor", ".git", "build"]
 
@@ -554,7 +173,6 @@ ignore_directory_names = ["vendor", ".git", "node_modules"]
 # Source and carrier contracts inside managed roots.
 check_decision_records = true
 check_semantic_names = true
-require_import_owners = true
 
 # Each admitted client's knowledge stays in its adapter package below
 # adapter_root, named after the client ID without hyphens. Outside it only the

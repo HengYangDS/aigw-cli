@@ -2,15 +2,12 @@ package main
 
 import (
 	"fmt"
-	"go/parser"
-	"go/token"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -19,15 +16,13 @@ var repositoryAnalysis = struct {
 	semanticNames   func(string, *Report) error
 	packageChildren func(string, policy, *Report) error
 	goFiles         func(string, policy) ([]goFileInfo, error)
-	peerImports     func(string, []goFileInfo, policy, *Report) error
-	importEdges     func(string, []goFileInfo, policy, *Report) error
+	layers          func(string, []goFileInfo, policy, *Report) error
 }{
 	decisionRecords: checkDecisionRecords,
 	semanticNames:   checkSemanticNames,
 	packageChildren: checkPackageChildren,
 	goFiles:         collectGoFiles,
-	peerImports:     checkPeerPackageImports,
-	importEdges:     checkImportEdges,
+	layers:          checkLayers,
 }
 
 type goFileInfo struct {
@@ -62,15 +57,11 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 	if err != nil {
 		return Report{}, err
 	}
-	checkImportOwners(goFiles, p, &report)
 	checkCompositionRoots(goFiles, p, &report)
 	if err := checkClientConfinement(absRoot, goFiles, p.ClientConfinement, &report); err != nil {
 		return Report{}, err
 	}
-	if err := repositoryAnalysis.peerImports(absRoot, goFiles, p, &report); err != nil {
-		return Report{}, err
-	}
-	if err := repositoryAnalysis.importEdges(absRoot, goFiles, p, &report); err != nil {
+	if err := repositoryAnalysis.layers(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}
 	if err := checkStandardLibraryOnly(absRoot, goFiles, p, &report); err != nil {
@@ -135,28 +126,6 @@ func pathContains(parent, file string) bool {
 	return file == parent || strings.HasPrefix(file, parent+"/")
 }
 
-func checkImportOwners(files []goFileInfo, p policy, report *Report) {
-	if !p.RequireImportOwners {
-		return
-	}
-	managed := make(map[string]bool, len(p.AllowedImportEdges))
-	for owner := range p.AllowedImportEdges {
-		managed[owner] = true
-	}
-	seen := map[string]bool{}
-	for _, file := range files {
-		if file.isTest || seen[file.dir] || managed[file.dir] {
-			continue
-		}
-		seen[file.dir] = true
-		report.addFinding(Finding{
-			Rule:    "unmanaged_import_owner",
-			Path:    file.dir,
-			Message: "production package is missing from allowed_import_edges",
-		})
-	}
-}
-
 func checkPackageChildren(root string, p policy, report *Report) error {
 	return checkPackageChildrenWithReadDir(root, p, report, os.ReadDir)
 }
@@ -196,128 +165,6 @@ func checkPackageChildrenWithReadDir(
 					Message: fmt.Sprintf("package root %q admits only its declared semantic owners", packageRoot),
 				})
 				continue
-			}
-		}
-	}
-	return nil
-}
-
-func checkImportEdges(root string, files []goFileInfo, p policy, report *Report) error {
-	if len(p.AllowedImportEdges) == 0 {
-		return nil
-	}
-	fset := token.NewFileSet()
-	module, err := readModuleIdentity(filepath.Join(root, "go.mod"))
-	if err != nil {
-		return err
-	}
-	modulePrefix := module + "/"
-	usedAllowances := make(map[string]map[string]bool, len(p.AllowedImportEdges))
-	for _, file := range files {
-		if file.isTest {
-			continue
-		}
-		allowedTargets, managed := p.AllowedImportEdges[file.dir]
-		if !managed {
-			continue
-		}
-		allowed := make(map[string]bool, len(allowedTargets))
-		used := usedAllowances[file.dir]
-		if used == nil {
-			used = make(map[string]bool, len(allowedTargets))
-			usedAllowances[file.dir] = used
-		}
-		for _, target := range allowedTargets {
-			allowed[target] = true
-		}
-		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file.relPath)))
-		if err != nil {
-			return fmt.Errorf("read %s: %w", file.relPath, err)
-		}
-		parsed, err := parser.ParseFile(fset, file.relPath, data, parser.ImportsOnly)
-		if err != nil {
-			return fmt.Errorf("parse imports %s: %w", file.relPath, err)
-		}
-		for _, imported := range parsed.Imports {
-			importPath, _ := strconv.Unquote(imported.Path.Value)
-			if !strings.HasPrefix(importPath, modulePrefix) {
-				continue
-			}
-			target := strings.TrimPrefix(importPath, modulePrefix)
-			if allowed[target] {
-				used[target] = true
-				continue
-			}
-			if target == file.dir {
-				continue
-			}
-			pos := fset.Position(imported.Pos())
-			report.addFinding(Finding{
-				Rule:    "import_edge",
-				Path:    file.relPath,
-				Line:    pos.Line,
-				Package: target,
-				Message: fmt.Sprintf("package %q may not import %q; declare the dependency or move shared behavior to a neutral owner", file.dir, target),
-			})
-		}
-	}
-	for owner, allowedTargets := range p.AllowedImportEdges {
-		for _, target := range allowedTargets {
-			if usedAllowances[owner][target] {
-				continue
-			}
-			report.addFinding(Finding{
-				Rule:    "unused_import_allowance",
-				Path:    owner,
-				Package: target,
-				Message: fmt.Sprintf("package %q declares unused access to %q; delete the stale allowance", owner, target),
-			})
-		}
-	}
-	return nil
-}
-
-func checkPeerPackageImports(root string, files []goFileInfo, p policy, report *Report) error {
-	fset := token.NewFileSet()
-	for peerRoot, allowedNames := range p.PeerPackageRoots {
-		allowed := make(map[string]bool, len(allowedNames))
-		for _, name := range allowedNames {
-			allowed[name] = true
-		}
-		for _, file := range files {
-			if file.isTest || path.Dir(file.dir) != peerRoot {
-				continue
-			}
-			sourceChild := path.Base(file.dir)
-			abs := filepath.Join(root, filepath.FromSlash(file.relPath))
-			data, err := os.ReadFile(abs)
-			if err != nil {
-				return fmt.Errorf("read %s: %w", file.relPath, err)
-			}
-			parsed, err := parser.ParseFile(fset, file.relPath, data, parser.ImportsOnly)
-			if err != nil {
-				return fmt.Errorf("parse imports %s: %w", file.relPath, err)
-			}
-			for _, imported := range parsed.Imports {
-				path, _ := strconv.Unquote(imported.Path.Value)
-				marker := "/" + peerRoot + "/"
-				_, after, ok := strings.Cut(path, marker)
-				if !ok {
-					continue
-				}
-				tail := after
-				targetChild, _, _ := strings.Cut(tail, "/")
-				if targetChild == "" || targetChild == sourceChild || allowed[targetChild] {
-					continue
-				}
-				pos := fset.Position(imported.Pos())
-				report.addFinding(Finding{
-					Rule:    "peer_package_import",
-					Path:    file.relPath,
-					Line:    pos.Line,
-					Package: targetChild,
-					Message: fmt.Sprintf("peer package %q may not import sibling %q under %s; move shared behavior to its domain owner", sourceChild, targetChild, peerRoot),
-				})
 			}
 		}
 	}
