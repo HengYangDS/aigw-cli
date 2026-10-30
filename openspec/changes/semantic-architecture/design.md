@@ -261,6 +261,16 @@ composition root constructs the prompter, and commands reach it through the
 invocation context. A separate prompt package would therefore add an owner
 without removing knowledge from any caller.
 
+A command package keeps the command tree, flags, argument checks, prompts,
+rendering and exit codes. It may read the configuration to check arguments,
+offer choices and render it. Every write, credential read, client inspection,
+network request and child process is an `internal/app` use case, which the
+command calls with the invocation's capabilities.
+
+Alternative considered: configuration reads through `internal/app` as well.
+Rejected because such a use case would only forward `Load`: it adds an
+interface and hides no behavior.
+
 ### One owner for the release artifact format
 
 Stage 4 moves the artifact format (platform matrix, archive and checksum names,

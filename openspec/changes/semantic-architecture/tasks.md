@@ -30,14 +30,14 @@
 - [x] 3.1 Compare `rogpeppe/go-internal/testscript` with the current CLI test harness by the code each needs for the same scripts, and record the admitted choice and its measurement in `design.md`.
 - [ ] 3.2 Add acceptance scripts that run the program in its own process against private homes for every command's help, a representative success, a representative refusal and its JSON output, before any command moves, so that they hold today's behavior as the baseline.
 - [ ] 3.3 Move each of the 25 top-level commands into one package under `internal/cli` named after it; the root keeps only group assembly. The repository gate fails for a command without its package or scripts.
-- [ ] 3.4 Move use-case logic out of the command packages into `internal/app`, rendering and prompts into `internal/terminal`, and the redaction rules into `internal/domain`.
+- [ ] 3.4 Move use-case logic out of the command packages into `internal/app`, rendering and prompts into `internal/terminal`, and the redaction rules into `internal/domain`. A command package keeps its command tree, flags, argument checks, prompts, rendering and exit codes, and may read the configuration; every write, credential read, client inspection, network request and child process runs in an `internal/app` use case. A type-checked scan finds no other use of the invocation's capabilities in a command package's production files.
 - [ ] 3.5 Run the local quality graph, including the acceptance scripts, at the stage head.
 - [ ] 3.6 Prove the stage head with the full ETHOS proof.
 - [ ] 3.7 Confirm the hosted three-platform graph runs every acceptance script and the real-client journeys pass at the stage head.
 
 ## 4. Stage 4 — Layers and tooling
 
-- [ ] 4.1 Move program install, update, rollback and uninstall from `internal/upgrade` into `internal/program`, and the Provider-native diagnostics from `internal/providers` into `internal/provider`.
+- [ ] 4.1 Move program install, update, rollback and uninstall from `internal/upgrade` into `internal/program`, and the Provider-native diagnostics from `internal/providers` into `internal/provider`. Move the other packages outside the layer table's owners into them: `activation`, `diagnostics`, `readiness`, `renaming` and `synchronization` into `internal/app`, `process` into `internal/platform`, and `discovery` and `surface` into `internal/client`.
 - [ ] 4.2 Move the release artifact format to `internal/program/artifact`. Release tooling and program update both import it, and the `artifact` package base name occurs once.
 - [ ] 4.3 Add the ordered `layers` table, with at most 12 entries, to the architecture policy, and make `tools/architecture` enforce it for product packages and repository tools; delete `allowed_import_edges`. First resolve the imports that the table would refuse. `secret` takes the file transactions from `store`, which move to a lower owner. `provider` takes diagnostic credentials and the redirect-free `probe.Send` from `secret`; sending is I/O, so it receives them through a seam instead.
 - [ ] 4.4 Make the Mise `build` task write to `build/artifacts/<version>-<commit>/`; the repository root `dist/` default and its ignore entry are removed.
