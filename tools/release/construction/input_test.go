@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"aigw-cli/tools/release/provenance"
+	"aigw-cli/internal/program/artifact"
 	"archive/tar"
 	"bytes"
 	"context"
@@ -55,7 +55,7 @@ func TestNativePackagedInputsShareSignedMatrixAndOwnedLifecycle(t *testing.T) {
 			journeys++
 			for _, directory := range []string{"candidate", "baseline"} {
 				entries, err := os.ReadDir(filepath.Join(workspace, directory))
-				if err != nil || len(entries) != len(provenance.Names("1.2.4")) {
+				if err != nil || len(entries) != len(artifact.Names("1.2.4")) {
 					t.Fatalf("native package did not select the complete matrix: %s, %v, %v", directory, entries, err)
 				}
 			}
@@ -404,7 +404,7 @@ func nativePackageFixture(t *testing.T) (string, string, []byte) {
 	var contents bytes.Buffer
 	writer := tar.NewWriter(&contents)
 	for _, input := range []struct{ directory, path, version string }{{"candidate", candidate, "1.2.4"}, {"baseline", baseline, "1.2.3"}} {
-		for _, name := range provenance.Names(input.version) {
+		for _, name := range artifact.Names(input.version) {
 			data, err := os.ReadFile(filepath.Join(input.path, name))
 			if err != nil {
 				t.Fatal(err)

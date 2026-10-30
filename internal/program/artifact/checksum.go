@@ -3,6 +3,7 @@ package artifact
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -19,22 +20,12 @@ func VerifyChecksum(archivePath, checksumPath, archiveName string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("read checksums: %w", err)
 	}
-	expected := ""
-	for line := range strings.SplitSeq(string(data), "\n") {
-		fields := strings.Fields(line)
-		if len(fields) != 2 || !isSHA256(fields[0]) {
-			continue
-		}
-		name := strings.TrimPrefix(fields[1], "./")
-		if name != archiveName {
-			continue
-		}
-		if expected != "" {
-			return "", fmt.Errorf("duplicate checksum entry for %s", archiveName)
-		}
-		expected = strings.ToLower(fields[0])
+	digests, err := parseChecksums(data)
+	if err != nil {
+		return "", err
 	}
-	if expected == "" {
+	expected, ok := digests[archiveName]
+	if !ok {
 		return "", fmt.Errorf("checksum entry missing for %s", archiveName)
 	}
 	archive, err := os.Open(archivePath)
@@ -51,6 +42,25 @@ func VerifyChecksum(archivePath, checksumPath, archiveName string) (string, erro
 		return "", fmt.Errorf("checksum mismatch for %s", archiveName)
 	}
 	return actual, nil
+}
+
+// parseChecksums reads a checksum manifest. Each line holds an artifact's SHA-256
+// in hexadecimal and its name, which may start with "./". It returns each name's
+// lowercase digest and refuses any other line and a repeated name.
+func parseChecksums(manifest []byte) (map[string]string, error) {
+	digests := map[string]string{}
+	for line := range strings.Lines(string(manifest)) {
+		fields := strings.Fields(line)
+		if len(fields) != 2 || !isSHA256(fields[0]) {
+			return nil, errors.New("invalid checksum manifest format")
+		}
+		name := strings.TrimPrefix(fields[1], "./")
+		if _, duplicate := digests[name]; duplicate {
+			return nil, fmt.Errorf("duplicate checksum entry for %s", name)
+		}
+		digests[name] = strings.ToLower(fields[0])
+	}
+	return digests, nil
 }
 
 func isSHA256(value string) bool {

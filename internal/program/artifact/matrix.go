@@ -1,59 +1,35 @@
-// Package provenance verifies the release artifact matrix and its signer, and records
-// and verifies the release's source provenance and its locked scanner.
-package provenance
+package artifact
 
 import (
-	"aigw-cli/internal/program/artifact"
-	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 )
 
-// SignatureTrust identifies the independently supplied authorization for artifact signatures.
-type SignatureTrust struct {
-	AllowedSigners string
-	Principal      string
-}
-
-// VerifyMatrix checks complete artifact bytes against an explicitly authorized signer.
-func VerifyMatrix(ctx context.Context, directory, version string, trust SignatureTrust) error {
-	if trust.AllowedSigners == "" || trust.Principal == "" {
-		return errors.New("release artifact authorization requires allowed-signers file and signer principal")
-	}
-	if _, err := verifiedDigests(directory, version); err != nil {
-		return err
-	}
-	return verifySignature(ctx, directory, "verify", "-f", trust.AllowedSigners, "-I", trust.Principal)
-}
-
-// Archives returns the portable product archives for version.
+// Archives returns the portable product archives for version, one for each target.
 func Archives(version string) []string {
-	return []string{
-		"aigw_" + version + "_darwin_amd64.tar.gz",
-		"aigw_" + version + "_darwin_arm64.tar.gz",
-		"aigw_" + version + "_linux_amd64.tar.gz",
-		"aigw_" + version + "_linux_arm64.tar.gz",
-		"aigw_" + version + "_windows_amd64.zip",
-		"aigw_" + version + "_windows_arm64.zip",
+	archives := make([]string, 0, len(targets))
+	for _, target := range targets {
+		archives = append(archives, target.ArchiveName(version))
 	}
+	return archives
 }
 
 // Names returns the complete release artifact matrix for version.
 func Names(version string) []string {
-	return append(provenanceSubjects(version),
+	return append(ProvenanceSubjects(version),
 		"aigw_"+version+".provenance.json",
 		"checksums.txt",
 		"checksums.txt.sig",
 	)
 }
 
-func provenanceSubjects(version string) []string {
+// ProvenanceSubjects returns the artifacts that the release provenance names as its subjects.
+func ProvenanceSubjects(version string) []string {
 	return append(Archives(version),
 		"aigw_"+version+".spdx.json",
 		"aigw_"+version+".vulnerabilities.json",
@@ -61,29 +37,15 @@ func provenanceSubjects(version string) []string {
 	)
 }
 
-// ValidateMatrix verifies membership, non-empty files, and checksums.
-func ValidateMatrix(ctx context.Context, directory, version string) error {
+// ValidateMatrix verifies membership, non-empty files, checksums and the signature
+// envelope. It does not decide whether the signer is authorized.
+func ValidateMatrix(directory, version string) error {
 	if _, err := verifiedDigests(directory, version); err != nil {
 		return err
 	}
-	return verifySignature(ctx, directory, "check-novalidate")
-}
-
-func verifySignature(ctx context.Context, directory, operation string, arguments ...string) error {
 	manifest := filepath.Join(directory, "checksums.txt")
-	file, err := os.Open(manifest)
-	if err != nil {
-		return fmt.Errorf("release artifact matrix: read checksum manifest for signature verification: %w", err)
-	}
-	defer func() { _ = file.Close() }()
-	args := append([]string{"-Y", operation,
-		"-n", artifact.SignatureNamespace,
-		"-s", filepath.Join(directory, "checksums.txt.sig"),
-	}, arguments...)
-	command := exec.CommandContext(ctx, "ssh-keygen", args...)
-	command.Stdin = file
-	if output, runErr := command.CombinedOutput(); runErr != nil {
-		return fmt.Errorf("release artifact matrix: invalid detached signature: %w: %s", runErr, strings.TrimSpace(string(output)))
+	if err := verifyEnvelope(manifest, manifest+".sig"); err != nil {
+		return fmt.Errorf("release artifact matrix: invalid detached signature: %w", err)
 	}
 	return nil
 }
@@ -118,17 +80,9 @@ func verifiedDigests(directory, version string) (map[string]string, error) {
 	if !slices.Equal(actual, expected) {
 		return nil, fmt.Errorf("release artifact matrix: unexpected or missing files: %v", actual)
 	}
-	digests := map[string]string{}
-	for line := range strings.Lines(string(manifest)) {
-		fields := strings.Fields(line)
-		if len(fields) != 2 || len(fields[0]) != 64 {
-			return nil, errors.New("release artifact matrix: invalid checksum manifest format")
-		}
-		name := strings.TrimPrefix(fields[1], "./")
-		if _, duplicate := digests[name]; duplicate {
-			return nil, fmt.Errorf("release artifact matrix: duplicate checksum entry: %s", name)
-		}
-		digests[name] = strings.ToLower(fields[0])
+	digests, err := parseChecksums(manifest)
+	if err != nil {
+		return nil, fmt.Errorf("release artifact matrix: %w", err)
 	}
 	for _, name := range checksummedNames(version) {
 		if digests[name] != localDigests[name] {

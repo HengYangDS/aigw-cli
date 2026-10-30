@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"aigw-cli/tools/release/provenance"
+	"aigw-cli/internal/program/artifact"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"cmp"
@@ -23,7 +23,7 @@ import (
 func spdxFixture(t *testing.T, root, version string) []byte {
 	t.Helper()
 	var files, packages, relationships []string
-	for index, archive := range provenance.Archives(version) {
+	for index, archive := range artifact.Archives(version) {
 		name := strings.TrimSuffix(strings.TrimSuffix(archive, ".tar.gz"), ".zip")
 		relative := name + "/aigw"
 		target := filepath.Join(root, filepath.FromSlash(relative))
@@ -177,7 +177,7 @@ func TestSPDXInputFailures(t *testing.T) {
 func TestSPDXRequiresTheCompletePlatformMatrix(t *testing.T) {
 	root := t.TempDir()
 	source, target := filepath.Join(root, "raw.json"), filepath.Join(root, "normalized.json")
-	for _, count := range []int{0, 1, len(provenance.Archives("1.2.3")) - 1, len(provenance.Archives("1.2.3")) + 1} {
+	for _, count := range []int{0, 1, len(artifact.Archives("1.2.3")) - 1, len(artifact.Archives("1.2.3")) + 1} {
 		files := make([]map[string]string, count)
 		for index := range files {
 			files[index] = map[string]string{"fileName": fmt.Sprintf("platform-%d/aigw", index)}
@@ -275,7 +275,7 @@ func TestReleaseSBOMCatalogsEveryNativeBinary(t *testing.T) {
 		case "goreleaser":
 			stage := goReleaserStage(t, call.Args)
 			finalSBOM = filepath.Join(filepath.Dir(stage), "artifacts", "aigw_"+version+".spdx.json")
-			for _, archive := range provenance.Archives(version) {
+			for _, archive := range artifact.Archives(version) {
 				platform := strings.Split(strings.TrimSuffix(strings.TrimSuffix(archive, ".tar.gz"), ".zip"), "_")
 				name := "aigw"
 				if platform[2] == "windows" {
@@ -420,7 +420,7 @@ func TestReleaseSBOMRequiresPortableBinaries(t *testing.T) {
 		if err := os.MkdirAll(stage, 0o700); err != nil {
 			return err
 		}
-		for _, name := range provenance.Archives(valid.Version) {
+		for _, name := range artifact.Archives(valid.Version) {
 			if err := os.WriteFile(filepath.Join(stage, name), []byte(name), 0o600); err != nil {
 				return err
 			}

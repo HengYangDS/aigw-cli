@@ -80,7 +80,7 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	if err != nil {
 		return err
 	}
-	for _, name := range provenance.Archives(request.Version) {
+	for _, name := range artifact.Archives(request.Version) {
 		if err := copyFile(filepath.Join(stage, name), filepath.Join(candidate, name)); err != nil {
 			return err
 		}
@@ -106,7 +106,7 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	); err != nil {
 		return err
 	}
-	if err := provenance.RewriteChecksums(candidate, request.Version); err != nil {
+	if err := artifact.RewriteChecksums(candidate, request.Version); err != nil {
 		return err
 	}
 	manifest := filepath.Join(candidate, "checksums.txt")
@@ -116,7 +116,7 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	}); err != nil {
 		return fmt.Errorf("sign release checksums: %w", err)
 	}
-	if err := provenance.ValidateMatrix(ctx, candidate, request.Version); err != nil {
+	if err := artifact.ValidateMatrix(candidate, request.Version); err != nil {
 		return err
 	}
 	if err := artifact.VerifySignature(manifest, manifest+".sig", request.ReleasePublicKey); err != nil {
@@ -412,7 +412,7 @@ func BuildCI(ctx context.Context, root, workspace, output string) error {
 		return buildRelease(ctx, request, executeTool(ctx))
 	}, func(root, version string) (string, error) {
 		return resolveReleaseEpoch(ctx, root, version)
-	}, provenance.CompareMatrices)
+	}, artifact.CompareMatrices)
 }
 
 func buildRequestFromEnvironment(ctx context.Context, output string) (buildRequest, error) {

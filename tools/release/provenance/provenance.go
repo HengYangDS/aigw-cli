@@ -1,6 +1,9 @@
+// Package provenance records and verifies the release's source provenance and its
+// locked scanner, and requires an authorized signer for its artifact matrix.
 package provenance
 
 import (
+	"aigw-cli/internal/program/artifact"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -238,7 +241,7 @@ func provenanceBytes(readSource func(string) ([]byte, error), toolchain, candida
 		sum := fmt.Sprintf("%x", sha256.Sum256(data))
 		dependencies = append(dependencies, resourceDescriptor{URI: "file:" + name, Digest: map[string]string{"sha256": sum}})
 	}
-	names := provenanceSubjects(version)
+	names := artifact.ProvenanceSubjects(version)
 	subjects := make([]subject, 0, len(names))
 	for _, name := range names {
 		sum, digestErr := fileDigest(filepath.Join(candidate, name))

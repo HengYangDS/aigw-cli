@@ -1,7 +1,7 @@
 package publication
 
 import (
-	"aigw-cli/tools/release/provenance"
+	"aigw-cli/internal/program/artifact"
 	"context"
 	"encoding/json"
 	"errors"
@@ -136,7 +136,7 @@ func TestGitHubAssetCredentialsBelongOnlyToTheSelectedAPI(t *testing.T) {
 				config.APIBase = "http://selected-api.invalid"
 			}
 			release := githubRelease{}
-			for _, name := range provenance.Names(version) {
+			for _, name := range artifact.Names(version) {
 				release.Assets = append(release.Assets, struct {
 					Name string `json:"name"`
 					URL  string `json:"url"`
@@ -297,7 +297,7 @@ func TestGitLabAssetVerificationRejectsInvalidAuthorityAndDownload(t *testing.T)
 	config := GitLabConfig{APIBase: "https://example.test", Tag: "v" + version, JobToken: "secret", Artifacts: releaseFixture(t, version)}
 
 	relative := remoteRelease{TagName: config.Tag}
-	for _, name := range provenance.Names(version) {
+	for _, name := range artifact.Names(version) {
 		relative.Assets.Links = append(relative.Assets.Links, struct {
 			URL string `json:"url"`
 		}{URL: name})
@@ -311,7 +311,7 @@ func TestGitLabAssetVerificationRejectsInvalidAuthorityAndDownload(t *testing.T)
 	}))
 	defer server.Close()
 	remote := remoteRelease{TagName: config.Tag}
-	for _, name := range provenance.Names(version) {
+	for _, name := range artifact.Names(version) {
 		remote.Assets.Links = append(remote.Assets.Links, struct {
 			URL string `json:"url"`
 		}{URL: server.URL + "/" + name})

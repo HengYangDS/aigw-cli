@@ -3,6 +3,7 @@ package artifact
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -12,6 +13,21 @@ import (
 type Target struct {
 	OS   string
 	Arch string
+}
+
+// targets is the release's platform matrix, in the order of its archives.
+var targets = []Target{
+	{OS: "darwin", Arch: "amd64"},
+	{OS: "darwin", Arch: "arm64"},
+	{OS: "linux", Arch: "amd64"},
+	{OS: "linux", Arch: "arm64"},
+	{OS: "windows", Arch: "amd64"},
+	{OS: "windows", Arch: "arm64"},
+}
+
+// Targets returns the platforms that every release archives, in the matrix's order.
+func Targets() []Target {
+	return slices.Clone(targets)
 }
 
 // ArchiveName returns the release asset name for this target and version.

@@ -1,6 +1,7 @@
 package publication
 
 import (
+	"aigw-cli/internal/program/artifact"
 	"aigw-cli/tools/release/provenance"
 	"os"
 	"path/filepath"
@@ -44,7 +45,7 @@ func TestProvenanceUsesTaggedInputsAndCompleteArtifactSubjects(t *testing.T) {
 			}
 		})
 	}
-	if err := os.WriteFile(filepath.Join(directory, provenance.Archives("1.2.3")[0]), []byte("different binary"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(directory, artifact.Archives("1.2.3")[0]), []byte("different binary"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := provenance.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err == nil {

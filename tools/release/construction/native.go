@@ -462,19 +462,21 @@ func verifySignedArchives(request buildRequest, stage string, run toolRunner) (r
 		return fmt.Errorf("prepare signed archive verification: %w", err)
 	}
 	defer func() { result = errors.Join(result, robustio.RemoveAll(scratch)) }()
-	for _, arch := range []string{"amd64", "arm64"} {
-		target := artifact.Target{OS: "darwin", Arch: arch}
+	for _, target := range artifact.Targets() {
+		if target.OS != "darwin" {
+			continue
+		}
 		program, err := target.ReadProgram(filepath.Join(stage, target.ArchiveName(request.Version)), filepath.Join(stage, "checksums.txt"), request.Version)
 		if err != nil {
 			return err
 		}
-		path := filepath.Join(scratch, arch)
+		path := filepath.Join(scratch, target.Arch)
 		if err := os.WriteFile(path, program, 0o700); err != nil {
 			return err
 		}
 		requirement := `-R=anchor apple generic and certificate leaf = H"` + request.MacOSSigningIdentity + `"`
 		if err := run(toolCall{Name: "/usr/bin/codesign", Directory: request.Root, Args: []string{"--verify", "--strict", requirement, path}}); err != nil {
-			return fmt.Errorf("verify signed macOS %s archive: %w", arch, err)
+			return fmt.Errorf("verify signed macOS %s archive: %w", target.Arch, err)
 		}
 	}
 	return nil

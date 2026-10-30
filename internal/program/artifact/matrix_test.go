@@ -1,38 +1,35 @@
-package provenance
+package artifact
 
 import (
-	"aigw-cli/internal/program/artifact"
-	"context"
+	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/hiddeco/sshsig"
+	"golang.org/x/crypto/ssh"
 )
 
-func TestVerifyMatrixUsesExplicitNamespaceScopedAuthorization(t *testing.T) {
-	key := signingKey(t)
-	directory := writeFixtureWithKey(t, "1.2.3", key)
-	publicKey, err := os.ReadFile(key + ".pub")
-	if err != nil {
-		t.Fatal(err)
+func TestArchivesFollowTheTargets(t *testing.T) {
+	want := []string{
+		"aigw_1.2.3_darwin_amd64.tar.gz",
+		"aigw_1.2.3_darwin_arm64.tar.gz",
+		"aigw_1.2.3_linux_amd64.tar.gz",
+		"aigw_1.2.3_linux_arm64.tar.gz",
+		"aigw_1.2.3_windows_amd64.zip",
+		"aigw_1.2.3_windows_arm64.zip",
 	}
-	trust := SignatureTrust{AllowedSigners: filepath.Join(t.TempDir(), "allowed-signers"), Principal: "release@test.invalid"}
-	for _, namespace := range []string{"git", artifact.SignatureNamespace} {
-		if err := os.WriteFile(trust.AllowedSigners, []byte(trust.Principal+` namespaces="`+namespace+`" `+string(publicKey)), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		err := VerifyMatrix(context.Background(), directory, "1.2.3", trust)
-		if (err == nil) != (namespace == artifact.SignatureNamespace) {
-			t.Fatalf("namespace %q: %v", namespace, err)
-		}
+	if got := Archives("1.2.3"); !slices.Equal(got, want) {
+		t.Fatalf("archives = %v, want %v", got, want)
 	}
-	if err := os.Remove(filepath.Join(directory, Archives("1.2.3")[0])); err != nil {
-		t.Fatal(err)
-	}
-	if err := VerifyMatrix(context.Background(), directory, "1.2.3", trust); err == nil {
-		t.Fatal("authorized signature must cover a complete artifact matrix")
+	targets := Targets()
+	targets[0].OS = "plan9"
+	if got := Archives("1.2.3"); !slices.Equal(got, want) {
+		t.Fatalf("a caller changed the platform matrix: %v", got)
 	}
 }
 
@@ -51,73 +48,93 @@ func TestNamesIncludeCompleteReleaseEvidence(t *testing.T) {
 			t.Errorf("release matrix does not contain %q: %v", name, got)
 		}
 	}
+	if subjects := ProvenanceSubjects("1.2.3"); slices.Contains(subjects, "aigw_1.2.3.provenance.json") || slices.Contains(subjects, "checksums.txt") {
+		t.Fatalf("provenance names itself or the manifest as a subject: %v", subjects)
+	}
 }
 
-func TestValidateMatrixVerifiesDetachedSignature(t *testing.T) {
+func TestValidateMatrixVerifiesTheSignatureEnvelope(t *testing.T) {
 	version := "1.2.3"
-	key := signingKey(t)
-	directory := writeFixtureWithKey(t, version, key)
-	if err := ValidateMatrix(t.Context(), directory, version); err != nil {
+	signer := matrixSigner(t)
+	directory := writeMatrix(t, version, signer)
+	if err := ValidateMatrix(directory, version); err != nil {
 		t.Fatal(err)
+	}
+	// The envelope names its own key; whether that signer is authorized is each consumer's decision.
+	signMatrix(t, directory, matrixSigner(t), SignatureNamespace)
+	if err := ValidateMatrix(directory, version); err != nil {
+		t.Fatalf("another signer's valid envelope: %v", err)
+	}
+	signMatrix(t, directory, signer, "git")
+	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "signature") {
+		t.Fatalf("signature in another namespace = %v", err)
+	}
+	signMatrix(t, directory, signer, SignatureNamespace)
+	if err := os.WriteFile(filepath.Join(directory, Names(version)[0]), []byte("replacement"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := RewriteChecksums(directory, version); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "signature") {
+		t.Fatalf("signature over an earlier manifest = %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(directory, "checksums.txt.sig"), []byte("invalid\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "signature") {
-		t.Fatalf("invalid detached signature=%v", err)
+	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "signature") {
+		t.Fatalf("invalid detached signature = %v", err)
 	}
 }
 
 func TestMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	version := "1.2.3"
-	if err := ValidateMatrix(t.Context(), filepath.Join(t.TempDir(), "missing"), version); err == nil {
+	signer := matrixSigner(t)
+	if err := ValidateMatrix(filepath.Join(t.TempDir(), "missing"), version); err == nil {
 		t.Fatal("missing matrix accepted")
 	}
-	directory := writeFixtureWithKey(t, version, signingKey(t))
-	if err := ValidateMatrix(t.Context(), directory, version); err != nil {
-		t.Fatal(err)
-	}
+	directory := writeMatrix(t, version, signer)
 	if err := os.Remove(filepath.Join(directory, Names(version)[0])); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "missing or empty") {
+	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "missing or empty") {
 		t.Fatalf("missing artifact=%v", err)
 	}
 
-	directory = writeFixtureWithKey(t, version, signingKey(t))
+	directory = writeMatrix(t, version, signer)
 	if err := os.WriteFile(filepath.Join(directory, Names(version)[0]), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "missing or empty") {
+	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "missing or empty") {
 		t.Fatalf("empty artifact=%v", err)
 	}
 
-	directory = writeFixtureWithKey(t, version, signingKey(t))
+	directory = writeMatrix(t, version, signer)
 	if err := os.WriteFile(filepath.Join(directory, "unexpected"), []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "unexpected") {
+	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected") {
 		t.Fatalf("extra artifact=%v", err)
 	}
 
-	directory = writeFixtureWithKey(t, version, signingKey(t))
+	directory = writeMatrix(t, version, signer)
 	if err := os.WriteFile(filepath.Join(directory, Names(version)[0]), []byte("corrupt"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
 		t.Fatalf("corrupt artifact=%v", err)
 	}
 
-	directory = writeFixtureWithKey(t, version, signingKey(t))
+	directory = writeMatrix(t, version, signer)
 	checksumPath := filepath.Join(directory, "checksums.txt")
 	if err := os.WriteFile(checksumPath, []byte("bad\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "invalid checksum") {
+	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "invalid checksum") {
 		t.Fatalf("invalid checksum manifest=%v", err)
 	}
 
-	directory = writeFixtureWithKey(t, version, signingKey(t))
+	directory = writeMatrix(t, version, signer)
 	content, err := os.ReadFile(filepath.Join(directory, "checksums.txt"))
 	if err != nil {
 		t.Fatal(err)
@@ -126,23 +143,23 @@ func TestMatrixRejectsMissingExtraAndCorruptFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(directory, "checksums.txt"), append(content, []byte(first+"\n")...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "duplicate checksum") {
+	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "duplicate checksum") {
 		t.Fatalf("duplicate checksum=%v", err)
 	}
 
-	directory = writeFixtureWithKey(t, version, signingKey(t))
+	directory = writeMatrix(t, version, signer)
 	if err := os.WriteFile(filepath.Join(directory, "checksums.txt"), append(content, []byte(strings.Repeat("0", 64)+"  unknown\n")...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateMatrix(t.Context(), directory, version); err == nil || !strings.Contains(err.Error(), "unexpected entries") {
+	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "unexpected entries") {
 		t.Fatalf("unexpected checksum=%v", err)
 	}
 }
 
 func TestCompareMatrices(t *testing.T) {
 	version := "1.2.3"
-	key := signingKey(t)
-	left, right := writeFixtureWithKey(t, version, key), writeFixtureWithKey(t, version, key)
+	signer := matrixSigner(t)
+	left, right := writeMatrix(t, version, signer), writeMatrix(t, version, signer)
 	if err := CompareMatrices(left, right, version); err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +172,7 @@ func TestCompareMatrices(t *testing.T) {
 	if err := RewriteChecksums(right, version); err != nil {
 		t.Fatal(err)
 	}
-	signFixture(t, filepath.Join(right, "checksums.txt"), key)
+	signMatrix(t, right, signer, SignatureNamespace)
 	if err := CompareMatrices(left, right, version); err == nil || !strings.Contains(err.Error(), "differs") {
 		t.Fatalf("different matrix=%v", err)
 	}
@@ -166,8 +183,8 @@ func TestCompareMatrices(t *testing.T) {
 
 func TestCompareMatricesComparesRawChecksumManifest(t *testing.T) {
 	version := "1.2.3"
-	key := signingKey(t)
-	left, right := writeFixtureWithKey(t, version, key), writeFixtureWithKey(t, version, key)
+	signer := matrixSigner(t)
+	left, right := writeMatrix(t, version, signer), writeMatrix(t, version, signer)
 	manifest := filepath.Join(right, "checksums.txt")
 	content, err := os.ReadFile(manifest)
 	if err != nil {
@@ -188,7 +205,7 @@ func TestCompareMatricesComparesRawChecksumManifest(t *testing.T) {
 
 func TestRewriteChecksumsReportsInputAndOutputFailures(t *testing.T) {
 	version := "1.2.3"
-	directory := writeFixtureWithKey(t, version, signingKey(t))
+	directory := writeMatrix(t, version, matrixSigner(t))
 	if err := os.Remove(filepath.Join(directory, Names(version)[0])); err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +213,7 @@ func TestRewriteChecksumsReportsInputAndOutputFailures(t *testing.T) {
 		t.Fatal("missing checksum input accepted")
 	}
 
-	directory = writeFixtureWithKey(t, version, signingKey(t))
+	directory = writeMatrix(t, version, matrixSigner(t))
 	manifest := filepath.Join(directory, "checksums.txt")
 	if err := os.Remove(manifest); err != nil {
 		t.Fatal(err)
@@ -209,7 +226,9 @@ func TestRewriteChecksumsReportsInputAndOutputFailures(t *testing.T) {
 	}
 }
 
-func writeFixtureWithKey(t *testing.T, version, key string) string {
+// writeMatrix writes a complete matrix of fixture artifacts, its canonical
+// manifest and the manifest's signature by signer.
+func writeMatrix(t *testing.T, version string, signer ssh.Signer) string {
 	t.Helper()
 	directory := t.TempDir()
 	for _, name := range Names(version) {
@@ -223,25 +242,34 @@ func writeFixtureWithKey(t *testing.T, version, key string) string {
 	if err := RewriteChecksums(directory, version); err != nil {
 		t.Fatal(err)
 	}
-	signFixture(t, filepath.Join(directory, "checksums.txt"), key)
+	signMatrix(t, directory, signer, SignatureNamespace)
 	return directory
 }
 
-func signingKey(t *testing.T) string {
+func matrixSigner(t *testing.T) ssh.Signer {
 	t.Helper()
-	key := filepath.Join(t.TempDir(), "release-signing-key")
-	if output, err := exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", key).CombinedOutput(); err != nil {
-		t.Fatalf("generate signing key: %v: %s", err, output)
-	}
-	return key
-}
-
-func signFixture(t *testing.T, manifest, key string) {
-	t.Helper()
-	if err := os.Remove(manifest + ".sig"); err != nil && !os.IsNotExist(err) {
+	_, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", artifact.SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
-		t.Fatalf("sign checksum manifest: %v: %s", err, output)
+	signer, err := ssh.NewSignerFromKey(private)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return signer
+}
+
+func signMatrix(t *testing.T, directory string, signer ssh.Signer, namespace string) {
+	t.Helper()
+	manifest, err := os.ReadFile(filepath.Join(directory, "checksums.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature, err := sshsig.Sign(bytes.NewReader(manifest), signer, sshsig.HashSHA512, namespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "checksums.txt.sig"), sshsig.Armor(signature), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }

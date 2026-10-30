@@ -121,11 +121,11 @@ func TestGitLabPublisherRejectsMissingAndMismatchedAssets(t *testing.T) {
 	artifacts := releaseFixture(t, "0.1.0")
 	for name, mutate := range map[string]func(map[string][]byte){
 		"missing": func(remote map[string][]byte) {
-			delete(remote, provenance.Names("0.1.0")[0])
+			delete(remote, artifact.Names("0.1.0")[0])
 			remote["unexpected.bin"] = []byte("unexpected")
 		},
 		"mismatch": func(remote map[string][]byte) {
-			remote[provenance.Names("0.1.0")[0]] = []byte("tampered")
+			remote[artifact.Names("0.1.0")[0]] = []byte("tampered")
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -267,14 +267,14 @@ func TestGitLabUploadUsesOnlyTheArtifactInventory(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if uploads != len(provenance.Names("0.1.0")) {
+	if uploads != len(artifact.Names("0.1.0")) {
 		t.Fatalf("uploaded %d artifacts", uploads)
 	}
 }
 
 func TestGitLabUploadRequiresEveryDeclaredArtifact(t *testing.T) {
 	directory := releaseFixture(t, "0.1.0")
-	if err := os.Remove(filepath.Join(directory, provenance.Archives("0.1.0")[0])); err != nil {
+	if err := os.Remove(filepath.Join(directory, artifact.Archives("0.1.0")[0])); err != nil {
 		t.Fatal(err)
 	}
 	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -305,7 +305,7 @@ func TestGitHubAssetHelpersFailClosed(t *testing.T) {
 	}
 
 	release := githubRelease{}
-	for _, name := range provenance.Names("0.1.0") {
+	for _, name := range artifact.Names("0.1.0") {
 		release.Assets = append(release.Assets, struct {
 			Name string `json:"name"`
 			URL  string `json:"url"`
@@ -319,7 +319,7 @@ func TestGitHubAssetHelpersFailClosed(t *testing.T) {
 func TestVerificationReportsLocalArtifactReadFailures(t *testing.T) {
 	version := "0.1.0"
 	artifacts := releaseFixture(t, version)
-	name := provenance.Names(version)[0]
+	name := artifact.Names(version)[0]
 	if err := os.Remove(filepath.Join(artifacts, name)); err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +332,7 @@ func TestVerificationReportsLocalArtifactReadFailures(t *testing.T) {
 	}))
 	defer server.Close()
 	github := githubRelease{}
-	for _, current := range provenance.Names(version) {
+	for _, current := range artifact.Names(version) {
 		github.Assets = append(github.Assets, struct {
 			Name string `json:"name"`
 			URL  string `json:"url"`
@@ -373,7 +373,7 @@ func TestGitLabAssetHelperErrorPaths(t *testing.T) {
 		_, _ = response.Write([]byte(filepath.Base(request.URL.Path) + "\n"))
 	}))
 	defer server.Close()
-	for _, name := range provenance.Names(version) {
+	for _, name := range artifact.Names(version) {
 		actual.Assets.Links = append(actual.Assets.Links, struct {
 			URL string `json:"url"`
 		}{URL: server.URL + "/" + name})
@@ -399,7 +399,7 @@ func releaseFixture(t *testing.T, version string) string {
 	if err := os.Mkdir(directory, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range provenance.Names(version) {
+	for _, name := range artifact.Names(version) {
 		if name == "checksums.txt" || name == "checksums.txt.sig" {
 			continue
 		}
@@ -447,7 +447,7 @@ func releaseFixture(t *testing.T, version string) string {
 		releaseGit(t, source.Repository, "rev-parse", "HEAD"), releaseGit(t, source.Repository, "rev-parse", "HEAD^{tree}")); err != nil {
 		t.Fatal(err)
 	}
-	if err := provenance.RewriteChecksums(directory, version); err != nil {
+	if err := artifact.RewriteChecksums(directory, version); err != nil {
 		t.Fatal(err)
 	}
 	manifest := filepath.Join(directory, "checksums.txt")
@@ -460,7 +460,7 @@ func releaseFixture(t *testing.T, version string) string {
 func readReleaseFixture(t *testing.T, directory, version string) map[string][]byte {
 	t.Helper()
 	result := map[string][]byte{}
-	for _, name := range provenance.Names(version) {
+	for _, name := range artifact.Names(version) {
 		data, err := os.ReadFile(filepath.Join(directory, name))
 		if err != nil {
 			t.Fatal(err)

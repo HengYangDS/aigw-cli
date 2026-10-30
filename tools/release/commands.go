@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aigw-cli/internal/program/artifact"
 	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/provenance"
 	"aigw-cli/tools/release/publication"
@@ -122,13 +123,13 @@ func artifactCommands(ctx context.Context) commandSet {
 			if err := requireArguments(args, 2, "usage: release validate-artifacts <directory> <version>"); err != nil {
 				return err
 			}
-			return provenance.ValidateMatrix(ctx, args[0], args[1])
+			return artifact.ValidateMatrix(args[0], args[1])
 		},
 		"compare-artifacts": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 3, "usage: release compare-artifacts <left-directory> <right-directory> <version>"); err != nil {
 				return err
 			}
-			return provenance.CompareMatrices(args[0], args[1], args[2])
+			return artifact.CompareMatrices(args[0], args[1], args[2])
 		},
 	}
 }

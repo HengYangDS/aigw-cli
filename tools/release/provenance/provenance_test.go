@@ -1,6 +1,7 @@
 package provenance
 
 import (
+	"aigw-cli/internal/program/artifact"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,7 @@ func provenanceFixture(t *testing.T) (string, string) {
 		}
 	}
 	candidate := t.TempDir()
-	for _, name := range provenanceSubjects("1.2.3") {
+	for _, name := range artifact.ProvenanceSubjects("1.2.3") {
 		if err := os.WriteFile(filepath.Join(candidate, name), []byte("fixture:"+name+"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -89,7 +90,7 @@ func TestWriteProvenancePreservesPriorEvidenceWhenNativeInputsFail(t *testing.T)
 			}
 			input := filepath.Join(root, scenario.path)
 			if scenario.path == "" {
-				input = filepath.Join(candidate, provenanceSubjects("1.2.3")[0])
+				input = filepath.Join(candidate, artifact.ProvenanceSubjects("1.2.3")[0])
 			}
 			if scenario.remove {
 				if err := os.Remove(input); err != nil {

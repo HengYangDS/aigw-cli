@@ -2,6 +2,7 @@ package construction
 
 import (
 	"aigw-cli/internal/platform/process"
+	"aigw-cli/internal/program/artifact"
 	"aigw-cli/tools/release/provenance"
 	"context"
 	"crypto/sha1" //nolint:gosec // SPDX 2.3 requires SHA1 file metadata; signed SHA256 owns integrity.
@@ -399,7 +400,7 @@ func normalizeSPDX(source, target, version string, instant time.Time) error {
 		return fmt.Errorf("decode Syft SPDX document: %w", err)
 	}
 	files, ok := document["files"].([]any)
-	if !ok || len(files) != len(provenance.Archives(version)) {
+	if !ok || len(files) != len(artifact.Archives(version)) {
 		return errors.New("Syft SPDX document must describe the complete release binary matrix")
 	}
 	if err := bindSPDXFiles(filepath.Dir(source), files); err != nil {

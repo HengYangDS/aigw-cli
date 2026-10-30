@@ -299,17 +299,28 @@ command.
 
 ### One owner for the release artifact format
 
-Stage 4 moves the artifact format (platform matrix, archive and checksum names,
-`checksums.txt` grammar and signature verification) to
-`internal/program/artifact`. The release tool and program update both import
-that one owner. Each still validates its own authority-bound inputs: the
-release tool its source and lock, program update its trust anchors and
-downloaded bytes. The Mise `build` task writes to
+Stage 4 moves the artifact format to `internal/program/artifact`: the platform
+matrix, archive and checksum names, the `checksums.txt` grammar, and the
+verification of a complete matrix and its signature envelope. The release tool
+and program update both import that one owner. Each still validates its own
+authority-bound inputs. The release tool validates its source, its lock and its
+signer, whose allowed-signers file and principal `ssh-keygen` evaluates. Program
+update validates its build-bound trust anchor and the bytes it downloads. Both
+read `checksums.txt` with one strict grammar, which refuses any line other than
+a digest and a name. A signed manifest always satisfies it, because the release
+tool validates the matrix before it publishes. The release tool's remaining
+package, `tools/release/provenance`, holds its source provenance, its scanner
+lock and its signer check. The Mise `build` task writes to
 `build/artifacts/<version>-<commit>/`, and the root `dist/` disappears.
 
 Alternative considered: keep two owners and add a parity test. Rejected,
 because a parity test detects drift after it happens, while one owner removes
 the drift.
+
+Alternative considered: verify the release tool's signer natively, too.
+Rejected, because the allowed-signers file is the operator's documented trust
+input. Its principal patterns and options belong to `ssh-keygen`, and a second
+reader of that file would be a second owner.
 
 ### Names follow one glossary
 

@@ -2,6 +2,7 @@
 package publication
 
 import (
+	"aigw-cli/internal/program/artifact"
 	"aigw-cli/tools/release/provenance"
 	"bytes"
 	"context"
@@ -184,7 +185,7 @@ func UploadGitLab(ctx context.Context, client *http.Client, config GitLabConfig)
 		return err
 	}
 	base := strings.TrimSuffix(config.APIBase, "/") + "/projects/" + url.PathEscape(config.ProjectID) + "/packages/generic/aigw/" + url.PathEscape(version)
-	for _, name := range provenance.Names(version) {
+	for _, name := range artifact.Names(version) {
 		file, err := os.Open(filepath.Join(config.Artifacts, name))
 		if err != nil {
 			return err
@@ -261,7 +262,7 @@ func uploadGitHubAssets(ctx context.Context, client *http.Client, config GitHubC
 	if err != nil {
 		return err
 	}
-	for _, name := range provenance.Names(strings.TrimPrefix(config.Tag, "v")) {
+	for _, name := range artifact.Names(strings.TrimPrefix(config.Tag, "v")) {
 		data, err := os.ReadFile(filepath.Join(config.Artifacts, name))
 		if err != nil {
 			return err
@@ -286,7 +287,7 @@ func uploadGitHubAssets(ctx context.Context, client *http.Client, config GitHubC
 }
 
 func verifyGitHubAssets(ctx context.Context, client *http.Client, config GitHubConfig, release githubRelease, version string) error {
-	expected := provenance.Names(version)
+	expected := artifact.Names(version)
 	actual := make([]string, 0, len(release.Assets))
 	assets := map[string]string{}
 	for _, asset := range release.Assets {
@@ -365,7 +366,7 @@ func verifyGitLabAssets(ctx context.Context, client *http.Client, config GitLabC
 	for _, link := range actual.Assets.Links {
 		remote[lastPath(link.URL)] = link.URL
 	}
-	for _, name := range provenance.Names(version) {
+	for _, name := range artifact.Names(version) {
 		endpoint, found := remote[name]
 		if !found {
 			return fmt.Errorf("GitLab release verification is missing asset %s", name)
@@ -424,7 +425,7 @@ type remoteRelease struct {
 func releaseDocument(tag, base string) releasePayload {
 	version := strings.TrimPrefix(tag, "v")
 	payload := releasePayload{TagName: tag, Name: "AIGW " + tag, Description: "Cross-platform AIGW CLI release. Verify downloads with checksums.txt."}
-	for _, name := range provenance.Names(version) {
+	for _, name := range artifact.Names(version) {
 		payload.Assets.Links = append(payload.Assets.Links, releaseLink{Name: name, URL: strings.TrimSuffix(base, "/") + "/" + name, DirectAssetPath: "/" + name})
 	}
 	return payload

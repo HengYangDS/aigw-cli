@@ -128,13 +128,15 @@ func verifyNotarizedArchives(request buildRequest, directory string, submission 
 	}
 	wanted := make(map[string]string)
 	sizes := make(map[uint64]int64)
-	for _, arch := range []string{"amd64", "arm64"} {
-		target := artifact.Target{OS: "darwin", Arch: arch}
+	for _, target := range artifact.Targets() {
+		if target.OS != "darwin" {
+			continue
+		}
 		program, err := target.ReadProgram(filepath.Join(directory, target.ArchiveName(request.Version)), filepath.Join(directory, "checksums.txt"), request.Version)
 		if err != nil {
 			return err
 		}
-		wanted[fmt.Sprintf("%x", sha256.Sum256(program))] = arch
+		wanted[fmt.Sprintf("%x", sha256.Sum256(program))] = target.Arch
 		sizes[uint64(len(program))] = int64(len(program))
 	}
 	for _, entry := range archive.File {

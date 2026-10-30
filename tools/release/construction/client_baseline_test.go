@@ -471,7 +471,7 @@ func signedNativeInputFixture(t *testing.T, root, version, key string) string {
 	git("tag", "-s", "-m", "Release "+version, "v"+version)
 	directory := t.TempDir()
 	writeNativeArchive(t, directory, version)
-	for _, name := range provenance.Names(version) {
+	for _, name := range artifact.Names(version) {
 		if _, err := os.Stat(filepath.Join(directory, name)); os.IsNotExist(err) {
 			if err := os.WriteFile(filepath.Join(directory, name), matrixFixtureContent(name), 0o600); err != nil {
 				t.Fatal(err)
@@ -481,7 +481,7 @@ func signedNativeInputFixture(t *testing.T, root, version, key string) string {
 	if err := provenance.WriteProvenance(root, directory, filepath.Join(directory, "aigw_"+version+".provenance.json"), version, git("rev-parse", "HEAD"), git("rev-parse", "HEAD^{tree}")); err != nil {
 		t.Fatal(err)
 	}
-	if err := provenance.RewriteChecksums(directory, version); err != nil {
+	if err := artifact.RewriteChecksums(directory, version); err != nil {
 		t.Fatal(err)
 	}
 	manifest := filepath.Join(directory, "checksums.txt")
