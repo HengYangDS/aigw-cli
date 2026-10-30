@@ -4,11 +4,9 @@ package install
 
 import (
 	"errors"
-
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
-
 	"aigw-cli/internal/upgrade"
 
 	"github.com/spf13/cobra"

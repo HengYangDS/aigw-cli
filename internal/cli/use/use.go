@@ -11,7 +11,6 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/domain"
-
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
 	"aigw-cli/internal/terminal"

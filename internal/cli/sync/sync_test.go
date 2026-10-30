@@ -9,19 +9,16 @@ import (
 	"sync"
 	"testing"
 
+	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/cli/repair"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
-
 	"aigw-cli/internal/store"
-
-	"aigw-cli/internal/app"
-
-	"aigw-cli/internal/cli/repair"
 )
 
 type syncDiscovery struct{ result discovery.Result }

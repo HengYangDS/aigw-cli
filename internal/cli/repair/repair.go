@@ -7,13 +7,12 @@ import (
 	"fmt"
 	"reflect"
 
+	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
-
-	"aigw-cli/internal/app"
 )
 
 // NewCommand constructs the command that reconciles recoverable AIGW-owned projection drift.

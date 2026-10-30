@@ -2,7 +2,6 @@ package install
 
 import (
 	"bytes"
-
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,7 +9,6 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
-
 	"aigw-cli/internal/upgrade"
 )
 

@@ -1,21 +1,17 @@
 package status
 
 import (
-	"aigw-cli/internal/cli/invocation"
-
-	"aigw-cli/internal/clients"
-
-	"aigw-cli/internal/secret"
-	"aigw-cli/internal/store"
 	"bytes"
-
 	"io"
-
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/app"
+	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
+	"aigw-cli/internal/secret"
+	"aigw-cli/internal/store"
 )
 
 func TestReadinessTransportHelpers(t *testing.T) {

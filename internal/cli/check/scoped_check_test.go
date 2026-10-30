@@ -12,16 +12,14 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/cli/status"
 	claudeclient "aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
-
-	"aigw-cli/internal/app"
-
-	"aigw-cli/internal/cli/status"
 )
 
 func configuredCodexScopedCheck(t *testing.T) (invocation.Context, *bytes.Buffer) {

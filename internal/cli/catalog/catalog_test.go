@@ -1,24 +1,21 @@
 package catalog
 
 import (
-	"aigw-cli/internal/app"
 	"bytes"
-
 	"errors"
 	"io"
 	"net/http"
-
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/app"
+	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-
-	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/clients"
 
 	"github.com/spf13/cobra"
 )

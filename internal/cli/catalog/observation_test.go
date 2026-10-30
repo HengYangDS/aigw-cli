@@ -1,15 +1,13 @@
 package catalog
 
 import (
-	"aigw-cli/internal/terminal"
 	"bytes"
-
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/domain"
-
 	"aigw-cli/internal/app"
+	"aigw-cli/internal/domain"
+	"aigw-cli/internal/terminal"
 )
 
 func TestDeprecatedCatalogEntryDoesNotPresentAsAdmitted(t *testing.T) {

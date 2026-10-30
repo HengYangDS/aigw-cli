@@ -4,7 +4,6 @@
 package cli
 
 import (
-	"aigw-cli/internal/app"
 	"errors"
 	"fmt"
 	"io"
@@ -16,65 +15,44 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/spf13/pflag"
-
+	"aigw-cli/internal/app"
 	accountcli "aigw-cli/internal/cli/account"
+	"aigw-cli/internal/cli/add"
+	"aigw-cli/internal/cli/balance"
 	"aigw-cli/internal/cli/catalog"
+	"aigw-cli/internal/cli/check"
 	clientcli "aigw-cli/internal/cli/client"
 	completioncli "aigw-cli/internal/cli/completion"
+	"aigw-cli/internal/cli/config"
 	credentialcli "aigw-cli/internal/cli/credential"
 	"aigw-cli/internal/cli/doctor"
 	installcli "aigw-cli/internal/cli/install"
+	"aigw-cli/internal/cli/installation"
 	"aigw-cli/internal/cli/invocation"
-
+	"aigw-cli/internal/cli/models"
+	"aigw-cli/internal/cli/repair"
+	"aigw-cli/internal/cli/rollback"
+	"aigw-cli/internal/cli/rotate"
 	"aigw-cli/internal/cli/route"
-
+	"aigw-cli/internal/cli/setup"
+	"aigw-cli/internal/cli/status"
+	synccli "aigw-cli/internal/cli/sync"
+	testcli "aigw-cli/internal/cli/test"
+	"aigw-cli/internal/cli/uninstall"
 	updatecli "aigw-cli/internal/cli/update"
-
+	"aigw-cli/internal/cli/use"
+	"aigw-cli/internal/cli/verify"
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
-
 	"aigw-cli/internal/secret"
-	"aigw-cli/internal/terminal"
-
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 	"aigw-cli/internal/upgrade"
 
 	"github.com/spf13/cobra"
-
-	"aigw-cli/internal/cli/installation"
-
-	"aigw-cli/internal/cli/uninstall"
-
-	"aigw-cli/internal/cli/setup"
-
-	"aigw-cli/internal/cli/use"
-
-	"aigw-cli/internal/cli/config"
-
-	"aigw-cli/internal/cli/verify"
-
-	"aigw-cli/internal/cli/add"
-
-	"aigw-cli/internal/cli/rotate"
-
-	"aigw-cli/internal/cli/balance"
-
-	"aigw-cli/internal/cli/repair"
-
-	"aigw-cli/internal/cli/rollback"
-
-	synccli "aigw-cli/internal/cli/sync"
-
-	"aigw-cli/internal/cli/models"
-
-	testcli "aigw-cli/internal/cli/test"
-
-	"aigw-cli/internal/cli/check"
-
-	"aigw-cli/internal/cli/status"
+	"github.com/spf13/pflag"
 )
 
 // App owns the dependencies and presentation state for one AIGW invocation.

@@ -1,18 +1,16 @@
 package route
 
 import (
-	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/clients"
-
-	"aigw-cli/internal/store"
-
 	"context"
 	"errors"
-
-	"github.com/spf13/cobra"
-
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
+	"aigw-cli/internal/store"
+
+	"github.com/spf13/cobra"
 )
 
 func TestRouteRenamePreservesInvocationAndDomainErrors(t *testing.T) {

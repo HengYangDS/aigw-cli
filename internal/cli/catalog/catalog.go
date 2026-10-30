@@ -4,16 +4,14 @@ package catalog
 
 import (
 	"fmt"
-
 	"strings"
 
+	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
-
-	"aigw-cli/internal/app"
 )
 
 // NewCommand constructs authenticated catalog discovery.

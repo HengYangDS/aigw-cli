@@ -3,19 +3,18 @@
 package setup
 
 import (
-	clientactivation "aigw-cli/internal/activation"
-	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/domain"
-
-	"aigw-cli/internal/secret"
-	"aigw-cli/internal/secret/probe"
-	"aigw-cli/internal/terminal"
-
 	"context"
 	"errors"
 	"fmt"
 	"slices"
 	"strings"
+
+	clientactivation "aigw-cli/internal/activation"
+	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/probe"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )

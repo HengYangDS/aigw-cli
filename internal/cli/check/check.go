@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	clientactivation "aigw-cli/internal/activation"
+	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/domain"
@@ -16,8 +17,6 @@ import (
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
-
-	"aigw-cli/internal/app"
 )
 
 // NewCommand builds the read-only health check for every enabled client.

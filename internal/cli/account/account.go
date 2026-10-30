@@ -10,7 +10,6 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/providers"
 	"aigw-cli/internal/secret"
-
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
