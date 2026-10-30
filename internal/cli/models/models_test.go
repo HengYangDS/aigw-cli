@@ -28,7 +28,7 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 		t.Fatal("expected config load failure")
 	}
 
-	emptyDeps, _ := catalogDependencies(t, domain.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
+	emptyDeps, _ := catalogRuntime(t, domain.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
 	if err := executeCatalogCommand(t, NewCommand(emptyDeps)); err == nil || !strings.Contains(err.Error(), "not configured") {
 		t.Fatalf("empty config error = %v", err)
 	}
@@ -39,7 +39,7 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt-codex"]}`)), Request: request}, nil
 	})
-	deps, out := catalogDependencies(t, cfg, map[string]string{"gateway": "token", "anthropic": "ignored"}, client)
+	deps, out := catalogRuntime(t, cfg, map[string]string{"gateway": "token", "anthropic": "ignored"}, client)
 	deps.RenderOut = out
 	if err := executeCatalogCommand(t, NewCommand(deps)); err != nil {
 		t.Fatal(err)
@@ -135,7 +135,7 @@ func TestAmbiguousCatalogueDoesNotReportRoutesAsNotListed(t *testing.T) {
 		client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Request: request}, nil
 		})
-		deps, _ := catalogDependencies(t, cfg, map[string]string{"gateway": "token"}, client)
+		deps, _ := catalogRuntime(t, cfg, map[string]string{"gateway": "token"}, client)
 		rows := modelRows(cfg, app.DiscoverCatalog(context.Background(), deps.Secrets, deps.HTTP, cfg))
 		if len(rows) != 1 || !strings.HasPrefix(rows[0].Catalog, want) {
 			t.Fatalf("body=%s rows=%#v, want %q", body, rows, want)

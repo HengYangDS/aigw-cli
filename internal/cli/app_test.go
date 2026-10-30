@@ -69,9 +69,6 @@ func TestNewDefaultBuildsAFunctioningApp(t *testing.T) {
 	if _, ok := app.Runner.(process.Runner); !ok {
 		t.Fatalf("NewDefault(clients.Registry()) runner = %T, want process.Runner", app.Runner)
 	}
-	if app.Now == nil {
-		t.Fatal("NewDefault(clients.Registry()) did not wire a clock")
-	}
 }
 
 func TestExecuteReturnsBusyLockErrorWhenAnotherMutationHoldsIt(t *testing.T) {

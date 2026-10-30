@@ -20,8 +20,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Request contains the explicit setup inputs before discovery and validation resolve their effects.
-type Request struct {
+// setupRequest contains the explicit setup inputs before discovery and validation resolve their effects.
+type setupRequest struct {
 	From, Account, Route, Label      string
 	OpenAIURL, AnthropicURL, ChatURL string
 	Client, Model, Protocol          string
@@ -32,7 +32,7 @@ type Request struct {
 
 // NewCommand constructs the setup command and binds it to one invocation context.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	request := Request{}
+	request := setupRequest{}
 	cmd := &cobra.Command{
 		Use:   "setup",
 		Short: "Complete first-time setup",
@@ -62,7 +62,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if cmd.Flags().Changed("from") {
 				return runManifestSetup(cmd.Context(), operation, request)
 			}
-			if operation.Interactive && request == (Request{}) {
+			if operation.Interactive && request == (setupRequest{}) {
 				cfg, err := operation.Config.Load()
 				if err != nil {
 					return err
@@ -94,7 +94,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 }
 
 type setupPlan struct {
-	request Request
+	request setupRequest
 	before  domain.Config
 	config  domain.Config
 	route   domain.Route
@@ -106,7 +106,7 @@ type setupCredential struct {
 	write   bool
 }
 
-func runSetup(ctx context.Context, runtime invocation.Context, request Request) error {
+func runSetup(ctx context.Context, runtime invocation.Context, request setupRequest) error {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func runSetup(ctx context.Context, runtime invocation.Context, request Request) 
 	return nil
 }
 
-func planSetup(cfg domain.Config, request Request) (setupPlan, error) {
+func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 	plan := setupPlan{request: request, before: cfg.Clone(), config: cfg}
 	plan.request.Route = strings.TrimSpace(plan.request.Route)
 	plan.request.Account = strings.TrimSpace(plan.request.Account)
@@ -269,7 +269,7 @@ func setupEndpointFlag(protocol domain.EndpointProtocol) string {
 // AIGW_SECRET_BACKEND=env: the environment store is intentionally read-only,
 // so setup must validate and reference its token rather than asking for a
 // second copy and attempting to persist it.
-func setupToken(runtime invocation.Context, request Request) (setupCredential, error) {
+func setupToken(runtime invocation.Context, request setupRequest) (setupCredential, error) {
 	credential := setupCredential{account: request.Account}
 	previous, err := runtime.Secrets.Get(request.Account)
 	if err != nil && !errors.Is(err, secret.ErrNotFound) {
@@ -334,7 +334,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 			return fmt.Errorf("unsupported %s endpoint protocol %q", spec.Label, selected)
 		}
 	}
-	request := Request{Account: account, Label: label, Client: client, Protocol: string(protocol), PromptToken: true}
+	request := setupRequest{Account: account, Label: label, Client: client, Protocol: string(protocol), PromptToken: true}
 	var endpointLabel string
 	var endpointURL *string
 	switch protocol {

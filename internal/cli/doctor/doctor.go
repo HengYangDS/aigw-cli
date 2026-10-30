@@ -18,10 +18,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Check is one machine-readable diagnostic result. Target names the native file
+// checkResult is one machine-readable diagnostic result. Target names the native file
 // the check inspected relative to the home directory; it is omitted for a file
 // outside the home directory, so diagnostics never expose a private path.
-type Check struct {
+type checkResult struct {
 	Name   string `json:"name"`
 	OK     bool   `json:"ok"`
 	Detail string `json:"detail"`
@@ -40,7 +40,7 @@ const credentialBackendUnavailable = "credential backend is unavailable"
 
 type commandResult struct {
 	CredentialBackend secret.BackendSelection           `json:"credential_backend"`
-	Checks            []Check                           `json:"checks"`
+	Checks            []checkResult                     `json:"checks"`
 	Clients           map[string]domainreadiness.Client `json:"clients"`
 	OK                bool                              `json:"ok"`
 	OKScope           string                            `json:"ok_scope"`
@@ -89,12 +89,12 @@ func newCommand(runtime invocation.Context, inspect inspector) *cobra.Command {
 			r.Section("Checks")
 			checks := make([]terminal.Field, 0, len(result.Checks))
 			for _, check := range result.Checks {
-				field := terminal.Field{State: terminal.OK, Label: Label(admission, check), Value: Detail(admission, check)}
+				field := terminal.Field{State: terminal.OK, Label: checkLabel(admission, check), Value: checkDetail(admission, check)}
 				if !check.OK {
 					field.State = terminal.Fail
 				}
 				if check.Fix != "" {
-					field.Details = []string{"Fix: " + Fix(check)}
+					field.Details = []string{"Fix: " + safeFix(check)}
 				}
 				checks = append(checks, field)
 			}
@@ -132,9 +132,9 @@ func newCommand(runtime invocation.Context, inspect inspector) *cobra.Command {
 
 func collectResult(ctx context.Context, deps app.Dependencies, inspect inspector) commandResult {
 	backend, backendErr := secret.Inspect(deps.Secrets)
-	checks := Collect(ctx, deps)
+	checks := collectChecks(ctx, deps)
 	if backendErr != nil {
-		checks = append([]Check{{
+		checks = append([]checkResult{{
 			Name:   "credential:backend",
 			Detail: credentialBackendUnavailable,
 			Fix:    backend.RecoveryAction,
@@ -144,11 +144,11 @@ func collectResult(ctx context.Context, deps app.Dependencies, inspect inspector
 		CredentialBackend: backend,
 		Checks:            checks,
 		Clients:           inspectClients(deps, inspect),
-		OK:                AllOK(checks),
+		OK:                allOK(checks),
 		OKScope:           "local_diagnostics",
 	}
 	if !result.OK {
-		result.NextAction = NextAction(checks)
+		result.NextAction = nextAction(checks)
 	}
 	for _, spec := range deps.Config.Admission().Specs() {
 		client, observed := result.Clients[spec.ID]
@@ -256,18 +256,18 @@ func renderClients(renderer *terminal.Renderer, admission domain.Admission, clie
 	renderer.Rows(rows...)
 }
 
-// Collect evaluates configuration, credentials, client executables, and
+// collectChecks evaluates configuration, credentials, client executables, and
 // projections.
-func Collect(ctx context.Context, deps app.Dependencies) []Check {
-	checks := []Check{}
-	if names := ForbiddenClientTokenEnvironment(deps.Env); len(names) > 0 {
-		checks = append(checks, Check{
+func collectChecks(ctx context.Context, deps app.Dependencies) []checkResult {
+	checks := []checkResult{}
+	if names := forbiddenClientTokenEnvironment(deps.Env); len(names) > 0 {
+		checks = append(checks, checkResult{
 			Name:   "environment:client-token",
 			Detail: "global client token environment variables are set: " + strings.Join(names, ", "),
 			Fix:    "remove them from the parent environment; AIGW supplies credentials only to explicit client verification processes",
 		})
 	} else {
-		checks = append(checks, Check{
+		checks = append(checks, checkResult{
 			Name:   "environment:client-token",
 			OK:     true,
 			Detail: "no global client token environment variables",
@@ -275,17 +275,17 @@ func Collect(ctx context.Context, deps app.Dependencies) []Check {
 	}
 	cfg, err := deps.Config.Load()
 	if err != nil {
-		return append(checks, Check{Name: "config", Detail: "cannot read or validate configuration", Fix: "inspect or restore the local configuration file"})
+		return append(checks, checkResult{Name: "config", Detail: "cannot read or validate configuration", Fix: "inspect or restore the local configuration file"})
 	}
 	if len(cfg.Routes) == 0 {
-		checks = append(checks, Check{Name: "config", Detail: "not configured", Fix: "run `aigw setup`"})
+		checks = append(checks, checkResult{Name: "config", Detail: "not configured", Fix: "run `aigw setup`"})
 	} else {
-		checks = append(checks, Check{Name: "config", OK: true, Detail: "valid"})
+		checks = append(checks, checkResult{Name: "config", OK: true, Detail: "valid"})
 	}
 	for _, name := range cfg.RequiredAccountTokenIDs() {
 		ok, observationErr := deps.Secrets.Exists(name)
 		if observationErr != nil {
-			checks = append(checks, Check{Name: "secret:" + name, Detail: credentialBackendUnavailable, Fix: "inspect the selected credential backend"})
+			checks = append(checks, checkResult{Name: "secret:" + name, Detail: credentialBackendUnavailable, Fix: "inspect the selected credential backend"})
 			continue
 		}
 		fix := ""
@@ -296,24 +296,24 @@ func Collect(ctx context.Context, deps app.Dependencies) []Check {
 		if ok {
 			detail = "available"
 		}
-		checks = append(checks, Check{Name: "secret:" + name, OK: ok, Detail: detail, Fix: fix})
+		checks = append(checks, checkResult{Name: "secret:" + name, OK: ok, Detail: detail, Fix: fix})
 	}
 	checks = append(checks, adapterChecks(ctx, deps, cfg, homeDirectory(deps.Env))...)
 	return checks
 }
 
-func adapterChecks(ctx context.Context, deps app.Dependencies, cfg domain.Config, home string) []Check {
-	checks := make([]Check, 0)
+func adapterChecks(ctx context.Context, deps app.Dependencies, cfg domain.Config, home string) []checkResult {
+	checks := make([]checkResult, 0)
 	projectionPrerequisites := clientactivation.ProjectionPrerequisites(cfg)
 	for _, clientID := range deps.Synchronizer().ClientIDs() {
 		adapter := cfg.Clients[clientID]
 		if !adapter.Enabled {
-			checks = append(checks, Check{Name: "adapter:" + clientID, OK: true, Detail: "disabled"})
+			checks = append(checks, checkResult{Name: "adapter:" + clientID, OK: true, Detail: "disabled"})
 			continue
 		}
 		runtime, err := cfg.ResolveRuntime(clientID, "")
 		if err != nil {
-			checks = append(checks, Check{Name: "projection:" + clientID, Detail: "selected client route cannot be resolved", Fix: "run `aigw use --for " + clientID + " <route>`"})
+			checks = append(checks, checkResult{Name: "projection:" + clientID, Detail: "selected client route cannot be resolved", Fix: "run `aigw use --for " + clientID + " <route>`"})
 			continue
 		}
 		if projectionPrerequisites[clientID] != "" {
@@ -328,10 +328,10 @@ func adapterChecks(ctx context.Context, deps app.Dependencies, cfg domain.Config
 		if !adapterReady {
 			detail, fix = status.Issue, commandFix(status.RepairAction)
 		}
-		checks = append(checks, Check{Name: "adapter:" + clientID, OK: adapterReady, Detail: detail, Fix: fix, adapterAction: fix != ""})
+		checks = append(checks, checkResult{Name: "adapter:" + clientID, OK: adapterReady, Detail: detail, Fix: fix, adapterAction: fix != ""})
 		for _, observation := range status.Checks {
 			target, outside := publicTarget(observation.Target, home)
-			checks = append(checks, Check{
+			checks = append(checks, checkResult{
 				Name: observation.ID, OK: observation.Ready, Detail: observation.Detail,
 				Fix: commandFix(observation.RepairAction), Target: target, outsideHome: outside,
 				adapterAction: observation.RepairAction != "",
@@ -351,8 +351,8 @@ func commandFix(action string) string {
 	return "run `" + action + "`"
 }
 
-// Fix returns a safe actionable command without exposing local paths.
-func Fix(check Check) string {
+// safeFix returns a safe actionable command without exposing local paths.
+func safeFix(check checkResult) string {
 	switch check.Fix {
 	case "aigw doctor":
 		return "aigw doctor"
@@ -376,8 +376,8 @@ func Fix(check Check) string {
 	return "aigw doctor --json"
 }
 
-// ForbiddenClientTokenEnvironment returns forbidden names without their values.
-func ForbiddenClientTokenEnvironment(values []string) []string {
+// forbiddenClientTokenEnvironment returns forbidden names without their values.
+func forbiddenClientTokenEnvironment(values []string) []string {
 	present := map[string]bool{}
 	for _, value := range values {
 		name, _, ok := strings.Cut(value, "=")
@@ -398,8 +398,8 @@ func ForbiddenClientTokenEnvironment(values []string) []string {
 	return names
 }
 
-// AllOK reports whether every diagnostic passed.
-func AllOK(checks []Check) bool {
+// allOK reports whether every diagnostic passed.
+func allOK(checks []checkResult) bool {
 	for _, check := range checks {
 		if !check.OK {
 			return false
@@ -408,8 +408,8 @@ func AllOK(checks []Check) bool {
 	return true
 }
 
-// NextAction selects the smallest safe action supported by every failure.
-func NextAction(checks []Check) string {
+// nextAction selects the smallest safe action supported by every failure.
+func nextAction(checks []checkResult) string {
 	for _, check := range checks {
 		if check.Name == "config" && !check.OK && check.Detail == "not configured" {
 			return "aigw setup"
@@ -420,7 +420,7 @@ func NextAction(checks []Check) string {
 		if check.OK {
 			continue
 		}
-		action := Fix(check)
+		action := safeFix(check)
 		if action == "" || action == "aigw doctor --json" {
 			return "aigw repair"
 		}

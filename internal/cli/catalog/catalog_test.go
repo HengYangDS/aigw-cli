@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func catalogDependencies(t *testing.T, cfg domain.Config, secretValues map[string]string, client app.HTTPDoer) (invocation.Context, *bytes.Buffer) {
+func catalogRuntime(t *testing.T, cfg domain.Config, secretValues map[string]string, client app.HTTPDoer) (invocation.Context, *bytes.Buffer) {
 	t.Helper()
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if len(cfg.Routes) > 0 {
@@ -65,12 +65,12 @@ func configuredCatalog() domain.Config {
 }
 
 func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
-	emptyDeps, emptyOut := catalogDependencies(t, domain.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
+	emptyDeps, emptyOut := catalogRuntime(t, domain.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
 	command := NewCommand(emptyDeps)
 	if err := executeCatalogCommand(t, command, "--json"); err != nil || !strings.Contains(emptyOut.String(), `"observations": []`) {
 		t.Fatalf("empty JSON output=%q error=%v", emptyOut.String(), err)
 	}
-	emptyDeps, _ = catalogDependencies(t, domain.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
+	emptyDeps, _ = catalogRuntime(t, domain.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
 	if err := executeCatalogCommand(t, NewCommand(emptyDeps)); err == nil || !strings.Contains(err.Error(), "not configured") {
 		t.Fatalf("empty human error = %v", err)
 	}
@@ -127,7 +127,7 @@ func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
 	emptyClient := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":[]}`)), Request: request}, nil
 	})
-	deps, out = catalogDependencies(t, emptyCfg, map[string]string{"gateway": "token"}, emptyClient)
+	deps, out = catalogRuntime(t, emptyCfg, map[string]string{"gateway": "token"}, emptyClient)
 	if err := executeCatalogCommand(t, NewCommand(deps)); err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
 
 func TestCatalogOutputFailuresAndHelpers(t *testing.T) {
 	cfg := configuredCatalog()
-	deps, _ := catalogDependencies(t, cfg, map[string]string{"gateway": "token"}, catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
+	deps, _ := catalogRuntime(t, cfg, map[string]string{"gateway": "token"}, catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt-codex"]}`)), Request: request}, nil
 	}))
 	want := errors.New("output unavailable")
@@ -150,9 +150,6 @@ func TestCatalogOutputFailuresAndHelpers(t *testing.T) {
 	deps.RenderOut = errorWriter{err: want}
 	if err := executeCatalogCommand(t, NewCommand(deps)); !errors.Is(err, want) {
 		t.Fatalf("human output error = %v, want %v", err, want)
-	}
-	if got := modelTitle(""); got != "" {
-		t.Fatalf("empty model title = %q", got)
 	}
 	if state, detail := catalogModelDisplay(app.CatalogModel{ID: "plain", State: app.CatalogCandidate}); state == 0 || !strings.Contains(detail, "Candidate") {
 		t.Fatalf("model display state=%v detail=%q", state, detail)

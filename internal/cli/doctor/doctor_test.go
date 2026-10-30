@@ -99,7 +99,7 @@ func executeJSON(t *testing.T, cmd *cobra.Command, out *bytes.Buffer) commandRes
 	return result
 }
 
-func findCheck(t *testing.T, checks []Check, name string) Check {
+func findCheck(t *testing.T, checks []checkResult, name string) checkResult {
 	t.Helper()
 	for _, check := range checks {
 		if check.Name == name {
@@ -107,7 +107,7 @@ func findCheck(t *testing.T, checks []Check, name string) Check {
 		}
 	}
 	t.Fatalf("missing check %q: %#v", name, checks)
-	return Check{}
+	return checkResult{}
 }
 
 func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
@@ -115,7 +115,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	cfg.SetClientActivation(codex.ID, true, "", nil)
 	deps, _, _ := doctorDependencies(t, cfg)
-	checks := Collect(context.Background(), deps.Dependencies)
+	checks := collectChecks(context.Background(), deps.Dependencies)
 	if check := findCheck(t, checks, "secret:team"); check.OK || check.Fix == "" {
 		t.Fatalf("missing Account Token = %#v", check)
 	}
@@ -127,7 +127,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 
 	cfg.SetClientActivation(codex.ID, true, "codex", nil)
 	deps, _, _ = doctorDependencies(t, cfg)
-	check := findCheck(t, Collect(context.Background(), deps.Dependencies), "adapter:codex")
+	check := findCheck(t, collectChecks(context.Background(), deps.Dependencies), "adapter:codex")
 	if check.OK || check.Detail != "Codex configuration target is missing" || check.Fix != "run `aigw repair`" {
 		t.Fatalf("Codex adapter check = %#v", check)
 	}
@@ -135,7 +135,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	if err := os.MkdirAll(bad.Path(), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	broken := Collect(context.Background(), app.Dependencies{Config: bad, Secrets: secret.NewMemoryStore(), Clients: clients.Registry()})
+	broken := collectChecks(context.Background(), app.Dependencies{Config: bad, Secrets: secret.NewMemoryStore(), Clients: clients.Registry()})
 	if check := findCheck(t, broken, "config"); check.OK || check.Detail != "cannot read or validate configuration" || check.Fix != "inspect or restore the local configuration file" {
 		t.Fatalf("config check = %#v", check)
 	}
@@ -157,7 +157,7 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 		t.Fatal(err)
 	}
 
-	checks := Collect(context.Background(), deps.Dependencies)
+	checks := collectChecks(context.Background(), deps.Dependencies)
 	if check := findCheck(t, checks, "secret:team"); !check.OK {
 		t.Fatalf("selected Account secret = %#v", check)
 	}
@@ -198,7 +198,7 @@ func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 	observed := &observingDoctorSecrets{Store: secretStore}
 	deps.Secrets = observed
 
-	checks := Collect(context.Background(), deps.Dependencies)
+	checks := collectChecks(context.Background(), deps.Dependencies)
 	if len(observed.existsCalls) != 1 || observed.existsCalls[0] != "team" {
 		t.Fatalf("doctor credential observations = %q, want only the Account-Token route", observed.existsCalls)
 	}
@@ -216,7 +216,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if err := secretsStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	checks := Collect(context.Background(), deps.Dependencies)
+	checks := collectChecks(context.Background(), deps.Dependencies)
 	if check := findCheck(t, checks, "adapter:claude"); check.OK || !strings.Contains(check.Detail, "executable is unavailable") {
 		t.Fatalf("adapter check = %#v", check)
 	}
@@ -231,7 +231,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	deps, _, _ = doctorDependencies(t, cfg)
 	deps.Host = hostAt(t.TempDir())
 	deps.Executable = filepath.Join(t.TempDir(), "aigw")
-	checks = Collect(context.Background(), deps.Dependencies)
+	checks = collectChecks(context.Background(), deps.Dependencies)
 	if check := findCheck(t, checks, "adapter:claude"); check.OK || !strings.Contains(check.Detail, "not synchronized") {
 		t.Fatalf("unsynchronized adapter check = %#v", check)
 	}
@@ -242,7 +242,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, deps.Host), false, clientRuntime, deps.Executable, clientRuntime.Model); err != nil {
 		t.Fatal(err)
 	}
-	checks = Collect(context.Background(), deps.Dependencies)
+	checks = collectChecks(context.Background(), deps.Dependencies)
 	if check := findCheck(t, checks, "adapter:claude"); !check.OK {
 		t.Fatalf("adapter check = %#v", check)
 	}
@@ -260,7 +260,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if err := os.WriteFile(claudeSettingsPath(t, deps.Host), append(data, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	checks = Collect(context.Background(), deps.Dependencies)
+	checks = collectChecks(context.Background(), deps.Dependencies)
 	if check := findCheck(t, checks, "adapter:claude"); !check.OK || !strings.Contains(check.Detail, "native model preference") {
 		t.Fatalf("native Claude model preference check = %#v", check)
 	}
@@ -269,7 +269,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	cfg.SetClientActivation(codex.ID, true, "codex", []string{filepath.Join(home, ".codex", "config.toml")})
 	deps, _, _ = doctorDependencies(t, cfg)
 	deps.Env = []string{"HOME=" + home}
-	check := findCheck(t, Collect(context.Background(), deps.Dependencies), "codex:target-1")
+	check := findCheck(t, collectChecks(context.Background(), deps.Dependencies), "codex:target-1")
 	if check.OK || check.Detail != "Codex configuration target is unavailable" || check.Fix != "run `aigw sync`" || check.Target != filepath.Join("~", ".codex", "config.toml") {
 		t.Fatalf("projection check = %#v", check)
 	}
@@ -292,7 +292,7 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 	}
 	cfg.SetClientActivation(claude.ID, true, blocked, nil)
 	deps, _, _ := doctorDependencies(t, cfg)
-	check := findCheck(t, Collect(context.Background(), deps.Dependencies), "adapter:claude")
+	check := findCheck(t, collectChecks(context.Background(), deps.Dependencies), "adapter:claude")
 	if check.OK || !strings.Contains(check.Detail, "unavailable") {
 		t.Fatalf("adapter = %#v", check)
 	}
@@ -311,7 +311,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := executeJSON(t, newCommand(deps, inspect), out)
-	if !result.OK || !AllOK(result.Checks) {
+	if !result.OK || !allOK(result.Checks) {
 		t.Fatalf("result = %#v", result)
 	}
 	if result.Clients[claude.ID].State != domainreadiness.Configured {

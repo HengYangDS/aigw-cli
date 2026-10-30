@@ -16,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func catalogDependencies(t *testing.T, cfg domain.Config, secretValues map[string]string, client app.HTTPDoer) (invocation.Context, *bytes.Buffer) {
+func catalogRuntime(t *testing.T, cfg domain.Config, secretValues map[string]string, client app.HTTPDoer) (invocation.Context, *bytes.Buffer) {
 	t.Helper()
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if len(cfg.Routes) > 0 {

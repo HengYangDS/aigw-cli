@@ -14,35 +14,35 @@ import (
 )
 
 func TestHumanProjectionFailsClosedForFutureChecks(t *testing.T) {
-	for _, check := range []Check{
+	for _, check := range []checkResult{
 		{Name: "future:internal", OK: true, Detail: "internal success detail"},
 		{Name: "future:internal", Detail: "internal failure detail", Fix: "internal repair instruction"},
 	} {
-		if got := Label(clients.Admission(), check); got != "Other check" {
+		if got := checkLabel(clients.Admission(), check); got != "Other check" {
 			t.Fatalf("label = %q, want Other check", got)
 		}
 		want := "Check failed"
 		if check.OK {
 			want = "Healthy"
 		}
-		if got := Detail(clients.Admission(), check); got != want {
+		if got := checkDetail(clients.Admission(), check); got != want {
 			t.Fatalf("detail = %q, want %q", got, want)
 		}
-		if !check.OK && Fix(check) != "aigw doctor --json" {
-			t.Fatalf("fix = %q", Fix(check))
+		if !check.OK && safeFix(check) != "aigw doctor --json" {
+			t.Fatalf("fix = %q", safeFix(check))
 		}
 	}
 }
 
 func TestNextActionFallsBackForMixedOrUnclassifiedFailures(t *testing.T) {
-	for _, checks := range [][]Check{
+	for _, checks := range [][]checkResult{
 		{
 			{Name: "codex:target-1", Fix: "run `aigw sync` to reconcile this target"},
 			{Name: "launcher:claude", Fix: "run `aigw repair`"},
 		},
 		{{Name: "config", Detail: "unexpected"}},
 	} {
-		if got := NextAction(checks); got != "aigw repair" {
+		if got := nextAction(checks); got != "aigw repair" {
 			t.Fatalf("next action = %q", got)
 		}
 	}
@@ -63,38 +63,38 @@ func TestHumanFormattingBranches(t *testing.T) {
 		"codex:target-7":           "Codex configuration target 7",
 	}
 	for name, want := range labels {
-		if got := Label(clients.Admission(), Check{Name: name}); got != want {
+		if got := checkLabel(clients.Admission(), checkResult{Name: name}); got != want {
 			t.Errorf("Label(%q) = %q, want %q", name, got, want)
 		}
 	}
 	details := []struct {
-		check Check
+		check checkResult
 		want  string
 	}{
-		{Check{Name: "environment:client-token", OK: true}, "No global client token environment variables detected"},
-		{Check{Name: "environment:client-token", Detail: "global client token environment variables are set: OPENAI_API_KEY"}, "Global client token environment variables detected: OPENAI_API_KEY"},
-		{Check{Name: "environment:client-token"}, "Global client token environment variables detected"},
-		{Check{Name: "config", Detail: "valid"}, "Configuration is valid"},
-		{Check{Name: "config", Detail: "not configured"}, "First-time setup is incomplete"},
-		{Check{Name: "config", Detail: "read config: denied"}, "Cannot read or validate configuration"},
-		{Check{Name: "credential:backend"}, "Credential storage is unavailable"},
-		{Check{Name: "secret:team", OK: true}, "team · available"},
-		{Check{Name: "secret:team"}, "team · missing"},
-		{Check{Name: "secret:team", Detail: "credential backend is unavailable"}, "team · credential backend unavailable"},
-		{Check{Name: "adapter:claude", OK: true, Detail: "enabled"}, "Enabled"},
-		{Check{Name: "adapter:claude", Detail: "Claude executable is not configured"}, "Enabled, but no executable is configured"},
-		{Check{Name: "adapter:codex", Detail: "Codex executable is not configured"}, "Enabled, but no executable is configured"},
-		{Check{Name: "adapter:codex", Detail: "Codex configuration target is missing"}, "Enabled, but no Codex configuration file is configured"},
-		{Check{Name: "projection:codex", Detail: "unavailable"}, "Current Codex binding cannot be resolved"},
-		{Check{Name: "codex:target-1", OK: true}, "Matches the current binding"},
-		{Check{Name: "codex:target-1"}, "Does not match the current binding"},
+		{checkResult{Name: "environment:client-token", OK: true}, "No global client token environment variables detected"},
+		{checkResult{Name: "environment:client-token", Detail: "global client token environment variables are set: OPENAI_API_KEY"}, "Global client token environment variables detected: OPENAI_API_KEY"},
+		{checkResult{Name: "environment:client-token"}, "Global client token environment variables detected"},
+		{checkResult{Name: "config", Detail: "valid"}, "Configuration is valid"},
+		{checkResult{Name: "config", Detail: "not configured"}, "First-time setup is incomplete"},
+		{checkResult{Name: "config", Detail: "read config: denied"}, "Cannot read or validate configuration"},
+		{checkResult{Name: "credential:backend"}, "Credential storage is unavailable"},
+		{checkResult{Name: "secret:team", OK: true}, "team · available"},
+		{checkResult{Name: "secret:team"}, "team · missing"},
+		{checkResult{Name: "secret:team", Detail: "credential backend is unavailable"}, "team · credential backend unavailable"},
+		{checkResult{Name: "adapter:claude", OK: true, Detail: "enabled"}, "Enabled"},
+		{checkResult{Name: "adapter:claude", Detail: "Claude executable is not configured"}, "Enabled, but no executable is configured"},
+		{checkResult{Name: "adapter:codex", Detail: "Codex executable is not configured"}, "Enabled, but no executable is configured"},
+		{checkResult{Name: "adapter:codex", Detail: "Codex configuration target is missing"}, "Enabled, but no Codex configuration file is configured"},
+		{checkResult{Name: "projection:codex", Detail: "unavailable"}, "Current Codex binding cannot be resolved"},
+		{checkResult{Name: "codex:target-1", OK: true}, "Matches the current binding"},
+		{checkResult{Name: "codex:target-1"}, "Does not match the current binding"},
 	}
 	for _, test := range details {
-		if got := Detail(clients.Admission(), test.check); got != test.want {
+		if got := checkDetail(clients.Admission(), test.check); got != test.want {
 			t.Errorf("Detail(%+v) = %q, want %q", test.check, got, test.want)
 		}
 	}
-	if got := Fix(Check{Fix: "run `aigw rotate team`"}); got != "aigw rotate team" {
+	if got := safeFix(checkResult{Fix: "run `aigw rotate team`"}); got != "aigw rotate team" {
 		t.Fatalf("generic run fix = %q", got)
 	}
 	for raw, want := range map[string]string{
@@ -104,14 +104,14 @@ func TestHumanFormattingBranches(t *testing.T) {
 		"remove them from the parent environment; now": "Remove the variables above from the parent environment that launched this terminal",
 		"inspect or restore /private/configuration":    "Inspect or restore the local configuration file",
 	} {
-		if got := Fix(Check{Fix: raw}); got != want {
+		if got := safeFix(checkResult{Fix: raw}); got != want {
 			t.Errorf("Fix(%q) = %q, want %q", raw, got, want)
 		}
 	}
 	if got := doctorTitle(""); got != "" {
 		t.Fatalf("empty title = %q", got)
 	}
-	if got := strings.Join(ForbiddenClientTokenEnvironment([]string{"malformed", "OPENAI_API_KEY=one", "OPENAI_API_KEY=two"}), ","); got != "OPENAI_API_KEY" {
+	if got := strings.Join(forbiddenClientTokenEnvironment([]string{"malformed", "OPENAI_API_KEY=one", "OPENAI_API_KEY=two"}), ","); got != "OPENAI_API_KEY" {
 		t.Fatalf("forbidden environment names = %q", got)
 	}
 }
@@ -137,14 +137,14 @@ func TestCodexTargetLabelNamesOnlyFilesUnderHome(t *testing.T) {
 		}
 	}
 	for _, test := range []struct {
-		check Check
+		check checkResult
 		want  string
 	}{
-		{Check{Name: "codex:target-1", Target: homeRelative}, "Codex configuration " + homeRelative},
-		{Check{Name: "codex:target-2", outsideHome: true}, "Codex configuration target 2 (outside the home directory)"},
-		{Check{Name: "codex:target-3"}, "Codex configuration target 3"},
+		{checkResult{Name: "codex:target-1", Target: homeRelative}, "Codex configuration " + homeRelative},
+		{checkResult{Name: "codex:target-2", outsideHome: true}, "Codex configuration target 2 (outside the home directory)"},
+		{checkResult{Name: "codex:target-3"}, "Codex configuration target 3"},
 	} {
-		if got := Label(clients.Admission(), test.check); got != test.want {
+		if got := checkLabel(clients.Admission(), test.check); got != test.want {
 			t.Errorf("Label(%+v) = %q, want %q", test.check, got, test.want)
 		}
 	}
@@ -190,32 +190,32 @@ func TestResultClassifiesObservedClientStates(t *testing.T) {
 }
 
 func TestAllOKAndNextActionBranches(t *testing.T) {
-	if !AllOK(nil) || AllOK([]Check{{Name: "bad"}}) {
+	if !allOK(nil) || allOK([]checkResult{{Name: "bad"}}) {
 		t.Fatal("AllOK result mismatch")
 	}
 	for _, test := range []struct {
-		checks []Check
+		checks []checkResult
 		want   string
 	}{
-		{[]Check{{Name: "config", Detail: "not configured"}}, "aigw setup"},
-		{[]Check{{Name: "healthy", OK: true}, {Name: "codex:target-1", Fix: "run `aigw sync`"}}, "aigw sync"},
+		{[]checkResult{{Name: "config", Detail: "not configured"}}, "aigw setup"},
+		{[]checkResult{{Name: "healthy", OK: true}, {Name: "codex:target-1", Fix: "run `aigw sync`"}}, "aigw sync"},
 		{nil, "aigw repair"},
 	} {
-		if got := NextAction(test.checks); got != test.want {
+		if got := nextAction(test.checks); got != test.want {
 			t.Errorf("NextAction(%#v) = %q, want %q", test.checks, got, test.want)
 		}
 	}
 }
 
 func TestUnknownCheckProjectionFailsClosed(t *testing.T) {
-	check := Check{Name: "future:internal", Detail: "private implementation detail", Fix: "private repair"}
-	if got := Label(clients.Admission(), check); got != "Other check" {
+	check := checkResult{Name: "future:internal", Detail: "private implementation detail", Fix: "private repair"}
+	if got := checkLabel(clients.Admission(), check); got != "Other check" {
 		t.Fatalf("Label() = %q, want Other check", got)
 	}
-	if got := Detail(clients.Admission(), check); got != "Check failed" {
+	if got := checkDetail(clients.Admission(), check); got != "Check failed" {
 		t.Fatalf("Detail() = %q, want Check failed", got)
 	}
-	if got := Fix(check); got != "aigw doctor --json" {
+	if got := safeFix(check); got != "aigw doctor --json" {
 		t.Fatalf("Fix() = %q, want aigw doctor --json", got)
 	}
 }
@@ -229,7 +229,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 	checks := executeJSON(t, newCommand(deps, nil), out).Checks
 	longest := 0
 	for _, check := range checks {
-		longest = max(longest, terminal.DisplayWidth("✓ "+Label(clients.Admission(), check)))
+		longest = max(longest, terminal.DisplayWidth("✓ "+checkLabel(clients.Admission(), check)))
 	}
 	for _, width := range []int{0, 72, 100} {
 		out.Reset()
@@ -244,7 +244,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 			text := strings.TrimLeft(line, " ")
 			if symbol, rest, classified := strings.Cut(text, " "); classified && (symbol == "✓" || symbol == "✗") {
 				for _, check := range checks {
-					if label := Label(clients.Admission(), check); strings.HasPrefix(rest, label+" ") {
+					if label := checkLabel(clients.Admission(), check); strings.HasPrefix(rest, label+" ") {
 						text = strings.TrimLeft(strings.TrimPrefix(rest, label), " ")
 						break
 					}

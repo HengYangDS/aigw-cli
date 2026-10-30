@@ -124,10 +124,3 @@ func renderMissingRoutes(r *terminal.Renderer, routes []app.CatalogRoute) {
 		r.Detail(route.UpstreamModel + " · missing from this observation; requalification required")
 	}
 }
-
-func modelTitle(value string) string {
-	if value == "" {
-		return ""
-	}
-	return strings.ToUpper(value[:1]) + value[1:]
-}

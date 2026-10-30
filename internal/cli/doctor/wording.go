@@ -6,10 +6,10 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-// Label maps a diagnostic to a stable human label. A check about one native
+// checkLabel maps a diagnostic to a stable human label. A check about one native
 // file under the home directory names that file. Admission supplies the label
 // of the client that a check concerns.
-func Label(admission domain.Admission, check Check) string {
+func checkLabel(admission domain.Admission, check checkResult) string {
 	name := check.Name
 	if clientID, ok := strings.CutPrefix(name, "adapter:"); ok {
 		if spec, admitted := admission.Spec(clientID); admitted {
@@ -71,9 +71,9 @@ func doctorWording(admission domain.Admission, name, prefix string) (domain.Clie
 	return spec, spec.Doctor
 }
 
-// Detail maps machine diagnostics to non-sensitive human text. Admission
+// checkDetail maps machine diagnostics to non-sensitive human text. Admission
 // supplies the wording of the client that a check concerns.
-func Detail(admission domain.Admission, check Check) string {
+func checkDetail(admission domain.Admission, check checkResult) string {
 	name, detail := check.Name, check.Detail
 	switch {
 	case name == "environment:client-token":

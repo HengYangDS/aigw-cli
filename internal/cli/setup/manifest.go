@@ -29,7 +29,7 @@ type manifestSetupResult struct {
 	NextAction         string                `json:"next_action"`
 }
 
-func runManifestSetup(ctx context.Context, runtime invocation.Context, request Request) error {
+func runManifestSetup(ctx context.Context, runtime invocation.Context, request setupRequest) error {
 	data, err := os.ReadFile(request.From)
 	if err != nil {
 		return fmt.Errorf("Failed to read configuration manifest: %w", err)

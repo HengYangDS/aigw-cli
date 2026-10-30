@@ -15,7 +15,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/spf13/pflag"
 
@@ -82,7 +81,6 @@ import (
 type App struct {
 	GOOS                  string
 	DataDir               string
-	Now                   func() time.Time
 	Version               string
 	Executable            string
 	CredentialPath        string
@@ -261,7 +259,6 @@ func NewDefault(clients client.Registry) (*App, error) {
 	app := &App{
 		GOOS:          runtime.GOOS,
 		DataDir:       paths.Data,
-		Now:           time.Now,
 		Version:       Version,
 		Executable:    executable,
 		InstallTarget: filepath.Join(paths.InstallDir, paths.InstallName),
@@ -317,7 +314,7 @@ func environmentMap(values []string) map[string]string {
 
 func (a *App) invocationContext() invocation.Context {
 	return invocation.Context{
-		Version: appVersion(a), Executable: a.Executable, DataDir: a.DataDir, CredentialPath: a.CredentialPath, InstallTarget: a.InstallTarget,
+		Version: appVersion(a), Executable: a.Executable, CredentialPath: a.CredentialPath, InstallTarget: a.InstallTarget,
 		ResolveCredentialPath: a.ResolveCredentialPath,
 		ResolveProgram:        a.ResolveProgram,
 		Files:                 a.Files,
@@ -328,7 +325,7 @@ func (a *App) invocationContext() invocation.Context {
 		RenderOut: a.outputWriter(),
 		Color:     a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
-		Discovery: a.Discovery, Clients: a.Clients, Updater: a.Updater, Now: a.Now, Problem: terminal.ProblemError,
+		Discovery: a.Discovery, Clients: a.Clients, Updater: a.Updater, Problem: terminal.ProblemError,
 	}
 }
 

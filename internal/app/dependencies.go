@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/discovery"
@@ -38,7 +37,6 @@ type Updater interface {
 type Dependencies struct {
 	Version               string
 	Executable            string
-	DataDir               string
 	CredentialPath        string
 	ResolveCredentialPath func() (string, error)
 	ResolveProgram        func() (secret.Program, error)
@@ -59,7 +57,6 @@ type Dependencies struct {
 	// operation of this invocation goes through it.
 	Clients client.Registry
 	Updater Updater
-	Now     func() time.Time
 	// ClientInspector observes one client's projection in place of the
 	// synchronizer in every inspection of this invocation; nil means the
 	// synchronizer inspects it.
