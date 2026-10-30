@@ -29,8 +29,8 @@
 
 - [x] 3.1 Compare `rogpeppe/go-internal/testscript` with the current CLI test harness by the code each needs for the same scripts, and record the admitted choice and its measurement in `design.md`.
 - [ ] 3.2 Add acceptance scripts that run the program in its own process against private homes for every command's help, a representative success, a representative refusal and its JSON output, before any command moves, so that they hold today's behavior as the baseline.
-- [ ] 3.3 Move each of the 25 top-level commands into one package under `internal/cli` named after it; the root keeps only group assembly. The repository gate fails for a command without its package or scripts.
-- [ ] 3.4 Move the use cases that several commands share out of the command packages into `internal/app`, rendering and prompts into `internal/terminal`, and the redaction rules into `internal/domain`; a command's own behavior stays in its package. The root builds every command from the invocation context, no command package defines its own set of dependencies, and the architecture gate admits no import between command packages.
+- [x] 3.3 Move each of the 25 top-level commands into one package under `internal/cli` named after it; the root keeps only group assembly. The repository gate fails for a command without its package or scripts.
+- [x] 3.4 Move the use cases that several commands share out of the command packages into `internal/app`, rendering and prompts into `internal/terminal`, and the redaction rules into `internal/domain`; a command's own behavior stays in its package. The root builds every command, a command that needs capabilities receives them through the invocation context, no command package defines its own set of dependencies, and the architecture gate admits no import between command packages.
 - [ ] 3.5 Run the local quality graph, including the acceptance scripts, at the stage head.
 - [ ] 3.6 Prove the stage head with the full ETHOS proof.
 - [ ] 3.7 Confirm the hosted three-platform graph runs every acceptance script and the real-client journeys pass at the stage head.
