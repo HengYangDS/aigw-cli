@@ -1,4 +1,6 @@
-// Package artifact verifies and reads platform-specific portable release archives.
+// Package artifact owns the release artifact format: the platform matrix, the
+// names of a release's artifacts, the checksum manifest and its signature, and
+// the archives that program update verifies and reads.
 package artifact
 
 import (

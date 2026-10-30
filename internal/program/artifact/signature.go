@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "crypto/sha256" // Register both hash algorithms supported by SSHSIG.
 	_ "crypto/sha512"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
@@ -52,15 +53,40 @@ func VerifySignature(manifestPath, signaturePath, publicKey string) error {
 	return verifyManifest(manifest, signature, key)
 }
 
-// verifyEnvelope checks a manifest's detached signature against the key that
-// the signature names. It proves the signature's form, namespace and integrity,
-// not that its signer is authorized.
+// verifyEnvelope checks a manifest's detached signature, as ssh-keygen writes it,
+// against the key that the signature names. It proves the signature's form,
+// namespace and integrity, not that its signer is authorized.
 func verifyEnvelope(manifestPath, signaturePath string) error {
-	manifest, signature, err := readSignedManifest(manifestPath, signaturePath)
+	manifest, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return fmt.Errorf("read signed release manifest: %w", err)
+	}
+	armored, err := os.ReadFile(signaturePath)
+	if err != nil {
+		return fmt.Errorf("read release signature: %w", err)
+	}
+	signature, err := unarmorExact(armored)
 	if err != nil {
 		return err
 	}
 	return verifyManifest(manifest, signature, signature.PublicKey)
+}
+
+// unarmorExact decodes one bare signature block, with no text or headers around
+// it and no bytes after the signature that it holds.
+func unarmorExact(armored []byte) (*sshsig.Signature, error) {
+	block, rest := pem.Decode(armored)
+	if block == nil || block.Type != sshsig.PEMType || len(block.Headers) != 0 || !bytes.HasPrefix(armored, []byte("-----BEGIN ")) || len(bytes.TrimSpace(rest)) != 0 {
+		return nil, errors.New("decode release signature: not one bare SSH signature block")
+	}
+	signature, err := sshsig.ParseSignature(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("decode release signature: %w", err)
+	}
+	if !bytes.Equal(signature.Marshal(), block.Bytes) {
+		return nil, errors.New("decode release signature: bytes follow the signature")
+	}
+	return signature, nil
 }
 
 func readSignedManifest(manifestPath, signaturePath string) ([]byte, *sshsig.Signature, error) {

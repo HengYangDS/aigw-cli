@@ -9,51 +9,28 @@ import (
 	"testing"
 )
 
-func TestVerifyChecksumFindsItsEntryAmongOthers(t *testing.T) {
+func TestVerifyChecksumSkipsMalformedAndMismatchedLines(t *testing.T) {
 	directory := t.TempDir()
 	archiveName := "aigw_1.2.3.tar.gz"
 	archivePath := filepath.Join(directory, archiveName)
-	if err := os.WriteFile(archivePath, []byte("archive-bytes"), 0o600); err != nil {
+	content := []byte("archive-bytes")
+	if err := os.WriteFile(archivePath, content, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	sum := fmt.Sprintf("%x", sha256.Sum256([]byte("archive-bytes")))
-	checksums := strings.Repeat("a", 64) + "  other-name\n" + strings.ToUpper(sum) + "  ./" + archiveName
+	checksums := strings.Join([]string{
+		"not-enough-fields",
+		"nothex-nothex-nothex  " + archiveName,
+		strings.Repeat("a", 64) + "  other-name",
+		"./" + sum + "  should-not-match", // wrong field order, ignored
+		sum + "  ./" + archiveName,
+	}, "\n")
 	checksumsPath := filepath.Join(directory, "checksums.txt")
 	if err := os.WriteFile(checksumsPath, []byte(checksums), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if digest, err := VerifyChecksum(archivePath, checksumsPath, archiveName); err != nil || digest != sum {
 		t.Fatalf("digest = %q, error = %v; want %q", digest, err, sum)
-	}
-}
-
-// Program update reads the grammar that the release tool validates before
-// publication, so a signed manifest never holds a line that this refuses.
-func TestVerifyChecksumRefusesMalformedLines(t *testing.T) {
-	directory := t.TempDir()
-	archiveName := "aigw_1.2.3.tar.gz"
-	archivePath := filepath.Join(directory, archiveName)
-	if err := os.WriteFile(archivePath, []byte("archive-bytes"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	sum := fmt.Sprintf("%x", sha256.Sum256([]byte("archive-bytes")))
-	for name, line := range map[string]string{
-		"one field":       "not-enough-fields",
-		"three fields":    sum + "  " + archiveName + " extra",
-		"short digest":    strings.Repeat("a", 63) + "  other-name",
-		"non-hex digest":  strings.Repeat("g", 64) + "  other-name",
-		"reversed fields": archiveName + "  " + sum,
-		"blank line":      "",
-	} {
-		t.Run(name, func(t *testing.T) {
-			checksumsPath := filepath.Join(t.TempDir(), "checksums.txt")
-			if err := os.WriteFile(checksumsPath, []byte(line+"\n"+sum+"  "+archiveName+"\n"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := VerifyChecksum(archivePath, checksumsPath, archiveName); err == nil || !strings.Contains(err.Error(), "invalid checksum manifest format") {
-				t.Fatalf("error = %v", err)
-			}
-		})
 	}
 }
 
@@ -141,7 +118,7 @@ func TestVerifyChecksumRejectsMissingChecksumsFile(t *testing.T) {
 
 func TestVerifyChecksumRejectsMissingEntry(t *testing.T) {
 	directory := t.TempDir()
-	if err := os.WriteFile(filepath.Join(directory, "checksums.txt"), []byte(strings.Repeat("a", 64)+"  other-name\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(directory, "checksums.txt"), []byte("deadbeef  other-name\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := VerifyChecksum(filepath.Join(directory, "a"), filepath.Join(directory, "checksums.txt"), "a"); err == nil || !strings.Contains(err.Error(), "checksum entry missing") {

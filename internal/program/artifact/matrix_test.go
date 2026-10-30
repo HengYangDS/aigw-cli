@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/pem"
 	"os"
 	"path/filepath"
 	"slices"
@@ -84,6 +85,39 @@ func TestValidateMatrixVerifiesTheSignatureEnvelope(t *testing.T) {
 	}
 	if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "signature") {
 		t.Fatalf("invalid detached signature = %v", err)
+	}
+}
+
+// The envelope check accepts a signature only as ssh-keygen writes it.
+func TestValidateMatrixRefusesAnInexactSignatureEnvelope(t *testing.T) {
+	version := "1.2.3"
+	directory := writeMatrix(t, version, matrixSigner(t))
+	path := filepath.Join(directory, "checksums.txt.sig")
+	armored, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	block, _ := pem.Decode(armored)
+	for name, variant := range map[string][]byte{
+		"leading text":   append([]byte("note\n"), armored...),
+		"trailing text":  append(slices.Clone(armored), []byte("note\n")...),
+		"header":         pem.EncodeToMemory(&pem.Block{Type: block.Type, Headers: map[string]string{"Comment": "release"}, Bytes: block.Bytes}),
+		"trailing bytes": pem.EncodeToMemory(&pem.Block{Type: block.Type, Bytes: append(slices.Clone(block.Bytes), 0)}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := os.WriteFile(path, variant, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := ValidateMatrix(directory, version); err == nil || !strings.Contains(err.Error(), "signature") {
+				t.Fatalf("inexact envelope = %v", err)
+			}
+		})
+	}
+	if err := os.WriteFile(path, armored, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateMatrix(directory, version); err != nil {
+		t.Fatalf("the exact envelope was refused: %v", err)
 	}
 }
 

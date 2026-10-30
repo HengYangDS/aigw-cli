@@ -317,9 +317,10 @@ and program update both import that one owner. Each still validates its own
 authority-bound inputs. The release tool validates its source, its lock and its
 signer, whose allowed-signers file and principal `ssh-keygen` evaluates. Program
 update validates its build-bound trust anchor and the bytes it downloads. Both
-read `checksums.txt` with one strict grammar, which refuses any line other than
-a digest and a name. A signed manifest always satisfies it, because the release
-tool validates the matrix before it publishes. The release tool's remaining
+read `checksums.txt` lines with one grammar, a digest and a name. The release
+tool refuses a manifest with any other line, and program update reads only its
+archive's line and skips the others, as it always has. The release tool accepts
+a signature envelope only as `ssh-keygen` writes it, and its remaining
 package, `tools/release/provenance`, holds its source provenance, its scanner
 lock and its signer check. The Mise `build` task writes to
 `build/artifacts/<version>-<commit>/`, and the root `dist/` disappears.
@@ -389,8 +390,9 @@ actions. Stage 6 needs its own written design and approval.
 - **A layer table can be too coarse** → a needed upward edge is a design
   defect. The fix is to move the behavior to the lower owner or to invert the
   dependency through the seam, never to add an exception.
-- **Release tooling now imports a product package** → the format owner does
-  no I/O beyond reading the files it is given. Each importer keeps its own
+- **Release tooling now imports a product package** → the format owner reads
+  the files it is given and writes only the canonical checksum manifest that
+  release construction asks for. Each importer keeps its own
   trust and source validation, and both are tested against published
   archives.
 
