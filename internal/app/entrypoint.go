@@ -1,8 +1,8 @@
 package app
 
 import (
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/synchronization"
 )
 
 // CredentialEntrypointPlan names the credential reader that a synchronization

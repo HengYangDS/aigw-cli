@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
@@ -18,7 +19,6 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-	"aigw-cli/internal/synchronization"
 )
 
 func TestAccountFinalizationConvergesForwardingBackupBeforeRetirement(t *testing.T) {

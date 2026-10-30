@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/app/diagnostics"
+	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/diagnostics"
-	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/native"
 )

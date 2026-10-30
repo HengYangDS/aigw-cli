@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"strings"
 
-	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/app"
+	clientactivation "aigw-cli/internal/app/activation"
+	"aigw-cli/internal/app/diagnostics"
+	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/domain"
-	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 

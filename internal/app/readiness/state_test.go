@@ -3,7 +3,7 @@ package readiness
 import (
 	"testing"
 
-	"aigw-cli/internal/diagnostics"
+	"aigw-cli/internal/app/diagnostics"
 )
 
 func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {

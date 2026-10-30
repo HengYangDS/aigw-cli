@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/activation"
+	"aigw-cli/internal/app/activation"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"

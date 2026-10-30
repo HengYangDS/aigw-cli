@@ -16,25 +16,27 @@ go_roots = ["cmd", "internal", "tools"]
 # the declared providers owner.
 package_children."cmd" = ["aigw"]
 package_children."internal" = [
-  "activation",
   "app",
   "cli",
   "client",
   "clients",
-  "diagnostics",
   "discovery",
   "domain",
   "platform",
   "process",
   "providers",
-  "readiness",
-  "renaming",
   "secret",
   "store",
   "surface",
-  "synchronization",
   "terminal",
   "upgrade",
+]
+package_children."internal/app" = [
+  "activation",
+  "diagnostics",
+  "readiness",
+  "renaming",
+  "synchronization",
 ]
 package_children."tools" = [
   "architecture",
@@ -144,9 +146,7 @@ allowed_import_edges."internal/clients" = [
   "internal/domain",
 ]
 allowed_import_edges."internal/domain" = []
-allowed_import_edges."internal/store" = [
-  "internal/domain",
-]
+allowed_import_edges."internal/store" = ["internal/domain"]
 allowed_import_edges."internal/client" = [
   "internal/discovery",
   "internal/domain",
@@ -163,14 +163,14 @@ allowed_import_edges."internal/upgrade" = [
   "internal/upgrade/artifact",
 ]
 allowed_import_edges."internal/upgrade/artifact" = []
-allowed_import_edges."internal/renaming" = [
+allowed_import_edges."internal/app/renaming" = [
+  "internal/app/synchronization",
   "internal/domain",
   "internal/providers",
   "internal/secret",
   "internal/store",
-  "internal/synchronization",
 ]
-allowed_import_edges."internal/synchronization" = [
+allowed_import_edges."internal/app/synchronization" = [
   "internal/client",
   "internal/discovery",
   "internal/domain",
@@ -247,10 +247,10 @@ allowed_import_edges."internal/client/hermes" = [
 ]
 allowed_import_edges."internal/discovery" = []
 allowed_import_edges."internal/surface" = []
-allowed_import_edges."internal/readiness" = ["internal/diagnostics"]
-allowed_import_edges."internal/activation" = [
+allowed_import_edges."internal/app/readiness" = ["internal/app/diagnostics"]
+allowed_import_edges."internal/app/activation" = [
+  "internal/app/readiness",
   "internal/domain",
-  "internal/readiness",
   "internal/secret",
 ]
 allowed_import_edges."internal/cli" = [
@@ -293,24 +293,24 @@ allowed_import_edges."internal/cli" = [
 # Use cases receive the invocation's capabilities and import no command or
 # terminal package.
 allowed_import_edges."internal/app" = [
-  "internal/activation",
+  "internal/app/activation",
+  "internal/app/diagnostics",
+  "internal/app/readiness",
+  "internal/app/renaming",
+  "internal/app/synchronization",
   "internal/client",
-  "internal/diagnostics",
   "internal/discovery",
   "internal/domain",
   "internal/process",
-  "internal/readiness",
-  "internal/renaming",
   "internal/secret",
   "internal/secret/probe",
   "internal/store",
-  "internal/synchronization",
   "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/invocation" = [
   "internal/app",
+  "internal/app/renaming",
   "internal/domain",
-  "internal/renaming",
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/credential" = [
@@ -353,11 +353,11 @@ allowed_import_edges."internal/cli/models" = [
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/doctor" = [
-  "internal/activation",
   "internal/app",
+  "internal/app/activation",
+  "internal/app/readiness",
   "internal/cli/invocation",
   "internal/domain",
-  "internal/readiness",
   "internal/secret",
   "internal/terminal",
 ]
@@ -373,10 +373,10 @@ allowed_import_edges."internal/cli/route" = [
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/account" = [
+  "internal/app/renaming",
   "internal/cli/invocation",
   "internal/domain",
   "internal/providers",
-  "internal/renaming",
   "internal/secret",
   "internal/terminal",
 ]
@@ -387,7 +387,7 @@ allowed_import_edges."internal/cli/balance" = [
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/rotate" = [
-  "internal/activation",
+  "internal/app/activation",
   "internal/cli/invocation",
   "internal/secret",
   "internal/secret/probe",
@@ -398,7 +398,7 @@ allowed_import_edges."internal/cli/add" = [
   "internal/domain",
   "internal/terminal",
 ]
-allowed_import_edges."internal/diagnostics" = [
+allowed_import_edges."internal/app/diagnostics" = [
   "internal/domain",
   "internal/secret/probe",
 ]
@@ -421,7 +421,6 @@ allowed_import_edges."tools/ci" = [
   "tools/release/readiness",
 ]
 allowed_import_edges."tools/ci/evidence" = []
-allowed_import_edges."tools/ci/bootstrap" = []
 allowed_import_edges."tools/ci/markdown" = []
 allowed_import_edges."tools/ci/projection" = []
 allowed_import_edges."tools/release" = [
@@ -460,7 +459,7 @@ allowed_import_edges."tools/codex/catalog" = [
 allowed_import_edges."tools/coverage" = []
 
 allowed_import_edges."internal/cli/setup" = [
-  "internal/activation",
+  "internal/app/activation",
   "internal/cli/invocation",
   "internal/domain",
   "internal/secret",
@@ -469,7 +468,7 @@ allowed_import_edges."internal/cli/setup" = [
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/use" = [
-  "internal/activation",
+  "internal/app/activation",
   "internal/cli/invocation",
   "internal/client",
   "internal/domain",
@@ -489,14 +488,14 @@ allowed_import_edges."internal/cli/verify" = [
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/sync" = [
-  "internal/activation",
   "internal/app",
+  "internal/app/activation",
+  "internal/app/readiness",
+  "internal/app/synchronization",
   "internal/cli/invocation",
   "internal/client",
   "internal/domain",
-  "internal/readiness",
   "internal/secret",
-  "internal/synchronization",
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/repair" = [
@@ -511,22 +510,22 @@ allowed_import_edges."internal/cli/rollback" = [
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/status" = [
-  "internal/activation",
   "internal/app",
+  "internal/app/activation",
+  "internal/app/readiness",
   "internal/cli/invocation",
   "internal/domain",
   "internal/providers",
-  "internal/readiness",
   "internal/secret",
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/check" = [
-  "internal/activation",
   "internal/app",
+  "internal/app/activation",
+  "internal/app/diagnostics",
+  "internal/app/readiness",
   "internal/cli/invocation",
-  "internal/diagnostics",
   "internal/domain",
-  "internal/readiness",
   "internal/secret",
   "internal/terminal",
 ]

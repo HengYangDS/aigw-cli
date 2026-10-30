@@ -4,10 +4,10 @@ package renaming
 import (
 	"net/http"
 
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-	"aigw-cli/internal/synchronization"
 )
 
 // HTTPDoer is the minimal transport required to verify a renamed account's diagnostic capability.

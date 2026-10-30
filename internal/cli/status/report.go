@@ -1,10 +1,10 @@
 package status
 
 import (
-	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/app"
+	clientactivation "aigw-cli/internal/app/activation"
+	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/domain"
-	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
 )
 

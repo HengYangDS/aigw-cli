@@ -5,8 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/domain"
-	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
 )
 

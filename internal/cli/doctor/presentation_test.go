@@ -2,10 +2,10 @@ package doctor
 
 import (
 	"aigw-cli/internal/app"
+	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/terminal"
 	"bytes"
 	"path/filepath"

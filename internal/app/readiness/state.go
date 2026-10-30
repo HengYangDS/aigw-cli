@@ -2,7 +2,7 @@
 // AIGW's setup, synchronization, inspection, and verification surfaces.
 package readiness
 
-import "aigw-cli/internal/diagnostics"
+import "aigw-cli/internal/app/diagnostics"
 
 // State is the stable classification of one operational capability.
 type State string

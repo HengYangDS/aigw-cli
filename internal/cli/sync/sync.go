@@ -6,14 +6,14 @@ package sync
 import (
 	"fmt"
 
-	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/app"
+	clientactivation "aigw-cli/internal/app/activation"
+	domainreadiness "aigw-cli/internal/app/readiness"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/domain"
-	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
-	"aigw-cli/internal/synchronization"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"

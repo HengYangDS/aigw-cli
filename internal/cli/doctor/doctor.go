@@ -7,11 +7,11 @@ import (
 	"sort"
 	"strings"
 
-	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/app"
+	clientactivation "aigw-cli/internal/app/activation"
+	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 

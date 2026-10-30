@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"aigw-cli/internal/diagnostics"
+	"aigw-cli/internal/app/diagnostics"
 	"aigw-cli/internal/domain"
 )
 

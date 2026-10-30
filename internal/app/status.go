@@ -1,10 +1,10 @@
 package app
 
 import (
-	clientactivation "aigw-cli/internal/activation"
-	"aigw-cli/internal/diagnostics"
+	clientactivation "aigw-cli/internal/app/activation"
+	"aigw-cli/internal/app/diagnostics"
+	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/domain"
-	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
 	"context"
 	"net/url"

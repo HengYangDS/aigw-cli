@@ -1,8 +1,8 @@
 package invocation
 
 import (
+	"aigw-cli/internal/app/renaming"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/renaming"
 	"aigw-cli/internal/terminal"
 	"fmt"
 	"sort"

@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/synchronization"
 )
 
 func TestNewDefaultBindsCredentialEntrypointToExecutableBytes(t *testing.T) {

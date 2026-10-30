@@ -1,8 +1,8 @@
 package account
 
 import (
+	"aigw-cli/internal/app/renaming"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/renaming"
 	"fmt"
 
 	"github.com/spf13/cobra"

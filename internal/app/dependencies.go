@@ -9,14 +9,14 @@ import (
 	"fmt"
 	"net/http"
 
+	"aigw-cli/internal/app/renaming"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/renaming"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-	"aigw-cli/internal/synchronization"
 	"aigw-cli/internal/upgrade"
 )
 

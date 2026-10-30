@@ -1,10 +1,10 @@
 package status
 
 import (
+	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/providers"
-	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 	"strings"

@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"aigw-cli/internal/app/diagnostics"
 	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/domain"
 )
 

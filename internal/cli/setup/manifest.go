@@ -1,7 +1,7 @@
 package setup
 
 import (
-	clientactivation "aigw-cli/internal/activation"
+	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"

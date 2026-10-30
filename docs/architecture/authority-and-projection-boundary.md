@@ -69,7 +69,7 @@ process.
 - **[Claude integration](../../internal/client/claude/):** Settings projection, credential-safe process plans, and readiness
 - **[Provider diagnostics](../../internal/providers/):** Optional provider-native diagnostics only
 - **[Client orchestration](../../internal/client/):** Admitted client discovery, projection, inspection, verification, compensation, and withdrawal
-- **[Synchronization](../../internal/synchronization/):** Client Binding convergence and multi-client projection transaction
+- **[Synchronization](../../internal/app/synchronization/):** Client Binding convergence and multi-client projection transaction
 - **[Terminal](../../internal/terminal/):** Terminal capability detection, human and JSON rendering of command results, and prompts
 - **[CLI](../../internal/cli/):** Command composition; domain behavior remains in semantic owners
 - **[Upgrades](../../internal/upgrade/):** Independent-Forge update verification and installation
@@ -258,7 +258,7 @@ budget reports an incomplete search, not proof that the Token is absent.
 
 ## Identity migration
 
-Identity migration follows the same boundary: the [renaming owner](../../internal/renaming/model.go) owns
+Identity migration follows the same boundary: the [renaming owner](../../internal/app/renaming/model.go) owns
 Route renaming, Account credential preparation and commit, and verified
 finalization. CLI commands only resolve operator intent and render the result.
 The owner has no command, prompt, or presentation dependency. Cancellation

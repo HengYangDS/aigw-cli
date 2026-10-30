@@ -1,6 +1,7 @@
 package status
 
 import (
+	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	clientdomain "aigw-cli/internal/client"
 	"aigw-cli/internal/client/claude"
@@ -8,7 +9,6 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"bytes"
