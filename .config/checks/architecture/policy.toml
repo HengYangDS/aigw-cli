@@ -13,7 +13,7 @@ go_roots = ["cmd", "internal", "tools"]
 
 # Direct semantic owners form a closed, positive topology. Adding a new domain
 # is an architecture change; provider implementations remain extensible below
-# the declared providers owner.
+# the declared provider owner.
 package_children."cmd" = ["aigw"]
 package_children."internal" = [
   "app",
@@ -23,7 +23,7 @@ package_children."internal" = [
   "domain",
   "platform",
   "program",
-  "providers",
+  "provider",
   "secret",
   "store",
   "terminal",
@@ -166,7 +166,7 @@ allowed_import_edges."internal/program/artifact" = []
 allowed_import_edges."internal/app/renaming" = [
   "internal/app/synchronization",
   "internal/domain",
-  "internal/providers",
+  "internal/provider",
   "internal/secret",
   "internal/store",
 ]
@@ -185,16 +185,16 @@ allowed_import_edges."internal/secret" = [
 ]
 allowed_import_edges."internal/secret/native" = ["internal/platform/process"]
 allowed_import_edges."internal/secret/probe" = ["internal/domain"]
-allowed_import_edges."internal/providers" = [
+allowed_import_edges."internal/provider" = [
   "internal/domain",
-  "internal/providers/diagnostic",
-  "internal/providers/dmxapi",
+  "internal/provider/diagnostic",
+  "internal/provider/dmxapi",
   "internal/secret",
   "internal/secret/probe",
 ]
-allowed_import_edges."internal/providers/dmxapi" = [
+allowed_import_edges."internal/provider/dmxapi" = [
   "internal/domain",
-  "internal/providers/diagnostic",
+  "internal/provider/diagnostic",
   "internal/secret",
   "internal/secret/probe",
 ]
@@ -376,13 +376,13 @@ allowed_import_edges."internal/cli/account" = [
   "internal/app/renaming",
   "internal/cli/invocation",
   "internal/domain",
-  "internal/providers",
+  "internal/provider",
   "internal/secret",
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/balance" = [
   "internal/cli/invocation",
-  "internal/providers",
+  "internal/provider",
   "internal/secret",
   "internal/terminal",
 ]
@@ -402,7 +402,7 @@ allowed_import_edges."internal/app/diagnostics" = [
   "internal/domain",
   "internal/secret/probe",
 ]
-allowed_import_edges."internal/providers/diagnostic" = []
+allowed_import_edges."internal/provider/diagnostic" = []
 allowed_import_edges."internal/terminal" = [
   "internal/domain",
   "internal/secret",
@@ -515,7 +515,7 @@ allowed_import_edges."internal/cli/status" = [
   "internal/app/readiness",
   "internal/cli/invocation",
   "internal/domain",
-  "internal/providers",
+  "internal/provider",
   "internal/secret",
   "internal/terminal",
 ]

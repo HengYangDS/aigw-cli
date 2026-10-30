@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"aigw-cli/internal/providers"
+	"aigw-cli/internal/provider"
 	"aigw-cli/internal/secret"
 )
 
@@ -201,7 +201,7 @@ func verifyFinalizedAccountProbe(ctx context.Context, deps Renamer, plan Plan) e
 	if providerAccount.AccountProbe == nil {
 		return fmt.Errorf("target account %q does not declare precise diagnostics", plan.NewID)
 	}
-	if !providers.Supports(providerAccount.AccountProbe.Kind) {
+	if !provider.Supports(providerAccount.AccountProbe.Kind) {
 		return fmt.Errorf("target account diagnostics provider %q is not included in this AIGW version", providerAccount.AccountProbe.Kind)
 	}
 	apiToken, err := deps.Secrets.Get(plan.NewID)
@@ -215,7 +215,7 @@ func verifyFinalizedAccountProbe(ctx context.Context, deps Renamer, plan Plan) e
 	providerAccount.ID = plan.NewID
 	probeCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	if _, err := providers.Probe(probeCtx, deps.HTTP, providerAccount, apiToken, credential); err != nil {
+	if _, err := provider.Probe(probeCtx, deps.HTTP, providerAccount, apiToken, credential); err != nil {
 		return fmt.Errorf("Target account balance verification failed: %w", err)
 	}
 	return nil

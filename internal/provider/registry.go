@@ -1,16 +1,16 @@
-// Package providers contains explicitly bundled, provider-native diagnostics.
+// Package provider contains explicitly bundled, provider-native diagnostics.
 // It is intentionally outside AIGW's Account/Model/Route/Adapter core: an
 // Account may declare a diagnostic provider that is not present in a given
 // build while all ordinary routing and health checks continue to work.
-package providers
+package provider
 
 import (
 	"context"
 	"fmt"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/providers/diagnostic"
-	"aigw-cli/internal/providers/dmxapi"
+	"aigw-cli/internal/provider/diagnostic"
+	"aigw-cli/internal/provider/dmxapi"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
 )

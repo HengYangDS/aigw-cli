@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/providers/diagnostic"
+	"aigw-cli/internal/provider/diagnostic"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
 )

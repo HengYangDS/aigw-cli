@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/providers/dmxapi"
+	"aigw-cli/internal/provider/dmxapi"
 	"aigw-cli/internal/secret"
 )
 

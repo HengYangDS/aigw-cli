@@ -64,10 +64,10 @@ process.
 - **[Store](../../internal/store/):** Schema migration, persistence, checkpoints, the team manifest's TOML encoding, and guarded filesystem mutation and rollback
 - **[Secret](../../internal/secret/):** Account credential backends, typed diagnostic credentials and replacement, and the private credential reader that native clients run
 - **[Token probes](../../internal/secret/probe/):** Proof of an Account's Token against its endpoints: the probing client, sending without redirects, and the verdict on each status
-- **[Diagnostic contract](../../internal/providers/diagnostic/):** Optional provider-account diagnostic results
+- **[Diagnostic contract](../../internal/provider/diagnostic/):** Optional provider-account diagnostic results
 - **[Codex integration](../../internal/client/codex/):** Projection planning and reconciliation
 - **[Claude integration](../../internal/client/claude/):** Settings projection, credential-safe process plans, and readiness
-- **[Provider diagnostics](../../internal/providers/):** Optional provider-native diagnostics only
+- **[Provider diagnostics](../../internal/provider/):** Optional provider-native diagnostics only
 - **[Client orchestration](../../internal/client/):** Admitted client discovery, projection, inspection, verification, compensation, and withdrawal
 - **[Synchronization](../../internal/app/synchronization/):** Client Binding convergence and multi-client projection transaction
 - **[Terminal](../../internal/terminal/):** Terminal capability detection, human and JSON rendering of command results, and prompts

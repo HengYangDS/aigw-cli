@@ -8,7 +8,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/providers"
+	"aigw-cli/internal/provider"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
@@ -107,7 +107,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if providerAccount.AccountProbe == nil {
 			return fmt.Errorf("Account %q does not support precise account diagnostics", accountName)
 		}
-		if !providers.Supports(providerAccount.AccountProbe.Kind) {
+		if !provider.Supports(providerAccount.AccountProbe.Kind) {
 			return fmt.Errorf("This AIGW version does not include precise diagnostics for provider %q", providerAccount.AccountProbe.Kind)
 		}
 		var systemToken string
