@@ -1,6 +1,6 @@
-// Package onboarding owns first-time configuration setup and its interactive
-// command projection.
-package onboarding
+// Package setup implements `aigw setup`, the first-time setup of an Account,
+// its Token and its first Route, from flags, a manifest or a guided wizard.
+package setup
 
 import (
 	clientactivation "aigw-cli/internal/activation"

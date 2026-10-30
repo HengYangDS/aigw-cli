@@ -1,4 +1,4 @@
-package selection
+package use
 
 import (
 	"bytes"
@@ -65,7 +65,7 @@ func TestUseForwardingPreviewRefusesAnEditedOwnedTarget(t *testing.T) {
 	}
 	owned := directoryBytes(t, filepath.Dir(target))
 	run.Secrets = credentialFreeStore{secret.NewMemoryStore()}
-	command := NewUseCommand(run)
+	command := NewCommand(run)
 	command.SilenceErrors, command.SilenceUsage = true, true
 	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
 	err = command.Execute()
@@ -101,7 +101,7 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	run.Secrets = credentialFreeStore{secret.NewMemoryStore()}
-	command := NewUseCommand(run)
+	command := NewCommand(run)
 	command.SilenceErrors, command.SilenceUsage = true, true
 	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
 	if err := command.Execute(); err != nil {
@@ -132,7 +132,7 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	run.Secrets = credentials
-	command = NewUseCommand(run)
+	command = NewCommand(run)
 	command.SilenceErrors, command.SilenceUsage = true, true
 	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1"})
 	if err := command.Execute(); err != nil {

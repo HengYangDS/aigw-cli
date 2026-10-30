@@ -1,4 +1,4 @@
-package selection
+package use
 
 import (
 	"encoding/json"
@@ -16,7 +16,7 @@ func TestUseRetryPolicyPreviewIsExplicitAndCredentialFree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	command := NewUseCommand(runtime)
+	command := NewCommand(runtime)
 	command.SilenceErrors, command.SilenceUsage = true, true
 	command.SetArgs([]string{"--for", "codex", "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--request-max-retries", "0", "--stream-max-retries", "0", "--dry-run", "--json"})
 	if err := command.Execute(); err != nil {
@@ -52,7 +52,7 @@ func TestUseRetryPolicyHumanPreviewNamesEachDeclaredBudget(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, _, out := configuredRuntime(t)
-			command := NewUseCommand(runtime)
+			command := NewCommand(runtime)
 			command.SilenceErrors, command.SilenceUsage = true, true
 			command.SetArgs(append([]string{"--for", "codex", "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run"}, test.args...))
 			if err := command.Execute(); err != nil {
@@ -91,7 +91,7 @@ func TestUseRetryPolicyRefusesInvalidIntentBeforeEffects(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			command := NewUseCommand(runtime)
+			command := NewCommand(runtime)
 			command.SilenceErrors, command.SilenceUsage = true, true
 			command.SetArgs(test.args)
 			if err := command.Execute(); err == nil || !strings.Contains(err.Error(), test.want) {

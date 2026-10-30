@@ -1,4 +1,4 @@
-package selection
+package use
 
 import (
 	"bytes"
@@ -30,7 +30,7 @@ func tokenAcquisitionRuntime(t *testing.T) (invocation.Context, domain.Config, s
 func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		runtime, _, store, buffer := tokenAcquisitionRuntime(t)
-		command := NewUseCommand(runtime)
+		command := NewCommand(runtime)
 		command.SetArgs([]string{"--for", codex.ID, "codex"})
 		if err := command.Execute(); err != nil {
 			t.Fatal(err)
@@ -84,7 +84,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, store, _ := tokenAcquisitionRuntime(t)
 			runtime = test.prepare(runtime, cfg)
-			command := NewUseCommand(runtime)
+			command := NewCommand(runtime)
 			command.SilenceErrors = true
 			command.SilenceUsage = true
 			args := []string{"--for", codex.ID, "codex"}
@@ -109,7 +109,7 @@ func TestUseNamesMissingEnvironmentTokenWithoutPrompting(t *testing.T) {
 	runtime.Interactive = true
 	runtime.Prompt = &promptStub{err: errors.New("prompt must not run")}
 
-	command := NewUseCommand(runtime)
+	command := NewCommand(runtime)
 	command.SetArgs([]string{"--for", codex.ID, "codex"})
 	err := command.Execute()
 	if err == nil || !strings.Contains(err.Error(), secret.EnvironmentKey("gateway")) || !strings.Contains(err.Error(), "aigw use --for codex codex") {

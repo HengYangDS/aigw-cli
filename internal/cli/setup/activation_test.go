@@ -1,4 +1,4 @@
-package onboarding
+package setup
 
 import (
 	"bytes"

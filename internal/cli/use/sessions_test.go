@@ -1,4 +1,4 @@
-package selection
+package use
 
 import (
 	"os"
@@ -42,7 +42,7 @@ func TestUseTellsHermesUsersThatExistingSessionsKeepTheirRoute(t *testing.T) {
 	use := func(args ...string) string {
 		t.Helper()
 		out.Reset()
-		command := NewUseCommand(runtime)
+		command := NewCommand(runtime)
 		command.SilenceErrors = true
 		command.SilenceUsage = true
 		command.SetArgs(append([]string{"--for", hermes.ID}, args...))

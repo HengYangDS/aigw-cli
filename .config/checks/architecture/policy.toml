@@ -230,21 +230,21 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/account",
   "internal/cli/catalog",
   "internal/cli/client",
+  "internal/cli/config",
   "internal/cli/credential",
   "internal/cli/doctor",
   "internal/cli/install",
   "internal/cli/installation",
   "internal/cli/invocation",
-  "internal/cli/manifest",
-  "internal/cli/onboarding",
   "internal/cli/readiness",
   "internal/cli/recovery",
   "internal/cli/renaming",
   "internal/cli/route",
-  "internal/cli/selection",
+  "internal/cli/setup",
   "internal/cli/uninstall",
   "internal/cli/update",
-  "internal/cli/verification",
+  "internal/cli/use",
+  "internal/cli/verify",
   "internal/client",
   "internal/discovery",
   "internal/domain",
@@ -292,15 +292,6 @@ allowed_import_edges."internal/cli/installation" = [
   "internal/terminal",
   "internal/upgrade",
 ]
-allowed_import_edges."internal/cli/selection" = [
-  "internal/activation",
-  "internal/cli/invocation",
-  "internal/client",
-  "internal/domain",
-  "internal/secret",
-  "internal/secret/probe",
-  "internal/terminal",
-]
 allowed_import_edges."internal/cli/update" = [
   "internal/cli/invocation",
   "internal/upgrade",
@@ -328,12 +319,6 @@ allowed_import_edges."internal/cli/catalog" = [
   "internal/store",
   "internal/terminal",
 ]
-allowed_import_edges."internal/cli/manifest" = [
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/store",
-  "internal/terminal",
-]
 allowed_import_edges."internal/cli/doctor" = [
   "internal/activation",
   "internal/domain",
@@ -348,11 +333,6 @@ allowed_import_edges."internal/cli/client" = [
   "internal/discovery",
   "internal/domain",
   "internal/secret",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/verification" = [
-  "internal/cli/invocation",
-  "internal/domain",
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/route" = [
@@ -383,15 +363,6 @@ allowed_import_edges."internal/cli/account" = [
   "internal/providers",
   "internal/secret",
   "internal/secret/probe",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/onboarding" = [
-  "internal/activation",
-  "internal/cli/invocation",
-  "internal/domain",
-  "internal/secret",
-  "internal/secret/probe",
-  "internal/store",
   "internal/terminal",
 ]
 allowed_import_edges."internal/diagnostics" = [
@@ -455,6 +426,35 @@ allowed_import_edges."tools/codex/catalog" = [
 ]
 allowed_import_edges."tools/coverage" = []
 
+allowed_import_edges."internal/cli/setup" = [
+  "internal/activation",
+  "internal/cli/invocation",
+  "internal/domain",
+  "internal/secret",
+  "internal/secret/probe",
+  "internal/store",
+  "internal/terminal",
+]
+allowed_import_edges."internal/cli/use" = [
+  "internal/activation",
+  "internal/cli/invocation",
+  "internal/client",
+  "internal/domain",
+  "internal/secret",
+  "internal/secret/probe",
+  "internal/terminal",
+]
+allowed_import_edges."internal/cli/config" = [
+  "internal/cli/invocation",
+  "internal/domain",
+  "internal/store",
+  "internal/terminal",
+]
+allowed_import_edges."internal/cli/verify" = [
+  "internal/cli/invocation",
+  "internal/domain",
+  "internal/terminal",
+]
 # Top-level roots skipped entirely while walking the repository.
 ignore_roots = ["vendor", ".git", "build"]
 

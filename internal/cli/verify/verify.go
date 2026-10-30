@@ -1,6 +1,6 @@
-// Package verification owns explicit, quota-consuming live model verification
-// and the secret-free verified checkpoint written after complete success.
-package verification
+// Package verify implements `aigw verify`, which verifies a Route through a
+// real native client.
+package verify
 
 import (
 	"fmt"

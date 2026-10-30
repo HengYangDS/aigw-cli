@@ -1,4 +1,4 @@
-package selection
+package use
 
 import (
 	"errors"
@@ -22,7 +22,7 @@ func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 	runtime.HTTP = doerFunc(func(*http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
 	})
-	command := NewUseCommand(runtime)
+	command := NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	command.SetArgs([]string{"--for", codex.ID, "codex"})
@@ -37,7 +37,7 @@ func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 	}
 	runtime.Secrets = store
 	runtime.RenderOut = failingWriter{err: errors.New("write failed")}
-	command = NewUseCommand(runtime)
+	command = NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	command.SetArgs([]string{"--for", codex.ID, "codex"})
@@ -100,7 +100,7 @@ func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
 			if err := run.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-			command := NewUseCommand(run)
+			command := NewCommand(run)
 			command.SilenceErrors = true
 			command.SilenceUsage = true
 			command.SetArgs([]string{"--for", codex.ID, "next"})
@@ -136,7 +136,7 @@ func TestUseRollsBackAutomaticBackendSelection(t *testing.T) {
 	}
 	run.Secrets = store
 	run.Discovery = nil
-	command := NewUseCommand(run)
+	command := NewCommand(run)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	command.SetArgs([]string{"--for", codex.ID, "codex"})
@@ -155,7 +155,7 @@ func TestUseKeepsCommittedTokenWhenRenderingFails(t *testing.T) {
 	run, _, store, _ := tokenAcquisitionRuntime(t)
 	outputError := errors.New("output closed")
 	run.RenderOut = failingWriter{err: outputError}
-	command := NewUseCommand(run)
+	command := NewCommand(run)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	command.SetArgs([]string{"--for", codex.ID, "codex"})

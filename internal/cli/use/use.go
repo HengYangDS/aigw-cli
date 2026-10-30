@@ -1,5 +1,5 @@
-// Package selection owns explicit client Route selection.
-package selection
+// Package use implements `aigw use`, which selects a Route for one client.
+package use
 
 import (
 	"context"
@@ -19,8 +19,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewUseCommand constructs the daily client Route selection command.
-func NewUseCommand(runtime invocation.Context) *cobra.Command {
+// NewCommand constructs the daily client Route selection command.
+func NewCommand(runtime invocation.Context) *cobra.Command {
 	var client string
 	var protocol string
 	var forwardingEndpoint string

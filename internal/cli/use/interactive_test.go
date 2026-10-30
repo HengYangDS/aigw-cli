@@ -1,4 +1,4 @@
-package selection
+package use
 
 import (
 	"errors"
@@ -48,7 +48,7 @@ func TestUsePromptsForACompatibleClientOnASharedRoute(t *testing.T) {
 	runtime.Secrets = store
 	runtime.Prompt = selector
 	runtime.Interactive = true
-	command := NewUseCommand(runtime)
+	command := NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	command.SetArgs([]string{"shared"})
@@ -85,7 +85,7 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	command := NewUseCommand(runtime)
+	command := NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	command.SetArgs(nil)
@@ -122,7 +122,7 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 			if test.runtime != nil {
 				value = test.runtime(value)
 			}
-			command := NewUseCommand(value)
+			command := NewCommand(value)
 			command.SilenceErrors = true
 			command.SilenceUsage = true
 			command.SetArgs(test.args)

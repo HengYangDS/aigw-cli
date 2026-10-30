@@ -1,4 +1,4 @@
-package selection
+package use
 
 import (
 	"bytes"
@@ -36,7 +36,7 @@ func TestUseForwardingPreviewIsCredentialFreeAndDoesNotWrite(t *testing.T) {
 		t.Fatal("selection preview contacted a service")
 		return nil, errors.New("unexpected request")
 	})
-	command := NewUseCommand(runtime)
+	command := NewCommand(runtime)
 	command.SilenceErrors, command.SilenceUsage = true, true
 	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
 	if err := command.Execute(); err != nil {
@@ -47,7 +47,7 @@ func TestUseForwardingPreviewIsCredentialFreeAndDoesNotWrite(t *testing.T) {
 		t.Fatalf("selection preview = %s, %v", out.Bytes(), err)
 	}
 	out.Reset()
-	command = NewUseCommand(runtime)
+	command = NewCommand(runtime)
 	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", result.Endpoint, "--dry-run"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ func TestUsePreservesForwardingChangedDuringDiscovery(t *testing.T) {
 			t.Fatal(err)
 		}
 	}}
-	command := NewUseCommand(run)
+	command := NewCommand(run)
 	command.SetArgs([]string{"codex", "--for", codex.ID})
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("selection must reject a newer assembled configuration: %v", err)
@@ -142,7 +142,7 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	command := NewUseCommand(run)
+	command := NewCommand(run)
 	command.SetArgs([]string{"codex", "--for", codex.ID, "--dry-run"})
 	if err := command.Execute(); err != nil {
 		t.Fatalf("explicit selection preview rejected an authorized root selection: %v", err)
@@ -167,7 +167,7 @@ func TestUseForwardingApplyNoOpAndDirectPreserveAccount(t *testing.T) {
 		{"--direct"},
 	} {
 		out.Reset()
-		command := NewUseCommand(runtime)
+		command := NewCommand(runtime)
 		command.SilenceErrors, command.SilenceUsage = true, true
 		command.SetArgs(append([]string{"--for", codex.ID, "codex"}, extra...))
 		if err := command.Execute(); err != nil {
@@ -273,7 +273,7 @@ func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	command := NewUseCommand(runtime)
+	command := NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	command.SetArgs([]string{"--for", claude.ID, "claude"})
@@ -306,7 +306,7 @@ func TestUseRenderingDoesNotReinspectCredentialMetadata(t *testing.T) {
 	})
 	for invocation := 1; invocation <= 2; invocation++ {
 		out.Reset()
-		cmd := NewUseCommand(run)
+		cmd := NewCommand(run)
 		cmd.SetArgs([]string{"--for", codex.ID, "codex"})
 		if err := cmd.Execute(); err != nil {
 			t.Fatal(err)
@@ -366,7 +366,7 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 			if err := runtime.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-			command := NewUseCommand(runtime)
+			command := NewCommand(runtime)
 			command.SilenceErrors = true
 			command.SilenceUsage = true
 			args := []string{"--for", claudedesktop.ID, "desktop"}
@@ -419,7 +419,7 @@ func TestUseRespectsCommandCancellation(t *testing.T) {
 			if phase == "client convergence" {
 				run.Discovery = staticDiscovery{onDiscover: cancel}
 			}
-			command := NewUseCommand(run)
+			command := NewCommand(run)
 			command.SilenceErrors = true
 			command.SilenceUsage = true
 			command.SetArgs([]string{"--for", codex.ID, "codex"})

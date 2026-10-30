@@ -1,5 +1,6 @@
-// Package manifest owns secret-free configuration import and export commands.
-package manifest
+// Package config implements `aigw config`, which imports, exports and
+// migrates the secret-free configuration manifest.
+package config
 
 import (
 	"fmt"

@@ -1,4 +1,4 @@
-package onboarding
+package setup
 
 import (
 	clientactivation "aigw-cli/internal/activation"

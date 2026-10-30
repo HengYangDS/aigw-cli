@@ -1,4 +1,4 @@
-package selection
+package use
 
 import (
 	"bytes"
@@ -29,7 +29,7 @@ func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	command := NewUseCommand(runtime)
+	command := NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	command.SetArgs([]string{"--for", hermes.ID, "--dry-run", "--json", "shared"})
@@ -75,7 +75,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		t.Fatalf("Hermes Route choice = %#v, %v", selector.choices, err)
 	}
 
-	command := NewUseCommand(runtime)
+	command := NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	command.SetArgs([]string{"--for", hermes.ID, "shared"})
@@ -88,7 +88,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	}
 
 	runtime.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
-	command = NewUseCommand(runtime)
+	command = NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	command.SetArgs([]string{"--for", hermes.ID, "--protocol", string(domain.ProtocolAnthropic), "shared"})
@@ -98,7 +98,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	runtime.Secrets = store
 
 	out.Reset()
-	command = NewUseCommand(runtime)
+	command = NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	command.SetArgs([]string{"--for", hermes.ID, "--protocol", string(domain.ProtocolAnthropic), "shared"})
@@ -145,7 +145,7 @@ func TestUseValidatesSelectedProtocolWhenAcquiringToken(t *testing.T) {
 		}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
 	})
-	command := NewUseCommand(runtime)
+	command := NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
 	command.SetArgs([]string{"--for", hermes.ID, "--protocol", string(domain.ProtocolAnthropic), "shared"})

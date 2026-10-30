@@ -25,15 +25,14 @@ import (
 	"aigw-cli/internal/cli/doctor"
 	installcli "aigw-cli/internal/cli/install"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/cli/manifest"
-	"aigw-cli/internal/cli/onboarding"
+
 	"aigw-cli/internal/cli/readiness"
 	"aigw-cli/internal/cli/recovery"
 	"aigw-cli/internal/cli/renaming"
 	"aigw-cli/internal/cli/route"
-	"aigw-cli/internal/cli/selection"
+
 	updatecli "aigw-cli/internal/cli/update"
-	"aigw-cli/internal/cli/verification"
+
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
@@ -52,6 +51,14 @@ import (
 	"aigw-cli/internal/cli/installation"
 
 	"aigw-cli/internal/cli/uninstall"
+
+	"aigw-cli/internal/cli/setup"
+
+	"aigw-cli/internal/cli/use"
+
+	"aigw-cli/internal/cli/config"
+
+	"aigw-cli/internal/cli/verify"
 )
 
 // App owns the dependencies and presentation state for one AIGW invocation.
@@ -344,7 +351,7 @@ func NewRoot(app *App) *cobra.Command {
 				return err
 			}
 			if len(cfg.Routes) == 0 && app.Interactive {
-				return onboarding.RunWizard(cmd.Context(), app.invocationContext())
+				return setup.RunWizard(cmd.Context(), app.invocationContext())
 			}
 			return readiness.RunStatus(app.invocationContext(), false)
 		},
@@ -370,8 +377,8 @@ func NewRoot(app *App) *cobra.Command {
 		&cobra.Group{ID: "advanced", Title: "Advanced"},
 	)
 	runtime := app.invocationContext()
-	connect := []*cobra.Command{onboarding.NewCommand(runtime)}
-	daily := []*cobra.Command{readiness.NewStatusCommand(runtime), selection.NewUseCommand(runtime), readiness.NewCheckCommand(runtime), accountcli.NewRotateCommand(runtime)}
+	connect := []*cobra.Command{setup.NewCommand(runtime)}
+	daily := []*cobra.Command{readiness.NewStatusCommand(runtime), use.NewCommand(runtime), readiness.NewCheckCommand(runtime), accountcli.NewRotateCommand(runtime)}
 	recoveryCommands := []*cobra.Command{
 		app.doctorCommand(), recovery.NewRepairCommand(runtime), recovery.NewSyncCommand(runtime),
 		recovery.NewRollbackCommand(runtime), updatecli.NewCommand(runtime),
@@ -382,8 +389,8 @@ func NewRoot(app *App) *cobra.Command {
 		accountcli.NewAddCommand(runtime), accountcli.NewCommand(runtime, renaming.NewAccountCommand(runtime)),
 		route.NewCommand(runtime, renaming.NewRouteCommand(runtime)),
 		clientcli.NewCommand(runtime),
-		manifest.NewCommand(runtime), readiness.NewTestCommand(runtime),
-		verification.NewCommand(runtime), catalog.NewModelsCommand(app.catalogDependencies()),
+		config.NewCommand(runtime), readiness.NewTestCommand(runtime),
+		verify.NewCommand(runtime), catalog.NewModelsCommand(app.catalogDependencies()),
 		catalog.NewCatalogCommand(app.catalogDependencies()), accountcli.NewBalanceCommand(runtime),
 	}
 	for group, commands := range map[string][]*cobra.Command{
