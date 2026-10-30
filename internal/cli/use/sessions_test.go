@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 )

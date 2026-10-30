@@ -9,12 +9,12 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/secret"
 
+	surfaceidentity "aigw-cli/internal/client/surface"
 	"aigw-cli/internal/store"
-	surfaceidentity "aigw-cli/internal/surface"
 )
 
 func TestMain(m *testing.M) {

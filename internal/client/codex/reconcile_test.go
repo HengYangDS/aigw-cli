@@ -1,9 +1,9 @@
 package codex
 
 import (
+	"aigw-cli/internal/client/surface"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/store"
-	"aigw-cli/internal/surface"
 	"bytes"
 	"encoding/json"
 	"errors"

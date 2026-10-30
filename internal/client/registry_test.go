@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/domain"
 )
 

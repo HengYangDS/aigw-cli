@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 // ExecutableIdentity identifies the exact Codex executable used for a probe.

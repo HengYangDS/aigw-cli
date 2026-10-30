@@ -14,11 +14,11 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/claudedesktop"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 )
 

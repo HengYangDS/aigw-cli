@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 // gatewayLockHolder stands in for the detached gateway that a Hermes chat

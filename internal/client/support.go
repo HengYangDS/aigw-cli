@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/client/discovery"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 )
 

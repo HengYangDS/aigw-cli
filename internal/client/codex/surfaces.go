@@ -4,8 +4,8 @@ import (
 	"sort"
 	"strings"
 
-	"aigw-cli/internal/discovery"
-	surfaceidentity "aigw-cli/internal/surface"
+	"aigw-cli/internal/client/discovery"
+	surfaceidentity "aigw-cli/internal/client/surface"
 )
 
 // HomeDefault identifies the canonical default Codex Home projection surface.

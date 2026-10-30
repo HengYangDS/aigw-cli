@@ -1,7 +1,7 @@
 package upgrade
 
 import (
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"context"
 	"encoding/json"
 	"errors"

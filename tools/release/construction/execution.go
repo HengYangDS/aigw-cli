@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"bufio"
 	"context"
 	"crypto/sha256"

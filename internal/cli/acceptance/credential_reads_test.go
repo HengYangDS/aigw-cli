@@ -10,7 +10,7 @@ import (
 
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/domain"
 )
 

@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/domain"
 )
 

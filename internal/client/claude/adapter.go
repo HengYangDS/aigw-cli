@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/client/discovery"
+	surfaceidentity "aigw-cli/internal/client/surface"
 	"aigw-cli/internal/domain"
-	surfaceidentity "aigw-cli/internal/surface"
 )
 
 // ID identifies the admitted Claude Code client.

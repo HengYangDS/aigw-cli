@@ -1,7 +1,7 @@
 package main
 
 import (
-	nativeprocess "aigw-cli/internal/process"
+	nativeprocess "aigw-cli/internal/platform/process"
 	"context"
 	"encoding/json"
 	"os"

@@ -15,7 +15,7 @@ import (
 	"aigw-cli/internal/client"
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 // Bounds for the gateway that the verification chat auto-starts: it exits on

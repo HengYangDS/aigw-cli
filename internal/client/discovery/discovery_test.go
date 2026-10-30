@@ -8,8 +8,8 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/discovery"
 )
 
 func TestDiscoverFindsClientsAndAutoManagedCodexTargets(t *testing.T) {

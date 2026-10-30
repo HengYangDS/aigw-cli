@@ -2,9 +2,9 @@ package codex
 
 import (
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"context"
 	"errors"
 	"os"

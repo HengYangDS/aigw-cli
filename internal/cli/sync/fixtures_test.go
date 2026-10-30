@@ -2,8 +2,8 @@ package sync
 
 import (
 	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/store"
 	"path/filepath"

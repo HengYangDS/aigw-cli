@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/tools/release/artifact"
 	"context"
 	"crypto/sha1" //nolint:gosec // SPDX 2.3 requires SHA1 file metadata; signed SHA256 owns integrity.

@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 // Identity describes the selected file, not an executed process or shell redirection.

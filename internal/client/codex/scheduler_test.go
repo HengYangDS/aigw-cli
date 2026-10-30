@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/client/surface"
 	"aigw-cli/internal/store"
-	"aigw-cli/internal/surface"
 
 	"github.com/pelletier/go-toml/v2"
 )

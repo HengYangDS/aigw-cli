@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/upgrade/artifact"
 
 	"github.com/hiddeco/sshsig"

@@ -3,14 +3,14 @@ package synchronization
 import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 
+	surfaceidentity "aigw-cli/internal/client/surface"
 	"aigw-cli/internal/store"
-	surfaceidentity "aigw-cli/internal/surface"
 	"bytes"
 	"context"
 	"encoding/json"

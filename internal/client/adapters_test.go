@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 type captureAdapterRunner struct {

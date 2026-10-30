@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"

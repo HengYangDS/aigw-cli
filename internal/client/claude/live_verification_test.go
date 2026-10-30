@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 type captureRunner struct {

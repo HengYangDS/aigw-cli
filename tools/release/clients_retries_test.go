@@ -21,7 +21,7 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/upgrade"

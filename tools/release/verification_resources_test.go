@@ -21,7 +21,7 @@ import (
 
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 	"aigw-cli/tools/release/readiness"
 )

@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 type recordingCaptureRunner struct {

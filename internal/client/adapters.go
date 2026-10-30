@@ -1,6 +1,6 @@
 package client
 
-import "aigw-cli/internal/discovery"
+import "aigw-cli/internal/client/discovery"
 
 // NewDiscoverer binds an adapter registry to one host observation source.
 func NewDiscoverer(registry Registry, source DiscoverySource) discovery.Discoverer {

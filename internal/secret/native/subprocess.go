@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 const (

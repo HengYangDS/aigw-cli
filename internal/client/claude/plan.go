@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 // VerificationPlan consumes synchronized settings and their credential helper

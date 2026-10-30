@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 func preparationCommand(arguments []string) string { return Argv(arguments...) }

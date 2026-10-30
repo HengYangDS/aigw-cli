@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client/claudedesktop"
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/client/discovery"
 )
 
 // desktopHost returns a supported Claude Desktop platform for this test host:

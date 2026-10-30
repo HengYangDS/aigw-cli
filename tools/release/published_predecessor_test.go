@@ -20,7 +20,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/readiness"

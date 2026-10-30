@@ -3,7 +3,7 @@
 package construction
 
 import (
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/upgrade/artifact"
 	"bytes"
 	"context"

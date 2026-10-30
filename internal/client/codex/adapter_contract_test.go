@@ -8,8 +8,8 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/contract"
-	"aigw-cli/internal/discovery"
-	surfaceidentity "aigw-cli/internal/surface"
+	"aigw-cli/internal/client/discovery"
+	surfaceidentity "aigw-cli/internal/client/surface"
 )
 
 func TestCodexAdapterKeepsTheSeamContract(t *testing.T) {

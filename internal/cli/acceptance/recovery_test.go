@@ -4,7 +4,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/claude"
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/domain"
 	"bytes"
 	"encoding/json"

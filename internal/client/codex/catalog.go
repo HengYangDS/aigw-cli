@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"aigw-cli/internal/client/codex/catalog"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/store"
 
 	"github.com/pelletier/go-toml/v2"

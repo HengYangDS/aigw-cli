@@ -9,9 +9,9 @@ import (
 	"sort"
 
 	"aigw-cli/internal/client"
+	surfaceidentity "aigw-cli/internal/client/surface"
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/domain"
-	surfaceidentity "aigw-cli/internal/surface"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )

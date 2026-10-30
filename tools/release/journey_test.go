@@ -5,7 +5,7 @@ import (
 	"aigw-cli/internal/client/claudedesktop"
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 	"aigw-cli/tools/release/readiness"
 	"bytes"

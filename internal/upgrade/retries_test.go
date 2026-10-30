@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 func TestRollbackRetryCapabilityExitFixture(t *testing.T) {

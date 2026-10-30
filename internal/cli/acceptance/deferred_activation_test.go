@@ -14,12 +14,12 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/client/hermes"
+	surfaceidentity "aigw-cli/internal/client/surface"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
-	surfaceidentity "aigw-cli/internal/surface"
 )
 
 type deferredActivationDocument struct {

@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 )
 

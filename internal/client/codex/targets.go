@@ -7,7 +7,7 @@ import (
 	"slices"
 	"sort"
 
-	"aigw-cli/internal/surface"
+	"aigw-cli/internal/client/surface"
 )
 
 func codexTargetUnion(before, after []TargetRef) ([]codexReconciliationTarget, error) {

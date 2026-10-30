@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )

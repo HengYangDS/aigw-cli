@@ -11,9 +11,9 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/client/discovery"
+	surfaceidentity "aigw-cli/internal/client/surface"
 	"aigw-cli/internal/secret"
-	surfaceidentity "aigw-cli/internal/surface"
 )
 
 // credentialFreeStore fails any credential read, so a preview that reads one

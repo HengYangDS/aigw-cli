@@ -2,7 +2,7 @@ package upgrade
 
 import (
 	"aigw-cli/internal/platform"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"archive/tar"
 	"archive/zip"
 	"bytes"

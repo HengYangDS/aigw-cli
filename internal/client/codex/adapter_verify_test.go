@@ -3,7 +3,7 @@ package codex
 import (
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"context"
 	"fmt"
 	"os"

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/client/discovery"
 )
 
 func TestClaudeDesktopLibraryUsesTheOfficialPerUserScope(t *testing.T) {

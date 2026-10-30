@@ -17,12 +17,12 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client/claude"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/discovery"
+	surfaceidentity "aigw-cli/internal/client/surface"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-	surfaceidentity "aigw-cli/internal/surface"
 	"aigw-cli/internal/terminal"
 )
 

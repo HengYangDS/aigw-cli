@@ -4,7 +4,7 @@ package performance
 
 import (
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"context"
 	"errors"
 	"fmt"

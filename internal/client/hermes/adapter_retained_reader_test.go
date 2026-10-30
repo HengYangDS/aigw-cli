@@ -10,7 +10,7 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 
 	"go.yaml.in/yaml/v3"

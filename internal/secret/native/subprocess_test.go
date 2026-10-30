@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 func TestMain(m *testing.M) {

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 
 	"github.com/gofrs/flock"
 )

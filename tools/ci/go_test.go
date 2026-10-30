@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 )
 
 func TestGoChecksUseCurrentRepositorySources(t *testing.T) {

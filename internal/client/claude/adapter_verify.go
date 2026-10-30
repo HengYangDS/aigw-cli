@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 
 	"aigw-cli/internal/client"
+	"aigw-cli/internal/client/discovery"
 	clientverification "aigw-cli/internal/client/verification"
-	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 

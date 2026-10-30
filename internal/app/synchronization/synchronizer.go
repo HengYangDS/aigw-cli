@@ -10,9 +10,9 @@ import (
 	"slices"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 
 	"aigw-cli/internal/store"

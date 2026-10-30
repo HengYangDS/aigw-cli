@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path"
 
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/platform"
 )
 

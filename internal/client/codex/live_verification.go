@@ -16,7 +16,7 @@ import (
 
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )

@@ -2,7 +2,7 @@ package upgrade
 
 import (
 	"aigw-cli/internal/platform"
-	"aigw-cli/internal/process"
+	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/upgrade/artifact"
 	"context"

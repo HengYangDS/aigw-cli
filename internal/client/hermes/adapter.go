@@ -10,11 +10,11 @@ import (
 	"strings"
 
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/discovery"
+	"aigw-cli/internal/client/discovery"
+	surfaceidentity "aigw-cli/internal/client/surface"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-	surfaceidentity "aigw-cli/internal/surface"
 )
 
 // ID identifies the independently configured Hermes Agent.
