@@ -336,22 +336,75 @@ reader of that file would be a second owner.
 
 ### Names follow one glossary
 
-Stage 5 makes `docs/concepts/product-concepts.md` the glossary. Each concept
-has one canonical term and declared rejected synonyms, and the text gate
-refuses a rejected synonym in code identifiers, specifications and
-documentation. Where code and commands disagree, the user-visible command
-vocabulary wins, so stage 5 renames no command. Package base names stop
-repeating; for example, the CLI's `readiness` package takes its command's
-name. A Provider-native diagnostic is named after the protocol family it
-probes, once its owner confirms which family that is.
+Stage 5 makes `docs/concepts/product-concepts.md` the glossary: one row per
+concept with its canonical term, its meaning and its rejected synonyms. A
+concept without measured drift lists none. The measured drift is the spelling
+"catalogue", in 70 files, beside the command's "catalog", so "catalogue" and
+"catalogues" are rejected. Where code and commands disagree, the user-visible
+command vocabulary wins, so stage 5 renames no command. Human output follows
+the canonical spelling; JSON fields and commands do not change.
+
+The text gate is the existing spelling gate. `tools/ci` reads the glossary and
+runs typos a second time with each rejected synonym mapped to its canonical
+term, so a finding names the path, the line and the canonical term. typos
+splits identifiers and prose into words and matches whole words, so the
+glossary lists each inflected form. The gate skips history: archived OpenSpec
+changes and CHANGELOG's released sections. It also skips a main specification
+that an active Change rewrites, whose delta it checks instead; that main
+specification is checked once the Change archives.
+
+Alternatives considered: a tracked typos word list, rejected as a second copy
+of the glossary; and a new scanner in `tools/architecture`, rejected because
+typos already splits identifiers and prose.
+
+### Package base names do not repeat
+
+The architecture gate refuses two production packages that share a base name
+and names both paths. Test-only directories are fixtures, as in the layer
+table. A command package keeps its command's name, so the other package moves:
+
+- `internal/client` becomes `internal/adapter`: the seam and its client
+  adapters. "Client" stays the product's word for Claude Code, Codex, Claude
+  Desktop and Hermes, and an adapter is the code that supports one of them.
+- Codex's model catalog package becomes `internal/adapter/codex/modelcatalog`,
+  in Codex's own term. The tool that checks it against a real Codex becomes
+  `tools/codex/catalogcheck`.
+- `tools/release/readiness` becomes `tools/release/identity`: release version,
+  tag, epoch, changelog and toolchain identity.
+- The `dmxapi` diagnostic keeps its Provider's name until its owner confirms
+  the protocol family it probes.
+
+Alternative considered: name a command package differently from its command.
+Rejected, because stage 3's gate binds each command to the package of its name.
 
 ### Specifications split by capability
 
-Stage 5 also splits `product-control-plane`, `product-quality` and
-`secret-storage` into capabilities. Each fits within the repository's
-512-line document limit. Each requirement moves with every scenario through
-`MODIFIED`, `REMOVED` and `ADDED` operations that name its surviving owner, so
-the locked merge loses no scenario.
+A main specification holds one capability within 512 non-blank lines, ETHOS's
+document unit. ETHOS's own limit skips main specifications, so the source-size
+gate counts them, and like the text gate it checks a delta instead of the main
+specification that an active Change rewrites. Requirements leave
+`product-control-plane`, `product-quality` and `secret-storage` for the
+capability whose behavior they state:
+
+- `release-distribution`, `ci-diagnostics`, `cli-readiness`,
+  `progressive-team-onboarding`, `projection-format`, `repository-organization`
+  and `route-client-selection` take the requirements of their subject.
+- New capabilities take the rest: `client-adapters`, `command-line`,
+  `program-lifecycle`, `supply-chain` and `credential-continuity`.
+- `product-control-plane` keeps the configuration model and the product's
+  independence, `product-quality` the quality graph and repository text, and
+  `secret-storage` credential storage.
+
+Each requirement moves verbatim with every scenario: `REMOVED` from its source
+with a migration that names its new owner, and `ADDED` to that owner. OpenSpec
+refuses a `MODIFIED` block that renames a scenario, and a delta that removes
+and adds one requirement name. A requirement that stays and spells a rejected
+synonym in a scenario name is therefore removed and added under a title that
+names its subject more exactly. Elsewhere `MODIFIED` corrects the spelling.
+
+The Change archives through ETHOS after stage 5 lands, which applies the split
+to the main specifications. The commit after the archive writes each new
+capability's purpose, which OpenSpec leaves as a placeholder.
 
 ## Stages and acceptance
 
@@ -369,7 +422,7 @@ scripts.
 | 2 Domain  | `configuration`, `credential`, `secrets` and `transaction` are absent, and the confinement exception list is empty and removed. `domain` imports only the standard library. No exported identifier in `domain`, `store` or `secret` lacks a user outside its package, as `used_exports_only` counts one, and no exported method or field of an exported type lacks a user outside its package, counting an encoder that reads a tagged field. |
 | 3 CLI     | Each of the 25 top-level commands maps to one package named after it. Every command has passing acceptance scripts on macOS, Linux and Windows.                                                                                                                                                                                                                                                                                               |
 | 4 Layers  | `allowed_import_edges` is absent and the layer table has at most 12 entries. The `artifact` package name occurs once. `mise run release` writes to `build/artifacts/`.                                                                                                                                                                                                                                                                        |
-| 5 Names   | No package base name repeats. The text gate refuses each declared rejected synonym. Every main specification fits within 512 lines.                                                                                                                                                                                                                                                                                                           |
+| 5 Names   | No production package base name repeats. The text gate refuses each declared rejected synonym. After the archive, every main specification fits within 512 non-blank lines.                                                                                                                                                                                                                                                                   |
 
 Each stage is reviewed by its PR, and `tasks.md` holds each stage's bounded
 actions. Stage 6 needs its own written design and approval.

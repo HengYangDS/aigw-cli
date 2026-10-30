@@ -47,9 +47,9 @@
 
 ## 5. Stage 5 — Names, specifications and documentation
 
-- [ ] 5.1 Make `docs/concepts/product-concepts.md` the glossary: one canonical term per concept with its rejected synonyms. The text gate refuses a rejected synonym in code, specifications and documentation.
-- [ ] 5.2 Rename identifiers, packages and prose to the canonical terms without renaming any command, so that no two packages share a base name. The architecture gate refuses a repeated base name.
-- [ ] 5.3 Split `product-control-plane`, `product-quality` and `secret-storage` into capability specifications of at most 512 lines each, keeping every scenario. The documentation gate refuses a main specification above the limit.
+- [ ] 5.1 Make `docs/concepts/product-concepts.md` the glossary: one canonical term per concept with its rejected synonyms. The spelling gate reads it and refuses a rejected synonym in code, specifications and documentation outside history; human output and code use the canonical spelling.
+- [ ] 5.2 Rename packages, identifiers and prose without renaming any command, so that no two production packages share a base name: `internal/client` to `internal/adapter`, Codex's catalog package to `modelcatalog`, its checking tool to `catalogcheck`, and `tools/release/readiness` to `tools/release/identity`. The architecture gate refuses a repeated base name.
+- [ ] 5.3 Write the deltas that split `product-control-plane`, `product-quality` and `secret-storage` into capability specifications of at most 512 non-blank lines each, keeping every scenario and spelling each canonical term. The source-size gate refuses a main specification above the limit once no active Change rewrites it.
 - [ ] 5.4 Update the architecture, contributor and operations documentation to the new layout.
 - [ ] 5.5 Run the local quality graph at the stage head.
 - [ ] 5.6 Prove the stage head with the full ETHOS proof.
