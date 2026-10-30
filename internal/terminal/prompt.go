@@ -1,4 +1,3 @@
-// Package prompt owns interactive text, secret, and selection input.
 package terminal
 
 import (
@@ -25,7 +24,7 @@ type Prompt struct {
 	accessible bool
 }
 
-// New constructs a prompt with explicit accessibility behavior.
+// NewPrompter constructs a prompt with explicit accessibility behavior.
 func NewPrompter(in io.Reader, out io.Writer, accessible bool) Prompt {
 	return Prompt{in: in, out: out, accessible: accessible}
 }

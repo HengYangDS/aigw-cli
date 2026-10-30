@@ -1,5 +1,6 @@
-// Package presentation renders human and machine output without owning
-// command results, domain behavior or client configuration.
+// Package terminal renders human and machine output and reads interactive
+// text, secret and selection input, without owning command results, domain
+// behavior or client configuration.
 package terminal
 
 import (
@@ -96,10 +97,10 @@ func WriteJSON(out io.Writer, value any) error {
 	return encoder.Encode(value)
 }
 
-// New returns a renderer without an explicit width constraint.
+// NewRenderer returns a renderer without an explicit width constraint.
 func NewRenderer(out io.Writer, color bool) *Renderer { return NewRendererWithWidth(out, color, 0) }
 
-// NewWithWidth returns a renderer constrained to the supplied display width; zero leaves wrapping unconstrained.
+// NewRendererWithWidth returns a renderer constrained to the supplied display width; zero leaves wrapping unconstrained.
 func NewRendererWithWidth(out io.Writer, color bool, width int) *Renderer {
 	base := styles{}
 	if color {
