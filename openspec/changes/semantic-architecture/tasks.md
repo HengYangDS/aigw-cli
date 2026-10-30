@@ -28,11 +28,11 @@
 ## 3. Stage 3 — Command packages and acceptance scripts
 
 - [x] 3.1 Compare `rogpeppe/go-internal/testscript` with the current CLI test harness by the code each needs for the same scripts, and record the admitted choice and its measurement in `design.md`.
-- [ ] 3.2 Add acceptance scripts that run the program in its own process against private homes, before any command moves, so that they hold today's behavior as the baseline: for every command its help, a representative success and a representative refusal with its exit status, and for a command that offers `--json` its JSON output on success and on refusal. A case added after the first move passes unchanged at the commit before that move. The repository gate fails for a command whose script lacks one of these.
+- [x] 3.2 Add acceptance scripts that run the program in its own process against private homes, before any command moves, so that they hold today's behavior as the baseline: for every command its help, a representative success and a representative refusal with its exit status, and for a command that offers `--json` its JSON output on success and on refusal. A case added after the first move passes unchanged at the commit before that move. The repository gate fails for a command whose script lacks one of these.
 - [x] 3.3 Move each of the 25 top-level commands into one package under `internal/cli` named after it; the root keeps the program's composition and execution: App construction, the configuration lock, help and error presentation, and group assembly. The repository gate fails for a command without its package or scripts.
 - [x] 3.4 Move the use cases that several commands share out of the command packages into `internal/app`, rendering and prompts into `internal/terminal`, and the redaction rules into `internal/domain`; a command's own behavior stays in its package. The root builds every command, a command that needs capabilities receives them through the invocation context, no command package defines its own set of dependencies, and the architecture gate admits no import between command packages.
-- [ ] 3.5 Run the local quality graph, including the acceptance scripts, at the stage head.
-- [ ] 3.6 Prove the stage head with the full ETHOS proof.
+- [x] 3.5 Run the local quality graph, including the acceptance scripts, at the stage head.
+- [x] 3.6 Prove the stage head with the full ETHOS proof.
 - [ ] 3.7 Confirm the hosted three-platform graph runs every acceptance script and the real-client journeys pass at the stage head.
 
 ## 4. Stage 4 — Layers and tooling
