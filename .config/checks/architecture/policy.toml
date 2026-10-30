@@ -228,6 +228,8 @@ allowed_import_edges."internal/activation" = [
 allowed_import_edges."internal/cli" = [
   "internal/app",
   "internal/cli/account",
+  "internal/cli/add",
+  "internal/cli/balance",
   "internal/cli/catalog",
   "internal/cli/client",
   "internal/cli/config",
@@ -239,6 +241,7 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/readiness",
   "internal/cli/recovery",
   "internal/cli/renaming",
+  "internal/cli/rotate",
   "internal/cli/route",
   "internal/cli/setup",
   "internal/cli/uninstall",
@@ -261,6 +264,7 @@ allowed_import_edges."internal/cli" = [
 allowed_import_edges."internal/app" = [
   "internal/client",
   "internal/discovery",
+  "internal/domain",
   "internal/process",
   "internal/secret",
   "internal/store",
@@ -357,12 +361,31 @@ allowed_import_edges."internal/cli/readiness" = [
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/account" = [
-  "internal/activation",
+  "internal/app",
   "internal/cli/invocation",
   "internal/domain",
   "internal/providers",
   "internal/secret",
+  "internal/terminal",
+]
+allowed_import_edges."internal/cli/balance" = [
+  "internal/app",
+  "internal/cli/invocation",
+  "internal/providers",
+  "internal/secret",
+  "internal/terminal",
+]
+allowed_import_edges."internal/cli/rotate" = [
+  "internal/activation",
+  "internal/app",
+  "internal/cli/invocation",
+  "internal/secret",
   "internal/secret/probe",
+  "internal/terminal",
+]
+allowed_import_edges."internal/cli/add" = [
+  "internal/cli/invocation",
+  "internal/domain",
   "internal/terminal",
 ]
 allowed_import_edges."internal/diagnostics" = [

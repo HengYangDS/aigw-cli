@@ -59,6 +59,12 @@ import (
 	"aigw-cli/internal/cli/config"
 
 	"aigw-cli/internal/cli/verify"
+
+	"aigw-cli/internal/cli/add"
+
+	"aigw-cli/internal/cli/rotate"
+
+	"aigw-cli/internal/cli/balance"
 )
 
 // App owns the dependencies and presentation state for one AIGW invocation.
@@ -378,7 +384,7 @@ func NewRoot(app *App) *cobra.Command {
 	)
 	runtime := app.invocationContext()
 	connect := []*cobra.Command{setup.NewCommand(runtime)}
-	daily := []*cobra.Command{readiness.NewStatusCommand(runtime), use.NewCommand(runtime), readiness.NewCheckCommand(runtime), accountcli.NewRotateCommand(runtime)}
+	daily := []*cobra.Command{readiness.NewStatusCommand(runtime), use.NewCommand(runtime), readiness.NewCheckCommand(runtime), rotate.NewCommand(runtime)}
 	recoveryCommands := []*cobra.Command{
 		app.doctorCommand(), recovery.NewRepairCommand(runtime), recovery.NewSyncCommand(runtime),
 		recovery.NewRollbackCommand(runtime), updatecli.NewCommand(runtime),
@@ -386,12 +392,12 @@ func NewRoot(app *App) *cobra.Command {
 	}
 	advanced := []*cobra.Command{
 		installation.NewCommand(runtime),
-		accountcli.NewAddCommand(runtime), accountcli.NewCommand(runtime, renaming.NewAccountCommand(runtime)),
+		add.NewCommand(runtime), accountcli.NewCommand(runtime, renaming.NewAccountCommand(runtime)),
 		route.NewCommand(runtime, renaming.NewRouteCommand(runtime)),
 		clientcli.NewCommand(runtime),
 		config.NewCommand(runtime), readiness.NewTestCommand(runtime),
 		verify.NewCommand(runtime), catalog.NewModelsCommand(app.catalogDependencies()),
-		catalog.NewCatalogCommand(app.catalogDependencies()), accountcli.NewBalanceCommand(runtime),
+		catalog.NewCatalogCommand(app.catalogDependencies()), balance.NewCommand(runtime),
 	}
 	for group, commands := range map[string][]*cobra.Command{
 		"connect": connect, "daily": daily, "recover": recoveryCommands, "advanced": advanced,

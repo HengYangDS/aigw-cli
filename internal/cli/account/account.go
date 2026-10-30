@@ -1,92 +1,22 @@
-// Package account owns Account lifecycle commands, including creation,
-// inspection, credential rotation, balance reporting, and removal.
+// Package account implements `aigw account`, which lists, edits and renames
+// Accounts and manages their optional precise provider diagnostics.
 package account
 
 import (
-	"cmp"
-	"context"
-	"errors"
 	"fmt"
 	"strings"
-	"time"
 
-	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/providers"
 	"aigw-cli/internal/secret"
-	"aigw-cli/internal/secret/probe"
+
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
-)
 
-// NewAddCommand constructs the guided command that connects one Account and its first Route.
-func NewAddCommand(runtime invocation.Context) *cobra.Command {
-	var label, openAIURL, anthropicURL, client, model string
-	var tokenStdin bool
-	cmd := &cobra.Command{
-		Use:   "add <account>",
-		Short: "Add and connect one Account with its first Route",
-		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
-			if !domain.ValidIdentifier(args[0]) {
-				return fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores; run `%s --help`", args[0], cmd.CommandPath())
-			}
-			if !runtime.Clients.Admission().Admits(client) || strings.TrimSpace(model) == "" {
-				return fmt.Errorf("--for and --model are required; --for must be %s; run `%s --help`", runtime.Clients.Admission().Usage(), cmd.CommandPath())
-			}
-			return nil
-		}),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			name := args[0]
-			cfg, err := runtime.Config.Load()
-			if err != nil {
-				return err
-			}
-			if label == "" {
-				label = name
-			}
-			account := domain.Account{Label: label, Endpoints: domain.Endpoints{
-				OpenAIResponses: strings.TrimRight(openAIURL, "/"),
-				Anthropic:       strings.TrimRight(anthropicURL, "/"),
-			}}
-			account.ID = name
-			spec, _ := runtime.Clients.Admission().Spec(client)
-			_, protocol, err := spec.ResolveEndpoint(account, "")
-			if err != nil {
-				return err
-			}
-			route := domain.Route{
-				Label: label, Account: name, Model: strings.TrimSpace(model),
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
-			}
-			acquireToken := func() (string, error) { return invocation.ReadToken(runtime, tokenStdin, true) }
-			if err := runtime.Synchronizer().ConnectAccount(cmd.Context(), cfg, name, client, account, route, acquireToken); err != nil {
-				return fmt.Errorf("%w; run `%s --help`", err, cmd.CommandPath())
-			}
-			r := invocation.Renderer(runtime)
-			r.ProductTitle("Account connected")
-			r.Section("Selection")
-			r.Rows(
-				terminal.Field{Label: "Account", Value: label},
-				terminal.Field{Label: "Account ID", Value: name},
-				terminal.Field{Label: "Route ID", Value: name},
-				terminal.Field{Label: "Client", Value: runtime.Clients.Admission().Label(client)},
-				terminal.Field{Label: "Model", Value: route.Model},
-				terminal.Field{State: terminal.OK, Label: "Token", Value: "Securely stored"},
-			)
-			r.Next("aigw check")
-			return nil
-		},
-	}
-	cmd.Flags().StringVar(&label, "label", "", "Provider display name")
-	cmd.Flags().StringVar(&openAIURL, "openai-url", "", "OpenAI Responses base URL")
-	cmd.Flags().StringVar(&anthropicURL, "anthropic-url", "", "Anthropic base URL")
-	cmd.Flags().StringVar(&client, "for", "", "Client: "+runtime.Clients.Admission().Usage())
-	cmd.Flags().StringVar(&model, "model", "", "Upstream model ID")
-	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one token line from standard input")
-	return cmd
-}
+	"aigw-cli/internal/app"
+)
 
 // newEditCommand constructs account metadata editing. Account endpoints and
 // labels belong to the account command surface, not to route management.
@@ -144,76 +74,6 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
-// NewRotateCommand constructs the command that rotates credentials for one existing account.
-func NewRotateCommand(runtime invocation.Context) *cobra.Command {
-	var tokenStdin bool
-	cmd := &cobra.Command{
-		Use:   "rotate [account]",
-		Short: "Update one Account Token",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := runtime.Config.Load()
-			if err != nil {
-				return err
-			}
-			name, err := accountReference(cfg, args)
-			if err != nil {
-				return err
-			}
-			accountName, account, err := cfg.ResolveAccount(name)
-			if err != nil {
-				return err
-			}
-			if instruction, writable := secret.TokenRecovery(runtime.Secrets, accountName); !writable {
-				cause := fmt.Errorf("credential backend is read-only")
-				return invocation.Problem(
-					runtime,
-					"Token cannot be rotated by this credential backend",
-					"The selected environment backend reads Tokens from the parent process and does not persist changes.",
-					"No Token was read, validated, or changed.",
-					instruction,
-					cause,
-				)
-			}
-			var token string
-			if tokenStdin {
-				token, err = invocation.ReadToken(runtime, true, false)
-			} else if runtime.Interactive {
-				token, err = runtime.Prompt.Secret("Paste " + account.Label + " token: ")
-			} else {
-				return fmt.Errorf("Token input requires an interactive terminal; pipe one token line to `aigw rotate %s --token-stdin`", accountName)
-			}
-			if err != nil {
-				return err
-			}
-			account.ID = accountName
-			if err := probe.Validate(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), account, token); err != nil {
-				return fmt.Errorf("Token validation failed: %w", err)
-			}
-			if err := cmd.Context().Err(); err != nil {
-				return err
-			}
-			_, err = secret.Replace(runtime.Secrets, map[string]string{accountName: token})
-			if err != nil {
-				return err
-			}
-			r := invocation.Renderer(runtime)
-			r.ProductTitle("Token updated")
-			r.Section("Account")
-			r.Rows(
-				terminal.Field{Label: "Account", Value: account.Label},
-				terminal.Field{Label: "Account ID", Value: accountName},
-				terminal.Field{State: terminal.OK, Label: "Account Token", Value: "Validated and securely stored"},
-			)
-			r.Success("Credential helpers read the new Token when next invoked; clients control their refresh timing")
-			r.Next(clientactivation.NextActionAfterAccountConnection(cfg, accountName))
-			return nil
-		},
-	}
-	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one token line from standard input")
-	return cmd
-}
-
 // NewCommand constructs the account command group from one invocation context.
 func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra.Command {
 	root := &cobra.Command{Use: "account", Short: "Manage account endpoints and optional precise diagnostics"}
@@ -239,7 +99,7 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 		if err != nil {
 			return err
 		}
-		name, err := accountReference(cfg, args)
+		name, err := app.AccountReference(cfg, args)
 		if err != nil {
 			return err
 		}
@@ -292,7 +152,7 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 			if err != nil {
 				return err
 			}
-			name, err := accountReference(cfg, args)
+			name, err := app.AccountReference(cfg, args)
 			if err != nil {
 				return err
 			}
@@ -354,112 +214,4 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 	}
 	command.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
 	return command
-}
-
-// diagnosticCredentialProblem explains why precise balance cannot run and names
-// a recovery the selected credential backend can perform. The read-only
-// environment backend cannot store diagnostics, so it names their variables.
-func diagnosticCredentialProblem(store secret.Store, accountName string, err error) error {
-	environment := ""
-	if secret.IsReadOnly(store) {
-		environment = "Set both `" + secret.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secret.DiagnosticUserIDEnvironmentKey(accountName) + "` in the parent environment, then retry."
-	}
-	if !errors.Is(err, secret.ErrNotFound) {
-		return terminal.ProblemError(
-			"Cannot read provider diagnostic credential",
-			"AIGW could not read a usable provider diagnostic credential for "+accountName+"; this does not establish that it is missing.",
-			"No balance request was sent; the Account Token and diagnostic credential were not changed.",
-			cmp.Or(environment, "Run `aigw doctor` to inspect the selected credential backend; if it is available, explicitly re-enable diagnostics with `aigw account diagnostics enable "+accountName+"`."),
-			err,
-		)
-	}
-	return terminal.ProblemError(
-		"Precise balance diagnostics are not enabled",
-		"Missing "+accountName+" provider platform diagnostic credential; the Account Token is stored separately in the selected credential backend.",
-		"Cannot distinguish account balance, remaining token quota, disabled token state, and request limits.",
-		cmp.Or(environment, "aigw account diagnostics enable "+accountName),
-		err,
-	)
-}
-
-// NewBalanceCommand constructs the explicit provider-account diagnostic command.
-func NewBalanceCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{Use: "balance [account]", Short: "Show account balance and token quota", Args: cobra.MaximumNArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := runtime.Config.Load()
-		if err != nil {
-			return err
-		}
-		name, err := accountReference(cfg, args)
-		if err != nil {
-			return err
-		}
-		accountName, providerAccount, err := cfg.ResolveAccount(name)
-		if err != nil {
-			return err
-		}
-		if providerAccount.AccountProbe == nil {
-			return fmt.Errorf("%s does not support precise balance queries", providerAccount.Label)
-		}
-		if !providers.Supports(providerAccount.AccountProbe.Kind) {
-			return fmt.Errorf("Precise diagnostics provider %q is not included in this AIGW version; continue using `aigw check` for general diagnostics", providerAccount.AccountProbe.Kind)
-		}
-		credential, err := runtime.Accounts.Get(accountName)
-		if err != nil {
-			return diagnosticCredentialProblem(runtime.Secrets, accountName, err)
-		}
-		apiToken, err := runtime.Secrets.Get(accountName)
-		if err != nil {
-			return err
-		}
-		ctx, cancel := context.WithTimeout(cmd.Context(), 15*time.Second)
-		defer cancel()
-		providerAccount.ID = accountName
-		report, err := providers.Probe(ctx, runtime.HTTP, providerAccount, apiToken, credential)
-		if err != nil {
-			return err
-		}
-		status := map[string]string{"enabled": "Enabled", "disabled": "Disabled"}[report.TokenStatus]
-		remaining := fmt.Sprintf("$%.4f", report.TokenRemaining)
-		if report.TokenUnlimitedQuota {
-			remaining = "Unlimited"
-		}
-		count := fmt.Sprintf("%d requests", report.TokenRemainingCount)
-		if report.TokenUnlimitedCount {
-			count = "Unlimited requests"
-		}
-		r := invocation.Renderer(runtime)
-		r.ProductTitle("Account and quota")
-		r.Section("Account")
-		r.Rows(
-			terminal.Field{Label: "Account", Value: providerAccount.Label},
-			terminal.Field{Label: "Account balance", Value: fmt.Sprintf("$%.4f", report.AccountBalance)},
-		)
-		r.Section("Current API token")
-		state := terminal.OK
-		if report.TokenStatus != "enabled" {
-			state = terminal.Fail
-		}
-		r.Rows(
-			terminal.Field{Label: "Name", Value: report.TokenName},
-			terminal.Field{State: state, Label: "Token status", Value: status},
-			terminal.Field{Label: "Quota used", Value: fmt.Sprintf("$%.4f", report.TokenUsed)},
-			terminal.Field{Label: "Remaining quota", Value: remaining},
-			terminal.Field{Label: "Remaining requests", Value: count},
-		)
-		r.Next("aigw check")
-		return nil
-	}}
-}
-
-func accountReference(cfg domain.Config, args []string) (string, error) {
-	if len(args) == 1 {
-		return args[0], nil
-	}
-	if len(cfg.Accounts) != 1 {
-		return "", fmt.Errorf("account is required when configuration contains %d accounts", len(cfg.Accounts))
-	}
-	for accountID := range cfg.Accounts {
-		return accountID, nil
-	}
-	return "", fmt.Errorf("no account is configured")
 }
