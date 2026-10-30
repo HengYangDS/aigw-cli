@@ -4,7 +4,7 @@
 
 AIGW controls Accounts, credentials, Models, Routes, Client Bindings and guarded native
 projections, not conversations, API traffic or external services. Start from the
-[architecture boundary](docs/architecture/authority-and-projection-boundary.md) and current [OpenSpec](openspec/) requirement, not files or old code.
+[architecture boundary](docs/architecture/authority-and-projection-boundary.md), its [layers](docs/architecture/authority-and-projection-boundary.md#semantic-packages), the [glossary](docs/concepts/product-concepts.md#glossary) and the current [OpenSpec](openspec/) requirement, not files or old code.
 
 ## License
 

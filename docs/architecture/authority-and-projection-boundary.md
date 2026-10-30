@@ -60,20 +60,30 @@ process.
 
 ## Semantic packages
 
-- **[Domain](../../internal/domain/):** Account, Route, recommendation, Client Binding, the admitted client specifications, validation, the endpoint requests that prove an Account's Token, and the team manifest semantics, with standard-library imports only
-- **[Store](../../internal/store/):** Schema migration, persistence, checkpoints and the team manifest's TOML encoding
-- **[Platform](../../internal/platform/):** Portable AIGW-owned paths, guarded filesystem mutation and rollback, and bounded child processes
-- **[Secret](../../internal/secret/):** Account credential backends, typed diagnostic credentials and replacement, and the private credential reader that native clients run
-- **[Token probes](../../internal/secret/probe/):** Proof of an Account's Token against its endpoints: the probing client, sending without redirects, and the verdict on each status
-- **[Diagnostic contract](../../internal/provider/diagnostic/):** The seam of optional provider-account diagnostics: their results, the credential values they read and the sender they use
-- **[Codex integration](../../internal/adapter/codex/):** Projection planning and reconciliation
-- **[Claude integration](../../internal/adapter/claude/):** Settings projection, credential-safe process plans, and readiness
-- **[Provider diagnostics](../../internal/provider/):** Optional provider-native diagnostics only
-- **[Client orchestration](../../internal/adapter/):** Admitted client discovery, projection, inspection, verification, compensation, and withdrawal
-- **[Synchronization](../../internal/app/synchronization/):** Client Binding convergence and multi-client projection transaction
-- **[Terminal](../../internal/terminal/):** Terminal capability detection, human and JSON rendering of command results, and prompts
-- **[CLI](../../internal/cli/):** Command composition; domain behavior remains in semantic owners
-- **[Upgrades](../../internal/program/):** Independent-Forge update verification and installation
+Packages form one ordered stack of layers, which the
+[architecture policy](../../.config/checks/architecture/policy.toml) declares
+and [`tools/architecture`](../../tools/architecture/) enforces. A production
+file imports its own descendants, the packages of lower layers and the seams
+that its subtree declares. No two production packages share a base name, and
+names follow the [glossary](../concepts/product-concepts.md#glossary). From the
+top:
+
+1. **[CI](../../tools/ci/):** Repository gates and their projection into both Forges; CI drives the release tool
+2. **[Repository tools](#repository-tooling):** Architecture, coverage, Forge operations, releases, Git test fixtures and client verification, which import product packages only from the adapters' layer down
+3. **[Program entry point](../../cmd/aigw/):** Starts the command-line application
+4. **[CLI](../../internal/cli/) and [client admission](../../internal/clients/):** One package per command, sharing CLI behavior only through [invocation](../../internal/cli/invocation/), and the composition root's list of built-in client adapters
+5. **[Use cases](../../internal/app/) and [Terminal](../../internal/terminal/):** The use cases that several commands share, which return values for the terminal to render; human and JSON rendering and prompts, which import no use case
+6. **[Renaming](../../internal/app/renaming/):** Account and Route identity migration
+7. **[Activation](../../internal/app/activation/) and [Synchronization](../../internal/app/synchronization/):** The enabled-client scope of an operation; Client Binding convergence and the multi-client projection transaction
+8. **[Readiness](../../internal/app/readiness/):** The operational state vocabulary that setup, synchronization, inspection and verification share
+9. **[Diagnostics](../../internal/app/diagnostics/):** Bounded, redacted endpoint and authentication health observations
+10. **[Client orchestration](../../internal/adapter/) and [Upgrades](../../internal/program/):** The adapter seam: admitted client discovery, projection, inspection, verification, compensation, and withdrawal. Adapters share the seam's [discovery](../../internal/adapter/discovery/), [surface](../../internal/adapter/surface/) and [verification](../../internal/adapter/verification/) packages and never import each other. Independent-Forge update verification and installation own the [release artifact format](../../internal/program/artifact/).
+    - **[Claude Code](../../internal/adapter/claude/):** Settings projection, credential-safe process plans, and readiness
+    - **[Claude Desktop](../../internal/adapter/claudedesktop/):** Its separate third-party inference library
+    - **[Codex](../../internal/adapter/codex/):** Projection planning and reconciliation, and its [model catalog](../../internal/adapter/codex/modelcatalog/)
+    - **[Hermes](../../internal/adapter/hermes/):** Its native provider catalog, explicit protocol and model selection, and credential commands
+11. **[Provider diagnostics](../../internal/provider/), [Secret](../../internal/secret/) and [Store](../../internal/store/):** Optional provider-native diagnostics behind their [diagnostic contract](../../internal/provider/diagnostic/); Account credential backends, typed diagnostic credentials and replacement, the private credential reader that native clients run, and the [Token probes](../../internal/secret/probe/); schema migration, persistence, checkpoints and the team manifest's TOML encoding
+12. **[Domain](../../internal/domain/) and [Platform](../../internal/platform/):** Account, Route, recommendation, Client Binding, the admitted client specifications, validation, the endpoint requests that prove an Account's Token, and the team manifest semantics, with standard-library imports only; portable AIGW-owned paths, guarded filesystem mutation and rollback, and bounded [child processes](../../internal/platform/process/)
 
 Dependency direction is toward domain owners. Terminal rendering, CLI composition,
 Forge code, and host discovery do not define product semantics.
