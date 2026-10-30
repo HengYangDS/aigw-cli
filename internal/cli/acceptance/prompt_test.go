@@ -8,9 +8,9 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secret"
 	surfaceidentity "aigw-cli/internal/surface"
+	"aigw-cli/internal/terminal"
 	"errors"
 	"fmt"
 	"os"
@@ -29,7 +29,7 @@ type scriptedPrompt struct {
 	secretCalls []string
 	textCalls   int
 	selectCalls int
-	choices     []prompt.Choice
+	choices     []terminal.Choice
 }
 
 func (p *scriptedPrompt) Secret(label string) (string, error) {
@@ -45,7 +45,7 @@ func (p *scriptedPrompt) Text(string) (string, error) {
 	return consumeAnswer(&p.texts, "text")
 }
 
-func (p *scriptedPrompt) Select(_ string, choices []prompt.Choice) (string, error) {
+func (p *scriptedPrompt) Select(_ string, choices []terminal.Choice) (string, error) {
 	p.selectCalls++
 	p.choices = slices.Clone(choices)
 	if p.selectErr != nil {
@@ -97,7 +97,7 @@ func TestPromptConsumesOnlyDeclaredAnswers(t *testing.T) {
 	}
 }
 
-func choiceValues(choices []prompt.Choice) []string {
+func choiceValues(choices []terminal.Choice) []string {
 	values := make([]string, 0, len(choices))
 	for _, choice := range choices {
 		values = append(values, choice.Value)

@@ -9,9 +9,9 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	clientverification "aigw-cli/internal/client/verification"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
+	"aigw-cli/internal/terminal"
 
 	"aigw-cli/internal/store"
 
@@ -102,13 +102,13 @@ func NewTestCommand(runtime invocation.Context) *cobra.Command {
 			r.ProductTitle("Connectivity test")
 			r.Text("Endpoint HTTP observation, not model inference or native-client verification.")
 			r.Section("Endpoints")
-			rows := make([]presentation.Field, 0, len(results))
+			rows := make([]terminal.Field, 0, len(results))
 			for _, result := range results {
 				value := fmt.Sprintf("%s · HTTP %d", result.routeID, result.status)
 				if result.detail != "" {
 					value += " · " + result.detail
 				}
-				rows = append(rows, presentation.Field{State: presentation.OK, Label: runtime.Clients.Admission().Label(result.client), Value: value})
+				rows = append(rows, terminal.Field{State: terminal.OK, Label: runtime.Clients.Admission().Label(result.client), Value: value})
 			}
 			r.Rows(rows...)
 			r.Next("aigw check")

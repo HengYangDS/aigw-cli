@@ -12,14 +12,14 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/prompt"
+
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 )
 
 func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
-	runtime.Problem = presentation.ProblemError
+	runtime.Problem = terminal.ProblemError
 	cfg.Routes["shared"] = domain.Route{
 		Account: "gateway", Model: "shared-model",
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
@@ -38,8 +38,8 @@ func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 		t.Fatalf("ambiguous Hermes Route preview error = %v, want explicit protocol guidance", err)
 	}
 	var out bytes.Buffer
-	renderer := presentation.New(&out, false)
-	presentation.RenderError(renderer, err, true)
+	renderer := terminal.NewRenderer(&out, false)
+	terminal.RenderError(renderer, err, true)
 	var rendered struct {
 		NextAction string `json:"next_action"`
 	}
@@ -71,7 +71,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	selector := &promptStub{selected: "shared"}
 	runtime.Prompt = selector
 	if _, err := chooseRoute(runtime, cfg, hermes.ID, "Select Route"); err != nil ||
-		!slices.ContainsFunc(selector.choices, func(choice prompt.Choice) bool { return choice.Value == "shared" }) {
+		!slices.ContainsFunc(selector.choices, func(choice terminal.Choice) bool { return choice.Value == "shared" }) {
 		t.Fatalf("Hermes Route choice = %#v, %v", selector.choices, err)
 	}
 

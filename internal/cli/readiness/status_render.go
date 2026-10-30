@@ -3,10 +3,10 @@ package readiness
 import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 	"strings"
 )
 
@@ -30,8 +30,8 @@ func renderStatus(runtime invocation.Context, cfg domain.Config, result statusOu
 		if result.EnabledClients != 0 {
 			message = "Selected client projection is deferred"
 		}
-		r.Rows(presentation.Field{
-			State: presentation.Info, Label: "Client activation", Value: message,
+		r.Rows(terminal.Field{
+			State: terminal.Info, Label: "Client activation", Value: message,
 			Details: []string{"The catalogue is available, but no client endpoint or model has been checked"},
 		})
 	}
@@ -40,25 +40,25 @@ func renderStatus(runtime invocation.Context, cfg domain.Config, result statusOu
 	r.Next(result.NextAction)
 }
 
-func renderClientStatus(r *presentation.Renderer, admission domain.Admission, result statusOutput, clientIDs []string) {
+func renderClientStatus(r *terminal.Renderer, admission domain.Admission, result statusOutput, clientIDs []string) {
 	r.Section("Clients")
-	rows := make([]presentation.Field, 0, len(clientIDs))
+	rows := make([]terminal.Field, 0, len(clientIDs))
 	for _, client := range clientIDs {
 		spec, _ := admission.Spec(client)
 		clientStatus := result.Clients[client]
 		message := clientStatus.Route + " · " + clientStatus.State.Label()
-		state := presentation.Info
+		state := terminal.Info
 		switch clientStatus.State {
 		case domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
-			state = presentation.OK
+			state = terminal.OK
 		case domainreadiness.Configured:
-			state = presentation.Info
+			state = terminal.Info
 		case domainreadiness.Deferred:
 			if clientStatus.Route == "" {
 				message = "No " + spec.Label + " route selected"
 			}
 		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
-			state = presentation.Warn
+			state = terminal.Warn
 		}
 		if clientStatus.Detail != "" && clientStatus.Route != "" {
 			message = clientStatus.Route + " · " + clientStatus.State.Label() + " · " + clientStatus.Detail
@@ -66,16 +66,16 @@ func renderClientStatus(r *presentation.Renderer, admission domain.Admission, re
 		if len(clientStatus.QualifiedModes) > 0 && len(clientStatus.QualifiedPlatforms) > 0 {
 			message += " · Qualified: " + strings.Join(clientStatus.QualifiedModes, ", ") + " · " + strings.Join(clientStatus.QualifiedPlatforms, ", ")
 		}
-		rows = append(rows, presentation.Field{State: state, Label: spec.Label, Value: message})
+		rows = append(rows, terminal.Field{State: state, Label: spec.Label, Value: message})
 	}
 	r.Rows(rows...)
 }
 
-func renderTransportStatus(r *presentation.Renderer, admission domain.Admission, result statusOutput, clientIDs []string) {
-	rows := []presentation.Field{}
+func renderTransportStatus(r *terminal.Renderer, admission domain.Admission, result statusOutput, clientIDs []string) {
+	rows := []terminal.Field{}
 	for _, client := range clientIDs {
 		if result.Clients[client].Transport == endpointTransportExternalLoopback {
-			rows = append(rows, presentation.Field{State: presentation.Info, Label: admission.Label(client), Value: "Loopback endpoint"})
+			rows = append(rows, terminal.Field{State: terminal.Info, Label: admission.Label(client), Value: "Loopback endpoint"})
 		}
 	}
 	if len(rows) == 0 {
@@ -87,36 +87,36 @@ func renderTransportStatus(r *presentation.Renderer, admission domain.Admission,
 	r.Detail("AIGW does not start, stop, or configure the endpoint runtime")
 }
 
-func renderDiagnosticStatus(runtime invocation.Context, r *presentation.Renderer, cfg domain.Config) {
+func renderDiagnosticStatus(runtime invocation.Context, r *terminal.Renderer, cfg domain.Config) {
 	r.Section("Optional diagnostics")
 	accountIDs := cfg.SelectedAccountIDs()
 	if len(accountIDs) == 0 {
-		r.Rows(presentation.Field{State: presentation.Info, Label: "Precise balance", Value: "No selected account"})
+		r.Rows(terminal.Field{State: terminal.Info, Label: "Precise balance", Value: "No selected account"})
 		return
 	}
-	rows := make([]presentation.Field, 0, len(accountIDs))
+	rows := make([]terminal.Field, 0, len(accountIDs))
 	for _, accountName := range accountIDs {
 		account := cfg.Accounts[accountName]
 		if account.AccountProbe == nil {
-			rows = append(rows, presentation.Field{State: presentation.Info, Label: accountName, Value: "Provider does not expose a balance probe"})
+			rows = append(rows, terminal.Field{State: terminal.Info, Label: accountName, Value: "Provider does not expose a balance probe"})
 			continue
 		}
 		if !providers.Supports(account.AccountProbe.Kind) {
-			rows = append(rows, presentation.Field{State: presentation.Info, Label: accountName, Value: "Provider diagnostics unavailable in this version"})
+			rows = append(rows, terminal.Field{State: terminal.Info, Label: accountName, Value: "Provider diagnostics unavailable in this version"})
 			continue
 		}
 		available, err := runtime.Accounts.Exists(accountName)
 		switch {
 		case err != nil:
-			rows = append(rows, presentation.Field{State: presentation.Warn, Label: accountName, Value: "Credential metadata unavailable · aigw doctor"})
+			rows = append(rows, terminal.Field{State: terminal.Warn, Label: accountName, Value: "Credential metadata unavailable · aigw doctor"})
 		case available:
-			rows = append(rows, presentation.Field{State: presentation.Info, Label: accountName, Value: "Diagnostic credential present · content not verified"})
+			rows = append(rows, terminal.Field{State: terminal.Info, Label: accountName, Value: "Diagnostic credential present · content not verified"})
 		default:
 			action := "aigw account diagnostics enable " + accountName
 			if secret.IsReadOnly(runtime.Secrets) {
 				action = "set `" + secret.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secret.DiagnosticUserIDEnvironmentKey(accountName) + "`"
 			}
-			rows = append(rows, presentation.Field{State: presentation.Warn, Label: accountName, Value: "Precise balance not ready · " + action})
+			rows = append(rows, terminal.Field{State: terminal.Warn, Label: accountName, Value: "Precise balance not ready · " + action})
 		}
 	}
 	r.Rows(rows...)

@@ -5,8 +5,8 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -45,7 +45,7 @@ func newMigrateCommand(runtime invocation.Context) *cobra.Command {
 			}
 			result := migrationOutput{DryRun: dryRun, MigrationPlan: plan, NextAction: nextAction}
 			if jsonMode {
-				return presentation.WriteJSON(runtime.Out, result)
+				return terminal.WriteJSON(runtime.Out, result)
 			}
 			return renderMigration(runtime, result)
 		},
@@ -68,19 +68,19 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 	}
 	renderer.ProductTitle(title)
 	renderer.Rows(
-		presentation.Field{Label: "Schema", Value: fmt.Sprintf("%d → %d", result.FromVersion, result.ToVersion)},
-		presentation.Field{Label: "Accounts", Value: fmt.Sprintf("%d", len(result.Accounts))},
-		presentation.Field{Label: "Routes", Value: fmt.Sprintf("%d", len(result.Routes))},
+		terminal.Field{Label: "Schema", Value: fmt.Sprintf("%d → %d", result.FromVersion, result.ToVersion)},
+		terminal.Field{Label: "Accounts", Value: fmt.Sprintf("%d", len(result.Accounts))},
+		terminal.Field{Label: "Routes", Value: fmt.Sprintf("%d", len(result.Routes))},
 	)
 	if bindings := migrationClientRows(runtime.Clients.Admission(), result.Clients); len(bindings) > 0 {
 		renderer.Section("Client Bindings")
 		renderer.Rows(bindings...)
 	}
 	if len(result.Recommendations) > 0 {
-		recommendations := make([]presentation.Field, 0, len(result.Recommendations))
+		recommendations := make([]terminal.Field, 0, len(result.Recommendations))
 		for _, client := range runtime.Clients.Admission().IDs() {
 			if recommendation, exists := result.Recommendations[client]; exists {
-				recommendations = append(recommendations, presentation.Field{Label: runtime.Clients.Admission().Label(client), Value: recommendation.Primary.Route})
+				recommendations = append(recommendations, terminal.Field{Label: runtime.Clients.Admission().Label(client), Value: recommendation.Primary.Route})
 			}
 		}
 		renderer.Section("Recommendations")
@@ -98,8 +98,8 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 	return renderer.Err()
 }
 
-func migrationClientRows(admission domain.Admission, bindings map[string]domain.ClientBinding) []presentation.Field {
-	rows := make([]presentation.Field, 0, len(bindings))
+func migrationClientRows(admission domain.Admission, bindings map[string]domain.ClientBinding) []terminal.Field {
+	rows := make([]terminal.Field, 0, len(bindings))
 	for _, client := range admission.IDs() {
 		binding, exists := bindings[client]
 		if !exists {
@@ -118,7 +118,7 @@ func migrationClientRows(admission domain.Admission, bindings map[string]domain.
 		case targets > 1:
 			detail += fmt.Sprintf(" · %d native targets", targets)
 		}
-		rows = append(rows, presentation.Field{Label: admission.Label(client), Value: detail})
+		rows = append(rows, terminal.Field{Label: admission.Label(client), Value: detail})
 	}
 	return rows
 }

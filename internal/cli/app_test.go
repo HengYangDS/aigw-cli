@@ -17,10 +17,10 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
@@ -263,7 +263,7 @@ func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
 			}
 			for line := range strings.SplitSeq(help, "\n") {
 				if prefix, _, present := strings.Cut(line, row[1]); present && test.width >= 80 {
-					position := presentation.DisplayWidth(prefix)
+					position := terminal.DisplayWidth(prefix)
 					if column >= 0 && position != column {
 						t.Fatalf("descriptions use different display columns %d/%d:\n%s", column, position, help)
 					}
@@ -271,7 +271,7 @@ func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
 				}
 			}
 		}
-		if longest := presentation.DisplayWidth(command.Name() + " use --for <client> <route>"); test.width >= 80 && column < 2+longest+2 {
+		if longest := terminal.DisplayWidth(command.Name() + " use --for <client> <route>"); test.width >= 80 && column < 2+longest+2 {
 			t.Fatalf("width=%d descriptions start at column %d, less than two cells after the longest command:\n%s", test.width, column, help)
 		}
 		if strings.Contains(help, "#") {
@@ -350,7 +350,7 @@ func TestPublicCommandHelpFitsDeclaredTerminalWidths(t *testing.T) {
 					t.Fatalf("%s width=%d color=%t changed help content", command.CommandPath(), width, color)
 				}
 				for line := range strings.SplitSeq(out.String(), "\n") {
-					if got := presentation.DisplayWidth(line); got > width && !copyable[strings.TrimSpace(ansi.Strip(line))] {
+					if got := terminal.DisplayWidth(line); got > width && !copyable[strings.TrimSpace(ansi.Strip(line))] {
 						t.Fatalf("%s width=%d color=%t overflow=%d: %q", command.CommandPath(), width, color, got, line)
 					}
 				}

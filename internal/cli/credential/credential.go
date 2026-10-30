@@ -9,10 +9,10 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/native"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -35,22 +35,22 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			adapter := cfg.Clients[client]
 			if !adapter.Enabled {
-				return presentation.ProblemError(fmt.Sprintf("%s adapter is not enabled", client), "", "Credential lookup did not start.", fmt.Sprintf("Enable the %s adapter before using its credential helper.", client), nil)
+				return terminal.ProblemError(fmt.Sprintf("%s adapter is not enabled", client), "", "Credential lookup did not start.", fmt.Sprintf("Enable the %s adapter before using its credential helper.", client), nil)
 			}
 			clientRuntime, err := resolveProjectedRuntime(cfg, client, args[1])
 			if err != nil {
-				return presentation.ProblemError(fmt.Sprintf("%s credential projection no longer matches an available Account and endpoint", client), "", "No Account Token was read or returned.", "Run `aigw sync` and reload the client's configuration.", err)
+				return terminal.ProblemError(fmt.Sprintf("%s credential projection no longer matches an available Account and endpoint", client), "", "No Account Token was read or returned.", "Run `aigw sync` and reload the client's configuration.", err)
 			}
 			if !clientRuntime.RequiresAccountToken() {
-				return presentation.ProblemError(fmt.Sprintf("%s uses client-owned authentication", client), "", "AIGW does not supply an Account Token for this route.", fmt.Sprintf("Run `aigw verify --for %s` to verify authentication through the client.", client), nil)
+				return terminal.ProblemError(fmt.Sprintf("%s uses client-owned authentication", client), "", "AIGW does not supply an Account Token for this route.", fmt.Sprintf("Run `aigw verify --for %s` to verify authentication through the client.", client), nil)
 			}
 			token, err := runtime.Secrets.Get(clientRuntime.AccountID)
 			if err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {
-					return presentation.ProblemError("Account Token read exceeded its deadline", "", "The credential subprocess was stopped; no Token was returned.", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read.", err)
+					return terminal.ProblemError("Account Token read exceeded its deadline", "", "The credential subprocess was stopped; no Token was returned.", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read.", err)
 				}
 				if errors.Is(err, secret.ErrNotFound) {
-					return presentation.ProblemError(
+					return terminal.ProblemError(
 						fmt.Sprintf("%s Account Token is not configured", client), "",
 						"No Token was returned.",
 						"Set the selected Account Token in the configured backend; run `aigw doctor` for backend guidance.",
@@ -63,7 +63,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					evidence = fmt.Sprintf("Keychain OSStatus %d; the native read did not permit user interaction.", failure.Status)
 					action = "Inspect the selected native store, item authorization and credential-reader identity; repeated helper calls cannot grant access."
 				}
-				return presentation.ProblemError(
+				return terminal.ProblemError(
 					fmt.Sprintf("%s Account Token could not be read", client), evidence,
 					"No Token was returned.",
 					action,
@@ -72,7 +72,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			_, err = fmt.Fprintln(runtime.Out, token)
 			if err != nil {
-				return presentation.ProblemError("Cannot write the Account Token to the client", "", "Credential delivery did not complete.", "Check the client's credential-helper connection before retrying.", err)
+				return terminal.ProblemError("Cannot write the Account Token to the client", "", "Credential delivery did not complete.", "Check the client's credential-helper connection before retrying.", err)
 			}
 			return err
 		},
@@ -88,13 +88,13 @@ func configurationProblem(version string, err error) error {
 	}
 	evidence := reader + " could not load the configuration."
 	fix := "If a newer AIGW wrote this configuration, run `aigw sync` with the installed AIGW and reload the client to use its current reader; otherwise run `aigw doctor`."
-	if stage, ok := presentation.ConfigurationLoadEvidence(reader, err); ok {
+	if stage, ok := terminal.ConfigurationLoadEvidence(reader, err); ok {
 		evidence = stage
 	}
 	if failure, ok := errors.AsType[*store.LoadError](err); ok && failure.Phase == store.LoadPhaseRead {
 		fix = "Restore the client's read access to the AIGW configuration; run `aigw doctor` to inspect it."
 	}
-	return presentation.ProblemError("Cannot read AIGW configuration", evidence, "Credential lookup did not start.", fix, err)
+	return terminal.ProblemError("Cannot read AIGW configuration", evidence, "Credential lookup did not start.", fix, err)
 }
 
 func resolveProjectedRuntime(cfg domain.Config, client, fingerprint string) (domain.Runtime, error) {

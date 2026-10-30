@@ -4,9 +4,9 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 	"bytes"
 	"path/filepath"
 	"strings"
@@ -229,7 +229,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 	checks := executeJSON(t, deps, out).Checks
 	longest := 0
 	for _, check := range checks {
-		longest = max(longest, presentation.DisplayWidth("✓ "+Label(clients.Admission(), check)))
+		longest = max(longest, terminal.DisplayWidth("✓ "+Label(clients.Admission(), check)))
 	}
 	for _, width := range []int{0, 72, 100} {
 		out.Reset()
@@ -250,7 +250,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 					}
 				}
 			}
-			start := presentation.DisplayWidth(line) - presentation.DisplayWidth(text)
+			start := terminal.DisplayWidth(line) - terminal.DisplayWidth(text)
 			if column < 0 {
 				column = start
 			}
@@ -266,7 +266,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 
 func TestHumanDoctorNamesNativeClaudeModelPreferenceAndVerification(t *testing.T) {
 	var output bytes.Buffer
-	renderer := presentation.NewWithWidth(&output, false, 100)
+	renderer := terminal.NewRendererWithWidth(&output, false, 100)
 	renderClients(renderer, clients.Admission(), map[string]domainreadiness.Client{
 		claude.ID: {
 			State:               domainreadiness.Configured,

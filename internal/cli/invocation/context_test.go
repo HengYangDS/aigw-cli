@@ -13,10 +13,10 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 )
 
 func TestReadTokenUsesExplicitInvocationInput(t *testing.T) {
@@ -76,7 +76,7 @@ func TestRendererUsesTheBoundRenderWriter(t *testing.T) {
 	var out bytes.Buffer
 	runtime := Context{Out: &bytes.Buffer{}, RenderOut: &out, Width: 80}
 
-	Renderer(runtime).Rows(presentation.Field{Label: "Account", Value: "team-gateway"})
+	Renderer(runtime).Rows(terminal.Field{Label: "Account", Value: "team-gateway"})
 
 	if got := out.String(); !strings.Contains(got, "team-gateway") {
 		t.Fatalf("Renderer() output = %q, want bound render writer", got)
@@ -85,11 +85,11 @@ func TestRendererUsesTheBoundRenderWriter(t *testing.T) {
 
 func TestRendererFallsBackToOutputAndDiscard(t *testing.T) {
 	var out bytes.Buffer
-	Renderer(Context{Out: &out, Width: 80}).Rows(presentation.Field{Label: "Route", Value: "portable"})
+	Renderer(Context{Out: &out, Width: 80}).Rows(terminal.Field{Label: "Route", Value: "portable"})
 	if !strings.Contains(out.String(), "portable") {
 		t.Fatalf("Renderer() output = %q, want output fallback", out.String())
 	}
-	Renderer(Context{}).Rows(presentation.Field{Label: "Route", Value: "discarded"})
+	Renderer(Context{}).Rows(terminal.Field{Label: "Route", Value: "discarded"})
 }
 
 func TestDiscoverRequiresAndUsesTheBoundDiscoverer(t *testing.T) {

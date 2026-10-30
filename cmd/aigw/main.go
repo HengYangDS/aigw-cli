@@ -4,9 +4,9 @@ package main
 import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/native"
+	"aigw-cli/internal/terminal"
 	"aigw-cli/internal/upgrade"
 	"io"
 	"os"
@@ -33,11 +33,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	app, err := cli.NewDefault(clients.Registry())
 	if err != nil {
-		renderer := presentation.New(stderr, false)
+		renderer := terminal.NewRenderer(stderr, false)
 		if len(args) > 0 && args[0] == "credential" {
-			presentation.RenderCredentialError(renderer, err)
+			terminal.RenderCredentialError(renderer, err)
 		} else {
-			presentation.RenderError(renderer, presentation.ProblemError(
+			terminal.RenderError(renderer, terminal.ProblemError(
 				"Cannot initialize AIGW", "", "The command did not start.",
 				"Check AIGW's environment and selected credential backend, then retry.", err,
 			), false)

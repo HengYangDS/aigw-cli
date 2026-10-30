@@ -10,8 +10,8 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -112,7 +112,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		}
 		if jsonMode {
-			return presentation.WriteJSON(runtime.Out, result)
+			return terminal.WriteJSON(runtime.Out, result)
 		}
 		r := invocation.Renderer(runtime)
 		if dryRun {
@@ -120,22 +120,22 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		} else {
 			r.ProductTitle("Configuration manifest imported")
 		}
-		rows := []presentation.Field{
+		rows := []terminal.Field{
 			{Label: "Routes", Value: fmt.Sprintf("%d", result.ImportedRoutes)},
 			{Label: "Accounts", Value: fmt.Sprintf("%d", result.ImportedAccounts)},
 		}
 		if len(keeping) > 0 {
-			rows = append(rows, presentation.Field{Label: "Kept Accounts", Value: strings.Join(result.KeptAccounts, ", ")})
+			rows = append(rows, terminal.Field{Label: "Kept Accounts", Value: strings.Join(result.KeptAccounts, ", ")})
 		}
 		if len(retiring) > 0 {
-			rows = append(rows, presentation.Field{Label: "Retired Routes", Value: strings.Join(result.RetiredRoutes, ", ")})
+			rows = append(rows, terminal.Field{Label: "Retired Routes", Value: strings.Join(result.RetiredRoutes, ", ")})
 		}
 		if dryRun {
 			candidates := "none"
 			if len(result.ProjectionCandidates) > 0 {
 				candidates = strings.Join(result.ProjectionCandidates, ", ")
 			}
-			rows = append(rows, presentation.Field{Label: "Potential client projections", Value: candidates})
+			rows = append(rows, terminal.Field{Label: "Potential client projections", Value: candidates})
 		}
 		r.Rows(rows...)
 		if dryRun {

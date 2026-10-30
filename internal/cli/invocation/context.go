@@ -13,10 +13,10 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/prompt"
+
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
@@ -32,7 +32,7 @@ type HTTPDoer interface {
 type Prompter interface {
 	Secret(label string) (string, error)
 	Text(label string) (string, error)
-	Select(label string, choices []prompt.Choice) (string, error)
+	Select(label string, choices []terminal.Choice) (string, error)
 }
 
 // Updater performs one verified program lifecycle transition.
@@ -83,7 +83,7 @@ func ReadToken(runtime Context, stdinMode bool, confirm bool) (string, error) {
 		if !runtime.Interactive {
 			return "", fmt.Errorf("Token input requires an interactive terminal; pipe it to `aigw` with --token-stdin")
 		}
-		return prompt.ReadHiddenToken(runtime.Out, confirm)
+		return terminal.ReadHiddenToken(runtime.Out, confirm)
 	}
 	if runtime.In == nil {
 		return "", fmt.Errorf("token input is unavailable")
@@ -120,7 +120,7 @@ func ValidateToken(value string) error {
 }
 
 // Renderer creates the presentation projection bound to this invocation.
-func Renderer(runtime Context) *presentation.Renderer {
+func Renderer(runtime Context) *terminal.Renderer {
 	out := runtime.RenderOut
 	if out == nil {
 		out = runtime.Out
@@ -128,7 +128,7 @@ func Renderer(runtime Context) *presentation.Renderer {
 	if out == nil {
 		out = io.Discard
 	}
-	return presentation.NewWithWidth(out, runtime.Color, runtime.Width)
+	return terminal.NewRendererWithWidth(out, runtime.Color, runtime.Width)
 }
 
 // Discover reads client discovery through the invocation capability boundary.

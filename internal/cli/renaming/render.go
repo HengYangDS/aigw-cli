@@ -2,20 +2,20 @@ package renaming
 
 import (
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/renaming"
+	"aigw-cli/internal/terminal"
 	"fmt"
 )
 
 func writeResult(runtime invocation.Context, plan renaming.Plan, jsonMode bool) error {
 	if jsonMode {
-		return presentation.WriteJSON(runtime.Out, plan)
+		return terminal.WriteJSON(runtime.Out, plan)
 	}
 
 	r := invocation.Renderer(runtime)
 	isPlan := plan.Status != renaming.StatusApplied
 	referenceLabel := "Client Binding references"
-	var rows []presentation.Field
+	var rows []terminal.Field
 	if plan.Resource == renaming.ResourceAccount {
 		referenceLabel = "Route references"
 		switch {
@@ -30,7 +30,7 @@ func writeResult(runtime invocation.Context, plan renaming.Plan, jsonMode bool) 
 		default:
 			r.ProductTitle("Account renamed")
 		}
-		rows = []presentation.Field{
+		rows = []terminal.Field{
 			{Label: "Previous account", Value: plan.OldID},
 			{Label: "New account", Value: plan.NewID},
 			{Label: "Label", Value: plan.Account.Label},
@@ -41,20 +41,20 @@ func writeResult(runtime invocation.Context, plan renaming.Plan, jsonMode bool) 
 		} else {
 			r.ProductTitle("Route renamed")
 		}
-		rows = []presentation.Field{
+		rows = []terminal.Field{
 			{Label: "Previous route", Value: plan.OldID},
 			{Label: "New route", Value: plan.NewID},
 			{Label: "Account", Value: plan.Route.Account},
 		}
 	}
 	if len(plan.AffectedReferences) > 0 {
-		rows = append(rows, presentation.Field{Label: referenceLabel, Value: fmt.Sprintf("%d", len(plan.AffectedReferences))})
+		rows = append(rows, terminal.Field{Label: referenceLabel, Value: fmt.Sprintf("%d", len(plan.AffectedReferences))})
 	}
 	for _, todo := range plan.ExternalTODOs {
-		rows = append(rows, presentation.Field{Label: "External action", Value: todo})
+		rows = append(rows, terminal.Field{Label: "External action", Value: todo})
 	}
 	if plan.Status == renaming.StatusBlocked {
-		rows = append(rows, presentation.Field{State: presentation.Warn, Label: "Plan", Value: "Blocked; no changes were made"})
+		rows = append(rows, terminal.Field{State: terminal.Warn, Label: "Plan", Value: "Blocked; no changes were made"})
 	}
 	r.Rows(rows...)
 	switch plan.Status {

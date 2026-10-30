@@ -1,5 +1,5 @@
 // Package prompt owns interactive text, secret, and selection input.
-package prompt
+package terminal
 
 import (
 	"bufio"
@@ -26,7 +26,7 @@ type Prompt struct {
 }
 
 // New constructs a prompt with explicit accessibility behavior.
-func New(in io.Reader, out io.Writer, accessible bool) Prompt {
+func NewPrompter(in io.Reader, out io.Writer, accessible bool) Prompt {
 	return Prompt{in: in, out: out, accessible: accessible}
 }
 

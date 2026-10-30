@@ -16,10 +16,10 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/native"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 )
 
 func TestCredentialHelperPrintsOnlyTheProjectedAccountToken(t *testing.T) {
@@ -138,7 +138,7 @@ func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
 			command := NewCommand(runtime)
 			err = command.RunE(command, args)
 			var stderr bytes.Buffer
-			presentation.RenderCredentialError(presentation.New(&stderr, false), err)
+			terminal.RenderCredentialError(terminal.NewRenderer(&stderr, false), err)
 			diagnostic := stderr.String()
 			if err == nil || stdout.Len() != 0 {
 				t.Fatalf("error=%v stdout=%q", err, stdout.String())
@@ -344,7 +344,7 @@ func TestCredentialHelperUsesAccountTokenLanguage(t *testing.T) {
 	}
 	err := command.RunE(command, helperArgs(t, runtime, claude.ID))
 	var stderr bytes.Buffer
-	presentation.RenderCredentialError(presentation.New(&stderr, false), err)
+	terminal.RenderCredentialError(terminal.NewRenderer(&stderr, false), err)
 	if err == nil || stdout.Len() != 0 || !strings.Contains(stderr.String(), "claude Account Token is not configured") ||
 		!strings.Contains(stderr.String(), "aigw doctor") || strings.Contains(stderr.String(), "gateway") {
 		t.Fatalf("credential error = %v, output = %q", err, stderr.String())
@@ -371,8 +371,8 @@ func TestCredentialHelperRedactsBackendDiagnostics(t *testing.T) {
 	command := NewCommand(runtime)
 	err := command.RunE(command, helperArgs(t, runtime, codex.ID))
 	var stderr bytes.Buffer
-	renderer := presentation.New(&stderr, false)
-	presentation.RenderCredentialError(renderer, err)
+	renderer := terminal.NewRenderer(&stderr, false)
+	terminal.RenderCredentialError(renderer, err)
 	if stdout.Len() != 0 || !strings.Contains(stderr.String(), "Account Token could not be read") ||
 		!strings.Contains(stderr.String(), "unlock the native store if locked") {
 		t.Fatalf("stdout=%q stderr=%q", stdout.String(), stderr.String())
@@ -443,7 +443,7 @@ func TestCredentialReadDeadlineHasPreciseRecovery(t *testing.T) {
 	command := NewCommand(runtime)
 	err := command.RunE(command, helperArgs(t, runtime, codex.ID))
 	var diagnostic bytes.Buffer
-	presentation.RenderCredentialError(presentation.New(&diagnostic, false), err)
+	terminal.RenderCredentialError(terminal.NewRenderer(&diagnostic, false), err)
 	if err == nil || stdout.Len() != 0 || !strings.Contains(diagnostic.String(), "deadline") || strings.Contains(diagnostic.String(), "aigw sync") {
 		t.Fatalf("read diagnostic is not specific: %v, %q", err, &diagnostic)
 	}
@@ -479,7 +479,7 @@ func TestCredentialHelperRejectsClientNativeBeforeSecretAccess(t *testing.T) {
 		t.Fatalf("credential helper error = %v", err)
 	}
 	var stderr bytes.Buffer
-	presentation.RenderError(presentation.New(&stderr, false), err, false)
+	terminal.RenderError(terminal.NewRenderer(&stderr, false), err, false)
 	if !strings.Contains(stderr.String(), "aigw verify --for codex") {
 		t.Fatalf("client-owned recovery action missing: %q", stderr.String())
 	}
@@ -498,7 +498,7 @@ func TestCredentialHelperReportsSafeNativeStatusWithoutRetry(t *testing.T) {
 	command := NewCommand(runtime)
 	err := command.RunE(command, helperArgs(t, runtime, codex.ID))
 	var diagnostic bytes.Buffer
-	presentation.RenderCredentialError(presentation.New(&diagnostic, false), err)
+	terminal.RenderCredentialError(terminal.NewRenderer(&diagnostic, false), err)
 	if output.Len() != 0 || !strings.Contains(diagnostic.String(), "Keychain OSStatus -25308") ||
 		!strings.Contains(diagnostic.String(), "repeated helper calls cannot grant access") || store.getCalls != 1 || store.existsCalls != 0 {
 		t.Fatalf("native credential result = %q, calls=%d/%d", diagnostic.String(), store.getCalls, store.existsCalls)

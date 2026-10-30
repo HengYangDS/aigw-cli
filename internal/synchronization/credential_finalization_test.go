@@ -15,9 +15,9 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 )
 
 func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *testing.T) {
@@ -398,8 +398,8 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 			}
 			for _, jsonMode := range []bool{false, true} {
 				var out bytes.Buffer
-				renderer := presentation.New(&out, false)
-				presentation.RenderError(renderer, fmt.Errorf("sync: %w", err), jsonMode)
+				renderer := terminal.NewRenderer(&out, false)
+				terminal.RenderError(renderer, fmt.Errorf("sync: %w", err), jsonMode)
 				if renderer.Err() != nil || !strings.Contains(out.String(), tc.want) || !strings.Contains(out.String(), "aigw doctor") || strings.Contains(out.String(), privatePath) {
 					t.Fatalf("json=%t finalization diagnostic=%q error=%v", jsonMode, out.String(), renderer.Err())
 				}

@@ -1,4 +1,4 @@
-package presentation_test
+package terminal_test
 
 import (
 	"bytes"
@@ -6,16 +6,16 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/terminal"
 
 	"github.com/charmbracelet/x/ansi"
 )
 
 func TestRendererUsesCompactLayoutForNarrowRows(t *testing.T) {
 	var out bytes.Buffer
-	r := presentation.NewWithWidth(&out, false, 24)
-	r.Rows(presentation.Field{Label: "Current route", Value: "GPT-5.6 Terra"})
-	r.Rows(presentation.Field{State: presentation.OK, Label: "Precise balance", Value: "Disabled until connected"})
+	r := terminal.NewRendererWithWidth(&out, false, 24)
+	r.Rows(terminal.Field{Label: "Current route", Value: "GPT-5.6 Terra"})
+	r.Rows(terminal.Field{State: terminal.OK, Label: "Precise balance", Value: "Disabled until connected"})
 	r.Detail("Run aigw account diagnostics enable team-gateway")
 	r.Command("aigw config import configuration.toml")
 
@@ -50,20 +50,20 @@ func TestExplanatoryElementsBoundLongAndMultilineContent(t *testing.T) {
 	for _, width := range []int{8, 24, 48} {
 		for _, color := range []bool{false, true} {
 			var out bytes.Buffer
-			r := presentation.NewWithWidth(&out, color, width)
+			r := terminal.NewRendererWithWidth(&out, color, width)
 			label := "configuration-with-an-unusually-long-name"
 			value := "https://example.test/a/very/long/unbroken/path\nSecond line"
 			r.Title(label, value)
 			r.Section(label)
-			r.Rows(presentation.Field{Label: label, Value: value, Details: []string{value}})
-			r.Rows(presentation.Field{State: presentation.Warn, Label: label, Value: value})
-			r.Rows(presentation.Field{Label: "Short", Value: value, Details: []string{value}})
-			r.StatusLine(presentation.Info, label, value)
+			r.Rows(terminal.Field{Label: label, Value: value, Details: []string{value}})
+			r.Rows(terminal.Field{State: terminal.Warn, Label: label, Value: value})
+			r.Rows(terminal.Field{Label: "Short", Value: value, Details: []string{value}})
+			r.StatusLine(terminal.Info, label, value)
 			r.Text(value)
 			r.Detail(value)
 			r.Success(value)
 			for line := range strings.SplitSeq(out.String(), "\n") {
-				if got := presentation.DisplayWidth(line); got > width {
+				if got := terminal.DisplayWidth(line); got > width {
 					t.Fatalf("width=%d color=%t overflow=%d: %q", width, color, got, line)
 				}
 			}
@@ -82,10 +82,10 @@ func TestCommandLabelsStayWholeInNarrowGroups(t *testing.T) {
 	for _, width := range []int{8, 24, 32} {
 		for _, color := range []bool{false, true} {
 			var out bytes.Buffer
-			r := presentation.NewWithWidth(&out, color, width)
+			r := terminal.NewRendererWithWidth(&out, color, width)
 			r.Rows(
-				presentation.Field{Label: commands[0], Value: "Connect the first account", Command: true},
-				presentation.Field{Label: commands[1], Value: "Select one Route for one client", Command: true},
+				terminal.Field{Label: commands[0], Value: "Connect the first account", Command: true},
+				terminal.Field{Label: commands[1], Value: "Select one Route for one client", Command: true},
 			)
 			lines := strings.Split(strings.TrimSuffix(ansi.Strip(out.String()), "\n"), "\n")
 			for _, command := range commands {
@@ -94,7 +94,7 @@ func TestCommandLabelsStayWholeInNarrowGroups(t *testing.T) {
 				}
 			}
 			for _, line := range lines {
-				if !slices.Contains(commands, strings.TrimSpace(line)) && presentation.DisplayWidth(line) > width {
+				if !slices.Contains(commands, strings.TrimSpace(line)) && terminal.DisplayWidth(line) > width {
 					t.Fatalf("width=%d color=%t description overflow: %q", width, color, line)
 				}
 			}
@@ -105,12 +105,12 @@ func TestCommandLabelsStayWholeInNarrowGroups(t *testing.T) {
 func TestRendererKeepsCompactOutputWithinTerminalWidth(t *testing.T) {
 	const width = 24
 	var out bytes.Buffer
-	r := presentation.NewWithWidth(&out, false, width)
+	r := terminal.NewRendererWithWidth(&out, false, width)
 	r.Title("AIGW", "Action required")
 	r.Section("Recommended action")
-	r.StatusLine(presentation.Warn, "Precise balance", "Disabled until connected")
+	r.StatusLine(terminal.Warn, "Precise balance", "Disabled until connected")
 	r.Success("Client configuration synchronized")
-	r.Problem(presentation.Problem{
+	r.Problem(terminal.Problem{
 		Title:    "Token quota is exhausted",
 		Evidence: "HTTP 403 token quota is insufficient",
 		Impact:   "Claude and Codex cannot continue requests",
@@ -118,7 +118,7 @@ func TestRendererKeepsCompactOutputWithinTerminalWidth(t *testing.T) {
 	})
 
 	for line := range strings.SplitSeq(strings.TrimRight(out.String(), "\n"), "\n") {
-		if got := presentation.DisplayWidth(line); got > width {
+		if got := terminal.DisplayWidth(line); got > width {
 			t.Fatalf("line width = %d, want <= %d: %q\n%s", got, width, line, out.String())
 		}
 	}
@@ -127,12 +127,12 @@ func TestRendererKeepsCompactOutputWithinTerminalWidth(t *testing.T) {
 func TestRendererNeverExceedsACompactWidth(t *testing.T) {
 	const width = 8
 	var out bytes.Buffer
-	r := presentation.NewWithWidth(&out, false, width)
+	r := terminal.NewRendererWithWidth(&out, false, width)
 	r.Text("aigw")
 	r.Detail("go")
 
 	for line := range strings.SplitSeq(strings.TrimRight(out.String(), "\n"), "\n") {
-		if got := presentation.DisplayWidth(line); got > width {
+		if got := terminal.DisplayWidth(line); got > width {
 			t.Fatalf("line width = %d, want <= %d: %q", got, width, line)
 		}
 	}

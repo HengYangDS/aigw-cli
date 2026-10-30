@@ -1,4 +1,4 @@
-package presentation
+package terminal
 
 import (
 	"errors"

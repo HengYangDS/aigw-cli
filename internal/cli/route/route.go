@@ -8,7 +8,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -74,16 +74,16 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Model route added")
-			rows := []presentation.Field{
+			rows := []terminal.Field{
 				{Label: "Route", Value: routeName},
 				{Label: "Account", Value: accountName},
 				{Label: "Model", Value: model},
 			}
 			if upstreamModel != "" && upstreamModel != model {
-				rows = append(rows, presentation.Field{Label: "Upstream model", Value: upstreamModel})
+				rows = append(rows, terminal.Field{Label: "Upstream model", Value: upstreamModel})
 			}
 			if purpose := strings.TrimSpace(purpose); purpose != "" {
-				rows = append(rows, presentation.Field{Label: "Purpose", Value: purpose})
+				rows = append(rows, terminal.Field{Label: "Purpose", Value: purpose})
 			}
 			r.Rows(rows...)
 			r.Success("Reused the existing Account; no client selection was changed")
@@ -118,15 +118,15 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				result.Routes = append(result.Routes, item)
 			}
 			if jsonMode {
-				return presentation.WriteJSON(runtime.Out, result)
+				return terminal.WriteJSON(runtime.Out, result)
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Routes")
 			r.Section("Available routes")
 			for _, item := range result.Routes {
-				state, stateText := presentation.Info, "Available"
+				state, stateText := terminal.Info, "Available"
 				if len(item.SelectedClients) > 0 {
-					state, stateText = presentation.OK, "Selected for "+clientLabels(runtime.Clients.Admission(), item.SelectedClients)
+					state, stateText = terminal.OK, "Selected for "+clientLabels(runtime.Clients.Admission(), item.SelectedClients)
 				}
 				detail := []string{choiceLabel(domain.Route{Label: item.Label, Purpose: item.Purpose}), stateText, "Account " + item.Account}
 				if len(item.ProtocolClients) > 0 {
@@ -196,31 +196,31 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 					"protocol_clients": compatible, "selected_clients": selected,
 					"endpoints": account.Endpoints,
 				}
-				return presentation.WriteJSON(runtime.Out, result)
+				return terminal.WriteJSON(runtime.Out, result)
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Route details")
 			r.Section("Route")
-			rows := []presentation.Field{
+			rows := []terminal.Field{
 				{Label: "Route ID", Value: args[0]},
 				{Label: "Name", Value: cfg.RouteLabel(args[0])},
 			}
 			if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
-				rows = append(rows, presentation.Field{Label: "Purpose", Value: purpose})
+				rows = append(rows, terminal.Field{Label: "Purpose", Value: purpose})
 			}
 			rows = append(rows,
-				presentation.Field{Label: "Account", Value: accountName},
-				presentation.Field{Label: "Model", Value: route.Model},
-				presentation.Field{Label: "Protocol clients", Value: clientLabels(runtime.Clients.Admission(), compatible)},
+				terminal.Field{Label: "Account", Value: accountName},
+				terminal.Field{Label: "Model", Value: route.Model},
+				terminal.Field{Label: "Protocol clients", Value: clientLabels(runtime.Clients.Admission(), compatible)},
 			)
 			if len(selected) > 0 {
-				rows = append(rows, presentation.Field{Label: "Selected for", Value: clientLabels(runtime.Clients.Admission(), selected)})
+				rows = append(rows, terminal.Field{Label: "Selected for", Value: clientLabels(runtime.Clients.Admission(), selected)})
 			}
 			if account.Endpoints.OpenAIResponses != "" {
-				rows = append(rows, presentation.Field{Label: "OpenAI", Value: account.Endpoints.OpenAIResponses})
+				rows = append(rows, terminal.Field{Label: "OpenAI", Value: account.Endpoints.OpenAIResponses})
 			}
 			if account.Endpoints.Anthropic != "" {
-				rows = append(rows, presentation.Field{Label: "Anthropic", Value: account.Endpoints.Anthropic})
+				rows = append(rows, terminal.Field{Label: "Anthropic", Value: account.Endpoints.Anthropic})
 			}
 			r.Rows(rows...)
 			return nil
@@ -265,7 +265,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Route updated")
-			r.Rows(presentation.Field{Label: "Route", Value: args[0]})
+			r.Rows(terminal.Field{Label: "Route", Value: args[0]})
 			r.Success("Route metadata saved")
 			r.Next("aigw check")
 			return nil
@@ -325,8 +325,8 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Route removed")
 			r.Rows(
-				presentation.Field{Label: "Route", Value: name},
-				presentation.Field{Label: "Account", Value: route.Account},
+				terminal.Field{Label: "Route", Value: name},
+				terminal.Field{Label: "Account", Value: route.Account},
 			)
 			r.Success("The account and token remain in place")
 			return nil

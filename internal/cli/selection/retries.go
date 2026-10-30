@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -52,16 +52,16 @@ func (options *retryOptions) connection(cmd *cobra.Command, forwarding *string) 
 	return change, nil
 }
 
-func retryFields(policy *domain.RetryPolicy) []presentation.Field {
+func retryFields(policy *domain.RetryPolicy) []terminal.Field {
 	if policy == nil {
-		return []presentation.Field{{Label: "Retries", Value: "Client native defaults"}}
+		return []terminal.Field{{Label: "Retries", Value: "Client native defaults"}}
 	}
-	var fields []presentation.Field
+	var fields []terminal.Field
 	if policy.RequestMaxRetries != nil {
-		fields = append(fields, presentation.Field{Label: "Request retries", Value: strconv.FormatUint(*policy.RequestMaxRetries, 10)})
+		fields = append(fields, terminal.Field{Label: "Request retries", Value: strconv.FormatUint(*policy.RequestMaxRetries, 10)})
 	}
 	if policy.StreamMaxRetries != nil {
-		fields = append(fields, presentation.Field{Label: "Stream retries", Value: strconv.FormatUint(*policy.StreamMaxRetries, 10)})
+		fields = append(fields, terminal.Field{Label: "Stream retries", Value: strconv.FormatUint(*policy.StreamMaxRetries, 10)})
 	}
 	return fields
 }

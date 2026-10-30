@@ -10,9 +10,9 @@ import (
 
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
@@ -83,24 +83,24 @@ func NewCommand(deps Dependencies) *cobra.Command {
 			operation.Clients.Secrets = operation.Secrets
 			result := collectResult(cmd.Context(), operation)
 			if jsonMode {
-				if err := presentation.WriteJSON(deps.Out, result); err != nil {
+				if err := terminal.WriteJSON(deps.Out, result); err != nil {
 					return err
 				}
 				if !result.OK {
-					return presentation.Presented(fmt.Errorf("doctor found problems"))
+					return terminal.Presented(fmt.Errorf("doctor found problems"))
 				}
 				return nil
 			}
-			r := presentation.NewWithWidth(renderWriter(deps), deps.Color, deps.Width)
+			r := terminal.NewRendererWithWidth(renderWriter(deps), deps.Color, deps.Width)
 			r.ProductTitle("Detailed diagnostics")
 			admission := deps.Config.Admission()
 			renderClients(r, admission, result.Clients)
 			r.Section("Checks")
-			checks := make([]presentation.Field, 0, len(result.Checks))
+			checks := make([]terminal.Field, 0, len(result.Checks))
 			for _, check := range result.Checks {
-				field := presentation.Field{State: presentation.OK, Label: Label(admission, check), Value: Detail(admission, check)}
+				field := terminal.Field{State: terminal.OK, Label: Label(admission, check), Value: Detail(admission, check)}
 				if !check.OK {
-					field.State = presentation.Fail
+					field.State = terminal.Fail
 				}
 				if check.Fix != "" {
 					field.Details = []string{"Fix: " + Fix(check)}
@@ -113,7 +113,7 @@ func NewCommand(deps Dependencies) *cobra.Command {
 				if err := r.Err(); err != nil {
 					return err
 				}
-				return presentation.Presented(fmt.Errorf("doctor found problems"))
+				return terminal.Presented(fmt.Errorf("doctor found problems"))
 			}
 			r.Section("Result")
 			if result.NextAction != "" {
@@ -124,8 +124,8 @@ func NewCommand(deps Dependencies) *cobra.Command {
 				case result.State == domainreadiness.Deferred:
 					message = "Selected client projection is deferred"
 				}
-				r.Rows(presentation.Field{
-					State: presentation.Info, Label: "Client activation", Value: message,
+				r.Rows(terminal.Field{
+					State: terminal.Info, Label: "Client activation", Value: message,
 					Details: []string{"Local diagnostics passed; no client endpoint or model was checked"},
 				})
 				r.Next(result.NextAction)
@@ -219,25 +219,25 @@ func inspectClients(deps Dependencies) map[string]domainreadiness.Client {
 	return clients
 }
 
-func renderClients(renderer *presentation.Renderer, admission domain.Admission, clients map[string]domainreadiness.Client) {
+func renderClients(renderer *terminal.Renderer, admission domain.Admission, clients map[string]domainreadiness.Client) {
 	if len(clients) == 0 {
 		return
 	}
 	renderer.Section("Clients")
-	rows := make([]presentation.Field, 0, len(clients))
+	rows := make([]terminal.Field, 0, len(clients))
 	for _, spec := range admission.Specs() {
 		client, ok := clients[spec.ID]
 		if !ok {
 			continue
 		}
-		state := presentation.Info
+		state := terminal.Info
 		switch client.State {
 		case domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
-			state = presentation.OK
+			state = terminal.OK
 		case domainreadiness.Configured, domainreadiness.Deferred:
-			state = presentation.Info
+			state = terminal.Info
 		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
-			state = presentation.Warn
+			state = terminal.Warn
 		}
 		message := client.State.Label()
 		if client.ProjectionDeferred {
@@ -246,7 +246,7 @@ func renderClients(renderer *presentation.Renderer, admission domain.Admission, 
 		if client.NativeModelOverride {
 			message += " · " + client.Detail
 		}
-		row := presentation.Field{State: state, Label: spec.Label, Value: message}
+		row := terminal.Field{State: state, Label: spec.Label, Value: message}
 		if client.NativeModelOverride && client.NextAction != "" {
 			row.Details = []string{"Verify the native model: " + client.NextAction}
 		}

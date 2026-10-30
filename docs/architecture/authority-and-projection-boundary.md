@@ -70,11 +70,11 @@ process.
 - **[Provider diagnostics](../../internal/providers/):** Optional provider-native diagnostics only
 - **[Client orchestration](../../internal/client/):** Admitted client discovery, projection, inspection, verification, compensation, and withdrawal
 - **[Synchronization](../../internal/synchronization/):** Client Binding convergence and multi-client projection transaction
-- **[Presentation](../../internal/presentation/):** Terminal capability detection plus human and JSON rendering of command results
+- **[Terminal](../../internal/terminal/):** Terminal capability detection, human and JSON rendering of command results, and prompts
 - **[CLI](../../internal/cli/):** Command composition; domain behavior remains in semantic owners
 - **[Upgrades](../../internal/upgrade/):** Independent-Forge update verification and installation
 
-Dependency direction is toward domain owners. Presentation, CLI composition,
+Dependency direction is toward domain owners. Terminal rendering, CLI composition,
 Forge code, and host discovery do not define product semantics.
 
 ### Module depth

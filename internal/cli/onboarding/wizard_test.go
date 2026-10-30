@@ -12,7 +12,7 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/prompt"
+	"aigw-cli/internal/terminal"
 )
 
 type scriptedWizardPrompt struct {
@@ -22,7 +22,7 @@ type scriptedWizardPrompt struct {
 	failTextAt  int
 	selectErr   error
 	selections  []string
-	choiceSets  [][]prompt.Choice
+	choiceSets  [][]terminal.Choice
 }
 
 func (candidate *scriptedWizardPrompt) Secret(string) (string, error) { return "", nil }
@@ -52,7 +52,7 @@ func TestWizardUsesEndpointNeutralAccountExample(t *testing.T) {
 	}
 }
 
-func (candidate *scriptedWizardPrompt) Select(_ string, choices []prompt.Choice) (string, error) {
+func (candidate *scriptedWizardPrompt) Select(_ string, choices []terminal.Choice) (string, error) {
 	candidate.choiceSets = append(candidate.choiceSets, slices.Clone(choices))
 	if candidate.selectErr != nil {
 		return "", candidate.selectErr

@@ -3,8 +3,8 @@ package renaming
 import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -19,7 +19,7 @@ type selectionPrompt struct {
 }
 
 func (prompt selectionPrompt) Secret(string) (string, error) { return "", nil }
-func (prompt selectionPrompt) Select(string, []prompt.Choice) (string, error) {
+func (prompt selectionPrompt) Select(string, []terminal.Choice) (string, error) {
 	return prompt.selected, prompt.selectErr
 }
 func (prompt selectionPrompt) Text(string) (string, error) { return prompt.text, prompt.textErr }

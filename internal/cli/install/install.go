@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 	"aigw-cli/internal/upgrade"
 
 	"github.com/spf13/cobra"
@@ -32,22 +32,22 @@ func NewInspectionCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if jsonMode {
-				return presentation.WriteJSON(runtime.Out, result)
+				return terminal.WriteJSON(runtime.Out, result)
 			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Portable installation")
-			rows := []presentation.Field{
+			rows := []terminal.Field{
 				{Label: "Version", Value: result.Version},
 				{Label: "Command", Value: result.CommandPath},
 				{Label: "Payload", Value: result.Payload.Path},
 				{Label: "SHA-256", Value: result.Payload.SHA256},
 			}
 			if result.Rollback == nil {
-				rows = append(rows, presentation.Field{Label: "Rollback", Value: "No retained predecessor"})
+				rows = append(rows, terminal.Field{Label: "Rollback", Value: "No retained predecessor"})
 			} else {
 				rows = append(rows,
-					presentation.Field{Label: "Rollback", Value: result.Rollback.Path},
-					presentation.Field{Label: "SHA-256", Value: result.Rollback.SHA256},
+					terminal.Field{Label: "Rollback", Value: result.Rollback.Path},
+					terminal.Field{Label: "SHA-256", Value: result.Rollback.SHA256},
 				)
 			}
 			render.Rows(rows...)

@@ -1,4 +1,4 @@
-package presentation
+package terminal
 
 import (
 	"bytes"
@@ -47,7 +47,7 @@ func TestRenderErrorDoesNotExposeLocalFilePath(t *testing.T) {
 	} {
 		for _, jsonMode := range []bool{false, true} {
 			var out bytes.Buffer
-			renderer := New(&out, false)
+			renderer := NewRenderer(&out, false)
 			RenderError(renderer, fmt.Errorf("capture current config: %w", test.cause), jsonMode)
 			if renderer.Err() != nil || strings.Contains(out.String(), privatePath) ||
 				!strings.Contains(out.String(), test.want) || !strings.Contains(out.String(), "aigw doctor") {
@@ -89,7 +89,7 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 		for _, jsonMode := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", name, jsonMode), func(t *testing.T) {
 				var out bytes.Buffer
-				renderer := New(&out, false)
+				renderer := NewRenderer(&out, false)
 				RenderError(renderer, LocalFailure("9.8.7", fmt.Errorf("load: %w", test.err)), jsonMode)
 				rendered := out.String()
 				if renderer.Err() != nil || strings.Contains(rendered, content) || strings.Contains(rendered, "/private/config.toml") {
@@ -130,7 +130,7 @@ func TestRenderProjectionFailureReportsConfigurationRecoveryWithoutPrivatePath(t
 				cause := &os.PathError{Op: "write", Path: privatePath, Err: os.ErrPermission}
 				err := fmt.Errorf("configuration manifest: %w", presentationProjectionError{restored: tc.restored, cause: cause})
 				var out bytes.Buffer
-				renderer := New(&out, false)
+				renderer := NewRenderer(&out, false)
 				RenderError(renderer, err, jsonMode)
 				if renderer.Err() != nil || !strings.Contains(out.String(), tc.want) ||
 					!strings.Contains(out.String(), "aigw doctor") || strings.Contains(out.String(), privatePath) {
@@ -154,7 +154,7 @@ func TestCredentialErrorUsesOnlySafeProblems(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var out bytes.Buffer
-			renderer := New(&out, false)
+			renderer := NewRenderer(&out, false)
 			RenderCredentialError(renderer, test.err)
 			if renderer.Err() != nil || !strings.Contains(out.String(), test.want) || strings.Contains(out.String(), canary) {
 				t.Fatalf("unsafe credential diagnostic: output=%q error=%v", out.String(), renderer.Err())
@@ -171,7 +171,7 @@ func TestNativeReaderPreflightReportsRecoveryWithoutPrivateCause(t *testing.T) {
 	err := fmt.Errorf("%w: %s", secret.ErrNativeReaderUnverified, privateCause)
 	for _, jsonMode := range []bool{false, true} {
 		var out bytes.Buffer
-		renderer := New(&out, false)
+		renderer := NewRenderer(&out, false)
 		RenderError(renderer, err, jsonMode)
 		if renderer.Err() != nil {
 			t.Fatalf("json=%t render error: %v", jsonMode, renderer.Err())
@@ -212,7 +212,7 @@ func TestOutputLocalizationMalformedAndSpecificBranches(t *testing.T) {
 
 func TestRenderErrorLeavesTransactionOutcomeToItsOwner(t *testing.T) {
 	var out bytes.Buffer
-	RenderError(New(&out, false), errors.New("output is unavailable"), false)
+	RenderError(NewRenderer(&out, false), errors.New("output is unavailable"), false)
 	if !strings.Contains(out.String(), "The command could not finish; inspect current state before retrying.") {
 		t.Fatalf("generic failure did not preserve transaction uncertainty: %s", &out)
 	}
@@ -239,13 +239,13 @@ func TestRenderErrorAndSuggestedFixBranches(t *testing.T) {
 		{errors.New("plain failure"), "aigw check"},
 	} {
 		var out bytes.Buffer
-		RenderError(New(&out, false), test.err, false)
+		RenderError(NewRenderer(&out, false), test.err, false)
 		if !strings.Contains(out.String(), test.want) {
 			t.Fatalf("output = %q, want %q", out.String(), test.want)
 		}
 	}
 	var out bytes.Buffer
-	RenderError(New(&out, false), Presented(errors.New("already shown")), false)
+	RenderError(NewRenderer(&out, false), Presented(errors.New("already shown")), false)
 	if out.Len() != 0 {
 		t.Fatalf("presented error rendered twice: %q", out.String())
 	}
@@ -255,7 +255,7 @@ func TestJSONErrorPreservesProblemAndOutputFailure(t *testing.T) {
 	cause := errors.New("internal cause")
 	problem := ProblemError("Cannot continue", "Observed failure", "Operation stopped", "aigw doctor", cause)
 	var out bytes.Buffer
-	renderer := New(&out, false)
+	renderer := NewRenderer(&out, false)
 	RenderError(renderer, problem, true)
 	var result struct {
 		OK bool `json:"ok"`
@@ -282,7 +282,7 @@ func TestJSONErrorPreservesProblemAndOutputFailure(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	renderer = New(writer, false)
+	renderer = NewRenderer(writer, false)
 	RenderError(renderer, problem, true)
 	if !errors.Is(renderer.Err(), io.ErrClosedPipe) {
 		t.Fatalf("renderer lost output failure: %v", renderer.Err())

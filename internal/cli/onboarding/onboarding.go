@@ -6,10 +6,10 @@ import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/prompt"
+
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
+	"aigw-cli/internal/terminal"
 
 	"context"
 	"errors"
@@ -181,7 +181,7 @@ func planSetup(cfg domain.Config, request Request) (setupPlan, error) {
 			names = append(names, string(candidate))
 		}
 		refusal := fmt.Errorf("--for %s has multiple compatible endpoints; specify --protocol", plan.request.Client)
-		return setupPlan{}, presentation.ProblemError(refusal.Error(), "Compatible protocols: "+strings.Join(names, ", ")+".",
+		return setupPlan{}, terminal.ProblemError(refusal.Error(), "Compatible protocols: "+strings.Join(names, ", ")+".",
 			"No Account, Route or Client Binding was changed.",
 			"Rerun the same aigw setup command with --protocol <"+strings.Join(names, "|")+">", refusal)
 	}
@@ -218,10 +218,10 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 	r.ProductTitle("First-time setup")
 	r.Section("Account")
 	r.Rows(
-		presentation.Field{Label: "Account", Value: plan.request.Account},
-		presentation.Field{Label: "Route", Value: plan.request.Route},
-		presentation.Field{Label: "Model", Value: plan.route.Model},
-		presentation.Field{State: presentation.OK, Label: "API Token", Value: "Validated"},
+		terminal.Field{Label: "Account", Value: plan.request.Account},
+		terminal.Field{Label: "Route", Value: plan.request.Route},
+		terminal.Field{Label: "Model", Value: plan.route.Model},
+		terminal.Field{State: terminal.OK, Label: "API Token", Value: "Validated"},
 	)
 }
 
@@ -229,16 +229,16 @@ func renderSetupClients(runtime invocation.Context, cfg domain.Config, selectedC
 	r := invocation.Renderer(runtime)
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	r.Section("Clients")
-	rows := make([]presentation.Field, 0, len(runtime.Clients.Admission().Specs()))
+	rows := make([]terminal.Field, 0, len(runtime.Clients.Admission().Specs()))
 	for _, spec := range runtime.Clients.Admission().Specs() {
 		binding := cfg.Clients[spec.ID]
 		switch {
 		case !binding.Enabled:
-			rows = append(rows, presentation.Field{State: presentation.Info, Label: spec.Label, Value: "Not configured"})
+			rows = append(rows, terminal.Field{State: terminal.Info, Label: spec.Label, Value: "Not configured"})
 		case activation.ProjectionPrerequisites[spec.ID] != "":
-			rows = append(rows, presentation.Field{State: presentation.Info, Label: spec.Label, Value: "Selected; projection deferred"})
+			rows = append(rows, terminal.Field{State: terminal.Info, Label: spec.Label, Value: "Selected; projection deferred"})
 		default:
-			rows = append(rows, presentation.Field{State: presentation.OK, Label: spec.Label, Value: "Projection configured"})
+			rows = append(rows, terminal.Field{State: terminal.OK, Label: spec.Label, Value: "Projection configured"})
 		}
 	}
 	r.Rows(rows...)
@@ -307,9 +307,9 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 		return err
 	}
 	clientSpecs := runtime.Clients.Admission().Specs()
-	clientChoices := make([]prompt.Choice, 0, len(clientSpecs))
+	clientChoices := make([]terminal.Choice, 0, len(clientSpecs))
 	for _, spec := range clientSpecs {
-		clientChoices = append(clientChoices, prompt.Choice{Value: spec.ID, Label: spec.Label})
+		clientChoices = append(clientChoices, terminal.Choice{Value: spec.ID, Label: spec.Label})
 	}
 	client, err := runtime.Prompt.Select("Client for the first Route: ", clientChoices)
 	if err != nil {
@@ -321,9 +321,9 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	}
 	protocol := spec.EndpointProtocols[0]
 	if len(spec.EndpointProtocols) > 1 {
-		protocolChoices := make([]prompt.Choice, 0, len(spec.EndpointProtocols))
+		protocolChoices := make([]terminal.Choice, 0, len(spec.EndpointProtocols))
 		for _, candidate := range spec.EndpointProtocols {
-			protocolChoices = append(protocolChoices, prompt.Choice{Value: string(candidate), Label: string(candidate)})
+			protocolChoices = append(protocolChoices, terminal.Choice{Value: string(candidate), Label: string(candidate)})
 		}
 		selected, selectErr := runtime.Prompt.Select("Endpoint protocol: ", protocolChoices)
 		if selectErr != nil {

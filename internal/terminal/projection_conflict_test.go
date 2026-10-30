@@ -1,4 +1,4 @@
-package presentation
+package terminal
 
 import (
 	"bytes"
@@ -39,7 +39,7 @@ func TestManagedProviderSchemaConflictIsNotTOMLSyntax(t *testing.T) {
 	}
 	for _, jsonMode := range []bool{false, true} {
 		var out bytes.Buffer
-		renderer := New(&out, false)
+		renderer := NewRenderer(&out, false)
 		RenderError(renderer, fmt.Errorf("sync preflight: %w", conflict), jsonMode)
 		if renderer.Err() != nil || !strings.Contains(out.String(), "Codex config conflict") || strings.Contains(out.String(), "Cannot decode TOML") {
 			t.Fatalf("semantic conflict was misclassified: %q (%v)", out.String(), renderer.Err())

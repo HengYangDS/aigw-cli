@@ -9,7 +9,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
-	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -46,7 +46,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 		return err
 	}
 	if len(before.Routes) == 0 {
-		return presentation.ProblemError("Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
+		return terminal.ProblemError("Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	synchronizer := invocation.Synchronizer(runtime)
 	after, _, err := synchronizer.DesiredClientConfiguration(before)
@@ -95,14 +95,14 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 		result.Projections = append(result.Projections, repairProjectionPreview{Client: plan.Client, SurfaceID: plan.Surface, Action: plan.Action})
 	}
 	if jsonMode {
-		return presentation.WriteJSON(runtime.Out, result)
+		return terminal.WriteJSON(runtime.Out, result)
 	}
 	r := invocation.Renderer(runtime)
 	if dryRun {
 		r.ProductTitle("Repair preview")
-		rows := []presentation.Field{{Label: "Configuration", Value: result.ConfigurationAction}}
+		rows := []terminal.Field{{Label: "Configuration", Value: result.ConfigurationAction}}
 		for _, plan := range result.Projections {
-			rows = append(rows, presentation.Field{Label: runtime.Clients.Admission().Label(plan.Client) + " · " + plan.SurfaceID, Value: plan.Action})
+			rows = append(rows, terminal.Field{Label: runtime.Clients.Admission().Label(plan.Client) + " · " + plan.SurfaceID, Value: plan.Action})
 		}
 		r.Rows(rows...)
 		if entrypoint != nil {
@@ -115,8 +115,8 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 		r.ProductTitle("Repair completed")
 		r.Section("Results")
 		r.Rows(
-			presentation.Field{State: presentation.OK, Label: "Client", Value: "Rediscovered"},
-			presentation.Field{State: presentation.OK, Label: "Configuration", Value: "Synchronized"},
+			terminal.Field{State: terminal.OK, Label: "Client", Value: "Rediscovered"},
+			terminal.Field{State: terminal.OK, Label: "Configuration", Value: "Synchronized"},
 		)
 	}
 	r.Next(result.NextAction)

@@ -13,10 +13,10 @@ import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/providers"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -68,12 +68,12 @@ func NewAddCommand(runtime invocation.Context) *cobra.Command {
 			r.ProductTitle("Account connected")
 			r.Section("Selection")
 			r.Rows(
-				presentation.Field{Label: "Account", Value: label},
-				presentation.Field{Label: "Account ID", Value: name},
-				presentation.Field{Label: "Route ID", Value: name},
-				presentation.Field{Label: "Client", Value: runtime.Clients.Admission().Label(client)},
-				presentation.Field{Label: "Model", Value: route.Model},
-				presentation.Field{State: presentation.OK, Label: "Token", Value: "Securely stored"},
+				terminal.Field{Label: "Account", Value: label},
+				terminal.Field{Label: "Account ID", Value: name},
+				terminal.Field{Label: "Route ID", Value: name},
+				terminal.Field{Label: "Client", Value: runtime.Clients.Admission().Label(client)},
+				terminal.Field{Label: "Model", Value: route.Model},
+				terminal.Field{State: terminal.OK, Label: "Token", Value: "Securely stored"},
 			)
 			r.Next("aigw check")
 			return nil
@@ -131,7 +131,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Account updated")
-			r.Rows(presentation.Field{Label: "Account", Value: args[0]})
+			r.Rows(terminal.Field{Label: "Account", Value: args[0]})
 			r.Success("Routes using this account now use the same endpoints; token was not changed")
 			r.Next("aigw check")
 			return nil
@@ -201,9 +201,9 @@ func NewRotateCommand(runtime invocation.Context) *cobra.Command {
 			r.ProductTitle("Token updated")
 			r.Section("Account")
 			r.Rows(
-				presentation.Field{Label: "Account", Value: account.Label},
-				presentation.Field{Label: "Account ID", Value: accountName},
-				presentation.Field{State: presentation.OK, Label: "Account Token", Value: "Validated and securely stored"},
+				terminal.Field{Label: "Account", Value: account.Label},
+				terminal.Field{Label: "Account ID", Value: accountName},
+				terminal.Field{State: terminal.OK, Label: "Account Token", Value: "Validated and securely stored"},
 			)
 			r.Success("Credential helpers read the new Token when next invoked; clients control their refresh timing")
 			r.Next(clientactivation.NextActionAfterAccountConnection(cfg, accountName))
@@ -276,9 +276,9 @@ func NewCommand(runtime invocation.Context, renameCommand *cobra.Command) *cobra
 		r.ProductTitle("Account diagnostics enabled")
 		r.Section("Account")
 		r.Rows(
-			presentation.Field{Label: "Account", Value: providerAccount.Label},
-			presentation.Field{Label: "Account ID", Value: accountName},
-			presentation.Field{State: presentation.OK, Label: "Diagnostic credential", Value: "Securely stored"},
+			terminal.Field{Label: "Account", Value: providerAccount.Label},
+			terminal.Field{Label: "Account ID", Value: accountName},
+			terminal.Field{State: terminal.OK, Label: "Diagnostic credential", Value: "Securely stored"},
 		)
 		r.Next("aigw balance")
 		return nil
@@ -338,14 +338,14 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				result.Accounts = append(result.Accounts, account)
 			}
 			if jsonMode {
-				return presentation.WriteJSON(runtime.Out, result)
+				return terminal.WriteJSON(runtime.Out, result)
 			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Accounts")
 			render.Section("Configured endpoints")
-			rows := make([]presentation.Field, 0, len(result.Accounts))
+			rows := make([]terminal.Field, 0, len(result.Accounts))
 			for _, account := range result.Accounts {
-				rows = append(rows, presentation.Field{Label: account.ID, Value: account.Label})
+				rows = append(rows, terminal.Field{Label: account.ID, Value: account.Label})
 			}
 			render.Rows(rows...)
 			render.Next("aigw route list")
@@ -365,7 +365,7 @@ func diagnosticCredentialProblem(store secret.Store, accountName string, err err
 		environment = "Set both `" + secret.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secret.DiagnosticUserIDEnvironmentKey(accountName) + "` in the parent environment, then retry."
 	}
 	if !errors.Is(err, secret.ErrNotFound) {
-		return presentation.ProblemError(
+		return terminal.ProblemError(
 			"Cannot read provider diagnostic credential",
 			"AIGW could not read a usable provider diagnostic credential for "+accountName+"; this does not establish that it is missing.",
 			"No balance request was sent; the Account Token and diagnostic credential were not changed.",
@@ -373,7 +373,7 @@ func diagnosticCredentialProblem(store secret.Store, accountName string, err err
 			err,
 		)
 	}
-	return presentation.ProblemError(
+	return terminal.ProblemError(
 		"Precise balance diagnostics are not enabled",
 		"Missing "+accountName+" provider platform diagnostic credential; the Account Token is stored separately in the selected credential backend.",
 		"Cannot distinguish account balance, remaining token quota, disabled token state, and request limits.",
@@ -431,20 +431,20 @@ func NewBalanceCommand(runtime invocation.Context) *cobra.Command {
 		r.ProductTitle("Account and quota")
 		r.Section("Account")
 		r.Rows(
-			presentation.Field{Label: "Account", Value: providerAccount.Label},
-			presentation.Field{Label: "Account balance", Value: fmt.Sprintf("$%.4f", report.AccountBalance)},
+			terminal.Field{Label: "Account", Value: providerAccount.Label},
+			terminal.Field{Label: "Account balance", Value: fmt.Sprintf("$%.4f", report.AccountBalance)},
 		)
 		r.Section("Current API token")
-		state := presentation.OK
+		state := terminal.OK
 		if report.TokenStatus != "enabled" {
-			state = presentation.Fail
+			state = terminal.Fail
 		}
 		r.Rows(
-			presentation.Field{Label: "Name", Value: report.TokenName},
-			presentation.Field{State: state, Label: "Token status", Value: status},
-			presentation.Field{Label: "Quota used", Value: fmt.Sprintf("$%.4f", report.TokenUsed)},
-			presentation.Field{Label: "Remaining quota", Value: remaining},
-			presentation.Field{Label: "Remaining requests", Value: count},
+			terminal.Field{Label: "Name", Value: report.TokenName},
+			terminal.Field{State: state, Label: "Token status", Value: status},
+			terminal.Field{Label: "Quota used", Value: fmt.Sprintf("$%.4f", report.TokenUsed)},
+			terminal.Field{Label: "Remaining quota", Value: remaining},
+			terminal.Field{Label: "Remaining requests", Value: count},
 		)
 		r.Next("aigw check")
 		return nil

@@ -1,6 +1,6 @@
 //go:build windows
 
-package prompt
+package terminal
 
 import (
 	"bytes"

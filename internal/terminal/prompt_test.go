@@ -1,4 +1,4 @@
-package prompt
+package terminal
 
 import (
 	"bytes"
@@ -277,7 +277,7 @@ func TestTerminalPromptAccessiblePlainInputSurfacesReadFailure(t *testing.T) {
 
 func TestNewWiresAccessibleIO(t *testing.T) {
 	out := &bytes.Buffer{}
-	prompt := New(strings.NewReader("value\n"), out, true)
+	prompt := NewPrompter(strings.NewReader("value\n"), out, true)
 	value, err := prompt.Text("Name: ")
 	if err != nil || value != "value" {
 		t.Fatalf("Text = %q, %v", value, err)
@@ -286,13 +286,13 @@ func TestNewWiresAccessibleIO(t *testing.T) {
 
 func TestPromptRemainingValidationBranches(t *testing.T) {
 	t.Run("secret empty accessible", func(t *testing.T) {
-		prompt := New(strings.NewReader("\n"), &bytes.Buffer{}, true)
+		prompt := NewPrompter(strings.NewReader("\n"), &bytes.Buffer{}, true)
 		if _, err := prompt.Secret("Token: "); err == nil {
 			t.Fatal("empty secret accepted")
 		}
 	})
 	t.Run("accessible selection default", func(t *testing.T) {
-		prompt := New(strings.NewReader("\n"), &bytes.Buffer{}, true)
+		prompt := NewPrompter(strings.NewReader("\n"), &bytes.Buffer{}, true)
 		value, err := prompt.Select("Pick", []Choice{{Value: "one", Label: "One"}, {Value: "two", Label: "Two"}})
 		if err != nil || value != "one" {
 			t.Fatalf("Select = %q, %v", value, err)

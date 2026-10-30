@@ -256,6 +256,11 @@ conditions that other commands' scripts need. Rejected because it owns more
 code for less capability. Both harnesses passed the four scripts on macOS and
 failed when an expected output changed.
 
+Rendering and prompts form one package, `internal/terminal`. Only the
+composition root constructs the prompter, and commands reach it through the
+invocation context. A separate prompt package would therefore add an owner
+without removing knowledge from any caller.
+
 ### One owner for the release artifact format
 
 Stage 4 moves the artifact format (platform matrix, archive and checksum names,
@@ -340,5 +345,4 @@ carries the completed stages; none of them needs a release of its own.
 
 ## Open Questions
 
-- Whether `terminal` stays one package or splits into rendering and prompts.
-  Stage 3 decides from the command packages' actual imports.
+None. Stage 3 settled the last one: `terminal` stays one package.

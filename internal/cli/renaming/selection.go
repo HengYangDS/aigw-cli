@@ -3,7 +3,7 @@ package renaming
 import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/prompt"
+	"aigw-cli/internal/terminal"
 	"fmt"
 	"sort"
 	"strings"
@@ -41,33 +41,33 @@ func resolveIDs(runtime invocation.Context, resource string, args []string) (str
 	return oldID, strings.TrimSpace(newID), nil
 }
 
-func routeChoices(cfg domain.Config) []prompt.Choice {
+func routeChoices(cfg domain.Config) []terminal.Choice {
 	names := make([]string, 0, len(cfg.Routes))
 	for name := range cfg.Routes {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	choices := make([]prompt.Choice, 0, len(names))
+	choices := make([]terminal.Choice, 0, len(names))
 	for _, name := range names {
 		route := cfg.Routes[name]
 		label := cfg.RouteLabel(name)
 		if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 			label += " · " + purpose
 		}
-		choices = append(choices, prompt.Choice{Value: name, Label: label})
+		choices = append(choices, terminal.Choice{Value: name, Label: label})
 	}
 	return choices
 }
 
-func accountChoices(cfg domain.Config) []prompt.Choice {
+func accountChoices(cfg domain.Config) []terminal.Choice {
 	names := make([]string, 0, len(cfg.Accounts))
 	for name := range cfg.Accounts {
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	choices := make([]prompt.Choice, 0, len(names))
+	choices := make([]terminal.Choice, 0, len(names))
 	for _, name := range names {
-		choices = append(choices, prompt.Choice{Value: name, Label: cfg.Accounts[name].Label})
+		choices = append(choices, terminal.Choice{Value: name, Label: cfg.Accounts[name].Label})
 	}
 	return choices
 }

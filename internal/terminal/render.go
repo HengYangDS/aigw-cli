@@ -1,6 +1,6 @@
 // Package presentation renders human and machine output without owning
 // command results, domain behavior or client configuration.
-package presentation
+package terminal
 
 import (
 	"encoding/json"
@@ -97,10 +97,10 @@ func WriteJSON(out io.Writer, value any) error {
 }
 
 // New returns a renderer without an explicit width constraint.
-func New(out io.Writer, color bool) *Renderer { return NewWithWidth(out, color, 0) }
+func NewRenderer(out io.Writer, color bool) *Renderer { return NewRendererWithWidth(out, color, 0) }
 
 // NewWithWidth returns a renderer constrained to the supplied display width; zero leaves wrapping unconstrained.
-func NewWithWidth(out io.Writer, color bool, width int) *Renderer {
+func NewRendererWithWidth(out io.Writer, color bool, width int) *Renderer {
 	base := styles{}
 	if color {
 		base.title = lipgloss.NewStyle().Bold(true)

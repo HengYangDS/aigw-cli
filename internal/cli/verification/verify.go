@@ -7,7 +7,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -60,7 +60,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 				status := synchronizer.Inspect(cmd.Context(), cfg, target, clientRuntime)
 				if !status.Ready {
-					return presentation.ProblemError(
+					return terminal.ProblemError(
 						fmt.Sprintf("Full verification requires a ready %s adapter: %s", runtime.Clients.Admission().Label(target), status.Issue), "",
 						"No client was verified and the latest full verification checkpoint is unchanged.",
 						status.RepairAction, nil,
@@ -78,7 +78,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 				// Each client is a group of one, rendered as its result arrives.
-				row := presentation.Field{State: presentation.OK, Label: runtime.Clients.Admission().Label(target), Value: clientRuntime.RouteID + " · Completed"}
+				row := terminal.Field{State: terminal.OK, Label: runtime.Clients.Admission().Label(target), Value: clientRuntime.RouteID + " · Completed"}
 				if result.Version != "" || result.SHA256 != "" {
 					row.Details = append(row.Details, fmt.Sprintf("%s client: %s · SHA-256 %s", runtime.Clients.Admission().Label(target), result.Version, result.SHA256))
 				}

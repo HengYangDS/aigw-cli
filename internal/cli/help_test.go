@@ -2,7 +2,7 @@ package cli
 
 import (
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/presentation"
+	"aigw-cli/internal/terminal"
 	"bytes"
 	"strconv"
 	"strings"
@@ -144,7 +144,7 @@ func TestCommandHelpIncludesNativeFlagMetadataAndExamples(t *testing.T) {
 					}
 				}
 				for line := range strings.SplitSeq(out.String(), "\n") {
-					if presentation.DisplayWidth(line) > 48 {
+					if terminal.DisplayWidth(line) > 48 {
 						t.Fatalf("help line exceeds available width: %q", line)
 					}
 				}

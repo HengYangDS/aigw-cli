@@ -1,6 +1,6 @@
 //go:build windows
 
-package presentation
+package terminal
 
 import (
 	"errors"

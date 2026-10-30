@@ -4,7 +4,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/prompt"
+
 	"bytes"
 	"context"
 	"errors"
@@ -20,10 +20,10 @@ import (
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
+	"aigw-cli/internal/terminal"
 )
 
 type scriptedSecretStore struct {
@@ -97,7 +97,7 @@ type scriptedSetupPrompt struct {
 
 func (prompt scriptedSetupPrompt) Secret(string) (string, error) { return prompt.value, prompt.err }
 func (prompt scriptedSetupPrompt) Text(string) (string, error)   { return "", prompt.err }
-func (prompt scriptedSetupPrompt) Select(string, []prompt.Choice) (string, error) {
+func (prompt scriptedSetupPrompt) Select(string, []terminal.Choice) (string, error) {
 	return "", prompt.err
 }
 
@@ -448,7 +448,7 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 		t.Fatalf("ambiguous Hermes setup error = %v, want explicit protocol guidance", err)
 	}
 	var rendered bytes.Buffer
-	presentation.RenderError(presentation.New(&rendered, false), err, false)
+	terminal.RenderError(terminal.NewRenderer(&rendered, false), err, false)
 	if want := "Rerun the same aigw setup command with --protocol <openai_responses|anthropic>"; !strings.Contains(rendered.String(), want) ||
 		strings.Contains(rendered.String(), "aigw check") {
 		t.Fatalf("ambiguous Hermes setup recommendation = %q, want %q", rendered.String(), want)

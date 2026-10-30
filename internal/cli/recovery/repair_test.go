@@ -20,9 +20,9 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 )
 
 type staticDiscovery struct{ result discovery.Result }
@@ -58,10 +58,10 @@ func TestRenderRepairPreviewNamesEachClientAndItsSurface(t *testing.T) {
 	column := -1
 	for line := range strings.SplitSeq(out.String(), "\n") {
 		if prefix, _, found := strings.Cut(line, "update"); found {
-			if column >= 0 && presentation.DisplayWidth(prefix) != column {
+			if column >= 0 && terminal.DisplayWidth(prefix) != column {
 				t.Fatalf("repair preview action columns differ:\n%s", out.String())
 			}
-			column = presentation.DisplayWidth(prefix)
+			column = terminal.DisplayWidth(prefix)
 		}
 	}
 }

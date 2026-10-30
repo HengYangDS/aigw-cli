@@ -11,10 +11,10 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
-	"aigw-cli/internal/prompt"
+
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -131,37 +131,37 @@ func renderUse(runtime invocation.Context, cfg domain.Config, selected domain.Ru
 		result.NextAction = fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label)
 	}
 	if jsonMode {
-		return presentation.WriteJSON(runtime.Out, result)
+		return terminal.WriteJSON(runtime.Out, result)
 	}
 	r := invocation.Renderer(runtime)
 	r.ProductTitle(title)
 	r.Section("Current selection")
-	rows := []presentation.Field{{Label: "Route", Value: selected.RouteLabel}}
+	rows := []terminal.Field{{Label: "Route", Value: selected.RouteLabel}}
 	if purpose := strings.TrimSpace(cfg.Routes[selected.RouteID].Purpose); purpose != "" {
-		rows = append(rows, presentation.Field{Label: "Purpose", Value: purpose})
+		rows = append(rows, terminal.Field{Label: "Purpose", Value: purpose})
 	}
 	rows = append(rows,
-		presentation.Field{Label: "Client", Value: spec.Label},
-		presentation.Field{Label: "Protocol", Value: domain.ProtocolLabel(selected.Protocol)},
-		presentation.Field{Label: "Endpoint", Value: selected.Endpoint},
+		terminal.Field{Label: "Client", Value: spec.Label},
+		terminal.Field{Label: "Protocol", Value: domain.ProtocolLabel(selected.Protocol)},
+		terminal.Field{Label: "Endpoint", Value: selected.Endpoint},
 	)
 	if selected.Endpoint != selected.UpstreamEndpoint {
-		rows = append(rows, presentation.Field{Label: "Account upstream", Value: selected.UpstreamEndpoint})
+		rows = append(rows, terminal.Field{Label: "Account upstream", Value: selected.UpstreamEndpoint})
 	}
 	if spec.RetryBudgets {
 		rows = append(rows, retryFields(selected.RetryPolicy)...)
 	}
 	if result.ProjectionDeferred {
 		if tokenStored {
-			rows = append(rows, presentation.Field{Label: "Account Token", Value: "Validated and stored"})
+			rows = append(rows, terminal.Field{Label: "Account Token", Value: "Validated and stored"})
 		}
-		rows = append(rows, presentation.Field{Label: "Projection", Value: "Deferred; native client projection is unavailable"})
+		rows = append(rows, terminal.Field{Label: "Projection", Value: "Deferred; native client projection is unavailable"})
 		r.Rows(rows...)
 		r.Next(result.NextAction)
 		return r.Err()
 	}
 	if result.RestartRequired {
-		rows = append(rows, presentation.Field{Label: "Activation", Value: "Restart required"})
+		rows = append(rows, terminal.Field{Label: "Activation", Value: "Restart required"})
 	}
 	if spec.SessionsKeepRoute && projectionChanged {
 		rows = append(rows, existingSessionsField)
@@ -174,7 +174,7 @@ func renderUse(runtime invocation.Context, cfg domain.Config, selected domain.Ru
 
 // existingSessionsField tells users of a client whose sessions keep the route
 // they were created with that a projection change reaches new sessions only.
-var existingSessionsField = presentation.Field{Label: "Existing sessions", Value: "Keep the route they started with; new sessions use this selection"}
+var existingSessionsField = terminal.Field{Label: "Existing sessions", Value: "Keep the route they started with; new sessions use this selection"}
 
 type useResult struct {
 	DryRun             bool   `json:"dry_run"`
@@ -207,12 +207,12 @@ func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.R
 	}
 	result := useResult{DryRun: true, Runtime: selected, Targets: plans}
 	if jsonMode {
-		return presentation.WriteJSON(runtime.Out, result)
+		return terminal.WriteJSON(runtime.Out, result)
 	}
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("Selection preview")
 	r.Section("Selection")
-	rows := []presentation.Field{
+	rows := []terminal.Field{
 		{Label: "Client", Value: runtime.Clients.Admission().Label(selected.Client)},
 		{Label: "Route", Value: selected.RouteLabel},
 		{Label: "Endpoint", Value: selected.Endpoint},
@@ -229,9 +229,9 @@ func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.R
 	r.Rows(rows...)
 	if len(plans) > 0 {
 		r.Section("Projection targets")
-		targets := make([]presentation.Field, 0, len(plans))
+		targets := make([]terminal.Field, 0, len(plans))
 		for _, plan := range plans {
-			targets = append(targets, presentation.Field{Label: plan.Target, Value: plan.Action})
+			targets = append(targets, terminal.Field{Label: plan.Target, Value: plan.Action})
 		}
 		r.Rows(targets...)
 	}
@@ -250,11 +250,11 @@ func resolveUseRuntime(runtime invocation.Context, cfg domain.Config, client, ro
 	if len(compatible) < 2 {
 		return domain.Runtime{}, err
 	}
-	choices := make([]prompt.Choice, 0, len(compatible))
+	choices := make([]terminal.Choice, 0, len(compatible))
 	names := make([]string, 0, len(compatible))
 	for _, candidate := range compatible {
 		name := string(candidate)
-		choices = append(choices, prompt.Choice{Value: name, Label: name})
+		choices = append(choices, terminal.Choice{Value: name, Label: name})
 		names = append(names, name)
 	}
 	if !runtime.Interactive {
@@ -300,9 +300,9 @@ func resolveUseSelection(runtime invocation.Context, cfg domain.Config, client s
 }
 
 func chooseClient(runtime invocation.Context, specs []domain.ClientSpec) (string, error) {
-	choices := make([]prompt.Choice, 0, len(specs))
+	choices := make([]terminal.Choice, 0, len(specs))
 	for _, spec := range specs {
-		choices = append(choices, prompt.Choice{Value: spec.ID, Label: spec.Label})
+		choices = append(choices, terminal.Choice{Value: spec.ID, Label: spec.Label})
 	}
 	return runtime.Prompt.Select("Select the client to configure: ", choices)
 }
@@ -351,13 +351,13 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg domain.
 }
 
 func chooseRoute(runtime invocation.Context, cfg domain.Config, client, label string) (string, error) {
-	choices := make([]prompt.Choice, 0, len(cfg.Routes))
+	choices := make([]terminal.Choice, 0, len(cfg.Routes))
 	for _, id := range cfg.CatalogRouteIDs() {
 		compatible, err := cfg.ProtocolClientIDs(id)
 		if err != nil || !slices.Contains(compatible, client) {
 			continue
 		}
-		choices = append(choices, prompt.Choice{Value: id, Label: routeChoiceLabel(cfg, id)})
+		choices = append(choices, terminal.Choice{Value: id, Label: routeChoiceLabel(cfg, id)})
 	}
 	return runtime.Prompt.Select(label, choices)
 }

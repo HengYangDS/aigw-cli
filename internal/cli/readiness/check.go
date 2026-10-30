@@ -11,9 +11,9 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -257,10 +257,10 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			NextAction:     activation.NextActionFor(nil),
 			Error:          issue,
 		}
-		if err := presentation.WriteJSON(runtime.Out, result); err != nil {
+		if err := terminal.WriteJSON(runtime.Out, result); err != nil {
 			return err
 		}
-		return presentation.Presented(cause)
+		return terminal.Presented(cause)
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
 	clients := checkedClientStatuses(runtime, cfg, &activation, evaluation, selected)
@@ -275,7 +275,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		failure = fmt.Errorf("one or more enabled client checks failed")
 		result.Error = failure.Error()
 	}
-	if err := presentation.WriteJSON(runtime.Out, result); err != nil {
+	if err := terminal.WriteJSON(runtime.Out, result); err != nil {
 		return err
 	}
 	if failure != nil {
@@ -283,7 +283,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		// already-serialized failure as presented so the root command preserves
 		// one valid JSON document on stdout while still returning a non-zero
 		// result to callers.
-		return presentation.Presented(failure)
+		return terminal.Presented(failure)
 	}
 	return nil
 }
@@ -351,10 +351,10 @@ func failedCheckContinuation(activation *clientactivation.Activation, evaluation
 
 func writeJSONFailure(runtime invocation.Context, state domainreadiness.State, message, fix string, cause error) error {
 	result := checkJSON{Clients: map[string]clientStatus{}, State: state, NextAction: fix, Error: message}
-	if err := presentation.WriteJSON(runtime.Out, result); err != nil {
+	if err := terminal.WriteJSON(runtime.Out, result); err != nil {
 		return err
 	}
-	return presentation.Presented(cause)
+	return terminal.Presented(cause)
 }
 
 // RunCheck verifies selected client bindings, configured projections, and
@@ -390,7 +390,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		}
 		return invocation.Problem(runtime, "Enabled client check failed", "At least one enabled client did not pass its applicable check scope.", "All-client readiness was not established.", action, fmt.Errorf("enabled client check failed"))
 	}
-	rows := []presentation.Field{}
+	rows := []terminal.Field{}
 	verificationCommands := []string{}
 	inferenceUnverified := false
 	for _, client := range invocation.Synchronizer(runtime).ClientIDs() {
@@ -399,7 +399,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		}
 		adapter := cfg.Clients[client]
 		if !adapter.Enabled {
-			rows = append(rows, presentation.Field{State: presentation.Info, Label: runtime.Clients.Admission().Label(client), Value: "Disabled"})
+			rows = append(rows, terminal.Field{State: terminal.Info, Label: runtime.Clients.Admission().Label(client), Value: "Disabled"})
 			continue
 		}
 		result, _ := evaluation.client(client)
@@ -416,7 +416,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	renderer := invocation.Renderer(runtime)
 	renderer.ProductTitle("Health check")
 	renderer.Section("Configuration")
-	renderer.Rows(presentation.Field{State: presentation.OK, Label: "Configuration file", Value: "Healthy"})
+	renderer.Rows(terminal.Field{State: terminal.OK, Label: "Configuration file", Value: "Healthy"})
 	renderer.Section("Client")
 	renderer.Rows(rows...)
 	renderer.Section("Result")
@@ -439,7 +439,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 // checkedClientField presents one enabled client's check as a row of the Client
 // group, returning its explicit verification command and whether model
 // inference remains unverified, or the Problem that stops the check.
-func checkedClientField(runtime invocation.Context, result evaluatedClient, overrideAction string) (presentation.Field, string, bool, error) {
+func checkedClientField(runtime invocation.Context, result evaluatedClient, overrideAction string) (terminal.Field, string, bool, error) {
 	client := result.client
 	recommendedAction := func(fallback string) string {
 		if overrideAction != "" {
@@ -448,29 +448,29 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 		return fallback
 	}
 	if result.resolveErr != nil {
-		return presentation.Field{}, "", false, invocation.Problem(runtime, runtime.Clients.Admission().Label(client)+" binding cannot be resolved", result.resolveErr.Error(), runtime.Clients.Admission().Label(client)+" cannot determine which Route to use.", recommendedAction("aigw use --for "+client+" <route>"), result.resolveErr)
+		return terminal.Field{}, "", false, invocation.Problem(runtime, runtime.Clients.Admission().Label(client)+" binding cannot be resolved", result.resolveErr.Error(), runtime.Clients.Admission().Label(client)+" cannot determine which Route to use.", recommendedAction("aigw use --for "+client+" <route>"), result.resolveErr)
 	}
 	if result.credentialErr != nil {
 		evidence := "Account " + result.runtime.AccountID + " has no available Token."
 		if result.credentialState == domainreadiness.Unavailable {
 			evidence = "The selected credential backend could not return Account " + result.runtime.AccountID + "'s Token; its presence cannot be inferred."
 		}
-		return presentation.Field{}, "", false, invocation.Problem(
+		return terminal.Field{}, "", false, invocation.Problem(
 			runtime, runtime.Clients.Admission().Label(client)+" "+result.issue, evidence, runtime.Clients.Admission().Label(client)+" cannot authenticate to its selected endpoint.", recommendedAction(result.fix),
 			fmt.Errorf("%s account token unavailable: %w", client, result.credentialErr),
 		)
 	}
 	if !result.adapter {
 		impact := runtime.Clients.Admission().Label(client) + " cannot receive its AIGW Route, Token, or configuration projection."
-		return presentation.Field{}, "", false, invocation.Problem(runtime, runtime.Clients.Admission().Label(client)+" projection is not ready", result.issue, impact, recommendedAction(result.fix), fmt.Errorf("%s projection not ready", client))
+		return terminal.Field{}, "", false, invocation.Problem(runtime, runtime.Clients.Admission().Label(client)+" projection is not ready", result.issue, impact, recommendedAction(result.fix), fmt.Errorf("%s projection not ready", client))
 	}
 	if !result.runtime.UsesAIGWCredentialStore() {
 		detail := "Client-owned authentication requires an explicit live verification"
 		if result.runtime.CredentialCommand != "" {
 			detail = "External credential helper requires an explicit live verification"
 		}
-		return presentation.Field{
-			State: presentation.OK, Label: runtime.Clients.Admission().Label(client), Value: result.runtime.RouteLabel + " · Local projection checked",
+		return terminal.Field{
+			State: terminal.OK, Label: runtime.Clients.Admission().Label(client), Value: result.runtime.RouteLabel + " · Local projection checked",
 			Details: []string{detail},
 		}, result.fix, true, nil
 	}
@@ -487,7 +487,7 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 			// AIGW selects the endpoint; it neither runs nor restarts it.
 			impact += " AIGW owns this configuration, not the endpoint's lifecycle."
 		}
-		return presentation.Field{}, "", false, invocation.Problem(runtime, diagnostic.Summary, evidence, impact, recommendedAction(diagnostic.Fix), fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
+		return terminal.Field{}, "", false, invocation.Problem(runtime, diagnostic.Summary, evidence, impact, recommendedAction(diagnostic.Fix), fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
 	}
 	label := "Endpoint checked"
 	inferenceUnverified := true
@@ -495,7 +495,7 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 		label = "Inference checked"
 		inferenceUnverified = false
 	}
-	field := presentation.Field{State: presentation.OK, Label: runtime.Clients.Admission().Label(client), Value: result.runtime.RouteLabel + " · " + label}
+	field := terminal.Field{State: terminal.OK, Label: runtime.Clients.Admission().Label(client), Value: result.runtime.RouteLabel + " · " + label}
 	command := ""
 	if result.nativeModelOverride {
 		field.Details = append(field.Details, runtime.Clients.Admission().ProductName(client)+" uses a native model preference; this endpoint check does not verify that model")

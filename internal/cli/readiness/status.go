@@ -10,9 +10,9 @@ import (
 	clientdomain "aigw-cli/internal/client"
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -66,7 +66,7 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 	}
 	result := collectStatus(runtime, cfg)
 	if jsonMode {
-		return presentation.WriteJSON(runtime.Out, result)
+		return terminal.WriteJSON(runtime.Out, result)
 	}
 	renderStatus(runtime, cfg, result)
 	return nil

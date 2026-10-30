@@ -4,9 +4,9 @@ import (
 	clientactivation "aigw-cli/internal/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 	"context"
 	"fmt"
 	"os"
@@ -90,7 +90,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request R
 
 	result := buildManifestSetupResult(runtime, cfg, accountNames, request.Account, connected, selectedClients)
 	if request.JSON {
-		return presentation.WriteJSON(runtime.Out, result)
+		return terminal.WriteJSON(runtime.Out, result)
 	}
 	renderManifestSetupResult(runtime, result)
 	return nil
@@ -169,40 +169,40 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 	r.ProductTitle("Configuration catalogue imported")
 	r.Section("Imported capability")
 	r.Rows(
-		presentation.Field{Label: "Accounts", Value: strings.Join(result.Imported.Accounts, ", ")},
-		presentation.Field{Label: "Routes", Value: strings.Join(result.Imported.Routes, ", ")},
-		presentation.Field{Label: "Connected accounts", Value: fmt.Sprintf("%d of %d", len(result.ConnectedAccounts), len(result.Imported.Accounts))},
+		terminal.Field{Label: "Accounts", Value: strings.Join(result.Imported.Accounts, ", ")},
+		terminal.Field{Label: "Routes", Value: strings.Join(result.Imported.Routes, ", ")},
+		terminal.Field{Label: "Connected accounts", Value: fmt.Sprintf("%d of %d", len(result.ConnectedAccounts), len(result.Imported.Accounts))},
 	)
 	r.Section("Account connections")
-	connections := make([]presentation.Field, 0, len(result.Imported.Accounts))
+	connections := make([]terminal.Field, 0, len(result.Imported.Accounts))
 	for _, account := range result.Imported.Accounts {
-		connection := presentation.Field{State: presentation.Info, Label: account, Value: "Deferred"}
+		connection := terminal.Field{State: terminal.Info, Label: account, Value: "Deferred"}
 		if slices.Contains(result.ConnectedAccounts, account) {
-			connection.State, connection.Value = presentation.OK, "Connected"
+			connection.State, connection.Value = terminal.OK, "Connected"
 		}
 		connections = append(connections, connection)
 	}
 	r.Rows(connections...)
 	r.Section("Selected Client Bindings")
-	bindings := make([]presentation.Field, 0, len(runtime.Clients.Admission().Specs()))
+	bindings := make([]terminal.Field, 0, len(runtime.Clients.Admission().Specs()))
 	for _, spec := range runtime.Clients.Admission().Specs() {
-		binding := presentation.Field{State: presentation.Info, Label: spec.Label, Value: "Deferred"}
+		binding := terminal.Field{State: terminal.Info, Label: spec.Label, Value: "Deferred"}
 		if route, selected := result.SelectedBindings[spec.ID]; selected {
-			binding.State, binding.Value = presentation.OK, route
+			binding.State, binding.Value = terminal.OK, route
 		}
 		bindings = append(bindings, binding)
 	}
 	r.Rows(bindings...)
 	r.Section("Projected clients")
-	projected := make([]presentation.Field, 0, len(result.ProjectedClients)+2)
+	projected := make([]terminal.Field, 0, len(result.ProjectedClients)+2)
 	if len(result.ProjectedClients) == 0 {
-		projected = append(projected, presentation.Field{State: presentation.Info, Label: "None", Value: "Deferred"})
+		projected = append(projected, terminal.Field{State: terminal.Info, Label: "None", Value: "Deferred"})
 	}
 	for _, client := range result.ProjectedClients {
 		spec, _ := runtime.Clients.Admission().Spec(client)
-		projected = append(projected, presentation.Field{State: presentation.OK, Label: spec.Label, Value: "Projected"})
+		projected = append(projected, terminal.Field{State: terminal.OK, Label: spec.Label, Value: "Projected"})
 	}
-	r.Rows(append(projected, presentation.Field{State: presentation.Info, Label: "Online verification", Value: "Not checked"})...)
+	r.Rows(append(projected, terminal.Field{State: terminal.Info, Label: "Online verification", Value: "Not checked"})...)
 	r.Success("Reviewed Accounts and Routes are available; Tokens remain outside configuration")
 	for _, detail := range result.DeferredActions {
 		if detail != result.NextAction {

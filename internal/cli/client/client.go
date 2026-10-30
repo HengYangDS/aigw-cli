@@ -8,8 +8,8 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -30,11 +30,11 @@ func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Client discovery")
 		r.Section("Installed clients")
-		rows := make([]presentation.Field, 0, len(runtime.Clients.Admission().Specs()))
+		rows := make([]terminal.Field, 0, len(runtime.Clients.Admission().Specs()))
 		for _, spec := range runtime.Clients.Admission().Specs() {
-			row := presentation.Field{State: presentation.OK, Label: spec.Label, Value: discovered.Executable(spec.ID)}
+			row := terminal.Field{State: terminal.OK, Label: spec.Label, Value: discovered.Executable(spec.ID)}
 			if row.Value == "" {
-				row.State, row.Value = presentation.Info, "Not found"
+				row.State, row.Value = terminal.Info, "Not found"
 			}
 			rows = append(rows, row)
 		}
@@ -135,7 +135,7 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		if !ok || !binding.Enabled {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Client projections")
-			r.Rows(presentation.Field{State: presentation.Info, Label: spec.Label, Value: "Already disabled"})
+			r.Rows(terminal.Field{State: terminal.Info, Label: spec.Label, Value: "Already disabled"})
 			return nil
 		}
 		if err := invocation.Synchronizer(runtime).Withdraw(&cfg, client); err != nil {
@@ -154,10 +154,10 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 	}}
 }
 
-func renderEnabled(r *presentation.Renderer, spec domain.ClientSpec) {
-	rows := []presentation.Field{
+func renderEnabled(r *terminal.Renderer, spec domain.ClientSpec) {
+	rows := []terminal.Field{
 		{Label: "Client", Value: spec.Label},
-		{State: presentation.OK, Label: "Projection", Value: "Configured"},
+		{State: terminal.OK, Label: "Projection", Value: "Configured"},
 	}
 	if !spec.RestartAfterProjection {
 		r.ProductTitle("Client enabled")
@@ -166,15 +166,15 @@ func renderEnabled(r *presentation.Renderer, spec domain.ClientSpec) {
 		return
 	}
 	r.ProductTitle("Client configured")
-	r.Rows(append(rows, presentation.Field{State: presentation.Info, Label: "Activation", Value: "Restart required"})...)
+	r.Rows(append(rows, terminal.Field{State: terminal.Info, Label: "Activation", Value: "Restart required"})...)
 	r.Next(fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label))
 }
 
-func renderDisabled(r *presentation.Renderer, spec domain.ClientSpec) {
+func renderDisabled(r *terminal.Renderer, spec domain.ClientSpec) {
 	r.ProductTitle("Client disabled")
-	rows := []presentation.Field{{Label: "Client", Value: spec.Label}}
+	rows := []terminal.Field{{Label: "Client", Value: spec.Label}}
 	if spec.RestartAfterProjection {
-		rows = append(rows, presentation.Field{State: presentation.Info, Label: "Deactivation", Value: "Restart required"})
+		rows = append(rows, terminal.Field{State: terminal.Info, Label: "Deactivation", Value: "Restart required"})
 	}
 	r.Rows(rows...)
 	r.Success("All AIGW-owned projections were safely removed")

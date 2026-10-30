@@ -1,4 +1,4 @@
-package presentation
+package terminal
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ func TestRowsShareOneLayoutForLongUnicodeAndMultilineFields(t *testing.T) {
 	}
 	for _, color := range []bool{false, true} {
 		var out bytes.Buffer
-		renderer := NewWithWidth(&out, color, 100)
+		renderer := NewRendererWithWidth(&out, color, 100)
 		renderer.Rows(fields...)
 		for index, line := range strings.Split(strings.TrimSuffix(ansi.Strip(out.String()), "\n"), "\n") {
 			prefix, _, found := strings.Cut(line, fields[index].Value)
@@ -39,7 +39,7 @@ func TestRowsShareOneLayoutForLongUnicodeAndMultilineFields(t *testing.T) {
 func TestHumanTextPreservesMultilineIndentation(t *testing.T) {
 	for _, width := range []int{0, 80} {
 		var out bytes.Buffer
-		renderer := NewWithWidth(&out, false, width)
+		renderer := NewRendererWithWidth(&out, false, width)
 		renderer.Text("first\nsecond")
 		renderer.Command("first\nsecond")
 		if got, want := out.String(), "  first\n  second\n  first\n  second\n"; got != want {
@@ -53,7 +53,7 @@ func TestCommandsPreserveCopyableBytesAtEveryWidth(t *testing.T) {
 	for _, width := range []int{0, 8, 24, 120} {
 		for _, color := range []bool{false, true} {
 			var out bytes.Buffer
-			renderer := NewWithWidth(&out, color, width)
+			renderer := NewRendererWithWidth(&out, color, width)
 			renderer.Command(command)
 			want := "  " + strings.ReplaceAll(command, "\n", "\n  ") + "\n"
 			if got := ansi.Strip(out.String()); got != want {

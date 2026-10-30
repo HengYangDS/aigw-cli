@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
@@ -60,9 +60,9 @@ func NewModelsCommand(deps Dependencies) *cobra.Command {
 			r.Text("Catalog membership does not prove protocol capabilities, inference, or client readiness.")
 			r.Section("Routes")
 			for _, row := range rows {
-				state := presentation.Warn
+				state := terminal.Warn
 				if row.Catalog == "Listed" || row.Catalog == "Not listed" {
-					state = presentation.Info
+					state = terminal.Info
 				}
 				r.StatusLine(state, "Route", row.Route)
 				r.Detail(fmt.Sprintf("%s · %s · %s · account %s", row.Model, protocolTitle(row.Protocol), row.Catalog, row.Account))
@@ -123,13 +123,13 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 		}
 		if len(cfg.Routes) == 0 {
 			if jsonMode {
-				return presentation.WriteJSON(deps.Out, catalogOutput{Observations: []catalogObservation{}})
+				return terminal.WriteJSON(deps.Out, catalogOutput{Observations: []catalogObservation{}})
 			}
 			return fmt.Errorf("not configured; run `aigw setup`")
 		}
 		result := discoverCatalog(cmd.Context(), deps, cfg)
 		if jsonMode {
-			return presentation.WriteJSON(deps.Out, result)
+			return terminal.WriteJSON(deps.Out, result)
 		}
 		r := renderer(deps)
 		r.ProductTitle("Authenticated model catalog")
@@ -141,15 +141,15 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 			}
 			r.Section(title)
 			if observation.Status != catalogOK {
-				r.Rows(presentation.Field{State: presentation.Warn, Label: "Catalog", Value: catalogStatusText(observation.Status)})
+				r.Rows(terminal.Field{State: terminal.Warn, Label: "Catalog", Value: catalogStatusText(observation.Status)})
 				continue
 			}
-			rows := []presentation.Field{
+			rows := []terminal.Field{
 				{Label: "Observation", Value: observation.ObservationID},
 				{Label: "Source", Value: observation.Source.Endpoint},
 			}
 			if len(observation.Models) == 0 {
-				r.Rows(append(rows, presentation.Field{State: presentation.Info, Label: "model", Value: "Upstream returned an empty catalog"})...)
+				r.Rows(append(rows, terminal.Field{State: terminal.Info, Label: "model", Value: "Upstream returned an empty catalog"})...)
 			} else {
 				renderCatalogObservation(r, rows, observation, all)
 			}
@@ -165,7 +165,7 @@ func NewCatalogCommand(deps Dependencies) *cobra.Command {
 
 // renderCatalogObservation completes an observation's group with its counts and
 // visible models, then notes the candidates that compact output omits.
-func renderCatalogObservation(r *presentation.Renderer, rows []presentation.Field, observation catalogObservation, all bool) {
+func renderCatalogObservation(r *terminal.Renderer, rows []terminal.Field, observation catalogObservation, all bool) {
 	visible := make([]catalogModel, 0, len(observation.Models))
 	admitted, deprecated, candidates := 0, 0, 0
 	for _, model := range observation.Models {
@@ -181,18 +181,18 @@ func renderCatalogObservation(r *presentation.Renderer, rows []presentation.Fiel
 		}
 	}
 	rows = append(rows,
-		presentation.Field{Label: "Models", Value: fmt.Sprintf("%d observed", len(observation.Models))},
-		presentation.Field{Label: "Admitted", Value: fmt.Sprintf("%d admitted", admitted)},
+		terminal.Field{Label: "Models", Value: fmt.Sprintf("%d observed", len(observation.Models))},
+		terminal.Field{Label: "Admitted", Value: fmt.Sprintf("%d admitted", admitted)},
 	)
 	if deprecated > 0 {
-		rows = append(rows, presentation.Field{Label: "Deprecated", Value: fmt.Sprintf("%d deprecated", deprecated)})
+		rows = append(rows, terminal.Field{Label: "Deprecated", Value: fmt.Sprintf("%d deprecated", deprecated)})
 	}
 	if all {
 		visible = observation.Models
 	}
 	for _, model := range visible {
 		state, detail := catalogModelDisplay(model)
-		rows = append(rows, presentation.Field{State: state, Label: "model", Value: model.ID, Details: []string{detail}})
+		rows = append(rows, terminal.Field{State: state, Label: "model", Value: model.ID, Details: []string{detail}})
 	}
 	r.Rows(rows...)
 	if !all && candidates > 0 {
@@ -200,23 +200,23 @@ func renderCatalogObservation(r *presentation.Renderer, rows []presentation.Fiel
 	}
 }
 
-func catalogModelDisplay(model catalogModel) (presentation.State, string) {
+func catalogModelDisplay(model catalogModel) (terminal.State, string) {
 	if model.State == catalogCandidate {
-		return presentation.Info, "Candidate; protocol and client capabilities are unqualified"
+		return terminal.Info, "Candidate; protocol and client capabilities are unqualified"
 	}
 	routes := make([]string, 0, len(model.Routes))
 	for _, route := range model.Routes {
 		routes = append(routes, route.ID)
 	}
 	if model.State == catalogDeprecated {
-		return presentation.Warn, "Deprecated Routes: " + strings.Join(routes, ", ")
+		return terminal.Warn, "Deprecated Routes: " + strings.Join(routes, ", ")
 	}
-	return presentation.OK, "Admitted Routes: " + strings.Join(routes, ", ")
+	return terminal.OK, "Admitted Routes: " + strings.Join(routes, ", ")
 }
 
-func renderMissingRoutes(r *presentation.Renderer, routes []catalogRoute) {
+func renderMissingRoutes(r *terminal.Renderer, routes []catalogRoute) {
 	for _, route := range routes {
-		r.StatusLine(presentation.Warn, "Route", route.ID)
+		r.StatusLine(terminal.Warn, "Route", route.ID)
 		r.Detail(route.UpstreamModel + " · missing from this observation; requalification required")
 	}
 }
@@ -238,12 +238,12 @@ func catalogStatusText(status catalogStatus) string {
 	}
 }
 
-func renderer(deps Dependencies) *presentation.Renderer {
+func renderer(deps Dependencies) *terminal.Renderer {
 	out := deps.Out
 	if deps.RenderOut != nil {
 		out = deps.RenderOut
 	}
-	return presentation.NewWithWidth(out, deps.Color, deps.Width)
+	return terminal.NewRendererWithWidth(out, deps.Color, deps.Width)
 }
 
 func modelTitle(value string) string {

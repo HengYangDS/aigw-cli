@@ -24,9 +24,7 @@ package_children."internal" = [
   "discovery",
   "domain",
   "platform",
-  "presentation",
   "process",
-  "prompt",
   "providers",
   "readiness",
   "renaming",
@@ -34,6 +32,7 @@ package_children."internal" = [
   "store",
   "surface",
   "synchronization",
+  "terminal",
   "upgrade",
 ]
 package_children."tools" = [
@@ -101,9 +100,9 @@ peer_package_roots."internal/cli" = ["invocation"]
 allowed_import_edges."cmd/aigw" = [
   "internal/cli",
   "internal/clients",
-  "internal/presentation",
   "internal/secret",
   "internal/secret/native",
+  "internal/terminal",
   "internal/upgrade",
 ]
 # The built-in adapter set is the only list of every client outside its adapters.
@@ -246,37 +245,35 @@ allowed_import_edges."internal/cli" = [
   "internal/discovery",
   "internal/domain",
   "internal/platform",
-  "internal/presentation",
   "internal/process",
-  "internal/prompt",
   "internal/readiness",
   "internal/secret",
   "internal/store",
+  "internal/terminal",
   "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/invocation" = [
   "internal/client",
   "internal/discovery",
-  "internal/presentation",
   "internal/process",
-  "internal/prompt",
   "internal/secret",
   "internal/store",
   "internal/synchronization",
+  "internal/terminal",
   "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/credential" = [
   "internal/cli/invocation",
   "internal/domain",
-  "internal/presentation",
   "internal/secret",
   "internal/secret/native",
   "internal/store",
+  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/install" = [
   "internal/cli/invocation",
-  "internal/presentation",
   "internal/store",
+  "internal/terminal",
   "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/selection" = [
@@ -284,10 +281,9 @@ allowed_import_edges."internal/cli/selection" = [
   "internal/cli/invocation",
   "internal/client",
   "internal/domain",
-  "internal/presentation",
-  "internal/prompt",
   "internal/secret",
   "internal/secret/probe",
+  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/update" = [
   "internal/cli/invocation",
@@ -296,58 +292,57 @@ allowed_import_edges."internal/cli/update" = [
 allowed_import_edges."internal/cli/renaming" = [
   "internal/cli/invocation",
   "internal/domain",
-  "internal/presentation",
-  "internal/prompt",
   "internal/renaming",
+  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/recovery" = [
   "internal/activation",
   "internal/cli/invocation",
   "internal/client",
   "internal/domain",
-  "internal/presentation",
   "internal/readiness",
   "internal/secret",
   "internal/synchronization",
+  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/catalog" = [
   "internal/domain",
-  "internal/presentation",
   "internal/secret",
   "internal/secret/probe",
   "internal/store",
+  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/manifest" = [
   "internal/cli/invocation",
   "internal/domain",
-  "internal/presentation",
   "internal/store",
+  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/doctor" = [
   "internal/activation",
   "internal/domain",
-  "internal/presentation",
   "internal/readiness",
   "internal/secret",
   "internal/store",
   "internal/synchronization",
+  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/client" = [
   "internal/cli/invocation",
   "internal/discovery",
   "internal/domain",
-  "internal/presentation",
   "internal/secret",
+  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/verification" = [
   "internal/cli/invocation",
   "internal/domain",
-  "internal/presentation",
+  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/route" = [
   "internal/cli/invocation",
   "internal/domain",
-  "internal/presentation",
+  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/readiness" = [
   "internal/activation",
@@ -358,39 +353,37 @@ allowed_import_edges."internal/cli/readiness" = [
   "internal/client/verification",
   "internal/diagnostics",
   "internal/domain",
-  "internal/presentation",
   "internal/providers",
   "internal/readiness",
   "internal/secret",
   "internal/secret/probe",
   "internal/store",
+  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/account" = [
   "internal/activation",
   "internal/cli/invocation",
   "internal/domain",
-  "internal/presentation",
   "internal/providers",
   "internal/secret",
   "internal/secret/probe",
+  "internal/terminal",
 ]
 allowed_import_edges."internal/cli/onboarding" = [
   "internal/activation",
   "internal/cli/invocation",
   "internal/domain",
-  "internal/presentation",
-  "internal/prompt",
   "internal/secret",
   "internal/secret/probe",
   "internal/store",
+  "internal/terminal",
 ]
-allowed_import_edges."internal/prompt" = []
 allowed_import_edges."internal/diagnostics" = [
   "internal/domain",
   "internal/secret/probe",
 ]
 allowed_import_edges."internal/providers/diagnostic" = []
-allowed_import_edges."internal/presentation" = [
+allowed_import_edges."internal/terminal" = [
   "internal/domain",
   "internal/secret",
   "internal/store",

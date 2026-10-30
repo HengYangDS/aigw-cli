@@ -20,10 +20,10 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/prompt"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	surfaceidentity "aigw-cli/internal/surface"
+	"aigw-cli/internal/terminal"
 )
 
 func TestUseForwardingPreviewIsCredentialFreeAndDoesNotWrite(t *testing.T) {
@@ -211,14 +211,14 @@ func secretExists(t testing.TB, store secret.Store, account string) bool {
 type promptStub struct {
 	secret   string
 	selected string
-	choices  []prompt.Choice
+	choices  []terminal.Choice
 	err      error
 }
 
 func (stub *promptStub) Secret(string) (string, error) { return stub.secret, stub.err }
 func (stub *promptStub) Text(string) (string, error)   { return "", stub.err }
-func (stub *promptStub) Select(_ string, choices []prompt.Choice) (string, error) {
-	stub.choices = append([]prompt.Choice(nil), choices...)
+func (stub *promptStub) Select(_ string, choices []terminal.Choice) (string, error) {
+	stub.choices = append([]terminal.Choice(nil), choices...)
 	return stub.selected, stub.err
 }
 

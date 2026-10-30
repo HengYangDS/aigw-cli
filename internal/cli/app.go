@@ -37,11 +37,11 @@ import (
 	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
-	"aigw-cli/internal/presentation"
 	"aigw-cli/internal/process"
-	"aigw-cli/internal/prompt"
+
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/upgrade"
@@ -109,8 +109,8 @@ func (a *App) outputWriter() io.Writer {
 }
 
 // Renderer uses invocation output while measuring the original terminal writer.
-func (a *App) Renderer() *presentation.Renderer {
-	return presentation.NewWithWidth(a.outputWriter(), a.Color, presentation.PresentationWidth(a.Out, environmentMap(a.Env)))
+func (a *App) Renderer() *terminal.Renderer {
+	return terminal.NewRendererWithWidth(a.outputWriter(), a.Color, terminal.PresentationWidth(a.Out, environmentMap(a.Env)))
 }
 
 // Execute runs one argument vector, serializing mutations and returning any command or output failure.
@@ -145,9 +145,9 @@ func Execute(app *App, args []string) error {
 	}
 	err = finishExecution(err, unlock)
 	if err != nil && credentialInvocation(args) {
-		renderer := presentation.New(app.Err, false)
-		presentation.RenderCredentialError(renderer, err)
-		return presentation.Presented(errors.Join(err, renderer.Err()))
+		renderer := terminal.NewRenderer(app.Err, false)
+		terminal.RenderCredentialError(renderer, err)
+		return terminal.Presented(errors.Join(err, renderer.Err()))
 	}
 	if err == nil || output.err != nil {
 		return err
@@ -157,8 +157,8 @@ func Execute(app *App, args []string) error {
 		return err
 	}
 	renderer := app.Renderer()
-	presentation.RenderError(renderer, presentation.LocalFailure(Version, err), jsonMode)
-	return presentation.Presented(errors.Join(err, renderer.Err()))
+	terminal.RenderError(renderer, terminal.LocalFailure(Version, err), jsonMode)
+	return terminal.Presented(errors.Join(err, renderer.Err()))
 }
 
 func finishExecution(commandErr error, unlock func() error) error {
@@ -244,11 +244,11 @@ func NewDefault(clients client.Registry) (*App, error) {
 		In:            os.Stdin,
 		Out:           os.Stdout,
 		Err:           os.Stderr,
-		Interactive:   presentation.Interactive(os.Stdin),
-		Color:         presentation.ColorEnabled(runtime.GOOS, env, presentation.Interactive(os.Stdout), presentation.EnableVirtualTerminal),
+		Interactive:   terminal.Interactive(os.Stdin),
+		Color:         terminal.ColorEnabled(runtime.GOOS, env, terminal.Interactive(os.Stdout), terminal.EnableVirtualTerminal),
 		Runner:        process.Runner{},
 		HTTP:          &http.Client{},
-		Prompt:        prompt.New(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
+		Prompt:        terminal.NewPrompter(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
 		Discovery:     client.NewDiscoverer(clients, host),
 		Clients:       clients,
 		Updater:       upgrade.Current(executable),
@@ -295,7 +295,7 @@ func (a *App) doctorCommand() *cobra.Command {
 			return readiness.InspectClients(operation, cfg)
 		},
 		RenderOut: a.outputWriter(),
-		Color:     a.Color, Width: presentation.PresentationWidth(a.Out, environmentMap(a.Env)),
+		Color:     a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)),
 	})
 }
 
@@ -303,7 +303,7 @@ func (a *App) catalogDependencies() catalog.Dependencies {
 	return catalog.Dependencies{
 		Config: a.Config, Secrets: a.Secrets, HTTP: a.HTTP, Out: a.outputWriter(),
 		RenderOut: a.outputWriter(),
-		Color:     a.Color, Width: presentation.PresentationWidth(a.Out, environmentMap(a.Env)),
+		Color:     a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)),
 	}
 }
 
@@ -317,9 +317,9 @@ func (a *App) invocationContext() invocation.Context {
 		Config:                a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
 		In:        a.In,
 		RenderOut: a.outputWriter(),
-		Color:     a.Color, Width: presentation.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
+		Color:     a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
-		Discovery: a.Discovery, Clients: a.Clients, Updater: a.Updater, Now: a.Now, Problem: presentation.ProblemError,
+		Discovery: a.Discovery, Clients: a.Clients, Updater: a.Updater, Now: a.Now, Problem: terminal.ProblemError,
 	}
 }
 
@@ -407,8 +407,8 @@ func appVersion(app *App) string {
 
 // startPath is the journey root help begins with. Each label is a command to
 // copy, so it stays whole at every width.
-func startPath(root string) []presentation.Field {
-	return []presentation.Field{
+func startPath(root string) []terminal.Field {
+	return []terminal.Field{
 		{Label: root + " setup", Value: "Connect the first account", Command: true},
 		{Label: root + " use --for <client> <route>", Value: "Select one Route for one client", Command: true},
 		{Label: root + " check", Value: "Check enabled clients (may use quota)", Command: true},
@@ -456,14 +456,14 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 			continue
 		}
 		r.Section(group.Title)
-		rows := make([]presentation.Field, 0, len(groups[group.ID]))
+		rows := make([]terminal.Field, 0, len(groups[group.ID]))
 		for _, child := range groups[group.ID] {
-			rows = append(rows, presentation.Field{Label: child.Name(), Value: child.Short, Command: true})
+			rows = append(rows, terminal.Field{Label: child.Name(), Value: child.Short, Command: true})
 		}
 		r.Rows(rows...)
 	}
 	// pflag owns the option layout and indents every line by the two-cell section indentation.
-	optionWidth := presentation.PresentationWidth(app.Out, environmentMap(app.Env))
+	optionWidth := terminal.PresentationWidth(app.Out, environmentMap(app.Env))
 	for _, group := range []struct {
 		title string
 		flags *pflag.FlagSet
