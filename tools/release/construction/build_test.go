@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/provenance"
 	"bytes"
 	"errors"
 	"os"
@@ -76,7 +76,7 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 			t.Fatalf("GoReleaser environment missing %q: %v", expected, goReleaser.Env)
 		}
 	}
-	if err := artifact.ValidateMatrix(t.Context(), output, "1.2.3"); err != nil {
+	if err := provenance.ValidateMatrix(t.Context(), output, "1.2.3"); err != nil {
 		t.Fatal(err)
 	}
 	if data, err := os.ReadFile(filepath.Join(output, "homebrew", "Casks", "aigw.rb")); err != nil || string(data) != "generated cask" {
@@ -515,7 +515,7 @@ func TestReleaseBuildPropagatesChecksumAndMatrixFailures(t *testing.T) {
 			if current, err := os.ReadFile(filepath.Join(output, "checksums.txt")); err != nil || string(current) != string(accepted) {
 				t.Fatalf("invalid artifact matrix changed accepted output: %q, %v", current, err)
 			}
-			if err := artifact.ValidateMatrix(t.Context(), output, request.Version); err != nil {
+			if err := provenance.ValidateMatrix(t.Context(), output, request.Version); err != nil {
 				t.Fatal(err)
 			}
 			workspaces, err := filepath.Glob(filepath.Join(root, ".aigw-release-*"))

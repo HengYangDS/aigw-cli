@@ -2,9 +2,9 @@ package main
 
 import (
 	"aigw-cli/internal/client/claude"
-	upgradeartifact "aigw-cli/internal/program/artifact"
+	"aigw-cli/internal/program/artifact"
 	"aigw-cli/internal/secret"
-	"aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/provenance"
 	"archive/zip"
 	"bytes"
 	"compress/gzip"
@@ -246,8 +246,8 @@ func TestRunPublicationCommands(t *testing.T) {
 			http.ServeFile(response, request, filepath.Join(artifacts, filepath.Base(request.URL.Path)))
 			return
 		}
-		assets := make([]map[string]string, 0, len(artifact.Names(version)))
-		for _, name := range artifact.Names(version) {
+		assets := make([]map[string]string, 0, len(provenance.Names(version)))
+		for _, name := range provenance.Names(version) {
 			assets = append(assets, map[string]string{"name": name, "url": "http://" + request.Host + "/assets/" + name})
 		}
 		if err := json.NewEncoder(response).Encode(map[string]any{"id": 1, "assets": assets}); err != nil {
@@ -264,8 +264,8 @@ func TestRunPublicationCommands(t *testing.T) {
 			http.ServeFile(response, request, filepath.Join(artifacts, filepath.Base(request.URL.Path)))
 			return
 		}
-		links := make([]map[string]string, 0, len(artifact.Names(version)))
-		for _, name := range artifact.Names(version) {
+		links := make([]map[string]string, 0, len(provenance.Names(version)))
+		for _, name := range provenance.Names(version) {
 			links = append(links, map[string]string{"url": "http://" + request.Host + "/packages/" + name})
 		}
 		if err := json.NewEncoder(response).Encode(map[string]any{"tag_name": "v" + version, "assets": map[string]any{"links": links}}); err != nil {
@@ -466,17 +466,17 @@ func prepareSignedRelease(t *testing.T, version string) string {
 	git("add", ".")
 	git("commit", "-q", "-S", "-m", "test: release source")
 	git("tag", "-s", "-m", "Release "+version, "v"+version)
-	if err := artifact.WriteProvenance(source, artifacts, filepath.Join(artifacts, "aigw_"+version+".provenance.json"), version, git("rev-parse", "HEAD"), git("rev-parse", "HEAD^{tree}")); err != nil {
+	if err := provenance.WriteProvenance(source, artifacts, filepath.Join(artifacts, "aigw_"+version+".provenance.json"), version, git("rev-parse", "HEAD"), git("rev-parse", "HEAD^{tree}")); err != nil {
 		t.Fatal(err)
 	}
-	if err := artifact.RewriteChecksums(artifacts, version); err != nil {
+	if err := provenance.RewriteChecksums(artifacts, version); err != nil {
 		t.Fatal(err)
 	}
 	manifest := filepath.Join(artifacts, "checksums.txt")
 	if err := os.Remove(manifest + ".sig"); err != nil {
 		t.Fatal(err)
 	}
-	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", upgradeartifact.SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
+	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", artifact.SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
 		t.Fatalf("sign manifest: %v: %s", err, output)
 	}
 	t.Chdir(source)
@@ -497,7 +497,7 @@ func prepareSignedRelease(t *testing.T, version string) string {
 func writeArtifactFixture(t *testing.T, version, key string) string {
 	t.Helper()
 	directory := t.TempDir()
-	for _, name := range artifact.Names(version) {
+	for _, name := range provenance.Names(version) {
 		if name == "checksums.txt" || name == "checksums.txt.sig" {
 			continue
 		}
@@ -509,11 +509,11 @@ func writeArtifactFixture(t *testing.T, version, key string) string {
 			t.Fatal(err)
 		}
 	}
-	if err := artifact.RewriteChecksums(directory, version); err != nil {
+	if err := provenance.RewriteChecksums(directory, version); err != nil {
 		t.Fatal(err)
 	}
 	manifest := filepath.Join(directory, "checksums.txt")
-	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", upgradeartifact.SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
+	if output, err := exec.Command("ssh-keygen", "-Y", "sign", "-n", artifact.SignatureNamespace, "-f", key, manifest).CombinedOutput(); err != nil {
 		t.Fatalf("sign checksum manifest: %v: %s", err, output)
 	}
 	return directory

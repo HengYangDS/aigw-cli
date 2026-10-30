@@ -5,8 +5,8 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
 	"aigw-cli/internal/program/artifact"
-	releaseartifact "aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/performance"
+	"aigw-cli/tools/release/provenance"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"context"
@@ -180,7 +180,7 @@ func (input *NativeAcceptance) validate() error {
 	if (input.BaselineTag != "" || input.BaselineArtifacts != "") && os.Getenv("AIGW_ACCEPTANCE_BASELINE") != "" {
 		return errors.New("published baseline inputs and an explicit baseline executable are mutually exclusive")
 	}
-	return errors.Join(releaseartifact.ValidateCandidateSource(input.CandidateSource), input.validateOptionalScopes())
+	return errors.Join(provenance.ValidateCandidateSource(input.CandidateSource), input.validateOptionalScopes())
 }
 
 func (input *NativeAcceptance) validateOptionalScopes() error {
@@ -259,19 +259,19 @@ func (input *NativeAcceptance) prepareCandidate(ctx context.Context, request bui
 	if input.Artifacts == "" {
 		return nil
 	}
-	trust := releaseartifact.SignatureTrust{AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"), Principal: os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER")}
-	if err := releaseartifact.VerifyMatrix(ctx, input.Artifacts, request.Version, trust); err != nil {
+	trust := provenance.SignatureTrust{AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"), Principal: os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER")}
+	if err := provenance.VerifyMatrix(ctx, input.Artifacts, request.Version, trust); err != nil {
 		return err
 	}
-	source := releaseartifact.SourceTrust{Repository: request.Root, AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE"), Commit: input.CandidateSource}
+	source := provenance.SourceTrust{Repository: request.Root, AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE"), Commit: input.CandidateSource}
 	if input.Candidate {
-		return releaseartifact.VerifyCandidateProvenance(ctx, input.Artifacts, source)
+		return provenance.VerifyCandidateProvenance(ctx, input.Artifacts, source)
 	}
 	tag := input.Tag
 	if tag == "" {
 		tag = readiness.SelectedReleaseTag()
 	}
-	return releaseartifact.VerifyProvenance(ctx, input.Artifacts, tag, source)
+	return provenance.VerifyProvenance(ctx, input.Artifacts, tag, source)
 }
 
 func (input *NativeAcceptance) prepareBaseline(ctx context.Context, root, workspace string, run toolRunner) (string, error) {
@@ -410,11 +410,11 @@ func acceptNative(request buildRequest, artifacts, baseline string, input Native
 
 func preparePublishedBaseline(ctx context.Context, root, directory, tag, stage string) (string, error) {
 	version := strings.TrimPrefix(tag, "v")
-	trust := releaseartifact.SignatureTrust{AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"), Principal: os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER")}
-	if err := releaseartifact.VerifyMatrix(ctx, directory, version, trust); err != nil {
+	trust := provenance.SignatureTrust{AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"), Principal: os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER")}
+	if err := provenance.VerifyMatrix(ctx, directory, version, trust); err != nil {
 		return "", fmt.Errorf("verify published baseline: %w", err)
 	}
-	if err := releaseartifact.VerifyProvenance(ctx, directory, tag, releaseartifact.SourceTrust{Repository: root, AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}); err != nil {
+	if err := provenance.VerifyProvenance(ctx, directory, tag, provenance.SourceTrust{Repository: root, AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}); err != nil {
 		return "", err
 	}
 	if err := os.MkdirAll(stage, 0o700); err != nil {

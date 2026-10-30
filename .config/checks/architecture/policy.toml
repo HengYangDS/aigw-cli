@@ -66,9 +66,9 @@ package_children."tools/ci" = [
 ]
 package_children."tools/codex" = ["catalog"]
 package_children."tools/release" = [
-  "artifact",
   "construction",
   "performance",
+  "provenance",
   "publication",
   "readiness",
 ]
@@ -424,12 +424,12 @@ allowed_import_edges."tools/ci/evidence" = []
 allowed_import_edges."tools/ci/markdown" = []
 allowed_import_edges."tools/ci/projection" = []
 allowed_import_edges."tools/release" = [
-  "tools/release/artifact",
   "tools/release/construction",
+  "tools/release/provenance",
   "tools/release/publication",
   "tools/release/readiness",
 ]
-allowed_import_edges."tools/release/artifact" = ["internal/program/artifact"]
+allowed_import_edges."tools/release/provenance" = ["internal/program/artifact"]
 # Construction reuses the adapters' canonical client IDs, neutral execution and
 # release contracts.
 allowed_import_edges."tools/release/construction" = [
@@ -439,15 +439,15 @@ allowed_import_edges."tools/release/construction" = [
   "internal/platform/process",
   "internal/program",
   "internal/program/artifact",
-  "tools/release/artifact",
   "tools/release/performance",
+  "tools/release/provenance",
   "tools/release/readiness",
 ]
 allowed_import_edges."tools/release/performance" = [
   "internal/domain",
   "internal/platform/process",
 ]
-allowed_import_edges."tools/release/publication" = ["tools/release/artifact"]
+allowed_import_edges."tools/release/publication" = ["tools/release/provenance"]
 allowed_import_edges."tools/release/readiness" = []
 allowed_import_edges."tools/architecture" = []
 allowed_import_edges."tools/forge" = []

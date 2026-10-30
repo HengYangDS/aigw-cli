@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/provenance"
 	"errors"
 	"os"
 	"os/exec"
@@ -147,7 +147,7 @@ func populatePortableStage(t *testing.T, call toolCall, version, executable stri
 	if err := os.WriteFile(filepath.Join(casks, "aigw.rb"), []byte("generated cask"), 0o600); err != nil {
 		return err
 	}
-	for _, name := range artifact.Archives(version) {
+	for _, name := range provenance.Archives(version) {
 		if err := os.WriteFile(filepath.Join(stage, name), []byte(name), 0o600); err != nil {
 			return err
 		}
@@ -385,7 +385,7 @@ func releaseFixtureRunner(t *testing.T, root string, calls *[]toolCall, fault *s
 			candidate := filepath.Join(filepath.Dir(filepath.Dir(path)), "artifacts")
 			switch *fault {
 			case "missing artifact":
-				return os.Remove(filepath.Join(candidate, artifact.Names("1.2.3")[0]))
+				return os.Remove(filepath.Join(candidate, provenance.Names("1.2.3")[0]))
 			case "unexpected artifact":
 				return os.WriteFile(filepath.Join(candidate, "unexpected.bin"), []byte("unexpected"), 0o600)
 			}

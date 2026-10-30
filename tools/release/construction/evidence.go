@@ -2,7 +2,7 @@ package construction
 
 import (
 	"aigw-cli/internal/platform/process"
-	"aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/provenance"
 	"context"
 	"crypto/sha1" //nolint:gosec // SPDX 2.3 requires SHA1 file metadata; signed SHA256 owns integrity.
 	"crypto/sha256"
@@ -86,8 +86,8 @@ func scanDependencies(root, output string, inputs dependencyInputs, run toolRunn
 	if *call.Image != admitted {
 		return raw, fmt.Errorf("dependency scanner image changed from %s to %s between its version report and its scan", admitted.Path, call.Image.Path)
 	}
-	scanner := artifact.Scanner{
-		Tool: artifact.ScannerTool, Version: inputs.Scanner.Version, Platform: inputs.Scanner.Platform,
+	scanner := provenance.Scanner{
+		Tool: provenance.ScannerTool, Version: inputs.Scanner.Version, Platform: inputs.Scanner.Platform,
 		SHA256: inputs.Scanner.SHA256, Arguments: portableArguments(args, root, evidence),
 	}
 	vulnerabilities := filepath.Join(evidence, "vulnerabilities.json")
@@ -232,7 +232,7 @@ type osvVulnerability struct {
 
 type vulnerabilityEvidence struct {
 	SchemaVersion int                   `json:"schema_version"`
-	Scanner       artifact.Scanner      `json:"scanner"`
+	Scanner       provenance.Scanner    `json:"scanner"`
 	Sources       []vulnerabilitySource `json:"sources"`
 }
 
@@ -254,9 +254,9 @@ type vulnerability struct {
 }
 
 type licenseEvidence struct {
-	SchemaVersion int              `json:"schema_version"`
-	Scanner       artifact.Scanner `json:"scanner"`
-	Sources       []licenseSource  `json:"sources"`
+	SchemaVersion int                `json:"schema_version"`
+	Scanner       provenance.Scanner `json:"scanner"`
+	Sources       []licenseSource    `json:"sources"`
 }
 
 type licenseSource struct {
@@ -269,7 +269,7 @@ type licensedDependency struct {
 	Licenses []string `json:"licenses"`
 }
 
-func normalizeDependencyEvidence(source, vulnerabilityTarget, licenseTarget string, lockfiles []string, scanner artifact.Scanner) error {
+func normalizeDependencyEvidence(source, vulnerabilityTarget, licenseTarget string, lockfiles []string, scanner provenance.Scanner) error {
 	data, err := os.ReadFile(source)
 	if err != nil {
 		return fmt.Errorf("read OSV dependency report: %w", err)
@@ -399,7 +399,7 @@ func normalizeSPDX(source, target, version string, instant time.Time) error {
 		return fmt.Errorf("decode Syft SPDX document: %w", err)
 	}
 	files, ok := document["files"].([]any)
-	if !ok || len(files) != len(artifact.Archives(version)) {
+	if !ok || len(files) != len(provenance.Archives(version)) {
 		return errors.New("Syft SPDX document must describe the complete release binary matrix")
 	}
 	if err := bindSPDXFiles(filepath.Dir(source), files); err != nil {

@@ -1,8 +1,9 @@
-// Package artifact defines and verifies the portable release artifact matrix.
-package artifact
+// Package provenance verifies the release artifact matrix and its signer, and records
+// and verifies the release's source provenance and its locked scanner.
+package provenance
 
 import (
-	upgradeartifact "aigw-cli/internal/program/artifact"
+	"aigw-cli/internal/program/artifact"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -76,7 +77,7 @@ func verifySignature(ctx context.Context, directory, operation string, arguments
 	}
 	defer func() { _ = file.Close() }()
 	args := append([]string{"-Y", operation,
-		"-n", upgradeartifact.SignatureNamespace,
+		"-n", artifact.SignatureNamespace,
 		"-s", filepath.Join(directory, "checksums.txt.sig"),
 	}, arguments...)
 	command := exec.CommandContext(ctx, "ssh-keygen", args...)

@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/provenance"
 	"archive/tar"
 	"bytes"
 	"context"
@@ -151,7 +151,7 @@ func extractNativePackage(ctx context.Context, file io.Reader, workspace, candid
 		if err := os.Mkdir(filepath.Join(workspace, input.directory), 0o700); err != nil {
 			return err
 		}
-		for _, name := range artifact.Names(input.version) {
+		for _, name := range provenance.Names(input.version) {
 			expected[input.directory+"/"+name] = false
 		}
 	}

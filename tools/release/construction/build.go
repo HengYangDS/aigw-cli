@@ -3,8 +3,8 @@ package construction
 
 import (
 	"aigw-cli/internal/program"
-	upgradeartifact "aigw-cli/internal/program/artifact"
-	"aigw-cli/tools/release/artifact"
+	"aigw-cli/internal/program/artifact"
+	"aigw-cli/tools/release/provenance"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
 	"context"
@@ -80,7 +80,7 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	if err != nil {
 		return err
 	}
-	for _, name := range artifact.Archives(request.Version) {
+	for _, name := range provenance.Archives(request.Version) {
 		if err := copyFile(filepath.Join(stage, name), filepath.Join(candidate, name)); err != nil {
 			return err
 		}
@@ -96,7 +96,7 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	if err != nil {
 		return err
 	}
-	if err := artifact.WriteProvenance(
+	if err := provenance.WriteProvenance(
 		request.Root,
 		candidate,
 		filepath.Join(candidate, "aigw_"+request.Version+".provenance.json"),
@@ -106,20 +106,20 @@ func buildRelease(ctx context.Context, request buildRequest, run toolRunner) (re
 	); err != nil {
 		return err
 	}
-	if err := artifact.RewriteChecksums(candidate, request.Version); err != nil {
+	if err := provenance.RewriteChecksums(candidate, request.Version); err != nil {
 		return err
 	}
 	manifest := filepath.Join(candidate, "checksums.txt")
 	if err := run(toolCall{
 		Name: "ssh-keygen", Directory: candidate,
-		Args: []string{"-Y", "sign", "-n", upgradeartifact.SignatureNamespace, "-f", request.SigningKey, manifest},
+		Args: []string{"-Y", "sign", "-n", artifact.SignatureNamespace, "-f", request.SigningKey, manifest},
 	}); err != nil {
 		return fmt.Errorf("sign release checksums: %w", err)
 	}
-	if err := artifact.ValidateMatrix(ctx, candidate, request.Version); err != nil {
+	if err := provenance.ValidateMatrix(ctx, candidate, request.Version); err != nil {
 		return err
 	}
-	if err := upgradeartifact.VerifySignature(manifest, manifest+".sig", request.ReleasePublicKey); err != nil {
+	if err := artifact.VerifySignature(manifest, manifest+".sig", request.ReleasePublicKey); err != nil {
 		return fmt.Errorf("bind release signature to embedded signer: %w", err)
 	}
 	if err := os.CopyFS(filepath.Join(candidate, "homebrew"), os.DirFS(filepath.Join(stage, "homebrew"))); err != nil {
@@ -207,7 +207,7 @@ func releasePublicKey(signingKey string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read release signing public key: %w", err)
 	}
-	return upgradeartifact.CanonicalPublicKey(string(data))
+	return artifact.CanonicalPublicKey(string(data))
 }
 
 func goReleaserEnvironment(request buildRequest) ([]string, error) {
@@ -412,7 +412,7 @@ func BuildCI(ctx context.Context, root, workspace, output string) error {
 		return buildRelease(ctx, request, executeTool(ctx))
 	}, func(root, version string) (string, error) {
 		return resolveReleaseEpoch(ctx, root, version)
-	}, artifact.CompareMatrices)
+	}, provenance.CompareMatrices)
 }
 
 func buildRequestFromEnvironment(ctx context.Context, output string) (buildRequest, error) {

@@ -1,7 +1,7 @@
 package publication
 
 import (
-	"aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/provenance"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,28 +26,28 @@ func TestProvenanceUsesTaggedInputsAndCompleteArtifactSubjects(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(source.Repository, name), changed, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := artifact.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err != nil {
+			if err := provenance.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err != nil {
 				t.Fatalf("mutable checkout must not replace tagged inputs: %v", err)
 			}
 			target := filepath.Join(directory, "aigw_1.2.3.provenance.json")
-			if err := artifact.WriteProvenance(source.Repository, directory, target, "1.2.3", commit, tree); err != nil {
+			if err := provenance.WriteProvenance(source.Repository, directory, target, "1.2.3", commit, tree); err != nil {
 				t.Fatal(err)
 			}
-			if err := artifact.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err == nil {
+			if err := provenance.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err == nil {
 				t.Fatal("untagged dependency or toolchain input accepted")
 			}
 			if err := os.WriteFile(filepath.Join(source.Repository, name), original, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := artifact.WriteProvenance(source.Repository, directory, target, "1.2.3", commit, tree); err != nil {
+			if err := provenance.WriteProvenance(source.Repository, directory, target, "1.2.3", commit, tree); err != nil {
 				t.Fatal(err)
 			}
 		})
 	}
-	if err := os.WriteFile(filepath.Join(directory, artifact.Archives("1.2.3")[0]), []byte("different binary"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(directory, provenance.Archives("1.2.3")[0]), []byte("different binary"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := artifact.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err == nil {
+	if err := provenance.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err == nil {
 		t.Fatal("artifact absent from signed provenance subjects accepted")
 	}
 }
@@ -76,31 +76,31 @@ func TestProvenanceUsesTheSignedNativeToolchainLocation(t *testing.T) {
 	if err := os.WriteFile(target, []byte(declared), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := artifact.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err != nil {
+	if err := provenance.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err != nil {
 		t.Fatalf("signed predecessor native inputs were not preserved: %v", err)
 	}
 	if err := os.WriteFile(target, original, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := artifact.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err == nil {
+	if err := provenance.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err == nil {
 		t.Fatal("a different signed source and lock location replaced the selected provenance")
 	}
 }
 
 func TestProvenanceRequiresApprovedSignedSourceAndVersion(t *testing.T) {
-	for name, mutate := range map[string]func(*testing.T, artifact.SourceTrust){
-		"missing tag": func(t *testing.T, source artifact.SourceTrust) {
+	for name, mutate := range map[string]func(*testing.T, provenance.SourceTrust){
+		"missing tag": func(t *testing.T, source provenance.SourceTrust) {
 			releaseGit(t, source.Repository, "tag", "-d", "v1.2.3")
 		},
-		"lightweight tag": func(t *testing.T, source artifact.SourceTrust) {
+		"lightweight tag": func(t *testing.T, source provenance.SourceTrust) {
 			releaseGit(t, source.Repository, "tag", "-d", "v1.2.3")
 			releaseGit(t, source.Repository, "-c", "tag.gpgsign=false", "tag", "v1.2.3")
 		},
-		"unsigned source": func(t *testing.T, source artifact.SourceTrust) {
+		"unsigned source": func(t *testing.T, source provenance.SourceTrust) {
 			releaseGit(t, source.Repository, "commit", "-q", "--allow-empty", "--no-gpg-sign", "-m", "test: unsigned source")
 			releaseGit(t, source.Repository, "tag", "-f", "-s", "-m", "Release", "v1.2.3")
 		},
-		"different version": func(t *testing.T, source artifact.SourceTrust) {
+		"different version": func(t *testing.T, source provenance.SourceTrust) {
 			if err := os.WriteFile(filepath.Join(source.Repository, "VERSION"), []byte("2.0.0\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
@@ -108,7 +108,7 @@ func TestProvenanceRequiresApprovedSignedSourceAndVersion(t *testing.T) {
 			releaseGit(t, source.Repository, "commit", "-q", "-S", "-m", "test: different version")
 			releaseGit(t, source.Repository, "tag", "-f", "-s", "-m", "Release", "v1.2.3")
 		},
-		"unapproved signer": func(t *testing.T, source artifact.SourceTrust) {
+		"unapproved signer": func(t *testing.T, source provenance.SourceTrust) {
 			if err := os.WriteFile(source.AllowedSigners, []byte("# No approved signers\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
@@ -117,11 +117,11 @@ func TestProvenanceRequiresApprovedSignedSourceAndVersion(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			directory := releaseFixture(t, "1.2.3")
 			source := fixtureSource(directory)
-			if err := artifact.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err != nil {
+			if err := provenance.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err != nil {
 				t.Fatal(err)
 			}
 			mutate(t, source)
-			if err := artifact.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err == nil {
+			if err := provenance.VerifyProvenance(t.Context(), directory, "v1.2.3", source); err == nil {
 				t.Fatal("source admission accepted a source without its required signed identity")
 			}
 		})

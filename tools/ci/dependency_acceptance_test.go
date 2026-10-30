@@ -3,8 +3,8 @@
 package main
 
 import (
-	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/construction"
+	"aigw-cli/tools/release/provenance"
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
@@ -60,14 +60,14 @@ func TestNativeDependencyEvidenceRetainsFindings(t *testing.T) {
 // nativeDependencyFixture writes a source with a known advisory and the
 // repository's lock, so the scan admits only the scanner image that the
 // repository locks for this host.
-func nativeDependencyFixture(t *testing.T) (string, artifact.LockedImage) {
+func nativeDependencyFixture(t *testing.T) (string, provenance.LockedImage) {
 	t.Helper()
 	root := t.TempDir()
 	lock, err := os.ReadFile(filepath.Join("..", "..", ".config", "mise", "mise.lock"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	locked, err := artifact.LockedScanner(lock, artifact.HostPlatform())
+	locked, err := provenance.LockedScanner(lock, provenance.HostPlatform())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,20 +90,20 @@ func nativeDependencyFixture(t *testing.T) (string, artifact.LockedImage) {
 	return root, locked
 }
 
-func requireLockedScanner(t *testing.T, name string, content []byte, locked artifact.LockedImage) {
+func requireLockedScanner(t *testing.T, name string, content []byte, locked provenance.LockedImage) {
 	t.Helper()
 	var report struct {
-		SchemaVersion int              `json:"schema_version"`
-		Scanner       artifact.Scanner `json:"scanner"`
+		SchemaVersion int                `json:"schema_version"`
+		Scanner       provenance.Scanner `json:"scanner"`
 	}
-	if err := json.Unmarshal(content, &report); err != nil || report.SchemaVersion != 2 || report.Scanner.Tool != artifact.ScannerTool ||
+	if err := json.Unmarshal(content, &report); err != nil || report.SchemaVersion != 2 || report.Scanner.Tool != provenance.ScannerTool ||
 		report.Scanner.Version != locked.Version || report.Scanner.Platform != locked.Platform || report.Scanner.SHA256 != locked.SHA256 ||
 		!slices.Contains(report.Scanner.Arguments, "{source}/go.mod") || !slices.Contains(report.Scanner.Arguments, "--all-vulns") {
 		t.Fatalf("native %s does not name the locked scanner %+v: %+v %v", name, locked, report, err)
 	}
 }
 
-func requireScanInvocation(t *testing.T, scan, root string, locked artifact.LockedImage) {
+func requireScanInvocation(t *testing.T, scan, root string, locked provenance.LockedImage) {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join(scan, "dependencies.raw.json"))
 	if err != nil {

@@ -2,7 +2,7 @@
 package publication
 
 import (
-	"aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/provenance"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -26,8 +26,8 @@ type GitHubConfig struct {
 	Tag                string
 	Token              string
 	Artifacts          string
-	Trust              artifact.SignatureTrust
-	Source             artifact.SourceTrust
+	Trust              provenance.SignatureTrust
+	Source             provenance.SourceTrust
 	VerifyDistribution func(context.Context, string, string) error
 }
 
@@ -39,8 +39,8 @@ type GitLabConfig struct {
 	JobToken           string
 	AccessToken        string
 	Artifacts          string
-	Trust              artifact.SignatureTrust
-	Source             artifact.SourceTrust
+	Trust              provenance.SignatureTrust
+	Source             provenance.SourceTrust
 	VerifyDistribution func(context.Context, string, string) error
 }
 
@@ -60,10 +60,10 @@ func PublishGitHub(ctx context.Context, client *http.Client, config GitHubConfig
 		return false, err
 	}
 	version := identity.String()
-	if err := artifact.VerifyMatrix(ctx, config.Artifacts, version, config.Trust); err != nil {
+	if err := provenance.VerifyMatrix(ctx, config.Artifacts, version, config.Trust); err != nil {
 		return false, err
 	}
-	if err := artifact.VerifyProvenance(ctx, config.Artifacts, config.Tag, config.Source); err != nil {
+	if err := provenance.VerifyProvenance(ctx, config.Artifacts, config.Tag, config.Source); err != nil {
 		return false, err
 	}
 	if err := verifyDistribution(ctx, identity, config.Artifacts, config.VerifyDistribution); err != nil {
@@ -121,10 +121,10 @@ func PublishGitLab(ctx context.Context, client *http.Client, config GitLabConfig
 		return false, err
 	}
 	version := identity.String()
-	if err := artifact.VerifyMatrix(ctx, config.Artifacts, version, config.Trust); err != nil {
+	if err := provenance.VerifyMatrix(ctx, config.Artifacts, version, config.Trust); err != nil {
 		return false, err
 	}
-	if err := artifact.VerifyProvenance(ctx, config.Artifacts, config.Tag, config.Source); err != nil {
+	if err := provenance.VerifyProvenance(ctx, config.Artifacts, config.Tag, config.Source); err != nil {
 		return false, err
 	}
 	if err := verifyDistribution(ctx, identity, config.Artifacts, config.VerifyDistribution); err != nil {
@@ -174,17 +174,17 @@ func UploadGitLab(ctx context.Context, client *http.Client, config GitLabConfig)
 		return err
 	}
 	version := identity.String()
-	if err := artifact.VerifyMatrix(ctx, config.Artifacts, version, config.Trust); err != nil {
+	if err := provenance.VerifyMatrix(ctx, config.Artifacts, version, config.Trust); err != nil {
 		return err
 	}
-	if err := artifact.VerifyProvenance(ctx, config.Artifacts, config.Tag, config.Source); err != nil {
+	if err := provenance.VerifyProvenance(ctx, config.Artifacts, config.Tag, config.Source); err != nil {
 		return err
 	}
 	if err := verifyDistribution(ctx, identity, config.Artifacts, config.VerifyDistribution); err != nil {
 		return err
 	}
 	base := strings.TrimSuffix(config.APIBase, "/") + "/projects/" + url.PathEscape(config.ProjectID) + "/packages/generic/aigw/" + url.PathEscape(version)
-	for _, name := range artifact.Names(version) {
+	for _, name := range provenance.Names(version) {
 		file, err := os.Open(filepath.Join(config.Artifacts, name))
 		if err != nil {
 			return err
@@ -261,7 +261,7 @@ func uploadGitHubAssets(ctx context.Context, client *http.Client, config GitHubC
 	if err != nil {
 		return err
 	}
-	for _, name := range artifact.Names(strings.TrimPrefix(config.Tag, "v")) {
+	for _, name := range provenance.Names(strings.TrimPrefix(config.Tag, "v")) {
 		data, err := os.ReadFile(filepath.Join(config.Artifacts, name))
 		if err != nil {
 			return err
@@ -286,7 +286,7 @@ func uploadGitHubAssets(ctx context.Context, client *http.Client, config GitHubC
 }
 
 func verifyGitHubAssets(ctx context.Context, client *http.Client, config GitHubConfig, release githubRelease, version string) error {
-	expected := artifact.Names(version)
+	expected := provenance.Names(version)
 	actual := make([]string, 0, len(release.Assets))
 	assets := map[string]string{}
 	for _, asset := range release.Assets {
@@ -365,7 +365,7 @@ func verifyGitLabAssets(ctx context.Context, client *http.Client, config GitLabC
 	for _, link := range actual.Assets.Links {
 		remote[lastPath(link.URL)] = link.URL
 	}
-	for _, name := range artifact.Names(version) {
+	for _, name := range provenance.Names(version) {
 		endpoint, found := remote[name]
 		if !found {
 			return fmt.Errorf("GitLab release verification is missing asset %s", name)
@@ -424,7 +424,7 @@ type remoteRelease struct {
 func releaseDocument(tag, base string) releasePayload {
 	version := strings.TrimPrefix(tag, "v")
 	payload := releasePayload{TagName: tag, Name: "AIGW " + tag, Description: "Cross-platform AIGW CLI release. Verify downloads with checksums.txt."}
-	for _, name := range artifact.Names(version) {
+	for _, name := range provenance.Names(version) {
 		payload.Assets.Links = append(payload.Assets.Links, releaseLink{Name: name, URL: strings.TrimSuffix(base, "/") + "/" + name, DirectAssetPath: "/" + name})
 	}
 	return payload

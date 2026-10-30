@@ -4,8 +4,8 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
-	upgradeartifact "aigw-cli/internal/program/artifact"
-	releaseartifact "aigw-cli/tools/release/artifact"
+	"aigw-cli/internal/program/artifact"
+	"aigw-cli/tools/release/provenance"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -471,24 +471,24 @@ func signedNativeInputFixture(t *testing.T, root, version, key string) string {
 	git("tag", "-s", "-m", "Release "+version, "v"+version)
 	directory := t.TempDir()
 	writeNativeArchive(t, directory, version)
-	for _, name := range releaseartifact.Names(version) {
+	for _, name := range provenance.Names(version) {
 		if _, err := os.Stat(filepath.Join(directory, name)); os.IsNotExist(err) {
 			if err := os.WriteFile(filepath.Join(directory, name), matrixFixtureContent(name), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}
 	}
-	if err := releaseartifact.WriteProvenance(root, directory, filepath.Join(directory, "aigw_"+version+".provenance.json"), version, git("rev-parse", "HEAD"), git("rev-parse", "HEAD^{tree}")); err != nil {
+	if err := provenance.WriteProvenance(root, directory, filepath.Join(directory, "aigw_"+version+".provenance.json"), version, git("rev-parse", "HEAD"), git("rev-parse", "HEAD^{tree}")); err != nil {
 		t.Fatal(err)
 	}
-	if err := releaseartifact.RewriteChecksums(directory, version); err != nil {
+	if err := provenance.RewriteChecksums(directory, version); err != nil {
 		t.Fatal(err)
 	}
 	manifest := filepath.Join(directory, "checksums.txt")
 	if err := os.Remove(manifest + ".sig"); err != nil {
 		t.Fatal(err)
 	}
-	if output, err := exec.CommandContext(t.Context(), "ssh-keygen", "-Y", "sign", "-f", key, "-n", upgradeartifact.SignatureNamespace, manifest).CombinedOutput(); err != nil {
+	if output, err := exec.CommandContext(t.Context(), "ssh-keygen", "-Y", "sign", "-f", key, "-n", artifact.SignatureNamespace, manifest).CombinedOutput(); err != nil {
 		t.Fatalf("fixture signing failed: %v, %s", err, output)
 	}
 	public, err := os.ReadFile(key + ".pub")

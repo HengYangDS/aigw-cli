@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/provenance"
 	"bytes"
 	"crypto/sha256"
 	"errors"
@@ -20,7 +20,7 @@ const scannerName = "osv-scanner"
 // that its Mise lock selects for this host.
 type dependencyInputs struct {
 	Policy  dependencyPolicy
-	Scanner artifact.LockedImage
+	Scanner provenance.LockedImage
 }
 
 func readDependencyInputs(root string) (dependencyInputs, error) {
@@ -32,14 +32,14 @@ func readDependencyInputs(root string) (dependencyInputs, error) {
 	if err != nil {
 		return dependencyInputs{}, fmt.Errorf("read Mise lock: %w", err)
 	}
-	scanner, err := artifact.LockedScanner(lock, artifact.HostPlatform())
+	scanner, err := provenance.LockedScanner(lock, provenance.HostPlatform())
 	return dependencyInputs{Policy: policy, Scanner: scanner}, err
 }
 
 // admitScanner runs the scanner's version report and admits only the image
 // that the lock selects, reporting the locked version. It returns that image
 // and its complete version report.
-func admitScanner(root string, locked artifact.LockedImage, run toolRunner) (toolImage, string, error) {
+func admitScanner(root string, locked provenance.LockedImage, run toolRunner) (toolImage, string, error) {
 	var report bytes.Buffer
 	var image toolImage
 	if err := run(toolCall{Name: scannerName, Directory: root, Args: []string{"--version"}, Stdout: &report, Image: &image, Timeout: time.Minute}); err != nil {

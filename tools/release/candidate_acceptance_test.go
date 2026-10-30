@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/construction"
+	"aigw-cli/tools/release/provenance"
 )
 
 func TestUntaggedCandidateArtifactAcceptanceBindsSignedHead(t *testing.T) {
@@ -22,14 +22,14 @@ func TestUntaggedCandidateArtifactAcceptanceBindsSignedHead(t *testing.T) {
 	if output, err := exec.Command("git", "tag", "-d", "v0.1.0").CombinedOutput(); err != nil {
 		t.Fatalf("remove fixture-only release tag: %v: %s", err, output)
 	}
-	source := artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
-	if err := artifact.VerifyCandidateProvenance(t.Context(), artifacts, source); err != nil {
+	source := provenance.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
+	if err := provenance.VerifyCandidateProvenance(t.Context(), artifacts, source); err != nil {
 		t.Fatalf("signed untagged candidate verification: %v", err)
 	}
 	if err := run([]string{"verify-artifacts", artifacts}, io.Discard); err == nil || !strings.Contains(err.Error(), "requires v<semver> tag") {
 		t.Fatalf("release verification silently selected candidate mode: %v", err)
 	}
-	if err := artifact.VerifyProvenance(t.Context(), artifacts, "", source); err == nil || !strings.Contains(err.Error(), "requires v<semver> tag") {
+	if err := provenance.VerifyProvenance(t.Context(), artifacts, "", source); err == nil || !strings.Contains(err.Error(), "requires v<semver> tag") {
 		t.Fatalf("publication provenance admitted an untagged candidate: %v", err)
 	}
 	want := gzip.ErrHeader
@@ -54,7 +54,7 @@ func TestUntaggedCandidateArtifactAcceptanceBindsSignedHead(t *testing.T) {
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("advance candidate source: %v: %s", err, output)
 	}
-	if err := artifact.VerifyCandidateProvenance(t.Context(), artifacts, source); err == nil || !strings.Contains(err.Error(), "verify-commit") {
+	if err := provenance.VerifyCandidateProvenance(t.Context(), artifacts, source); err == nil || !strings.Contains(err.Error(), "verify-commit") {
 		t.Fatalf("candidate verification accepted a different unsigned HEAD: %v", err)
 	}
 }
@@ -67,8 +67,8 @@ func TestCandidateArtifactVerificationRejectsExistingReleaseTag(t *testing.T) {
 			t.Fatalf("prepare invalid fixture tag: %v: %s", err, output)
 		}
 	}
-	source := artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
-	if err := artifact.VerifyCandidateProvenance(t.Context(), artifacts, source); err == nil || !strings.Contains(err.Error(), "candidate provenance requires an untagged VERSION") {
+	source := provenance.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
+	if err := provenance.VerifyCandidateProvenance(t.Context(), artifacts, source); err == nil || !strings.Contains(err.Error(), "candidate provenance requires an untagged VERSION") {
 		t.Fatalf("candidate mode bypassed an existing release tag: %v", err)
 	}
 	if err := run([]string{"accept-native", "--artifacts", artifacts, "--candidate"}, io.Discard); err == nil || !strings.Contains(err.Error(), "candidate provenance requires an untagged VERSION") {

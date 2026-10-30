@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/provenance"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -15,8 +15,8 @@ import (
 
 // lockedScannerFixture is the scanner image that construction tests lock for
 // this host.
-var lockedScannerFixture = artifact.LockedImage{
-	Version: "2.7.0", Platform: artifact.HostPlatform(),
+var lockedScannerFixture = provenance.LockedImage{
+	Version: "2.7.0", Platform: provenance.HostPlatform(),
 	URL: "https://example.invalid/osv-scanner", SHA256: strings.Repeat("5", 64),
 }
 
@@ -24,8 +24,8 @@ var lockedScannerFixture = artifact.LockedImage{
 var scannedInputs = dependencyInputs{Scanner: lockedScannerFixture}
 
 // reportScannerFixture is the scanner that normalization tests name.
-var reportScannerFixture = artifact.Scanner{
-	Tool: artifact.ScannerTool, Version: "2.7.0", Platform: "linux-x64", SHA256: strings.Repeat("5", 64), Arguments: []string{"scan", "source"},
+var reportScannerFixture = provenance.Scanner{
+	Tool: provenance.ScannerTool, Version: "2.7.0", Platform: "linux-x64", SHA256: strings.Repeat("5", 64), Arguments: []string{"scan", "source"},
 }
 
 // matrixFixtureContent is the content of a fixture release file: its name, or
@@ -39,7 +39,7 @@ func matrixFixtureContent(name string) []byte {
 
 // scannerLockFixture is a Mise lock that selects lockedScannerFixture.
 var scannerLockFixture = fmt.Sprintf("[[tools.%q]]\nversion = %q\n\n[tools.%q.%q]\nchecksum = \"sha256:%s\"\nurl = %q\n",
-	artifact.ScannerTool, lockedScannerFixture.Version, artifact.ScannerTool, "platforms."+lockedScannerFixture.Platform,
+	provenance.ScannerTool, lockedScannerFixture.Version, provenance.ScannerTool, "platforms."+lockedScannerFixture.Platform,
 	lockedScannerFixture.SHA256, lockedScannerFixture.URL)
 
 // withLockedScanner runs a fake behind the locked scanner fixture: it answers
@@ -149,8 +149,8 @@ func TestDependencyReportsNameTheirScannerAndTheScanRetainsItsInvocation(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := artifact.Scanner{
-		Tool: artifact.ScannerTool, Version: "2.7.0", Platform: artifact.HostPlatform(), SHA256: lockedScannerFixture.SHA256,
+	want := provenance.Scanner{
+		Tool: provenance.ScannerTool, Version: "2.7.0", Platform: provenance.HostPlatform(), SHA256: lockedScannerFixture.SHA256,
 		Arguments: []string{
 			"scan", "source", "--config", "{evidence}/policy.toml", "--lockfile", "{source}/go.mod", "--lockfile", "{source}/package-lock.json",
 			"--no-call-analysis=go", "--format", "json", "--all-packages", "--all-vulns", "--licenses=", "--output-file", "{evidence}/dependencies.raw.json",
@@ -162,8 +162,8 @@ func TestDependencyReportsNameTheirScannerAndTheScanRetainsItsInvocation(t *test
 			t.Fatal(err)
 		}
 		var named struct {
-			SchemaVersion int              `json:"schema_version"`
-			Scanner       artifact.Scanner `json:"scanner"`
+			SchemaVersion int                `json:"schema_version"`
+			Scanner       provenance.Scanner `json:"scanner"`
 		}
 		if err := json.Unmarshal(data, &named); err != nil || named.SchemaVersion != 2 || !slices.Equal(named.Scanner.Arguments, want.Arguments) ||
 			named.Scanner.Tool != want.Tool || named.Scanner.Version != want.Version || named.Scanner.Platform != want.Platform || named.Scanner.SHA256 != want.SHA256 {
@@ -185,7 +185,7 @@ func TestDependencyReportsNameTheirScannerAndTheScanRetainsItsInvocation(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if invocation.Executable != "/locked/osv-scanner" || invocation.SHA256 != lockedScannerFixture.SHA256 || invocation.Platform != artifact.HostPlatform() ||
+	if invocation.Executable != "/locked/osv-scanner" || invocation.SHA256 != lockedScannerFixture.SHA256 || invocation.Platform != provenance.HostPlatform() ||
 		invocation.Version != "osv-scanner version: 2.7.0\ncommit: fixture\n" || !slices.Equal(invocation.Arguments, scanned.Args) ||
 		invocation.Report != fmt.Sprintf("%x", sha256.Sum256(rawData)) {
 		t.Fatalf("scan invocation = %+v", invocation)

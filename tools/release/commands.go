@@ -1,8 +1,8 @@
 package main
 
 import (
-	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/construction"
+	"aigw-cli/tools/release/provenance"
 	"aigw-cli/tools/release/publication"
 	"aigw-cli/tools/release/readiness"
 	"context"
@@ -122,23 +122,23 @@ func artifactCommands(ctx context.Context) commandSet {
 			if err := requireArguments(args, 2, "usage: release validate-artifacts <directory> <version>"); err != nil {
 				return err
 			}
-			return artifact.ValidateMatrix(ctx, args[0], args[1])
+			return provenance.ValidateMatrix(ctx, args[0], args[1])
 		},
 		"compare-artifacts": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 3, "usage: release compare-artifacts <left-directory> <right-directory> <version>"); err != nil {
 				return err
 			}
-			return artifact.CompareMatrices(args[0], args[1], args[2])
+			return provenance.CompareMatrices(args[0], args[1], args[2])
 		},
 	}
 }
 
 func publicationCommands(ctx context.Context) commandSet {
-	trust := artifact.SignatureTrust{
+	trust := provenance.SignatureTrust{
 		AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"),
 		Principal:      os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER"),
 	}
-	source := artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
+	source := provenance.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
 	return commandSet{
 		"verify-artifacts": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release verify-artifacts <artifact-directory>"); err != nil {
@@ -204,11 +204,11 @@ func verifyArtifacts(ctx context.Context, directory string) error {
 	if err != nil {
 		return err
 	}
-	trust := artifact.SignatureTrust{AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"), Principal: os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER")}
-	if err := artifact.VerifyMatrix(ctx, directory, version, trust); err != nil {
+	trust := provenance.SignatureTrust{AllowedSigners: os.Getenv("AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS_FILE"), Principal: os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER")}
+	if err := provenance.VerifyMatrix(ctx, directory, version, trust); err != nil {
 		return err
 	}
-	return artifact.VerifyProvenance(ctx, directory, readiness.SelectedReleaseTag(), artifact.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")})
+	return provenance.VerifyProvenance(ctx, directory, readiness.SelectedReleaseTag(), provenance.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")})
 }
 
 func verifyMacOSPublication(ctx context.Context, directory, version string) error {

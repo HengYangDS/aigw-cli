@@ -1,7 +1,7 @@
 package publication
 
 import (
-	"aigw-cli/tools/release/artifact"
+	"aigw-cli/tools/release/provenance"
 	"context"
 	"encoding/json"
 	"errors"
@@ -128,26 +128,26 @@ func TestPublicationRequiresSourceProvenanceBeforeNetwork(t *testing.T) {
 func TestPublicationRequiresArtifactAuthorizationBeforeNetwork(t *testing.T) {
 	artifacts := releaseFixture(t, "1.2.3")
 	trust := fixtureTrust(artifacts)
-	for name, publish := range map[string]func(*http.Client, artifact.SignatureTrust) error{
-		"github release": func(client *http.Client, trust artifact.SignatureTrust) error {
+	for name, publish := range map[string]func(*http.Client, provenance.SignatureTrust) error{
+		"github release": func(client *http.Client, trust provenance.SignatureTrust) error {
 			_, err := PublishGitHub(context.Background(), client, GitHubConfig{
 				APIBase: "https://example.test", Repository: "acme/aigw", Tag: "v1.2.3", Token: "token", Artifacts: artifacts, Trust: trust,
 			})
 			return err
 		},
-		"gitlab release": func(client *http.Client, trust artifact.SignatureTrust) error {
+		"gitlab release": func(client *http.Client, trust provenance.SignatureTrust) error {
 			_, err := PublishGitLab(context.Background(), client, GitLabConfig{
 				APIBase: "https://example.test", ProjectID: "7", Tag: "v1.2.3", JobToken: "token", Artifacts: artifacts, Trust: trust,
 			})
 			return err
 		},
-		"gitlab upload": func(client *http.Client, trust artifact.SignatureTrust) error {
+		"gitlab upload": func(client *http.Client, trust provenance.SignatureTrust) error {
 			return UploadGitLab(context.Background(), client, GitLabConfig{
 				APIBase: "https://example.test", ProjectID: "7", Tag: "v1.2.3", JobToken: "token", Artifacts: artifacts, Trust: trust,
 			})
 		},
 	} {
-		for condition, input := range map[string]artifact.SignatureTrust{
+		for condition, input := range map[string]provenance.SignatureTrust{
 			"missing authorization": {},
 			"different principal":   {AllowedSigners: trust.AllowedSigners, Principal: "other@test.invalid"},
 			"different signing key": fixtureTrust(releaseFixture(t, "1.2.3")),
@@ -235,7 +235,7 @@ func TestGitHubPublisherCreatesAndVerifiesImmutableRelease(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !createdNow || len(remote) != len(artifact.Names(tc.version)) {
+			if !createdNow || len(remote) != len(provenance.Names(tc.version)) {
 				t.Fatalf("created=%v remote assets=%d", createdNow, len(remote))
 			}
 		})
@@ -245,7 +245,7 @@ func TestGitHubPublisherCreatesAndVerifiesImmutableRelease(t *testing.T) {
 func TestGitHubPublisherRejectsExistingMismatchWithoutMutation(t *testing.T) {
 	artifacts := releaseFixture(t, "0.1.0")
 	remote := readReleaseFixture(t, artifacts, "0.1.0")
-	remote[artifact.Names("0.1.0")[0]] = []byte("tampered")
+	remote[provenance.Names("0.1.0")[0]] = []byte("tampered")
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if request.Method == http.MethodPost {
 			t.Fatal("existing release must never be mutated")
