@@ -87,7 +87,7 @@ has handed off or terminated; visibility in an agent list is not liveness eviden
 
 | Resource                       | Owner and lifetime                                                                                            |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| Intermediates and candidates   | Ignored `build/` and `dist/`; remove when superseded or published                                             |
+| Intermediates and candidates   | Ignored `build/`; remove when superseded or published                                                         |
 | Pending verification           | `build/verification/<source-commit>/`; retain until its decision and durable evidence owner are settled       |
 | Downloads and analyzer scratch | Private hidden directory under `build/tmp/`, passed as `TMPDIR`; reclaim on success, failure and interruption |
 | Dependency caches              | Native package manager; share only through its supported cache contract                                       |
@@ -555,16 +555,19 @@ ssh-add -T "$AIGW_RELEASE_SIGNING_KEY"
 mise run release
 ```
 
-PowerShell uses the same process variables via `$env:`. Product Git transport,
+The build writes the matrix to `build/artifacts/<version>-<commit>/`, named
+after `VERSION` and the first twelve digits of the commit. PowerShell uses the
+same process variables via `$env:`. Product Git transport,
 Git signatures, artifact signatures and Apple publisher identity are distinct.
 The build signs `checksums.txt` in `aigw-release`; Git's namespace alone does
 not authorize this signature. Use independently approved public trust:
 
 ```bash
+ARTIFACTS="build/artifacts/$(cat VERSION)-$(git rev-parse HEAD | cut -c1-12)"
 ssh-keygen -Y verify -f /absolute/path/to/release-allowed-signers \
   -I '<approved release principal>' -n aigw-release \
-  -s dist/checksums.txt.sig < dist/checksums.txt
-mise exec --locked -- go run ./tools/release validate-artifacts dist "$(cat VERSION)"
+  -s "$ARTIFACTS/checksums.txt.sig" < "$ARTIFACTS/checksums.txt"
+mise exec --locked -- go run ./tools/release validate-artifacts "$ARTIFACTS" "$(cat VERSION)"
 ```
 
 The first verifies authority; the second validates complete inventory/digests and

@@ -169,7 +169,7 @@ commands: {
 		}
 	}
 	version:   "mise exec --locked -- go run ./tools/release validate-version-tag"
-	artifacts: "mise exec --locked -- go run ./tools/release verify-artifacts dist"
+	artifacts: "mise exec --locked -- go run ./tools/release verify-artifacts build/artifacts/published"
 	acceptedRefParity: {
 		gitlab: "mise exec --locked -- go run ./tools/forge refs --remote \(lifecycle.checkoutRemote) --expect \"\(lifecycle.releaseBranch)=$CI_COMMIT_SHA\" --expect \"\(lifecycle.acceptedBranch)=$CI_COMMIT_SHA\""
 		github: "mise exec --locked -- go run ./tools/forge refs --remote \(lifecycle.checkoutRemote) --expect \"\(lifecycle.releaseBranch)=${{ github.sha }}\" --expect \"\(lifecycle.acceptedBranch)=${{ github.sha }}\""
@@ -896,8 +896,8 @@ gitlab: {
 	"release-assets": {
 		extends: [".linux-toolchain"]
 		script: [
-			#"mkdir dist"#,
-			#"mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist"#,
+			#"mkdir -p build/artifacts/published"#,
+			#"mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir build/artifacts/published"#,
 			commands.artifacts,
 			miseMirror.unixCleanup,
 		]
@@ -1173,7 +1173,7 @@ githubRelease: {
 				},
 				{
 					name: "Download this peer's published artifacts"
-					run:  #"mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir dist"#
+					run:  #"mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir build/artifacts/published"#
 				},
 				{name: "Verify complete artifacts and signed source", run: commands.artifacts},
 				{
@@ -1184,7 +1184,7 @@ githubRelease: {
 						AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: "ephemeral-host"
 						AIGW_BASELINE_TAG:                 "${{ inputs.baseline_tag }}"
 					}
-					run: #"mise exec --locked -- go run ./tools/release accept-native --artifacts dist --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG""#
+					run: #"mise exec --locked -- go run ./tools/release accept-native --artifacts build/artifacts/published --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG""#
 				},
 			]
 		}

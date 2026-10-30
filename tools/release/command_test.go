@@ -414,7 +414,7 @@ func TestRunReportsCommandFailures(t *testing.T) {
 	var output bytes.Buffer
 	cases := [][]string{
 		nil,
-		{"build"},
+		{"build", "first", "second"},
 		{"scan-dependencies", "."},
 		{"validate-release-sources", "extra"},
 	}

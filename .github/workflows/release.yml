@@ -92,13 +92,13 @@ jobs:
       - name: Verify this peer's exact tag pipeline
         run: mise exec --locked -- go run ./tools/ci release-evidence --repository "$env:GITHUB_REPOSITORY" --workflow verify.yml --tag "$env:CI_COMMIT_TAG" --job 'Quality and governance' --job 'Native macOS acceptance' --job 'Native Linux acceptance' --job 'Native Windows acceptance' --job 'Linux Secret Service' --job 'Release version'
       - name: Download this peer's published artifacts
-        run: mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir dist
+        run: mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir build/artifacts/published
       - name: Verify complete artifacts and signed source
-        run: mise exec --locked -- go run ./tools/release verify-artifacts dist
+        run: mise exec --locked -- go run ./tools/release verify-artifacts build/artifacts/published
       - name: Verify published native lifecycle
         if: inputs.native_lifecycle
         env:
           AIGW_VERIFY_SYSTEM_KEYRING: ${{ runner.os == 'Windows' && '1' || '0' }}
           AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE: ephemeral-host
           AIGW_BASELINE_TAG: ${{ inputs.baseline_tag }}
-        run: mise exec --locked -- go run ./tools/release accept-native --artifacts dist --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG"
+        run: mise exec --locked -- go run ./tools/release accept-native --artifacts build/artifacts/published --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG"

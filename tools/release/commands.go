@@ -37,10 +37,14 @@ func buildCommands(ctx context.Context) commandSet {
 			return construction.ScanDependencies(ctx, args[0], args[1])
 		},
 		"build": func(args []string, _ io.Writer) error {
-			if err := requireArguments(args, 1, "usage: release build <output-directory>"); err != nil {
-				return err
+			if len(args) > 1 {
+				return errors.New("usage: release build [<output-directory>]")
 			}
-			return construction.Build(ctx, args[0])
+			output := ""
+			if len(args) == 1 {
+				output = args[0]
+			}
+			return construction.Build(ctx, output)
 		},
 		"build-ci": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 2, "usage: release build-ci <workspace> <output-directory>"); err != nil {

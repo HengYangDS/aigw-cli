@@ -2,7 +2,6 @@
 /aigw
 /aigw.exe
 /build/
-/dist/
 
 # Checkout-local dependencies
 /node_modules/

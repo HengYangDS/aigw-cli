@@ -61,9 +61,9 @@ func TestPublishedArtifactVerificationUsesExactTagAndPublicTrust(t *testing.T) {
 		"mise exec --locked -- go run ./tools/release validate-version-tag",
 		`mise exec --locked -- go run ./tools/ci trust-input --output "$env:RUNNER_TEMP/aigw-allowed-signers" --github-env "$env:GITHUB_ENV"`,
 		`mise exec --locked -- go run ./tools/ci trust-input --artifact --output "$env:RUNNER_TEMP/aigw-artifact-signers" --github-env "$env:GITHUB_ENV"`,
-		`mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir dist`,
-		"mise exec --locked -- go run ./tools/release verify-artifacts dist",
-		`mise exec --locked -- go run ./tools/release accept-native --artifacts dist --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG"`,
+		`mise exec --locked -- gh release download "$env:CI_COMMIT_TAG" --repo "$env:GITHUB_REPOSITORY" --dir build/artifacts/published`,
+		"mise exec --locked -- go run ./tools/release verify-artifacts build/artifacts/published",
+		`mise exec --locked -- go run ./tools/release accept-native --artifacts build/artifacts/published --peer=github --repository="$env:GITHUB_REPOSITORY" --baseline-tag="$env:AIGW_BASELINE_TAG"`,
 	}
 	if len(commands) != len(want)+1 || !slices.Equal(commands[:3], want[:3]) || !slices.Equal(commands[4:], want[3:]) || !slices.Equal(trust, []string{"AIGW_RELEASE_ALLOWED_SIGNERS", "AIGW_RELEASE_ARTIFACT_ALLOWED_SIGNERS"}) {
 		t.Fatalf("release verification order or trust differs: %q, %q", commands, trust)
@@ -151,7 +151,7 @@ func TestGitLabPublishedAssetsUsePeerLocalDownloadAndVerification(t *testing.T) 
 		pipeline.Version.Script[3] != pipeline.Version.AfterScript[0] {
 		t.Fatal("tag admission is missing")
 	}
-	want := []string{"mkdir dist", `mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir dist`, "mise exec --locked -- go run ./tools/release verify-artifacts dist"}
+	want := []string{"mkdir -p build/artifacts/published", `mise exec --locked -- glab release download "$CI_COMMIT_TAG" --repo "$CI_PROJECT_URL" --asset-name 'aigw_*' --asset-name 'checksums.txt*' --dir build/artifacts/published`, "mise exec --locked -- go run ./tools/release verify-artifacts build/artifacts/published"}
 	if len(pipeline.Toolchain.AfterScript) != 1 || !strings.Contains(pipeline.Toolchain.AfterScript[0], "Mise job-owned supply state retired.") {
 		t.Fatal("published asset acceptance requires exact job-owned cleanup")
 	}

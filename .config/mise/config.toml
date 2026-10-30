@@ -97,8 +97,8 @@ description = "Run native acceptance on the current host platform."
 run = "go run ./tools/ci native"
 
 [tasks.release]
-description = "Build the deterministic portable release matrix without publishing."
-run = "go run ./tools/release build dist"
+description = "Build the deterministic portable release matrix in build/artifacts/<version>-<commit>/ without publishing."
+run = "go run ./tools/release build"
 
 [tasks."release:notary"]
 description = "Run Apple notarization on macOS using explicit native arguments."

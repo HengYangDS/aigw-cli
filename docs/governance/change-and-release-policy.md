@@ -343,8 +343,8 @@ its assets never become another peer's build input.
 
 ### Homebrew packaging projection
 
-[GoReleaser](../../.config/release/goreleaser/.goreleaser.yaml) retains generated
-`dist/homebrew/Casks/aigw.rb` separately from signed assets. Windows-only builds
+[GoReleaser](../../.config/release/goreleaser/.goreleaser.yaml) retains the generated
+`homebrew/Casks/aigw.rb` of the release output separately from signed assets. Windows-only builds
 skip it; Linux/macOS use the same native generator. Generation creates neither tap
 nor release. Verify archive-internal paths/checksums and regenerate after signing;
 ad-hoc fixture bytes cannot qualify notarized Cask output.

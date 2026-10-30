@@ -113,7 +113,7 @@ func TestGitLabReleaseAssetVerificationUsesLinuxContainer(t *testing.T) {
 		slices.Equal(pipeline.Assets.Tags, pipeline.NativeDarwin.Tags) {
 		t.Fatalf("release asset verifier is not isolated from the macOS Shell runner: %+v", pipeline.Assets)
 	}
-	if !slices.Contains(pipeline.Assets.Script, "mise exec --locked -- go run ./tools/release verify-artifacts dist") {
+	if !slices.Contains(pipeline.Assets.Script, "mise exec --locked -- go run ./tools/release verify-artifacts build/artifacts/published") {
 		t.Fatalf("release artifact verification was dropped: %q", pipeline.Assets.Script)
 	}
 }

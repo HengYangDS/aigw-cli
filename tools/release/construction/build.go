@@ -397,13 +397,30 @@ func ensureCleanSource(root string, run toolRunner) error {
 	return nil
 }
 
-// Build constructs the portable release matrix for the current repository.
+// Build constructs the portable release matrix for the current repository in
+// output, or, when output is empty, in build/artifacts/<version>-<commit>.
 func Build(ctx context.Context, output string) error {
 	request, err := buildRequestFromEnvironment(ctx, output)
 	if err != nil {
 		return err
 	}
-	return buildRelease(ctx, request, executeTool(ctx))
+	run := executeTool(ctx)
+	if request.Output == "" {
+		if request.Output, err = defaultReleaseOutput(request.Root, request.Version, run); err != nil {
+			return err
+		}
+	}
+	return buildRelease(ctx, request, run)
+}
+
+// defaultReleaseOutput names a matrix after its version and the first twelve
+// digits of its commit, inside the repository's ignored build output.
+func defaultReleaseOutput(root, version string, run toolRunner) (string, error) {
+	commit, err := resolveGitObject(root, "HEAD^{commit}", run)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, "build", "artifacts", version+"-"+commit[:12]), nil
 }
 
 // BuildCI constructs the release twice and admits only an identical matrix.

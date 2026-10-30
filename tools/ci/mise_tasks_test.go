@@ -303,7 +303,7 @@ func TestMiseTasksDelegateToCanonicalOwners(t *testing.T) {
 		},
 		"check":   {"go run ./tools/ci source"},
 		"native":  {"go run ./tools/ci native"},
-		"release": {"go run ./tools/release build dist"},
+		"release": {"go run ./tools/release build"},
 		"dependencies:resolve": {
 			"git diff --exit-code HEAD -- .config/mise/config.toml .config/mise/mise.lock .config/mise/locks",
 			"mise lock --platform {{ os() }}-{{ arch() }}",
