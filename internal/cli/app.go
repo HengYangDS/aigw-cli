@@ -21,6 +21,7 @@ import (
 	accountcli "aigw-cli/internal/cli/account"
 	"aigw-cli/internal/cli/catalog"
 	clientcli "aigw-cli/internal/cli/client"
+	completioncli "aigw-cli/internal/cli/completion"
 	credentialcli "aigw-cli/internal/cli/credential"
 	"aigw-cli/internal/cli/doctor"
 	installcli "aigw-cli/internal/cli/install"
@@ -410,7 +411,7 @@ func NewRoot(app *App) *cobra.Command {
 			root.AddCommand(command)
 		}
 	}
-	completion := newCompletionCommand(root)
+	completion := completioncli.NewCommand()
 	completion.GroupID = "advanced"
 	root.AddCommand(completion, credentialcli.NewCommand(runtime))
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
@@ -499,25 +500,5 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 		for line := range strings.SplitSeq(strings.TrimRight(group.flags.FlagUsagesWrapped(optionWidth), "\n"), "\n") {
 			r.Text(strings.TrimPrefix(strings.TrimRight(line, " \t"), "  "))
 		}
-	}
-}
-
-func newCompletionCommand(root *cobra.Command) *cobra.Command {
-	return &cobra.Command{
-		Use: "completion <bash|zsh|fish|powershell>", Short: "Generate shell completion", Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			switch args[0] {
-			case "bash":
-				return root.GenBashCompletion(root.OutOrStdout())
-			case "zsh":
-				return root.GenZshCompletion(root.OutOrStdout())
-			case "fish":
-				return root.GenFishCompletion(root.OutOrStdout(), true)
-			case "powershell":
-				return root.GenPowerShellCompletion(root.OutOrStdout())
-			default:
-				return fmt.Errorf("supported shells: bash, zsh, fish, powershell")
-			}
-		},
 	}
 }

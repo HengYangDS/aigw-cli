@@ -233,6 +233,7 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/catalog",
   "internal/cli/check",
   "internal/cli/client",
+  "internal/cli/completion",
   "internal/cli/config",
   "internal/cli/credential",
   "internal/cli/doctor",
@@ -515,6 +516,7 @@ allowed_import_edges."internal/cli/test" = [
   "internal/store",
   "internal/terminal",
 ]
+allowed_import_edges."internal/cli/completion" = []
 # Top-level roots skipped entirely while walking the repository.
 ignore_roots = ["vendor", ".git", "build"]
 
