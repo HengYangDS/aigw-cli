@@ -1,7 +1,8 @@
-package recovery
+// Package sync implements `aigw sync`, which resynchronizes the enabled
+// clients' configuration with the selected Routes.
+package sync
 
 import (
-	"errors"
 	"fmt"
 
 	clientactivation "aigw-cli/internal/activation"
@@ -14,30 +15,23 @@ import (
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
+
+	"aigw-cli/internal/app"
 )
 
-type credentialEntrypointPlan struct {
-	Path   string `json:"path"`
-	Action string `json:"action"`
-}
-
-func (plan credentialEntrypointPlan) humanAction() string {
-	return "Install " + plan.Path
-}
-
 type syncResult struct {
-	DryRun               bool                      `json:"dry_run"`
-	Selections           map[string]string         `json:"selections"`
-	AdoptedSelections    map[string]string         `json:"adopted_selections,omitempty"`
-	Targets              []client.ProjectionPlan   `json:"targets,omitempty"`
-	CredentialEntrypoint *credentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
-	EnabledClients       int                       `json:"enabled_clients"`
-	State                string                    `json:"state,omitempty"`
-	NextAction           string                    `json:"next_action"`
+	DryRun               bool                          `json:"dry_run"`
+	Selections           map[string]string             `json:"selections"`
+	AdoptedSelections    map[string]string             `json:"adopted_selections,omitempty"`
+	Targets              []client.ProjectionPlan       `json:"targets,omitempty"`
+	CredentialEntrypoint *app.CredentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
+	EnabledClients       int                           `json:"enabled_clients"`
+	State                string                        `json:"state,omitempty"`
+	NextAction           string                        `json:"next_action"`
 }
 
-// NewSyncCommand constructs the command that projects current bindings to discovered clients.
-func NewSyncCommand(runtime invocation.Context) *cobra.Command {
+// NewCommand constructs the command that projects current bindings to discovered clients.
+func NewCommand(runtime invocation.Context) *cobra.Command {
 	var dryRun bool
 	var jsonMode bool
 	cmd := &cobra.Command{
@@ -135,7 +129,7 @@ func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after
 	if err != nil {
 		return err
 	}
-	entrypoint, err := planCredentialEntrypoint(synchronizer, after)
+	entrypoint, err := app.PlanCredentialEntrypoint(synchronizer, after)
 	if err != nil {
 		return err
 	}
@@ -153,24 +147,12 @@ func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after
 	return nil
 }
 
-func planCredentialEntrypoint(synchronizer synchronization.Synchronizer, after domain.Config) (*credentialEntrypointPlan, error) {
-	action, err := synchronizer.CredentialEntrypointPlan(after)
-	if err != nil || action == synchronization.CredentialEntrypointUnchanged {
-		return nil, err
-	}
-	path, err := synchronizer.CredentialEntrypointPath()
-	if err != nil {
-		return nil, err
-	}
-	return &credentialEntrypointPlan{Path: path, Action: string(action)}, nil
-}
-
 func renderSyncPreview(r *terminal.Renderer, after domain.Config, result syncResult) {
 	r.ProductTitle("Synchronization preview")
 	if result.CredentialEntrypoint != nil {
 		// The entrypoint path is too long to share the target column.
 		r.Section("Credential entrypoint")
-		r.Text(result.CredentialEntrypoint.humanAction())
+		r.Text("Install " + result.CredentialEntrypoint.Path)
 	}
 	r.Section("Client Bindings")
 	bindings := make([]terminal.Field, 0, len(after.Admission().IDs()))
@@ -194,82 +176,4 @@ func renderSyncPreview(r *terminal.Renderer, after domain.Config, result syncRes
 		targets = append(targets, terminal.Field{Label: plan.Target, Value: plan.Action})
 	}
 	r.Rows(targets...)
-}
-
-// rollbackFailureImpact reports the configuration outcome that a failed
-// rollback commit verified, or the conservative state when it verified none.
-func rollbackFailureImpact(err error) string {
-	if impact, ok := terminal.ConfigurationRecoveryImpact(err); ok {
-		return impact
-	}
-	return "Configuration or client projections may have changed; inspect current state before retrying."
-}
-
-// NewRollbackCommand constructs the command that restores the last verified AIGW configuration checkpoint.
-func NewRollbackCommand(runtime invocation.Context) *cobra.Command {
-	var lastChange bool
-	cmd := &cobra.Command{
-		Use:   "rollback",
-		Short: "Restore configuration and client projections, not the program",
-		Long: "Restore configuration and client projections from the latest fully\n" +
-			"verified checkpoint, or fall back to the previous backup.\n" +
-			"--last-change selects only that backup. This does not replace the\n" +
-			"AIGW program. Use aigw update --rollback for the retained executable.",
-		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			current, err := runtime.Config.Load()
-			if err != nil {
-				return err
-			}
-			restored := domain.Config{}
-			source := ""
-			var checkpointErr error
-			if !lastChange {
-				checkpoint, loadErr := runtime.Config.LoadVerifiedCheckpoint()
-				checkpointErr = loadErr
-				if checkpointErr == nil {
-					restored = checkpoint.Config
-					source = "Latest fully verified configuration"
-				}
-			}
-			if source == "" {
-				var backupErr error
-				restored, backupErr = runtime.Config.LoadBackup()
-				if backupErr != nil {
-					cause := backupErr
-					if checkpointErr != nil {
-						cause = errors.Join(checkpointErr, backupErr)
-					}
-					return invocation.Problem(
-						runtime,
-						"Configuration rollback is unavailable",
-						"No valid recovery source is available for the current configuration.",
-						"The current configuration remains active and unchanged.",
-						"aigw doctor",
-						cause,
-					)
-				}
-				source = "Previous configuration"
-			}
-			if err := runtime.Synchronizer().Commit(cmd.Context(), current, restored, "rollback"); err != nil {
-				return invocation.Problem(
-					runtime,
-					"Configuration rollback did not complete",
-					"One rollback step failed; the cause identifies the affected boundary.",
-					rollbackFailureImpact(err),
-					"aigw doctor",
-					err,
-				)
-			}
-			r := invocation.Renderer(runtime)
-			r.ProductTitle("Rolled back safely")
-			r.Section("Restore source")
-			r.Rows(terminal.Field{Label: "Configuration", Value: source})
-			r.Success("Client selections and projections were restored; clients were not restarted.")
-			r.Next("aigw doctor")
-			return nil
-		},
-	}
-	cmd.Flags().BoolVar(&lastChange, "last-change", false, "Restore only the immediately previous configuration backup")
-	return cmd
 }

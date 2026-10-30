@@ -1,4 +1,4 @@
-package recovery
+package rollback
 
 import (
 	"errors"

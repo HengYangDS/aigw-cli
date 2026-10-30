@@ -1,4 +1,4 @@
-package recovery
+package repair
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	goruntime "runtime"
+
 	"strings"
 	"testing"
 
@@ -24,16 +24,6 @@ import (
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
 )
-
-type staticDiscovery struct{ result discovery.Result }
-
-// hostAt observes home as the user's home directory, so Claude Code's settings
-// file is home/.claude/settings.json.
-func hostAt(home string) discovery.Host {
-	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
-}
-
-func (candidate staticDiscovery) Discover() discovery.Result { return candidate.result }
 
 func TestRenderRepairPreviewNamesEachClientAndItsSurface(t *testing.T) {
 	out := &bytes.Buffer{}
@@ -101,22 +91,6 @@ func TestRunRepairReportsDiscoveryFailureWithoutMutatingConfiguration(t *testing
 	if saved, err := store.Load(); err != nil || saved.SelectedRoute(codex.ID) != cfg.SelectedRoute(codex.ID) {
 		t.Fatalf("configuration changed after discovery failure: cfg=%#v error=%v", saved, err)
 	}
-}
-
-func configuredRepairStore(t *testing.T) (store.Store, domain.Config) {
-	t.Helper()
-	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Routes["one"] = domain.Route{
-		Label: "One", Account: "one", Model: "claude-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
-	}
-	cfg.SetSelectedRoute(claude.ID, "one", "")
-	if err := configStore.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	return configStore, cfg
 }
 
 func TestRepairDesiredConfigPreservesExplicitCodexIntentWhenDiscoveryIsEmpty(t *testing.T) {

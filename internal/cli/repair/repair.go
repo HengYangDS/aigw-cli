@@ -1,6 +1,6 @@
-// Package recovery owns explicit configuration repair and synchronization
-// commands; it never mutates client conversation history or model metadata.
-package recovery
+// Package repair implements `aigw repair`, which rediscovers the clients and
+// repairs their configuration.
+package repair
 
 import (
 	"context"
@@ -12,10 +12,12 @@ import (
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
+
+	"aigw-cli/internal/app"
 )
 
-// NewRepairCommand constructs the command that reconciles recoverable AIGW-owned projection drift.
-func NewRepairCommand(runtime invocation.Context) *cobra.Command {
+// NewCommand constructs the command that reconciles recoverable AIGW-owned projection drift.
+func NewCommand(runtime invocation.Context) *cobra.Command {
 	var dryRun, jsonMode bool
 	cmd := &cobra.Command{
 		Use: "repair", Short: "Discover and repair client configuration", Args: cobra.NoArgs,
@@ -27,11 +29,11 @@ func NewRepairCommand(runtime invocation.Context) *cobra.Command {
 }
 
 type repairResult struct {
-	DryRun               bool                      `json:"dry_run"`
-	ConfigurationAction  string                    `json:"configuration_action"`
-	Projections          []repairProjectionPreview `json:"projections,omitempty"`
-	CredentialEntrypoint *credentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
-	NextAction           string                    `json:"next_action"`
+	DryRun               bool                          `json:"dry_run"`
+	ConfigurationAction  string                        `json:"configuration_action"`
+	Projections          []repairProjectionPreview     `json:"projections,omitempty"`
+	CredentialEntrypoint *app.CredentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
+	NextAction           string                        `json:"next_action"`
 }
 
 type repairProjectionPreview struct {
@@ -61,13 +63,13 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 		)
 	}
 	var plans []client.ProjectionPlan
-	var entrypoint *credentialEntrypointPlan
+	var entrypoint *app.CredentialEntrypointPlan
 	if dryRun {
 		plans, err = synchronizer.Plan(before, after)
 		if err != nil {
 			return err
 		}
-		entrypoint, err = planCredentialEntrypoint(synchronizer, after)
+		entrypoint, err = app.PlanCredentialEntrypoint(synchronizer, after)
 		if err != nil {
 			return err
 		}
@@ -77,7 +79,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	return renderRepairResult(runtime, dryRun, jsonMode, !reflect.DeepEqual(before, after), plans, entrypoint)
 }
 
-func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, plans []client.ProjectionPlan, entrypoint *credentialEntrypointPlan) error {
+func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, plans []client.ProjectionPlan, entrypoint *app.CredentialEntrypointPlan) error {
 	result := repairResult{DryRun: dryRun, ConfigurationAction: "already-converged", CredentialEntrypoint: entrypoint, NextAction: "aigw check"}
 	if dryRun && configurationChanged {
 		result.NextAction = "aigw repair"
@@ -108,7 +110,7 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 		if entrypoint != nil {
 			// The entrypoint path is too long to share the projection column.
 			r.Section("Credential entrypoint")
-			r.Text(entrypoint.humanAction())
+			r.Text("Install " + entrypoint.Path)
 		}
 		r.Success("Preview did not write configuration, state files, authentication, client executables, or conversations")
 	} else {

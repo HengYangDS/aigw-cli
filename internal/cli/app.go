@@ -27,7 +27,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 
 	"aigw-cli/internal/cli/readiness"
-	"aigw-cli/internal/cli/recovery"
+
 	"aigw-cli/internal/cli/renaming"
 	"aigw-cli/internal/cli/route"
 
@@ -65,6 +65,12 @@ import (
 	"aigw-cli/internal/cli/rotate"
 
 	"aigw-cli/internal/cli/balance"
+
+	"aigw-cli/internal/cli/repair"
+
+	"aigw-cli/internal/cli/rollback"
+
+	synccli "aigw-cli/internal/cli/sync"
 )
 
 // App owns the dependencies and presentation state for one AIGW invocation.
@@ -386,8 +392,8 @@ func NewRoot(app *App) *cobra.Command {
 	connect := []*cobra.Command{setup.NewCommand(runtime)}
 	daily := []*cobra.Command{readiness.NewStatusCommand(runtime), use.NewCommand(runtime), readiness.NewCheckCommand(runtime), rotate.NewCommand(runtime)}
 	recoveryCommands := []*cobra.Command{
-		app.doctorCommand(), recovery.NewRepairCommand(runtime), recovery.NewSyncCommand(runtime),
-		recovery.NewRollbackCommand(runtime), updatecli.NewCommand(runtime),
+		app.doctorCommand(), repair.NewCommand(runtime), synccli.NewCommand(runtime),
+		rollback.NewCommand(runtime), updatecli.NewCommand(runtime),
 		installcli.NewCommand(runtime), uninstall.NewCommand(runtime),
 	}
 	advanced := []*cobra.Command{
