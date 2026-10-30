@@ -1,6 +1,7 @@
-// Package app holds AIGW's use cases: the operations behind each command. A
-// use case receives the invocation's Dependencies and returns values for the
-// terminal to render; it imports neither the command tree nor the terminal.
+// Package app holds the use cases that several AIGW commands, or the CLI root
+// on a command's behalf, share. A use case receives the invocation's
+// Dependencies and returns values for the terminal to render; it imports
+// neither the command tree nor the terminal.
 package app
 
 import (
@@ -47,7 +48,9 @@ type Dependencies struct {
 	InstallTarget         string
 	// Host is the observed platform from which client adapters derive their
 	// native paths.
-	Host      discovery.Host
+	Host discovery.Host
+	// Env is the invocation's process environment, as os.Environ lists it.
+	Env       []string
 	Config    store.Store
 	Secrets   secret.Store
 	Accounts  secret.DiagnosticCredentialStore

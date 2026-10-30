@@ -4,34 +4,20 @@ package doctor
 import (
 	"context"
 	"fmt"
-	"io"
 	"sort"
 	"strings"
 
 	clientactivation "aigw-cli/internal/activation"
+	"aigw-cli/internal/app"
+	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
-	"aigw-cli/internal/terminal"
-
-	"aigw-cli/internal/store"
 	"aigw-cli/internal/synchronization"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
-
-// Dependencies are the capabilities required by the diagnostic command.
-type Dependencies struct {
-	Config    store.Store
-	Secrets   secret.Store
-	Clients   synchronization.Synchronizer
-	Env       []string
-	Inspect   func(domain.Config, secret.Store) map[string]domainreadiness.Client
-	Out       io.Writer
-	Color     bool
-	Width     int
-	RenderOut io.Writer
-}
 
 // Check is one machine-readable diagnostic result. Target names the native file
 // the check inspected relative to the home directory; it is omitted for a file
@@ -70,20 +56,26 @@ var forbiddenClientTokenEnvironmentNames = []string{
 	"OPENAI_API_KEY",
 }
 
+// inspector observes the canonical state of every admitted client.
+type inspector func(app.Dependencies, domain.Config) map[string]domainreadiness.Client
+
 // NewCommand constructs the diagnostic command.
-func NewCommand(deps Dependencies) *cobra.Command {
+func NewCommand(runtime invocation.Context) *cobra.Command {
+	return newCommand(runtime, app.InspectClients)
+}
+
+func newCommand(runtime invocation.Context, inspect inspector) *cobra.Command {
 	var jsonMode bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Show detailed diagnostics for configuration, secrets, and adapters",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			operation := deps
-			operation.Secrets = secret.ObserveAvailability(deps.Secrets)
-			operation.Clients.Secrets = operation.Secrets
-			result := collectResult(cmd.Context(), operation)
+			operation := runtime.Dependencies
+			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
+			result := collectResult(cmd.Context(), operation, inspect)
 			if jsonMode {
-				if err := terminal.WriteJSON(deps.Out, result); err != nil {
+				if err := terminal.WriteJSON(runtime.Out, result); err != nil {
 					return err
 				}
 				if !result.OK {
@@ -91,9 +83,9 @@ func NewCommand(deps Dependencies) *cobra.Command {
 				}
 				return nil
 			}
-			r := terminal.NewRendererWithWidth(renderWriter(deps), deps.Color, deps.Width)
+			r := invocation.Renderer(runtime)
 			r.ProductTitle("Detailed diagnostics")
-			admission := deps.Config.Admission()
+			admission := runtime.Config.Admission()
 			renderClients(r, admission, result.Clients)
 			r.Section("Checks")
 			checks := make([]terminal.Field, 0, len(result.Checks))
@@ -139,7 +131,7 @@ func NewCommand(deps Dependencies) *cobra.Command {
 	return cmd
 }
 
-func collectResult(ctx context.Context, deps Dependencies) commandResult {
+func collectResult(ctx context.Context, deps app.Dependencies, inspect inspector) commandResult {
 	backend, backendErr := secret.Inspect(deps.Secrets)
 	checks := Collect(ctx, deps)
 	if backendErr != nil {
@@ -152,7 +144,7 @@ func collectResult(ctx context.Context, deps Dependencies) commandResult {
 	result := commandResult{
 		CredentialBackend: backend,
 		Checks:            checks,
-		Clients:           inspectClients(deps),
+		Clients:           inspectClients(deps, inspect),
 		OK:                AllOK(checks),
 		OKScope:           "local_diagnostics",
 	}
@@ -207,16 +199,15 @@ func applyActivation(result *commandResult, cfg domain.Config, store secret.Stor
 	}
 }
 
-func inspectClients(deps Dependencies) map[string]domainreadiness.Client {
-	if deps.Inspect == nil {
+func inspectClients(deps app.Dependencies, inspect inspector) map[string]domainreadiness.Client {
+	if inspect == nil {
 		return map[string]domainreadiness.Client{}
 	}
 	cfg, err := deps.Config.Load()
 	if err != nil {
 		return map[string]domainreadiness.Client{}
 	}
-	clients := deps.Inspect(cfg, deps.Secrets)
-	return clients
+	return inspect(deps, cfg)
 }
 
 func renderClients(renderer *terminal.Renderer, admission domain.Admission, clients map[string]domainreadiness.Client) {
@@ -255,16 +246,9 @@ func renderClients(renderer *terminal.Renderer, admission domain.Admission, clie
 	renderer.Rows(rows...)
 }
 
-func renderWriter(deps Dependencies) io.Writer {
-	if deps.RenderOut != nil {
-		return deps.RenderOut
-	}
-	return deps.Out
-}
-
 // Collect evaluates configuration, credentials, client executables, and
 // projections.
-func Collect(ctx context.Context, deps Dependencies) []Check {
+func Collect(ctx context.Context, deps app.Dependencies) []Check {
 	checks := []Check{}
 	if names := ForbiddenClientTokenEnvironment(deps.Env); len(names) > 0 {
 		checks = append(checks, Check{
@@ -304,7 +288,7 @@ func Collect(ctx context.Context, deps Dependencies) []Check {
 		}
 		checks = append(checks, Check{Name: "secret:" + name, OK: ok, Detail: detail, Fix: fix})
 	}
-	checks = append(checks, adapterChecks(ctx, deps.Clients, cfg, homeDirectory(deps.Env))...)
+	checks = append(checks, adapterChecks(ctx, deps.Synchronizer(), cfg, homeDirectory(deps.Env))...)
 	return checks
 }
 

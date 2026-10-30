@@ -1,6 +1,8 @@
 package doctor
 
 import (
+	"aigw-cli/internal/app"
+	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
@@ -9,7 +11,6 @@ import (
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-	"aigw-cli/internal/synchronization"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -61,7 +62,7 @@ func validDoctorConfig() domain.Config {
 	return cfg
 }
 
-func doctorDependencies(t *testing.T, cfg domain.Config) (Dependencies, *bytes.Buffer, secret.Store) {
+func doctorDependencies(t *testing.T, cfg domain.Config) (invocation.Context, *bytes.Buffer, secret.Store) {
 	t.Helper()
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if err := configStore.Save(cfg); err != nil {
@@ -69,8 +70,8 @@ func doctorDependencies(t *testing.T, cfg domain.Config) (Dependencies, *bytes.B
 	}
 	out := &bytes.Buffer{}
 	secretStore := secret.NewMemoryStore()
-	return Dependencies{
-		Config: configStore, Secrets: secretStore, Clients: synchronization.Synchronizer{Registry: clients.Registry()}, Out: out,
+	return invocation.Context{
+		Config: configStore, Secrets: secretStore, Clients: clients.Registry(), Out: out,
 	}, out, secretStore
 }
 
@@ -84,9 +85,8 @@ func (store *observingDoctorSecrets) Exists(accountID string) (bool, error) {
 	return store.Store.Exists(accountID)
 }
 
-func executeJSON(t *testing.T, deps Dependencies, out *bytes.Buffer) commandResult {
+func executeJSON(t *testing.T, cmd *cobra.Command, out *bytes.Buffer) commandResult {
 	t.Helper()
-	cmd := NewCommand(deps)
 	cmd.SetArgs([]string{"--json"})
 	commandErr := executeDoctorCommand(cmd)
 	var result commandResult
@@ -115,7 +115,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	cfg.SetClientActivation(codex.ID, true, "", nil)
 	deps, _, _ := doctorDependencies(t, cfg)
-	checks := Collect(context.Background(), deps)
+	checks := Collect(context.Background(), deps.Dependencies)
 	if check := findCheck(t, checks, "secret:team"); check.OK || check.Fix == "" {
 		t.Fatalf("missing Account Token = %#v", check)
 	}
@@ -127,7 +127,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 
 	cfg.SetClientActivation(codex.ID, true, "codex", nil)
 	deps, _, _ = doctorDependencies(t, cfg)
-	check := findCheck(t, Collect(context.Background(), deps), "adapter:codex")
+	check := findCheck(t, Collect(context.Background(), deps.Dependencies), "adapter:codex")
 	if check.OK || check.Detail != "Codex configuration target is missing" || check.Fix != "run `aigw repair`" {
 		t.Fatalf("Codex adapter check = %#v", check)
 	}
@@ -135,7 +135,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	if err := os.MkdirAll(bad.Path(), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	broken := Collect(context.Background(), Dependencies{Config: bad, Secrets: secret.NewMemoryStore(), Clients: synchronization.Synchronizer{Registry: clients.Registry()}})
+	broken := Collect(context.Background(), app.Dependencies{Config: bad, Secrets: secret.NewMemoryStore(), Clients: clients.Registry()})
 	if check := findCheck(t, broken, "config"); check.OK || check.Detail != "cannot read or validate configuration" || check.Fix != "inspect or restore the local configuration file" {
 		t.Fatalf("config check = %#v", check)
 	}
@@ -157,7 +157,7 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 		t.Fatal(err)
 	}
 
-	checks := Collect(context.Background(), deps)
+	checks := Collect(context.Background(), deps.Dependencies)
 	if check := findCheck(t, checks, "secret:team"); !check.OK {
 		t.Fatalf("selected Account secret = %#v", check)
 	}
@@ -198,7 +198,7 @@ func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 	observed := &observingDoctorSecrets{Store: secretStore}
 	deps.Secrets = observed
 
-	checks := Collect(context.Background(), deps)
+	checks := Collect(context.Background(), deps.Dependencies)
 	if len(observed.existsCalls) != 1 || observed.existsCalls[0] != "team" {
 		t.Fatalf("doctor credential observations = %q, want only the Account-Token route", observed.existsCalls)
 	}
@@ -216,7 +216,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if err := secretsStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	checks := Collect(context.Background(), deps)
+	checks := Collect(context.Background(), deps.Dependencies)
 	if check := findCheck(t, checks, "adapter:claude"); check.OK || !strings.Contains(check.Detail, "executable is unavailable") {
 		t.Fatalf("adapter check = %#v", check)
 	}
@@ -229,9 +229,9 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	}
 	cfg.SetClientActivation(claude.ID, true, executable, nil)
 	deps, _, _ = doctorDependencies(t, cfg)
-	deps.Clients.Host = hostAt(t.TempDir())
-	deps.Clients.AIGWExecutable = filepath.Join(t.TempDir(), "aigw")
-	checks = Collect(context.Background(), deps)
+	deps.Host = hostAt(t.TempDir())
+	deps.Executable = filepath.Join(t.TempDir(), "aigw")
+	checks = Collect(context.Background(), deps.Dependencies)
 	if check := findCheck(t, checks, "adapter:claude"); check.OK || !strings.Contains(check.Detail, "not synchronized") {
 		t.Fatalf("unsynchronized adapter check = %#v", check)
 	}
@@ -239,15 +239,15 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, deps.Clients.Host), false, clientRuntime, deps.Clients.AIGWExecutable, clientRuntime.Model); err != nil {
+	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, deps.Host), false, clientRuntime, deps.Executable, clientRuntime.Model); err != nil {
 		t.Fatal(err)
 	}
-	checks = Collect(context.Background(), deps)
+	checks = Collect(context.Background(), deps.Dependencies)
 	if check := findCheck(t, checks, "adapter:claude"); !check.OK {
 		t.Fatalf("adapter check = %#v", check)
 	}
 
-	data, err := os.ReadFile(claudeSettingsPath(t, deps.Clients.Host))
+	data, err := os.ReadFile(claudeSettingsPath(t, deps.Host))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,10 +257,10 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	}
 	document["model"] = json.RawMessage(`"opus[1m]"`)
 	data, _ = json.MarshalIndent(document, "", "  ")
-	if err := os.WriteFile(claudeSettingsPath(t, deps.Clients.Host), append(data, '\n'), 0o600); err != nil {
+	if err := os.WriteFile(claudeSettingsPath(t, deps.Host), append(data, '\n'), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	checks = Collect(context.Background(), deps)
+	checks = Collect(context.Background(), deps.Dependencies)
 	if check := findCheck(t, checks, "adapter:claude"); !check.OK || !strings.Contains(check.Detail, "native model preference") {
 		t.Fatalf("native Claude model preference check = %#v", check)
 	}
@@ -269,17 +269,17 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	cfg.SetClientActivation(codex.ID, true, "codex", []string{filepath.Join(home, ".codex", "config.toml")})
 	deps, _, _ = doctorDependencies(t, cfg)
 	deps.Env = []string{"HOME=" + home}
-	check := findCheck(t, Collect(context.Background(), deps), "codex:target-1")
+	check := findCheck(t, Collect(context.Background(), deps.Dependencies), "codex:target-1")
 	if check.OK || check.Detail != "Codex configuration target is unavailable" || check.Fix != "run `aigw sync`" || check.Target != filepath.Join("~", ".codex", "config.toml") {
 		t.Fatalf("projection check = %#v", check)
 	}
 
 	cfg.SetClientActivation(codex.ID, true, "codex", []string{"unused"})
 	delete(cfg.Accounts, "team")
-	if check := findCheck(t, adapterChecks(context.Background(), deps.Clients, cfg, ""), "projection:codex"); check.OK || check.Detail != "selected client route cannot be resolved" {
+	if check := findCheck(t, adapterChecks(context.Background(), deps.Synchronizer(), cfg, ""), "projection:codex"); check.OK || check.Detail != "selected client route cannot be resolved" {
 		t.Fatalf("route check = %#v", check)
 	}
-	if got := adapterChecks(context.Background(), deps.Clients, domain.NewConfig(clients.Admission()), ""); len(got) != len(clients.Admission().IDs()) {
+	if got := adapterChecks(context.Background(), deps.Synchronizer(), domain.NewConfig(clients.Admission()), ""); len(got) != len(clients.Admission().IDs()) {
 		t.Fatalf("disabled adapter checks = %#v", got)
 	}
 }
@@ -292,7 +292,7 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 	}
 	cfg.SetClientActivation(claude.ID, true, blocked, nil)
 	deps, _, _ := doctorDependencies(t, cfg)
-	check := findCheck(t, Collect(context.Background(), deps), "adapter:claude")
+	check := findCheck(t, Collect(context.Background(), deps.Dependencies), "adapter:claude")
 	if check.OK || !strings.Contains(check.Detail, "unavailable") {
 		t.Fatalf("adapter = %#v", check)
 	}
@@ -301,7 +301,7 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 func TestCommandHumanAndJSONPaths(t *testing.T) {
 	cfg := validDoctorConfig()
 	deps, out, secretStore := doctorDependencies(t, cfg)
-	deps.Inspect = func(domain.Config, secret.Store) map[string]domainreadiness.Client {
+	inspect := func(app.Dependencies, domain.Config) map[string]domainreadiness.Client {
 		return map[string]domainreadiness.Client{
 			claude.ID: {State: domainreadiness.Configured, Route: "claude", Account: "team"},
 			codex.ID:  {State: domainreadiness.Deferred, NextAction: "aigw sync"},
@@ -310,7 +310,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	result := executeJSON(t, deps, out)
+	result := executeJSON(t, newCommand(deps, inspect), out)
 	if !result.OK || !AllOK(result.Checks) {
 		t.Fatalf("result = %#v", result)
 	}
@@ -319,7 +319,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	}
 
 	out.Reset()
-	cmd := NewCommand(deps)
+	cmd := newCommand(deps, inspect)
 	if err := executeDoctorCommand(cmd); err != nil {
 		t.Fatal(err)
 	}
@@ -329,7 +329,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 
 	out.Reset()
 	deps.Env = []string{"OPENAI_API_KEY=secret"}
-	cmd = NewCommand(deps)
+	cmd = newCommand(deps, inspect)
 	if err := executeDoctorCommand(cmd); err == nil || !strings.Contains(err.Error(), "doctor found problems") {
 		t.Fatalf("doctor error = %v", err)
 	}
@@ -341,7 +341,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	render := &bytes.Buffer{}
 	deps.RenderOut = render
 	deps.Env = nil
-	if err := executeDoctorCommand(NewCommand(deps)); err != nil {
+	if err := executeDoctorCommand(newCommand(deps, inspect)); err != nil {
 		t.Fatal(err)
 	}
 	if out.Len() != 0 || !strings.Contains(render.String(), "No client is enabled") ||
@@ -350,7 +350,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 		t.Fatalf("out=%q render=%q", out.String(), render.String())
 	}
 
-	cmd = NewCommand(deps)
+	cmd = newCommand(deps, inspect)
 	cmd.SetArgs([]string{"unexpected"})
 	if err := executeDoctorCommand(cmd); err == nil {
 		t.Fatal("doctor accepted a positional argument")
@@ -371,7 +371,7 @@ func TestCommandJSONExposesTheCanonicalCredentialBackendSelection(t *testing.T) 
 	}
 	deps.Secrets = store
 
-	result := executeJSON(t, deps, out)
+	result := executeJSON(t, newCommand(deps, nil), out)
 	want := secret.BackendSelection{
 		Kind:         "file",
 		Availability: "available",
@@ -402,7 +402,7 @@ func TestCommandJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 	}
 	deps.Secrets = store
 
-	result := executeJSON(t, deps, out)
+	result := executeJSON(t, newCommand(deps, nil), out)
 	if result.CredentialBackend.Availability != "unavailable" || result.CredentialBackend.RecoveryAction != "aigw doctor" {
 		t.Fatalf("credential backend = %#v", result.CredentialBackend)
 	}
@@ -418,7 +418,7 @@ func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	deps.Inspect = func(domain.Config, secret.Store) map[string]domainreadiness.Client {
+	inspect := func(app.Dependencies, domain.Config) map[string]domainreadiness.Client {
 		return map[string]domainreadiness.Client{
 			claude.ID: {
 				State:      domainreadiness.Unavailable,
@@ -430,14 +430,14 @@ func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
 		}
 	}
 
-	result := executeJSON(t, deps, out)
+	result := executeJSON(t, newCommand(deps, inspect), out)
 	state, ok := result.Clients[claude.ID]
 	if result.OK || result.NextAction != "aigw doctor" || !ok || state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" {
 		t.Fatalf("canonical clients = %#v\n%s", result.Clients, out.String())
 	}
 
 	out.Reset()
-	if err := executeDoctorCommand(NewCommand(deps)); err == nil {
+	if err := executeDoctorCommand(newCommand(deps, inspect)); err == nil {
 		t.Fatal("doctor succeeded despite an unavailable client capability")
 	}
 	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Unavailable") || !strings.Contains(out.String(), "aigw doctor") || strings.Contains(out.String(), "No problems found") {
@@ -457,13 +457,13 @@ func TestCommandPropagatesWriterFailures(t *testing.T) {
 	}
 	want := errors.New("write failed")
 	deps.Out = failingWriter{err: want}
-	cmd := NewCommand(deps)
+	cmd := newCommand(deps, nil)
 	cmd.SetArgs([]string{"--json"})
 	if err := executeDoctorCommand(cmd); !errors.Is(err, want) {
 		t.Fatalf("JSON write error = %v", err)
 	}
 	deps.RenderOut = failingWriter{err: want}
-	if err := executeDoctorCommand(NewCommand(deps)); !errors.Is(err, want) {
+	if err := executeDoctorCommand(newCommand(deps, nil)); !errors.Is(err, want) {
 		t.Fatalf("render error = %v", err)
 	}
 }
@@ -473,11 +473,11 @@ func TestCommandPropagatesWriterFailureWhilePresentingProblems(t *testing.T) {
 	deps, _, _ := doctorDependencies(t, cfg)
 	want := errors.New("write failed")
 	deps.RenderOut = failingWriter{err: want}
-	if err := executeDoctorCommand(NewCommand(deps)); !errors.Is(err, want) {
+	if err := executeDoctorCommand(newCommand(deps, nil)); !errors.Is(err, want) {
 		t.Fatalf("problem render error = %v", err)
 	}
 	deps.Out = failingWriter{err: want}
-	cmd := NewCommand(deps)
+	cmd := newCommand(deps, nil)
 	cmd.SetArgs([]string{"--json"})
 	if err := executeDoctorCommand(cmd); !errors.Is(err, want) {
 		t.Fatalf("problem JSON write error = %v", err)
@@ -485,7 +485,7 @@ func TestCommandPropagatesWriterFailureWhilePresentingProblems(t *testing.T) {
 }
 
 func TestCommandConstructorExposesStableName(t *testing.T) {
-	if got := NewCommand(Dependencies{}).Name(); got != "doctor" {
+	if got := NewCommand(invocation.Context{}).Name(); got != "doctor" {
 		t.Fatalf("doctor command = %q", got)
 	}
 }

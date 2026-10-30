@@ -1,11 +1,11 @@
 package doctor
 
 import (
+	"aigw-cli/internal/app"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
-	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 	"bytes"
 	"path/filepath"
@@ -178,10 +178,10 @@ func TestResultClassifiesObservedClientStates(t *testing.T) {
 			if err := secretStore.Set("team", "token"); err != nil {
 				t.Fatal(err)
 			}
-			deps.Inspect = func(domain.Config, secret.Store) map[string]domainreadiness.Client {
+			inspect := func(app.Dependencies, domain.Config) map[string]domainreadiness.Client {
 				return map[string]domainreadiness.Client{claude.ID: {State: test.state}}
 			}
-			result := executeJSON(t, deps, out)
+			result := executeJSON(t, newCommand(deps, inspect), out)
 			if result.OK != test.ok || (!test.ok && result.NextAction != "aigw doctor --json") || (test.ok && result.NextAction != "aigw use --for claude claude") {
 				t.Fatalf("doctor result=%#v", result)
 			}
@@ -226,7 +226,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps.Env = []string{"OPENAI_API_KEY=secret"}
-	checks := executeJSON(t, deps, out).Checks
+	checks := executeJSON(t, newCommand(deps, nil), out).Checks
 	longest := 0
 	for _, check := range checks {
 		longest = max(longest, terminal.DisplayWidth("✓ "+Label(clients.Admission(), check)))
@@ -234,7 +234,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 	for _, width := range []int{0, 72, 100} {
 		out.Reset()
 		deps.Width = width
-		if err := executeDoctorCommand(NewCommand(deps)); err == nil {
+		if err := executeDoctorCommand(newCommand(deps, nil)); err == nil {
 			t.Fatal("doctor accepted a global client token environment variable")
 		}
 		_, section, _ := strings.Cut(out.String(), "\nChecks\n")

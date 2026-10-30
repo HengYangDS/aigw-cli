@@ -33,11 +33,9 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/discovery"
-	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/process"
 
-	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
@@ -316,19 +314,6 @@ func environmentMap(values []string) map[string]string {
 	return out
 }
 
-func (a *App) doctorCommand() *cobra.Command {
-	return doctor.NewCommand(doctor.Dependencies{
-		Config: a.Config, Secrets: a.Secrets, Clients: a.invocationContext().Synchronizer(), Env: a.Env, Out: a.outputWriter(),
-		Inspect: func(cfg domain.Config, store secret.Store) map[string]domainreadiness.Client {
-			operation := a.invocationContext()
-			operation.Secrets = store
-			return app.InspectClients(operation.Dependencies, cfg)
-		},
-		RenderOut: a.outputWriter(),
-		Color:     a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)),
-	})
-}
-
 func (a *App) invocationContext() invocation.Context {
 	return invocation.Context{
 		Version: appVersion(a), Executable: a.Executable, DataDir: a.DataDir, CredentialPath: a.CredentialPath, InstallTarget: a.InstallTarget,
@@ -336,6 +321,7 @@ func (a *App) invocationContext() invocation.Context {
 		ResolveProgram:        a.ResolveProgram,
 		Files:                 a.Files,
 		Host:                  a.Host,
+		Env:                   a.Env,
 		Config:                a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
 		In:        a.In,
 		RenderOut: a.outputWriter(),
@@ -390,7 +376,7 @@ func NewRoot(app *App) *cobra.Command {
 	connect := []*cobra.Command{setup.NewCommand(runtime)}
 	daily := []*cobra.Command{status.NewCommand(runtime), use.NewCommand(runtime), check.NewCommand(runtime), rotate.NewCommand(runtime)}
 	recoveryCommands := []*cobra.Command{
-		app.doctorCommand(), repair.NewCommand(runtime), synccli.NewCommand(runtime),
+		doctor.NewCommand(runtime), repair.NewCommand(runtime), synccli.NewCommand(runtime),
 		rollback.NewCommand(runtime), updatecli.NewCommand(runtime),
 		installcli.NewCommand(runtime), uninstall.NewCommand(runtime),
 	}

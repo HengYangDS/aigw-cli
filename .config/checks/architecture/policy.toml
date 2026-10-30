@@ -255,10 +255,8 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/verify",
   "internal/client",
   "internal/discovery",
-  "internal/domain",
   "internal/platform",
   "internal/process",
-  "internal/readiness",
   "internal/secret",
   "internal/store",
   "internal/terminal",
@@ -326,10 +324,11 @@ allowed_import_edges."internal/cli/models" = [
 ]
 allowed_import_edges."internal/cli/doctor" = [
   "internal/activation",
+  "internal/app",
+  "internal/cli/invocation",
   "internal/domain",
   "internal/readiness",
   "internal/secret",
-  "internal/store",
   "internal/synchronization",
   "internal/terminal",
 ]
