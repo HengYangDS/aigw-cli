@@ -61,8 +61,8 @@ a package in its own layer or in a higher one.
 | Layer | Packages                                                 | Owns                                                                                                                                                 |
 | ----- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1     | `cmd/aigw`                                               | binary entry, which injects the built-in adapters                                                                                                    |
-| 2     | `internal/cli`, `internal/clients`                       | the command tree, flags and exit codes; the list of built-in adapters                                                                                |
-| 3     | `internal/app`, `internal/terminal`                      | use cases; human and JSON rendering and prompts                                                                                                      |
+| 2     | `internal/cli`, `internal/clients`                       | the command tree, flags, exit codes and each command's own behavior; the list of built-in adapters                                                   |
+| 3     | `internal/app`, `internal/terminal`                      | use cases that several commands share; human and JSON rendering and prompts                                                                          |
 | 4     | `internal/client`, `internal/program`                    | the client seam and its adapters; AIGW's own install, update, rollback and artifact format                                                           |
 | 5     | `internal/provider`, `internal/store`, `internal/secret` | Provider-native observation; configuration files, schema versions and transactions; credential storage and native backends                           |
 | 6     | `internal/domain`, `internal/platform`                   | Accounts, Models, Routes, Client Bindings, their validation and the redaction rules, without I/O; operating-system paths and bounded child processes |
@@ -261,15 +261,18 @@ composition root constructs the prompter, and commands reach it through the
 invocation context. A separate prompt package would therefore add an owner
 without removing knowledge from any caller.
 
-A command package keeps the command tree, flags, argument checks, prompts,
-rendering and exit codes. It may read the configuration to check arguments,
-offer choices and render it. Every write, credential read, client inspection,
-network request and child process is an `internal/app` use case, which the
-command calls with the invocation's capabilities.
+A use case belongs to `internal/app` when more than one command, or the root
+on a command's behalf, runs it, such as the client inspection that `status`,
+`check` and `doctor` share. A command's own behavior stays in its package
+beside its flags and rendering, and every command receives the invocation
+context.
 
-Alternative considered: configuration reads through `internal/app` as well.
-Rejected because such a use case would only forward `Load`: it adds an
-interface and hides no behavior.
+Alternative considered: one `internal/app` use case per command, with the
+command packages reduced to flags, rendering and exit codes. Rejected
+because a use case with one caller is a seam without a second adapter: it
+doubles each command's interface and splits its tests, and it moves the
+command's JSON output, which stage 6 turns into a contract, away from the
+command.
 
 ### One owner for the release artifact format
 
