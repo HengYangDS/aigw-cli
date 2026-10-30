@@ -1,6 +1,6 @@
 //go:build windows
 
-package store_test
+package platform_test
 
 import (
 	"os"
@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 )
 
 // These are the Windows equivalents of files_unix_test.go. Native path and
@@ -63,7 +63,7 @@ func TestCaptureFileSnapshotSurfacesReadErrorsWhenExclusivelyLocked(t *testing.T
 	}
 	unlock := lockExclusive(t, path)
 	defer unlock()
-	if _, err := store.CaptureFileSnapshot(path); err == nil || strings.Contains(err.Error(), "not exist") {
+	if _, err := platform.CaptureFileSnapshot(path); err == nil || strings.Contains(err.Error(), "not exist") {
 		t.Fatalf("CaptureFileSnapshot() error = %v, want a read error while the file is exclusively locked", err)
 	}
 }
@@ -75,7 +75,7 @@ func TestWriteFileAtomicIfUnchangedRejectsUnreadableCurrentStateWhenLocked(t *te
 	}
 	unlock := lockExclusive(t, path)
 	defer unlock()
-	_, err := store.WriteFileAtomicIfUnchanged(path, store.FileSnapshot{}, []byte("x"), 0o600)
+	_, err := platform.WriteFileAtomicIfUnchanged(path, platform.FileSnapshot{}, []byte("x"), 0o600)
 	if err == nil || strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("WriteFileAtomicIfUnchanged() error = %v, want the underlying read failure", err)
 	}
@@ -88,7 +88,7 @@ func TestRemoveFileIfUnchangedRejectsUnreadableCurrentStateWhenLocked(t *testing
 	}
 	unlock := lockExclusive(t, path)
 	defer unlock()
-	_, err := store.RemoveFileIfUnchanged(path, store.FileSnapshot{})
+	_, err := platform.RemoveFileIfUnchanged(path, platform.FileSnapshot{})
 	if err == nil || strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("RemoveFileIfUnchanged() error = %v, want the underlying read failure", err)
 	}
@@ -99,24 +99,24 @@ func TestRemoveFileIfUnchangedSurfacesRemoveFailureWhenDeletionIsLocked(t *testi
 	if err := os.WriteFile(path, []byte("prepared"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	expected, err := store.CaptureFileSnapshot(path)
+	expected, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	unlock := lockDeletion(t, path)
 	defer unlock()
-	if _, err := store.RemoveFileIfUnchanged(path, expected); err == nil || !strings.Contains(err.Error(), "remove ") {
+	if _, err := platform.RemoveFileIfUnchanged(path, expected); err == nil || !strings.Contains(err.Error(), "remove ") {
 		t.Fatalf("RemoveFileIfUnchanged() error = %v, want the removal failure", err)
 	}
 }
 
 func TestRemoveFileIfUnchangedAcceptsAlreadyAbsentFileOnWindows(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "absent")
-	absent, err := store.CaptureFileSnapshot(path)
+	absent, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.RemoveFileIfUnchanged(path, absent); err != nil {
+	if _, err := platform.RemoveFileIfUnchanged(path, absent); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -126,11 +126,11 @@ func TestRemoveFileIfUnchangedRemovesPreparedFileOnWindows(t *testing.T) {
 	if err := os.WriteFile(path, []byte("prepared"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	expected, err := store.CaptureFileSnapshot(path)
+	expected, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	removed, err := store.RemoveFileIfUnchanged(path, expected)
+	removed, err := platform.RemoveFileIfUnchanged(path, expected)
 	if err != nil || removed.Exists {
 		t.Fatalf("RemoveFileIfUnchanged() = %#v, %v", removed, err)
 	}
@@ -146,7 +146,7 @@ func TestRestoreFileAtomicIfPostimageRejectsUnreadableCurrentStateWhenLocked(t *
 	}
 	unlock := lockExclusive(t, path)
 	defer unlock()
-	err := store.RestoreFileAtomicIfPostimage(path, store.FileSnapshot{}, store.FileSnapshot{})
+	err := platform.RestoreFileAtomicIfPostimage(path, platform.FileSnapshot{}, platform.FileSnapshot{})
 	if err == nil || strings.Contains(err.Error(), "postimage changed") {
 		t.Fatalf("RestoreFileAtomicIfPostimage() error = %v, want the underlying read failure", err)
 	}
@@ -154,43 +154,43 @@ func TestRestoreFileAtomicIfPostimageRejectsUnreadableCurrentStateWhenLocked(t *
 
 func TestRestoreFileAtomicIfPostimageSurfacesRemoveFailureWhenDeletionIsLocked(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "file")
-	before, err := store.CaptureFileSnapshot(path)
+	before, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	postimage, err := store.WriteFileAtomicIfUnchanged(path, before, []byte("projected"), 0o600)
+	postimage, err := platform.WriteFileAtomicIfUnchanged(path, before, []byte("projected"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
 	unlock := lockDeletion(t, path)
 	defer unlock()
-	if err := store.RestoreFileAtomicIfPostimage(path, before, postimage); err == nil || !strings.Contains(err.Error(), "remove ") {
+	if err := platform.RestoreFileAtomicIfPostimage(path, before, postimage); err == nil || !strings.Contains(err.Error(), "remove ") {
 		t.Fatalf("RestoreFileAtomicIfPostimage() error = %v, want the removal failure", err)
 	}
 }
 
 func TestRestoreFileAtomicIfPostimageAcceptsAlreadyAbsentFileOnWindows(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "absent")
-	absent, err := store.CaptureFileSnapshot(path)
+	absent, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.RestoreFileAtomicIfPostimage(path, absent, absent); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(path, absent, absent); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestRestoreFileAtomicIfPostimageRemovesCreatedFileOnWindows(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "created")
-	absent, err := store.CaptureFileSnapshot(path)
+	absent, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	postimage, err := store.WriteFileAtomicIfUnchanged(path, absent, []byte("projected"), 0o600)
+	postimage, err := platform.WriteFileAtomicIfUnchanged(path, absent, []byte("projected"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.RestoreFileAtomicIfPostimage(path, absent, postimage); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(path, absent, postimage); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -200,7 +200,7 @@ func TestRestoreFileAtomicIfPostimageRemovesCreatedFileOnWindows(t *testing.T) {
 
 func TestWriteFileAtomicSurfacesInvalidWindowsPathDuringStat(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "invalid") + "\x00name"
-	if err := store.WriteFileAtomic(path, []byte("x"), 0o600); err == nil || !strings.Contains(err.Error(), "inspect ") {
+	if err := platform.WriteFileAtomic(path, []byte("x"), 0o600); err == nil || !strings.Contains(err.Error(), "inspect ") {
 		t.Fatalf("WriteFileAtomic() error = %v, want an invalid-path stat failure", err)
 	}
 }
@@ -211,7 +211,7 @@ func TestWriteFileAtomicSurfacesParentPathThatIsAFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(parent, "child", "file")
-	if err := store.WriteFileAtomicExactMode(path, []byte("x"), 0o600); err == nil || !strings.Contains(err.Error(), "create parent directory") {
+	if err := platform.WriteFileAtomicExactMode(path, []byte("x"), 0o600); err == nil || !strings.Contains(err.Error(), "create parent directory") {
 		t.Fatalf("WriteFileAtomicExactMode() error = %v, want a parent-directory creation failure", err)
 	}
 }
@@ -219,7 +219,7 @@ func TestWriteFileAtomicSurfacesParentPathThatIsAFile(t *testing.T) {
 func TestWriteFileAtomicExactModeAppliesReadOnlyModeAfterWriting(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "read-only")
 	t.Cleanup(func() { _ = os.Chmod(path, 0o600) })
-	if err := store.WriteFileAtomicExactMode(path, []byte("content"), 0o400); err != nil {
+	if err := platform.WriteFileAtomicExactMode(path, []byte("content"), 0o400); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)

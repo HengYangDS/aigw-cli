@@ -1,7 +1,6 @@
 // Package store persists AIGW's configuration: the canonical file and its
 // components, verified checkpoints, backups, schema migration, and the TOML form
-// of the team manifest. Its guarded, byte-exact filesystem mutation and
-// compensation primitives also serve the client adapters' native files.
+// of the team manifest.
 package store
 
 import (
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 
 	"github.com/gofrs/flock"
 	"github.com/pelletier/go-toml/v2"
@@ -33,17 +33,17 @@ type Store struct {
 // pre-setup state is not a valid  Config and cannot be restored through
 // Save.
 type Snapshot struct {
-	Config             FileSnapshot
-	Backup             FileSnapshot
-	Forwarding         FileSnapshot
-	forwardingBackup   FileSnapshot
-	retries            FileSnapshot
-	retriesBackup      FileSnapshot
-	Catalog            FileSnapshot
-	catalogBackup      FileSnapshot
-	capabilities       FileSnapshot
-	capabilitiesBackup FileSnapshot
-	Verified           FileSnapshot
+	Config             platform.FileSnapshot
+	Backup             platform.FileSnapshot
+	Forwarding         platform.FileSnapshot
+	forwardingBackup   platform.FileSnapshot
+	retries            platform.FileSnapshot
+	retriesBackup      platform.FileSnapshot
+	Catalog            platform.FileSnapshot
+	catalogBackup      platform.FileSnapshot
+	capabilities       platform.FileSnapshot
+	capabilitiesBackup platform.FileSnapshot
+	Verified           platform.FileSnapshot
 }
 
 func (snapshot Snapshot) equal(other Snapshot) bool {
@@ -87,41 +87,41 @@ func (s Store) Admission() domain.Admission { return s.admission }
 
 // CaptureSnapshot reads the current configuration and owned recovery files without mutation.
 func (s Store) CaptureSnapshot() (Snapshot, error) {
-	configSnapshot, err := CaptureFileSnapshot(s.path)
+	configSnapshot, err := platform.CaptureFileSnapshot(s.path)
 	if err != nil {
 		return Snapshot{}, err
 	}
-	backupSnapshot, err := CaptureFileSnapshot(s.path + ".bak")
+	backupSnapshot, err := platform.CaptureFileSnapshot(s.path + ".bak")
 	if err != nil {
 		return Snapshot{}, err
 	}
-	verifiedSnapshot, err := CaptureFileSnapshot(s.path + ".verified.json")
+	verifiedSnapshot, err := platform.CaptureFileSnapshot(s.path + ".verified.json")
 	if err != nil {
 		return Snapshot{}, err
 	}
-	forwarding, err := CaptureFileSnapshot(s.forwardingPath())
+	forwarding, err := platform.CaptureFileSnapshot(s.forwardingPath())
 	if err != nil {
 		return Snapshot{}, err
 	}
-	forwardingBackup, err := CaptureFileSnapshot(s.forwardingPath() + ".bak")
+	forwardingBackup, err := platform.CaptureFileSnapshot(s.forwardingPath() + ".bak")
 	if err != nil {
 		return Snapshot{}, err
 	}
-	retries, err := CaptureFileSnapshot(s.retriesPath())
-	retriesBackup, retriesErr := CaptureFileSnapshot(s.retriesPath() + ".bak")
+	retries, err := platform.CaptureFileSnapshot(s.retriesPath())
+	retriesBackup, retriesErr := platform.CaptureFileSnapshot(s.retriesPath() + ".bak")
 	if failure := errors.Join(err, retriesErr); failure != nil {
 		return Snapshot{}, failure
 	}
-	catalog, err := CaptureFileSnapshot(s.catalogPath())
+	catalog, err := platform.CaptureFileSnapshot(s.catalogPath())
 	if err != nil {
 		return Snapshot{}, err
 	}
-	catalogBackup, err := CaptureFileSnapshot(s.catalogPath() + ".bak")
+	catalogBackup, err := platform.CaptureFileSnapshot(s.catalogPath() + ".bak")
 	if err != nil {
 		return Snapshot{}, err
 	}
-	capabilities, err := CaptureFileSnapshot(s.capabilitiesPath())
-	capabilitiesBackup, backupErr := CaptureFileSnapshot(s.capabilitiesPath() + ".bak")
+	capabilities, err := platform.CaptureFileSnapshot(s.capabilitiesPath())
+	capabilitiesBackup, backupErr := platform.CaptureFileSnapshot(s.capabilitiesPath() + ".bak")
 	if failure := errors.Join(err, backupErr); failure != nil {
 		return Snapshot{}, failure
 	}
@@ -342,7 +342,7 @@ func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
 	return nil
 }
 
-func (s Store) preserveMigrationRollbackInput(expected FileSnapshot) (bool, error) {
+func (s Store) preserveMigrationRollbackInput(expected platform.FileSnapshot) (bool, error) {
 	if !expected.Exists {
 		return false, nil
 	}
@@ -353,7 +353,7 @@ func (s Store) preserveMigrationRollbackInput(expected FileSnapshot) (bool, erro
 	if _, err := migratePredecessorConfig(expected.Data, version, s.admission); err != nil {
 		return false, fmt.Errorf("validate migration rollback input: %w", err)
 	}
-	current, err := CaptureFileSnapshot(s.path + ".bak")
+	current, err := platform.CaptureFileSnapshot(s.path + ".bak")
 	if err != nil {
 		return false, err
 	}
@@ -368,37 +368,37 @@ func (s Store) preserveMigrationRollbackInput(expected FileSnapshot) (bool, erro
 // state without suppressing other restoration attempts or their errors.
 func (s Store) RestoreSnapshot(before, after Snapshot) error {
 	var failures []error
-	if err := RestoreFileAtomicIfPostimage(s.path, before.Config, after.Config); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.path, before.Config, after.Config); err != nil {
 		failures = append(failures, fmt.Errorf("restore config snapshot: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, after.Backup); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.path+".bak", before.Backup, after.Backup); err != nil {
 		failures = append(failures, fmt.Errorf("restore config backup snapshot: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.path+".verified.json", before.Verified, after.Verified); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.path+".verified.json", before.Verified, after.Verified); err != nil {
 		failures = append(failures, fmt.Errorf("restore verified checkpoint snapshot: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.forwardingPath(), before.Forwarding, after.Forwarding); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.forwardingPath(), before.Forwarding, after.Forwarding); err != nil {
 		failures = append(failures, fmt.Errorf("restore client forwarding snapshot: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.forwardingPath()+".bak", before.forwardingBackup, after.forwardingBackup); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.forwardingPath()+".bak", before.forwardingBackup, after.forwardingBackup); err != nil {
 		failures = append(failures, fmt.Errorf("restore client forwarding backup snapshot: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.catalogPath(), before.Catalog, after.Catalog); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.catalogPath(), before.Catalog, after.Catalog); err != nil {
 		failures = append(failures, fmt.Errorf("restore catalogue presentation snapshot: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.catalogPath()+".bak", before.catalogBackup, after.catalogBackup); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.catalogPath()+".bak", before.catalogBackup, after.catalogBackup); err != nil {
 		failures = append(failures, fmt.Errorf("restore catalogue presentation backup: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.capabilitiesPath(), before.capabilities, after.capabilities); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.capabilitiesPath(), before.capabilities, after.capabilities); err != nil {
 		failures = append(failures, fmt.Errorf("restore route capability snapshot: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.capabilitiesPath()+".bak", before.capabilitiesBackup, after.capabilitiesBackup); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.capabilitiesPath()+".bak", before.capabilitiesBackup, after.capabilitiesBackup); err != nil {
 		failures = append(failures, fmt.Errorf("restore route capability backup: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.retriesPath(), before.retries, after.retries); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.retriesPath(), before.retries, after.retries); err != nil {
 		failures = append(failures, fmt.Errorf("restore client retry policy snapshot: %w", err))
 	}
-	if err := RestoreFileAtomicIfPostimage(s.retriesPath()+".bak", before.retriesBackup, after.retriesBackup); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(s.retriesPath()+".bak", before.retriesBackup, after.retriesBackup); err != nil {
 		failures = append(failures, fmt.Errorf("restore client retry policy backup: %w", err))
 	}
 	return errors.Join(failures...)
@@ -437,7 +437,7 @@ func (s Store) Load() (domain.Config, error) {
 func (s Store) LoadCredentialConfig() (domain.Config, error) {
 	data, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
-		forwarding, forwardingErr := CaptureFileSnapshot(s.forwardingPath())
+		forwarding, forwardingErr := platform.CaptureFileSnapshot(s.forwardingPath())
 		if forwardingErr != nil || forwarding.Exists {
 			return domain.Config{}, newLoadError(LoadPhaseRead, errors.Join(errors.New("client forwarding has no canonical configuration"), forwardingErr))
 		}
@@ -446,7 +446,7 @@ func (s Store) LoadCredentialConfig() (domain.Config, error) {
 	if err != nil {
 		return domain.Config{}, newLoadError(LoadPhaseRead, err)
 	}
-	forwarding, err := CaptureFileSnapshot(s.forwardingPath())
+	forwarding, err := platform.CaptureFileSnapshot(s.forwardingPath())
 	if err != nil {
 		return domain.Config{}, newLoadError(LoadPhaseRead, err)
 	}
@@ -463,8 +463,8 @@ func (s Store) Save(cfg domain.Config) error {
 	return err
 }
 
-var writeConfigurationFileIfUnchanged = WriteFileAtomicExactModeIfUnchanged
-var removeConfigurationFileIfUnchanged = RemoveFileIfUnchanged
+var writeConfigurationFileIfUnchanged = platform.WriteFileAtomicExactModeIfUnchanged
+var removeConfigurationFileIfUnchanged = platform.RemoveFileIfUnchanged
 
 func encodeConfig(cfg domain.Config) ([]byte, error) {
 	cfg.Normalize()
@@ -517,7 +517,7 @@ func (s Store) LoadBackup() (domain.Config, error) {
 	if err != nil {
 		return domain.Config{}, fmt.Errorf("read previous config backup: %w", err)
 	}
-	forwarding, err := CaptureFileSnapshot(s.forwardingPath() + ".bak")
+	forwarding, err := platform.CaptureFileSnapshot(s.forwardingPath() + ".bak")
 	if err != nil {
 		return domain.Config{}, newLoadError(LoadPhaseRead, err)
 	}

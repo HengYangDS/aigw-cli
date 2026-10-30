@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 )
 
 func atomicTestRuntime() domain.Runtime {
@@ -134,10 +134,10 @@ func TestReconcileConfigsRollsBackEveryTargetAndAbsentStateOnWriteFailure(t *tes
 	originalWrite := writeFileAtomicIfUnchanged
 	defer func() { writeFileAtomicIfUnchanged = originalWrite }()
 	writes := 0
-	writeFileAtomicIfUnchanged = func(path string, expected store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
+	writeFileAtomicIfUnchanged = func(path string, expected platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 		writes++
 		if writes == 4 { // second target state write, after the first target was fully committed
-			return store.FileSnapshot{}, errors.New("injected state-write failure")
+			return platform.FileSnapshot{}, errors.New("injected state-write failure")
 		}
 		return originalWrite(path, expected, data, mode)
 	}
@@ -244,9 +244,9 @@ func TestConvergedCodexReconciliationPreservesEveryOwnedFile(t *testing.T) {
 	if _, err := ReconcileConfigs(nil, targets, runtime); err != nil {
 		t.Fatal(err)
 	}
-	before := map[string]store.FileSnapshot{}
+	before := map[string]platform.FileSnapshot{}
 	for _, file := range []string{path, codexStatePath(path), codexCatalogPath(path)} {
-		snapshot, err := store.CaptureFileSnapshot(file)
+		snapshot, err := platform.CaptureFileSnapshot(file)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -260,7 +260,7 @@ func TestConvergedCodexReconciliationPreservesEveryOwnedFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	for file, want := range before {
-		got, err := store.CaptureFileSnapshot(file)
+		got, err := platform.CaptureFileSnapshot(file)
 		if err != nil || !got.Equal(want) {
 			t.Fatalf("converged reconciliation changed %s: %v", file, err)
 		}
@@ -306,9 +306,9 @@ func TestReconcileConfigsRollsBackCatalogWhenConfigWriteFails(t *testing.T) {
 
 	writeOriginal := writeFileAtomicIfUnchanged
 	t.Cleanup(func() { writeFileAtomicIfUnchanged = writeOriginal })
-	writeFileAtomicIfUnchanged = func(target string, expected store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
+	writeFileAtomicIfUnchanged = func(target string, expected platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 		if target == path {
-			return store.FileSnapshot{}, fmt.Errorf("injected config write failure")
+			return platform.FileSnapshot{}, fmt.Errorf("injected config write failure")
 		}
 		return writeOriginal(target, expected, data, mode)
 	}

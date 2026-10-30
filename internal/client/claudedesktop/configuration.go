@@ -15,7 +15,7 @@ import (
 	"slices"
 	"strings"
 
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 )
 
 // Action describes the observable projection transition.
@@ -125,14 +125,14 @@ type ownershipState struct {
 
 type fileChange struct {
 	path   string
-	before store.FileSnapshot
-	after  store.FileSnapshot
+	before platform.FileSnapshot
+	after  platform.FileSnapshot
 }
 
 type appliedChange struct {
 	path string
-	pre  store.FileSnapshot
-	post store.FileSnapshot
+	pre  platform.FileSnapshot
+	post platform.FileSnapshot
 }
 
 type projectedFiles struct {
@@ -223,7 +223,7 @@ func buildPlan(action Action, paths Paths, before snapshots, projected projected
 	if err != nil {
 		return Plan{}, err
 	}
-	after := []store.FileSnapshot{
+	after := []platform.FileSnapshot{
 		snapshot(encoded[0], before.standard),
 		snapshot(encoded[1], before.thirdParty),
 		snapshot(projected.profile, before.profile),
@@ -234,7 +234,7 @@ func buildPlan(action Action, paths Paths, before snapshots, projected projected
 	}
 	legacyProfile, legacyState := legacyPaths(paths)
 	pathList := []string{paths.StandardConfig, paths.ThirdPartyConfig, paths.Profile, paths.Metadata, paths.State, legacyProfile, legacyState}
-	beforeList := []store.FileSnapshot{before.standard, before.thirdParty, before.profile, before.metadata, before.state, before.legacyProfile, before.legacyState}
+	beforeList := []platform.FileSnapshot{before.standard, before.thirdParty, before.profile, before.metadata, before.state, before.legacyProfile, before.legacyState}
 	changes := make([]fileChange, 0, len(pathList))
 	for index, path := range pathList {
 		if beforeList[index].Equal(after[index]) {
@@ -255,7 +255,7 @@ func encodeDocuments(projected projectedFiles, before snapshots) ([3][]byte, err
 	var result [3][]byte
 	sources := [3]document{projected.standard, projected.thirdParty, projected.metadata}
 	existed := [3]bool{projected.original.StandardExists, projected.original.ThirdPartyExists, projected.original.MetadataExists}
-	previous := [3]store.FileSnapshot{before.standard, before.thirdParty, before.metadata}
+	previous := [3]platform.FileSnapshot{before.standard, before.thirdParty, before.metadata}
 	for index := range sources {
 		data, err := encodeOptional(sources[index], existed[index])
 		if err != nil {
@@ -270,15 +270,15 @@ func encodeDocuments(projected projectedFiles, before snapshots) ([3][]byte, err
 func (plan Plan) Apply() (Receipt, error) {
 	receipt := Receipt{}
 	for _, change := range plan.changes {
-		var post store.FileSnapshot
+		var post platform.FileSnapshot
 		var err error
 		if change.after.Exists {
-			post, err = store.WriteFileAtomicIfUnchanged(change.path, change.before, change.after.Data, change.after.Mode)
+			post, err = platform.WriteFileAtomicIfUnchanged(change.path, change.before, change.after.Data, change.after.Mode)
 		} else {
-			post, err = store.RemoveFileIfUnchanged(change.path, change.before)
+			post, err = platform.RemoveFileIfUnchanged(change.path, change.before)
 		}
 		if err != nil {
-			return Receipt{}, store.CompensationFailed(err, receipt.Rollback())
+			return Receipt{}, platform.CompensationFailed(err, receipt.Rollback())
 		}
 		receipt.changes = append(receipt.changes, appliedChange{path: change.path, pre: change.before, post: post})
 	}
@@ -289,26 +289,26 @@ func (plan Plan) Apply() (Receipt, error) {
 func (receipt Receipt) Rollback() error {
 	var result error
 	for _, change := range slices.Backward(receipt.changes) {
-		result = errors.Join(result, store.RestoreFileAtomicIfPostimage(change.path, change.pre, change.post))
+		result = errors.Join(result, platform.RestoreFileAtomicIfPostimage(change.path, change.pre, change.post))
 	}
 	return result
 }
 
 type snapshots struct {
-	standard, thirdParty       store.FileSnapshot
-	profile, state             store.FileSnapshot
-	legacyProfile, legacyState store.FileSnapshot
-	metadata                   store.FileSnapshot
+	standard, thirdParty       platform.FileSnapshot
+	profile, state             platform.FileSnapshot
+	legacyProfile, legacyState platform.FileSnapshot
+	metadata                   platform.FileSnapshot
 }
 
 func capture(paths Paths) (snapshots, error) {
-	values := []*store.FileSnapshot{}
+	values := []*platform.FileSnapshot{}
 	result := snapshots{}
 	values = append(values, &result.standard, &result.thirdParty, &result.profile, &result.metadata, &result.state, &result.legacyProfile, &result.legacyState)
 	legacyProfile, legacyState := legacyPaths(paths)
 	pathList := []string{paths.StandardConfig, paths.ThirdPartyConfig, paths.Profile, paths.Metadata, paths.State, legacyProfile, legacyState}
 	for index, path := range pathList {
-		snapshot, err := store.CaptureFileSnapshot(path)
+		snapshot, err := platform.CaptureFileSnapshot(path)
 		if err != nil {
 			return snapshots{}, err
 		}
@@ -317,7 +317,7 @@ func capture(paths Paths) (snapshots, error) {
 	return result, nil
 }
 
-func decodeObject(path string, snapshot store.FileSnapshot) (document, error) {
+func decodeObject(path string, snapshot platform.FileSnapshot) (document, error) {
 	if !snapshot.Exists {
 		return document{}, nil
 	}
@@ -498,18 +498,18 @@ func encodeOptional(value document, existed bool) ([]byte, error) {
 	return encode(value)
 }
 
-func snapshot(data []byte, before store.FileSnapshot) store.FileSnapshot {
+func snapshot(data []byte, before platform.FileSnapshot) platform.FileSnapshot {
 	if data == nil {
-		return store.FileSnapshot{}
+		return platform.FileSnapshot{}
 	}
 	mode := os.FileMode(0o600)
 	if before.Exists {
 		mode = before.Mode
 	}
-	return store.NewFileSnapshot(data, mode)
+	return platform.NewFileSnapshot(data, mode)
 }
 
-func preserveEquivalentJSON(data []byte, before store.FileSnapshot) []byte {
+func preserveEquivalentJSON(data []byte, before platform.FileSnapshot) []byte {
 	if !before.Exists || data == nil {
 		return data
 	}

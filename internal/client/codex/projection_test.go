@@ -2,7 +2,7 @@ package codex
 
 import (
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,14 +17,14 @@ import (
 func TestCodexProjectionRejectsUnrepresentableModelsBeforeWriting(t *testing.T) {
 	for _, model := range []string{"model\nname", string([]byte{0xff})} {
 		path := writeCodexTestConfig(t, "model_provider = 'native'\nmodel = 'user'\n")
-		before, err := store.CaptureFileSnapshot(path)
+		before, err := platform.CaptureFileSnapshot(path)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if err := SyncConfig(path, catalogTestRuntime(model)); err == nil {
 			t.Fatalf("projection admitted invalid model %q", model)
 		}
-		after, err := store.CaptureFileSnapshot(path)
+		after, err := platform.CaptureFileSnapshot(path)
 		if err != nil || !before.Equal(after) {
 			t.Fatalf("rejected model changed configuration: %v", err)
 		}
@@ -314,8 +314,8 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 }
 
 func TestCodexUserConfigRejectsInvalidState(t *testing.T) {
-	config := store.FileSnapshot{Exists: true, Data: []byte("external = true\n")}
-	state := store.FileSnapshot{Exists: true, Data: []byte("{")}
+	config := platform.FileSnapshot{Exists: true, Data: []byte("external = true\n")}
+	state := platform.FileSnapshot{Exists: true, Data: []byte("{")}
 	if _, _, err := codexUserConfig(config, state); err == nil || !strings.Contains(err.Error(), "parse Codex adapter state") {
 		t.Fatalf("codexUserConfig() error = %v", err)
 	}
@@ -376,8 +376,8 @@ func TestCodexUserConfigRejectsInvalidCapturedSchedulerState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config := store.FileSnapshot{Exists: true, Data: []byte(projection)}
-	sidecar := store.FileSnapshot{Exists: true, Data: stateData}
+	config := platform.FileSnapshot{Exists: true, Data: []byte(projection)}
+	sidecar := platform.FileSnapshot{Exists: true, Data: stateData}
 	if _, _, err := codexUserConfig(config, sidecar); err == nil || !strings.Contains(err.Error(), "invalid Codex scheduler state key") {
 		t.Fatalf("codexUserConfig() error = %v", err)
 	}

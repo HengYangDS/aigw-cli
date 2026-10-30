@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 )
 
 // Optional components hold configuration that published schema-six readers
@@ -48,11 +49,11 @@ func (s Store) backUp(before Snapshot) (Snapshot, error) {
 // captureCurrent reads the canonical file and every optional component, but no
 // recovery file.
 func (s Store) captureCurrent() (Snapshot, error) {
-	config, err := CaptureFileSnapshot(s.path)
-	forwarding, forwardingErr := CaptureFileSnapshot(s.forwardingPath())
-	retries, retriesErr := CaptureFileSnapshot(s.retriesPath())
-	catalog, catalogErr := CaptureFileSnapshot(s.catalogPath())
-	capabilities, capabilitiesErr := CaptureFileSnapshot(s.capabilitiesPath())
+	config, err := platform.CaptureFileSnapshot(s.path)
+	forwarding, forwardingErr := platform.CaptureFileSnapshot(s.forwardingPath())
+	retries, retriesErr := platform.CaptureFileSnapshot(s.retriesPath())
+	catalog, catalogErr := platform.CaptureFileSnapshot(s.catalogPath())
+	capabilities, capabilitiesErr := platform.CaptureFileSnapshot(s.capabilitiesPath())
 	if failure := errors.Join(err, forwardingErr, retriesErr, catalogErr, capabilitiesErr); failure != nil {
 		return Snapshot{}, failure
 	}
@@ -67,8 +68,8 @@ func (snapshot Snapshot) sameCurrent(other Snapshot) bool {
 // withComponents reads the optional components of one generation, the
 // current one or ".bak", and merges them into its canonical configuration.
 func (s Store) withComponents(cfg domain.Config, suffix string) (domain.Config, error) {
-	catalog, err := CaptureFileSnapshot(s.catalogPath() + suffix)
-	capabilities, capabilitiesErr := CaptureFileSnapshot(s.capabilitiesPath() + suffix)
+	catalog, err := platform.CaptureFileSnapshot(s.catalogPath() + suffix)
+	capabilities, capabilitiesErr := platform.CaptureFileSnapshot(s.capabilitiesPath() + suffix)
 	if failure := errors.Join(err, capabilitiesErr); failure != nil {
 		return domain.Config{}, newLoadError(LoadPhaseRead, failure)
 	}
@@ -76,7 +77,7 @@ func (s Store) withComponents(cfg domain.Config, suffix string) (domain.Config, 
 	if err != nil {
 		return domain.Config{}, err
 	}
-	retries, err := CaptureFileSnapshot(s.retriesPath() + suffix)
+	retries, err := platform.CaptureFileSnapshot(s.retriesPath() + suffix)
 	if err != nil {
 		return domain.Config{}, newLoadError(LoadPhaseRead, err)
 	}
@@ -85,7 +86,7 @@ func (s Store) withComponents(cfg domain.Config, suffix string) (domain.Config, 
 
 // decodeComponents merges catalogue presentation and recorded Route
 // capabilities into a decoded canonical configuration.
-func decodeComponents(cfg domain.Config, catalog, capabilities FileSnapshot) (domain.Config, error) {
+func decodeComponents(cfg domain.Config, catalog, capabilities platform.FileSnapshot) (domain.Config, error) {
 	cfg, err := decodeCatalogOrder(cfg, catalog)
 	if err != nil {
 		return domain.Config{}, err
@@ -93,7 +94,7 @@ func decodeComponents(cfg domain.Config, catalog, capabilities FileSnapshot) (do
 	return decodeRouteCapabilities(cfg, capabilities)
 }
 
-func (Store) writeOptional(path string, before FileSnapshot, data []byte) (FileSnapshot, error) {
+func (Store) writeOptional(path string, before platform.FileSnapshot, data []byte) (platform.FileSnapshot, error) {
 	if len(data) == 0 {
 		if !before.Exists {
 			return before, nil
@@ -105,10 +106,10 @@ func (Store) writeOptional(path string, before FileSnapshot, data []byte) (FileS
 
 // componentUnchanged reports whether an optional component already holds data,
 // where empty data means that the component is absent.
-func componentUnchanged(before FileSnapshot, data []byte) bool {
+func componentUnchanged(before platform.FileSnapshot, data []byte) bool {
 	return before.Exists == (len(data) != 0) && bytes.Equal(before.Data, data)
 }
 
-func backupComponentConverged(current, backup FileSnapshot, mode os.FileMode) bool {
+func backupComponentConverged(current, backup platform.FileSnapshot, mode os.FileMode) bool {
 	return backup.Exists == current.Exists && bytes.Equal(backup.Data, current.Data) && (!current.Exists || backup.Mode == mode)
 }

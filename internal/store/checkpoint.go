@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 )
 
 // VerifiedCheckpoint is a secret-free record written only after all requested
@@ -62,7 +63,7 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, cl
 		return errors.New("configuration changed during verification; run `aigw verify --for all` again")
 	}
 	checkpointPath := s.path + ".verified.json"
-	checkpointBefore, err := CaptureFileSnapshot(checkpointPath)
+	checkpointBefore, err := platform.CaptureFileSnapshot(checkpointPath)
 	if err != nil {
 		return err
 	}
@@ -89,7 +90,7 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, cl
 	if err == nil {
 		err = errors.New("configuration changed during checkpoint commit; run `aigw verify --for all` again")
 	}
-	rollbackErr := RestoreFileAtomicIfPostimage(checkpointPath, checkpointBefore, checkpointAfter)
+	rollbackErr := platform.RestoreFileAtomicIfPostimage(checkpointPath, checkpointBefore, checkpointAfter)
 	return errors.Join(err, rollbackErr)
 }
 
@@ -121,8 +122,8 @@ func (s Store) LoadVerifiedCheckpoint() (VerifiedCheckpoint, error) {
 	if err != nil {
 		return VerifiedCheckpoint{}, err
 	}
-	catalog, catalogErr := CaptureFileSnapshot(s.catalogPath())
-	capabilities, capabilitiesErr := CaptureFileSnapshot(s.capabilitiesPath())
+	catalog, catalogErr := platform.CaptureFileSnapshot(s.catalogPath())
+	capabilities, capabilitiesErr := platform.CaptureFileSnapshot(s.capabilitiesPath())
 	if err = errors.Join(catalogErr, capabilitiesErr); err != nil {
 		return VerifiedCheckpoint{}, err
 	}

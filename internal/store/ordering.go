@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -41,7 +42,7 @@ func encodeCatalogOrder(cfg domain.Config) ([]byte, error) {
 	return separateTOMLTableBlocks(data), err
 }
 
-func decodeCatalogOrder(cfg domain.Config, snapshot FileSnapshot) (domain.Config, error) {
+func decodeCatalogOrder(cfg domain.Config, snapshot platform.FileSnapshot) (domain.Config, error) {
 	if !snapshot.Exists {
 		return cfg, nil
 	}

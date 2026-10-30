@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/client/surface"
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -285,7 +285,7 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 		TransactionID:  "transaction",
 	}
 	data := encodeCodexState(state)
-	parsed, err := codexStateForTarget(store.FileSnapshot{Exists: true, Data: data})
+	parsed, err := codexStateForTarget(platform.FileSnapshot{Exists: true, Data: data})
 	if err != nil || parsed.TransactionID != state.TransactionID {
 		t.Fatalf("state = %#v, err=%v", parsed, err)
 	}
@@ -297,10 +297,10 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 	if transactionID := newCodexTransactionID(); len(transactionID) != 32 {
 		t.Fatalf("transaction ID = %q", transactionID)
 	}
-	if absent, err := codexStateForTarget(store.FileSnapshot{}); err != nil || !reflect.DeepEqual(absent, codexState{}) {
+	if absent, err := codexStateForTarget(platform.FileSnapshot{}); err != nil || !reflect.DeepEqual(absent, codexState{}) {
 		t.Fatalf("absent state = %#v, err %v", absent, err)
 	}
-	if _, err := codexStateForTarget(store.FileSnapshot{Exists: true, Data: []byte("{")}); err == nil {
+	if _, err := codexStateForTarget(platform.FileSnapshot{Exists: true, Data: []byte("{")}); err == nil {
 		t.Fatal("invalid state JSON was accepted")
 	}
 	if _, err := normalizeCodexTargets([]TargetRef{{}}); err == nil {
@@ -318,13 +318,13 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 	}}); err == nil {
 		t.Fatal("duplicate target was accepted")
 	}
-	if _, err := codexStateForTarget(store.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection"}`)}); err == nil {
+	if _, err := codexStateForTarget(platform.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection"}`)}); err == nil {
 		t.Fatal("incomplete state attribution was accepted")
 	}
-	if _, err := codexStateForTarget(store.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"other","writer_id":"aigw-cli","transaction_id":"x"}`)}); err == nil {
+	if _, err := codexStateForTarget(platform.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"other","writer_id":"aigw-cli","transaction_id":"x"}`)}); err == nil {
 		t.Fatal("unsupported projection mode was accepted")
 	}
-	if _, err := codexStateForTarget(store.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection","writer_id":"foreign","transaction_id":"x"}`)}); err == nil {
+	if _, err := codexStateForTarget(platform.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection","writer_id":"foreign","transaction_id":"x"}`)}); err == nil {
 		t.Fatal("foreign writer was accepted")
 	}
 }

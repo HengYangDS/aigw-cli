@@ -1,7 +1,7 @@
 package program
 
 import (
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 	"bytes"
 	"errors"
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-var writeFileAtomic = store.WriteFileAtomic
+var writeFileAtomic = platform.WriteFileAtomic
 
 // Install atomically places the current executable at the requested portable target while retaining one rollback copy.
 func Install(source, target string) error {

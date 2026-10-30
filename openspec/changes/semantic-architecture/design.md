@@ -59,14 +59,14 @@ any package in a lower layer, its own descendants, and the seam packages that
 the policy declares for its subtree. It may not import any other package of
 its own layer or a package in a higher layer.
 
-| Layer | Packages                                                 | Owns                                                                                                                                                 |
-| ----- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | `cmd/aigw`                                               | binary entry, which injects the built-in adapters                                                                                                    |
-| 2     | `internal/cli`, `internal/clients`                       | the command tree, flags, exit codes and each command's own behavior; the list of built-in adapters                                                   |
-| 3     | `internal/app`, `internal/terminal`                      | use cases that several commands share; human and JSON rendering and prompts                                                                          |
-| 4     | `internal/client`, `internal/program`                    | the client seam and its adapters; AIGW's own install, update, rollback and artifact format                                                           |
-| 5     | `internal/provider`, `internal/store`, `internal/secret` | Provider-native observation; configuration files, schema versions and transactions; credential storage and native backends                           |
-| 6     | `internal/domain`, `internal/platform`                   | Accounts, Models, Routes, Client Bindings, their validation and the redaction rules, without I/O; operating-system paths and bounded child processes |
+| Layer | Packages                                                 | Owns                                                                                                                                                                        |
+| ----- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | `cmd/aigw`                                               | binary entry, which injects the built-in adapters                                                                                                                           |
+| 2     | `internal/cli`, `internal/clients`                       | the command tree, flags, exit codes and each command's own behavior; the list of built-in adapters                                                                          |
+| 3     | `internal/app`, `internal/terminal`                      | use cases that several commands share; human and JSON rendering and prompts                                                                                                 |
+| 4     | `internal/client`, `internal/program`                    | the client seam and its adapters; AIGW's own install, update, rollback and artifact format                                                                                  |
+| 5     | `internal/provider`, `internal/store`, `internal/secret` | Provider-native observation; configuration files, schema versions and transactions; credential storage and native backends                                                  |
+| 6     | `internal/domain`, `internal/platform`                   | Accounts, Models, Routes, Client Bindings, their validation and the redaction rules, without I/O; operating-system paths, guarded file mutation and bounded child processes |
 
 `internal/client/<name>` may import `internal/client`, the seam. The seam
 never imports an adapter, and adapters never import each other. `domain`

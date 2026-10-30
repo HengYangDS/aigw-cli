@@ -2,7 +2,7 @@ package claude
 
 import (
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 	"bytes"
 	"encoding/json"
 	"os"
@@ -267,9 +267,9 @@ func TestSettingsReceiptRestoresExactObservedFiles(t *testing.T) {
 				}
 			}
 			paths := []string{path, path + settingsStateSuffix}
-			before := make(map[string]store.FileSnapshot)
+			before := make(map[string]platform.FileSnapshot)
 			for _, target := range paths {
-				snapshot, err := store.CaptureFileSnapshot(target)
+				snapshot, err := platform.CaptureFileSnapshot(target)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -283,7 +283,7 @@ func TestSettingsReceiptRestoresExactObservedFiles(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, target := range paths {
-				after, err := store.CaptureFileSnapshot(target)
+				after, err := platform.CaptureFileSnapshot(target)
 				if err != nil || !reflect.DeepEqual(after, before[target]) {
 					t.Fatalf("%s rollback snapshot = %#v, %v; want %#v", target, after, err, before[target])
 				}

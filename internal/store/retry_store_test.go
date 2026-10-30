@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 )
 
 func TestRollbackConfigurationPreservesRawBytesWithoutRetryComponent(t *testing.T) {
@@ -77,9 +78,9 @@ func TestRetryPolicyCommitCompensatesLaterFailure(t *testing.T) {
 	remove := removeConfigurationFileIfUnchanged
 	t.Cleanup(func() { removeConfigurationFileIfUnchanged = remove })
 	failure := errors.New("injected checkpoint invalidation failure")
-	removeConfigurationFileIfUnchanged = func(path string, preimage FileSnapshot) (FileSnapshot, error) {
+	removeConfigurationFileIfUnchanged = func(path string, preimage platform.FileSnapshot) (platform.FileSnapshot, error) {
 		if path == store.Path()+".verified.json" {
-			return FileSnapshot{}, failure
+			return platform.FileSnapshot{}, failure
 		}
 		return remove(path, preimage)
 	}

@@ -2,7 +2,7 @@ package claude
 
 import (
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 	"bytes"
 	"errors"
 	"fmt"
@@ -18,7 +18,7 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 
 	t.Run("settings snapshot", func(t *testing.T) {
 		withSettingsTransaction(t,
-			func(string) (store.FileSnapshot, error) { return store.FileSnapshot{}, os.ErrPermission },
+			func(string) (platform.FileSnapshot, error) { return platform.FileSnapshot{}, os.ErrPermission },
 			writeGuarded, removeGuarded, restoreGuarded,
 		)
 		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err == nil || !strings.Contains(err.Error(), "read Claude settings") {
@@ -29,12 +29,12 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 	t.Run("state snapshot", func(t *testing.T) {
 		calls := 0
 		withSettingsTransaction(t,
-			func(path string) (store.FileSnapshot, error) {
+			func(path string) (platform.FileSnapshot, error) {
 				calls++
 				if calls == 2 {
-					return store.FileSnapshot{}, os.ErrPermission
+					return platform.FileSnapshot{}, os.ErrPermission
 				}
-				return store.CaptureFileSnapshot(path)
+				return platform.CaptureFileSnapshot(path)
 			},
 			writeGuarded, removeGuarded, restoreGuarded,
 		)
@@ -45,8 +45,8 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 
 	t.Run("settings write", func(t *testing.T) {
 		withSettingsTransaction(t, captureSnapshot,
-			func(string, store.FileSnapshot, []byte, os.FileMode) (store.FileSnapshot, error) {
-				return store.FileSnapshot{}, os.ErrPermission
+			func(string, platform.FileSnapshot, []byte, os.FileMode) (platform.FileSnapshot, error) {
+				return platform.FileSnapshot{}, os.ErrPermission
 			},
 			removeGuarded, restoreGuarded,
 		)
@@ -59,17 +59,17 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 		calls := 0
 		rolledBack := false
 		withSettingsTransaction(t, captureSnapshot,
-			func(path string, before store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
+			func(path string, before platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 				calls++
 				if calls == 2 {
-					return store.FileSnapshot{}, os.ErrPermission
+					return platform.FileSnapshot{}, os.ErrPermission
 				}
-				return store.WriteFileAtomicIfUnchanged(path, before, data, mode)
+				return platform.WriteFileAtomicIfUnchanged(path, before, data, mode)
 			},
 			removeGuarded,
-			func(path string, before, after store.FileSnapshot) error {
+			func(path string, before, after platform.FileSnapshot) error {
 				rolledBack = true
-				return store.RestoreFileAtomicIfPostimage(path, before, after)
+				return platform.RestoreFileAtomicIfPostimage(path, before, after)
 			},
 		)
 		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err == nil || !strings.Contains(err.Error(), "write Claude settings state") || !rolledBack {
@@ -80,15 +80,15 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 	t.Run("state write rollback failure", func(t *testing.T) {
 		calls := 0
 		withSettingsTransaction(t, captureSnapshot,
-			func(path string, before store.FileSnapshot, data []byte, mode os.FileMode) (store.FileSnapshot, error) {
+			func(path string, before platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 				calls++
 				if calls == 2 {
-					return store.FileSnapshot{}, os.ErrPermission
+					return platform.FileSnapshot{}, os.ErrPermission
 				}
-				return store.WriteFileAtomicIfUnchanged(path, before, data, mode)
+				return platform.WriteFileAtomicIfUnchanged(path, before, data, mode)
 			},
 			removeGuarded,
-			func(string, store.FileSnapshot, store.FileSnapshot) error {
+			func(string, platform.FileSnapshot, platform.FileSnapshot) error {
 				return errors.New("rollback failed")
 			},
 		)
@@ -123,8 +123,8 @@ func TestSettingsDisableFailuresPreserveManagedProjection(t *testing.T) {
 
 	t.Run("restore write", func(t *testing.T) {
 		withSettingsTransaction(t, captureSnapshot,
-			func(string, store.FileSnapshot, []byte, os.FileMode) (store.FileSnapshot, error) {
-				return store.FileSnapshot{}, os.ErrPermission
+			func(string, platform.FileSnapshot, []byte, os.FileMode) (platform.FileSnapshot, error) {
+				return platform.FileSnapshot{}, os.ErrPermission
 			},
 			removeGuarded, restoreGuarded,
 		)
@@ -135,8 +135,8 @@ func TestSettingsDisableFailuresPreserveManagedProjection(t *testing.T) {
 
 	t.Run("state removal and rollback", func(t *testing.T) {
 		withSettingsTransaction(t, captureSnapshot, writeGuarded,
-			func(string, store.FileSnapshot) (store.FileSnapshot, error) {
-				return store.FileSnapshot{}, os.ErrPermission
+			func(string, platform.FileSnapshot) (platform.FileSnapshot, error) {
+				return platform.FileSnapshot{}, os.ErrPermission
 			},
 			restoreGuarded,
 		)
@@ -147,10 +147,10 @@ func TestSettingsDisableFailuresPreserveManagedProjection(t *testing.T) {
 
 	t.Run("state removal rollback failure", func(t *testing.T) {
 		withSettingsTransaction(t, captureSnapshot, writeGuarded,
-			func(string, store.FileSnapshot) (store.FileSnapshot, error) {
-				return store.FileSnapshot{}, os.ErrPermission
+			func(string, platform.FileSnapshot) (platform.FileSnapshot, error) {
+				return platform.FileSnapshot{}, os.ErrPermission
 			},
-			func(string, store.FileSnapshot, store.FileSnapshot) error {
+			func(string, platform.FileSnapshot, platform.FileSnapshot) error {
 				return errors.New("rollback failed")
 			},
 		)
@@ -170,12 +170,12 @@ func TestSettingsDisableAbsentFileReportsRemovalFailures(t *testing.T) {
 			}
 			calls := 0
 			withSettingsTransaction(t, captureSnapshot, writeGuarded,
-				func(path string, before store.FileSnapshot) (store.FileSnapshot, error) {
+				func(path string, before platform.FileSnapshot) (platform.FileSnapshot, error) {
 					calls++
 					if calls == failAt {
-						return store.FileSnapshot{}, os.ErrPermission
+						return platform.FileSnapshot{}, os.ErrPermission
 					}
-					return store.RemoveFileIfUnchanged(path, before)
+					return platform.RemoveFileIfUnchanged(path, before)
 				},
 				restoreGuarded,
 			)
@@ -188,10 +188,10 @@ func TestSettingsDisableAbsentFileReportsRemovalFailures(t *testing.T) {
 
 func withSettingsTransaction(
 	t *testing.T,
-	capture func(string) (store.FileSnapshot, error),
-	write func(string, store.FileSnapshot, []byte, os.FileMode) (store.FileSnapshot, error),
-	remove func(string, store.FileSnapshot) (store.FileSnapshot, error),
-	restore func(string, store.FileSnapshot, store.FileSnapshot) error,
+	capture func(string) (platform.FileSnapshot, error),
+	write func(string, platform.FileSnapshot, []byte, os.FileMode) (platform.FileSnapshot, error),
+	remove func(string, platform.FileSnapshot) (platform.FileSnapshot, error),
+	restore func(string, platform.FileSnapshot, platform.FileSnapshot) error,
 ) {
 	t.Helper()
 	oldCapture, oldWrite, oldRemove, oldRestore := captureSnapshot, writeGuarded, removeGuarded, restoreGuarded

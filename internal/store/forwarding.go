@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -53,7 +54,7 @@ func encodeForwarding(cfg domain.Config) ([]byte, error) {
 	return separateTOMLTableBlocks(data), nil
 }
 
-func decodeStoreConfig(data []byte, forwarding FileSnapshot, admission domain.Admission) (domain.Config, error) {
+func decodeStoreConfig(data []byte, forwarding platform.FileSnapshot, admission domain.Admission) (domain.Config, error) {
 	cfg, err := decodeTOMLConfig(data, admission)
 	if err != nil || !forwarding.Exists {
 		return cfg, err

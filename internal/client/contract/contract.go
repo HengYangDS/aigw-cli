@@ -18,7 +18,7 @@ import (
 
 	"aigw-cli/internal/client"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 )
 
 // Fixture is one adapter's projection scenario. Every file that the adapter may
@@ -413,13 +413,13 @@ func resolve(path string) string {
 // it: regular files by bytes and mode, symbolic links by target, and every other
 // entry, directories included, by type and permission bits.
 type tree struct {
-	files map[string]store.FileSnapshot
+	files map[string]platform.FileSnapshot
 	links map[string]string
 	nodes map[string]fs.FileMode
 }
 
 func capture(home string) (tree, error) {
-	captured := tree{files: map[string]store.FileSnapshot{}, links: map[string]string{}, nodes: map[string]fs.FileMode{}}
+	captured := tree{files: map[string]platform.FileSnapshot{}, links: map[string]string{}, nodes: map[string]fs.FileMode{}}
 	err := filepath.WalkDir(home, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil || path == home {
 			return err
@@ -435,7 +435,7 @@ func capture(home string) (tree, error) {
 			captured.links[name] = target
 			return err
 		case entry.Type().IsRegular():
-			snapshot, err := store.CaptureFileSnapshot(path)
+			snapshot, err := platform.CaptureFileSnapshot(path)
 			captured.files[name] = snapshot
 			return err
 		}
@@ -478,7 +478,7 @@ func (captured tree) holds(path string) bool {
 // other entry there, or a directory whose mode changed, still counts.
 func changedPaths(before, after tree, exempt map[string]bool) []string {
 	changed := map[string]bool{}
-	collectChanges(changed, before.files, after.files, store.FileSnapshot.Equal)
+	collectChanges(changed, before.files, after.files, platform.FileSnapshot.Equal)
 	collectChanges(changed, before.links, after.links, equalValues[string])
 	collectChanges(changed, before.nodes, after.nodes, equalValues[fs.FileMode])
 	for path := range exempt {

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -90,7 +91,7 @@ func encodeRouteCapabilities(cfg domain.Config) ([]byte, error) {
 
 // decodeRouteCapabilities adds each recorded capability to its Route while the
 // Route still matches the recorded identity; other entries no longer apply.
-func decodeRouteCapabilities(cfg domain.Config, snapshot FileSnapshot) (domain.Config, error) {
+func decodeRouteCapabilities(cfg domain.Config, snapshot platform.FileSnapshot) (domain.Config, error) {
 	if !snapshot.Exists {
 		return cfg, nil
 	}

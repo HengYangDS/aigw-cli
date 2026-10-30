@@ -61,7 +61,8 @@ process.
 ## Semantic packages
 
 - **[Domain](../../internal/domain/):** Account, Route, recommendation, Client Binding, the admitted client specifications, validation, the endpoint requests that prove an Account's Token, and the team manifest semantics, with standard-library imports only
-- **[Store](../../internal/store/):** Schema migration, persistence, checkpoints, the team manifest's TOML encoding, and guarded filesystem mutation and rollback
+- **[Store](../../internal/store/):** Schema migration, persistence, checkpoints and the team manifest's TOML encoding
+- **[Platform](../../internal/platform/):** Portable AIGW-owned paths, guarded filesystem mutation and rollback, and bounded child processes
 - **[Secret](../../internal/secret/):** Account credential backends, typed diagnostic credentials and replacement, and the private credential reader that native clients run
 - **[Token probes](../../internal/secret/probe/):** Proof of an Account's Token against its endpoints: the probing client, sending without redirects, and the verdict on each status
 - **[Diagnostic contract](../../internal/provider/diagnostic/):** Optional provider-account diagnostic results

@@ -1,7 +1,7 @@
 package codex
 
 import (
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 )
 
 // ObserveSelection returns Codex's own root model when it is the only value AIGW
@@ -9,11 +9,11 @@ import (
 // other drift, or a sidecar that cannot attribute the projected model, reports
 // no change, so ordinary synchronization keeps its refusal.
 func ObserveSelection(path string) (string, bool, error) {
-	config, err := store.CaptureFileSnapshot(path)
+	config, err := platform.CaptureFileSnapshot(path)
 	if err != nil || !config.Exists {
 		return "", false, err
 	}
-	stateSnapshot, err := store.CaptureFileSnapshot(codexStatePath(path))
+	stateSnapshot, err := platform.CaptureFileSnapshot(codexStatePath(path))
 	if err != nil || !stateSnapshot.Exists {
 		return "", false, err
 	}
@@ -21,7 +21,7 @@ func ObserveSelection(path string) (string, bool, error) {
 	if err != nil {
 		return "", false, nil
 	}
-	catalog, err := store.CaptureFileSnapshot(codexCatalogPath(canonical))
+	catalog, err := platform.CaptureFileSnapshot(codexCatalogPath(canonical))
 	if err != nil {
 		return "", false, err
 	}
@@ -43,7 +43,7 @@ func ObserveSelection(path string) (string, bool, error) {
 
 // ownedSelectionIntact reports whether the provider selection, provider table,
 // scheduler and catalogue still match the sidecar.
-func ownedSelectionIntact(path, text string, state codexState, catalog store.FileSnapshot) bool {
+func ownedSelectionIntact(path, text string, state codexState, catalog platform.FileSnapshot) bool {
 	provider := codexStateProvider(state)
 	block, err := codexManagedBlockForProviderIn(text, provider)
 	if err != nil || !managedBlockHashMatches(state.ManagedBlockHash, block) {

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 )
 
 func TestVersionedEntrypointPathRejectsInvalidInputsWithoutWrites(t *testing.T) {
@@ -85,11 +85,11 @@ func TestVersionedEntrypointFailureRemovesCreatedDirectoryChain(t *testing.T) {
 				t.Fatal(err)
 			}
 			want := errors.New(tc.failedWrite + " write failed")
-			write := func(path string, expected store.FileSnapshot, content []byte, mode os.FileMode) (store.FileSnapshot, error) {
+			write := func(path string, expected platform.FileSnapshot, content []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 				if tc.failedWrite == "executable" || path == target+".sha256" {
-					return store.FileSnapshot{}, want
+					return platform.FileSnapshot{}, want
 				}
-				return store.WriteFileAtomicExactModeIfUnchanged(path, expected, content, mode)
+				return platform.WriteFileAtomicExactModeIfUnchanged(path, expected, content, mode)
 			}
 			if _, err := ensureEntrypoint(source, target, write); !errors.Is(err, want) {
 				t.Fatalf("entrypoint failure = %v, want %v", err, want)
@@ -151,14 +151,14 @@ func TestVersionedEntrypointFailurePreservesReplacedDirectory(t *testing.T) {
 	}
 	parent := filepath.Dir(target)
 	want := errors.New("executable write failed")
-	write := func(string, store.FileSnapshot, []byte, os.FileMode) (store.FileSnapshot, error) {
+	write := func(string, platform.FileSnapshot, []byte, os.FileMode) (platform.FileSnapshot, error) {
 		if err := os.Rename(parent, parent+"-original"); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.Mkdir(parent, 0o700); err != nil {
 			t.Fatal(err)
 		}
-		return store.FileSnapshot{}, want
+		return platform.FileSnapshot{}, want
 	}
 	if _, err := ensureEntrypoint(source, target, write); !errors.Is(err, want) {
 		t.Fatalf("entrypoint failure = %v, want %v", err, want)

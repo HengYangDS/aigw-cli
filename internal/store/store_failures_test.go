@@ -2,6 +2,7 @@ package store
 
 import (
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 
 	"bytes"
 	"context"
@@ -70,16 +71,16 @@ func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *tes
 			if test.concurrent {
 				beforeFailure = func() { replaceConcurrentConfig(t, store.Path(), newer) }
 			}
-			writeConfigurationFileIfUnchanged = func(path string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
+			writeConfigurationFileIfUnchanged = func(path string, expected platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 				if path != failedPath {
 					return originalWrite(path, expected, data, mode)
 				}
 				beforeFailure()
-				return FileSnapshot{}, failure
+				return platform.FileSnapshot{}, failure
 			}
-			removeConfigurationFileIfUnchanged = func(path string, expected FileSnapshot) (FileSnapshot, error) {
+			removeConfigurationFileIfUnchanged = func(path string, expected platform.FileSnapshot) (platform.FileSnapshot, error) {
 				if path == failedPath {
-					return FileSnapshot{}, failure
+					return platform.FileSnapshot{}, failure
 				}
 				return originalRemove(path, expected)
 			}
@@ -293,10 +294,10 @@ func TestCommitRestoresPreparedSnapshotWhenPostimageCaptureFails(t *testing.T) {
 	originalWrite := writeConfigurationFileIfUnchanged
 	t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
 	writes := 0
-	writeConfigurationFileIfUnchanged = func(target string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
+	writeConfigurationFileIfUnchanged = func(target string, expected platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 		writes++
 		if writes == 2 {
-			return FileSnapshot{}, errors.New("write config failed")
+			return platform.FileSnapshot{}, errors.New("write config failed")
 		}
 		return originalWrite(target, expected, data, mode)
 	}
@@ -326,9 +327,9 @@ func TestCommitLeavesConfigurationUntouchedWhenBackupWriteFails(t *testing.T) {
 	want := errors.New("backup write failed")
 	originalWrite := writeConfigurationFileIfUnchanged
 	t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
-	writeConfigurationFileIfUnchanged = func(target string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
+	writeConfigurationFileIfUnchanged = func(target string, expected platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 		if target == path+".bak" {
-			return FileSnapshot{}, want
+			return platform.FileSnapshot{}, want
 		}
 		return originalWrite(target, expected, data, mode)
 	}
@@ -359,13 +360,13 @@ func TestCommitPreservesNewerBackupWhenConfigurationWriteAndCompensationConflict
 	newerBackup := []byte("newer backup\n")
 	originalWrite := writeConfigurationFileIfUnchanged
 	t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
-	writeConfigurationFileIfUnchanged = func(target string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
+	writeConfigurationFileIfUnchanged = func(target string, expected platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 		if target == path {
-			return FileSnapshot{}, want
+			return platform.FileSnapshot{}, want
 		}
 		postimage, writeErr := originalWrite(target, expected, data, mode)
 		if writeErr != nil {
-			return FileSnapshot{}, writeErr
+			return platform.FileSnapshot{}, writeErr
 		}
 		if err := os.WriteFile(target, newerBackup, 0o600); err != nil {
 			t.Fatal(err)
@@ -403,11 +404,11 @@ func TestCommitReportsConfigurationRestoreFailureAfterCheckpointInvalidationFail
 	foreign := []byte("newer writer")
 	// Mutating the just-written config makes the guarded compensation refuse
 	// to overwrite a newer writer, which is the failure this branch reports.
-	removeConfigurationFileIfUnchanged = func(string, FileSnapshot) (FileSnapshot, error) {
+	removeConfigurationFileIfUnchanged = func(string, platform.FileSnapshot) (platform.FileSnapshot, error) {
 		if err := os.WriteFile(path, foreign, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		return FileSnapshot{}, failure
+		return platform.FileSnapshot{}, failure
 	}
 	_, err = store.Commit(before, convergenceConfig("after"))
 	if !errors.Is(err, failure) || !strings.Contains(err.Error(), "restore config") {
@@ -450,7 +451,7 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 			files := []struct {
 				name string
 				path string
-				want FileSnapshot
+				want platform.FileSnapshot
 			}{
 				{"config", path, before.Config},
 				{"backup", path + ".bak", before.Backup},
@@ -461,7 +462,7 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 				if err := os.WriteFile(file.path, []byte("newer "+file.name), 0o600); err != nil {
 					t.Fatal(err)
 				}
-				file.want, err = CaptureFileSnapshot(file.path)
+				file.want, err = platform.CaptureFileSnapshot(file.path)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -476,7 +477,7 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 				}
 			}
 			for _, file := range files {
-				got, err := CaptureFileSnapshot(file.path)
+				got, err := platform.CaptureFileSnapshot(file.path)
 				if err != nil || !got.Equal(file.want) {
 					t.Errorf("%s after restore: exists=%t digest=%s mode=%o error=%v; want exists=%t digest=%s mode=%o", file.name, got.Exists, got.SHA256, got.Mode, err, file.want.Exists, file.want.SHA256, file.want.Mode)
 				}
@@ -497,11 +498,11 @@ func TestCommitReportsBackupRestoreFailureAfterCheckpointInvalidationFailure(t *
 	}
 	originalRemove := removeConfigurationFileIfUnchanged
 	t.Cleanup(func() { removeConfigurationFileIfUnchanged = originalRemove })
-	removeConfigurationFileIfUnchanged = func(string, FileSnapshot) (FileSnapshot, error) {
+	removeConfigurationFileIfUnchanged = func(string, platform.FileSnapshot) (platform.FileSnapshot, error) {
 		if err := os.WriteFile(path+".bak", []byte("newer backup"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		return FileSnapshot{}, errors.New("checkpoint removal failed")
+		return platform.FileSnapshot{}, errors.New("checkpoint removal failed")
 	}
 	_, err = store.Commit(before, convergenceConfig("after"))
 	if err == nil || !strings.Contains(err.Error(), "restore config backup") {

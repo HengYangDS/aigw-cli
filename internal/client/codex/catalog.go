@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"aigw-cli/internal/client/codex/catalog"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
-	"aigw-cli/internal/store"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rogpeppe/go-internal/robustio"
@@ -54,7 +54,7 @@ type codexCatalogPlan struct {
 
 func codexCatalogPath(configPath string) string { return configPath + ".aigw-model-catalog.json" }
 
-func rebaseCopiedCodexCatalog(source, target string, config, attribution store.FileSnapshot) (store.FileSnapshot, error) {
+func rebaseCopiedCodexCatalog(source, target string, config, attribution platform.FileSnapshot) (platform.FileSnapshot, error) {
 	if !config.Exists {
 		if attribution.Exists {
 			return config, fmt.Errorf("Codex projection state exists without its configuration")
@@ -97,7 +97,7 @@ func rebaseCopiedCodexCatalog(source, target string, config, attribution store.F
 // by its absolute path; resolveCatalogReference holds the platform's rules. A
 // reference that starts with ~ stays as it is: the copy keeps HOME, and whether
 // Codex expands it is unproved.
-func rebaseUserCatalogReference(source string, config store.FileSnapshot) (store.FileSnapshot, error) {
+func rebaseUserCatalogReference(source string, config platform.FileSnapshot) (platform.FileSnapshot, error) {
 	line, err := codexSelectionLine(string(config.Data), "model_catalog_json")
 	if err != nil || line == "" {
 		return config, err
@@ -122,7 +122,7 @@ func rebaseUserCatalogReference(source string, config store.FileSnapshot) (store
 	return config, nil
 }
 
-func validateCodexCatalogPreflight(target codexReconciliationTarget, config, state store.FileSnapshot) error {
+func validateCodexCatalogPreflight(target codexReconciliationTarget, config, state platform.FileSnapshot) error {
 	if !target.desired && !state.Exists {
 		return nil
 	}
@@ -142,7 +142,7 @@ func validateCodexCatalogPreflight(target codexReconciliationTarget, config, sta
 // even for a known base model: otherwise Codex may try to decode the provider's
 // standard /models response as its private metadata format. An unrecognized
 // model still keeps the client's fallback rather than a guessed entry.
-func codexCatalogProjection(target TargetRef, model, canonicalModelID, base string, state codexState, before store.FileSnapshot) codexCatalogPlan {
+func codexCatalogProjection(target TargetRef, model, canonicalModelID, base string, state codexState, before platform.FileSnapshot) codexCatalogPlan {
 	// A user-authored model_catalog_json is the user's own client policy. AIGW
 	// replaces the bundled table wholesale, so adopting that key here would
 	// silently drop models the user added.
@@ -183,11 +183,11 @@ func codexCatalogProjection(target TargetRef, model, canonicalModelID, base stri
 // same reason a file at the managed path that AIGW cannot prove is its own is
 // not written over either: an unrecognized file there is a conflict to report,
 // not a file to adopt.
-func codexCatalogDesiredSnapshot(plan codexCatalogPlan, before store.FileSnapshot, ownedHash string) (store.FileSnapshot, error) {
+func codexCatalogDesiredSnapshot(plan codexCatalogPlan, before platform.FileSnapshot, ownedHash string) (platform.FileSnapshot, error) {
 	owned := before.Exists && ownedHash != "" && hashBytes(before.Data) == ownedHash
 	if plan.data != nil {
 		if before.Exists && !owned {
-			return store.FileSnapshot{}, newConflictError(fmt.Sprintf(
+			return platform.FileSnapshot{}, newConflictError(fmt.Sprintf(
 				"Codex config conflict: %s exists and is not the model catalog AIGW recorded writing; refusing to overwrite or re-permission it",
 				plan.path,
 			), nil)
@@ -195,10 +195,10 @@ func codexCatalogDesiredSnapshot(plan codexCatalogPlan, before store.FileSnapsho
 		// The catalog carries the resolved account's model metadata, so its mode
 		// is part of what AIGW owns rather than a user preference: a mode that
 		// drifted wider converges back instead of being carried forward.
-		return store.NewFileSnapshot(plan.data, ownerOnlyCatalogMode(before)), nil
+		return platform.NewFileSnapshot(plan.data, ownerOnlyCatalogMode(before)), nil
 	}
 	if owned {
-		return store.FileSnapshot{}, nil
+		return platform.FileSnapshot{}, nil
 	}
 	return before, nil
 }
@@ -207,7 +207,7 @@ func codexCatalogDesiredSnapshot(plan codexCatalogPlan, before store.FileSnapsho
 // cannot express owner-only in a file mode — Go reports 0666 for any writable
 // file there — so on that platform the mode already on disk is left alone
 // instead of being fought with on every sync.
-func ownerOnlyCatalogMode(before store.FileSnapshot) os.FileMode {
+func ownerOnlyCatalogMode(before platform.FileSnapshot) os.FileMode {
 	if runtime.GOOS == "windows" && before.Exists {
 		return before.Mode
 	}

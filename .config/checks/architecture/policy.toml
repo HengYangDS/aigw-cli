@@ -146,13 +146,16 @@ allowed_import_edges."internal/clients" = [
   "internal/domain",
 ]
 allowed_import_edges."internal/domain" = []
-allowed_import_edges."internal/store" = ["internal/domain"]
+allowed_import_edges."internal/store" = [
+  "internal/domain",
+  "internal/platform",
+]
 allowed_import_edges."internal/client" = [
   "internal/client/discovery",
   "internal/domain",
+  "internal/platform",
   "internal/platform/process",
   "internal/secret",
-  "internal/store",
 ]
 allowed_import_edges."internal/client/verification" = ["internal/domain"]
 # Upgrade reuses neutral process and durable staging owners.
@@ -160,7 +163,6 @@ allowed_import_edges."internal/program" = [
   "internal/platform",
   "internal/platform/process",
   "internal/program/artifact",
-  "internal/store",
 ]
 allowed_import_edges."internal/program/artifact" = []
 allowed_import_edges."internal/app/renaming" = [
@@ -180,8 +182,8 @@ allowed_import_edges."internal/app/synchronization" = [
 ]
 allowed_import_edges."internal/secret" = [
   "internal/domain",
+  "internal/platform",
   "internal/secret/native",
-  "internal/store",
 ]
 allowed_import_edges."internal/secret/native" = ["internal/platform/process"]
 allowed_import_edges."internal/secret/probe" = ["internal/domain"]
@@ -208,7 +210,6 @@ allowed_import_edges."internal/client/claude" = [
   "internal/platform",
   "internal/platform/process",
   "internal/secret",
-  "internal/store",
 ]
 allowed_import_edges."internal/client/claudedesktop" = [
   "internal/client",
@@ -216,7 +217,6 @@ allowed_import_edges."internal/client/claudedesktop" = [
   "internal/client/surface",
   "internal/domain",
   "internal/platform",
-  "internal/store",
 ]
 allowed_import_edges."internal/client/codex" = [
   "internal/client",
@@ -225,15 +225,15 @@ allowed_import_edges."internal/client/codex" = [
   "internal/client/surface",
   "internal/client/verification",
   "internal/domain",
+  "internal/platform",
   "internal/platform/process",
-  "internal/store",
 ]
 allowed_import_edges."internal/client/codex/catalog" = []
 # The seam's contract suite checks any adapter against the seam alone.
 allowed_import_edges."internal/client/contract" = [
   "internal/client",
   "internal/domain",
-  "internal/store",
+  "internal/platform",
 ]
 allowed_import_edges."internal/client/hermes" = [
   "internal/client",
@@ -241,9 +241,9 @@ allowed_import_edges."internal/client/hermes" = [
   "internal/client/surface",
   "internal/client/verification",
   "internal/domain",
+  "internal/platform",
   "internal/platform/process",
   "internal/secret",
-  "internal/store",
 ]
 allowed_import_edges."internal/client/discovery" = []
 allowed_import_edges."internal/client/surface" = []

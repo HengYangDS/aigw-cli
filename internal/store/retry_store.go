@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -48,7 +49,7 @@ func encodeRetryPolicies(cfg domain.Config) ([]byte, error) {
 	return separateTOMLTableBlocks(data), nil
 }
 
-func decodeRetryPolicies(cfg domain.Config, component FileSnapshot) (domain.Config, error) {
+func decodeRetryPolicies(cfg domain.Config, component platform.FileSnapshot) (domain.Config, error) {
 	if !component.Exists {
 		return cfg, nil
 	}

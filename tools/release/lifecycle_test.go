@@ -25,6 +25,7 @@ import (
 	"aigw-cli/internal/store"
 
 	"aigw-cli/internal/clients"
+	"aigw-cli/internal/platform"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -245,9 +246,9 @@ func (j *journeyFixture) requireRepairPreservesUserSettings(previousTheme, theme
 	paths := []string{j.config, j.config + ".bak", j.config + ".verified.json", j.settings, j.settings + ".aigw-state.json"}
 	codexConfig := filepath.Join(j.root, "home", ".codex", "config.toml")
 	paths = append(paths, codexConfig, codexConfig+".aigw-state.json", codexConfig+".aigw-model-catalog.json")
-	before := make(map[string]store.FileSnapshot, len(paths))
+	before := make(map[string]platform.FileSnapshot, len(paths))
 	for _, path := range paths {
-		content, err := store.CaptureFileSnapshot(path)
+		content, err := platform.CaptureFileSnapshot(path)
 		if err != nil {
 			j.testing.Fatal(err)
 		}
@@ -265,7 +266,7 @@ func (j *journeyFixture) requireRepairPreservesUserSettings(previousTheme, theme
 			j.testing.Fatalf("repeated repair is not terminal: %#v", result)
 		}
 		for _, path := range paths {
-			after, err := store.CaptureFileSnapshot(path)
+			after, err := platform.CaptureFileSnapshot(path)
 			if err != nil {
 				j.testing.Fatal(err)
 			}

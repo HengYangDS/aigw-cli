@@ -2,6 +2,7 @@ package store
 
 import (
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 
 	"bytes"
 	"context"
@@ -61,7 +62,7 @@ func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) 
 	}
 	originalWrite := writeConfigurationFileIfUnchanged
 	t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
-	writeConfigurationFileIfUnchanged = func(path string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
+	writeConfigurationFileIfUnchanged = func(path string, expected platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 		postimage, err := originalWrite(path, expected, data, mode)
 		if err == nil && path == store.Path()+".verified.json" {
 			err = os.WriteFile(store.forwardingPath(), newer, 0o600)
@@ -377,10 +378,10 @@ func TestVerifiedCheckpointCompensatesConfigurationChangeDuringWrite(t *testing.
 			}
 			originalWrite := writeConfigurationFileIfUnchanged
 			t.Cleanup(func() { writeConfigurationFileIfUnchanged = originalWrite })
-			writeConfigurationFileIfUnchanged = func(path string, before FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
+			writeConfigurationFileIfUnchanged = func(path string, before platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 				postimage, err := originalWrite(path, before, data, mode)
 				if err != nil {
-					return FileSnapshot{}, err
+					return platform.FileSnapshot{}, err
 				}
 				if err := os.WriteFile(store.Path(), current, 0o600); err != nil {
 					t.Fatal(err)

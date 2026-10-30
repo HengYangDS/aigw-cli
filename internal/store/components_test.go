@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 )
 
 func TestUnreadableCapabilityComponentStopsOnlyFullReads(t *testing.T) {
@@ -157,15 +158,15 @@ func failCapabilityWrites(t *testing.T, path string) error {
 		writeConfigurationFileIfUnchanged = originalWrite
 		removeConfigurationFileIfUnchanged = originalRemove
 	})
-	writeConfigurationFileIfUnchanged = func(target string, expected FileSnapshot, data []byte, mode os.FileMode) (FileSnapshot, error) {
+	writeConfigurationFileIfUnchanged = func(target string, expected platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 		if target == path {
-			return FileSnapshot{}, failure
+			return platform.FileSnapshot{}, failure
 		}
 		return originalWrite(target, expected, data, mode)
 	}
-	removeConfigurationFileIfUnchanged = func(target string, expected FileSnapshot) (FileSnapshot, error) {
+	removeConfigurationFileIfUnchanged = func(target string, expected platform.FileSnapshot) (platform.FileSnapshot, error) {
 		if target == path {
-			return FileSnapshot{}, failure
+			return platform.FileSnapshot{}, failure
 		}
 		return originalRemove(target, expected)
 	}

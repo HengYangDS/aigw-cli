@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/client/contract"
 	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 )
 
 const rehearsalID = "rehearsal"
@@ -57,12 +57,12 @@ func (rehearsalAdapter) projection(cfg domain.Config) ([]byte, error) {
 }
 
 // change compares the current projection with the one that cfg wants.
-func (adapter rehearsalAdapter) change(cfg domain.Config) (current store.FileSnapshot, desired []byte, changes bool, err error) {
+func (adapter rehearsalAdapter) change(cfg domain.Config) (current platform.FileSnapshot, desired []byte, changes bool, err error) {
 	if desired, err = adapter.projection(cfg); err != nil {
-		return store.FileSnapshot{}, nil, false, err
+		return platform.FileSnapshot{}, nil, false, err
 	}
-	if current, err = store.CaptureFileSnapshot(adapter.target()); err != nil {
-		return store.FileSnapshot{}, nil, false, err
+	if current, err = platform.CaptureFileSnapshot(adapter.target()); err != nil {
+		return platform.FileSnapshot{}, nil, false, err
 	}
 	return current, desired, current.Exists != (desired != nil) || desired != nil && !bytes.Equal(current.Data, desired), nil
 }
@@ -87,11 +87,11 @@ func (adapter rehearsalAdapter) Plan(_ client.Dependencies, before, after domain
 
 type rehearsalReceipt struct {
 	path                string
-	preimage, postimage store.FileSnapshot
+	preimage, postimage platform.FileSnapshot
 }
 
 func (receipt rehearsalReceipt) Rollback() error {
-	return store.RestoreFileAtomicIfPostimage(receipt.path, receipt.preimage, receipt.postimage)
+	return platform.RestoreFileAtomicIfPostimage(receipt.path, receipt.preimage, receipt.postimage)
 }
 
 func (adapter rehearsalAdapter) Apply(_ context.Context, _ client.Dependencies, before, after domain.Config) (client.ProjectionReceipt, error) {
@@ -102,11 +102,11 @@ func (adapter rehearsalAdapter) Apply(_ context.Context, _ client.Dependencies, 
 	if err != nil || !changes {
 		return nil, err
 	}
-	var written store.FileSnapshot
+	var written platform.FileSnapshot
 	if desired == nil {
-		written, err = store.RemoveFileIfUnchanged(adapter.target(), current)
+		written, err = platform.RemoveFileIfUnchanged(adapter.target(), current)
 	} else {
-		written, err = store.WriteFileAtomicIfUnchanged(adapter.target(), current, desired, 0o600)
+		written, err = platform.WriteFileAtomicIfUnchanged(adapter.target(), current, desired, 0o600)
 	}
 	if err != nil {
 		return nil, err

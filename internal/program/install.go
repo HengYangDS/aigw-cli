@@ -4,7 +4,6 @@ import (
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/program/artifact"
-	"aigw-cli/internal/store"
 	"context"
 	"errors"
 	"fmt"
@@ -93,7 +92,7 @@ func (u Updater) verifyProgram(ctx context.Context, binary []byte, version strin
 	if err != nil {
 		return "", err
 	}
-	if err := store.WriteFileAtomicExactMode(path, config, 0o600); err != nil {
+	if err := platform.WriteFileAtomicExactMode(path, config, 0o600); err != nil {
 		return "", fmt.Errorf("stage configuration verification: %w", err)
 	}
 	plan.Args = []string{"config", "export"}
@@ -134,7 +133,7 @@ func (u Updater) replacePortableBinary(ctx context.Context, binary []byte) (acti
 	}
 	defer func() { resultErr = errors.Join(resultErr, robustio.RemoveAll(directory)) }()
 	candidate := filepath.Join(directory, filepath.Base(u.Executable))
-	if err := store.WriteFileAtomicExactMode(candidate, binary, information.Mode().Perm()); err != nil {
+	if err := platform.WriteFileAtomicExactMode(candidate, binary, information.Mode().Perm()); err != nil {
 		return false, fmt.Errorf("stage AIGW replacement: %w", err)
 	}
 	if err := ctx.Err(); err != nil {

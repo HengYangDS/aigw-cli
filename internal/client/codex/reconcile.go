@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -53,9 +53,9 @@ type ReconciliationReceipt struct {
 // starts extensions it cannot authorize.
 func CopyProjection(source, target string) error {
 	suffixes := [...]string{"", ".aigw-state.json", ".aigw-model-catalog.json"}
-	var snapshots [len(suffixes)]store.FileSnapshot
+	var snapshots [len(suffixes)]platform.FileSnapshot
 	for index, suffix := range suffixes {
-		snapshot, err := store.CaptureFileSnapshot(source + suffix)
+		snapshot, err := platform.CaptureFileSnapshot(source + suffix)
 		if err != nil {
 			return err
 		}
@@ -78,7 +78,7 @@ func CopyProjection(source, target string) error {
 		if !snapshot.Exists {
 			continue
 		}
-		if err := store.WriteFileAtomicExactMode(target+suffix, snapshot.Data, snapshot.Mode); err != nil {
+		if err := platform.WriteFileAtomicExactMode(target+suffix, snapshot.Data, snapshot.Mode); err != nil {
 			return err
 		}
 	}
@@ -98,8 +98,8 @@ type codexReconciliationTarget struct {
 
 type codexPreparedArtifact struct {
 	path    string
-	before  store.FileSnapshot
-	desired store.FileSnapshot
+	before  platform.FileSnapshot
+	desired platform.FileSnapshot
 	// exactMode writes the desired mode instead of inheriting the one already on
 	// disk. It is set for artifacts whose permissions AIGW owns.
 	exactMode bool
@@ -127,15 +127,15 @@ func (target codexPreparedTarget) effects() []string {
 
 type committedCodexArtifact struct {
 	prepared codexPreparedArtifact
-	post     store.FileSnapshot
+	post     platform.FileSnapshot
 }
 
 // These seams let the reconciliation tests inject deterministic write failure
 // and concurrent-edit scenarios. Production calls the store's file transactions.
-var writeFileAtomicIfUnchanged = store.WriteFileAtomicIfUnchanged
-var writeFileAtomicExactModeIfUnchanged = store.WriteFileAtomicExactModeIfUnchanged
-var removeFileIfUnchanged = store.RemoveFileIfUnchanged
-var restoreFileAtomicIfPostimage = store.RestoreFileAtomicIfPostimage
+var writeFileAtomicIfUnchanged = platform.WriteFileAtomicIfUnchanged
+var writeFileAtomicExactModeIfUnchanged = platform.WriteFileAtomicExactModeIfUnchanged
+var removeFileIfUnchanged = platform.RemoveFileIfUnchanged
+var restoreFileAtomicIfPostimage = platform.RestoreFileAtomicIfPostimage
 
 // PlanReconciliation prepares a before-to-after target transition
 // without writing configuration, sidecars, credentials, or sessions.
@@ -202,7 +202,7 @@ func reconcileCodexConfigsTransition(before, after []TargetRef, previous, runtim
 			if commitErr != nil {
 				rollbackErr := rollbackCodexArtifacts(committed)
 				if rollbackErr != nil {
-					return ReconciliationReceipt{}, store.CompensationFailed(fmt.Errorf("commit Codex reconciliation %s: %w", artifact.path, commitErr), rollbackErr)
+					return ReconciliationReceipt{}, platform.CompensationFailed(fmt.Errorf("commit Codex reconciliation %s: %w", artifact.path, commitErr), rollbackErr)
 				}
 				return ReconciliationReceipt{}, fmt.Errorf("commit Codex reconciliation %s: %w; all artifacts rolled back", artifact.path, commitErr)
 			}
@@ -248,7 +248,7 @@ func prepareCodexReconciliationTransition(before, after []TargetRef, previous, r
 }
 
 func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous, runtime domain.Runtime, endpoint, transactionID string, replaceRootSelections bool) (codexPreparedTarget, error) {
-	configSnapshot, err := store.CaptureFileSnapshot(target.ref.Path)
+	configSnapshot, err := platform.CaptureFileSnapshot(target.ref.Path)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -256,11 +256,11 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 		return codexPreparedTarget{}, fmt.Errorf("Codex config does not exist")
 	}
 	statePath := targetCodexStatePath(target.ref)
-	stateSnapshot, err := store.CaptureFileSnapshot(statePath)
+	stateSnapshot, err := platform.CaptureFileSnapshot(statePath)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	catalogSnapshot, err := store.CaptureFileSnapshot(codexCatalogPath(target.ref.Path))
+	catalogSnapshot, err := platform.CaptureFileSnapshot(codexCatalogPath(target.ref.Path))
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -353,11 +353,11 @@ func sameCodexTOMLValues(current, projected []byte) bool {
 	return true
 }
 
-func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalogSnapshot store.FileSnapshot) (codexPreparedTarget, error) {
+func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalogSnapshot platform.FileSnapshot) (codexPreparedTarget, error) {
 	return prepareCodexRestoreTransition(target, configSnapshot, stateSnapshot, catalogSnapshot, domain.Runtime{}, false)
 }
 
-func prepareCodexRestoreTransition(target TargetRef, configSnapshot, stateSnapshot, catalogSnapshot store.FileSnapshot, previous domain.Runtime, replaceRootSelections bool) (codexPreparedTarget, error) {
+func prepareCodexRestoreTransition(target TargetRef, configSnapshot, stateSnapshot, catalogSnapshot platform.FileSnapshot, previous domain.Runtime, replaceRootSelections bool) (codexPreparedTarget, error) {
 	if !stateSnapshot.Exists {
 		return codexPreparedTarget{plan: ProjectionPlan{Target: target.Path, Action: ProjectionActionAlreadyRestored, SurfaceID: target.SurfaceID}}, nil
 	}
@@ -377,7 +377,7 @@ func prepareCodexRestoreTransition(target TargetRef, configSnapshot, stateSnapsh
 	if state.ConfigAbsentBeforeProjection && strings.TrimSpace(restored) == "" {
 		for index := range artifacts {
 			if artifacts[index].path == target.Path {
-				artifacts[index].desired = store.FileSnapshot{}
+				artifacts[index].desired = platform.FileSnapshot{}
 				break
 			}
 		}
@@ -393,7 +393,7 @@ func prepareCodexRestoreTransition(target TargetRef, configSnapshot, stateSnapsh
 // readable before that file exists, because the client refuses to start when the
 // reference cannot be resolved; a withdrawal therefore runs the other way and
 // deletes the file only after nothing refers to it.
-func codexArtifactsForDesiredState(target TargetRef, configBefore store.FileSnapshot, configData []byte, stateBefore store.FileSnapshot, stateData []byte, catalogBefore, catalogDesired store.FileSnapshot) []codexPreparedArtifact {
+func codexArtifactsForDesiredState(target TargetRef, configBefore platform.FileSnapshot, configData []byte, stateBefore platform.FileSnapshot, stateData []byte, catalogBefore, catalogDesired platform.FileSnapshot) []codexPreparedArtifact {
 	artifacts := make([]codexPreparedArtifact, 0, 3)
 	catalog := codexPreparedArtifact{path: codexCatalogPath(target.Path), before: catalogBefore, desired: catalogDesired, exactMode: true}
 	catalogChanged := !catalogBefore.Equal(catalogDesired)
@@ -404,17 +404,17 @@ func codexArtifactsForDesiredState(target TargetRef, configBefore store.FileSnap
 	if !configBefore.Exists {
 		configMode = 0o600
 	}
-	configDesired := store.NewFileSnapshot(configData, configMode)
+	configDesired := platform.NewFileSnapshot(configData, configMode)
 	if !configBefore.Equal(configDesired) {
 		artifacts = append(artifacts, codexPreparedArtifact{path: target.Path, before: configBefore, desired: configDesired})
 	}
-	stateDesired := store.FileSnapshot{}
+	stateDesired := platform.FileSnapshot{}
 	if stateData != nil {
 		stateMode := os.FileMode(0o600)
 		if stateBefore.Exists {
 			stateMode = stateBefore.Mode
 		}
-		stateDesired = store.NewFileSnapshot(stateData, stateMode)
+		stateDesired = platform.NewFileSnapshot(stateData, stateMode)
 	}
 	if !stateBefore.Equal(stateDesired) {
 		artifacts = append(artifacts, codexPreparedArtifact{path: targetCodexStatePath(target), before: stateBefore, desired: stateDesired})
@@ -425,7 +425,7 @@ func codexArtifactsForDesiredState(target TargetRef, configBefore store.FileSnap
 	return artifacts
 }
 
-func commitCodexArtifact(artifact codexPreparedArtifact) (store.FileSnapshot, error) {
+func commitCodexArtifact(artifact codexPreparedArtifact) (platform.FileSnapshot, error) {
 	if artifact.desired.Exists {
 		if artifact.exactMode {
 			return writeFileAtomicExactModeIfUnchanged(artifact.path, artifact.before, artifact.desired.Data, artifact.desired.Mode)
@@ -449,7 +449,7 @@ func hashBytes(data []byte) string {
 	return hashText(string(data))
 }
 
-func codexStateForTarget(snapshot store.FileSnapshot) (codexState, error) {
+func codexStateForTarget(snapshot platform.FileSnapshot) (codexState, error) {
 	if !snapshot.Exists {
 		return codexState{}, nil
 	}

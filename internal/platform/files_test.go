@@ -1,4 +1,4 @@
-package store_test
+package platform_test
 
 import (
 	"bytes"
@@ -10,16 +10,16 @@ import (
 	"strings"
 	"testing"
 
-	"aigw-cli/internal/store"
+	"aigw-cli/internal/platform"
 )
 
 func TestCompensationFailedMarksOnlyIncompleteCompensation(t *testing.T) {
 	cause, compensation := errors.New("write failed"), errors.New("restore failed")
-	if err := store.CompensationFailed(cause, nil); !errors.Is(err, cause) || errors.Is(err, store.ErrCompensationIncomplete) {
+	if err := platform.CompensationFailed(cause, nil); !errors.Is(err, cause) || errors.Is(err, platform.ErrCompensationIncomplete) {
 		t.Fatalf("complete compensation changed the cause: %v", err)
 	}
-	err := store.CompensationFailed(cause, compensation)
-	if !errors.Is(err, store.ErrCompensationIncomplete) || !errors.Is(err, cause) || !errors.Is(err, compensation) {
+	err := platform.CompensationFailed(cause, compensation)
+	if !errors.Is(err, platform.ErrCompensationIncomplete) || !errors.Is(err, cause) || !errors.Is(err, compensation) {
 		t.Fatalf("incomplete compensation = %v", err)
 	}
 }
@@ -30,42 +30,42 @@ func TestFileSnapshotOwnsExactContentAndPermissionIdentity(t *testing.T) {
 	if err := os.WriteFile(path, data, 0o640); err != nil {
 		t.Fatal(err)
 	}
-	observed, err := store.CaptureFileSnapshot(path)
+	observed, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	prepared := store.NewFileSnapshot(data, observed.Mode|os.ModeDir)
+	prepared := platform.NewFileSnapshot(data, observed.Mode|os.ModeDir)
 	data[0] = 'x'
 	if !prepared.Equal(observed) || !observed.Equal(prepared) {
 		t.Fatalf("prepared snapshot does not retain its captured content and permissions: %#v", prepared)
 	}
 	variants := []struct {
 		name   string
-		change func(*store.FileSnapshot)
+		change func(*platform.FileSnapshot)
 	}{
-		{"existence", func(value *store.FileSnapshot) { value.Exists = false }},
-		{"data", func(value *store.FileSnapshot) { value.Data[0] = 'x' }},
-		{"digest", func(value *store.FileSnapshot) { value.SHA256 = "changed" }},
-		{"permissions", func(value *store.FileSnapshot) { value.Mode ^= 0o100 }},
+		{"existence", func(value *platform.FileSnapshot) { value.Exists = false }},
+		{"data", func(value *platform.FileSnapshot) { value.Data[0] = 'x' }},
+		{"digest", func(value *platform.FileSnapshot) { value.SHA256 = "changed" }},
+		{"permissions", func(value *platform.FileSnapshot) { value.Mode ^= 0o100 }},
 	}
 	for _, variant := range variants {
 		t.Run(variant.name, func(t *testing.T) {
-			changed := store.NewFileSnapshot(prepared.Data, prepared.Mode)
+			changed := platform.NewFileSnapshot(prepared.Data, prepared.Mode)
 			variant.change(&changed)
 			if prepared.Equal(changed) || changed.Equal(prepared) {
 				t.Fatal("distinct file state compares equal")
 			}
 		})
 	}
-	absent := store.FileSnapshot{}
-	if !absent.Equal(store.FileSnapshot{}) || absent.Equal(store.NewFileSnapshot(nil, 0o600)) {
+	absent := platform.FileSnapshot{}
+	if !absent.Equal(platform.FileSnapshot{}) || absent.Equal(platform.NewFileSnapshot(nil, 0o600)) {
 		t.Fatal("absent file identity must remain distinct from an existing empty file")
 	}
 }
 
 func TestCaptureFileSnapshotOfMissingFileIsEmptyNotError(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "absent")
-	snapshot, err := store.CaptureFileSnapshot(path)
+	snapshot, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestCaptureFileSnapshotOfMissingFileIsEmptyNotError(t *testing.T) {
 func TestCaptureFileSnapshotSurfacesReadErrors(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		dir := t.TempDir()
-		if _, err := store.CaptureFileSnapshot(dir); err == nil || strings.Contains(err.Error(), "not exist") {
+		if _, err := platform.CaptureFileSnapshot(dir); err == nil || strings.Contains(err.Error(), "not exist") {
 			t.Fatalf("CaptureFileSnapshot(directory) error = %v", err)
 		}
 	}
@@ -91,7 +91,7 @@ func TestWriteFileAtomicPreservesMode(t *testing.T) {
 	if err := os.Chmod(path, 0o640); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.WriteFileAtomic(path, []byte("new"), 0o600); err != nil {
+	if err := platform.WriteFileAtomic(path, []byte("new"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)
@@ -109,14 +109,14 @@ func TestWriteFileAtomicIfUnchangedRejectsChangedPreimage(t *testing.T) {
 	if err := os.WriteFile(path, []byte("before"), 0o640); err != nil {
 		t.Fatal(err)
 	}
-	expected, err := store.CaptureFileSnapshot(path)
+	expected, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(path, []byte("newer"), 0o640); err != nil {
 		t.Fatal(err)
 	}
-	_, err = store.WriteFileAtomicIfUnchanged(path, expected, []byte("desired"), 0o600)
+	_, err = platform.WriteFileAtomicIfUnchanged(path, expected, []byte("desired"), 0o600)
 	if err == nil || !strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("WriteFileAtomicIfUnchanged() error = %v, want preimage changed", err)
 	}
@@ -131,11 +131,11 @@ func TestRestoreFileAtomicIfPostimageRestoresExactPreimage(t *testing.T) {
 	if err := os.WriteFile(path, []byte("before\n\n"), 0o640); err != nil {
 		t.Fatal(err)
 	}
-	before, err := store.CaptureFileSnapshot(path)
+	before, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	postimage, err := store.WriteFileAtomicIfUnchanged(path, before, []byte("projected"), 0o600)
+	postimage, err := platform.WriteFileAtomicIfUnchanged(path, before, []byte("projected"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,15 +143,15 @@ func TestRestoreFileAtomicIfPostimageRestoresExactPreimage(t *testing.T) {
 		if err := os.Chmod(path, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		postimage, err = store.CaptureFileSnapshot(path)
+		postimage, err = platform.CaptureFileSnapshot(path)
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := store.RestoreFileAtomicIfPostimage(path, before, postimage); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(path, before, postimage); err != nil {
 		t.Fatal(err)
 	}
-	restored, err := store.CaptureFileSnapshot(path)
+	restored, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,18 +165,18 @@ func TestRestoreFileAtomicIfPostimageDoesNotOverwriteNewerContent(t *testing.T) 
 	if err := os.WriteFile(path, []byte("before"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	before, err := store.CaptureFileSnapshot(path)
+	before, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	postimage, err := store.WriteFileAtomicIfUnchanged(path, before, []byte("projected"), 0o600)
+	postimage, err := platform.WriteFileAtomicIfUnchanged(path, before, []byte("projected"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(path, []byte("newer"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err = store.RestoreFileAtomicIfPostimage(path, before, postimage)
+	err = platform.RestoreFileAtomicIfPostimage(path, before, postimage)
 	if err == nil || !strings.Contains(err.Error(), "postimage changed") {
 		t.Fatalf("RestoreFileAtomicIfPostimage() error = %v, want postimage changed", err)
 	}
@@ -191,11 +191,11 @@ func TestRemoveFileIfUnchangedRemovesOnlyPreparedContent(t *testing.T) {
 	if err := os.WriteFile(path, []byte("prepared"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	expected, err := store.CaptureFileSnapshot(path)
+	expected, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	removed, err := store.RemoveFileIfUnchanged(path, expected)
+	removed, err := platform.RemoveFileIfUnchanged(path, expected)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestRemoveFileIfUnchangedRemovesOnlyPreparedContent(t *testing.T) {
 	if err := os.WriteFile(path, []byte("newer"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err = store.RemoveFileIfUnchanged(path, expected)
+	_, err = platform.RemoveFileIfUnchanged(path, expected)
 	if err == nil || !strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("RemoveFileIfUnchanged() error = %v, want preimage changed", err)
 	}
@@ -220,18 +220,18 @@ func TestRemoveFileIfUnchangedRemovesOnlyPreparedContent(t *testing.T) {
 
 func TestRestoreFileAtomicIfPostimageRemovesFileCreatedByTransaction(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "created-by-transaction")
-	before, err := store.CaptureFileSnapshot(path)
+	before, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if before.Exists {
 		t.Fatalf("preimage of never-created file must be absent: %#v", before)
 	}
-	postimage, err := store.WriteFileAtomicIfUnchanged(path, before, []byte("projected"), 0o600)
+	postimage, err := platform.WriteFileAtomicIfUnchanged(path, before, []byte("projected"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.RestoreFileAtomicIfPostimage(path, before, postimage); err != nil {
+	if err := platform.RestoreFileAtomicIfPostimage(path, before, postimage); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -250,11 +250,11 @@ func TestWriteFileAtomicExactModeIfUnchangedCorrectsADriftedMode(t *testing.T) {
 	if err := os.Chmod(path, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	expected, err := store.CaptureFileSnapshot(path)
+	expected, err := platform.CaptureFileSnapshot(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	post, err := store.WriteFileAtomicExactModeIfUnchanged(path, expected, []byte("desired"), 0o600)
+	post, err := platform.WriteFileAtomicExactModeIfUnchanged(path, expected, []byte("desired"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestWriteFileAtomicExactModeIfUnchangedCorrectsADriftedMode(t *testing.T) {
 	if err := os.WriteFile(path, []byte("newer"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.WriteFileAtomicExactModeIfUnchanged(path, expected, []byte("x"), 0o600); err == nil ||
+	if _, err := platform.WriteFileAtomicExactModeIfUnchanged(path, expected, []byte("x"), 0o600); err == nil ||
 		!strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("WriteFileAtomicExactModeIfUnchanged() error = %v, want preimage changed", err)
 	}
@@ -292,7 +292,7 @@ func TestWriteFileAtomicIfUnchangedRejectsUnreadableCurrentState(t *testing.T) {
 	if err := os.Mkdir(path, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	_, err := store.WriteFileAtomicIfUnchanged(path, store.FileSnapshot{}, []byte("x"), 0o600)
+	_, err := platform.WriteFileAtomicIfUnchanged(path, platform.FileSnapshot{}, []byte("x"), 0o600)
 	if err == nil || strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("WriteFileAtomicIfUnchanged() error = %v, want a snapshot read failure", err)
 	}
@@ -306,7 +306,7 @@ func TestRemoveFileIfUnchangedRejectsUnreadableCurrentState(t *testing.T) {
 	if err := os.Mkdir(path, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	_, err := store.RemoveFileIfUnchanged(path, store.FileSnapshot{})
+	_, err := platform.RemoveFileIfUnchanged(path, platform.FileSnapshot{})
 	if err == nil || strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("RemoveFileIfUnchanged() error = %v, want a snapshot read failure", err)
 	}
@@ -320,7 +320,7 @@ func TestRestoreFileAtomicIfPostimageRejectsUnreadableCurrentState(t *testing.T)
 	if err := os.Mkdir(path, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	err := store.RestoreFileAtomicIfPostimage(path, store.FileSnapshot{}, store.FileSnapshot{})
+	err := platform.RestoreFileAtomicIfPostimage(path, platform.FileSnapshot{}, platform.FileSnapshot{})
 	if err == nil || strings.Contains(err.Error(), "postimage changed") {
 		t.Fatalf("RestoreFileAtomicIfPostimage() error = %v, want a snapshot read failure", err)
 	}
@@ -333,14 +333,14 @@ func TestWriteFileAtomicSurfacesBlockedParentPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(blocked, "child", "file")
-	if err := store.WriteFileAtomicExactMode(path, []byte("x"), 0o600); err == nil {
+	if err := platform.WriteFileAtomicExactMode(path, []byte("x"), 0o600); err == nil {
 		t.Fatal("WriteFileAtomicExactMode succeeded despite a file blocking its parent path")
 	}
 }
 
 func TestWriteFileAtomicSurfacesStatFailureBeyondMissingFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "invalid") + "\x00name"
-	if err := store.WriteFileAtomic(path, []byte("x"), 0o600); err == nil {
+	if err := platform.WriteFileAtomic(path, []byte("x"), 0o600); err == nil {
 		t.Fatal("WriteFileAtomic succeeded despite an invalid path")
 	}
 }
@@ -350,7 +350,7 @@ func TestWriteFileAtomicSurfacesRenameFailureOverExistingDirectory(t *testing.T)
 	if err := os.Mkdir(path, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.WriteFileAtomic(path, []byte("x"), 0o600); err == nil || !strings.Contains(err.Error(), "replace ") {
+	if err := platform.WriteFileAtomic(path, []byte("x"), 0o600); err == nil || !strings.Contains(err.Error(), "replace ") {
 		t.Fatalf("WriteFileAtomic() error = %v, want a rename failure over an existing directory", err)
 	}
 }
