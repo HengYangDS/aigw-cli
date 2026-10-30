@@ -236,9 +236,24 @@ after it. The root keeps only the group assembly. Acceptance scripts run the
 built binary against private homes for each command's help, a representative
 success, a representative refusal and its JSON output. They become the
 reviewed baseline that stage 6 changes on purpose. The scripts use
-`rogpeppe/go-internal/testscript` if its admission shows less owned code than
-the current CLI test harness. Otherwise the existing harness runs the same
-scripts.
+`rogpeppe/go-internal/testscript`. Four representative scripts measured the
+choice: the root help, `status --json` in an empty private home, a manifest
+import followed by its Route list as JSON, and an unknown Route's refusal in
+text and as JSON. The testscript harness needs 29 lines of Go code, as `scc`
+counts them, and each script runs the program's `main` as a subprocess in its
+own private home. The module already requires `go-internal` v1.16.0, its
+latest release, for `robustio`. testscript adds one indirect module,
+`golang.org/x/tools` v0.52.0, also the latest release. Only its `txtar`
+package compiles, into the test binary, and the program's package graph is
+unchanged. OSV reports no advisory for either version.
+
+Alternative considered: a script runner on the current CLI test harness. It
+needs 172 lines of Go code for the same scripts: its own archive parser,
+command loop, comparisons, update mode and re-execution of the test binary.
+It still lacks the standard input, environment expansion and platform
+conditions that other commands' scripts need. Rejected because it owns more
+code for less capability. Both harnesses passed the four scripts on macOS and
+failed when an expected output changed.
 
 ### One owner for the release artifact format
 

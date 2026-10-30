@@ -27,7 +27,7 @@
 
 ## 3. Stage 3 — Command packages and acceptance scripts
 
-- [ ] 3.1 Compare `rogpeppe/go-internal/testscript` with the current CLI test harness by the code each needs for the same scripts, and record the admitted choice and its measurement in `design.md`.
+- [x] 3.1 Compare `rogpeppe/go-internal/testscript` with the current CLI test harness by the code each needs for the same scripts, and record the admitted choice and its measurement in `design.md`.
 - [ ] 3.2 Move each of the 25 top-level commands into one package under `internal/cli` named after it; the root keeps only group assembly.
 - [ ] 3.3 Move use-case logic out of the command packages into `internal/app`, rendering and prompts into `internal/terminal`, and the redaction rules into `internal/domain`.
 - [ ] 3.4 Add acceptance scripts that run the built binary against private homes for every command's help, a representative success, a representative refusal and its JSON output. The repository gate fails for a command without its package or scripts.
