@@ -23,7 +23,7 @@
 - [x] 2.5 Remove every exported identifier in `domain`, `store` and `secret` that has no user outside its package, and make the architecture gate report any new one. The gate's `used_exports_only` rule counts the top-level identifiers of the three packages and the `secret` subpackages, with the constants of a used type as part of its API, and it reports no finding. A type-checked scan finds no exported method or field of their exported types without a user outside its package, counting an encoder that reads a tagged field.
 - [x] 2.6 Run the local quality graph at the stage head.
 - [x] 2.7 Prove the stage head with the full ETHOS proof.
-- [ ] 2.8 Confirm the hosted three-platform graph and the real-client journeys at the stage head.
+- [x] 2.8 Confirm the hosted three-platform graph and the real-client journeys at the stage head.
 
 ## 3. Stage 3 — Command packages and acceptance scripts
 
