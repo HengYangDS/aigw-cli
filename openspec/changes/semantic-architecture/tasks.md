@@ -28,9 +28,9 @@
 ## 3. Stage 3 — Command packages and acceptance scripts
 
 - [x] 3.1 Compare `rogpeppe/go-internal/testscript` with the current CLI test harness by the code each needs for the same scripts, and record the admitted choice and its measurement in `design.md`.
-- [ ] 3.2 Move each of the 25 top-level commands into one package under `internal/cli` named after it; the root keeps only group assembly.
-- [ ] 3.3 Move use-case logic out of the command packages into `internal/app`, rendering and prompts into `internal/terminal`, and the redaction rules into `internal/domain`.
-- [ ] 3.4 Add acceptance scripts that run the built binary against private homes for every command's help, a representative success, a representative refusal and its JSON output. The repository gate fails for a command without its package or scripts.
+- [ ] 3.2 Add acceptance scripts that run the program in its own process against private homes for every command's help, a representative success, a representative refusal and its JSON output, before any command moves, so that they hold today's behavior as the baseline.
+- [ ] 3.3 Move each of the 25 top-level commands into one package under `internal/cli` named after it; the root keeps only group assembly. The repository gate fails for a command without its package or scripts.
+- [ ] 3.4 Move use-case logic out of the command packages into `internal/app`, rendering and prompts into `internal/terminal`, and the redaction rules into `internal/domain`.
 - [ ] 3.5 Run the local quality graph, including the acceptance scripts, at the stage head.
 - [ ] 3.6 Prove the stage head with the full ETHOS proof.
 - [ ] 3.7 Confirm the hosted three-platform graph runs every acceptance script and the real-client journeys pass at the stage head.

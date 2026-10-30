@@ -233,9 +233,10 @@ program and test must remember to install before it builds a configuration.
 
 Stage 3 gives each top-level command one package under `internal/cli` named
 after it. The root keeps only the group assembly. Acceptance scripts run the
-built binary against private homes for each command's help, a representative
-success, a representative refusal and its JSON output. They become the
-reviewed baseline that stage 6 changes on purpose. The scripts use
+program in its own process against private homes for each command's help, a
+representative success, a representative refusal and its JSON output. They
+are written before any command moves, so they hold today's behavior, and they
+become the reviewed baseline that stage 6 changes on purpose. The scripts use
 `rogpeppe/go-internal/testscript`. Four representative scripts measured the
 choice: the root help, `status --json` in an empty private home, a manifest
 import followed by its Route list as JSON, and an unknown Route's refusal in

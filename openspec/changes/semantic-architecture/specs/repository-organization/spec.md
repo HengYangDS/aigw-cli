@@ -54,9 +54,9 @@ name a client.
 ### Requirement: Command packages mirror the command tree
 
 Each top-level command SHALL be implemented by one package named after it.
-Acceptance scripts SHALL run the built binary for every command's help, a
-representative success, a representative refusal and its JSON output on
-macOS, Linux and Windows.
+Acceptance scripts SHALL run the program in its own process for every
+command's help, a representative success, a representative refusal and its
+JSON output on macOS, Linux and Windows.
 
 #### Scenario: A command has no package or script
 

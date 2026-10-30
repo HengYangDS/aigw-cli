@@ -52,9 +52,9 @@ measured against the baseline above.
    adapters. `credential`, `secrets` and `transaction` fold into `secret` and
    `store`.
 3. **CLI aligned with the command tree.** Each top-level command has one
-   package named after it. Acceptance scripts run the built binary for every
-   command's help, exit status and JSON output, and fix today's behavior as
-   the baseline for stage 6.
+   package named after it. Acceptance scripts run the program in its own
+   process for every command's help, exit status and JSON output, and fix
+   today's behavior as the baseline for stage 6.
 4. **Layers and tooling.** The architecture gate replaces the import-edge
    allowlist with an ordered layer table. One package owns the release
    artifact format, for both release tooling and program update. Release
