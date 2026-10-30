@@ -1,4 +1,4 @@
-package readiness
+package status
 
 import (
 	"aigw-cli/internal/cli/invocation"
@@ -8,9 +8,11 @@ import (
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 	"strings"
+
+	"aigw-cli/internal/app"
 )
 
-func renderStatus(runtime invocation.Context, cfg domain.Config, result statusOutput) {
+func renderStatus(runtime invocation.Context, cfg domain.Config, result app.StatusReport) {
 	r := invocation.Renderer(runtime)
 	if len(cfg.Routes) == 0 {
 		r.ProductTitle("Not configured")
@@ -40,7 +42,7 @@ func renderStatus(runtime invocation.Context, cfg domain.Config, result statusOu
 	r.Next(result.NextAction)
 }
 
-func renderClientStatus(r *terminal.Renderer, admission domain.Admission, result statusOutput, clientIDs []string) {
+func renderClientStatus(r *terminal.Renderer, admission domain.Admission, result app.StatusReport, clientIDs []string) {
 	r.Section("Clients")
 	rows := make([]terminal.Field, 0, len(clientIDs))
 	for _, client := range clientIDs {
@@ -71,10 +73,10 @@ func renderClientStatus(r *terminal.Renderer, admission domain.Admission, result
 	r.Rows(rows...)
 }
 
-func renderTransportStatus(r *terminal.Renderer, admission domain.Admission, result statusOutput, clientIDs []string) {
+func renderTransportStatus(r *terminal.Renderer, admission domain.Admission, result app.StatusReport, clientIDs []string) {
 	rows := []terminal.Field{}
 	for _, client := range clientIDs {
-		if result.Clients[client].Transport == endpointTransportExternalLoopback {
+		if result.Clients[client].Transport == app.EndpointTransportExternalLoopback {
 			rows = append(rows, terminal.Field{State: terminal.Info, Label: admission.Label(client), Value: "Loopback endpoint"})
 		}
 	}

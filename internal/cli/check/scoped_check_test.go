@@ -1,4 +1,4 @@
-package readiness
+package check
 
 import (
 	"bytes"
@@ -18,6 +18,10 @@ import (
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
+
+	"aigw-cli/internal/app"
+
+	"aigw-cli/internal/cli/status"
 )
 
 func configuredCodexScopedCheck(t *testing.T) (invocation.Context, *bytes.Buffer) {
@@ -72,7 +76,7 @@ func TestCheckForLimitsCredentialsAndInferenceToOneEnabledClient(t *testing.T) {
 		}
 		return successfulReadinessResponse(request)
 	})
-	command := NewCheckCommand(runtime)
+	command := NewCommand(runtime)
 	command.SetArgs([]string{"--for", "codex", "--json"})
 	if err := executeCommand(command); err != nil {
 		t.Fatal(err)
@@ -90,7 +94,7 @@ func TestCheckForLimitsCredentialsAndInferenceToOneEnabledClient(t *testing.T) {
 	}
 
 	output.Reset()
-	command = NewCheckCommand(runtime)
+	command = NewCommand(runtime)
 	command.SetArgs([]string{"--for", "codex"})
 	if err := executeCommand(command); err != nil {
 		t.Fatal(err)
@@ -108,18 +112,18 @@ func TestCheckForRejectsUnknownOrDisabledClientBeforeObservingCredentials(t *tes
 		t.Fatal("rejected scope must not contact an endpoint")
 		return nil, nil
 	})
-	unknown := NewCheckCommand(runtime)
+	unknown := NewCommand(runtime)
 	unknown.SetArgs([]string{"--for", "unknown", "--json"})
 	if err := executeCommand(unknown); err == nil || !strings.Contains(err.Error(), "--for") {
 		t.Fatalf("unknown client error = %v", err)
 	}
-	blank := NewCheckCommand(runtime)
+	blank := NewCommand(runtime)
 	blank.SetArgs([]string{"--for", " "})
 	if err := executeCommand(blank); err == nil || !strings.Contains(err.Error(), "--for requires a non-empty client") {
 		t.Fatalf("blank client error = %v", err)
 	}
 	output.Reset()
-	disabled := NewCheckCommand(runtime)
+	disabled := NewCommand(runtime)
 	disabled.SetArgs([]string{"--for", "claude", "--json"})
 	if err := executeCommand(disabled); err == nil {
 		t.Fatal("disabled client was checked")
@@ -154,7 +158,7 @@ func TestCheckEndpointReadinessIsIndependentOfDiagnosticCredentials(t *testing.T
 		t.Run(mode, func(t *testing.T) {
 			store.reads = 0
 			buffer.Reset()
-			command := NewCheckCommand(runtime)
+			command := NewCommand(runtime)
 			if mode == "json" {
 				command.SetArgs([]string{"--json"})
 			} else {
@@ -190,7 +194,7 @@ func TestMixedInvalidAndDeferredClientsShareOneRecoveryAction(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	command := NewCheckCommand(runtime)
+	command := NewCommand(runtime)
 	command.SetArgs([]string{"--json"})
 	if err := executeCommand(command); err == nil {
 		t.Fatal("invalid Codex projection was accepted")
@@ -207,7 +211,7 @@ func TestMixedInvalidAndDeferredClientsShareOneRecoveryAction(t *testing.T) {
 		humanAction = action
 		return cause
 	}
-	command = NewCheckCommand(runtime)
+	command = NewCommand(runtime)
 	if err := executeCommand(command); err == nil {
 		t.Fatal("human check accepted invalid Codex projection")
 	}
@@ -247,7 +251,7 @@ func TestCheckReportsThePerformedInferenceOrEndpointScope(t *testing.T) {
 				}
 				return successfulReadinessResponse(request)
 			})
-			command := NewCheckCommand(runtime)
+			command := NewCommand(runtime)
 			command.SetArgs(test.args)
 			command.SetContext(t.Context())
 			if err := executeCommand(command); err != nil {
@@ -306,7 +310,7 @@ func TestCheckPreservesClaudeNativeOverrideAndUsesEndpointScope(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":[]}`)), Request: request}, nil
 	})
 
-	command := NewCheckCommand(runtime)
+	command := NewCommand(runtime)
 	command.SetArgs([]string{"--json"})
 	command.SetContext(t.Context())
 	if err := executeCommand(command); err != nil {
@@ -333,10 +337,10 @@ func TestCheckPreservesClaudeNativeOverrideAndUsesEndpointScope(t *testing.T) {
 func assertClaudeNativeOverrideOutput(t *testing.T, runtime invocation.Context, output *bytes.Buffer) {
 	t.Helper()
 	output.Reset()
-	if err := RunStatus(runtime, true); err != nil {
+	if err := status.RunStatus(runtime, true); err != nil {
 		t.Fatal(err)
 	}
-	var status statusOutput
+	var status app.StatusReport
 	if err := json.Unmarshal(output.Bytes(), &status); err != nil {
 		t.Fatal(err)
 	}
@@ -347,7 +351,7 @@ func assertClaudeNativeOverrideOutput(t *testing.T, runtime invocation.Context, 
 	}
 
 	output.Reset()
-	human := NewCheckCommand(runtime)
+	human := NewCommand(runtime)
 	human.SetContext(t.Context())
 	if err := executeCommand(human); err != nil {
 		t.Fatal(err)
@@ -373,7 +377,7 @@ func TestHumanCheckNamesTheScopeActuallyPerformed(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, output := configuredCodexScopedCheck(t)
 			runtime.HTTP = roundTripFunc(successfulReadinessResponse)
-			command := NewCheckCommand(runtime)
+			command := NewCommand(runtime)
 			command.SetArgs(test.args)
 			command.SetContext(t.Context())
 			if err := executeCommand(command); err != nil {

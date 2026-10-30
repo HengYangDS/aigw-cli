@@ -1,27 +1,22 @@
-package readiness
+package app
 
 import (
-	"context"
-	"net/url"
-	"strings"
-
 	clientactivation "aigw-cli/internal/activation"
-	"aigw-cli/internal/app"
-	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/diagnostics"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
-	"aigw-cli/internal/terminal"
-
-	"github.com/spf13/cobra"
+	"context"
+	"net/url"
+	"strings"
 )
 
-type clientStatus struct {
+// ClientStatus is one client's readiness as status and check report it.
+type ClientStatus struct {
 	domainreadiness.Client
 	Authentication     domain.Authentication `json:"authentication"`
 	EndpointConfigured bool                  `json:"endpoint_configured"`
-	Transport          endpointTransportKind `json:"transport,omitempty"`
+	Transport          EndpointTransportKind `json:"transport,omitempty"`
 	ProjectionReady    bool                  `json:"projection_ready"`
 	QualifiedModes     []string              `json:"qualified_modes,omitempty"`
 	QualifiedPlatforms []string              `json:"qualified_platforms,omitempty"`
@@ -32,51 +27,32 @@ type clientStatus struct {
 	Retryable          bool                  `json:"retryable,omitempty"`
 }
 
-type endpointTransportKind string
+// EndpointTransportKind names how a client reaches its endpoint.
+type EndpointTransportKind string
 
-const endpointTransportExternalLoopback endpointTransportKind = "external_loopback"
+// EndpointTransportExternalLoopback marks an endpoint on the loopback
+// interface, whose runtime AIGW does not manage.
+const EndpointTransportExternalLoopback EndpointTransportKind = "external_loopback"
 
-type statusOutput struct {
+// StatusReport is the local readiness of every admitted client.
+type StatusReport struct {
 	CredentialBackend secret.BackendSelection `json:"credential_backend"`
-	Clients           map[string]clientStatus `json:"clients"`
+	Clients           map[string]ClientStatus `json:"clients"`
 	Routes            int                     `json:"routes"`
 	EnabledClients    int                     `json:"enabled_clients"`
 	State             domainreadiness.State   `json:"state,omitempty"`
 	NextAction        string                  `json:"next_action,omitempty"`
 }
 
-// NewStatusCommand constructs the read-only configuration and client readiness command.
-func NewStatusCommand(runtime invocation.Context) *cobra.Command {
-	var jsonMode bool
-	cmd := &cobra.Command{Use: "status", Short: "Show each client's selected route and local readiness", Args: cobra.NoArgs}
-	cmd.RunE = func(_ *cobra.Command, _ []string) error { return RunStatus(runtime, jsonMode) }
-	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
-	return cmd
-}
-
-// RunStatus observes client bindings and projections without reading secret values or mutating state.
-func RunStatus(runtime invocation.Context, jsonMode bool) error {
-	cfg, err := runtime.Config.Load()
-	if err != nil {
-		return err
-	}
-	result := collectStatus(runtime.Dependencies, cfg)
-	if jsonMode {
-		return terminal.WriteJSON(runtime.Out, result)
-	}
-	renderStatus(runtime, cfg, result)
-	return nil
-}
-
-// inspectStatusClients observes every admitted client without authenticating
+// InspectStatusClients observes every admitted client without authenticating
 // an endpoint or reading Token values.
-func inspectStatusClients(runtime app.Dependencies, cfg domain.Config, activation *clientactivation.Activation, selected string) map[string]clientStatus {
+func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *clientactivation.Activation, selected string) map[string]ClientStatus {
 	if activation == nil {
 		assessed := clientactivation.AssessActivation(cfg, runtime.Secrets)
 		activation = &assessed
 	}
 	clientIDs := runtime.Synchronizer().ClientIDs()
-	clients := make(map[string]clientStatus, len(clientIDs))
+	clients := make(map[string]ClientStatus, len(clientIDs))
 	for _, clientID := range clientIDs {
 		if selected != "" && clientID != selected {
 			continue
@@ -113,11 +89,11 @@ func inspectStatusClients(runtime app.Dependencies, cfg domain.Config, activatio
 			state.Detail = runtime.Clients.Admission().ProductName(clientID) + " uses a native model preference; its AIGW endpoint and credential helper remain configured"
 			state.NextAction = "aigw verify --for " + clientID
 		}
-		client := clientStatus{
+		client := ClientStatus{
 			Client:             state,
 			Authentication:     clientRuntime.Authentication,
 			EndpointConfigured: strings.TrimSpace(clientRuntime.Endpoint) != "",
-			Transport:          endpointTransport(clientRuntime.Endpoint),
+			Transport:          EndpointTransport(clientRuntime.Endpoint),
 			ProjectionReady:    adapterStatus.Ready,
 			QualifiedModes:     spec.QualifiedModes,
 			QualifiedPlatforms: spec.QualifiedPlatforms,
@@ -163,7 +139,7 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 	}
 }
 
-func unresolvedClientStatus(cfg *domain.Config, clientID string, resolveErr error) clientStatus {
+func unresolvedClientStatus(cfg *domain.Config, clientID string, resolveErr error) ClientStatus {
 	facts := domainreadiness.ClientFacts{}
 	if route := cfg.SelectedRoute(clientID); route != "" {
 		facts.Route = route
@@ -177,13 +153,13 @@ func unresolvedClientStatus(cfg *domain.Config, clientID string, resolveErr erro
 	if facts.Route == "" && facts.SuggestedRoute == "" {
 		state.NextAction = ""
 	}
-	return clientStatus{Client: state}
+	return ClientStatus{Client: state}
 }
 
 // InspectClients returns the canonical, secret-free local state of every
 // admitted client without authenticating an endpoint or reading Token values.
-func InspectClients(runtime app.Dependencies, cfg domain.Config) map[string]domainreadiness.Client {
-	observed := inspectStatusClients(runtime, cfg, nil, "")
+func InspectClients(runtime Dependencies, cfg domain.Config) map[string]domainreadiness.Client {
+	observed := InspectStatusClients(runtime, cfg, nil, "")
 	clients := make(map[string]domainreadiness.Client, len(observed))
 	for client, status := range observed {
 		clients[client] = status.Client
@@ -191,7 +167,7 @@ func InspectClients(runtime app.Dependencies, cfg domain.Config) map[string]doma
 	return clients
 }
 
-func orderedClientStates(runtime app.Dependencies, clients map[string]clientStatus) []domainreadiness.Client {
+func orderedClientStates(runtime Dependencies, clients map[string]ClientStatus) []domainreadiness.Client {
 	ordered := make([]domainreadiness.Client, 0, len(clients))
 	for _, clientID := range runtime.Synchronizer().ClientIDs() {
 		ordered = append(ordered, clients[clientID].Client)
@@ -199,14 +175,16 @@ func orderedClientStates(runtime app.Dependencies, clients map[string]clientStat
 	return ordered
 }
 
-func collectStatus(runtime app.Dependencies, cfg domain.Config) statusOutput {
+// CollectStatus observes the credential backend and every admitted client
+// without reading Token values or changing state.
+func CollectStatus(runtime Dependencies, cfg domain.Config) StatusReport {
 	backend, backendErr := secret.Inspect(runtime.Secrets)
 	if backendErr != nil {
 		backend.RecoveryAction = domainreadiness.CredentialBackendRecovery
 	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
-	clients := inspectStatusClients(runtime, cfg, &activation, "")
-	return statusOutput{
+	clients := InspectStatusClients(runtime, cfg, &activation, "")
+	return StatusReport{
 		CredentialBackend: backend,
 		Clients:           clients,
 		Routes:            len(cfg.Routes),
@@ -216,10 +194,11 @@ func collectStatus(runtime app.Dependencies, cfg domain.Config) statusOutput {
 	}
 }
 
-func endpointTransport(endpoint string) endpointTransportKind {
+// EndpointTransport classifies how a client reaches endpoint.
+func EndpointTransport(endpoint string) EndpointTransportKind {
 	parsed, err := url.Parse(endpoint)
 	if err == nil && domain.IsLoopbackHost(parsed.Hostname()) {
-		return endpointTransportExternalLoopback
+		return EndpointTransportExternalLoopback
 	}
 	return ""
 }

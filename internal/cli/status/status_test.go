@@ -1,4 +1,4 @@
-package readiness
+package status
 
 import (
 	"aigw-cli/internal/cli/invocation"
@@ -22,6 +22,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/app"
 )
 
 func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
@@ -103,7 +105,7 @@ func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
 	if err := RunStatus(runtime, true); err != nil {
 		t.Fatal(err)
 	}
-	var result statusOutput
+	var result app.StatusReport
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
@@ -240,7 +242,7 @@ func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *test
 	if err := RunStatus(runtime, true); err != nil {
 		t.Fatal(err)
 	}
-	var status statusOutput
+	var status app.StatusReport
 	if err := json.Unmarshal(buffer.Bytes(), &status); err != nil {
 		t.Fatal(err)
 	}
@@ -363,13 +365,13 @@ func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 	runtime := invocation.Context{Clients: clients.Registry(), Out: out, RenderOut: out, Width: 120}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Routes["available"] = domain.Route{Label: "Available"}
-	clients := map[string]clientStatus{}
+	clients := map[string]app.ClientStatus{}
 	for _, client := range []string{claude.ID, codex.ID} {
 		state := domainreadiness.Client{State: domainreadiness.Invalid}
-		clients[client] = clientStatus{Client: state}
+		clients[client] = app.ClientStatus{Client: state}
 	}
 
-	renderStatus(runtime, cfg, statusOutput{Clients: clients, NextAction: "aigw repair"})
+	renderStatus(runtime, cfg, app.StatusReport{Clients: clients, NextAction: "aigw repair"})
 	got := out.String()
 	if !strings.Contains(got, "aigw repair") || !strings.Contains(got, "No selected account") {
 		t.Fatalf("status fallback = %q", got)
@@ -386,8 +388,8 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 	} {
 		out := &bytes.Buffer{}
 		runtime := invocation.Context{Clients: clients.Registry(), Out: out, Width: 120}
-		renderClientStatus(invocation.Renderer(runtime), runtime.Clients.Admission(), statusOutput{
-			Clients: map[string]clientStatus{claude.ID: {
+		renderClientStatus(invocation.Renderer(runtime), runtime.Clients.Admission(), app.StatusReport{
+			Clients: map[string]app.ClientStatus{claude.ID: {
 				Client: domainreadiness.Client{State: state, Route: "route"},
 			}},
 		}, []string{claude.ID})
@@ -400,7 +402,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 func TestStatusReportsSelectedUnknownRoute(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	cfg.SetSelectedRoute(claude.ID, "missing", "")
-	state := inspectStatusClients(runtime.Dependencies, cfg, nil, "")[claude.ID]
+	state := app.InspectStatusClients(runtime.Dependencies, cfg, nil, "")[claude.ID]
 	if state.State != domainreadiness.Invalid || state.Route != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
 		t.Fatalf("Claude status = %#v", state)
 	}
@@ -414,7 +416,7 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 		return clientdomain.Status{Ready: true}
 	}
 
-	collectStatus(runtime.Dependencies, cfg)
+	app.CollectStatus(runtime.Dependencies, cfg)
 	if store.existsCalls != 1 || store.getCalls != 0 {
 		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
 	}
@@ -473,7 +475,7 @@ func TestStatusClassifiesCredentialObservationFailureWithoutReadingValues(t *tes
 	want := errors.New("credential metadata unavailable")
 	store := &observingSecretStore{existsErr: want}
 	runtime.Secrets = store
-	result := collectStatus(runtime.Dependencies, cfg)
+	result := app.CollectStatus(runtime.Dependencies, cfg)
 	for _, client := range []string{claude.ID, codex.ID} {
 		state := result.Clients[client]
 		if state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" || !strings.Contains(strings.ToLower(state.Detail), "credential metadata") {

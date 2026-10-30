@@ -231,6 +231,7 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/add",
   "internal/cli/balance",
   "internal/cli/catalog",
+  "internal/cli/check",
   "internal/cli/client",
   "internal/cli/config",
   "internal/cli/credential",
@@ -239,14 +240,15 @@ allowed_import_edges."internal/cli" = [
   "internal/cli/installation",
   "internal/cli/invocation",
   "internal/cli/models",
-  "internal/cli/readiness",
   "internal/cli/renaming",
   "internal/cli/repair",
   "internal/cli/rollback",
   "internal/cli/rotate",
   "internal/cli/route",
   "internal/cli/setup",
+  "internal/cli/status",
   "internal/cli/sync",
+  "internal/cli/test",
   "internal/cli/uninstall",
   "internal/cli/update",
   "internal/cli/use",
@@ -265,10 +267,13 @@ allowed_import_edges."internal/cli" = [
 # Use cases receive the invocation's capabilities and import no command or
 # terminal package.
 allowed_import_edges."internal/app" = [
+  "internal/activation",
   "internal/client",
+  "internal/diagnostics",
   "internal/discovery",
   "internal/domain",
   "internal/process",
+  "internal/readiness",
   "internal/secret",
   "internal/secret/probe",
   "internal/store",
@@ -341,22 +346,6 @@ allowed_import_edges."internal/cli/client" = [
 allowed_import_edges."internal/cli/route" = [
   "internal/cli/invocation",
   "internal/domain",
-  "internal/terminal",
-]
-allowed_import_edges."internal/cli/readiness" = [
-  "internal/activation",
-  "internal/app",
-  "internal/cli/invocation",
-  # aigw test defers a Route it cannot probe to the verify command that
-  # verification owns.
-  "internal/client/verification",
-  "internal/diagnostics",
-  "internal/domain",
-  "internal/providers",
-  "internal/readiness",
-  "internal/secret",
-  "internal/secret/probe",
-  "internal/store",
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/account" = [
@@ -497,6 +486,36 @@ allowed_import_edges."internal/cli/repair" = [
 allowed_import_edges."internal/cli/rollback" = [
   "internal/cli/invocation",
   "internal/domain",
+  "internal/terminal",
+]
+allowed_import_edges."internal/cli/status" = [
+  "internal/app",
+  "internal/cli/invocation",
+  "internal/domain",
+  "internal/providers",
+  "internal/readiness",
+  "internal/secret",
+  "internal/terminal",
+]
+allowed_import_edges."internal/cli/check" = [
+  "internal/activation",
+  "internal/app",
+  "internal/cli/invocation",
+  "internal/diagnostics",
+  "internal/domain",
+  "internal/readiness",
+  "internal/secret",
+  "internal/terminal",
+]
+allowed_import_edges."internal/cli/test" = [
+  "internal/cli/invocation",
+  # aigw test defers a Route it cannot probe to the verify command that
+  # verification owns.
+  "internal/client/verification",
+  "internal/domain",
+  "internal/secret",
+  "internal/secret/probe",
+  "internal/store",
   "internal/terminal",
 ]
 # Top-level roots skipped entirely while walking the repository.

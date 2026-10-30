@@ -1,4 +1,6 @@
-package readiness
+// Package test implements `aigw test`, which sends a model-free HTTP request to
+// the selected endpoints.
+package test
 
 import (
 	"fmt"
@@ -25,8 +27,8 @@ type endpointTestResult struct {
 	detail  string
 }
 
-// NewTestCommand constructs the live endpoint verification command.
-func NewTestCommand(runtime invocation.Context) *cobra.Command {
+// NewCommand constructs the live endpoint verification command.
+func NewCommand(runtime invocation.Context) *cobra.Command {
 	var client, routeName, configPath, tokenFormat string
 	var tokenStdin bool
 	cmd := &cobra.Command{

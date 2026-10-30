@@ -1,4 +1,4 @@
-package readiness
+package test
 
 import (
 	"aigw-cli/internal/cli/invocation"
@@ -6,7 +6,6 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"bytes"
 	"encoding/base64"
@@ -42,7 +41,7 @@ func TestEndpointTestExplicitKeyringFormatDecodesExactlyOnce(t *testing.T) {
 			}
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
 		})
-		command := NewTestCommand(runtime)
+		command := NewCommand(runtime)
 		command.SetArgs(args)
 		if err := executeCommand(command); err != nil || requests != 1 {
 			t.Fatalf("format explicit=%v requests=%d error=%v", explicit, requests, err)
@@ -57,7 +56,7 @@ func TestEndpointTestRejectsMalformedKeyringFormatBeforeHTTP(t *testing.T) {
 		runtime.Secrets = nil
 		requests := 0
 		runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) { requests++; return nil, errors.New("unexpected request") })
-		command := NewTestCommand(runtime)
+		command := NewCommand(runtime)
 		command.SetArgs([]string{"--for", "codex", "--route", "codex", "--token-stdin", "--token-format", "go-keyring-base64"})
 		if err := executeCommand(command); err == nil || requests != 0 {
 			t.Fatalf("invalid decoded token reached HTTP: error=%v requests=%d", err, requests)
@@ -84,7 +83,7 @@ func TestEndpointTestDefaultsToSelectedBindingsOnly(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok"))}, nil
 	})
 
-	if err := executeCommand(NewTestCommand(runtime)); err != nil {
+	if err := executeCommand(NewCommand(runtime)); err != nil {
 		t.Fatal(err)
 	}
 	if requests != 1 {
@@ -115,7 +114,7 @@ func TestEndpointTestUsesOneEphemeralTokenAndExplicitConfig(t *testing.T) {
 				}
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
 			})
-			command := NewTestCommand(runtime)
+			command := NewCommand(runtime)
 			command.SetArgs([]string{"--for", client, "--route", client, "--token-stdin", "--config", configPath})
 			if err := executeCommand(command); err != nil {
 				t.Fatal(err)
@@ -153,7 +152,7 @@ func TestEndpointTestRejectsAmbiguousEphemeralInputsBeforeEffects(t *testing.T) 
 			requests++
 			return nil, errors.New("network must remain unused")
 		})
-		command := NewTestCommand(runtime)
+		command := NewCommand(runtime)
 		command.SetArgs(args)
 		err := executeCommand(command)
 		if err == nil || strings.Contains(err.Error(), "stdin must remain unread") || requests != 0 || store.getCalls != 0 {
@@ -172,7 +171,7 @@ func TestEndpointTestRejectsMalformedEphemeralTokenBeforeHTTP(t *testing.T) {
 			requests++
 			return nil, errors.New("network must remain unused")
 		})
-		command := NewTestCommand(runtime)
+		command := NewCommand(runtime)
 		command.SetArgs([]string{"--for", "codex", "--token-stdin"})
 		if err := executeCommand(command); err == nil || requests != 0 {
 			t.Fatalf("malformed input reached HTTP: error=%v requests=%d", err, requests)
@@ -197,7 +196,7 @@ func TestEndpointTestRequiresASelectedClientBindingByDefault(t *testing.T) {
 		return cause
 	}
 
-	err := executeCommand(NewTestCommand(runtime))
+	err := executeCommand(NewCommand(runtime))
 	if err == nil || !strings.Contains(err.Error(), "no Client Binding selected") {
 		t.Fatalf("error = %v", err)
 	}
@@ -220,7 +219,7 @@ func TestEndpointTestCommandCoversSuccessAndTransportFailures(t *testing.T) {
 			}
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok"))}, nil
 		})
-		command := NewTestCommand(runtime)
+		command := NewCommand(runtime)
 		if err := executeCommand(command); err != nil {
 			t.Fatal(err)
 		}
@@ -254,7 +253,7 @@ func TestEndpointTestCommandCoversSuccessAndTransportFailures(t *testing.T) {
 				}
 				return &http.Response{StatusCode: test.status, Body: test.body}, nil
 			})
-			command := NewTestCommand(runtime)
+			command := NewCommand(runtime)
 			command.SetArgs([]string{"--for", "codex"})
 			if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
@@ -279,7 +278,7 @@ func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testi
 		requests++
 		return nil, errors.New("client-native endpoint probe")
 	})
-	command := NewTestCommand(runtime)
+	command := NewCommand(runtime)
 	command.SetArgs([]string{"--for", codex.ID})
 
 	err := executeCommand(command)
@@ -317,7 +316,7 @@ func TestEndpointTestDefersToVerifyForTheSameRoute(t *testing.T) {
 				runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
 					return nil, errors.New("a deferred Route must not be probed")
 				})
-				command := NewTestCommand(runtime)
+				command := NewCommand(runtime)
 				command.SetArgs(args)
 				want := "`aigw verify " + strings.Join(args, " ") + "`"
 				if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), want) {
@@ -342,7 +341,7 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 			}
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}"))}, nil
 		})
-		command := NewTestCommand(runtime)
+		command := NewCommand(runtime)
 		command.SetArgs([]string{"--for", "codex", "--route", "codex"})
 		if err := executeCommand(command); err != nil {
 			t.Fatal(err)
@@ -354,7 +353,7 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 
 	t.Run("unknown route is rejected", func(t *testing.T) {
 		runtime, _, _ := configuredReadinessRuntime(t)
-		command := NewTestCommand(runtime)
+		command := NewCommand(runtime)
 		command.SetArgs([]string{"--for", "codex", "--route", "missing"})
 		if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), "unknown route") {
 			t.Fatalf("error = %v", err)
@@ -363,7 +362,7 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 
 	t.Run("invalid client", func(t *testing.T) {
 		runtime, _, _ := configuredReadinessRuntime(t)
-		command := NewTestCommand(runtime)
+		command := NewCommand(runtime)
 		command.SetArgs([]string{"--for", "future"})
 		if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), "--for must be") {
 			t.Fatalf("error = %v", err)
@@ -373,14 +372,14 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 	t.Run("not configured", func(t *testing.T) {
 		problem := errors.New("structured problem")
 		runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()), Out: io.Discard, Problem: func(string, string, string, string, error) error { return problem }}
-		if err := executeCommand(NewTestCommand(runtime)); !errors.Is(err, problem) {
+		if err := executeCommand(NewCommand(runtime)); !errors.Is(err, problem) {
 			t.Fatalf("error = %v", err)
 		}
 	})
 
 	t.Run("missing token", func(t *testing.T) {
 		runtime, _, _ := configuredReadinessRuntime(t)
-		command := NewTestCommand(runtime)
+		command := NewCommand(runtime)
 		command.SetArgs([]string{"--for", "codex"})
 		if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), "token for account") {
 			t.Fatalf("error = %v", err)
@@ -399,7 +398,7 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 		if err := os.WriteFile(runtime.Config.Path(), data, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		command := NewTestCommand(runtime)
+		command := NewCommand(runtime)
 		command.SetArgs([]string{"--for", "codex"})
 		if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), "no OpenAI Responses endpoint") {
 			t.Fatalf("error = %v", err)
@@ -407,27 +406,10 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 	})
 }
 
-func TestReadinessTransportHelpers(t *testing.T) {
-	if got := endpointTransport("%"); got != "" {
-		t.Fatalf("invalid transport = %#v", got)
-	}
-	if got := endpointTransport("http://LOCALHOST:48721/v1"); got != "external_loopback" {
-		t.Fatalf("loopback transport = %#v", got)
-	}
-	if got := endpointTransport("https://api.example.test/v1"); got != "" {
-		t.Fatalf("remote transport = %#v", got)
-	}
-	buffer := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()), Out: buffer, Secrets: secret.NewMemoryStore()}
-	if err := RunStatus(runtime, false); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(buffer.String(), "Not configured") {
-		t.Fatalf("status output = %q", buffer.String())
-	}
-	command := NewStatusCommand(invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()), Out: io.Discard, Secrets: secret.NewMemoryStore()})
-	command.SetArgs([]string{"--json"})
-	if err := executeCommand(command); err != nil {
-		t.Fatal(err)
-	}
-}
+type failingReader struct{ err error }
+
+func (reader failingReader) Read([]byte) (int, error) { return 0, reader.err }
+
+type closeErrorBody struct{ io.Reader }
+
+func (closeErrorBody) Close() error { return errors.New("close failed") }

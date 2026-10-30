@@ -1,4 +1,4 @@
-package readiness
+package check
 
 import (
 	"encoding/json"
@@ -37,7 +37,7 @@ func TestCheckJSONClassifiesCredentialReadFailures(t *testing.T) {
 				t.Fatal("credential read failure triggered a provider request")
 				return nil, nil
 			})
-			command := NewCheckCommand(runtime)
+			command := NewCommand(runtime)
 			command.SetArgs([]string{"--for", "claude", "--json"})
 			if err := executeCommand(command); err == nil {
 				t.Fatal("credential read failure passed check")
@@ -71,7 +71,7 @@ func TestCheckReportsUnresolvedBindingsBeforeCredentialOrNetworkAccess(t *testin
 		return nil, nil
 	})
 	cfg.SetSelectedRoute(codex.ID, "missing", "")
-	result := evaluateClient(NewCheckCommand(runtime), runtime, cfg, codex.ID)
+	result := evaluateClient(NewCommand(runtime), runtime, cfg, codex.ID)
 	_, command, unchecked, err := checkedClientField(runtime, result, "")
 	if err == nil || !errors.Is(err, result.resolveErr) || command != "" || unchecked {
 		t.Fatalf("unresolved binding was reported as checked: %q, %t, %v", command, unchecked, err)

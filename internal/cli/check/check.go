@@ -1,6 +1,6 @@
-// Package readiness owns read-only status, health, and endpoint checks for
-// selected AIGW client bindings.
-package readiness
+// Package check implements `aigw check`, which checks each enabled client's
+// binding, credential and projection, with one bounded inference request.
+package check
 
 import (
 	"errors"
@@ -16,10 +16,12 @@ import (
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
+
+	"aigw-cli/internal/app"
 )
 
-// NewCheckCommand builds the read-only health check for every enabled client.
-func NewCheckCommand(runtime invocation.Context) *cobra.Command {
+// NewCommand builds the read-only health check for every enabled client.
+func NewCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
 	var client string
 	cmd := &cobra.Command{
@@ -55,12 +57,12 @@ func NewCheckCommand(runtime invocation.Context) *cobra.Command {
 }
 
 type checkJSON struct {
-	Clients        map[string]clientStatus `json:"clients"`
-	EnabledClients int                     `json:"enabled_clients"`
-	OK             bool                    `json:"ok"`
-	State          domainreadiness.State   `json:"state,omitempty"`
-	NextAction     string                  `json:"next_action,omitempty"`
-	Error          string                  `json:"error,omitempty"`
+	Clients        map[string]app.ClientStatus `json:"clients"`
+	EnabledClients int                         `json:"enabled_clients"`
+	OK             bool                        `json:"ok"`
+	State          domainreadiness.State       `json:"state,omitempty"`
+	NextAction     string                      `json:"next_action,omitempty"`
+	Error          string                      `json:"error,omitempty"`
 }
 
 func activationCheckIssue(activation clientactivation.Activation) (problem, evidence, jsonError string, cause error) {
@@ -250,7 +252,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
 		_, _, issue, cause := activationCheckIssue(activation)
 		result := checkJSON{
-			Clients:        inspectStatusClients(runtime.Dependencies, cfg, &activation, selected),
+			Clients:        app.InspectStatusClients(runtime.Dependencies, cfg, &activation, selected),
 			EnabledClients: activation.EnabledClients,
 			OK:             false,
 			State:          activation.State,
@@ -288,8 +290,8 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	return nil
 }
 
-func checkedClientStatuses(runtime invocation.Context, cfg domain.Config, activation *clientactivation.Activation, evaluation checkEvaluation, selected string) map[string]clientStatus {
-	clients := inspectStatusClients(runtime.Dependencies, cfg, activation, selected)
+func checkedClientStatuses(runtime invocation.Context, cfg domain.Config, activation *clientactivation.Activation, evaluation checkEvaluation, selected string) map[string]app.ClientStatus {
+	clients := app.InspectStatusClients(runtime.Dependencies, cfg, activation, selected)
 	for _, client := range evaluation.clients {
 		status := clients[client.client]
 		status.Route = client.runtime.RouteID
@@ -327,7 +329,7 @@ func checkedClientStatuses(runtime invocation.Context, cfg domain.Config, activa
 	return clients
 }
 
-func failedCheckContinuation(activation *clientactivation.Activation, evaluation checkEvaluation, clients map[string]clientStatus) (action, clientID string) {
+func failedCheckContinuation(activation *clientactivation.Activation, evaluation checkEvaluation, clients map[string]app.ClientStatus) (action, clientID string) {
 	failed := make([]domainreadiness.Client, 0, len(evaluation.clients))
 	ids := make([]string, 0, len(evaluation.clients))
 	for _, client := range evaluation.clients {
@@ -350,7 +352,7 @@ func failedCheckContinuation(activation *clientactivation.Activation, evaluation
 }
 
 func writeJSONFailure(runtime invocation.Context, state domainreadiness.State, message, fix string, cause error) error {
-	result := checkJSON{Clients: map[string]clientStatus{}, State: state, NextAction: fix, Error: message}
+	result := checkJSON{Clients: map[string]app.ClientStatus{}, State: state, NextAction: fix, Error: message}
 	if err := terminal.WriteJSON(runtime.Out, result); err != nil {
 		return err
 	}
@@ -501,7 +503,7 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 		field.Details = append(field.Details, runtime.Clients.Admission().ProductName(client)+" uses a native model preference; this endpoint check does not verify that model")
 		command = "aigw verify --for " + client
 	}
-	if endpointTransport(result.runtime.Endpoint) == endpointTransportExternalLoopback {
+	if app.EndpointTransport(result.runtime.Endpoint) == app.EndpointTransportExternalLoopback {
 		field.Details = append(field.Details, runtime.Clients.Admission().Label(client)+" uses a loopback endpoint; AIGW does not manage the endpoint runtime")
 	}
 	return field, command, inferenceUnverified, nil

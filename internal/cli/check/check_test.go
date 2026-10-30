@@ -1,77 +1,47 @@
-package readiness
+package check
 
 import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	domainreadiness "aigw-cli/internal/readiness"
 	"aigw-cli/internal/secret"
-	"aigw-cli/internal/store"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
-	goruntime "runtime"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 )
 
-type roundTripFunc func(*http.Request) (*http.Response, error)
-
-// hostAt observes home as the user's home directory, so Claude Code's settings
-// file is home/.claude/settings.json.
-func hostAt(home string) discovery.Host {
-	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
-}
-
-// claudeSettingsPath returns the Claude Code settings file on host.
-func claudeSettingsPath(t testing.TB, host discovery.Host) string {
-	t.Helper()
-	path, err := claude.SettingsPath(host)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
-
-func (fn roundTripFunc) Do(request *http.Request) (*http.Response, error) { return fn(request) }
-
 func TestCheckCommandDescribesItsProductBoundary(t *testing.T) {
-	command := NewCheckCommand(invocation.Context{Clients: clients.Registry()})
+	command := NewCommand(invocation.Context{Clients: clients.Registry()})
 	if command.Short != "Check enabled clients; selected-model probes may use quota" {
 		t.Fatalf("check summary = %q", command.Short)
 	}
 }
 
-type failingReader struct{ err error }
-
-func (reader failingReader) Read([]byte) (int, error) { return 0, reader.err }
-
 type failingOutputWriter struct{ err error }
 
 func (writer failingOutputWriter) Write([]byte) (int, error) { return 0, writer.err }
 
-type closeErrorBody struct{ io.Reader }
-
-func (closeErrorBody) Close() error { return errors.New("close failed") }
-
 type presentFailingSecretStore struct{ err error }
 
 func (store presentFailingSecretStore) Get(string) (string, error) { return "", store.err }
-func (presentFailingSecretStore) Set(string, string) error         { return nil }
-func (presentFailingSecretStore) Delete(string) error              { return nil }
-func (presentFailingSecretStore) Exists(string) (bool, error)      { return true, nil }
+
+func (presentFailingSecretStore) Set(string, string) error { return nil }
+
+func (presentFailingSecretStore) Delete(string) error { return nil }
+
+func (presentFailingSecretStore) Exists(string) (bool, error) { return true, nil }
 
 type failingAccountObservationStore struct {
 	err   error
@@ -82,157 +52,14 @@ func (store *failingAccountObservationStore) Get(string) (secret.DiagnosticCrede
 	store.reads++
 	return secret.DiagnosticCredential{}, store.err
 }
+
 func (*failingAccountObservationStore) Set(string, secret.DiagnosticCredential) error { return nil }
-func (*failingAccountObservationStore) Delete(string) error                           { return nil }
+
+func (*failingAccountObservationStore) Delete(string) error { return nil }
+
 func (store *failingAccountObservationStore) Exists(string) (bool, error) {
 	store.reads++
 	return false, store.err
-}
-
-type observingSecretStore struct {
-	value          string
-	getErr         error
-	existsErr      error
-	getCalls       int
-	existsCalls    int
-	getAccounts    []string
-	existsAccounts []string
-}
-
-func (store *observingSecretStore) Get(account string) (string, error) {
-	store.getCalls++
-	store.getAccounts = append(store.getAccounts, account)
-	if store.getErr != nil {
-		return "", store.getErr
-	}
-	if store.value == "" {
-		return "", secret.ErrNotFound
-	}
-	return store.value, nil
-}
-
-func (*observingSecretStore) Set(string, string) error { return nil }
-func (*observingSecretStore) Delete(string) error      { return nil }
-
-func (store *observingSecretStore) Exists(account string) (bool, error) {
-	store.existsCalls++
-	store.existsAccounts = append(store.existsAccounts, account)
-	return store.value != "", store.existsErr
-}
-
-func configuredReadinessRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.Buffer) {
-	t.Helper()
-	configPath := filepath.Join(t.TempDir(), "configuration.toml")
-	configStore := store.NewStore(configPath, clients.Admission())
-	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = domain.Account{
-		Label: "One",
-		Endpoints: domain.Endpoints{
-			Anthropic:       "https://claude.example.test",
-			OpenAIResponses: "https://codex.example.test/v1",
-		},
-	}
-	cfg.Routes["claude"] = domain.Route{
-		Label: "Claude", Account: "one", Model: "claude-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
-	}
-	cfg.Routes["codex"] = domain.Route{
-		Label: "Codex", Account: "one", Model: "gpt-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
-	}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
-	cfg.SetSelectedRoute(codex.ID, "codex", "")
-	if err := configStore.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(),
-		Config: configStore, Secrets: secret.NewMemoryStore(),
-		Out: out, RenderOut: out, Width: 120,
-	}
-	var err error
-	runtime.Accounts, err = secret.NewDiagnosticCredentialStore(runtime.Secrets)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return runtime, cfg, out
-}
-
-func configureClaudeExecutable(t *testing.T, runtime *invocation.Context, cfg *domain.Config) {
-	t.Helper()
-	root := t.TempDir()
-	executable := filepath.Join(root, "claude")
-	if goruntime.GOOS == "windows" {
-		executable += ".exe"
-	}
-	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	runtime.Executable = filepath.Join(root, "aigw")
-	runtime.Host = hostAt(root)
-	cfg.SetClientActivation(claude.ID, true, executable, nil)
-}
-
-func synchronizeClaudeSettings(t *testing.T, runtime invocation.Context, cfg domain.Config) {
-	t.Helper()
-	clientRuntime, err := cfg.ResolveRuntime(claude.ID, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, runtime.Host), false, clientRuntime, runtime.Executable, clientRuntime.Model); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
-	runtime, cfg, buffer := configuredReadinessRuntime(t)
-	runtime.Version = "1.0.0"
-	configureClaudeExecutable(t, &runtime, &cfg)
-	if err := runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	secretStore := &observingSecretStore{value: "token"}
-	runtime.Secrets = secretStore
-	requests := 0
-	runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		requests++
-		return successfulReadinessResponse(request)
-	})
-	command := &cobra.Command{}
-	command.SetContext(context.Background())
-	for _, synchronized := range []bool{false, true} {
-		if synchronized {
-			synchronizeClaudeSettings(t, runtime, cfg)
-		}
-		buffer.Reset()
-		secretReads := secretStore.getCalls
-		if err := RunStatus(runtime, true); err != nil {
-			t.Fatal(err)
-		}
-		var status statusOutput
-		if err := json.Unmarshal(buffer.Bytes(), &status); err != nil {
-			t.Fatal(err)
-		}
-		client := status.Clients[claude.ID]
-		if client.ProjectionReady != synchronized || secretStore.getCalls != secretReads {
-			t.Errorf("synchronized=%t client=%+v secret reads=%d", synchronized, client, secretStore.getCalls-secretReads)
-		}
-		err := RunCheck(command, runtime)
-		if synchronized {
-			if err != nil || requests == 0 {
-				t.Errorf("synchronized check: error=%v requests=%d", err, requests)
-			}
-		} else if err == nil || requests != 0 || secretStore.getCalls != secretReads || !strings.Contains(buffer.String(), "aigw sync") {
-			t.Errorf("unsynchronized check: error=%v requests=%d secret reads=%d output=%s", err, requests, secretStore.getCalls-secretReads, buffer.String())
-		}
-	}
-}
-
-func executeCommand(command *cobra.Command) error {
-	command.SetErr(io.Discard)
-	command.SilenceErrors = true
-	command.SilenceUsage = true
-	return command.Execute()
 }
 
 func TestCheckEvaluationClientLookupDistinguishesMissingClient(t *testing.T) {
@@ -268,7 +95,7 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.HTTP = roundTripFunc(successfulReadinessResponse)
-	command := NewCheckCommand(runtime)
+	command := NewCommand(runtime)
 	command.SetContext(t.Context())
 	if evaluation := evaluateCheck(command, runtime, cfg); !evaluation.ok() {
 		t.Fatalf("ready clients failed evaluation: %+v", evaluation.clients)
@@ -299,7 +126,7 @@ func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 					t.Fatal("invalid projection must not authenticate an endpoint")
 					return nil, nil
 				})
-				command := NewCheckCommand(runtime)
+				command := NewCommand(runtime)
 				if jsonMode {
 					command.SetArgs([]string{"--json"})
 				} else {
@@ -335,7 +162,7 @@ func TestCheckExplainsBothMissingTokenAndDeferredProjection(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	command := NewCheckCommand(runtime)
+	command := NewCommand(runtime)
 	command.SetArgs([]string{"--json"})
 	if err := executeCommand(command); err == nil {
 		t.Fatal("missing Token and projection were accepted")
@@ -361,7 +188,7 @@ func TestCheckReportsCredentialMetadataFailureBeforeClientProjection(t *testing.
 		t.Fatal("unavailable credential metadata must not trigger an endpoint probe")
 		return nil, nil
 	})
-	command := NewCheckCommand(runtime)
+	command := NewCommand(runtime)
 	command.SetArgs([]string{"--json"})
 	if err := executeCommand(command); err == nil {
 		t.Fatal("credential metadata failure was accepted")
@@ -384,7 +211,7 @@ func TestJSONCheckSelectsTheFailedClientRecoveryAction(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	command := NewCheckCommand(runtime)
+	command := NewCommand(runtime)
 	command.SetArgs([]string{"--json"})
 	if err := executeCommand(command); err == nil {
 		t.Fatal("missing native client was accepted")
@@ -491,7 +318,7 @@ func TestCheckJSONReportsOutputFailure(t *testing.T) {
 	}
 	want := errors.New("output failed")
 	runtime.Out = failingOutputWriter{err: want}
-	command := NewCheckCommand(runtime)
+	command := NewCommand(runtime)
 	command.SetArgs([]string{"--json"})
 	if err := executeCommand(command); !errors.Is(err, want) {
 		t.Fatalf("check --json output error = %v", err)

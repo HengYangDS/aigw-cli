@@ -26,8 +26,6 @@ import (
 	installcli "aigw-cli/internal/cli/install"
 	"aigw-cli/internal/cli/invocation"
 
-	"aigw-cli/internal/cli/readiness"
-
 	"aigw-cli/internal/cli/renaming"
 	"aigw-cli/internal/cli/route"
 
@@ -73,6 +71,12 @@ import (
 	synccli "aigw-cli/internal/cli/sync"
 
 	"aigw-cli/internal/cli/models"
+
+	testcli "aigw-cli/internal/cli/test"
+
+	"aigw-cli/internal/cli/check"
+
+	"aigw-cli/internal/cli/status"
 )
 
 // App owns the dependencies and presentation state for one AIGW invocation.
@@ -318,7 +322,7 @@ func (a *App) doctorCommand() *cobra.Command {
 		Inspect: func(cfg domain.Config, store secret.Store) map[string]domainreadiness.Client {
 			operation := a.invocationContext()
 			operation.Secrets = store
-			return readiness.InspectClients(operation.Dependencies, cfg)
+			return app.InspectClients(operation.Dependencies, cfg)
 		},
 		RenderOut: a.outputWriter(),
 		Color:     a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)),
@@ -359,7 +363,7 @@ func NewRoot(app *App) *cobra.Command {
 			if len(cfg.Routes) == 0 && app.Interactive {
 				return setup.RunWizard(cmd.Context(), app.invocationContext())
 			}
-			return readiness.RunStatus(app.invocationContext(), false)
+			return status.RunStatus(app.invocationContext(), false)
 		},
 	}
 	root.SetOut(app.outputWriter())
@@ -384,7 +388,7 @@ func NewRoot(app *App) *cobra.Command {
 	)
 	runtime := app.invocationContext()
 	connect := []*cobra.Command{setup.NewCommand(runtime)}
-	daily := []*cobra.Command{readiness.NewStatusCommand(runtime), use.NewCommand(runtime), readiness.NewCheckCommand(runtime), rotate.NewCommand(runtime)}
+	daily := []*cobra.Command{status.NewCommand(runtime), use.NewCommand(runtime), check.NewCommand(runtime), rotate.NewCommand(runtime)}
 	recoveryCommands := []*cobra.Command{
 		app.doctorCommand(), repair.NewCommand(runtime), synccli.NewCommand(runtime),
 		rollback.NewCommand(runtime), updatecli.NewCommand(runtime),
@@ -395,7 +399,7 @@ func NewRoot(app *App) *cobra.Command {
 		add.NewCommand(runtime), accountcli.NewCommand(runtime, renaming.NewAccountCommand(runtime)),
 		route.NewCommand(runtime, renaming.NewRouteCommand(runtime)),
 		clientcli.NewCommand(runtime),
-		config.NewCommand(runtime), readiness.NewTestCommand(runtime),
+		config.NewCommand(runtime), testcli.NewCommand(runtime),
 		verify.NewCommand(runtime), models.NewCommand(runtime),
 		catalog.NewCommand(runtime), balance.NewCommand(runtime),
 	}
