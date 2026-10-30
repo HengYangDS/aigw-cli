@@ -14,8 +14,8 @@ func Interactive(file *os.File) bool {
 	return file != nil && term.IsTerminal(int(file.Fd()))
 }
 
-// WidthFromEnvironment returns a validated terminal width declared by the environment, or zero when absent.
-func WidthFromEnvironment(env map[string]string) int {
+// widthFromEnvironment returns a validated terminal width declared by the environment, or zero when absent.
+func widthFromEnvironment(env map[string]string) int {
 	width, err := strconv.Atoi(strings.TrimSpace(env["COLUMNS"]))
 	if err != nil || width <= 0 {
 		return 0
@@ -29,7 +29,7 @@ func PresentationWidth(out io.Writer, env map[string]string) int {
 }
 
 func presentationWidth(out io.Writer, env map[string]string, interactive func(*os.File) bool, size func(int) (int, int, error)) int {
-	if width := WidthFromEnvironment(env); width > 0 {
+	if width := widthFromEnvironment(env); width > 0 {
 		return width
 	}
 	file, ok := out.(*os.File)

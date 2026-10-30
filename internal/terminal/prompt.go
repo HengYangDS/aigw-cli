@@ -39,7 +39,7 @@ func (p Prompt) Secret(label string) (string, error) {
 		Title(label).
 		EchoMode(huh.EchoModePassword).
 		CharLimit(4096).
-		Validate(RequiredValue).
+		Validate(requiredValue).
 		Value(&value)
 	if err := p.run(field); err != nil {
 		return "", err
@@ -53,7 +53,7 @@ func (p Prompt) Text(label string) (string, error) {
 		return p.plainInput(label, false)
 	}
 	var value string
-	field := huh.NewInput().Title(label).CharLimit(256).Validate(RequiredValue).Value(&value)
+	field := huh.NewInput().Title(label).CharLimit(256).Validate(requiredValue).Value(&value)
 	if err := p.run(field); err != nil {
 		return "", err
 	}
@@ -114,8 +114,8 @@ func (p Prompt) run(fields ...huh.Field) error {
 	return nil
 }
 
-// RequiredValue rejects empty interactive input.
-func RequiredValue(value string) error {
+// requiredValue rejects empty interactive input.
+func requiredValue(value string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("this value cannot be empty")
 	}

@@ -50,8 +50,8 @@ type Field struct {
 	Command bool
 }
 
-// ProductName is the sole human-facing product identity used in rendered output.
-const ProductName = "AIGW"
+// productName is the sole human-facing product identity used in rendered output.
+const productName = "AIGW"
 
 const (
 	// labelColumn is the narrowest label column, which keeps the values of
@@ -150,7 +150,7 @@ func (r *Renderer) Title(product, title string) {
 }
 
 // ProductTitle renders one title under the single product display identity.
-func (r *Renderer) ProductTitle(title string) { r.Title(ProductName, title) }
+func (r *Renderer) ProductTitle(title string) { r.Title(productName, title) }
 
 // Section starts a named result section with stable spacing.
 func (r *Renderer) Section(title string) {

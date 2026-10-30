@@ -62,7 +62,7 @@ func TestPresentationWidthUsesOnlyPositiveColumnsOverride(t *testing.T) {
 		{name: "positive", env: map[string]string{"COLUMNS": "72"}, want: 72},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := WidthFromEnvironment(tc.env); got != tc.want {
+			if got := widthFromEnvironment(tc.env); got != tc.want {
 				t.Fatalf("presentation width = %d, want %d", got, tc.want)
 			}
 		})

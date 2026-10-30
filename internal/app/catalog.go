@@ -132,7 +132,7 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 			case !entry.SecretAvailable:
 				entry.Status = CatalogTokenUnavailable
 			default:
-				ids, endpoint, err := FetchIDs(ctx, client, source.Endpoint, source.Protocol, token)
+				ids, endpoint, err := fetchIDs(ctx, client, source.Endpoint, source.Protocol, token)
 				if err != nil {
 					entry.Status = CatalogRequestFailed
 					break
@@ -235,8 +235,8 @@ func ObservationKey(account string, protocol domain.EndpointProtocol) string {
 	return account + "\x00" + string(protocol)
 }
 
-// FetchIDs fetches and parses the model catalogue exposed by one exact wire protocol.
-func FetchIDs(parent context.Context, client HTTPDoer, endpoint string, protocol domain.EndpointProtocol, token string) ([]string, string, error) {
+// fetchIDs fetches and parses the model catalogue exposed by one exact wire protocol.
+func fetchIDs(parent context.Context, client HTTPDoer, endpoint string, protocol domain.EndpointProtocol, token string) ([]string, string, error) {
 	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
 	defer cancel()
 	request, err := domain.ModelCatalogRequest(ctx, endpoint, protocol, token)
@@ -259,15 +259,15 @@ func FetchIDs(parent context.Context, client HTTPDoer, endpoint string, protocol
 	if len(body) > maximumCatalogBytes {
 		return nil, request.URL.String(), fmt.Errorf("model catalog response exceeds the %d-byte limit", maximumCatalogBytes)
 	}
-	ids, err := ParseIDs(body)
+	ids, err := parseIDs(body)
 	return ids, request.URL.String(), err
 }
 
-// ParseIDs accepts unambiguous common model item shapes and preserves exact IDs.
+// parseIDs accepts unambiguous common model item shapes and preserves exact IDs.
 // The model list must be one array, and each item may name its identifier
 // once: encoding/json would read null as an empty list and keep the last of
 // repeated members, turning an ambiguous response into a confident observation.
-func ParseIDs(data []byte) ([]string, error) {
+func parseIDs(data []byte) ([]string, error) {
 	if !json.Valid(data) {
 		return nil, fmt.Errorf("model catalog response is not valid JSON")
 	}

@@ -37,13 +37,13 @@ type failingPromptWriter struct{ err error }
 func (w failingPromptWriter) Write([]byte) (int, error) { return 0, w.err }
 
 func TestRequiredValueRejectsBlankAndAcceptsNonBlank(t *testing.T) {
-	if err := RequiredValue(""); err == nil {
+	if err := requiredValue(""); err == nil {
 		t.Fatal("empty value should be rejected")
 	}
-	if err := RequiredValue("   "); err == nil {
+	if err := requiredValue("   "); err == nil {
 		t.Fatal("whitespace-only value should be rejected")
 	}
-	if err := RequiredValue(" ok "); err != nil {
+	if err := requiredValue(" ok "); err != nil {
 		t.Fatalf("non-blank value rejected: %v", err)
 	}
 }

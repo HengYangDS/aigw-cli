@@ -47,7 +47,7 @@ func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
 	}
 	for _, test := range parseTests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := ParseIDs([]byte(test.body))
+			got, err := parseIDs([]byte(test.body))
 			if test.fail {
 				if err == nil {
 					t.Fatal("expected parse failure")
@@ -63,14 +63,14 @@ func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
 
 func TestFetchModelIDsRequestErrorsAndEndpointForms(t *testing.T) {
 	endpoint := "://bad"
-	if _, _, err := FetchIDs(context.Background(), catalogHTTPClient(nil), endpoint, domain.ProtocolOpenAIResponses, "token"); err == nil {
+	if _, _, err := fetchIDs(context.Background(), catalogHTTPClient(nil), endpoint, domain.ProtocolOpenAIResponses, "token"); err == nil {
 		t.Fatal("expected URL error")
 	}
 
 	want := errors.New("network failed")
 	endpoint = "https://one.test/v1"
 	client := catalogHTTPClient(func(*http.Request) (*http.Response, error) { return nil, want })
-	if _, _, err := FetchIDs(context.Background(), client, endpoint, domain.ProtocolOpenAIResponses, "token"); !errors.Is(err, want) {
+	if _, _, err := fetchIDs(context.Background(), client, endpoint, domain.ProtocolOpenAIResponses, "token"); !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}
 
@@ -82,7 +82,7 @@ func TestFetchModelIDsRequestErrorsAndEndpointForms(t *testing.T) {
 				}
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt"]}`)), Request: request}, nil
 			})
-			ids, source, err := FetchIDs(context.Background(), client, endpoint, domain.ProtocolOpenAIResponses, "token")
+			ids, source, err := fetchIDs(context.Background(), client, endpoint, domain.ProtocolOpenAIResponses, "token")
 			if err != nil || len(ids) != 1 || ids[0] != "gpt" {
 				t.Fatalf("ids=%#v error=%v", ids, err)
 			}
@@ -96,7 +96,7 @@ func TestFetchModelIDsRequestErrorsAndEndpointForms(t *testing.T) {
 	client = catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusBadGateway, Body: io.NopCloser(strings.NewReader("bad")), Request: request}, nil
 	})
-	if _, _, err := FetchIDs(context.Background(), client, endpoint, domain.ProtocolOpenAIResponses, "token"); err == nil || !strings.Contains(err.Error(), "HTTP 502") {
+	if _, _, err := fetchIDs(context.Background(), client, endpoint, domain.ProtocolOpenAIResponses, "token"); err == nil || !strings.Contains(err.Error(), "HTTP 502") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -114,7 +114,7 @@ func TestCatalogMembershipRequiresACompleteResponse(t *testing.T) {
 			client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(test.body), Request: request}, nil
 			})
-			if ids, _, err := FetchIDs(context.Background(), client, "https://catalog.test/v1", domain.ProtocolOpenAIResponses, "token"); err == nil || len(ids) != 0 {
+			if ids, _, err := fetchIDs(context.Background(), client, "https://catalog.test/v1", domain.ProtocolOpenAIResponses, "token"); err == nil || len(ids) != 0 {
 				t.Fatalf("incomplete catalog established membership: ids=%v error=%v", ids, err)
 			}
 		})
@@ -134,7 +134,7 @@ func (client *recordingClient) Do(request *http.Request) (*http.Response, error)
 
 func TestFetchIDsOwnsCatalogProtocol(t *testing.T) {
 	client := &recordingClient{}
-	ids, _, err := FetchIDs(context.Background(), client, "https://gateway.test/v1", domain.ProtocolOpenAIResponses, "token")
+	ids, _, err := fetchIDs(context.Background(), client, "https://gateway.test/v1", domain.ProtocolOpenAIResponses, "token")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,12 +288,12 @@ func TestCatalogParsingRejectsAmbiguousProviderIdentifiers(t *testing.T) {
 		`{"data":[null]}`,
 		`{"data":[" "]}`,
 	} {
-		if ids, err := ParseIDs([]byte(body)); err == nil || len(ids) != 0 {
+		if ids, err := parseIDs([]byte(body)); err == nil || len(ids) != 0 {
 			t.Fatalf("ambiguous catalogue item established identity: body=%s ids=%#v error=%v", body, ids, err)
 		}
 	}
 
-	ids, err := ParseIDs([]byte(`{"data":[{"id":" exact ","model":"exact"},"zeta","exact"]}`))
+	ids, err := parseIDs([]byte(`{"data":[{"id":" exact ","model":"exact"},"zeta","exact"]}`))
 	if err != nil || !reflect.DeepEqual(ids, []string{"exact", "zeta"}) {
 		t.Fatalf("normalized IDs = %#v, error=%v", ids, err)
 	}
@@ -312,7 +312,7 @@ func TestCatalogParsingRejectsAmbiguousContainers(t *testing.T) {
 		`{"data":[{"model":"one","model":"two"}]}`,
 		`{"data":[{"name":"one","name":"two"}]}`,
 	} {
-		if ids, err := ParseIDs([]byte(body)); err == nil || len(ids) != 0 {
+		if ids, err := parseIDs([]byte(body)); err == nil || len(ids) != 0 {
 			t.Fatalf("ambiguous catalogue established membership: body=%s ids=%#v error=%v", body, ids, err)
 		}
 	}
@@ -320,7 +320,7 @@ func TestCatalogParsingRejectsAmbiguousContainers(t *testing.T) {
 		`{"data":[]}`: {},
 		`{"object":"list","data":[{"id":"one","object":"model","owned_by":"x","owned_by":"y"}],"has_more":false,"has_more":true}`: {"one"},
 	} {
-		if ids, err := ParseIDs([]byte(body)); err != nil || !reflect.DeepEqual(ids, want) {
+		if ids, err := parseIDs([]byte(body)); err != nil || !reflect.DeepEqual(ids, want) {
 			t.Fatalf("valid catalogue body=%s ids=%#v error=%v", body, ids, err)
 		}
 	}
