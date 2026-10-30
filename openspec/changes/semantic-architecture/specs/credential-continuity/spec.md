@@ -343,30 +343,6 @@ while the full program SHALL read both.
 - **AND** a verified checkpoint SHALL contain only published-vocabulary
   capabilities.
 
-### Requirement: Stored capabilities follow their recorded Route
-
-AIGW SHALL accept a capability outside the published schema vocabulary at its
-earlier location in the canonical configuration and SHALL move it to the
-separate component at its next configuration write. A stored capability SHALL
-apply only while its Route keeps the Account, endpoint, upstream model and
-interface it was recorded for.
-
-#### Scenario: An earlier release wrote the capability into the canonical configuration
-
-- **WHEN** the canonical configuration declares a capability outside the
-  published schema vocabulary
-- **THEN** AIGW SHALL accept the configuration with that capability declared
-- **AND** its next configuration write SHALL remove the capability from the
-  canonical configuration without changing what the Route declares.
-
-#### Scenario: The recorded Route changes
-
-- **WHEN** the Route of a stored capability no longer exists or no longer
-  matches the Account, endpoint, upstream model or interface it was recorded
-  for
-- **THEN** the capability SHALL NOT apply
-- **AND** the next configuration write SHALL drop it.
-
 ### Requirement: Credential configuration failures name the reader and stage
 
 When a credential reader cannot read, parse or validate the configuration, it

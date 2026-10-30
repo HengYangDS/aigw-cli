@@ -2,7 +2,10 @@
 
 ## Purpose
 
-Define stable AIGW distribution trust, immutable release-byte authority, and package-manager ownership without coupling installation to credentials or client activation.
+Define how AIGW releases are built, accepted and published: release-byte
+authority and signed provenance, local-first publication to independent Forges
+and its history repair, native artifact acceptance, and package-manager
+ownership, without coupling installation to credentials or client activation.
 
 ## Requirements
 

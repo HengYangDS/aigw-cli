@@ -107,9 +107,9 @@ backend failure; it SHALL NOT report a backend failure as absence.
 
 ### Requirement: Stored capabilities follow their recorded Route
 
-**Reason**: The `credential-continuity` capability owns this requirement's subject.
+**Reason**: The `product-control-plane` capability owns this requirement's subject.
 
-**Migration**: Read it in `credential-continuity`, with every scenario.
+**Migration**: Read it in `product-control-plane`, with every scenario.
 
 ### Requirement: Credential configuration failures name the reader and stage
 

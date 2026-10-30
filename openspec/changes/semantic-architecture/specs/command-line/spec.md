@@ -17,6 +17,36 @@ traceback, or false completion message.
 - **THEN** the command SHALL return that error without usage, warning,
   traceback, or completion residue
 
+### Requirement: Recovery execution and presentation are independent
+
+Synchronization and repair SHALL select writes through `--dry-run` and output
+format through `--json` independently. Successful preview and applied results
+SHALL expose their execution mode and the same continuation as human output.
+Rendering SHALL NOT own transaction commit or compensation.
+
+#### Scenario: Preview a recovery operation as JSON
+
+- **WHEN** `sync` or `repair` succeeds with `--dry-run --json`
+- **THEN** output SHALL be one JSON document with `dry_run: true`
+- **AND** `next_action` SHALL identify the corresponding apply command
+- **AND** configuration, credentials and client projections SHALL remain
+  unchanged.
+
+#### Scenario: Apply a recovery operation with JSON output
+
+- **WHEN** `sync` or `repair` succeeds with `--json` without `--dry-run`
+- **THEN** the owned projection SHALL be applied
+- **AND** output SHALL be one JSON document with `dry_run: false` and
+  `next_action: "aigw check"`
+- **AND** preview plans SHALL NOT be presented as observed per-target results.
+
+#### Scenario: Output fails after a successful recovery commit
+
+- **WHEN** a recovery operation commits and its result cannot be written
+- **THEN** it SHALL return the output error and preserve the committed state
+- **AND** generic presentation SHALL NOT claim that rollback occurred or will
+  occur.
+
 ### Requirement: Invocation output has one owner
 
 The CLI root SHALL finalize command output once, preserving command, output and
@@ -299,75 +329,3 @@ identifiers that a flag accepts, and copyable commands SHALL keep identifiers.
 
 - **WHEN** selection or migration output shows a binding's protocol
 - **THEN** it SHALL use the protocol label, such as `OpenAI Responses`.
-
-### Requirement: Native warning symbols are diagnostics
-
-A native diagnostic line whose first visible character is an explicit warning
-or error symbol, `⚠`, `✗`, `✖`, `✘` or `❌`, SHALL count as a warning in
-every check that rejects explicit native warnings. Check marks, progress
-glyphs and symbols inside a line SHALL NOT.
-
-#### Scenario: Hermes reports an out-of-sync installation
-
-- **WHEN** Hermes exits zero after printing a line that starts with `⚠`
-- **THEN** verification SHALL report incomplete qualification without the
-  private diagnostic.
-
-#### Scenario: A client prints ordinary progress
-
-- **WHEN** a client prints `session_id:`, a `✓` result or a `↻` resume line
-- **THEN** that line SHALL NOT be a warning.
-
-### Requirement: Diagnostics name the native file they inspect
-
-When doctor reports an observation about one native client configuration file
-under the user's home directory, human and JSON output SHALL name that file by
-its path relative to the home directory. A file outside the home directory
-SHALL NOT be named, and its human label SHALL say that it lies outside the home
-directory. Diagnostics SHALL NOT expose an absolute or other private path.
-
-#### Scenario: Codex projects into its default home
-
-- **WHEN** doctor inspects a Codex binding whose target is
-  `~/.codex/config.toml`
-- **THEN** the human check is labeled `Codex configuration ~/.codex/config.toml`
-- **AND** the JSON check keeps its name `codex:target-1` and carries
-  `~/.codex/config.toml` as `target`.
-
-#### Scenario: A Codex target lies outside the home directory
-
-- **WHEN** a Codex binding's target lies outside the home directory
-- **THEN** the human check is labeled by its position and says that it lies
-  outside the home directory
-- **AND** neither human nor JSON output contains the file's path.
-
-### Requirement: Diagnostic assertions read text, not terminal presentation
-
-Tests and gates that assert a native tool's diagnostics SHALL judge the
-diagnostic text after removing terminal escape sequences. A hosted runner that
-colors the output SHALL reach the same judgement as an uncolored local
-terminal.
-
-#### Scenario: A hosted runner colors a native tool's warning
-
-- **WHEN** a native tool prints an expected warning with ANSI escape sequences
-  between its words
-- **THEN** the assertion SHALL count that warning exactly once
-- **AND** the same output without escape sequences SHALL yield the same count.
-
-### Requirement: Doctor knows a target on another volume is outside home
-
-When the home directory and a target are absolute paths on different volumes,
-doctor SHALL label the target as outside the home directory. A relative or
-invalid home directory SHALL leave the target's location unknown.
-
-#### Scenario: A Windows target is on another drive or share
-
-- **WHEN** HOME is on one drive and the Codex target is on another drive or a
-  UNC share
-- **THEN** doctor SHALL label the target as outside the home directory.
-
-#### Scenario: Volume names differ only in letter case
-
-- **WHEN** both paths name the same drive in different letter case
-- **THEN** doctor SHALL treat them as one volume.

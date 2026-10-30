@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Define the product invariants that make AIGW verifiable, portable, and
-independently publishable without turning presentation preferences or
+Define the quality graph, its evidence and the quality of repository text that
+make AIGW verifiable and portable, without turning presentation preferences or
 repository-specific measurements into arbitrary merge vetoes.
 
 ## Requirements

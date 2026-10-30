@@ -75,8 +75,8 @@ JSON output on macOS, Linux and Windows.
 
 The product concept glossary SHALL give each concept one canonical term and
 its rejected synonyms. Code identifiers, package names, specifications and
-documentation SHALL use the canonical term, and no two packages SHALL share a
-base name.
+documentation SHALL use the canonical term, and no two production packages
+SHALL share a base name.
 
 #### Scenario: A rejected synonym appears
 
@@ -246,17 +246,6 @@ parallel claim-digest registry.
 - **THEN** it SHALL NOT establish the claimed quantitative acceptance
 - **AND** the native measurement owner SHALL retain the raw failure rather than
   manufacture missing facts in a second record.
-
-### Requirement: Foreign applications remain independent
-
-AIGW SHALL NOT depend on, discover, configure, align, verify, repair, or control
-foreign applications or their private runtime state.
-
-#### Scenario: A foreign application is installed
-
-- **WHEN** AIGW runs on a machine with unrelated applications
-- **THEN** product behavior and acceptance SHALL remain independent of those
-  applications, their configuration, sessions, caches, and runtime
 
 ### Requirement: Native client fixtures are repository-controlled
 

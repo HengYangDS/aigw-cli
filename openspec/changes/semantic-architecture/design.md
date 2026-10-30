@@ -410,7 +410,11 @@ names its subject more exactly. Elsewhere `MODIFIED` corrects the spelling.
 
 The Change archives through ETHOS after stage 5 lands, which applies the split
 to the main specifications. Each new capability's delta states its purpose,
-which OpenSpec reads when the archive creates the specification.
+which OpenSpec reads when the archive creates the specification. OpenSpec keeps
+an existing specification's purpose, so this Change restates it in the main
+specification of each capability whose scope the split changes:
+`product-control-plane`, `projection-format`, `product-quality`,
+`cli-readiness`, `release-distribution` and `ci-diagnostics`.
 
 ## Stages and acceptance
 

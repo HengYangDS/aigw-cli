@@ -2,8 +2,11 @@
 
 ## Purpose
 
-Define the canonical text layout of repository-projected specifications so
-generated and reviewed source remain byte-stable.
+Define how AIGW's generated projections derive from one canonical model with a
+byte-stable text layout, and how a client projection writes only the native
+values that AIGW owns: conflicts are refused before any write, projection is
+transactional and inspectable with matching Account Token delivery, and
+recovery is verified.
 
 ## Requirements
 

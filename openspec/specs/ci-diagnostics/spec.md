@@ -2,8 +2,10 @@
 
 ## Purpose
 
-Define quiet, deterministic hosted CI diagnostics that expose actionable
-failures without relying on runner-global state.
+Define hosted CI on independent Forges: parity, exact-version bootstrap,
+transport independent of CI execution, portable evidence identity, and quiet,
+deterministic diagnostics that expose actionable failures without relying on
+runner-global state.
 
 ## Requirements
 

@@ -1,7 +1,9 @@
 ## Purpose
 
-Define AIGW CLI as a portable provider control plane with explicit authority,
-transactional client projections, and no ownership of API traffic or sessions.
+Define AIGW CLI as a portable provider control plane: the configuration model of
+Accounts, Models, Routes and Client Bindings, provider extension and
+diagnostics, and model catalog observation, with explicit authority and no
+ownership of API traffic, sessions or foreign applications.
 
 ## Requirements
 

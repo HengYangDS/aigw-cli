@@ -142,27 +142,27 @@ establish warning-free acceptance.
 
 ### Requirement: Native warning symbols are diagnostics
 
-**Reason**: The `command-line` capability owns this requirement's subject.
+**Reason**: The `cli-readiness` capability owns this requirement's subject.
 
-**Migration**: Read it in `command-line`, with every scenario.
+**Migration**: Read it in `cli-readiness`, with every scenario.
 
 ### Requirement: The Hermes release journey resumes its session natively
+
+**Reason**: The `release-distribution` capability owns this requirement's subject.
+
+**Migration**: Read it in `release-distribution`, with every scenario.
+
+### Requirement: Diagnostics name the native file they inspect
 
 **Reason**: The `cli-readiness` capability owns this requirement's subject.
 
 **Migration**: Read it in `cli-readiness`, with every scenario.
 
-### Requirement: Diagnostics name the native file they inspect
-
-**Reason**: The `command-line` capability owns this requirement's subject.
-
-**Migration**: Read it in `command-line`, with every scenario.
-
 ### Requirement: Diagnostic assertions read text, not terminal presentation
 
-**Reason**: The `command-line` capability owns this requirement's subject.
+**Reason**: The `ci-diagnostics` capability owns this requirement's subject.
 
-**Migration**: Read it in `command-line`, with every scenario.
+**Migration**: Read it in `ci-diagnostics`, with every scenario.
 
 ### Requirement: Host-specific tooling builds only for its hosts
 
@@ -178,9 +178,9 @@ establish warning-free acceptance.
 
 ### Requirement: Doctor knows a target on another volume is outside home
 
-**Reason**: The `command-line` capability owns this requirement's subject.
+**Reason**: The `cli-readiness` capability owns this requirement's subject.
 
-**Migration**: Read it in `command-line`, with every scenario.
+**Migration**: Read it in `cli-readiness`, with every scenario.
 
 ### Requirement: Artifact jobs prepare only their peer's download tool
 

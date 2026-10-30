@@ -257,6 +257,30 @@ entries SHALL NOT prove withdrawal, rename, or incompatibility.
 - **THEN** AIGW MAY propose a previously admitted alternative
 - **AND** SHALL NOT change an explicit Client Binding without operator intent.
 
+### Requirement: Stored capabilities follow their recorded Route
+
+AIGW SHALL accept a capability outside the published schema vocabulary at its
+earlier location in the canonical configuration and SHALL move it to the
+separate component at its next configuration write. A stored capability SHALL
+apply only while its Route keeps the Account, endpoint, upstream model and
+interface it was recorded for.
+
+#### Scenario: An earlier release wrote the capability into the canonical configuration
+
+- **WHEN** the canonical configuration declares a capability outside the
+  published schema vocabulary
+- **THEN** AIGW SHALL accept the configuration with that capability declared
+- **AND** its next configuration write SHALL remove the capability from the
+  canonical configuration without changing what the Route declares.
+
+#### Scenario: The recorded Route changes
+
+- **WHEN** the Route of a stored capability no longer exists or no longer
+  matches the Account, endpoint, upstream model or interface it was recorded
+  for
+- **THEN** the capability SHALL NOT apply
+- **AND** the next configuration write SHALL drop it.
+
 ## MODIFIED Requirements
 
 ### Requirement: Models, Routes, and Client Bindings have distinct authority
@@ -400,12 +424,6 @@ model name, catalog entry, and basic text reply do not establish it.
 
 **Migration**: Read it in `client-adapters`, with every scenario.
 
-### Requirement: Foreign applications remain independent
-
-**Reason**: The `repository-organization` capability owns this requirement's subject.
-
-**Migration**: Read it in `repository-organization`, with every scenario.
-
 ### Requirement: Hosted evidence identity is Forge-portable
 
 **Reason**: The `ci-diagnostics` capability owns this requirement's subject.
@@ -546,9 +564,9 @@ model name, catalog entry, and basic text reply do not establish it.
 
 ### Requirement: Recovery execution and presentation are independent
 
-**Reason**: The `cli-readiness` capability owns this requirement's subject.
+**Reason**: The `command-line` capability owns this requirement's subject.
 
-**Migration**: Read it in `cli-readiness`, with every scenario.
+**Migration**: Read it in `command-line`, with every scenario.
 
 ### Requirement: Invocation output has one owner
 
@@ -714,9 +732,9 @@ model name, catalog entry, and basic text reply do not establish it.
 
 ### Requirement: Native verification runs the declared Mise release
 
-**Reason**: The `release-distribution` capability owns this requirement's subject.
+**Reason**: The `supply-chain` capability owns this requirement's subject.
 
-**Migration**: Read it in `release-distribution`, with every scenario.
+**Migration**: Read it in `supply-chain`, with every scenario.
 
 ### Requirement: Real-client acceptance supplies each host's official clients
 
