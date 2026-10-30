@@ -5,7 +5,9 @@ package balance
 import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/provider"
+	"aigw-cli/internal/provider/diagnostic"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/probe"
 	"aigw-cli/internal/terminal"
 	"cmp"
 	"context"
@@ -74,7 +76,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		ctx, cancel := context.WithTimeout(cmd.Context(), 15*time.Second)
 		defer cancel()
 		providerAccount.ID = accountName
-		report, err := provider.Probe(ctx, runtime.HTTP, providerAccount, apiToken, credential)
+		report, err := provider.Probe(ctx, probe.Sender{Client: runtime.HTTP}, providerAccount, apiToken, diagnostic.Credential(credential))
 		if err != nil {
 			return err
 		}

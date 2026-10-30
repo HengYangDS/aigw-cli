@@ -124,3 +124,14 @@ func Send(httpClient HTTPDoer, request *http.Request) (*http.Response, error) {
 	}
 	return httpClient.Do(request)
 }
+
+// Sender sends through Client with Send, for a caller that receives a sender
+// instead of a client.
+type Sender struct {
+	Client HTTPDoer
+}
+
+// Send sends request through the sender's client without following a redirect.
+func (sender Sender) Send(request *http.Request) (*http.Response, error) {
+	return Send(sender.Client, request)
+}

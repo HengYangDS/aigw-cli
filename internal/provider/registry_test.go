@@ -9,7 +9,8 @@ import (
 
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/provider"
-	"aigw-cli/internal/secret"
+	"aigw-cli/internal/provider/diagnostic"
+	"aigw-cli/internal/secret/probe"
 )
 
 func TestUnknownDiagnosticProviderIsRejectedAtExecutionNotConfiguration(t *testing.T) {
@@ -21,7 +22,7 @@ func TestUnknownDiagnosticProviderIsRejectedAtExecutionNotConfiguration(t *testi
 	if provider.Supports(providerAccount.AccountProbe.Kind) {
 		t.Fatal("an unbundled provider must not report support")
 	}
-	_, err := provider.Probe(context.Background(), nil, providerAccount, "api-token", secret.DiagnosticCredential{SystemToken: "platform-token", UserID: "1"})
+	_, err := provider.Probe(context.Background(), nil, providerAccount, "api-token", diagnostic.Credential{SystemToken: "platform-token", UserID: "1"})
 	if err == nil || !strings.Contains(err.Error(), "not included in this AIGW build") {
 		t.Fatalf("error = %v", err)
 	}
@@ -34,7 +35,7 @@ func TestBundledDMXAPIDiagnosticsAreExplicitlyRegistered(t *testing.T) {
 }
 
 func TestProbeRequiresAccountProbeConfiguration(t *testing.T) {
-	_, err := provider.Probe(context.Background(), nil, domain.Account{ID: "no-probe"}, "api-token", secret.DiagnosticCredential{})
+	_, err := provider.Probe(context.Background(), nil, domain.Account{ID: "no-probe"}, "api-token", diagnostic.Credential{})
 	if err == nil || !strings.Contains(err.Error(), "no exact diagnostic provider") {
 		t.Fatalf("error = %v", err)
 	}
@@ -61,7 +62,7 @@ func TestProbeDispatchesToDMXAPI(t *testing.T) {
 		ID:           "dmx",
 		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostic.test"},
 	}
-	report, err := provider.Probe(t.Context(), client, providerAccount, "sk-abcd-middle-wxyz", secret.DiagnosticCredential{SystemToken: "platform-token"})
+	report, err := provider.Probe(t.Context(), probe.Sender{Client: client}, providerAccount, "sk-abcd-middle-wxyz", diagnostic.Credential{SystemToken: "platform-token"})
 	if err != nil || report.AccountBalance != 12.5 || report.TokenRemaining != 5 || report.TokenName != "Selected Token" || report.TokenStatus != "enabled" {
 		t.Fatalf("dispatched diagnostic = %#v, %v", report, err)
 	}

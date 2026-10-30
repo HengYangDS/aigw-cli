@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"aigw-cli/internal/provider"
+	"aigw-cli/internal/provider/diagnostic"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/secret/probe"
 )
 
 func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (Plan, error) {
@@ -215,7 +217,7 @@ func verifyFinalizedAccountProbe(ctx context.Context, deps Renamer, plan Plan) e
 	providerAccount.ID = plan.NewID
 	probeCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	if _, err := provider.Probe(probeCtx, deps.HTTP, providerAccount, apiToken, credential); err != nil {
+	if _, err := provider.Probe(probeCtx, probe.Sender{Client: deps.HTTP}, providerAccount, apiToken, diagnostic.Credential(credential)); err != nil {
 		return fmt.Errorf("Target account balance verification failed: %w", err)
 	}
 	return nil

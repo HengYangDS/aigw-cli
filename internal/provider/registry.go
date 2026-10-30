@@ -11,11 +11,9 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/provider/diagnostic"
 	"aigw-cli/internal/provider/dmxapi"
-	"aigw-cli/internal/secret"
-	"aigw-cli/internal/secret/probe"
 )
 
-type probeFunc func(context.Context, probe.HTTPDoer, domain.Account, string, secret.DiagnosticCredential) (diagnostic.Report, error)
+type probeFunc func(context.Context, diagnostic.Sender, domain.Account, string, diagnostic.Credential) (diagnostic.Report, error)
 
 var registry = map[string]probeFunc{
 	dmxapi.Kind: dmxapi.Probe,
@@ -30,7 +28,7 @@ func Supports(kind string) bool {
 }
 
 // Probe dispatches an optional account diagnostic to the provider adapter declared by the account.
-func Probe(ctx context.Context, client probe.HTTPDoer, providerAccount domain.Account, apiToken string, auth secret.DiagnosticCredential) (diagnostic.Report, error) {
+func Probe(ctx context.Context, sender diagnostic.Sender, providerAccount domain.Account, apiToken string, auth diagnostic.Credential) (diagnostic.Report, error) {
 	if providerAccount.AccountProbe == nil {
 		return diagnostic.Report{}, fmt.Errorf("account %q has no exact diagnostic provider", providerAccount.ID)
 	}
@@ -38,5 +36,5 @@ func Probe(ctx context.Context, client probe.HTTPDoer, providerAccount domain.Ac
 	if !ok {
 		return diagnostic.Report{}, fmt.Errorf("exact diagnostics provider %q is not included in this AIGW build", providerAccount.AccountProbe.Kind)
 	}
-	return implementation(ctx, client, providerAccount, apiToken, auth)
+	return implementation(ctx, sender, providerAccount, apiToken, auth)
 }

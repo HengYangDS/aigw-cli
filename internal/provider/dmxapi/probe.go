@@ -14,8 +14,6 @@ import (
 
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/provider/diagnostic"
-	"aigw-cli/internal/secret"
-	"aigw-cli/internal/secret/probe"
 )
 
 // Kind is the stable manifest identifier for the bundled DMXAPI diagnostic.
@@ -28,7 +26,7 @@ const (
 )
 
 // Probe obtains and classifies DMXAPI account diagnostics without changing provider or AIGW state.
-func Probe(ctx context.Context, client probe.HTTPDoer, providerAccount domain.Account, apiToken string, auth secret.DiagnosticCredential) (diagnostic.Report, error) {
+func Probe(ctx context.Context, sender diagnostic.Sender, providerAccount domain.Account, apiToken string, auth diagnostic.Credential) (diagnostic.Report, error) {
 	if providerAccount.AccountProbe == nil || providerAccount.AccountProbe.Kind != Kind {
 		return diagnostic.Report{}, fmt.Errorf("DMXAPI diagnostic provider is not configured")
 	}
@@ -40,13 +38,13 @@ func Probe(ctx context.Context, client probe.HTTPDoer, providerAccount domain.Ac
 		} `json:"data"`
 		Message string `json:"message"`
 	}
-	if err := getJSON(ctx, client, base+"/api/user/self", auth, &user); err != nil {
+	if err := getJSON(ctx, sender, base+"/api/user/self", auth, &user); err != nil {
 		return diagnostic.Report{}, err
 	}
 	if !user.Success {
 		return diagnostic.Report{}, fmt.Errorf("DMXAPI account query failed: %s", domain.Redact(user.Message, auth.SystemToken, auth.UserID))
 	}
-	items, err := fetchTokens(ctx, client, base, auth)
+	items, err := fetchTokens(ctx, sender, base, auth)
 	if err != nil {
 		return diagnostic.Report{}, err
 	}
@@ -85,7 +83,7 @@ type token struct {
 	ExpiredTime    int64  `json:"expired_time"`
 }
 
-func fetchTokens(ctx context.Context, client probe.HTTPDoer, base string, auth secret.DiagnosticCredential) ([]token, error) {
+func fetchTokens(ctx context.Context, sender diagnostic.Sender, base string, auth diagnostic.Credential) ([]token, error) {
 	items := []token{}
 	for page := 1; page <= tokenPageLimit; page++ {
 		endpoint := fmt.Sprintf("%s/api/token/search?page=%d&page_size=%d", base, page, tokenPageSize)
@@ -97,7 +95,7 @@ func fetchTokens(ctx context.Context, client probe.HTTPDoer, base string, auth s
 			} `json:"data"`
 			Message string `json:"message"`
 		}
-		if err := getJSON(ctx, client, endpoint, auth, &payload); err != nil {
+		if err := getJSON(ctx, sender, endpoint, auth, &payload); err != nil {
 			return nil, err
 		}
 		if !payload.Success {
@@ -111,7 +109,7 @@ func fetchTokens(ctx context.Context, client probe.HTTPDoer, base string, auth s
 	return nil, fmt.Errorf("DMXAPI token search is incomplete after %d pages; token presence is unverified", tokenPageLimit)
 }
 
-func getJSON(ctx context.Context, client probe.HTTPDoer, endpoint string, auth secret.DiagnosticCredential, target any) (resultErr error) {
+func getJSON(ctx context.Context, sender diagnostic.Sender, endpoint string, auth diagnostic.Credential, target any) (resultErr error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return err
@@ -120,7 +118,7 @@ func getJSON(ctx context.Context, client probe.HTTPDoer, endpoint string, auth s
 	req.Header.Set("Authorization", "Bearer "+auth.SystemToken)
 	req.Header.Set("Rix-Api-User", auth.UserID)
 	req.Header.Set("Dmx-Api-User", auth.UserID)
-	resp, err := probe.Send(client, req)
+	resp, err := sender.Send(req)
 	if err != nil {
 		return err
 	}

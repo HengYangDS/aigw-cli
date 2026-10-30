@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"aigw-cli/internal/client/claude"
@@ -227,6 +228,31 @@ func TestSendCallsAnInjectedDoer(t *testing.T) {
 	}
 	if err != nil || !called {
 		t.Fatalf("non-HTTP doer call: called=%v error=%v", called, err)
+	}
+}
+
+func TestSenderSendsWithoutFollowingRedirects(t *testing.T) {
+	t.Parallel()
+
+	var followed atomic.Bool
+	destination := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { followed.Store(true) }))
+	defer destination.Close()
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, destination.URL, http.StatusFound)
+	}))
+	defer origin.Close()
+	httpClient := origin.Client()
+	request, err := http.NewRequest(http.MethodGet, origin.URL, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := probe.Sender{Client: httpClient}.Send(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusFound || followed.Load() || httpClient.CheckRedirect != nil {
+		t.Fatalf("status = %d, followed = %v, caller's redirect policy changed = %v", response.StatusCode, followed.Load(), httpClient.CheckRedirect != nil)
 	}
 }
 

@@ -169,7 +169,9 @@ allowed_import_edges."internal/app/renaming" = [
   "internal/app/synchronization",
   "internal/domain",
   "internal/provider",
+  "internal/provider/diagnostic",
   "internal/secret",
+  "internal/secret/probe",
   "internal/store",
 ]
 allowed_import_edges."internal/app/synchronization" = [
@@ -191,14 +193,10 @@ allowed_import_edges."internal/provider" = [
   "internal/domain",
   "internal/provider/diagnostic",
   "internal/provider/dmxapi",
-  "internal/secret",
-  "internal/secret/probe",
 ]
 allowed_import_edges."internal/provider/dmxapi" = [
   "internal/domain",
   "internal/provider/diagnostic",
-  "internal/secret",
-  "internal/secret/probe",
 ]
 allowed_import_edges."internal/platform" = []
 allowed_import_edges."internal/client/claude" = [
@@ -383,7 +381,9 @@ allowed_import_edges."internal/cli/account" = [
 allowed_import_edges."internal/cli/balance" = [
   "internal/cli/invocation",
   "internal/provider",
+  "internal/provider/diagnostic",
   "internal/secret",
+  "internal/secret/probe",
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/rotate" = [
