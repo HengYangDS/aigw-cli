@@ -2,7 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/client/codex"
-	"aigw-cli/internal/upgrade"
+	"aigw-cli/internal/program"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -111,7 +111,7 @@ func TestUninstallReportsCommittedWithdrawalWithIncompleteProgramRemoval(t *test
 	writeFile(t, app.Executable, []byte("program"), 0o700)
 	codexTarget := filepath.Join(t.TempDir(), "config.toml")
 	configureUninstallClients(t, app, codexTarget)
-	foreign := filepath.Join(upgrade.RollbackPath(app.Executable), "foreign-child")
+	foreign := filepath.Join(program.RollbackPath(app.Executable), "foreign-child")
 	writeFile(t, foreign, []byte("preserve"), 0o600)
 	out.Reset()
 	if err := cli.Execute(app, []string{"uninstall"}); err == nil {
@@ -135,7 +135,7 @@ func TestUninstallReportsCommittedWithdrawalWithIncompleteProgramRemoval(t *test
 func TestUnconfiguredUninstallReportsRemovalFailureWithoutClaimingWithdrawal(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	writeFile(t, app.Executable, []byte("program"), 0o700)
-	foreign := filepath.Join(upgrade.RollbackPath(app.Executable), "foreign-child")
+	foreign := filepath.Join(program.RollbackPath(app.Executable), "foreign-child")
 	writeFile(t, foreign, []byte("preserve"), 0o600)
 	if err := cli.Execute(app, []string{"uninstall"}); err == nil {
 		t.Fatal("incomplete program removal was accepted")

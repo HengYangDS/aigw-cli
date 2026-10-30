@@ -1,8 +1,8 @@
 package main
 
 import (
+	"aigw-cli/internal/program"
 	"aigw-cli/internal/secret/native"
-	"aigw-cli/internal/upgrade"
 	"bytes"
 	"errors"
 	"os"
@@ -21,7 +21,7 @@ func TestCredentialRoleRequiresTheInstalledProgram(t *testing.T) {
 	installed := filepath.Join(root, "bin", "aigw")
 	extracted := filepath.Join(root, "release", "aigw")
 	reader := filepath.Join(root, "credential", strings.Repeat("ab", 32), "aigw")
-	for _, path := range []string{installed, upgrade.RollbackPath(installed), extracted, reader} {
+	for _, path := range []string{installed, program.RollbackPath(installed), extracted, reader} {
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 			t.Fatal(err)
 		}

@@ -9,7 +9,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/upgrade"
+	"aigw-cli/internal/program"
 )
 
 func TestInstallCommandUsesPlatformDefaultTarget(t *testing.T) {
@@ -81,7 +81,7 @@ func TestHomebrewSourceCannotCreatePortableInstallation(t *testing.T) {
 	if err != nil || string(data) != "prior" {
 		t.Fatalf("portable target changed: %q %v", data, err)
 	}
-	if _, err := os.Stat(upgrade.RollbackPath(target)); !os.IsNotExist(err) {
+	if _, err := os.Stat(program.RollbackPath(target)); !os.IsNotExist(err) {
 		t.Fatalf("backup created: %v", err)
 	}
 }

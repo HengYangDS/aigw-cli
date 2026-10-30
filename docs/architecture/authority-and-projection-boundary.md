@@ -72,7 +72,7 @@ process.
 - **[Synchronization](../../internal/app/synchronization/):** Client Binding convergence and multi-client projection transaction
 - **[Terminal](../../internal/terminal/):** Terminal capability detection, human and JSON rendering of command results, and prompts
 - **[CLI](../../internal/cli/):** Command composition; domain behavior remains in semantic owners
-- **[Upgrades](../../internal/upgrade/):** Independent-Forge update verification and installation
+- **[Upgrades](../../internal/program/):** Independent-Forge update verification and installation
 
 Dependency direction is toward domain owners. Terminal rendering, CLI composition,
 Forge code, and host discovery do not define product semantics.
@@ -380,13 +380,13 @@ evidence.
 
 Native acceptance consumes the upgrade archive contract rather than parsing a
 GoReleaser binary inventory or duplicating extraction. The declared dependency
-is one-way: release construction calls the [archive target contract](../../internal/upgrade/artifact/identity.go) to
+is one-way: release construction calls the [archive target contract](../../internal/program/artifact/identity.go) to
 verify and extract the same bytes that product updates consume. Runtime code
 does not import repository tools. Both built and published inputs use that
 reader; acceptance owns scratch, never the input artifact directory.
 
 Construction owns validation of embedded release sources. The standalone
-source check and build admission use the same [release-source validator](../../internal/upgrade/source.go)
+source check and build admission use the same [release-source validator](../../internal/program/source.go)
 before running tools. Each Forge is optional; a selected source requires an
 admitted origin and complete repository path together. HTTPS is required except
 for localhost, `.test` names, and literal loopback, private, or link-local IP

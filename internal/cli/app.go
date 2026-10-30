@@ -46,10 +46,10 @@ import (
 	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
+	"aigw-cli/internal/program"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
-	"aigw-cli/internal/upgrade"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -255,7 +255,7 @@ func NewDefault(clients client.Registry) (*App, error) {
 		Prompt:        terminal.NewPrompter(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
 		Discovery:     client.NewDiscoverer(clients, host),
 		Clients:       clients,
-		Updater:       upgrade.Current(executable),
+		Updater:       program.Current(executable),
 	}
 	app.UseExecutableIdentity(nil, paths.InstallName)
 	return app, nil

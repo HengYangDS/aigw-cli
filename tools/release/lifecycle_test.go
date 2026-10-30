@@ -1,7 +1,7 @@
 package main
 
 import (
-	"aigw-cli/internal/upgrade/artifact"
+	"aigw-cli/internal/program/artifact"
 	"aigw-cli/tools/release/performance"
 	"aigw-cli/tools/release/readiness"
 	"archive/tar"

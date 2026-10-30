@@ -2,8 +2,8 @@
 package construction
 
 import (
-	"aigw-cli/internal/upgrade"
-	upgradeartifact "aigw-cli/internal/upgrade/artifact"
+	"aigw-cli/internal/program"
+	upgradeartifact "aigw-cli/internal/program/artifact"
 	"aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/readiness"
 	"bytes"
@@ -297,9 +297,9 @@ func ValidateSources() error {
 }
 
 func (request buildRequest) validateSources() error {
-	for _, source := range []upgrade.ReleaseSource{
-		{Provider: upgrade.ReleaseProviderGitLab, Origin: request.GitLabOrigin, Repository: request.GitLabRepository},
-		{Provider: upgrade.ReleaseProviderGitHub, Origin: request.GitHubOrigin, Repository: request.GitHubRepository},
+	for _, source := range []program.ReleaseSource{
+		{Provider: program.ReleaseProviderGitLab, Origin: request.GitLabOrigin, Repository: request.GitLabRepository},
+		{Provider: program.ReleaseProviderGitHub, Origin: request.GitHubOrigin, Repository: request.GitHubRepository},
 	} {
 		if source.Origin == "" && source.Repository == "" {
 			continue

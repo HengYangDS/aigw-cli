@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/upgrade"
+	"aigw-cli/internal/program"
 
 	"github.com/spf13/cobra"
 )
@@ -88,8 +88,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		}),
 		RunE: func(ctx *cobra.Command, _ []string) error {
-			if err := upgrade.RequirePortableOwnership(runtime.Executable); err != nil {
-				if rollback && errors.Is(err, upgrade.ErrHomebrewManaged) {
+			if err := program.RequirePortableOwnership(runtime.Executable); err != nil {
+				if rollback && errors.Is(err, program.ErrHomebrewManaged) {
 					return prepareHomebrewRollback(runtime)
 				}
 				return err
@@ -111,7 +111,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				custody, _ := credentialCustody(runtime.Dependencies)
 				result, err = runtime.Updater.Rollback(ctx.Context(), config, custody)
 			} else if candidateArchive != "" {
-				result, err = runtime.Updater.UpdateCandidate(ctx.Context(), runtime.Version, upgrade.CandidateArchive{
+				result, err = runtime.Updater.UpdateCandidate(ctx.Context(), runtime.Version, program.CandidateArchive{
 					ArchivePath:   candidateArchive,
 					ChecksumsPath: candidateChecksums,
 				})
@@ -128,21 +128,21 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					impact,
 					"Run `aigw installation` and `aigw doctor` before retrying cleanup or another program transition.", err)
 			}
-			if !rollback && errors.Is(err, upgrade.ErrCandidateIdentity) {
+			if !rollback && errors.Is(err, program.ErrCandidateIdentity) {
 				return invocation.Problem(runtime,
 					"Candidate has different program bytes at the current version",
 					"The verified local archive does not match the active program identity.",
 					"The active and retained programs are unchanged.",
 					"Use the exact current release artifact or a verified newer version.", err)
 			}
-			if !rollback && errors.Is(err, upgrade.ErrProgramStartupVerification) {
+			if !rollback && errors.Is(err, program.ErrProgramStartupVerification) {
 				return invocation.Problem(runtime,
 					"Candidate program failed startup verification",
 					"The candidate did not run its version check.",
 					"The installed program is unchanged.",
 					"Verify the candidate archive for this platform and retry only with a valid artifact.", err)
 			}
-			if errors.Is(err, upgrade.ErrRollbackConfiguration) {
+			if errors.Is(err, program.ErrRollbackConfiguration) {
 				return invocation.Problem(runtime,
 					"Program rollback did not complete",
 					"The retained program did not complete the isolated configuration-read check.",

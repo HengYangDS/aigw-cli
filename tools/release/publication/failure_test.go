@@ -1,7 +1,7 @@
 package publication
 
 import (
-	upgradeartifact "aigw-cli/internal/upgrade/artifact"
+	upgradeartifact "aigw-cli/internal/program/artifact"
 	"aigw-cli/tools/release/artifact"
 	"context"
 	"encoding/json"

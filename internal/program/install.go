@@ -1,0 +1,238 @@
+package program
+
+import (
+	"aigw-cli/internal/platform"
+	"aigw-cli/internal/platform/process"
+	"aigw-cli/internal/program/artifact"
+	"aigw-cli/internal/store"
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/pelletier/go-toml/v2"
+	"github.com/rogpeppe/go-internal/robustio"
+)
+
+// ErrRollbackConfiguration means the retained program cannot read the current configuration.
+var ErrRollbackConfiguration = errors.New("retained program cannot read the current configuration")
+
+// ErrProgramStartupVerification means a staged program could not prove it can run.
+var ErrProgramStartupVerification = errors.New("staged program failed startup verification; active program is unchanged")
+
+// installPortableArchive verifies and extracts a portable archive, then
+// installs the contained binary using one cross-platform recoverable replacement
+// owner. Startup and version verification precede any installation mutation.
+func (u Updater) installPortableArchive(ctx context.Context, archivePath, checksumsPath, version string) (bool, error) {
+	binary, err := (artifact.Target{OS: u.GOOS, Arch: u.GOARCH}).ReadProgram(archivePath, checksumsPath, version)
+	if err != nil {
+		return false, err
+	}
+	if _, err := u.verifyProgram(ctx, binary, version, nil); err != nil {
+		return false, err
+	}
+	return u.replacePortableBinary(ctx, binary)
+}
+
+// verifyProgram runs a staged program's version check and, with config, its
+// configuration export. It returns the version the program reports.
+func (u Updater) verifyProgram(ctx context.Context, binary []byte, version string, config []byte) (reported string, result error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	directory, err := os.MkdirTemp(filepath.Dir(u.Executable), ".aigw-verify-")
+	if err != nil {
+		return "", fmt.Errorf("prepare candidate verification: %w", err)
+	}
+	defer func() { result = errors.Join(result, robustio.RemoveAll(directory)) }()
+	program := filepath.Join(directory, filepath.Base(u.Executable))
+	if err := os.WriteFile(program, binary, 0o700); err != nil {
+		return "", fmt.Errorf("stage candidate verification: %w", err)
+	}
+	if u.Runner == nil {
+		u.Runner = process.Runner{}
+	}
+	home := filepath.Join(directory, "home")
+	environment := map[string]string{
+		"HOME": home, "USERPROFILE": home,
+		"XDG_CONFIG_HOME": home, "XDG_DATA_HOME": home,
+		"APPDATA": home, "LOCALAPPDATA": home,
+	}
+	plan := process.Plan{Executable: program, Args: []string{"--version"}, Env: []string{
+		"PATH=", "AIGW_SECRET_BACKEND=env", "NO_COLOR=1",
+		"TMPDIR=" + directory, "TMP=" + directory, "TEMP=" + directory,
+	}}
+	if root := os.Getenv("SystemRoot"); runtime.GOOS == "windows" && root != "" {
+		plan.Env = append(plan.Env, "SystemRoot="+root)
+	}
+	for name, value := range environment {
+		plan.Env = append(plan.Env, name+"="+value)
+	}
+	verificationContext, cancel := context.WithTimeout(ctx, releaseRequestTimeout)
+	defer cancel()
+	output, err := u.captureReleaseCommand(verificationContext, plan)
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", ErrProgramStartupVerification, err)
+	}
+	reported, found := strings.CutPrefix(strings.TrimSpace(string(output)), "aigw version ")
+	parsed, parseErr := parseVersion(reported)
+	if !found || parseErr != nil || parsed == nil {
+		return "", errors.New("program did not report a valid version; installed program is unchanged")
+	}
+	if version != "" && reported != version {
+		return "", fmt.Errorf("candidate program did not report expected version %s; installed program is unchanged", version)
+	}
+	if config == nil {
+		return reported, ctx.Err()
+	}
+	path, err := platform.ConfigPathFor(runtime.GOOS, environment)
+	if err != nil {
+		return "", err
+	}
+	if err := store.WriteFileAtomicExactMode(path, config, 0o600); err != nil {
+		return "", fmt.Errorf("stage configuration verification: %w", err)
+	}
+	plan.Args = []string{"config", "export"}
+	output, runErr := u.Runner.RunCapture(verificationContext, plan)
+	if runErr != nil {
+		if exit, ok := errors.AsType[*exec.ExitError](runErr); ok && exit.ProcessState != nil && exit.Exited() && exit.ExitCode() > 0 && verificationContext.Err() == nil {
+			return "", fmt.Errorf("%w: retained configuration export failed: %w", ErrRollbackConfiguration, runErr)
+		}
+		return "", fmt.Errorf("verify configuration export with program: %w", runErr)
+	}
+	var manifest struct {
+		Version int `toml:"version"`
+	}
+	parseErr = toml.Unmarshal(output, &manifest)
+	if parseErr != nil || manifest.Version <= 0 {
+		return "", ErrRollbackConfiguration
+	}
+	return reported, ctx.Err()
+}
+
+func (u Updater) replacePortableBinary(ctx context.Context, binary []byte) (activated bool, resultErr error) {
+	if err := RequirePortableOwnership(u.Executable); err != nil {
+		return false, err
+	}
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	if strings.TrimSpace(u.Executable) == "" {
+		return false, errors.New("AIGW executable path is empty")
+	}
+	information, err := os.Stat(u.Executable)
+	if err != nil {
+		return false, fmt.Errorf("inspect current AIGW executable: %w", err)
+	}
+	directory, err := os.MkdirTemp(filepath.Dir(u.Executable), ".aigw-replace-")
+	if err != nil {
+		return false, fmt.Errorf("prepare AIGW replacement: %w", err)
+	}
+	defer func() { resultErr = errors.Join(resultErr, robustio.RemoveAll(directory)) }()
+	candidate := filepath.Join(directory, filepath.Base(u.Executable))
+	if err := store.WriteFileAtomicExactMode(candidate, binary, information.Mode().Perm()); err != nil {
+		return false, fmt.Errorf("stage AIGW replacement: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	if err := commitProgramReplacement(candidate, u.Executable, RollbackPath(u.Executable), robustio.Rename); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func commitProgramReplacement(candidate, current, previous string, rename func(string, string) error) error {
+	if err := rename(current, previous); err != nil {
+		return fmt.Errorf("replace AIGW executable: %w", err)
+	}
+	if err := rename(candidate, current); err != nil {
+		if rollbackErr := rename(previous, current); rollbackErr != nil {
+			return fmt.Errorf("replace AIGW executable: %w; restore current executable: %w", err, rollbackErr)
+		}
+		return fmt.Errorf("replace AIGW executable: %w", err)
+	}
+	return nil
+}
+
+// CredentialCustody moves native credential items between the active program
+// and the retained program that a rollback activates.
+type CredentialCustody interface {
+	// Release gives the items to the reader of the retained program, which
+	// reports version, before that program is activated.
+	Release(version string) error
+	// Reclaim returns released items to the active program when the retained
+	// program is not activated.
+	Reclaim() error
+}
+
+// Rollback restores the immediately preceding portable AIGW executable without
+// accessing the network. It swaps the current and previous binaries so the
+// action itself remains reversible and never creates an unbounded chain.
+// Credential custody moves only after the retained program and configuration
+// are admitted, and returns to the active program if activation fails.
+func (u Updater) Rollback(ctx context.Context, config []byte, custody CredentialCustody) (string, error) {
+	if err := RequirePortableOwnership(u.Executable); err != nil {
+		return "", err
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(u.Executable) == "" {
+		return "", errors.New("AIGW executable path is empty")
+	}
+	backup := RollbackPath(u.Executable)
+	previous, err := os.ReadFile(backup)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("no previous portable AIGW binary is available")
+		}
+		return "", fmt.Errorf("read previous AIGW executable: %w", err)
+	}
+	if _, err := os.Stat(u.Executable); err != nil {
+		return "", fmt.Errorf("inspect current AIGW executable: %w", err)
+	}
+	version, err := u.verifyProgram(ctx, previous, "", config)
+	if err != nil {
+		return "", err
+	}
+	if custody != nil {
+		if err := custody.Release(version); err != nil {
+			return "", errors.Join(fmt.Errorf("return credentials to the previous program: %w", err), custody.Reclaim())
+		}
+	}
+	activated, err := u.replacePortableBinary(ctx, previous)
+	if !activated {
+		err = fmt.Errorf("restore previous AIGW executable: %w", err)
+		if custody != nil {
+			err = errors.Join(err, custody.Reclaim())
+		}
+		return "", err
+	}
+	return "restored the previous program version. If that older program does not support `aigw update --rollback`, download the current portable package and run its installer; it replaces only AIGW and retains one predecessor.", err
+}
+
+// RollbackPath derives the sibling backup path for executable using the
+// separator style already present in executable, rather than the host OS's
+// native separator. This keeps the result stable across platforms: a
+// POSIX-style path (e.g. produced by a Windows binary staged from a
+// forward-slash working directory) must not be rewritten with backslashes,
+// and vice versa.
+func RollbackPath(executable string) string {
+	suffix := ".aigw.previous"
+	if strings.EqualFold(filepath.Ext(executable), ".exe") {
+		suffix += ".exe"
+	}
+	if strings.Contains(executable, `\`) && !strings.Contains(executable, "/") {
+		index := strings.LastIndex(executable, `\`)
+		return executable[:index+1] + suffix
+	}
+	if index := strings.LastIndex(executable, "/"); index >= 0 {
+		return executable[:index+1] + suffix
+	}
+	return suffix
+}

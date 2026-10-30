@@ -4,8 +4,8 @@ package installation
 
 import (
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/program"
 	"aigw-cli/internal/terminal"
-	"aigw-cli/internal/upgrade"
 
 	"github.com/spf13/cobra"
 )
@@ -18,7 +18,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Long: "Observe program paths, byte counts and SHA-256 without changing files or reading Account configuration. This does not verify release trust, rollback readiness or client connectivity.",
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			result, err := upgrade.InspectInstallation(runtime.Executable, runtime.Version)
+			result, err := program.InspectInstallation(runtime.Executable, runtime.Version)
 			if err != nil {
 				return err
 			}

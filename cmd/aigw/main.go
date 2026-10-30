@@ -4,10 +4,10 @@ package main
 import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
+	"aigw-cli/internal/program"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/native"
 	"aigw-cli/internal/terminal"
-	"aigw-cli/internal/upgrade"
 	"io"
 	"os"
 )
@@ -20,7 +20,7 @@ func main() {
 // A versioned reader copy, an extracted release or a development build cannot
 // tell which program its installation currently runs.
 func credentialRole(executable string, err error) native.Role {
-	if err == nil && upgrade.InstalledProgram(executable) {
+	if err == nil && program.InstalledProgram(executable) {
 		return native.InstalledProgram
 	}
 	return native.OtherProgram

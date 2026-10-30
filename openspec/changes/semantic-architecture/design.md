@@ -82,7 +82,7 @@ provider diagnostics, client verification and release tooling apply them below
 Repository tools sit above the product stack. A production file under `tools/`
 may import its own subtree and product packages in layers 4 to 6, and never
 `cmd`, `cli` or `app`. The release tool already imports
-`internal/upgrade/artifact`, and `tools/codex/catalog` imports `internal/client/codex`;
+`internal/program/artifact`, and `tools/codex/catalog` imports `internal/client/codex`;
 both keep importing the owner instead of re-encoding its knowledge.
 
 Alternative considered: keep the closed topology and keep extending the edge

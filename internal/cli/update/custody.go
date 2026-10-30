@@ -5,8 +5,8 @@ import (
 	"slices"
 
 	"aigw-cli/internal/app"
+	"aigw-cli/internal/program"
 	"aigw-cli/internal/secret"
-	"aigw-cli/internal/upgrade"
 )
 
 // credentialCustody moves the configured Accounts' native items between the
@@ -14,7 +14,7 @@ import (
 // cannot load the routing and credential authority, the custody names no
 // credential and the error says why; a missing configuration names none
 // without an error.
-func credentialCustody(deps app.Dependencies) (upgrade.CredentialCustody, error) {
+func credentialCustody(deps app.Dependencies) (program.CredentialCustody, error) {
 	custody := accountCustody{store: deps.Secrets, executable: deps.Executable}
 	cfg, err := deps.Config.LoadCredentialConfig()
 	if err == nil {

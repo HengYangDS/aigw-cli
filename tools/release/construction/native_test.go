@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"aigw-cli/internal/upgrade/artifact"
+	"aigw-cli/internal/program/artifact"
 	"aigw-cli/tools/release/performance"
 	"archive/tar"
 	"archive/zip"

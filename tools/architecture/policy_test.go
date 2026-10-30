@@ -68,9 +68,9 @@ func TestValidatePolicyEdgeEntries(t *testing.T) {
 		"invalid package root":        {PackageChildren: map[string][]string{"../tools": {"release"}}},
 		"duplicate package child":     {PackageChildren: map[string][]string{"tools": {"release", "release"}}},
 		"nested package child":        {PackageChildren: map[string][]string{"tools": {"release/legacy"}}},
-		"duplicate import edge":       {AllowedImportEdges: map[string][]string{"tools/release": {"internal/upgrade", "internal/upgrade"}}},
+		"duplicate import edge":       {AllowedImportEdges: map[string][]string{"tools/release": {"internal/program", "internal/program"}}},
 		"invalid import source":       {AllowedImportEdges: map[string][]string{"../tools/release": {}}},
-		"invalid import target":       {AllowedImportEdges: map[string][]string{"tools/release": {"../internal/upgrade"}}},
+		"invalid import target":       {AllowedImportEdges: map[string][]string{"tools/release": {"../internal/program"}}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if p.GoRoots == nil {
@@ -363,7 +363,7 @@ func TestImportEdgesRejectToolToProductRuntimeDependency(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
 	path := filepath.Join(root, "tools", "release", "main.go")
-	writeFile(t, path, "package main\n\nimport _ \"example.com/aigw/internal/upgrade\"\n")
+	writeFile(t, path, "package main\n\nimport _ \"example.com/aigw/internal/program\"\n")
 	files := []goFileInfo{{relPath: "tools/release/main.go", dir: "tools/release"}}
 	report := newReport("policy", root)
 	policy := policy{AllowedImportEdges: map[string][]string{"tools/release": {}}}

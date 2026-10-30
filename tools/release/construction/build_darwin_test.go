@@ -4,7 +4,7 @@ package construction
 
 import (
 	"aigw-cli/internal/platform/process"
-	"aigw-cli/internal/upgrade/artifact"
+	"aigw-cli/internal/program/artifact"
 	"bytes"
 	"context"
 	"crypto/sha256"

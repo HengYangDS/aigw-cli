@@ -4,7 +4,7 @@ package uninstall
 
 import (
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/upgrade"
+	"aigw-cli/internal/program"
 	"errors"
 	"fmt"
 	"os"
@@ -28,7 +28,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if strings.TrimSpace(target) == "" {
 				target = runtime.Executable
 			}
-			if err := upgrade.RequirePortableOwnership(target); err != nil {
+			if err := program.RequirePortableOwnership(target); err != nil {
 				return err
 			}
 			_, targetErr := os.Stat(target)
@@ -53,7 +53,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 			}
-			if err := upgrade.Uninstall(target); err != nil {
+			if err := program.Uninstall(target); err != nil {
 				title := "Portable program removal is incomplete"
 				impact := "No AIGW configuration existed; no managed client withdrawal was needed. Tokens and versioned credential readers are retained."
 				if statErr == nil {

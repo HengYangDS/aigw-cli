@@ -1,7 +1,7 @@
 package artifact
 
 import (
-	upgradeartifact "aigw-cli/internal/upgrade/artifact"
+	upgradeartifact "aigw-cli/internal/program/artifact"
 	"context"
 	"os"
 	"os/exec"

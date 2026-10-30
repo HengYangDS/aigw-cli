@@ -14,9 +14,9 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/program"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-	"aigw-cli/internal/upgrade"
 )
 
 func TestUpdateCandidateRequiresChecksumManifest(t *testing.T) {
@@ -118,7 +118,7 @@ func TestUpdateRollbackExecutionFailureKeepsRollbackContext(t *testing.T) {
 		name    string
 		failure error
 	}{
-		{name: "startup verification", failure: fmt.Errorf("%w: %w", upgrade.ErrProgramStartupVerification, permission)},
+		{name: "startup verification", failure: fmt.Errorf("%w: %w", program.ErrProgramStartupVerification, permission)},
 		{name: "configuration export permission", failure: fmt.Errorf("retained program configuration export failed: %w", permission)},
 		{name: "configuration export deadline", failure: fmt.Errorf("retained program configuration export failed: %w", context.DeadlineExceeded)},
 	} {
@@ -143,10 +143,10 @@ func TestUpdateRollbackPreservesExactConfigurationOnIncompatibility(t *testing.T
 	if err := os.WriteFile(app.Config.Path(), config, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	updater := &fakeUpdater{rollbackErr: upgrade.ErrRollbackConfiguration}
+	updater := &fakeUpdater{rollbackErr: program.ErrRollbackConfiguration}
 	app.Updater = updater
 	err := cli.Execute(app, []string{"update", "--rollback"})
-	if !errors.Is(err, upgrade.ErrRollbackConfiguration) || string(updater.rollbackConfig) != string(config) || updater.rollbackCalls != 1 {
+	if !errors.Is(err, program.ErrRollbackConfiguration) || string(updater.rollbackConfig) != string(config) || updater.rollbackCalls != 1 {
 		t.Fatalf("rollback input or cause changed: %q, %v", updater.rollbackConfig, err)
 	}
 	if actual, err := os.ReadFile(app.Config.Path()); err != nil || string(actual) != string(config) {
@@ -374,10 +374,10 @@ func TestUpdateCandidateStartupFailureKeepsSafeDiagnosis(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	privatePath := filepath.Join(t.TempDir(), "candidate")
 	cause := &os.PathError{Op: "fork/exec", Path: privatePath, Err: os.ErrPermission}
-	app.Updater = &fakeUpdater{candidateErr: fmt.Errorf("%w: %w", upgrade.ErrProgramStartupVerification, cause)}
+	app.Updater = &fakeUpdater{candidateErr: fmt.Errorf("%w: %w", program.ErrProgramStartupVerification, cause)}
 
 	err := cli.Execute(app, []string{"update", "--candidate", "candidate.tar.gz", "--checksums", "checksums.txt"})
-	if !errors.Is(err, upgrade.ErrProgramStartupVerification) || !errors.Is(err, cause) {
+	if !errors.Is(err, program.ErrProgramStartupVerification) || !errors.Is(err, cause) {
 		t.Fatalf("candidate failure lost its typed cause: %v", err)
 	}
 	for _, want := range []string{"Candidate program failed startup verification", "installed program is unchanged", "candidate archive"} {
@@ -444,7 +444,7 @@ func TestUpdateReportsCompletedReplacementWithIncompleteCleanup(t *testing.T) {
 
 func TestUpdateSameVersionIdentityConflictHasSafeDiagnosis(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	cause := upgrade.ErrCandidateIdentity
+	cause := program.ErrCandidateIdentity
 	app.Updater = &fakeUpdater{candidateErr: cause}
 	err := cli.Execute(app, []string{"update", "--candidate", "candidate.tar.gz", "--checksums", "checksums.txt"})
 	if !errors.Is(err, cause) || !strings.Contains(out.String(), "different program bytes") || !strings.Contains(out.String(), "unchanged") {
@@ -460,11 +460,11 @@ type fakeUpdater struct {
 	candidateResult   string
 	rollbackResult    string
 	rollbackConfig    []byte
-	rollbackCustody   upgrade.CredentialCustody
+	rollbackCustody   program.CredentialCustody
 	updateErr         error
 	candidateErr      error
 	rollbackErr       error
-	candidateReceived upgrade.CandidateArchive
+	candidateReceived program.CandidateArchive
 }
 
 func (u *fakeUpdater) Update(_ context.Context, _ string) (string, error) {
@@ -472,13 +472,13 @@ func (u *fakeUpdater) Update(_ context.Context, _ string) (string, error) {
 	return u.updateResult, u.updateErr
 }
 
-func (u *fakeUpdater) UpdateCandidate(_ context.Context, _ string, candidate upgrade.CandidateArchive) (string, error) {
+func (u *fakeUpdater) UpdateCandidate(_ context.Context, _ string, candidate program.CandidateArchive) (string, error) {
 	u.candidateCalls++
 	u.candidateReceived = candidate
 	return u.candidateResult, u.candidateErr
 }
 
-func (u *fakeUpdater) Rollback(_ context.Context, config []byte, custody upgrade.CredentialCustody) (string, error) {
+func (u *fakeUpdater) Rollback(_ context.Context, config []byte, custody program.CredentialCustody) (string, error) {
 	u.rollbackConfig = append([]byte(nil), config...)
 	u.rollbackCustody = custody
 	u.rollbackCalls++

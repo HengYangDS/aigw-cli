@@ -1,7 +1,7 @@
 package construction
 
 import (
-	"aigw-cli/internal/upgrade/artifact"
+	"aigw-cli/internal/program/artifact"
 	"archive/zip"
 	"context"
 	"crypto/sha256"

@@ -22,9 +22,9 @@ import (
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
+	"aigw-cli/internal/program"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-	"aigw-cli/internal/upgrade"
 
 	"aigw-cli/internal/clients"
 
@@ -167,12 +167,12 @@ func (j *journeyFixture) requireRetryRollbackBoundary(baseline string) {
 	j.requireRetryRollbackRefusal(baseline)
 }
 
-func (j *journeyFixture) readsRetryPolicy(program string) bool {
+func (j *journeyFixture) readsRetryPolicy(executable string) bool {
 	t := j.testing
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
-	output, _, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: program, Args: []string{"--version"}, Env: j.environment, Directory: j.root})
+	output, _, err := (process.Runner{}).RunCaptureStreams(ctx, process.Plan{Executable: executable, Args: []string{"--version"}, Env: j.environment, Directory: j.root})
 	reported, found := strings.CutPrefix(strings.TrimSpace(string(output)), "aigw version ")
 	version := make([]int, 3)
 	if _, scanErr := fmt.Sscanf(reported, "%d.%d.%d", &version[0], &version[1], &version[2]); err != nil || !found || scanErr != nil {
@@ -192,14 +192,14 @@ func (j *journeyFixture) requireRetryRollbackAdmission(baseline string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	retained := upgrade.RollbackPath(j.binary)
-	program, active := readFile(t, baseline), readFile(t, j.binary)
-	if err := os.WriteFile(retained, program, 0o700); err != nil {
+	retained := program.RollbackPath(j.binary)
+	previous, active := readFile(t, baseline), readFile(t, j.binary)
+	if err := os.WriteFile(retained, previous, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range [][2][]byte{{program, active}, {active, program}} {
+	for _, want := range [][2][]byte{{previous, active}, {active, previous}} {
 		ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
-		_, err := (upgrade.Updater{Executable: j.binary, Runner: process.Runner{}}).Rollback(ctx, admission, nil)
+		_, err := (program.Updater{Executable: j.binary, Runner: process.Runner{}}).Rollback(ctx, admission, nil)
 		cancel()
 		if err != nil {
 			t.Fatalf("a retained program that reads retry policies refused rollback: %v", err)
@@ -220,19 +220,19 @@ func (j *journeyFixture) requireRetryRollbackRefusal(baseline string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	retained := upgrade.RollbackPath(j.binary)
-	program := readFile(t, baseline)
+	retained := program.RollbackPath(j.binary)
+	previous := readFile(t, baseline)
 	active := readFile(t, j.binary)
-	if err := os.WriteFile(retained, program, 0o700); err != nil {
+	if err := os.WriteFile(retained, previous, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
-	_, err = (upgrade.Updater{Executable: j.binary, Runner: process.Runner{}}).Rollback(ctx, admission, nil)
-	if !errors.Is(err, upgrade.ErrRollbackConfiguration) || ctx.Err() != nil {
+	_, err = (program.Updater{Executable: j.binary, Runner: process.Runner{}}).Rollback(ctx, admission, nil)
+	if !errors.Is(err, program.ErrRollbackConfiguration) || ctx.Err() != nil {
 		t.Fatalf("retained reader did not refuse policy at its native boundary: %v", err)
 	}
-	if !bytes.Equal(active, readFile(t, j.binary)) || !bytes.Equal(program, readFile(t, retained)) {
+	if !bytes.Equal(active, readFile(t, j.binary)) || !bytes.Equal(previous, readFile(t, retained)) {
 		t.Fatal("refused capability probe changed program bytes")
 	}
 	if err := os.Remove(retained); err != nil {

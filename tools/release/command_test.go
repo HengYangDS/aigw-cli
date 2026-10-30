@@ -2,8 +2,8 @@ package main
 
 import (
 	"aigw-cli/internal/client/claude"
+	upgradeartifact "aigw-cli/internal/program/artifact"
 	"aigw-cli/internal/secret"
-	upgradeartifact "aigw-cli/internal/upgrade/artifact"
 	"aigw-cli/tools/release/artifact"
 	"archive/zip"
 	"bytes"

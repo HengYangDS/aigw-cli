@@ -341,7 +341,7 @@ func checkGitLabNativeToolClosure(t *testing.T, content string) {
 		"native-windows": *pipeline.NativeWindows,
 	} {
 		enabled := strings.Split(job.Variables["MISE_ENABLE_TOOLS"], ",")
-		// The native Go suite includes real glab loopback tests in internal/upgrade.
+		// The native Go suite includes real glab loopback tests in internal/program.
 		for _, tool := range []string{"go", "node", "npm", "github:golangci/golangci-lint", "github:goreleaser/goreleaser", "github:anchore/syft", "github:lycheeverse/lychee", "gh", "glab"} {
 			if !slices.Contains(enabled, tool) {
 				t.Errorf("GitLab %s lacks native acceptance tool %s", name, tool)

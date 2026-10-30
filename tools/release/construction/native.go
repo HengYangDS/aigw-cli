@@ -4,7 +4,7 @@ import (
 	"aigw-cli/internal/client/claude"
 	"aigw-cli/internal/client/codex"
 	"aigw-cli/internal/client/hermes"
-	"aigw-cli/internal/upgrade/artifact"
+	"aigw-cli/internal/program/artifact"
 	releaseartifact "aigw-cli/tools/release/artifact"
 	"aigw-cli/tools/release/performance"
 	"aigw-cli/tools/release/readiness"

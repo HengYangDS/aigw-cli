@@ -22,11 +22,11 @@ package_children."internal" = [
   "clients",
   "domain",
   "platform",
+  "program",
   "providers",
   "secret",
   "store",
   "terminal",
-  "upgrade",
 ]
 package_children."internal/platform" = ["process"]
 package_children."internal/app" = [
@@ -56,7 +56,7 @@ package_children."internal/client" = [
   "surface",
   "verification",
 ]
-package_children."internal/upgrade" = ["acceptance", "artifact"]
+package_children."internal/program" = ["acceptance", "artifact"]
 package_children."tools/ci" = [
   "bootstrap",
   "evidence",
@@ -131,10 +131,10 @@ peer_package_roots."internal/cli" = ["invocation"]
 allowed_import_edges."cmd/aigw" = [
   "internal/cli",
   "internal/clients",
+  "internal/program",
   "internal/secret",
   "internal/secret/native",
   "internal/terminal",
-  "internal/upgrade",
 ]
 # The built-in adapter set is the only list of every client outside its adapters.
 allowed_import_edges."internal/clients" = [
@@ -156,13 +156,13 @@ allowed_import_edges."internal/client" = [
 ]
 allowed_import_edges."internal/client/verification" = ["internal/domain"]
 # Upgrade reuses neutral process and durable staging owners.
-allowed_import_edges."internal/upgrade" = [
+allowed_import_edges."internal/program" = [
   "internal/platform",
   "internal/platform/process",
+  "internal/program/artifact",
   "internal/store",
-  "internal/upgrade/artifact",
 ]
-allowed_import_edges."internal/upgrade/artifact" = []
+allowed_import_edges."internal/program/artifact" = []
 allowed_import_edges."internal/app/renaming" = [
   "internal/app/synchronization",
   "internal/domain",
@@ -285,10 +285,10 @@ allowed_import_edges."internal/cli" = [
   "internal/client/discovery",
   "internal/platform",
   "internal/platform/process",
+  "internal/program",
   "internal/secret",
   "internal/store",
   "internal/terminal",
-  "internal/upgrade",
 ]
 # Use cases receive the invocation's capabilities and import no command or
 # terminal package.
@@ -302,10 +302,10 @@ allowed_import_edges."internal/app" = [
   "internal/client/discovery",
   "internal/domain",
   "internal/platform/process",
+  "internal/program",
   "internal/secret",
   "internal/secret/probe",
   "internal/store",
-  "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/invocation" = [
   "internal/app",
@@ -323,22 +323,22 @@ allowed_import_edges."internal/cli/credential" = [
 ]
 allowed_import_edges."internal/cli/install" = [
   "internal/cli/invocation",
-  "internal/upgrade",
+  "internal/program",
 ]
 allowed_import_edges."internal/cli/uninstall" = [
   "internal/cli/invocation",
-  "internal/upgrade",
+  "internal/program",
 ]
 allowed_import_edges."internal/cli/installation" = [
   "internal/cli/invocation",
+  "internal/program",
   "internal/terminal",
-  "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/update" = [
   "internal/app",
   "internal/cli/invocation",
+  "internal/program",
   "internal/secret",
-  "internal/upgrade",
 ]
 allowed_import_edges."internal/cli/catalog" = [
   "internal/app",
@@ -429,7 +429,7 @@ allowed_import_edges."tools/release" = [
   "tools/release/publication",
   "tools/release/readiness",
 ]
-allowed_import_edges."tools/release/artifact" = ["internal/upgrade/artifact"]
+allowed_import_edges."tools/release/artifact" = ["internal/program/artifact"]
 # Construction reuses the adapters' canonical client IDs, neutral execution and
 # release contracts.
 allowed_import_edges."tools/release/construction" = [
@@ -437,8 +437,8 @@ allowed_import_edges."tools/release/construction" = [
   "internal/client/codex",
   "internal/client/hermes",
   "internal/platform/process",
-  "internal/upgrade",
-  "internal/upgrade/artifact",
+  "internal/program",
+  "internal/program/artifact",
   "tools/release/artifact",
   "tools/release/performance",
   "tools/release/readiness",

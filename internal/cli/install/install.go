@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/upgrade"
+	"aigw-cli/internal/program"
 
 	"github.com/spf13/cobra"
 )
@@ -23,7 +23,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if strings.TrimSpace(target) == "" {
 				return errors.New("portable installation target is unavailable")
 			}
-			if err := upgrade.Install(runtime.Executable, target); err != nil {
+			if err := program.Install(runtime.Executable, target); err != nil {
 				return err
 			}
 			render := invocation.Renderer(runtime)

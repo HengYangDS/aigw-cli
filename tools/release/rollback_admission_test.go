@@ -1,8 +1,8 @@
 package main
 
 import (
+	"aigw-cli/internal/program"
 	"aigw-cli/internal/store"
-	"aigw-cli/internal/upgrade"
 	"aigw-cli/tools/release/readiness"
 	"errors"
 	"os"
@@ -45,7 +45,7 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 		t.Fatalf("unsupported configuration did not fail predecessor export: %v", exportErr)
 	}
 	want := map[string]store.FileSnapshot{}
-	for _, path := range []string{journey.binary, upgrade.RollbackPath(journey.binary), journey.config, journey.config + ".bak"} {
+	for _, path := range []string{journey.binary, program.RollbackPath(journey.binary), journey.config, journey.config + ".bak"} {
 		snapshot, err := store.CaptureFileSnapshot(path)
 		if err != nil {
 			t.Fatal(err)

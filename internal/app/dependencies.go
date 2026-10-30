@@ -15,9 +15,9 @@ import (
 	"aigw-cli/internal/client/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
+	"aigw-cli/internal/program"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
-	"aigw-cli/internal/upgrade"
 )
 
 // HTTPDoer executes one HTTP request.
@@ -28,8 +28,8 @@ type HTTPDoer interface {
 // Updater performs one verified program lifecycle transition.
 type Updater interface {
 	Update(ctx context.Context, currentVersion string) (string, error)
-	UpdateCandidate(ctx context.Context, currentVersion string, candidate upgrade.CandidateArchive) (string, error)
-	Rollback(ctx context.Context, config []byte, custody upgrade.CredentialCustody) (string, error)
+	UpdateCandidate(ctx context.Context, currentVersion string, candidate program.CandidateArchive) (string, error)
+	Rollback(ctx context.Context, config []byte, custody program.CredentialCustody) (string, error)
 }
 
 // Dependencies are the capabilities that one invocation's use cases share,
