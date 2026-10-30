@@ -17,12 +17,13 @@ import (
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
+	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 
 	"github.com/spf13/cobra"
 )
 
-func catalogDependencies(t *testing.T, cfg domain.Config, secretValues map[string]string, client HTTPDoer) (Dependencies, *bytes.Buffer) {
+func catalogDependencies(t *testing.T, cfg domain.Config, secretValues map[string]string, client HTTPDoer) (invocation.Context, *bytes.Buffer) {
 	t.Helper()
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	if len(cfg.Routes) > 0 {
@@ -37,7 +38,7 @@ func catalogDependencies(t *testing.T, cfg domain.Config, secretValues map[strin
 		}
 	}
 	out := new(bytes.Buffer)
-	return Dependencies{Config: configStore, Secrets: secretStore, HTTP: client, Out: out, Width: 120}, out
+	return invocation.Context{Config: configStore, Secrets: secretStore, HTTP: client, Out: out, Width: 120}, out
 }
 
 func executeCatalogCommand(t *testing.T, command *cobra.Command, args ...string) error {
@@ -68,7 +69,7 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 	if err := writeUnreadableConfig(loadFailure.Path()); err != nil {
 		t.Fatal(err)
 	}
-	deps := Dependencies{Config: loadFailure, Secrets: secret.NewMemoryStore(), HTTP: catalogHTTPClient(nil), Out: io.Discard}
+	deps := invocation.Context{Config: loadFailure, Secrets: secret.NewMemoryStore(), HTTP: catalogHTTPClient(nil), Out: io.Discard}
 	if err := executeCatalogCommand(t, NewModelsCommand(deps)); err == nil {
 		t.Fatal("expected config load failure")
 	}
@@ -127,7 +128,7 @@ func TestModelsCommandExplainsCredentialAndCatalogFailures(t *testing.T) {
 	cfg := configuredCatalog()
 	secretStore := &faultingSecrets{values: map[string]string{"gateway": "token"}, getErr: errors.New("credential unavailable")}
 	out := new(bytes.Buffer)
-	deps := Dependencies{Config: saveCatalogConfig(t, cfg), Secrets: secretStore, HTTP: catalogHTTPClient(nil), Out: out}
+	deps := invocation.Context{Config: saveCatalogConfig(t, cfg), Secrets: secretStore, HTTP: catalogHTTPClient(nil), Out: out}
 	if err := executeCatalogCommand(t, NewModelsCommand(deps)); err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +175,7 @@ func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt-codex","gpt-claude","other"]}`)), Request: request}, nil
 	})
 	out := new(bytes.Buffer)
-	deps := Dependencies{Config: saveCatalogConfig(t, cfg), Secrets: secretStore, HTTP: client, Out: out, Width: 120}
+	deps := invocation.Context{Config: saveCatalogConfig(t, cfg), Secrets: secretStore, HTTP: client, Out: out, Width: 120}
 	command = NewCatalogCommand(deps)
 	if err := executeCatalogCommand(t, command, "--json", "--all"); err != nil {
 		t.Fatalf("complete catalog JSON error = %v", err)
@@ -241,7 +242,7 @@ func TestCatalogOutputFailuresAndHelpers(t *testing.T) {
 		t.Fatalf("route rows = %#v", rows)
 	}
 	cfg.Accounts["alpha"] = domain.Account{Label: "Alpha"}
-	observations := discoverCatalog(context.Background(), deps, cfg).Observations
+	observations := discoverCatalog(context.Background(), deps.Secrets, deps.HTTP, cfg).Observations
 	if len(observations) != 3 || observations[0].Account != "alpha" || observations[1].Account != "gateway" || observations[2].Account != "gateway" {
 		t.Fatalf("catalog observations = %#v", observations)
 	}
@@ -432,7 +433,7 @@ func TestFetchIDsOwnsCatalogProtocol(t *testing.T) {
 }
 
 func TestCommandConstructorsExposeStableNames(t *testing.T) {
-	deps := Dependencies{}
+	deps := invocation.Context{}
 	if got := NewModelsCommand(deps).Name(); got != "models" {
 		t.Fatalf("models command = %q", got)
 	}

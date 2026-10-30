@@ -3,14 +3,12 @@ package catalog
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"slices"
 	"strings"
 
+	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secret"
-	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -19,17 +17,6 @@ import (
 // HTTPDoer executes catalog requests.
 type HTTPDoer interface {
 	Do(request *http.Request) (*http.Response, error)
-}
-
-// Dependencies are the capabilities required by model commands.
-type Dependencies struct {
-	Config    store.Store
-	Secrets   secret.Store
-	HTTP      HTTPDoer
-	Out       io.Writer
-	Color     bool
-	Width     int
-	RenderOut io.Writer
 }
 
 type modelRow struct {
@@ -41,21 +28,21 @@ type modelRow struct {
 }
 
 // NewModelsCommand constructs the configured-model availability command.
-func NewModelsCommand(deps Dependencies) *cobra.Command {
+func NewModelsCommand(runtime invocation.Context) *cobra.Command {
 	return &cobra.Command{
 		Use:   "models",
 		Short: "Compare configured model IDs with provider catalogs; does not test inference",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := deps.Config.Load()
+			cfg, err := runtime.Config.Load()
 			if err != nil {
 				return err
 			}
 			if len(cfg.Routes) == 0 {
 				return fmt.Errorf("not configured; run `aigw setup`")
 			}
-			rows := modelRows(cfg, discoverCatalog(cmd.Context(), deps, cfg))
-			r := renderer(deps)
+			rows := modelRows(cfg, discoverCatalog(cmd.Context(), runtime.Secrets, runtime.HTTP, cfg))
+			r := invocation.Renderer(runtime)
 			r.ProductTitle("Configured model catalog")
 			r.Text("Catalog membership does not prove protocol capabilities, inference, or client readiness.")
 			r.Section("Routes")
@@ -113,25 +100,25 @@ func modelRows(cfg domain.Config, catalog catalogOutput) []modelRow {
 }
 
 // NewCatalogCommand constructs authenticated catalog discovery.
-func NewCatalogCommand(deps Dependencies) *cobra.Command {
+func NewCatalogCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode, all bool
 	cmd := &cobra.Command{Use: "catalog", Short: "Discover authenticated model catalogs for each account (compact summary by default)", Args: cobra.NoArgs}
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
-		cfg, err := deps.Config.Load()
+		cfg, err := runtime.Config.Load()
 		if err != nil {
 			return err
 		}
 		if len(cfg.Routes) == 0 {
 			if jsonMode {
-				return terminal.WriteJSON(deps.Out, catalogOutput{Observations: []catalogObservation{}})
+				return terminal.WriteJSON(runtime.Out, catalogOutput{Observations: []catalogObservation{}})
 			}
 			return fmt.Errorf("not configured; run `aigw setup`")
 		}
-		result := discoverCatalog(cmd.Context(), deps, cfg)
+		result := discoverCatalog(cmd.Context(), runtime.Secrets, runtime.HTTP, cfg)
 		if jsonMode {
-			return terminal.WriteJSON(deps.Out, result)
+			return terminal.WriteJSON(runtime.Out, result)
 		}
-		r := renderer(deps)
+		r := invocation.Renderer(runtime)
 		r.ProductTitle("Authenticated model catalog")
 		r.Text("Each observation proves catalogue membership only for its named protocol source.")
 		for _, observation := range result.Observations {
@@ -236,14 +223,6 @@ func catalogStatusText(status catalogStatus) string {
 	default:
 		return string(status)
 	}
-}
-
-func renderer(deps Dependencies) *terminal.Renderer {
-	out := deps.Out
-	if deps.RenderOut != nil {
-		out = deps.RenderOut
-	}
-	return terminal.NewRendererWithWidth(out, deps.Color, deps.Width)
 }
 
 func modelTitle(value string) string {

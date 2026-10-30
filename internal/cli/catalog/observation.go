@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
 )
 
@@ -73,7 +74,7 @@ type catalogOutput struct {
 	Observations []catalogObservation `json:"observations"`
 }
 
-func discoverCatalog(ctx context.Context, deps Dependencies, cfg domain.Config) catalogOutput {
+func discoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer, cfg domain.Config) catalogOutput {
 	result := catalogOutput{Observations: []catalogObservation{}}
 	for _, accountName := range cfg.CatalogAccountIDs() {
 		account := cfg.Accounts[accountName]
@@ -85,10 +86,10 @@ func discoverCatalog(ctx context.Context, deps Dependencies, cfg domain.Config) 
 			})
 			continue
 		}
-		secretAvailable, observationErr := deps.Secrets.Exists(accountName)
+		secretAvailable, observationErr := secrets.Exists(accountName)
 		var token string
 		if observationErr == nil && secretAvailable {
-			token, observationErr = deps.Secrets.Get(accountName)
+			token, observationErr = secrets.Get(accountName)
 		}
 		for _, source := range sources {
 			entry := catalogObservation{
@@ -101,7 +102,7 @@ func discoverCatalog(ctx context.Context, deps Dependencies, cfg domain.Config) 
 			case !entry.SecretAvailable:
 				entry.Status = catalogTokenUnavailable
 			default:
-				ids, endpoint, err := FetchIDs(ctx, deps.HTTP, source.Endpoint, source.Protocol, token)
+				ids, endpoint, err := FetchIDs(ctx, client, source.Endpoint, source.Protocol, token)
 				if err != nil {
 					entry.Status = catalogRequestFailed
 					break

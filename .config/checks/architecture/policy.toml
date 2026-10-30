@@ -309,10 +309,10 @@ allowed_import_edges."internal/cli/renaming" = [
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/catalog" = [
+  "internal/cli/invocation",
   "internal/domain",
   "internal/secret",
   "internal/secret/probe",
-  "internal/store",
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/doctor" = [

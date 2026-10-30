@@ -323,14 +323,6 @@ func (a *App) doctorCommand() *cobra.Command {
 	})
 }
 
-func (a *App) catalogDependencies() catalog.Dependencies {
-	return catalog.Dependencies{
-		Config: a.Config, Secrets: a.Secrets, HTTP: a.HTTP, Out: a.outputWriter(),
-		RenderOut: a.outputWriter(),
-		Color:     a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)),
-	}
-}
-
 func (a *App) invocationContext() invocation.Context {
 	return invocation.Context{
 		Version: appVersion(a), Executable: a.Executable, DataDir: a.DataDir, CredentialPath: a.CredentialPath, InstallTarget: a.InstallTarget,
@@ -402,8 +394,8 @@ func NewRoot(app *App) *cobra.Command {
 		route.NewCommand(runtime, renaming.NewRouteCommand(runtime)),
 		clientcli.NewCommand(runtime),
 		config.NewCommand(runtime), readiness.NewTestCommand(runtime),
-		verify.NewCommand(runtime), catalog.NewModelsCommand(app.catalogDependencies()),
-		catalog.NewCatalogCommand(app.catalogDependencies()), balance.NewCommand(runtime),
+		verify.NewCommand(runtime), catalog.NewModelsCommand(runtime),
+		catalog.NewCatalogCommand(runtime), balance.NewCommand(runtime),
 	}
 	for group, commands := range map[string][]*cobra.Command{
 		"connect": connect, "daily": daily, "recover": recoveryCommands, "advanced": advanced,

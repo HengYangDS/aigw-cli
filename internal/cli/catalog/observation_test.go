@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"aigw-cli/internal/terminal"
 	"bytes"
 	"context"
 	"io"
@@ -69,7 +70,7 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 	})
 	deps, _ := catalogDependencies(t, cfg, map[string]string{"gateway": "token"}, client)
 
-	result := discoverCatalog(context.Background(), deps, cfg)
+	result := discoverCatalog(context.Background(), deps.Secrets, deps.HTTP, cfg)
 	if !reflect.DeepEqual(cfg, before) {
 		t.Fatalf("catalog observation mutated configuration:\nbefore=%#v\nafter=%#v", before, cfg)
 	}
@@ -202,7 +203,7 @@ func TestAmbiguousCatalogueDoesNotReportRoutesAsNotListed(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Request: request}, nil
 		})
 		deps, _ := catalogDependencies(t, cfg, map[string]string{"gateway": "token"}, client)
-		rows := modelRows(cfg, discoverCatalog(context.Background(), deps, cfg))
+		rows := modelRows(cfg, discoverCatalog(context.Background(), deps.Secrets, deps.HTTP, cfg))
 		if len(rows) != 1 || !strings.HasPrefix(rows[0].Catalog, want) {
 			t.Fatalf("body=%s rows=%#v, want %q", body, rows, want)
 		}
@@ -224,7 +225,7 @@ func TestDeprecatedCatalogEntryDoesNotPresentAsAdmitted(t *testing.T) {
 
 func TestDefaultCatalogRenderingKeepsDeprecatedRoutesSeparateFromCandidates(t *testing.T) {
 	out := new(bytes.Buffer)
-	renderCatalogObservation(renderer(Dependencies{Out: out, Width: 120}), nil, catalogObservation{
+	renderCatalogObservation(terminal.NewRendererWithWidth(out, false, 120), nil, catalogObservation{
 		Models: []catalogModel{
 			{ID: "current", State: catalogAdmitted, Routes: []catalogRoute{{ID: "current-route"}}},
 			{ID: "legacy", State: catalogDeprecated, Routes: []catalogRoute{{ID: "legacy-route"}}},
