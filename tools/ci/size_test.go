@@ -60,8 +60,9 @@ func TestSourceSizeUsesExactNativeCodeLines(t *testing.T) {
 
 func TestSourceSizeMeasuresSpecificationsOutsideTransition(t *testing.T) {
 	root := newGitRepository(t)
-	writeRepositoryFile(t, root, ".config/checks/scc/policy.toml", string(readFile(t, filepath.Join("..", "..", ".config", "checks", "scc", "policy.toml"))))
-	writeRepositoryFile(t, root, "source.go", "package fixture\n")
+	// Distinct budgets show which one measures each file.
+	writeRepositoryFile(t, root, ".config/checks/scc/policy.toml", "max_code_lines = 600\nmax_specification_lines = 512\n")
+	writeRepositoryFile(t, root, "source.go", "package fixture\n"+strings.Repeat("var _ = 1\n", 550))
 	long := "# Long\n" + strings.Repeat("Line.\n\n", 512)
 	short := "# Short\n\nLine.\n"
 	writeRepositoryFile(t, root, "openspec/specs/long/spec.md", long)
@@ -69,14 +70,21 @@ func TestSourceSizeMeasuresSpecificationsOutsideTransition(t *testing.T) {
 	writeRepositoryFile(t, root, "openspec/changes/archive/2026-01-01-done/specs/long/spec.md", long)
 	check := func() error { return run([]string{"check-source-size", root}, &bytes.Buffer{}, systemRunner) }
 	mainSpecification := filepath.Join("openspec", "specs", "long", "spec.md") + ": non-blank lines 513 > 512"
-	if err := check(); err == nil || !strings.Contains(err.Error(), mainSpecification) || strings.Contains(err.Error(), "archive") {
-		t.Fatalf("a main specification above the limit passed: %v", err)
+	// An ignored delta is not repository content and exempts nothing.
+	writeRepositoryFile(t, root, ".gitignore", "openspec/changes/ignored/\n")
+	writeRepositoryFile(t, root, "openspec/changes/ignored/specs/long/spec.md", "## MODIFIED Requirements\n")
+	if err := check(); err == nil || !strings.Contains(err.Error(), mainSpecification) || strings.Contains(err.Error(), "archive") || strings.Contains(err.Error(), "source.go") {
+		t.Fatalf("the gate did not measure each file against its own budget: %v", err)
 	}
-	writeRepositoryFile(t, root, "openspec/changes/active/specs/long/spec.md", short)
+	writeRepositoryFile(t, root, "openspec/changes/active/specs/long/spec.md", "## ADDED Requirements\n\n### Requirement: More\n\nText.\n")
+	if err := check(); err == nil || !strings.Contains(err.Error(), mainSpecification) {
+		t.Fatalf("a delta that only adds requirements exempted its main specification: %v", err)
+	}
+	writeRepositoryFile(t, root, "openspec/changes/active/specs/long/spec.md", "## MODIFIED Requirements\n\n"+short)
 	if err := check(); err != nil {
 		t.Fatalf("the gate measured a main specification that an active Change rewrites: %v", err)
 	}
-	writeRepositoryFile(t, root, "openspec/changes/active/specs/long/spec.md", long)
+	writeRepositoryFile(t, root, "openspec/changes/active/specs/long/spec.md", "## REMOVED Requirements\n"+strings.Repeat("Line.\n\n", 512))
 	delta := filepath.Join("openspec", "changes", "active", "specs", "long", "spec.md") + ": non-blank lines 513 > 512"
 	if err := check(); err == nil || !strings.Contains(err.Error(), delta) {
 		t.Fatalf("a delta above the limit passed: %v", err)

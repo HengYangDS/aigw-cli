@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -80,6 +81,10 @@ func TestSynonymConfigurationKeepsThePolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	type fileType struct {
+		Globs   []string `toml:"extend-glob"`
+		Ignored []string `toml:"extend-ignore-re"`
+	}
 	var configuration struct {
 		Files struct {
 			Exclude []string `toml:"extend-exclude"`
@@ -89,39 +94,77 @@ func TestSynonymConfigurationKeepsThePolicy(t *testing.T) {
 			Identifiers map[string]string `toml:"extend-identifiers"`
 			Words       map[string]string `toml:"extend-words"`
 		} `toml:"default"`
+		Types map[string]fileType `toml:"type"`
 	}
 	if err := toml.Unmarshal(data, &configuration); err != nil {
 		t.Fatalf("configuration is not TOML: %v\n%s", err, data)
 	}
 	if !slices.Equal(configuration.Files.Exclude, []string{"history/**"}) || configuration.Default.Identifiers["kept"] != "kept" ||
-		!slices.Equal(configuration.Default.Ignored, append([]string{"kept"}, namingPassages...)) ||
+		!slices.Equal(configuration.Default.Ignored, []string{"kept"}) ||
 		len(configuration.Default.Words) != 2 || configuration.Default.Words[rejectedWord] != "catalog" || configuration.Default.Words[rejectedWord+"s"] != "catalogs" {
 		t.Fatalf("configuration = %+v", configuration)
 	}
+	for _, passage := range namingPassages() {
+		if got := configuration.Types[passage.fileType]; !slices.Equal(got.Globs, []string{passage.glob}) || !slices.Equal(got.Ignored, []string{passage.pattern}) {
+			t.Fatalf("file type %s = %+v", passage.fileType, got)
+		}
+	}
 	if _, err := synonymConfiguration([]byte("invalid = ["), nil); err == nil {
 		t.Fatal("an invalid policy was accepted")
+	}
+	if _, err := synonymConfiguration([]byte("[type.glossary-table]\nextend-glob = [\"x\"]\n"), nil); err == nil {
+		t.Fatal("a policy file type was replaced")
 	}
 }
 
 func TestSynonymFilesLeaveHistoryOut(t *testing.T) {
 	root := t.TempDir()
-	writeRepositoryFile(t, root, "openspec/changes/active/specs/rewritten/spec.md", "## ADDED Requirements\n")
-	writeRepositoryFile(t, root, "openspec/changes/archive/2026-01-01-done/specs/kept/spec.md", "")
+	writeRepositoryFile(t, root, "openspec/changes/active/specs/rewritten/spec.md", "## MODIFIED Requirements\n\n### Requirement: A\n")
+	writeRepositoryFile(t, root, "openspec/changes/active/specs/added/spec.md", "## ADDED Requirements\n\n### Requirement: B\n")
+	writeRepositoryFile(t, root, "openspec/changes/archive/2026-01-01-done/specs/kept/spec.md", "## REMOVED Requirements\n")
 	files := []string{
 		"README.md",
-		"openspec/specs/rewritten/spec.md",
+		"openspec/specs/added/spec.md",
 		"openspec/specs/kept/spec.md",
+		"openspec/specs/rewritten/spec.md",
 		"openspec/changes/active/design.md",
+		"openspec/changes/active/specs/added/spec.md",
 		"openspec/changes/active/specs/rewritten/spec.md",
 		"openspec/changes/archive/2026-01-01-done/design.md",
+		"openspec/changes/archive/2026-01-01-done/specs/kept/spec.md",
 	}
 	got, err := synonymFiles(root, files)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"README.md", "openspec/specs/kept/spec.md", "openspec/changes/active/specs/rewritten/spec.md"}
+	want := []string{
+		"README.md",
+		"openspec/specs/added/spec.md",
+		"openspec/specs/kept/spec.md",
+		"openspec/changes/active/specs/added/spec.md",
+		"openspec/changes/active/specs/rewritten/spec.md",
+	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("files = %v, want %v", got, want)
+	}
+}
+
+func TestRejectedDirectoryNamesSplitNames(t *testing.T) {
+	synonyms := map[string]string{rejectedWord: "catalog", rejectedWord + "s": "catalog"}
+	capitalized := strings.ToUpper(rejectedWord[:1]) + rejectedWord[1:]
+	err := rejectedDirectoryNames([]string{
+		"docs/tool-search-" + rejectedWord + "/note.md",
+		"internal/model" + capitalized + "/document.go",
+		"internal/model" + capitalized + "/document_test.go",
+		"internal/modelcatalog/document.go",
+		"README.md",
+	}, synonyms)
+	want := fmt.Sprintf("docs/tool-search-%s: directory name uses the rejected synonym %q; use \"catalog\"\ninternal/model%s: directory name uses the rejected synonym %q; use \"catalog\"", rejectedWord, rejectedWord, capitalized, rejectedWord)
+	if err == nil || err.Error() != want {
+		t.Fatalf("directory findings = %v, want %s", err, want)
+	}
+	if err := rejectedDirectoryNames([]string{"internal/modelcatalog/document.go", "README.md"}, synonyms); err != nil {
+		t.Fatalf("canonical directory names were refused: %v", err)
 	}
 }
 
@@ -129,15 +172,29 @@ func TestSpellingRefusesARejectedSynonymOutsideHistory(t *testing.T) {
 	repository := repositoryRoot(t)
 	root := newGitRepository(t)
 	write := func(relative, content string) { writeRepositoryFile(t, root, relative, content) }
-	capitalized := strings.ToUpper(rejectedWord[:1]) + rejectedWord[1:]
+	// checked holds the files that the synonym check reads, with word where
+	// it reads text; the history around word must keep the rejected spelling.
+	checked := func(word string) map[string]string {
+		return map[string]string{
+			glossaryPath:   "# Product Concepts\n\n## Glossary\n\nThe intro names the " + word + ".\n\n| Term | Meaning | Rejected synonyms |\n| --- | --- | --- |\n| Catalog | A list of models | `" + rejectedWord + "` |\n\n## Core entities\n\nAfter the " + word + ".\n",
+			"README.md":    "Read the " + word + " first.\n",
+			"notes.md":     "# Notes\n\n## [1] Background\n\nThe " + word + " here.\n",
+			"source.go":    "package fixture\n\nconst fixture = `\n## [1.0.0]\n`\n\nvar hermes" + strings.ToUpper(word[:1]) + word[1:] + " = 1\n",
+			"CHANGELOG.md": "# Changelog\n\n## [Unreleased]\n\n- The " + word + " moved.\n\n## [1.0.0] - 2026-01-01\n\n- The " + rejectedWord + " grew.\n",
+			"openspec/changes/active/specs/models/spec.md":   "## ADDED Requirements\n\n### Requirement: Models are listed\n\nThe " + word + " SHALL list models.\n\n## REMOVED Requirements\n\n### Requirement: The " + rejectedWord + " lists models\n\n**Reason**: Renamed.\n\n**Migration**: Read the new name.\n",
+			"openspec/changes/active/specs/accounts/spec.md": "## ADDED Requirements\n\n### Requirement: Accounts are listed\n\nThe catalog SHALL list Accounts.\n",
+			"openspec/specs/accounts/spec.md":                "# accounts\n\nThe " + word + " lists Accounts.\n",
+			"docs/" + word + "/note.md":                      "Text.\n",
+		}
+	}
 	write(".config/checks/spelling/policy.toml", string(readFile(t, filepath.Join(repository, ".config", "checks", "spelling", "policy.toml"))))
-	write(glossaryPath, glossaryFixture("| Catalog | A list of models | `"+rejectedWord+"` |\n"))
-	write("README.md", "Read the "+rejectedWord+" first.\n")
-	write("source.go", "package fixture\n\nvar hermes"+capitalized+" = 1\n")
-	write("CHANGELOG.md", "# Changelog\n\n## [Unreleased]\n\nNothing.\n\n## [1.0.0] - 2026-01-01\n\n- The "+rejectedWord+" grew.\n")
 	write("openspec/changes/active/design.md", "The word "+rejectedWord+" is rejected.\n")
-	write("openspec/changes/active/specs/models/spec.md", "## ADDED Requirements\n\n### Requirement: Models are listed\n\nThe catalog SHALL list models.\n\n## REMOVED Requirements\n\n### Requirement: The "+rejectedWord+" lists models\n\n**Reason**: Renamed.\n\n**Migration**: Read the new name.\n")
+	write("openspec/changes/active/specs/routes/spec.md", "## MODIFIED Requirements\n\n### Requirement: Routes are listed\n\nThe catalog SHALL list Routes.\n")
 	write("openspec/specs/models/spec.md", "# models\n\nThe "+rejectedWord+" lists models.\n")
+	write("openspec/specs/routes/spec.md", "# routes\n\nThe "+rejectedWord+" lists Routes.\n")
+	for path, content := range checked(rejectedWord) {
+		write(path, content)
+	}
 	if output, err := exec.Command("git", "-C", root, "add", ".").CombinedOutput(); err != nil {
 		t.Fatalf("git add: %v\n%s", err, output)
 	}
@@ -147,18 +204,30 @@ func TestSpellingRefusesARejectedSynonymOutsideHistory(t *testing.T) {
 		diagnostics = append(diagnostics, output...)
 		return err
 	})
-	for _, finding := range []string{"README.md", "source.go", "should be `catalog`", "should be `Catalog`"} {
-		if err == nil || !strings.Contains(string(diagnostics), finding) {
-			t.Fatalf("spelling error = %v, want %q\n%s", err, finding, diagnostics)
+	refused := string(diagnostics)
+	if err != nil {
+		refused += "\n" + err.Error()
+	}
+	for _, finding := range []string{
+		"README.md:1:", "notes.md:5:", "source.go:7:", "CHANGELOG.md:5:", glossaryPath + ":5:", glossaryPath + ":13:",
+		"openspec/changes/active/specs/models/spec.md:5:", "openspec/specs/accounts/spec.md:3:",
+		"should be `catalog`", "should be `Catalog`", "docs/" + rejectedWord + ": directory name",
+	} {
+		if err == nil || !strings.Contains(refused, finding) {
+			t.Fatalf("spelling error = %v, want %q\n%s", err, finding, refused)
 		}
 	}
-	for _, history := range []string{"CHANGELOG.md", "design.md", "openspec/changes/active/specs", "openspec/specs/models"} {
-		if strings.Contains(string(diagnostics), history) {
-			t.Fatalf("the synonym check read history or a rewritten specification (%s):\n%s", history, diagnostics)
+	for _, history := range []string{"CHANGELOG.md:9:", glossaryPath + ":9:", "design.md", "active/specs/models/spec.md:9:", "openspec/specs/models", "openspec/specs/routes"} {
+		if strings.Contains(refused, history) {
+			t.Fatalf("the synonym check read history or a rewritten specification (%s):\n%s", history, refused)
 		}
 	}
-	write("README.md", "Read the catalog first.\n")
-	write("source.go", "package fixture\n\nvar hermesCatalog = 1\n")
+	if err := os.RemoveAll(filepath.Join(root, "docs", rejectedWord)); err != nil {
+		t.Fatal(err)
+	}
+	for path, content := range checked("catalog") {
+		write(path, content)
+	}
 	if err := checkSpelling(root, systemRunner); err != nil {
 		t.Fatalf("spelling refused canonical text: %v", err)
 	}

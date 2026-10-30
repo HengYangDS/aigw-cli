@@ -351,9 +351,13 @@ splits identifiers and prose into words and matches whole words, so the
 glossary lists each inflected form. The gate skips history and the text that
 must name a rejected synonym: archived OpenSpec changes, CHANGELOG's released
 sections, an active Change's proposal, design and tasks, the glossary's table
-and the requirements that a delta removes. It also skips a main specification
-that an active Change rewrites, whose delta it checks instead; that main
-specification is checked once the Change archives.
+and the requirements that a delta removes, each only in its own files. It also
+skips a main specification whose requirements an active Change modifies,
+removes or renames, and checks the delta instead; that main specification is
+checked once the Change archives. A delta that only adds requirements leaves
+its main specification checked. typos reads file names but not the directories
+that hold them, and it does not split a path, so the gate also refuses a
+directory whose name uses a rejected synonym.
 
 Alternatives considered: a tracked typos word list, rejected as a second copy
 of the glossary; and a new scanner in `tools/architecture`, rejected because

@@ -95,18 +95,21 @@ func measuredSpecifications(root string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	transition, err := readOpenSpecTransition(root)
-	if err != nil {
-		return nil, err
-	}
-	measured := make([]string, 0, len(files))
-	for _, file := range files {
+	relatives := make([]string, len(files))
+	for index, file := range files {
 		relative, err := filepath.Rel(root, file)
 		if err != nil {
 			return nil, fmt.Errorf("resolve specification relative to checkout: %w", err)
 		}
-		relative = filepath.ToSlash(relative)
-		if !strings.HasPrefix(relative, "openspec/changes/archive/") && !transition.rewritten[relative] {
+		relatives[index] = filepath.ToSlash(relative)
+	}
+	transition, err := readOpenSpecTransition(root, relatives)
+	if err != nil {
+		return nil, err
+	}
+	measured := make([]string, 0, len(files))
+	for index, file := range files {
+		if !strings.HasPrefix(relatives[index], "openspec/changes/archive/") && !transition.rewritten[relatives[index]] {
 			measured = append(measured, file)
 		}
 	}

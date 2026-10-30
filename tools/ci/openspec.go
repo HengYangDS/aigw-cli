@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -99,40 +102,48 @@ func validateOpenSpecReport(raw []byte, root string, stdout io.Writer) error {
 	return err
 }
 
-// openSpecTransition holds the active Changes and the main specifications that
-// their deltas rewrite. A rewritten main specification changes only when its
-// Change archives, so a gate reads the Change's delta instead.
+// openSpecTransition holds the active Changes and the main specifications whose
+// requirements their deltas modify, remove or rename. Such a main specification
+// changes only when its Change archives, so a gate reads the delta instead. A
+// delta that only adds requirements leaves its main specification's text in
+// place, and the gates read both.
 type openSpecTransition struct {
 	changes   []string
 	rewritten map[string]bool
 }
 
-// readOpenSpecTransition lists the active Changes under openspec/changes and
-// the main specifications that their deltas rewrite, as slash-separated paths.
-func readOpenSpecTransition(root string) (openSpecTransition, error) {
+var rewritingDelta = regexp.MustCompile(`(?m)^## (?:MODIFIED|REMOVED|RENAMED) Requirements[ \t]*\r?$`)
+
+// readOpenSpecTransition derives the active Changes and the main specifications
+// that their deltas rewrite from files, the repository's current files as
+// slash-separated paths relative to root.
+func readOpenSpecTransition(root string, files []string) (openSpecTransition, error) {
 	transition := openSpecTransition{rewritten: map[string]bool{}}
-	changes, err := os.ReadDir(filepath.Join(root, "openspec", "changes"))
-	if errors.Is(err, os.ErrNotExist) {
-		return transition, nil
-	}
-	if err != nil {
-		return transition, fmt.Errorf("list OpenSpec changes: %w", err)
-	}
-	for _, change := range changes {
-		if !change.IsDir() || change.Name() == "archive" {
+	changes := map[string]bool{}
+	for _, file := range files {
+		inChanges, ok := strings.CutPrefix(file, "openspec/changes/")
+		if !ok {
 			continue
 		}
-		transition.changes = append(transition.changes, "openspec/changes/"+change.Name())
-		capabilities, err := os.ReadDir(filepath.Join(root, "openspec", "changes", change.Name(), "specs"))
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return transition, fmt.Errorf("list the deltas of OpenSpec change %s: %w", change.Name(), err)
+		change, record, found := strings.Cut(inChanges, "/")
+		if !found || change == "archive" {
+			continue
 		}
-		for _, capability := range capabilities {
-			if capability.IsDir() {
-				transition.rewritten["openspec/specs/"+capability.Name()+"/spec.md"] = true
-			}
+		changes["openspec/changes/"+change] = true
+		delta, ok := strings.CutPrefix(record, "specs/")
+		capability, name, found := strings.Cut(delta, "/")
+		if !ok || !found || name != "spec.md" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file)))
+		if err != nil {
+			return transition, fmt.Errorf("read OpenSpec delta %s: %w", file, err)
+		}
+		if rewritingDelta.Match(data) {
+			transition.rewritten["openspec/specs/"+capability+"/spec.md"] = true
 		}
 	}
+	transition.changes = slices.Sorted(maps.Keys(changes))
 	return transition, nil
 }
 

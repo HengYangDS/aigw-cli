@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -21,15 +22,27 @@ var glossaryHeader = []string{"Term", "Meaning", "Rejected synonyms"}
 var (
 	synonymWord    = regexp.MustCompile(`^[a-z]+$`)
 	tableDelimiter = regexp.MustCompile(`^:?-+:?$`)
+	nameWords      = regexp.MustCompile(`[A-Z]?[a-z]+|[A-Z]+`)
 )
 
-// namingPassages must spell a rejected synonym: CHANGELOG's released sections,
-// the glossary's table and the requirements that a delta removes under their
-// earlier names.
-var namingPassages = []string{
-	`(?ms)^## \[[0-9][^\n]*\n.*`,
-	`(?ms)^## Glossary\n.*?(?:^## |\z)`,
-	`(?ms)^## REMOVED Requirements\n.*?(?:^## |\z)`,
+// namingPassage is text that must spell a rejected synonym, in the files that
+// a typos file-type glob selects.
+type namingPassage struct {
+	fileType, glob, pattern string
+}
+
+// namingPassages are CHANGELOG's released sections, the glossary's table and
+// the requirements that a delta removes under their earlier names.
+func namingPassages() []namingPassage {
+	columns := make([]string, len(glossaryHeader))
+	for index, column := range glossaryHeader {
+		columns[index] = " " + regexp.QuoteMeta(column) + " +"
+	}
+	return []namingPassage{
+		{"released-changelog", "CHANGELOG.md", `(?ms)^## \[[0-9][^\n]*\n.*`},
+		{"glossary-table", path.Base(glossaryPath), `(?m)^\|` + strings.Join(columns, `\|`) + `\|\n(?:\|[^\n]*\n)*`},
+		{"removed-requirements", "spec.md", `(?ms)^## REMOVED Requirements\n.*?(?:^## |\z)`},
+	}
 }
 
 // rejectedSynonyms maps each rejected synonym in the glossary's table to its
@@ -81,9 +94,18 @@ func rejectedSynonyms(root string) (map[string]string, error) {
 	return synonyms, nil
 }
 
-// synonymConfiguration adds each rejected synonym and the naming passages to
-// the spelling policy. A synonym's correction is its canonical term, or the
-// term's plural when the synonym is the plural of another of its synonyms.
+// synonymCorrection is the canonical term for a rejected synonym, or the term's
+// plural when the synonym is the plural of another of its synonyms.
+func synonymCorrection(synonyms map[string]string, word string) string {
+	term := synonyms[word]
+	if singular, ok := strings.CutSuffix(word, "s"); ok && synonyms[singular] == term {
+		return term + "s"
+	}
+	return term
+}
+
+// synonymConfiguration adds each rejected synonym to the spelling policy, and
+// one file type per naming passage that ignores the passage in its files.
 func synonymConfiguration(policy []byte, synonyms map[string]string) ([]byte, error) {
 	configuration := map[string]any{}
 	if err := toml.Unmarshal(policy, &configuration); err != nil {
@@ -97,18 +119,22 @@ func synonymConfiguration(policy []byte, synonyms map[string]string) ([]byte, er
 	if words == nil {
 		words = map[string]any{}
 	}
-	for word, term := range synonyms {
-		words[word] = term
-		if singular, ok := strings.CutSuffix(word, "s"); ok && synonyms[singular] == term {
-			words[word] = term + "s"
-		}
+	for word := range synonyms {
+		words[word] = synonymCorrection(synonyms, word)
 	}
-	ignored, _ := defaults["extend-ignore-re"].([]any)
-	for _, pattern := range namingPassages {
-		ignored = append(ignored, pattern)
-	}
-	defaults["extend-words"], defaults["extend-ignore-re"] = words, ignored
+	defaults["extend-words"] = words
 	configuration["default"] = defaults
+	types, _ := configuration["type"].(map[string]any)
+	if types == nil {
+		types = map[string]any{}
+	}
+	for _, passage := range namingPassages() {
+		if _, ok := types[passage.fileType]; ok {
+			return nil, fmt.Errorf("spelling policy already declares the file type %q of the synonym check", passage.fileType)
+		}
+		types[passage.fileType] = map[string]any{"extend-glob": []string{passage.glob}, "extend-ignore-re": []string{passage.pattern}}
+	}
+	configuration["type"] = types
 	return toml.Marshal(configuration)
 }
 
@@ -116,7 +142,7 @@ func synonymConfiguration(policy []byte, synonyms map[string]string) ([]byte, er
 // archived Changes, an active Change's own records, and each main
 // specification that an active Change rewrites, whose delta stays in.
 func synonymFiles(root string, files []string) ([]string, error) {
-	transition, err := readOpenSpecTransition(root)
+	transition, err := readOpenSpecTransition(root, files)
 	if err != nil {
 		return nil, err
 	}
@@ -125,9 +151,32 @@ func synonymFiles(root string, files []string) ([]string, error) {
 	}), nil
 }
 
+// rejectedDirectoryNames refuses each directory of files whose name has a
+// rejected synonym as one of its words. typos reads file names, not the
+// directories that hold them.
+func rejectedDirectoryNames(files []string, synonyms map[string]string) error {
+	seen := map[string]bool{}
+	var findings []string
+	for _, file := range files {
+		for directory := path.Dir(file); directory != "." && !seen[directory]; directory = path.Dir(directory) {
+			seen[directory] = true
+			for _, word := range nameWords.FindAllString(path.Base(directory), -1) {
+				if word = strings.ToLower(word); synonyms[word] != "" {
+					findings = append(findings, fmt.Sprintf("%s: directory name uses the rejected synonym %q; use %q", directory, word, synonymCorrection(synonyms, word)))
+				}
+			}
+		}
+	}
+	if len(findings) == 0 {
+		return nil
+	}
+	slices.Sort(findings)
+	return errors.New(strings.Join(findings, "\n"))
+}
+
 // checkRejectedSynonyms runs typos over the current files with the glossary's
 // rejected synonyms, so that a finding names the path, the line and the
-// canonical term.
+// canonical term, and refuses a directory whose name uses one.
 func checkRejectedSynonyms(root string, files []string, runner commandRunner) (result error) {
 	synonyms, err := rejectedSynonyms(root)
 	if err != nil || len(synonyms) == 0 {
@@ -154,14 +203,14 @@ func checkRejectedSynonyms(root string, files []string, runner commandRunner) (r
 		return fmt.Errorf("prepare synonym check: %w", err)
 	}
 	defer func() { result = errors.Join(result, os.RemoveAll(directory)) }()
-	path := filepath.Join(directory, "typos.toml")
-	if err := os.WriteFile(path, configuration, 0o600); err != nil {
+	configurationPath := filepath.Join(directory, "typos.toml")
+	if err := os.WriteFile(configurationPath, configuration, 0o600); err != nil {
 		return fmt.Errorf("write synonym policy: %w", err)
 	}
-	return runner(command{
+	return errors.Join(runner(command{
 		Name:  "typos",
 		Dir:   root,
-		Args:  []string{"--config", path, "--force-exclude", "--file-list", "-"},
+		Args:  []string{"--config", configurationPath, "--force-exclude", "--file-list", "-"},
 		Input: strings.Join(files, "\n") + "\n",
-	})
+	}), rejectedDirectoryNames(files, synonyms))
 }

@@ -252,9 +252,9 @@ func TestClaudeDesktopProjectionChangeDetection(t *testing.T) {
 	if !fixture.clientAdapter.ProjectionChanged(fixture.cfg, retargeted) {
 		t.Fatal("target change was not detected")
 	}
-	recatalogd := fixture.cfg.Clone()
-	recatalogd.Routes["daily"] = domain.Route{Label: "Daily", Account: "gateway", Model: "claude-daily", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	if !fixture.clientAdapter.ProjectionChanged(fixture.cfg, recatalogd) {
+	recataloged := fixture.cfg.Clone()
+	recataloged.Routes["daily"] = domain.Route{Label: "Daily", Account: "gateway", Model: "claude-daily", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	if !fixture.clientAdapter.ProjectionChanged(fixture.cfg, recataloged) {
 		t.Fatal("catalog change was not detected")
 	}
 }
