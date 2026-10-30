@@ -102,83 +102,105 @@ func checkLayers(root string, files []goFileInfo, p policy, report *Report) erro
 		return err
 	}
 	table := layerTable{rows: p.Layers, seams: p.LayerSeams, floors: p.LayerFloors}
+	use := layerUse{prefixes: map[string]bool{}, seams: map[string]bool{}, placed: map[string]bool{}, unplaced: map[string]bool{}}
 	fset := token.NewFileSet()
-	unplaced := map[string]bool{}
-	placed := map[string]bool{}
-	usedPrefixes := map[string]bool{}
-	usedSeams := map[string]bool{}
 	for _, file := range files {
 		if file.isTest {
 			continue
 		}
 		sourceRow, prefix := table.row(file.dir)
 		if sourceRow < 0 {
-			if !unplaced[file.dir] {
-				unplaced[file.dir] = true
+			if !use.unplaced[file.dir] {
+				use.unplaced[file.dir] = true
 				report.addFinding(Finding{Rule: "layer_unplaced", Path: file.dir, Message: "production package has no row in the layer table"})
 			}
 			continue
 		}
-		usedPrefixes[prefix] = true
-		placed[file.dir] = true
-		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file.relPath)))
-		if err != nil {
-			return fmt.Errorf("read %s: %w", file.relPath, err)
-		}
-		parsed, err := parser.ParseFile(fset, file.relPath, data, parser.ImportsOnly)
-		if err != nil {
-			return fmt.Errorf("parse imports %s: %w", file.relPath, err)
-		}
-		for _, imported := range parsed.Imports {
-			importPath, _ := strconv.Unquote(imported.Path.Value)
-			target, ok := strings.CutPrefix(importPath, module+"/")
-			if !ok {
-				continue
-			}
-			if subtree, ok := table.seam(file.dir, target); ok && !pathContains(file.dir, target) {
-				usedSeams[subtree+"\x00"+target] = true
-			}
-			if table.admits(file.dir, target) {
-				continue
-			}
-			targetRow, _ := table.row(target)
-			message := fmt.Sprintf("package %q in row %d of the layer table may not import %q %s; import a lower row, a descendant or a declared seam", file.dir, sourceRow+1, target, rowName(targetRow))
-			if subtree, floor, ok := table.floorAbove(file.dir, target); ok {
-				message = fmt.Sprintf("package %q in row %d of the layer table may not import %q %s; packages of %q import outside it only from the row of %q down", file.dir, sourceRow+1, target, rowName(targetRow), subtree, floor)
-			}
-			report.addFinding(Finding{
-				Rule:    "layer_import",
-				Path:    file.relPath,
-				Line:    fset.Position(imported.Pos()).Line,
-				Package: target,
-				Message: message,
-			})
+		use.prefixes[prefix] = true
+		use.placed[file.dir] = true
+		if err := table.checkImports(root, module, fset, file, use.seams, report); err != nil {
+			return err
 		}
 	}
+	use.report(p, report)
+	return nil
+}
+
+// checkImports checks one production file's module imports against the table
+// and records each seam that they use.
+func (table layerTable) checkImports(root, module string, fset *token.FileSet, file goFileInfo, usedSeams map[string]bool, report *Report) error {
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file.relPath)))
+	if err != nil {
+		return fmt.Errorf("read %s: %w", file.relPath, err)
+	}
+	parsed, err := parser.ParseFile(fset, file.relPath, data, parser.ImportsOnly)
+	if err != nil {
+		return fmt.Errorf("parse imports %s: %w", file.relPath, err)
+	}
+	for _, imported := range parsed.Imports {
+		importPath, _ := strconv.Unquote(imported.Path.Value)
+		target, ok := strings.CutPrefix(importPath, module+"/")
+		if !ok {
+			continue
+		}
+		if subtree, ok := table.seam(file.dir, target); ok && !pathContains(file.dir, target) {
+			usedSeams[subtree+"\x00"+target] = true
+		}
+		if table.admits(file.dir, target) {
+			continue
+		}
+		report.addFinding(Finding{
+			Rule:    "layer_import",
+			Path:    file.relPath,
+			Line:    fset.Position(imported.Pos()).Line,
+			Package: target,
+			Message: table.refusal(file.dir, target),
+		})
+	}
+	return nil
+}
+
+// refusal explains why the table refuses source's import of target.
+func (table layerTable) refusal(source, target string) string {
+	sourceRow, _ := table.row(source)
+	targetRow, _ := table.row(target)
+	if subtree, floor, ok := table.floorAbove(source, target); ok {
+		return fmt.Sprintf("package %q in row %d of the layer table may not import %q %s; packages of %q import outside it only from the row of %q down", source, sourceRow+1, target, rowName(targetRow), subtree, floor)
+	}
+	return fmt.Sprintf("package %q in row %d of the layer table may not import %q %s; import a lower row, a descendant or a declared seam", source, sourceRow+1, target, rowName(targetRow))
+}
+
+// layerUse records which prefixes, seams and packages the production files
+// use, and which packages no row places.
+type layerUse struct {
+	prefixes, seams, placed, unplaced map[string]bool
+}
+
+// report adds a finding for each prefix, seam or floor that nothing uses.
+func (use layerUse) report(p policy, report *Report) {
 	for _, row := range p.Layers {
 		for _, prefix := range row {
-			if !usedPrefixes[prefix] {
+			if !use.prefixes[prefix] {
 				report.addFinding(Finding{Rule: "unused_layer_prefix", Path: prefix, Message: "layer prefix places no production package; delete it"})
 			}
 		}
 	}
 	for _, subtree := range slices.Sorted(maps.Keys(p.LayerSeams)) {
 		for _, seam := range p.LayerSeams[subtree] {
-			if !usedSeams[subtree+"\x00"+seam] {
+			if !use.seams[subtree+"\x00"+seam] {
 				report.addFinding(Finding{Rule: "unused_layer_seam", Path: subtree, Package: seam, Message: fmt.Sprintf("no production package of %q imports its seam %q; delete it", subtree, seam)})
 			}
 		}
 	}
 	for _, subtree := range slices.Sorted(maps.Keys(p.LayerFloors)) {
 		used := false
-		for dir := range placed {
+		for dir := range use.placed {
 			used = used || pathContains(subtree, dir)
 		}
 		if !used {
 			report.addFinding(Finding{Rule: "unused_layer_floor", Path: subtree, Message: fmt.Sprintf("the floor of %q holds no production package; delete it", subtree)})
 		}
 	}
-	return nil
 }
 
 // validateLayers admits at most maxLayerRows non-empty rows of distinct portable
