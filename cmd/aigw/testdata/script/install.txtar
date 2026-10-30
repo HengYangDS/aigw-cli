@@ -1,9 +1,10 @@
 # install copies the running program to a target and refuses a directory as
-# the target.
+# the target. The help quotes its default path, so on Windows each separator
+# appears as two backslashes.
 exec aigw install --help
 [!windows] normalize stdout help.out
 [!windows] cmp help.out help.txt
-[windows] stdout 'default ".*\\Programs\\aigw\\bin\\aigw\.exe"'
+[windows] stdout 'default ".*\\\\Programs\\\\aigw\\\\bin\\\\aigw\.exe"'
 
 exec aigw install --target $WORK/bin/aigw$exe
 [!windows] normalize stdout installed.out

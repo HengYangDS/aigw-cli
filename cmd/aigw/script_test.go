@@ -22,6 +22,9 @@ func TestMain(m *testing.M) {
 	testscript.Main(m, map[string]func(){"aigw": main, "claude": scriptedClaude})
 }
 
+// homeVariables locate a user's home and configuration on every platform.
+var homeVariables = []string{"HOME", "USERPROFILE", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "APPDATA", "LOCALAPPDATA"}
+
 // TestScripts runs every acceptance script against the program in a private
 // home. PATH holds only the program and the scripted clients, and $UPSTREAM
 // is a scripted provider.
@@ -30,6 +33,17 @@ func TestScripts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Under coverage each program process writes the same meta-data file when
+	// it starts, and on Windows a concurrent second writer of that file fails.
+	// One run before the parallel scripts writes it first.
+	warmup := exec.Command(program, "--version")
+	warmup.Env = append(os.Environ(), "AIGW_SECRET_BACKEND=file")
+	for _, name := range homeVariables {
+		warmup.Env = append(warmup.Env, name+"="+t.TempDir())
+	}
+	if output, err := warmup.CombinedOutput(); err != nil {
+		t.Fatalf("run the program before the scripts: %v\n%s", err, output)
+	}
 	testscript.Run(t, testscript.Params{
 		Dir:                 filepath.Join("testdata", "script"),
 		RequireExplicitExec: true,
@@ -37,7 +51,7 @@ func TestScripts(t *testing.T) {
 		UpdateScripts:       *updateScripts,
 		Setup: func(env *testscript.Env) error {
 			home := filepath.Join(env.WorkDir, "home")
-			for _, name := range []string{"HOME", "USERPROFILE", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "APPDATA", "LOCALAPPDATA"} {
+			for _, name := range homeVariables {
 				env.Setenv(name, home)
 			}
 			env.Setenv("BIN", filepath.Dir(program))
