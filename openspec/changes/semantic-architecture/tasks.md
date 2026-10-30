@@ -33,7 +33,7 @@
 - [x] 3.4 Move the use cases that several commands share out of the command packages into `internal/app`, rendering and prompts into `internal/terminal`, and the redaction rules into `internal/domain`; a command's own behavior stays in its package. The root builds every command, a command that needs capabilities receives them through the invocation context, no command package defines its own set of dependencies, and the architecture gate admits no import between command packages.
 - [x] 3.5 Run the local quality graph, including the acceptance scripts, at the stage head.
 - [x] 3.6 Prove the stage head with the full ETHOS proof.
-- [ ] 3.7 Confirm the hosted three-platform graph runs every acceptance script and the real-client journeys pass at the stage head.
+- [x] 3.7 Confirm the hosted three-platform graph runs every acceptance script and the real-client journeys pass at the stage head.
 
 ## 4. Stage 4 — Layers and tooling
 
