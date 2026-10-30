@@ -4,7 +4,7 @@ package rotate
 
 import (
 	clientactivation "aigw-cli/internal/activation"
-	"aigw-cli/internal/app"
+
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
@@ -26,7 +26,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			name, err := app.AccountReference(cfg, args)
+			name, err := invocation.AccountReference(cfg, args)
 			if err != nil {
 				return err
 			}

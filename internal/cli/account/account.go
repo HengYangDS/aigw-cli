@@ -14,8 +14,6 @@ import (
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
-
-	"aigw-cli/internal/app"
 )
 
 // newEditCommand constructs account metadata editing. Account endpoints and
@@ -99,7 +97,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		name, err := app.AccountReference(cfg, args)
+		name, err := invocation.AccountReference(cfg, args)
 		if err != nil {
 			return err
 		}
@@ -152,7 +150,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			name, err := app.AccountReference(cfg, args)
+			name, err := invocation.AccountReference(cfg, args)
 			if err != nil {
 				return err
 			}

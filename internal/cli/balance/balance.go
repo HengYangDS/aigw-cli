@@ -3,7 +3,6 @@
 package balance
 
 import (
-	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/providers"
 	"aigw-cli/internal/secret"
@@ -50,7 +49,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		name, err := app.AccountReference(cfg, args)
+		name, err := invocation.AccountReference(cfg, args)
 		if err != nil {
 			return err
 		}

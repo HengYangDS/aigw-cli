@@ -338,7 +338,6 @@ allowed_import_edges."internal/cli/doctor" = [
 ]
 allowed_import_edges."internal/cli/client" = [
   "internal/cli/invocation",
-  "internal/discovery",
   "internal/domain",
   "internal/secret",
   "internal/terminal",
@@ -349,7 +348,6 @@ allowed_import_edges."internal/cli/route" = [
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/account" = [
-  "internal/app",
   "internal/cli/invocation",
   "internal/domain",
   "internal/providers",
@@ -358,7 +356,6 @@ allowed_import_edges."internal/cli/account" = [
   "internal/terminal",
 ]
 allowed_import_edges."internal/cli/balance" = [
-  "internal/app",
   "internal/cli/invocation",
   "internal/providers",
   "internal/secret",
@@ -366,7 +363,6 @@ allowed_import_edges."internal/cli/balance" = [
 ]
 allowed_import_edges."internal/cli/rotate" = [
   "internal/activation",
-  "internal/app",
   "internal/cli/invocation",
   "internal/secret",
   "internal/secret/probe",

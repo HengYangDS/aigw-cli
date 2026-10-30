@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
@@ -23,7 +22,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 
 func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 	return &cobra.Command{Use: "discover", Short: "Discover installed client executables", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
-		discovered, err := discover(runtime)
+		discovered, err := runtime.Discover()
 		if err != nil {
 			return err
 		}
@@ -86,7 +85,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 			}
 		}
 		if runtime.Clients.ValidatesTargets(client) {
-			discovered, err := discover(runtime)
+			discovered, err := runtime.Discover()
 			if err != nil {
 				return err
 			}
@@ -191,11 +190,4 @@ func validateClientArgument(admission domain.Admission) cobra.PositionalArgs {
 		}
 		return nil
 	}
-}
-
-func discover(runtime invocation.Context) (discovery.Result, error) {
-	if runtime.Discovery == nil {
-		return discovery.Result{}, fmt.Errorf("client discovery is unavailable")
-	}
-	return runtime.Discovery.Discover(), nil
 }

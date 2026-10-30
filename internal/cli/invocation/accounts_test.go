@@ -1,4 +1,4 @@
-package app
+package invocation
 
 import (
 	"aigw-cli/internal/clients"
@@ -27,12 +27,12 @@ func TestAccountReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
 			got, err := AccountReference(cfg, test.args)
 			if test.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), test.wantErr) {
-					t.Fatalf("accountReference() error = %v, want %q", err, test.wantErr)
+					t.Fatalf("AccountReference() error = %v, want %q", err, test.wantErr)
 				}
 				return
 			}
 			if err != nil || got != test.want {
-				t.Fatalf("accountReference() = %q, %v; want %q", got, err, test.want)
+				t.Fatalf("AccountReference() = %q, %v; want %q", got, err, test.want)
 			}
 		})
 	}
