@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,8 +14,19 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
+// sizeBudget is the most lines that SCC may count in one file, and what they
+// are.
+type sizeBudget struct {
+	maximum int
+	unit    string
+}
+
 func checkSourceSize(root string, runner commandRunner) (result error) {
 	files, err := currentRepositoryFiles(root, "Go source", "*.go")
+	if err != nil {
+		return err
+	}
+	specifications, err := measuredSpecifications(root)
 	if err != nil {
 		return err
 	}
@@ -23,15 +35,23 @@ func checkSourceSize(root string, runner commandRunner) (result error) {
 		return err
 	}
 	var policy struct {
-		MaxCodeLines int `toml:"max_code_lines"`
+		MaxCodeLines          int `toml:"max_code_lines"`
+		MaxSpecificationLines int `toml:"max_specification_lines"`
 	}
 	decoder := toml.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&policy); err != nil {
 		return fmt.Errorf("read source-size policy: %w", err)
 	}
-	if policy.MaxCodeLines <= 0 {
-		return errors.New("max_code_lines must be positive")
+	if policy.MaxCodeLines <= 0 || policy.MaxSpecificationLines <= 0 {
+		return errors.New("max_code_lines and max_specification_lines must be positive")
+	}
+	budgets := make(map[string]sizeBudget, len(files)+len(specifications))
+	for _, file := range files {
+		budgets[filepath.Clean(file)] = sizeBudget{maximum: policy.MaxCodeLines, unit: "code lines"}
+	}
+	for _, file := range specifications {
+		budgets[filepath.Clean(file)] = sizeBudget{maximum: policy.MaxSpecificationLines, unit: "non-blank lines"}
 	}
 	parent := filepath.Join(root, "build", "tmp")
 	if err := os.MkdirAll(parent, 0o700); err != nil {
@@ -48,6 +68,7 @@ func checkSourceSize(root string, runner commandRunner) (result error) {
 		"--no-scc-ignore", "--include-symlinks", "--by-file", "--format", "json", "--output", output, "--",
 	}
 	arguments = append(arguments, files...)
+	arguments = append(arguments, specifications...)
 	for i, argument := range arguments {
 		// SCC's response-file tokenizer groups quotes but has no escape syntax.
 		// Adjacent single/double-quoted segments preserve quote characters.
@@ -64,10 +85,35 @@ func checkSourceSize(root string, runner commandRunner) (result error) {
 	if err != nil {
 		return fmt.Errorf("read SCC measurement: %w", err)
 	}
-	return validateSourceSizes(measured, files, policy.MaxCodeLines)
+	return validateSourceSizes(measured, budgets)
 }
 
-func validateSourceSizes(raw []byte, files []string, maximum int) error {
+// measuredSpecifications lists the main specifications that no active Change
+// rewrites and the active Changes' deltas.
+func measuredSpecifications(root string) ([]string, error) {
+	files, err := repositoryFiles(root, "OpenSpec specifications", "openspec/specs/*/spec.md", "openspec/changes/*/specs/*/spec.md")
+	if err != nil {
+		return nil, err
+	}
+	transition, err := readOpenSpecTransition(root)
+	if err != nil {
+		return nil, err
+	}
+	measured := make([]string, 0, len(files))
+	for _, file := range files {
+		relative, err := filepath.Rel(root, file)
+		if err != nil {
+			return nil, fmt.Errorf("resolve specification relative to checkout: %w", err)
+		}
+		relative = filepath.ToSlash(relative)
+		if !strings.HasPrefix(relative, "openspec/changes/archive/") && !transition.rewritten[relative] {
+			measured = append(measured, file)
+		}
+	}
+	return measured, nil
+}
+
+func validateSourceSizes(raw []byte, budgets map[string]sizeBudget) error {
 	var groups []struct {
 		Files []struct {
 			Location string `json:"Location"`
@@ -77,27 +123,24 @@ func validateSourceSizes(raw []byte, files []string, maximum int) error {
 	if err := json.Unmarshal(raw, &groups); err != nil {
 		return fmt.Errorf("decode SCC measurement: %w", err)
 	}
-	expected := make(map[string]bool, len(files))
-	for _, file := range files {
-		expected[filepath.Clean(file)] = false
-	}
+	seen := make(map[string]bool, len(budgets))
 	var findings []string
 	for _, group := range groups {
 		for _, file := range group.Files {
 			path := filepath.Clean(file.Location)
-			seen, selected := expected[path]
-			if !selected || seen || file.Code == nil || *file.Code < 0 {
+			budget, selected := budgets[path]
+			if !selected || seen[path] || file.Code == nil || *file.Code < 0 {
 				return fmt.Errorf("invalid, duplicate or unselected SCC measurement for %s", path)
 			}
-			expected[path] = true
-			if *file.Code > maximum {
-				findings = append(findings, fmt.Sprintf("%s: code lines %d > %d", path, *file.Code, maximum))
+			seen[path] = true
+			if *file.Code > budget.maximum {
+				findings = append(findings, fmt.Sprintf("%s: %s %d > %d", path, budget.unit, *file.Code, budget.maximum))
 			}
 		}
 	}
-	for _, file := range files {
-		if !expected[filepath.Clean(file)] {
-			return fmt.Errorf("SCC measurement is missing %s", file)
+	for _, path := range slices.Sorted(maps.Keys(budgets)) {
+		if !seen[path] {
+			return fmt.Errorf("SCC measurement is missing %s", path)
 		}
 	}
 	if len(findings) != 0 {

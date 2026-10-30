@@ -405,8 +405,8 @@ synonym in a scenario name is therefore removed and added under a title that
 names its subject more exactly. Elsewhere `MODIFIED` corrects the spelling.
 
 The Change archives through ETHOS after stage 5 lands, which applies the split
-to the main specifications. The commit after the archive writes each new
-capability's purpose, which OpenSpec leaves as a placeholder.
+to the main specifications. Each new capability's delta states its purpose,
+which OpenSpec reads when the archive creates the specification.
 
 ## Stages and acceptance
 

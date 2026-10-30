@@ -432,16 +432,16 @@ relabel statement as branch coverage.
 [Go policy](../../.config/checks/golangci-lint/golangci-lint.toml) and [SCC policy](../../.config/checks/scc/policy.toml)
 are the only editable thresholds. Their measurements have distinct meanings:
 
-| Analyzer         | Measurement and limitation                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------ |
-| SCC              | Code lines including inline-comment code; excludes blank/comment-only lines, not executable statements |
-| Cyclop           | Boolean/switch decision score, not executable paths or adequacy                                        |
-| Gocognit         | Nested control flow including function literals, not deep-module quality                               |
-| Funlen           | Physical span and selected AST statement forms; callbacks/traversal have different coverage            |
-| Revive arguments | Named declaration parameters; receivers/unnamed parameters differ                                      |
-| Nestif           | Conditional reasoning score, not indentation depth or every loop/switch                                |
-| Maintidx         | Span/vocabulary/decisions combined; cohesive data can score poorly                                     |
-| Dupl             | Serialized syntax-tree similarity, not repeated responsibility                                         |
+| Analyzer         | Measurement and limitation                                                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| SCC              | Go code lines including inline-comment code; excludes blank/comment-only lines, not executable statements. A specification's non-blank lines |
+| Cyclop           | Boolean/switch decision score, not executable paths or adequacy                                                                              |
+| Gocognit         | Nested control flow including function literals, not deep-module quality                                                                     |
+| Funlen           | Physical span and selected AST statement forms; callbacks/traversal have different coverage                                                  |
+| Revive arguments | Named declaration parameters; receivers/unnamed parameters differ                                                                            |
+| Nestif           | Conditional reasoning score, not indentation depth or every loop/switch                                                                      |
+| Maintidx         | Span/vocabulary/decisions combined; cohesive data can score poorly                                                                           |
+| Dupl             | Serialized syntax-tree similarity, not repeated responsibility                                                                               |
 
 Complete transactions retain ordered checks/compensation and acceptance journeys retain
 all intermediate preservation assertions. Do not evade thresholds with forwarding

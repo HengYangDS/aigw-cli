@@ -23,6 +23,16 @@ import (
 )
 
 func currentRepositoryFiles(root, kind string, patterns ...string) ([]string, error) {
+	files, err := repositoryFiles(root, kind, patterns...)
+	if err == nil && len(files) == 0 {
+		return nil, fmt.Errorf("repository contains no current %s", kind)
+	}
+	return files, err
+}
+
+// repositoryFiles lists the current tracked and unignored files that match
+// patterns, which may be none.
+func repositoryFiles(root, kind string, patterns ...string) ([]string, error) {
 	arguments := []string{
 		"-C", root, "--git-dir", ".git", "--work-tree", ".",
 		"ls-files", "-z", "--cached", "--others",
@@ -56,9 +66,6 @@ func currentRepositoryFiles(root, kind string, patterns ...string) ([]string, er
 		case statErr != nil:
 			return nil, fmt.Errorf("inspect repository %s %s: %w", kind, field, statErr)
 		}
-	}
-	if len(files) == 0 {
-		return nil, fmt.Errorf("repository contains no current %s", kind)
 	}
 	slices.Sort(files)
 	return files, nil

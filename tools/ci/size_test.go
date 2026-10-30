@@ -58,8 +58,33 @@ func TestSourceSizeUsesExactNativeCodeLines(t *testing.T) {
 	}
 }
 
+func TestSourceSizeMeasuresSpecificationsOutsideTransition(t *testing.T) {
+	root := newGitRepository(t)
+	writeRepositoryFile(t, root, ".config/checks/scc/policy.toml", string(readFile(t, filepath.Join("..", "..", ".config", "checks", "scc", "policy.toml"))))
+	writeRepositoryFile(t, root, "source.go", "package fixture\n")
+	long := "# Long\n" + strings.Repeat("Line.\n\n", 512)
+	short := "# Short\n\nLine.\n"
+	writeRepositoryFile(t, root, "openspec/specs/long/spec.md", long)
+	writeRepositoryFile(t, root, "openspec/specs/short/spec.md", short)
+	writeRepositoryFile(t, root, "openspec/changes/archive/2026-01-01-done/specs/long/spec.md", long)
+	check := func() error { return run([]string{"check-source-size", root}, &bytes.Buffer{}, systemRunner) }
+	mainSpecification := filepath.Join("openspec", "specs", "long", "spec.md") + ": non-blank lines 513 > 512"
+	if err := check(); err == nil || !strings.Contains(err.Error(), mainSpecification) || strings.Contains(err.Error(), "archive") {
+		t.Fatalf("a main specification above the limit passed: %v", err)
+	}
+	writeRepositoryFile(t, root, "openspec/changes/active/specs/long/spec.md", short)
+	if err := check(); err != nil {
+		t.Fatalf("the gate measured a main specification that an active Change rewrites: %v", err)
+	}
+	writeRepositoryFile(t, root, "openspec/changes/active/specs/long/spec.md", long)
+	delta := filepath.Join("openspec", "changes", "active", "specs", "long", "spec.md") + ": non-blank lines 513 > 512"
+	if err := check(); err == nil || !strings.Contains(err.Error(), delta) {
+		t.Fatalf("a delta above the limit passed: %v", err)
+	}
+}
+
 func TestSourceSizeRequiresCompleteMeasurement(t *testing.T) {
-	files := []string{"first.go", "second.go"}
+	budgets := map[string]sizeBudget{"first.go": {maximum: 500, unit: "code lines"}, "second.go": {maximum: 500, unit: "code lines"}}
 	for _, test := range []struct{ name, output, diagnostic string }{
 		{"complete", `[{"Files":[{"Location":"first.go","Code":1},{"Location":"second.go","Code":2}]}]`, ""},
 		{"missing", `[{"Files":[{"Location":"first.go","Code":1}]}]`, "second.go"},
@@ -71,7 +96,7 @@ func TestSourceSizeRequiresCompleteMeasurement(t *testing.T) {
 		{"empty", `[]`, "first.go"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			err := validateSourceSizes([]byte(test.output), files, 500)
+			err := validateSourceSizes([]byte(test.output), budgets)
 			if test.diagnostic == "" {
 				if err != nil {
 					t.Fatal(err)
@@ -91,7 +116,7 @@ func TestSourceSizeStopsOnNativeFailure(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(policy, []byte("max_code_lines = 500\n"), 0o600); err != nil {
+	if err := os.WriteFile(policy, []byte("max_code_lines = 500\nmax_specification_lines = 500\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(root, "source.go"), []byte("package fixture\n"), 0o600); err != nil {
@@ -107,7 +132,11 @@ func TestSourceSizeStopsOnNativeFailure(t *testing.T) {
 	if !errors.Is(err, failure) {
 		t.Fatalf("native failure was lost: %v", err)
 	}
-	for _, body := range []string{"max_code_lines = 0", "max_code_lines = -1", "max_code_lines = 500\nunknown = true", "invalid = ["} {
+	for _, body := range []string{
+		"max_code_lines = 0\nmax_specification_lines = 500", "max_code_lines = -1\nmax_specification_lines = 500",
+		"max_code_lines = 500", "max_code_lines = 500\nmax_specification_lines = 0",
+		"max_code_lines = 500\nmax_specification_lines = 500\nunknown = true", "invalid = [",
+	} {
 		if err := os.WriteFile(policy, []byte(body), 0o600); err != nil {
 			t.Fatal(err)
 		}
