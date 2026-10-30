@@ -16,27 +16,28 @@ const defaultPolicyPath = ".config/checks/architecture/policy.toml"
 // policy is the declarative SSOT loaded from TOML. Checker behavior must
 // follow these fields rather than hardcoded repository layout constants.
 type policy struct {
-	Owner                 string                  `toml:"owner"`
-	Source                string                  `toml:"source"`
-	RiskModel             string                  `toml:"risk_model"`
-	Measurement           string                  `toml:"measurement"`
-	FalsePositiveCost     string                  `toml:"false_positive_cost"`
-	Remediation           string                  `toml:"remediation"`
-	ReviewCondition       string                  `toml:"review_condition"`
-	GoRoots               []string                `toml:"go_roots"`
-	TrackedCarrierClasses map[string]carrierClass `toml:"tracked_carrier_classes"`
-	PackageChildren       map[string][]string     `toml:"package_children"`
-	CompositionRootFiles  map[string][]string     `toml:"composition_root_files"`
-	Layers                [][]string              `toml:"layers"`
-	LayerSeams            map[string][]string     `toml:"layer_seams"`
-	LayerFloors           map[string]string       `toml:"layer_floors"`
-	StandardLibraryOnly   []string                `toml:"standard_library_only"`
-	UsedExportsOnly       []string                `toml:"used_exports_only"`
-	IgnoreRoots           []string                `toml:"ignore_roots"`
-	IgnoreDirectoryNames  []string                `toml:"ignore_directory_names"`
-	CheckDecisionRecords  bool                    `toml:"check_decision_records"`
-	CheckSemanticNames    bool                    `toml:"check_semantic_names"`
-	ClientConfinement     clientConfinement       `toml:"client_confinement"`
+	Owner                  string                  `toml:"owner"`
+	Source                 string                  `toml:"source"`
+	RiskModel              string                  `toml:"risk_model"`
+	Measurement            string                  `toml:"measurement"`
+	FalsePositiveCost      string                  `toml:"false_positive_cost"`
+	Remediation            string                  `toml:"remediation"`
+	ReviewCondition        string                  `toml:"review_condition"`
+	GoRoots                []string                `toml:"go_roots"`
+	TrackedCarrierClasses  map[string]carrierClass `toml:"tracked_carrier_classes"`
+	PackageChildren        map[string][]string     `toml:"package_children"`
+	CompositionRootFiles   map[string][]string     `toml:"composition_root_files"`
+	Layers                 [][]string              `toml:"layers"`
+	LayerSeams             map[string][]string     `toml:"layer_seams"`
+	LayerFloors            map[string]string       `toml:"layer_floors"`
+	StandardLibraryOnly    []string                `toml:"standard_library_only"`
+	UsedExportsOnly        []string                `toml:"used_exports_only"`
+	IgnoreRoots            []string                `toml:"ignore_roots"`
+	IgnoreDirectoryNames   []string                `toml:"ignore_directory_names"`
+	CheckDecisionRecords   bool                    `toml:"check_decision_records"`
+	CheckSemanticNames     bool                    `toml:"check_semantic_names"`
+	UniquePackageBaseNames bool                    `toml:"unique_package_base_names"`
+	ClientConfinement      clientConfinement       `toml:"client_confinement"`
 }
 
 type carrierClass struct {

@@ -58,6 +58,7 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 		return Report{}, err
 	}
 	checkCompositionRoots(goFiles, p, &report)
+	checkPackageBaseNames(goFiles, p, &report)
 	if err := checkClientConfinement(absRoot, goFiles, p.ClientConfinement, &report); err != nil {
 		return Report{}, err
 	}
