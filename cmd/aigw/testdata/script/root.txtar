@@ -1,0 +1,75 @@
+# The root help lists the command groups, the version flag reports the
+# version, and an unknown command is refused.
+exec aigw --help
+cmp stdout help.txt
+! stderr .
+
+exec aigw --version
+cmp stdout version.txt
+
+! exec aigw nothing
+cmp stdout unknown.txt
+
+-- help.txt --
+AIGW  Command help
+────────────────────────────────────────
+  Local AI provider configuration, routing, and diagnostics
+
+Start with one path
+  aigw setup                       Connect the first account
+  aigw use --for <client> <route>  Select one Route for one client
+  aigw check                       Check enabled clients (may use quota)
+
+Usage
+  aigw [flags]
+  aigw [command]
+
+Connect
+  setup                Complete first-time setup
+
+Use every day
+  check                Check enabled clients; selected-model probes may use quota
+  rotate               Update one Account Token
+  status               Show each client's selected route and local readiness
+  use                  Select a Route for one client
+
+Recover
+  doctor               Show detailed diagnostics for configuration, secrets, and adapters
+  install              Install this portable AIGW executable
+  repair               Discover and repair client configuration
+  rollback             Restore configuration and client projections, not the program
+  sync                 Resynchronize client configuration
+  uninstall            Withdraw managed projections and remove a portable program
+  update               Update or roll back the portable AIGW program
+
+Advanced
+  account              Manage account endpoints and optional precise diagnostics
+  add                  Add and connect one Account with its first Route
+  balance              Show account balance and token quota
+  catalog              Discover authenticated model catalogs for each account (compact summary by default)
+  client               Manage client projections
+  completion           Generate shell completion
+  config               Import and export configuration
+  installation         Inspect the current portable program and retained predecessor
+  models               Compare configured model IDs with provider catalogs; does not test inference
+  route                Manage Routes
+  test                 Probe selected endpoints without model inference
+  verify               Verify a Route through a real native client (may use quota)
+
+Options
+  -h, --help      show help
+  -v, --version   show version
+-- version.txt --
+aigw version 0.1.0-dev
+-- unknown.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  unknown command "nothing"
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw --help

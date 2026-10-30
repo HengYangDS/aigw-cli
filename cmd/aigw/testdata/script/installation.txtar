@@ -1,0 +1,39 @@
+# installation describes the running program, as JSON and in text, and
+# refuses an argument.
+exec aigw installation --help
+cmp stdout help.txt
+
+exec aigw installation --json
+stdout '"schema_version": 1,'
+stdout '"version": "0.1.0-dev",'
+stdout '"sha256": "[0-9a-f]{64}",'
+stdout '"rollback": null'
+exec aigw installation
+stdout 'Version +0\.1\.0-dev'
+
+! exec aigw installation extra
+cmp stdout refusal.txt
+
+-- help.txt --
+AIGW  aigw installation
+────────────────────────────────────────
+  Observe program paths, byte counts and SHA-256 without changing files or reading Account configuration. This does not verify release trust, rollback readiness or client connectivity.
+
+Usage
+  aigw installation [flags]
+
+Options
+  -h, --help   help for installation
+      --json   Write machine-readable JSON
+-- refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  unknown command "extra"
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw --help

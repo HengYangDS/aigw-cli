@@ -1,0 +1,67 @@
+# repair refuses an empty home, then previews and applies the repair of the
+# connected client's projection.
+exec aigw repair --help
+cmp stdout help.txt
+
+! exec aigw repair
+cmp stdout empty.txt
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw repair --dry-run --json
+cmp stdout preview.json
+exec aigw repair
+cmp stdout repaired.txt
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw repair
+────────────────────────────────────────
+  Discover and repair client configuration
+
+Usage
+  aigw repair [flags]
+
+Options
+      --dry-run   Preview repair without writing configuration or client projections
+  -h, --help      help for repair
+      --json      Write the secret-free repair preview or result as JSON
+-- empty.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Not configured
+
+Evidence
+  No Routes have been created.
+
+Impact
+  Cannot check, synchronize, or repair configuration that does not exist.
+
+Recommended action
+  aigw setup
+-- preview.json --
+{
+  "dry_run": true,
+  "configuration_action": "already-converged",
+  "projections": [
+    {
+      "client": "claude",
+      "surface_id": "claude-settings",
+      "action": "already-converged"
+    }
+  ],
+  "next_action": "aigw check"
+}
+-- repaired.txt --
+AIGW  Repair completed
+────────────────────────────────────────
+
+Results
+  ✓ Client             Rediscovered
+  ✓ Configuration      Synchronized
+
+Next
+  aigw check

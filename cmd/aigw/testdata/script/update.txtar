@@ -1,0 +1,73 @@
+# update refuses a source build without a release source and a rollback
+# without a retained program, and reports a current release from a
+# configured source.
+exec aigw update --help
+cmp stdout help.txt
+
+! exec aigw update
+cmp stdout unconfigured.txt
+! exec aigw update --rollback
+cmp stdout rollback.txt
+
+env AIGW_GITHUB_RELEASE_ORIGIN=$UPSTREAM
+env AIGW_GITHUB_RELEASE_REPOSITORY=team/aigw
+exec aigw update
+cmp stdout current.txt
+
+-- help.txt --
+AIGW  aigw update
+────────────────────────────────────────
+  Replace only a portable AIGW program; Homebrew-managed copies must be
+  upgraded with Homebrew. Client settings and Tokens do not change.
+  Run aigw sync, then aigw check before resuming clients. --rollback
+  restores the retained program, not configuration. An incompatible
+  current configuration blocks program rollback without changing files.
+  Before Homebrew installs an earlier release, --rollback returns macOS
+  Keychain items to that release's reader.
+
+Usage
+  aigw update [flags]
+
+Options
+      --candidate string   Install one local portable archive without network access
+      --checksums string   Checksum manifest for --candidate
+  -h, --help               help for update
+      --rollback           Roll back the portable AIGW program to the previous version offline
+-- unconfigured.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Program update did not complete
+
+Evidence
+  AIGW could not complete release verification and program replacement.
+
+Impact
+  No updated program version was confirmed active; client settings and credentials were not changed.
+
+Recommended action
+  Run `aigw doctor` to inspect current state; verify the selected release source or use a verified local archive.
+-- rollback.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Program rollback did not complete
+
+Evidence
+  AIGW could not activate the retained previous program.
+
+Impact
+  No previous program version was confirmed active.
+
+Recommended action
+  aigw check
+-- current.txt --
+AIGW  Update
+────────────────────────────────────────
+  ✓ already running the latest version v0.1.0-dev
+  Run the active version's sync command to reconcile owned client settings, then check readiness.
+
+Next
+  aigw sync

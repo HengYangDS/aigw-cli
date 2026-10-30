@@ -1,0 +1,48 @@
+# models refuses an empty home, then compares the configured models with
+# the provider's catalogue.
+exec aigw models --help
+cmp stdout help.txt
+
+! exec aigw models
+cmp stdout empty.txt
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw models
+cmp stdout models.txt
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw models
+────────────────────────────────────────
+  Compare configured model IDs with provider catalogs; does not test inference
+
+Usage
+  aigw models [flags]
+
+Options
+  -h, --help   help for models
+-- empty.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  not configured; run `aigw setup`
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw setup
+-- models.txt --
+AIGW  Configured model catalog
+────────────────────────────────────────
+  Catalog membership does not prove protocol capabilities, inference, or client readiness.
+
+Routes
+  · Route  team
+    team-model · Anthropic Messages · Listed · account team
+
+Next
+  aigw use

@@ -1,0 +1,60 @@
+# client discovers the scripted Claude Code, disables and re-enables its
+# projection, and refuses an unknown client.
+exec aigw client --help
+cmp stdout help.txt
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw client discover
+stdout 'Claude +.*claude'
+exec aigw client disable claude
+cmp stdout disabled.txt
+exec aigw client enable claude --executable $BIN/claude$exe
+normalize stdout enabled.out
+cmp enabled.out enabled.txt
+
+! exec aigw client enable unknown
+cmp stdout refusal.txt
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw client
+────────────────────────────────────────
+  Manage client projections
+
+Usage
+  aigw client [command]
+
+Commands
+  disable              Disable a client and remove AIGW-owned projections
+  discover             Discover installed client executables
+  enable               Enable a client projection
+
+Options
+  -h, --help   help for client
+-- disabled.txt --
+AIGW  Client disabled
+────────────────────────────────────────
+  Client               Claude
+  ✓ All AIGW-owned projections were safely removed
+-- enabled.txt --
+AIGW  Client enabled
+────────────────────────────────────────
+  Client               Claude
+  ✓ Projection         Configured
+
+Next
+  aigw check
+-- refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Client must be claude, claude-desktop, codex, or hermes; run `aigw client enable --help`: invalid argument "unknown" for "aigw client enable"
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw client enable --help

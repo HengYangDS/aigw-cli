@@ -1,0 +1,50 @@
+# uninstall removes an installed program and refuses a directory as the
+# target.
+exec aigw uninstall --help
+cmp stdout help.txt
+
+exec aigw install --target $WORK/bin/aigw$exe
+exec aigw uninstall --target $WORK/bin/aigw$exe
+cmp stdout removed.txt
+! exists $WORK/bin/aigw$exe
+
+! exec aigw uninstall --target $WORK
+[!windows] normalize stdout refusal.out
+[!windows] cmp refusal.out refusal.txt
+[windows] stdout 'Problem'
+
+-- help.txt --
+AIGW  aigw uninstall
+────────────────────────────────────────
+  Withdraw AIGW-owned client projections, then remove the portable
+  executable and its rollback copy. This retains Account and Route data
+  and stored Tokens. Homebrew-managed copies must be removed with
+  Homebrew; this command does not manage them.
+
+Usage
+  aigw uninstall [flags]
+
+Options
+  -h, --help            help for uninstall
+      --target string   installed executable path; defaults to the running executable
+-- removed.txt --
+AIGW  Portable uninstall
+────────────────────────────────────────
+  ✓ Removed AIGW client projections, executable, and its single rollback copy
+  Configuration and credential-store secrets were preserved.
+  Versioned credential readers were retained for cached or other-installation callers.
+-- refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Portable program removal is incomplete
+
+Evidence
+  AIGW could not remove every selected portable program file.
+
+Impact
+  No AIGW configuration existed; no managed client withdrawal was needed. Tokens and versioned credential readers are retained.
+
+Recommended action
+  Inspect the selected target and retained files; after resolving file access, retry `uninstall --target <path>` from another verified AIGW executable.

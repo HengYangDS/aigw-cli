@@ -1,0 +1,68 @@
+# verify refuses a call without a client, verifies the selected Route
+# through the scripted Claude Code, and refuses a client that is not enabled.
+exec aigw verify --help
+cmp stdout help.txt
+
+! exec aigw verify
+cmp stdout client.txt
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw verify --for claude
+cmp stdout verified.txt
+! exec aigw verify --for codex
+cmp stdout codex.txt
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw verify
+────────────────────────────────────────
+  Run a bounded session through one real native client, or all enabled
+  clients with --for all. A session may make multiple provider requests
+  and may use quota. --for all writes a configuration checkpoint only
+  after every client succeeds. No client binding or native settings
+  are changed.
+
+Usage
+  aigw verify [flags]
+
+Options
+      --for string     Client whose selected Route to verify: claude, claude-desktop, codex, hermes, or all; all means enabled clients
+  -h, --help           help for verify
+      --route string   Verify this Route for the explicit client without changing its binding
+-- client.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  choose a verification client with --for; run `aigw verify --help`
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw verify --help
+-- verified.txt --
+AIGW  Live protocol verification
+────────────────────────────────────────
+
+Native client verification
+  Each selected client runs a bounded verification session and may make multiple provider requests. AIGW does not modify client configuration or restart clients.
+  ✓ Claude             team · Completed
+                       Native text response; tools and continuation are not probed
+
+Next
+  aigw doctor
+-- codex.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  no Route selected for client "codex"
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw check

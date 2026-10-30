@@ -1,0 +1,108 @@
+# route adds a Route to an Account, lists and shows Routes as JSON, and
+# refuses to remove a Route that a client selects.
+exec aigw route --help
+cmp stdout help.txt
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw route add spare --account team --model spare-model --protocol anthropic
+cmp stdout added.txt
+exec aigw route list --json
+cmp stdout routes.json
+exec aigw route show spare --json
+normalize stdout spare.out
+cmp spare.out spare.json
+
+! exec aigw route remove team
+cmp stdout refusal.txt
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw route
+────────────────────────────────────────
+  Manage Routes
+
+Usage
+  aigw route [command]
+
+Commands
+  add                  Add a model route to an existing account
+  edit                 Update route display metadata
+  list                 List Routes
+  remove               Remove an unused route
+  rename               Rename a route
+  show                 Show secret-free route metadata
+
+Options
+  -h, --help   help for route
+-- added.txt --
+AIGW  Model route added
+────────────────────────────────────────
+  Route                spare
+  Account              team
+  Model                spare-model
+  ✓ Reused the existing Account; no client selection was changed
+
+Next
+  aigw use --for <client> spare
+-- routes.json --
+{
+  "routes": [
+    {
+      "id": "spare",
+      "label": "spare",
+      "account": "team",
+      "protocol_clients": [
+        "claude",
+        "claude-desktop",
+        "hermes"
+      ],
+      "selected_clients": [],
+      "model": "spare-model"
+    },
+    {
+      "id": "team",
+      "label": "Team Gateway",
+      "account": "team",
+      "protocol_clients": [
+        "claude",
+        "claude-desktop",
+        "hermes"
+      ],
+      "selected_clients": [
+        "claude"
+      ],
+      "model": "team-model"
+    }
+  ]
+}
+-- spare.json --
+{
+  "account": "team",
+  "endpoints": {
+    "anthropic": "$UPSTREAM"
+  },
+  "id": "spare",
+  "label": "spare",
+  "model": "spare-model",
+  "protocol_clients": [
+    "claude",
+    "claude-desktop",
+    "hermes"
+  ],
+  "purpose": "",
+  "selected_clients": []
+}
+-- refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Route "team" is selected for claude; first run `aigw use --for claude <other-route>`
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw use --for claude <other-route>

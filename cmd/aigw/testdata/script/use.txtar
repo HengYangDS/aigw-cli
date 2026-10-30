@@ -1,0 +1,93 @@
+# use selects another Route for a client, as JSON and in text, and refuses
+# an unknown Route.
+exec aigw use --help
+cmp stdout help.txt
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw route add spare --account team --model spare-model --protocol anthropic
+
+exec aigw use --for claude spare --json
+normalize stdout spare.out
+cmp spare.out spare.json
+exec aigw use --for claude team
+normalize stdout team.out
+cmp team.out team.txt
+
+! exec aigw use --for claude missing
+cmp stdout refusal.txt
+! exec aigw use --for claude missing --json
+cmp stdout refusal.json
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw use
+────────────────────────────────────────
+  Select a Route for one client
+
+Usage
+  aigw use <route> [flags]
+
+Options
+      --direct                       Connect this client directly to its Account upstream
+      --dry-run                      Preview the selection without reading credentials or writing files
+      --for string                   Client: claude, claude-desktop, codex, or hermes
+      --forwarding-endpoint string   Explicit client destination; the Account upstream remains unchanged
+  -h, --help                         help for use
+      --json                         Write the selection preview or result as JSON
+      --native-retries               Remove this connection's retry policy and use client native defaults
+      --protocol string              Endpoint protocol for a multi-protocol Route
+      --request-max-retries uint     Explicit native request retry budget for this Codex connection; zero disables client request retries
+      --stream-max-retries uint      Explicit native stream retry budget for this Codex connection; zero disables client stream retries
+-- spare.json --
+{
+  "dry_run": false,
+  "changed": true,
+  "projection_changed": true,
+  "next_action": "aigw check",
+  "route_id": "spare",
+  "route_label": "spare",
+  "account_id": "team",
+  "account_label": "Team Gateway",
+  "client": "claude",
+  "endpoint": "$UPSTREAM",
+  "upstream_endpoint": "$UPSTREAM",
+  "protocol": "anthropic",
+  "model": "spare-model",
+  "canonical_model_id": "spare-model",
+  "model_provider": "",
+  "authentication": "account-token"
+}
+-- team.txt --
+AIGW  Route selected
+────────────────────────────────────────
+
+Current selection
+  Route                Team Gateway
+  Client               Claude
+  Protocol             Anthropic Messages
+  Endpoint             $UPSTREAM
+  ✓ Client configuration synchronized
+
+Next
+  aigw check
+-- refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  unknown route "missing"; run `aigw route list`
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw route list
+-- refusal.json --
+{
+  "ok": false,
+  "error": "unknown route \"missing\"; run `aigw route list`",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw route list"
+}

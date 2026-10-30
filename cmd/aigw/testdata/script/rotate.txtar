@@ -1,0 +1,69 @@
+# rotate stores a Token the provider accepts and refuses one it rejects.
+exec aigw rotate --help
+cmp stdout help.txt
+
+! exec aigw rotate
+cmp stdout empty.txt
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+stdin rotated.txt
+exec aigw rotate team --token-stdin
+cmp stdout rotated.txt.out
+stdin rejected.txt
+! exec aigw rotate team --token-stdin
+cmp stdout rejected.txt.out
+
+-- token.txt --
+sk-team-token-0001
+-- rotated.txt --
+sk-team-token-0002
+-- rejected.txt --
+sk-rejected-token
+-- help.txt --
+AIGW  aigw rotate
+────────────────────────────────────────
+  Update one Account Token
+
+Usage
+  aigw rotate [account] [flags]
+
+Options
+  -h, --help          help for rotate
+      --token-stdin   Read one token line from standard input
+-- empty.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  account is required when configuration contains 0 accounts
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw check
+-- rotated.txt.out --
+AIGW  Token updated
+────────────────────────────────────────
+
+Account
+  Account              Team Gateway
+  Account ID           team
+  ✓ Account Token      Validated and securely stored
+  ✓ Credential helpers read the new Token when next invoked; clients control their refresh timing
+
+Next
+  aigw check
+-- rejected.txt.out --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Token validation failed: Claude authentication was rejected (HTTP 401)
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw check

@@ -1,0 +1,72 @@
+# test refuses an empty home, observes the connected client's endpoint,
+# and refuses a client without a selected Route.
+exec aigw test --help
+cmp stdout help.txt
+
+! exec aigw test
+cmp stdout empty.txt
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw test --for claude
+cmp stdout tested.txt
+! exec aigw test --for codex
+cmp stdout codex.txt
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw test
+────────────────────────────────────────
+  Send a model-free HTTP request to selected endpoints without changing
+  client bindings. --for and --route can target one Route; --token-stdin
+  uses a one-time Token without storing it. An endpoint response does not
+  prove model inference or real-client behavior.
+
+Usage
+  aigw test [flags]
+
+Options
+      --config string         Read an absolute configuration file for a one-time stdin Token test
+      --for string            Client whose selected Route to test: claude, claude-desktop, codex, or hermes
+  -h, --help                  help for test
+      --route string          Test this Route for the explicit client without changing its binding
+      --token-format string   Explicit stdin encoding: raw or go-keyring-base64 (default "raw")
+      --token-stdin           Read one bounded Token through EOF for this request only; never store it
+-- empty.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Not configured
+
+Evidence
+  No Routes have been created.
+
+Impact
+  No client endpoint is available to test.
+
+Recommended action
+  aigw setup
+-- tested.txt --
+AIGW  Connectivity test
+────────────────────────────────────────
+  Endpoint HTTP observation, not model inference or native-client verification.
+
+Endpoints
+  ✓ Claude             team · HTTP 200
+
+Next
+  aigw check
+-- codex.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  no Route selected for client "codex"
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw check

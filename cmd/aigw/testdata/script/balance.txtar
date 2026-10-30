@@ -1,0 +1,87 @@
+# balance refuses an Account without a diagnostics provider, then reports
+# the DMXAPI balance and Token quota of an Account that declares one.
+exec aigw balance --help
+cmp stdout help.txt
+
+envsubst manifest.in manifest.toml
+exec aigw config import manifest.toml
+! exec aigw balance plain
+cmp stdout refusal.txt
+
+stdin token.txt
+exec aigw rotate team --token-stdin
+stdin system.txt
+exec aigw account diagnostics enable team --user-id 42 --system-token-stdin
+exec aigw balance team
+cmp stdout balance.txt
+
+-- token.txt --
+sk-team-token-0001
+-- system.txt --
+dmx-system-token
+-- manifest.in --
+version = 7
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "$UPSTREAM"
+[accounts.team.account_probe]
+kind = "dmxapi"
+base_url = "$UPSTREAM"
+[accounts.plain]
+label = "Plain Gateway"
+[accounts.plain.endpoints]
+anthropic = "$UPSTREAM"
+[models.team-model]
+label = "Team Model"
+[routes.team-route]
+label = "Team Route"
+account = "team"
+model = "team-model"
+upstream_model = "team-model"
+interfaces = { anthropic = ["text"] }
+[routes.plain-route]
+label = "Plain Route"
+account = "plain"
+model = "team-model"
+upstream_model = "team-model"
+interfaces = { anthropic = ["text"] }
+-- help.txt --
+AIGW  aigw balance
+────────────────────────────────────────
+  Show account balance and token quota
+
+Usage
+  aigw balance [account] [flags]
+
+Options
+  -h, --help   help for balance
+-- refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Plain Gateway does not support precise balance queries
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw check
+-- balance.txt --
+AIGW  Account and quota
+────────────────────────────────────────
+
+Account
+  Account              Team Gateway
+  Account balance      $10.0000
+
+Current API token
+  Name                 team
+  ✓ Token status       Enabled
+  Quota used           $1.0000
+  Remaining quota      $5.0000
+  Remaining requests   42 requests
+
+Next
+  aigw check

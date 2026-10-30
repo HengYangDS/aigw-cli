@@ -1,0 +1,76 @@
+# rollback refuses a home without a recovery source, then restores the
+# configuration before the last change.
+exec aigw rollback --help
+cmp stdout help.txt
+
+! exec aigw rollback
+cmp stdout empty.txt
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw route add spare --account team --model spare-model --protocol anthropic
+exec aigw rollback --last-change
+cmp stdout restored.txt
+exec aigw route list --json
+cmp stdout routes.json
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw rollback
+────────────────────────────────────────
+  Restore configuration and client projections from the latest fully
+  verified checkpoint, or fall back to the previous backup.
+  --last-change selects only that backup. This does not replace the
+  AIGW program. Use aigw update --rollback for the retained executable.
+
+Usage
+  aigw rollback [flags]
+
+Options
+  -h, --help          help for rollback
+      --last-change   Restore only the immediately previous configuration backup
+-- empty.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Configuration rollback is unavailable
+
+Evidence
+  No valid recovery source is available for the current configuration.
+
+Impact
+  The current configuration remains active and unchanged.
+
+Recommended action
+  aigw doctor
+-- restored.txt --
+AIGW  Rolled back safely
+────────────────────────────────────────
+
+Restore source
+  Configuration        Previous configuration
+  ✓ Client selections and projections were restored; clients were not restarted.
+
+Next
+  aigw doctor
+-- routes.json --
+{
+  "routes": [
+    {
+      "id": "team",
+      "label": "Team Gateway",
+      "account": "team",
+      "protocol_clients": [
+        "claude",
+        "claude-desktop",
+        "hermes"
+      ],
+      "selected_clients": [
+        "claude"
+      ],
+      "model": "team-model"
+    }
+  ]
+}

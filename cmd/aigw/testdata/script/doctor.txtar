@@ -1,0 +1,208 @@
+# doctor reports an incomplete setup as a failure, then the connected
+# configuration's local diagnostics, as JSON and in text.
+exec aigw doctor --help
+cmp stdout help.txt
+
+! exec aigw doctor
+cmp stdout empty.txt
+! exec aigw doctor --json
+cmp stdout empty.json
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw doctor --json
+cmp stdout connected.json
+exec aigw doctor
+normalize stdout connected.out
+cmp connected.out connected.txt
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw doctor
+────────────────────────────────────────
+  Show detailed diagnostics for configuration, secrets, and adapters
+
+Usage
+  aigw doctor [flags]
+
+Options
+  -h, --help   help for doctor
+      --json   Write machine-readable JSON
+-- empty.txt --
+AIGW  Detailed diagnostics
+────────────────────────────────────────
+
+Clients
+  · Claude             Deferred
+  · Claude Desktop     Deferred
+  · Codex              Deferred
+  · Hermes             Deferred
+
+Checks
+  ✓ Client token environment  No global client token environment variables detected
+  ✗ Local configuration       First-time setup is incomplete
+                              Fix: aigw setup
+  ✓ Claude adapter            Disabled
+  ✓ Claude Desktop adapter    Healthy
+  ✓ Codex adapter             Disabled
+  ✓ Hermes adapter            Healthy
+
+Next
+  aigw setup
+-- empty.json --
+{
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "checks": [
+    {
+      "name": "environment:client-token",
+      "ok": true,
+      "detail": "no global client token environment variables"
+    },
+    {
+      "name": "config",
+      "ok": false,
+      "detail": "not configured",
+      "fix": "run `aigw setup`"
+    },
+    {
+      "name": "adapter:claude",
+      "ok": true,
+      "detail": "disabled"
+    },
+    {
+      "name": "adapter:claude-desktop",
+      "ok": true,
+      "detail": "disabled"
+    },
+    {
+      "name": "adapter:codex",
+      "ok": true,
+      "detail": "disabled"
+    },
+    {
+      "name": "adapter:hermes",
+      "ok": true,
+      "detail": "disabled"
+    }
+  ],
+  "clients": {
+    "claude": {
+      "state": "deferred",
+      "detail": "No route is selected for this client"
+    },
+    "claude-desktop": {
+      "state": "deferred",
+      "detail": "No route is selected for this client"
+    },
+    "codex": {
+      "state": "deferred",
+      "detail": "No route is selected for this client"
+    },
+    "hermes": {
+      "state": "deferred",
+      "detail": "No route is selected for this client"
+    }
+  },
+  "ok": false,
+  "ok_scope": "local_diagnostics",
+  "enabled_clients": 0,
+  "state": "deferred",
+  "next_action": "aigw setup"
+}
+-- connected.json --
+{
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "checks": [
+    {
+      "name": "environment:client-token",
+      "ok": true,
+      "detail": "no global client token environment variables"
+    },
+    {
+      "name": "config",
+      "ok": true,
+      "detail": "valid"
+    },
+    {
+      "name": "secret:team",
+      "ok": true,
+      "detail": "available"
+    },
+    {
+      "name": "adapter:claude",
+      "ok": true,
+      "detail": "enabled"
+    },
+    {
+      "name": "adapter:claude-desktop",
+      "ok": true,
+      "detail": "disabled"
+    },
+    {
+      "name": "adapter:codex",
+      "ok": true,
+      "detail": "disabled"
+    },
+    {
+      "name": "adapter:hermes",
+      "ok": true,
+      "detail": "disabled"
+    }
+  ],
+  "clients": {
+    "claude": {
+      "state": "configured",
+      "route": "team",
+      "account": "team"
+    },
+    "claude-desktop": {
+      "state": "deferred",
+      "detail": "No route is selected for this client"
+    },
+    "codex": {
+      "state": "deferred",
+      "detail": "No route is selected for this client"
+    },
+    "hermes": {
+      "state": "deferred",
+      "detail": "No route is selected for this client"
+    }
+  },
+  "ok": true,
+  "ok_scope": "local_diagnostics",
+  "enabled_clients": 1
+}
+-- connected.txt --
+AIGW  Detailed diagnostics
+────────────────────────────────────────
+
+Clients
+  · Claude             Configured
+  · Claude Desktop     Deferred
+  · Codex              Deferred
+  · Hermes             Deferred
+
+Checks
+  ✓ Client token environment  No global client token environment variables detected
+  ✓ Local configuration       Configuration is valid
+  ✓ Account Token             team · available
+  ✓ Claude adapter            Enabled
+  ✓ Claude Desktop adapter    Healthy
+  ✓ Codex adapter             Disabled
+  ✓ Hermes adapter            Healthy
+
+Result
+  ✓ No problems found

@@ -1,0 +1,187 @@
+# status reports each client's readiness before and after an Account
+# connects, in text and as JSON, and refuses an unreadable configuration.
+exec aigw status --help
+cmp stdout help.txt
+
+exec aigw status --json
+cmp stdout empty.json
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw status --json
+cmp stdout connected.json
+exec aigw status
+cmp stdout connected.txt
+
+[darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/config.toml
+[!darwin] cp broken.toml $HOME/aigw/config.toml
+! exec aigw status
+cmp stdout refusal.txt
+! exec aigw status --json
+cmp stdout refusal.json
+
+-- token.txt --
+sk-team-token-0001
+-- broken.toml --
+version = 7
+[accounts.team
+-- help.txt --
+AIGW  aigw status
+────────────────────────────────────────
+  Show each client's selected route and local readiness
+
+Usage
+  aigw status [flags]
+
+Options
+  -h, --help   help for status
+      --json   Write machine-readable JSON
+-- empty.json --
+{
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "clients": {
+    "claude": {
+      "state": "deferred",
+      "detail": "No route is selected for this client",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false
+    },
+    "claude-desktop": {
+      "state": "deferred",
+      "detail": "No route is selected for this client",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false,
+      "qualified_modes": [
+        "Chat",
+        "Cowork",
+        "Code"
+      ],
+      "qualified_platforms": [
+        "macOS"
+      ]
+    },
+    "codex": {
+      "state": "deferred",
+      "detail": "No route is selected for this client",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false
+    },
+    "hermes": {
+      "state": "deferred",
+      "detail": "No route is selected for this client",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false
+    }
+  },
+  "routes": 0,
+  "enabled_clients": 0,
+  "state": "deferred",
+  "next_action": "aigw setup"
+}
+-- connected.json --
+{
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "clients": {
+    "claude": {
+      "state": "configured",
+      "route": "team",
+      "account": "team",
+      "authentication": "account-token",
+      "endpoint_configured": true,
+      "transport": "external_loopback",
+      "projection_ready": true
+    },
+    "claude-desktop": {
+      "state": "deferred",
+      "detail": "No route is selected for this client",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false,
+      "qualified_modes": [
+        "Chat",
+        "Cowork",
+        "Code"
+      ],
+      "qualified_platforms": [
+        "macOS"
+      ]
+    },
+    "codex": {
+      "state": "deferred",
+      "detail": "No route is selected for this client",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false
+    },
+    "hermes": {
+      "state": "deferred",
+      "detail": "No route is selected for this client",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false
+    }
+  },
+  "routes": 1,
+  "enabled_clients": 1,
+  "next_action": "aigw check"
+}
+-- connected.txt --
+AIGW  Configuration status
+────────────────────────────────────────
+  The selected Routes, client readiness, and the smallest next action.
+
+Clients
+  · Claude             team · Configured
+  · Claude Desktop     No Claude Desktop route selected · Qualified: Chat, Cowork, Code · macOS
+  · Codex              No Codex route selected
+  · Hermes             No Hermes route selected
+
+Transport
+  · Claude             Loopback endpoint
+    Endpoint runtime identity and availability are not inferred from the address
+    AIGW does not start, stop, or configure the endpoint runtime
+
+Optional diagnostics
+  · team               Provider does not expose a balance probe
+
+Next
+  aigw check
+-- refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Cannot parse local configuration
+
+Evidence
+  AIGW 0.1.0-dev stopped at the configuration parse stage at line 2, column 15.
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it.
+-- refusal.json --
+{
+  "ok": false,
+  "error": "Cannot parse local configuration",
+  "evidence": "AIGW 0.1.0-dev stopped at the configuration parse stage at line 2, column 15.",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it."
+}

@@ -1,0 +1,97 @@
+# catalog refuses an empty home, then reports each Account's catalogue in
+# text and as JSON.
+exec aigw catalog --help
+cmp stdout help.txt
+
+! exec aigw catalog
+cmp stdout empty.txt
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+# An observation is named by a digest of its endpoint, which varies with $UPSTREAM.
+exec aigw catalog
+normalize stdout catalog.out '[0-9a-f]{64}'
+cmp catalog.out catalog.txt
+exec aigw catalog --json
+normalize stdout catalog-json.out '[0-9a-f]{64}'
+cmp catalog-json.out catalog.json
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw catalog
+────────────────────────────────────────
+  Discover authenticated model catalogs for each account (compact summary by default)
+
+Usage
+  aigw catalog [flags]
+
+Options
+      --all    Show every model in human output (JSON already includes all)
+  -h, --help   help for catalog
+      --json   Write machine-readable JSON
+-- empty.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  not configured; run `aigw setup`
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw setup
+-- catalog.txt --
+AIGW  Authenticated model catalog
+────────────────────────────────────────
+  Each observation proves catalogue membership only for its named protocol source.
+
+Team Gateway · team · Anthropic Messages
+  Observation          <varies>
+  Source               $UPSTREAM/v1/models
+  Models               2 observed
+  Admitted             1 admitted
+  ✓ model              team-model
+                       Admitted Routes: team
+    1 candidate models require qualification; full catalog: aigw catalog --all
+
+Next
+  aigw route add <route> --account <account> --model <model> --protocol <protocol>
+-- catalog.json --
+{
+  "observations": [
+    {
+      "observation_id": "<varies>",
+      "account": "team",
+      "label": "Team Gateway",
+      "source": {
+        "protocol": "anthropic",
+        "endpoint": "$UPSTREAM/v1/models"
+      },
+      "secret_available": true,
+      "status": "ok",
+      "models": [
+        {
+          "id": "team-model",
+          "state": "admitted",
+          "routes": [
+            {
+              "id": "team",
+              "model": "team-model",
+              "upstream_model": "team-model",
+              "capabilities": [],
+              "lifecycle": "admitted",
+              "evidence": "observed"
+            }
+          ]
+        },
+        {
+          "id": "spare-model",
+          "state": "candidate"
+        }
+      ],
+      "missing_routes": []
+    }
+  ]
+}

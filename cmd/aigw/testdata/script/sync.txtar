@@ -1,0 +1,67 @@
+# sync refuses an empty home, then previews and applies the synchronization
+# of the connected client's projection.
+exec aigw sync --help
+cmp stdout help.txt
+
+! exec aigw sync
+cmp stdout empty.txt
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw sync --dry-run --json
+[!windows] normalize stdout preview.out
+[!windows] cmp preview.out preview.json
+[windows] stdout '"target": ".*\\\\.claude\\\\settings\.json"'
+exec aigw sync
+normalize stdout synced.out
+[!windows] cmp synced.out synced.txt
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw sync
+────────────────────────────────────────
+  Resynchronize client configuration
+
+Usage
+  aigw sync [flags]
+
+Options
+      --dry-run   Show the synchronization plan without writing configuration
+  -h, --help      help for sync
+      --json      Write the synchronization preview or result as JSON
+-- empty.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  refuse invalid config: at least one route is required
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw check
+-- preview.json --
+{
+  "dry_run": true,
+  "selections": {
+    "claude": "team"
+  },
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME/.claude/settings.json",
+      "action": "already-converged"
+    }
+  ],
+  "enabled_clients": 1,
+  "next_action": "aigw check"
+}
+-- synced.txt --
+AIGW  Synchronization completed
+────────────────────────────────────────
+  ✓ Client configuration is aligned; authentication was unchanged
+
+Next
+  aigw check

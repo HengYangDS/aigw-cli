@@ -1,0 +1,88 @@
+# add refuses an Account without a model, connects an Account with its first
+# Route, and refuses to replace an existing Account.
+exec aigw add --help
+cmp stdout help.txt
+
+stdin token.txt
+! exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --for claude --token-stdin
+cmp stdout model.txt
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+cmp stdout connected.txt
+exec aigw account list --json
+normalize stdout accounts.out
+cmp accounts.out accounts.json
+
+stdin token.txt
+! exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+cmp stdout exists.txt
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw add
+────────────────────────────────────────
+  Add and connect one Account with its first Route
+
+Usage
+  aigw add <account> [flags]
+
+Options
+      --anthropic-url string   Anthropic base URL
+      --for string             Client: claude, claude-desktop, codex, or hermes
+  -h, --help                   help for add
+      --label string           Provider display name
+      --model string           Upstream model ID
+      --openai-url string      OpenAI Responses base URL
+      --token-stdin            Read one token line from standard input
+-- model.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  --for and --model are required; --for must be claude, claude-desktop, codex, or hermes; run `aigw add --help`
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw add --help
+-- connected.txt --
+AIGW  Account connected
+────────────────────────────────────────
+
+Selection
+  Account              Team Gateway
+  Account ID           team
+  Route ID             team
+  Client               Claude
+  Model                team-model
+  ✓ Token              Securely stored
+
+Next
+  aigw check
+-- accounts.json --
+{
+  "accounts": [
+    {
+      "id": "team",
+      "label": "Team Gateway",
+      "endpoints": {
+        "anthropic": "$UPSTREAM"
+      }
+    }
+  ]
+}
+-- exists.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Route "team" already exists; creation does not replace Routes; run `aigw add --help`
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw add --help

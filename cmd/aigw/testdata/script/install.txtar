@@ -1,0 +1,49 @@
+# install copies the running program to a target and refuses a directory as
+# the target.
+exec aigw install --help
+[!windows] normalize stdout help.out
+[!windows] cmp help.out help.txt
+[windows] stdout 'default ".*\\Programs\\aigw\\bin\\aigw\.exe"'
+
+exec aigw install --target $WORK/bin/aigw$exe
+[!windows] normalize stdout installed.out
+[!windows] cmp installed.out installed.txt
+[windows] stdout 'bin\\aigw\.exe'
+exists $WORK/bin/aigw$exe
+
+! exec aigw install --target $WORK
+[!windows] normalize stdout refusal.out
+[!windows] cmp refusal.out refusal.txt
+[windows] stdout 'Problem'
+
+-- help.txt --
+AIGW  aigw install
+────────────────────────────────────────
+  Install this portable AIGW executable
+
+Usage
+  aigw install [flags]
+
+Options
+  -h, --help            help for install
+      --target string   destination executable path (default "$HOME/.local/bin/aigw")
+-- installed.txt --
+AIGW  Portable installation
+────────────────────────────────────────
+  ✓ Installed $WORK/bin/aigw
+  PATH is unchanged. Use the installed path directly, or add its directory to PATH before running the command below.
+
+Next
+  aigw setup
+-- refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Local file access failed (read: is a directory); run `aigw doctor` to inspect current state
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw doctor

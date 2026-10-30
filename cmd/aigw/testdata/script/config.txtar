@@ -1,0 +1,101 @@
+# config prints its path, imports a manifest as JSON, exports the merged
+# configuration, and refuses a malformed manifest.
+exec aigw config --help
+cmp stdout help.txt
+
+exec aigw config path
+normalize stdout path.out
+[darwin] cmp path.out path-darwin.txt
+[linux] cmp path.out path-linux.txt
+[windows] stdout 'aigw\\config\.toml'
+
+envsubst manifest.in manifest.toml
+exec aigw config import manifest.toml --json
+cmp stdout imported.json
+exec aigw config export
+normalize stdout export.out
+cmp export.out export.toml
+
+! exec aigw config import broken.toml
+cmp stdout refusal.txt
+
+-- manifest.in --
+version = 7
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "$UPSTREAM"
+[models.team-model]
+label = "Team Model"
+[routes.team-route]
+label = "Team Route"
+account = "team"
+model = "team-model"
+upstream_model = "team-model"
+interfaces = { anthropic = ["text"] }
+-- broken.toml --
+version = 7
+[accounts.team
+-- help.txt --
+AIGW  aigw config
+────────────────────────────────────────
+  Import and export configuration
+
+Usage
+  aigw config [flags]
+  aigw config [command]
+
+Commands
+  export               Export a secret-free configuration manifest
+  import               Merge a secret-free configuration manifest
+  migrate              Migrate retained local configuration to or from the current schema
+  path                 Print the local configuration path
+
+Options
+  -h, --help   help for config
+-- path-darwin.txt --
+$HOME/Library/Application Support/aigw/config.toml
+-- path-linux.txt --
+$HOME/aigw/config.toml
+-- imported.json --
+{
+  "dry_run": false,
+  "imported_accounts": 1,
+  "imported_routes": 1,
+  "next_action": "aigw status"
+}
+-- export.toml --
+version = 7
+
+[accounts]
+[accounts.team]
+label = 'Team Gateway'
+
+[accounts.team.endpoints]
+anthropic = '$UPSTREAM'
+
+[models]
+[models.team-model]
+label = 'Team Model'
+
+[routes]
+[routes.team-route]
+label = 'Team Route'
+account = 'team'
+model = 'team-model'
+upstream_model = 'team-model'
+
+[routes.team-route.interfaces]
+anthropic = ['text']
+-- refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Cannot decode TOML document at line 2, column 15
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  Correct the value at the reported document location and rerun the command.

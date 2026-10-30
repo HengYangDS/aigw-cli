@@ -1,0 +1,122 @@
+# setup refuses a Token that the provider rejects and connects the first
+# Account from flags. In a second home it sets up every Route of a manifest
+# as JSON, then refuses to set up a configured home.
+exec aigw setup --help
+cmp stdout help.txt
+
+stdin rejected.txt
+! exec aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+cmp stdout refusal.txt
+
+stdin token.txt
+exec aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+cmp stdout connected.txt
+
+mkdir $WORK/second
+env HOME=$WORK/second USERPROFILE=$WORK/second XDG_CONFIG_HOME=$WORK/second XDG_DATA_HOME=$WORK/second APPDATA=$WORK/second LOCALAPPDATA=$WORK/second
+envsubst manifest.in manifest.toml
+stdin token.txt
+exec aigw setup --from manifest.toml --account spare --token-stdin --json
+cmp stdout manifest.json
+stdin token.txt
+! exec aigw setup --from manifest.toml --account spare --token-stdin --json
+cmp stdout configured.json
+
+-- rejected.txt --
+sk-rejected-token
+-- token.txt --
+sk-team-token-0001
+-- manifest.in --
+version = 7
+[accounts.spare]
+label = "Spare Gateway"
+[accounts.spare.endpoints]
+anthropic = "$UPSTREAM"
+[models.spare-model]
+label = "Spare Model"
+[routes.spare-route]
+label = "Spare Route"
+account = "spare"
+model = "spare-model"
+upstream_model = "spare-model"
+interfaces = { anthropic = ["text"] }
+-- help.txt --
+AIGW  aigw setup
+────────────────────────────────────────
+  Complete first-time setup
+
+Usage
+  aigw setup [flags]
+
+Options
+      --account string         Account ID; guided setup uses the first Route ID when omitted, --from connects only this Account
+      --anthropic-url string   Anthropic base URL
+      --chat-url string        OpenAI Chat Completions base URL
+      --for string             Client for the first route: claude, claude-desktop, codex, or hermes
+      --from string            Set up all routes from a token-free configuration manifest
+  -h, --help                   help for setup
+      --json                   Write the manifest setup result as JSON
+      --label string           Provider display name
+      --model string           Upstream model ID for --for
+      --openai-url string      OpenAI Responses base URL
+      --protocol string        Endpoint protocol when more than one URL is configured
+      --route string           First route ID
+      --token-stdin            Read one token line from standard input
+-- refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Token validation failed: Claude authentication was rejected (HTTP 401)
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw check
+-- connected.txt --
+AIGW  First-time setup
+────────────────────────────────────────
+
+Account
+  Account              team
+  Route                team-route
+  Model                team-model
+  ✓ API Token          Validated
+Clients
+  ✓ Claude             Projection configured
+  · Claude Desktop     Not configured
+  · Codex              Not configured
+  · Hermes             Not configured
+  ✓ Client projection configured; real-client use is not yet verified.
+
+Next
+  aigw check
+-- manifest.json --
+{
+  "imported": {
+    "accounts": [
+      "spare"
+    ],
+    "routes": [
+      "spare-route"
+    ]
+  },
+  "connected_accounts": [
+    "spare"
+  ],
+  "selected_bindings": {},
+  "projected_clients": null,
+  "online_verification": "not_checked",
+  "deferred_actions": [
+    "aigw use --help"
+  ],
+  "next_action": "aigw use --help"
+}
+-- configured.json --
+{
+  "ok": false,
+  "error": "AIGW is already configured; run `aigw add` to add an account, `aigw route add` to add a model route, or `aigw config import` to merge a reviewed manifest",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw add"
+}

@@ -1,0 +1,39 @@
+# completion generates the completion script of each supported shell and
+# refuses another shell.
+exec aigw completion --help
+cmp stdout help.txt
+
+exec aigw completion bash
+stdout '^# bash completion for aigw'
+exec aigw completion zsh
+stdout '^#compdef aigw'
+exec aigw completion fish
+stdout '^# fish completion for aigw'
+exec aigw completion powershell
+stdout '^# powershell completion for aigw'
+
+! exec aigw completion tcsh
+cmp stdout refusal.txt
+
+-- help.txt --
+AIGW  aigw completion
+────────────────────────────────────────
+  Generate shell completion
+
+Usage
+  aigw completion <bash|zsh|fish|powershell> [flags]
+
+Options
+  -h, --help   help for completion
+-- refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  supported shells: bash, zsh, fish, powershell
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw check

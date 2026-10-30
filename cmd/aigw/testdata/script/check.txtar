@@ -1,0 +1,146 @@
+# check refuses an empty home, then checks the connected client with one
+# inference request, as JSON and in text.
+exec aigw check --help
+cmp stdout help.txt
+
+! exec aigw check
+cmp stdout empty.txt
+! exec aigw check --json
+cmp stdout empty.json
+
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw check --json
+cmp stdout checked.json
+exec aigw check
+cmp stdout checked.txt
+! exec aigw check --for codex
+cmp stdout codex.txt
+
+-- token.txt --
+sk-team-token-0001
+-- help.txt --
+AIGW  aigw check
+────────────────────────────────────────
+  Check every enabled client by default, or one with --for.
+  Inspect its binding, credential, and native projection.
+  For AIGW-managed Tokens, the default sends one bounded selected-model
+  inference request per eligible client and may use provider quota.
+  Use --endpoint-only for a model-free authenticated endpoint request.
+  This command does not execute a native client or change configuration;
+  use verify for real-client evidence.
+
+Usage
+  aigw check [flags]
+
+Options
+      --endpoint-only   Use model-free endpoint authentication instead of inference
+      --for string      Check one enabled client: claude, claude-desktop, codex, or hermes; omit for all
+  -h, --help            help for check
+      --json            Write machine-readable JSON
+-- empty.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Not configured
+
+Evidence
+  No Routes have been created.
+
+Impact
+  Cannot check, synchronize, or repair configuration that does not exist.
+
+Recommended action
+  aigw setup
+-- empty.json --
+{
+  "clients": {},
+  "enabled_clients": 0,
+  "ok": false,
+  "state": "deferred",
+  "next_action": "aigw setup",
+  "error": "not configured"
+}
+-- checked.json --
+{
+  "clients": {
+    "claude": {
+      "state": "inference_checked",
+      "route": "team",
+      "account": "team",
+      "detail": "Inference diagnostic returned a successful response",
+      "authentication": "account-token",
+      "endpoint_configured": true,
+      "transport": "external_loopback",
+      "projection_ready": true,
+      "check_passed": true,
+      "diagnostic_kind": "healthy",
+      "diagnostic_scope": "inference",
+      "attempts": 1
+    },
+    "claude-desktop": {
+      "state": "deferred",
+      "detail": "No route is selected for this client",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false,
+      "qualified_modes": [
+        "Chat",
+        "Cowork",
+        "Code"
+      ],
+      "qualified_platforms": [
+        "macOS"
+      ]
+    },
+    "codex": {
+      "state": "deferred",
+      "detail": "No route is selected for this client",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false
+    },
+    "hermes": {
+      "state": "deferred",
+      "detail": "No route is selected for this client",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false
+    }
+  },
+  "enabled_clients": 1,
+  "ok": true
+}
+-- checked.txt --
+AIGW  Health check
+────────────────────────────────────────
+
+Configuration
+  ✓ Configuration file  Healthy
+
+Client
+  ✓ Claude             Team Gateway · Inference checked
+                       Claude uses a loopback endpoint; AIGW does not manage the endpoint runtime
+  · Claude Desktop     Disabled
+  · Codex              Disabled
+  · Hermes             Disabled
+
+Result
+  ✓ All enabled client checks passed
+    Real-client execution was not verified
+-- codex.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Client is not enabled
+
+Evidence
+  Codex is not enabled
+
+Impact
+  No endpoint or model was checked.
+
+Recommended action
+  aigw use --for codex <route>
