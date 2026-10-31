@@ -432,7 +432,7 @@ func TestGitLabWindowsDeclaresItsPublicInputClientSupplier(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(projections[0].Content), &jobs); err != nil {
 		t.Fatal(err)
 	}
-	const supplier = "suppliers/windows-codex-0.164.0-claude-2.1.310-native-packages.tar.gz"
+	const supplier = "suppliers/windows-codex-0.165.0-claude-2.1.312-native-packages.tar.gz"
 	for _, name := range []string{"native-darwin", "native-linux", "native-windows", "native-windows-review"} {
 		var job gitLabJob
 		node := jobs[name]
