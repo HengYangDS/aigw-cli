@@ -1,6 +1,7 @@
 package gitfixture
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -8,6 +9,9 @@ import (
 	"strings"
 	"testing"
 )
+
+// helperEnvironment marks a test binary that a test runs again as a helper.
+const helperEnvironment = "AIGW_GITFIXTURE_HELPER"
 
 type tests func() int
 
@@ -53,6 +57,41 @@ func TestRunKeepsHostSettingsWithoutHostHooksOrTemplates(t *testing.T) {
 		git(t, append(commit, "--allow-empty")...)
 		if _, err := os.Stat(filepath.Join(repository, "fixture-hook-ran")); err != nil {
 			t.Errorf("fixture-owned hook did not run: %v", err)
+		}
+		return 0
+	}))
+	if code != 0 {
+		t.Fatalf("Run = %d, want 0", code)
+	}
+	if entries, err := os.ReadDir(scratch); err != nil || len(entries) != 0 {
+		t.Fatalf("isolated Git policy survived the run: %v %v", entries, err)
+	}
+}
+
+// A test binary that a test runs again as a helper process inherits the
+// parent's isolation, so a helper that exits inside a test leaves nothing in
+// the temporary directory.
+func TestHelperProcessInheritsTheParentIsolation(t *testing.T) {
+	if os.Getenv(helperEnvironment) != "" {
+		Run(tests(func() int {
+			os.Exit(3)
+			return 0
+		}))
+		return
+	}
+	global := filepath.Join(t.TempDir(), "config")
+	writeFile(t, global, "")
+	t.Setenv("GIT_CONFIG_GLOBAL", global)
+	scratch := isolateScratch(t)
+	code := Run(tests(func() int {
+		helper := exec.Command(os.Args[0], "-test.run=^TestHelperProcessInheritsTheParentIsolation$")
+		helper.Env = append(os.Environ(), helperEnvironment+"=1")
+		var exit *exec.ExitError
+		if err := helper.Run(); !errors.As(err, &exit) || exit.ExitCode() != 3 {
+			t.Errorf("helper process = %v, want exit status 3", err)
+		}
+		if entries, err := os.ReadDir(scratch); err != nil || len(entries) != 1 {
+			t.Errorf("the helper process created its own isolation: %v %v", entries, err)
 		}
 		return 0
 	}))

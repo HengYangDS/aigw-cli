@@ -20,9 +20,14 @@ import (
 // then names an empty owned directory as its hook directory, and
 // GIT_TEMPLATE_DIR names the same directory as the template. Fixture-local
 // configuration and command-line options keep their precedence, so fixtures
-// retain their own hook directories.
+// retain their own hook directories. A test binary that a test runs again as a
+// helper process inherits its parent's isolation and creates none, so a helper
+// that exits inside a test leaves no directory behind.
 func Run(tests interface{ Run() int }) int {
-	directory, err := os.MkdirTemp("", "aigw-git-")
+	if inherited() {
+		return tests.Run()
+	}
+	directory, err := os.MkdirTemp("", directoryPrefix)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "isolate host Git policy:", err)
 		return 1
@@ -38,6 +43,23 @@ func Run(tests interface{ Run() int }) int {
 		code = 1
 	}
 	return code
+}
+
+// directoryPrefix begins the name of each isolation directory that Run creates.
+const directoryPrefix = "aigw-git-"
+
+// inherited reports whether a parent process's Run isolated Git for this
+// process: both variables still name the files of that parent's directory,
+// which still exists.
+func inherited() bool {
+	template := os.Getenv("GIT_TEMPLATE_DIR")
+	directory := filepath.Dir(template)
+	if filepath.Base(template) != "empty" || !strings.HasPrefix(filepath.Base(directory), directoryPrefix) ||
+		os.Getenv("GIT_CONFIG_GLOBAL") != filepath.Join(directory, "config") {
+		return false
+	}
+	info, err := os.Stat(template)
+	return err == nil && info.IsDir()
 }
 
 func isolate(directory string) error {

@@ -12,8 +12,6 @@ import (
 	"testing"
 )
 
-const mainHelperEnvironment = "AIGW_TEST_MAIN_HELPER"
-
 // An extracted successor that preprojects clients while its predecessor is
 // still installed must not migrate the predecessor's Keychain items.
 func TestCredentialRoleRequiresTheInstalledProgram(t *testing.T) {
@@ -48,17 +46,16 @@ func TestCredentialRoleRequiresTheInstalledProgram(t *testing.T) {
 	}
 }
 
+// TestMainProcess runs the program's entry point in a process of its own: the
+// aigw command that TestMain installs, which runs main without the script
+// harness's setup.
 func TestMainProcess(t *testing.T) {
-	if os.Getenv(mainHelperEnvironment) == "1" {
-		os.Args = []string{"CLAUDE", "--version"}
-		main()
-		return
-	}
-
 	setAIGWTestEnvironment(t)
-	command := exec.Command(os.Args[0], "-test.run=^TestMainProcess$")
-	command.Env = append(os.Environ(), mainHelperEnvironment+"=1")
-	output, err := command.CombinedOutput()
+	program, err := exec.LookPath("aigw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := exec.Command(program, "--version").CombinedOutput()
 	if err != nil {
 		t.Fatalf("main subprocess: %v\n%s", err, output)
 	}
