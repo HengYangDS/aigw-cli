@@ -22,6 +22,14 @@ stdin token.txt
 exitcode 1 aigw setup --from manifest.toml --account spare --token-stdin --json
 cmp stdout configured.json
 
+mkdir $WORK/third
+env HOME=$WORK/third USERPROFILE=$WORK/third XDG_CONFIG_HOME=$WORK/third XDG_DATA_HOME=$WORK/third APPDATA=$WORK/third LOCALAPPDATA=$WORK/third
+stdin token.txt
+exec aigw setup --route json-route --account json-team --label 'JSON Gateway' --anthropic-url $UPSTREAM --model json-model --for claude --token-stdin --json
+cmp stdout flags.json
+exitcode 1 aigw setup --json
+cmp stdout flags-refusal.json
+
 -- rejected.txt --
 sk-rejected-token
 -- token.txt --
@@ -55,7 +63,7 @@ Options
       --for string             Client for the first route: claude, claude-desktop, codex, or hermes
       --from string            Set up all routes from a token-free configuration manifest
   -h, --help                   help for setup
-      --json                   Write the manifest setup result as JSON
+      --json                   Write the setup result as JSON
       --label string           Provider display name
       --model string           Upstream model ID for --for
       --openai-url string      OpenAI Responses base URL
@@ -122,4 +130,36 @@ Next
   "error": "AIGW is already configured; run `aigw add` to add an account, `aigw route add` to add a model route, or `aigw config import` to merge a reviewed manifest",
   "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw add"
+}
+-- flags.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "imported": {
+    "accounts": [
+      "json-team"
+    ],
+    "routes": [
+      "json-route"
+    ]
+  },
+  "connected_accounts": [
+    "json-team"
+  ],
+  "selected_bindings": {
+    "claude": "json-route"
+  },
+  "projected_clients": [
+    "claude"
+  ],
+  "online_verification": "not_checked",
+  "next_action": "aigw check"
+}
+-- flags-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "--json requires --route or --from; run `aigw setup --help`",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw setup --help"
 }

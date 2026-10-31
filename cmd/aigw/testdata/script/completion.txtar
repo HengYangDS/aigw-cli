@@ -1,5 +1,5 @@
 # completion generates the completion script of each supported shell and
-# refuses another shell.
+# refuses another shell, and --json, because its output is a shell script.
 exec aigw completion --help
 cmp stdout help.txt
 
@@ -14,6 +14,8 @@ stdout '^# powershell completion for aigw'
 
 exitcode 1 aigw completion tcsh
 cmp stdout refusal.txt
+exitcode 1 aigw completion zsh --json
+stdout 'unknown option --json'
 
 -- help.txt --
 AIGW  aigw completion

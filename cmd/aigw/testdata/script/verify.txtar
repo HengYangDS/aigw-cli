@@ -13,6 +13,11 @@ cmp stdout verified.txt
 exitcode 1 aigw verify --for codex
 cmp stdout codex.txt
 
+exec aigw verify --for claude --json
+cmp stdout verified.json
+exitcode 1 aigw verify --json
+cmp stdout json-refusal.json
+
 -- token.txt --
 sk-team-token-0001
 -- help.txt --
@@ -30,6 +35,7 @@ Usage
 Options
       --for string     Client whose selected Route to verify: claude, claude-desktop, codex, hermes, or all; all means enabled clients
   -h, --help           help for verify
+      --json           Write each client's verification as JSON when every session has ended
       --route string   Verify this Route for the explicit client without changing its binding
 -- client.txt --
 AIGW  Action required
@@ -66,3 +72,26 @@ Impact
 
 Recommended action
   aigw check
+-- verified.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "clients": [
+    {
+      "client": "claude",
+      "route": "team",
+      "state": "completed",
+      "scope": "Native text response; tools and continuation are not probed"
+    }
+  ],
+  "checkpoint_written": false,
+  "next_action": "aigw doctor"
+}
+-- json-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "choose a verification client with --for; run `aigw verify --help`",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw verify --help"
+}

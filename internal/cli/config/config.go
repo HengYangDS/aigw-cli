@@ -35,11 +35,25 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	return root
 }
 
+// pathSchemaVersion is the version of `aigw config path`'s JSON document.
+const pathSchemaVersion = 1
+
+// pathDocument is `aigw config path`'s JSON document.
+type pathDocument struct {
+	Path string `json:"path"`
+}
+
 func newPathCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{Use: "path", Short: "Print the local configuration path", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
+	var jsonMode bool
+	cmd := &cobra.Command{Use: "path", Short: "Print the local configuration path", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
+		if jsonMode {
+			return terminal.WriteDocument(runtime.Out, pathSchemaVersion, true, pathDocument{Path: runtime.Config.Path()})
+		}
 		_, err := fmt.Fprintln(runtime.Out, runtime.Config.Path())
 		return err
 	}}
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the configuration path as JSON")
+	return cmd
 }
 
 func newExportCommand(runtime invocation.Context) *cobra.Command {

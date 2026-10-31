@@ -204,6 +204,19 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 	if _, ok := errors.AsType[*presentedError](err); ok {
 		return
 	}
+	problem := ProblemFor(err)
+	if jsonMode {
+		failure := failureDocument{SchemaVersion: failureSchemaVersion, Problem: problem}
+		failure.Stage, failure.Line, failure.Column = ConfigurationFailure(err)
+		renderer.err = WriteJSON(renderer.out, failure)
+		return
+	}
+	renderer.Problem(problem)
+}
+
+// ProblemFor is the actionable problem that err presents: a typed problem as
+// it was raised, or a product-owned message for any other error.
+func ProblemFor(err error) Problem {
 	var problem Problem
 	if user, ok := errors.AsType[*userError](err); ok {
 		problem = user.problem
@@ -228,13 +241,7 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 			Fix:    errorFix(err, message),
 		}
 	}
-	if jsonMode {
-		failure := failureDocument{SchemaVersion: failureSchemaVersion, Problem: problem}
-		failure.Stage, failure.Line, failure.Column = ConfigurationFailure(err)
-		renderer.err = WriteJSON(renderer.out, failure)
-		return
-	}
-	renderer.Problem(problem)
+	return problem
 }
 
 func localizedErrorMessage(err error) string {

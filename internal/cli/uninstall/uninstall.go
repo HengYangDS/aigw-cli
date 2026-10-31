@@ -5,6 +5,7 @@ package uninstall
 import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/program"
+	"aigw-cli/internal/terminal"
 	"errors"
 	"fmt"
 	"os"
@@ -13,9 +14,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw uninstall`'s JSON document.
+const schemaVersion = 1
+
+// uninstallDocument is `aigw uninstall`'s JSON document: the program path,
+// whether a program was there, and the clients whose projections were
+// withdrawn. When the withdrawal was committed but the program could not be
+// removed, problem names that, and the document's ok is false.
+type uninstallDocument struct {
+	Path             string   `json:"path"`
+	ProgramFound     bool     `json:"program_found"`
+	WithdrawnClients []string `json:"withdrawn_clients"`
+	Problem          string   `json:"problem,omitempty"`
+	NextDetail       string   `json:"next_detail,omitempty"`
+}
+
 // NewCommand constructs the command that removes only the installed portable executable and its owned backup.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var target string
+	var jsonMode bool
 	command := &cobra.Command{
 		Use:   "uninstall",
 		Short: "Withdraw managed projections and remove a portable program",
@@ -39,6 +56,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
 				return fmt.Errorf("inspect AIGW configuration: %w", statErr)
 			}
+			withdrawn := []string{}
 			if statErr == nil {
 				before, err := runtime.Config.Load()
 				if err != nil {
@@ -52,6 +70,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if err := synchronizer.CommitProjection(cmd.Context(), before, after, "uninstall"); err != nil {
 					return err
 				}
+				withdrawn = before.EnabledClientIDs()
 			}
 			if err := program.Uninstall(target); err != nil {
 				title := "Portable program removal is incomplete"
@@ -60,11 +79,23 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					title = "Client withdrawal completed; program removal is incomplete"
 					impact = "Managed client withdrawal is committed; configuration, Tokens and versioned credential readers are retained."
 				}
-				return invocation.Problem(runtime,
+				fix := "Inspect the selected target and retained files; after resolving file access, retry `uninstall --target <path>` from another verified AIGW executable."
+				problem := invocation.Problem(runtime,
 					title,
 					"AIGW could not remove every selected portable program file.",
-					impact,
-					"Inspect the selected target and retained files; after resolving file access, retry `uninstall --target <path>` from another verified AIGW executable.", err)
+					impact, fix, err)
+				if !jsonMode || statErr != nil {
+					return problem
+				}
+				document := uninstallDocument{Path: target, ProgramFound: targetErr == nil, WithdrawnClients: withdrawn, Problem: title, NextDetail: fix}
+				if err := terminal.WriteDocument(runtime.Out, schemaVersion, false, document); err != nil {
+					return err
+				}
+				return terminal.Presented(problem)
+			}
+			if jsonMode {
+				return terminal.WriteDocument(runtime.Out, schemaVersion, true,
+					uninstallDocument{Path: target, ProgramFound: targetErr == nil, WithdrawnClients: withdrawn})
 			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Portable uninstall")
@@ -75,5 +106,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	command.Flags().StringVar(&target, "target", "", "installed executable path; defaults to the running executable")
+	command.Flags().BoolVar(&jsonMode, "json", false, "Write the removal as JSON")
 	return command
 }

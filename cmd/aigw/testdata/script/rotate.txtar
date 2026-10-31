@@ -14,6 +14,12 @@ stdin rejected.txt
 exitcode 1 aigw rotate team --token-stdin
 cmp stdout rejected.txt.out
 
+stdin rotated.txt
+exec aigw rotate team --token-stdin --json
+cmp stdout rotated.json
+exitcode 1 aigw rotate team --json
+cmp stdout json-refusal.json
+
 -- token.txt --
 sk-team-token-0001
 -- rotated.txt --
@@ -30,6 +36,7 @@ Usage
 
 Options
   -h, --help          help for rotate
+      --json          Write the rotated Account Token's outcome as JSON
       --token-stdin   Read one token line from standard input
 -- empty.txt --
 AIGW  Action required
@@ -67,3 +74,21 @@ Impact
 
 Recommended action
   aigw check
+-- rotated.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "account": "team",
+  "label": "Team Gateway",
+  "token_validated": true,
+  "token_stored": true,
+  "next_action": "aigw check"
+}
+-- json-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "--json reads the Token only from --token-stdin; run `aigw rotate --help`",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw rotate --help"
+}

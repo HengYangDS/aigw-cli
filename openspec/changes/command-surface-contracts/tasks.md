@@ -5,18 +5,18 @@
 - [x] 1.3 Make `check` and `doctor` name an unreadable configuration's stage and position in JSON, as `status` does, and `doctor` in text as well; an acceptance script covers a parse failure for each of the three, and each exits 1.
 - [x] 1.4 Make `cmd/aigw/commands_test.go` refuse a command script whose expected JSON document lacks an integer `schema_version` or a boolean `ok`; a test shows each refusal.
 - [x] 1.5 Record the two fields and the failure `stage` in CHANGELOG's `[Unreleased]` section.
-- [ ] 1.6 Run the local quality graph at the stage head.
-- [ ] 1.7 Prove the stage head with the full ETHOS proof.
-- [ ] 1.8 Confirm the hosted three-platform graph and the real-client journeys pass at the stage head.
+- [x] 1.6 Run the local quality graph at the stage head.
+- [x] 1.7 Prove the stage head with the full ETHOS proof.
+- [x] 1.8 Confirm the hosted three-platform graph and the real-client journeys pass at the stage head.
 
 ## 2. Stage 2 — JSON for every result-reporting command
 
-- [ ] 2.1 Add `--json` to `add`, `route add`, `route edit`, `route remove`, `account edit` and `account diagnostics enable` and `disable`. Each document follows the converged rules at `schema_version` 1, and each command's acceptance script has a JSON success and a JSON refusal.
-- [ ] 2.2 Add `--json` to `client discover`, `client enable` and `client disable` in the same form.
-- [ ] 2.3 Add `--json` to `rotate`, `rollback`, `config path` and `setup` without `--from` in the same form. With `--json` none of them prompts; a Token comes only from `--token-stdin`, and a script shows the refusal without it.
-- [ ] 2.4 Add `--json` to `test`, `verify`, `models` and `balance` in the same form; `verify --for all` reports each client's result and still writes the checkpoint only after every client succeeds.
-- [ ] 2.5 Add `--json` to `install`, `update` and `uninstall` in the same form.
-- [ ] 2.6 Make `cmd/aigw/commands_test.go` refuse a result-reporting command without `--json`, with `completion`, `config export` and `credential` as the declared foreign formats.
+- [x] 2.1 Add `--json` to `add`, `route add`, `route edit`, `route remove`, `account edit` and `account diagnostics enable` and `disable`. Each document follows the converged rules at `schema_version` 1, and each command's acceptance script has a JSON success and a JSON refusal.
+- [x] 2.2 Add `--json` to `client discover`, `client enable` and `client disable` in the same form.
+- [x] 2.3 Add `--json` to `rotate`, `rollback` and `config path` in the same form, and to `setup` without `--from`, which writes the document of `setup --from` until task 4.1 converges it. With `--json` no command prompts, `use`, `account rename` and `route rename` included; a Token comes only from `--token-stdin`, and a script shows the refusal without it.
+- [x] 2.4 Add `--json` to `test`, `verify`, `models` and `balance` in the same form; `verify --for all` reports each client's result and still writes the checkpoint only after every client succeeds.
+- [x] 2.5 Add `--json` to `install`, `update` and `uninstall` in the same form.
+- [x] 2.6 Make `cmd/aigw/commands_test.go` refuse a result-reporting command without `--json`, with `completion`, `config export` and `credential` as the declared foreign formats.
 - [ ] 2.7 Run the local quality graph at the stage head.
 - [ ] 2.8 Prove the stage head with the full ETHOS proof.
 - [ ] 2.9 Confirm the hosted three-platform graph and the real-client journeys pass at the stage head.
@@ -34,6 +34,7 @@
 ## 4. Stage 4 — Convergence
 
 Precondition: the product owner approves the converged contract in `design.md`.
+Approved on 2026-10-31.
 
 - [ ] 4.1 Raise the 16 documents of task 1.2 to `schema_version` 2: references named after their type, `use`'s `model` and `upstream_model`, `selections`, one `projections` list, check's `problem` instead of `error`, arrays instead of null, and snake_case values apart from configuration echoes. The acceptance scripts use a canonical Model that differs from its upstream ID.
 - [ ] 4.2 Make `next_action` a complete runnable command or absent, with `next_detail` for a placeholder or prose, in every document, the failure envelope and the human Next section; doctor's `fix` becomes `next_action`. The contract test refuses a `next_action` that is not an `aigw` command or holds a placeholder.

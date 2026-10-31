@@ -1,5 +1,6 @@
-# account lists Accounts as JSON and in text, edits a label, and refuses to
-# rename an unknown Account.
+# account lists Accounts as JSON and in text, edits a label, previews a rename
+# and refuses to rename an unknown Account. Its edits and diagnostics also
+# write JSON.
 exec aigw account --help
 cmp stdout help.txt
 
@@ -8,6 +9,8 @@ exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team
 exec aigw account list --json
 normalize stdout accounts.out
 cmp accounts.out accounts.json
+exitcode 1 aigw account list extra --json
+cmp stdout list-refusal.json
 exec aigw account edit team --label 'Renamed Gateway'
 cmp stdout edited.txt
 exec aigw account list
@@ -18,6 +21,27 @@ exitcode 1 aigw account rename missing other
 cmp stdout refusal.txt
 exitcode 1 aigw account rename missing other --json
 cmp stdout refusal.json
+exec aigw account rename team crew --dry-run --json
+normalize stdout rename.out
+cmp rename.out rename.json
+
+exec aigw account edit team --anthropic-url $UPSTREAM --json
+normalize stdout edit.out
+cmp edit.out edit.json
+exitcode 1 aigw account edit missing --label 'Missing' --json
+cmp stdout edit-refusal.json
+
+envsubst probe.in probe.toml
+exec aigw config import probe.toml
+stdin system.txt
+exec aigw account diagnostics enable probed --user-id 42 --system-token-stdin --json
+cmp stdout enabled.json
+exitcode 1 aigw account diagnostics enable probed --json
+cmp stdout enable-refusal.json
+exec aigw account diagnostics disable probed --json
+cmp stdout disabled.json
+exitcode 1 aigw account diagnostics disable missing --json
+cmp stdout disable-refusal.json
 
 -- token.txt --
 sk-team-token-0001
@@ -87,4 +111,101 @@ Recommended action
   "error": "Unknown account \"missing\"",
   "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw check"
+}
+-- edit.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "account": "team",
+  "label": "Renamed Gateway",
+  "endpoints": {
+    "anthropic": "$UPSTREAM"
+  },
+  "next_action": "aigw check"
+}
+-- edit-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Unknown account \"missing\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw check"
+}
+-- enabled.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "account": "probed",
+  "label": "Probed Gateway",
+  "diagnostics": "enabled",
+  "next_action": "aigw balance probed"
+}
+-- enable-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "--json reads the system token only from --system-token-stdin with --user-id; run `aigw account diagnostics enable --help`",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw account diagnostics enable --help"
+}
+-- disabled.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "account": "probed",
+  "diagnostics": "disabled"
+}
+-- disable-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "unknown account or route \"missing\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw check"
+}
+-- system.txt --
+dmx-system-token
+-- probe.in --
+version = 7
+[accounts.probed]
+label = "Probed Gateway"
+[accounts.probed.endpoints]
+anthropic = "$UPSTREAM"
+[accounts.probed.account_probe]
+kind = "dmxapi"
+base_url = "$UPSTREAM"
+[models.probe-model]
+label = "Probe Model"
+[routes.probe-route]
+label = "Probe Route"
+account = "probed"
+model = "probe-model"
+upstream_model = "probe-model"
+interfaces = { anthropic = ["text"] }
+-- list-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw --help"
+}
+-- rename.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "resource": "account",
+  "old_id": "team",
+  "new_id": "crew",
+  "status": "planned",
+  "affected_references": [
+    "routes.team.account"
+  ],
+  "actions": {
+    "configuration": "rename-and-update-route-references",
+    "api_token": "copy-and-retain-source",
+    "account_probe": "absent",
+    "backup": "refresh-on-apply"
+  },
+  "external_todos": []
 }

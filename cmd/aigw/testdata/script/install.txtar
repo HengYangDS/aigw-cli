@@ -1,6 +1,6 @@
 # install copies the running program to a target and refuses a directory as
-# the target. The help quotes its default path, so on Windows each separator
-# appears as two backslashes.
+# the target, in text and as JSON. The help quotes its default path, so on
+# Windows each separator appears as two backslashes.
 exec aigw install --help
 normalize stdout help.out
 [!windows] cmp help.out help.txt
@@ -12,11 +12,22 @@ normalize stdout installed.out
 [windows] cmp installed.out installed-windows.txt
 exists $WORK/bin/aigw$exe
 
+exec aigw install --target $WORK/json/aigw$exe --json
+normalize stdout installed-json.out
+[!windows] cmp installed-json.out installed.json
+[windows] cmp installed-json.out installed-windows.json
+exists $WORK/json/aigw$exe
+
 exitcode 1 aigw install --target $WORK
 [!windows] normalize stdout refusal.out
 [windows] normalize stdout refusal.out '\([a-z]+: [^)]*\)'
 [!windows] cmp refusal.out refusal.txt
 [windows] cmp refusal.out refusal-windows.txt
+exitcode 1 aigw install --target $WORK --json
+[!windows] normalize stdout json-refusal.out
+[windows] normalize stdout json-refusal.out '\([a-z]+: [^)]*\)'
+[!windows] cmp json-refusal.out json-refusal.json
+[windows] cmp json-refusal.out json-refusal-windows.json
 
 -- help.txt --
 AIGW  aigw install
@@ -28,6 +39,7 @@ Usage
 
 Options
   -h, --help            help for install
+      --json            Write the installed path as JSON
       --target string   destination executable path (default "$HOME/.local/bin/aigw")
 -- installed.txt --
 AIGW  Portable installation
@@ -59,6 +71,7 @@ Usage
 
 Options
   -h, --help            help for install
+      --json            Write the installed path as JSON
       --target string   destination executable path (default "$HOME\\Programs\\aigw\\bin\\aigw.exe")
 -- installed-windows.txt --
 AIGW  Portable installation
@@ -80,3 +93,33 @@ Impact
 
 Recommended action
   aigw doctor
+-- installed.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "path": "$WORK/json/aigw",
+  "next_detail": "PATH is unchanged. Use the installed path directly, or add its directory to PATH before running `aigw setup`."
+}
+-- json-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Local file access failed (read: is a directory); run `aigw doctor` to inspect current state",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw doctor"
+}
+-- installed-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "path": "$WORK/json/aigw.exe",
+  "next_detail": "PATH is unchanged. Use the installed path directly, or add its directory to PATH before running `aigw setup`."
+}
+-- json-refusal-windows.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Local file access failed <varies>; run `aigw doctor` to inspect current state",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw doctor"
+}

@@ -15,7 +15,8 @@ import (
 const renameSchemaVersion = 1
 
 // RenameArguments accepts at most an old and a new valid resource ID. Fewer
-// than two require an interactive prompt that can select the rest.
+// than two require an interactive prompt that can select the rest, which a
+// JSON caller never gets.
 func RenameArguments(runtime Context, resource string) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
 		if err := cobra.MaximumNArgs(2)(cmd, args); err != nil {
@@ -28,6 +29,9 @@ func RenameArguments(runtime Context, resource string) cobra.PositionalArgs {
 		}
 		if len(args) == 2 {
 			return nil
+		}
+		if jsonMode, _ := cmd.Flags().GetBool("json"); jsonMode {
+			return fmt.Errorf("%s rename with --json requires <old> <new>; run `%s --help`", resource, cmd.CommandPath())
 		}
 		if !runtime.Interactive {
 			return fmt.Errorf("%s rename requires <old> <new> in non-interactive mode; run `%s --help`", resource, cmd.CommandPath())

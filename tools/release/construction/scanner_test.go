@@ -205,3 +205,86 @@ func TestPortableArgumentsNameTheirRoots(t *testing.T) {
 		t.Fatalf("evidence outside the source = %v", got)
 	}
 }
+
+func TestDependencyScanBindsRelativeRootToNativeAbsoluteSources(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	calls := 0
+	_, err := scanDependencies(".", filepath.Join(root, "evidence"), scannedInputs, withLockedScanner(func(call toolCall) error {
+		calls++
+		return writeJSON(call.Args[len(call.Args)-1], dependencyReportFixture(root))
+	}))
+	if err != nil || calls != 1 {
+		t.Fatalf("relative root did not bind complete native sources: error=%v calls=%d", err, calls)
+	}
+}
+
+func TestDependencyScanRejectsIncompleteNativeOutput(t *testing.T) {
+	for _, failure := range []string{"missing", "malformed", "incomplete", "unreadable"} {
+		t.Run(failure, func(t *testing.T) {
+			root := t.TempDir()
+			calls := 0
+			_, err := scanDependencies(root, filepath.Join(root, "evidence"), scannedInputs, withLockedScanner(func(call toolCall) error {
+				calls++
+				report := dependencyReportFixture(root)
+				switch failure {
+				case "missing":
+					return nil
+				case "malformed":
+					return os.WriteFile(call.Args[len(call.Args)-1], []byte("{"), 0o600)
+				case "unreadable":
+					return os.Mkdir(call.Args[len(call.Args)-1], 0o700)
+				case "incomplete":
+					report.Results = report.Results[:1]
+				}
+				return writeJSON(call.Args[len(call.Args)-1], report)
+			}))
+			if err == nil || calls != 1 || (failure == "unreadable") != strings.HasPrefix(err.Error(), "scan dependencies:") {
+				t.Fatalf("incomplete native scan accepted or misattributed: error=%v calls=%d", err, calls)
+			}
+		})
+	}
+}
+
+func TestDependencyScanRetainsButRejectsNativeWarning(t *testing.T) {
+	root := t.TempDir()
+	output := filepath.Join(root, "native.json")
+	_, err := runDependencyScan(toolCall{Args: []string{output}}, func(call toolCall) error {
+		_, err := fmt.Fprintln(call.Stderr, "warning: incomplete native evidence")
+		return err
+	})
+	if err == nil {
+		t.Fatal("native warning was silently accepted")
+	}
+	data, err := os.ReadFile(output + ".stderr")
+	if err != nil || !strings.Contains(string(data), "warning:") {
+		t.Fatalf("native warning was not retained: %q %v", data, err)
+	}
+}
+
+// The live scan runs only in the network-declared dependency-acceptance gate;
+// these refusals happen before the scanner is started.
+func TestScanDependenciesRefusesUnusableInputsBeforeScanning(t *testing.T) {
+	if err := ScanDependencies(t.Context(), t.TempDir(), t.TempDir()); err == nil || !strings.Contains(err.Error(), "read dependency policy") {
+		t.Fatalf("missing dependency policy accepted: %v", err)
+	}
+	root := t.TempDir()
+	policy := filepath.Join(root, ".config", "checks", "dependencies", "policy.toml")
+	if err := os.MkdirAll(filepath.Dir(policy), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(policy, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ScanDependencies(t.Context(), root, t.TempDir()); err == nil || !strings.Contains(err.Error(), "read Mise lock") {
+		t.Fatalf("missing Mise lock accepted: %v", err)
+	}
+	writeScannerLock(t, root)
+	blocked := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocked, []byte("not a directory\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := ScanDependencies(t.Context(), root, filepath.Join(blocked, "evidence")); err == nil || strings.Contains(err.Error(), "Mise lock") {
+		t.Fatalf("unusable evidence output accepted: %v", err)
+	}
+}

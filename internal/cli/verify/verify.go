@@ -13,9 +13,34 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw verify`'s JSON document.
+const schemaVersion = 1
+
+// verifyDocument is `aigw verify`'s JSON document: each selected client's
+// session and whether the full verification checkpoint was written.
+type verifyDocument struct {
+	Clients           []verifiedClient `json:"clients"`
+	CheckpointWritten bool             `json:"checkpoint_written"`
+	NextAction        string           `json:"next_action,omitempty"`
+	NextDetail        string           `json:"next_detail,omitempty"`
+}
+
+// verifiedClient is one client's verification session: completed, failed or
+// not_run after an earlier client failed.
+type verifiedClient struct {
+	Client        string `json:"client"`
+	Route         string `json:"route"`
+	State         string `json:"state"`
+	Scope         string `json:"scope,omitempty"`
+	ClientVersion string `json:"client_version,omitempty"`
+	ClientSHA256  string `json:"client_sha256,omitempty"`
+	Detail        string `json:"detail,omitempty"`
+}
+
 // NewCommand constructs the real-client verification command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var client, routeName string
+	var jsonMode bool
 	cmd := &cobra.Command{
 		Use:   "verify",
 		Short: "Verify a Route through a real native client (may use quota)",
@@ -68,6 +93,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					)
 				}
 			}
+			if jsonMode {
+				return writeVerification(cmd, runtime, cfg, clients, clientRuntimes, routeName, client == "all")
+			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Live protocol verification")
 			r.Section("Native client verification")
@@ -100,5 +128,46 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&client, "for", "", "Client whose selected Route to verify: "+runtime.Clients.Admission().Usage("all")+"; all means enabled clients")
 	cmd.Flags().StringVar(&routeName, "route", "", "Verify this Route for the explicit client without changing its binding")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write each client's verification as JSON when every session has ended")
 	return cmd
+}
+
+// writeVerification runs every selected client's session and writes one
+// document when the last has ended. A failed session ends the run: its client
+// is failed, later clients are not run, no checkpoint is written, and the
+// command exits 1.
+func writeVerification(cmd *cobra.Command, runtime invocation.Context, cfg domain.Config, clients []string, runtimes map[string]domain.Runtime, routeName string, full bool) error {
+	document := verifyDocument{Clients: make([]verifiedClient, 0, len(clients))}
+	var failure error
+	for _, target := range clients {
+		item := verifiedClient{Client: target, Route: runtimes[target].RouteID, State: "not_run"}
+		if failure == nil {
+			result, err := runtime.Synchronizer().Verify(cmd.Context(), cfg, target, runtimes[target], routeName)
+			if err != nil {
+				failure, item.State = err, "failed"
+				problem := terminal.ProblemFor(err)
+				item.Detail = problem.Title
+				document.NextAction, document.NextDetail = terminal.NextSteps(problem.Fix)
+			} else {
+				item.State, item.Scope, item.ClientVersion, item.ClientSHA256 = "completed", result.Scope, result.Version, result.SHA256
+			}
+		}
+		document.Clients = append(document.Clients, item)
+	}
+	if failure == nil {
+		if full {
+			if err := runtime.Config.SaveVerifiedCheckpoint(cmd.Context(), cfg, clients); err != nil {
+				return err
+			}
+			document.CheckpointWritten = true
+		}
+		document.NextAction = "aigw doctor"
+	}
+	if err := terminal.WriteDocument(runtime.Out, schemaVersion, failure == nil, document); err != nil {
+		return err
+	}
+	if failure != nil {
+		return terminal.Presented(failure)
+	}
+	return nil
 }

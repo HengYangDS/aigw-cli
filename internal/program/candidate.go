@@ -16,49 +16,50 @@ var ErrCandidateIdentity = errors.New("equal-version candidate has different pro
 
 // UpdateCandidate installs an explicitly supplied local archive. It never
 // consults a release source or HTTP client.
-func (u Updater) UpdateCandidate(ctx context.Context, currentVersion string, candidate CandidateArchive) (string, error) {
+func (u Updater) UpdateCandidate(ctx context.Context, currentVersion string, candidate CandidateArchive) (Transition, error) {
 	if err := RequirePortableOwnership(u.Executable); err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	if err := ctx.Err(); err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	archivePath, checksumPath := strings.TrimSpace(candidate.ArchivePath), strings.TrimSpace(candidate.ChecksumsPath)
 	if archivePath == "" || checksumPath == "" {
-		return "", fmt.Errorf("verified local candidate requires both archive and checksums paths")
+		return Transition{}, fmt.Errorf("verified local candidate requires both archive and checksums paths")
 	}
 	archiveName := filepath.Base(archivePath)
 	version, err := (artifact.Target{OS: u.GOOS, Arch: u.GOARCH}).Version(archiveName)
 	if err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	comparison, err := compareVersions("v"+version, currentVersion)
 	if err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	if err := ctx.Err(); err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	if comparison == 0 {
 		program, err := (artifact.Target{OS: u.GOOS, Arch: u.GOARCH}).ReadProgram(archivePath, checksumPath, version)
 		if err != nil {
-			return "", err
+			return Transition{}, err
 		}
 		current, err := os.ReadFile(u.Executable)
 		if err != nil {
-			return "", fmt.Errorf("read current AIGW executable: %w", err)
+			return Transition{}, fmt.Errorf("read current AIGW executable: %w", err)
 		}
 		if !bytes.Equal(program, current) {
-			return "", fmt.Errorf("candidate version v%s: %w", version, ErrCandidateIdentity)
+			return Transition{}, fmt.Errorf("candidate version v%s: %w", version, ErrCandidateIdentity)
 		}
-		return "verified local candidate already matches the current program at version v" + version, nil
+		return Transition{State: TransitionCurrent, Version: version,
+			Summary: "verified local candidate already matches the current program at version v" + version}, nil
 	}
 	if comparison < 0 {
-		return "", fmt.Errorf("refusing to replace %s with older verified local candidate v%s", currentVersion, version)
+		return Transition{}, fmt.Errorf("refusing to replace %s with older verified local candidate v%s", currentVersion, version)
 	}
 	activated, err := u.installPortableArchive(ctx, archivePath, checksumPath, version)
 	if !activated {
-		return "", err
+		return Transition{}, err
 	}
-	return "updated to v" + version + " from a verified local candidate", err
+	return Transition{State: TransitionUpdated, Version: version, Summary: "updated to v" + version + " from a verified local candidate"}, err
 }

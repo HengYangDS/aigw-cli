@@ -86,7 +86,7 @@ func TestSetupRejectsInvalidFlagCombinationsAndValues(t *testing.T) {
 		want string
 	}{
 		{name: "empty from", args: []string{"setup", "--from="}, want: "--from requires"},
-		{name: "json without manifest", args: []string{"setup", "--json"}, want: "--json requires --from"},
+		{name: "json without a route or manifest", args: []string{"setup", "--json"}, want: "--json requires --route or --from"},
 		{name: "missing route", args: []string{"setup"}, want: "--route is required"},
 		{name: "invalid account", args: []string{"setup", "--route", "one", "--account", "bad id"}, want: "Invalid account ID"},
 		{name: "invalid route", args: []string{"setup", "--route", "bad id", "--account", "one"}, want: "Invalid route ID"},

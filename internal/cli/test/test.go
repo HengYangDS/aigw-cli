@@ -19,6 +19,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw test`'s JSON document.
+const schemaVersion = 1
+
+// testDocument is `aigw test`'s JSON document: one HTTP observation per
+// tested client.
+type testDocument struct {
+	Endpoints  []testedEndpoint `json:"endpoints"`
+	NextAction string           `json:"next_action"`
+}
+
+// testedEndpoint is one client's endpoint observation.
+type testedEndpoint struct {
+	Client     string `json:"client"`
+	Route      string `json:"route"`
+	HTTPStatus int    `json:"http_status"`
+	Detail     string `json:"detail,omitempty"`
+}
+
 type endpointTestResult struct {
 	client  string
 	routeID string
@@ -29,7 +47,7 @@ type endpointTestResult struct {
 // NewCommand constructs the live endpoint verification command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var client, routeName, configPath, tokenFormat string
-	var tokenStdin bool
+	var tokenStdin, jsonMode bool
 	cmd := &cobra.Command{
 		Use:   "test",
 		Short: "Probe selected endpoints without model inference",
@@ -99,21 +117,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 				results = append(results, endpointTestResult{client: target, routeID: clientRuntime.RouteID, status: status, detail: detail})
 			}
-			r := invocation.Renderer(runtime)
-			r.ProductTitle("Connectivity test")
-			r.Text("Endpoint HTTP observation, not model inference or native-client verification.")
-			r.Section("Endpoints")
-			rows := make([]terminal.Field, 0, len(results))
-			for _, result := range results {
-				value := fmt.Sprintf("%s · HTTP %d", result.routeID, result.status)
-				if result.detail != "" {
-					value += " · " + result.detail
-				}
-				rows = append(rows, terminal.Field{State: terminal.OK, Label: runtime.Clients.Admission().Label(result.client), Value: value})
-			}
-			r.Rows(rows...)
-			r.Next("aigw check")
-			return nil
+			return writeTestResults(runtime, results, jsonMode)
 		},
 	}
 	cmd.Flags().StringVar(&client, "for", "", "Client whose selected Route to test: "+runtime.Clients.Admission().Usage())
@@ -121,7 +125,35 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one bounded Token through EOF for this request only; never store it")
 	cmd.Flags().StringVar(&tokenFormat, "token-format", "raw", "Explicit stdin encoding: raw or go-keyring-base64")
 	cmd.Flags().StringVar(&configPath, "config", "", "Read an absolute configuration file for a one-time stdin Token test")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the endpoint observations as JSON")
 	return cmd
+}
+
+// writeTestResults writes the endpoint observations as text, or as `aigw
+// test`'s document.
+func writeTestResults(runtime invocation.Context, results []endpointTestResult, jsonMode bool) error {
+	if jsonMode {
+		document := testDocument{Endpoints: make([]testedEndpoint, 0, len(results)), NextAction: "aigw check"}
+		for _, result := range results {
+			document.Endpoints = append(document.Endpoints, testedEndpoint{Client: result.client, Route: result.routeID, HTTPStatus: result.status, Detail: result.detail})
+		}
+		return terminal.WriteDocument(runtime.Out, schemaVersion, true, document)
+	}
+	r := invocation.Renderer(runtime)
+	r.ProductTitle("Connectivity test")
+	r.Text("Endpoint HTTP observation, not model inference or native-client verification.")
+	r.Section("Endpoints")
+	rows := make([]terminal.Field, 0, len(results))
+	for _, result := range results {
+		value := fmt.Sprintf("%s · HTTP %d", result.routeID, result.status)
+		if result.detail != "" {
+			value += " · " + result.detail
+		}
+		rows = append(rows, terminal.Field{State: terminal.OK, Label: runtime.Clients.Admission().Label(result.client), Value: value})
+	}
+	r.Rows(rows...)
+	r.Next("aigw check")
+	return nil
 }
 
 func endpointTestToken(runtime invocation.Context, account string, stdinMode bool, format string) (string, string, error) {
