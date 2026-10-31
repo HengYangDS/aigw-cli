@@ -90,6 +90,15 @@ literals or compatibility fallbacks.
 - **AND** a later calculation that reaches the datasource SHALL audit it before
   the supply chain is described as current.
 
+#### Scenario: A new release is still inside the minimum release age
+
+- **WHEN** the newest stable release of a declared dependency was published
+  less than the repository's minimum release age ago, and no advisory names the
+  locked release
+- **THEN** the refresh SHALL keep the locked release and name the held release
+  and the time when its age ends
+- **AND** a later refresh SHALL take it once that age has passed.
+
 ### Requirement: Native verification runs the declared Mise release
 
 Local verification and every Forge job SHALL run the Mise release that the
