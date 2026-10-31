@@ -530,9 +530,10 @@ policy. Compatibility facades and duplicate policy owners SHALL not be retained.
 ### Requirement: Deterministic local verification
 
 Local verification MUST use controlled fixtures rather than an undeclared
-public network dependency or host-provided Git templates and hooks. A native
-qualification that needs public services SHALL run only in a quality gate that
-declares network access.
+public network dependency or host-provided Git templates and hooks, and it
+SHALL leave no temporary directory of its own behind. A native qualification
+that needs public services SHALL run only in a quality gate that declares
+network access.
 
 #### Scenario: A local test depends on external state
 
@@ -562,6 +563,16 @@ declares network access.
 - **THEN** it SHALL run only in a quality gate that declares network access
 - **AND** offline behavior tests SHALL cover the same evidence handling with
   controlled fixtures
+
+#### Scenario: A test runs its own binary as a helper process
+
+- **WHEN** a test runs its test binary again as a helper process with the
+  test's environment, and the helper exits inside a test
+- **THEN** the helper SHALL apply the same host Git policy as the test that
+  started it
+- **AND** after a complete local verification the temporary directory SHALL
+  hold no directory that the verification created for its own run, although a
+  tool's persistent cache MAY remain
 
 ### Requirement: Source-bound quantitative evidence
 
