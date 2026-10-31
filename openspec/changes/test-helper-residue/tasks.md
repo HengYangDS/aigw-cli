@@ -10,7 +10,7 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` with TMPDIR set to an empty directory leaves only
+- [x] 2.1 `mise run check` with TMPDIR set to an empty directory leaves only
       Node's `node-compile-cache` there, `mise run dependencies:check` passes,
       and the full proof of the lane head passes.
-- [ ] 2.2 The hosted graph passes at the lane head.
+- [x] 2.2 The hosted graph passes at the lane head.
