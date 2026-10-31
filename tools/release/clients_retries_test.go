@@ -86,7 +86,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 		}
 	}))
 	t.Cleanup(server.Close)
-	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
+	journey := newBaselineJourney(t, p.baseline, server.URL+"/v1", false)
 	if err := journey.prepareNativeClient(codex.ID, executable, p.team); err != nil {
 		t.Fatal(err)
 	}
@@ -101,9 +101,12 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	canonical := readFile(t, journey.config)
 	args := []string{"use", "--for", codex.ID, selection.Route, "--request-max-retries", "0", "--stream-max-retries", "0"}
 	preview := journey.runWith(p.candidate, append(args, "--dry-run", "--json")...)
-	var selected domain.Runtime
-	if err := json.Unmarshal(preview, &selected); err != nil || selected.RetryPolicy == nil {
-		t.Fatalf("retry preview omitted policy: %v", err)
+	var selected struct {
+		RetryPolicy *domain.RetryPolicy `json:"retry_policy"`
+		Route       string              `json:"route"`
+	}
+	if err := json.Unmarshal(preview, &selected); err != nil || selected.RetryPolicy == nil || selected.Route != selection.Route {
+		t.Fatalf("retry preview omitted policy or Route %q: %v", selected.Route, err)
 	}
 	journey.runWith(p.candidate, args...)
 	if !bytes.Equal(canonical, readFile(t, journey.config)) {

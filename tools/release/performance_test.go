@@ -87,7 +87,7 @@ func TestNativePerformance(t *testing.T) {
 					continue
 				}
 				if !t.Run(fmt.Sprintf("block-%d/%s/%s", block+1, program.Variant, backend), func(t *testing.T) {
-					journey := nativePerformanceJourney(t, program.Path, programs[1].Path, backend, server.URL)
+					journey := nativePerformanceJourney(t, program, programs[1].Path, backend, server.URL)
 					if forwarding && program.Variant == "candidate" {
 						journey.run("use", "--for", "claude", "native-system-keyring-probe-claude", "--forwarding-endpoint", forwardingEndpoint)
 					}
@@ -192,10 +192,14 @@ func writeNativePerformanceSummary(t *testing.T, output, hyperfine string, summa
 	return pooled
 }
 
-func nativePerformanceJourney(t *testing.T, program, credentialWorker, backend, endpoint string) *journeyFixture {
+func nativePerformanceJourney(t *testing.T, program performance.Program, credentialWorker, backend, endpoint string) *journeyFixture {
 	t.Helper()
 	const account, token = "native-system-keyring-probe", "synthetic-performance-token"
-	j := newNativeJourney(t, program, endpoint, true)
+	start := newNativeJourney
+	if program.Variant == "baseline" {
+		start = newBaselineJourney
+	}
+	j := start(t, program.Path, endpoint, true)
 	if runtime.GOOS != "windows" {
 		// Hyperfine's untimed preparation resolves sh even with --shell=none.
 		shell, err := exec.LookPath("sh")

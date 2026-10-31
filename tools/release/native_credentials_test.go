@@ -33,7 +33,7 @@ func runNativeCredentialJourney(t *testing.T, root, artifact, endpoint, newVersi
 		diagnosticID  = "native-diagnostic-user"
 	)
 	baseline := requireNativeLifecycleBaseline(t, func() string { return artifact })
-	journey := newNativeJourney(t, baseline, endpoint, true)
+	journey := newBaselineJourney(t, baseline, endpoint, true)
 	oldVersion := journey.predecessorVersion(newVersion)
 	journey.enableSystemCredentialStore()
 	journey.prepareCodexLifecycle()
@@ -207,7 +207,7 @@ func finishNativeCredentialJourney(
 	if got, err := diagnostics.Get(targetAccount); err != nil || got != wantDiagnostic {
 		t.Fatalf("uninstall removed the retained diagnostic credential: %v", err)
 	}
-	journey.runWith(journey.source, "install", "--target", journey.binary)
+	journey.runWith(journey.source, "install", journey.pathFlag(journey.source), journey.binary)
 	journey.run("sync")
 	journey.requireNoClaudeProjection()
 	journey.run("use", "--for", claude.ID, "native-system-keyring-probe-claude")

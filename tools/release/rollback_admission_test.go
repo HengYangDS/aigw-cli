@@ -23,7 +23,7 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	}
 	baseline := requireNativeLifecycleBaseline(t, func() string { return buildNativeProgram(t, root, "0.0.0") })
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
-	journey := newNativeJourney(t, baseline, "https://unused.example.test", false)
+	journey := newBaselineJourney(t, baseline, "https://unused.example.test", false)
 	journey.run("setup", "--from", journey.manifest)
 	original := readFile(t, journey.config)
 	journey.run("update", "--candidate", archive, "--checksums", checksums)

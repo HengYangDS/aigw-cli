@@ -247,6 +247,8 @@ func (j *journeyFixture) requireCredential(plan process.Plan, want string) {
 	}
 }
 
+// requireCredentialBackend reads the credential backend from status and doctor,
+// which the baseline and the candidate both report in this shape.
 func (j *journeyFixture) requireCredentialBackend(token string, want secret.BackendSelection) {
 	j.testing.Helper()
 	for _, command := range [][]string{{"status", "--json"}, {"doctor", "--json"}} {

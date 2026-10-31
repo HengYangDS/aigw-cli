@@ -156,7 +156,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		protocol = spec.EndpointProtocols[0]
 	}
 	server, hermesSession := newNativeClientServer(t, client, protocol, route.UpstreamModel, token, &completions)
-	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
+	journey := newBaselineJourney(t, p.baseline, server.URL+"/v1", false)
 	if client == hermes.ID && os.Getenv("AIGW_ACCEPTANCE_BASELINE") == "" {
 		journey.run("update", "--candidate", p.archive, "--checksums", p.checksums)
 		journey.requireVersion(p.version)
@@ -248,7 +248,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	var retirement struct {
 		Status string `json:"status"`
 	}
-	if err := json.Unmarshal(journey.run("account", "rename", route.Account, renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already-finalized" {
+	if err := json.Unmarshal(journey.run("account", "rename", route.Account, renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already_finalized" {
 		t.Fatalf("repeated retirement = %q: %v", retirement.Status, err)
 	}
 	journey.requireExternalCredentialClient(client, executable, renamedAccount, completions.Load)

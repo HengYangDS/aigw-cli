@@ -253,13 +253,13 @@ func requireNoActivationBeforeToken(t *testing.T, journey *journeyFixture) {
 	var preview struct {
 		EnabledClients       int               `json:"enabled_clients"`
 		Selections           map[string]string `json:"selections"`
-		Targets              []json.RawMessage `json:"targets"`
+		Projections          []json.RawMessage `json:"projections"`
 		CredentialEntrypoint *json.RawMessage  `json:"credential_entrypoint"`
 	}
 	if err := json.Unmarshal(journey.run("sync", "--dry-run", "--json"), &preview); err != nil {
 		t.Fatalf("decode client-first sync preview: %v", err)
 	}
-	if preview.EnabledClients != 0 || len(preview.Selections) != 0 || len(preview.Targets) != 0 || preview.CredentialEntrypoint != nil {
+	if preview.EnabledClients != 0 || len(preview.Selections) != 0 || len(preview.Projections) != 0 || preview.CredentialEntrypoint != nil {
 		t.Fatalf("client-first sync planned activation without a Token: %+v", preview)
 	}
 	journey.run("sync")

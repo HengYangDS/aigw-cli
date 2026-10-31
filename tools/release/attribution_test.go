@@ -45,7 +45,7 @@ func TestNativeAttributionKeepsTheProjectionWorkload(t *testing.T) {
 	for _, backend := range []string{"env", "keyring"} {
 		t.Run(backend, func(t *testing.T) {
 			// Use synthetic ENV credentials and stop before native store operations.
-			journey := nativePerformanceJourney(t, program, program, "env", server.URL+"/v1")
+			journey := nativePerformanceJourney(t, performance.Program{Variant: "candidate", Path: program}, program, "env", server.URL+"/v1")
 			installed := journey.binary
 			journey.binary = filepath.Join(journey.root, "missing-program")
 			rows, err := journey.measurePerformance(tool, t.TempDir(), "candidate", backend, 1)

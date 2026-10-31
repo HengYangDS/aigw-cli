@@ -95,7 +95,7 @@ func nativePerformancePrograms(t *testing.T) []performance.Program {
 func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoint string) {
 	t.Helper()
 	newArtifact, archive, checksums := nativeReleaseCandidate(t, root, newVersion)
-	journey := newNativeJourney(t, baseline, endpoint, true)
+	journey := newBaselineJourney(t, baseline, endpoint, true)
 	codexConfig, originalCodex := journey.prepareCodexLifecycle()
 	userFiles := map[string][]byte{
 		filepath.Join(journey.root, "home", ".codex", "sessions", "session.jsonl"): []byte("{\"owner\":\"user\",\"history\":\"unchanged\"}\n"),
@@ -262,7 +262,7 @@ func (j *journeyFixture) requireRepairPreservesUserSettings(previousTheme, theme
 		if err := json.Unmarshal(j.run("repair", "--json"), &result); err != nil {
 			j.testing.Fatal(err)
 		}
-		if result.ConfigurationAction != "already-converged" || result.NextAction != "aigw check" {
+		if result.ConfigurationAction != "already_converged" || result.NextAction != "aigw check" {
 			j.testing.Fatalf("repeated repair is not terminal: %#v", result)
 		}
 		for _, path := range paths {
