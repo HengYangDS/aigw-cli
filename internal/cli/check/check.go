@@ -19,6 +19,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw check`'s JSON document.
+const schemaVersion = 1
+
 // NewCommand builds the read-only health check for every enabled client.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
@@ -58,10 +61,14 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 type checkJSON struct {
 	Clients        map[string]app.ClientStatus `json:"clients"`
 	EnabledClients int                         `json:"enabled_clients"`
-	OK             bool                        `json:"ok"`
+	OK             bool                        `json:"-"`
 	State          domainreadiness.State       `json:"state,omitempty"`
 	NextAction     string                      `json:"next_action,omitempty"`
 	Error          string                      `json:"error,omitempty"`
+	// Stage, Line and Column locate a configuration that could not be loaded.
+	Stage  string `json:"stage,omitempty"`
+	Line   int    `json:"line,omitempty"`
+	Column int    `json:"column,omitempty"`
 }
 
 func activationCheckIssue(activation clientactivation.Activation) (problem, evidence, jsonError string, cause error) {
@@ -258,7 +265,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			NextAction:     activation.NextActionFor(nil),
 			Error:          issue,
 		}
-		if err := terminal.WriteJSON(runtime.Out, result); err != nil {
+		if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result); err != nil {
 			return err
 		}
 		return terminal.Presented(cause)
@@ -276,7 +283,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		failure = fmt.Errorf("one or more enabled client checks failed")
 		result.Error = failure.Error()
 	}
-	if err := terminal.WriteJSON(runtime.Out, result); err != nil {
+	if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result); err != nil {
 		return err
 	}
 	if failure != nil {
@@ -352,7 +359,8 @@ func failedCheckContinuation(activation *clientactivation.Activation, evaluation
 
 func writeJSONFailure(runtime invocation.Context, state domainreadiness.State, message, fix string, cause error) error {
 	result := checkJSON{Clients: map[string]app.ClientStatus{}, State: state, NextAction: fix, Error: message}
-	if err := terminal.WriteJSON(runtime.Out, result); err != nil {
+	result.Stage, result.Line, result.Column = terminal.ConfigurationFailure(cause)
+	if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result); err != nil {
 		return err
 	}
 	return terminal.Presented(cause)

@@ -15,6 +15,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw repair`'s JSON document.
+const schemaVersion = 1
+
 // NewCommand constructs the command that reconciles recoverable AIGW-owned projection drift.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var dryRun, jsonMode bool
@@ -96,7 +99,7 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 		result.Projections = append(result.Projections, repairProjectionPreview{Client: plan.Client, SurfaceID: plan.Surface, Action: plan.Action})
 	}
 	if jsonMode {
-		return terminal.WriteJSON(runtime.Out, result)
+		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 	}
 	r := invocation.Renderer(runtime)
 	if dryRun {

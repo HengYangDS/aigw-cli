@@ -3,6 +3,7 @@ package main
 import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rogpeppe/go-internal/txtar"
 	"github.com/spf13/cobra"
 )
 
@@ -189,4 +191,122 @@ func functionPackage(function any) string {
 		return name[:slash+dot]
 	}
 	return name
+}
+
+// TestScriptDocumentsCarryTheContractHeader holds every JSON document that an
+// acceptance script expects from `aigw ... --json` to the command-line
+// contract's header: an integer schema_version and a boolean ok.
+func TestScriptDocumentsCarryTheContractHeader(t *testing.T) {
+	scripts, err := filepath.Glob(filepath.Join("testdata", "script", "*.txtar"))
+	if err != nil || len(scripts) == 0 {
+		t.Fatalf("acceptance scripts: %v, %d found", err, len(scripts))
+	}
+	documents := 0
+	for _, path := range scripts {
+		archive, err := txtar.ParseFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range scriptDocuments(string(archive.Comment)) {
+			index := slices.IndexFunc(archive.Files, func(file txtar.File) bool { return file.Name == name })
+			if index < 0 {
+				t.Errorf("%s compares %s, which the archive does not hold", filepath.Base(path), name)
+				continue
+			}
+			// normalize writes <varies> for a value that differs between runs.
+			document := strings.ReplaceAll(string(archive.Files[index].Data), "<varies>", "0")
+			for _, problem := range documentHeaderProblems([]byte(document)) {
+				t.Errorf("%s: %s %s", filepath.Base(path), name, problem)
+			}
+			documents++
+		}
+	}
+	if documents == 0 {
+		t.Fatal("no acceptance script compares a JSON document")
+	}
+}
+
+func TestDocumentHeaderProblemsNameEachGap(t *testing.T) {
+	for _, test := range []struct {
+		name, document string
+		want           []string
+	}{
+		{"complete", `{"schema_version": 1, "ok": true}`, nil},
+		{"no version", `{"ok": true}`, []string{"lacks an integer schema_version"}},
+		{"text version", `{"schema_version": "1", "ok": false}`, []string{"lacks an integer schema_version"}},
+		{"fractional version", `{"schema_version": 1.5, "ok": false}`, []string{"lacks an integer schema_version"}},
+		{"no outcome", `{"schema_version": 1}`, []string{"lacks a boolean ok"}},
+		{"text outcome", `{"schema_version": 1, "ok": "true"}`, []string{"lacks a boolean ok"}},
+		{"not an object", `[1]`, []string{"is not a JSON object"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := documentHeaderProblems([]byte(test.document)); !slices.Equal(got, test.want) {
+				t.Fatalf("documentHeaderProblems() = %q, want %q", got, test.want)
+			}
+		})
+	}
+	script := "exec aigw demo --json\ncmp stdout direct.json\n" +
+		"[windows] exec aigw demo --json > out\n[windows] cmp out redirected.json\n" +
+		"exec aigw demo --json\nnormalize stdout normalized.out\ncmp normalized.out normalized.json\n" +
+		"exec aigw demo\ncmp stdout text.json\n" +
+		"exec aigw demo --json\nexec claude --json\ncmp stdout client.json\n"
+	if got, want := scriptDocuments(script), []string{"direct.json", "redirected.json", "normalized.json"}; !slices.Equal(got, want) {
+		t.Fatalf("scriptDocuments() = %q, want %q", got, want)
+	}
+}
+
+// scriptDocuments names the archive files that a script compares with the
+// standard output of an `aigw ... --json` command: directly, through a `>`
+// redirect or through the normalize command's copy. A later command that is
+// not such a command replaces the standard output that cmp reads.
+func scriptDocuments(script string) []string {
+	var documents []string
+	lastJSON := false
+	fromJSON := map[string]bool{}
+	for line := range strings.Lines(script) {
+		words := strings.Fields(line)
+		for len(words) > 0 && strings.HasPrefix(words[0], "[") && strings.HasSuffix(words[0], "]") {
+			words = words[1:]
+		}
+		switch {
+		case len(words) == 0:
+		case words[0] == "exec" || words[0] == "!" || words[0] == "exitcode" || words[0] == "apikeyhelper":
+			jsonMode := slices.Contains(words[:min(3, len(words))], "aigw") && slices.Contains(words, "--json")
+			if index := slices.Index(words, ">"); index >= 0 && index+1 < len(words) {
+				fromJSON[words[index+1]] = jsonMode
+				jsonMode = false
+			}
+			lastJSON = jsonMode
+		case words[0] == "normalize" && len(words) >= 3 && words[1] == "stdout":
+			fromJSON[words[2]] = lastJSON
+		case words[0] == "cmp" && len(words) == 3 && ((words[1] == "stdout" && lastJSON) || fromJSON[words[1]]):
+			documents = append(documents, words[2])
+		}
+	}
+	return documents
+}
+
+// documentHeaderProblems names what a JSON document lacks of the contract's
+// header.
+func documentHeaderProblems(document []byte) []string {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(document, &fields); err != nil || fields == nil {
+		return []string{"is not a JSON object"}
+	}
+	var problems []string
+	var version any
+	decoder := json.NewDecoder(strings.NewReader(string(fields["schema_version"])))
+	decoder.UseNumber()
+	number, isNumber := json.Number(""), false
+	if decoder.Decode(&version) == nil {
+		number, isNumber = version.(json.Number)
+	}
+	if _, err := strconv.ParseInt(string(number), 10, 64); !isNumber || err != nil {
+		problems = append(problems, "lacks an integer schema_version")
+	}
+	var ok bool
+	if err := json.Unmarshal(fields["ok"], &ok); err != nil || len(fields["ok"]) == 0 {
+		problems = append(problems, "lacks a boolean ok")
+	}
+	return problems
 }

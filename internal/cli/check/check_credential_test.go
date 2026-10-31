@@ -45,7 +45,7 @@ func TestCheckJSONClassifiesCredentialReadFailures(t *testing.T) {
 			if strings.Contains(output.String(), "private credential detail") {
 				t.Fatalf("check exposed a private cause: %s", output.String())
 			}
-			var result checkJSON
+			var result checkDocument
 			if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 				t.Fatal(err)
 			}

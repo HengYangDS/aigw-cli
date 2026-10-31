@@ -13,6 +13,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// listSchemaVersion and showSchemaVersion are the versions of `aigw route
+// list`'s and `aigw route show`'s JSON documents.
+const (
+	listSchemaVersion = 1
+	showSchemaVersion = 1
+)
+
 // NewCommand constructs the route command tree, whose rename subcommand is a
 // credential-aware transaction rather than ordinary route metadata editing.
 func NewCommand(runtime invocation.Context) *cobra.Command {
@@ -117,7 +124,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				result.Routes = append(result.Routes, item)
 			}
 			if jsonMode {
-				return terminal.WriteJSON(runtime.Out, result)
+				return terminal.WriteDocument(runtime.Out, listSchemaVersion, true, result)
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Routes")
@@ -195,7 +202,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 					"protocol_clients": compatible, "selected_clients": selected,
 					"endpoints": account.Endpoints,
 				}
-				return terminal.WriteJSON(runtime.Out, result)
+				return terminal.WriteDocument(runtime.Out, showSchemaVersion, true, result)
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Route details")

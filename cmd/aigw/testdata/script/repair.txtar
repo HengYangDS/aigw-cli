@@ -46,6 +46,8 @@ Recommended action
   aigw setup
 -- preview.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "dry_run": true,
   "configuration_action": "already-converged",
   "projections": [
@@ -69,6 +71,7 @@ Next
   aigw check
 -- empty.json --
 {
+  "schema_version": 1,
   "ok": false,
   "error": "Not configured",
   "evidence": "No Routes have been created.",

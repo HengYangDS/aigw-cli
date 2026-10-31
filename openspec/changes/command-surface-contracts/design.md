@@ -142,12 +142,12 @@ writes nothing. The rules:
   Doctor reports the same stage and position in its failed `config` check and
   exits 1. Other failures carry no `stage` in this Change.
 
-Owners: `internal/terminal` owns the envelope and `terminal.Document`, which
-heads every document with `schema_version` and `ok`, and the continuation
-fields. Each command package owns its document type and embeds the type that
-its use case returns, so the use case's fields stay at the top level.
+Owners: `internal/terminal` owns the envelope, the continuation fields and
+`terminal.WriteDocument`, which heads a command's document with
+`schema_version` and `ok` and leaves the document's own fields in their
+order. Each command package owns its document type and its version.
 `installation` already carries `schema_version`, so its document adds only
-`ok`: two embedded fields with one JSON name would both be dropped.
+`ok`.
 `commands_test.go` extends to two rules. Every result-reporting command must
 offer `--json`. Every JSON document that its script prints must carry
 `schema_version`, snake_case keys, no `null` list, and, when present, a

@@ -79,7 +79,7 @@ func TestCheckForLimitsCredentialsAndInferenceToOneEnabledClient(t *testing.T) {
 	if err := executeCommand(command); err != nil {
 		t.Fatal(err)
 	}
-	var result checkJSON
+	var result checkDocument
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func TestCheckForRejectsUnknownOrDisabledClientBeforeObservingCredentials(t *tes
 	if err := executeCommand(disabled); err == nil {
 		t.Fatal("disabled client was checked")
 	}
-	var result checkJSON
+	var result checkDocument
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.OK || !strings.Contains(result.Error, "not enabled") || result.NextAction != "aigw use --for claude <route>" {
 		t.Fatalf("disabled client result = %+v, %v", result, err)
 	}
@@ -174,7 +174,7 @@ func TestCheckEndpointReadinessIsIndependentOfDiagnosticCredentials(t *testing.T
 				}
 				return
 			}
-			var result checkJSON
+			var result checkDocument
 			if err := json.Unmarshal(buffer.Bytes(), &result); err != nil || !result.OK {
 				t.Fatalf("JSON readiness verdict: %#v, %v", result, err)
 			}
@@ -197,7 +197,7 @@ func TestMixedInvalidAndDeferredClientsShareOneRecoveryAction(t *testing.T) {
 	if err := executeCommand(command); err == nil {
 		t.Fatal("invalid Codex projection was accepted")
 	}
-	var result checkJSON
+	var result checkDocument
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +255,7 @@ func TestCheckReportsThePerformedInferenceOrEndpointScope(t *testing.T) {
 			if err := executeCommand(command); err != nil {
 				t.Fatal(err)
 			}
-			var result checkJSON
+			var result checkDocument
 			if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 				t.Fatal(err)
 			}
@@ -314,7 +314,7 @@ func TestCheckPreservesClaudeNativeOverrideAndUsesEndpointScope(t *testing.T) {
 	if err := executeCommand(command); err != nil {
 		t.Fatal(err)
 	}
-	var result checkJSON
+	var result checkDocument
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}

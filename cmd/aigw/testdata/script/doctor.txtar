@@ -1,5 +1,6 @@
 # doctor reports an incomplete setup as a failure, then the connected
-# configuration's local diagnostics, as JSON and in text.
+# configuration's local diagnostics, as JSON and in text, and the stage of an
+# unreadable configuration.
 exec aigw doctor --help
 cmp stdout help.txt
 
@@ -15,6 +16,11 @@ cmp stdout connected.json
 exec aigw doctor
 normalize stdout connected.out
 cmp connected.out connected.txt
+
+[darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/config.toml
+[!darwin] cp broken.toml $HOME/aigw/config.toml
+exitcode 1 aigw doctor --json
+cmp stdout broken.json
 
 -- token.txt --
 sk-team-token-0001
@@ -52,6 +58,8 @@ Next
   aigw setup
 -- empty.json --
 {
+  "schema_version": 1,
+  "ok": false,
   "credential_backend": {
     "kind": "file",
     "availability": "available",
@@ -110,7 +118,6 @@ Next
       "detail": "No route is selected for this client"
     }
   },
-  "ok": false,
   "ok_scope": "local_diagnostics",
   "enabled_clients": 0,
   "state": "deferred",
@@ -118,6 +125,8 @@ Next
 }
 -- connected.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "credential_backend": {
     "kind": "file",
     "availability": "available",
@@ -181,7 +190,6 @@ Next
       "detail": "No route is selected for this client"
     }
   },
-  "ok": true,
   "ok_scope": "local_diagnostics",
   "enabled_clients": 1
 }
@@ -206,3 +214,38 @@ Checks
 
 Result
   ✓ No problems found
+-- broken.toml --
+version = 7
+[accounts.team
+-- broken.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "checks": [
+    {
+      "name": "environment:client-token",
+      "ok": true,
+      "detail": "no global client token environment variables"
+    },
+    {
+      "name": "config",
+      "ok": false,
+      "detail": "cannot read or validate configuration",
+      "fix": "inspect or restore the local configuration file",
+      "stage": "configuration_parse",
+      "line": 2,
+      "column": 15
+    }
+  ],
+  "clients": {},
+  "ok_scope": "local_diagnostics",
+  "enabled_clients": 0,
+  "next_action": "Inspect or restore the local configuration file"
+}

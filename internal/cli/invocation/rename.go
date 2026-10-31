@@ -11,6 +11,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// renameSchemaVersion is the version of the rename commands' JSON document.
+const renameSchemaVersion = 1
+
 // RenameArguments accepts at most an old and a new valid resource ID. Fewer
 // than two require an interactive prompt that can select the rest.
 func RenameArguments(runtime Context, resource string) cobra.PositionalArgs {
@@ -40,7 +43,7 @@ func RenameArguments(runtime Context, resource string) cobra.PositionalArgs {
 // is set, with the next commands that the plan's status calls for.
 func WriteRenamePlan(runtime Context, plan renaming.Plan, jsonMode bool) error {
 	if jsonMode {
-		return terminal.WriteJSON(runtime.Out, plan)
+		return terminal.WriteDocument(runtime.Out, renameSchemaVersion, true, plan)
 	}
 
 	r := Renderer(runtime)

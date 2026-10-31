@@ -32,7 +32,7 @@ func TestCatalogJSONUnconfiguredIsEmptyAndMachineReadable(t *testing.T) {
 	if err := cli.Execute(app, []string{"catalog", "--json"}); err != nil {
 		t.Fatalf("catalog --json error = %v", err)
 	}
-	if strings.TrimSpace(out.String()) != "{\n  \"observations\": []\n}" {
+	if strings.TrimSpace(out.String()) != "{\n  \"schema_version\": 1,\n  \"ok\": true,\n  \"observations\": []\n}" {
 		t.Fatalf("catalog --json = %q", out.String())
 	}
 }

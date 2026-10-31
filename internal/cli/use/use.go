@@ -18,6 +18,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw use`'s JSON document.
+const schemaVersion = 1
+
 // NewCommand constructs the daily client Route selection command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var client string
@@ -130,7 +133,7 @@ func renderUse(runtime invocation.Context, cfg domain.Config, selected domain.Ru
 		result.NextAction = fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label)
 	}
 	if jsonMode {
-		return terminal.WriteJSON(runtime.Out, result)
+		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 	}
 	r := invocation.Renderer(runtime)
 	r.ProductTitle(title)
@@ -206,7 +209,7 @@ func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.R
 	}
 	result := useResult{DryRun: true, Runtime: selected, Targets: plans}
 	if jsonMode {
-		return terminal.WriteJSON(runtime.Out, result)
+		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 	}
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("Selection preview")

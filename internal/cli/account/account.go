@@ -15,6 +15,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// listSchemaVersion is the version of `aigw account list`'s JSON document.
+const listSchemaVersion = 1
+
 // newEditCommand constructs account metadata editing. Account endpoints and
 // labels belong to the account command surface, not to route management.
 func newEditCommand(runtime invocation.Context) *cobra.Command {
@@ -195,7 +198,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				result.Accounts = append(result.Accounts, account)
 			}
 			if jsonMode {
-				return terminal.WriteJSON(runtime.Out, result)
+				return terminal.WriteDocument(runtime.Out, listSchemaVersion, true, result)
 			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Accounts")

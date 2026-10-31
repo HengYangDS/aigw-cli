@@ -156,3 +156,10 @@ func executeCommand(command *cobra.Command) error {
 	command.SilenceUsage = true
 	return command.Execute()
 }
+
+// checkDocument decodes check's JSON document, whose ok the document header
+// carries.
+type checkDocument struct {
+	checkJSON
+	OK bool `json:"ok"`
+}

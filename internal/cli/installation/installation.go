@@ -10,6 +10,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// installationDocument adds ok to the program's versioned installation
+// document, which carries its own schema_version.
+type installationDocument struct {
+	program.Installation
+	OK bool `json:"ok"`
+}
+
 // NewCommand constructs read-only observation of the running installation.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
@@ -23,7 +30,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if jsonMode {
-				return terminal.WriteJSON(runtime.Out, result)
+				return terminal.WriteJSON(runtime.Out, installationDocument{Installation: result, OK: true})
 			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Portable installation")

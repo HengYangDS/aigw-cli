@@ -89,10 +89,16 @@ func executeJSON(t *testing.T, cmd *cobra.Command, out *bytes.Buffer) commandRes
 	t.Helper()
 	cmd.SetArgs([]string{"--json"})
 	commandErr := executeDoctorCommand(cmd)
-	var result commandResult
-	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+	// The document header carries doctor's ok.
+	var document struct {
+		commandResult
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &document); err != nil {
 		t.Fatalf("decode doctor JSON: %v", err)
 	}
+	result := document.commandResult
+	result.OK = document.OK
 	if (commandErr == nil) != result.OK {
 		t.Fatalf("doctor outcome disagrees: error=%v, JSON ok=%v", commandErr, result.OK)
 	}

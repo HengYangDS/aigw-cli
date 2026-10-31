@@ -1,5 +1,6 @@
 # check refuses an empty home, then checks the connected client with one
-# inference request, as JSON and in text.
+# inference request, as JSON and in text, and names the stage of an unreadable
+# configuration.
 exec aigw check --help
 cmp stdout help.txt
 
@@ -16,6 +17,11 @@ exec aigw check
 cmp stdout checked.txt
 exitcode 1 aigw check --for codex
 cmp stdout codex.txt
+
+[darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/config.toml
+[!darwin] cp broken.toml $HOME/aigw/config.toml
+exitcode 1 aigw check --json
+cmp stdout broken.json
 
 -- token.txt --
 sk-team-token-0001
@@ -55,15 +61,18 @@ Recommended action
   aigw setup
 -- empty.json --
 {
+  "schema_version": 1,
+  "ok": false,
   "clients": {},
   "enabled_clients": 0,
-  "ok": false,
   "state": "deferred",
   "next_action": "aigw setup",
   "error": "not configured"
 }
 -- checked.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "clients": {
     "claude": {
       "state": "inference_checked",
@@ -109,8 +118,7 @@ Recommended action
       "projection_ready": false
     }
   },
-  "enabled_clients": 1,
-  "ok": true
+  "enabled_clients": 1
 }
 -- checked.txt --
 AIGW  Health check
@@ -144,3 +152,19 @@ Impact
 
 Recommended action
   aigw use --for codex <route>
+-- broken.toml --
+version = 7
+[accounts.team
+-- broken.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "clients": {},
+  "enabled_clients": 0,
+  "state": "invalid",
+  "next_action": "aigw doctor",
+  "error": "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it",
+  "stage": "configuration_parse",
+  "line": 2,
+  "column": 15
+}

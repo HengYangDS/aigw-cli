@@ -64,6 +64,8 @@ Next
   aigw check
 -- accounts.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "accounts": [
     {
       "id": "team",

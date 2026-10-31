@@ -38,6 +38,8 @@ Options
       --json   Write machine-readable JSON
 -- empty.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "credential_backend": {
     "kind": "file",
     "availability": "available",
@@ -90,6 +92,8 @@ Options
 }
 -- connected.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "credential_backend": {
     "kind": "file",
     "availability": "available",
@@ -179,9 +183,13 @@ Recommended action
   Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it.
 -- refusal.json --
 {
+  "schema_version": 1,
   "ok": false,
   "error": "Cannot parse local configuration",
   "evidence": "AIGW 0.1.0-dev stopped at the configuration parse stage at line 2, column 15.",
   "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it."
+  "next_action": "Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it.",
+  "stage": "configuration_parse",
+  "line": 2,
+  "column": 15
 }

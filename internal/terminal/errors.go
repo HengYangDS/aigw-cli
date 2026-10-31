@@ -169,6 +169,36 @@ func fileErrorReason(err error) string {
 	}
 }
 
+// failureSchemaVersion is the version of the failure document that a command
+// writes when it cannot produce its own.
+const failureSchemaVersion = 1
+
+// failureDocument is the JSON failure of a command that could not produce its
+// own document. Only it carries error.
+type failureDocument struct {
+	documentHeader
+	Problem
+	Stage  string `json:"stage,omitempty"`
+	Line   int    `json:"line,omitempty"`
+	Column int    `json:"column,omitempty"`
+}
+
+// ConfigurationFailure names the configuration step at which err stopped,
+// configuration_read, configuration_parse or configuration_validate, and a
+// parse failure's line and column. Any other error has no stage.
+func ConfigurationFailure(err error) (stage string, line, column int) {
+	failure, ok := errors.AsType[*store.LoadError](err)
+	if !ok {
+		return "", 0, 0
+	}
+	if failure.Phase == store.LoadPhaseParse {
+		if document, ok := errors.AsType[*toml.DecodeError](err); ok {
+			line, column = document.Position()
+		}
+	}
+	return "configuration_" + string(failure.Phase), line, column
+}
+
 // RenderError emits one structured actionable error and records any output failure on the renderer.
 func RenderError(renderer *Renderer, err error, jsonMode bool) {
 	if _, ok := errors.AsType[*presentedError](err); ok {
@@ -199,10 +229,9 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 		}
 	}
 	if jsonMode {
-		renderer.err = WriteJSON(renderer.out, struct {
-			OK bool `json:"ok"`
-			Problem
-		}{Problem: problem})
+		failure := failureDocument{SchemaVersion: failureSchemaVersion, Problem: problem}
+		failure.Stage, failure.Line, failure.Column = ConfigurationFailure(err)
+		renderer.err = WriteJSON(renderer.out, failure)
 		return
 	}
 	renderer.Problem(problem)

@@ -42,6 +42,8 @@ Options
       --stream-max-retries uint      Explicit native stream retry budget for this Codex connection; zero disables client stream retries
 -- spare.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "dry_run": false,
   "changed": true,
   "projection_changed": true,
@@ -86,6 +88,7 @@ Recommended action
   aigw route list
 -- refusal.json --
 {
+  "schema_version": 1,
   "ok": false,
   "error": "unknown route \"missing\"; run `aigw route list`",
   "impact": "The command could not finish; inspect current state before retrying.",

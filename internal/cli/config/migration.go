@@ -11,6 +11,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// migrationSchemaVersion is the version of `aigw config migrate`'s JSON document.
+const migrationSchemaVersion = 1
+
 type migrationOutput struct {
 	DryRun bool `json:"dry_run"`
 	store.MigrationPlan
@@ -45,7 +48,7 @@ func newMigrateCommand(runtime invocation.Context) *cobra.Command {
 			}
 			result := migrationOutput{DryRun: dryRun, MigrationPlan: plan, NextAction: nextAction}
 			if jsonMode {
-				return terminal.WriteJSON(runtime.Out, result)
+				return terminal.WriteDocument(runtime.Out, migrationSchemaVersion, true, result)
 			}
 			return renderMigration(runtime, result)
 		},

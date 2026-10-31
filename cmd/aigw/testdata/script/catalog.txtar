@@ -64,6 +64,8 @@ Next
   aigw route add <route> --account <account> --model <model> --protocol <protocol>
 -- catalog.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "observations": [
     {
       "observation_id": "<varies>",
@@ -101,10 +103,13 @@ Next
 }
 -- empty.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "observations": []
 }
 -- refusal.json --
 {
+  "schema_version": 1,
   "ok": false,
   "error": "unknown command \"extra\"",
   "impact": "The command could not finish; inspect current state before retrying.",

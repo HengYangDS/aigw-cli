@@ -50,6 +50,8 @@ Next
   aigw use --for <client> spare
 -- routes.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "routes": [
     {
       "id": "spare",
@@ -81,6 +83,8 @@ Next
 }
 -- spare.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "account": "team",
   "endpoints": {
     "anthropic": "$UPSTREAM"
@@ -110,6 +114,7 @@ Recommended action
   aigw use --for claude <other-route>
 -- missing.json --
 {
+  "schema_version": 1,
   "ok": false,
   "error": "Unknown route \"missing\"",
   "impact": "The command could not finish; inspect current state before retrying.",

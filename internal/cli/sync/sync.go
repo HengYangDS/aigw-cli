@@ -19,6 +19,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw sync`'s JSON document.
+const schemaVersion = 1
+
 type syncResult struct {
 	DryRun               bool                          `json:"dry_run"`
 	Selections           map[string]string             `json:"selections"`
@@ -78,7 +81,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if jsonMode {
-				return terminal.WriteJSON(runtime.Out, result)
+				return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 			}
 			r := invocation.Renderer(runtime)
 			if dryRun {

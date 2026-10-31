@@ -10,6 +10,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw status`'s JSON document.
+const schemaVersion = 1
+
 // NewCommand constructs the read-only configuration and client readiness command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
@@ -27,7 +30,7 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 	}
 	result := collectStatus(runtime.Dependencies, cfg)
 	if jsonMode {
-		return terminal.WriteJSON(runtime.Out, result)
+		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 	}
 	renderStatus(runtime, cfg, result)
 	return nil

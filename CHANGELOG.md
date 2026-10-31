@@ -14,6 +14,16 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Added
+
+- Every JSON document now starts with `schema_version`, the version of its
+  command's document, and `ok`, whether the command did what it was asked;
+  `check` and `doctor` keep their readiness verdict as `ok`. When the
+  configuration cannot be loaded, the failure names its `stage`, such as
+  `configuration_parse`, and a parse failure's `line` and `column`; `check`
+  and `doctor` report the same fields. Every other field keeps its name and
+  value.
+
 ### Changed
 
 - Human output spells "catalog" everywhere, as the `aigw catalog` command

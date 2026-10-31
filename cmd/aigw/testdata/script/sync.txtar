@@ -46,6 +46,8 @@ Recommended action
   aigw check
 -- preview.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "dry_run": true,
   "selections": {
     "claude": "team"
@@ -69,6 +71,7 @@ Next
   aigw check
 -- empty.json --
 {
+  "schema_version": 1,
   "ok": false,
   "error": "refuse invalid config: at least one route is required",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -76,6 +79,8 @@ Next
 }
 -- preview-windows.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "dry_run": true,
   "selections": {
     "claude": "team"

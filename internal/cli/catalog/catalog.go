@@ -14,6 +14,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw catalog`'s JSON document.
+const schemaVersion = 1
+
 // NewCommand constructs authenticated catalog discovery.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode, all bool
@@ -25,13 +28,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		}
 		if len(cfg.Routes) == 0 {
 			if jsonMode {
-				return terminal.WriteJSON(runtime.Out, app.CatalogReport{Observations: []app.CatalogObservation{}})
+				return terminal.WriteDocument(runtime.Out, schemaVersion, true, app.CatalogReport{Observations: []app.CatalogObservation{}})
 			}
 			return fmt.Errorf("not configured; run `aigw setup`")
 		}
 		result := app.DiscoverCatalog(cmd.Context(), runtime.Secrets, runtime.HTTP, cfg)
 		if jsonMode {
-			return terminal.WriteJSON(runtime.Out, result)
+			return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 		}
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Authenticated model catalog")

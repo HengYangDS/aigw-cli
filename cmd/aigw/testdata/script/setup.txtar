@@ -94,6 +94,8 @@ Next
   aigw check
 -- manifest.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "imported": {
     "accounts": [
       "spare"
@@ -115,6 +117,7 @@ Next
 }
 -- configured.json --
 {
+  "schema_version": 1,
   "ok": false,
   "error": "AIGW is already configured; run `aigw add` to add an account, `aigw route add` to add a model route, or `aigw config import` to merge a reviewed manifest",
   "impact": "The command could not finish; inspect current state before retrying.",

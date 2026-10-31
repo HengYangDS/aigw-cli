@@ -18,6 +18,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw doctor`'s JSON document.
+const schemaVersion = 1
+
 // checkResult is one machine-readable diagnostic result. Target names the native file
 // the check inspected relative to the home directory; it is omitted for a file
 // outside the home directory, so diagnostics never expose a private path.
@@ -27,6 +30,10 @@ type checkResult struct {
 	Detail string `json:"detail"`
 	Fix    string `json:"fix,omitempty"`
 	Target string `json:"target,omitempty"`
+	// Stage, Line and Column locate a configuration that could not be loaded.
+	Stage  string `json:"stage,omitempty"`
+	Line   int    `json:"line,omitempty"`
+	Column int    `json:"column,omitempty"`
 	// outsideHome records that the inspected file lies outside the home
 	// directory, so the human label says so instead of naming the file.
 	outsideHome bool
@@ -42,7 +49,7 @@ type commandResult struct {
 	CredentialBackend secret.BackendSelection           `json:"credential_backend"`
 	Checks            []checkResult                     `json:"checks"`
 	Clients           map[string]domainreadiness.Client `json:"clients"`
-	OK                bool                              `json:"ok"`
+	OK                bool                              `json:"-"`
 	OKScope           string                            `json:"ok_scope"`
 	EnabledClients    int                               `json:"enabled_clients"`
 	State             domainreadiness.State             `json:"state,omitempty"`
@@ -74,7 +81,7 @@ func newCommand(runtime invocation.Context, inspect inspector) *cobra.Command {
 			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 			result := collectResult(cmd.Context(), operation, inspect)
 			if jsonMode {
-				if err := terminal.WriteJSON(runtime.Out, result); err != nil {
+				if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result); err != nil {
 					return err
 				}
 				if !result.OK {
@@ -275,7 +282,9 @@ func collectChecks(ctx context.Context, deps app.Dependencies) []checkResult {
 	}
 	cfg, err := deps.Config.Load()
 	if err != nil {
-		return append(checks, checkResult{Name: "config", Detail: "cannot read or validate configuration", Fix: "inspect or restore the local configuration file"})
+		failure := checkResult{Name: "config", Detail: "cannot read or validate configuration", Fix: "inspect or restore the local configuration file"}
+		failure.Stage, failure.Line, failure.Column = terminal.ConfigurationFailure(err)
+		return append(checks, failure)
 	}
 	if len(cfg.Routes) == 0 {
 		checks = append(checks, checkResult{Name: "config", Detail: "not configured", Fix: "run `aigw setup`"})

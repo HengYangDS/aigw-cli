@@ -39,6 +39,8 @@ Options
   -h, --help   help for account
 -- accounts.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "accounts": [
     {
       "id": "team",
@@ -80,6 +82,7 @@ Recommended action
   aigw check
 -- refusal.json --
 {
+  "schema_version": 1,
   "ok": false,
   "error": "Unknown account \"missing\"",
   "impact": "The command could not finish; inspect current state before retrying.",

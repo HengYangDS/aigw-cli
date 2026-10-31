@@ -61,6 +61,8 @@ $HOME/Library/Application Support/aigw/config.toml
 $HOME/aigw/config.toml
 -- imported.json --
 {
+  "schema_version": 1,
+  "ok": true,
   "dry_run": false,
   "imported_accounts": 1,
   "imported_routes": 1,
@@ -103,6 +105,7 @@ Recommended action
   Correct the value at the reported document location and rerun the command.
 -- refusal.json --
 {
+  "schema_version": 1,
   "ok": false,
   "error": "Cannot decode TOML document at line 2, column 15",
   "impact": "The command could not finish; inspect current state before retrying.",

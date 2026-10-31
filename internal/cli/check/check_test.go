@@ -139,7 +139,7 @@ func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 					t.Fatalf("deferred projection observed Token value or repeated metadata lookup: get=%d exists=%d", store.getCalls, store.existsCalls)
 				}
 				if jsonMode {
-					var result checkJSON
+					var result checkDocument
 					if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 						t.Fatal(err)
 					}
@@ -167,7 +167,7 @@ func TestCheckExplainsBothMissingTokenAndDeferredProjection(t *testing.T) {
 	if err := executeCommand(command); err == nil {
 		t.Fatal("missing Token and projection were accepted")
 	}
-	var result checkJSON
+	var result checkDocument
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestCheckReportsCredentialMetadataFailureBeforeClientProjection(t *testing.
 	if err := executeCommand(command); err == nil {
 		t.Fatal("credential metadata failure was accepted")
 	}
-	var result checkJSON
+	var result checkDocument
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func TestJSONCheckSelectsTheFailedClientRecoveryAction(t *testing.T) {
 	if err := executeCommand(command); err == nil {
 		t.Fatal("missing native client was accepted")
 	}
-	var result checkJSON
+	var result checkDocument
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}

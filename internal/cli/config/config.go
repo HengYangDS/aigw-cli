@@ -17,6 +17,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// importSchemaVersion is the version of `aigw config import`'s JSON document.
+const importSchemaVersion = 1
+
 // NewCommand constructs the configuration manifest command tree.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	root := &cobra.Command{
@@ -113,7 +116,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		}
 		if jsonMode {
-			return terminal.WriteJSON(runtime.Out, result)
+			return terminal.WriteDocument(runtime.Out, importSchemaVersion, true, result)
 		}
 		r := invocation.Renderer(runtime)
 		if dryRun {
