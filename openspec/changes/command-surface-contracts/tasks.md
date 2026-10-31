@@ -17,9 +17,9 @@
 - [x] 2.4 Add `--json` to `test`, `verify`, `models` and `balance` in the same form; `verify --for all` reports each client's result and still writes the checkpoint only after every client succeeds.
 - [x] 2.5 Add `--json` to `install`, `update` and `uninstall` in the same form.
 - [x] 2.6 Make `cmd/aigw/commands_test.go` refuse a result-reporting command without `--json`, with `completion`, `config export` and `credential` as the declared foreign formats.
-- [ ] 2.7 Run the local quality graph at the stage head.
-- [ ] 2.8 Prove the stage head with the full ETHOS proof.
-- [ ] 2.9 Confirm the hosted three-platform graph and the real-client journeys pass at the stage head.
+- [x] 2.7 Run the local quality graph at the stage head.
+- [x] 2.8 Prove the stage head with the full ETHOS proof.
+- [x] 2.9 Confirm the hosted three-platform graph and the real-client journeys pass at the stage head.
 
 ## 3. Stage 3 — Previews and flag spellings
 
