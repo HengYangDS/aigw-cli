@@ -5,6 +5,10 @@
       44.198.3, and the native client pins to Codex 0.165.0 and Claude Code
       2.1.312; after regenerating both Forge projections and the retained-step
       digest, `tools/ci project --check` reports no drift.
+- [ ] 1.2 Move real-client acceptance, the provider catalog and route evidence,
+      and repository tooling into documents of their own, so that every
+      authored Markdown document holds at most 500 nonblank lines; the Markdown
+      and link checks pass.
 
 ## 2. Verification
 

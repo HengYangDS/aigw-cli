@@ -15,7 +15,7 @@ Place a document by its responsibility, not the task that produced it:
 `research` records observations and comparisons; `decisions` records adopted
 choices and their rationale; `architecture` explains the current design.
 `concepts` defines the product vocabulary, `experience` specifies interaction,
-`guides` teach user journeys, `operations` covers publication procedures, and
+`guides` teach user journeys, `operations` covers publication and acceptance procedures, and
 `governance` owns contributor policy. Active intent and progress belong to
 OpenSpec; generated verification output does not become current documentation.
 
@@ -54,7 +54,7 @@ OpenSpec; generated verification output does not become current documentation.
 
 For verification, distinguish [source checks](../CONTRIBUTING.md#source-checks),
 [native artifact lifecycle](../CONTRIBUTING.md#native-upgrade-acceptance),
-[real-client execution](../CONTRIBUTING.md#real-client-acceptance), and
+[real-client execution](operations/real-client-acceptance.md), and
 [historical upgrades](../CONTRIBUTING.md#historical-release-qualification).
 They answer different questions; none substitutes for all the others.
 

@@ -24,6 +24,11 @@ release age.
   this hold as a scenario of its latest-stable requirement.
 - The native client pins move with one real-client journey on every host
   before landing, as each earlier pin moved.
+- Each document above the ETHOS ceiling gives up a whole section that has its
+  own subject, rather than shortened wording, so each document keeps room to
+  grow. The moved text keeps its words; only relative links and references to
+  the text left behind change, and each old heading stays as a pointer so that
+  existing anchors resolve.
 
 ## Risks / Trade-offs
 
