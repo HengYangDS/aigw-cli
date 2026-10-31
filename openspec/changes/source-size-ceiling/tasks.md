@@ -9,7 +9,7 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` and `mise run dependencies:check` pass on the lane
+- [x] 2.1 `mise run check` and `mise run dependencies:check` pass on the lane
       head, the full proof of the lane head passes, and the ETHOS alpha.23
       readiness proof reports no size gap.
-- [ ] 2.2 The hosted graph passes at the lane head.
+- [x] 2.2 The hosted graph passes at the lane head.
