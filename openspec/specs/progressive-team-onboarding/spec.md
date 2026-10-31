@@ -11,7 +11,7 @@ clients that are present on the current host.
 ### Requirement: Team setup imports capability before activation
 
 `aigw setup --from` SHALL import a credential-free Account and Route
-catalogue independently from Account connection, Route activation, client
+catalog independently from Account connection, Route activation, client
 installation, and external endpoint availability. No particular Account,
 client, or external Responses service SHALL be mandatory for import. Setup
 SHALL connect only the explicitly selected Account or Accounts whose Tokens are
@@ -21,7 +21,7 @@ already available through the selected credential backend.
 
 - **WHEN** a user imports a valid team manifest on a host with no admitted
   client and no Account Token
-- **THEN** setup SHALL save the catalogue without prompting for every Account
+- **THEN** setup SHALL save the catalog without prompting for every Account
 - **AND** SHALL report that zero Accounts are connected
 - **AND** SHALL show the smallest account-scoped connection command
 
@@ -45,7 +45,7 @@ already available through the selected credential backend.
 
 ### Requirement: Activation follows present capabilities
 
-Manifest setup SHALL import the reviewed catalogue and project only discovered
+Manifest setup SHALL import the reviewed catalog and project only discovered
 clients whose selected Routes have locally available declared authentication,
 without contacting a provider or running a native client. A connected Token
 and a native projection are not claims of accepted authentication, reachable
@@ -64,7 +64,7 @@ re-import.
 
 - **WHEN** one compatible Account Token is available and its provider cannot
   be reached
-- **THEN** manifest setup SHALL retain the catalogue, selection, and local
+- **THEN** manifest setup SHALL retain the catalog, selection, and local
   projection without an online request
 - **AND** SHALL NOT report endpoint or inference verification as passed
 - **AND** an explicit `aigw check` SHALL report the provider failure without
@@ -136,11 +136,11 @@ semantic result, and never expose credentials.
 
 - **WHEN** a valid team manifest is imported and no Account is connected
 - **THEN** setup SHALL recommend `aigw rotate <account>`
-- **AND** SHALL NOT imply that every catalogue Account Token is required.
+- **AND** SHALL NOT imply that every catalog Account Token is required.
 
 #### Scenario: A writable Account Token arrives after import
 
-- **GIVEN** a team catalogue with no selected Client Binding
+- **GIVEN** a team catalog with no selected Client Binding
 - **WHEN** the operator rotates one compatible Account Token
 - **THEN** rotation SHALL leave Route and Client Binding selection unchanged
 - **AND** SHALL name an executable `aigw use --for` action for one reviewed
@@ -158,7 +158,7 @@ semantic result, and never expose credentials.
 
 #### Scenario: Environment Account becomes available later
 
-- **WHEN** a team catalogue was imported without a connected Account
+- **WHEN** a team catalog was imported without a connected Account
 - **AND** exactly one compatible Account Token later becomes available through
   the environment backend
 - **THEN** `aigw sync` SHALL activate Routes compatible with that Account
@@ -208,12 +208,12 @@ semantic result, and never expose credentials.
 #### Scenario: Setup imports without activation
 
 - **WHEN** no Token or supported client is available
-- **THEN** setup reports the catalogue as imported
+- **THEN** setup reports the catalog as imported
 - **AND** does not claim any endpoint, credential, or client is ready.
 
 #### Scenario: Import-only setup has no actionable synchronization
 
-- **WHEN** a valid team catalogue is imported with no compatible Token and no
+- **WHEN** a valid team catalog is imported with no compatible Token and no
   admitted client available
 - **THEN** setup SHALL identify the choice of any one compatible Account Token
   as a prerequisite, not present immediate synchronization as useful work
@@ -313,7 +313,164 @@ unresolved resources. Presentation SHALL remain outside the transaction.
 - **AND** the command reports only the output failure rather than claiming that
   setup was rolled back.
 
-### Requirement: Explicit Route retirement shares the import transaction
+### Requirement: Reviewed team configuration is directly consumable
+
+The repository SHALL publish one token-free reviewed manifest directly
+consumable by `aigw setup --from` without credentials or installed clients.
+Setup and sync SHALL preserve existing Client Bindings and fill only unselected
+bindings from declared primary Routes and ordered alternatives with usable
+authentication; any other Route SHALL require explicit selection. They SHALL
+project only AIGW-owned state and never expose or rebind Tokens.
+
+#### Scenario: The shipped manifest stays reviewed
+
+- **WHEN** the repository ships its team manifest
+- **THEN** fictitious providers, workstation paths, and parallel example
+  manifests SHALL NOT remain
+- **AND** a Route outside the recommendations SHALL require explicit selection
+  even if its Account is connected or its Model matches.
+
+#### Scenario: Team member imports reviewed settings
+
+- **WHEN** a team member downloads the tracked manifest and runs `aigw setup --from`
+- **THEN** AIGW SHALL import the Accounts and Routes from the reviewed
+  `manifests/team.toml` without a second provider or model-name policy
+- **AND** required Account Tokens SHALL remain outside the manifest
+- **AND** recommended selections SHALL come from that manifest rather than
+  duplicated model-version literals in this specification.
+
+#### Scenario: No Account is connected during import
+
+- **WHEN** a user imports the team manifest without supplying a Token
+- **THEN** every reviewed Account and Route SHALL be retained
+- **AND** no client installation or credential SHALL be required
+- **AND** the next action SHALL enumerate the compatible Account connection
+  choices without making one Account mandatory.
+
+#### Scenario: One Provider Account is connected
+
+- **WHEN** a user imports the team manifest with exactly one available Account Token
+- **THEN** setup SHALL succeed without Tokens for other Accounts
+- **AND** each unselected client SHALL select the first usable declared
+  recommendation compatible with that client and connected Account
+- **AND** an undeclared Route SHALL remain unselected rather than becoming a
+  Model or lexical fallback.
+
+#### Scenario: A compatible Account becomes available after import
+
+- **WHEN** setup retained the reviewed catalog without a connected Account
+- **AND** a Token for a declared compatible recommendation later becomes
+  available through the read-only environment backend
+- **THEN** `aigw sync` SHALL select that recommendation for an unselected client
+- **AND** SHALL preserve the declared protocol and existing Client Bindings
+- **AND** SHALL NOT require Tokens for other Accounts.
+
+#### Scenario: A supported client is installed later
+
+- **WHEN** setup completed before an admitted client was installed
+- **AND** its selected Route has usable declared authentication
+- **THEN** `aigw sync` SHALL discover and project that client
+- **AND** SHALL NOT require, replace, or expose any unrelated Token
+- **AND** SHALL leave absent clients untouched.
+
+### Requirement: Account connection is an atomic client-scoped transition
+
+Account connection SHALL admit a new Account and its first canonical Model and
+Route before requesting its Token. It SHALL select that Route and reconcile
+only its client's projection through the shared synchronization transaction. An
+existing Account, Model, or Route identity SHALL NOT be implicitly replaced.
+
+#### Scenario: Add and select another Account
+
+- **WHEN** Account connection succeeds for an installed admitted client
+- **THEN** the stored Client Binding and that client's configuration SHALL select the new
+  Account Route without requiring a second selection or synchronization command
+- **AND** unrelated client configuration and ownership state SHALL be unchanged,
+  including unrelated external edits.
+
+#### Scenario: Creation admission fails
+
+- **WHEN** the Account, Model, or Route already exists, desired configuration is
+  invalid, or the request is cancelled before acquisition
+- **THEN** creation SHALL reject the request before requesting a Token or
+  changing configuration, credentials or client projections.
+
+#### Scenario: Account connection cannot complete synchronization
+
+- **WHEN** Account connection stores its Token but configuration persistence or
+  selected-client projection fails
+- **THEN** it SHALL compensate through the shared Token replacement owner
+- **AND** configuration and projection recovery SHALL use their existing owners
+- **AND** it SHALL preserve the original failure and any compensation error
+- **AND** failed compensation SHALL NOT be reported as restored storage.
+
+### Requirement: Shipped team catalog is a curated capability contract
+
+Team manifests SHALL declare Accounts, canonical Models, provider Routes, and
+per-client Recommendations separately. Model and Route IDs SHALL be stable
+lower-case; provider wire IDs and channels SHALL remain exact. Route admission
+requires authenticated inference and compatible client/protocol evidence.
+Setup SHALL need only one compatible Account, preserve explicit Client
+Bindings, and exclude inferred Route matrices and proxy endpoints.
+
+#### Scenario: One Account offers a subset of Models
+
+- **WHEN** one connected Account has a compatible recommended Route but lacks
+  Routes for other canonical Models or clients
+- **THEN** setup SHALL activate only its usable unselected Client Bindings
+- **AND** preserve explicit selections and defer unavailable capabilities.
+
+#### Scenario: A provider uses a channel-specific wire ID
+
+- **WHEN** DMXAPI exposes a CC, SSVIP, or CDX channel variant of one Model
+- **THEN** that Route SHALL reference the same canonical Model as its base
+  Route and carry its exact provider wire ID
+- **AND** its lower-case Route ID SHALL not be derived from wire spelling.
+
+#### Scenario: Ordinary Route display needs no duplicate label
+
+- **WHEN** a Route omits `label`
+- **THEN** human, JSON, and native-client presentation SHALL derive
+  `Account · Model` from the declared labels
+- **AND** an explicit channel or user label SHALL override that derivation
+- **AND** native manifest export SHALL omit a stored label equal to the
+  derived form while preserving an explicit distinct label.
+
+#### Scenario: Account lists follow the declared presentation order
+
+- **WHEN** Accounts declare presentation `order` values
+- **THEN** `aigw account list`, human and JSON, SHALL list Accounts by that
+  order and then by identity, as Route lists already do
+- **AND** serialized configuration and manifest export SHALL keep their
+  lexical identity order.
+
+### Requirement: The shipped catalog keeps one general Model per other vendor
+
+The shipped team catalog SHALL hold exactly one general Model for each vendor
+other than Anthropic and OpenAI, whose Models are curated per client. That Model
+SHALL be the vendor's most capable generally available general model whose
+Routes qualify. A qualified successor SHALL replace that Model and its Routes
+rather than add a second general Model, and import SHALL keep explicit Client
+Bindings to the replaced Routes.
+
+#### Scenario: A vendor's more capable general model becomes available
+
+- **GIVEN** the catalog holds one general Model for a vendor
+- **WHEN** that vendor makes a more capable general model generally available
+  and its Routes qualify
+- **THEN** the catalog SHALL replace that vendor's Model and Routes with the
+  successor
+- **AND** SHALL NOT keep both as general Models
+- **AND** importing the catalog SHALL keep explicit Client Bindings to the
+  replaced Routes.
+
+#### Scenario: A newer model is not generally available or not qualified
+
+- **WHEN** a vendor's newer model is limited to selected testers or its Routes
+  fail qualification
+- **THEN** the catalog SHALL keep that vendor's current Model.
+
+### Requirement: Explicit Route retirement shares the manifest import transaction
 
 Import SHALL retain local-only Routes unless each is named with `--retire-route`.
 Retired Routes SHALL exist locally, be absent from the incoming manifest,
@@ -322,12 +479,12 @@ with no remaining Route or incoming declaration SHALL be removed. Account
 metadata and Tokens SHALL remain unchanged. Import, retirement, and affected
 native projections SHALL share one guarded commit with compensation.
 
-#### Scenario: Reviewed catalogue replaces obsolete recommendations
+#### Scenario: Reviewed catalog replaces obsolete recommendations
 
 - **WHEN** one import names multiple unselected local Routes for retirement
 - **AND** the incoming manifest replaces recommendations that referenced them
 - **THEN** the Routes and only their unreferenced, undeclared Models SHALL be
-  removed in the same commit as the new public catalogue
+  removed in the same commit as the new public catalog
 - **AND** explicit Client Bindings and shared or newly declared Models SHALL
   remain unchanged.
 

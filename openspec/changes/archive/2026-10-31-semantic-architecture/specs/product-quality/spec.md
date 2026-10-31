@@ -5,7 +5,7 @@
 Repository-owned source and configuration warnings SHALL block qualification
 until resolved at their semantic owner. Supply-chain security findings SHALL
 remain nonblocking and fully disclosed under the
-[release evidence contract](../../../../../docs/governance/change-and-release-policy.md#reproducible-assets).
+[release evidence contract](../../../../../../docs/governance/change-and-release-policy.md#reproducible-assets).
 Scanner execution, evidence completeness and artifact validity SHALL remain
 required. Successful subprocess exit SHALL NOT erase captured diagnostics or
 establish warning-free acceptance.
