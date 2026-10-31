@@ -1,6 +1,9 @@
 package client
 
-import "aigw-cli/internal/terminal"
+import (
+	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/terminal"
+)
 
 // discoverSchemaVersion and the other constants are the versions of the client
 // subcommands' JSON documents.
@@ -24,13 +27,16 @@ type discoveredClient struct {
 }
 
 // projectionDocument is the JSON document of `aigw client enable` and
-// `disable`.
+// `disable`. A preview reports the state that the command would reach and
+// what reaching it would change beyond the configuration.
 type projectionDocument struct {
+	DryRun          bool   `json:"dry_run,omitempty"`
 	Client          string `json:"client"`
 	State           string `json:"state"`
 	RestartRequired bool   `json:"restart_required"`
-	NextAction      string `json:"next_action,omitempty"`
-	NextDetail      string `json:"next_detail,omitempty"`
+	invocation.Preview
+	NextAction string `json:"next_action,omitempty"`
+	NextDetail string `json:"next_detail,omitempty"`
 }
 
 // newProjectionDocument reports a client's projection state and the

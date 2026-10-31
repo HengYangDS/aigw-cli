@@ -13,9 +13,11 @@ type CredentialEntrypointPlan struct {
 }
 
 // PlanCredentialEntrypoint returns the credential reader that synchronizing to
-// after would install, or nil when the installed reader is current.
-func PlanCredentialEntrypoint(synchronizer synchronization.Synchronizer, after domain.Config) (*CredentialEntrypointPlan, error) {
-	action, err := synchronizer.CredentialEntrypointPlan(after)
+// after would install, or nil when the installed reader is current. Named
+// clients limit the plan to their Accounts without checking their Tokens;
+// without any, every client whose Token is stored counts.
+func PlanCredentialEntrypoint(synchronizer synchronization.Synchronizer, after domain.Config, clientIDs ...string) (*CredentialEntrypointPlan, error) {
+	action, err := synchronizer.CredentialEntrypointPlan(after, clientIDs...)
 	if err != nil || action == synchronization.CredentialEntrypointUnchanged {
 		return nil, err
 	}

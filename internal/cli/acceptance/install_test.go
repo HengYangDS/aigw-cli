@@ -111,8 +111,7 @@ func TestUninstallReportsCommittedWithdrawalWithIncompleteProgramRemoval(t *test
 	writeFile(t, app.Executable, []byte("program"), 0o700)
 	codexTarget := filepath.Join(t.TempDir(), "config.toml")
 	configureUninstallClients(t, app, codexTarget)
-	foreign := filepath.Join(program.RollbackPath(app.Executable), "foreign-child")
-	writeFile(t, foreign, []byte("preserve"), 0o600)
+	blockRemoval(t, app.Executable)
 	out.Reset()
 	if err := cli.Execute(app, []string{"uninstall"}); err == nil {
 		t.Fatal("incomplete program removal was accepted")
@@ -121,8 +120,8 @@ func TestUninstallReportsCommittedWithdrawalWithIncompleteProgramRemoval(t *test
 	if err != nil || len(cfg.EnabledClientIDs()) != 0 {
 		t.Fatalf("committed client withdrawal was lost: enabled=%v error=%v", cfg.EnabledClientIDs(), err)
 	}
-	if data, err := os.ReadFile(foreign); err != nil || string(data) != "preserve" {
-		t.Fatalf("foreign rollback content changed: %q error=%v", data, err)
+	if data, err := os.ReadFile(app.Executable); err != nil || string(data) != "program" {
+		t.Fatalf("the program that could not be removed changed: %q error=%v", data, err)
 	}
 	if !strings.Contains(out.String(), "Client withdrawal completed") || !strings.Contains(out.String(), "program removal is incomplete") || strings.Contains(out.String(), app.Executable) {
 		t.Fatalf("uninstall obscured the committed state or exposed its path: %s", out.String())
@@ -135,16 +134,40 @@ func TestUninstallReportsCommittedWithdrawalWithIncompleteProgramRemoval(t *test
 func TestUnconfiguredUninstallReportsRemovalFailureWithoutClaimingWithdrawal(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	writeFile(t, app.Executable, []byte("program"), 0o700)
-	foreign := filepath.Join(program.RollbackPath(app.Executable), "foreign-child")
-	writeFile(t, foreign, []byte("preserve"), 0o600)
+	blockRemoval(t, app.Executable)
 	if err := cli.Execute(app, []string{"uninstall"}); err == nil {
 		t.Fatal("incomplete program removal was accepted")
 	}
 	if !strings.Contains(out.String(), "No AIGW configuration existed") || strings.Contains(out.String(), "withdrawal completed") || strings.Contains(out.String(), app.Executable) {
 		t.Fatalf("unconfigured uninstall claims a nonexistent withdrawal: %s", out.String())
 	}
-	if data, err := os.ReadFile(foreign); err != nil || string(data) != "preserve" {
-		t.Fatalf("foreign rollback content changed: %q error=%v", data, err)
+}
+
+// TestUninstallRefusesARollbackDirectoryBeforeWithdrawal shows that a
+// directory at the rollback copy's path, which AIGW did not write, stops the
+// preview and the uninstall alike before any client is withdrawn.
+func TestUninstallRefusesARollbackDirectoryBeforeWithdrawal(t *testing.T) {
+	for _, args := range [][]string{{"uninstall", "--dry-run"}, {"uninstall"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			app, out, _, _, _ := testApp(t, "")
+			writeFile(t, app.Executable, []byte("program"), 0o700)
+			configureUninstallClients(t, app, filepath.Join(t.TempDir(), "config.toml"))
+			foreign := filepath.Join(program.RollbackPath(app.Executable), "foreign-child")
+			writeFile(t, foreign, []byte("preserve"), 0o600)
+			out.Reset()
+			if err := cli.Execute(app, args); err == nil || !strings.Contains(err.Error(), "rollback copy path") {
+				t.Fatalf("rollback directory = %v\n%s", err, out.String())
+			}
+			cfg, err := app.Config.Load()
+			if err != nil || len(cfg.EnabledClientIDs()) != 2 {
+				t.Fatalf("clients were withdrawn before the refusal: enabled=%v error=%v", cfg.EnabledClientIDs(), err)
+			}
+			for path, want := range map[string]string{app.Executable: "program", foreign: "preserve"} {
+				if data, err := os.ReadFile(path); err != nil || string(data) != want {
+					t.Fatalf("%s = %q, %v; want %q", path, data, err, want)
+				}
+			}
+		})
 	}
 }
 

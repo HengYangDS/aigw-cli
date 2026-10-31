@@ -17,11 +17,30 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before domain.Config, 
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	after, err := s.PlanConnection(before, name, client, account, route)
+	if err != nil {
+		return err
+	}
+	token, err := acquireToken()
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(token) == "" {
+		return fmt.Errorf("Account connection requires a non-empty Token")
+	}
+	_, _, _, err = s.selectRoute(ctx, before, after, client, domain.ConnectionChange{}, token)
+	return err
+}
+
+// PlanConnection returns the configuration that ConnectAccount would write:
+// the Account, its first Model and Route, and the client's selection of that
+// Route. It reads no Token and writes nothing.
+func (s Synchronizer) PlanConnection(before domain.Config, name, client string, account domain.Account, route domain.Route) (domain.Config, error) {
 	if _, exists := before.Routes[name]; exists {
-		return fmt.Errorf("Route %q already exists; creation does not replace Routes", name)
+		return domain.Config{}, fmt.Errorf("Route %q already exists; creation does not replace Routes", name)
 	}
 	if _, exists := before.Accounts[name]; exists {
-		return fmt.Errorf("Account %q already exists; add a Route to that Account instead", name)
+		return domain.Config{}, fmt.Errorf("Account %q already exists; add a Route to that Account instead", name)
 	}
 	after := before.Clone()
 	account.ID = name
@@ -35,16 +54,5 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before domain.Config, 
 	}
 	after.Routes[name] = route
 	after, _, err := s.PrepareSelection(after, client, name, "", domain.ConnectionChange{})
-	if err != nil {
-		return err
-	}
-	token, err := acquireToken()
-	if err != nil {
-		return err
-	}
-	if strings.TrimSpace(token) == "" {
-		return fmt.Errorf("Account connection requires a non-empty Token")
-	}
-	_, _, _, err = s.selectRoute(ctx, before, after, client, domain.ConnectionChange{}, token)
-	return err
+	return after, err
 }

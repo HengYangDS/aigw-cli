@@ -10,10 +10,13 @@ cmp stdout empty.json
 
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+snapshot $HOME before.txt
 exec aigw sync --dry-run --json
 normalize stdout preview.out
 [!windows] cmp preview.out preview.json
 [windows] cmp preview.out preview-windows.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
 exec aigw sync
 normalize stdout synced.out
 cmp synced.out synced.txt

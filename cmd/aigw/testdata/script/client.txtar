@@ -35,6 +35,81 @@ stdout '"schema_version": 1'
 stdout '"id": "claude",\n\s+"state": "found"'
 stdout '"id": "codex",\n\s+"state": "not_found"'
 
+# Previews of disabling and enabling write nothing below the private home.
+snapshot $HOME before.txt
+exec aigw client disable claude --dry-run --json
+normalize stdout disable-preview.out
+[!windows] cmp disable-preview.out disable-preview.json
+[windows] cmp disable-preview.out disable-preview-windows.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
+exec aigw client disable claude
+snapshot $HOME disabled.txt
+exec aigw client enable claude --executable $BIN/claude$exe --dry-run
+normalize stdout enable-preview.out
+[!windows] cmp enable-preview.out enable-preview.txt
+[windows] cmp enable-preview.out enable-preview-windows.txt
+snapshot $HOME still-disabled.txt
+cmp still-disabled.txt disabled.txt
+
+-- disable-preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "client": "claude",
+  "state": "disabled",
+  "restart_required": false,
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME/.claude/settings.json",
+      "action": "restore"
+    }
+  ],
+  "next_action": "aigw client disable claude"
+}
+-- disable-preview-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "client": "claude",
+  "state": "disabled",
+  "restart_required": false,
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME\\.claude\\settings.json",
+      "action": "restore"
+    }
+  ],
+  "next_action": "aigw client disable claude"
+}
+-- enable-preview.txt --
+AIGW  Client projection preview
+────────────────────────────────────────
+  Client               Claude
+  Planned state        enabled
+
+Projection targets
+  $HOME/.claude/settings.json  project
+  ✓ Preview did not write configuration, credentials or client files
+
+Next
+  aigw client enable claude --executable $BIN/claude
+-- enable-preview-windows.txt --
+AIGW  Client projection preview
+────────────────────────────────────────
+  Client               Claude
+  Planned state        enabled
+
+Projection targets
+  $HOME\.claude\settings.json  project
+  ✓ Preview did not write configuration, credentials or client files
+
+Next
+  aigw client enable claude --executable $BIN/claude.exe
 -- token.txt --
 sk-team-token-0001
 -- help.txt --

@@ -24,12 +24,18 @@ const schemaVersion = 1
 // summary says what happened. A transition that completed while a later step
 // failed names that step's problem, and the document's ok is false.
 type updateDocument struct {
+	DryRun     bool   `json:"dry_run,omitempty"`
 	State      string `json:"state"`
 	Version    string `json:"version,omitempty"`
 	Summary    string `json:"summary,omitempty"`
 	Problem    string `json:"problem,omitempty"`
 	NextAction string `json:"next_action,omitempty"`
 	NextDetail string `json:"next_detail,omitempty"`
+	// CurrentVersion, Path and Rollback are a preview's installed version,
+	// the program file and the rollback copy that an update would write.
+	CurrentVersion string `json:"current_version,omitempty"`
+	Path           string `json:"path,omitempty"`
+	Rollback       string `json:"rollback,omitempty"`
 }
 
 // prepareHomebrewRollback returns macOS Keychain items to the reader of an
@@ -88,7 +94,7 @@ func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
 
 // NewCommand constructs the signed portable release update command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	var rollback, jsonMode bool
+	var rollback, jsonMode, dryRun bool
 	var candidateArchive string
 	var candidateChecksums string
 	cmd := &cobra.Command{
@@ -119,6 +125,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			if runtime.Updater == nil {
 				return fmt.Errorf("Automatic update is unavailable; install a verified release from GitLab or GitHub")
+			}
+			if dryRun {
+				return runPreview(ctx, runtime, jsonMode, program.CandidateArchive{
+					ArchivePath:   candidateArchive,
+					ChecksumsPath: candidateChecksums,
+				})
 			}
 			var (
 				result program.Transition
@@ -191,12 +203,16 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return reportTransition(runtime, jsonMode, title, result)
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the version that an update would install, from public release metadata or the --candidate archive's name, without downloading or writing anything")
 	cmd.Flags().BoolVar(&rollback, "rollback", false, "Roll back the portable AIGW program to the previous version offline")
 	cmd.Flags().StringVar(&candidateArchive, "candidate", "", "Install one local portable archive without network access")
 	cmd.Flags().StringVar(&candidateChecksums, "checksums", "", "Checksum manifest for --candidate")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the program transition as JSON")
 	cmd.MarkFlagsRequiredTogether("candidate", "checksums")
 	cmd.MarkFlagsMutuallyExclusive("rollback", "candidate")
+	// A rollback preview would have to run the retained program to learn its
+	// version, which a preview never does.
+	cmd.MarkFlagsMutuallyExclusive("dry-run", "rollback")
 	return cmd
 }
 

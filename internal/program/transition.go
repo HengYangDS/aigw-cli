@@ -11,12 +11,15 @@ const (
 	TransitionRestored = "restored"
 )
 
-// Transition is the outcome of a program update or rollback that completed.
+// Transition is the outcome of a program update or rollback, or what a
+// preview of an update found.
 type Transition struct {
-	// State is TransitionUpdated, TransitionCurrent or TransitionRestored.
+	// State is TransitionUpdated, TransitionCurrent or TransitionRestored, or
+	// TransitionAvailable for a preview.
 	State string
-	// Version is the active program's version afterward, without a leading v.
+	// Version is the active program's version afterward, or the version that
+	// a previewed update would install, without a leading v.
 	Version string
-	// Summary says what happened, for people.
+	// Summary says what happened, or what a preview found, for people.
 	Summary string
 }

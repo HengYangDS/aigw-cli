@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"aigw-cli/internal/adapter/discovery"
 	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
@@ -24,13 +25,17 @@ type manifestSetupImported struct {
 }
 
 type manifestSetupResult struct {
+	DryRun             bool                  `json:"dry_run,omitempty"`
 	Imported           manifestSetupImported `json:"imported"`
 	ConnectedAccounts  []string              `json:"connected_accounts"`
 	SelectedBindings   map[string]string     `json:"selected_bindings"`
 	ProjectedClients   []string              `json:"projected_clients"`
 	OnlineVerification string                `json:"online_verification"`
 	DeferredActions    []string              `json:"deferred_actions,omitempty"`
-	NextAction         string                `json:"next_action"`
+	// Preview is what a preview's setup would change beyond the configuration.
+	invocation.Preview
+	NextAction string `json:"next_action,omitempty"`
+	NextDetail string `json:"next_detail,omitempty"`
 }
 
 func runManifestSetup(ctx context.Context, runtime invocation.Context, request setupRequest) error {
@@ -65,6 +70,9 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request s
 			return fmt.Errorf("Account %q is not referenced by any configuration route; remove it or add an explicit client route before setup", accountName)
 		}
 	}
+	if request.DryRun {
+		return writeManifestPreview(runtime, request, before, cfg, accountNames, discovered)
+	}
 
 	credentials, err := collectManifestSetupCredentials(runtime, cfg, accountNames, request.Account, request.TokenStdin)
 	if err != nil {
@@ -97,6 +105,93 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request s
 		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 	}
 	renderManifestSetupResult(runtime, result)
+	return nil
+}
+
+// writeManifestPreview reports what setup --from would import and the Client
+// Bindings that connecting its Accounts would select. A preview reads, checks
+// and stores no Token, so whether each Token is already stored is not known,
+// and it connects no Account and projects no client.
+func writeManifestPreview(runtime invocation.Context, request setupRequest, before, cfg domain.Config, accountNames []string, discovered discovery.Result) error {
+	if request.TokenStdin && secret.IsReadOnly(runtime.Secrets) {
+		return fmt.Errorf("--token-stdin cannot replace a Token in the read-only environment secret backend")
+	}
+	connecting := make([]string, 0, len(accountNames))
+	if request.Account != "" {
+		if _, ok := cfg.Accounts[request.Account]; !ok {
+			return fmt.Errorf("unknown Account %q; choose one of %s", request.Account, strings.Join(accountNames, ", "))
+		}
+		connecting = append(connecting, request.Account)
+	} else {
+		for _, name := range accountNames {
+			if accountHasRecommendedTokenSelection(cfg, name) {
+				connecting = append(connecting, name)
+			}
+		}
+	}
+	planned, err := cfg.SelectRoutesForConnectedAccounts(connecting)
+	if err != nil {
+		return err
+	}
+	connected := make(map[string]setupCredential, len(connecting))
+	for _, account := range connecting {
+		connected[account] = setupCredential{account: account}
+	}
+	clients := manifestSetupSelectedClients(planned, connected, manifestSetupAvailableClients(planned.Admission(), discovered.Executables))
+	planned, projection, err := runtime.Synchronizer().PreviewSetup(before, planned, connecting, clients...)
+	if err != nil {
+		return err
+	}
+	preview, err := invocation.WithEntrypoint(runtime, planned, projection)
+	if err != nil {
+		return err
+	}
+	result := manifestSetupResult{
+		DryRun:             true,
+		Imported:           manifestSetupImported{Accounts: append([]string(nil), accountNames...), Routes: planned.RouteIDs()},
+		ConnectedAccounts:  []string{},
+		SelectedBindings:   map[string]string{},
+		ProjectedClients:   []string{},
+		OnlineVerification: "not_checked",
+		Preview:            preview,
+	}
+	for client, binding := range planned.Clients {
+		if binding.Route != "" {
+			result.SelectedBindings[client] = binding.Route
+		}
+	}
+	result.NextAction, result.NextDetail = terminal.NextSteps(request.apply)
+	if request.JSON {
+		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
+	}
+	r := invocation.Renderer(runtime)
+	r.ProductTitle("Configuration catalog preview")
+	r.Section("Imported capability")
+	r.Rows(
+		terminal.Field{Label: "Accounts", Value: strings.Join(result.Imported.Accounts, ", ")},
+		terminal.Field{Label: "Routes", Value: strings.Join(result.Imported.Routes, ", ")},
+	)
+	r.Section("Account connections")
+	connections := make([]terminal.Field, 0, len(accountNames))
+	for _, account := range accountNames {
+		connection := terminal.Field{State: terminal.Info, Label: account, Value: "Deferred"}
+		if slices.Contains(connecting, account) {
+			connection.Value = "Would connect"
+		}
+		connections = append(connections, connection)
+	}
+	r.Rows(connections...)
+	r.Section("Selected Client Bindings")
+	bindings := make([]terminal.Field, 0, len(runtime.Clients.Admission().Specs()))
+	for _, spec := range runtime.Clients.Admission().Specs() {
+		binding := terminal.Field{State: terminal.Info, Label: spec.Label, Value: "Deferred"}
+		if route, selected := result.SelectedBindings[spec.ID]; selected {
+			binding.Value = route
+		}
+		bindings = append(bindings, binding)
+	}
+	r.Rows(bindings...)
+	invocation.RenderPreview(r, preview, request.apply)
 	return nil
 }
 

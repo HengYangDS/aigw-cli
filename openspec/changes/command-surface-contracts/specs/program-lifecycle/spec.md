@@ -19,3 +19,16 @@ download, verify or run an archive or change a Keychain item.
 - **THEN** it SHALL report the program file and the rollback copy that it would
   remove
 - **AND** both SHALL remain.
+
+#### Scenario: A program rollback is previewed
+
+- **WHEN** `aigw update --dry-run --rollback` runs
+- **THEN** it SHALL refuse, because only running the retained program reveals
+  its version
+- **AND** no file or Keychain item SHALL change.
+
+#### Scenario: An uninstall meets a directory
+
+- **WHEN** `aigw uninstall` runs, with or without `--dry-run`, and its program
+  path or its rollback copy's path holds a directory
+- **THEN** it SHALL refuse before it withdraws any client or removes any file.

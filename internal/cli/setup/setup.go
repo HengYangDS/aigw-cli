@@ -27,6 +27,9 @@ type setupRequest struct {
 	TokenStdin                       bool
 	PromptToken                      bool
 	JSON                             bool
+	// DryRun previews setup; apply is the command that applies the preview.
+	DryRun bool
+	apply  string
 }
 
 // NewCommand constructs the setup command and binds it to one invocation context.
@@ -58,6 +61,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		}),
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if request.DryRun {
+				request.apply = invocation.ApplyCommand(cmd, nil)
+			}
 			operation := runtime
 			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 			// A JSON caller reads one document, so setup never prompts for it.
@@ -86,13 +92,17 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&request.AnthropicURL, "anthropic-url", "", "Anthropic base URL")
 	cmd.Flags().StringVar(&request.ChatURL, "chat-url", "", "OpenAI Chat Completions base URL")
 	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first route: "+runtime.Clients.Admission().Usage())
-	cmd.Flags().StringVar(&request.Model, "model", "", "Upstream model ID for --for")
+	cmd.Flags().StringVar(&request.Model, "upstream-model", "", "Exact provider model ID for --for")
+	cmd.Flags().StringVar(&request.Model, "model", "", "Upstream model ID for --for; --upstream-model is the same value")
 	cmd.Flags().StringVar(&request.Protocol, "protocol", "", "Endpoint protocol when more than one URL is configured")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
 	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the setup result as JSON")
-	for _, name := range []string{"route", "label", "openai-url", "anthropic-url", "chat-url", "for", "model", "protocol"} {
+	cmd.Flags().BoolVar(&request.DryRun, "dry-run", false, "Show the Accounts, Routes and Client Bindings that setup would create without reading a Token or writing anything")
+	for _, name := range []string{"route", "label", "openai-url", "anthropic-url", "chat-url", "for", "model", "upstream-model", "protocol"} {
 		cmd.MarkFlagsMutuallyExclusive("from", name)
 	}
+	cmd.MarkFlagsMutuallyExclusive("model", "upstream-model")
+	_ = cmd.Flags().SetAnnotation("model", invocation.ReplacedBy, []string{"upstream-model"})
 	return cmd
 }
 
@@ -124,6 +134,12 @@ func runSetup(ctx context.Context, runtime invocation.Context, request setupRequ
 	selected, err := plan.config.ResolveRuntime(plan.request.Client, "")
 	if err != nil {
 		return err
+	}
+	if request.DryRun {
+		if request.TokenStdin && secret.IsReadOnly(runtime.Secrets) {
+			return fmt.Errorf("--token-stdin cannot replace a Token in the read-only environment secret backend")
+		}
+		return writeSetupPreview(runtime, plan)
 	}
 	credentialChange, err := setupToken(runtime, plan.request)
 	if err != nil {
@@ -203,7 +219,7 @@ func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 		return setupPlan{}, fmt.Errorf("--for %s requires %s", plan.request.Client, setupEndpointFlag(required))
 	}
 	if strings.TrimSpace(plan.request.Model) == "" {
-		return setupPlan{}, fmt.Errorf("--for %s requires --model", plan.request.Client)
+		return setupPlan{}, fmt.Errorf("--for %s requires --upstream-model", plan.request.Client)
 	}
 	storedAccount := domain.Account{Label: plan.request.Label, Endpoints: endpoints}
 	plan.route = domain.Route{
@@ -217,6 +233,46 @@ func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 		return setupPlan{}, err
 	}
 	return plan, nil
+}
+
+// writeSetupPreview reports the Account, Route and Client Binding that setup
+// would create. A preview reads, checks and stores no Token, so it connects no
+// Account and projects no client.
+func writeSetupPreview(runtime invocation.Context, plan setupPlan) error {
+	after, projection, err := runtime.Synchronizer().PreviewSetup(plan.before, plan.config, []string{plan.request.Account}, plan.request.Client)
+	if err != nil {
+		return err
+	}
+	preview, err := invocation.WithEntrypoint(runtime, after, projection)
+	if err != nil {
+		return err
+	}
+	if plan.request.JSON {
+		result := manifestSetupResult{
+			DryRun:             true,
+			Imported:           manifestSetupImported{Accounts: []string{plan.request.Account}, Routes: []string{plan.request.Route}},
+			ConnectedAccounts:  []string{},
+			SelectedBindings:   map[string]string{plan.request.Client: plan.request.Route},
+			ProjectedClients:   []string{},
+			OnlineVerification: "not_checked",
+			Preview:            preview,
+		}
+		result.NextAction, result.NextDetail = terminal.NextSteps(plan.request.apply)
+		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
+	}
+	r := invocation.Renderer(runtime)
+	r.ProductTitle("First-time setup preview")
+	r.Section("Account")
+	r.Rows(
+		terminal.Field{Label: "Account", Value: plan.request.Account},
+		terminal.Field{Label: "Route", Value: plan.request.Route},
+		terminal.Field{Label: "Model", Value: plan.route.Model},
+		terminal.Field{State: terminal.Info, Label: "API Token", Value: "Not read in a preview"},
+	)
+	r.Section("Client Bindings")
+	r.Rows(terminal.Field{Label: runtime.Clients.Admission().Label(plan.request.Client), Value: plan.request.Route})
+	invocation.RenderPreview(r, preview, plan.request.apply)
+	return nil
 }
 
 func renderSetupService(runtime invocation.Context, plan setupPlan) {

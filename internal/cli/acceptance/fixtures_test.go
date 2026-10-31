@@ -304,6 +304,29 @@ func executableName(name string) string {
 	return name
 }
 
+// blockRemoval makes removing path fail until the test ends: Windows refuses to
+// delete an open file, and POSIX refuses to unlink a file from a directory
+// without write permission, unless the process runs as root.
+func blockRemoval(t *testing.T, path string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		file, err := os.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = file.Close() })
+		return
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root removes files from a read-only directory")
+	}
+	directory := filepath.Dir(path)
+	if err := os.Chmod(directory, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(directory, 0o700) })
+}
+
 func saveCommandRoute(t *testing.T, app *cli.App, endpoints domain.Endpoints, client, model string) {
 	t.Helper()
 	cfg := domain.NewConfig(clients.Admission())

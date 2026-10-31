@@ -27,6 +27,41 @@ func (s Synchronizer) Setup(ctx context.Context, before, after domain.Config, to
 	if err := ctx.Err(); err != nil {
 		return domain.Config{}, err
 	}
+	after, err := s.admitSetupTransition(before, after, tokens, clients...)
+	if err != nil {
+		return domain.Config{}, err
+	}
+	rollback, err := secret.Replace(s.Secrets, tokens)
+	if err != nil {
+		return domain.Config{}, err
+	}
+	defer func() {
+		if resultErr == nil {
+			return
+		}
+		if rollbackErr := rollback(); rollbackErr != nil {
+			resultErr = fmt.Errorf("setup failed: %w; %w", resultErr, rollbackErr)
+			return
+		}
+		resultErr = fmt.Errorf("setup failed; credentials were rolled back: %w", resultErr)
+	}()
+	if len(clients) > 0 {
+		after, _, err = s.DesiredClientConfiguration(after, clients...)
+		if err != nil {
+			return domain.Config{}, err
+		}
+	}
+	if _, err := s.commit(ctx, before, after, "setup", len(clients) > 0, domain.ConnectionChange{}, clients...); err != nil {
+		return domain.Config{}, err
+	}
+	return after, nil
+}
+
+// admitSetupTransition admits first-time setup before any write: an
+// installation without Routes, a valid configuration, a configured Account
+// for each Token, and an admitted adapter with a selected Route for each
+// client, which it enables in the returned configuration.
+func (s Synchronizer) admitSetupTransition(before, after domain.Config, tokens map[string]string, clients ...string) (domain.Config, error) {
 	if err := s.AdmitSetup(before); err != nil {
 		return domain.Config{}, err
 	}
@@ -53,29 +88,6 @@ func (s Synchronizer) Setup(ctx context.Context, before, after domain.Config, to
 		return domain.Config{}, err
 	}
 	if err := s.validateRetryTransition(before, after, domain.ConnectionChange{}); err != nil {
-		return domain.Config{}, err
-	}
-	rollback, err := secret.Replace(s.Secrets, tokens)
-	if err != nil {
-		return domain.Config{}, err
-	}
-	defer func() {
-		if resultErr == nil {
-			return
-		}
-		if rollbackErr := rollback(); rollbackErr != nil {
-			resultErr = fmt.Errorf("setup failed: %w; %w", resultErr, rollbackErr)
-			return
-		}
-		resultErr = fmt.Errorf("setup failed; credentials were rolled back: %w", resultErr)
-	}()
-	if len(clients) > 0 {
-		after, _, err = s.DesiredClientConfiguration(after, clients...)
-		if err != nil {
-			return domain.Config{}, err
-		}
-	}
-	if _, err := s.commit(ctx, before, after, "setup", len(clients) > 0, domain.ConnectionChange{}, clients...); err != nil {
 		return domain.Config{}, err
 	}
 	return after, nil

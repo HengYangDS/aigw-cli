@@ -21,15 +21,29 @@ exitcode 1 aigw account rename missing other
 cmp stdout refusal.txt
 exitcode 1 aigw account rename missing other --json
 cmp stdout refusal.json
+snapshot $HOME rename-before.txt
 exec aigw account rename team crew --dry-run --json
 normalize stdout rename.out
 cmp rename.out rename.json
+snapshot $HOME rename-after.txt
+cmp rename-after.txt rename-before.txt
 
 exec aigw account edit team --anthropic-url $UPSTREAM --json
 normalize stdout edit.out
 cmp edit.out edit.json
 exitcode 1 aigw account edit missing --label 'Missing' --json
 cmp stdout edit-refusal.json
+
+# Previews of an edit write nothing below the private home.
+snapshot $HOME before.txt
+exec aigw account edit team --label 'Preview Gateway' --dry-run
+cmp stdout edit-preview.txt
+exec aigw account edit team --anthropic-url $UPSTREAM/v2 --dry-run --json
+normalize stdout edit-preview.out
+[!windows] cmp edit-preview.out edit-preview.json
+[windows] cmp edit-preview.out edit-preview-windows.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
 
 envsubst probe.in probe.toml
 exec aigw config import probe.toml
@@ -43,6 +57,55 @@ cmp stdout disabled.json
 exitcode 1 aigw account diagnostics disable missing --json
 cmp stdout disable-refusal.json
 
+-- edit-preview.txt --
+AIGW  Account edit preview
+────────────────────────────────────────
+  Account              team
+
+Projection targets
+  ✓ Projection         No client configuration needs changing
+  ✓ Preview did not write configuration, credentials or client files
+
+Next
+  Run the same command without --dry-run to apply this plan
+-- edit-preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "account": "team",
+  "label": "Renamed Gateway",
+  "endpoints": {
+    "anthropic": "$UPSTREAM/v2"
+  },
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME/.claude/settings.json",
+      "action": "project"
+    }
+  ],
+  "next_action": "aigw account edit team --anthropic-url $UPSTREAM/v2"
+}
+-- edit-preview-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "account": "team",
+  "label": "Renamed Gateway",
+  "endpoints": {
+    "anthropic": "$UPSTREAM/v2"
+  },
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME\\.claude\\settings.json",
+      "action": "project"
+    }
+  ],
+  "next_action": "aigw account edit team --anthropic-url $UPSTREAM/v2"
+}
 -- token.txt --
 sk-team-token-0001
 -- help.txt --

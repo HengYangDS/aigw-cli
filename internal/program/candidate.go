@@ -57,6 +57,9 @@ func (u Updater) UpdateCandidate(ctx context.Context, currentVersion string, can
 	if comparison < 0 {
 		return Transition{}, fmt.Errorf("refusing to replace %s with older verified local candidate v%s", currentVersion, version)
 	}
+	if err := refuseRollbackDirectory(RollbackPath(u.Executable)); err != nil {
+		return Transition{}, err
+	}
 	activated, err := u.installPortableArchive(ctx, archivePath, checksumPath, version)
 	if !activated {
 		return Transition{}, err

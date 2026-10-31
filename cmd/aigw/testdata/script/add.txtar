@@ -8,6 +8,25 @@ stdin token.txt
 exitcode 1 aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --for claude --token-stdin
 cmp stdout model.txt
 
+# Previews read no Token and write nothing below the private home.
+snapshot $HOME before.txt
+# A preview's client file and credential reader paths differ by platform.
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --dry-run
+stdout 'Account connection preview'
+stdout 'Token +Not read in a preview'
+stdout 'Credential entrypoint'
+stdout 'settings\.json +project'
+stdout 'Run the same command without --dry-run to apply this plan'
+exec aigw add team --anthropic-url $UPSTREAM --upstream-model team-model --for claude --dry-run --json
+normalize stdout preview.out '[0-9a-f]{64}'
+[darwin] cmp preview.out preview.json
+[linux] cmp preview.out preview-linux.json
+[windows] cmp preview.out preview-windows.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
+exitcode 1 aigw add team --anthropic-url $UPSTREAM --model team-model --upstream-model team-model --for claude
+cmp stdout spellings.txt
+
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
 cmp stdout connected.txt
@@ -25,6 +44,93 @@ cmp stdout second.json
 exitcode 1 aigw add third --anthropic-url $UPSTREAM --model third-model --for claude --json
 cmp stdout json-refusal.json
 
+-- preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "account": "team",
+  "route": "team",
+  "client": "claude",
+  "label": "team",
+  "model": "team-model",
+  "upstream_model": "team-model",
+  "token_stored": false,
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME/.claude/settings.json",
+      "action": "project"
+    }
+  ],
+  "credential_entrypoint": {
+    "path": "$HOME/Library/Application Support/aigw/credential/<varies>/aigw",
+    "action": "install"
+  },
+  "next_action": "aigw add team --anthropic-url $UPSTREAM --for claude --upstream-model team-model"
+}
+-- preview-linux.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "account": "team",
+  "route": "team",
+  "client": "claude",
+  "label": "team",
+  "model": "team-model",
+  "upstream_model": "team-model",
+  "token_stored": false,
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME/.claude/settings.json",
+      "action": "project"
+    }
+  ],
+  "credential_entrypoint": {
+    "path": "$HOME/aigw/credential/<varies>/aigw",
+    "action": "install"
+  },
+  "next_action": "aigw add team --anthropic-url $UPSTREAM --for claude --upstream-model team-model"
+}
+-- preview-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "account": "team",
+  "route": "team",
+  "client": "claude",
+  "label": "team",
+  "model": "team-model",
+  "upstream_model": "team-model",
+  "token_stored": false,
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME\\.claude\\settings.json",
+      "action": "project"
+    }
+  ],
+  "credential_entrypoint": {
+    "path": "$HOME\\aigw\\credential\\<varies>\\aigw.exe",
+    "action": "install"
+  },
+  "next_action": "aigw add team --anthropic-url $UPSTREAM --for claude --upstream-model team-model"
+}
+-- spellings.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  if any flags in the group [model upstream-model] are set none of the others can be; [model upstream-model] were all set; run `aigw add --help`
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw add --help
 -- token.txt --
 sk-team-token-0001
 -- help.txt --
@@ -36,20 +142,22 @@ Usage
   aigw add <account> [flags]
 
 Options
-      --anthropic-url string   Anthropic base URL
-      --for string             Client: claude, claude-desktop, codex, or hermes
-  -h, --help                   help for add
-      --json                   Write the connected Account and Route as JSON
-      --label string           Provider display name
-      --model string           Upstream model ID
-      --openai-url string      OpenAI Responses base URL
-      --token-stdin            Read one token line from standard input
+      --anthropic-url string    Anthropic base URL
+      --dry-run                 Show the Account, Route and Client Binding that would be added without reading a Token or writing anything
+      --for string              Client: claude, claude-desktop, codex, or hermes
+  -h, --help                    help for add
+      --json                    Write the connected Account and Route as JSON
+      --label string            Provider display name
+      --model string            Upstream model ID; --upstream-model is the same value
+      --openai-url string       OpenAI Responses base URL
+      --token-stdin             Read one token line from standard input
+      --upstream-model string   Exact provider model ID
 -- model.txt --
 AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  --for and --model are required; --for must be claude, claude-desktop, codex, or hermes; run `aigw add --help`
+  --for and --upstream-model are required; --for must be claude, claude-desktop, codex, or hermes; run `aigw add --help`
 
 Impact
   The command could not finish; inspect current state before retrying.

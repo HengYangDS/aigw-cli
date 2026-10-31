@@ -76,7 +76,7 @@ func TestUninstallWritesTheWithdrawnClientsAsJSON(t *testing.T) {
 			writeFile(t, app.Executable, []byte("program"), 0o700)
 			configureUninstallClients(t, app, filepath.Join(t.TempDir(), "config.toml"))
 			if incomplete {
-				writeFile(t, filepath.Join(program.RollbackPath(app.Executable), "foreign-child"), []byte("preserve"), 0o600)
+				blockRemoval(t, app.Executable)
 			}
 			out.Reset()
 			err := cli.Execute(app, []string{"uninstall", "--json"})

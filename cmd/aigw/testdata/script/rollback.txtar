@@ -9,6 +9,13 @@ cmp stdout empty.txt
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
 exec aigw route add spare --account team --model spare-model --protocol anthropic
+snapshot $HOME before.txt
+exec aigw rollback --last-change --dry-run
+cmp stdout preview.txt
+exec aigw rollback --dry-run --json
+cmp stdout preview.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
 exec aigw rollback --last-change
 cmp stdout restored.txt
 exec aigw route list --json
@@ -19,6 +26,27 @@ cmp stdout restored.json
 exitcode 1 aigw rollback extra --json
 cmp stdout json-refusal.json
 
+-- preview.txt --
+AIGW  Rollback preview
+────────────────────────────────────────
+
+Restore source
+  Configuration        Previous configuration
+
+Projection targets
+  ✓ Projection         No client configuration needs changing
+  ✓ Preview did not write configuration, credentials or client files
+
+Next
+  aigw rollback --last-change
+-- preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "source": "previous_backup",
+  "next_action": "aigw rollback"
+}
 -- token.txt --
 sk-team-token-0001
 -- help.txt --
@@ -33,6 +61,7 @@ Usage
   aigw rollback [flags]
 
 Options
+      --dry-run       Show the source and the client files that a rollback would restore without writing them
   -h, --help          help for rollback
       --json          Write the restore source as JSON
       --last-change   Restore only the immediately previous configuration backup

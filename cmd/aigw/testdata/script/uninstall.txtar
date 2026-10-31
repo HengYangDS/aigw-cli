@@ -19,6 +19,18 @@ normalize stdout absent-json.out
 [!windows] cmp absent-json.out absent.json
 [windows] cmp absent-json.out absent-windows.json
 
+# A preview names the files that it would remove and keeps them.
+exec aigw install --target $WORK/preview/aigw$exe
+snapshot $WORK/preview before.txt
+exec aigw uninstall --path $WORK/preview/aigw$exe --dry-run --json
+normalize stdout uninstall-preview.out
+[!windows] cmp uninstall-preview.out uninstall-preview.json
+[windows] cmp uninstall-preview.out uninstall-preview-windows.json
+snapshot $WORK/preview after.txt
+cmp after.txt before.txt
+
+exitcode 1 aigw uninstall --target $WORK/one/aigw$exe --path $WORK/two/aigw$exe
+cmp stdout spellings.txt
 exitcode 1 aigw uninstall --target $WORK
 normalize stdout refusal.out
 cmp refusal.out refusal.txt
@@ -26,6 +38,44 @@ exitcode 1 aigw uninstall --target $WORK --json
 normalize stdout json-refusal.out
 cmp json-refusal.out json-refusal.json
 
+-- uninstall-preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "path": "$WORK/preview/aigw",
+  "program_found": true,
+  "withdrawn_clients": [],
+  "removed": [
+    "$WORK/preview/aigw"
+  ],
+  "next_action": "aigw uninstall --path $WORK/preview/aigw"
+}
+-- uninstall-preview-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "path": "$WORK/preview/aigw.exe",
+  "program_found": true,
+  "withdrawn_clients": [],
+  "removed": [
+    "$WORK/preview/aigw.exe"
+  ],
+  "next_action": "aigw uninstall --path $WORK/preview/aigw.exe"
+}
+-- spellings.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  if any flags in the group [path target] are set none of the others can be; [path target] were all set; run `aigw uninstall --help`
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw uninstall --help
 -- help.txt --
 AIGW  aigw uninstall
 ────────────────────────────────────────
@@ -38,9 +88,11 @@ Usage
   aigw uninstall [flags]
 
 Options
+      --dry-run         Show the client files and program files that uninstalling would change or remove without changing them
   -h, --help            help for uninstall
       --json            Write the removal as JSON
-      --target string   installed executable path; defaults to the running executable
+      --path string     installed executable path; defaults to the running executable
+      --target string   installed executable path; --path is the same value
 -- removed.txt --
 AIGW  Portable uninstall
 ────────────────────────────────────────
@@ -52,16 +104,13 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  Portable program removal is incomplete
-
-Evidence
-  AIGW could not remove every selected portable program file.
+  portable AIGW file $WORK is a directory; name the program file
 
 Impact
-  No AIGW configuration existed; no managed client withdrawal was needed. Tokens and versioned credential readers are retained.
+  The command could not finish; inspect current state before retrying.
 
 Recommended action
-  Inspect the selected target and retained files; after resolving file access, retry `uninstall --target <path>` from another verified AIGW executable.
+  aigw check
 -- removed.json --
 {
   "schema_version": 1,
@@ -82,10 +131,9 @@ Recommended action
 {
   "schema_version": 1,
   "ok": false,
-  "error": "Portable program removal is incomplete",
-  "evidence": "AIGW could not remove every selected portable program file.",
-  "impact": "No AIGW configuration existed; no managed client withdrawal was needed. Tokens and versioned credential readers are retained.",
-  "next_action": "Inspect the selected target and retained files; after resolving file access, retry `uninstall --target \u003cpath\u003e` from another verified AIGW executable."
+  "error": "portable AIGW file $WORK is a directory; name the program file",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw check"
 }
 -- removed-windows.json --
 {

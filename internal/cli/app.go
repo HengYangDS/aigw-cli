@@ -191,12 +191,11 @@ func requiresConfigurationLock(app *App, command *cobra.Command) bool {
 	}
 	path := strings.TrimPrefix(command.CommandPath(), command.Root().Name()+" ")
 	switch path {
-	case "setup", "add", "rotate", "rollback", "uninstall", "update",
-		"account diagnostics enable", "account diagnostics disable", "account edit",
-		"route add", "route edit", "route remove",
-		"client enable", "client disable":
+	case "rotate", "account diagnostics enable", "account diagnostics disable":
 		return true
-	case "use", "sync", "repair", "account rename", "route rename", "config import", "config migrate":
+	case "setup", "add", "rollback", "uninstall", "update", "account edit",
+		"route add", "route edit", "route remove", "client enable", "client disable",
+		"use", "sync", "repair", "account rename", "route rename", "config import", "config migrate":
 		dryRun, err := command.Flags().GetBool("dry-run")
 		return err != nil || !dryRun
 	default:

@@ -4,6 +4,25 @@
 exec aigw setup --help
 cmp stdout help.txt
 
+# Previews read no Token and write nothing below the private home.
+snapshot $HOME before.txt
+# A preview's client file and credential reader paths differ by platform.
+exec aigw setup --account team --route team-route --anthropic-url $UPSTREAM --model team-model --for claude --dry-run
+stdout 'First-time setup preview'
+stdout 'API Token +Not read in a preview'
+stdout 'Credential entrypoint'
+stdout 'settings\.json +project'
+stdout 'aigw setup --account team --anthropic-url .* --for claude --upstream-model team-model --route team-route'
+exec aigw setup --account team --route team-route --anthropic-url $UPSTREAM --upstream-model team-model --for claude --dry-run --json
+normalize stdout preview-json.out '[0-9a-f]{64}'
+[darwin] cmp preview-json.out preview.json
+[linux] cmp preview-json.out preview-linux.json
+[windows] cmp preview-json.out preview-windows.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
+exitcode 1 aigw setup --account team --route team-route --anthropic-url $UPSTREAM --model team-model --upstream-model team-model --for claude
+cmp stdout spellings.txt
+
 stdin rejected.txt
 exitcode 1 aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
 cmp stdout refusal.txt
@@ -15,6 +34,11 @@ cmp stdout connected.txt
 mkdir $WORK/second
 env HOME=$WORK/second USERPROFILE=$WORK/second XDG_CONFIG_HOME=$WORK/second XDG_DATA_HOME=$WORK/second APPDATA=$WORK/second LOCALAPPDATA=$WORK/second
 envsubst manifest.in manifest.toml
+snapshot $HOME second-before.txt
+exec aigw setup --from manifest.toml --account spare --dry-run --json
+cmp stdout manifest-preview.json
+snapshot $HOME second-after.txt
+cmp second-after.txt second-before.txt
 stdin token.txt
 exec aigw setup --from manifest.toml --account spare --token-stdin --json
 cmp stdout manifest.json
@@ -30,6 +54,133 @@ cmp stdout flags.json
 exitcode 1 aigw setup --json
 cmp stdout flags-refusal.json
 
+-- preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "imported": {
+    "accounts": [
+      "team"
+    ],
+    "routes": [
+      "team-route"
+    ]
+  },
+  "connected_accounts": [],
+  "selected_bindings": {
+    "claude": "team-route"
+  },
+  "projected_clients": [],
+  "online_verification": "not_checked",
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME/.claude/settings.json",
+      "action": "project"
+    }
+  ],
+  "credential_entrypoint": {
+    "path": "$HOME/Library/Application Support/aigw/credential/<varies>/aigw",
+    "action": "install"
+  },
+  "next_action": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
+}
+-- preview-linux.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "imported": {
+    "accounts": [
+      "team"
+    ],
+    "routes": [
+      "team-route"
+    ]
+  },
+  "connected_accounts": [],
+  "selected_bindings": {
+    "claude": "team-route"
+  },
+  "projected_clients": [],
+  "online_verification": "not_checked",
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME/.claude/settings.json",
+      "action": "project"
+    }
+  ],
+  "credential_entrypoint": {
+    "path": "$HOME/aigw/credential/<varies>/aigw",
+    "action": "install"
+  },
+  "next_action": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
+}
+-- preview-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "imported": {
+    "accounts": [
+      "team"
+    ],
+    "routes": [
+      "team-route"
+    ]
+  },
+  "connected_accounts": [],
+  "selected_bindings": {
+    "claude": "team-route"
+  },
+  "projected_clients": [],
+  "online_verification": "not_checked",
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME\\.claude\\settings.json",
+      "action": "project"
+    }
+  ],
+  "credential_entrypoint": {
+    "path": "$HOME\\aigw\\credential\\<varies>\\aigw.exe",
+    "action": "install"
+  },
+  "next_action": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
+}
+-- manifest-preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "imported": {
+    "accounts": [
+      "spare"
+    ],
+    "routes": [
+      "spare-route"
+    ]
+  },
+  "connected_accounts": [],
+  "selected_bindings": {},
+  "projected_clients": [],
+  "online_verification": "not_checked",
+  "next_action": "aigw setup --account spare --from manifest.toml"
+}
+-- spellings.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  if any flags in the group [model upstream-model] are set none of the others can be; [model upstream-model] were all set; run `aigw setup --help`
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw setup --help
 -- rejected.txt --
 sk-rejected-token
 -- token.txt --
@@ -57,19 +208,21 @@ Usage
   aigw setup [flags]
 
 Options
-      --account string         Account ID; guided setup uses the first Route ID when omitted, --from connects only this Account
-      --anthropic-url string   Anthropic base URL
-      --chat-url string        OpenAI Chat Completions base URL
-      --for string             Client for the first route: claude, claude-desktop, codex, or hermes
-      --from string            Set up all routes from a token-free configuration manifest
-  -h, --help                   help for setup
-      --json                   Write the setup result as JSON
-      --label string           Provider display name
-      --model string           Upstream model ID for --for
-      --openai-url string      OpenAI Responses base URL
-      --protocol string        Endpoint protocol when more than one URL is configured
-      --route string           First route ID
-      --token-stdin            Read one token line from standard input
+      --account string          Account ID; guided setup uses the first Route ID when omitted, --from connects only this Account
+      --anthropic-url string    Anthropic base URL
+      --chat-url string         OpenAI Chat Completions base URL
+      --dry-run                 Show the Accounts, Routes and Client Bindings that setup would create without reading a Token or writing anything
+      --for string              Client for the first route: claude, claude-desktop, codex, or hermes
+      --from string             Set up all routes from a token-free configuration manifest
+  -h, --help                    help for setup
+      --json                    Write the setup result as JSON
+      --label string            Provider display name
+      --model string            Upstream model ID for --for; --upstream-model is the same value
+      --openai-url string       OpenAI Responses base URL
+      --protocol string         Endpoint protocol when more than one URL is configured
+      --route string            First route ID
+      --token-stdin             Read one token line from standard input
+      --upstream-model string   Exact provider model ID for --for
 -- refusal.txt --
 AIGW  Action required
 ────────────────────────────────────────

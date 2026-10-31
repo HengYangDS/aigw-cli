@@ -197,6 +197,11 @@ func (u Updater) updateFromResolvedPeers(ctx context.Context, releases []resolve
 	if comparison < 0 {
 		return Transition{}, fmt.Errorf("refusing to replace %s with older release %s", currentVersion, selected.Tag)
 	}
+	// The replaced program becomes the rollback copy, so a directory at its
+	// path stops the update before anything downloads.
+	if err := refuseRollbackDirectory(RollbackPath(u.Executable)); err != nil {
+		return Transition{}, err
+	}
 	asset := (artifact.Target{OS: u.GOOS, Arch: u.GOARCH}).ArchiveName(normalizeVersion(selected.Tag))
 	directory, err := os.MkdirTemp("", "aigw-update-")
 	if err != nil {

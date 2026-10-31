@@ -10,8 +10,11 @@ cmp stdout empty.json
 
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+snapshot $HOME before.txt
 exec aigw repair --dry-run --json
 cmp stdout preview.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
 exec aigw repair
 cmp stdout repaired.txt
 

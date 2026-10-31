@@ -19,7 +19,7 @@ import (
 // labels belong to the account command surface, not to route management.
 func newEditCommand(runtime invocation.Context) *cobra.Command {
 	var label, openAIURL, anthropicURL string
-	var jsonMode bool
+	var jsonMode, dryRun bool
 	cmd := &cobra.Command{
 		Use: "edit <account>", Short: "Update account metadata and protocol endpoints",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
@@ -54,22 +54,38 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 				providerAccount.Endpoints.Anthropic = strings.TrimRight(anthropicURL, "/")
 			}
 			cfg.Accounts[args[0]] = providerAccount
-			if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "account edit"); err != nil {
+			var preview invocation.Preview
+			next := "aigw check"
+			if dryRun {
+				if preview, err = invocation.PreviewChange(runtime, before, cfg); err != nil {
+					return err
+				}
+				next = invocation.ApplyCommand(cmd, args)
+			} else if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "account edit"); err != nil {
 				return err
 			}
 			if jsonMode {
-				return terminal.WriteDocument(runtime.Out, editSchemaVersion, true, editDocument{
-					Account: args[0], Label: providerAccount.Label, Endpoints: providerAccount.Endpoints, NextAction: "aigw check",
-				})
+				document := editDocument{
+					DryRun: dryRun, Account: args[0], Label: providerAccount.Label, Endpoints: providerAccount.Endpoints, Preview: preview,
+				}
+				document.NextAction, document.NextDetail = terminal.NextSteps(next)
+				return terminal.WriteDocument(runtime.Out, editSchemaVersion, true, document)
 			}
 			r := invocation.Renderer(runtime)
+			if dryRun {
+				r.ProductTitle("Account edit preview")
+				r.Rows(terminal.Field{Label: "Account", Value: args[0]})
+				invocation.RenderPreview(r, preview, next)
+				return nil
+			}
 			r.ProductTitle("Account updated")
 			r.Rows(terminal.Field{Label: "Account", Value: args[0]})
 			r.Success("Routes using this account now use the same endpoints; token was not changed")
-			r.Next("aigw check")
+			r.Next(next)
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the edited Account without writing it")
 	cmd.Flags().StringVar(&label, "label", "", "New display name")
 	cmd.Flags().StringVar(&openAIURL, "openai-url", "", "New OpenAI Responses URL")
 	cmd.Flags().StringVar(&anthropicURL, "anthropic-url", "", "New Anthropic URL")

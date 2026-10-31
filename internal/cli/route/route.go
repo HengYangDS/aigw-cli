@@ -22,7 +22,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func newAddCommand(runtime invocation.Context) *cobra.Command {
-	var jsonMode bool
+	var jsonMode, dryRun bool
 	var accountName, model, upstreamModel, label, purpose, protocolName string
 	cmd := &cobra.Command{
 		Use: "add <route>", Short: "Add a model route to an existing account",
@@ -69,21 +69,31 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 				Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Model: model, UpstreamModel: upstreamModel,
 				Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
-			if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "route add"); err != nil {
+			var preview invocation.Preview
+			next := "aigw use --for <client> " + routeName
+			if dryRun {
+				if preview, err = invocation.PreviewChange(runtime, before, cfg); err != nil {
+					return err
+				}
+				next = invocation.ApplyCommand(cmd, args)
+			} else if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "route add"); err != nil {
 				return err
 			}
-			next := "aigw use --for <client> " + routeName
 			if jsonMode {
 				added := cfg.Routes[routeName]
 				document := addDocument{
-					Route: routeName, Account: accountName, Label: label, Purpose: added.Purpose,
-					Model: model, UpstreamModel: added.UpstreamModelID(), Protocol: protocol,
+					DryRun: dryRun, Route: routeName, Account: accountName, Label: label, Purpose: added.Purpose,
+					Model: model, UpstreamModel: added.UpstreamModelID(), Protocol: protocol, Preview: preview,
 				}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)
 				return terminal.WriteDocument(runtime.Out, addSchemaVersion, true, document)
 			}
 			r := invocation.Renderer(runtime)
-			r.ProductTitle("Model route added")
+			if dryRun {
+				r.ProductTitle("Model route preview")
+			} else {
+				r.ProductTitle("Model route added")
+			}
 			rows := []terminal.Field{
 				{Label: "Route", Value: routeName},
 				{Label: "Account", Value: accountName},
@@ -96,11 +106,16 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 				rows = append(rows, terminal.Field{Label: "Purpose", Value: purpose})
 			}
 			r.Rows(rows...)
+			if dryRun {
+				invocation.RenderPreview(r, preview, next)
+				return nil
+			}
 			r.Success("Reused the existing Account; no client selection was changed")
 			r.Next(next)
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the Route that would be added without writing it")
 	cmd.Flags().StringVar(&accountName, "account", "", "Existing account ID")
 	cmd.Flags().StringVar(&model, "model", "", "Canonical Model ID; also used upstream unless --upstream-model is set")
 	cmd.Flags().StringVar(&upstreamModel, "upstream-model", "", "Exact provider model ID, including case or channel; defaults to --model")
@@ -243,7 +258,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 
 func newEditCommand(runtime invocation.Context) *cobra.Command {
 	var label, purpose string
-	var jsonMode bool
+	var jsonMode, dryRun bool
 	cmd := &cobra.Command{
 		Use: "edit <route>", Short: "Update route display metadata",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
@@ -272,22 +287,36 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 				route.Purpose = strings.TrimSpace(purpose)
 			}
 			cfg.Routes[args[0]] = route
-			if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "route"); err != nil {
+			var preview invocation.Preview
+			next := "aigw check"
+			if dryRun {
+				if preview, err = invocation.PreviewChange(runtime, before, cfg); err != nil {
+					return err
+				}
+				next = invocation.ApplyCommand(cmd, args)
+			} else if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "route"); err != nil {
 				return err
 			}
 			if jsonMode {
-				return terminal.WriteDocument(runtime.Out, editSchemaVersion, true, editDocument{
-					Route: args[0], Label: route.Label, Purpose: route.Purpose, NextAction: "aigw check",
-				})
+				document := editDocument{DryRun: dryRun, Route: args[0], Label: route.Label, Purpose: route.Purpose, Preview: preview}
+				document.NextAction, document.NextDetail = terminal.NextSteps(next)
+				return terminal.WriteDocument(runtime.Out, editSchemaVersion, true, document)
 			}
 			r := invocation.Renderer(runtime)
+			if dryRun {
+				r.ProductTitle("Route edit preview")
+				r.Rows(terminal.Field{Label: "Route", Value: args[0]})
+				invocation.RenderPreview(r, preview, next)
+				return nil
+			}
 			r.ProductTitle("Route updated")
 			r.Rows(terminal.Field{Label: "Route", Value: args[0]})
 			r.Success("Route metadata saved")
-			r.Next("aigw check")
+			r.Next(next)
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the edited Route without writing it")
 	cmd.Flags().StringVar(&label, "label", "", "New display name")
 	cmd.Flags().StringVar(&purpose, "purpose", "", "Purpose note (pass an empty value to clear)")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the edited Route as JSON")
@@ -296,7 +325,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func newRemoveCommand(runtime invocation.Context) *cobra.Command {
-	var jsonMode bool
+	var jsonMode, dryRun bool
 	cmd := &cobra.Command{
 		Use: "remove <route>", Short: "Remove an unused route",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
@@ -322,40 +351,75 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 			delete(cfg.Routes, name)
-			for client, recommendation := range cfg.Recommendations {
-				recommendation.Alternatives = slices.DeleteFunc(recommendation.Alternatives, func(selection domain.ClientSelection) bool {
-					return selection.Route == name
-				})
-				if recommendation.Primary.Route != name {
-					cfg.Recommendations[client] = recommendation
-					continue
+			recommendations := removeRecommendations(&cfg, name)
+			var preview invocation.Preview
+			if dryRun {
+				if preview, err = invocation.PreviewChange(runtime, before, cfg); err != nil {
+					return err
 				}
-				if len(recommendation.Alternatives) == 0 {
-					delete(cfg.Recommendations, client)
-					continue
-				}
-				recommendation.Primary = recommendation.Alternatives[0]
-				recommendation.Alternatives = recommendation.Alternatives[1:]
-				cfg.Recommendations[client] = recommendation
-			}
-			if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "route remove"); err != nil {
+			} else if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "route remove"); err != nil {
 				return err
 			}
 			if jsonMode {
-				return terminal.WriteDocument(runtime.Out, removeSchemaVersion, true, removeDocument{Route: name, Account: route.Account})
+				document := removeDocument{DryRun: dryRun, Route: name, Account: route.Account, Preview: preview}
+				if dryRun {
+					document.Recommendations = recommendations
+					document.NextAction, document.NextDetail = terminal.NextSteps(invocation.ApplyCommand(cmd, args))
+				}
+				return terminal.WriteDocument(runtime.Out, removeSchemaVersion, true, document)
 			}
 			r := invocation.Renderer(runtime)
+			rows := []terminal.Field{
+				{Label: "Route", Value: name},
+				{Label: "Account", Value: route.Account},
+			}
+			if dryRun {
+				if len(recommendations) > 0 {
+					rows = append(rows, terminal.Field{Label: "Recommendations", Value: clientLabels(runtime.Clients.Admission(), recommendations)})
+				}
+				r.ProductTitle("Route removal preview")
+				r.Rows(rows...)
+				invocation.RenderPreview(r, preview, invocation.ApplyCommand(cmd, args))
+				return nil
+			}
 			r.ProductTitle("Route removed")
-			r.Rows(
-				terminal.Field{Label: "Route", Value: name},
-				terminal.Field{Label: "Account", Value: route.Account},
-			)
+			r.Rows(rows...)
 			r.Success("The account and token remain in place")
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what removing the Route would change without writing it")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the removed Route as JSON")
 	return cmd
+}
+
+// removeRecommendations drops a removed Route from every client's
+// recommendation, promoting the first remaining alternative to primary, and
+// returns the clients whose recommendation changed.
+func removeRecommendations(cfg *domain.Config, name string) []string {
+	changed := []string{}
+	for client, recommendation := range cfg.Recommendations {
+		before := len(recommendation.Alternatives)
+		recommendation.Alternatives = slices.DeleteFunc(recommendation.Alternatives, func(selection domain.ClientSelection) bool {
+			return selection.Route == name
+		})
+		switch {
+		case recommendation.Primary.Route != name:
+			if len(recommendation.Alternatives) == before {
+				continue
+			}
+			cfg.Recommendations[client] = recommendation
+		case len(recommendation.Alternatives) == 0:
+			delete(cfg.Recommendations, client)
+		default:
+			recommendation.Primary = recommendation.Alternatives[0]
+			recommendation.Alternatives = recommendation.Alternatives[1:]
+			cfg.Recommendations[client] = recommendation
+		}
+		changed = append(changed, client)
+	}
+	slices.Sort(changed)
+	return changed
 }
 
 func choiceLabel(route domain.Route) string {

@@ -480,6 +480,9 @@ type fakeUpdater struct {
 	candidateErr      error
 	rollbackErr       error
 	candidateReceived program.CandidateArchive
+	previewCalls      int
+	previewResult     program.Transition
+	previewErr        error
 }
 
 func (u *fakeUpdater) Update(_ context.Context, _ string) (program.Transition, error) {

@@ -53,7 +53,8 @@ func TestEveryCommandHasItsPackageAndScript(t *testing.T) {
 			t.Errorf("command %q has no acceptance script: %v", name, err)
 			continue
 		}
-		for _, missing := range missingCases(name, jsonCommands(command), string(script)) {
+		missing := missingCases(name, commandsWithFlag(command, "json"), string(script))
+		for _, missing := range append(missing, missingPreviewCases(name, commandsWithFlag(command, "dry-run"), string(script))...) {
 			t.Errorf("the acceptance script of command %q lacks %s", name, missing)
 		}
 	}
@@ -259,13 +260,13 @@ func jsonCoverageProblems(root *cobra.Command, foreign []string) []string {
 	return problems
 }
 
-// jsonCommands returns the path below command of each runnable command
-// without subcommands that offers --json, command itself included.
-func jsonCommands(command *cobra.Command) [][]string {
+// commandsWithFlag returns the path below command of each runnable command
+// without subcommands that offers the flag, command itself included.
+func commandsWithFlag(command *cobra.Command, flag string) [][]string {
 	var paths [][]string
 	var visit func(*cobra.Command, []string)
 	visit = func(current *cobra.Command, path []string) {
-		if current.Runnable() && !current.HasSubCommands() && current.Flags().Lookup("json") != nil {
+		if current.Runnable() && !current.HasSubCommands() && current.Flags().Lookup(flag) != nil {
 			paths = append(paths, path)
 		}
 		for _, child := range current.Commands() {

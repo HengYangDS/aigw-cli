@@ -16,10 +16,14 @@ import (
 const schemaVersion = 1
 
 // rollbackDocument is `aigw rollback`'s JSON document: the source that the
-// configuration was restored from.
+// configuration was restored from. A preview names the source that it would
+// restore and what restoring would change beyond the configuration.
 type rollbackDocument struct {
-	Source     string `json:"source"`
-	NextAction string `json:"next_action"`
+	DryRun bool   `json:"dry_run,omitempty"`
+	Source string `json:"source"`
+	invocation.Preview
+	NextAction string `json:"next_action,omitempty"`
+	NextDetail string `json:"next_detail,omitempty"`
 }
 
 // rollbackFailureImpact reports the configuration outcome that a failed
@@ -33,7 +37,7 @@ func rollbackFailureImpact(err error) string {
 
 // NewCommand constructs the command that restores the last verified AIGW configuration checkpoint.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	var lastChange, jsonMode bool
+	var lastChange, jsonMode, dryRun bool
 	cmd := &cobra.Command{
 		Use:   "rollback",
 		Short: "Restore configuration and client projections, not the program",
@@ -77,6 +81,24 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 				source, sourceID = "Previous configuration", "previous_backup"
 			}
+			if dryRun {
+				preview, err := invocation.PreviewChange(runtime, current, restored)
+				if err != nil {
+					return err
+				}
+				apply := invocation.ApplyCommand(cmd, nil)
+				if jsonMode {
+					document := rollbackDocument{DryRun: true, Source: sourceID, Preview: preview}
+					document.NextAction, document.NextDetail = terminal.NextSteps(apply)
+					return terminal.WriteDocument(runtime.Out, schemaVersion, true, document)
+				}
+				r := invocation.Renderer(runtime)
+				r.ProductTitle("Rollback preview")
+				r.Section("Restore source")
+				r.Rows(terminal.Field{Label: "Configuration", Value: source})
+				invocation.RenderPreview(r, preview, apply)
+				return nil
+			}
 			if err := runtime.Synchronizer().Commit(cmd.Context(), current, restored, "rollback"); err != nil {
 				return invocation.Problem(
 					runtime,
@@ -99,6 +121,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the source and the client files that a rollback would restore without writing them")
 	cmd.Flags().BoolVar(&lastChange, "last-change", false, "Restore only the immediately previous configuration backup")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the restore source as JSON")
 	return cmd

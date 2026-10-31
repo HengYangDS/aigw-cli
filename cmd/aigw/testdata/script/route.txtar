@@ -20,9 +20,12 @@ exitcode 1 aigw route remove team
 cmp stdout refusal.txt
 exitcode 1 aigw route show missing --json
 cmp stdout missing.json
+snapshot $HOME rename-before.txt
 exec aigw route rename spare extra --dry-run --json
 normalize stdout rename.out
 cmp rename.out rename.json
+snapshot $HOME rename-after.txt
+cmp rename-after.txt rename-before.txt
 exitcode 1 aigw route rename missing other --json
 cmp stdout rename-refusal.json
 
@@ -39,6 +42,76 @@ cmp stdout removed.json
 exitcode 1 aigw route remove team --json
 cmp stdout selected.json
 
+# Previews of adding, editing and removing a Route write nothing below the
+# private home.
+snapshot $HOME before.txt
+exec aigw route add preview --account team --model preview-model --protocol anthropic --dry-run
+cmp stdout add-preview.txt
+exec aigw route add preview --account team --model preview-model --protocol anthropic --label 'Preview Route' --dry-run --json
+cmp stdout add-preview.json
+exec aigw route edit spare --purpose 'Spare capacity' --dry-run
+cmp stdout edit-preview.txt
+exec aigw route remove spare --dry-run --json
+cmp stdout remove-preview.json
+exitcode 1 aigw route remove team --dry-run --json
+cmp stdout remove-preview-refusal.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
+
+-- add-preview.txt --
+AIGW  Model route preview
+────────────────────────────────────────
+  Route                preview
+  Account              team
+  Model                preview-model
+
+Projection targets
+  ✓ Projection         No client configuration needs changing
+  ✓ Preview did not write configuration, credentials or client files
+
+Next
+  aigw route add preview --account team --model preview-model --protocol anthropic
+-- add-preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "route": "preview",
+  "account": "team",
+  "label": "Preview Route",
+  "model": "preview-model",
+  "upstream_model": "preview-model",
+  "protocol": "anthropic",
+  "next_detail": "Run the same command without --dry-run to apply this plan"
+}
+-- edit-preview.txt --
+AIGW  Route edit preview
+────────────────────────────────────────
+  Route                spare
+
+Projection targets
+  ✓ Projection         No client configuration needs changing
+  ✓ Preview did not write configuration, credentials or client files
+
+Next
+  Run the same command without --dry-run to apply this plan
+-- remove-preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "route": "spare",
+  "account": "team",
+  "next_action": "aigw route remove spare"
+}
+-- remove-preview-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Route \"team\" is selected for claude; first run `aigw use --for claude \u003cother-route\u003e`",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw use --for claude \u003cother-route\u003e"
+}
 -- token.txt --
 sk-team-token-0001
 -- help.txt --

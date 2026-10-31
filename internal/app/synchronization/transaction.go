@@ -26,18 +26,22 @@ func (s Synchronizer) CommitProjection(ctx context.Context, before, after domain
 	return err
 }
 
+// validateTransition refuses a configuration that cannot be saved before the
+// guards that assume a valid one, and before anything is written.
+func (s Synchronizer) validateTransition(before, after domain.Config, connection domain.ConnectionChange) error {
+	candidate := after.Clone()
+	candidate.Normalize()
+	if err := candidate.Validate(); err != nil {
+		return fmt.Errorf("refuse invalid config: %w", err)
+	}
+	return s.validateRetryTransition(before, after, connection)
+}
+
 func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, subject string, reconcileProjection bool, connection domain.ConnectionChange, clientIDs ...string) (bool, error) {
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
-	// A configuration that cannot be saved is refused before the guards that
-	// assume a valid one, and before anything is written.
-	candidate := after.Clone()
-	candidate.Normalize()
-	if err := candidate.Validate(); err != nil {
-		return false, fmt.Errorf("refuse invalid config: %w", err)
-	}
-	if err := s.validateRetryTransition(before, after, connection); err != nil {
+	if err := s.validateTransition(before, after, connection); err != nil {
 		return false, err
 	}
 	configBefore, err := s.Config.CaptureSnapshot()

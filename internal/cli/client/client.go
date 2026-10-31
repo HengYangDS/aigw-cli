@@ -59,7 +59,7 @@ func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	var executable string
 	var targets []string
-	var jsonMode bool
+	var jsonMode, dryRun bool
 	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client projection", ValidArgs: runtime.Clients.Admission().IDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument(runtime.Clients.Admission()), func(_ *cobra.Command, args []string) error {
 		if strings.TrimSpace(executable) == "" {
 			return fmt.Errorf("--executable is required; run `aigw client discover`")
@@ -85,35 +85,20 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if current.Enabled && (current.Executable != "" || len(current.Targets) > 0) {
 			return fmt.Errorf("%s client projection is already enabled; disable it before changing the executable or config targets", spec.Label)
 		}
-		clientRuntime, err := cfg.ResolveRuntime(client, "")
-		if err != nil {
+		if err := admitEnablement(runtime, cfg, client, targets); err != nil {
 			return err
-		}
-		if clientRuntime.UsesAIGWCredentialStore() {
-			available, err := runtime.Secrets.Exists(clientRuntime.AccountID)
-			if err != nil {
-				return fmt.Errorf("Cannot inspect Account %q credential: %w", clientRuntime.AccountID, err)
-			}
-			if !available {
-				instruction, _ := secret.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
-				return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.AccountID, instruction)
-			}
-		}
-		if runtime.Clients.ValidatesTargets(client) {
-			discovered, err := runtime.Discover()
-			if err != nil {
-				return err
-			}
-			for _, target := range targets {
-				if err := runtime.Clients.ValidateTarget(client, discovered, target); err != nil {
-					return err
-				}
-			}
 		}
 		if len(targets) == 0 {
 			targets = current.Targets
 		}
 		cfg.SetClientActivation(client, true, executable, targets)
+		if dryRun {
+			preview, err := invocation.PreviewChange(runtime, before, cfg)
+			if err != nil {
+				return fmt.Errorf("Client enablement preview could not finish: %w", err)
+			}
+			return writeProjectionPreview(runtime, enableSchemaVersion, jsonMode, spec, "enabled", preview, invocation.ApplyCommand(cmd, args))
+		}
 		if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
 			return fmt.Errorf("Client enablement could not finish: %w", err)
 		}
@@ -124,10 +109,43 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		renderEnabled(invocation.Renderer(runtime), spec)
 		return nil
 	}}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the client files that enabling would change without writing them")
 	cmd.Flags().StringVar(&executable, "executable", "", "Path to the real client executable")
 	cmd.Flags().StringSliceVar(&targets, "target", nil, targetHelp(runtime.Clients.Admission()))
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the enabled projection as JSON")
 	return cmd
+}
+
+// admitEnablement refuses to enable a client whose Account has no Token, or
+// with a configuration target that the client does not accept.
+func admitEnablement(runtime invocation.Context, cfg domain.Config, client string, targets []string) error {
+	clientRuntime, err := cfg.ResolveRuntime(client, "")
+	if err != nil {
+		return err
+	}
+	if clientRuntime.UsesAIGWCredentialStore() {
+		available, err := runtime.Secrets.Exists(clientRuntime.AccountID)
+		if err != nil {
+			return fmt.Errorf("Cannot inspect Account %q credential: %w", clientRuntime.AccountID, err)
+		}
+		if !available {
+			instruction, _ := secret.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
+			return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.AccountID, instruction)
+		}
+	}
+	if !runtime.Clients.ValidatesTargets(client) {
+		return nil
+	}
+	discovered, err := runtime.Discover()
+	if err != nil {
+		return err
+	}
+	for _, target := range targets {
+		if err := runtime.Clients.ValidateTarget(client, discovered, target); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // targetHelp explains the target option with each client's repeated-target usage.
@@ -142,7 +160,7 @@ func targetHelp(admission domain.Admission) string {
 }
 
 func newDisableCommand(runtime invocation.Context) *cobra.Command {
-	var jsonMode bool
+	var jsonMode, dryRun bool
 	cmd := &cobra.Command{Use: "disable <client>", Short: "Disable a client and remove AIGW-owned projections", ValidArgs: runtime.Clients.Admission().IDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument(runtime.Clients.Admission())), RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
 		spec, _ := runtime.Clients.Admission().Spec(client)
@@ -154,7 +172,9 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		binding, ok := cfg.Clients[client]
 		if !ok || !binding.Enabled {
 			if jsonMode {
-				return terminal.WriteDocument(runtime.Out, disableSchemaVersion, true, newProjectionDocument(client, "already_disabled", false, ""))
+				document := newProjectionDocument(client, "already_disabled", false, "")
+				document.DryRun = dryRun
+				return terminal.WriteDocument(runtime.Out, disableSchemaVersion, true, document)
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Client projections")
@@ -169,6 +189,13 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		binding.Enabled = false
 		cfg.Clients[client] = binding
 
+		if dryRun {
+			preview, err := invocation.PreviewProjection(runtime, before, cfg, client)
+			if err != nil {
+				return err
+			}
+			return writeProjectionPreview(runtime, disableSchemaVersion, jsonMode, spec, "disabled", preview, invocation.ApplyCommand(cmd, args))
+		}
 		if err := runtime.Synchronizer().CommitProjection(cmd.Context(), before, cfg, "client disable", client); err != nil {
 			return err
 		}
@@ -179,8 +206,24 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		renderDisabled(invocation.Renderer(runtime), spec)
 		return nil
 	}}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the client files that disabling would change without writing them")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the disabled projection as JSON")
 	return cmd
+}
+
+// writeProjectionPreview reports the projection state that enabling or
+// disabling a client would reach and the client files it would change.
+func writeProjectionPreview(runtime invocation.Context, version int, jsonMode bool, spec domain.ClientSpec, state string, preview invocation.Preview, apply string) error {
+	if jsonMode {
+		document := newProjectionDocument(spec.ID, state, spec.RestartAfterProjection, apply)
+		document.DryRun, document.Preview = true, preview
+		return terminal.WriteDocument(runtime.Out, version, true, document)
+	}
+	r := invocation.Renderer(runtime)
+	r.ProductTitle("Client projection preview")
+	r.Rows(terminal.Field{Label: "Client", Value: spec.Label}, terminal.Field{Label: "Planned state", Value: strings.ReplaceAll(state, "_", " ")})
+	invocation.RenderPreview(r, preview, apply)
+	return nil
 }
 
 func renderEnabled(r *terminal.Renderer, spec domain.ClientSpec) {

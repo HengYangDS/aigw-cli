@@ -18,6 +18,33 @@ normalize stdout installed-json.out
 [windows] cmp installed-json.out installed-windows.json
 exists $WORK/json/aigw$exe
 
+# Previews write neither the program nor its directory.
+exec aigw install --target $WORK/preview/aigw$exe --dry-run --json
+normalize stdout install-preview.out
+[!windows] cmp install-preview.out install-preview.json
+[windows] cmp install-preview.out install-preview-windows.json
+! exists $WORK/preview
+snapshot $WORK/bin bin-before.txt
+exec aigw install --path $WORK/bin/aigw$exe --dry-run
+normalize stdout unchanged-preview.out
+[!windows] cmp unchanged-preview.out unchanged-preview.txt
+[windows] cmp unchanged-preview.out unchanged-preview-windows.txt
+snapshot $WORK/bin bin-after.txt
+cmp bin-after.txt bin-before.txt
+exitcode 1 aigw install --target $WORK/one/aigw$exe --path $WORK/two/aigw$exe
+cmp stdout spellings.txt
+
+# A preview over another program names the rollback copy and writes neither.
+mkdir $WORK/other
+cp old-program.txt $WORK/other/aigw$exe
+snapshot $WORK/other other-before.txt
+exec aigw install --path $WORK/other/aigw$exe --dry-run --json
+normalize stdout replace-preview.out
+[!windows] cmp replace-preview.out replace-preview.json
+[windows] cmp replace-preview.out replace-preview-windows.json
+snapshot $WORK/other other-after.txt
+cmp other-after.txt other-before.txt
+
 exitcode 1 aigw install --target $WORK
 [!windows] normalize stdout refusal.out
 [windows] normalize stdout refusal.out '\([a-z]+: [^)]*\)'
@@ -29,6 +56,74 @@ exitcode 1 aigw install --target $WORK --json
 [!windows] cmp json-refusal.out json-refusal.json
 [windows] cmp json-refusal.out json-refusal-windows.json
 
+-- install-preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "path": "$WORK/preview/aigw",
+  "version": "0.1.0-dev",
+  "next_detail": "Run the same command with this same program, without --dry-run, to apply this plan; `aigw` on PATH may be another program."
+}
+-- install-preview-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "path": "$WORK/preview/aigw.exe",
+  "version": "0.1.0-dev",
+  "next_detail": "Run the same command with this same program, without --dry-run, to apply this plan; `aigw` on PATH may be another program."
+}
+-- unchanged-preview.txt --
+AIGW  Portable installation preview
+────────────────────────────────────────
+  Program file         $WORK/bin/aigw
+  Version              0.1.0-dev
+  ✓ Installed          Already this program; installing again only makes it executable
+  ✓ Preview did not write the program, a rollback copy or a directory
+  PATH is unchanged. Use the installed path directly, or add its directory to PATH before running `aigw setup`.
+-- unchanged-preview-windows.txt --
+AIGW  Portable installation preview
+────────────────────────────────────────
+  Program file         $WORK/bin/aigw.exe
+  Version              0.1.0-dev
+  ✓ Installed          Already this program; installing again only makes it executable
+  ✓ Preview did not write the program, a rollback copy or a directory
+  PATH is unchanged. Use the installed path directly, or add its directory to PATH before running `aigw setup`.
+-- spellings.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  if any flags in the group [path target] are set none of the others can be; [path target] were all set; run `aigw install --help`
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw install --help
+-- replace-preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "path": "$WORK/other/aigw",
+  "version": "0.1.0-dev",
+  "rollback": "$WORK/other/.aigw.previous",
+  "next_detail": "Run the same command with this same program, without --dry-run, to apply this plan; `aigw` on PATH may be another program."
+}
+-- replace-preview-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "path": "$WORK/other/aigw.exe",
+  "version": "0.1.0-dev",
+  "rollback": "$WORK/other/.aigw.previous.exe",
+  "next_detail": "Run the same command with this same program, without --dry-run, to apply this plan; `aigw` on PATH may be another program."
+}
+-- old-program.txt --
+another program
 -- help.txt --
 AIGW  aigw install
 ────────────────────────────────────────
@@ -38,9 +133,11 @@ Usage
   aigw install [flags]
 
 Options
+      --dry-run         Show the program file and rollback copy that installing would write without writing them
   -h, --help            help for install
       --json            Write the installed path as JSON
-      --target string   destination executable path (default "$HOME/.local/bin/aigw")
+      --path string     destination executable path (default "$HOME/.local/bin/aigw")
+      --target string   destination executable path; --path is the same value (default "$HOME/.local/bin/aigw")
 -- installed.txt --
 AIGW  Portable installation
 ────────────────────────────────────────
@@ -70,9 +167,11 @@ Usage
   aigw install [flags]
 
 Options
+      --dry-run         Show the program file and rollback copy that installing would write without writing them
   -h, --help            help for install
       --json            Write the installed path as JSON
-      --target string   destination executable path (default "$HOME\\Programs\\aigw\\bin\\aigw.exe")
+      --path string     destination executable path (default "$HOME\\Programs\\aigw\\bin\\aigw.exe")
+      --target string   destination executable path; --path is the same value (default "$HOME\\Programs\\aigw\\bin\\aigw.exe")
 -- installed-windows.txt --
 AIGW  Portable installation
 ────────────────────────────────────────

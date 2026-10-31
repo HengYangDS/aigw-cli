@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"golang.org/x/crypto/ssh"
@@ -282,6 +283,38 @@ func TestUpdateOwnsDownloadWorkspace(t *testing.T) {
 				t.Fatalf("update workspace cleanup left %v: %v", entries, err)
 			}
 		})
+	}
+}
+
+// TestUpdateRefusesARollbackDirectoryBeforeDownloading shows that a release
+// update and a candidate update both refuse a directory at the rollback
+// copy's path before they download or read anything.
+func TestUpdateRefusesARollbackDirectoryBeforeDownloading(t *testing.T) {
+	executable := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(executable, []byte("current"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(RollbackPath(executable), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+	u := Updater{GOOS: "darwin", GOARCH: "arm64", Executable: executable, HTTPClient: server.Client()}
+	releases := []resolvedRelease{{Source: ReleaseSource{Provider: ReleaseProviderGitHub, Origin: server.URL, Repository: "team/product"}, Tag: "v1.0.0"}}
+	if _, err := u.updateFromResolvedPeers(t.Context(), releases, "0.1.0"); err == nil || !strings.Contains(err.Error(), "rollback copy path") {
+		t.Fatalf("update error = %v", err)
+	}
+	if got := requests.Load(); got != 0 {
+		t.Fatalf("update sent %d requests before refusing", got)
+	}
+	directory := t.TempDir()
+	candidate := CandidateArchive{ArchivePath: filepath.Join(directory, "aigw_1.0.0_darwin_arm64.tar.gz"), ChecksumsPath: filepath.Join(directory, "checksums.txt")}
+	if _, err := u.UpdateCandidate(t.Context(), "0.1.0", candidate); err == nil || !strings.Contains(err.Error(), "rollback copy path") {
+		t.Fatalf("candidate update error = %v", err)
 	}
 }
 

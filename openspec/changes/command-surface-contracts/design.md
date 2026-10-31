@@ -183,6 +183,35 @@ free of credential reads.
 credential store from secret input, so they gain no preview. `test
 --token-stdin` already checks a Token without storing it.
 
+A preview that stage 3 adds continues with its application: `next_action`
+repeats the command without `--dry-run` or `--json`, in each flag's current
+spelling, or `next_detail` says so in prose when a word would need quoting in
+the platform's shells. A preview with nothing to apply continues as its
+command otherwise would. An install or update preview that would write the
+program continues in prose, because only the previewed program writes itself
+while `aigw` on PATH may be another, and an uninstall preview's command names
+its target. These commands write `dry_run` only in a preview; stage 4's documents
+settle the field for every command. Their configuration previews also report
+the credential reader that applying them would install, as the `sync` and
+`repair` previews already do.
+
+`setup --dry-run` and `add --dry-run` plan the selected clients' projections
+as if the new Accounts' Tokens were stored, and ask the credential store only
+whether other Accounts' Tokens exist. `setup --from --dry-run` assumes that
+the Accounts it would try connect, and `add --dry-run` refuses a read-only
+credential store, as `add` does. `update --dry-run` reads each release
+source's latest release without a token, falls back to the newest prerelease
+as an update does, and skips a source that serves no anonymous metadata. It
+excludes `--rollback`, because only running the retained program reveals its
+version, and a candidate preview reads the archive's name alone. A directory
+at the program's path or at its rollback copy's path stops `uninstall` and
+its preview before any client is withdrawn, and one at the rollback copy's
+path stops `install`, `update` and their previews when they would keep a
+replaced program there, before an update downloads anything. `verify` records its checkpoint as evidence of what it checked, not as
+a configuration change, so it gains no preview. Each acceptance script that
+previews records the files that a preview could change with `snapshot` before
+and after it and compares them.
+
 ### Exit status follows the outcome
 
 A command exits 0 when it succeeds and 1 when it fails or refuses, with or

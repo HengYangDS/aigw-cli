@@ -92,9 +92,9 @@ func TestSetupRejectsInvalidFlagCombinationsAndValues(t *testing.T) {
 		{name: "invalid route", args: []string{"setup", "--route", "bad id", "--account", "one"}, want: "Invalid route ID"},
 		{name: "model without client", args: []string{"setup", "--route", "one", "--model", "m"}, want: "--for is required"},
 		{name: "claude endpoint", args: []string{"setup", "--route", "one", "--for", "claude", "--model", "m"}, want: "requires --anthropic-url"},
-		{name: "claude model", args: []string{"setup", "--route", "one", "--for", "claude", "--anthropic-url", "https://one.test"}, want: "requires --model"},
+		{name: "claude model", args: []string{"setup", "--route", "one", "--for", "claude", "--anthropic-url", "https://one.test"}, want: "requires --upstream-model"},
 		{name: "codex endpoint", args: []string{"setup", "--route", "one", "--for", "codex", "--model", "m"}, want: "requires --openai-url"},
-		{name: "codex model", args: []string{"setup", "--route", "one", "--for", "codex", "--openai-url", "https://one.test/v1"}, want: "requires --model"},
+		{name: "codex model", args: []string{"setup", "--route", "one", "--for", "codex", "--openai-url", "https://one.test/v1"}, want: "requires --upstream-model"},
 		{name: "unknown client", args: []string{"setup", "--route", "one", "--for", "other"}, want: "--for must be"},
 		{name: "invalid unused endpoint", args: []string{"setup", "--route", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--openai-url", "http://remote.test/v1"}, want: "plain HTTP is allowed only"},
 	}

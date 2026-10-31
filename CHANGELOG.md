@@ -33,9 +33,26 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   a secret then comes only from its standard-input flag, such as
   `--token-stdin`. `completion`, `config export` and `credential` write
   another program's format and refuse `--json`.
+- `--dry-run` now covers every command that writes configuration, client
+  files or the program: `setup`, `add`, `route add`, `route edit`,
+  `route remove`, `account edit`, `client enable` and `disable`, `rollback`,
+  `install`, `update` and `uninstall`. A preview writes nothing, reports what
+  applying it would change, and says how to apply it. It reports the
+  configuration, the client files and the credential reader, or the program
+  file, its version and its rollback copy. The `setup` and `add` previews
+  neither read nor check a Token, and `update --dry-run` reads only public
+  release metadata.
+- `--upstream-model` now spells the `--model` of `setup` and `add`, and
+  `--path` the `--target` of `install` and `uninstall`. Both spellings work,
+  and a command that receives both refuses.
 
 ### Changed
 
+- `uninstall` refuses a directory at its program's path or at the program's
+  rollback copy path before it withdraws any client. It used to withdraw the
+  clients first, and then remove an empty directory or fail on any other.
+  `update` refuses a directory at the rollback copy path before it downloads
+  a release, where it used to fail after downloading and verifying it.
 - Human output spells "catalog" everywhere, as the `aigw catalog` command
   does. For example, `aigw setup` reports "Configuration catalog imported"
   after importing a team manifest. JSON fields and commands do not change.

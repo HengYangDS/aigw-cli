@@ -10,6 +10,11 @@ normalize stdout path.out
 [windows] cmp path.out path-windows.txt
 
 envsubst manifest.in manifest.toml
+snapshot $HOME before.txt
+exec aigw config import manifest.toml --dry-run --json
+cmp stdout import-preview.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
 exec aigw config import manifest.toml --json
 cmp stdout imported.json
 exec aigw config export
@@ -20,9 +25,12 @@ exitcode 1 aigw config import broken.toml
 cmp stdout refusal.txt
 exitcode 1 aigw config import broken.toml --json
 cmp stdout refusal.json
+snapshot $HOME migrate-before.txt
 exec aigw config migrate --dry-run --json
 normalize stdout migrate.out
 cmp migrate.out migrate.json
+snapshot $HOME migrate-after.txt
+cmp migrate-after.txt migrate-before.txt
 exitcode 1 aigw config migrate extra --json
 cmp stdout migrate-refusal.json
 
@@ -34,6 +42,15 @@ normalize stdout path-json.out
 exitcode 1 aigw config path extra --json
 cmp stdout path-refusal.json
 
+-- import-preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "imported_accounts": 1,
+  "imported_routes": 1,
+  "next_action": "Review the preview, then rerun without --dry-run"
+}
 -- manifest.in --
 version = 7
 [accounts.team]

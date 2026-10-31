@@ -1,6 +1,9 @@
 package account
 
-import "aigw-cli/internal/domain"
+import (
+	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/domain"
+)
 
 // listSchemaVersion and the other constants are the versions of the account
 // subcommands' JSON documents.
@@ -13,10 +16,13 @@ const (
 // editDocument is `aigw account edit`'s JSON document: the Account's
 // metadata after the edit.
 type editDocument struct {
-	Account    string           `json:"account"`
-	Label      string           `json:"label"`
-	Endpoints  domain.Endpoints `json:"endpoints"`
-	NextAction string           `json:"next_action"`
+	DryRun    bool             `json:"dry_run,omitempty"`
+	Account   string           `json:"account"`
+	Label     string           `json:"label"`
+	Endpoints domain.Endpoints `json:"endpoints"`
+	invocation.Preview
+	NextAction string `json:"next_action,omitempty"`
+	NextDetail string `json:"next_detail,omitempty"`
 }
 
 // diagnosticsDocument is the JSON document of `aigw account diagnostics

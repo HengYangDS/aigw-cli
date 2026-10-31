@@ -17,7 +17,52 @@ exec aigw update
 cmp stdout current.txt
 exec aigw update --json
 cmp stdout current.json
+snapshot $BIN before.txt
+exec aigw update --dry-run --json
+normalize stdout preview.out
+[!windows] cmp preview.out preview.json
+[windows] cmp preview.out preview-windows.json
+snapshot $BIN after.txt
+cmp after.txt before.txt
+exitcode 1 aigw update --dry-run --rollback
+cmp stdout rollback-preview.txt
 
+-- preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "state": "current",
+  "version": "0.1.0-dev",
+  "summary": "v0.1.0-dev is already the current version",
+  "next_action": "aigw sync",
+  "current_version": "0.1.0-dev",
+  "path": "$BIN/aigw"
+}
+-- preview-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "state": "current",
+  "version": "0.1.0-dev",
+  "summary": "v0.1.0-dev is already the current version",
+  "next_action": "aigw sync",
+  "current_version": "0.1.0-dev",
+  "path": "$BIN\\aigw.exe"
+}
+-- rollback-preview.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  if any flags in the group [dry-run rollback] are set none of the others can be; [dry-run rollback] were all set; run `aigw update --help`
+
+Impact
+  The command could not finish; inspect current state before retrying.
+
+Recommended action
+  aigw update --help
 -- help.txt --
 AIGW  aigw update
 ────────────────────────────────────────
@@ -35,6 +80,7 @@ Usage
 Options
       --candidate string   Install one local portable archive without network access
       --checksums string   Checksum manifest for --candidate
+      --dry-run            Show the version that an update would install, from public release metadata or the --candidate archive's name, without downloading or writing anything
   -h, --help               help for update
       --json               Write the program transition as JSON
       --rollback           Roll back the portable AIGW program to the previous version offline

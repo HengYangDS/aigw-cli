@@ -7,6 +7,14 @@ stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
 exec aigw route add spare --account team --model spare-model --protocol anthropic
 
+snapshot $HOME before.txt
+exec aigw use --for claude spare --dry-run --json
+normalize stdout preview.out
+[!windows] cmp preview.out preview.json
+[windows] cmp preview.out preview-windows.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
+
 exec aigw use --for claude spare --json
 normalize stdout spare.out
 cmp spare.out spare.json
@@ -19,6 +27,60 @@ cmp stdout refusal.txt
 exitcode 1 aigw use --for claude missing --json
 cmp stdout refusal.json
 
+-- preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "changed": false,
+  "projection_changed": false,
+  "route_id": "spare",
+  "route_label": "spare",
+  "account_id": "team",
+  "account_label": "Team Gateway",
+  "client": "claude",
+  "endpoint": "$UPSTREAM",
+  "upstream_endpoint": "$UPSTREAM",
+  "protocol": "anthropic",
+  "model": "spare-model",
+  "canonical_model_id": "spare-model",
+  "model_provider": "",
+  "authentication": "account-token",
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME/.claude/settings.json",
+      "action": "project"
+    }
+  ]
+}
+-- preview-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "changed": false,
+  "projection_changed": false,
+  "route_id": "spare",
+  "route_label": "spare",
+  "account_id": "team",
+  "account_label": "Team Gateway",
+  "client": "claude",
+  "endpoint": "$UPSTREAM",
+  "upstream_endpoint": "$UPSTREAM",
+  "protocol": "anthropic",
+  "model": "spare-model",
+  "canonical_model_id": "spare-model",
+  "model_provider": "",
+  "authentication": "account-token",
+  "targets": [
+    {
+      "client": "claude",
+      "target": "$HOME\\.claude\\settings.json",
+      "action": "project"
+    }
+  ]
+}
 -- token.txt --
 sk-team-token-0001
 -- help.txt --

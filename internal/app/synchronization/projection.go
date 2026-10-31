@@ -8,13 +8,6 @@ import (
 // Plan returns side-effect-free changes for credential-ready clients,
 // including target removals. Known-missing Tokens leave projections untouched.
 func (s Synchronizer) Plan(before, after domain.Config, clients ...string) ([]adapter.ProjectionPlan, error) {
-	projectable, err := s.credentialReadyClients(after, clients...)
-	if err != nil || len(projectable) == 0 {
-		return nil, err
-	}
-	dependencies, err := s.clientDependencies(projectable, before, after)
-	if err != nil {
-		return nil, err
-	}
-	return s.registry().Plan(dependencies, before, after, projectable...)
+	projection, err := project(s, before, after, clients...)
+	return projection.Targets, err
 }

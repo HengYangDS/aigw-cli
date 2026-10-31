@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -199,6 +200,63 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 				t.Fatalf("removal changed unrelated account, credential or client state: %v", err)
 			}
 		})
+	}
+}
+
+// TestRemovePreviewNamesTheRecommendationsThatItChanges removes a Route that a
+// client recommends as an alternative: the preview names that client and
+// writes nothing, and the removal keeps the client's first choice and writes
+// its document without them.
+func TestRemovePreviewNamesTheRecommendationsThatItChanges(t *testing.T) {
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
+	for _, name := range []string{"first", "spare"} {
+		cfg.Routes[name] = domain.Route{
+			Label: name, Account: "team", Model: name + "-model",
+			Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+		}
+	}
+	first := domain.ClientSelection{Route: "first", Protocol: domain.ProtocolAnthropic}
+	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{
+		Primary: first, Alternatives: []domain.ClientSelection{{Route: "spare", Protocol: domain.ProtocolAnthropic}},
+	}
+	if err := configStore.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(configStore.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := &bytes.Buffer{}
+	command := newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: out, RenderOut: &bytes.Buffer{}})
+	command.SetArgs([]string{"spare", "--dry-run", "--json"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		DryRun          bool     `json:"dry_run"`
+		Recommendations []string `json:"recommendations"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &document); err != nil || !document.DryRun || !slices.Equal(document.Recommendations, []string{claude.ID}) {
+		t.Fatalf("removal preview = %s, %v", out.String(), err)
+	}
+	if after, err := os.ReadFile(configStore.Path()); err != nil || !bytes.Equal(after, before) {
+		t.Fatalf("removal preview changed the configuration: %v", err)
+	}
+	out.Reset()
+	command = newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: out, RenderOut: &bytes.Buffer{}})
+	command.SetArgs([]string{"spare", "--json"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	// Only a preview names the changed recommendations.
+	if strings.Contains(out.String(), "recommendations") {
+		t.Fatalf("removal document = %s", out.String())
+	}
+	after, err := configStore.Load()
+	if err != nil || !reflect.DeepEqual(after.Recommendations[claude.ID], domain.ClientRecommendation{Primary: first}) {
+		t.Fatalf("removal recommendation state = %#v, %v", after.Recommendations, err)
 	}
 }
 

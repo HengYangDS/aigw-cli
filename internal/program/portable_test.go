@@ -150,14 +150,16 @@ func TestInstallAndUninstallReportOwnedFileFailures(t *testing.T) {
 	if err := os.WriteFile(target, []byte("previous"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir(RollbackPath(target), 0o700); err != nil {
-		t.Fatal(err)
+	original := writeFileAtomic
+	writeFileAtomic = func(path string, data []byte, mode os.FileMode) error {
+		if path == RollbackPath(target) {
+			return errors.New("backup failed")
+		}
+		return original(path, data, mode)
 	}
+	t.Cleanup(func() { writeFileAtomic = original })
 	if err := Install(source, target); err == nil || !strings.Contains(err.Error(), "save previous") {
 		t.Fatalf("blocked backup = %v", err)
-	}
-	if err := os.RemoveAll(RollbackPath(target)); err != nil {
-		t.Fatal(err)
 	}
 	if err := os.Mkdir(target, 0o700); err == nil {
 		t.Fatal("target file unexpectedly replaced by directory")
@@ -169,8 +171,45 @@ func TestInstallAndUninstallReportOwnedFileFailures(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(uninstallTarget, "child"), []byte("foreign"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := Uninstall(uninstallTarget); err == nil || !strings.Contains(err.Error(), "remove portable") {
-		t.Fatalf("non-empty owned path = %v", err)
+	if err := Uninstall(uninstallTarget); err == nil || !strings.Contains(err.Error(), "is a directory; name the program file") {
+		t.Fatalf("directory target = %v", err)
+	}
+}
+
+func TestPlansAndChangesRefuseARollbackDirectoryAlike(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	target := filepath.Join(root, "aigw")
+	foreign := filepath.Join(RollbackPath(target), "foreign")
+	for path, content := range map[string]string{source: "current", target: "previous", foreign: "preserve"} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, change := range map[string]func() error{
+		"install plan":   func() error { _, err := PlanInstall(source, target); return err },
+		"install":        func() error { return Install(source, target) },
+		"uninstall plan": func() error { _, err := PlanUninstall(target); return err },
+		"uninstall":      func() error { return Uninstall(target) },
+	} {
+		if err := change(); err == nil || !strings.Contains(err.Error(), "rollback copy path "+RollbackPath(target)+" is a directory") {
+			t.Fatalf("%s = %v", name, err)
+		}
+	}
+	for path, want := range map[string]string{target: "previous", foreign: "preserve"} {
+		if got, err := os.ReadFile(path); err != nil || string(got) != want {
+			t.Fatalf("%s = %q, %v; want %q", path, got, err, want)
+		}
+	}
+	// A fresh install keeps no rollback copy, so the directory is no obstacle.
+	if err := os.Remove(target); err != nil {
+		t.Fatal(err)
+	}
+	if err := Install(source, target); err != nil {
+		t.Fatal(err)
 	}
 }
 

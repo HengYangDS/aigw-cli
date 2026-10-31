@@ -1,9 +1,12 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
+	"io/fs"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -63,6 +66,7 @@ func TestScripts(t *testing.T) {
 			"envsubst":     envsubst,
 			"exitcode":     exitCode,
 			"normalize":    normalize,
+			"snapshot":     snapshot,
 		},
 	})
 }
@@ -75,6 +79,48 @@ func envsubst(ts *testscript.TestScript, neg bool, args []string) {
 	}
 	text := os.Expand(ts.ReadFile(args[0]), ts.Getenv)
 	if err := os.WriteFile(ts.MkAbs(args[1]), []byte(text), 0o600); err != nil {
+		ts.Fatalf("%v", err)
+	}
+}
+
+// snapshot writes one line for each entry below a directory: its
+// slash-separated path, its mode, and for a regular file the SHA-256 of its
+// content. Comparing two snapshots with cmp shows whether a command changed,
+// added or removed anything below the directory, such as the private home
+// that holds the configuration, the credential store and client files.
+func snapshot(ts *testscript.TestScript, neg bool, args []string) {
+	if neg || len(args) != 2 {
+		ts.Fatalf("usage: snapshot <directory> <target>")
+	}
+	root := ts.MkAbs(args[0])
+	var lines strings.Builder
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || path == root {
+			return err
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(&lines, "%s %s", filepath.ToSlash(relative), info.Mode())
+		if entry.Type().IsRegular() {
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(&lines, " %x", sha256.Sum256(content))
+		}
+		lines.WriteString("\n")
+		return nil
+	})
+	if err != nil {
+		ts.Fatalf("%v", err)
+	}
+	if err := os.WriteFile(ts.MkAbs(args[1]), []byte(lines.String()), 0o600); err != nil {
 		ts.Fatalf("%v", err)
 	}
 }
