@@ -73,8 +73,8 @@ They answer different questions; none substitutes for all the others.
   layout, extension and release.
 - **Guides:** [Team rollout](guides/team-rollout.md) covers configuration
   distribution, member setup, release artifacts and updates.
-- **Operations:** [Forge operations](operations/forge-operations.md) explains
-  independent GitLab and GitHub publication.
+- **Operations:** [Operations](operations/README.md) covers independent GitLab
+  and GitHub publication and real-client acceptance.
 - **Research:** [Research](research/README.md) separates comparisons and
   dated provider evidence from adopted decisions.
 - **History and legal:** [Changelog](../CHANGELOG.md) records releases;
