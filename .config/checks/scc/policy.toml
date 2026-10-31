@@ -1,9 +1,9 @@
 # SCC code lines include code with inline comments, but not comment-only or
 # blank lines. Product, tools, tests and platform variants share this budget.
 # Review cohesive declarations before splitting; preserve behavior and clarity.
-max_code_lines = 512
+max_code_lines = 500
 
 # A main specification is ETHOS's document unit, and SCC counts a Markdown
 # file's non-blank lines as code. A Change's delta stands in for the main
 # specification that it rewrites until the Change archives.
-max_specification_lines = 512
+max_specification_lines = 500
