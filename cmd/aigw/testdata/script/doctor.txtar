@@ -21,6 +21,9 @@ cmp connected.out connected.txt
 [!darwin] cp broken.toml $HOME/aigw/config.toml
 exitcode 1 aigw doctor --json
 cmp stdout broken.json
+exitcode 1 aigw doctor
+normalize stdout broken.out
+cmp broken.out broken.txt
 
 -- token.txt --
 sk-team-token-0001
@@ -249,3 +252,14 @@ version = 7
   "enabled_clients": 0,
   "next_action": "Inspect or restore the local configuration file"
 }
+-- broken.txt --
+AIGW  Detailed diagnostics
+────────────────────────────────────────
+
+Checks
+  ✓ Client token environment  No global client token environment variables detected
+  ✗ Local configuration       Cannot read or validate configuration: stopped at the configuration parse stage at line 2, column 15
+                              Fix: Inspect or restore the local configuration file
+
+Next
+  Inspect or restore the local configuration file

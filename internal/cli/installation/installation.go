@@ -10,11 +10,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// installationDocument adds ok to the program's versioned installation
-// document, which carries its own schema_version.
+// installationDocument heads the program's versioned installation document
+// with schema_version and ok, as every command's document starts. Its
+// schema_version is the program's, and it shadows the embedded one.
 type installationDocument struct {
+	SchemaVersion int  `json:"schema_version"`
+	OK            bool `json:"ok"`
 	program.Installation
-	OK bool `json:"ok"`
 }
 
 // NewCommand constructs read-only observation of the running installation.
@@ -30,7 +32,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if jsonMode {
-				return terminal.WriteJSON(runtime.Out, installationDocument{Installation: result, OK: true})
+				return terminal.WriteJSON(runtime.Out, installationDocument{SchemaVersion: result.SchemaVersion, OK: true, Installation: result})
 			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Portable installation")

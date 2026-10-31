@@ -21,8 +21,8 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   `check` and `doctor` keep their readiness verdict as `ok`. When the
   configuration cannot be loaded, the failure names its `stage`, such as
   `configuration_parse`, and a parse failure's `line` and `column`; `check`
-  and `doctor` report the same fields. Every other field keeps its name and
-  value.
+  and `doctor` report the same fields, and `doctor` names the stage in text
+  as the other commands do. Every other field keeps its name and value.
 
 ### Changed
 

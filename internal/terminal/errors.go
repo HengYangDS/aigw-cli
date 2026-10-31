@@ -174,7 +174,7 @@ func fileErrorReason(err error) string {
 const failureSchemaVersion = 1
 
 // failureDocument is the JSON failure of a command that could not produce its
-// own document. Only it carries error.
+// own document.
 type failureDocument struct {
 	documentHeader
 	Problem

@@ -1,8 +1,8 @@
 ## 1. Stage 1 — Contract fields
 
 - [ ] 1.1 Add `terminal.WriteDocument`, which heads a document with `schema_version` and `ok`, and give the failure envelope `schema_version` 1 and `ok: false`, plus `stage`, and `line` and `column` for a parse failure, when loading the configuration failed. A test decodes the envelope for each load phase and for an unrelated error, which has no `stage`.
-- [ ] 1.2 Head the 16 existing JSON documents with `schema_version` 1 and `ok`: `status`, `check`, `doctor`, `use`, `sync`, `repair`, `setup --from`, `config import`, `config migrate`, `account list`, `account rename`, `route rename`, `route list`, `route show`, `catalog` and `installation`, which keeps its own `schema_version`. `ok` is true for a completed command and keeps its readiness meaning in `check` and `doctor`. The acceptance scripts' expected JSON gains only these fields.
-- [ ] 1.3 Make `check` and `doctor` name an unreadable configuration's stage and position in JSON, as `status` and the human output do; an acceptance script covers a parse failure for each of the three, and each exits 1.
+- [ ] 1.2 Head the 16 existing JSON documents with `schema_version` 1 and `ok`: `status`, `check`, `doctor`, `use`, `sync`, `repair`, `setup --from`, `config import`, `config migrate`, `account list`, `account rename`, `route rename`, `route list`, `route show`, `catalog` and `installation`, whose `schema_version` is the program's. `ok` is true for a completed command and keeps its readiness meaning in `check` and `doctor`. The acceptance scripts' expected JSON gains only these fields.
+- [ ] 1.3 Make `check` and `doctor` name an unreadable configuration's stage and position in JSON, as `status` does, and `doctor` in text as well; an acceptance script covers a parse failure for each of the three, and each exits 1.
 - [ ] 1.4 Make `cmd/aigw/commands_test.go` refuse a command script whose expected JSON document lacks an integer `schema_version` or a boolean `ok`; a test shows each refusal.
 - [ ] 1.5 Record the two fields and the failure `stage` in CHANGELOG's `[Unreleased]` section.
 - [ ] 1.6 Run the local quality graph at the stage head.
@@ -35,7 +35,7 @@
 
 Precondition: the product owner approves the converged contract in `design.md`.
 
-- [ ] 4.1 Raise the 16 documents of task 1.2 to `schema_version` 2: references named after their type, `use`'s `model` and `upstream_model`, `selections`, one `projections` list, arrays instead of null, and snake_case values apart from configuration echoes. The acceptance scripts use a canonical Model that differs from its upstream ID.
+- [ ] 4.1 Raise the 16 documents of task 1.2 to `schema_version` 2: references named after their type, `use`'s `model` and `upstream_model`, `selections`, one `projections` list, check's `problem` instead of `error`, arrays instead of null, and snake_case values apart from configuration echoes. The acceptance scripts use a canonical Model that differs from its upstream ID.
 - [ ] 4.2 Make `next_action` a complete runnable command or absent, with `next_detail` for a placeholder or prose, in every document, the failure envelope and the human Next section; doctor's `fix` becomes `next_action`. The contract test refuses a `next_action` that is not an `aigw` command or holds a placeholder.
 - [ ] 4.3 Hide `setup --model`, `add --model`, `install --target` and `uninstall --target`, and warn on standard error with each replacement.
 - [ ] 4.4 Make `test` without `--for` cover only the enabled clients; an acceptance script shows that a disabled client's endpoint is not probed.

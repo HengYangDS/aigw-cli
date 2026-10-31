@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"fmt"
 	"strings"
 
 	"aigw-cli/internal/domain"
@@ -91,6 +92,9 @@ func checkDetail(admission domain.Admission, check checkResult) string {
 		if detail == "not configured" {
 			return "First-time setup is incomplete"
 		}
+		if check.Stage != "" {
+			return "Cannot read or validate configuration: " + configurationStage(check)
+		}
 		return "Cannot read or validate configuration"
 	case name == "credential:backend":
 		return "Credential storage is unavailable"
@@ -144,4 +148,15 @@ func doctorTitle(value string) string {
 		return ""
 	}
 	return strings.ToUpper(value[:1]) + value[1:]
+}
+
+// configurationStage names the configuration step at which the check stopped
+// and, for a parse failure, the position, as the configuration failure of
+// every other command does.
+func configurationStage(check checkResult) string {
+	text := "stopped at the configuration " + strings.TrimPrefix(check.Stage, "configuration_") + " stage"
+	if check.Line > 0 {
+		text += fmt.Sprintf(" at line %d, column %d", check.Line, check.Column)
+	}
+	return text
 }

@@ -116,7 +116,8 @@ writes nothing. The rules:
   upstream ID today, becomes `upstream_model`, and its `canonical_model_id`
   becomes `model`, as in `route list`. Setup's `selected_bindings` becomes
   `selections`, and sync's `targets` and repair's `projections` become one
-  `projections` list of `{client, surface, target, action}`.
+  `projections` list of `{client, surface, target, action}`. check's `error`
+  becomes `problem`, so that `error` marks only the failure envelope.
 - A `target` is home-relative, `~/…`, as doctor reports it today. A target
   outside the home directory is omitted.
 - Lists are `[]`, never `null`. States and kinds are snake_case. A value that

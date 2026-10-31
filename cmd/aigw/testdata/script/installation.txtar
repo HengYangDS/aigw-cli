@@ -50,6 +50,7 @@ Recommended action
 -- installation.json --
 {
   "schema_version": 1,
+  "ok": true,
   "version": "0.1.0-dev",
   "command_path": "$BIN/aigw",
   "payload": {
@@ -57,12 +58,12 @@ Recommended action
     "sha256": "<varies>",
     "size_bytes": <varies>
   },
-  "rollback": null,
-  "ok": true
+  "rollback": null
 }
 -- installation-windows.json --
 {
   "schema_version": 1,
+  "ok": true,
   "version": "0.1.0-dev",
   "command_path": "$BIN\\aigw.exe",
   "payload": {
@@ -70,6 +71,5 @@ Recommended action
     "sha256": "<varies>",
     "size_bytes": <varies>
   },
-  "rollback": null,
-  "ok": true
+  "rollback": null
 }
