@@ -28,9 +28,9 @@
 - [x] 3.3 Add `--dry-run` to `install`, `update` and `uninstall`. `update --dry-run` reads only public release metadata, and a test shows that it downloads no archive and changes no file or Keychain item.
 - [x] 3.4 Add `--upstream-model` beside `--model` to `setup` and `add`, and `--path` beside `--target` to `install` and `uninstall`. Both spellings bind one value, help shows the new spelling, and a test refuses both spellings together.
 - [x] 3.5 Make `cmd/aigw/commands_test.go` refuse a command that offers `--dry-run` without a successful preview in its acceptance script, and a script that previews without a `snapshot` comparison of the files that a preview could change; every existing preview's script compares snapshots.
-- [ ] 3.6 Run the local quality graph at the stage head.
-- [ ] 3.7 Prove the stage head with the full ETHOS proof.
-- [ ] 3.8 Confirm the hosted three-platform graph and the real-client journeys pass at the stage head.
+- [x] 3.6 Run the local quality graph at the stage head.
+- [x] 3.7 Prove the stage head with the full ETHOS proof.
+- [x] 3.8 Confirm the hosted three-platform graph and the real-client journeys pass at the stage head.
 
 ## 4. Stage 4 — Convergence
 
