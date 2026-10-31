@@ -73,7 +73,9 @@ func TestSourceSizeMeasuresSpecificationsOutsideTransition(t *testing.T) {
 	// An ignored delta is not repository content and exempts nothing.
 	writeRepositoryFile(t, root, ".gitignore", "openspec/changes/ignored/\n")
 	writeRepositoryFile(t, root, "openspec/changes/ignored/specs/long/spec.md", "## MODIFIED Requirements\n")
-	if err := check(); err == nil || !strings.Contains(err.Error(), mainSpecification) || strings.Contains(err.Error(), "archive") || strings.Contains(err.Error(), "source.go") {
+	// The archive's own path, since the repository root may sit below a directory named like it.
+	archive := filepath.Join("openspec", "changes", "archive")
+	if err := check(); err == nil || !strings.Contains(err.Error(), mainSpecification) || strings.Contains(err.Error(), archive) || strings.Contains(err.Error(), "source.go") {
 		t.Fatalf("the gate did not measure each file against its own budget: %v", err)
 	}
 	writeRepositoryFile(t, root, "openspec/changes/active/specs/long/spec.md", "## ADDED Requirements\n\n### Requirement: More\n\nText.\n")
