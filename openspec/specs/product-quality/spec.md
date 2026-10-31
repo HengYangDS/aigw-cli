@@ -430,6 +430,15 @@ comparison semantics, review condition, and remediation path.
 - **AND** it SHALL reclaim its temporary coverage profile without reporting
   successful aggregate acceptance.
 
+#### Scenario: The governing framework tightens a shared size limit
+
+- **WHEN** ETHOS, which governs this repository, lowers a per-file size limit
+  that the repository's own gate also enforces
+- **THEN** the repository's limit SHALL follow it in the same change, so that no
+  file passes one gate and fails the other
+- **AND** each file above the new limit SHALL give up a whole concern to a file
+  named after it rather than being compressed.
+
 ### Requirement: Warnings are owned failures
 
 Repository-owned source and configuration warnings SHALL block qualification
