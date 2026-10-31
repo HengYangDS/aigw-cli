@@ -348,18 +348,18 @@ _graphOrder: {
 	}
 }
 
-miseImage:                        "docker.io/jdxcode/mise:2026.10.22-debian@sha256:d54a295f3df1d041e289e7643655ff771df15ce74eece5c62ef72b41c9d9a132"
+miseImage:                        "docker.io/jdxcode/mise:2026.10.24-debian@sha256:a884cf3fced76edd72e2c25d0b173cd22ab24cda099a49f85a9088369748cc01"
 miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
-miseWindowsArm64ExecutableSHA256: "6024bc1aaf5b0bb3206572f91a530f907cbbfa81f7313423d2af1778971eaa6a"
-miseWindowsArm64ShimSHA256:       "4dd22a62c218ac92d2e7c205cd38c34d52dd7ccbc51e7c5fa060802dbb6610dd"
+miseWindowsArm64ExecutableSHA256: "e36d270dc000e6c73ec3af7d1c4be7429b0084226518ec3f35971972c648cd9e"
+miseWindowsArm64ShimSHA256:       "2cec20e93835ccc9b1b4714c32fe9673cb90c8a4258d7c01a0cba54e6126df4a"
 windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 
 // Official native clients for real-client acceptance, pinned once. Each GitHub
 // native job installs the clients its host declares; a GitLab public input
 // carries the reviewed Windows supplier archive built from the same releases.
 nativeClients: {
-	codex:  "0.164.0"
-	claude: "2.1.310"
+	codex:  "0.165.0"
+	claude: "2.1.312"
 	// Hermes v0.22.5 and the SHA-256 of that release's scripts/install.sh.
 	hermes: {
 		commit:    "bf0203a794a07aac3ff764972ab9087baa4e4f4e"

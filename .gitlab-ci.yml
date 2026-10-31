@@ -310,17 +310,17 @@ native-windows:
       $env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
       $mise = Join-Path $env:ProgramFiles 'mise\bin\mise.exe'
       if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
-      if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne '6024bc1aaf5b0bb3206572f91a530f907cbbfa81f7313423d2af1778971eaa6a') { throw 'Runner-owned Mise digest differs from the admitted release.' }
+      if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne 'e36d270dc000e6c73ec3af7d1c4be7429b0084226518ec3f35971972c648cd9e') { throw 'Runner-owned Mise digest differs from the admitted release.' }
       $reported = & $mise --version
       if ($LASTEXITCODE -ne 0) { throw 'Runner-owned Mise failed to start under the job identity.' }
-      if ($reported -notmatch ('^' + [regex]::Escape('2026.10.22') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
+      if ($reported -notmatch ('^' + [regex]::Escape('2026.10.24') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
       & whoami.exe /user
       if ($LASTEXITCODE -ne 0) { throw 'Runner identity could not be observed.' }
       $shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'
       if (-not (Test-Path -LiteralPath $shim -PathType Leaf)) { throw 'Runner-owned Mise shim is missing.' }
       try { $shimHash = (Get-FileHash -LiteralPath $shim -Algorithm SHA256 -ErrorAction Stop).Hash }
       catch { & icacls.exe $shim; throw "Runner-owned Mise shim cannot be read (error=$($_.FullyQualifiedErrorId), hresult=$($_.Exception.HResult))." }
-      if ($shimHash -ne '4dd22a62c218ac92d2e7c205cd38c34d52dd7ccbc51e7c5fa060802dbb6610dd') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
+      if ($shimHash -ne '2cec20e93835ccc9b1b4714c32fe9673cb90c8a4258d7c01a0cba54e6126df4a') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
       $env:PATH = (Split-Path -Parent $mise) + [IO.Path]::PathSeparator + $env:PATH
       if ($env:AIGW_TOOL_SOURCE -and $env:AIGW_TOOL_SOURCE -notin @('upstream', 'peer')) { throw 'AIGW_TOOL_SOURCE must be upstream or peer.' }
       if ($env:AIGW_TOOL_SOURCE -eq 'peer') {
@@ -435,7 +435,7 @@ native-windows:
   stage: verify
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
-    AIGW_NATIVE_CLIENT_SUPPLIER: suppliers/windows-codex-0.164.0-claude-2.1.310-native-packages.tar.gz
+    AIGW_NATIVE_CLIENT_SUPPLIER: suppliers/windows-codex-0.165.0-claude-2.1.312-native-packages.tar.gz
     GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:
@@ -463,17 +463,17 @@ native-windows-review:
       $env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
       $mise = Join-Path $env:ProgramFiles 'mise\bin\mise.exe'
       if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
-      if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne '6024bc1aaf5b0bb3206572f91a530f907cbbfa81f7313423d2af1778971eaa6a') { throw 'Runner-owned Mise digest differs from the admitted release.' }
+      if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne 'e36d270dc000e6c73ec3af7d1c4be7429b0084226518ec3f35971972c648cd9e') { throw 'Runner-owned Mise digest differs from the admitted release.' }
       $reported = & $mise --version
       if ($LASTEXITCODE -ne 0) { throw 'Runner-owned Mise failed to start under the job identity.' }
-      if ($reported -notmatch ('^' + [regex]::Escape('2026.10.22') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
+      if ($reported -notmatch ('^' + [regex]::Escape('2026.10.24') + '(\s|$)')) { throw 'Runner-owned Mise version differs from the admitted release.' }
       & whoami.exe /user
       if ($LASTEXITCODE -ne 0) { throw 'Runner identity could not be observed.' }
       $shim = Join-Path (Split-Path -Parent $mise) 'mise-shim.exe'
       if (-not (Test-Path -LiteralPath $shim -PathType Leaf)) { throw 'Runner-owned Mise shim is missing.' }
       try { $shimHash = (Get-FileHash -LiteralPath $shim -Algorithm SHA256 -ErrorAction Stop).Hash }
       catch { & icacls.exe $shim; throw "Runner-owned Mise shim cannot be read (error=$($_.FullyQualifiedErrorId), hresult=$($_.Exception.HResult))." }
-      if ($shimHash -ne '4dd22a62c218ac92d2e7c205cd38c34d52dd7ccbc51e7c5fa060802dbb6610dd') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
+      if ($shimHash -ne '2cec20e93835ccc9b1b4714c32fe9673cb90c8a4258d7c01a0cba54e6126df4a') { throw 'Runner-owned Mise shim digest differs from the admitted release.' }
       $env:PATH = (Split-Path -Parent $mise) + [IO.Path]::PathSeparator + $env:PATH
       if ($env:AIGW_TOOL_SOURCE -and $env:AIGW_TOOL_SOURCE -notin @('upstream', 'peer')) { throw 'AIGW_TOOL_SOURCE must be upstream or peer.' }
       if ($env:AIGW_TOOL_SOURCE -eq 'peer') {
@@ -575,7 +575,7 @@ native-windows-review:
   stage: verify
   variables:
     AIGW_VERIFY_SYSTEM_KEYRING: "1"
-    AIGW_NATIVE_CLIENT_SUPPLIER: suppliers/windows-codex-0.164.0-claude-2.1.310-native-packages.tar.gz
+    AIGW_NATIVE_CLIENT_SUPPLIER: suppliers/windows-codex-0.165.0-claude-2.1.312-native-packages.tar.gz
     GLAB_NO_PROMPT: "1"
     MISE_ENABLE_TOOLS: go,node,npm,cue,github:boyter/scc,github:editorconfig-checker/editorconfig-checker,github:gitleaks/gitleaks,github:golangci/golangci-lint,github:goreleaser/goreleaser,github:google/osv-scanner,github:rhysd/actionlint,github:sharkdp/hyperfine,shellcheck,taplo,typos,github:lycheeverse/lychee,github:anchore/syft,gh,glab
   artifacts:
@@ -628,7 +628,7 @@ stages:
   - verify
   - release
 .linux-toolchain:
-  image: docker.io/jdxcode/mise:2026.10.22-debian@sha256:d54a295f3df1d041e289e7643655ff771df15ce74eece5c62ef72b41c9d9a132
+  image: docker.io/jdxcode/mise:2026.10.24-debian@sha256:a884cf3fced76edd72e2c25d0b173cd22ab24cda099a49f85a9088369748cc01
   variables:
     AIGW_MISE_DATA_ROOT: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE
     MISE_DATA_DIR: $CI_PROJECT_DIR/build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE
@@ -638,7 +638,7 @@ stages:
       files:
         - .config/mise/config.toml
         - .config/mise/mise.lock
-      prefix: mise-linux-d54a295f3df1d041e289e7643655ff771df15ce74eece5c62ef72b41c9d9a132-build-runtime-tool-cache-.mise-$AIGW_TOOL_SOURCE-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME
+      prefix: mise-linux-a884cf3fced76edd72e2c25d0b173cd22ab24cda099a49f85a9088369748cc01-build-runtime-tool-cache-.mise-$AIGW_TOOL_SOURCE-installs-cache-$CI_RUNNER_ID-$CI_JOB_NAME
     paths:
       - build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE/installs/
       - build/runtime/tool-cache/.mise/$AIGW_TOOL_SOURCE/cache/

@@ -1,4 +1,4 @@
-min_version = "2026.10.22"
+min_version = "2026.10.24"
 
 [settings]
 legacy_version_file = false
@@ -25,7 +25,7 @@ NPM_CONFIG_GLOBALCONFIG = "{% if os() == 'windows' %}NUL{% else %}/dev/null{% en
 NPM_CONFIG_CACHE = "{{ config_root }}/build/runtime/tool-cache/npm{% if env.CI_JOB_ID | default(value='') != '' %}/{{ env.CI_JOB_ID }}{% endif %}"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.192.2@sha256:37960a62ba1faa9079a7c4eead9b3f4470748a64ecd207e06c09fd8858673e17"
+renovate_image = "ghcr.io/renovatebot/renovate:44.198.3@sha256:bf344aa39d5b592ec728e1db5c3e1d940a5093a89a4598073efcb18d592d121c"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.
