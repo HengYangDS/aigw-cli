@@ -120,6 +120,18 @@ func TestPreviewFollowsTheUpdateRules(t *testing.T) {
 			t.Fatalf("preview error = %v", err)
 		}
 	})
+	t.Run("malformed metadata", func(t *testing.T) {
+		server, _ := previewServer(t, map[string]string{"/repos/team/aigw/releases/latest": `{`})
+		if _, err := previewUpdater(t, server, false).Preview(context.Background(), "0.2.0"); err == nil || !strings.Contains(err.Error(), "public release metadata failed") {
+			t.Fatalf("preview error = %v", err)
+		}
+	})
+}
+
+// TestPreviewRefusesWhatTheUpdateRefuses shows that a preview refuses where
+// the update would: disagreeing sources, empty tags, no reachable source, an
+// unreadable current version and a directory at the rollback copy's path.
+func TestPreviewRefusesWhatTheUpdateRefuses(t *testing.T) {
 	t.Run("rollback directory", func(t *testing.T) {
 		server, _ := previewServer(t, map[string]string{"/repos/team/aigw/releases/latest": `{"tag_name":"v0.3.0"}`})
 		updater := previewUpdater(t, server, false)
@@ -171,12 +183,6 @@ func TestPreviewFollowsTheUpdateRules(t *testing.T) {
 		server, _ := previewServer(t, map[string]string{"/repos/team/aigw/releases/latest": `{"tag_name":"v0.3.0"}`})
 		if _, err := previewUpdater(t, server, false).Preview(context.Background(), "not-a-version"); err == nil {
 			t.Fatal("an invalid current version was compared")
-		}
-	})
-	t.Run("malformed metadata", func(t *testing.T) {
-		server, _ := previewServer(t, map[string]string{"/repos/team/aigw/releases/latest": `{`})
-		if _, err := previewUpdater(t, server, false).Preview(context.Background(), "0.2.0"); err == nil || !strings.Contains(err.Error(), "public release metadata failed") {
-			t.Fatalf("preview error = %v", err)
 		}
 	})
 }
