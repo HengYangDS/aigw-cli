@@ -37,13 +37,13 @@
 Precondition: the product owner approves the converged contract in `design.md`.
 Approved on 2026-10-31.
 
-- [ ] 4.1 Raise the 16 documents of task 1.2 to `schema_version` 2: references named after their type, `use`'s `model` and `upstream_model`, `selections`, one `projections` list, check's `problem` instead of `error`, arrays instead of null, and snake_case values apart from configuration echoes. The acceptance scripts use a canonical Model that differs from its upstream ID.
-- [ ] 4.2 Make `next_action` a complete runnable command or absent, with `next_detail` for a placeholder or prose, in every document, the failure envelope and the human Next section; doctor's `fix` becomes `next_action`. The contract test refuses a `next_action` that is not an `aigw` command or holds a placeholder.
-- [ ] 4.3 Hide `setup --model`, `add --model`, `install --target` and `uninstall --target`, and warn on standard error with each replacement.
-- [ ] 4.4 Make `test` without `--for` cover only the enabled clients; an acceptance script shows that a disabled client's endpoint is not probed.
-- [ ] 4.5 Make `catalog --json` without configuration exit 1, a blocked rename preview write `ok: false` and exit 1, bare `aigw config` print its help and exit 0, and `aigw help <command>` print that command's help.
-- [ ] 4.6 Move the release journeys' candidate steps to the converged flags and documents, keeping each baseline step on its release's surface.
-- [ ] 4.7 Update README.md, the team rollout guide and the terminal experience document, and add CHANGELOG's table of every renamed flag and field and every changed default, value and exit status.
+- [x] 4.1 Raise the documents of task 1.2 that change to `schema_version` 2, as design.md's stage 4 clarifications list them: references named after their type, `use`'s `model` and `upstream_model`, `selections`, one `projections` list, check's `problem` instead of `error`, arrays instead of null, and snake_case values apart from configuration echoes. The acceptance scripts use a canonical Model that differs from its upstream ID.
+- [x] 4.2 Make `next_action` a complete runnable command or absent, with `next_detail` for a placeholder, prose or a step that asks a person for a value, in every document, the failure envelope and the human Next section; doctor's `fix` becomes `next_action` or `next_detail`. The contract test refuses a `next_action` that is not an `aigw` command, holds a placeholder or asks a person for a value.
+- [x] 4.3 Hide `setup --model`, `add --model`, `install --target` and `uninstall --target`, and warn on standard error with each replacement.
+- [x] 4.4 Make `test` without `--for` cover only the enabled clients; an acceptance script shows that a disabled client's endpoint is not probed.
+- [x] 4.5 Make `catalog --json` without configuration exit 1, a blocked rename preview write `ok: false` and exit 1, bare `aigw config` print its help and exit 0, an unknown subcommand of any group refuse and exit 1, and `aigw help <command>` print that command's help.
+- [x] 4.6 Move the release journeys' candidate steps to the converged flags and documents, keeping each baseline step on its release's surface.
+- [x] 4.7 Update README.md, the team rollout guide and the terminal experience document, and add CHANGELOG's table of every renamed flag and field and every changed default, value and exit status.
 - [ ] 4.8 Run the local quality graph at the stage head.
 - [ ] 4.9 Prove the stage head with the full ETHOS proof.
 - [ ] 4.10 Confirm the hosted three-platform graph and the real-client journeys pass at the stage head.
