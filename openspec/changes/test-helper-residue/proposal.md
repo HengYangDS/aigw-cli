@@ -12,9 +12,9 @@ helper exits inside a test, so the removal that follows the tests never runs.
 - A helper process inherits the Git isolation of the test process that started
   it instead of creating its own, so a helper that exits inside a test leaves
   no directory behind.
-- The program's entry-point test runs the program as the command that the
-  acceptance-script harness installs, which runs the entry point without the
-  harness's setup, instead of running the test binary again.
+- The program's entry-point test runs the program through the command that
+  the acceptance-script harness installs, which the harness dispatches by name
+  to the entry point without its setup.
 
 ## Capabilities
 

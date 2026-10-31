@@ -39,9 +39,10 @@ network access.
 
 #### Scenario: A test runs its own binary as a helper process
 
-- **WHEN** a test runs its test binary again as a helper process, and the
-  helper exits inside a test
-- **THEN** the helper SHALL reuse the isolation of the process that started it
-  rather than create its own
-- **AND** a complete local verification SHALL leave no temporary directory of
-  its own behind
+- **WHEN** a test runs its test binary again as a helper process with the
+  test's environment, and the helper exits inside a test
+- **THEN** the helper SHALL apply the same host Git policy as the test that
+  started it
+- **AND** after a complete local verification the temporary directory SHALL
+  hold no directory that the verification created for its own run, although a
+  tool's persistent cache MAY remain

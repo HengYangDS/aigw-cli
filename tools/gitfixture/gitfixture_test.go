@@ -171,7 +171,28 @@ func TestRunRefusesAnUnreadableHostConfiguration(t *testing.T) {
 	}
 }
 
+// Variables that still name an isolation directory that no longer exists do
+// not count as inherited, so Run creates and removes an isolation of its own.
+func TestRunIgnoresARemovedParentIsolation(t *testing.T) {
+	scratch := isolateScratch(t)
+	removed := filepath.Join(t.TempDir(), "aigw-git-1")
+	t.Setenv("GIT_CONFIG_GLOBAL", filepath.Join(removed, "config"))
+	t.Setenv("GIT_TEMPLATE_DIR", filepath.Join(removed, "empty"))
+	var owned string
+	code := Run(tests(func() int {
+		owned = os.Getenv("GIT_CONFIG_GLOBAL")
+		return 0
+	}))
+	if code != 0 || filepath.Dir(filepath.Dir(owned)) != scratch {
+		t.Fatalf("Run = %d with configuration %q, want an isolation of its own in %s", code, owned, scratch)
+	}
+	if entries, err := os.ReadDir(scratch); err != nil || len(entries) != 0 {
+		t.Fatalf("isolated Git policy survived the run: %v %v", entries, err)
+	}
+}
+
 func TestRunRefusesUnavailableScratch(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", "")
 	blocked := filepath.Join(t.TempDir(), "file")
 	writeFile(t, blocked, "not a directory\n")
 	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
