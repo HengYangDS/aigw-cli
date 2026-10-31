@@ -9,7 +9,8 @@ and for main specifications, so a file can pass one gate and fail the other.
 ## What Changes
 
 - Lower the SCC policy's `max_code_lines` and `max_specification_lines` from
-  512 to 500, so that the repository's gate and ETHOS share one ceiling.
+  512 to 500, so that the repository's gate and ETHOS share one ceiling, and
+  move the gate's boundary tests to 500 and 501 lines.
 - Move one group of tests that share a concern out of each of the ten files,
   into a file named after that concern in the same package or into the file
   that already owns it.
