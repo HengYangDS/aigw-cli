@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/app/renaming"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/terminal"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -12,7 +13,45 @@ import (
 )
 
 // renameSchemaVersion is the version of the rename commands' JSON document.
-const renameSchemaVersion = 1
+const renameSchemaVersion = 2
+
+// renameDocument is the rename commands' JSON document: the plan or its
+// result, with its status and actions in snake_case. A preview's plan says
+// dry_run.
+type renameDocument struct {
+	DryRun             bool              `json:"dry_run,omitempty"`
+	Resource           renaming.Resource `json:"resource"`
+	OldID              string            `json:"old_id"`
+	NewID              string            `json:"new_id"`
+	Status             string            `json:"status"`
+	AffectedReferences []string          `json:"affected_references"`
+	Actions            renameActions     `json:"actions"`
+	ExternalTODOs      []string          `json:"external_todos"`
+}
+
+// renameActions is every configuration, credential and backup effect of a
+// rename.
+type renameActions struct {
+	Configuration string `json:"configuration"`
+	APIToken      string `json:"api_token"`
+	AccountProbe  string `json:"account_probe"`
+	Backup        string `json:"backup"`
+}
+
+func renameDocumentOf(plan renaming.Plan, dryRun bool) renameDocument {
+	return renameDocument{
+		DryRun: dryRun, Resource: plan.Resource, OldID: plan.OldID, NewID: plan.NewID, Status: terminal.SnakeValue(string(plan.Status)),
+		AffectedReferences: plan.AffectedReferences, ExternalTODOs: plan.ExternalTODOs,
+		Actions: renameActions{
+			Configuration: terminal.SnakeValue(plan.Actions.Configuration), APIToken: terminal.SnakeValue(plan.Actions.APIToken),
+			AccountProbe: terminal.SnakeValue(plan.Actions.AccountProbe), Backup: terminal.SnakeValue(plan.Actions.Backup),
+		},
+	}
+}
+
+// errRenameBlocked fails a blocked rename plan, which changed nothing and
+// whose output already says why.
+var errRenameBlocked = terminal.Presented(errors.New("the rename plan is blocked; no changes were made"))
 
 // RenameArguments accepts at most an old and a new valid resource ID. Fewer
 // than two require an interactive prompt that can select the rest, which a
@@ -44,10 +83,15 @@ func RenameArguments(runtime Context, resource string) cobra.PositionalArgs {
 }
 
 // WriteRenamePlan writes a rename plan or its result, as JSON when jsonMode
-// is set, with the next commands that the plan's status calls for.
-func WriteRenamePlan(runtime Context, plan renaming.Plan, jsonMode bool) error {
+// is set, with the next commands that the plan's status calls for; dryRun
+// marks a preview's plan. A blocked plan reports itself and fails.
+func WriteRenamePlan(runtime Context, plan renaming.Plan, dryRun, jsonMode bool) error {
+	blocked := plan.Status == renaming.StatusBlocked
 	if jsonMode {
-		return terminal.WriteDocument(runtime.Out, renameSchemaVersion, true, plan)
+		if err := terminal.WriteDocument(runtime.Out, renameSchemaVersion, !blocked, renameDocumentOf(plan, dryRun)); err != nil || !blocked {
+			return err
+		}
+		return errRenameBlocked
 	}
 
 	r := Renderer(runtime)
@@ -98,6 +142,7 @@ func WriteRenamePlan(runtime Context, plan renaming.Plan, jsonMode bool) error {
 	switch plan.Status {
 	case renaming.StatusBlocked:
 		// The blocked plan is the group's final row.
+		return errRenameBlocked
 	case renaming.StatusPlanned:
 		r.Success("Dry run complete; no changes were made")
 	case renaming.StatusAlreadyFinalized:

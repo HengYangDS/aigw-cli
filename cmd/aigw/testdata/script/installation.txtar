@@ -41,7 +41,7 @@ Recommended action
   aigw --help
 -- refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "unknown command \"extra\"",
   "impact": "The command could not finish; inspect current state before retrying.",

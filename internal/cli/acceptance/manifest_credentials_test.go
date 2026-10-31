@@ -62,6 +62,7 @@ func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice
 	var result struct {
 		DeferredActions []string `json:"deferred_actions"`
 		NextAction      string   `json:"next_action"`
+		NextDetail      string   `json:"next_detail"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
@@ -69,7 +70,7 @@ func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice
 	wantDeferred := []string{
 		"Set one compatible Account variable: " + secret.EnvironmentKey("aihubmix") + " or " + secret.EnvironmentKey("dmxapi") + ", then run `aigw sync`",
 	}
-	if !slices.Equal(result.DeferredActions, wantDeferred) || result.NextAction != wantDeferred[0] {
+	if !slices.Equal(result.DeferredActions, wantDeferred) || !wantNext(result.NextAction, result.NextDetail, wantDeferred[0]) {
 		t.Fatalf("setup JSON continuation = %#v", result)
 	}
 	if strings.Contains(out.String(), "aigw check") {
@@ -94,10 +95,11 @@ func TestSetupFromTeamManifestConnectsExplicitManualAccountFromEnvironment(t *te
 	}
 	var result struct {
 		ConnectedAccounts []string          `json:"connected_accounts"`
-		SelectedBindings  map[string]string `json:"selected_bindings"`
+		SelectedBindings  map[string]string `json:"selections"`
 		ProjectedClients  []string          `json:"projected_clients"`
 		DeferredActions   []string          `json:"deferred_actions"`
 		NextAction        string            `json:"next_action"`
+		NextDetail        string            `json:"next_detail"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
@@ -109,7 +111,7 @@ func TestSetupFromTeamManifestConnectsExplicitManualAccountFromEnvironment(t *te
 		t.Fatalf("manual Account selection unexpectedly selected or projected a client: %#v", result)
 	}
 	const wantAction = "aigw use --help"
-	if !slices.Equal(result.DeferredActions, []string{wantAction}) || result.NextAction != wantAction {
+	if !slices.Equal(result.DeferredActions, []string{wantAction}) || !wantNext(result.NextAction, result.NextDetail, wantAction) {
 		t.Fatalf("manual Account continuation = %#v, want %q", result, wantAction)
 	}
 	if strings.Contains(out.String(), token) {

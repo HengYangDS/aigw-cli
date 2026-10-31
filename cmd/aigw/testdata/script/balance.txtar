@@ -111,7 +111,7 @@ Next
 }
 -- json-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Plain Gateway does not support precise balance queries",
   "impact": "The command could not finish; inspect current state before retrying.",

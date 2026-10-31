@@ -39,11 +39,12 @@ func TestJSONCommandFailuresRemainMachineReadable(t *testing.T) {
 				OK         bool   `json:"ok"`
 				Error      string `json:"error"`
 				NextAction string `json:"next_action"`
+				NextDetail string `json:"next_detail"`
 			}
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 				t.Fatalf("expected one JSON failure: %v\n%s", err, out)
 			}
-			if result.OK || result.Error == "" || result.NextAction == "" || stderr.Len() != 0 {
+			if result.OK || result.Error == "" || result.NextAction+result.NextDetail == "" || stderr.Len() != 0 {
 				t.Fatalf("result=%+v stderr=%q", result, &stderr)
 			}
 		})
@@ -150,7 +151,6 @@ func TestCommonCommandFailuresUseEnglishGuidance(t *testing.T) {
 		want string
 		fix  string
 	}{
-		{args: []string{"config"}, want: "Choose a config subcommand; run `aigw config --help`", fix: "aigw config --help"},
 		{args: []string{"use", "--for", "other", "one"}, want: "--for must be claude, claude-desktop, codex, or hermes", fix: "aigw use --help"},
 	} {
 		out.Reset()
@@ -271,5 +271,56 @@ func TestPublicMutationFailureDoesNotExposePrivatePath(t *testing.T) {
 	cfg, err := app.Config.Load()
 	if err != nil || len(cfg.Routes) != 1 {
 		t.Fatalf("mutation changed configuration after failed preflight: %+v, %v", cfg.Routes, err)
+	}
+}
+
+// TestCommandGroupsShowTheirHelp holds bare `aigw config` to the other command
+// groups: it shows the group's help and succeeds, and `aigw help <command>`
+// shows that command's help.
+func TestCommandGroupsShowTheirHelp(t *testing.T) {
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"config"}, "Import and export configuration"},
+		{[]string{"route"}, "Manage Routes"},
+		{[]string{"account", "diagnostics"}, "aigw account diagnostics [command]"},
+		{[]string{"help", "sync"}, "aigw sync"},
+	} {
+		app, out, _, _, _ := testApp(t, "")
+		if err := cli.Execute(app, test.args); err != nil || !strings.Contains(out.String(), test.want) || !strings.Contains(out.String(), "Usage") {
+			t.Fatalf("%v: %v\n%s", test.args, err, out.String())
+		}
+		// A group's help names its subcommands, not a usage line of its own.
+		if strings.Contains(out.String(), "aigw config [flags]") || strings.Contains(out.String(), "aigw route [flags]") {
+			t.Fatalf("%v: a group's help shows a usage line of its own:\n%s", test.args, out.String())
+		}
+	}
+}
+
+// TestUnknownCommandsRefuse holds an unknown subcommand of a command group, at
+// any depth, and an unknown help topic to a refusal that names the help to
+// read, where Cobra would show a nested group's help and succeed.
+func TestUnknownCommandsRefuse(t *testing.T) {
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"config", "bogus"}, "run `aigw config --help`"},
+		{[]string{"route", "bogus"}, "run `aigw route --help`"},
+		{[]string{"account", "diagnostics", "bogus"}, "run `aigw account diagnostics --help`"},
+		{[]string{"help", "bogus"}, "run `aigw --help`"},
+		{[]string{"help", "route", "bogus"}, "run `aigw --help`"},
+	} {
+		app, out, _, _, _ := testApp(t, "")
+		err := cli.Execute(app, test.args)
+		if err == nil || !strings.Contains(out.String(), test.want) || !strings.Contains(out.String(), "bogus") {
+			t.Fatalf("%v: %v\n%s", test.args, err, out.String())
+		}
+	}
+	// A subcommand's name after a help flag still shows help.
+	app, out, _, _, _ := testApp(t, "")
+	if err := cli.Execute(app, []string{"route", "--help", "list"}); err != nil || !strings.Contains(out.String(), "Usage") {
+		t.Fatalf("route --help list: %v\n%s", err, out.String())
 	}
 }

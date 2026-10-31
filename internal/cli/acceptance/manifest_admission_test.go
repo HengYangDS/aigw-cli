@@ -271,12 +271,13 @@ func TestManifestDecodeFailureKeepsNativeTypesOutOfPublicOutput(t *testing.T) {
 				t.Fatal("manifest decoding did not identify the document location")
 			}
 			if mode.json {
+				// The fix is prose, so the failure gives it as next_detail.
 				var result struct {
 					OK         bool   `json:"ok"`
 					Error      string `json:"error"`
-					NextAction string `json:"next_action"`
+					NextDetail string `json:"next_detail"`
 				}
-				if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.OK || result.Error == "" || !strings.Contains(result.NextAction, "document") || !strings.Contains(result.NextAction, "rerun") {
+				if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.OK || result.Error == "" || !strings.Contains(result.NextDetail, "document") || !strings.Contains(result.NextDetail, "rerun") {
 					t.Fatalf("manifest decoding did not emit one actionable JSON failure: %v", err)
 				}
 			}

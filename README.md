@@ -82,7 +82,7 @@ printf '%s\n' "$TEAM_TOKEN" \
   | aigw add team \
       --label "Team endpoint" \
       --openai-url https://api.example.com/v1 \
-      --model model-id \
+      --upstream-model model-id \
       --for codex \
       --token-stdin
 ```

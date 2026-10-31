@@ -391,35 +391,32 @@ func TestSyncDryRunReportsEveryTargetWithoutMutatingProjectionOrCredentials(t *t
 		t.Fatalf("dry-run wrote Claude settings state %s: %v", claudeSettings, err)
 	}
 	var preview struct {
-		DryRun     bool   `json:"dry_run"`
-		NextAction string `json:"next_action"`
-		Targets    []struct {
+		DryRun      bool   `json:"dry_run"`
+		NextAction  string `json:"next_action"`
+		Projections []struct {
 			Client string `json:"client"`
 			Target string `json:"target"`
 			Action string `json:"action"`
-		} `json:"targets"`
+		} `json:"projections"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatalf("decode sync dry-run JSON: %v\n%s", err, out.String())
 	}
-	wantTargets := []string{claudeSettings, first, second}
+	// Each target is named relative to the home directory.
+	wantTargets := []string{"~/.claude/settings.json", "~/first.toml", "~/second.toml"}
 	wantClients := []string{claude.ID, codex.ID, codex.ID}
-	wantActions := []string{"project", "initial-project", "initial-project"}
-	if !preview.DryRun || preview.NextAction != "aigw sync" || len(preview.Targets) != len(wantTargets) {
+	wantActions := []string{"project", "initial_project", "initial_project"}
+	if !preview.DryRun || preview.NextAction != "aigw sync" || len(preview.Projections) != len(wantTargets) {
 		t.Fatalf("sync dry-run preview = %#v", preview)
 	}
 	for index, want := range wantTargets {
-		if preview.Targets[index].Client != wantClients[index] {
-			t.Fatalf("target %d client = %q, want %q", index, preview.Targets[index].Client, wantClients[index])
+		got := preview.Projections[index]
+		if got.Client != wantClients[index] || got.Action != wantActions[index] || got.Target != want {
+			t.Fatalf("projection %d = %+v, want %s %s %s", index, got, wantClients[index], wantActions[index], want)
 		}
-		if preview.Targets[index].Action != wantActions[index] {
-			t.Fatalf("target %d action = %q, want %q", index, preview.Targets[index].Action, wantActions[index])
-		}
-		if wantClients[index] == codex.ID {
-			assertSameExistingPath(t, preview.Targets[index].Target, want)
-		} else if preview.Targets[index].Target != want {
-			t.Fatalf("target %d = %q, want %q", index, preview.Targets[index].Target, want)
-		}
+	}
+	if strings.Contains(out.String(), dir) {
+		t.Fatalf("the preview named a private path: %s", out.String())
 	}
 }
 
@@ -446,13 +443,15 @@ func TestSyncDryRunRecommendsCheckWhenProjectionIsConverged(t *testing.T) {
 		t.Fatal(err)
 	}
 	var result struct {
-		Targets    []adapter.ProjectionPlan `json:"targets"`
-		NextAction string                   `json:"next_action"`
+		Projections []struct {
+			Action string `json:"action"`
+		} `json:"projections"`
+		NextAction string `json:"next_action"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Targets) != 1 || result.Targets[0].Action != "already-converged" || result.NextAction != "aigw check" {
+	if len(result.Projections) != 1 || result.Projections[0].Action != "already_converged" || result.NextAction != "aigw check" {
 		t.Fatalf("converged sync dry-run preview = %#v", result)
 	}
 }

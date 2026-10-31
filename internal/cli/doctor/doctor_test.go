@@ -276,7 +276,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	deps, _, _ = doctorDependencies(t, cfg)
 	deps.Env = []string{"HOME=" + home}
 	check := findCheck(t, collectChecks(context.Background(), deps.Dependencies), "codex:target-1")
-	if check.OK || check.Detail != "Codex configuration target is unavailable" || check.Fix != "run `aigw sync`" || check.Target != filepath.Join("~", ".codex", "config.toml") {
+	if check.OK || check.Detail != "Codex configuration target is unavailable" || check.Fix != "run `aigw sync`" || check.Target != "~/.codex/config.toml" {
 		t.Fatalf("projection check = %#v", check)
 	}
 
@@ -413,7 +413,7 @@ func TestCommandJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 		t.Fatalf("credential backend = %#v", result.CredentialBackend)
 	}
 	check := findCheck(t, result.Checks, "credential:backend")
-	if check.OK || check.Fix != "aigw doctor" || check.Detail != "credential backend is unavailable" {
+	if check.OK || check.NextAction != "aigw doctor" || check.Detail != "credential backend is unavailable" {
 		t.Fatalf("credential backend check = %#v", check)
 	}
 }

@@ -22,6 +22,7 @@ import (
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 )
 
 func readFile(t *testing.T, path string) []byte {
@@ -295,6 +296,13 @@ func executableFixture(t *testing.T, name string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+// wantNext reports whether a document's next step is want: a command that a
+// script can run as it stands is next_action, and anything else next_detail.
+func wantNext(action, detail, want string) bool {
+	wantAction, wantDetail := terminal.NextSteps(want)
+	return action == wantAction && detail == wantDetail
 }
 
 func executableName(name string) string {

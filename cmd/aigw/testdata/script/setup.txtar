@@ -7,28 +7,31 @@ cmp stdout help.txt
 # Previews read no Token and write nothing below the private home.
 snapshot $HOME before.txt
 # A preview's client file and credential reader paths differ by platform.
-exec aigw setup --account team --route team-route --anthropic-url $UPSTREAM --model team-model --for claude --dry-run
+exec aigw setup --account team --route team-route --anthropic-url $UPSTREAM --upstream-model team-model --for claude --dry-run
 stdout 'First-time setup preview'
 stdout 'API Token +Not read in a preview'
 stdout 'Credential entrypoint'
 stdout 'settings\.json +project'
-stdout 'aigw setup --account team --anthropic-url .* --for claude --upstream-model team-model --route team-route'
+stdout 'aigw setup --account team --anthropic-url .* --for claude --route team-route --upstream-model team-model'
 exec aigw setup --account team --route team-route --anthropic-url $UPSTREAM --upstream-model team-model --for claude --dry-run --json
 normalize stdout preview-json.out '[0-9a-f]{64}'
 [darwin] cmp preview-json.out preview.json
 [linux] cmp preview-json.out preview-linux.json
 [windows] cmp preview-json.out preview-windows.json
+# The hidden spelling still works and names its replacement on stderr.
+exec aigw setup --account team --route team-route --anthropic-url $UPSTREAM --model team-model --for claude --dry-run --json
+stderr '^aigw: --model is deprecated; use --upstream-model$'
 snapshot $HOME after.txt
 cmp after.txt before.txt
 exitcode 1 aigw setup --account team --route team-route --anthropic-url $UPSTREAM --model team-model --upstream-model team-model --for claude
 cmp stdout spellings.txt
 
 stdin rejected.txt
-exitcode 1 aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exitcode 1 aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 cmp stdout refusal.txt
 
 stdin token.txt
-exec aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 cmp stdout connected.txt
 
 mkdir $WORK/second
@@ -49,14 +52,14 @@ cmp stdout configured.json
 mkdir $WORK/third
 env HOME=$WORK/third USERPROFILE=$WORK/third XDG_CONFIG_HOME=$WORK/third XDG_DATA_HOME=$WORK/third APPDATA=$WORK/third LOCALAPPDATA=$WORK/third
 stdin token.txt
-exec aigw setup --route json-route --account json-team --label 'JSON Gateway' --anthropic-url $UPSTREAM --model json-model --for claude --token-stdin --json
+exec aigw setup --route json-route --account json-team --label 'JSON Gateway' --anthropic-url $UPSTREAM --upstream-model json-model --for claude --token-stdin --json
 cmp stdout flags.json
 exitcode 1 aigw setup --json
 cmp stdout flags-refusal.json
 
 -- preview.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
   "imported": {
@@ -68,15 +71,16 @@ cmp stdout flags-refusal.json
     ]
   },
   "connected_accounts": [],
-  "selected_bindings": {
+  "selections": {
     "claude": "team-route"
   },
   "projected_clients": [],
   "online_verification": "not_checked",
-  "targets": [
+  "projections": [
     {
       "client": "claude",
-      "target": "$HOME/.claude/settings.json",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
       "action": "project"
     }
   ],
@@ -84,11 +88,11 @@ cmp stdout flags-refusal.json
     "path": "$HOME/Library/Application Support/aigw/credential/<varies>/aigw",
     "action": "install"
   },
-  "next_action": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
+  "next_detail": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
 }
 -- preview-linux.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
   "imported": {
@@ -100,15 +104,16 @@ cmp stdout flags-refusal.json
     ]
   },
   "connected_accounts": [],
-  "selected_bindings": {
+  "selections": {
     "claude": "team-route"
   },
   "projected_clients": [],
   "online_verification": "not_checked",
-  "targets": [
+  "projections": [
     {
       "client": "claude",
-      "target": "$HOME/.claude/settings.json",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
       "action": "project"
     }
   ],
@@ -116,11 +121,11 @@ cmp stdout flags-refusal.json
     "path": "$HOME/aigw/credential/<varies>/aigw",
     "action": "install"
   },
-  "next_action": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
+  "next_detail": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
 }
 -- preview-windows.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
   "imported": {
@@ -132,15 +137,16 @@ cmp stdout flags-refusal.json
     ]
   },
   "connected_accounts": [],
-  "selected_bindings": {
+  "selections": {
     "claude": "team-route"
   },
   "projected_clients": [],
   "online_verification": "not_checked",
-  "targets": [
+  "projections": [
     {
       "client": "claude",
-      "target": "$HOME\\.claude\\settings.json",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
       "action": "project"
     }
   ],
@@ -148,11 +154,11 @@ cmp stdout flags-refusal.json
     "path": "$HOME\\aigw\\credential\\<varies>\\aigw.exe",
     "action": "install"
   },
-  "next_action": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
+  "next_detail": "aigw setup --account team --anthropic-url $UPSTREAM --for claude --route team-route --upstream-model team-model"
 }
 -- manifest-preview.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
   "imported": {
@@ -164,10 +170,10 @@ cmp stdout flags-refusal.json
     ]
   },
   "connected_accounts": [],
-  "selected_bindings": {},
+  "selections": {},
   "projected_clients": [],
   "online_verification": "not_checked",
-  "next_action": "aigw setup --account spare --from manifest.toml"
+  "next_detail": "aigw setup --account spare --from manifest.toml"
 }
 -- spellings.txt --
 AIGW  Action required
@@ -217,7 +223,6 @@ Options
   -h, --help                    help for setup
       --json                    Write the setup result as JSON
       --label string            Provider display name
-      --model string            Upstream model ID for --for; --upstream-model is the same value
       --openai-url string       OpenAI Responses base URL
       --protocol string         Endpoint protocol when more than one URL is configured
       --route string            First route ID
@@ -255,7 +260,7 @@ Next
   aigw check
 -- manifest.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "imported": {
     "accounts": [
@@ -268,8 +273,8 @@ Next
   "connected_accounts": [
     "spare"
   ],
-  "selected_bindings": {},
-  "projected_clients": null,
+  "selections": {},
+  "projected_clients": [],
   "online_verification": "not_checked",
   "deferred_actions": [
     "aigw use --help"
@@ -278,15 +283,15 @@ Next
 }
 -- configured.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "AIGW is already configured; run `aigw add` to add an account, `aigw route add` to add a model route, or `aigw config import` to merge a reviewed manifest",
   "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw add"
+  "next_detail": "aigw add"
 }
 -- flags.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "imported": {
     "accounts": [
@@ -299,7 +304,7 @@ Next
   "connected_accounts": [
     "json-team"
   ],
-  "selected_bindings": {
+  "selections": {
     "claude": "json-route"
   },
   "projected_clients": [
@@ -310,7 +315,7 @@ Next
 }
 -- flags-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "--json requires --route or --from; run `aigw setup --help`",
   "impact": "The command could not finish; inspect current state before retrying.",

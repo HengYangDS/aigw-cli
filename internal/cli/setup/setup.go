@@ -103,6 +103,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	}
 	cmd.MarkFlagsMutuallyExclusive("model", "upstream-model")
 	_ = cmd.Flags().SetAnnotation("model", invocation.ReplacedBy, []string{"upstream-model"})
+	// The replaced spelling stays one release, hidden; using it warns.
+	_ = cmd.Flags().MarkHidden("model")
 	return cmd
 }
 
@@ -158,7 +160,7 @@ func runSetup(ctx context.Context, runtime invocation.Context, request setupRequ
 		return err
 	}
 	if request.JSON {
-		return terminal.WriteDocument(runtime.Out, schemaVersion, true, buildFlagSetupResult(runtime, plan))
+		return writeSetupDocument(runtime, buildFlagSetupResult(runtime, plan))
 	}
 	renderSetupService(runtime, plan)
 	renderSetupClients(runtime, plan.config, plan.request.Client)
@@ -252,7 +254,7 @@ func writeSetupPreview(runtime invocation.Context, plan setupPlan) error {
 			DryRun:             true,
 			Imported:           manifestSetupImported{Accounts: []string{plan.request.Account}, Routes: []string{plan.request.Route}},
 			ConnectedAccounts:  []string{},
-			SelectedBindings:   map[string]string{plan.request.Client: plan.request.Route},
+			Selections:         map[string]string{plan.request.Client: plan.request.Route},
 			ProjectedClients:   []string{},
 			OnlineVerification: "not_checked",
 			Preview:            preview,
@@ -295,14 +297,14 @@ func buildFlagSetupResult(runtime invocation.Context, plan setupPlan) manifestSe
 	result := manifestSetupResult{
 		Imported:           manifestSetupImported{Accounts: []string{plan.request.Account}, Routes: []string{plan.request.Route}},
 		ConnectedAccounts:  []string{plan.request.Account},
-		SelectedBindings:   make(map[string]string, len(plan.config.Clients)),
+		Selections:         make(map[string]string, len(plan.config.Clients)),
 		ProjectedClients:   []string{},
 		OnlineVerification: "not_checked",
 		NextAction:         activation.NextActionFor(nil),
 	}
 	for client, binding := range plan.config.Clients {
 		if binding.Route != "" {
-			result.SelectedBindings[client] = binding.Route
+			result.Selections[client] = binding.Route
 		}
 	}
 	if action := activation.ProjectionPrerequisites[plan.request.Client]; action != "" {

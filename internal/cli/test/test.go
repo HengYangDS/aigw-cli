@@ -51,10 +51,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "test",
 		Short: "Probe selected endpoints without model inference",
-		Long: "Send a model-free HTTP request to selected endpoints without changing\n" +
-			"client bindings. --for and --route can target one Route; --token-stdin\n" +
-			"uses a one-time Token without storing it. An endpoint response does not\n" +
-			"prove model inference or real-client behavior.",
+		Long: "Send a model-free HTTP request to the enabled clients' selected\n" +
+			"endpoints without changing client bindings. --for and --route can target\n" +
+			"one Route, also a disabled client's; --token-stdin uses a one-time Token\n" +
+			"without storing it. An endpoint response does not prove model inference\n" +
+			"or real-client behavior.",
 		Args: cobra.MatchAll(cobra.NoArgs, validateEndpointTestSelection(runtime.Clients.Admission())),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if configPath != "" {
@@ -72,7 +73,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if len(clients) == 0 {
-				return invocation.Problem(runtime, "No Client Binding is selected", "Routes exist, but no client has a selected Route.", "There is no selected endpoint to test.", "aigw use --for <client> <route>", fmt.Errorf("no Client Binding selected"))
+				return noSelectedEndpoint(runtime, cfg)
 			}
 			resolved := make(map[string]domain.Runtime, len(clients))
 			for _, spec := range clients {
@@ -180,13 +181,26 @@ func endpointTestClients(cfg domain.Config, client, routeName string) ([]domain.
 		}
 		return []domain.ClientSpec{spec}, nil
 	}
+	// Without --for, test covers the enabled clients, as check does; a
+	// disabled binding keeps its Route but is not probed.
 	selected := make([]domain.ClientSpec, 0, len(cfg.Clients))
 	for _, spec := range cfg.Admission().Specs() {
-		if cfg.SelectedRoute(spec.ID) != "" {
+		if cfg.SelectedRoute(spec.ID) != "" && cfg.Clients[spec.ID].Enabled {
 			selected = append(selected, spec)
 		}
 	}
 	return selected, nil
+}
+
+// noSelectedEndpoint explains why test without --for found nothing to probe:
+// no client has a selected Route, or only disabled clients do.
+func noSelectedEndpoint(runtime invocation.Context, cfg domain.Config) error {
+	for _, spec := range cfg.Admission().Specs() {
+		if cfg.SelectedRoute(spec.ID) != "" {
+			return invocation.Problem(runtime, "No enabled client has a selected Route", "Only disabled clients have a selected Route.", "Without --for, test probes only the enabled clients.", "aigw test --for <client>", fmt.Errorf("no enabled Client Binding selected"))
+		}
+	}
+	return invocation.Problem(runtime, "No Client Binding is selected", "Routes exist, but no client has a selected Route.", "There is no selected endpoint to test.", "aigw use --for <client> <route>", fmt.Errorf("no Client Binding selected"))
 }
 
 // validateEndpointTestSelection refuses an incomplete or inconsistent endpoint

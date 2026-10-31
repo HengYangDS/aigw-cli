@@ -19,7 +19,7 @@ import (
 )
 
 // schemaVersion is the version of `aigw use`'s JSON document.
-const schemaVersion = 1
+const schemaVersion = 2
 
 // NewCommand constructs the daily client Route selection command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
@@ -127,14 +127,16 @@ func renderUse(runtime invocation.Context, cfg domain.Config, selected domain.Ru
 		title, detail = "Token stored", "Account token stored; selected client configuration synchronized"
 	}
 	spec, _ := runtime.Clients.Admission().Spec(selected.Client)
-	result := useResult{Changed: changed, ProjectionChanged: projectionChanged, Runtime: selected, NextAction: "aigw check"}
+	result := useResult{Changed: changed, ProjectionChanged: projectionChanged, useSelection: selectionOf(selected)}
+	next := "aigw check"
 	if action := clientactivation.ProjectionPrerequisites(cfg)[selected.Client]; action != "" {
 		result.ProjectionDeferred = true
-		result.NextAction = action
+		next = action
 	} else if spec.RestartAfterProjection && projectionChanged {
 		result.RestartRequired = true
-		result.NextAction = fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label)
+		next = fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label)
 	}
+	result.NextAction, result.NextDetail = terminal.NextSteps(next)
 	if jsonMode {
 		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 	}
@@ -162,7 +164,7 @@ func renderUse(runtime invocation.Context, cfg domain.Config, selected domain.Ru
 		}
 		rows = append(rows, terminal.Field{Label: "Projection", Value: "Deferred; native client projection is unavailable"})
 		r.Rows(rows...)
-		r.Next(result.NextAction)
+		r.Next(next)
 		return r.Err()
 	}
 	if result.RestartRequired {
@@ -173,7 +175,7 @@ func renderUse(runtime invocation.Context, cfg domain.Config, selected domain.Ru
 	}
 	r.Rows(rows...)
 	r.Success(detail)
-	r.Next(result.NextAction)
+	r.Next(next)
 	return r.Err()
 }
 
@@ -181,15 +183,48 @@ func renderUse(runtime invocation.Context, cfg domain.Config, selected domain.Ru
 // they were created with that a projection change reaches new sessions only.
 var existingSessionsField = terminal.Field{Label: "Existing sessions", Value: "Keep the route they started with; new sessions use this selection"}
 
+// useResult is `aigw use`'s JSON document: whether the selection and the
+// client's projection changed, the selection itself, and in a preview the
+// client files that selecting would write.
 type useResult struct {
-	DryRun             bool   `json:"dry_run"`
+	DryRun             bool   `json:"dry_run,omitempty"`
 	Changed            bool   `json:"changed"`
 	ProjectionChanged  bool   `json:"projection_changed"`
 	ProjectionDeferred bool   `json:"projection_deferred,omitempty"`
 	RestartRequired    bool   `json:"restart_required,omitempty"`
 	NextAction         string `json:"next_action,omitempty"`
-	domain.Runtime
-	Targets []adapter.ProjectionPlan `json:"targets,omitempty"`
+	NextDetail         string `json:"next_detail,omitempty"`
+	useSelection
+	Projections []invocation.Projection `json:"projections,omitempty"`
+}
+
+// useSelection is the selection that `aigw use` reports: each reference named
+// after its type, and the Model by its canonical ID beside the ID that the
+// endpoint serves.
+type useSelection struct {
+	RetryPolicy      *domain.RetryPolicy     `json:"retry_policy,omitempty"`
+	Route            string                  `json:"route"`
+	RouteLabel       string                  `json:"route_label"`
+	Account          string                  `json:"account"`
+	AccountLabel     string                  `json:"account_label"`
+	Client           string                  `json:"client"`
+	Endpoint         string                  `json:"endpoint"`
+	UpstreamEndpoint string                  `json:"upstream_endpoint"`
+	Protocol         domain.EndpointProtocol `json:"protocol"`
+	Model            string                  `json:"model,omitempty"`
+	UpstreamModel    string                  `json:"upstream_model,omitempty"`
+	ModelProvider    string                  `json:"model_provider"`
+	Authentication   domain.Authentication   `json:"authentication"`
+}
+
+func selectionOf(selected domain.Runtime) useSelection {
+	return useSelection{
+		RetryPolicy: selected.RetryPolicy, Route: selected.RouteID, RouteLabel: selected.RouteLabel,
+		Account: selected.AccountID, AccountLabel: selected.AccountLabel, Client: selected.Client,
+		Endpoint: selected.Endpoint, UpstreamEndpoint: selected.UpstreamEndpoint, Protocol: selected.Protocol,
+		Model: selected.CanonicalModelID, UpstreamModel: selected.Model, ModelProvider: selected.ModelProvider,
+		Authentication: selected.Authentication,
+	}
 }
 
 func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.Runtime, connection domain.ConnectionChange, jsonMode bool) error {
@@ -210,7 +245,7 @@ func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.R
 	if err != nil {
 		return err
 	}
-	result := useResult{DryRun: true, Runtime: selected, Targets: plans}
+	result := useResult{DryRun: true, useSelection: selectionOf(selected), Projections: invocation.Projections(runtime, plans)}
 	if jsonMode {
 		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 	}

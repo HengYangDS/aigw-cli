@@ -258,15 +258,26 @@ func TestJSONErrorPreservesProblemAndOutputFailure(t *testing.T) {
 	renderer := NewRenderer(&out, false)
 	RenderError(renderer, problem, true)
 	var result struct {
-		OK bool `json:"ok"`
-		Problem
+		OK         bool   `json:"ok"`
+		Error      string `json:"error"`
+		Evidence   string `json:"evidence"`
+		Impact     string `json:"impact"`
+		NextAction string `json:"next_action"`
+		NextDetail string `json:"next_detail"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	want := Problem{Title: "Cannot continue", Evidence: "Observed failure", Impact: "Operation stopped", Fix: "aigw doctor"}
-	if result.OK || result.Problem != want || renderer.Err() != nil {
+	if result.OK || result.Error != "Cannot continue" || result.Evidence != "Observed failure" || result.Impact != "Operation stopped" ||
+		result.NextAction != "aigw doctor" || result.NextDetail != "" || renderer.Err() != nil {
 		t.Fatalf("result=%+v error=%v", result, renderer.Err())
+	}
+	// A fix that a script cannot run as it stands is guidance.
+	out.Reset()
+	RenderError(renderer, ProblemError("Cannot continue", "", "", "Restore the file, then run `aigw sync`", cause), true)
+	result.NextAction, result.NextDetail = "", ""
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.NextAction != "" || result.NextDetail != "Restore the file, then run `aigw sync`" {
+		t.Fatalf("guidance result=%+v error=%v", result, err)
 	}
 	out.Reset()
 	RenderError(renderer, Presented(problem), true)

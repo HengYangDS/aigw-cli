@@ -152,7 +152,7 @@ func TestJSONCommandsNeverPrompt(t *testing.T) {
 		{name: "Account rename without IDs", args: []string{"account", "rename", "--json"}, want: "requires <old> <new>"},
 		{name: "Route rename without its new ID", args: []string{"route", "rename", "gpt", "--json"}, want: "requires <old> <new>"},
 		{name: "setup without a Token", args: []string{"setup", "--route", "gpt", "--account", "dmx", "--label", "DMX", "--for", "codex",
-			"--openai-url", "https://example.test/v1", "--model", "gpt-test", "--json"}, want: "--json reads the Token only from --token-stdin"},
+			"--openai-url", "https://example.test/v1", "--upstream-model", "gpt-test", "--json"}, want: "--json reads the Token only from --token-stdin"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")

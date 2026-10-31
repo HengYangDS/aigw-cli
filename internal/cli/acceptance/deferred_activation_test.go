@@ -28,10 +28,12 @@ type deferredActivationDocument struct {
 	State          string            `json:"state"`
 	EnabledClients int               `json:"enabled_clients"`
 	NextAction     string            `json:"next_action"`
+	NextDetail     string            `json:"next_detail"`
 	Selections     map[string]string `json:"selections"`
 	Clients        map[string]struct {
 		State              string `json:"state"`
 		NextAction         string `json:"next_action"`
+		NextDetail         string `json:"next_detail"`
 		ProjectionDeferred bool   `json:"projection_deferred"`
 	} `json:"clients"`
 }
@@ -64,7 +66,7 @@ func assertDeferredJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer, co
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode %s: %v\n%s", command, err, out)
 	}
-	if result.State != "deferred" || result.EnabledClients != 0 || result.NextAction != wantAction {
+	if result.State != "deferred" || result.EnabledClients != 0 || !wantNext(result.NextAction, result.NextDetail, wantAction) {
 		t.Fatalf("%s activation = %+v\n%s", command, result, out)
 	}
 	if command == "sync" && len(result.Selections) != 0 {
@@ -111,9 +113,10 @@ func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 		t.Fatalf("setup shipped catalog: %v\n%s", err, out)
 	}
 	var setup struct {
-		SelectedBindings map[string]string `json:"selected_bindings"`
+		SelectedBindings map[string]string `json:"selections"`
 		DeferredActions  []string          `json:"deferred_actions"`
 		NextAction       string            `json:"next_action"`
+		NextDetail       string            `json:"next_detail"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &setup); err != nil {
 		t.Fatalf("decode setup: %v\n%s", err, out)
@@ -125,8 +128,8 @@ func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
 	if setup.DeferredActions[0] != wantAction {
 		t.Fatalf("setup deferred action = %q, want %q", setup.DeferredActions[0], wantAction)
 	}
-	if setup.NextAction != wantAction {
-		t.Fatalf("setup next action %q differs from prerequisite %q", setup.NextAction, wantAction)
+	if !wantNext(setup.NextAction, setup.NextDetail, wantAction) {
+		t.Fatalf("setup next action %q differs from prerequisite %q", (setup.NextAction + setup.NextDetail), wantAction)
 	}
 	before, err := app.Config.CaptureSnapshot()
 	if err != nil {
@@ -177,10 +180,11 @@ func TestShippedTeamManifestImportsWithAnOfflineProvider(t *testing.T) {
 	}
 	var setup struct {
 		ConnectedAccounts  []string          `json:"connected_accounts"`
-		SelectedBindings   map[string]string `json:"selected_bindings"`
+		SelectedBindings   map[string]string `json:"selections"`
 		ProjectedClients   []string          `json:"projected_clients"`
 		OnlineVerification string            `json:"online_verification"`
 		NextAction         string            `json:"next_action"`
+		NextDetail         string            `json:"next_detail"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &setup); err != nil {
 		t.Fatalf("decode setup: %v\n%s", err, out)
@@ -189,7 +193,7 @@ func TestShippedTeamManifestImportsWithAnOfflineProvider(t *testing.T) {
 		setup.SelectedBindings[codex.ID] == "" ||
 		len(setup.ProjectedClients) != 1 || setup.ProjectedClients[0] != codex.ID ||
 		setup.OnlineVerification != "not_checked" ||
-		!strings.Contains(setup.NextAction, "aigw sync") {
+		!strings.Contains((setup.NextAction+setup.NextDetail), "aigw sync") {
 		t.Fatalf("offline import state = %+v", setup)
 	}
 	if httpClient.calls != 0 || len(runner.plans) != 0 {
@@ -214,28 +218,29 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneAccountChoice(t *testing
 		t.Fatalf("setup shipped catalog: %v\n%s", err, out)
 	}
 	var setup struct {
-		SelectedBindings map[string]string `json:"selected_bindings"`
+		SelectedBindings map[string]string `json:"selections"`
 		DeferredActions  []string          `json:"deferred_actions"`
 		NextAction       string            `json:"next_action"`
+		NextDetail       string            `json:"next_detail"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &setup); err != nil {
 		t.Fatalf("decode setup: %v\n%s", err, out)
 	}
-	if len(setup.SelectedBindings) != 0 || len(setup.DeferredActions) != 1 || setup.NextAction != setup.DeferredActions[0] {
+	if len(setup.SelectedBindings) != 0 || len(setup.DeferredActions) != 1 || !wantNext(setup.NextAction, setup.NextDetail, setup.DeferredActions[0]) {
 		t.Fatalf("setup activation = %+v", setup)
 	}
 	wantAction := "Choose one compatible Account: aigw rotate dmxapi or aigw rotate ucloud"
-	if setup.NextAction != wantAction {
-		t.Fatalf("setup Account choices = %q, want %q", setup.NextAction, wantAction)
+	if !wantNext(setup.NextAction, setup.NextDetail, wantAction) {
+		t.Fatalf("setup Account choices = %q, want %q", (setup.NextAction + setup.NextDetail), wantAction)
 	}
-	if strings.Contains(setup.NextAction, "aigw sync") {
-		t.Fatalf("setup recommended synchronization before its prerequisite: %q", setup.NextAction)
+	if strings.Contains((setup.NextAction + setup.NextDetail), "aigw sync") {
+		t.Fatalf("setup recommended synchronization before its prerequisite: %q", (setup.NextAction + setup.NextDetail))
 	}
 	for _, command := range []string{"sync", "status", "check", "doctor"} {
-		assertDeferredJSONCommand(t, app, out, command, setup.NextAction)
+		assertDeferredJSONCommand(t, app, out, command, (setup.NextAction + setup.NextDetail))
 	}
 	for _, command := range []string{"status", "check", "doctor"} {
-		assertDeferredHumanCommand(t, app, out, command, setup.NextAction)
+		assertDeferredHumanCommand(t, app, out, command, (setup.NextAction + setup.NextDetail))
 	}
 	if len(runner.plans) != 0 || httpClient.calls != 0 {
 		t.Fatalf("deferred activation invoked client or endpoint: plans=%d http=%d", len(runner.plans), httpClient.calls)
@@ -310,7 +315,7 @@ func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T)
 		if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 			t.Fatalf("decode %s: %v\n%s", command, err, out)
 		}
-		if result.EnabledClients != 1 || result.State != "deferred" || result.NextAction != wantAction {
+		if result.EnabledClients != 1 || result.State != "deferred" || !wantNext(result.NextAction, result.NextDetail, wantAction) {
 			t.Fatalf("%s activation = %+v\n%s", command, result, out)
 		}
 		if command != "sync" && result.Clients[hermes.ID].State != "deferred" {
@@ -396,8 +401,8 @@ func TestShippedTeamManifestMixedClientProjectionHasOneContinuation(t *testing.T
 	if err := json.Unmarshal(out.Bytes(), &setup); err != nil {
 		t.Fatalf("decode setup: %v\n%s", err, out)
 	}
-	if setup.NextAction != wantAction {
-		t.Fatalf("setup next action = %q, want %q\n%s", setup.NextAction, wantAction, out)
+	if !wantNext(setup.NextAction, setup.NextDetail, wantAction) {
+		t.Fatalf("setup next action = %q, want %q\n%s", (setup.NextAction + setup.NextDetail), wantAction, out)
 	}
 	before, err := app.Config.CaptureSnapshot()
 	if err != nil {
@@ -418,8 +423,8 @@ func TestShippedTeamManifestMixedClientProjectionHasOneContinuation(t *testing.T
 		if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 			t.Fatalf("decode %s: %v\n%s", command, err, out)
 		}
-		if result.NextAction != wantAction {
-			t.Fatalf("%s next action = %q, want %q\n%s", command, result.NextAction, wantAction, out)
+		if !wantNext(result.NextAction, result.NextDetail, wantAction) {
+			t.Fatalf("%s next action = %q, want %q\n%s", command, (result.NextAction + result.NextDetail), wantAction, out)
 		}
 	}
 	for _, command := range []string{"sync", "status", "check", "doctor"} {
@@ -469,14 +474,14 @@ func assertTokenRemovedJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer
 	if command == "doctor" {
 		wantCommandAction = "aigw rotate ucloud"
 	}
-	if result.State != "deferred" || result.NextAction != wantCommandAction {
+	if result.State != "deferred" || !wantNext(result.NextAction, result.NextDetail, wantCommandAction) {
 		t.Fatalf("%s continuation = %+v\n%s", command, result, out)
 	}
 	if command == "sync" {
 		return
 	}
 	selected := result.Clients[codex.ID]
-	if selected.State != "deferred" || selected.NextAction != wantAction || !selected.ProjectionDeferred {
+	if selected.State != "deferred" || !wantNext(selected.NextAction, selected.NextDetail, wantAction) || !selected.ProjectionDeferred {
 		t.Fatalf("%s selected Codex = %+v", command, selected)
 	}
 }

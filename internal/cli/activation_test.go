@@ -15,6 +15,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 )
 
 type noClientDiscovery struct{}
@@ -62,13 +63,16 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 					}
 					var result struct {
 						NextAction string `json:"next_action"`
+						NextDetail string `json:"next_detail"`
 						State      string `json:"state"`
 					}
 					if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 						t.Fatalf("%s did not return JSON: %v; output=%q", args[0], err, out.String())
 					}
-					if result.NextAction != scenario.want || result.State != "deferred" {
-						t.Fatalf("%s state and next action = %q, %q; want deferred, %q", args[0], result.State, result.NextAction, scenario.want)
+					// A runnable command is next_action; prose is next_detail.
+					wantAction, wantDetail := terminal.NextSteps(scenario.want)
+					if result.NextAction != wantAction || result.NextDetail != wantDetail || result.State != "deferred" {
+						t.Fatalf("%s state and next step = %q, %q, %q; want deferred, %q", args[0], result.State, result.NextAction, result.NextDetail, scenario.want)
 					}
 					out.Reset()
 					humanArgs := append([]string(nil), args[:len(args)-1]...)
@@ -117,12 +121,13 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 			}
 			var result struct {
 				NextAction string `json:"next_action"`
+				NextDetail string `json:"next_detail"`
 			}
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 				t.Fatalf("%s did not return JSON: %v; output=%q", args[0], err, out.String())
 			}
-			if result.NextAction != want {
-				t.Fatalf("%s next action = %q, want %q", args[0], result.NextAction, want)
+			if result.NextAction != "" || result.NextDetail != want {
+				t.Fatalf("%s next step = %q, %q; want the guidance %q", args[0], result.NextAction, result.NextDetail, want)
 			}
 		})
 	}

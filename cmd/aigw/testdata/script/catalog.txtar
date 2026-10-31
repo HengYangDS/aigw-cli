@@ -1,17 +1,17 @@
-# catalog refuses an empty home in text but reports it as JSON, refuses an
-# argument as JSON, then reports each Account's catalog in text and as JSON.
+# catalog refuses an empty home in text and as JSON, refuses an argument as
+# JSON, then reports each Account's catalog in text and as JSON.
 exec aigw catalog --help
 cmp stdout help.txt
 
 exitcode 1 aigw catalog
 cmp stdout empty.txt
-exec aigw catalog --json
+exitcode 1 aigw catalog --json
 cmp stdout empty.json
 exitcode 1 aigw catalog extra --json
 cmp stdout refusal.json
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 # An observation is named by a digest of its endpoint, which varies with $UPSTREAM.
 exec aigw catalog
 normalize stdout catalog.out '[0-9a-f]{64}'
@@ -103,13 +103,15 @@ Next
 }
 -- empty.json --
 {
-  "schema_version": 1,
-  "ok": true,
-  "observations": []
+  "schema_version": 2,
+  "ok": false,
+  "error": "not configured; run `aigw setup`",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_detail": "aigw setup"
 }
 -- refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "unknown command \"extra\"",
   "impact": "The command could not finish; inspect current state before retrying.",

@@ -5,7 +5,7 @@ exec aigw route --help
 cmp stdout help.txt
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 exec aigw route add spare --account team --model spare-model --protocol anthropic
 cmp stdout added.txt
 exec aigw route list --json
@@ -106,11 +106,11 @@ Next
 }
 -- remove-preview-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Route \"team\" is selected for claude; first run `aigw use --for claude \u003cother-route\u003e`",
   "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw use --for claude \u003cother-route\u003e"
+  "next_detail": "aigw use --for claude \u003cother-route\u003e"
 }
 -- token.txt --
 sk-team-token-0001
@@ -208,7 +208,7 @@ Recommended action
   aigw use --for claude <other-route>
 -- missing.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Unknown route \"missing\"",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -229,7 +229,7 @@ Recommended action
 }
 -- exists.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Route \"third\" already exists",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -246,7 +246,7 @@ Recommended action
 }
 -- unknown.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Unknown route \"missing\"",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -261,15 +261,15 @@ Recommended action
 }
 -- selected.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Route \"team\" is selected for claude; first run `aigw use --for claude \u003cother-route\u003e`",
   "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw use --for claude \u003cother-route\u003e"
+  "next_detail": "aigw use --for claude \u003cother-route\u003e"
 }
 -- list-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "unknown command \"extra\"",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -277,24 +277,25 @@ Recommended action
 }
 -- rename.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
+  "dry_run": true,
   "resource": "route",
   "old_id": "spare",
   "new_id": "extra",
   "status": "planned",
   "affected_references": [],
   "actions": {
-    "configuration": "rename-and-update-references",
+    "configuration": "rename_and_update_references",
     "api_token": "unchanged",
     "account_probe": "unchanged",
-    "backup": "refresh-on-apply"
+    "backup": "refresh_on_apply"
   },
   "external_todos": []
 }
 -- rename-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Unknown route \"missing\"",
   "impact": "The command could not finish; inspect current state before retrying.",

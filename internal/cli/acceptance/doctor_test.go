@@ -154,9 +154,10 @@ func TestDoctorJSONDoesNotExposeConfigurationPath(t *testing.T) {
 	}
 	var result struct {
 		Checks []struct {
-			Name   string `json:"name"`
-			Detail string `json:"detail"`
-			Fix    string `json:"fix"`
+			Name       string `json:"name"`
+			Detail     string `json:"detail"`
+			NextAction string `json:"next_action"`
+			NextDetail string `json:"next_detail"`
 		} `json:"checks"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
@@ -167,7 +168,7 @@ func TestDoctorJSONDoesNotExposeConfigurationPath(t *testing.T) {
 	}
 	for _, check := range result.Checks {
 		if check.Name == "config" {
-			if check.Detail != "cannot read or validate configuration" || check.Fix != "inspect or restore the local configuration file" {
+			if check.Detail != "cannot read or validate configuration" || check.NextAction != "" || check.NextDetail != "Inspect or restore the local configuration file" {
 				t.Fatalf("configuration diagnosis = %+v", check)
 			}
 			return
@@ -344,11 +345,12 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 	app, out, secretStore, _, _ := testApp(t, "")
 	home := t.TempDir()
 	app.Env = []string{"HOME=" + home}
+	app.Host = hostAt(home)
 	target := filepath.Join(home, ".codex", "config.toml")
 	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	homeRelative := filepath.Join("~", ".codex", "config.toml")
+	homeRelative := "~/.codex/config.toml"
 	route := qualifiedRoute("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
@@ -464,13 +466,14 @@ func TestDoctorUnconfiguredPointsToSetupNotRepair(t *testing.T) {
 
 func TestDoctorFormatsPreserveTheDiagnosticOutcome(t *testing.T) {
 	for _, test := range []struct {
-		name                 string
-		configured, jsonMode bool
-		nextAction           string
-		continuations        int
+		name                   string
+		configured, jsonMode   bool
+		nextAction, nextDetail string
+		continuations          int
 	}{
-		{name: "unconfigured text", nextAction: "aigw setup", continuations: 1},
-		{name: "unconfigured JSON", jsonMode: true, nextAction: "aigw setup"},
+		// Setup asks a person for an Account and a Route.
+		{name: "unconfigured text", nextDetail: "aigw setup", continuations: 1},
+		{name: "unconfigured JSON", jsonMode: true, nextDetail: "aigw setup"},
 		{name: "configured text", configured: true, nextAction: "aigw use --for claude one", continuations: 1},
 		{name: "configured JSON", configured: true, jsonMode: true, nextAction: "aigw use --for claude one"},
 	} {
@@ -499,12 +502,13 @@ func TestDoctorFormatsPreserveTheDiagnosticOutcome(t *testing.T) {
 			var result struct {
 				OK         bool   `json:"ok"`
 				NextAction string `json:"next_action"`
+				NextDetail string `json:"next_detail"`
 			}
 			decoder := json.NewDecoder(out)
 			if err := decoder.Decode(&result); err != nil {
 				t.Fatal(err)
 			}
-			if result.OK != test.configured || result.NextAction != test.nextAction {
+			if result.OK != test.configured || result.NextAction != test.nextAction || result.NextDetail != test.nextDetail {
 				t.Fatalf("doctor JSON=%#v", result)
 			}
 			if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {

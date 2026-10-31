@@ -9,10 +9,10 @@ import (
 	"reflect"
 	"testing"
 
-	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
 	surfaceidentity "aigw-cli/internal/adapter/surface"
+	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/secret"
 )
 
@@ -86,7 +86,11 @@ func TestUseForwardingPreviewRefusesAnEditedOwnedTarget(t *testing.T) {
 // preview planned.
 func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 	run, cfg, out := configuredRuntime(t)
-	target := filepath.Join(t.TempDir(), "config.toml")
+	run.Host.Home = t.TempDir()
+	target := filepath.Join(run.Host.Home, "work", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	run.Discovery = staticDiscovery{result: discovery.Result{
 		Executables: map[string]string{codex.ID: filepath.Join(t.TempDir(), "codex")},
 		Surfaces: []discovery.Surface{{
@@ -108,20 +112,14 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	var preview struct {
-		Targets []adapter.ProjectionPlan `json:"targets"`
+		Projections []invocation.Projection `json:"projections"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatal(err)
 	}
-	// The plan names the target's real path; the temporary directory itself
-	// may sit behind a symbolic link, such as /var on macOS.
-	directory, err := filepath.EvalSymlinks(filepath.Dir(target))
-	if err != nil {
-		t.Fatal(err)
-	}
-	planned := filepath.Join(directory, filepath.Base(target))
-	if len(preview.Targets) != 1 || preview.Targets[0].Target != planned ||
-		preview.Targets[0].Client != codex.ID || preview.Targets[0].Action != "initial-project" {
+	// The document names the target relative to the home directory.
+	if len(preview.Projections) != 1 || preview.Projections[0].Target != "~/work/config.toml" ||
+		preview.Projections[0].Client != codex.ID || preview.Projections[0].Action != "initial_project" {
 		t.Fatalf("preview did not plan the newly discovered target: %s", out.Bytes())
 	}
 	if _, err := os.Stat(target); !errors.Is(err, os.ErrNotExist) {
@@ -146,12 +144,12 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 	if len(stored) != 1 {
 		t.Fatalf("selection stored %d targets: %#v", len(stored), stored)
 	}
-	// The binding keeps the discovered path and the plan names its real path;
-	// both must be the one file that the selection wrote.
+	// The binding keeps the discovered path, the one file that the preview
+	// planned and the selection wrote.
 	applied, appliedErr := os.Stat(stored[0])
-	previewed, previewedErr := os.Stat(planned)
-	if appliedErr != nil || previewedErr != nil || !os.SameFile(applied, previewed) {
-		t.Fatalf("selection did not apply the target that its preview planned: %q, %q: %v, %v", stored[0], planned, appliedErr, previewedErr)
+	discovered, discoveredErr := os.Stat(target)
+	if appliedErr != nil || discoveredErr != nil || !os.SameFile(applied, discovered) {
+		t.Fatalf("selection did not apply the discovered target: %q, %q: %v, %v", stored[0], target, appliedErr, discoveredErr)
 	}
 }
 

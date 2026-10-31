@@ -4,8 +4,8 @@ exec aigw use --help
 cmp stdout help.txt
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
-exec aigw route add spare --account team --model spare-model --protocol anthropic
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
+exec aigw route add spare --account team --model spare-model --upstream-model spare-wire --protocol anthropic
 
 snapshot $HOME before.txt
 exec aigw use --for claude spare --dry-run --json
@@ -29,54 +29,56 @@ cmp stdout refusal.json
 
 -- preview.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
   "changed": false,
   "projection_changed": false,
-  "route_id": "spare",
+  "route": "spare",
   "route_label": "spare",
-  "account_id": "team",
+  "account": "team",
   "account_label": "Team Gateway",
   "client": "claude",
   "endpoint": "$UPSTREAM",
   "upstream_endpoint": "$UPSTREAM",
   "protocol": "anthropic",
   "model": "spare-model",
-  "canonical_model_id": "spare-model",
+  "upstream_model": "spare-wire",
   "model_provider": "",
   "authentication": "account-token",
-  "targets": [
+  "projections": [
     {
       "client": "claude",
-      "target": "$HOME/.claude/settings.json",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
       "action": "project"
     }
   ]
 }
 -- preview-windows.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
   "changed": false,
   "projection_changed": false,
-  "route_id": "spare",
+  "route": "spare",
   "route_label": "spare",
-  "account_id": "team",
+  "account": "team",
   "account_label": "Team Gateway",
   "client": "claude",
   "endpoint": "$UPSTREAM",
   "upstream_endpoint": "$UPSTREAM",
   "protocol": "anthropic",
   "model": "spare-model",
-  "canonical_model_id": "spare-model",
+  "upstream_model": "spare-wire",
   "model_provider": "",
   "authentication": "account-token",
-  "targets": [
+  "projections": [
     {
       "client": "claude",
-      "target": "$HOME\\.claude\\settings.json",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
       "action": "project"
     }
   ]
@@ -104,22 +106,21 @@ Options
       --stream-max-retries uint      Explicit native stream retry budget for this Codex connection; zero disables client stream retries
 -- spare.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
-  "dry_run": false,
   "changed": true,
   "projection_changed": true,
   "next_action": "aigw check",
-  "route_id": "spare",
+  "route": "spare",
   "route_label": "spare",
-  "account_id": "team",
+  "account": "team",
   "account_label": "Team Gateway",
   "client": "claude",
   "endpoint": "$UPSTREAM",
   "upstream_endpoint": "$UPSTREAM",
   "protocol": "anthropic",
   "model": "spare-model",
-  "canonical_model_id": "spare-model",
+  "upstream_model": "spare-wire",
   "model_provider": "",
   "authentication": "account-token"
 }
@@ -150,7 +151,7 @@ Recommended action
   aigw route list
 -- refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "unknown route \"missing\"; run `aigw route list`",
   "impact": "The command could not finish; inspect current state before retrying.",

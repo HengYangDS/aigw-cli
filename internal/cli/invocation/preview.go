@@ -28,10 +28,42 @@ const ReplacedBy = "aigw_replaced_by"
 // Preview is what applying a configuration change would do beyond the
 // configuration itself: the client files that it would change and the
 // credential reader that it would install. A command's preview document
-// embeds it.
+// embeds it; human output names each file by its full path.
 type Preview struct {
-	Targets              []adapter.ProjectionPlan      `json:"targets,omitempty"`
+	Projections          []Projection                  `json:"projections,omitempty"`
 	CredentialEntrypoint *app.CredentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
+	plans                []adapter.ProjectionPlan
+}
+
+// Projection is one client file that a change writes or would write, as a
+// document names it: the client, its surface, the file relative to the home
+// directory, absent outside it, and the snake_case action.
+type Projection struct {
+	Client  string `json:"client"`
+	Surface string `json:"surface,omitempty"`
+	Target  string `json:"target,omitempty"`
+	Action  string `json:"action"`
+}
+
+// Home is the home directory from which documents name client files: the
+// observed host's, from which the client adapters locate them, else the
+// environment's.
+func Home(deps app.Dependencies) string {
+	if deps.Host.Home != "" {
+		return deps.Host.Home
+	}
+	return terminal.HomeDirectory(deps.Env)
+}
+
+// Projections names projection plans as documents do, relative to Home.
+func Projections(runtime Context, plans []adapter.ProjectionPlan) []Projection {
+	home := Home(runtime.Dependencies)
+	projections := make([]Projection, 0, len(plans))
+	for _, plan := range plans {
+		target, _ := terminal.HomeTarget(plan.Target, home)
+		projections = append(projections, Projection{Client: plan.Client, Surface: plan.Surface, Target: target, Action: terminal.SnakeValue(plan.Action)})
+	}
+	return projections
 }
 
 // PreviewChange previews a configuration transition as Commit would apply it.
@@ -56,7 +88,10 @@ func PreviewProjection(runtime Context, before, after domain.Config, clientIDs .
 // WithEntrypoint completes a projection with the credential reader that a
 // commit would prepare for its clients, without checking any Token.
 func WithEntrypoint(runtime Context, after domain.Config, projection synchronization.Projection) (Preview, error) {
-	preview := Preview{Targets: projection.Targets}
+	preview := Preview{plans: projection.Targets}
+	if len(projection.Targets) > 0 {
+		preview.Projections = Projections(runtime, projection.Targets)
+	}
 	if len(projection.Clients) == 0 {
 		return preview, nil
 	}
@@ -143,9 +178,9 @@ func RenderPreview(r *terminal.Renderer, preview Preview, apply string) {
 	}
 	r.Section("Projection targets")
 	rows := []terminal.Field{{State: terminal.OK, Label: "Projection", Value: "No client configuration needs changing"}}
-	if len(preview.Targets) > 0 {
-		rows = make([]terminal.Field, 0, len(preview.Targets))
-		for _, plan := range preview.Targets {
+	if len(preview.plans) > 0 {
+		rows = make([]terminal.Field, 0, len(preview.plans))
+		for _, plan := range preview.plans {
 			rows = append(rows, terminal.Field{Label: plan.Target, Value: plan.Action})
 		}
 	}

@@ -18,19 +18,12 @@ import (
 )
 
 // importSchemaVersion is the version of `aigw config import`'s JSON document.
-const importSchemaVersion = 1
+const importSchemaVersion = 2
 
 // NewCommand constructs the configuration manifest command tree.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	root := &cobra.Command{
-		Use: "config", Short: "Import and export configuration",
-		RunE: func(_ *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return fmt.Errorf("Choose a config subcommand; run `aigw config --help`")
-			}
-			return fmt.Errorf("Unknown config subcommand %q; run `aigw config --help`", args[0])
-		},
-	}
+	// Like the other command groups, bare `aigw config` shows its help.
+	root := &cobra.Command{Use: "config", Short: "Import and export configuration"}
 	root.AddCommand(newPathCommand(runtime), newExportCommand(runtime), newImportCommand(runtime), newMigrateCommand(runtime))
 	return root
 }
@@ -71,14 +64,18 @@ func newExportCommand(runtime invocation.Context) *cobra.Command {
 	}}
 }
 
+// importResult is `aigw config import`'s JSON document: what the merge
+// imported, kept and retired, and in a preview the clients whose projections
+// it may change. A preview continues with the command that applies it.
 type importResult struct {
-	DryRun               bool     `json:"dry_run"`
+	DryRun               bool     `json:"dry_run,omitempty"`
 	ImportedAccounts     int      `json:"imported_accounts"`
 	ImportedRoutes       int      `json:"imported_routes"`
 	KeptAccounts         []string `json:"kept_accounts,omitempty"`
 	RetiredRoutes        []string `json:"retired_routes,omitempty"`
 	ProjectionCandidates []string `json:"projection_candidates,omitempty"`
-	NextAction           string   `json:"next_action"`
+	NextAction           string   `json:"next_action,omitempty"`
+	NextDetail           string   `json:"next_detail,omitempty"`
 }
 
 func newImportCommand(runtime invocation.Context) *cobra.Command {
@@ -122,13 +119,14 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			KeptAccounts:         slices.Sorted(maps.Keys(keeping)),
 			RetiredRoutes:        slices.Sorted(maps.Keys(retiring)),
 			ProjectionCandidates: runtime.Clients.ChangedClients(before, cfg),
-			NextAction:           "aigw status",
 		}
+		next := "aigw status"
 		if dryRun {
-			result.NextAction = "Review the preview, then rerun without --dry-run"
+			next = invocation.ApplyCommand(cmd, args)
 		} else if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "configuration manifest"); err != nil {
 			return err
 		}
+		result.NextAction, result.NextDetail = terminal.NextSteps(next)
 		if jsonMode {
 			return terminal.WriteDocument(runtime.Out, importSchemaVersion, true, result)
 		}
@@ -159,7 +157,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		if dryRun {
 			r.Success("No configuration, Token, or client projection was changed")
 		}
-		r.Next(result.NextAction)
+		r.Next(next)
 		return nil
 	}}
 	cmd.Flags().StringSliceVar(&keepAccounts, "keep-account", nil, "Retain local public Account metadata instead of the imported version")

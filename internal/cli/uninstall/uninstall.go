@@ -98,7 +98,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					title = "Client withdrawal completed; program removal is incomplete"
 					impact = "Managed client withdrawal is committed; configuration, Tokens and versioned credential readers are retained."
 				}
-				fix := "Inspect the selected target and retained files; after resolving file access, retry `uninstall --target <path>` from another verified AIGW executable."
+				fix := "Inspect the selected target and retained files; after resolving file access, retry `uninstall --path <path>` from another verified AIGW executable."
 				problem := invocation.Problem(runtime,
 					title,
 					"AIGW could not remove every selected portable program file.",
@@ -129,6 +129,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	command.Flags().StringVar(&target, "target", "", "installed executable path; --path is the same value")
 	command.MarkFlagsMutuallyExclusive("path", "target")
 	_ = command.Flags().SetAnnotation("target", invocation.ReplacedBy, []string{"path"})
+	// The replaced spelling stays one release, hidden; using it warns.
+	_ = command.Flags().MarkHidden("target")
 	command.Flags().BoolVar(&jsonMode, "json", false, "Write the removal as JSON")
 	return command
 }

@@ -73,11 +73,11 @@ func TestRenderRepairPreviewJSONReportsEachPlannedSurface(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if !got.DryRun || got.ConfigurationAction != "already-converged" || got.NextAction != "aigw repair" || len(got.Projections) != len(plans) {
+	if !got.DryRun || got.ConfigurationAction != "already_converged" || got.NextAction != "aigw repair" || len(got.Projections) != len(plans) {
 		t.Fatalf("preview = %#v", got)
 	}
 	for index, plan := range plans {
-		if projection := got.Projections[index]; projection.Client != plan.Client || projection.SurfaceID != plan.Surface {
+		if projection := got.Projections[index]; projection.Client != plan.Client || projection.Surface != plan.Surface {
 			t.Fatalf("projection %d = %#v, want client %s on surface %s", index, projection, plan.Client, plan.Surface)
 		}
 	}
@@ -231,8 +231,8 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 		action     string
 		nextAction string
 	}{
-		{"/opt/claude", "already-converged", "aigw check"},
-		{"/updated/claude", "already-converged", "aigw check"},
+		{"/opt/claude", "already_converged", "aigw check"},
+		{"/updated/claude", "already_converged", "aigw check"},
 	} {
 		out.Reset()
 		runtime.Discovery = staticDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: test.label}}}

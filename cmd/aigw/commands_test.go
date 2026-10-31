@@ -3,7 +3,6 @@ package main
 import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -15,7 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rogpeppe/go-internal/txtar"
 	"github.com/spf13/cobra"
 )
 
@@ -309,137 +307,4 @@ func functionPackage(function any) string {
 		return name[:slash+dot]
 	}
 	return name
-}
-
-// TestScriptDocumentsCarryTheContractHeader holds every JSON document that an
-// acceptance script expects from `aigw ... --json` to the command-line
-// contract's header: an integer schema_version and a boolean ok.
-func TestScriptDocumentsCarryTheContractHeader(t *testing.T) {
-	scripts, err := filepath.Glob(filepath.Join("testdata", "script", "*.txtar"))
-	if err != nil || len(scripts) == 0 {
-		t.Fatalf("acceptance scripts: %v, %d found", err, len(scripts))
-	}
-	documents := 0
-	for _, path := range scripts {
-		archive, err := txtar.ParseFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, name := range scriptDocuments(string(archive.Comment)) {
-			index := slices.IndexFunc(archive.Files, func(file txtar.File) bool { return file.Name == name })
-			if index < 0 {
-				t.Errorf("%s compares %s, which the archive does not hold", filepath.Base(path), name)
-				continue
-			}
-			// normalize writes <varies> for a value that differs between runs.
-			document := strings.ReplaceAll(string(archive.Files[index].Data), "<varies>", "0")
-			for _, problem := range documentHeaderProblems([]byte(document)) {
-				t.Errorf("%s: %s %s", filepath.Base(path), name, problem)
-			}
-			documents++
-		}
-	}
-	if documents == 0 {
-		t.Fatal("no acceptance script compares a JSON document")
-	}
-}
-
-func TestDocumentHeaderProblemsNameEachGap(t *testing.T) {
-	for _, test := range []struct {
-		name, document string
-		want           []string
-	}{
-		{"complete", `{"schema_version": 1, "ok": true}`, nil},
-		{"no version", `{"ok": true}`, []string{"lacks an integer schema_version"}},
-		{"text version", `{"schema_version": "1", "ok": false}`, []string{"lacks an integer schema_version"}},
-		{"fractional version", `{"schema_version": 1.5, "ok": false}`, []string{"lacks an integer schema_version"}},
-		{"no outcome", `{"schema_version": 1}`, []string{"lacks a boolean ok"}},
-		{"text outcome", `{"schema_version": 1, "ok": "true"}`, []string{"lacks a boolean ok"}},
-		{"null outcome", `{"schema_version": 1, "ok": null}`, []string{"lacks a boolean ok"}},
-		{"null version", `{"schema_version": null, "ok": true}`, []string{"lacks an integer schema_version"}},
-		{"not an object", `[1]`, []string{"is not a JSON object"}},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			if got := documentHeaderProblems([]byte(test.document)); !slices.Equal(got, test.want) {
-				t.Fatalf("documentHeaderProblems() = %q, want %q", got, test.want)
-			}
-		})
-	}
-	script := "exec aigw demo --json\ncmp stdout direct.json\n" +
-		"[windows] exec $BIN/aigw demo --json=true\n[windows] cp stdout copied.out\n[windows] cmp copied.out copied.json\n" +
-		"exec aigw demo --json\nnormalize stdout normalized.out\ncmpenv normalized.out normalized.json\n" +
-		"exitcode 1 aigw demo --json\ncmpenv stdout refused.json\n" +
-		"exec aigw demo\ncmp stdout text.json\n" +
-		"exec aigw demo --json=false\ncmp stdout off.json\n" +
-		"exec aigw demo --json\nexec claude aigw --json\ncmp stdout client.json\n"
-	if got, want := scriptDocuments(script), []string{"direct.json", "copied.json", "normalized.json", "refused.json"}; !slices.Equal(got, want) {
-		t.Fatalf("scriptDocuments() = %q, want %q", got, want)
-	}
-}
-
-// scriptDocuments names the archive files that a script compares with the
-// standard output of an `aigw ... --json` command, directly or through a copy
-// that cp or normalize makes of it. Any later command replaces the standard
-// output that cmp reads.
-func scriptDocuments(script string) []string {
-	var documents []string
-	lastJSON := false
-	fromJSON := map[string]bool{}
-	for line := range strings.Lines(script) {
-		words := strings.Fields(line)
-		for len(words) > 0 && strings.HasPrefix(words[0], "[") && strings.HasSuffix(words[0], "]") {
-			words = words[1:]
-		}
-		if len(words) > 0 && words[0] == "!" {
-			words = words[1:]
-		}
-		switch {
-		case len(words) == 0:
-		case words[0] == "exec" || words[0] == "exitcode" || words[0] == "apikeyhelper":
-			lastJSON = aigwJSON(words)
-		case (words[0] == "normalize" || words[0] == "cp") && len(words) >= 3 && words[1] == "stdout":
-			fromJSON[words[2]] = lastJSON
-		case (words[0] == "cmp" || words[0] == "cmpenv") && len(words) == 3 && ((words[1] == "stdout" && lastJSON) || fromJSON[words[1]]):
-			documents = append(documents, words[2])
-		}
-	}
-	return documents
-}
-
-// aigwJSON reports whether a script command runs aigw with --json: `exec
-// aigw ...` or `exitcode N aigw ...`, with the program named by any path.
-func aigwJSON(words []string) bool {
-	program := 1
-	if words[0] == "exitcode" {
-		program = 2
-	}
-	if words[0] == "apikeyhelper" || len(words) <= program || filepath.Base(words[program]) != "aigw" {
-		return false
-	}
-	return slices.ContainsFunc(words[program+1:], func(word string) bool { return word == "--json" || word == "--json=true" })
-}
-
-// documentHeaderProblems names what a JSON document lacks of the contract's
-// header.
-func documentHeaderProblems(document []byte) []string {
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(document, &fields); err != nil || fields == nil {
-		return []string{"is not a JSON object"}
-	}
-	var problems []string
-	var version any
-	decoder := json.NewDecoder(strings.NewReader(string(fields["schema_version"])))
-	decoder.UseNumber()
-	number, isNumber := json.Number(""), false
-	if decoder.Decode(&version) == nil {
-		number, isNumber = version.(json.Number)
-	}
-	if _, err := strconv.ParseInt(string(number), 10, 64); !isNumber || err != nil {
-		problems = append(problems, "lacks an integer schema_version")
-	}
-	var ok *bool
-	if err := json.Unmarshal(fields["ok"], &ok); err != nil || ok == nil {
-		problems = append(problems, "lacks a boolean ok")
-	}
-	return problems
 }

@@ -56,11 +56,14 @@ func (state State) Label() string {
 // client. Detail explains the observation; NextAction is empty only when no
 // operator action is required.
 type Client struct {
-	State               State  `json:"state"`
-	Route               string `json:"route,omitempty"`
-	Account             string `json:"account,omitempty"`
-	Detail              string `json:"detail,omitempty"`
-	NextAction          string `json:"next_action,omitempty"`
+	State      State  `json:"state"`
+	Route      string `json:"route,omitempty"`
+	Account    string `json:"account,omitempty"`
+	Detail     string `json:"detail,omitempty"`
+	NextAction string `json:"next_action,omitempty"`
+	// NextDetail is a next step that a script cannot run as it stands, which
+	// a document writes instead of NextAction.
+	NextDetail          string `json:"next_detail,omitempty"`
 	ProjectionDeferred  bool   `json:"projection_deferred,omitempty"`
 	NativeModelOverride bool   `json:"native_model_override,omitempty"`
 }

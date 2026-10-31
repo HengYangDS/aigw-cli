@@ -6,20 +6,20 @@ normalize stdout help.out
 [!windows] cmp help.out help.txt
 [windows] cmp help.out help-windows.txt
 
-exec aigw install --target $WORK/bin/aigw$exe
+exec aigw install --path $WORK/bin/aigw$exe
 normalize stdout installed.out
 [!windows] cmp installed.out installed.txt
 [windows] cmp installed.out installed-windows.txt
 exists $WORK/bin/aigw$exe
 
-exec aigw install --target $WORK/json/aigw$exe --json
+exec aigw install --path $WORK/json/aigw$exe --json
 normalize stdout installed-json.out
 [!windows] cmp installed-json.out installed.json
 [windows] cmp installed-json.out installed-windows.json
 exists $WORK/json/aigw$exe
 
 # Previews write neither the program nor its directory.
-exec aigw install --target $WORK/preview/aigw$exe --dry-run --json
+exec aigw install --path $WORK/preview/aigw$exe --dry-run --json
 normalize stdout install-preview.out
 [!windows] cmp install-preview.out install-preview.json
 [windows] cmp install-preview.out install-preview-windows.json
@@ -45,16 +45,19 @@ normalize stdout replace-preview.out
 exec aigw install --path $WORK/other/aigw$exe --dry-run
 stdout 'Rollback copy'
 stdout 'with this same program'
+# The hidden spelling still works and names its replacement on stderr.
+exec aigw install --target $WORK/other/aigw$exe --dry-run --json
+stderr '^aigw: --target is deprecated; use --path$'
 snapshot $WORK/other other-after.txt
 cmp other-after.txt other-before.txt
 exitcode 1 aigw install --path $WORK --dry-run
 
-exitcode 1 aigw install --target $WORK
+exitcode 1 aigw install --path $WORK
 [!windows] normalize stdout refusal.out
 [windows] normalize stdout refusal.out '\([a-z]+: [^)]*\)'
 [!windows] cmp refusal.out refusal.txt
 [windows] cmp refusal.out refusal-windows.txt
-exitcode 1 aigw install --target $WORK --json
+exitcode 1 aigw install --path $WORK --json
 [!windows] normalize stdout json-refusal.out
 [windows] normalize stdout json-refusal.out '\([a-z]+: [^)]*\)'
 [!windows] cmp json-refusal.out json-refusal.json
@@ -137,11 +140,10 @@ Usage
   aigw install [flags]
 
 Options
-      --dry-run         Show the program file and rollback copy that installing would write without writing them
-  -h, --help            help for install
-      --json            Write the installed path as JSON
-      --path string     destination executable path (default "$HOME/.local/bin/aigw")
-      --target string   destination executable path; --path is the same value (default "$HOME/.local/bin/aigw")
+      --dry-run       Show the program file and rollback copy that installing would write without writing them
+  -h, --help          help for install
+      --json          Write the installed path as JSON
+      --path string   destination executable path (default "$HOME/.local/bin/aigw")
 -- installed.txt --
 AIGW  Portable installation
 ────────────────────────────────────────
@@ -171,11 +173,10 @@ Usage
   aigw install [flags]
 
 Options
-      --dry-run         Show the program file and rollback copy that installing would write without writing them
-  -h, --help            help for install
-      --json            Write the installed path as JSON
-      --path string     destination executable path (default "$HOME\\Programs\\aigw\\bin\\aigw.exe")
-      --target string   destination executable path; --path is the same value (default "$HOME\\Programs\\aigw\\bin\\aigw.exe")
+      --dry-run       Show the program file and rollback copy that installing would write without writing them
+  -h, --help          help for install
+      --json          Write the installed path as JSON
+      --path string   destination executable path (default "$HOME\\Programs\\aigw\\bin\\aigw.exe")
 -- installed-windows.txt --
 AIGW  Portable installation
 ────────────────────────────────────────
@@ -205,7 +206,7 @@ Recommended action
 }
 -- json-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Local file access failed (read: is a directory); run `aigw doctor` to inspect current state",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -220,7 +221,7 @@ Recommended action
 }
 -- json-refusal-windows.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Local file access failed <varies>; run `aigw doctor` to inspect current state",
   "impact": "The command could not finish; inspect current state before retrying.",

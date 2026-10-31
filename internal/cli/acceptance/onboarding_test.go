@@ -155,12 +155,13 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 			Client string `json:"client"`
 			Target string `json:"target"`
 			Action string `json:"action"`
-		} `json:"targets"`
+		} `json:"projections"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatalf("decode sync preview: %v\n%s", err, out.String())
 	}
-	if !preview.DryRun || len(preview.Targets) != 1 || preview.Targets[0].Client != claude.ID || preview.Targets[0].Target != settingsPath || preview.Targets[0].Action != "project" {
+	// The document names the settings file relative to the home directory.
+	if !preview.DryRun || len(preview.Targets) != 1 || preview.Targets[0].Client != claude.ID || preview.Targets[0].Target != "~/.claude/settings.json" || preview.Targets[0].Action != "project" {
 		t.Fatalf("sync preview = %#v", preview)
 	}
 	wantRoutes := map[string]string{

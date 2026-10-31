@@ -64,9 +64,12 @@ func TestEndpointTestRejectsMalformedKeyringFormatBeforeHTTP(t *testing.T) {
 	}
 }
 
-func TestEndpointTestDefaultsToSelectedBindingsOnly(t *testing.T) {
+// TestEndpointTestDefaultsToEnabledBindingsOnly shows that test without --for
+// probes the enabled clients only: Claude keeps its selected Route while
+// disabled, and its endpoint is not probed.
+func TestEndpointTestDefaultsToEnabledBindingsOnly(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	delete(cfg.Clients, claude.ID)
+	cfg.SetClientActivation(codex.ID, true, "", nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -88,6 +91,27 @@ func TestEndpointTestDefaultsToSelectedBindingsOnly(t *testing.T) {
 	}
 	if requests != 1 {
 		t.Fatalf("requests = %d, want 1 selected Client Binding", requests)
+	}
+}
+
+func TestEndpointTestNamesTheDisabledBindingsItSkips(t *testing.T) {
+	runtime, cfg, _ := configuredReadinessRuntime(t)
+	if cfg.SelectedRoute(claude.ID) == "" || cfg.Clients[claude.ID].Enabled {
+		t.Fatalf("fixture lost its disabled Client Binding: %+v", cfg.Clients[claude.ID])
+	}
+	runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		t.Fatalf("a disabled Client Binding was probed: %s", request.URL)
+		return nil, nil
+	})
+	runtime.Problem = func(title, evidence, impact, fix string, cause error) error {
+		if title != "No enabled client has a selected Route" || evidence != "Only disabled clients have a selected Route." || impact != "Without --for, test probes only the enabled clients." || fix != "aigw test --for <client>" {
+			t.Fatalf("problem = %q, %q, %q, %q", title, evidence, impact, fix)
+		}
+		return cause
+	}
+
+	if err := executeCommand(NewCommand(runtime)); err == nil || !strings.Contains(err.Error(), "no enabled Client Binding selected") {
+		t.Fatalf("error = %v", err)
 	}
 }
 
@@ -204,7 +228,12 @@ func TestEndpointTestRequiresASelectedClientBindingByDefault(t *testing.T) {
 
 func TestEndpointTestCommandCoversSuccessAndTransportFailures(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		runtime, _, buffer := configuredReadinessRuntime(t)
+		runtime, cfg, buffer := configuredReadinessRuntime(t)
+		cfg.SetClientActivation(claude.ID, true, "", nil)
+		cfg.SetClientActivation(codex.ID, true, "", nil)
+		if err := runtime.Config.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
 		if err := runtime.Secrets.Set("one", "token"); err != nil {
 			t.Fatal(err)
 		}

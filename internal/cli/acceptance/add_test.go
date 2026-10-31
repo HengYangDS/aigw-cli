@@ -59,7 +59,7 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 				t.Fatal(err)
 			}
 			state := readFile(t, paths[other]+".aigw-state.json")
-			if err := cli.Execute(app, []string{"add", "new", "--for", clientID, "--model", "new-model", "--anthropic-url", "https://new.test", "--openai-url", "https://new.test/v1", "--token-stdin"}); err != nil {
+			if err := cli.Execute(app, []string{"add", "new", "--for", clientID, "--upstream-model", "new-model", "--anthropic-url", "https://new.test", "--openai-url", "https://new.test/v1", "--token-stdin"}); err != nil {
 				t.Fatal(err)
 			}
 			assertAccountConnectionOutput(t, out.String())
@@ -116,7 +116,7 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = cli.Execute(app, []string{"add", "new", "--for", "claude", "--model", "new-model", "--anthropic-url", "https://new.test", "--token-stdin"})
+	err = cli.Execute(app, []string{"add", "new", "--for", "claude", "--upstream-model", "new-model", "--anthropic-url", "https://new.test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "preflight") {
 		t.Fatalf("projection conflict = %v", err)
 	}
@@ -140,7 +140,7 @@ func TestAddPreservesExistingAccountWithDifferentRouteID(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := readFile(t, app.Config.Path())
-	err := cli.Execute(app, []string{"add", "team", "--for", "claude", "--model", "new-model", "--anthropic-url", "https://new.test", "--token-stdin"})
+	err := cli.Execute(app, []string{"add", "team", "--for", "claude", "--upstream-model", "new-model", "--anthropic-url", "https://new.test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("Account collision = %v", err)
 	}
@@ -152,7 +152,7 @@ func TestAddPreservesExistingAccountWithDifferentRouteID(t *testing.T) {
 
 func TestAddRejectsInvalidRouteName(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
-	err := cli.Execute(app, []string{"add", "not valid!", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
+	err := cli.Execute(app, []string{"add", "not valid!", "--anthropic-url", "https://example.test", "--for", "claude", "--upstream-model", "claude-test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "Invalid account ID") {
 		t.Fatalf("error = %v", err)
 	}
@@ -164,7 +164,7 @@ func TestAddSurfacesConfigLoadFailure(t *testing.T) {
 	// fail with something other than os.ErrNotExist.
 	dir := t.TempDir()
 	app.Config = store.NewStore(dir, clients.Admission())
-	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
+	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--upstream-model", "claude-test", "--token-stdin"})
 	if err == nil || strings.Contains(err.Error(), "Invalid account ID") {
 		t.Fatalf("error = %v, want a config load failure", err)
 	}
@@ -172,10 +172,10 @@ func TestAddSurfacesConfigLoadFailure(t *testing.T) {
 
 func TestAddRejectsDuplicateRoute(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
-	if err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"}); err != nil {
+	if err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--upstream-model", "claude-test", "--token-stdin"}); err != nil {
 		t.Fatal(err)
 	}
-	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
+	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--upstream-model", "claude-test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("error = %v", err)
 	}
@@ -183,7 +183,7 @@ func TestAddRejectsDuplicateRoute(t *testing.T) {
 
 func TestAddWithoutLabelDefaultsToRouteName(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
-	if err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"}); err != nil {
+	if err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--upstream-model", "claude-test", "--token-stdin"}); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := app.Config.Load()
@@ -199,7 +199,7 @@ func TestAddRejectsConfigThatFailsValidation(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
 	// Omitting both endpoint flags cannot satisfy the selected client's
 	// endpoint contract.
-	err := cli.Execute(app, []string{"add", "dmx", "--for", "claude", "--model", "claude-test", "--token-stdin"})
+	err := cli.Execute(app, []string{"add", "dmx", "--for", "claude", "--upstream-model", "claude-test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "has no Anthropic Messages endpoint") {
 		t.Fatalf("error = %v", err)
 	}
@@ -209,7 +209,7 @@ func TestAddSurfacesSecretStoreSetFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
 	want := errors.New("keychain unavailable")
 	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), setErr: want}
-	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
+	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--upstream-model", "claude-test", "--token-stdin"})
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}
@@ -232,7 +232,7 @@ func TestAddRejectsUnavailableLockBeforeCredentialAccess(t *testing.T) {
 		t.Fatal(err)
 	}
 	app.Config = store.NewStore(filepath.Join(blocker, "nested", "configuration.toml"), clients.Admission())
-	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
+	err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--upstream-model", "claude-test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "create config directory for lock") {
 		t.Fatalf("lock admission error = %v", err)
 	}
@@ -257,7 +257,7 @@ func TestAddCompensatesCredentialAfterConfigurationFailure(t *testing.T) {
 			}
 			recorder := &recordingCredentialStore[string]{backend: backend, deleteErr: failure}
 			app.Secrets = recorder
-			err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test", "--token-stdin"})
+			err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--upstream-model", "claude-test", "--token-stdin"})
 			if err == nil || !strings.Contains(err.Error(), ".bak") {
 				t.Fatalf("configuration snapshot failure = %v", err)
 			}
@@ -279,7 +279,7 @@ func TestAddCompensatesCredentialAfterConfigurationFailure(t *testing.T) {
 
 func TestAddWithTokenStdinCreatesRouteWithoutPrintingSecret(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "top-secret\n")
-	err := cli.Execute(app, []string{"add", "dmx", "--label", "DMXAPI", "--openai-url", "https://example.test/v1", "--anthropic-url", "https://example.test", "--for", "codex", "--model", "gpt-test", "--token-stdin"})
+	err := cli.Execute(app, []string{"add", "dmx", "--label", "DMXAPI", "--openai-url", "https://example.test/v1", "--anthropic-url", "https://example.test", "--for", "codex", "--upstream-model", "gpt-test", "--token-stdin"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +297,7 @@ func TestAddWithTokenStdinCreatesRouteWithoutPrintingSecret(t *testing.T) {
 
 func TestAddRefusesNonInteractiveImplicitTokenInput(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "top-secret\n")
-	err := cli.Execute(app, []string{"add", "dmx", "--label", "DMX", "--anthropic-url", "https://example.test", "--for", "claude", "--model", "claude-test"})
+	err := cli.Execute(app, []string{"add", "dmx", "--label", "DMX", "--anthropic-url", "https://example.test", "--for", "claude", "--upstream-model", "claude-test"})
 	if err == nil || !strings.Contains(err.Error(), "--token-stdin") {
 		t.Fatalf("error = %v", err)
 	}

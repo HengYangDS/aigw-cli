@@ -103,17 +103,14 @@ func assertClaudeNativePreferencePreview(t *testing.T, app *cli.App, out *bytes.
 	if err := cli.Execute(app, []string{command, "--dry-run", "--json"}); err != nil {
 		t.Fatal(err)
 	}
+	// sync and repair name the client files alike.
 	var preview struct {
-		Targets     []adapter.ProjectionPlan `json:"targets"`
 		Projections []adapter.ProjectionPlan `json:"projections"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatal(err)
 	}
-	if command == "repair" {
-		preview.Targets = preview.Projections
-	}
-	if len(preview.Targets) != 1 || preview.Targets[0].Client != claude.ID || preview.Targets[0].Action != "already-converged" {
+	if len(preview.Projections) != 1 || preview.Projections[0].Client != claude.ID || preview.Projections[0].Action != "already_converged" {
 		t.Fatalf("preview=%+v", preview)
 	}
 	after, err := app.Config.CaptureSnapshot()

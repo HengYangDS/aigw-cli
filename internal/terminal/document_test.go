@@ -89,7 +89,7 @@ func TestFailureDocumentNamesTheConfigurationStage(t *testing.T) {
 			if err := json.Unmarshal(out.Bytes(), &failure); err != nil {
 				t.Fatalf("failure is not one JSON document: %v\n%s", err, out.String())
 			}
-			if failure.SchemaVersion == nil || *failure.SchemaVersion != 1 || failure.OK == nil || *failure.OK || failure.Error == "" {
+			if failure.SchemaVersion == nil || *failure.SchemaVersion != failureSchemaVersion || failure.OK == nil || *failure.OK || failure.Error == "" {
 				t.Fatalf("failure header = %s", out.String())
 			}
 			stage := ""

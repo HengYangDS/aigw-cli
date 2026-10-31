@@ -5,7 +5,7 @@ exec aigw account --help
 cmp stdout help.txt
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 exec aigw account list --json
 normalize stdout accounts.out
 cmp accounts.out accounts.json
@@ -78,10 +78,11 @@ Next
   "endpoints": {
     "anthropic": "$UPSTREAM/v2"
   },
-  "targets": [
+  "projections": [
     {
       "client": "claude",
-      "target": "$HOME/.claude/settings.json",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
       "action": "project"
     }
   ],
@@ -97,10 +98,11 @@ Next
   "endpoints": {
     "anthropic": "$UPSTREAM/v2"
   },
-  "targets": [
+  "projections": [
     {
       "client": "claude",
-      "target": "$HOME\\.claude\\settings.json",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
       "action": "project"
     }
   ],
@@ -169,7 +171,7 @@ Recommended action
   aigw check
 -- refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Unknown account \"missing\"",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -188,7 +190,7 @@ Recommended action
 }
 -- edit-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Unknown account \"missing\"",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -205,7 +207,7 @@ Recommended action
 }
 -- enable-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "--json reads the system token only from --system-token-stdin with --user-id; run `aigw account diagnostics enable --help`",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -220,7 +222,7 @@ Recommended action
 }
 -- disable-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "unknown account or route \"missing\"",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -247,7 +249,7 @@ upstream_model = "probe-model"
 interfaces = { anthropic = ["text"] }
 -- list-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "unknown command \"extra\"",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -255,8 +257,9 @@ interfaces = { anthropic = ["text"] }
 }
 -- rename.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
+  "dry_run": true,
   "resource": "account",
   "old_id": "team",
   "new_id": "crew",
@@ -265,10 +268,10 @@ interfaces = { anthropic = ["text"] }
     "routes.team.account"
   ],
   "actions": {
-    "configuration": "rename-and-update-route-references",
-    "api_token": "copy-and-retain-source",
+    "configuration": "rename_and_update_route_references",
+    "api_token": "copy_and_retain_source",
     "account_probe": "absent",
-    "backup": "refresh-on-apply"
+    "backup": "refresh_on_apply"
   },
   "external_todos": []
 }

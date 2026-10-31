@@ -7,7 +7,7 @@ exec aigw status --json
 cmp stdout empty.json
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 exec aigw status --json
 cmp stdout connected.json
 exec aigw status
@@ -38,7 +38,7 @@ Options
       --json   Write machine-readable JSON
 -- empty.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -62,12 +62,12 @@ Options
       "endpoint_configured": false,
       "projection_ready": false,
       "qualified_modes": [
-        "Chat",
-        "Cowork",
-        "Code"
+        "chat",
+        "cowork",
+        "code"
       ],
       "qualified_platforms": [
-        "macOS"
+        "macos"
       ]
     },
     "codex": {
@@ -88,11 +88,11 @@ Options
   "routes": 0,
   "enabled_clients": 0,
   "state": "deferred",
-  "next_action": "aigw setup"
+  "next_detail": "aigw setup"
 }
 -- connected.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -118,12 +118,12 @@ Options
       "endpoint_configured": false,
       "projection_ready": false,
       "qualified_modes": [
-        "Chat",
-        "Cowork",
-        "Code"
+        "chat",
+        "cowork",
+        "code"
       ],
       "qualified_platforms": [
-        "macOS"
+        "macos"
       ]
     },
     "codex": {
@@ -183,12 +183,12 @@ Recommended action
   Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it.
 -- refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Cannot parse local configuration",
   "evidence": "AIGW 0.1.0-dev stopped at the configuration parse stage at line 2, column 15.",
   "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it.",
+  "next_detail": "Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it.",
   "stage": "configuration_parse",
   "line": 2,
   "column": 15

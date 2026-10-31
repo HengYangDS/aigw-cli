@@ -17,7 +17,7 @@ import (
 
 // schemaVersion is the version of `aigw setup`'s JSON document, with and
 // without --from.
-const schemaVersion = 1
+const schemaVersion = 2
 
 type manifestSetupImported struct {
 	Accounts []string `json:"accounts"`
@@ -28,7 +28,7 @@ type manifestSetupResult struct {
 	DryRun             bool                  `json:"dry_run,omitempty"`
 	Imported           manifestSetupImported `json:"imported"`
 	ConnectedAccounts  []string              `json:"connected_accounts"`
-	SelectedBindings   map[string]string     `json:"selected_bindings"`
+	Selections         map[string]string     `json:"selections"`
 	ProjectedClients   []string              `json:"projected_clients"`
 	OnlineVerification string                `json:"online_verification"`
 	DeferredActions    []string              `json:"deferred_actions,omitempty"`
@@ -36,6 +36,13 @@ type manifestSetupResult struct {
 	invocation.Preview
 	NextAction string `json:"next_action,omitempty"`
 	NextDetail string `json:"next_detail,omitempty"`
+}
+
+// writeSetupDocument writes an applied setup's document, whose next step is
+// a command that a script can run as it stands, or guidance.
+func writeSetupDocument(runtime invocation.Context, result manifestSetupResult) error {
+	result.NextAction, result.NextDetail = terminal.NextSteps(result.NextAction)
+	return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 }
 
 func runManifestSetup(ctx context.Context, runtime invocation.Context, request setupRequest) error {
@@ -102,7 +109,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request s
 
 	result := buildManifestSetupResult(runtime, cfg, accountNames, request.Account, connected, selectedClients)
 	if request.JSON {
-		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
+		return writeSetupDocument(runtime, result)
 	}
 	renderManifestSetupResult(runtime, result)
 	return nil
@@ -150,14 +157,14 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 		DryRun:             true,
 		Imported:           manifestSetupImported{Accounts: append([]string(nil), accountNames...), Routes: planned.RouteIDs()},
 		ConnectedAccounts:  []string{},
-		SelectedBindings:   map[string]string{},
+		Selections:         map[string]string{},
 		ProjectedClients:   []string{},
 		OnlineVerification: "not_checked",
 		Preview:            preview,
 	}
 	for client, binding := range planned.Clients {
 		if binding.Route != "" {
-			result.SelectedBindings[client] = binding.Route
+			result.Selections[client] = binding.Route
 		}
 	}
 	result.NextAction, result.NextDetail = terminal.NextSteps(request.apply)
@@ -185,7 +192,7 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 	bindings := make([]terminal.Field, 0, len(runtime.Clients.Admission().Specs()))
 	for _, spec := range runtime.Clients.Admission().Specs() {
 		binding := terminal.Field{State: terminal.Info, Label: spec.Label, Value: "Deferred"}
-		if route, selected := result.SelectedBindings[spec.ID]; selected {
+		if route, selected := result.Selections[spec.ID]; selected {
 			binding.Value = route
 		}
 		bindings = append(bindings, binding)
@@ -217,7 +224,8 @@ func buildManifestSetupResult(
 			Routes:   cfg.RouteIDs(),
 		},
 		ConnectedAccounts:  make([]string, 0, len(connected)),
-		SelectedBindings:   make(map[string]string, len(cfg.Clients)),
+		Selections:         make(map[string]string, len(cfg.Clients)),
+		ProjectedClients:   []string{},
 		OnlineVerification: "not_checked",
 	}
 	for _, client := range selectedClients {
@@ -232,7 +240,7 @@ func buildManifestSetupResult(
 	}
 	for client, binding := range cfg.Clients {
 		if binding.Route != "" {
-			result.SelectedBindings[client] = binding.Route
+			result.Selections[client] = binding.Route
 		}
 	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
@@ -286,7 +294,7 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 	bindings := make([]terminal.Field, 0, len(runtime.Clients.Admission().Specs()))
 	for _, spec := range runtime.Clients.Admission().Specs() {
 		binding := terminal.Field{State: terminal.Info, Label: spec.Label, Value: "Deferred"}
-		if route, selected := result.SelectedBindings[spec.ID]; selected {
+		if route, selected := result.Selections[spec.ID]; selected {
 			binding.State, binding.Value = terminal.OK, route
 		}
 		bindings = append(bindings, binding)

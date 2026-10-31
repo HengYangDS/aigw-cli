@@ -6,7 +6,7 @@ exitcode 1 aigw rotate
 cmp stdout empty.txt
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 stdin rotated.txt
 exec aigw rotate team --token-stdin
 cmp stdout rotated.txt.out
@@ -86,7 +86,7 @@ Recommended action
 }
 -- json-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "--json reads the Token only from --token-stdin; run `aigw rotate --help`",
   "impact": "The command could not finish; inspect current state before retrying.",

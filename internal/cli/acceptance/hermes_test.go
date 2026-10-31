@@ -348,7 +348,7 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 		Targets []struct {
 			Client string `json:"client"`
 			Action string `json:"action"`
-		} `json:"targets"`
+		} `json:"projections"`
 	}
 	if err := json.Unmarshal(output.Bytes(), &preview); err != nil {
 		t.Fatalf("second sync preview: %v\n%s", err, output)
@@ -416,7 +416,7 @@ func TestHermesSyncAdoptsAChoiceWhoseTokenReturnsLater(t *testing.T) {
 		Targets []struct {
 			Client string `json:"client"`
 			Action string `json:"action"`
-		} `json:"targets"`
+		} `json:"projections"`
 	}
 	if err := json.Unmarshal(output.Bytes(), &preview); err != nil {
 		t.Fatal(err)

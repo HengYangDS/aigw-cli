@@ -50,13 +50,12 @@ func executeManifestCommand(command *cobra.Command) error {
 	return command.Execute()
 }
 
-func TestCommandRequiresAConfigurationOperation(t *testing.T) {
+// TestCommandIsAGroup holds bare `aigw config` to the other command groups,
+// which show their help: the group itself runs nothing.
+func TestCommandIsAGroup(t *testing.T) {
 	command := NewCommand(invocation.Context{Clients: clients.Registry(), Out: io.Discard})
-	if err := command.RunE(command, nil); err == nil || !strings.Contains(err.Error(), "Choose a config subcommand") {
-		t.Fatalf("missing-operation error = %v", err)
-	}
-	if err := command.RunE(command, []string{"unknown"}); err == nil || !strings.Contains(err.Error(), `Unknown config subcommand "unknown"`) {
-		t.Fatalf("unknown-operation error = %v", err)
+	if command.Runnable() {
+		t.Fatal("the config group runs a command of its own")
 	}
 }
 
@@ -293,7 +292,7 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 	if err := executeManifestCommand(withConsent); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), `"dry_run": false`) || !strings.Contains(out.String(), `"next_action": "aigw status"`) {
+	if strings.Contains(out.String(), `"dry_run"`) || !strings.Contains(out.String(), `"next_action": "aigw status"`) {
 		t.Fatalf("applied import omitted JSON result: %q", out.String())
 	}
 	loaded, err := store.NewStore(path, clients.Admission()).Load()

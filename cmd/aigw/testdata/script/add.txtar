@@ -11,7 +11,7 @@ cmp stdout model.txt
 # Previews read no Token and write nothing below the private home.
 snapshot $HOME before.txt
 # A preview's client file and credential reader paths differ by platform.
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --dry-run
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --dry-run
 stdout 'Account connection preview'
 stdout 'Token +Not read in a preview'
 stdout 'Credential entrypoint'
@@ -28,20 +28,20 @@ exitcode 1 aigw add team --anthropic-url $UPSTREAM --model team-model --upstream
 cmp stdout spellings.txt
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 cmp stdout connected.txt
 exec aigw account list --json
 normalize stdout accounts.out
 cmp accounts.out accounts.json
 
 stdin token.txt
-exitcode 1 aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exitcode 1 aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 cmp stdout exists.txt
 
 stdin token.txt
-exec aigw add second --label 'Second Gateway' --anthropic-url $UPSTREAM --model second-model --for claude --token-stdin --json
+exec aigw add second --label 'Second Gateway' --anthropic-url $UPSTREAM --upstream-model second-model --for claude --token-stdin --json
 cmp stdout second.json
-exitcode 1 aigw add third --anthropic-url $UPSTREAM --model third-model --for claude --json
+exitcode 1 aigw add third --anthropic-url $UPSTREAM --upstream-model third-model --for claude --json
 cmp stdout json-refusal.json
 
 -- preview.json --
@@ -56,10 +56,11 @@ cmp stdout json-refusal.json
   "model": "team-model",
   "upstream_model": "team-model",
   "token_stored": false,
-  "targets": [
+  "projections": [
     {
       "client": "claude",
-      "target": "$HOME/.claude/settings.json",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
       "action": "project"
     }
   ],
@@ -67,7 +68,7 @@ cmp stdout json-refusal.json
     "path": "$HOME/Library/Application Support/aigw/credential/<varies>/aigw",
     "action": "install"
   },
-  "next_action": "aigw add team --anthropic-url $UPSTREAM --for claude --upstream-model team-model"
+  "next_detail": "aigw add team --anthropic-url $UPSTREAM --for claude --upstream-model team-model"
 }
 -- preview-linux.json --
 {
@@ -81,10 +82,11 @@ cmp stdout json-refusal.json
   "model": "team-model",
   "upstream_model": "team-model",
   "token_stored": false,
-  "targets": [
+  "projections": [
     {
       "client": "claude",
-      "target": "$HOME/.claude/settings.json",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
       "action": "project"
     }
   ],
@@ -92,7 +94,7 @@ cmp stdout json-refusal.json
     "path": "$HOME/aigw/credential/<varies>/aigw",
     "action": "install"
   },
-  "next_action": "aigw add team --anthropic-url $UPSTREAM --for claude --upstream-model team-model"
+  "next_detail": "aigw add team --anthropic-url $UPSTREAM --for claude --upstream-model team-model"
 }
 -- preview-windows.json --
 {
@@ -106,10 +108,11 @@ cmp stdout json-refusal.json
   "model": "team-model",
   "upstream_model": "team-model",
   "token_stored": false,
-  "targets": [
+  "projections": [
     {
       "client": "claude",
-      "target": "$HOME\\.claude\\settings.json",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
       "action": "project"
     }
   ],
@@ -117,7 +120,7 @@ cmp stdout json-refusal.json
     "path": "$HOME\\aigw\\credential\\<varies>\\aigw.exe",
     "action": "install"
   },
-  "next_action": "aigw add team --anthropic-url $UPSTREAM --for claude --upstream-model team-model"
+  "next_detail": "aigw add team --anthropic-url $UPSTREAM --for claude --upstream-model team-model"
 }
 -- spellings.txt --
 AIGW  Action required
@@ -148,7 +151,6 @@ Options
   -h, --help                    help for add
       --json                    Write the connected Account and Route as JSON
       --label string            Provider display name
-      --model string            Upstream model ID; --upstream-model is the same value
       --openai-url string       OpenAI Responses base URL
       --token-stdin             Read one token line from standard input
       --upstream-model string   Exact provider model ID
@@ -219,7 +221,7 @@ Recommended action
 }
 -- json-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "--json reads the Token only from --token-stdin; run `aigw add --help`",
   "impact": "The command could not finish; inspect current state before retrying.",

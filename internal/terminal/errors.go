@@ -171,16 +171,21 @@ func fileErrorReason(err error) string {
 
 // failureSchemaVersion is the version of the failure document that a command
 // writes when it cannot produce its own.
-const failureSchemaVersion = 1
+const failureSchemaVersion = 2
 
 // failureDocument is the JSON failure of a command that could not produce its
-// own document.
+// own document. Its next step is a command that a script can run as it
+// stands, or guidance when the step needs a choice or is prose.
 type failureDocument struct {
 	documentHeader
-	Problem
-	Stage  string `json:"stage,omitempty"`
-	Line   int    `json:"line,omitempty"`
-	Column int    `json:"column,omitempty"`
+	Error      string `json:"error"`
+	Evidence   string `json:"evidence,omitempty"`
+	Impact     string `json:"impact,omitempty"`
+	NextAction string `json:"next_action,omitempty"`
+	NextDetail string `json:"next_detail,omitempty"`
+	Stage      string `json:"stage,omitempty"`
+	Line       int    `json:"line,omitempty"`
+	Column     int    `json:"column,omitempty"`
 }
 
 // ConfigurationFailure names the configuration step at which err stopped,
@@ -206,7 +211,9 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 	}
 	problem := ProblemFor(err)
 	if jsonMode {
-		failure := failureDocument{SchemaVersion: failureSchemaVersion, Problem: problem}
+		failure := failureDocument{SchemaVersion: failureSchemaVersion,
+			Error: problem.Title, Evidence: problem.Evidence, Impact: problem.Impact}
+		failure.NextAction, failure.NextDetail = NextSteps(problem.Fix)
 		failure.Stage, failure.Line, failure.Column = ConfigurationFailure(err)
 		renderer.err = WriteJSON(renderer.out, failure)
 		return

@@ -20,7 +20,7 @@ import (
 )
 
 // schemaVersion is the version of `aigw check`'s JSON document.
-const schemaVersion = 1
+const schemaVersion = 2
 
 // NewCommand builds the read-only health check for every enabled client.
 func NewCommand(runtime invocation.Context) *cobra.Command {
@@ -64,11 +64,16 @@ type checkJSON struct {
 	OK             bool                        `json:"-"`
 	State          domainreadiness.State       `json:"state,omitempty"`
 	NextAction     string                      `json:"next_action,omitempty"`
-	Error          string                      `json:"error,omitempty"`
-	// Stage, Line and Column locate a configuration that could not be loaded.
-	Stage  string `json:"stage,omitempty"`
-	Line   int    `json:"line,omitempty"`
-	Column int    `json:"column,omitempty"`
+	NextDetail     string                      `json:"next_detail,omitempty"`
+	Problem        string                      `json:"problem,omitempty"`
+}
+
+// writeCheckDocument writes check's document, whose next steps are commands
+// that a script can run as they stand, or guidance.
+func writeCheckDocument(runtime invocation.Context, result checkJSON) error {
+	result.Clients = invocation.DocumentClients(result.Clients)
+	result.NextAction, result.NextDetail = terminal.NextSteps(result.NextAction)
+	return terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result)
 }
 
 func activationCheckIssue(activation clientactivation.Activation) (problem, evidence, jsonError string, cause error) {
@@ -244,7 +249,9 @@ func (e checkEvaluation) client(clientID string) (evaluatedClient, bool) {
 func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
-		return writeJSONFailure(runtime, domainreadiness.Invalid, "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it", "aigw doctor", err)
+		// A configuration that cannot load fails with the failure document,
+		// which names the stage, as status and sync do.
+		return err
 	}
 	if len(cfg.Routes) == 0 {
 		return writeJSONFailure(runtime, domainreadiness.Deferred, "not configured", "aigw setup", fmt.Errorf("not configured"))
@@ -263,9 +270,9 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			OK:             false,
 			State:          activation.State,
 			NextAction:     activation.NextActionFor(nil),
-			Error:          issue,
+			Problem:        issue,
 		}
-		if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result); err != nil {
+		if err := writeCheckDocument(runtime, result); err != nil {
 			return err
 		}
 		return terminal.Presented(cause)
@@ -281,9 +288,9 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if !result.OK {
 		result.NextAction, _ = failedCheckContinuation(&activation, evaluation, clients)
 		failure = fmt.Errorf("one or more enabled client checks failed")
-		result.Error = failure.Error()
+		result.Problem = failure.Error()
 	}
-	if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result); err != nil {
+	if err := writeCheckDocument(runtime, result); err != nil {
 		return err
 	}
 	if failure != nil {
@@ -358,9 +365,8 @@ func failedCheckContinuation(activation *clientactivation.Activation, evaluation
 }
 
 func writeJSONFailure(runtime invocation.Context, state domainreadiness.State, message, fix string, cause error) error {
-	result := checkJSON{Clients: map[string]app.ClientStatus{}, State: state, NextAction: fix, Error: message}
-	result.Stage, result.Line, result.Column = terminal.ConfigurationFailure(cause)
-	if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result); err != nil {
+	result := checkJSON{Clients: map[string]app.ClientStatus{}, State: state, NextAction: fix, Problem: message}
+	if err := writeCheckDocument(runtime, result); err != nil {
 		return err
 	}
 	return terminal.Presented(cause)

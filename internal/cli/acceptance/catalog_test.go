@@ -27,13 +27,22 @@ func TestCatalogUnconfiguredPointsToSetup(t *testing.T) {
 	}
 }
 
-func TestCatalogJSONUnconfiguredIsEmptyAndMachineReadable(t *testing.T) {
+// TestCatalogJSONUnconfiguredFailsAsTextDoes shows that catalog --json on an
+// empty home exits 1 with the failure document, as human output fails.
+func TestCatalogJSONUnconfiguredFailsAsTextDoes(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	if err := cli.Execute(app, []string{"catalog", "--json"}); err != nil {
-		t.Fatalf("catalog --json error = %v", err)
+	if err := cli.Execute(app, []string{"catalog", "--json"}); err == nil {
+		t.Fatal("catalog --json succeeded without configuration")
 	}
-	if strings.TrimSpace(out.String()) != "{\n  \"schema_version\": 1,\n  \"ok\": true,\n  \"observations\": []\n}" {
-		t.Fatalf("catalog --json = %q", out.String())
+	var failure struct {
+		OK         bool   `json:"ok"`
+		Error      string `json:"error"`
+		NextAction string `json:"next_action"`
+		NextDetail string `json:"next_detail"`
+	}
+	// Setup asks a person for an Account and a Route, so it is a step for that person.
+	if err := json.Unmarshal(out.Bytes(), &failure); err != nil || failure.OK || !strings.Contains(failure.Error, "not configured") || failure.NextAction != "" || failure.NextDetail != "aigw setup" {
+		t.Fatalf("catalog --json = %q, %v", out.String(), err)
 	}
 }
 

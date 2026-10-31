@@ -40,14 +40,16 @@ func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 	var out bytes.Buffer
 	renderer := terminal.NewRenderer(&out, false)
 	terminal.RenderError(renderer, err, true)
+	// The retry needs a choice, so the failure gives it as next_detail.
 	var rendered struct {
 		NextAction string `json:"next_action"`
+		NextDetail string `json:"next_detail"`
 	}
 	if decodeErr := json.Unmarshal(out.Bytes(), &rendered); decodeErr != nil || renderer.Err() != nil {
 		t.Fatalf("JSON error = %q, %v, %v", out.String(), decodeErr, renderer.Err())
 	}
-	if want := "aigw use --for hermes --protocol <openai_responses|anthropic> shared"; rendered.NextAction != want {
-		t.Fatalf("next_action = %q, want %q", rendered.NextAction, want)
+	if want := "aigw use --for hermes --protocol <openai_responses|anthropic> shared"; rendered.NextAction != "" || rendered.NextDetail != want {
+		t.Fatalf("next step = %q, %q; want %q", rendered.NextAction, rendered.NextDetail, want)
 	}
 }
 

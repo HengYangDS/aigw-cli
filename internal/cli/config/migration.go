@@ -12,10 +12,12 @@ import (
 )
 
 // migrationSchemaVersion is the version of `aigw config migrate`'s JSON document.
-const migrationSchemaVersion = 1
+const migrationSchemaVersion = 2
 
+// migrationOutput is `aigw config migrate`'s JSON document: the schema
+// transition, which a preview only plans.
 type migrationOutput struct {
-	DryRun bool `json:"dry_run"`
+	DryRun bool `json:"dry_run,omitempty"`
 	store.MigrationPlan
 	NextAction string `json:"next_action"`
 }

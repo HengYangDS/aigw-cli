@@ -47,7 +47,8 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 	for _, test := range statuses {
 		t.Run(test.title+"/"+string(test.plan.Status), func(t *testing.T) {
 			out := &bytes.Buffer{}
-			if err := WriteRenamePlan(Context{Clients: clients.Registry(), Out: out}, test.plan, false); err != nil {
+			// A blocked plan reports itself and then fails.
+			if err := WriteRenamePlan(Context{Clients: clients.Registry(), Out: out}, test.plan, false, false); (err != nil) != (test.plan.Status == renaming.StatusBlocked) {
 				t.Fatal(err)
 			}
 			if !strings.Contains(out.String(), test.title) {
@@ -63,7 +64,7 @@ func TestAccountRenameContinuationFollowsEnabledClients(t *testing.T) {
 		cfg.SetClientActivation(claude.ID, enabled, "", nil)
 		var out bytes.Buffer
 		plan := renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Config: cfg}
-		if err := WriteRenamePlan(Context{Clients: clients.Registry(), Out: &out}, plan, false); err != nil {
+		if err := WriteRenamePlan(Context{Clients: clients.Registry(), Out: &out}, plan, false, false); err != nil {
 			t.Fatal(err)
 		}
 		if strings.Contains(out.String(), "aigw verify --for all") != enabled {

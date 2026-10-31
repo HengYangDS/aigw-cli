@@ -111,11 +111,8 @@ func TestAccountRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	if !reflect.DeepEqual(result.AffectedReferences, wantReferences) {
 		t.Fatalf("affected references = %q, want %q", result.AffectedReferences, wantReferences)
 	}
-	if result.Actions["api_token"] != "copy-and-retain-source" || result.Actions["account_probe"] != "copy-and-retain-source" {
-		t.Fatalf("credential actions = %#v", result.Actions)
-	}
-	if result.Actions["backup"] != "refresh-on-apply" {
-		t.Fatalf("transaction actions = %#v", result.Actions)
+	if result.Actions["api_token"] != "copy_and_retain_source" || result.Actions["account_probe"] != "copy_and_retain_source" || result.Actions["backup"] != "refresh_on_apply" {
+		t.Fatalf("credential and transaction actions = %#v", result.Actions)
 	}
 	if result.ExternalTODOs == nil || len(result.ExternalTODOs) != 0 {
 		t.Fatalf("external todos = %#v, want empty array", result.ExternalTODOs)
@@ -314,10 +311,12 @@ func TestAccountRenameEnvironmentTokenRequiresEqualTargetVariable(t *testing.T) 
 			t.Fatal(err)
 		}
 
-		if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--dry-run", "--json"}); err != nil {
-			t.Fatal(err)
+		// A blocked plan reports itself with ok false and fails.
+		if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--dry-run", "--json"}); err == nil {
+			t.Fatal("a blocked rename plan succeeded")
 		}
 		var result struct {
+			OK            bool              `json:"ok"`
 			Status        string            `json:"status"`
 			Actions       map[string]string `json:"actions"`
 			ExternalTODOs []string          `json:"external_todos"`
@@ -325,7 +324,7 @@ func TestAccountRenameEnvironmentTokenRequiresEqualTargetVariable(t *testing.T) 
 		if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 			t.Fatalf("decode JSON output: %v\n%s", err, out.String())
 		}
-		if result.Status != "blocked" || result.Actions["api_token"] != "provide-equal-environment-variable" {
+		if result.OK || result.Status != "blocked" || result.Actions["api_token"] != "provide_equal_environment_variable" {
 			t.Fatalf("blocked rename plan = %#v", result)
 		}
 		if len(result.ExternalTODOs) != 1 || !strings.Contains(result.ExternalTODOs[0], secret.EnvironmentKey("zeta-new")) {

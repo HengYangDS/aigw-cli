@@ -22,13 +22,14 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   configuration cannot be loaded, the failure names its `stage`, such as
   `configuration_parse`, and a parse failure's `line` and `column`; `check`
   and `doctor` report the same fields, and `doctor` names the stage in text
-  as the other commands do. Every other field keeps its name and value.
+  as the other commands do. The fields that change are listed under Changed.
 - `--json` now covers every command that reports a result: `add`,
   `route add`, `route edit`, `route remove`, `account edit`,
   `account diagnostics enable` and `disable`, `client discover`, `enable`
   and `disable`, `rotate`, `rollback`, `config path`, `setup` without
   `--from`, `test`, `verify`, `models`, `balance`, `install`, `update` and
-  `uninstall`. Each writes one document at `schema_version` 1. With `--json`
+  `uninstall`. Each writes one document at `schema_version` 1, apart from
+  `setup`, whose document moves to version 2 as Changed describes. With `--json`
   no command prompts, `use`, `account rename` and `route rename` included, so
   a secret then comes only from its standard-input flag, such as
   `--token-stdin`. `completion`, `config export` and `credential` write
@@ -47,6 +48,37 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   and a command that receives both refuses.
 
 ### Changed
+
+The command-line contract converges, so a script that reads the earlier JSON
+documents or passes the earlier flag spellings changes once. These documents
+move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
+`repair`, `setup`, `config import`, `config migrate`, `account rename`,
+`route rename` and the failure document. The others keep version 1.
+
+| Before                                                         | Now                                                                       |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `setup --model` and `add --model`                              | `--upstream-model`; the old spelling is hidden and warns on stderr        |
+| `install --target` and `uninstall --target`                    | `--path`; the old spelling is hidden and warns on stderr                  |
+| `next_action` holding prose, a placeholder or a prompt         | `next_detail`; `next_action` is always an `aigw` command a script can run |
+| doctor's `checks[].fix`                                        | `checks[].next_action` or `checks[].next_detail`                          |
+| use's `route_id` and `account_id`                              | `route` and `account`                                                     |
+| use's `model`, the ID that the endpoint serves                 | `upstream_model`                                                          |
+| use's `canonical_model_id`                                     | `model`                                                                   |
+| setup's `selected_bindings`                                    | `selections`                                                              |
+| sync's and every preview's `targets`, repair's `surface_id`    | `projections[]` of `client`, `surface`, `target` and `action`             |
+| an absolute projection `target`, and doctor's `~\…` on Windows | `~/…` relative to home on every platform; absent outside it               |
+| check's `error`                                                | `problem`                                                                 |
+| check's own document when the configuration cannot load        | the failure document with `stage`                                         |
+| kebab-case actions and statuses, such as `already-converged`   | snake_case, such as `already_converged`                                   |
+| `dry_run: false`, and rename previews without `dry_run`        | `dry_run: true` in every preview and absent elsewhere                     |
+| setup's `projected_clients: null`                              | `[]`                                                                      |
+| Claude Desktop's qualified modes and platform, such as `macOS` | `chat`, `cowork`, `code` and `macos`                                      |
+| `catalog --json` on an empty home exits 0                      | exits 1 with the failure document, as human output does                   |
+| a blocked rename preview writes `ok: true` and exits 0         | writes `ok: false` and exits 1                                            |
+| bare `aigw config` exits 1                                     | shows the group's help and exits 0                                        |
+| `aigw route bogus` shows the group's help and exits 0          | refuses, names the group's help and exits 1                               |
+| `aigw help <command>` shows the help page; a bad topic exits 0 | shows that command's help; a bad topic exits 1                            |
+| `test` without `--for` probes every client with a Route        | probes the enabled clients only                                           |
 
 - `uninstall` refuses a directory at its program's path or at the program's
   rollback copy path before it withdraws any client. It used to withdraw the

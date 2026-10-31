@@ -10,7 +10,7 @@ exitcode 1 aigw doctor --json
 cmp stdout empty.json
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 exec aigw doctor --json
 cmp stdout connected.json
 exec aigw doctor
@@ -61,7 +61,7 @@ Next
   aigw setup
 -- empty.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "credential_backend": {
     "kind": "file",
@@ -80,7 +80,7 @@ Next
       "name": "config",
       "ok": false,
       "detail": "not configured",
-      "fix": "run `aigw setup`"
+      "next_detail": "aigw setup"
     },
     {
       "name": "adapter:claude",
@@ -124,11 +124,11 @@ Next
   "ok_scope": "local_diagnostics",
   "enabled_clients": 0,
   "state": "deferred",
-  "next_action": "aigw setup"
+  "next_detail": "aigw setup"
 }
 -- connected.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -222,7 +222,7 @@ version = 7
 [accounts.team
 -- broken.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "credential_backend": {
     "kind": "file",
@@ -241,7 +241,7 @@ version = 7
       "name": "config",
       "ok": false,
       "detail": "cannot read or validate configuration",
-      "fix": "inspect or restore the local configuration file",
+      "next_detail": "Inspect or restore the local configuration file",
       "stage": "configuration_parse",
       "line": 2,
       "column": 15
@@ -250,7 +250,7 @@ version = 7
   "clients": {},
   "ok_scope": "local_diagnostics",
   "enabled_clients": 0,
-  "next_action": "Inspect or restore the local configuration file"
+  "next_detail": "Inspect or restore the local configuration file"
 }
 -- broken.txt --
 AIGW  Detailed diagnostics

@@ -18,12 +18,13 @@ import (
 
 func TestCheckJSONClassifiesCredentialReadFailures(t *testing.T) {
 	for _, test := range []struct {
-		name, detail, action string
-		readError            error
-		state                domainreadiness.State
+		name, detail, action, next string
+		readError                  error
+		state                      domainreadiness.State
 	}{
-		{"unreadable", "account token could not be read", domainreadiness.CredentialBackendRecovery, fmt.Errorf("private credential detail: %w", native.ErrUnavailable), domainreadiness.Unavailable},
-		{"disappeared", "account token is unavailable", "aigw rotate one", secret.ErrNotFound, domainreadiness.Deferred},
+		{"unreadable", "account token could not be read", domainreadiness.CredentialBackendRecovery, "", fmt.Errorf("private credential detail: %w", native.ErrUnavailable), domainreadiness.Unavailable},
+		// Rotation asks a person for the Token, so it is a step for that person.
+		{"disappeared", "account token is unavailable", "", "aigw rotate one", secret.ErrNotFound, domainreadiness.Deferred},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, output := configuredReadinessRuntime(t)
@@ -50,7 +51,8 @@ func TestCheckJSONClassifiesCredentialReadFailures(t *testing.T) {
 				t.Fatal(err)
 			}
 			client := result.Clients[claude.ID]
-			if result.OK || client.State != test.state || client.Detail != test.detail || client.NextAction != test.action || result.NextAction != test.action {
+			if result.OK || client.State != test.state || client.Detail != test.detail || client.NextAction != test.action || result.NextAction != test.action ||
+				client.NextDetail != test.next || result.NextDetail != test.next {
 				t.Fatalf("JSON check = %+v", result)
 			}
 		})

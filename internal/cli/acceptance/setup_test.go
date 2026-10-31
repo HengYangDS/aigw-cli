@@ -36,7 +36,7 @@ func TestSetupReusesReadOnlyEnvironmentSecretWithoutPromptingOrPersisting(t *tes
 		"--label", "DMXAPI",
 		"--openai-url", "https://example.test/v1",
 		"--for", "codex",
-		"--model", "gpt-5.6-terra"},
+		"--upstream-model", "gpt-5.6-terra"},
 	); err != nil {
 		t.Fatalf("setup with existing environment secret: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestSetupExplicitTokenStdinReplacesAnExistingStoredToken(t *testing.T) {
 		"--label", "DMXAPI",
 		"--openai-url", "https://example.test/v1",
 		"--for", "codex",
-		"--model", "gpt-5.6-terra",
+		"--upstream-model", "gpt-5.6-terra",
 		"--token-stdin"},
 	); err != nil {
 		t.Fatalf("setup with explicit stdin token: %v", err)
@@ -90,13 +90,13 @@ func TestSetupRejectsInvalidFlagCombinationsAndValues(t *testing.T) {
 		{name: "missing route", args: []string{"setup"}, want: "--route is required"},
 		{name: "invalid account", args: []string{"setup", "--route", "one", "--account", "bad id"}, want: "Invalid account ID"},
 		{name: "invalid route", args: []string{"setup", "--route", "bad id", "--account", "one"}, want: "Invalid route ID"},
-		{name: "model without client", args: []string{"setup", "--route", "one", "--model", "m"}, want: "--for is required"},
-		{name: "claude endpoint", args: []string{"setup", "--route", "one", "--for", "claude", "--model", "m"}, want: "requires --anthropic-url"},
+		{name: "model without client", args: []string{"setup", "--route", "one", "--upstream-model", "m"}, want: "--for is required"},
+		{name: "claude endpoint", args: []string{"setup", "--route", "one", "--for", "claude", "--upstream-model", "m"}, want: "requires --anthropic-url"},
 		{name: "claude model", args: []string{"setup", "--route", "one", "--for", "claude", "--anthropic-url", "https://one.test"}, want: "requires --upstream-model"},
-		{name: "codex endpoint", args: []string{"setup", "--route", "one", "--for", "codex", "--model", "m"}, want: "requires --openai-url"},
+		{name: "codex endpoint", args: []string{"setup", "--route", "one", "--for", "codex", "--upstream-model", "m"}, want: "requires --openai-url"},
 		{name: "codex model", args: []string{"setup", "--route", "one", "--for", "codex", "--openai-url", "https://one.test/v1"}, want: "requires --upstream-model"},
 		{name: "unknown client", args: []string{"setup", "--route", "one", "--for", "other"}, want: "--for must be"},
-		{name: "invalid unused endpoint", args: []string{"setup", "--route", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--openai-url", "http://remote.test/v1"}, want: "plain HTTP is allowed only"},
+		{name: "invalid unused endpoint", args: []string{"setup", "--route", "one", "--for", "claude", "--upstream-model", "m", "--anthropic-url", "https://one.test", "--openai-url", "http://remote.test/v1"}, want: "plain HTTP is allowed only"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -113,7 +113,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "token\n")
 		app.Config = store.NewStore(t.TempDir(), clients.Admission())
-		if err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--token-stdin"}); err == nil {
+		if err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--upstream-model", "m", "--anthropic-url", "https://one.test", "--token-stdin"}); err == nil {
 			t.Fatal("expected config load failure")
 		}
 	})
@@ -121,7 +121,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("already configured", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "token\n")
 		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
-		err := cli.Execute(app, []string{"setup", "--route", "two", "--for", "claude", "--model", "m", "--anthropic-url", "https://two.test", "--token-stdin"})
+		err := cli.Execute(app, []string{"setup", "--route", "two", "--for", "claude", "--upstream-model", "m", "--anthropic-url", "https://two.test", "--token-stdin"})
 		if err == nil || !strings.Contains(err.Error(), "already configured") {
 			t.Fatalf("error = %v", err)
 		}
@@ -150,7 +150,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		want := errors.New("keychain unavailable")
 		app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), getErr: want}
-		err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test"})
+		err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--upstream-model", "m", "--anthropic-url", "https://one.test"})
 		if !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
@@ -159,7 +159,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("token validation", func(t *testing.T) {
 		app, _, _, _, httpClient := testApp(t, "token\n")
 		httpClient.status = http.StatusUnauthorized
-		err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--token-stdin"})
+		err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--upstream-model", "m", "--anthropic-url", "https://one.test", "--token-stdin"})
 		if err == nil || !strings.Contains(err.Error(), "Token validation failed") {
 			t.Fatalf("error = %v", err)
 		}
@@ -168,7 +168,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("discovery", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "token\n")
 		app.Discovery = nil
-		err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--token-stdin"})
+		err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--upstream-model", "m", "--anthropic-url", "https://one.test", "--token-stdin"})
 		if err == nil || !strings.Contains(err.Error(), "discovery is unavailable") {
 			t.Fatalf("error = %v", err)
 		}
@@ -178,7 +178,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "token\n")
 		want := errors.New("keychain locked")
 		app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), setErr: want}
-		err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--token-stdin"})
+		err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--upstream-model", "m", "--anthropic-url", "https://one.test", "--token-stdin"})
 		if !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
@@ -193,7 +193,7 @@ func TestSetupRejectsInvalidAutomaticBackendSelectionBeforeCredentialInput(t *te
 		{
 			name: "guided setup",
 			args: func(*testing.T) []string {
-				return []string{"setup", "--route", "one", "--for", "claude", "--model", "m", "--anthropic-url", "https://one.test", "--token-stdin"}
+				return []string{"setup", "--route", "one", "--for", "claude", "--upstream-model", "m", "--anthropic-url", "https://one.test", "--token-stdin"}
 			},
 		},
 		{
@@ -236,7 +236,7 @@ func TestSetupRollsBackConfigAndSecretWhenCodexProjectionFails(t *testing.T) {
 		Executables: map[string]string{codex.ID: "/opt/codex"},
 		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
 	}}
-	err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "codex", "--model", "m", "--openai-url", "https://one.test/v1", "--token-stdin"})
+	err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "codex", "--upstream-model", "m", "--openai-url", "https://one.test/v1", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("error = %v", err)
 	}
@@ -256,7 +256,7 @@ func TestSetupRestoresExistingSecretWhenCodexProjectionFails(t *testing.T) {
 		Executables: map[string]string{codex.ID: "/opt/codex"},
 		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
 	}}
-	err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "codex", "--model", "m", "--openai-url", "https://one.test/v1", "--token-stdin"})
+	err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "codex", "--upstream-model", "m", "--openai-url", "https://one.test/v1", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("error = %v", err)
 	}
@@ -284,7 +284,7 @@ func TestSetupRollbackRemovesNewAutomaticBackendSelection(t *testing.T) {
 		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
 	}}
 
-	err = cli.Execute(app, []string{"setup", "--route", "one", "--for", "codex", "--model", "m", "--openai-url", "https://one.test/v1", "--token-stdin"})
+	err = cli.Execute(app, []string{"setup", "--route", "one", "--for", "codex", "--upstream-model", "m", "--openai-url", "https://one.test/v1", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("error = %v", err)
 	}

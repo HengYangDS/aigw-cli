@@ -4,7 +4,7 @@ exec aigw client --help
 cmp stdout help.txt
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 exec aigw client discover
 stdout 'Claude +.*claude'
 exec aigw client disable claude
@@ -60,10 +60,11 @@ cmp still-disabled.txt disabled.txt
   "client": "claude",
   "state": "disabled",
   "restart_required": false,
-  "targets": [
+  "projections": [
     {
       "client": "claude",
-      "target": "$HOME/.claude/settings.json",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
       "action": "restore"
     }
   ],
@@ -77,10 +78,11 @@ cmp still-disabled.txt disabled.txt
   "client": "claude",
   "state": "disabled",
   "restart_required": false,
-  "targets": [
+  "projections": [
     {
       "client": "claude",
-      "target": "$HOME\\.claude\\settings.json",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
       "action": "restore"
     }
   ],
@@ -179,7 +181,7 @@ Recommended action
 }
 -- json-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Client must be claude, claude-desktop, codex, or hermes; run `aigw client enable --help`: invalid argument \"unknown\" for \"aigw client enable\"",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -187,7 +189,7 @@ Recommended action
 }
 -- disable-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Client must be claude, claude-desktop, codex, or hermes; run `aigw client disable --help`: invalid argument \"unknown\" for \"aigw client disable\"",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -195,7 +197,7 @@ Recommended action
 }
 -- discover-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "unknown command \"extra\"",
   "impact": "The command could not finish; inspect current state before retrying.",

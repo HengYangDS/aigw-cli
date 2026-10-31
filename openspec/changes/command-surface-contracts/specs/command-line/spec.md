@@ -135,6 +135,11 @@ its help and exit 0, and `aigw help <command>` SHALL print that command's help.
 - **WHEN** `aigw config` runs alone
 - **THEN** it SHALL print the group's help and exit 0.
 
+#### Scenario: A command group meets an unknown subcommand
+
+- **WHEN** `aigw route bogus` runs
+- **THEN** it SHALL refuse, name `aigw route --help`, and exit 1.
+
 ## MODIFIED Requirements
 
 ### Requirement: Invocation output has one owner

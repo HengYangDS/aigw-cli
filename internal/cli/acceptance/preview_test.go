@@ -49,9 +49,9 @@ func TestSetupAndAddPreviewsUseNoCredential(t *testing.T) {
 		args       []string
 		discovered bool
 	}{
-		{"setup", []string{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude", "--dry-run", "--json"}, false},
+		{"setup", []string{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--dry-run", "--json"}, false},
 		{"setup from a manifest", []string{"setup", "--from", manifest, "--account", "team", "--dry-run", "--json"}, true},
-		{"add", []string{"add", "team", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude", "--dry-run", "--json"}, false},
+		{"add", []string{"add", "team", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--dry-run", "--json"}, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
@@ -138,7 +138,7 @@ func TestSetupManifestPreviewInText(t *testing.T) {
 	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
 	for _, args := range [][]string{
 		{"setup", "--from", manifest, "--account", "team", "--token-stdin", "--dry-run"},
-		{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude", "--token-stdin", "--dry-run"},
+		{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--token-stdin", "--dry-run"},
 	} {
 		if err := cli.Execute(app, args); err == nil || !strings.Contains(err.Error(), "read-only") {
 			t.Fatalf("%s with a read-only backend = %v", strings.Join(args, " "), err)
@@ -154,7 +154,7 @@ func TestSetupManifestPreviewInText(t *testing.T) {
 func TestAddPreviewRefusesAReadOnlyBackend(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
-	err := cli.Execute(app, []string{"add", "team", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude", "--dry-run"})
+	err := cli.Execute(app, []string{"add", "team", "--anthropic-url", "https://team.test", "--upstream-model", "team-model", "--for", "claude", "--dry-run"})
 	if err == nil || !strings.Contains(err.Error(), "read-only") {
 		t.Fatalf("read-only add preview = %v", err)
 	}
@@ -255,7 +255,7 @@ func TestProgramPreviewsWriteNothing(t *testing.T) {
 	writeFile(t, installed, []byte("installed"), 0o700)
 	writeFile(t, program.RollbackPath(installed), []byte("previous"), 0o700)
 	out.Reset()
-	if err := cli.Execute(app, []string{"uninstall", "--target", installed, "--dry-run", "--json"}); err != nil {
+	if err := cli.Execute(app, []string{"uninstall", "--path", installed, "--dry-run", "--json"}); err != nil {
 		t.Fatalf("uninstall preview failed: %v\n%s", err, out.String())
 	}
 	var document struct {
@@ -278,7 +278,10 @@ func TestProgramPreviewsWriteNothing(t *testing.T) {
 func TestUninstallPreviewNamesTheWithdrawal(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	writeFile(t, app.Executable, []byte("program"), 0o700)
-	codexTarget := filepath.Join(t.TempDir(), "config.toml")
+	codexTarget := filepath.Join(app.Host.Home, "work", "codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(codexTarget), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	configureUninstallClients(t, app, codexTarget)
 	files := map[string][]byte{}
 	for _, path := range []string{app.Config.Path(), codexTarget, app.Executable} {
@@ -292,20 +295,15 @@ func TestUninstallPreviewNamesTheWithdrawal(t *testing.T) {
 		DryRun           bool                     `json:"dry_run"`
 		WithdrawnClients []string                 `json:"withdrawn_clients"`
 		Removed          []string                 `json:"removed"`
-		Targets          []adapter.ProjectionPlan `json:"targets"`
+		Targets          []adapter.ProjectionPlan `json:"projections"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &document); err != nil {
 		t.Fatalf("uninstall preview document = %s, %v", out.String(), err)
 	}
-	codexFile, err := os.Stat(codexTarget)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// The target may be reported through the temporary directory's resolved
-	// path, so the comparison is by file.
+	// The document names the Codex file relative to the home directory; the
+	// withdrawal restores it.
 	withdrawsCodex := slices.ContainsFunc(document.Targets, func(plan adapter.ProjectionPlan) bool {
-		target, err := os.Stat(plan.Target)
-		return plan.Client == codex.ID && err == nil && os.SameFile(target, codexFile)
+		return plan.Client == codex.ID && plan.Target == "~/work/codex/config.toml" && plan.Action == "restore_external"
 	})
 	if !document.DryRun || !slices.Equal(document.WithdrawnClients, []string{claude.ID, codex.ID}) || !slices.Equal(document.Removed, []string{app.Executable}) || !withdrawsCodex {
 		t.Fatalf("uninstall preview document = %s", out.String())
@@ -314,5 +312,35 @@ func TestUninstallPreviewNamesTheWithdrawal(t *testing.T) {
 		if got := readFile(t, path); !bytes.Equal(got, want) {
 			t.Fatalf("uninstall preview changed %s", path)
 		}
+	}
+}
+
+// TestReplacedSpellingsWarnOnStandardError shows that each hidden spelling
+// still works and names its replacement on standard error, where a script
+// that reads the JSON document from standard output does not see it.
+func TestReplacedSpellingsWarnOnStandardError(t *testing.T) {
+	installed := filepath.Join(t.TempDir(), "aigw")
+	writeFile(t, installed, []byte("installed"), 0o700)
+	for _, test := range []struct {
+		args    []string
+		warning string
+	}{
+		{[]string{"add", "team", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude", "--dry-run", "--json"}, "aigw: --model is deprecated; use --upstream-model\n"},
+		{[]string{"uninstall", "--target", installed, "--dry-run", "--json"}, "aigw: --target is deprecated; use --path\n"},
+	} {
+		t.Run(test.args[0], func(t *testing.T) {
+			app, out, _, _, _ := testApp(t, "")
+			var stderr bytes.Buffer
+			app.Err = &stderr
+			if err := cli.Execute(app, test.args); err != nil {
+				t.Fatalf("%v: %v\n%s", test.args, err, out.String())
+			}
+			var document struct {
+				DryRun bool `json:"dry_run"`
+			}
+			if err := json.Unmarshal(out.Bytes(), &document); err != nil || !document.DryRun || stderr.String() != test.warning {
+				t.Fatalf("document = %s, %v; standard error = %q", out.String(), err, stderr.String())
+			}
+		})
 	}
 }

@@ -86,7 +86,7 @@ func TestExecuteReturnsBusyLockErrorWhenAnotherMutationHoldsIt(t *testing.T) {
 	})
 
 	app := &App{Clients: clients.Registry(), Config: configStore, Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
-	err = Execute(app, []string{"add", "dmx", "--for", "claude", "--model", "claude-test", "--anthropic-url", "https://example.test", "--token-stdin"})
+	err = Execute(app, []string{"add", "dmx", "--for", "claude", "--upstream-model", "claude-test", "--anthropic-url", "https://example.test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "retry after the other command finishes") {
 		t.Fatalf("Execute() error = %v, want a busy-lock error", err)
 	}

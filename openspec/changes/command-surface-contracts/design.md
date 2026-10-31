@@ -162,6 +162,47 @@ Alternatives considered:
   doubles every JSON test, and a reader that never asks for the new shape is
   not warned.
 
+### Stage 4 clarifications
+
+Reading the 16 documents for stage 4 settled these points within the
+contract above:
+
+- A document moves to `schema_version` 2 only when stage 4 changes its fields
+  or values: `status`, `check`, `doctor`, `use`, `sync`, `repair`, `setup`,
+  `config import`, `config migrate`, the renames and the failure document.
+  `account list`, `route list`, `route show`, `catalog` and `installation`
+  keep version 1. The 20 documents of stage 2 are unreleased, so their
+  preview list becomes `projections` at version 1.
+- A projection is `{client, surface, target, action}`. Its target is relative
+  to the home directory, with `/` on every platform, and absent for a file
+  outside it. Actions are snake_case in documents; the adapters keep their own
+  spellings in their state. The credential reader's `path` stays absolute,
+  because AIGW installs that file, as `install` names its own path.
+- `dry_run` appears only in a preview, as `true`, the renames' previews
+  included.
+- A next step that asks a person for a value is `next_detail`: bare `setup`,
+  which asks for an Account and a Route, and `setup` with an Account, `add`,
+  `rotate` and `account diagnostics enable` without the standard-input flag
+  that supplies their secret.
+- When the configuration cannot be loaded, `check` fails with the failure
+  document, as `status` and `sync` do.
+- Kinds that human output shows as labels are snake_case in documents: Claude
+  Desktop's qualified modes `chat`, `cowork` and `code`, and its platform
+  `macos`. Identifiers keep their spelling: client, Account, Route and
+  surface IDs, and doctor's check names.
+- A rename keeps `old_id`, `new_id` and `external_todos`; its status and
+  actions become snake_case.
+- When a command line uses a hidden spelling, AIGW names its replacement on
+  standard error before the command runs. Cobra's own notice would go to
+  standard output and corrupt a document, so AIGW does not use it.
+- Every command group shows its help when it runs alone and refuses an
+  unknown subcommand with exit status 1. Cobra answers a nested group's
+  unknown subcommand with the group's help and success, so AIGW refuses that
+  word before Cobra runs; a group keeps no run function of its own.
+- The contract test checks the keys of every object except one keyed by
+  identifiers: `clients`, `selections`, `adopted_selections`,
+  `recommendations`, and config migrate's `accounts` and `routes`.
+
 ### Every write previews
 
 Every command that writes configuration, client files or the program takes

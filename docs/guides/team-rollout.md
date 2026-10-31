@@ -563,3 +563,12 @@ uppercased and punctuation encoded by ASCII hex (`-` becomes `_2D`, `.` becomes
 `_2E`, and `_` becomes `_5F`). This reversible mapping prevents two distinct
 Account IDs from sharing a variable. The backend is deliberately read-only:
 setup may consume present values, but rotation and deletion fail explicitly.
+
+Scripts that read `--json` output should check each document's
+`schema_version`: a document whose fields change moves to a higher version,
+and the CHANGELOG lists every renamed flag and field. A `next_action` is a
+complete `aigw` command that a script can run as it stands; `next_detail` is a
+step for a person: one with a placeholder, in prose, or one that asks for a
+value such as a Token. The earlier spellings `setup --model`, `add --model`,
+`install --target` and `uninstall --target` keep working for one release and
+name their replacements, `--upstream-model` and `--path`, on standard error.

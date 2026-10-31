@@ -75,6 +75,7 @@ func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
 					DiagnosticKind string `json:"diagnostic_kind"`
 					Retryable      bool   `json:"retryable"`
 					NextAction     string `json:"next_action"`
+					NextDetail     string `json:"next_detail"`
 				} `json:"clients"`
 			}
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
@@ -84,7 +85,7 @@ func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
 				t.Fatalf("check exposed a private configuration path: %s", out.String())
 			}
 			client := result.Clients[claude.ID]
-			if result.OK || client.DiagnosticKind != test.kind || client.Retryable != test.retryable || client.NextAction == "" {
+			if result.OK || client.DiagnosticKind != test.kind || client.Retryable != test.retryable || client.NextAction+client.NextDetail == "" {
 				t.Fatalf("check JSON = %#v", result)
 			}
 			if strings.Contains(out.String(), "secret") {
@@ -173,6 +174,7 @@ func TestCheckJSONMakesMissingActiveCredentialActionable(t *testing.T) {
 			Account     string `json:"account"`
 			Detail      string `json:"detail"`
 			NextAction  string `json:"next_action"`
+			NextDetail  string `json:"next_detail"`
 			CheckPassed bool   `json:"check_passed"`
 		} `json:"clients"`
 		OK bool `json:"ok"`
@@ -181,14 +183,15 @@ func TestCheckJSONMakesMissingActiveCredentialActionable(t *testing.T) {
 		t.Fatalf("decode check --json: %v\n%s", err, out.String())
 	}
 	client := result.Clients[claude.ID]
-	if result.OK || client.CheckPassed || client.Account != "claude-account" || client.Detail != "account token is unavailable" || client.NextAction != "aigw rotate claude-account" {
+	// Rotation asks a person for the Token, so it is a step for that person.
+	if result.OK || client.CheckPassed || client.Account != "claude-account" || client.Detail != "account token is unavailable" || client.NextAction != "" || client.NextDetail != "aigw rotate claude-account" {
 		t.Fatalf("JSON missing-token result = %#v", result)
 	}
 }
 
 func TestCheckJSONReportsPrerequisiteFailure(t *testing.T) {
 	for _, test := range []struct {
-		name, version, problem, nextAction string
+		name, version, problem, nextDetail string
 	}{
 		{"local build without configuration", "0.1.0-dev", "not configured", "aigw setup"},
 		{"unconfigured", "1.0.0", "not configured", "aigw setup"},
@@ -201,13 +204,15 @@ func TestCheckJSONReportsPrerequisiteFailure(t *testing.T) {
 			}
 			var result struct {
 				OK         bool   `json:"ok"`
-				Error      string `json:"error"`
+				Problem    string `json:"problem"`
 				NextAction string `json:"next_action"`
+				NextDetail string `json:"next_detail"`
 			}
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 				t.Fatalf("decode check --json: %v\n%s", err, out.String())
 			}
-			if result.OK || result.Error != test.problem || result.NextAction != test.nextAction {
+			// Setup asks a person for an Account and a Route.
+			if result.OK || result.Problem != test.problem || result.NextAction != "" || result.NextDetail != test.nextDetail {
 				t.Fatalf("prerequisite JSON result = %#v", result)
 			}
 		})
@@ -224,10 +229,13 @@ func TestCheckJSONKeepsConfigurationFailureMachineReadable(t *testing.T) {
 	if err := cli.Execute(app, []string{"check", "--json"}); err == nil {
 		t.Fatal("check --json accepted malformed configuration")
 	}
+	// A configuration that cannot load fails with the failure document.
 	var result struct {
 		OK         bool   `json:"ok"`
 		Error      string `json:"error"`
+		Stage      string `json:"stage"`
 		NextAction string `json:"next_action"`
+		NextDetail string `json:"next_detail"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode malformed-configuration check --json: %v\n%s", err, out.String())
@@ -235,7 +243,7 @@ func TestCheckJSONKeepsConfigurationFailureMachineReadable(t *testing.T) {
 	if strings.Contains(out.String(), `"config_path"`) || strings.Contains(out.String(), app.Config.Path()) {
 		t.Fatalf("check exposed a private configuration path: %s", out.String())
 	}
-	if result.OK || result.Error == "" || result.NextAction != "aigw doctor" {
+	if result.OK || result.Error == "" || result.Stage != "configuration_parse" || result.NextAction != "" || !strings.Contains(result.NextDetail, "aigw doctor") {
 		t.Fatalf("malformed-configuration JSON result = %#v", result)
 	}
 }

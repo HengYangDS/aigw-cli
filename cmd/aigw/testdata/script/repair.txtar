@@ -9,7 +9,7 @@ exitcode 1 aigw repair --json
 cmp stdout empty.json
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 snapshot $HOME before.txt
 exec aigw repair --dry-run --json
 cmp stdout preview.json
@@ -49,15 +49,16 @@ Recommended action
   aigw setup
 -- preview.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
-  "configuration_action": "already-converged",
+  "configuration_action": "already_converged",
   "projections": [
     {
       "client": "claude",
-      "surface_id": "claude-settings",
-      "action": "already-converged"
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
+      "action": "already_converged"
     }
   ],
   "next_action": "aigw check"
@@ -74,10 +75,10 @@ Next
   aigw check
 -- empty.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Not configured",
   "evidence": "No Routes have been created.",
   "impact": "Cannot check, synchronize, or repair configuration that does not exist.",
-  "next_action": "aigw setup"
+  "next_detail": "aigw setup"
 }

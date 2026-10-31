@@ -54,20 +54,23 @@ func TestCodexOutsideRetryEditRecoveryDoesNotLoop(t *testing.T) {
 	} {
 		output.Reset()
 		err := cli.Execute(app, command)
+		// The recovery is prose, so every document gives it as next_detail.
 		var result struct {
 			NextAction string `json:"next_action"`
+			NextDetail string `json:"next_detail"`
 			Clients    map[string]struct {
 				NextAction string `json:"next_action"`
+				NextDetail string `json:"next_detail"`
 			} `json:"clients"`
 		}
 		if decodeErr := json.Unmarshal(output.Bytes(), &result); decodeErr != nil {
 			t.Fatalf("%v: %v (command error %v)\n%s", command, decodeErr, err, output)
 		}
-		if result.NextAction != recovery {
-			t.Errorf("%v next action = %q, want the recovery from the outside edit", command, result.NextAction)
+		if result.NextDetail != recovery || result.NextAction != "" {
+			t.Errorf("%v next step = %q, %q; want the recovery from the outside edit", command, result.NextAction, result.NextDetail)
 		}
-		if client, listed := result.Clients[codex.ID]; listed && client.NextAction != recovery {
-			t.Errorf("%v Codex next action = %q, want the recovery from the outside edit", command, client.NextAction)
+		if client, listed := result.Clients[codex.ID]; listed && (client.NextDetail != recovery || client.NextAction != "") {
+			t.Errorf("%v Codex next step = %q, %q; want the recovery from the outside edit", command, client.NextAction, client.NextDetail)
 		}
 		if after := ownedFileSnapshot(t, filepath.Dir(target), app.Config.Path()); !equalSnapshots(after, refused) {
 			t.Fatalf("%v changed client files or owned state while refusing", command)

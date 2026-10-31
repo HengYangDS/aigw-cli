@@ -127,7 +127,7 @@ func TestCheckForRejectsUnknownOrDisabledClientBeforeObservingCredentials(t *tes
 		t.Fatal("disabled client was checked")
 	}
 	var result checkDocument
-	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.OK || !strings.Contains(result.Error, "not enabled") || result.NextAction != "aigw use --for claude <route>" {
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.OK || !strings.Contains(result.Problem, "not enabled") || result.NextDetail != "aigw use --for claude <route>" || result.NextAction != "" {
 		t.Fatalf("disabled client result = %+v, %v", result, err)
 	}
 	if store.getCalls != 0 || store.existsCalls != 0 {
@@ -201,7 +201,7 @@ func TestMixedInvalidAndDeferredClientsShareOneRecoveryAction(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.Clients[claudeclient.ID].State != domainreadiness.Deferred || result.Clients[codex.ID].State != domainreadiness.Invalid || result.NextAction == "" || result.Error == "" {
+	if result.Clients[claudeclient.ID].State != domainreadiness.Deferred || result.Clients[codex.ID].State != domainreadiness.Invalid || result.NextAction+result.NextDetail == "" || result.Problem == "" {
 		t.Fatalf("mixed JSON check = %+v", result)
 	}
 	humanAction := ""

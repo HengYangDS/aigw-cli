@@ -147,8 +147,8 @@ func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
 	}
 	result := decodeFinalizeResult(t, out.Bytes())
 	want := finalizeResult{Status: "planned", Actions: map[string]string{
-		"configuration": "already-renamed", "backup": "converge-to-verified-current",
-		"api_token": "delete-source", "account_probe": "delete-source",
+		"configuration": "already_renamed", "backup": "converge_to_verified_current",
+		"api_token": "delete_source", "account_probe": "delete_source",
 	}, ExternalTODOs: []string{}}
 	if !reflect.DeepEqual(result, want) {
 		t.Fatalf("finalize dry-run = %#v", result)
@@ -183,7 +183,7 @@ func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
 		t.Fatal(err)
 	}
 	result = decodeFinalizeResult(t, out.Bytes())
-	if result.Status != "already-finalized" || result.Actions["backup"] != "already-converged" {
+	if result.Status != "already_finalized" || result.Actions["backup"] != "already_converged" {
 		t.Fatalf("idempotent finalize preview = %#v", result)
 	}
 	for _, forbidden := range []string{token, probe.SystemToken, probe.UserID, app.Config.Path()} {
@@ -247,8 +247,8 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 	backupBefore := readFile(t, app.Config.Path()+".bak")
 	out.Reset()
 
-	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize", "--dry-run", "--json"}); err != nil {
-		t.Fatal(err)
+	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize", "--dry-run", "--json"}); err == nil {
+		t.Fatal("a blocked finalization plan succeeded")
 	}
 	result := decodeFinalizeResult(t, out.Bytes())
 	if result.Status != "blocked" || !containsString(result.ExternalTODOs, "--confirm-api-token-rotation") || !containsString(result.ExternalTODOs, "--confirm-account-probe-rotation") {

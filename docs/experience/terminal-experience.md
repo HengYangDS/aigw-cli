@@ -70,8 +70,10 @@ include availability metadata. Unselected Client Bindings remain explicit and
 include their next usable `aigw use` action when one exists.
 
 For a command whose parsed `--json` value is true, a failure before any result
-is written produces one JSON document: `ok: false`, `error`, `next_action`, and
-available `evidence` and `impact`. `--json=false` keeps human output; a literal
+is written produces one JSON document with its own `schema_version`:
+`ok: false`, `error`, available `evidence` and `impact`, and the next step. A
+configuration that cannot be loaded adds its `stage`, and a parse failure its
+`line` and `column`. `--json=false` keeps human output; a literal
 `--json` after `--` is an argument, not a formatting flag. Command-resolution
 failures before flag parsing use human output.
 
@@ -163,7 +165,8 @@ The JSON vocabulary follows that evidence boundary:
 | `ok`                    | The command's stated check scope passed.                    |
 | `ok_scope`              | Doctor's `local_diagnostics` scope, not client usability.   |
 | `enabled_clients`       | Number of enabled Client Bindings examined.                 |
-| `next_action`           | The next explicit action, not necessarily a repair.         |
+| `next_action`           | A next command that a script can run as it stands.          |
+| `next_detail`           | A step for a person: a placeholder, prose or a prompt.      |
 
 Neither `ok` nor `inference_checked` proves real-client execution, future
 availability, or the provider's retention policy. `endpoint_checked` does not
@@ -183,18 +186,20 @@ Its human result says no client is enabled. This does not establish that a
 client can authenticate or infer. Failed diagnostics or invalid, degraded, or
 unavailable client observations produce a nonzero exit
 status and `ok: false`. Deferred clients are not failures by themselves. A JSON
-report remains one document on failure, with `next_action` carrying the same
-continuation shown in human output. Writing the report successfully does not
-make a failed diagnosis successful.
+report remains one document on failure, with `next_action` or `next_detail`
+carrying the same continuation shown in human output. Writing the report
+successfully does not make a failed diagnosis successful.
 
 For `sync` and `repair`, `--json` selects output format, not execution mode.
-Add `--dry-run` to preview without writes; omit it to apply. A successful
-result contains `dry_run` and `next_action`: previews with state changes point
-to the apply command, while a converged active `sync` binding points to
-`aigw check`. An empty `sync` selection instead reports deferred activation
-and an Account or client prerequisite. Projection plans appear
-only in previews; applied output does not present an earlier plan as observed
-per-target completion. Neither operation changes credentials.
+Add `--dry-run` to preview without writes; omit it to apply. A preview
+contains `dry_run: true`, and every result names its next step as
+`next_action` or `next_detail`: previews with state changes point to the apply
+command, while a converged active `sync` binding points to `aigw check`. An
+empty `sync` selection instead reports deferred activation and an Account or
+client prerequisite. The `projections` list appears only in previews, each
+file relative to the home directory; applied output does not present an
+earlier plan as observed per-target completion. Neither operation changes
+credentials.
 
 An output failure after a successful commit does not undo the projection.
 Inspect current state before retrying; generic error rendering cannot promise

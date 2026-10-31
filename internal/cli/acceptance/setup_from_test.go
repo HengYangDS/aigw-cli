@@ -119,10 +119,11 @@ interfaces = { openai_responses = ["text", "reasoning", "streaming", "tools"] }
 	}
 	var result struct {
 		ConnectedAccounts []string          `json:"connected_accounts"`
-		SelectedBindings  map[string]string `json:"selected_bindings"`
+		SelectedBindings  map[string]string `json:"selections"`
 		ProjectedClients  []string          `json:"projected_clients"`
 		DeferredActions   []string          `json:"deferred_actions"`
 		NextAction        string            `json:"next_action"`
+		NextDetail        string            `json:"next_detail"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode setup result: %v\n%s", err, out.String())
@@ -130,7 +131,7 @@ interfaces = { openai_responses = ["text", "reasoning", "streaming", "tools"] }
 	if len(result.ConnectedAccounts) != 0 || result.SelectedBindings[codex.ID] != "bedrock" || !slices.Equal(result.ProjectedClients, []string{codex.ID}) {
 		t.Fatalf("setup state = %#v", result)
 	}
-	if len(result.DeferredActions) != 0 || result.NextAction != "aigw check" {
+	if len(result.DeferredActions) != 0 || !wantNext(result.NextAction, result.NextDetail, "aigw check") {
 		t.Fatalf("setup continuation = %#v", result)
 	}
 	projection := string(readFile(t, target))
@@ -153,10 +154,11 @@ func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *test
 			Routes   []string `json:"routes"`
 		} `json:"imported"`
 		ConnectedAccounts []string          `json:"connected_accounts"`
-		SelectedBindings  map[string]string `json:"selected_bindings"`
+		SelectedBindings  map[string]string `json:"selections"`
 		ProjectedClients  []string          `json:"projected_clients"`
 		DeferredActions   []string          `json:"deferred_actions"`
 		NextAction        string            `json:"next_action"`
+		NextDetail        string            `json:"next_detail"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatalf("decode setup JSON: %v\n%s", err, out.String())
@@ -178,7 +180,7 @@ func TestSetupFromConfigurationManifestJSONReportsProgressWithoutSecrets(t *test
 	wantDeferred := []string{
 		"Choose one compatible Account: aigw rotate aihubmix or aigw rotate dmxapi",
 	}
-	if !slices.Equal(result.DeferredActions, wantDeferred) || result.NextAction != wantDeferred[0] {
+	if !slices.Equal(result.DeferredActions, wantDeferred) || !wantNext(result.NextAction, result.NextDetail, wantDeferred[0]) {
 		t.Fatalf("setup JSON continuation = %#v", result)
 	}
 	for _, forbidden := range []string{"aigw-test", "token", "secret"} {
@@ -232,7 +234,7 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 				t.Fatal(err)
 			}
 			var result struct {
-				SelectedBindings map[string]string `json:"selected_bindings"`
+				SelectedBindings map[string]string `json:"selections"`
 				ProjectedClients []string          `json:"projected_clients"`
 			}
 			if err := json.Unmarshal(out.Bytes(), &result); err != nil {

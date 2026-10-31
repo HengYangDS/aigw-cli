@@ -124,12 +124,12 @@ Next
   aigw sync
 -- unconfigured.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Program update did not complete",
   "evidence": "AIGW could not complete release verification and program replacement.",
   "impact": "No updated program version was confirmed active; client settings and credentials were not changed.",
-  "next_action": "Run `aigw doctor` to inspect current state; verify the selected release source or use a verified local archive."
+  "next_detail": "Run `aigw doctor` to inspect current state; verify the selected release source or use a verified local archive."
 }
 -- current.json --
 {

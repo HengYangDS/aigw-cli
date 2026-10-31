@@ -19,7 +19,7 @@ func newRenameCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		return invocation.WriteRenamePlan(runtime, plan, jsonMode)
+		return invocation.WriteRenamePlan(runtime, plan, dryRun, jsonMode)
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the rename plan without writing configuration")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the rename plan or result as JSON")

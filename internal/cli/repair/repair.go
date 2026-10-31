@@ -16,7 +16,7 @@ import (
 )
 
 // schemaVersion is the version of `aigw repair`'s JSON document.
-const schemaVersion = 1
+const schemaVersion = 2
 
 // NewCommand constructs the command that reconciles recoverable AIGW-owned projection drift.
 func NewCommand(runtime invocation.Context) *cobra.Command {
@@ -30,18 +30,15 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
+// repairResult is `aigw repair`'s JSON document: what repair did or would do
+// to the configuration, and in a preview the client files that it would write
+// and the credential reader that it would install.
 type repairResult struct {
-	DryRun               bool                          `json:"dry_run"`
+	DryRun               bool                          `json:"dry_run,omitempty"`
 	ConfigurationAction  string                        `json:"configuration_action"`
-	Projections          []repairProjectionPreview     `json:"projections,omitempty"`
+	Projections          []invocation.Projection       `json:"projections,omitempty"`
 	CredentialEntrypoint *app.CredentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
 	NextAction           string                        `json:"next_action"`
-}
-
-type repairProjectionPreview struct {
-	Client    string `json:"client"`
-	SurfaceID string `json:"surface_id"`
-	Action    string `json:"action"`
 }
 
 func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode bool) error {
@@ -82,12 +79,15 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 }
 
 func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, plans []adapter.ProjectionPlan, entrypoint *app.CredentialEntrypointPlan) error {
-	result := repairResult{DryRun: dryRun, ConfigurationAction: "already-converged", CredentialEntrypoint: entrypoint, NextAction: "aigw check"}
+	// Human output keeps the planner's spelling beside the projection rows;
+	// the document spells it in snake_case.
+	configuration := "already-converged"
+	if configurationChanged {
+		configuration = "update"
+	}
+	result := repairResult{DryRun: dryRun, ConfigurationAction: terminal.SnakeValue(configuration), CredentialEntrypoint: entrypoint, NextAction: "aigw check"}
 	if dryRun && configurationChanged {
 		result.NextAction = "aigw repair"
-	}
-	if configurationChanged {
-		result.ConfigurationAction = "update"
 	}
 	if entrypoint != nil {
 		result.NextAction = "aigw repair"
@@ -96,17 +96,17 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 		if dryRun && plan.ChangesState {
 			result.NextAction = "aigw repair"
 		}
-		result.Projections = append(result.Projections, repairProjectionPreview{Client: plan.Client, SurfaceID: plan.Surface, Action: plan.Action})
 	}
+	result.Projections = invocation.Projections(runtime, plans)
 	if jsonMode {
 		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 	}
 	r := invocation.Renderer(runtime)
 	if dryRun {
 		r.ProductTitle("Repair preview")
-		rows := []terminal.Field{{Label: "Configuration", Value: result.ConfigurationAction}}
-		for _, plan := range result.Projections {
-			rows = append(rows, terminal.Field{Label: runtime.Clients.Admission().Label(plan.Client) + " · " + plan.SurfaceID, Value: plan.Action})
+		rows := []terminal.Field{{Label: "Configuration", Value: configuration}}
+		for _, plan := range plans {
+			rows = append(rows, terminal.Field{Label: runtime.Clients.Admission().Label(plan.Client) + " · " + plan.Surface, Value: plan.Action})
 		}
 		r.Rows(rows...)
 		if entrypoint != nil {

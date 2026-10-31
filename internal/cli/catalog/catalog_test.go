@@ -64,7 +64,7 @@ func configuredCatalog() domain.Config {
 func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
 	emptyDeps, emptyOut := catalogRuntime(t, domain.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
 	command := NewCommand(emptyDeps)
-	if err := executeCatalogCommand(t, command, "--json"); err != nil || !strings.Contains(emptyOut.String(), `"observations": []`) {
+	if err := executeCatalogCommand(t, command, "--json"); err == nil || !strings.Contains(err.Error(), "not configured") || emptyOut.Len() != 0 {
 		t.Fatalf("empty JSON output=%q error=%v", emptyOut.String(), err)
 	}
 	emptyDeps, _ = catalogRuntime(t, domain.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))

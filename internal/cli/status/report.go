@@ -16,6 +16,7 @@ type statusReport struct {
 	EnabledClients    int                         `json:"enabled_clients"`
 	State             domainreadiness.State       `json:"state,omitempty"`
 	NextAction        string                      `json:"next_action,omitempty"`
+	NextDetail        string                      `json:"next_detail,omitempty"`
 }
 
 func orderedClientStates(runtime app.Dependencies, clients map[string]app.ClientStatus) []domainreadiness.Client {

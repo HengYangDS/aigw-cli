@@ -65,13 +65,13 @@ func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
 			Targets []struct {
 				Client string `json:"client"`
 				Action string `json:"action"`
-			} `json:"targets"`
+			} `json:"projections"`
 		}
 		if err := json.Unmarshal(output.Bytes(), &preview); err != nil || len(preview.Adopted) != 0 {
 			t.Fatalf("dry run adopted again: %v, %v\n%s", preview.Adopted, err, output)
 		}
 		for _, item := range preview.Targets {
-			if item.Client == codex.ID && item.Action != "already-converged" {
+			if item.Client == codex.ID && item.Action != "already_converged" {
 				t.Fatalf("adopted Codex state did not converge: %+v", preview)
 			}
 		}

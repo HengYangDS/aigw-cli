@@ -109,8 +109,9 @@ func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
+	// The continuation is prose, so the document gives it as next_detail.
 	want := "Install Claude if needed, then run `aigw sync`"
-	if result.Clients[claude.ID].NextAction != want || result.NextAction != want {
+	if result.Clients[claude.ID].NextDetail != want || result.NextDetail != want || result.NextAction != "" {
 		t.Fatalf("mixed-client JSON continuation = %+v", result)
 	}
 	output.Reset()
@@ -137,11 +138,12 @@ func TestStatusStatesClaudeDesktopQualifiedModesAndPlatforms(t *testing.T) {
 	if err := json.Unmarshal(buffer.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
+	// Human output shows the labels; the document names them in snake_case.
 	desktop := result.Clients[claudedesktop.ID]
-	if !slices.Equal(desktop.QualifiedModes, []string{"Chat", "Cowork", "Code"}) {
+	if !slices.Equal(desktop.QualifiedModes, []string{"chat", "cowork", "code"}) {
 		t.Fatalf("qualified modes = %#v", desktop.QualifiedModes)
 	}
-	if !slices.Equal(desktop.QualifiedPlatforms, []string{"macOS"}) {
+	if !slices.Equal(desktop.QualifiedPlatforms, []string{"macos"}) {
 		t.Fatalf("qualified platforms = %#v", desktop.QualifiedPlatforms)
 	}
 

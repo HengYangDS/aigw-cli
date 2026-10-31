@@ -27,9 +27,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		}
 		if len(cfg.Routes) == 0 {
-			if jsonMode {
-				return terminal.WriteDocument(runtime.Out, schemaVersion, true, app.CatalogReport{Observations: []app.CatalogObservation{}})
-			}
+			// Without Routes there is no catalog to discover, with or
+			// without --json.
 			return fmt.Errorf("not configured; run `aigw setup`")
 		}
 		result := app.DiscoverCatalog(cmd.Context(), runtime.Secrets, runtime.HTTP, cfg)

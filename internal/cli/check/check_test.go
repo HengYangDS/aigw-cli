@@ -143,8 +143,9 @@ func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 					if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 						t.Fatal(err)
 					}
-					problemDetail, problemAction = result.Clients[client].Detail, result.Clients[client].NextAction
-					if state := result.Clients[client]; state.State != domainreadiness.Deferred || state.NextAction != problemAction || state.Detail != problemDetail {
+					// The recovery is prose, so the document gives it as next_detail.
+					problemDetail, problemAction = result.Clients[client].Detail, result.Clients[client].NextDetail
+					if state := result.Clients[client]; state.State != domainreadiness.Deferred || state.NextAction != "" || state.NextDetail != problemAction || state.Detail != problemDetail {
 						t.Fatalf("client status = %+v", state)
 					}
 				}
@@ -171,7 +172,7 @@ func TestCheckExplainsBothMissingTokenAndDeferredProjection(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.NextAction != "run `aigw rotate one`" || !strings.Contains(result.Error, "Token") || !strings.Contains(result.Error, "projection") {
+	if result.NextDetail != "run `aigw rotate one`" || result.NextAction != "" || !strings.Contains(result.Problem, "Token") || !strings.Contains(result.Problem, "projection") {
 		t.Fatalf("missing prerequisites were not explained together: %+v", result)
 	}
 }

@@ -7,7 +7,7 @@ exitcode 1 aigw verify
 cmp stdout client.txt
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 exec aigw verify --for claude
 cmp stdout verified.txt
 exitcode 1 aigw verify --for codex
@@ -89,7 +89,7 @@ Recommended action
 }
 -- json-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "choose a verification client with --for; run `aigw verify --help`",
   "impact": "The command could not finish; inspect current state before retrying.",

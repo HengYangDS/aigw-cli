@@ -121,20 +121,9 @@ func TestCodexTargetLabelNamesOnlyFilesUnderHome(t *testing.T) {
 	home := filepath.Join(root, "home")
 	inside := filepath.Join(home, ".codex", "config.toml")
 	outside := filepath.Join(root, "work", "codex", "config.toml")
-	homeRelative := filepath.Join("~", ".codex", "config.toml")
-	for _, test := range []struct {
-		path, home, target string
-		outside            bool
-	}{
-		{inside, home, homeRelative, false},
-		{outside, home, "", true},
-		{inside, "", "", false},
-		{"relative.toml", home, "", false},
-	} {
-		target, outside := publicTarget(test.path, test.home)
-		if target != test.target || outside != test.outside {
-			t.Errorf("publicTarget(%q, %q) = %q, %v; want %q, %v", test.path, test.home, target, outside, test.target, test.outside)
-		}
+	homeRelative, _ := terminal.HomeTarget(inside, home)
+	if _, outside := terminal.HomeTarget(outside, home); !outside {
+		t.Fatal("a file outside home was not reported outside")
 	}
 	for _, test := range []struct {
 		check checkResult
@@ -146,15 +135,6 @@ func TestCodexTargetLabelNamesOnlyFilesUnderHome(t *testing.T) {
 	} {
 		if got := checkLabel(clients.Admission(), test.check); got != test.want {
 			t.Errorf("Label(%+v) = %q, want %q", test.check, got, test.want)
-		}
-	}
-	for env, want := range map[string]string{
-		"PATH=/bin\x00USERPROFILE=" + home:   home,
-		"HOME=" + home + "\x00USERPROFILE=x": home,
-		"HOME=\x00PATH=/bin":                 "",
-	} {
-		if got := homeDirectory(strings.Split(env, "\x00")); got != want {
-			t.Errorf("homeDirectory(%q) = %q, want %q", env, got, want)
 		}
 	}
 }

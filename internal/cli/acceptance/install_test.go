@@ -89,7 +89,7 @@ func TestPortableInstallAndUninstallCommandsOwnOnlyProgramFiles(t *testing.T) {
 		t.Fatalf("install output = %q", out.String())
 	}
 	out.Reset()
-	if err := cli.Execute(app, []string{"uninstall", "--target", app.InstallTarget}); err != nil {
+	if err := cli.Execute(app, []string{"uninstall", "--path", app.InstallTarget}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(app.InstallTarget); !os.IsNotExist(err) {

@@ -83,10 +83,10 @@ type styles struct {
 
 // Problem contains one actionable failure explanation with evidence, impact, and recovery guidance.
 type Problem struct {
-	Title    string `json:"error"`
-	Evidence string `json:"evidence,omitempty"`
-	Impact   string `json:"impact,omitempty"`
-	Fix      string `json:"next_action"`
+	Title    string
+	Evidence string
+	Impact   string
+	Fix      string
 }
 
 // WriteJSON emits one two-space-indented JSON document and its trailing newline.

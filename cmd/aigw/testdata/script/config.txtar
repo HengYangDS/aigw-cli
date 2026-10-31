@@ -44,12 +44,12 @@ cmp stdout path-refusal.json
 
 -- import-preview.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
   "imported_accounts": 1,
   "imported_routes": 1,
-  "next_action": "Review the preview, then rerun without --dry-run"
+  "next_action": "aigw config import manifest.toml"
 }
 -- manifest.in --
 version = 7
@@ -74,7 +74,6 @@ AIGW  aigw config
   Import and export configuration
 
 Usage
-  aigw config [flags]
   aigw config [command]
 
 Commands
@@ -91,9 +90,8 @@ $HOME/Library/Application Support/aigw/config.toml
 $HOME/aigw/config.toml
 -- imported.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
-  "dry_run": false,
   "imported_accounts": 1,
   "imported_routes": 1,
   "next_action": "aigw status"
@@ -135,11 +133,11 @@ Recommended action
   Correct the value at the reported document location and rerun the command.
 -- refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "Cannot decode TOML document at line 2, column 15",
   "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "Correct the value at the reported document location and rerun the command."
+  "next_detail": "Correct the value at the reported document location and rerun the command."
 }
 -- path-windows.txt --
 $HOME\aigw\config.toml
@@ -151,7 +149,7 @@ $HOME\aigw\config.toml
 }
 -- path-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "unknown command \"extra\"",
   "impact": "The command could not finish; inspect current state before retrying.",
@@ -171,7 +169,7 @@ $HOME\aigw\config.toml
 }
 -- migrate.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "dry_run": true,
   "required": false,
@@ -190,7 +188,7 @@ $HOME\aigw\config.toml
 }
 -- migrate-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "unknown command \"extra\"",
   "impact": "The command could not finish; inspect current state before retrying.",

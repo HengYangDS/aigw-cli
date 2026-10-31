@@ -7,7 +7,7 @@ exitcode 1 aigw rollback
 cmp stdout empty.txt
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 exec aigw route add spare --account team --model spare-model --protocol anthropic
 snapshot $HOME before.txt
 exec aigw rollback --last-change --dry-run
@@ -120,7 +120,7 @@ Next
 }
 -- json-refusal.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "error": "unknown command \"extra\"",
   "impact": "The command could not finish; inspect current state before retrying.",

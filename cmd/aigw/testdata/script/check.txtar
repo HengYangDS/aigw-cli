@@ -10,7 +10,7 @@ exitcode 1 aigw check --json
 cmp stdout empty.json
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 exec aigw check --json
 cmp stdout checked.json
 exec aigw check
@@ -61,17 +61,17 @@ Recommended action
   aigw setup
 -- empty.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
   "clients": {},
   "enabled_clients": 0,
   "state": "deferred",
-  "next_action": "aigw setup",
-  "error": "not configured"
+  "next_detail": "aigw setup",
+  "problem": "not configured"
 }
 -- checked.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": true,
   "clients": {
     "claude": {
@@ -95,12 +95,12 @@ Recommended action
       "endpoint_configured": false,
       "projection_ready": false,
       "qualified_modes": [
-        "Chat",
-        "Cowork",
-        "Code"
+        "chat",
+        "cowork",
+        "code"
       ],
       "qualified_platforms": [
-        "macOS"
+        "macos"
       ]
     },
     "codex": {
@@ -157,13 +157,12 @@ version = 7
 [accounts.team
 -- broken.json --
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "ok": false,
-  "clients": {},
-  "enabled_clients": 0,
-  "state": "invalid",
-  "next_action": "aigw doctor",
-  "error": "Cannot read or validate local configuration; run `aigw doctor` to inspect or restore it",
+  "error": "Cannot parse local configuration",
+  "evidence": "AIGW 0.1.0-dev stopped at the configuration parse stage at line 2, column 15.",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_detail": "Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it.",
   "stage": "configuration_parse",
   "line": 2,
   "column": 15

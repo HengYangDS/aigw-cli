@@ -133,6 +133,7 @@ func Execute(app *App, args []string) error {
 		if err := command.ValidateFlagGroups(); err != nil {
 			return fmt.Errorf("%w; run `%s --help`", err, command.CommandPath())
 		}
+		warnReplacedFlags(app.Err, command)
 		if !requiresConfigurationLock(app, command) {
 			return nil
 		}
@@ -144,7 +145,10 @@ func Execute(app *App, args []string) error {
 		return nil
 	}
 	root.SetArgs(args)
-	command, err := root.ExecuteC()
+	command, err := root, unknownSubcommand(root, args)
+	if err == nil {
+		command, err = root.ExecuteC()
+	}
 	if output.err != nil && !errors.Is(err, output.err) {
 		err = errors.Join(err, output.err)
 	}
@@ -339,7 +343,17 @@ func NewRoot(app *App) *cobra.Command {
 		flag.Usage = "show version"
 	}
 	root.SetHelpFunc(func(command *cobra.Command, _ []string) { renderCommandHelp(app, command) })
-	root.SetHelpCommand(&cobra.Command{Use: "help [command]", Short: "show command help", Hidden: true})
+	root.SetHelpCommand(&cobra.Command{
+		Use: "help [command]", Short: "show command help", Hidden: true,
+		RunE: func(help *cobra.Command, args []string) error {
+			target, rest, err := help.Root().Find(args)
+			if err != nil || target == nil || len(rest) > 0 {
+				return fmt.Errorf("unknown help topic %q; run `aigw --help`", strings.Join(args, " "))
+			}
+			target.InitDefaultHelpFlag()
+			return target.Help()
+		},
+	})
 	root.CompletionOptions.DisableDefaultCmd = true
 	root.AddGroup(
 		&cobra.Group{ID: "connect", Title: "Connect"},
@@ -379,6 +393,27 @@ func NewRoot(app *App) *cobra.Command {
 		return fmt.Errorf("%w", err)
 	})
 	return root
+}
+
+// unknownSubcommand refuses an argument that names no subcommand of a command
+// group. Cobra refuses an unknown command only at the root; a nested group
+// would show its help and succeed. A subcommand's name after a flag that Find
+// could not place stays Cobra's to report.
+func unknownSubcommand(root *cobra.Command, args []string) error {
+	group, rest, err := root.Find(args)
+	if err != nil || group == root || !group.HasSubCommands() || group.Runnable() {
+		return nil
+	}
+	for _, arg := range rest {
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+		if slices.ContainsFunc(group.Commands(), func(child *cobra.Command) bool { return child.Name() == arg || child.HasAlias(arg) }) {
+			return nil
+		}
+		return fmt.Errorf("unknown command %q for %q; run `%s --help`", arg, group.CommandPath(), group.CommandPath())
+	}
+	return nil
 }
 
 func appVersion(app *App) string {
@@ -462,4 +497,18 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 			r.Text(strings.TrimPrefix(strings.TrimRight(line, " \t"), "  "))
 		}
 	}
+}
+
+// warnReplacedFlags names, on standard error, the spelling that replaces each
+// hidden flag spelling that the command line used. Cobra's own deprecation
+// notice goes to standard output, where it would corrupt a JSON document.
+func warnReplacedFlags(errOut io.Writer, command *cobra.Command) {
+	if errOut == nil {
+		return
+	}
+	command.Flags().Visit(func(flag *pflag.Flag) {
+		if replacement := flag.Annotations[invocation.ReplacedBy]; len(replacement) == 1 {
+			_, _ = fmt.Fprintf(errOut, "aigw: --%s is deprecated; use --%s\n", flag.Name, replacement[0])
+		}
+	})
 }

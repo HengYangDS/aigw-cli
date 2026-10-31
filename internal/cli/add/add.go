@@ -130,6 +130,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&model, "model", "", "Upstream model ID; --upstream-model is the same value")
 	cmd.MarkFlagsMutuallyExclusive("model", "upstream-model")
 	_ = cmd.Flags().SetAnnotation("model", invocation.ReplacedBy, []string{"upstream-model"})
+	// The replaced spelling stays one release, hidden; using it warns.
+	_ = cmd.Flags().MarkHidden("model")
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one token line from standard input")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the connected Account and Route as JSON")
 	return cmd

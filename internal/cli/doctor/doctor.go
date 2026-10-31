@@ -19,17 +19,21 @@ import (
 )
 
 // schemaVersion is the version of `aigw doctor`'s JSON document.
-const schemaVersion = 1
+const schemaVersion = 2
 
 // checkResult is one machine-readable diagnostic result. Target names the native file
 // the check inspected relative to the home directory; it is omitted for a file
-// outside the home directory, so diagnostics never expose a private path.
+// outside the home directory, so diagnostics never expose a private path. A
+// failed check's fix is a command that a script can run as next_action, or
+// guidance as next_detail.
 type checkResult struct {
-	Name   string `json:"name"`
-	OK     bool   `json:"ok"`
-	Detail string `json:"detail"`
-	Fix    string `json:"fix,omitempty"`
-	Target string `json:"target,omitempty"`
+	Name       string `json:"name"`
+	OK         bool   `json:"ok"`
+	Detail     string `json:"detail"`
+	NextAction string `json:"next_action,omitempty"`
+	NextDetail string `json:"next_detail,omitempty"`
+	Fix        string `json:"-"`
+	Target     string `json:"target,omitempty"`
 	// Stage, Line and Column locate a configuration that could not be loaded.
 	Stage  string `json:"stage,omitempty"`
 	Line   int    `json:"line,omitempty"`
@@ -54,6 +58,26 @@ type commandResult struct {
 	EnabledClients    int                               `json:"enabled_clients"`
 	State             domainreadiness.State             `json:"state,omitempty"`
 	NextAction        string                            `json:"next_action,omitempty"`
+	NextDetail        string                            `json:"next_detail,omitempty"`
+}
+
+// document returns a copy of result as doctor's document writes it: every
+// next step a command that a script can run, or guidance.
+func (result commandResult) document() commandResult {
+	checks := make([]checkResult, len(result.Checks))
+	for index, check := range result.Checks {
+		if check.Fix != "" {
+			check.NextAction, check.NextDetail = terminal.NextSteps(safeFix(check))
+		}
+		checks[index] = check
+	}
+	clients := make(map[string]domainreadiness.Client, len(result.Clients))
+	for id, client := range result.Clients {
+		clients[id] = invocation.DocumentClient(client)
+	}
+	result.Checks, result.Clients = checks, clients
+	result.NextAction, result.NextDetail = terminal.NextSteps(result.NextAction)
+	return result
 }
 
 var forbiddenClientTokenEnvironmentNames = []string{
@@ -81,7 +105,7 @@ func newCommand(runtime invocation.Context, inspect inspector) *cobra.Command {
 			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 			result := collectResult(cmd.Context(), operation, inspect)
 			if jsonMode {
-				if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result); err != nil {
+				if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result.document()); err != nil {
 					return err
 				}
 				if !result.OK {
@@ -307,7 +331,7 @@ func collectChecks(ctx context.Context, deps app.Dependencies) []checkResult {
 		}
 		checks = append(checks, checkResult{Name: "secret:" + name, OK: ok, Detail: detail, Fix: fix})
 	}
-	checks = append(checks, adapterChecks(ctx, deps, cfg, homeDirectory(deps.Env))...)
+	checks = append(checks, adapterChecks(ctx, deps, cfg, invocation.Home(deps))...)
 	return checks
 }
 
@@ -339,7 +363,7 @@ func adapterChecks(ctx context.Context, deps app.Dependencies, cfg domain.Config
 		}
 		checks = append(checks, checkResult{Name: "adapter:" + clientID, OK: adapterReady, Detail: detail, Fix: fix, adapterAction: fix != ""})
 		for _, observation := range status.Checks {
-			target, outside := publicTarget(observation.Target, home)
+			target, outside := terminal.HomeTarget(observation.Target, home)
 			checks = append(checks, checkResult{
 				Name: observation.ID, OK: observation.Ready, Detail: observation.Detail,
 				Fix: commandFix(observation.RepairAction), Target: target, outsideHome: outside,
