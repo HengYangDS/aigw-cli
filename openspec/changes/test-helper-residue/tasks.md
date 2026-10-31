@@ -3,8 +3,8 @@
 - [x] 1.1 Make a helper process inherit the Git isolation of the test process
       that started it; the regression test whose helper exits inside a test
       fails before the change and passes after it, with an empty temporary
-      directory. 1.2
-- [ ] 1.2 Run the program's entry-point test through the `aigw` command that
+      directory.
+- [x] 1.2 Run the program's entry-point test through the `aigw` command that
       the script harness installs; the package's tests leave no
       `testscript-main*` directory.
 
