@@ -241,6 +241,15 @@ func TestRemovePreviewNamesTheRecommendationsThatItChanges(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &document); err != nil || !document.DryRun || !slices.Equal(document.Recommendations, []string{claude.ID}) {
 		t.Fatalf("removal preview = %s, %v", out.String(), err)
 	}
+	rendered := &bytes.Buffer{}
+	command = newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: rendered, RenderOut: rendered})
+	command.SetArgs([]string{"spare", "--dry-run"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(rendered.String(), "Route removal preview") || !strings.Contains(rendered.String(), "Recommendations") {
+		t.Fatalf("removal preview text = %s", rendered.String())
+	}
 	if after, err := os.ReadFile(configStore.Path()); err != nil || !bytes.Equal(after, before) {
 		t.Fatalf("removal preview changed the configuration: %v", err)
 	}

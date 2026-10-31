@@ -4,6 +4,9 @@ import (
 	"errors"
 	"slices"
 	"testing"
+
+	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/domain"
 )
 
 // presenceStore answers whether an Account's Token exists, records each
@@ -50,5 +53,29 @@ func TestPresumedTokensAskOnlyOtherAccountsPresence(t *testing.T) {
 	}
 	if got, err := (presumedTokens{accounts: []string{"new"}}).Exists("other"); err != nil || got {
 		t.Fatalf("without a store, Exists(other) = %v, %v", got, err)
+	}
+}
+
+// TestPreviewsRefuseWhatTheirChangesRefuse shows that each preview refuses a
+// transition that its commit, setup or connection would refuse.
+func TestPreviewsRefuseWhatTheirChangesRefuse(t *testing.T) {
+	before := setupConfiguration()
+	invalid := before.Clone()
+	route := invalid.Routes["claude"]
+	route.Account = "missing"
+	invalid.Routes["claude"] = route
+	syncer := Synchronizer{Registry: builtinClients}
+	if _, err := syncer.Preview(before, invalid); err == nil {
+		t.Fatal("Preview admitted an invalid configuration")
+	}
+	if _, err := syncer.PreviewProjection(before, invalid); err == nil {
+		t.Fatal("PreviewProjection admitted an invalid configuration")
+	}
+	if _, _, err := syncer.PreviewSetup(before, invalid, []string{"team"}, claude.ID); err == nil {
+		t.Fatal("PreviewSetup admitted an invalid configuration")
+	}
+	account := domain.Account{Label: "New", Endpoints: domain.Endpoints{Anthropic: "https://new.test"}}
+	if _, _, err := syncer.PreviewConnection(before, "claude", claude.ID, account, domain.Route{Label: "New", Model: "new-model"}); err == nil {
+		t.Fatal("PreviewConnection replaced an existing Route")
 	}
 }

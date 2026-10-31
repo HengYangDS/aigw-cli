@@ -42,8 +42,12 @@ exec aigw install --path $WORK/other/aigw$exe --dry-run --json
 normalize stdout replace-preview.out
 [!windows] cmp replace-preview.out replace-preview.json
 [windows] cmp replace-preview.out replace-preview-windows.json
+exec aigw install --path $WORK/other/aigw$exe --dry-run
+stdout 'Rollback copy'
+stdout 'with this same program'
 snapshot $WORK/other other-after.txt
 cmp other-after.txt other-before.txt
+exitcode 1 aigw install --path $WORK --dry-run
 
 exitcode 1 aigw install --target $WORK
 [!windows] normalize stdout refusal.out

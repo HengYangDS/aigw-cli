@@ -26,6 +26,12 @@ exec aigw uninstall --path $WORK/preview/aigw$exe --dry-run --json
 normalize stdout uninstall-preview.out
 [!windows] cmp uninstall-preview.out uninstall-preview.json
 [windows] cmp uninstall-preview.out uninstall-preview-windows.json
+exec aigw uninstall --path $WORK/preview/aigw$exe --dry-run
+stdout 'Portable uninstall preview'
+stdout 'Remove +'
+stdout 'Preview did not write'
+exec aigw uninstall --path $WORK/absent/aigw$exe --dry-run
+stdout 'No program file at'
 snapshot $WORK/preview after.txt
 cmp after.txt before.txt
 

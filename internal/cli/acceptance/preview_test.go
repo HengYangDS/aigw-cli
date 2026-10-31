@@ -43,24 +43,7 @@ var errCredentialTouched = errors.New("a preview used the credential store")
 // would install, even where no client file changes, and writes neither the
 // reader nor configuration.
 func TestSetupAndAddPreviewsUseNoCredential(t *testing.T) {
-	manifest := filepath.Join(t.TempDir(), "team.toml")
-	writeFile(t, manifest, []byte(`version = 7
-[recommendations.claude.primary]
-route = "team-route"
-
-[accounts.team]
-label = "Team Gateway"
-[accounts.team.endpoints]
-anthropic = "https://team.test"
-[models.team-model]
-label = "Team Model"
-[routes.team-route]
-label = "Team Route"
-account = "team"
-model = "team-model"
-upstream_model = "team-model"
-interfaces = { anthropic = ["text"] }
-`), 0o600)
+	manifest := recommendingManifest(t)
 	for _, test := range []struct {
 		name       string
 		args       []string
@@ -105,6 +88,64 @@ interfaces = { anthropic = ["text"] }
 				}
 			}
 		})
+	}
+}
+
+// recommendingManifest writes a team manifest whose one Route Claude Code
+// recommends.
+func recommendingManifest(t *testing.T) string {
+	t.Helper()
+	manifest := filepath.Join(t.TempDir(), "team.toml")
+	writeFile(t, manifest, []byte(`version = 7
+[recommendations.claude.primary]
+route = "team-route"
+
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "https://team.test"
+[models.team-model]
+label = "Team Model"
+[routes.team-route]
+label = "Team Route"
+account = "team"
+model = "team-model"
+upstream_model = "team-model"
+interfaces = { anthropic = ["text"] }
+`), 0o600)
+	return manifest
+}
+
+// TestSetupManifestPreviewInText shows the human preview of setup --from
+// without --account, which connects the Accounts that a recommendation needs,
+// and its refusals of an unknown Account and of --token-stdin with a
+// read-only backend.
+func TestSetupManifestPreviewInText(t *testing.T) {
+	manifest := recommendingManifest(t)
+	app, out, _, _, _ := testApp(t, "")
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: executableFixture(t, "claude")}}}
+	if err := cli.Execute(app, []string{"setup", "--from", manifest, "--dry-run"}); err != nil {
+		t.Fatalf("manifest preview failed: %v\n%s", err, out.String())
+	}
+	for _, want := range []string{"Configuration catalog preview", "Would connect", "team-route", "Preview did not write configuration"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("manifest preview lacks %q:\n%s", want, out.String())
+		}
+	}
+	if err := cli.Execute(app, []string{"setup", "--from", manifest, "--account", "missing", "--dry-run"}); err == nil || !strings.Contains(err.Error(), `unknown Account "missing"`) {
+		t.Fatalf("unknown Account preview = %v", err)
+	}
+	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
+	for _, args := range [][]string{
+		{"setup", "--from", manifest, "--account", "team", "--token-stdin", "--dry-run"},
+		{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude", "--token-stdin", "--dry-run"},
+	} {
+		if err := cli.Execute(app, args); err == nil || !strings.Contains(err.Error(), "read-only") {
+			t.Fatalf("%s with a read-only backend = %v", strings.Join(args, " "), err)
+		}
+	}
+	if _, err := os.Stat(app.Config.Path()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("a manifest preview wrote configuration: %v", err)
 	}
 }
 
@@ -162,6 +203,39 @@ func TestUpdatePreviewInstallsNothing(t *testing.T) {
 	err := cli.Execute(app, []string{"update", "--dry-run", "--rollback"})
 	if err == nil || !strings.Contains(err.Error(), "dry-run") || updater.rollbackCalls != 0 {
 		t.Fatalf("rollback preview = %v, rollback calls %d", err, updater.rollbackCalls)
+	}
+}
+
+// TestUpdatePreviewInTextFromACandidateAndOnFailure shows the human update
+// preview with its rollback copy, a candidate preview that receives the
+// archive and installs nothing, and a failed preview that changed nothing.
+func TestUpdatePreviewInTextFromACandidateAndOnFailure(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	writeFile(t, app.Executable, []byte("program"), 0o700)
+	updater := &fakeUpdater{previewResult: program.Transition{State: program.TransitionAvailable, Version: "0.2.0", Summary: "would update to v0.2.0"}}
+	app.Updater = updater
+	if err := cli.Execute(app, []string{"update", "--dry-run"}); err != nil {
+		t.Fatalf("update preview failed: %v\n%s", err, out.String())
+	}
+	for _, want := range []string{"Update preview", "Rollback copy", "would update to v0.2.0", "with this same program"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("update preview lacks %q:\n%s", want, out.String())
+		}
+	}
+	archive, checksums := filepath.Join(t.TempDir(), "aigw_0.2.0_darwin_arm64.tar.gz"), filepath.Join(t.TempDir(), "checksums.txt")
+	if err := cli.Execute(app, []string{"update", "--dry-run", "--candidate", archive, "--checksums", checksums, "--json"}); err != nil {
+		t.Fatalf("candidate preview failed: %v", err)
+	}
+	if updater.candidateReceived.ArchivePath != archive || updater.candidateReceived.ChecksumsPath != checksums || updater.candidateCalls+updater.updateCalls != 0 {
+		t.Fatalf("candidate preview = %#v, installs %d", updater.candidateReceived, updater.candidateCalls+updater.updateCalls)
+	}
+	updater.previewErr = errors.New("metadata unavailable")
+	out.Reset()
+	if err := cli.Execute(app, []string{"update", "--dry-run"}); err == nil || !strings.Contains(out.String()+err.Error(), "Update preview did not complete") {
+		t.Fatalf("failed preview = %v\n%s", err, out.String())
+	}
+	if _, err := os.Stat(program.RollbackPath(app.Executable)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("an update preview wrote the rollback copy: %v", err)
 	}
 }
 

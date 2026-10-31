@@ -133,6 +133,46 @@ func TestPreviewFollowsTheUpdateRules(t *testing.T) {
 			t.Fatalf("current preview = %+v, %v", result, err)
 		}
 	})
+	t.Run("sources disagree", func(t *testing.T) {
+		server, _ := previewServer(t, map[string]string{
+			"/repos/team/aigw/releases/latest":                       `{"tag_name":"v0.3.0"}`,
+			"/api/v4/projects/team%2Faigw/releases/permalink/latest": `{"tag_name":"v0.4.0"}`,
+		})
+		if _, err := previewUpdater(t, server, true).Preview(context.Background(), "0.2.0"); err == nil || !strings.Contains(err.Error(), "disagree") {
+			t.Fatalf("preview error = %v", err)
+		}
+	})
+	t.Run("empty tags", func(t *testing.T) {
+		server, _ := previewServer(t, map[string]string{
+			"/repos/team/aigw/releases/latest":                       `{"tag_name":""}`,
+			"/api/v4/projects/team%2Faigw/releases/permalink/latest": `{"tag_name":""}`,
+		})
+		for _, gitlab := range []bool{false, true} {
+			updater := previewUpdater(t, server, gitlab)
+			if !gitlab {
+				updater.GitHub, updater.GitLab = ReleaseSource{Origin: server.URL, Repository: "team/aigw"}, ReleaseSource{}
+			} else {
+				updater.GitHub = ReleaseSource{}
+			}
+			if _, err := updater.Preview(context.Background(), "0.2.0"); err == nil || !strings.Contains(err.Error(), "no AIGW release is available") {
+				t.Fatalf("gitlab %v preview error = %v", gitlab, err)
+			}
+		}
+	})
+	t.Run("unreachable source", func(t *testing.T) {
+		server, _ := previewServer(t, nil)
+		updater := previewUpdater(t, server, false)
+		server.Close()
+		if _, err := updater.Preview(context.Background(), "0.2.0"); err == nil || !strings.Contains(err.Error(), "without authentication") {
+			t.Fatalf("preview error = %v", err)
+		}
+	})
+	t.Run("invalid current version", func(t *testing.T) {
+		server, _ := previewServer(t, map[string]string{"/repos/team/aigw/releases/latest": `{"tag_name":"v0.3.0"}`})
+		if _, err := previewUpdater(t, server, false).Preview(context.Background(), "not-a-version"); err == nil {
+			t.Fatal("an invalid current version was compared")
+		}
+	})
 	t.Run("malformed metadata", func(t *testing.T) {
 		server, _ := previewServer(t, map[string]string{"/repos/team/aigw/releases/latest": `{`})
 		if _, err := previewUpdater(t, server, false).Preview(context.Background(), "0.2.0"); err == nil || !strings.Contains(err.Error(), "public release metadata failed") {
@@ -164,5 +204,11 @@ func TestPreviewCandidateReadsTheArchiveNameAlone(t *testing.T) {
 	}
 	if _, err := updater.PreviewCandidate("0.2.0", CandidateArchive{ArchivePath: archive, ChecksumsPath: directory}); err == nil || !strings.Contains(err.Error(), "is not a regular file") {
 		t.Fatalf("directory checksums error = %v", err)
+	}
+	if _, err := updater.PreviewCandidate("0.2.0", CandidateArchive{ArchivePath: archive}); err == nil || !strings.Contains(err.Error(), "requires both") {
+		t.Fatalf("missing checksums path error = %v", err)
+	}
+	if _, err := updater.PreviewCandidate("0.2.0", CandidateArchive{ArchivePath: checksums, ChecksumsPath: checksums}); err == nil {
+		t.Fatal("an archive without a release name was previewed")
 	}
 }
