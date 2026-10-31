@@ -20,10 +20,14 @@ const schemaVersion = 1
 
 // updateDocument is `aigw update`'s JSON document. Its state is the program
 // transition's, or prepared when credentials are ready for an earlier
-// Homebrew release, and its version is the active program's afterward.
+// Homebrew release; its version is the active program's afterward, and its
+// summary says what happened. A transition that completed while a later step
+// failed names that step's problem, and the document's ok is false.
 type updateDocument struct {
 	State      string `json:"state"`
 	Version    string `json:"version,omitempty"`
+	Summary    string `json:"summary,omitempty"`
+	Problem    string `json:"problem,omitempty"`
 	NextAction string `json:"next_action,omitempty"`
 	NextDetail string `json:"next_detail,omitempty"`
 }
@@ -71,6 +75,7 @@ func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
 	}
 	if jsonMode {
 		return terminal.WriteDocument(runtime.Out, schemaVersion, true, updateDocument{State: "prepared",
+			Summary:    "Credentials are ready for an earlier AIGW release.",
 			NextDetail: "Install the earlier release with Homebrew, then run `aigw sync` and `aigw check`."})
 	}
 	r := invocation.Renderer(runtime)
@@ -137,14 +142,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				result, err = runtime.Updater.Update(ctx.Context(), runtime.Version)
 			}
 			if err != nil && result.State != "" {
-				title, impact := "Program updated; cleanup is incomplete", "The replacement is active; client settings and credentials were not changed."
-				if rollback {
-					title, impact = "Program restored; cleanup is incomplete", "The previous program is active and reads its credentials; client settings were not changed."
-				}
-				return invocation.Problem(runtime, title,
-					"Program replacement completed, but an owned temporary resource could not be removed.",
-					impact,
-					"Run `aigw installation` and `aigw doctor` before retrying cleanup or another program transition.", err)
+				return reportIncompleteCleanup(runtime, jsonMode, rollback, result, err)
 			}
 			if !rollback && errors.Is(err, program.ErrCandidateIdentity) {
 				return invocation.Problem(runtime,
@@ -207,7 +205,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 func reportTransition(runtime invocation.Context, jsonMode bool, title string, result program.Transition) error {
 	if jsonMode {
 		return terminal.WriteDocument(runtime.Out, schemaVersion, true,
-			updateDocument{State: result.State, Version: result.Version, NextAction: "aigw sync"})
+			updateDocument{State: result.State, Version: result.Version, Summary: result.Summary, NextAction: "aigw sync"})
 	}
 	r := invocation.Renderer(runtime)
 	r.ProductTitle(title)
@@ -215,4 +213,27 @@ func reportTransition(runtime invocation.Context, jsonMode bool, title string, r
 	r.Text("Run the active version's sync command to reconcile owned client settings, then check readiness.")
 	r.Next("aigw sync")
 	return nil
+}
+
+// reportIncompleteCleanup reports a transition whose program replacement
+// completed while an owned temporary resource could not be removed. As JSON,
+// its own document carries the transition and the problem, with ok false.
+func reportIncompleteCleanup(runtime invocation.Context, jsonMode, rollback bool, result program.Transition, cause error) error {
+	title, impact := "Program updated; cleanup is incomplete", "The replacement is active; client settings and credentials were not changed."
+	if rollback {
+		title, impact = "Program restored; cleanup is incomplete", "The previous program is active and reads its credentials; client settings were not changed."
+	}
+	fix := "Run `aigw installation` and `aigw doctor` before retrying cleanup or another program transition."
+	problem := invocation.Problem(runtime, title,
+		"Program replacement completed, but an owned temporary resource could not be removed.",
+		impact, fix, cause)
+	if !jsonMode {
+		return problem
+	}
+	document := updateDocument{State: result.State, Version: result.Version, Summary: result.Summary, Problem: title}
+	document.NextAction, document.NextDetail = terminal.NextSteps(fix)
+	if err := terminal.WriteDocument(runtime.Out, schemaVersion, false, document); err != nil {
+		return err
+	}
+	return terminal.Presented(problem)
 }

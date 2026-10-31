@@ -24,6 +24,10 @@ exec aigw client enable claude --executable $BIN/claude$exe --json
 cmp stdout enabled.json
 exitcode 1 aigw client enable unknown --json
 cmp stdout json-refusal.json
+exitcode 1 aigw client disable unknown --json
+cmp stdout disable-refusal.json
+exitcode 1 aigw client discover extra --json
+cmp stdout discover-refusal.json
 # Claude Desktop's discovery also reads the host's applications, so the
 # document is matched by its stable parts.
 exec aigw client discover --json
@@ -105,4 +109,20 @@ Recommended action
   "error": "Client must be claude, claude-desktop, codex, or hermes; run `aigw client enable --help`: invalid argument \"unknown\" for \"aigw client enable\"",
   "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw client enable --help"
+}
+-- disable-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Client must be claude, claude-desktop, codex, or hermes; run `aigw client disable --help`: invalid argument \"unknown\" for \"aigw client disable\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw client disable --help"
+}
+-- discover-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw --help"
 }

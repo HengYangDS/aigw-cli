@@ -13,7 +13,7 @@
 
 - [ ] 2.1 Add `--json` to `add`, `route add`, `route edit`, `route remove`, `account edit` and `account diagnostics enable` and `disable`. Each document follows the converged rules at `schema_version` 1, and each command's acceptance script has a JSON success and a JSON refusal.
 - [ ] 2.2 Add `--json` to `client discover`, `client enable` and `client disable` in the same form.
-- [ ] 2.3 Add `--json` to `rotate`, `rollback`, `config path` and `setup` without `--from` in the same form. With `--json` none of them prompts; a Token comes only from `--token-stdin`, and a script shows the refusal without it.
+- [ ] 2.3 Add `--json` to `rotate`, `rollback` and `config path` in the same form, and to `setup` without `--from`, which writes the document of `setup --from` until task 4.1 converges it. With `--json` no command prompts, `use`, `account rename` and `route rename` included; a Token comes only from `--token-stdin`, and a script shows the refusal without it.
 - [ ] 2.4 Add `--json` to `test`, `verify`, `models` and `balance` in the same form; `verify --for all` reports each client's result and still writes the checkpoint only after every client succeeds.
 - [ ] 2.5 Add `--json` to `install`, `update` and `uninstall` in the same form.
 - [ ] 2.6 Make `cmd/aigw/commands_test.go` refuse a result-reporting command without `--json`, with `completion`, `config export` and `credential` as the declared foreign formats.

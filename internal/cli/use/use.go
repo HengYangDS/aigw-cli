@@ -32,10 +32,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Use:   "use <route>",
 		Short: "Select a Route for one client",
 		Args: cobra.MatchAll(cobra.MaximumNArgs(1), func(_ *cobra.Command, args []string) error {
-			if len(args) == 0 && !runtime.Interactive {
+			// A JSON caller reads one document, so use never prompts for it.
+			interactive := runtime.Interactive && !jsonMode
+			if len(args) == 0 && !interactive {
 				return fmt.Errorf("non-interactive use requires a Route; run `aigw use --for <client> <route>`")
 			}
-			if len(args) == 1 && client == "" && !runtime.Interactive {
+			if len(args) == 1 && client == "" && !interactive {
 				return fmt.Errorf("non-interactive use requires --for; run `aigw use --for <client> <route>`")
 			}
 			if client != "" && !runtime.Clients.Admission().Admits(client) {
@@ -60,6 +62,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			operation := runtime
+			operation.Interactive = runtime.Interactive && !jsonMode
 			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 			client, name, err := resolveUseSelection(operation, cfg, client, args)
 			if err != nil {

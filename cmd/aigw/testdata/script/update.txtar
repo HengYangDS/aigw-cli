@@ -91,5 +91,6 @@ Next
   "ok": true,
   "state": "current",
   "version": "0.1.0-dev",
+  "summary": "already running the latest version v0.1.0-dev",
   "next_action": "aigw sync"
 }

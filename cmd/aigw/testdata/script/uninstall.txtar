@@ -68,7 +68,7 @@ Recommended action
   "ok": true,
   "path": "$WORK/json/aigw",
   "program_found": true,
-  "projections_withdrawn": false
+  "withdrawn_clients": []
 }
 -- absent.json --
 {
@@ -76,7 +76,7 @@ Recommended action
   "ok": true,
   "path": "$WORK/json/aigw",
   "program_found": false,
-  "projections_withdrawn": false
+  "withdrawn_clients": []
 }
 -- json-refusal.json --
 {
@@ -93,7 +93,7 @@ Recommended action
   "ok": true,
   "path": "$WORK/json/aigw.exe",
   "program_found": true,
-  "projections_withdrawn": false
+  "withdrawn_clients": []
 }
 -- absent-windows.json --
 {
@@ -101,5 +101,5 @@ Recommended action
   "ok": true,
   "path": "$WORK/json/aigw.exe",
   "program_found": false,
-  "projections_withdrawn": false
+  "withdrawn_clients": []
 }

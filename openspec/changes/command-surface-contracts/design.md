@@ -232,7 +232,8 @@ last stage.
    Additive. `next_detail` comes with the `next_action` rule in stage 4,
    because it changes what an existing field holds.
 2. **Coverage.** `--json` for the 20 result-reporting commands that lack it,
-   and for `setup` without `--from`, following the converged rules. Additive.
+   following the converged rules, and for `setup` without `--from`, which
+   writes the document of `setup --from` until stage 4 converges it. Additive.
 3. **Previews.** `--dry-run` for every command that writes, and
    `--upstream-model` and `--path` beside the old spellings. Additive.
 4. **Convergence.** Version 2 of the 16 existing documents, deprecation

@@ -311,6 +311,9 @@ func setupToken(runtime invocation.Context, request setupRequest) (setupCredenti
 		credential.token = previous
 		return credential, nil
 	}
+	if request.JSON && !request.TokenStdin {
+		return setupCredential{}, fmt.Errorf("--json reads the Token only from --token-stdin; run `aigw setup --help`")
+	}
 	if request.PromptToken {
 		credential.token, err = runtime.Prompt.Secret("Paste " + request.Label + " token: ")
 	} else {

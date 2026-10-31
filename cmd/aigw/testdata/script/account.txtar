@@ -1,5 +1,6 @@
-# account lists Accounts as JSON and in text, edits a label, and refuses to
-# rename an unknown Account. Its edits and diagnostics also write JSON.
+# account lists Accounts as JSON and in text, edits a label, previews a rename
+# and refuses to rename an unknown Account. Its edits and diagnostics also
+# write JSON.
 exec aigw account --help
 cmp stdout help.txt
 
@@ -8,6 +9,8 @@ exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team
 exec aigw account list --json
 normalize stdout accounts.out
 cmp accounts.out accounts.json
+exitcode 1 aigw account list extra --json
+cmp stdout list-refusal.json
 exec aigw account edit team --label 'Renamed Gateway'
 cmp stdout edited.txt
 exec aigw account list
@@ -18,6 +21,9 @@ exitcode 1 aigw account rename missing other
 cmp stdout refusal.txt
 exitcode 1 aigw account rename missing other --json
 cmp stdout refusal.json
+exec aigw account rename team crew --dry-run --json
+normalize stdout rename.out
+cmp rename.out rename.json
 
 exec aigw account edit team --anthropic-url $UPSTREAM --json
 normalize stdout edit.out
@@ -176,3 +182,30 @@ account = "probed"
 model = "probe-model"
 upstream_model = "probe-model"
 interfaces = { anthropic = ["text"] }
+-- list-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw --help"
+}
+-- rename.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "resource": "account",
+  "old_id": "team",
+  "new_id": "crew",
+  "status": "planned",
+  "affected_references": [
+    "routes.team.account"
+  ],
+  "actions": {
+    "configuration": "rename-and-update-route-references",
+    "api_token": "copy-and-retain-source",
+    "account_probe": "absent",
+    "backup": "refresh-on-apply"
+  },
+  "external_todos": []
+}

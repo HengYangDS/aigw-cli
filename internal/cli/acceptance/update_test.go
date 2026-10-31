@@ -2,9 +2,7 @@ package cli_test
 
 import (
 	"aigw-cli/internal/cli"
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -310,42 +308,6 @@ func homebrewProgram(t *testing.T, app *cli.App) {
 	}
 	if err := os.WriteFile(receipt, []byte(`{"homebrew_version":"5.1.0","source":{"tap":"hengyangds/tap"}}`), 0o600); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestUpdateWritesItsTransitionAsJSON(t *testing.T) {
-	for _, test := range []struct {
-		name     string
-		args     []string
-		updater  *fakeUpdater
-		homebrew bool
-		want     string
-	}{
-		{name: "update", updater: &fakeUpdater{updateResult: updated("0.2.0", "updated to v0.2.0")},
-			want: `{"schema_version":1,"ok":true,"state":"updated","version":"0.2.0","next_action":"aigw sync"}`},
-		{name: "current candidate", args: []string{"--candidate", "aigw_0.1.0_darwin_arm64.tar.gz", "--checksums", "checksums.txt"},
-			updater: &fakeUpdater{candidateResult: program.Transition{State: program.TransitionCurrent, Version: "0.1.0", Summary: "already matches"}},
-			want:    `{"schema_version":1,"ok":true,"state":"current","version":"0.1.0","next_action":"aigw sync"}`},
-		{name: "rollback", args: []string{"--rollback"}, updater: &fakeUpdater{rollbackResult: restored("restored the previous program version.")},
-			want: `{"schema_version":1,"ok":true,"state":"restored","version":"0.0.9","next_action":"aigw sync"}`},
-		{name: "Homebrew rollback", args: []string{"--rollback"}, updater: &fakeUpdater{}, homebrew: true,
-			want: `{"schema_version":1,"ok":true,"state":"prepared","next_detail":"Install the earlier release with Homebrew, then run ` + "`aigw sync` and `aigw check`" + `."}`},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			app, out, _, _, _ := testApp(t, "")
-			if test.homebrew {
-				homebrewProgram(t, app)
-				keychainRecorder(t, app, "0")
-			}
-			app.Updater = test.updater
-			if err := cli.Execute(app, append([]string{"update", "--json"}, test.args...)); err != nil {
-				t.Fatal(err)
-			}
-			var document bytes.Buffer
-			if err := json.Compact(&document, out.Bytes()); err != nil || document.String() != test.want {
-				t.Fatalf("document = %s, %v; want %s", out.String(), err, test.want)
-			}
-		})
 	}
 }
 

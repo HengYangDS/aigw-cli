@@ -1,5 +1,5 @@
-# route adds a Route to an Account, lists and shows Routes as JSON, and
-# refuses to remove a Route that a client selects. Adding, editing and removing
+# route adds a Route to an Account, lists and shows Routes as JSON, previews a
+# rename, and refuses to remove a Route that a client selects. Adding, editing and removing
 # a Route also write JSON.
 exec aigw route --help
 cmp stdout help.txt
@@ -10,6 +10,8 @@ exec aigw route add spare --account team --model spare-model --protocol anthropi
 cmp stdout added.txt
 exec aigw route list --json
 cmp stdout routes.json
+exitcode 1 aigw route list extra --json
+cmp stdout list-refusal.json
 exec aigw route show spare --json
 normalize stdout spare.out
 cmp spare.out spare.json
@@ -18,6 +20,11 @@ exitcode 1 aigw route remove team
 cmp stdout refusal.txt
 exitcode 1 aigw route show missing --json
 cmp stdout missing.json
+exec aigw route rename spare extra --dry-run --json
+normalize stdout rename.out
+cmp rename.out rename.json
+exitcode 1 aigw route rename missing other --json
+cmp stdout rename-refusal.json
 
 exec aigw route add third --account team --model third-model --upstream-model third-wire --protocol anthropic --purpose 'Long tasks' --json
 cmp stdout third.json
@@ -186,4 +193,37 @@ Recommended action
   "error": "Route \"team\" is selected for claude; first run `aigw use --for claude \u003cother-route\u003e`",
   "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw use --for claude \u003cother-route\u003e"
+}
+-- list-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw --help"
+}
+-- rename.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "resource": "route",
+  "old_id": "spare",
+  "new_id": "extra",
+  "status": "planned",
+  "affected_references": [],
+  "actions": {
+    "configuration": "rename-and-update-references",
+    "api_token": "unchanged",
+    "account_probe": "unchanged",
+    "backup": "refresh-on-apply"
+  },
+  "external_todos": []
+}
+-- rename-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Unknown route \"missing\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw check"
 }

@@ -53,7 +53,7 @@ func TestEveryCommandHasItsPackageAndScript(t *testing.T) {
 			t.Errorf("command %q has no acceptance script: %v", name, err)
 			continue
 		}
-		for _, missing := range missingCases(name, offersJSON(command), string(script)) {
+		for _, missing := range missingCases(name, jsonCommands(command), string(script)) {
 			t.Errorf("the acceptance script of command %q lacks %s", name, missing)
 		}
 	}
@@ -66,24 +66,28 @@ func TestMissingCasesNamesEachAbsentCase(t *testing.T) {
 		"exitcode 1 aigw demo run broken\n" +
 		"exitcode 1 aigw demo run broken --json\n" +
 		"-- expected.txt --\nexec aigw demo\n"
+	run := [][]string{{"run"}}
 	for _, test := range []struct {
 		name   string
 		script string
-		json   bool
+		json   [][]string
 		want   []string
 	}{
-		{"complete", complete, true, nil},
-		{"no JSON", "exec aigw demo --help\nexec aigw demo run\nexitcode 1 aigw demo run broken\n", false, nil},
-		{"empty", "", false, []string{"its help", "a success", "a refusal with its exit status"}},
-		{"only conditional", "[!windows] exec aigw demo --help\n[windows] exec aigw demo run\n[darwin] exitcode 1 aigw demo broken\n", false,
+		{"complete", complete, run, nil},
+		{"no JSON", "exec aigw demo --help\nexec aigw demo run\nexitcode 1 aigw demo run broken\n", nil, nil},
+		{"empty", "", nil, []string{"its help", "a success", "a refusal with its exit status"}},
+		{"only conditional", "[!windows] exec aigw demo --help\n[windows] exec aigw demo run\n[darwin] exitcode 1 aigw demo broken\n", nil,
 			[]string{"its help", "a success", "a refusal with its exit status"}},
-		{"unchecked refusal", "exec aigw demo --help\nexec aigw demo run\n! exec aigw demo broken\n", false, []string{"a refusal with its exit status"}},
-		{"another command", "exec aigw other --help\nexec aigw other\nexitcode 1 aigw other broken\n", false,
+		{"unchecked refusal", "exec aigw demo --help\nexec aigw demo run\n! exec aigw demo broken\n", nil, []string{"a refusal with its exit status"}},
+		{"another command", "exec aigw other --help\nexec aigw other\nexitcode 1 aigw other broken\n", nil,
 			[]string{"its help", "a success", "a refusal with its exit status"}},
-		{"help is no success", "exec aigw demo --help\nexitcode 1 aigw demo broken\n", false, []string{"a success"}},
-		{"no JSON refusal", "exec aigw demo --help\nexec aigw demo --json\nexitcode 1 aigw demo broken\n", true, []string{"a JSON refusal"}},
-		{"no JSON success", "exec aigw demo --help\nexec aigw demo\nexitcode 1 aigw demo broken --json\n", true, []string{"a JSON success"}},
-		{"after the archive", "-- note.txt --\nexec aigw demo --help\nexec aigw demo\nexitcode 1 aigw demo broken\n", false,
+		{"help is no success", "exec aigw demo --help\nexitcode 1 aigw demo broken\n", nil, []string{"a success"}},
+		{"no JSON refusal", "exec aigw demo --help\nexec aigw demo --json\nexitcode 1 aigw demo broken\n", [][]string{{}}, []string{"a JSON refusal"}},
+		{"no JSON success", "exec aigw demo --help\nexec aigw demo\nexitcode 1 aigw demo broken --json\n", [][]string{{}}, []string{"a JSON success"}},
+		{"another subcommand's JSON", "exec aigw demo --help\nexec aigw demo list --json\nexitcode 1 aigw demo list broken --json\n" +
+			"exec aigw demo show item --json\nexitcode 1 aigw demo list other --json\n", [][]string{{"list"}, {"show"}},
+			[]string{"a JSON refusal of `demo show`"}},
+		{"after the archive", "-- note.txt --\nexec aigw demo --help\nexec aigw demo\nexitcode 1 aigw demo broken\n", nil,
 			[]string{"its help", "a success", "a refusal with its exit status"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -95,43 +99,29 @@ func TestMissingCasesNamesEachAbsentCase(t *testing.T) {
 }
 
 // missingCases names the cases that a command's acceptance script lacks: its
-// help, a success and a refusal with its exit status, and, for a command that
-// offers --json, a JSON success and a JSON refusal. Only a line outside any
-// platform condition counts. A refusal runs through exitcode, which checks the
-// exit status. The credential command succeeds when apikeyhelper runs the
-// helper that AIGW projects into Claude Code, which runs `aigw credential`.
-func missingCases(name string, json bool, script string) []string {
-	var help, success, refusal, jsonSuccess, jsonRefusal bool
-	commands, _, _ := strings.Cut("\n"+script, "\n-- ")
-	for line := range strings.SplitSeq(commands, "\n") {
-		words := strings.Fields(line)
-		status := 0
-		switch {
-		case len(words) > 2 && words[0] == "exec" && words[1] == "aigw":
-			words = words[2:]
-		case len(words) > 3 && words[0] == "exitcode" && words[2] == "aigw":
-			code, err := strconv.Atoi(words[1])
-			if err != nil {
-				continue
-			}
-			status, words = code, words[3:]
-		case len(words) == 2 && words[0] == "apikeyhelper" && name == "credential":
+// help, a success and a refusal with its exit status, and the JSON cases that
+// missingJSONCases names. Only a line outside any platform condition counts.
+// A refusal runs through exitcode, which checks the exit status. The
+// credential command succeeds when apikeyhelper runs the helper that AIGW
+// projects into Claude Code, which runs `aigw credential`.
+func missingCases(name string, jsonCommands [][]string, script string) []string {
+	var help, success, refusal bool
+	for _, line := range scriptLines(script) {
+		if words := strings.Fields(line); len(words) == 2 && words[0] == "apikeyhelper" && name == "credential" {
 			success = true
 			continue
-		default:
+		}
+		words, status, ok := scriptInvocation(line)
+		if !ok || words[0] != name {
 			continue
 		}
-		if words[0] != name {
-			continue
-		}
-		withJSON := slices.Contains(words, "--json")
 		switch {
 		case slices.Contains(words, "--help"):
 			help = true
 		case status == 0:
-			success, jsonSuccess = true, jsonSuccess || withJSON
+			success = true
 		default:
-			refusal, jsonRefusal = true, jsonRefusal || withJSON
+			refusal = true
 		}
 	}
 	var missing []string
@@ -142,14 +132,61 @@ func missingCases(name string, json bool, script string) []string {
 		{help, "its help"},
 		{success, "a success"},
 		{refusal, "a refusal with its exit status"},
-		{jsonSuccess || !json, "a JSON success"},
-		{jsonRefusal || !json, "a JSON refusal"},
 	} {
 		if !item.present {
 			missing = append(missing, item.name)
 		}
 	}
+	return append(missing, missingJSONCases(name, jsonCommands, script)...)
+}
+
+// missingJSONCases names, for each runnable command that offers --json, named
+// by its path below the command, the JSON success and the JSON refusal of its
+// own that the script lacks.
+func missingJSONCases(name string, jsonCommands [][]string, script string) []string {
+	var missing []string
+	for _, path := range jsonCommands {
+		var success, refusal bool
+		for _, line := range scriptLines(script) {
+			words, status, ok := scriptInvocation(line)
+			if ok && words[0] == name && slices.Contains(words, "--json") && !slices.Contains(words, "--help") &&
+				len(words) > len(path) && slices.Equal(words[1:1+len(path)], path) {
+				success, refusal = success || status == 0, refusal || status != 0
+			}
+		}
+		of := ""
+		if len(path) > 0 {
+			of = fmt.Sprintf(" of `%s`", strings.Join(append([]string{name}, path...), " "))
+		}
+		if !success {
+			missing = append(missing, "a JSON success"+of)
+		}
+		if !refusal {
+			missing = append(missing, "a JSON refusal"+of)
+		}
+	}
 	return missing
+}
+
+// scriptLines returns the command lines of a script, before its archive files.
+func scriptLines(script string) []string {
+	commands, _, _ := strings.Cut("\n"+script, "\n-- ")
+	return strings.Split(commands, "\n")
+}
+
+// scriptInvocation returns the words after aigw of a script line that runs
+// aigw outside any platform condition, through exec or exitcode, and the exit
+// status that the line expects. ok is false for any other line.
+func scriptInvocation(line string) (words []string, status int, ok bool) {
+	words = strings.Fields(line)
+	switch {
+	case len(words) > 2 && words[0] == "exec" && words[1] == "aigw":
+		return words[2:], 0, true
+	case len(words) > 3 && words[0] == "exitcode" && words[2] == "aigw":
+		code, err := strconv.Atoi(words[1])
+		return words[3:], code, err == nil
+	}
+	return nil, 0, false
 }
 
 // foreignFormats are the commands whose output is another program's format: a
@@ -222,12 +259,21 @@ func jsonCoverageProblems(root *cobra.Command, foreign []string) []string {
 	return problems
 }
 
-// offersJSON reports whether command or one of its subcommands has --json.
-func offersJSON(command *cobra.Command) bool {
-	if command.Flags().Lookup("json") != nil {
-		return true
+// jsonCommands returns the path below command of each runnable command
+// without subcommands that offers --json, command itself included.
+func jsonCommands(command *cobra.Command) [][]string {
+	var paths [][]string
+	var visit func(*cobra.Command, []string)
+	visit = func(current *cobra.Command, path []string) {
+		if current.Runnable() && !current.HasSubCommands() && current.Flags().Lookup("json") != nil {
+			paths = append(paths, path)
+		}
+		for _, child := range current.Commands() {
+			visit(child, append(slices.Clone(path), child.Name()))
+		}
 	}
-	return slices.ContainsFunc(command.Commands(), offersJSON)
+	visit(command, []string{})
+	return paths
 }
 
 // commandFunctions returns the run functions of command and its subcommands,
