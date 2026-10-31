@@ -44,6 +44,6 @@ Approved on 2026-10-31.
 - [x] 4.5 Make `catalog --json` without configuration exit 1, a blocked rename preview write `ok: false` and exit 1, bare `aigw config` print its help and exit 0, an unknown subcommand of any group refuse and exit 1, and `aigw help <command>` print that command's help.
 - [x] 4.6 Move the release journeys' candidate steps to the converged flags and documents, keeping each baseline step on its release's surface.
 - [x] 4.7 Update README.md, the team rollout guide and the terminal experience document, and add CHANGELOG's table of every renamed flag and field and every changed default, value and exit status.
-- [ ] 4.8 Run the local quality graph at the stage head.
-- [ ] 4.9 Prove the stage head with the full ETHOS proof.
-- [ ] 4.10 Confirm the hosted three-platform graph and the real-client journeys pass at the stage head.
+- [x] 4.8 Run the local quality graph at the stage head.
+- [x] 4.9 Prove the stage head with the full ETHOS proof.
+- [x] 4.10 Confirm the hosted three-platform graph and the real-client journeys pass at the stage head.
