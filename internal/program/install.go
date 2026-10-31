@@ -174,34 +174,34 @@ type CredentialCustody interface {
 // action itself remains reversible and never creates an unbounded chain.
 // Credential custody moves only after the retained program and configuration
 // are admitted, and returns to the active program if activation fails.
-func (u Updater) Rollback(ctx context.Context, config []byte, custody CredentialCustody) (string, error) {
+func (u Updater) Rollback(ctx context.Context, config []byte, custody CredentialCustody) (Transition, error) {
 	if err := RequirePortableOwnership(u.Executable); err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	if err := ctx.Err(); err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	if strings.TrimSpace(u.Executable) == "" {
-		return "", errors.New("AIGW executable path is empty")
+		return Transition{}, errors.New("AIGW executable path is empty")
 	}
 	backup := RollbackPath(u.Executable)
 	previous, err := os.ReadFile(backup)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("no previous portable AIGW binary is available")
+			return Transition{}, fmt.Errorf("no previous portable AIGW binary is available")
 		}
-		return "", fmt.Errorf("read previous AIGW executable: %w", err)
+		return Transition{}, fmt.Errorf("read previous AIGW executable: %w", err)
 	}
 	if _, err := os.Stat(u.Executable); err != nil {
-		return "", fmt.Errorf("inspect current AIGW executable: %w", err)
+		return Transition{}, fmt.Errorf("inspect current AIGW executable: %w", err)
 	}
 	version, err := u.verifyProgram(ctx, previous, "", config)
 	if err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	if custody != nil {
 		if err := custody.Release(version); err != nil {
-			return "", errors.Join(fmt.Errorf("return credentials to the previous program: %w", err), custody.Reclaim())
+			return Transition{}, errors.Join(fmt.Errorf("return credentials to the previous program: %w", err), custody.Reclaim())
 		}
 	}
 	activated, err := u.replacePortableBinary(ctx, previous)
@@ -210,9 +210,10 @@ func (u Updater) Rollback(ctx context.Context, config []byte, custody Credential
 		if custody != nil {
 			err = errors.Join(err, custody.Reclaim())
 		}
-		return "", err
+		return Transition{}, err
 	}
-	return "restored the previous program version. If that older program does not support `aigw update --rollback`, download the current portable package and run its installer; it replaces only AIGW and retains one predecessor.", err
+	return Transition{State: TransitionRestored, Version: normalizeVersion(version),
+		Summary: "restored the previous program version. If that older program does not support `aigw update --rollback`, download the current portable package and run its installer; it replaces only AIGW and retains one predecessor."}, err
 }
 
 // RollbackPath derives the sibling backup path for executable using the

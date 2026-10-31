@@ -111,8 +111,8 @@ func TestUpdateUsesPublishedGitHubPrereleaseWhenNoStableReleaseExists(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(message, "v0.2.0-rc.1") {
-		t.Fatalf("message = %q", message)
+	if !strings.Contains(message.Summary, "v0.2.0-rc.1") {
+		t.Fatalf("message = %q", message.Summary)
 	}
 	if got, err := os.ReadFile(binary); err != nil || string(got) != "candidate-binary" {
 		t.Fatalf("binary=%q error=%v", got, err)
@@ -147,8 +147,8 @@ func TestUpdateUsesAuthenticatedGHCLIForPrivatePublishedPrerelease(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(message, "v0.2.0-rc.1") || !strings.Contains(message, "github") {
-		t.Fatalf("message = %q", message)
+	if !strings.Contains(message.Summary, "v0.2.0-rc.1") || !strings.Contains(message.Summary, "github") {
+		t.Fatalf("message = %q", message.Summary)
 	}
 	if got, err := os.ReadFile(binary); err != nil || string(got) != "candidate-binary" {
 		t.Fatalf("binary=%q error=%v", got, err)

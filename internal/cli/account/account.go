@@ -15,13 +15,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// listSchemaVersion is the version of `aigw account list`'s JSON document.
-const listSchemaVersion = 1
-
 // newEditCommand constructs account metadata editing. Account endpoints and
 // labels belong to the account command surface, not to route management.
 func newEditCommand(runtime invocation.Context) *cobra.Command {
 	var label, openAIURL, anthropicURL string
+	var jsonMode bool
 	cmd := &cobra.Command{
 		Use: "edit <account>", Short: "Update account metadata and protocol endpoints",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
@@ -59,6 +57,11 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "account edit"); err != nil {
 				return err
 			}
+			if jsonMode {
+				return terminal.WriteDocument(runtime.Out, editSchemaVersion, true, editDocument{
+					Account: args[0], Label: providerAccount.Label, Endpoints: providerAccount.Endpoints, NextAction: "aigw check",
+				})
+			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Account updated")
 			r.Rows(terminal.Field{Label: "Account", Value: args[0]})
@@ -70,6 +73,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&label, "label", "", "New display name")
 	cmd.Flags().StringVar(&openAIURL, "openai-url", "", "New OpenAI Responses URL")
 	cmd.Flags().StringVar(&anthropicURL, "anthropic-url", "", "New Anthropic URL")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the edited Account as JSON")
 	cmd.MarkFlagsOneRequired("label", "openai-url", "anthropic-url")
 	return cmd
 }
@@ -78,7 +82,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	root := &cobra.Command{Use: "account", Short: "Manage account endpoints and optional precise diagnostics"}
 	diagnostics := &cobra.Command{Use: "diagnostics", Short: "Manage optional precise provider diagnostics"}
-	var systemTokenStdin bool
+	var systemTokenStdin, enableJSON, disableJSON bool
 	var suppliedUserID string
 	enable := &cobra.Command{Use: "enable [account]", Short: "Store credentials for precise provider diagnostics", Args: cobra.MatchAll(cobra.MaximumNArgs(1), func(cmd *cobra.Command, _ []string) error {
 		if systemTokenStdin {
@@ -86,6 +90,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return fmt.Errorf("--user-id is required with --system-token-stdin")
 			}
 			return nil
+		}
+		if enableJSON {
+			return fmt.Errorf("--json reads the system token only from --system-token-stdin with --user-id; run `%s --help`", cmd.CommandPath())
 		}
 		if suppliedUserID != "" {
 			return fmt.Errorf("--user-id requires --system-token-stdin")
@@ -132,6 +139,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if err := runtime.Accounts.Set(accountName, secret.DiagnosticCredential{SystemToken: systemToken, UserID: userID}); err != nil {
 			return err
 		}
+		if enableJSON {
+			return terminal.WriteDocument(runtime.Out, diagnosticsSchemaVersion, true, diagnosticsDocument{
+				Account: accountName, Label: providerAccount.Label, Diagnostics: "enabled", NextAction: "aigw balance " + accountName,
+			})
+		}
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Account diagnostics enabled")
 		r.Section("Account")
@@ -145,30 +157,33 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	}}
 	enable.Flags().BoolVar(&systemTokenStdin, "system-token-stdin", false, "Read one platform system token from standard input")
 	enable.Flags().StringVar(&suppliedUserID, "user-id", "", "Provider account user ID for explicit standard-input setup")
-	diagnostics.AddCommand(
-		enable,
-		&cobra.Command{Use: "disable [account]", Short: "Remove credentials for precise provider diagnostics", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
-			cfg, err := runtime.Config.Load()
-			if err != nil {
-				return err
-			}
-			name, err := invocation.AccountReference(cfg, args)
-			if err != nil {
-				return err
-			}
-			accountName, _, err := cfg.ResolveAccount(name)
-			if err != nil {
-				return err
-			}
-			if err := runtime.Accounts.Delete(accountName); err != nil {
-				return err
-			}
-			r := invocation.Renderer(runtime)
-			r.ProductTitle("Account diagnostics disabled")
-			r.Success("Provider diagnostic credentials were removed from secure storage")
-			return nil
-		}},
-	)
+	enable.Flags().BoolVar(&enableJSON, "json", false, "Write the enabled diagnostics as JSON")
+	disable := &cobra.Command{Use: "disable [account]", Short: "Remove credentials for precise provider diagnostics", Args: cobra.MaximumNArgs(1), RunE: func(_ *cobra.Command, args []string) error {
+		cfg, err := runtime.Config.Load()
+		if err != nil {
+			return err
+		}
+		name, err := invocation.AccountReference(cfg, args)
+		if err != nil {
+			return err
+		}
+		accountName, _, err := cfg.ResolveAccount(name)
+		if err != nil {
+			return err
+		}
+		if err := runtime.Accounts.Delete(accountName); err != nil {
+			return err
+		}
+		if disableJSON {
+			return terminal.WriteDocument(runtime.Out, diagnosticsSchemaVersion, true, diagnosticsDocument{Account: accountName, Diagnostics: "disabled"})
+		}
+		r := invocation.Renderer(runtime)
+		r.ProductTitle("Account diagnostics disabled")
+		r.Success("Provider diagnostic credentials were removed from secure storage")
+		return nil
+	}}
+	disable.Flags().BoolVar(&disableJSON, "json", false, "Write the disabled diagnostics as JSON")
+	diagnostics.AddCommand(enable, disable)
 	root.AddCommand(
 		newListCommand(runtime),
 		newEditCommand(runtime),

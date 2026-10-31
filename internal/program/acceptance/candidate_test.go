@@ -36,8 +36,8 @@ func TestUpdateCandidateInstallsExplicitArchiveWithoutReleaseSource(t *testing.T
 	if got, err := os.ReadFile(binary); err != nil || string(got) != "candidate-binary" {
 		t.Fatalf("binary=%q error=%v", got, err)
 	}
-	if !strings.Contains(message, "verified local candidate") || !strings.Contains(message, "v0.2.0") {
-		t.Fatalf("message = %q", message)
+	if !strings.Contains(message.Summary, "verified local candidate") || !strings.Contains(message.Summary, "v0.2.0") {
+		t.Fatalf("message = %q", message.Summary)
 	}
 	if len(runner.calls) != 1 || len(runner.calls[0]) != 2 || !filepath.IsAbs(runner.calls[0][0]) || runner.calls[0][1] != "--version" {
 		t.Fatalf("local candidate must only execute its staged program: %v", runner.calls)

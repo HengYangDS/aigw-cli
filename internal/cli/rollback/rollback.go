@@ -12,6 +12,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw rollback`'s JSON document.
+const schemaVersion = 1
+
+// rollbackDocument is `aigw rollback`'s JSON document: the source that the
+// configuration was restored from.
+type rollbackDocument struct {
+	Source     string `json:"source"`
+	NextAction string `json:"next_action"`
+}
+
 // rollbackFailureImpact reports the configuration outcome that a failed
 // rollback commit verified, or the conservative state when it verified none.
 func rollbackFailureImpact(err error) string {
@@ -23,7 +33,7 @@ func rollbackFailureImpact(err error) string {
 
 // NewCommand constructs the command that restores the last verified AIGW configuration checkpoint.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	var lastChange bool
+	var lastChange, jsonMode bool
 	cmd := &cobra.Command{
 		Use:   "rollback",
 		Short: "Restore configuration and client projections, not the program",
@@ -38,14 +48,14 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			restored := domain.Config{}
-			source := ""
+			source, sourceID := "", ""
 			var checkpointErr error
 			if !lastChange {
 				checkpoint, loadErr := runtime.Config.LoadVerifiedCheckpoint()
 				checkpointErr = loadErr
 				if checkpointErr == nil {
 					restored = checkpoint.Config
-					source = "Latest fully verified configuration"
+					source, sourceID = "Latest fully verified configuration", "verified_checkpoint"
 				}
 			}
 			if source == "" {
@@ -65,7 +75,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 						cause,
 					)
 				}
-				source = "Previous configuration"
+				source, sourceID = "Previous configuration", "previous_backup"
 			}
 			if err := runtime.Synchronizer().Commit(cmd.Context(), current, restored, "rollback"); err != nil {
 				return invocation.Problem(
@@ -77,6 +87,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					err,
 				)
 			}
+			if jsonMode {
+				return terminal.WriteDocument(runtime.Out, schemaVersion, true, rollbackDocument{Source: sourceID, NextAction: "aigw doctor"})
+			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Rolled back safely")
 			r.Section("Restore source")
@@ -87,5 +100,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&lastChange, "last-change", false, "Restore only the immediately previous configuration backup")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the restore source as JSON")
 	return cmd
 }

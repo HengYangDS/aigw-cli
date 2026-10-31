@@ -154,8 +154,8 @@ func TestUpdateUsesReachablePeerWhenOtherPeerIsUnavailable(t *testing.T) {
 			if got, err := os.ReadFile(binary); err != nil || string(got) != "github-binary" {
 				t.Fatalf("installed binary = %q, %v", got, err)
 			}
-			if !strings.Contains(message, "github") || strings.Contains(message, "gitlab and github") {
-				t.Fatalf("message = %q", message)
+			if !strings.Contains(message.Summary, "github") || strings.Contains(message.Summary, "gitlab and github") {
+				t.Fatalf("message = %q", message.Summary)
 			}
 			if after, err := os.ReadDir(updateTempRoot); err != nil || len(after) != 0 {
 				t.Fatalf("update workspace remains: %v, %v", after, err)
@@ -213,8 +213,8 @@ func TestUpdateUsesGitHubPeerWhenGitLabIsUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != "github-binary" || !strings.Contains(message, "github") {
-		t.Fatalf("binary=%q message=%q", got, message)
+	if string(got) != "github-binary" || !strings.Contains(message.Summary, "github") {
+		t.Fatalf("binary=%q message=%q", got, message.Summary)
 	}
 	if len(requests) != 5 || requests[0] != "/repos/example-owner/aigw-cli/releases/latest" || requests[1] != "/repos/example-owner/aigw-cli/releases/tags/v0.2.0" {
 		t.Fatalf("GitHub peer requests = %v", requests)
@@ -268,8 +268,8 @@ func TestUpdateVerifiesMatchingPeerReleasesBeforeInstalling(t *testing.T) {
 	if requests != 5 {
 		t.Fatalf("GitHub requests = %d, want two metadata requests plus all three assets", requests)
 	}
-	if !strings.Contains(message, "gitlab and github") {
-		t.Fatalf("message = %q", message)
+	if !strings.Contains(message.Summary, "gitlab and github") {
+		t.Fatalf("message = %q", message.Summary)
 	}
 }
 

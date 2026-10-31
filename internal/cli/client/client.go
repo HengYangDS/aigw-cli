@@ -21,10 +21,22 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{Use: "discover", Short: "Discover installed client executables", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
+	var jsonMode bool
+	cmd := &cobra.Command{Use: "discover", Short: "Discover installed client executables", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
 		discovered, err := runtime.Discover()
 		if err != nil {
 			return err
+		}
+		if jsonMode {
+			document := discoverDocument{Clients: []discoveredClient{}}
+			for _, spec := range runtime.Clients.Admission().Specs() {
+				client := discoveredClient{ID: spec.ID, State: "not_found", Executable: discovered.Executable(spec.ID)}
+				if client.Executable != "" {
+					client.State = "found"
+				}
+				document.Clients = append(document.Clients, client)
+			}
+			return terminal.WriteDocument(runtime.Out, discoverSchemaVersion, true, document)
 		}
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Client discovery")
@@ -40,11 +52,14 @@ func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
 		r.Rows(rows...)
 		return nil
 	}}
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the discovered clients as JSON")
+	return cmd
 }
 
 func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	var executable string
 	var targets []string
+	var jsonMode bool
 	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client projection", ValidArgs: runtime.Clients.Admission().IDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument(runtime.Clients.Admission()), func(_ *cobra.Command, args []string) error {
 		if strings.TrimSpace(executable) == "" {
 			return fmt.Errorf("--executable is required; run `aigw client discover`")
@@ -102,11 +117,16 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "client enable"); err != nil {
 			return fmt.Errorf("Client enablement could not finish: %w", err)
 		}
+		if jsonMode {
+			return terminal.WriteDocument(runtime.Out, enableSchemaVersion, true,
+				newProjectionDocument(client, "enabled", spec.RestartAfterProjection, enabledNext(spec)))
+		}
 		renderEnabled(invocation.Renderer(runtime), spec)
 		return nil
 	}}
 	cmd.Flags().StringVar(&executable, "executable", "", "Path to the real client executable")
 	cmd.Flags().StringSliceVar(&targets, "target", nil, targetHelp(runtime.Clients.Admission()))
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the enabled projection as JSON")
 	return cmd
 }
 
@@ -122,7 +142,8 @@ func targetHelp(admission domain.Admission) string {
 }
 
 func newDisableCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{Use: "disable <client>", Short: "Disable a client and remove AIGW-owned projections", ValidArgs: runtime.Clients.Admission().IDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument(runtime.Clients.Admission())), RunE: func(cmd *cobra.Command, args []string) error {
+	var jsonMode bool
+	cmd := &cobra.Command{Use: "disable <client>", Short: "Disable a client and remove AIGW-owned projections", ValidArgs: runtime.Clients.Admission().IDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument(runtime.Clients.Admission())), RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
 		spec, _ := runtime.Clients.Admission().Spec(client)
 		cfg, err := runtime.Config.Load()
@@ -132,6 +153,9 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		before := cfg.Clone()
 		binding, ok := cfg.Clients[client]
 		if !ok || !binding.Enabled {
+			if jsonMode {
+				return terminal.WriteDocument(runtime.Out, disableSchemaVersion, true, newProjectionDocument(client, "already_disabled", false, ""))
+			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Client projections")
 			r.Rows(terminal.Field{State: terminal.Info, Label: spec.Label, Value: "Already disabled"})
@@ -148,9 +172,15 @@ func newDisableCommand(runtime invocation.Context) *cobra.Command {
 		if err := runtime.Synchronizer().CommitProjection(cmd.Context(), before, cfg, "client disable", client); err != nil {
 			return err
 		}
+		if jsonMode {
+			return terminal.WriteDocument(runtime.Out, disableSchemaVersion, true,
+				newProjectionDocument(client, "disabled", spec.RestartAfterProjection, disabledNext(spec)))
+		}
 		renderDisabled(invocation.Renderer(runtime), spec)
 		return nil
 	}}
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the disabled projection as JSON")
+	return cmd
 }
 
 func renderEnabled(r *terminal.Renderer, spec domain.ClientSpec) {
@@ -161,12 +191,29 @@ func renderEnabled(r *terminal.Renderer, spec domain.ClientSpec) {
 	if !spec.RestartAfterProjection {
 		r.ProductTitle("Client enabled")
 		r.Rows(rows...)
-		r.Next("aigw check")
+		r.Next(enabledNext(spec))
 		return
 	}
 	r.ProductTitle("Client configured")
 	r.Rows(append(rows, terminal.Field{State: terminal.Info, Label: "Activation", Value: "Restart required"})...)
-	r.Next(fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label))
+	r.Next(enabledNext(spec))
+}
+
+// enabledNext is the follow-up after a client's projection is enabled.
+func enabledNext(spec domain.ClientSpec) string {
+	if spec.RestartAfterProjection {
+		return fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label)
+	}
+	return "aigw check"
+}
+
+// disabledNext is the follow-up after a client's projection is withdrawn, if
+// any.
+func disabledNext(spec domain.ClientSpec) string {
+	if spec.RestartAfterProjection {
+		return fmt.Sprintf("Restart %s to finish deactivation", spec.Label)
+	}
+	return ""
 }
 
 func renderDisabled(r *terminal.Renderer, spec domain.ClientSpec) {
@@ -177,8 +224,8 @@ func renderDisabled(r *terminal.Renderer, spec domain.ClientSpec) {
 	}
 	r.Rows(rows...)
 	r.Success("All AIGW-owned projections were safely removed")
-	if spec.RestartAfterProjection {
-		r.Next(fmt.Sprintf("Restart %s to finish deactivation", spec.Label))
+	if next := disabledNext(spec); next != "" {
+		r.Next(next)
 	}
 }
 

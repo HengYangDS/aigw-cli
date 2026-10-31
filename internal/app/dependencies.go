@@ -27,9 +27,9 @@ type HTTPDoer interface {
 
 // Updater performs one verified program lifecycle transition.
 type Updater interface {
-	Update(ctx context.Context, currentVersion string) (string, error)
-	UpdateCandidate(ctx context.Context, currentVersion string, candidate program.CandidateArchive) (string, error)
-	Rollback(ctx context.Context, config []byte, custody program.CredentialCustody) (string, error)
+	Update(ctx context.Context, currentVersion string) (program.Transition, error)
+	UpdateCandidate(ctx context.Context, currentVersion string, candidate program.CandidateArchive) (program.Transition, error)
+	Rollback(ctx context.Context, config []byte, custody program.CredentialCustody) (program.Transition, error)
 }
 
 // Dependencies are the capabilities that one invocation's use cases share,

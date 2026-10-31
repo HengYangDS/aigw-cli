@@ -57,7 +57,7 @@ func TestUpdateInvalidInputsLeaveOperationAndConfigurationUntouched(t *testing.T
 
 func TestUpdateRollbackUsesLocalProgramRollbackOnly(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	updater := &fakeUpdater{rollbackResult: "restored the previous program version; you can run `aigw update --rollback` again to restore the current version."}
+	updater := &fakeUpdater{rollbackResult: restored("restored the previous program version; you can run `aigw update --rollback` again to restore the current version.")}
 	app.Updater = updater
 	if err := cli.Execute(app, []string{"update", "--rollback"}); err != nil {
 		t.Fatal(err)
@@ -75,7 +75,7 @@ func TestUpdateRollbackUsesLocalProgramRollbackOnly(t *testing.T) {
 
 func TestUpdateWithoutRollbackKeepsNetworkUpdatePath(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	updater := &fakeUpdater{updateResult: "updated to v0.2.0."}
+	updater := &fakeUpdater{updateResult: updated("0.2.0", "updated to v0.2.0.")}
 	app.Updater = updater
 	if err := cli.Execute(app, []string{"update"}); err != nil {
 		t.Fatal(err)
@@ -220,7 +220,7 @@ func requireCustodyRequests(t *testing.T, record, darwin string) {
 func TestUpdateRollbackGivesTheUpdaterCredentialCustody(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	record := keychainRecorder(t, app, "0")
-	updater := &fakeUpdater{rollbackResult: "restored the previous program version."}
+	updater := &fakeUpdater{rollbackResult: restored("restored the previous program version.")}
 	app.Updater = updater
 	if err := cli.Execute(app, []string{"update", "--rollback"}); err != nil {
 		t.Fatal(err)
@@ -268,15 +268,7 @@ func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
 				t.Skip("only a macOS Keychain conversion can be refused")
 			}
 			app, out, _, _, _ := testApp(t, "")
-			cask := filepath.Join(t.TempDir(), "Caskroom", "aigw")
-			app.Executable = filepath.Join(cask, "0.4.0", "aigw")
-			receipt := filepath.Join(cask, ".metadata", "INSTALL_RECEIPT.json")
-			if err := os.MkdirAll(filepath.Dir(receipt), 0o700); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(receipt, []byte(`{"homebrew_version":"5.1.0","source":{"tap":"hengyangds/tap"}}`), 0o600); err != nil {
-				t.Fatal(err)
-			}
+			homebrewProgram(t, app)
 			record := keychainRecorder(t, app, test.code)
 			if test.damage != nil {
 				test.damage(t, app.Config.Path())
@@ -302,6 +294,20 @@ func TestUpdateRollbackPreparesAHomebrewDowngrade(t *testing.T) {
 			}
 			requireCustodyRequests(t, record, test.want)
 		})
+	}
+}
+
+// homebrewProgram makes app's executable the program of a Homebrew cask.
+func homebrewProgram(t *testing.T, app *cli.App) {
+	t.Helper()
+	cask := filepath.Join(t.TempDir(), "Caskroom", "aigw")
+	app.Executable = filepath.Join(cask, "0.4.0", "aigw")
+	receipt := filepath.Join(cask, ".metadata", "INSTALL_RECEIPT.json")
+	if err := os.MkdirAll(filepath.Dir(receipt), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(receipt, []byte(`{"homebrew_version":"5.1.0","source":{"tap":"hengyangds/tap"}}`), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -351,7 +357,7 @@ func TestUpdateWithoutUpdaterIsRejected(t *testing.T) {
 
 func TestUpdateCandidateUsesExplicitOfflineInputs(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	updater := &fakeUpdater{candidateResult: "updated to v0.2.0 from a verified local candidate"}
+	updater := &fakeUpdater{candidateResult: updated("0.2.0", "updated to v0.2.0 from a verified local candidate")}
 	app.Updater = updater
 	if err := cli.Execute(app, []string{"update", "--candidate", "/tmp/aigw_0.2.0_darwin_arm64.tar.gz", "--checksums", "/tmp/checksums.txt"}); err != nil {
 		t.Fatal(err)
@@ -413,12 +419,12 @@ func TestUpdateReportsCompletedReplacementWithIncompleteCleanup(t *testing.T) {
 	}{
 		{
 			args:    []string{"update"},
-			updater: &fakeUpdater{updateResult: "updated to v1.0.0 verified from GitHub"},
+			updater: &fakeUpdater{updateResult: updated("1.0.0", "updated to v1.0.0 verified from GitHub")},
 			title:   "Program updated", impact: "client settings and credentials were not changed",
 		},
 		{
 			args:    []string{"update", "--rollback"},
-			updater: &fakeUpdater{rollbackResult: "restored the previous program version."},
+			updater: &fakeUpdater{rollbackResult: restored("restored the previous program version.")},
 			title:   "Program restored", impact: "The previous program is active and reads its credentials",
 			forbiddenImpact: "credentials were not changed",
 		},
@@ -452,13 +458,22 @@ func TestUpdateSameVersionIdentityConflictHasSafeDiagnosis(t *testing.T) {
 	}
 }
 
+// updated and restored are the transitions that a fake updater reports.
+func updated(version, summary string) program.Transition {
+	return program.Transition{State: program.TransitionUpdated, Version: version, Summary: summary}
+}
+
+func restored(summary string) program.Transition {
+	return program.Transition{State: program.TransitionRestored, Version: "0.0.9", Summary: summary}
+}
+
 type fakeUpdater struct {
 	updateCalls       int
 	candidateCalls    int
 	rollbackCalls     int
-	updateResult      string
-	candidateResult   string
-	rollbackResult    string
+	updateResult      program.Transition
+	candidateResult   program.Transition
+	rollbackResult    program.Transition
 	rollbackConfig    []byte
 	rollbackCustody   program.CredentialCustody
 	updateErr         error
@@ -467,18 +482,18 @@ type fakeUpdater struct {
 	candidateReceived program.CandidateArchive
 }
 
-func (u *fakeUpdater) Update(_ context.Context, _ string) (string, error) {
+func (u *fakeUpdater) Update(_ context.Context, _ string) (program.Transition, error) {
 	u.updateCalls++
 	return u.updateResult, u.updateErr
 }
 
-func (u *fakeUpdater) UpdateCandidate(_ context.Context, _ string, candidate program.CandidateArchive) (string, error) {
+func (u *fakeUpdater) UpdateCandidate(_ context.Context, _ string, candidate program.CandidateArchive) (program.Transition, error) {
 	u.candidateCalls++
 	u.candidateReceived = candidate
 	return u.candidateResult, u.candidateErr
 }
 
-func (u *fakeUpdater) Rollback(_ context.Context, config []byte, custody program.CredentialCustody) (string, error) {
+func (u *fakeUpdater) Rollback(_ context.Context, config []byte, custody program.CredentialCustody) (program.Transition, error) {
 	u.rollbackConfig = append([]byte(nil), config...)
 	u.rollbackCustody = custody
 	u.rollbackCalls++

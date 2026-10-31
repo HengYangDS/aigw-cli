@@ -1,6 +1,6 @@
 # update refuses a source build without a release source and a rollback
 # without a retained program, and reports a current release from a
-# configured source.
+# configured source, in text and as JSON.
 exec aigw update --help
 cmp stdout help.txt
 
@@ -8,11 +8,15 @@ exitcode 1 aigw update
 cmp stdout unconfigured.txt
 exitcode 1 aigw update --rollback
 cmp stdout rollback.txt
+exitcode 1 aigw update --json
+cmp stdout unconfigured.json
 
 env AIGW_GITHUB_RELEASE_ORIGIN=$UPSTREAM
 env AIGW_GITHUB_RELEASE_REPOSITORY=team/aigw
 exec aigw update
 cmp stdout current.txt
+exec aigw update --json
+cmp stdout current.json
 
 -- help.txt --
 AIGW  aigw update
@@ -32,6 +36,7 @@ Options
       --candidate string   Install one local portable archive without network access
       --checksums string   Checksum manifest for --candidate
   -h, --help               help for update
+      --json               Write the program transition as JSON
       --rollback           Roll back the portable AIGW program to the previous version offline
 -- unconfigured.txt --
 AIGW  Action required
@@ -71,3 +76,21 @@ AIGW  Update
 
 Next
   aigw sync
+-- unconfigured.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Program update did not complete",
+  "evidence": "AIGW could not complete release verification and program replacement.",
+  "impact": "No updated program version was confirmed active; client settings and credentials were not changed.",
+  "next_action": "Run `aigw doctor` to inspect current state; verify the selected release source or use a verified local archive."
+}
+-- current.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "state": "current",
+  "version": "0.1.0-dev",
+  "summary": "already running the latest version v0.1.0-dev",
+  "next_action": "aigw sync"
+}

@@ -14,8 +14,9 @@ import (
 	"strings"
 )
 
-// manifestSchemaVersion is the version of `aigw setup --from`'s JSON document.
-const manifestSchemaVersion = 1
+// schemaVersion is the version of `aigw setup`'s JSON document, with and
+// without --from.
+const schemaVersion = 1
 
 type manifestSetupImported struct {
 	Accounts []string `json:"accounts"`
@@ -93,7 +94,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request s
 
 	result := buildManifestSetupResult(runtime, cfg, accountNames, request.Account, connected, selectedClients)
 	if request.JSON {
-		return terminal.WriteDocument(runtime.Out, manifestSchemaVersion, true, result)
+		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 	}
 	renderManifestSetupResult(runtime, result)
 	return nil

@@ -39,8 +39,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			request.From = strings.TrimSpace(request.From)
 			request.Account = strings.TrimSpace(request.Account)
 			if !cmd.Flags().Changed("from") {
-				if request.JSON {
-					return fmt.Errorf("--json requires --from")
+				// Setup with --json never prompts, so the guided flow needs its
+				// first Route as a flag, before anything is read or created.
+				if request.JSON && strings.TrimSpace(request.Route) == "" {
+					return fmt.Errorf("--json requires --route or --from; run `%s --help`", cmd.CommandPath())
 				}
 				return nil
 			}
@@ -58,6 +60,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			operation := runtime
 			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
+			// A JSON caller reads one document, so setup never prompts for it.
+			operation.Interactive = operation.Interactive && !request.JSON
 			if cmd.Flags().Changed("from") {
 				return runManifestSetup(cmd.Context(), operation, request)
 			}
@@ -85,7 +89,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&request.Model, "model", "", "Upstream model ID for --for")
 	cmd.Flags().StringVar(&request.Protocol, "protocol", "", "Endpoint protocol when more than one URL is configured")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
-	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the manifest setup result as JSON")
+	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the setup result as JSON")
 	for _, name := range []string{"route", "label", "openai-url", "anthropic-url", "chat-url", "for", "model", "protocol"} {
 		cmd.MarkFlagsMutuallyExclusive("from", name)
 	}
@@ -136,6 +140,9 @@ func runSetup(ctx context.Context, runtime invocation.Context, request setupRequ
 	plan.config, err = runtime.Synchronizer().Setup(ctx, plan.before, plan.config, tokens, plan.request.Client)
 	if err != nil {
 		return err
+	}
+	if request.JSON {
+		return terminal.WriteDocument(runtime.Out, schemaVersion, true, buildFlagSetupResult(runtime, plan))
 	}
 	renderSetupService(runtime, plan)
 	renderSetupClients(runtime, plan.config, plan.request.Client)
@@ -224,6 +231,32 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 	)
 }
 
+// buildFlagSetupResult reports flag-driven setup in the document that setup
+// --from writes: the one Account and Route that it created and connected, the
+// client that it selected, and the same next step as the human output.
+func buildFlagSetupResult(runtime invocation.Context, plan setupPlan) manifestSetupResult {
+	activation := clientactivation.AssessActivation(plan.config, runtime.Secrets)
+	result := manifestSetupResult{
+		Imported:           manifestSetupImported{Accounts: []string{plan.request.Account}, Routes: []string{plan.request.Route}},
+		ConnectedAccounts:  []string{plan.request.Account},
+		SelectedBindings:   make(map[string]string, len(plan.config.Clients)),
+		ProjectedClients:   []string{},
+		OnlineVerification: "not_checked",
+		NextAction:         activation.NextActionFor(nil),
+	}
+	for client, binding := range plan.config.Clients {
+		if binding.Route != "" {
+			result.SelectedBindings[client] = binding.Route
+		}
+	}
+	if action := activation.ProjectionPrerequisites[plan.request.Client]; action != "" {
+		result.DeferredActions, result.NextAction = []string{action}, action
+	} else {
+		result.ProjectedClients = append(result.ProjectedClients, plan.request.Client)
+	}
+	return result
+}
+
 func renderSetupClients(runtime invocation.Context, cfg domain.Config, selectedClient string) {
 	r := invocation.Renderer(runtime)
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
@@ -277,6 +310,9 @@ func setupToken(runtime invocation.Context, request setupRequest) (setupCredenti
 	if !request.PromptToken && !request.TokenStdin && err == nil {
 		credential.token = previous
 		return credential, nil
+	}
+	if request.JSON && !request.TokenStdin {
+		return setupCredential{}, fmt.Errorf("--json reads the Token only from --token-stdin; run `aigw setup --help`")
 	}
 	if request.PromptToken {
 		credential.token, err = runtime.Prompt.Secret("Paste " + request.Label + " token: ")

@@ -392,8 +392,8 @@ func TestUpdateRejectsUnauthenticatedReleaseBeforeExecution(t *testing.T) {
 			runner := &recordingRunner{output: []byte("aigw version 1.0.0\n")}
 			u := Updater{GOOS: "darwin", GOARCH: "arm64", Executable: executable, Runner: runner, HTTPClient: server.Client(), ReleasePublicKey: test.publicKey}
 			releases := []resolvedRelease{{Source: ReleaseSource{Provider: ReleaseProviderGitHub, Origin: server.URL, Repository: "team/product"}, Tag: "v1.0.0"}}
-			if result, err := u.updateFromResolvedPeers(t.Context(), releases, "0.1.0"); result != "" || err == nil || !strings.Contains(err.Error(), test.wantError) {
-				t.Errorf("unauthenticated release result = %q, %v; want %q refusal", result, err, test.wantError)
+			if result, err := u.updateFromResolvedPeers(t.Context(), releases, "0.1.0"); result != (Transition{}) || err == nil || !strings.Contains(err.Error(), test.wantError) {
+				t.Errorf("unauthenticated release result = %+v, %v; want %q refusal", result, err, test.wantError)
 			}
 			if len(runner.plans) != 0 {
 				t.Errorf("unauthenticated release reached executable validation: %v", runner.plans)

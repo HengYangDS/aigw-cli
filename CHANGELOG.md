@@ -23,6 +23,16 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   `configuration_parse`, and a parse failure's `line` and `column`; `check`
   and `doctor` report the same fields, and `doctor` names the stage in text
   as the other commands do. Every other field keeps its name and value.
+- `--json` now covers every command that reports a result: `add`,
+  `route add`, `route edit`, `route remove`, `account edit`,
+  `account diagnostics enable` and `disable`, `client discover`, `enable`
+  and `disable`, `rotate`, `rollback`, `config path`, `setup` without
+  `--from`, `test`, `verify`, `models`, `balance`, `install`, `update` and
+  `uninstall`. Each writes one document at `schema_version` 1. With `--json`
+  no command prompts, `use`, `account rename` and `route rename` included, so
+  a secret then comes only from its standard-input flag, such as
+  `--token-stdin`. `completion`, `config export` and `credential` write
+  another program's format and refuse `--json`.
 
 ### Changed
 

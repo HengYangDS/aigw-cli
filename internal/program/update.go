@@ -135,21 +135,22 @@ func Current(executable string) Updater {
 	}
 }
 
-// Update installs a strictly newer verified release and returns its version.
-func (u Updater) Update(ctx context.Context, currentVersion string) (string, error) {
+// Update installs a strictly newer verified release and reports the
+// transition.
+func (u Updater) Update(ctx context.Context, currentVersion string) (Transition, error) {
 	if err := RequirePortableOwnership(u.Executable); err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	if u.Runner == nil {
 		u.Runner = process.Runner{}
 	}
 	sources := u.forgeSources()
 	if err := validateReleaseSources(sources...); err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	resolved, err := u.resolvePeerReleases(ctx, sources...)
 	if err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	return u.updateFromResolvedPeers(ctx, resolved, currentVersion)
 }
@@ -183,27 +184,28 @@ func (u Updater) resolvePeerReleases(ctx context.Context, sources ...ReleaseSour
 	return resolved, nil
 }
 
-func (u Updater) updateFromResolvedPeers(ctx context.Context, releases []resolvedRelease, currentVersion string) (result string, resultErr error) {
+func (u Updater) updateFromResolvedPeers(ctx context.Context, releases []resolvedRelease, currentVersion string) (result Transition, resultErr error) {
 	selected := releases[0]
 	comparison, err := compareVersions(selected.Tag, currentVersion)
 	if err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	if comparison == 0 {
-		return "already running the latest version " + selected.Tag, nil
+		return Transition{State: TransitionCurrent, Version: normalizeVersion(selected.Tag),
+			Summary: "already running the latest version " + selected.Tag}, nil
 	}
 	if comparison < 0 {
-		return "", fmt.Errorf("refusing to replace %s with older release %s", currentVersion, selected.Tag)
+		return Transition{}, fmt.Errorf("refusing to replace %s with older release %s", currentVersion, selected.Tag)
 	}
 	asset := (artifact.Target{OS: u.GOOS, Arch: u.GOARCH}).ArchiveName(normalizeVersion(selected.Tag))
 	directory, err := os.MkdirTemp("", "aigw-update-")
 	if err != nil {
-		return "", fmt.Errorf("create update workspace: %w", err)
+		return Transition{}, fmt.Errorf("create update workspace: %w", err)
 	}
 	defer func() {
 		if err := robustio.RemoveAll(directory); err != nil {
 			cleanupErr := fmt.Errorf("remove update workspace %s: %w", directory, err)
-			if result != "" {
+			if result.State != "" {
 				cleanupErr = fmt.Errorf("program update completed; %w", cleanupErr)
 			}
 			resultErr = errors.Join(resultErr, cleanupErr)
@@ -211,20 +213,21 @@ func (u Updater) updateFromResolvedPeers(ctx context.Context, releases []resolve
 	}()
 	downloads, err := u.downloadPeerAssets(ctx, releases, asset, directory)
 	if err != nil {
-		return "", err
+		return Transition{}, err
 	}
 	for _, candidate := range downloads[1:] {
 		if candidate.Digest != downloads[0].Digest {
-			return "", fmt.Errorf("reachable release sources disagree on %s asset bytes: %s != %s", asset, downloads[0].Source.Provider, candidate.Source.Provider)
+			return Transition{}, fmt.Errorf("reachable release sources disagree on %s asset bytes: %s != %s", asset, downloads[0].Source.Provider, candidate.Source.Provider)
 		}
 	}
 	archive := downloads[0].Asset
 	checksums := filepath.Join(filepath.Dir(archive), "checksums.txt")
 	activated, err := u.installPortableArchive(ctx, archive, checksums, normalizeVersion(selected.Tag))
 	if !activated {
-		return "", err
+		return Transition{}, err
 	}
-	return "updated to " + selected.Tag + " verified from " + releaseProviders(downloads), err
+	return Transition{State: TransitionUpdated, Version: normalizeVersion(selected.Tag),
+		Summary: "updated to " + selected.Tag + " verified from " + releaseProviders(downloads)}, err
 }
 
 func (u Updater) downloadPeerAssets(ctx context.Context, releases []resolvedRelease, asset, root string) ([]downloadedRelease, error) {

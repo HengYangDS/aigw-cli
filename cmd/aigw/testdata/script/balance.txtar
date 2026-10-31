@@ -15,6 +15,11 @@ exec aigw account diagnostics enable team --user-id 42 --system-token-stdin
 exec aigw balance team
 cmp stdout balance.txt
 
+exec aigw balance team --json
+cmp stdout balance.json
+exitcode 1 aigw balance plain --json
+cmp stdout json-refusal.json
+
 -- token.txt --
 sk-team-token-0001
 -- system.txt --
@@ -56,6 +61,7 @@ Usage
 
 Options
   -h, --help   help for balance
+      --json   Write the balance and Account Token quota as JSON
 -- refusal.txt --
 AIGW  Action required
 ────────────────────────────────────────
@@ -85,3 +91,29 @@ Current API token
 
 Next
   aigw check
+-- balance.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "account": "team",
+  "label": "Team Gateway",
+  "account_balance": 10,
+  "account_token": {
+    "name": "team",
+    "state": "enabled",
+    "used": 1,
+    "remaining": 5,
+    "unlimited_quota": false,
+    "remaining_requests": 42,
+    "unlimited_requests": false
+  },
+  "next_action": "aigw check"
+}
+-- json-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Plain Gateway does not support precise balance queries",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw check"
+}

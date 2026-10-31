@@ -132,8 +132,9 @@ func TestUpdatePassesConfiguredGitLabHostToGlab(t *testing.T) {
 		Executable: filepath.Join(dir, "aigw"),
 		Runner:     process.Runner{},
 	}
-	if result, err := u.Update(t.Context(), "0.2.0"); err != nil || result != "already running the latest version v0.2.0" {
-		t.Fatalf("release lookup = %q, %v", result, err)
+	want := program.Transition{State: program.TransitionCurrent, Version: "0.2.0", Summary: "already running the latest version v0.2.0"}
+	if result, err := u.Update(t.Context(), "0.2.0"); err != nil || result != want {
+		t.Fatalf("release lookup = %+v, %v", result, err)
 	}
 	if requests.Load() != 1 {
 		t.Fatalf("selected source requests = %d", requests.Load())
@@ -167,8 +168,8 @@ func TestUpdateFallsBackToGitLabAPIWhenGlabIsUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(message, "v0.2.0") {
-		t.Fatalf("message = %q", message)
+	if !strings.Contains(message.Summary, "v0.2.0") {
+		t.Fatalf("message = %q", message.Summary)
 	}
 	for _, call := range runner.calls {
 		if slices.Contains(call, token) {
@@ -242,8 +243,8 @@ func TestUpdateDownloadsFromGitLabAPIWhenGlabIsUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != "new-binary" || !strings.Contains(message, "v0.2.0") {
-		t.Fatalf("binary=%q message=%q", got, message)
+	if string(got) != "new-binary" || !strings.Contains(message.Summary, "v0.2.0") {
+		t.Fatalf("binary=%q message=%q", got, message.Summary)
 	}
 	for _, call := range runner.calls {
 		if slices.Contains(call, token) {
@@ -297,8 +298,8 @@ func TestUpdateFallsBackToGitLabAPIWhenGlabLeavesNoArtifact(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if string(got) != "new-binary" || !strings.Contains(message, "v0.2.0") {
-				t.Fatalf("binary=%q message=%q", got, message)
+			if string(got) != "new-binary" || !strings.Contains(message.Summary, "v0.2.0") {
+				t.Fatalf("binary=%q message=%q", got, message.Summary)
 			}
 			if len(runner.calls) < 2 || !containsSequence(runner.calls[1], "glab", "release", "download") {
 				t.Fatalf("empty glab download was not attempted: %v", runner.calls)
@@ -479,8 +480,8 @@ func TestUpdateIgnoresGlabConfigurationWarningAroundLatestTag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(message, "gitlab and github") {
-		t.Fatalf("message = %q", message)
+	if !strings.Contains(message.Summary, "gitlab and github") {
+		t.Fatalf("message = %q", message.Summary)
 	}
 	if got, err := os.ReadFile(binary); err != nil || string(got) != "candidate-binary" {
 		t.Fatalf("binary=%q error=%v", got, err)

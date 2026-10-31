@@ -13,13 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// listSchemaVersion and showSchemaVersion are the versions of `aigw route
-// list`'s and `aigw route show`'s JSON documents.
-const (
-	listSchemaVersion = 1
-	showSchemaVersion = 1
-)
-
 // NewCommand constructs the route command tree, whose rename subcommand is a
 // credential-aware transaction rather than ordinary route metadata editing.
 func NewCommand(runtime invocation.Context) *cobra.Command {
@@ -29,6 +22,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func newAddCommand(runtime invocation.Context) *cobra.Command {
+	var jsonMode bool
 	var accountName, model, upstreamModel, label, purpose, protocolName string
 	cmd := &cobra.Command{
 		Use: "add <route>", Short: "Add a model route to an existing account",
@@ -78,6 +72,16 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "route add"); err != nil {
 				return err
 			}
+			next := "aigw use --for <client> " + routeName
+			if jsonMode {
+				added := cfg.Routes[routeName]
+				document := addDocument{
+					Route: routeName, Account: accountName, Label: label, Purpose: added.Purpose,
+					Model: model, UpstreamModel: added.UpstreamModelID(), Protocol: protocol,
+				}
+				document.NextAction, document.NextDetail = terminal.NextSteps(next)
+				return terminal.WriteDocument(runtime.Out, addSchemaVersion, true, document)
+			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Model route added")
 			rows := []terminal.Field{
@@ -93,7 +97,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			}
 			r.Rows(rows...)
 			r.Success("Reused the existing Account; no client selection was changed")
-			r.Next("aigw use --for <client> " + routeName)
+			r.Next(next)
 			return nil
 		},
 	}
@@ -103,6 +107,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&protocolName, "protocol", "", "Wire protocol: anthropic, openai_responses, or openai_chat_completions")
 	cmd.Flags().StringVar(&label, "label", "", "Display name")
 	cmd.Flags().StringVar(&purpose, "purpose", "", "Purpose note (display only)")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the added Route as JSON")
 	return cmd
 }
 
@@ -238,6 +243,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 
 func newEditCommand(runtime invocation.Context) *cobra.Command {
 	var label, purpose string
+	var jsonMode bool
 	cmd := &cobra.Command{
 		Use: "edit <route>", Short: "Update route display metadata",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
@@ -269,6 +275,11 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "route"); err != nil {
 				return err
 			}
+			if jsonMode {
+				return terminal.WriteDocument(runtime.Out, editSchemaVersion, true, editDocument{
+					Route: args[0], Label: route.Label, Purpose: route.Purpose, NextAction: "aigw check",
+				})
+			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Route updated")
 			r.Rows(terminal.Field{Label: "Route", Value: args[0]})
@@ -279,12 +290,14 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&label, "label", "", "New display name")
 	cmd.Flags().StringVar(&purpose, "purpose", "", "Purpose note (pass an empty value to clear)")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the edited Route as JSON")
 	cmd.MarkFlagsOneRequired("label", "purpose")
 	return cmd
 }
 
 func newRemoveCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{
+	var jsonMode bool
+	cmd := &cobra.Command{
 		Use: "remove <route>", Short: "Remove an unused route",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
 			if !domain.ValidIdentifier(args[0]) {
@@ -328,6 +341,9 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			if err := runtime.Synchronizer().Commit(cmd.Context(), before, cfg, "route remove"); err != nil {
 				return err
 			}
+			if jsonMode {
+				return terminal.WriteDocument(runtime.Out, removeSchemaVersion, true, removeDocument{Route: name, Account: route.Account})
+			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Route removed")
 			r.Rows(
@@ -338,6 +354,8 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the removed Route as JSON")
+	return cmd
 }
 
 func choiceLabel(route domain.Route) string {

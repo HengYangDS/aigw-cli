@@ -1,5 +1,5 @@
 # config prints its path, imports a manifest as JSON, exports the merged
-# configuration, and refuses a malformed manifest.
+# configuration, previews a migration, and refuses a malformed manifest.
 exec aigw config --help
 cmp stdout help.txt
 
@@ -20,6 +20,19 @@ exitcode 1 aigw config import broken.toml
 cmp stdout refusal.txt
 exitcode 1 aigw config import broken.toml --json
 cmp stdout refusal.json
+exec aigw config migrate --dry-run --json
+normalize stdout migrate.out
+cmp migrate.out migrate.json
+exitcode 1 aigw config migrate extra --json
+cmp stdout migrate-refusal.json
+
+exec aigw config path --json
+normalize stdout path-json.out
+[darwin] cmp path-json.out path-darwin.json
+[linux] cmp path-json.out path-linux.json
+[windows] cmp path-json.out path-windows.json
+exitcode 1 aigw config path extra --json
+cmp stdout path-refusal.json
 
 -- manifest.in --
 version = 7
@@ -113,3 +126,56 @@ Recommended action
 }
 -- path-windows.txt --
 $HOME\aigw\config.toml
+-- path-darwin.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "path": "$HOME/Library/Application Support/aigw/config.toml"
+}
+-- path-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw --help"
+}
+-- path-linux.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "path": "$HOME/aigw/config.toml"
+}
+-- path-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "path": "$HOME\\aigw\\config.toml"
+}
+-- migrate.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "required": false,
+  "direction": "upgrade",
+  "from_version": 6,
+  "to_version": 6,
+  "accounts": [
+    "team"
+  ],
+  "routes": [
+    "team-route"
+  ],
+  "clients": {},
+  "recommendations": {},
+  "next_action": "aigw check"
+}
+-- migrate-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw --help"
+}
