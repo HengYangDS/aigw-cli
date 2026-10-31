@@ -5,9 +5,9 @@
 - [x] 1.3 Make `check` and `doctor` name an unreadable configuration's stage and position in JSON, as `status` does, and `doctor` in text as well; an acceptance script covers a parse failure for each of the three, and each exits 1.
 - [x] 1.4 Make `cmd/aigw/commands_test.go` refuse a command script whose expected JSON document lacks an integer `schema_version` or a boolean `ok`; a test shows each refusal.
 - [x] 1.5 Record the two fields and the failure `stage` in CHANGELOG's `[Unreleased]` section.
-- [ ] 1.6 Run the local quality graph at the stage head.
-- [ ] 1.7 Prove the stage head with the full ETHOS proof.
-- [ ] 1.8 Confirm the hosted three-platform graph and the real-client journeys pass at the stage head.
+- [x] 1.6 Run the local quality graph at the stage head.
+- [x] 1.7 Prove the stage head with the full ETHOS proof.
+- [x] 1.8 Confirm the hosted three-platform graph and the real-client journeys pass at the stage head.
 
 ## 2. Stage 2 — JSON for every result-reporting command
 
@@ -34,6 +34,7 @@
 ## 4. Stage 4 — Convergence
 
 Precondition: the product owner approves the converged contract in `design.md`.
+Approved on 2026-10-31.
 
 - [ ] 4.1 Raise the 16 documents of task 1.2 to `schema_version` 2: references named after their type, `use`'s `model` and `upstream_model`, `selections`, one `projections` list, check's `problem` instead of `error`, arrays instead of null, and snake_case values apart from configuration echoes. The acceptance scripts use a canonical Model that differs from its upstream ID.
 - [ ] 4.2 Make `next_action` a complete runnable command or absent, with `next_detail` for a placeholder or prose, in every document, the failure envelope and the human Next section; doctor's `fix` becomes `next_action`. The contract test refuses a `next_action` that is not an `aigw` command or holds a placeholder.
