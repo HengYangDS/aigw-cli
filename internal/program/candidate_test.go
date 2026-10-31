@@ -95,11 +95,11 @@ func TestUpdateCandidateSameVersionRequiresVerifiedProgramIdentity(t *testing.T)
 			u := Updater{GOOS: "darwin", GOARCH: "arm64", Executable: executable, Runner: &recordingRunner{output: []byte("aigw version 1.2.3\n")}}
 			message, err := u.UpdateCandidate(ctx, "v1.2.3", CandidateArchive{ArchivePath: archivePath, ChecksumsPath: checksumsPath})
 			if test.wantError == "" {
-				if err != nil || !strings.Contains(message, "already matches") {
-					t.Fatalf("exact program = %q, %v", message, err)
+				if err != nil || !strings.Contains(message.Summary, "already matches") {
+					t.Fatalf("exact program = %q, %v", message.Summary, err)
 				}
 			} else if err == nil || !strings.Contains(err.Error(), test.wantError) || test.wantCause != nil && !errors.Is(err, test.wantCause) {
-				t.Fatalf("unverified candidate = %q, %v; want %q", message, err, test.wantError)
+				t.Fatalf("unverified candidate = %q, %v; want %q", message.Summary, err, test.wantError)
 			}
 			if test.missing != "current" {
 				if current, readErr := os.ReadFile(executable); readErr != nil || string(current) != "current" {
@@ -203,8 +203,8 @@ func TestUpdateCandidateUsesWindowsExecutableName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(message, "v1.2.3") {
-		t.Fatalf("message = %q", message)
+	if !strings.Contains(message.Summary, "v1.2.3") {
+		t.Fatalf("message = %q", message.Summary)
 	}
 	if got, err := os.ReadFile(executable); err != nil || string(got) != "windows-binary" {
 		t.Fatalf("binary=%q err=%v", got, err)

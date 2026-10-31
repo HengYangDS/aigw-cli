@@ -21,6 +21,14 @@ cmp stdout refusal.txt
 exitcode 1 aigw config import broken.toml --json
 cmp stdout refusal.json
 
+exec aigw config path --json
+normalize stdout path-json.out
+[darwin] cmp path-json.out path-darwin.json
+[linux] cmp path-json.out path-linux.json
+[windows] cmp path-json.out path-windows.json
+exitcode 1 aigw config path extra --json
+cmp stdout path-refusal.json
+
 -- manifest.in --
 version = 7
 [accounts.team]
@@ -113,3 +121,29 @@ Recommended action
 }
 -- path-windows.txt --
 $HOME\aigw\config.toml
+-- path-darwin.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "path": "$HOME/Library/Application Support/aigw/config.toml"
+}
+-- path-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw --help"
+}
+-- path-linux.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "path": "$HOME/aigw/config.toml"
+}
+-- path-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "path": "$HOME\\aigw\\config.toml"
+}

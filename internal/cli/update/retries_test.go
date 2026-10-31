@@ -36,7 +36,7 @@ func TestHomebrewRollbackDoesNotReleaseCredentialsBeforeRetryCapability(t *testi
 		reads++
 		return secret.Program{}, errors.New("credential reader must not be resolved")
 	}}
-	err = prepareHomebrewRollback(runtime)
+	err = prepareHomebrewRollback(runtime, false)
 	if err == nil || !strings.Contains(err.Error(), "retry") || reads != 0 {
 		t.Fatalf("unproved rollback reached credential custody or lost its retry boundary: %v (reads=%d)", err, reads)
 	}
@@ -56,7 +56,7 @@ func TestHomebrewRollbackRefusesUnreadableRetryPolicyBeforeCustody(t *testing.T)
 		reads++
 		return secret.Program{}, errors.New("credential reader must not be resolved")
 	}}
-	if err := prepareHomebrewRollback(runtime); err == nil || reads != 0 {
+	if err := prepareHomebrewRollback(runtime, false); err == nil || reads != 0 {
 		t.Fatalf("unreadable policy reached custody: %v (reads=%d)", err, reads)
 	}
 }

@@ -13,6 +13,12 @@ cmp stdout tested.txt
 exitcode 1 aigw test --for codex
 cmp stdout codex.txt
 
+exec aigw test --json
+normalize stdout tested.out
+cmp tested.out tested.json
+exitcode 1 aigw test --for unknown --json
+cmp stdout json-refusal.json
+
 -- token.txt --
 sk-team-token-0001
 -- help.txt --
@@ -30,6 +36,7 @@ Options
       --config string         Read an absolute configuration file for a one-time stdin Token test
       --for string            Client whose selected Route to test: claude, claude-desktop, codex, or hermes
   -h, --help                  help for test
+      --json                  Write the endpoint observations as JSON
       --route string          Test this Route for the explicit client without changing its binding
       --token-format string   Explicit stdin encoding: raw or go-keyring-base64 (default "raw")
       --token-stdin           Read one bounded Token through EOF for this request only; never store it
@@ -70,3 +77,24 @@ Impact
 
 Recommended action
   aigw check
+-- tested.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "endpoints": [
+    {
+      "client": "claude",
+      "route": "team",
+      "http_status": 200
+    }
+  ],
+  "next_action": "aigw check"
+}
+-- json-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "--for must be claude, claude-desktop, codex, or hermes; run `aigw test --help`",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw test --help"
+}

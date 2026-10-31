@@ -14,6 +14,11 @@ cmp stdout restored.txt
 exec aigw route list --json
 cmp stdout routes.json
 
+exec aigw rollback --last-change --json
+cmp stdout restored.json
+exitcode 1 aigw rollback extra --json
+cmp stdout json-refusal.json
+
 -- token.txt --
 sk-team-token-0001
 -- help.txt --
@@ -29,6 +34,7 @@ Usage
 
 Options
   -h, --help          help for rollback
+      --json          Write the restore source as JSON
       --last-change   Restore only the immediately previous configuration backup
 -- empty.txt --
 AIGW  Action required
@@ -75,4 +81,19 @@ Next
       "model": "team-model"
     }
   ]
+}
+-- restored.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "source": "previous_backup",
+  "next_action": "aigw doctor"
+}
+-- json-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw --help"
 }

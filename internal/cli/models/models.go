@@ -19,11 +19,35 @@ type modelRow struct {
 	Protocol domain.EndpointProtocol
 	Model    string
 	Catalog  string
+	// State is Catalog as a JSON value: listed, not_listed, not_observed or
+	// the catalog observation's status.
+	State string
+}
+
+// schemaVersion is the version of `aigw models`'s JSON document.
+const schemaVersion = 1
+
+// modelsDocument is `aigw models`'s JSON document: each Route's catalog
+// membership.
+type modelsDocument struct {
+	Routes     []routeModel `json:"routes"`
+	NextDetail string       `json:"next_detail"`
+}
+
+// routeModel is one Route and protocol's catalog membership.
+type routeModel struct {
+	Route         string                  `json:"route"`
+	Account       string                  `json:"account"`
+	Protocol      domain.EndpointProtocol `json:"protocol,omitempty"`
+	Model         string                  `json:"model"`
+	UpstreamModel string                  `json:"upstream_model"`
+	Catalog       string                  `json:"catalog"`
 }
 
 // NewCommand constructs the configured-model availability command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{
+	var jsonMode bool
+	cmd := &cobra.Command{
 		Use:   "models",
 		Short: "Compare configured model IDs with provider catalogs; does not test inference",
 		Args:  cobra.NoArgs,
@@ -36,6 +60,16 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return fmt.Errorf("not configured; run `aigw setup`")
 			}
 			rows := modelRows(cfg, app.DiscoverCatalog(cmd.Context(), runtime.Secrets, runtime.HTTP, cfg))
+			if jsonMode {
+				document := modelsDocument{Routes: make([]routeModel, 0, len(rows)), NextDetail: "aigw use --for <client> <route>"}
+				for _, row := range rows {
+					document.Routes = append(document.Routes, routeModel{
+						Route: row.Route, Account: row.Account, Protocol: row.Protocol,
+						Model: cfg.Routes[row.Route].Model, UpstreamModel: row.Model, Catalog: row.State,
+					})
+				}
+				return terminal.WriteDocument(runtime.Out, schemaVersion, true, document)
+			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Configured model catalog")
 			r.Text("Catalog membership does not prove protocol capabilities, inference, or client readiness.")
@@ -52,6 +86,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			return r.Err()
 		},
 	}
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write each Route's catalog membership as JSON")
+	return cmd
 }
 
 func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
@@ -64,21 +100,21 @@ func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 		route := cfg.Routes[routeID]
 		protocols := route.AdmittedProtocols()
 		if len(protocols) == 0 {
-			rows = append(rows, modelRow{Route: routeID, Account: route.Account, Model: route.UpstreamModelID(), Catalog: "Catalog not observed"})
+			rows = append(rows, modelRow{Route: routeID, Account: route.Account, Model: route.UpstreamModelID(), Catalog: "Catalog not observed", State: "not_observed"})
 			continue
 		}
 		for _, protocol := range protocols {
-			membership := "Catalog not observed"
+			membership, state := "Catalog not observed", "not_observed"
 			if observation, ok := observations[observationKey(route.Account, protocol)]; ok {
-				membership = observation.Status.Label()
+				membership, state = observation.Status.Label(), string(observation.Status)
 				if observation.Status == app.CatalogOK {
-					membership = "Not listed"
+					membership, state = "Not listed", "not_listed"
 					if slices.ContainsFunc(observation.Models, func(model app.CatalogModel) bool { return model.ID == route.UpstreamModelID() }) {
-						membership = "Listed"
+						membership, state = "Listed", "listed"
 					}
 				}
 			}
-			rows = append(rows, modelRow{Route: routeID, Account: route.Account, Protocol: protocol, Model: route.UpstreamModelID(), Catalog: membership})
+			rows = append(rows, modelRow{Route: routeID, Account: route.Account, Protocol: protocol, Model: route.UpstreamModelID(), Catalog: membership, State: state})
 		}
 	}
 	slices.SortStableFunc(rows, func(left, right modelRow) int {

@@ -1,5 +1,6 @@
 # route adds a Route to an Account, lists and shows Routes as JSON, and
-# refuses to remove a Route that a client selects.
+# refuses to remove a Route that a client selects. Adding, editing and removing
+# a Route also write JSON.
 exec aigw route --help
 cmp stdout help.txt
 
@@ -17,6 +18,19 @@ exitcode 1 aigw route remove team
 cmp stdout refusal.txt
 exitcode 1 aigw route show missing --json
 cmp stdout missing.json
+
+exec aigw route add third --account team --model third-model --upstream-model third-wire --protocol anthropic --purpose 'Long tasks' --json
+cmp stdout third.json
+exitcode 1 aigw route add third --account team --model third-model --protocol anthropic --json
+cmp stdout exists.json
+exec aigw route edit third --label 'Third Route' --json
+cmp stdout edited.json
+exitcode 1 aigw route edit missing --label 'Missing' --json
+cmp stdout unknown.json
+exec aigw route remove third --json
+cmp stdout removed.json
+exitcode 1 aigw route remove team --json
+cmp stdout selected.json
 
 -- token.txt --
 sk-team-token-0001
@@ -119,4 +133,57 @@ Recommended action
   "error": "Unknown route \"missing\"",
   "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw check"
+}
+-- third.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "route": "third",
+  "account": "team",
+  "label": "third",
+  "purpose": "Long tasks",
+  "model": "third-model",
+  "upstream_model": "third-wire",
+  "protocol": "anthropic",
+  "next_detail": "aigw use --for \u003cclient\u003e third"
+}
+-- exists.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Route \"third\" already exists",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw check"
+}
+-- edited.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "route": "third",
+  "label": "Third Route",
+  "purpose": "Long tasks",
+  "next_action": "aigw check"
+}
+-- unknown.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Unknown route \"missing\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw check"
+}
+-- removed.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "route": "third",
+  "account": "team"
+}
+-- selected.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Route \"team\" is selected for claude; first run `aigw use --for claude \u003cother-route\u003e`",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw use --for claude \u003cother-route\u003e"
 }

@@ -35,8 +35,8 @@ func TestCanceledRollbackPreservesBothProgramFiles(t *testing.T) {
 			}
 			cancel()
 			message, err := (program.Updater{Executable: current}).Rollback(ctx, nil, nil)
-			if message != "" || !errors.Is(err, want) {
-				t.Errorf("canceled rollback = %q, %v; want empty result and %v", message, err, want)
+			if message != (program.Transition{}) || !errors.Is(err, want) {
+				t.Errorf("canceled rollback = %+v, %v; want empty result and %v", message, err, want)
 			}
 			for path, content := range map[string]string{current: "current-program", previous: "previous-program"} {
 				data, err := os.ReadFile(path)
@@ -114,8 +114,8 @@ func TestUpdateDownloadsVerifiesAndAtomicallyReplacesBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := os.ReadFile(binary)
-	if string(got) != "new-binary" || !strings.Contains(message, "v0.2.0") {
-		t.Fatalf("binary=%q message=%q", got, message)
+	if string(got) != "new-binary" || !strings.Contains(message.Summary, "v0.2.0") {
+		t.Fatalf("binary=%q message=%q", got, message.Summary)
 	}
 	backup, err := os.ReadFile(filepath.Join(filepath.Dir(binary), ".aigw.previous"))
 	if err != nil {
@@ -225,8 +225,8 @@ func TestRollbackExchangesCurrentAndPreviousProgramFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, guidance := range []string{"restored the previous program version", "older program does not support", "current portable package", "installer", "replaces only AIGW", "retains one predecessor"} {
-			if !strings.Contains(message, guidance) {
-				t.Errorf("rollback guidance missing %q: %s", guidance, message)
+			if !strings.Contains(message.Summary, guidance) {
+				t.Errorf("rollback guidance missing %q: %s", guidance, message.Summary)
 			}
 		}
 		for path, content := range map[string]string{current: expected.current, previous: expected.previous} {

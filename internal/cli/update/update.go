@@ -10,16 +10,30 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/program"
+	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
+
+// schemaVersion is the version of `aigw update`'s JSON document.
+const schemaVersion = 1
+
+// updateDocument is `aigw update`'s JSON document. Its state is the program
+// transition's, or prepared when credentials are ready for an earlier
+// Homebrew release, and its version is the active program's afterward.
+type updateDocument struct {
+	State      string `json:"state"`
+	Version    string `json:"version,omitempty"`
+	NextAction string `json:"next_action,omitempty"`
+	NextDetail string `json:"next_detail,omitempty"`
+}
 
 // prepareHomebrewRollback returns macOS Keychain items to the reader of an
 // earlier release before Homebrew installs it; Homebrew keeps its program files.
 // If the operator keeps this release, its next Token use takes the items back.
 // Without a readable configuration it cannot name those items, so it stops
 // before any native request.
-func prepareHomebrewRollback(runtime invocation.Context) error {
+func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
 		return invocation.Problem(runtime,
@@ -55,6 +69,10 @@ func prepareHomebrewRollback(runtime invocation.Context) error {
 			"Run `aigw check`, then retry `aigw update --rollback` before Homebrew installs the earlier release.",
 			errors.Join(err, custody.Reclaim()))
 	}
+	if jsonMode {
+		return terminal.WriteDocument(runtime.Out, schemaVersion, true, updateDocument{State: "prepared",
+			NextDetail: "Install the earlier release with Homebrew, then run `aigw sync` and `aigw check`."})
+	}
 	r := invocation.Renderer(runtime)
 	r.ProductTitle("Homebrew rollback")
 	r.Success("Credentials are ready for an earlier AIGW release.")
@@ -65,7 +83,7 @@ func prepareHomebrewRollback(runtime invocation.Context) error {
 
 // NewCommand constructs the signed portable release update command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	var rollback bool
+	var rollback, jsonMode bool
 	var candidateArchive string
 	var candidateChecksums string
 	cmd := &cobra.Command{
@@ -90,7 +108,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		RunE: func(ctx *cobra.Command, _ []string) error {
 			if err := program.RequirePortableOwnership(runtime.Executable); err != nil {
 				if rollback && errors.Is(err, program.ErrHomebrewManaged) {
-					return prepareHomebrewRollback(runtime)
+					return prepareHomebrewRollback(runtime, jsonMode)
 				}
 				return err
 			}
@@ -98,7 +116,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return fmt.Errorf("Automatic update is unavailable; install a verified release from GitLab or GitHub")
 			}
 			var (
-				result string
+				result program.Transition
 				err    error
 			)
 			if rollback {
@@ -118,7 +136,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			} else {
 				result, err = runtime.Updater.Update(ctx.Context(), runtime.Version)
 			}
-			if err != nil && result != "" {
+			if err != nil && result.State != "" {
 				title, impact := "Program updated; cleanup is incomplete", "The replacement is active; client settings and credentials were not changed."
 				if rollback {
 					title, impact = "Program restored; cleanup is incomplete", "The previous program is active and reads its credentials; client settings were not changed."
@@ -166,24 +184,35 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					"No updated program version was confirmed active; client settings and credentials were not changed.",
 					"Run `aigw doctor` to inspect current state; verify the selected release source or use a verified local archive.", err)
 			}
-			r := invocation.Renderer(runtime)
 			title := "Update"
 			if rollback {
 				title = "Program rollback"
 			} else if candidateArchive != "" {
 				title = "Verified local candidate"
 			}
-			r.ProductTitle(title)
-			r.Success(result)
-			r.Text("Run the active version's sync command to reconcile owned client settings, then check readiness.")
-			r.Next("aigw sync")
-			return nil
+			return reportTransition(runtime, jsonMode, title, result)
 		},
 	}
 	cmd.Flags().BoolVar(&rollback, "rollback", false, "Roll back the portable AIGW program to the previous version offline")
 	cmd.Flags().StringVar(&candidateArchive, "candidate", "", "Install one local portable archive without network access")
 	cmd.Flags().StringVar(&candidateChecksums, "checksums", "", "Checksum manifest for --candidate")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the program transition as JSON")
 	cmd.MarkFlagsRequiredTogether("candidate", "checksums")
 	cmd.MarkFlagsMutuallyExclusive("rollback", "candidate")
 	return cmd
+}
+
+// reportTransition writes a completed program transition and its next step:
+// the active program reconciles the client settings that it owns.
+func reportTransition(runtime invocation.Context, jsonMode bool, title string, result program.Transition) error {
+	if jsonMode {
+		return terminal.WriteDocument(runtime.Out, schemaVersion, true,
+			updateDocument{State: result.State, Version: result.Version, NextAction: "aigw sync"})
+	}
+	r := invocation.Renderer(runtime)
+	r.ProductTitle(title)
+	r.Success(result.Summary)
+	r.Text("Run the active version's sync command to reconcile owned client settings, then check readiness.")
+	r.Next("aigw sync")
+	return nil
 }

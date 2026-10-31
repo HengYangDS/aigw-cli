@@ -1,5 +1,5 @@
-# uninstall removes an installed program and refuses a directory as the
-# target.
+# uninstall removes an installed program, reports a program that is already
+# gone as JSON, and refuses a directory as the target, in text and as JSON.
 exec aigw uninstall --help
 cmp stdout help.txt
 
@@ -8,9 +8,23 @@ exec aigw uninstall --target $WORK/bin/aigw$exe
 cmp stdout removed.txt
 ! exists $WORK/bin/aigw$exe
 
+exec aigw install --target $WORK/json/aigw$exe
+exec aigw uninstall --target $WORK/json/aigw$exe --json
+normalize stdout removed-json.out
+[!windows] cmp removed-json.out removed.json
+[windows] cmp removed-json.out removed-windows.json
+! exists $WORK/json/aigw$exe
+exec aigw uninstall --target $WORK/json/aigw$exe --json
+normalize stdout absent-json.out
+[!windows] cmp absent-json.out absent.json
+[windows] cmp absent-json.out absent-windows.json
+
 exitcode 1 aigw uninstall --target $WORK
 normalize stdout refusal.out
 cmp refusal.out refusal.txt
+exitcode 1 aigw uninstall --target $WORK --json
+normalize stdout json-refusal.out
+cmp json-refusal.out json-refusal.json
 
 -- help.txt --
 AIGW  aigw uninstall
@@ -25,6 +39,7 @@ Usage
 
 Options
   -h, --help            help for uninstall
+      --json            Write the removal as JSON
       --target string   installed executable path; defaults to the running executable
 -- removed.txt --
 AIGW  Portable uninstall
@@ -47,3 +62,44 @@ Impact
 
 Recommended action
   Inspect the selected target and retained files; after resolving file access, retry `uninstall --target <path>` from another verified AIGW executable.
+-- removed.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "path": "$WORK/json/aigw",
+  "program_found": true,
+  "projections_withdrawn": false
+}
+-- absent.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "path": "$WORK/json/aigw",
+  "program_found": false,
+  "projections_withdrawn": false
+}
+-- json-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Portable program removal is incomplete",
+  "evidence": "AIGW could not remove every selected portable program file.",
+  "impact": "No AIGW configuration existed; no managed client withdrawal was needed. Tokens and versioned credential readers are retained.",
+  "next_action": "Inspect the selected target and retained files; after resolving file access, retry `uninstall --target \u003cpath\u003e` from another verified AIGW executable."
+}
+-- removed-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "path": "$WORK/json/aigw.exe",
+  "program_found": true,
+  "projections_withdrawn": false
+}
+-- absent-windows.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "path": "$WORK/json/aigw.exe",
+  "program_found": false,
+  "projections_withdrawn": false
+}

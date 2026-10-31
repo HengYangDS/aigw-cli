@@ -4,6 +4,7 @@ import (
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -149,6 +150,76 @@ func missingCases(name string, json bool, script string) []string {
 		}
 	}
 	return missing
+}
+
+// foreignFormats are the commands whose output is another program's format: a
+// shell completion script, a configuration manifest and the credential
+// protocol of a client. They take no --json.
+var foreignFormats = []string{"aigw completion", "aigw config export", "aigw credential"}
+
+// TestEveryResultReportingCommandOffersJSON holds the command tree to the
+// command-line contract: each command that reports a result, which is every
+// runnable command without subcommands apart from the foreign formats, offers
+// --json, and no foreign format does.
+func TestEveryResultReportingCommandOffersJSON(t *testing.T) {
+	root := cli.NewRoot(&cli.App{Clients: clients.Registry(), Out: io.Discard, Err: io.Discard})
+	for _, problem := range jsonCoverageProblems(root, foreignFormats) {
+		t.Error(problem)
+	}
+}
+
+func TestJSONCoverageProblemsNameEachCommand(t *testing.T) {
+	command := func(use string, withJSON bool, children ...*cobra.Command) *cobra.Command {
+		command := &cobra.Command{Use: use}
+		if len(children) == 0 {
+			command.RunE = func(*cobra.Command, []string) error { return nil }
+		}
+		if withJSON {
+			command.Flags().Bool("json", false, "")
+		}
+		command.AddCommand(children...)
+		return command
+	}
+	root := command("demo", false,
+		command("report", true),
+		command("silent", false),
+		command("group", false, command("nested", false)),
+		command("export", false),
+		command("script", true))
+	want := []string{
+		`command "demo group nested" reports a result without --json`,
+		`command "demo silent" reports a result without --json`,
+		`foreign format "demo script" offers --json`,
+	}
+	if got := jsonCoverageProblems(root, []string{"demo export", "demo script"}); !slices.Equal(got, want) {
+		t.Fatalf("jsonCoverageProblems() = %q, want %q", got, want)
+	}
+}
+
+// jsonCoverageProblems names each runnable command without subcommands under
+// root that lacks --json, apart from the foreign formats, and each foreign
+// format that offers it.
+func jsonCoverageProblems(root *cobra.Command, foreign []string) []string {
+	var problems []string
+	var visit func(*cobra.Command)
+	visit = func(command *cobra.Command) {
+		for _, child := range command.Commands() {
+			visit(child)
+		}
+		if !command.Runnable() || command.HasSubCommands() {
+			return
+		}
+		path, offers := command.CommandPath(), command.Flags().Lookup("json") != nil
+		switch isForeign := slices.Contains(foreign, path); {
+		case isForeign && offers:
+			problems = append(problems, fmt.Sprintf("foreign format %q offers --json", path))
+		case !isForeign && !offers:
+			problems = append(problems, fmt.Sprintf("command %q reports a result without --json", path))
+		}
+	}
+	visit(root)
+	slices.Sort(problems)
+	return problems
 }
 
 // offersJSON reports whether command or one of its subcommands has --json.

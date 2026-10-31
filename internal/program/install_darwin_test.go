@@ -141,7 +141,7 @@ func TestProgramTransitionsReportActivationWhenReplacementCleanupFails(t *testin
 				}
 				return []byte("aigw version 1.0.0\n"), nil
 			}}}
-			var result string
+			var result Transition
 			want := "candidate"
 			if mode == "rollback" {
 				want = "previous"
@@ -152,8 +152,8 @@ func TestProgramTransitionsReportActivationWhenReplacementCleanupFails(t *testin
 			if program, readErr := os.ReadFile(executable); readErr != nil || string(program) != want {
 				t.Fatalf("replacement did not activate: program=%q error=%v", program, readErr)
 			}
-			if !errors.Is(err, os.ErrPermission) || result == "" {
-				t.Fatalf("replacement committed but its result was lost: result=%q error=%v", result, err)
+			if !errors.Is(err, os.ErrPermission) || result.State == "" {
+				t.Fatalf("replacement committed but its result was lost: result=%+v error=%v", result, err)
 			}
 		})
 	}

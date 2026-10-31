@@ -1,5 +1,6 @@
 # add refuses an Account without a model, connects an Account with its first
-# Route, and refuses to replace an existing Account.
+# Route, and refuses to replace an existing Account. With --json it reads the
+# Token only from standard input.
 exec aigw add --help
 cmp stdout help.txt
 
@@ -18,6 +19,12 @@ stdin token.txt
 exitcode 1 aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team-model --for claude --token-stdin
 cmp stdout exists.txt
 
+stdin token.txt
+exec aigw add second --label 'Second Gateway' --anthropic-url $UPSTREAM --model second-model --for claude --token-stdin --json
+cmp stdout second.json
+exitcode 1 aigw add third --anthropic-url $UPSTREAM --model third-model --for claude --json
+cmp stdout json-refusal.json
+
 -- token.txt --
 sk-team-token-0001
 -- help.txt --
@@ -32,6 +39,7 @@ Options
       --anthropic-url string   Anthropic base URL
       --for string             Client: claude, claude-desktop, codex, or hermes
   -h, --help                   help for add
+      --json                   Write the connected Account and Route as JSON
       --label string           Provider display name
       --model string           Upstream model ID
       --openai-url string      OpenAI Responses base URL
@@ -88,3 +96,24 @@ Impact
 
 Recommended action
   aigw add --help
+-- second.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "account": "second",
+  "route": "second",
+  "client": "claude",
+  "label": "Second Gateway",
+  "model": "second-model",
+  "upstream_model": "second-model",
+  "token_stored": true,
+  "next_action": "aigw check"
+}
+-- json-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "--json reads the Token only from --token-stdin; run `aigw add --help`",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw add --help"
+}

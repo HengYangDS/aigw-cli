@@ -12,10 +12,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw add`'s JSON document.
+const schemaVersion = 1
+
+// addDocument is `aigw add`'s JSON document: the Account and Route that it
+// connected and the client that it bound.
+type addDocument struct {
+	Account       string `json:"account"`
+	Route         string `json:"route"`
+	Client        string `json:"client"`
+	Label         string `json:"label"`
+	Model         string `json:"model"`
+	UpstreamModel string `json:"upstream_model"`
+	TokenStored   bool   `json:"token_stored"`
+	NextAction    string `json:"next_action"`
+}
+
 // NewCommand constructs the guided command that connects one Account and its first Route.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var label, openAIURL, anthropicURL, client, model string
-	var tokenStdin bool
+	var tokenStdin, jsonMode bool
 	cmd := &cobra.Command{
 		Use:   "add <account>",
 		Short: "Add and connect one Account with its first Route",
@@ -25,6 +41,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			if !runtime.Clients.Admission().Admits(client) || strings.TrimSpace(model) == "" {
 				return fmt.Errorf("--for and --model are required; --for must be %s; run `%s --help`", runtime.Clients.Admission().Usage(), cmd.CommandPath())
+			}
+			if jsonMode && !tokenStdin {
+				return fmt.Errorf("--json reads the Token only from --token-stdin; run `%s --help`", cmd.CommandPath())
 			}
 			return nil
 		}),
@@ -55,6 +74,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err := runtime.Synchronizer().ConnectAccount(cmd.Context(), cfg, name, client, account, route, acquireToken); err != nil {
 				return fmt.Errorf("%w; run `%s --help`", err, cmd.CommandPath())
 			}
+			if jsonMode {
+				return terminal.WriteDocument(runtime.Out, schemaVersion, true, addDocument{
+					Account: name, Route: name, Client: client, Label: label,
+					Model: route.Model, UpstreamModel: route.UpstreamModelID(), TokenStored: true, NextAction: "aigw check",
+				})
+			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Account connected")
 			r.Section("Selection")
@@ -76,5 +101,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&client, "for", "", "Client: "+runtime.Clients.Admission().Usage())
 	cmd.Flags().StringVar(&model, "model", "", "Upstream model ID")
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one token line from standard input")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the connected Account and Route as JSON")
 	return cmd
 }

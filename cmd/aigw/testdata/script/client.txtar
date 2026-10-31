@@ -1,5 +1,5 @@
 # client discovers the scripted Claude Code, disables and re-enables its
-# projection, and refuses an unknown client.
+# projection, and refuses an unknown client, in text and as JSON.
 exec aigw client --help
 cmp stdout help.txt
 
@@ -15,6 +15,21 @@ cmp enabled.out enabled.txt
 
 exitcode 1 aigw client enable unknown
 cmp stdout refusal.txt
+
+exec aigw client disable claude --json
+cmp stdout disabled.json
+exec aigw client disable claude --json
+cmp stdout already-disabled.json
+exec aigw client enable claude --executable $BIN/claude$exe --json
+cmp stdout enabled.json
+exitcode 1 aigw client enable unknown --json
+cmp stdout json-refusal.json
+# Claude Desktop's discovery also reads the host's applications, so the
+# document is matched by its stable parts.
+exec aigw client discover --json
+stdout '"schema_version": 1'
+stdout '"id": "claude",\n\s+"state": "found"'
+stdout '"id": "codex",\n\s+"state": "not_found"'
 
 -- token.txt --
 sk-team-token-0001
@@ -58,3 +73,36 @@ Impact
 
 Recommended action
   aigw client enable --help
+-- disabled.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "client": "claude",
+  "state": "disabled",
+  "restart_required": false
+}
+-- already-disabled.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "client": "claude",
+  "state": "already_disabled",
+  "restart_required": false
+}
+-- enabled.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "client": "claude",
+  "state": "enabled",
+  "restart_required": false,
+  "next_action": "aigw check"
+}
+-- json-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "Client must be claude, claude-desktop, codex, or hermes; run `aigw client enable --help`: invalid argument \"unknown\" for \"aigw client enable\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw client enable --help"
+}

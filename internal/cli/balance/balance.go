@@ -44,9 +44,34 @@ func diagnosticCredentialProblem(store secret.Store, accountName string, err err
 	)
 }
 
+// schemaVersion is the version of `aigw balance`'s JSON document.
+const schemaVersion = 1
+
+// balanceDocument is `aigw balance`'s JSON document: the provider's report
+// for the Account and its Account Token.
+type balanceDocument struct {
+	Account        string       `json:"account"`
+	Label          string       `json:"label"`
+	AccountBalance float64      `json:"account_balance"`
+	AccountToken   balanceToken `json:"account_token"`
+	NextAction     string       `json:"next_action"`
+}
+
+// balanceToken is the provider's quota report for the Account Token.
+type balanceToken struct {
+	Name              string  `json:"name"`
+	State             string  `json:"state"`
+	Used              float64 `json:"used"`
+	Remaining         float64 `json:"remaining"`
+	UnlimitedQuota    bool    `json:"unlimited_quota"`
+	RemainingRequests int64   `json:"remaining_requests"`
+	UnlimitedRequests bool    `json:"unlimited_requests"`
+}
+
 // NewCommand constructs the explicit provider-account diagnostic command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{Use: "balance [account]", Short: "Show account balance and token quota", Args: cobra.MaximumNArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	var jsonMode bool
+	cmd := &cobra.Command{Use: "balance [account]", Short: "Show account balance and token quota", Args: cobra.MaximumNArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := runtime.Config.Load()
 		if err != nil {
 			return err
@@ -80,6 +105,16 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if jsonMode {
+			return terminal.WriteDocument(runtime.Out, schemaVersion, true, balanceDocument{
+				Account: accountName, Label: providerAccount.Label, AccountBalance: report.AccountBalance,
+				AccountToken: balanceToken{
+					Name: report.TokenName, State: report.TokenStatus, Used: report.TokenUsed, Remaining: report.TokenRemaining,
+					UnlimitedQuota: report.TokenUnlimitedQuota, RemainingRequests: report.TokenRemainingCount, UnlimitedRequests: report.TokenUnlimitedCount,
+				},
+				NextAction: "aigw check",
+			})
+		}
 		status := map[string]string{"enabled": "Enabled", "disabled": "Disabled"}[report.TokenStatus]
 		remaining := fmt.Sprintf("$%.4f", report.TokenRemaining)
 		if report.TokenUnlimitedQuota {
@@ -111,4 +146,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		r.Next("aigw check")
 		return nil
 	}}
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the balance and Account Token quota as JSON")
+	return cmd
 }

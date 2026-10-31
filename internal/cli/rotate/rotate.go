@@ -14,13 +14,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw rotate`'s JSON document.
+const schemaVersion = 1
+
+// rotateDocument is `aigw rotate`'s JSON document.
+type rotateDocument struct {
+	Account        string `json:"account"`
+	Label          string `json:"label"`
+	TokenValidated bool   `json:"token_validated"`
+	TokenStored    bool   `json:"token_stored"`
+	NextAction     string `json:"next_action,omitempty"`
+	NextDetail     string `json:"next_detail,omitempty"`
+}
+
 // NewCommand constructs the command that rotates credentials for one existing account.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	var tokenStdin bool
+	var tokenStdin, jsonMode bool
 	cmd := &cobra.Command{
 		Use:   "rotate [account]",
 		Short: "Update one Account Token",
-		Args:  cobra.MaximumNArgs(1),
+		Args: cobra.MatchAll(cobra.MaximumNArgs(1), func(cmd *cobra.Command, _ []string) error {
+			if jsonMode && !tokenStdin {
+				return fmt.Errorf("--json reads the Token only from --token-stdin; run `%s --help`", cmd.CommandPath())
+			}
+			return nil
+		}),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := runtime.Config.Load()
 			if err != nil {
@@ -67,6 +85,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			next := clientactivation.NextActionAfterAccountConnection(cfg, accountName)
+			if jsonMode {
+				document := rotateDocument{Account: accountName, Label: account.Label, TokenValidated: true, TokenStored: true}
+				document.NextAction, document.NextDetail = terminal.NextSteps(next)
+				return terminal.WriteDocument(runtime.Out, schemaVersion, true, document)
+			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Token updated")
 			r.Section("Account")
@@ -76,10 +100,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				terminal.Field{State: terminal.OK, Label: "Account Token", Value: "Validated and securely stored"},
 			)
 			r.Success("Credential helpers read the new Token when next invoked; clients control their refresh timing")
-			r.Next(clientactivation.NextActionAfterAccountConnection(cfg, accountName))
+			r.Next(next)
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one token line from standard input")
+	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the rotated Account Token's outcome as JSON")
 	return cmd
 }

@@ -5,6 +5,7 @@ package uninstall
 import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/program"
+	"aigw-cli/internal/terminal"
 	"errors"
 	"fmt"
 	"os"
@@ -13,9 +14,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// schemaVersion is the version of `aigw uninstall`'s JSON document.
+const schemaVersion = 1
+
+// uninstallDocument is `aigw uninstall`'s JSON document: the program path,
+// whether a program was there, and whether the client projections of a
+// configuration were withdrawn.
+type uninstallDocument struct {
+	Path                 string `json:"path"`
+	ProgramFound         bool   `json:"program_found"`
+	ProjectionsWithdrawn bool   `json:"projections_withdrawn"`
+}
+
 // NewCommand constructs the command that removes only the installed portable executable and its owned backup.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var target string
+	var jsonMode bool
 	command := &cobra.Command{
 		Use:   "uninstall",
 		Short: "Withdraw managed projections and remove a portable program",
@@ -66,6 +80,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					impact,
 					"Inspect the selected target and retained files; after resolving file access, retry `uninstall --target <path>` from another verified AIGW executable.", err)
 			}
+			if jsonMode {
+				return terminal.WriteDocument(runtime.Out, schemaVersion, true,
+					uninstallDocument{Path: target, ProgramFound: targetErr == nil, ProjectionsWithdrawn: statErr == nil})
+			}
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Portable uninstall")
 			render.Success("Removed AIGW client projections, executable, and its single rollback copy")
@@ -75,5 +93,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	command.Flags().StringVar(&target, "target", "", "installed executable path; defaults to the running executable")
+	command.Flags().BoolVar(&jsonMode, "json", false, "Write the removal as JSON")
 	return command
 }

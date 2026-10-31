@@ -11,6 +11,11 @@ exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --model team
 exec aigw models
 cmp stdout models.txt
 
+exec aigw models --json
+cmp stdout models.json
+exitcode 1 aigw models extra --json
+cmp stdout json-refusal.json
+
 -- token.txt --
 sk-team-token-0001
 -- help.txt --
@@ -23,6 +28,7 @@ Usage
 
 Options
   -h, --help   help for models
+      --json   Write each Route's catalog membership as JSON
 -- empty.txt --
 AIGW  Action required
 ────────────────────────────────────────
@@ -46,3 +52,27 @@ Routes
 
 Next
   aigw use
+-- models.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "routes": [
+    {
+      "route": "team",
+      "account": "team",
+      "protocol": "anthropic",
+      "model": "team-model",
+      "upstream_model": "team-model",
+      "catalog": "listed"
+    }
+  ],
+  "next_detail": "aigw use --for \u003cclient\u003e \u003croute\u003e"
+}
+-- json-refusal.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "impact": "The command could not finish; inspect current state before retrying.",
+  "next_action": "aigw --help"
+}
