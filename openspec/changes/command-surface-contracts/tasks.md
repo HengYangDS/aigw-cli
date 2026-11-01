@@ -51,6 +51,6 @@ Approved on 2026-10-31.
 ## 5. Release
 
 - [x] 5.1 Set `VERSION` to 0.5.0 and give CHANGELOG its 0.5.0 section; `validate-changelog` passes.
-- [ ] 5.2 Run the local quality graph and the full ETHOS proof at the release head, and confirm the hosted three-platform graph and the real-client journeys from v0.4.18.
-- [ ] 5.3 Tag v0.5.0 on GitHub, notarize its macOS archives, and publish its GitHub Release and Homebrew Cask.
-- [ ] 5.4 Install 0.5.0 through Homebrew on this Mac and accept it: `aigw verify` with the real clients, then a Homebrew rollback to 0.4.18 and an upgrade back.
+- [x] 5.2 Run the local quality graph and the full ETHOS proof at the release head, and confirm the hosted three-platform graph and the real-client journeys from v0.4.18.
+- [x] 5.3 Tag v0.5.0 on GitHub, notarize its macOS archives, and publish its GitHub Release and Homebrew Cask.
+- [x] 5.4 Install 0.5.0 through Homebrew on this Mac and accept it: `aigw verify` with the real clients, then a Homebrew rollback to 0.4.18 and an upgrade back.
