@@ -10,11 +10,11 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run the local quality graph at the release head.
-- [ ] 3.2 Prove the release head with the full ETHOS proof.
-- [ ] 3.3 Confirm the hosted three-platform graph and the real-client journeys from v0.5.0 at the release head.
+- [x] 3.1 Run the local quality graph at the release head.
+- [x] 3.2 Prove the release head with the full ETHOS proof.
+- [x] 3.3 Confirm the hosted three-platform graph and the real-client journeys from v0.5.0 at the release head.
 
 ## 4. Publication and acceptance
 
-- [ ] 4.1 Tag v0.6.0 on GitHub, notarize its macOS archives, and publish its GitHub Release and Homebrew Cask.
-- [ ] 4.2 Install 0.6.0 through Homebrew on this Mac and accept it: `aigw verify` with the real clients, then a Homebrew rollback to 0.5.0 and an upgrade back.
+- [x] 4.1 Tag v0.6.0 on GitHub, notarize its macOS archives, and publish its GitHub Release and Homebrew Cask.
+- [x] 4.2 Install 0.6.0 through Homebrew on this Mac and accept it: `aigw verify` with the real clients, then a Homebrew rollback to 0.5.0 and an upgrade back.
