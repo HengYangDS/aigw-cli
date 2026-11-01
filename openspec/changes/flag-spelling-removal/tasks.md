@@ -6,7 +6,7 @@
 
 ## 2. Release
 
-- [ ] 2.1 Set `VERSION` to 0.6.0 and give CHANGELOG its 0.6.0 section; `validate-changelog` passes.
+- [x] 2.1 Set `VERSION` to 0.6.0 and give CHANGELOG its 0.6.0 section; `validate-changelog` passes.
 
 ## 3. Verification
 
