@@ -14,6 +14,23 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Changed
+
+- A flag error now names the help of the command that refused the flag, in
+  text and as the JSON failure document's `next_action`: an unknown flag,
+  such as `aigw status --not-a-flag`, names `aigw status --help` where it
+  named `aigw --help`, and a flag without its value or with a value that does
+  not parse names that help where it named `aigw check`.
+
+### Removed
+
+- The earlier flag spellings that 0.5.0 kept hidden for one release are
+  gone: `setup --model` and `add --model`, now `--upstream-model`, and
+  `install --target` and `uninstall --target`, now `--path`. Each earlier
+  spelling fails as an unknown flag, naming the command's help, before the
+  command reads a Token or writes anything, and the warning on standard error
+  that named the replacement goes with them.
+
 ## [0.5.0] - 2026-11-01
 
 History: [GitLab][0.5.0-gitlab] · [GitHub][0.5.0-github]

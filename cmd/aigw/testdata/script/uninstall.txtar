@@ -32,11 +32,12 @@ stdout 'Remove +'
 stdout 'Preview did not write'
 exec aigw uninstall --path $WORK/absent/aigw$exe --dry-run
 stdout 'No program file at'
+# The spelling that 0.5.0 hid is an unknown flag now, and removes nothing.
+exitcode 1 aigw uninstall --target $WORK/preview/aigw$exe
+cmp stdout spellings.txt
 snapshot $WORK/preview after.txt
 cmp after.txt before.txt
 
-exitcode 1 aigw uninstall --target $WORK/one/aigw$exe --path $WORK/two/aigw$exe
-cmp stdout spellings.txt
 exitcode 1 aigw uninstall --path $WORK
 normalize stdout refusal.out
 cmp refusal.out refusal.txt
@@ -75,7 +76,7 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  if any flags in the group [path target] are set none of the others can be; [path target] were all set; run `aigw uninstall --help`
+  unknown option --target; run `aigw uninstall --help`
 
 Impact
   The command could not finish; inspect current state before retrying.

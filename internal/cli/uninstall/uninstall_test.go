@@ -161,7 +161,7 @@ func TestUninstallPreservesEveryVersionedReader(t *testing.T) {
 	command := NewCommand(invocation.Context{Clients: clients.Registry(),
 		Executable: invoker, CredentialPath: invokerReader, Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
 	})
-	command.SetArgs([]string{"--target", target})
+	command.SetArgs([]string{"--path", target})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestUninstallPreservesReaderSharedByIdenticalInstallations(t *testing.T) {
 		Executable: invoker, CredentialPath: invokerReader,
 		Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
 	})
-	command.SetArgs([]string{"--target", target})
+	command.SetArgs([]string{"--path", target})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}

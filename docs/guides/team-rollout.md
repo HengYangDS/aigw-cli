@@ -569,6 +569,9 @@ Scripts that read `--json` output should check each document's
 and the CHANGELOG lists every renamed flag and field. A `next_action` is a
 complete `aigw` command that a script can run as it stands; `next_detail` is a
 step for a person: one with a placeholder, in prose, or one that asks for a
-value such as a Token. The earlier spellings `setup --model`, `add --model`,
-`install --target` and `uninstall --target` keep working for one release and
-name their replacements, `--upstream-model` and `--path`, on standard error.
+value such as a Token. A renamed flag keeps its earlier spelling for one
+release, with a warning on standard error, and the release after it refuses
+that spelling: since 0.6.0, scripts pass `--upstream-model` instead of
+`setup --model` and `add --model`, and `--path` instead of `install --target`
+and `uninstall --target`. A refused flag names the command's help, such as
+`aigw setup --help`, as the next action.

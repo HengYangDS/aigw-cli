@@ -307,8 +307,8 @@ func localizeCobraError(message string) string {
 	if command, ok := cobraUnknownCommand(message); ok {
 		return fmt.Sprintf("unknown command %q", command)
 	}
-	if flag, ok := cobraUnknownFlag(message); ok {
-		return fmt.Sprintf("unknown option --%s", flag)
+	if flag, hint, ok := cobraUnknownFlag(message); ok {
+		return fmt.Sprintf("unknown option --%s%s", flag, hint)
 	}
 	return message
 }
@@ -326,16 +326,22 @@ func cobraUnknownCommand(message string) (string, bool) {
 	return command, true
 }
 
-func cobraUnknownFlag(message string) (string, bool) {
+// cobraUnknownFlag reads Cobra's unknown-flag error and the hint that follows
+// it, such as the command's help.
+func cobraUnknownFlag(message string) (string, string, bool) {
 	const prefix = "unknown flag: --"
 	if !strings.HasPrefix(message, prefix) {
-		return "", false
+		return "", "", false
 	}
-	flag := strings.TrimSpace(strings.TrimPrefix(message, prefix))
+	flag, hint, _ := strings.Cut(strings.TrimPrefix(message, prefix), ";")
+	flag = strings.TrimSpace(flag)
 	if flag == "" || strings.ContainsAny(flag, " \t\r\n") {
-		return "", false
+		return "", "", false
 	}
-	return flag, true
+	if hint != "" {
+		hint = ";" + hint
+	}
+	return flag, hint, true
 }
 
 // errorFix prefers the next action an error states for itself: only the guard

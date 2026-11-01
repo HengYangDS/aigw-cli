@@ -158,7 +158,6 @@ func TestNativeAccountRetirementWithoutClients(t *testing.T) {
 type journeyFixture struct {
 	testing              *testing.T
 	source               string
-	baseline             string
 	binary               string
 	root                 string
 	clientBin            string
@@ -183,21 +182,7 @@ func TestNativeJourneyCleanupSurvivesTestCancellation(t *testing.T) {
 	})
 }
 
-// newNativeJourney starts a journey from a program on the candidate's
-// surface: the candidate or another program built from this source.
 func newNativeJourney(t *testing.T, source, endpoint string, installClient bool) *journeyFixture {
-	t.Helper()
-	return startNativeJourney(t, source, "", endpoint, installClient)
-}
-
-// newBaselineJourney starts a journey from the baseline program. That
-// program's own install and uninstall keep its release's flags; see pathFlag.
-func newBaselineJourney(t *testing.T, baseline, endpoint string, installClient bool) *journeyFixture {
-	t.Helper()
-	return startNativeJourney(t, baseline, baseline, endpoint, installClient)
-}
-
-func startNativeJourney(t *testing.T, source, baseline, endpoint string, installClient bool) *journeyFixture {
 	t.Helper()
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
@@ -211,7 +196,6 @@ func startNativeJourney(t *testing.T, source, baseline, endpoint string, install
 	journey := &journeyFixture{
 		testing:   t,
 		source:    source,
-		baseline:  baseline,
 		binary:    filepath.Join(root, "installed", executableName()),
 		root:      root,
 		clientBin: clientBin,
@@ -283,20 +267,9 @@ interfaces = { anthropic = ["text"] }
 	if installClient {
 		journey.installClientFixture("claude")
 	}
-	journey.runWith(source, "install", journey.pathFlag(source), journey.binary)
+	journey.runWith(source, "install", "--path", journey.binary)
 	journey.run("--version")
 	return journey
-}
-
-// pathFlag is the flag with which program's install and uninstall name the
-// installed program: the baseline's --target, or the candidate's --path,
-// which replaces it. A baseline built from this source still accepts the
-// hidden --target.
-func (j *journeyFixture) pathFlag(program string) string {
-	if j.baseline != "" && program == j.baseline {
-		return "--target"
-	}
-	return "--path"
 }
 
 func (j *journeyFixture) installClientFixture(client string) {
@@ -413,7 +386,7 @@ func (j *journeyFixture) uninstallAndRequireInstallationRemoved() {
 func (j *journeyFixture) uninstallWithAndRequireInstallationRemoved(binary string) {
 	j.testing.Helper()
 	reader := j.captureCredentialReader()
-	j.runWithContext(context.WithoutCancel(j.testing.Context()), binary, "", "uninstall", j.pathFlag(binary), j.binary)
+	j.runWithContext(context.WithoutCancel(j.testing.Context()), binary, "", "uninstall", "--path", j.binary)
 	j.requireInstallationRemoved()
 	reader.requireUnchanged(j.testing)
 }

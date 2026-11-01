@@ -174,11 +174,23 @@ func TestUnknownCommandSuggestsTopLevelHelp(t *testing.T) {
 	}
 }
 
-func TestUnknownFlagSuggestsTopLevelHelp(t *testing.T) {
+// TestFlagErrorsSuggestTheCommandHelp shows that a flag error names the help
+// of the command that refused the flag, not top-level help or a readiness check.
+func TestFlagErrorsSuggestTheCommandHelp(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	err := cli.Execute(app, []string{"status", "--not-a-flag"})
-	if err == nil || !strings.Contains(out.String(), "unknown option") || !strings.Contains(out.String(), "aigw --help") {
-		t.Fatalf("err=%v output=%s", err, out.String())
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"status", "--not-a-flag"}, "unknown option --not-a-flag; run `aigw status --help`"},
+		{[]string{"--not-a-flag"}, "unknown option --not-a-flag; run `aigw --help`"},
+		{[]string{"install", "--path"}, "flag needs an argument: --path; run `aigw install --help`"},
+	} {
+		out.Reset()
+		err := cli.Execute(app, tc.args)
+		if err == nil || !strings.Contains(out.String(), tc.want) || strings.Contains(out.String(), "aigw check") {
+			t.Fatalf("%v err=%v output=%s", tc.args, err, out.String())
+		}
 	}
 }
 

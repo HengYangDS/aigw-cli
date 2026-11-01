@@ -192,8 +192,9 @@ func (e rewrittenOutputError) Unwrap() error { return e.cause }
 
 func TestOutputLocalizationMalformedAndSpecificBranches(t *testing.T) {
 	for input, want := range map[string]string{
-		`unknown command "oops" for "aigw"`: `unknown command "oops"`,
-		"unknown flag: --oops":              "unknown option --oops",
+		`unknown command "oops" for "aigw"`:              `unknown command "oops"`,
+		"unknown flag: --oops":                           "unknown option --oops",
+		"unknown flag: --oops; run `aigw status --help`": "unknown option --oops; run `aigw status --help`",
 	} {
 		if got := localizeCobraError(input); got != want {
 			t.Errorf("localizeCobraError(%q) = %q, want %q", input, got, want)
@@ -202,7 +203,7 @@ func TestOutputLocalizationMalformedAndSpecificBranches(t *testing.T) {
 	if _, ok := cobraUnknownCommand(`unknown command "" for "aigw"`); ok {
 		t.Fatal("empty unknown command accepted")
 	}
-	if _, ok := cobraUnknownFlag("unknown flag: --two words"); ok {
+	if _, _, ok := cobraUnknownFlag("unknown flag: --two words"); ok {
 		t.Fatal("spaced flag accepted")
 	}
 	if got := mentionedAIGWCommand("run `aigw repair without terminator"); got != "" {

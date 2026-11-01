@@ -93,18 +93,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&request.ChatURL, "chat-url", "", "OpenAI Chat Completions base URL")
 	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first route: "+runtime.Clients.Admission().Usage())
 	cmd.Flags().StringVar(&request.Model, "upstream-model", "", "Exact provider model ID for --for")
-	cmd.Flags().StringVar(&request.Model, "model", "", "Upstream model ID for --for; --upstream-model is the same value")
 	cmd.Flags().StringVar(&request.Protocol, "protocol", "", "Endpoint protocol when more than one URL is configured")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
 	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the setup result as JSON")
 	cmd.Flags().BoolVar(&request.DryRun, "dry-run", false, "Show the Accounts, Routes and Client Bindings that setup would create without reading a Token or writing anything")
-	for _, name := range []string{"route", "label", "openai-url", "anthropic-url", "chat-url", "for", "model", "upstream-model", "protocol"} {
+	for _, name := range []string{"route", "label", "openai-url", "anthropic-url", "chat-url", "for", "upstream-model", "protocol"} {
 		cmd.MarkFlagsMutuallyExclusive("from", name)
 	}
-	cmd.MarkFlagsMutuallyExclusive("model", "upstream-model")
-	_ = cmd.Flags().SetAnnotation("model", invocation.ReplacedBy, []string{"upstream-model"})
-	// The replaced spelling stays one release, hidden; using it warns.
-	_ = cmd.Flags().MarkHidden("model")
 	return cmd
 }
 

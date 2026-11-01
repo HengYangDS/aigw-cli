@@ -315,31 +315,36 @@ func TestUninstallPreviewNamesTheWithdrawal(t *testing.T) {
 	}
 }
 
-// TestReplacedSpellingsWarnOnStandardError shows that each hidden spelling
-// still works and names its replacement on standard error, where a script
-// that reads the JSON document from standard output does not see it.
-func TestReplacedSpellingsWarnOnStandardError(t *testing.T) {
+// TestRemovedSpellingsAreUnknownFlags shows that each spelling that 0.5.0
+// hid now fails as an unknown flag, naming the command's help, before the
+// command reads a Token or writes anything.
+func TestRemovedSpellingsAreUnknownFlags(t *testing.T) {
 	installed := filepath.Join(t.TempDir(), "aigw")
 	writeFile(t, installed, []byte("installed"), 0o700)
+	destination := filepath.Join(t.TempDir(), "aigw")
 	for _, test := range []struct {
-		args    []string
-		warning string
+		args []string
+		flag string
 	}{
-		{[]string{"add", "team", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude", "--dry-run", "--json"}, "aigw: --model is deprecated; use --upstream-model\n"},
-		{[]string{"uninstall", "--target", installed, "--dry-run", "--json"}, "aigw: --target is deprecated; use --path\n"},
+		{[]string{"setup", "--account", "team", "--route", "team-route", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude"}, "--model"},
+		{[]string{"add", "team", "--anthropic-url", "https://team.test", "--model", "team-model", "--for", "claude"}, "--model"},
+		{[]string{"install", "--target", destination}, "--target"},
+		{[]string{"uninstall", "--target", installed}, "--target"},
 	} {
 		t.Run(test.args[0], func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
-			var stderr bytes.Buffer
-			app.Err = &stderr
-			if err := cli.Execute(app, test.args); err != nil {
+			want := "unknown option " + test.flag + "; run `aigw " + test.args[0] + " --help`"
+			if err := cli.Execute(app, test.args); err == nil || !strings.Contains(out.String(), want) {
 				t.Fatalf("%v: %v\n%s", test.args, err, out.String())
 			}
-			var document struct {
-				DryRun bool `json:"dry_run"`
+			if _, err := os.Stat(app.Config.Path()); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("%v wrote configuration: %v", test.args, err)
 			}
-			if err := json.Unmarshal(out.Bytes(), &document); err != nil || !document.DryRun || stderr.String() != test.warning {
-				t.Fatalf("document = %s, %v; standard error = %q", out.String(), err, stderr.String())
+			if _, err := os.Stat(destination); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("%v installed a program: %v", test.args, err)
+			}
+			if got := readFile(t, installed); string(got) != "installed" {
+				t.Fatalf("%v removed the installed program", test.args)
 			}
 		})
 	}

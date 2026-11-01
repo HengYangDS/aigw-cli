@@ -86,7 +86,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 		}
 	}))
 	t.Cleanup(server.Close)
-	journey := newBaselineJourney(t, p.baseline, server.URL+"/v1", false)
+	journey := newNativeJourney(t, p.baseline, server.URL+"/v1", false)
 	if err := journey.prepareNativeClient(codex.ID, executable, p.team); err != nil {
 		t.Fatal(err)
 	}

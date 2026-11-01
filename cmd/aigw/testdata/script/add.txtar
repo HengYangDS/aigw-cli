@@ -22,10 +22,11 @@ normalize stdout preview.out '[0-9a-f]{64}'
 [darwin] cmp preview.out preview.json
 [linux] cmp preview.out preview-linux.json
 [windows] cmp preview.out preview-windows.json
+# The spelling that 0.5.0 hid is an unknown flag now, and changes nothing.
+exitcode 1 aigw add team --anthropic-url $UPSTREAM --model team-model --for claude
+cmp stdout spellings.txt
 snapshot $HOME after.txt
 cmp after.txt before.txt
-exitcode 1 aigw add team --anthropic-url $UPSTREAM --model team-model --upstream-model team-model --for claude
-cmp stdout spellings.txt
 
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
@@ -127,7 +128,7 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  if any flags in the group [model upstream-model] are set none of the others can be; [model upstream-model] were all set; run `aigw add --help`
+  unknown option --model; run `aigw add --help`
 
 Impact
   The command could not finish; inspect current state before retrying.

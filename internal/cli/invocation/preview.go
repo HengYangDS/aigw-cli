@@ -21,10 +21,6 @@ const previewSuccess = "Preview did not write configuration, credentials or clie
 // applyInProse continues a preview whose command line would need quoting.
 const applyInProse = "Run the same command without --dry-run to apply this plan"
 
-// ReplacedBy annotates a flag with the spelling that replaces it, which a
-// preview's apply command uses.
-const ReplacedBy = "aigw_replaced_by"
-
 // Preview is what applying a configuration change would do beyond the
 // configuration itself: the client files that it would change and the
 // credential reader that it would install. A command's preview document
@@ -123,9 +119,8 @@ func plain(word string) bool {
 }
 
 // ApplyCommand returns the continuation of a preview: the same command line
-// without --dry-run and --json, with each replaced flag in its replacement's
-// spelling, or prose when a word would need quoting, because no one quoting
-// runs in every shell of a platform.
+// without --dry-run and --json, or prose when a word would need quoting,
+// because no one quoting runs in every shell of a platform.
 func ApplyCommand(cmd *cobra.Command, args []string) string {
 	words := append(strings.Fields(cmd.CommandPath()), args...)
 	isPlain := true
@@ -137,9 +132,6 @@ func ApplyCommand(cmd *cobra.Command, args []string) string {
 			return
 		}
 		name := flag.Name
-		if replacement := flag.Annotations[ReplacedBy]; len(replacement) == 1 {
-			name = replacement[0]
-		}
 		if flag.Value.Type() == "bool" {
 			if flag.Value.String() == "true" {
 				words = append(words, "--"+name)

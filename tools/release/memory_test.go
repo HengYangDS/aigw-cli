@@ -240,7 +240,7 @@ func TestNativeAttributionSummaryRetainsItsNonqualifyingScope(t *testing.T) {
 	}
 	source := buildNativeProgram(t, root, "0.0.0")
 	server := newNativeJourneyServer(t)
-	journey := nativePerformanceJourney(t, performance.Program{Variant: "candidate", Path: source}, source, "env", server.URL+"/v1")
+	journey := nativePerformanceJourney(t, source, source, "env", server.URL+"/v1")
 	program, err := os.Executable()
 	if err != nil || os.WriteFile(journey.binary, readFile(t, program), 0o700) != nil {
 		t.Fatal("prepare measured diagnostic fixture")

@@ -18,13 +18,11 @@ normalize stdout preview-json.out '[0-9a-f]{64}'
 [darwin] cmp preview-json.out preview.json
 [linux] cmp preview-json.out preview-linux.json
 [windows] cmp preview-json.out preview-windows.json
-# The hidden spelling still works and names its replacement on stderr.
-exec aigw setup --account team --route team-route --anthropic-url $UPSTREAM --model team-model --for claude --dry-run --json
-stderr '^aigw: --model is deprecated; use --upstream-model$'
+# The spelling that 0.5.0 hid is an unknown flag now, and changes nothing.
+exitcode 1 aigw setup --account team --route team-route --anthropic-url $UPSTREAM --model team-model --for claude
+cmp stdout spellings.txt
 snapshot $HOME after.txt
 cmp after.txt before.txt
-exitcode 1 aigw setup --account team --route team-route --anthropic-url $UPSTREAM --model team-model --upstream-model team-model --for claude
-cmp stdout spellings.txt
 
 stdin rejected.txt
 exitcode 1 aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
@@ -180,7 +178,7 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  if any flags in the group [model upstream-model] are set none of the others can be; [model upstream-model] were all set; run `aigw setup --help`
+  unknown option --model; run `aigw setup --help`
 
 Impact
   The command could not finish; inspect current state before retrying.

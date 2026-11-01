@@ -16,6 +16,9 @@ decided.
 - The warning that named a hidden spelling's replacement, and the mapping that
   wrote a preview's apply command in the replacement's spelling, are removed
   with them.
+- A flag error, such as an unknown flag or a flag without its value, names the
+  help of the command that refused it, which lists `--upstream-model` and
+  `--path`. It named top-level help or `aigw check` before.
 - The release that carries the removal is 0.6.0.
 
 ## Capabilities
@@ -27,13 +30,16 @@ decided.
 ### Modified Capabilities
 
 - `command-line`: a renamed flag's earlier spelling is refused in the release
-  after the one that hid it.
+  after the one that hid it, and a flag error names the command's help.
 
 ## Impact
 
 `setup`, `add`, `install` and `uninstall` lose one flag each, and the CLI loses
-the replaced-spelling warning. Documents, configuration, credentials and client
-files do not change. Release journeys start from a baseline of 0.5.0 or
-earlier, whose own steps keep that release's flags. Out of scope: other flags,
+the replaced-spelling warning. Every command's flag errors name that command's
+help, in text and in the JSON failure document's `error` and `next_action`. No
+JSON document gains or loses a field, and configuration, credentials and client
+files do not change. Release journeys pass `--path` to the baseline and the
+candidate alike, so they need a predecessor of 0.5.0 or later. Out of scope:
+other flags,
 and `--model` and `--target` where they keep their meaning, as in `route add`
 and `client enable`.

@@ -29,10 +29,12 @@ exec aigw install --path $WORK/bin/aigw$exe --dry-run
 normalize stdout unchanged-preview.out
 [!windows] cmp unchanged-preview.out unchanged-preview.txt
 [windows] cmp unchanged-preview.out unchanged-preview-windows.txt
+# The spelling that 0.5.0 hid is an unknown flag now, and installs nothing.
+exitcode 1 aigw install --target $WORK/one/aigw$exe
+cmp stdout spellings.txt
 snapshot $WORK/bin bin-after.txt
 cmp bin-after.txt bin-before.txt
-exitcode 1 aigw install --target $WORK/one/aigw$exe --path $WORK/two/aigw$exe
-cmp stdout spellings.txt
+! exists $WORK/one
 
 # A preview over another program names the rollback copy and writes neither.
 mkdir $WORK/other
@@ -45,9 +47,6 @@ normalize stdout replace-preview.out
 exec aigw install --path $WORK/other/aigw$exe --dry-run
 stdout 'Rollback copy'
 stdout 'with this same program'
-# The hidden spelling still works and names its replacement on stderr.
-exec aigw install --target $WORK/other/aigw$exe --dry-run --json
-stderr '^aigw: --target is deprecated; use --path$'
 snapshot $WORK/other other-after.txt
 cmp other-after.txt other-before.txt
 exitcode 1 aigw install --path $WORK --dry-run
@@ -102,7 +101,7 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  if any flags in the group [path target] are set none of the others can be; [path target] were all set; run `aigw install --help`
+  unknown option --target; run `aigw install --help`
 
 Impact
   The command could not finish; inspect current state before retrying.

@@ -64,11 +64,6 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	}
 	command.Flags().BoolVar(&dryRun, "dry-run", false, "Show the program file and rollback copy that installing would write without writing them")
 	command.Flags().StringVar(&target, "path", target, "destination executable path")
-	command.Flags().StringVar(&target, "target", target, "destination executable path; --path is the same value")
-	command.MarkFlagsMutuallyExclusive("path", "target")
-	_ = command.Flags().SetAnnotation("target", invocation.ReplacedBy, []string{"path"})
-	// The replaced spelling stays one release, hidden; using it warns.
-	_ = command.Flags().MarkHidden("target")
 	command.Flags().BoolVar(&jsonMode, "json", false, "Write the installed path as JSON")
 	return command
 }

@@ -95,7 +95,7 @@ func nativePerformancePrograms(t *testing.T) []performance.Program {
 func runNativeReleaseLifecycle(t *testing.T, root, baseline, newVersion, endpoint string) {
 	t.Helper()
 	newArtifact, archive, checksums := nativeReleaseCandidate(t, root, newVersion)
-	journey := newBaselineJourney(t, baseline, endpoint, true)
+	journey := newNativeJourney(t, baseline, endpoint, true)
 	codexConfig, originalCodex := journey.prepareCodexLifecycle()
 	userFiles := map[string][]byte{
 		filepath.Join(journey.root, "home", ".codex", "sessions", "session.jsonl"): []byte("{\"owner\":\"user\",\"history\":\"unchanged\"}\n"),

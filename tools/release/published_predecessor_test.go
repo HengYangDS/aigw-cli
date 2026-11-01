@@ -63,7 +63,7 @@ func TestNativePublishedPredecessorJourney(t *testing.T) {
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
 	server := newNativeJourneyServer(t)
 	journey := publishedNativeJourney{
-		journey:  newBaselineJourney(t, baseline, server.URL+"/v1", true),
+		journey:  newNativeJourney(t, baseline, server.URL+"/v1", true),
 		baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version,
 		clients: deferredJourneyClientIDs(),
 	}
@@ -118,7 +118,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 			t.Error("forwarding probe sent more than one request")
 		}
 	})
-	journey := newBaselineJourney(t, baseline, upstream.URL+"/v1", true)
+	journey := newNativeJourney(t, baseline, upstream.URL+"/v1", true)
 	state := publishedNativeJourney{journey: journey, baseline: baseline, candidate: candidate, archive: archive, checksums: checksums, version: version, clients: deferredJourneyClientIDs()}
 	state.prepare(t, nativeCurrentSchemaManifest(upstream.URL+"/v1"))
 	journey.run("update", "--candidate", archive, "--checksums", checksums)

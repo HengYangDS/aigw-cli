@@ -133,7 +133,6 @@ func Execute(app *App, args []string) error {
 		if err := command.ValidateFlagGroups(); err != nil {
 			return fmt.Errorf("%w; run `%s --help`", err, command.CommandPath())
 		}
-		warnReplacedFlags(app.Err, command)
 		if !requiresConfigurationLock(app, command) {
 			return nil
 		}
@@ -389,8 +388,10 @@ func NewRoot(app *App) *cobra.Command {
 	completion := completioncli.NewCommand()
 	completion.GroupID = "advanced"
 	root.AddCommand(completion, credentialcli.NewCommand(runtime))
-	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
-		return fmt.Errorf("%w", err)
+	// A flag error names the help of the command that refused the flag, as a
+	// flag-group failure does.
+	root.SetFlagErrorFunc(func(command *cobra.Command, err error) error {
+		return fmt.Errorf("%w; run `%s --help`", err, command.CommandPath())
 	})
 	return root
 }
@@ -497,18 +498,4 @@ func renderCommandHelp(app *App, command *cobra.Command) {
 			r.Text(strings.TrimPrefix(strings.TrimRight(line, " \t"), "  "))
 		}
 	}
-}
-
-// warnReplacedFlags names, on standard error, the spelling that replaces each
-// hidden flag spelling that the command line used. Cobra's own deprecation
-// notice goes to standard output, where it would corrupt a JSON document.
-func warnReplacedFlags(errOut io.Writer, command *cobra.Command) {
-	if errOut == nil {
-		return
-	}
-	command.Flags().Visit(func(flag *pflag.Flag) {
-		if replacement := flag.Annotations[invocation.ReplacedBy]; len(replacement) == 1 {
-			_, _ = fmt.Fprintf(errOut, "aigw: --%s is deprecated; use --%s\n", flag.Name, replacement[0])
-		}
-	})
 }

@@ -1,7 +1,8 @@
 ## 1. Removal
 
-- [ ] 1.1 Remove the hidden `--model` of `setup` and `add` and the hidden `--target` of `install` and `uninstall`, with the replaced-spelling warning, annotation, mutual exclusion and apply-command mapping that only they use. An acceptance test and the scripts show that each removed spelling fails as an unknown flag and changes nothing.
-- [ ] 1.2 Record the removal in the team rollout guide and in CHANGELOG's `[Unreleased]` section, naming `--upstream-model` and `--path` as the spellings to use.
+- [ ] 1.1 Remove the hidden `--model` of `setup` and `add` and the hidden `--target` of `install` and `uninstall`, with the replaced-spelling warning, annotation, mutual exclusion, apply-command mapping and release-journey baseline split that only they use. An acceptance test and the scripts show that each removed spelling fails as an unknown flag and changes nothing.
+- [ ] 1.2 Make every flag error name the help of the command that refused the flag. An acceptance test shows it for an unknown flag on a command and on the root and for a flag without its value, and the scripts show it for each removed spelling.
+- [ ] 1.3 Record the removal and the flag-error guidance in the team rollout guide and in CHANGELOG's `[Unreleased]` section, naming `--upstream-model` and `--path` as the spellings to use.
 
 ## 2. Release
 
