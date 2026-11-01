@@ -574,4 +574,5 @@ release, with a warning on standard error, and the release after it refuses
 that spelling: since 0.6.0, scripts pass `--upstream-model` instead of
 `setup --model` and `add --model`, and `--path` instead of `install --target`
 and `uninstall --target`. A refused flag names the command's help, such as
-`aigw setup --help`, as the next action.
+`aigw setup --help`, as the next action; the refusal is a JSON failure document
+only when `--json` comes before the refused flag.

@@ -175,7 +175,8 @@ func TestUnknownCommandSuggestsTopLevelHelp(t *testing.T) {
 }
 
 // TestFlagErrorsSuggestTheCommandHelp shows that a flag error names the help
-// of the command that refused the flag, not top-level help or a readiness check.
+// of the command that refused the flag, not top-level help or a readiness
+// check, and that a command that help does not list names top-level help.
 func TestFlagErrorsSuggestTheCommandHelp(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	for _, tc := range []struct {
@@ -183,14 +184,31 @@ func TestFlagErrorsSuggestTheCommandHelp(t *testing.T) {
 		want string
 	}{
 		{[]string{"status", "--not-a-flag"}, "unknown option --not-a-flag; run `aigw status --help`"},
-		{[]string{"--not-a-flag"}, "unknown option --not-a-flag; run `aigw --help`"},
+		{[]string{"status", "-x"}, "unknown shorthand flag: 'x' in -x; run `aigw status --help`"},
+		{[]string{"status", "--json=maybe"}, "invalid syntax; run `aigw status --help`"},
 		{[]string{"install", "--path"}, "flag needs an argument: --path; run `aigw install --help`"},
+		{[]string{"route", "add", "--not-a-flag"}, "unknown option --not-a-flag; run `aigw route add --help`"},
+		{[]string{"--not-a-flag"}, "unknown option --not-a-flag; run `aigw --help`"},
+		{[]string{"help", "setup", "--not-a-flag"}, "unknown option --not-a-flag; run `aigw --help`"},
 	} {
 		out.Reset()
 		err := cli.Execute(app, tc.args)
 		if err == nil || !strings.Contains(out.String(), tc.want) || strings.Contains(out.String(), "aigw check") {
 			t.Fatalf("%v err=%v output=%s", tc.args, err, out.String())
 		}
+	}
+	// A flag that fails after --json was parsed fails with the JSON document.
+	out.Reset()
+	if err := cli.Execute(app, []string{"status", "--json", "--not-a-flag"}); err == nil {
+		t.Fatal("an unknown flag after --json succeeded")
+	}
+	var failure struct {
+		OK         bool   `json:"ok"`
+		Error      string `json:"error"`
+		NextAction string `json:"next_action"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &failure); err != nil || failure.OK || failure.NextAction != "aigw status --help" || !strings.HasPrefix(failure.Error, "unknown option --not-a-flag") {
+		t.Fatalf("JSON flag error = %s, %v", out.String(), err)
 	}
 }
 

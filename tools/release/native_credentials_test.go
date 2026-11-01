@@ -207,7 +207,7 @@ func finishNativeCredentialJourney(
 	if got, err := diagnostics.Get(targetAccount); err != nil || got != wantDiagnostic {
 		t.Fatalf("uninstall removed the retained diagnostic credential: %v", err)
 	}
-	journey.runWith(journey.source, "install", "--path", journey.binary)
+	journey.runWith(journey.source, "install", journey.pathFlag(journey.source, "install"), journey.binary)
 	journey.run("sync")
 	journey.requireNoClaudeProjection()
 	journey.run("use", "--for", claude.ID, "native-system-keyring-probe-claude")

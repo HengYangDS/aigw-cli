@@ -16,11 +16,12 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ### Changed
 
-- A flag error now names the help of the command that refused the flag, in
-  text and as the JSON failure document's `next_action`: an unknown flag,
-  such as `aigw status --not-a-flag`, names `aigw status --help` where it
-  named `aigw --help`, and a flag without its value or with a value that does
-  not parse names that help where it named `aigw check`.
+- A flag error now names the help of the command that refused the flag, such
+  as `aigw status --help`, as its next action. An unknown flag named
+  `aigw --help` before, and an unknown shorthand flag, a flag without its value
+  or a value that does not parse named `aigw check`. When `--json` comes before
+  the refused flag, the JSON failure document's `next_action` names the same
+  help. `aigw help`, which help does not list, names `aigw --help`.
 
 ### Removed
 

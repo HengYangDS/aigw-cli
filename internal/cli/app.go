@@ -389,8 +389,12 @@ func NewRoot(app *App) *cobra.Command {
 	completion.GroupID = "advanced"
 	root.AddCommand(completion, credentialcli.NewCommand(runtime))
 	// A flag error names the help of the command that refused the flag, as a
-	// flag-group failure does.
+	// flag-group failure does; a command that help does not list, such as the
+	// help command, names top-level help.
 	root.SetFlagErrorFunc(func(command *cobra.Command, err error) error {
+		if !command.IsAvailableCommand() {
+			command = command.Root()
+		}
 		return fmt.Errorf("%w; run `%s --help`", err, command.CommandPath())
 	})
 	return root

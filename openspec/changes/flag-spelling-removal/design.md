@@ -28,17 +28,22 @@ for hidden spellings.
   top-level help or `aigw check`, neither of which lists the command's flags.
   The flag error function now appends the refusing command's help, as
   flag-group and required-flag failures already do, so a script that passes
-  `setup --model` is sent to the help that shows `--upstream-model`.
+  `setup --model` is sent to the help that shows `--upstream-model`. A command
+  that help does not list, the help command itself, names top-level help, and
+  the credential helper keeps its product-owned refusal. The refusal is a JSON
+  document only when `--json` came before the refused flag, because flag
+  parsing stops at that flag; reading `--json` from the raw arguments was
+  rejected, since a flag value such as `--label --json` would be misread.
 - **Retire the mechanism with the spellings.** The replaced-by annotation, the
   warning before each command, the mutual-exclusion pairs and the apply-command
   mapping have no other use, so they go. A later rename can bring the
   mechanism back from history.
-- **Journeys pass `--path` to every program.** The release journeys told the
-  baseline apart from the candidate only to pass `--target` to the baseline.
-  A baseline built from this source no longer accepts `--target`, and v0.5.0,
-  the predecessor of 0.6.0, accepts `--path`, so the journeys pass `--path` to
-  both and the split goes. A predecessor before 0.5.0 fails a journey at its
-  first step, the install.
+- **Journeys read each program's path flag from its help.** The release
+  journeys told the baseline apart from the candidate only to pass `--target`
+  to the baseline, which a baseline built from this source refuses. They now
+  ask the command's own help for its path flag, `--path` from 0.5.0 and
+  `--target` before it, so the split goes and a journey still starts from any
+  published release, as the published-lifecycle verification allows.
 - **Version 0.6.0.** Removing flags breaks scripts that still pass them, so
   the release is a minor version, as 0.5.0 was.
 

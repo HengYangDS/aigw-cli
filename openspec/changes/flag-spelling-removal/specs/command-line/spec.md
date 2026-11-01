@@ -4,13 +4,21 @@
 
 A command SHALL refuse a flag that it does not accept, a flag without its value
 and a flag value that does not parse before it runs, and the refusal SHALL name
-the help of that command as its next action.
+the help of that command as its next action. A command that help does not list,
+such as `aigw help` itself, SHALL name top-level help, and the credential helper
+SHALL keep the refusal that its own failure scenario defines.
 
 #### Scenario: A command receives a flag that it does not accept
 
 - **WHEN** `aigw status --not-a-flag` runs
 - **THEN** AIGW SHALL refuse the flag, name `aigw status --help` as the next
   action and exit 1.
+
+#### Scenario: The help command receives a flag that it does not accept
+
+- **WHEN** `aigw help setup --not-a-flag` runs
+- **THEN** AIGW SHALL refuse the flag, name `aigw --help` as the next action
+  and exit 1.
 
 ## MODIFIED Requirements
 
@@ -26,10 +34,10 @@ spelling.
 
 #### Scenario: An earlier flag spelling is used
 
-- **WHEN** a script runs `aigw setup --model gpt-6.1-sol` in the release that
-  renames the flag
-- **THEN** the command SHALL use the value as `--upstream-model`
-- **AND** standard error SHALL name `--upstream-model` as the replacement.
+- **WHEN** a script passes a renamed flag's earlier spelling in the release
+  that renames the flag
+- **THEN** the command SHALL use the value as it uses the replacement's value
+- **AND** standard error SHALL name the replacement.
 
 #### Scenario: An earlier flag spelling outlives its release
 

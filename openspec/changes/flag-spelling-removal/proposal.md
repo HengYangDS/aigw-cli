@@ -35,11 +35,11 @@ decided.
 ## Impact
 
 `setup`, `add`, `install` and `uninstall` lose one flag each, and the CLI loses
-the replaced-spelling warning. Every command's flag errors name that command's
-help, in text and in the JSON failure document's `error` and `next_action`. No
-JSON document gains or loses a field, and configuration, credentials and client
-files do not change. Release journeys pass `--path` to the baseline and the
-candidate alike, so they need a predecessor of 0.5.0 or later. Out of scope:
-other flags,
-and `--model` and `--target` where they keep their meaning, as in `route add`
-and `client enable`.
+the replaced-spelling warning. A flag error names the help of the command that
+refused the flag, in text and, when `--json` comes before that flag, in the
+JSON failure document's `error` and `next_action`; the credential helper keeps
+its own refusal. No JSON document gains or loses a field, and configuration,
+credentials and client files do not change. The release journeys read each
+program's path flag from its own help, so they still start from any published
+release. Out of scope: other flags, and `--model` and `--target` where they
+keep their meaning, as in `route add` and `client enable`.

@@ -53,7 +53,7 @@ func TestSetupAdmitsArgumentsBeforeCreatingConfiguration(t *testing.T) {
 		{"--from", "team.toml", "--openai-url="},
 		{"--from", "team.toml", "--anthropic-url="},
 		{"--from", "team.toml", "--for="},
-		{"--from", "team.toml", "--model="},
+		{"--from", "team.toml", "--upstream-model="},
 		{"--json"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {

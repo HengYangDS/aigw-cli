@@ -267,9 +267,22 @@ interfaces = { anthropic = ["text"] }
 	if installClient {
 		journey.installClientFixture("claude")
 	}
-	journey.runWith(source, "install", "--path", journey.binary)
+	journey.runWith(source, "install", journey.pathFlag(source, "install"), journey.binary)
 	journey.run("--version")
 	return journey
+}
+
+// pathFlag is the flag with which program's install or uninstall names the
+// installed program, as that command's own help lists it: --path, or --target
+// in a release before 0.5.0, so a journey can start from any published release.
+// It reads the help outside the test's context, which a registered cleanup's
+// uninstall outlives.
+func (j *journeyFixture) pathFlag(program, command string) string {
+	help := j.runWithContext(context.WithoutCancel(j.testing.Context()), program, "", command, "--help")
+	if bytes.Contains(help, []byte("--path")) {
+		return "--path"
+	}
+	return "--target"
 }
 
 func (j *journeyFixture) installClientFixture(client string) {
@@ -386,7 +399,7 @@ func (j *journeyFixture) uninstallAndRequireInstallationRemoved() {
 func (j *journeyFixture) uninstallWithAndRequireInstallationRemoved(binary string) {
 	j.testing.Helper()
 	reader := j.captureCredentialReader()
-	j.runWithContext(context.WithoutCancel(j.testing.Context()), binary, "", "uninstall", "--path", j.binary)
+	j.runWithContext(context.WithoutCancel(j.testing.Context()), binary, "", "uninstall", j.pathFlag(binary, "uninstall"), j.binary)
 	j.requireInstallationRemoved()
 	reader.requireUnchanged(j.testing)
 }
