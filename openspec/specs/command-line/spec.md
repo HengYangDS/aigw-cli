@@ -399,14 +399,23 @@ Across commands, `--for` SHALL name a client or `all`, `--account` an Account,
 that an endpoint serves, `--protocol` an endpoint protocol, `--target` a
 client's native configuration file and `--path` the program file. A renamed
 flag SHALL keep its earlier spelling for one release, hidden, with a warning
-that names its replacement.
+that names its replacement, and every later release SHALL refuse the earlier
+spelling.
 
 #### Scenario: An earlier flag spelling is used
 
-- **WHEN** a script runs `aigw setup --model gpt-6.1-sol` in the release that
-  renames the flag
-- **THEN** the command SHALL use the value as `--upstream-model`
-- **AND** standard error SHALL name `--upstream-model` as the replacement.
+- **WHEN** a script passes a renamed flag's earlier spelling in the release
+  that renames the flag
+- **THEN** the command SHALL use the value as it uses the replacement's value
+- **AND** standard error SHALL name the replacement.
+
+#### Scenario: An earlier flag spelling outlives its release
+
+- **WHEN** a script runs `aigw setup --model gpt-6.1-sol` in a release after
+  the one that hid the spelling
+- **THEN** the command SHALL refuse the unknown flag, name `aigw setup --help`
+  as the next action and exit 1
+- **AND** it SHALL read no Token and write no configuration or client file.
 
 #### Scenario: The program file is named
 
@@ -482,3 +491,23 @@ its help and exit 0, and `aigw help <command>` SHALL print that command's help.
 
 - **WHEN** `aigw route bogus` runs
 - **THEN** it SHALL refuse, name `aigw route --help`, and exit 1.
+
+### Requirement: A flag error names the command's help
+
+A command SHALL refuse a flag that it does not accept, a flag without its value
+and a flag value that does not parse before it runs, and the refusal SHALL name
+the help of that command as its next action. The credential helper SHALL keep
+the refusal that its own failure scenario defines, and any other command that
+help does not list, such as `aigw help` itself, SHALL name top-level help.
+
+#### Scenario: A command receives a flag that it does not accept
+
+- **WHEN** `aigw status --not-a-flag` runs
+- **THEN** AIGW SHALL refuse the flag, name `aigw status --help` as the next
+  action and exit 1.
+
+#### Scenario: The help command receives a flag that it does not accept
+
+- **WHEN** `aigw help setup --not-a-flag` runs
+- **THEN** AIGW SHALL refuse the flag, name `aigw --help` as the next action
+  and exit 1.
