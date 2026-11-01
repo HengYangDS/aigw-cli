@@ -1,8 +1,8 @@
 ## 1. Removal
 
-- [ ] 1.1 Remove the hidden `--model` of `setup` and `add` and the hidden `--target` of `install` and `uninstall`, with the replaced-spelling warning, annotation, mutual exclusion and apply-command mapping that only they use, and let the release journeys read each program's path flag from its own help instead of its role. An acceptance test and the scripts show that each removed spelling fails as an unknown flag and changes nothing.
-- [ ] 1.2 Record the removal in the team rollout guide and in CHANGELOG's `[Unreleased]` section, naming `--upstream-model` and `--path` as the spellings to use.
-- [ ] 1.3 Make every flag error name the help of the command that refused the flag, or top-level help for a command that help does not list, and record it in CHANGELOG's `[Unreleased]` section and the team rollout guide. An acceptance test shows it for unknown long and shorthand flags, a missing and an invalid value, a nested command, the root and the help command, in text and as a JSON document, and the scripts show it for each removed spelling.
+- [x] 1.1 Remove the hidden `--model` of `setup` and `add` and the hidden `--target` of `install` and `uninstall`, with the replaced-spelling warning, annotation, mutual exclusion and apply-command mapping that only they use, and let the release journeys read each program's path flag from its own help instead of its role. An acceptance test and the scripts show that each removed spelling fails as an unknown flag and changes nothing.
+- [x] 1.2 Record the removal in the team rollout guide and in CHANGELOG's `[Unreleased]` section, naming `--upstream-model` and `--path` as the spellings to use.
+- [x] 1.3 Make every flag error name the help of the command that refused the flag, or top-level help for a command that help does not list, and record it in CHANGELOG's `[Unreleased]` section and the team rollout guide. An acceptance test shows it for unknown long and shorthand flags, a missing and an invalid value, a nested command, the root and the help command, in text and as a JSON document, and the scripts show it for each removed spelling.
 
 ## 2. Release
 
