@@ -273,14 +273,17 @@ interfaces = { anthropic = ["text"] }
 }
 
 // pathFlag is the flag with which program's install or uninstall names the
-// installed program, as that command's own help lists it: --path, or --target
-// in a release before 0.5.0, so a journey can start from any published release.
-// It reads the help outside the test's context, which a registered cleanup's
-// uninstall outlives.
+// installed program, as that command's own help lists it in its flag column:
+// --path, or --target in a release before 0.5.0, so a journey can start from
+// any published release. It reads the help outside the test's context, which a
+// registered cleanup's uninstall outlives.
 func (j *journeyFixture) pathFlag(program, command string) string {
+	j.testing.Helper()
 	help := j.runWithContext(context.WithoutCancel(j.testing.Context()), program, "", command, "--help")
-	if bytes.Contains(help, []byte("--path")) {
-		return "--path"
+	for line := range strings.Lines(string(help)) {
+		if strings.HasPrefix(strings.TrimSpace(line), "--path ") {
+			return "--path"
+		}
 	}
 	return "--target"
 }

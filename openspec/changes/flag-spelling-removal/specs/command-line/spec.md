@@ -4,9 +4,9 @@
 
 A command SHALL refuse a flag that it does not accept, a flag without its value
 and a flag value that does not parse before it runs, and the refusal SHALL name
-the help of that command as its next action. A command that help does not list,
-such as `aigw help` itself, SHALL name top-level help, and the credential helper
-SHALL keep the refusal that its own failure scenario defines.
+the help of that command as its next action. The credential helper SHALL keep
+the refusal that its own failure scenario defines, and any other command that
+help does not list, such as `aigw help` itself, SHALL name top-level help.
 
 #### Scenario: A command receives a flag that it does not accept
 
