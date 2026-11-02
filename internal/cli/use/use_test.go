@@ -148,9 +148,18 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 		t.Fatalf("explicit selection preview rejected an authorized root selection: %v", err)
 	}
 	after, err := run.Config.CaptureSnapshot()
-	current, readErr := os.ReadFile(target)
-	if err != nil || readErr != nil || !reflect.DeepEqual(before, after) || !bytes.Equal(current, drifted) || !strings.Contains(out.String(), filepath.Base(target)) {
-		t.Fatal("selection preview changed owned configuration or native user selections")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(before, after) {
+		t.Fatal("selection preview changed owned configuration")
+	}
+	if current, err := os.ReadFile(target); err != nil || !bytes.Equal(current, drifted) {
+		t.Fatalf("selection preview changed native user selections: %v", err)
+	}
+	// The renderer breaks a path wider than the terminal at any character.
+	if text := strings.Join(strings.Fields(out.String()), ""); !strings.Contains(text, strings.Join(strings.Fields(target), "")) {
+		t.Fatalf("selection preview does not name %s:\n%s", target, out)
 	}
 }
 

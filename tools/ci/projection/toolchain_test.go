@@ -365,16 +365,18 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// HOME and the caller's data and cache directories stay shared, so tools
+	// are not installed again, as when a GitLab job selects its own.
+	shared := []string{"MISE_DATA_DIR", "MISE_CACHE_DIR"}
 	environment := slices.DeleteFunc(os.Environ(), func(value string) bool {
 		name, _, _ := strings.Cut(value, "=")
-		return strings.HasPrefix(name, "MISE_") || strings.HasPrefix(name, "__MISE_")
+		return (strings.HasPrefix(name, "MISE_") && !slices.Contains(shared, name)) || strings.HasPrefix(name, "__MISE_")
 	})
 	environment = append(environment,
 		"MISE_CONFIG_DIR="+filepath.Join(workspace, "global"),
 		"MISE_GLOBAL_CONFIG_FILE="+filepath.Join(workspace, "global", "config.toml"),
 		"MISE_SYSTEM_CONFIG_DIR="+filepath.Join(workspace, "system"),
 		"MISE_TRUSTED_CONFIG_PATHS="+workspace,
-		// HOME and the data directory stay shared, so tools are not reinstalled.
 		"MISE_STATE_DIR="+filepath.Join(workspace, "state"),
 	)
 	local, err := projectionCommand(repository, `{env: #MiseConfigurationEnvironment & {_root: "$AIGW_PROJECT_ROOT"}}`).Output()

@@ -28,6 +28,7 @@ import (
 	"aigw-cli/internal/platform"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/rogpeppe/go-internal/robustio"
 )
 
 func nativeLifecycleBaseline(buildFixture func() string) (string, error) {
@@ -476,7 +477,8 @@ func closeArchive(t *testing.T, closers ...func() error) {
 
 func readFile(t *testing.T, path string) []byte {
 	t.Helper()
-	data, err := os.ReadFile(path)
+	// Windows can hold a file briefly after another process published it.
+	data, err := robustio.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
 	}

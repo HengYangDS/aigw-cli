@@ -20,6 +20,10 @@ import (
 // process that installer started, must stop without cooperating, and the
 // partial supply must be removed before the supplier fails.
 func TestNativeClientSupplyStopsItsBlockingInstallerOnSignal(t *testing.T) {
+	host := runtime.GOOS + "/" + runtime.GOARCH
+	if _, supported := clientLayouts[host]; !supported {
+		t.Skipf("the supply refuses %s before an installer starts, as TestNativeClientsCommandSuppliesAndRetiresThisHost verifies", host)
+	}
 	self, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
@@ -31,7 +35,7 @@ func TestNativeClientSupplyStopsItsBlockingInstallerOnSignal(t *testing.T) {
 		}
 	}
 	record, githubEnvironment := filepath.Join(t.TempDir(), "installers"), filepath.Join(root, "github-env")
-	release := fixtureReleaseFor(runtime.GOOS + "/" + runtime.GOARCH)
+	release := fixtureReleaseFor(host)
 	arguments := []string{"native-clients", "supply", "--root", root, "--github-env", githubEnvironment, "--codex", release.codex, "--claude", release.claude}
 	if release.hermesCommit != "" {
 		arguments = append(arguments, "--hermes-commit", release.hermesCommit, "--hermes-installer-sha256", release.hermesInstaller)

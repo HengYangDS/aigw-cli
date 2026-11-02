@@ -342,9 +342,6 @@ func TestClientSupplyRetiresAnInterruptedSupply(t *testing.T) {
 func TestNativeClientsCommandSuppliesAndRetiresThisHost(t *testing.T) {
 	host := runtime.GOOS + "/" + runtime.GOARCH
 	layout, supported := clientLayouts[host]
-	if !supported {
-		t.Fatalf("native client acceptance has no official layout for test host %s", host)
-	}
 	root := t.TempDir()
 	windowsClientTools(t, root)
 	githubEnvironment := filepath.Join(root, "github-env")
@@ -354,7 +351,19 @@ func TestNativeClientsCommandSuppliesAndRetiresThisHost(t *testing.T) {
 		arguments = append(arguments, "--hermes-commit", release.hermesCommit, "--hermes-installer-sha256", release.hermesInstaller)
 	}
 	var calls []command
-	if err := run(arguments, &bytes.Buffer{}, recordingSupply(&calls, layout)); err != nil {
+	err := run(arguments, &bytes.Buffer{}, recordingSupply(&calls, layout))
+	if !supported {
+		// A host without a declared layout, such as GitLab's Linux and Windows
+		// ARM64 runners, is refused before any effect.
+		left, _ := filepath.Glob(filepath.Join(root, clientSupplyPrefix+"*"))
+		_, exported := os.Lstat(githubEnvironment)
+		if err == nil || !strings.Contains(err.Error(), "no official native client distribution for "+host) ||
+			len(calls) != 0 || len(left) != 0 || !errors.Is(exported, os.ErrNotExist) {
+			t.Fatalf("supply on %s = %v after %d commands, leaving %q and an environment file (%v)", host, err, len(calls), left, exported)
+		}
+		return
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 	clients := strings.TrimPrefix(strings.Split(string(readFile(t, githubEnvironment)), "\n")[0], "AIGW_NATIVE_CLIENT_SUPPLY=")

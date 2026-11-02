@@ -81,7 +81,8 @@ func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
 		).Replace(suffix)
 		script := "& '" + strings.ReplaceAll(executable, "'", "''") + "' '-test.run=^TestNativePowerShellAcceptancePreservesDeclaredEmptyTag$' -- " + arguments
 		for _, client := range []string{"", "codex"} {
-			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+			// The bound stops a hung witness; a loaded runner is slower than an idle one.
+			ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 			command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script)
 			command.Env = append(os.Environ(),
 				"AIGW_NATIVE_ARGUMENT_WITNESS=1", "AIGW_BASELINE_TAG=v1.2.3",
