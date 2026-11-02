@@ -157,9 +157,15 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 	if current, err := os.ReadFile(target); err != nil || !bytes.Equal(current, drifted) {
 		t.Fatalf("selection preview changed native user selections: %v", err)
 	}
-	// The renderer breaks a path wider than the terminal at any character.
-	if text := strings.Join(strings.Fields(out.String()), ""); !strings.Contains(text, strings.Join(strings.Fields(target), "")) {
-		t.Fatalf("selection preview does not name %s:\n%s", target, out)
+	// The preview names the target's resolved path, such as a Windows long
+	// name for a short temporary path, and the renderer breaks a path wider
+	// than the terminal at any character.
+	resolved, err := filepath.EvalSymlinks(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text := strings.Join(strings.Fields(out.String()), ""); !strings.Contains(text, strings.Join(strings.Fields(resolved), "")) {
+		t.Fatalf("selection preview does not name %s:\n%s", resolved, out)
 	}
 }
 
