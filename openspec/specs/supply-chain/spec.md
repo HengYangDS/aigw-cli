@@ -99,6 +99,15 @@ literals or compatibility fallbacks.
   and the time when its age ends
 - **AND** a later refresh SHALL take it once that age has passed.
 
+#### Scenario: A release publishes its packages at different times
+
+- **WHEN** a release ships as several packages that the registry records with
+  different publish times, such as a native client's platform packages
+- **THEN** its minimum release age SHALL run from the latest publish time among
+  the packages that the supplying hosts install
+- **AND** a refresh SHALL NOT pin the release before that age has passed for
+  each of those packages.
+
 ### Requirement: Native verification runs the declared Mise release
 
 Local verification and every Forge job SHALL run the Mise release that the
