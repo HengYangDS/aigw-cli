@@ -25,7 +25,7 @@ NPM_CONFIG_GLOBALCONFIG = "{% if os() == 'windows' %}NUL{% else %}/dev/null{% en
 NPM_CONFIG_CACHE = "{{ config_root }}/build/runtime/tool-cache/npm{% if env.CI_JOB_ID | default(value='') != '' %}/{{ env.CI_JOB_ID }}{% endif %}"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.199.2@sha256:0538f498be1b074e2434f8449cab7b2be30f8c0d0baf3b72814010f19db5bcfb"
+renovate_image = "ghcr.io/renovatebot/renovate:44.202.1@sha256:d490e203384cf1c2b149259d1dcfc88aa4bdcab184d3c90538d19242ba70d06d"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.
@@ -44,7 +44,7 @@ cue = "0.17.1"
 
 # Release transport conformance
 gh = "2.103.3"
-glab = "1.126.0"
+glab = "1.127.0"
 
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.19.0"
