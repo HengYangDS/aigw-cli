@@ -4,14 +4,15 @@
       test verify the command's refusal and the interruption test skip; both
       pass on macOS ARM64 and, as a host without a layout, macOS AMD64.
 - [x] 1.2 Keep the caller's Mise data and cache directories in the Mise
-      configuration boundary test; it passes with tools installed only in a
-      data directory outside the default data home.
+      configuration boundary test, disable automatic installation and bound
+      it at one minute; it passes with tools installed only in a data
+      directory outside the default data home, and writes nothing there.
 - [x] 1.3 Make the selection preview test find the complete target path
       wherever the output wraps and name the check that failed; it passes at
       every temporary-directory length that failed before.
-- [x] 1.4 Read release test files through the retrying reader and bound the
-      PowerShell witness at sixty seconds; the release and projection tests
-      pass.
+- [x] 1.4 Read the helper processes' readiness records through the retrying
+      reader, and bound the PowerShell witness at one minute with a bounded
+      wait for its output pipe; the release and projection tests pass.
 
 ## 2. Verification
 

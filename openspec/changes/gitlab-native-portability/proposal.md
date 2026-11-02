@@ -12,22 +12,23 @@ jobs fail on tests that assume GitHub's hosts:
 - The selection preview test looks for the target's file name in rendered
   output that wraps a long path at a position that depends on the length of
   the temporary directory.
-- On the loaded Windows ARM64 runner, a release test reads a file that another
-  process holds just after its publication, and a PowerShell witness passes
-  but exceeds its fifteen-second bound.
+- On the loaded Windows ARM64 runner, a release test reads a helper process's
+  readiness record while the host still holds it, and a PowerShell witness
+  passes but exceeds its fifteen-second bound.
 
 ## What Changes
 
 - On a host without a declared client layout, the host supply test verifies
-  that the command refuses the host before any effect, and the interruption
-  test, which needs the supply's installers to start, skips.
+  that the command refuses the host before any effect, and the process-level
+  interruption test, which needs the supply's installers to start, skips.
 - The Mise configuration boundary test keeps its caller's Mise data and cache
-  directories and still isolates Mise's configuration and state.
+  directories, never installs a tool, and still isolates Mise's configuration
+  and state.
 - The selection preview test finds the complete target path wherever the
   output wraps, and names the check that failed.
-- Release tests read files through the retrying reader that tolerates
-  transient Windows sharing violations, and the PowerShell witness's bound
-  stops only a hang.
+- The helper processes' readiness records are read through the retrying
+  reader that tolerates transient Windows sharing violations, and the bounds
+  of the PowerShell witness and the Mise probes stop only a hang.
 
 ## Capabilities
 
@@ -38,7 +39,8 @@ jobs fail on tests that assume GitHub's hosts:
 ### Modified Capabilities
 
 - `product-quality`: tests keep the Mise tool directories that their caller
-  selected, and the native tests pass on every hosted platform.
+  selected and install no tool, and the native tests pass on every hosted
+  platform.
 - `ci-diagnostics`: assertions on rendered output do not depend on where it
   wraps.
 

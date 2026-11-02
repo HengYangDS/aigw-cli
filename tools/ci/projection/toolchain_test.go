@@ -365,14 +365,15 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// HOME and the caller's data and cache directories stay shared, so tools
-	// are not installed again, as when a GitLab job selects its own.
+	// HOME and the caller's data and cache directories stay shared, as when a
+	// GitLab job selects its own, and the test never installs a tool there.
 	shared := []string{"MISE_DATA_DIR", "MISE_CACHE_DIR"}
 	environment := slices.DeleteFunc(os.Environ(), func(value string) bool {
 		name, _, _ := strings.Cut(value, "=")
 		return (strings.HasPrefix(name, "MISE_") && !slices.Contains(shared, name)) || strings.HasPrefix(name, "__MISE_")
 	})
 	environment = append(environment,
+		"MISE_AUTO_INSTALL=false",
 		"MISE_CONFIG_DIR="+filepath.Join(workspace, "global"),
 		"MISE_GLOBAL_CONFIG_FILE="+filepath.Join(workspace, "global", "config.toml"),
 		"MISE_SYSTEM_CONFIG_DIR="+filepath.Join(workspace, "system"),
@@ -422,23 +423,25 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 
 func assertMiseConfigurationBoundary(t *testing.T, root, directory string, environment []string) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	// The bound stops a hang; a loaded runner is slower than an idle one.
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 	defer cancel()
+	var diagnostics strings.Builder
 	command := exec.CommandContext(ctx, "mise", "env", "--json")
-	command.Dir, command.Env = directory, environment
+	command.Dir, command.Env, command.Stderr = directory, environment, &diagnostics
 	output, err := command.Output()
 	if err != nil {
-		t.Fatalf("native mise configuration discovery: %v", err)
+		t.Fatalf("native mise configuration discovery: %v: %s", err, &diagnostics)
 	}
 	var observed map[string]string
 	if err := json.Unmarshal(output, &observed); err != nil {
 		t.Fatal(err)
 	}
 	probe := exec.CommandContext(ctx, "mise", "run", "probe")
-	probe.Dir, probe.Env = directory, environment
+	probe.Dir, probe.Env, probe.Stderr = directory, environment, &diagnostics
 	module, probeErr := probe.Output()
 	if probeErr != nil || filepath.Clean(strings.TrimSpace(string(module))) != filepath.Join(root, "go.mod") {
-		t.Fatalf("native task left the project root: %q, %v", module, probeErr)
+		t.Fatalf("native task left the project root: %q, %v: %s", module, probeErr, &diagnostics)
 	}
 	for name, want := range map[string]string{
 		"AIGW_PROJECT_PROBE": "owned", "AIGW_PARENT_PROBE": "",

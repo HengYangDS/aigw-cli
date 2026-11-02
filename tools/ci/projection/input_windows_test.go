@@ -84,6 +84,8 @@ func TestNativePowerShellAcceptancePreservesDeclaredEmptyTag(t *testing.T) {
 			// The bound stops a hung witness; a loaded runner is slower than an idle one.
 			ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 			command := exec.CommandContext(ctx, pwsh, "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script)
+			// A witness that outlives PowerShell keeps the output pipe open.
+			command.WaitDelay = 5 * time.Second
 			command.Env = append(os.Environ(),
 				"AIGW_NATIVE_ARGUMENT_WITNESS=1", "AIGW_BASELINE_TAG=v1.2.3",
 				"AIGW_CANDIDATE_TAG=", "AIGW_NATIVE_DIAGNOSTIC_CLIENT="+client,

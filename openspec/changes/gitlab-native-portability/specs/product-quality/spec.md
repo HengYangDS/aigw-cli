@@ -17,10 +17,10 @@ hang, not a slow host.
 - **AND** a test that needs the supply's installers to start SHALL skip on that
   host and name the refusal.
 
-#### Scenario: Windows briefly holds a published file
+#### Scenario: Windows briefly holds a readiness record
 
-- **WHEN** a test reads a file just after another process published it on
-  Windows, and the host still holds the file
+- **WHEN** a test reads the record that a helper process published to signal
+  its readiness on Windows, and the host still holds the file
 - **THEN** the read SHALL retry within a bounded time before the test fails.
 
 #### Scenario: A loaded host slows a helper process
@@ -37,8 +37,8 @@ hang, not a slow host.
 A test that runs Mise SHALL direct Mise's state directory into the test's own
 workspace, so that trust and tracking records for temporary checkouts never
 reach the operator's Mise state. It SHALL keep the data and cache directories
-that its caller selected, so the caller's installed tools stay in use and the
-test installs nothing outside those directories.
+that its caller selected and SHALL NOT install a tool, so the caller's
+installed tools stay in use and the caller's tool store stays unchanged.
 
 #### Scenario: A test runs Mise in a temporary checkout
 
@@ -50,4 +50,4 @@ test installs nothing outside those directories.
 - **WHEN** a hosted job directs Mise's data and cache directories into
   job-owned directories, as GitLab's Linux and Windows jobs do
 - **THEN** a test that isolates Mise's configuration SHALL run the tools
-  installed there without installing them again.
+  installed there and install none.
