@@ -23,6 +23,10 @@
   - [x] 1.2.4 Publish the maintenance tags `v0.3.4` and `v0.3.5`; read back
         GitHub's objects `e86777be` and `95132368`. Done by the user-authorized
         break glass of 2026-10-15, outside ETHOS publication.
+  - [x] 1.2.5 Publish the twelve release tags `v0.4.9` to `v0.6.0`; read back
+        GitHub's objects and verify each tag's signature. Done by the
+        user-authorized break glass of 2026-11-02, outside ETHOS publication,
+        because ETHOS alpha.27 publishes no historical release tag.
 - [x] 1.3 Supply GitLab's locked tool closure for the current
       `.config/mise/mise.lock` through upstream supply; GitLab's protected
       pipelines pass for the published head (`3cf22277`: `dev` 11342, `main`
@@ -30,6 +34,11 @@
 - [x] 1.4 Publish the GitLab Releases of `v0.3.4` and `v0.3.5` from their
       retained local bundles; `v0.4.2` stays without a GitLab Release by the
       user's decision of 2026-10-16.
+- [x] 1.5 Publish the GitLab Releases of `v0.4.9` to `v0.6.0` from their
+      retained local bundles through the repository's release tool, which
+      verifies each bundle's signatures, provenance and notarization and
+      compares every uploaded link; records in the main checkout's
+      `build/evidence/gitlab-backfill-20261102/`.
 
 ## 2. Qualify GitLab Peer Admission
 
