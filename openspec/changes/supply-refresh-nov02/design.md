@@ -8,7 +8,7 @@ three days; the native client pins follow the same age by practice.
 ## Goals / Non-Goals
 
 **Goals:** every supply input on its latest stable release that the policy
-admits, with each digest read from its publisher, in one lane and one proof.
+admits, with each digest read from its publisher.
 
 **Non-Goals:** a release, a change to the AIGW program, or overriding the
 release age.
@@ -25,10 +25,9 @@ release age.
   that the supplying hosts install: Claude Code 2.1.316's Windows x64 package
   was published last, at 2026-10-31T00:43:22Z, four minutes after its macOS
   package. The supply-chain specification states this as a scenario.
-- The lane starts with the updates that the policy admits on 2026-11-02 and
-  takes OpenSpec 1.16.0 and Claude Code 2.1.316 when their ages end, before its
-  proof, so that one lane, one proof and one client journey per host cover the
-  whole refresh.
+- The refresh lands the updates that the policy admits on 2026-11-02 at once
+  and holds OpenSpec 1.16.0 and Claude Code 2.1.316, which the next refresh
+  takes when their ages end; admitted updates do not wait a day for them.
 - `go.yaml.in/yaml/v3` v3.0.6 holds one fix: a literal `<<` string is quoted
   when encoded, so that it does not read back as a merge key. The Hermes
   adapter links it into released programs; without an advisory, it ships with

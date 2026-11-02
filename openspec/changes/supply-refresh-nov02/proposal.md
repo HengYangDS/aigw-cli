@@ -19,8 +19,9 @@ Hermes v0.22.5 are already current.
 - Advance the Renovate image to 44.199.2, pinned to its index digest, and
   mise-action to v5.2.5, pinned to its commit.
 - Advance `go.yaml.in/yaml/v3` to v3.0.6.
-- Pin Codex 0.166.0 for the native client journeys now, and Claude Code 2.1.316
-  and OpenSpec 1.16.0 once their release ages end.
+- Pin Codex 0.166.0 for the native client journeys. Claude Code 2.1.316 and
+  OpenSpec 1.16.0 keep their locked releases until their release ages end, and
+  the next refresh takes them.
 
 ## Capabilities
 
@@ -37,10 +38,10 @@ Hermes v0.22.5 are already current.
 ## Impact
 
 The Mise declaration, the CUE authority, the retained-step record, both
-generated Forge projections, the Go module files, the npm manifest and lock,
-and two projection tests change. The GitLab Windows runner's Mise and client
-supplier follow at the deferred GitLab catch-up, before any aigw GitLab job
-consumes this declaration. The released AIGW programs, user configuration and
-credentials do not change, so no release follows. The next release builds with
+generated Forge projections, the Go module files and two projection tests
+change. The GitLab Windows runner's Mise and client supplier follow at the
+deferred GitLab catch-up, before any aigw GitLab job consumes this
+declaration. The released AIGW programs, user configuration and credentials do
+not change, so no release follows. The next release builds with
 `go.yaml.in/yaml/v3` v3.0.6, which quotes a literal `<<` string when it encodes
 YAML.
