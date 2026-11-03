@@ -33,6 +33,10 @@ tool, or the proxy's candidate calculation.
 - Claude Code 2.1.317 waits for the age of its last supplying platform package
   (`win32-x64`, published 2026-11-03T00:04Z), as the supply-chain
   specification requires.
+- uv 0.13.7 does not wait for the 24-hour default age that Mise applies when it
+  resolves a version. The policy admits checksum-locked tools without an age,
+  and a security fix moves a locked tool to its first fixed release; the lock
+  records GitHub attestation provenance for every platform.
 
 ## Risks / Trade-offs
 

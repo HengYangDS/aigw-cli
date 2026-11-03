@@ -6,7 +6,9 @@ package-name strings into the CUE `nativeClients` block, the Renovate rule for
 pinned npm clients matches no input, and no rule has ever read the Hermes pin.
 The calculation therefore reports no Codex, Claude Code or Hermes release: on
 2026-11-03 it described the supply chain as current while Hermes v0.22.6
-(2026-11-02T17:18Z) was available. uv 0.13.7 followed on 2026-11-03T02:45Z.
+(2026-11-02T17:18Z) was available. uv 0.13.7 followed on 2026-11-03T02:45Z; it
+embeds rustls 0.23.46, which fixes GHSA-c8m5-c952-6cm4 and three low-severity
+rustls advisories that affect the 0.23.45 of uv 0.13.6.
 
 ## What Changes
 

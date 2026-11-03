@@ -18,9 +18,9 @@
 
 ## 3. Verification
 
-- [ ] 3.1 `mise run check` and `mise run dependencies:check` pass on the lane
-      head.
-- [ ] 3.2 A candidate calculation on the lane head reports no update except
-      Claude Code 2.1.317, held by its release age.
+- [x] 3.1 `mise run check` and `mise run dependencies:check` pass on the lane
+      head (`d46c32d2`).
+- [x] 3.2 A candidate calculation on the lane head reports no update except
+      Claude Code 2.1.317, held by its release age (`scc-r2` on `d46c32d2`).
 - [ ] 3.3 The hosted graph passes at the landed head, and the native client
       journeys on macOS, Linux and Windows pass with Hermes v0.22.6.
