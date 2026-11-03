@@ -206,23 +206,23 @@ func TestForgeProjectionsIncludeTheCompleteNativeMatrix(t *testing.T) {
 	}
 }
 
-func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T) {
-	root := filepath.Clean(filepath.Join("..", "..", ".."))
-	projections, err := renderProjections(root)
+// windowsRunnerMise is the runner-owned Mise that the CUE authority pins for
+// GitLab's Windows ARM64 host.
+type windowsRunnerMise struct {
+	Version    string `yaml:"version"`
+	Executable string `yaml:"executable"`
+	Shim       string `yaml:"shim"`
+	Directory  string `yaml:"directory"`
+}
+
+func pinnedWindowsRunnerMise(t *testing.T, root string) windowsRunnerMise {
+	t.Helper()
+	output, err := projectionCommand(root, "{version: miseVersion, executable: miseWindowsArm64ExecutableSHA256, shim: miseWindowsArm64ShimSHA256, directory: miseWindowsArm64Directory}").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
-	identityOutput, err := projectionCommand(root, "{version: miseVersion, executable: miseWindowsArm64ExecutableSHA256, shim: miseWindowsArm64ShimSHA256, directory: miseWindowsArm64Directory}").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var identity struct {
-		Version    string `yaml:"version"`
-		Executable string `yaml:"executable"`
-		Shim       string `yaml:"shim"`
-		Directory  string `yaml:"directory"`
-	}
-	if err := yaml.Unmarshal(identityOutput, &identity); err != nil {
+	var identity windowsRunnerMise
+	if err := yaml.Unmarshal(output, &identity); err != nil {
 		t.Fatal(err)
 	}
 	if identity.Version == "" || len(identity.Executable) != 64 || len(identity.Shim) != 64 {
@@ -233,6 +233,16 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 	if identity.Directory == "" || identity.Directory == "mise" {
 		t.Fatalf("CUE must name an AIGW-only runner Mise directory, not %q", identity.Directory)
 	}
+	return identity
+}
+
+func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T) {
+	root := filepath.Clean(filepath.Join("..", "..", ".."))
+	projections, err := renderProjections(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity := pinnedWindowsRunnerMise(t, root)
 	var gitlab struct {
 		Windows struct {
 			Script      []string `yaml:"script"`
