@@ -10,7 +10,8 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` and `mise run dependencies:check` pass on the lane
-      head.
-- [ ] 2.2 A GitLab review pipeline of the lane head runs `native-windows-review`
-      with the new directory and passes.
+- [x] 2.1 `mise run check` and `mise run dependencies:check` pass on the lane
+      head (`1ee8191d`).
+- [x] 2.2 A GitLab review pipeline of the lane head runs `native-windows-review`
+      with the new directory and passes (`1ee8191d`, MR !182, pipeline 13962,
+      job 64337).
