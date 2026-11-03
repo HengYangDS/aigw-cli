@@ -308,7 +308,7 @@ native-windows:
         [void](New-Item -ItemType Directory -Path $path -ErrorAction Stop)
       }
       $env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
-      $mise = Join-Path $env:ProgramFiles 'mise\bin\mise.exe'
+      $mise = Join-Path $env:ProgramFiles 'mise-aigw-cli\bin\mise.exe'
       if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
       if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne '5f44336c1a2ef7a36d759c59158299733e75ba2f9b15234106e92d28810768e7') { throw 'Runner-owned Mise digest differs from the admitted release.' }
       $reported = & $mise --version
@@ -461,7 +461,7 @@ native-windows-review:
         [void](New-Item -ItemType Directory -Path $path -ErrorAction Stop)
       }
       $env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
-      $mise = Join-Path $env:ProgramFiles 'mise\bin\mise.exe'
+      $mise = Join-Path $env:ProgramFiles 'mise-aigw-cli\bin\mise.exe'
       if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
       if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne '5f44336c1a2ef7a36d759c59158299733e75ba2f9b15234106e92d28810768e7') { throw 'Runner-owned Mise digest differs from the admitted release.' }
       $reported = & $mise --version

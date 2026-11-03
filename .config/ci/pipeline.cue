@@ -352,7 +352,10 @@ miseImage:                        "docker.io/jdxcode/mise:2026.10.25-debian@sha2
 miseVersion:                      strings.TrimSuffix(strings.Split(strings.Split(miseImage, ":")[1], "@")[0], "-debian")
 miseWindowsArm64ExecutableSHA256: "5f44336c1a2ef7a36d759c59158299733e75ba2f9b15234106e92d28810768e7"
 miseWindowsArm64ShimSHA256:       "46ce75fdf524036c8237ff7178925c131a90fcd39b30475cd4948e1a774c8296"
-windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
+// AIGW's runner-owned Mise directory under Program Files on GitLab's Windows
+// ARM64 host; the other projects keep the shared mise directory.
+miseWindowsArm64Directory: "mise-aigw-cli"
+windowsMiseJobDirectory:   "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \"aigw-ci-mise-$env:CI_JOB_ID\""
 
 // Official native clients for real-client acceptance, pinned once. Each GitHub
 // native job installs the clients its host declares; a GitLab public input
@@ -654,7 +657,7 @@ workflowEvidencePath:   "build/verification/workflows"
 			  [void](New-Item -ItemType Directory -Path $path -ErrorAction Stop)
 			}
 			$env:MISE_TRUSTED_CONFIG_PATHS = $env:CI_PROJECT_DIR
-			$mise = Join-Path $env:ProgramFiles 'mise\bin\mise.exe'
+			$mise = Join-Path $env:ProgramFiles '\#(miseWindowsArm64Directory)\bin\mise.exe'
 			if (-not (Test-Path -LiteralPath $mise -PathType Leaf)) { throw 'Runner-owned Mise is missing.' }
 			if ((Get-FileHash -LiteralPath $mise -Algorithm SHA256 -ErrorAction Stop).Hash -ne '\#(miseWindowsArm64ExecutableSHA256)') { throw 'Runner-owned Mise digest differs from the admitted release.' }
 			$reported = & $mise --version

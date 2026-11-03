@@ -212,7 +212,7 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	identityOutput, err := projectionCommand(root, "{version: miseVersion, executable: miseWindowsArm64ExecutableSHA256, shim: miseWindowsArm64ShimSHA256}").Output()
+	identityOutput, err := projectionCommand(root, "{version: miseVersion, executable: miseWindowsArm64ExecutableSHA256, shim: miseWindowsArm64ShimSHA256, directory: miseWindowsArm64Directory}").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,12 +220,18 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 		Version    string `yaml:"version"`
 		Executable string `yaml:"executable"`
 		Shim       string `yaml:"shim"`
+		Directory  string `yaml:"directory"`
 	}
 	if err := yaml.Unmarshal(identityOutput, &identity); err != nil {
 		t.Fatal(err)
 	}
 	if identity.Version == "" || len(identity.Executable) != 64 || len(identity.Shim) != 64 {
 		t.Fatal("CUE must declare an exact Mise version and executable/shim digests")
+	}
+	// The shared directory belongs to every project on the host, so AIGW's
+	// pinned release must not live there.
+	if identity.Directory == "" || identity.Directory == "mise" {
+		t.Fatalf("CUE must name an AIGW-only runner Mise directory, not %q", identity.Directory)
 	}
 	var gitlab struct {
 		Windows struct {
@@ -237,7 +243,7 @@ func TestGitLabWindowsVerifiesRunnerOwnedMiseBeforeRepositoryTools(t *testing.T)
 		t.Fatal(err)
 	}
 	commands := gitlab.Windows.Script
-	if len(commands) < 2 || !strings.Contains(commands[0], `Join-Path $env:ProgramFiles 'mise\bin\mise.exe'`) ||
+	if len(commands) < 2 || !strings.Contains(commands[0], `Join-Path $env:ProgramFiles '`+identity.Directory+`\bin\mise.exe'`) ||
 		!strings.Contains(commands[0], identity.Version) ||
 		!strings.Contains(commands[0], identity.Executable) ||
 		!strings.Contains(commands[0], "Get-FileHash -LiteralPath $mise -Algorithm SHA256") ||
