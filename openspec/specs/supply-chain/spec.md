@@ -141,6 +141,13 @@ runner-owned Mise SHALL be replaced before a job consumes that declaration.
 - **THEN** that runner's executable and shim SHALL be replaced with the verified
   release before any of its jobs consumes the declaration.
 
+#### Scenario: Projects share a Windows runner host
+
+- **WHEN** the runners of several projects share a Windows ARM64 host
+- **THEN** AIGW's jobs SHALL run the Mise executable and shim from a directory
+  that only AIGW's declaration updates
+- **AND** replacing AIGW's Mise SHALL leave the other projects' Mise unchanged.
+
 ### Requirement: Real-client acceptance supplies each host's official clients
 
 Real-client acceptance on a native host SHALL first supply exactly the clients
