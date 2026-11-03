@@ -81,15 +81,35 @@
   ],
 
   customManagers: [
+    // The CUE keys name the native clients, so each rule names its package.
     {
       customType: "regex",
-      description: "Pinned npm clients in the CUE authority",
+      description: "Pinned Codex release of the native clients in the CUE authority",
       managerFilePatterns: ["/^\\.config/ci/pipeline\\.cue$/"],
-      matchStrings: [
-        "['\"](?<depName>@?[\\w.-]+(?:/[\\w.-]+)?)@(?<currentValue>\\d+\\.\\d+\\.\\d+(?:-[\\w.-]+)?)['\"]",
-      ],
+      matchStrings: ['\\n\\tcodex:\\s+"(?<currentValue>\\d+\\.\\d+\\.\\d+(?:-[\\w.-]+)?)"'],
+      depNameTemplate: "@openai/codex",
       datasourceTemplate: "npm",
       versioningTemplate: "npm",
+    },
+    {
+      customType: "regex",
+      description: "Pinned Claude Code release of the native clients in the CUE authority",
+      managerFilePatterns: ["/^\\.config/ci/pipeline\\.cue$/"],
+      matchStrings: ['\\n\\tclaude:\\s+"(?<currentValue>\\d+\\.\\d+\\.\\d+(?:-[\\w.-]+)?)"'],
+      depNameTemplate: "@anthropic-ai/claude-code",
+      datasourceTemplate: "npm",
+      versioningTemplate: "npm",
+    },
+    {
+      customType: "regex",
+      description: "Pinned Hermes release commit of the native clients in the CUE authority",
+      managerFilePatterns: ["/^\\.config/ci/pipeline\\.cue$/"],
+      matchStrings: [
+        '\\n\\thermes:\\s*\\{\\s*commit:\\s+"(?<currentDigest>[a-f0-9]{40})"\\s*//\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)',
+      ],
+      depNameTemplate: "NousResearch/hermes-agent",
+      datasourceTemplate: "github-tags",
+      versioningTemplate: "semver-coerced",
     },
     {
       customType: "regex",

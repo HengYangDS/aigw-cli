@@ -38,6 +38,80 @@ for (const input of inputs) {
 	}
 }
 
+func TestRenovateReadsEveryNativeClientPin(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	root := repositoryRoot(t)
+	export := exec.CommandContext(ctx, "cue", "export", ".config/ci/pipeline.cue", "--expression", "nativeClients", "--out", "json")
+	export.Dir = root
+	pins, err := export.Output()
+	if err != nil {
+		t.Fatalf("native client pins: %v", err)
+	}
+	// The candidate calculation applies the policy's regex rules to the CUE
+	// authority; apply them the same way and require one read of each pin.
+	code := `
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { parsers } from "prettier/plugins/babel";
+const value = (node) => {
+  switch (node.type) {
+    case "ObjectExpression":
+      return Object.fromEntries(
+        node.properties.map(({ key, value: item }) => [key.name ?? key.value, value(item)]),
+      );
+    case "ArrayExpression":
+      return node.elements.map(value);
+    case "NullLiteral":
+      return null;
+    default:
+      return node.value;
+  }
+};
+const policy = value((await parsers.json5.parse(
+  await readFile(".config/checks/renovate/renovate.json5", "utf8"), {},
+)).node);
+const authority = ".config/ci/pipeline.cue";
+const text = await readFile(authority, "utf8");
+const pins = JSON.parse(process.argv[1]);
+const reads = [];
+for (const rule of policy.customManagers) {
+  const files = (rule.managerFilePatterns ?? []).map((pattern) => new RegExp(pattern.slice(1, -1)));
+  if (!files.some((file) => file.test(authority))) continue;
+  for (const pattern of rule.matchStrings) {
+    for (const { groups = {} } of text.matchAll(new RegExp(pattern, "g"))) {
+      reads.push({
+        depName: groups.depName ?? rule.depNameTemplate,
+        datasource: groups.datasource ?? rule.datasourceTemplate,
+        currentValue: groups.currentValue,
+        currentDigest: groups.currentDigest,
+      });
+    }
+  }
+}
+const expected = {
+  codex: { depName: "@openai/codex", datasource: "npm", currentValue: pins.codex },
+  claude: { depName: "@anthropic-ai/claude-code", datasource: "npm", currentValue: pins.claude },
+  hermes: { depName: "NousResearch/hermes-agent", datasource: "github-tags", currentDigest: pins.hermes?.commit },
+};
+assert.deepEqual(Object.keys(pins).sort(), Object.keys(expected).sort(), "every native client pin needs a candidate rule");
+for (const pin of Object.values(expected)) {
+  const found = reads.filter(({ depName }) => depName === pin.depName);
+  assert.equal(found.length, 1, pin.depName + " must be read by exactly one candidate rule");
+  for (const [field, want] of Object.entries(pin)) {
+    assert.equal(found[0][field], want, pin.depName + " " + field);
+  }
+}
+const hermes = reads.find(({ depName }) => depName === "NousResearch/hermes-agent");
+assert.match(hermes.currentValue, /^v\d+\.\d+\.\d+$/, "the Hermes commit must name its release tag");
+`
+	call := exec.CommandContext(ctx, "node", "--input-type=module", "-e", code, string(pins))
+	call.Dir = root
+	if output, err := call.CombinedOutput(); err != nil {
+		t.Fatalf("Renovate native client pins: %v\n%s", err, output)
+	}
+}
+
 func TestNativeMathConsumersRejectInheritedTrust(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()

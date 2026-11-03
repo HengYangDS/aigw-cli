@@ -360,9 +360,10 @@ windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT
 nativeClients: {
 	codex:  "0.166.0"
 	claude: "2.1.316"
-	// Hermes v0.22.5 and the SHA-256 of that release's scripts/install.sh.
+	// The Hermes release commit with its tag, and the SHA-256 of that
+	// release's scripts/install.sh.
 	hermes: {
-		commit:    "bf0203a794a07aac3ff764972ab9087baa4e4f4e"
+		commit:    "bf0203a794a07aac3ff764972ab9087baa4e4f4e" // v0.22.5
 		installer: "99cb3691d55019c6973a7acb775a915648666cc24e483ca827a1cdbb3531a674"
 	}
 }
