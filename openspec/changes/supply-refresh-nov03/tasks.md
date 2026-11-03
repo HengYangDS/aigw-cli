@@ -17,7 +17,9 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` and `mise run dependencies:check` pass on each lane
-      head that carries this refresh.
-- [ ] 2.2 The hosted graph passes at each such head, and the native client
-      journeys on macOS, Linux and Windows pass with the advanced client pin.
+- [x] 2.1 `mise run check` and `mise run dependencies:check` pass on each lane
+      head that carries this refresh (`c2808c7c`, `b57d79bd`, `9f277778`).
+- [x] 2.2 The hosted graph passes at each landed head that carries this
+      refresh (`b57d79bd`, PR 230; `9f277778`, PR 231), and the native client
+      journeys on macOS, Linux and Windows pass with the advanced client pin
+      (run 41557439655, from v0.5.0).
