@@ -22,5 +22,7 @@
       head (`d46c32d2`).
 - [x] 3.2 A candidate calculation on the lane head reports no update except
       Claude Code 2.1.317, held by its release age (`scc-r2` on `d46c32d2`).
-- [ ] 3.3 The hosted graph passes at the landed head, and the native client
-      journeys on macOS, Linux and Windows pass with Hermes v0.22.6.
+- [x] 3.3 The hosted graph passes on the lane head that carries this refresh,
+      and the native client journeys on macOS, Linux and Windows pass with
+      Hermes v0.22.6 (`16a91f97`, PR 232; run 41581287285 from v0.5.0, macOS
+      after one rerun of a runner DNS failure at checkout).
