@@ -359,7 +359,7 @@ windowsMiseJobDirectory:          "Join-Path (Split-Path -Parent $env:CI_PROJECT
 // carries the reviewed Windows supplier archive built from the same releases.
 nativeClients: {
 	codex:  "0.166.0"
-	claude: "2.1.312"
+	claude: "2.1.316"
 	// Hermes v0.22.5 and the SHA-256 of that release's scripts/install.sh.
 	hermes: {
 		commit:    "bf0203a794a07aac3ff764972ab9087baa4e4f4e"
@@ -397,7 +397,7 @@ nativeArtifactScope: {
 
 actions: {
 	checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1"        // v7.0.1
-	mise:     "jdx/mise-action@6612f0ef07ed2a736cd1e00a94a065522dd41195"         // v5.2.5
+	mise:     "jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c"         // v5.2.6
 	upload:   "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" // v7.0.2
 }
 

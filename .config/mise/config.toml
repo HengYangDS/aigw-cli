@@ -25,7 +25,7 @@ NPM_CONFIG_GLOBALCONFIG = "{% if os() == 'windows' %}NUL{% else %}/dev/null{% en
 NPM_CONFIG_CACHE = "{{ config_root }}/build/runtime/tool-cache/npm{% if env.CI_JOB_ID | default(value='') != '' %}/{{ env.CI_JOB_ID }}{% endif %}"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.202.1@sha256:d490e203384cf1c2b149259d1dcfc88aa4bdcab184d3c90538d19242ba70d06d"
+renovate_image = "ghcr.io/renovatebot/renovate:44.206.2@sha256:d515a99f5d14d1c62b792ee61339d165dd9d20ee82ca9d5379daf639050bab51"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.
@@ -48,7 +48,7 @@ glab = "1.127.0"
 
 # Build and supply-chain evidence
 "github:goreleaser/goreleaser" = "2.19.0"
-"github:anchore/syft" = "1.55.0"
+"github:anchore/syft" = "1.56.0"
 # Cross-host ad-hoc macOS artifact signing.
 "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]" = "0.29.0"
 
@@ -63,7 +63,7 @@ taplo = "0.10.0"
 shellcheck = "0.11.0"
 "github:rhysd/actionlint" = "1.7.12"
 "github:sharkdp/hyperfine" = "2.0.0"
-typos = "1.51.1"
+typos = "1.52.0"
 
 [tools."github:lycheeverse/lychee"]
 version = "lychee-v0.24.2"

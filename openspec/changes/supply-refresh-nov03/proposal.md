@@ -18,6 +18,8 @@ current.
   age.
 - Take OpenSpec 1.16.0 and Claude Code 2.1.316, or a newer stable release that
   the policy then admits, once their release ages end.
+- Take what the morning candidate calculation (2026-11-03) admits: the
+  Renovate image 44.206.2, syft 1.56.0, typos 1.52.0 and mise-action v5.2.6.
 
 ## Capabilities
 
