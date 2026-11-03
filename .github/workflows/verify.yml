@@ -321,7 +321,7 @@ jobs:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
-        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.166.0 --claude 2.1.316 --hermes-commit bf0203a794a07aac3ff764972ab9087baa4e4f4e --hermes-installer-sha256 99cb3691d55019c6973a7acb775a915648666cc24e483ca827a1cdbb3531a674
+        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.166.0 --claude 2.1.316 --hermes-commit f0d94882e89ab8d4098b5bb2f166adfb9ee0a0ab --hermes-installer-sha256 abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209
         timeout-minutes: 20
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)
@@ -468,7 +468,7 @@ jobs:
           GH_TOKEN: ""
           GITHUB_TOKEN: ""
           GIT_TERMINAL_PROMPT: "0"
-        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.166.0 --claude 2.1.316 --hermes-commit bf0203a794a07aac3ff764972ab9087baa4e4f4e --hermes-installer-sha256 99cb3691d55019c6973a7acb775a915648666cc24e483ca827a1cdbb3531a674
+        run: mise exec --locked -- go run ./tools/ci native-clients supply --root "$RUNNER_TEMP" --github-env "$GITHUB_ENV" --codex 0.166.0 --claude 2.1.316 --hermes-commit f0d94882e89ab8d4098b5bb2f166adfb9ee0a0ab --hermes-installer-sha256 abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209
         timeout-minutes: 20
       - name: Prepare native source trust
         if: github.event_name == 'workflow_dispatch' && (inputs.baseline_tag != '' || inputs.candidate_tag != '' || inputs.input_release != '' || inputs.native_clients || inputs.diagnostic_client != '' || inputs.macos_keychain || inputs.performance || inputs.performance_attribution)

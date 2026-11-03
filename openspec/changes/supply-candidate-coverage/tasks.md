@@ -10,9 +10,9 @@
 
 ## 2. Refresh
 
-- [ ] 2.1 Advance uv to 0.13.7 with `mise lock` entries for all six
+- [x] 2.1 Advance uv to 0.13.7 with `mise lock` entries for all six
       platforms.
-- [ ] 2.2 Advance the Hermes pin to v0.22.6, its tag commit and the SHA-256 of
+- [x] 2.2 Advance the Hermes pin to v0.22.6, its tag commit and the SHA-256 of
       that release's `scripts/install.sh`; the projection test follows and
       `tools/ci project --check` reports no drift.
 

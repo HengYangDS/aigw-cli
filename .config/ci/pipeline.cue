@@ -363,8 +363,8 @@ nativeClients: {
 	// The Hermes release commit with its tag, and the SHA-256 of that
 	// release's scripts/install.sh.
 	hermes: {
-		commit:    "bf0203a794a07aac3ff764972ab9087baa4e4f4e" // v0.22.5
-		installer: "99cb3691d55019c6973a7acb775a915648666cc24e483ca827a1cdbb3531a674"
+		commit:    "f0d94882e89ab8d4098b5bb2f166adfb9ee0a0ab" // v0.22.6
+		installer: "abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209"
 	}
 }
 windowsClientSupplier: "suppliers/windows-codex-\(nativeClients.codex)-claude-\(nativeClients.claude)-native-packages.tar.gz"

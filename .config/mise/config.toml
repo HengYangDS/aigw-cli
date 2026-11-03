@@ -37,7 +37,7 @@ go = "1.27.3"
 node = "26.13.0"
 npm = "12.2.1"
 # Native client acceptance only; not an AIGW runtime dependency.
-uv = "0.13.6"
+uv = "0.13.7"
 
 # Specification and CI modeling
 cue = "0.17.1"

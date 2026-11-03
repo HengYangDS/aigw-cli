@@ -30,7 +30,7 @@ func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {
 		t.Fatal(err)
 	}
 	const selection = "github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''"
-	const hermes = " --hermes-commit bf0203a794a07aac3ff764972ab9087baa4e4f4e --hermes-installer-sha256 99cb3691d55019c6973a7acb775a915648666cc24e483ca827a1cdbb3531a674"
+	const hermes = " --hermes-commit f0d94882e89ab8d4098b5bb2f166adfb9ee0a0ab --hermes-installer-sha256 abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209"
 	for _, platform := range []string{"darwin", "linux", "windows"} {
 		job := workflow.Jobs["native-"+platform]
 		steps := job.Steps
