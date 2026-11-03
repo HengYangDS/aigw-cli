@@ -16,8 +16,8 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` and `mise run dependencies:check` pass on the lane
-      head, and the full proof of the lane head passes.
-- [ ] 2.2 The hosted graph passes at the lane head.
-- [ ] 2.3 GitLab's protected `dev` and `main` pipelines pass for the published
-      head.
+- [x] 2.1 `mise run check` and `mise run dependencies:check` pass on the lane
+      head, and the full proof of the lane head passes (`b57d79bd`, 11 gates).
+- [x] 2.2 The hosted graph passes at the lane head (PR 230).
+- [x] 2.3 GitLab's protected `dev` and `main` pipelines pass for the published
+      head (13763 and 13764 on GitLab Runner 19.5.2).
