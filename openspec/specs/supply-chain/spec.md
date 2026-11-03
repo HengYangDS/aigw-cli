@@ -108,6 +108,17 @@ literals or compatibility fallbacks.
 - **AND** a refresh SHALL NOT pin the release before that age has passed for
   each of those packages.
 
+#### Scenario: A release comes from a source that cannot replace it
+
+- **WHEN** the newest stable release of a dependency comes from a source that
+  cannot replace a published artifact under the same identity, such as a Go
+  module in the checksum database, a Mise tool locked by checksum, a container
+  image pinned by digest or an Action pinned by commit
+- **THEN** the refresh SHALL take it without the minimum release age, which
+  covers registries that can still unpublish or replace a release, such as npm
+- **AND** the lock SHALL bind the checksum, digest or commit that its publisher
+  serves.
+
 ### Requirement: Native verification runs the declared Mise release
 
 Local verification and every Forge job SHALL run the Mise release that the
