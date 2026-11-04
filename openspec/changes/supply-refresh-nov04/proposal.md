@@ -40,6 +40,7 @@ Code 2.1.318 until its three-day release age ends.
 ## Impact
 
 The following change: the Mise declaration and lock, the CUE native-client
-pin, both Forge projections, the projection tests, and the Windows client
-supplier name if it embeds the Hermes version. The released AIGW programs,
-user configuration and credentials do not change, so no release follows.
+pin, both Forge projections and the projection tests. The Windows client
+supplier name names only Codex and Claude Code, so it stays. The released AIGW
+programs, user configuration and credentials do not change, so no release
+follows.
