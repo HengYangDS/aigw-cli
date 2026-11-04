@@ -119,6 +119,16 @@ literals or compatibility fallbacks.
 - **AND** the lock SHALL bind the checksum, digest or commit that its publisher
   serves.
 
+#### Scenario: A stable release breaks a declared resolution mode
+
+- **WHEN** the newest stable release of a tool makes a resolution mode that
+  the repository's verification declares fail, such as Mise 2026.11.0 refusing
+  a locked npm tool in safe mode
+- **THEN** the refresh SHALL keep the locked release and name the failing mode,
+  the owner of the hold and its exit condition
+- **AND** it SHALL NOT disable that mode or patch the tool to make the release
+  pass.
+
 ### Requirement: Native verification runs the declared Mise release
 
 Local verification and every Forge job SHALL run the Mise release that the
