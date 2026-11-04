@@ -366,7 +366,7 @@ nativeClients: {
 	// The Hermes release commit with its tag, and the SHA-256 of that
 	// release's scripts/install.sh.
 	hermes: {
-		commit:    "f0d94882e89ab8d4098b5bb2f166adfb9ee0a0ab" // v0.22.6
+		commit:    "b200f5bc60e31588ba2cb60e288029c4a54ba5fa" // v0.22.7
 		installer: "abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209"
 	}
 }
