@@ -150,6 +150,33 @@ assert.ok(micromark("$x^2$", {
 	}
 }
 
+func TestRenovateProposesTransitiveLockRefreshes(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	// Direct updates alone leave transitive releases in the lock unreported, so
+	// the candidate calculation must also propose lock maintenance, and that
+	// proposal must keep the repository's release age.
+	code := `
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { parsers } from "prettier/plugins/babel";
+const { node } = await parsers.json5.parse(
+  await readFile(".config/checks/renovate/renovate.json5", "utf8"), {},
+);
+const field = (object, name) =>
+  object.properties.find(({ key }) => (key.name ?? key.value) === name)?.value;
+const maintenance = field(node, "lockFileMaintenance");
+assert.ok(maintenance, "the policy must configure lock maintenance");
+assert.equal(field(maintenance, "enabled")?.value, true, "lock maintenance must be enabled");
+assert.equal(field(maintenance, "minimumReleaseAge"), undefined, "lock maintenance must keep the policy's release age");
+`
+	call := exec.CommandContext(ctx, "node", "--input-type=module", "-e", code)
+	call.Dir = repositoryRoot(t)
+	if output, err := call.CombinedOutput(); err != nil {
+		t.Fatalf("Renovate lock maintenance: %v\n%s", err, output)
+	}
+}
+
 func TestNPMDependencyGraphHasNoDeprecatedPackages(t *testing.T) {
 	content, err := os.ReadFile(filepath.Join(repositoryRoot(t), "package-lock.json"))
 	if err != nil {

@@ -39,6 +39,11 @@
     automerge: false,
     vulnerabilityFixStrategy: "highest",
   },
+  // Transitive releases move only with a lock refresh. Proposing it keeps the
+  // candidate calculation complete under the same release age.
+  lockFileMaintenance: {
+    enabled: true,
+  },
 
   // A supported fast-forward preserves the locally signed Git object. A
   // platform that cannot provide it must use the maintainer publication path.

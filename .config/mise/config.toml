@@ -25,7 +25,7 @@ NPM_CONFIG_GLOBALCONFIG = "{% if os() == 'windows' %}NUL{% else %}/dev/null{% en
 NPM_CONFIG_CACHE = "{{ config_root }}/build/runtime/tool-cache/npm{% if env.CI_JOB_ID | default(value='') != '' %}/{{ env.CI_JOB_ID }}{% endif %}"
 
 [vars]
-renovate_image = "ghcr.io/renovatebot/renovate:44.210.0@sha256:59ee9d519b9fec428243f3b73f7fecebac59756888ce1838196bb5d40efe3559"
+renovate_image = "ghcr.io/renovatebot/renovate:44.215.0@sha256:10b921ce64cac11667849e7c1c4f0c4996d641f88b949652e69a324622538f7a"
 
 [tool_alias]
 # Keep npm's native precedence over Node's bundled npm on every platform.
@@ -47,7 +47,7 @@ gh = "2.103.3"
 glab = "1.128.0"
 
 # Build and supply-chain evidence
-"github:goreleaser/goreleaser" = "2.19.0"
+"github:goreleaser/goreleaser" = "2.20.0"
 "github:anchore/syft" = "1.56.0"
 # Cross-host ad-hoc macOS artifact signing.
 "github:indygreg/apple-platform-rs[version_prefix=apple-codesign/]" = "0.29.0"
