@@ -114,6 +114,7 @@ comparison = "greater-than"
 threshold_scopes = ["aggregate"]
 package_observation = "required"
 covermode = "atomic"
+package_timeout = "20m"
 packages = ["./..."]
 owner = "product-toolchain"
 source = "Go statement coverage profile"
@@ -134,6 +135,7 @@ comparison = "greater-than"
 threshold_scopes = ["aggregate"]
 package_observation = "required"
 covermode = "atomic"
+package_timeout = "20m"
 packages = ["./..."]
 owner = "product-toolchain"
 source = "Go statement coverage profile"
@@ -159,7 +161,7 @@ func TestRealMainPassesAggregatePolicyAndReportsPackageEvidence(t *testing.T) {
 	if !contains(runner.args, "./...") {
 		t.Fatalf("test arguments %q do not include the complete package set", runner.args)
 	}
-	wantArgs := []string{"test", "-count=1", "-race", "-covermode=atomic"}
+	wantArgs := []string{"test", "-count=1", "-timeout=20m", "-race", "-covermode=atomic"}
 	for _, want := range wantArgs {
 		if !contains(runner.args, want) {
 			t.Errorf("arguments %q lack %q", runner.args, want)
@@ -427,6 +429,9 @@ func TestRealMainRejectsInvalidArgumentsAndPolicy(t *testing.T) {
 		{name: "missing package observation", body: strings.Replace(validPolicy, "required", "optional", 1), want: "package_observation", code: 1},
 		{name: "invalid floor", body: strings.Replace(validPolicy, "95.0", "101.0", 1), want: "minimum_statement_percent", code: 1},
 		{name: "wrong mode", body: strings.Replace(validPolicy, "atomic", "set", 1), want: "covermode", code: 1},
+		{name: "missing package timeout", body: strings.Replace(validPolicy, "package_timeout = \"20m\"\n", "", 1), want: "package_timeout", code: 1},
+		{name: "unparsable package timeout", body: strings.Replace(validPolicy, `"20m"`, `"twenty minutes"`, 1), want: "package_timeout", code: 1},
+		{name: "non-positive package timeout", body: strings.Replace(validPolicy, `"20m"`, `"0s"`, 1), want: "package_timeout", code: 1},
 		{name: "no packages", body: strings.Replace(validPolicy, "[\"./...\"]", "[]", 1), want: "packages", code: 1},
 		{name: "missing owner", body: strings.Replace(validPolicy, "product-toolchain", "", 1), want: "owner and source", code: 1},
 		{name: "missing risk model", body: strings.Replace(validPolicy, "unobserved behavior can corrupt credentials or projections", "", 1), want: "risk rationale", code: 1},

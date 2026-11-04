@@ -21,6 +21,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -33,6 +34,7 @@ type coveragePolicy struct {
 	ThresholdScopes         []string `toml:"threshold_scopes"`
 	PackageObservation      string   `toml:"package_observation"`
 	CoverMode               string   `toml:"covermode"`
+	PackageTimeout          string   `toml:"package_timeout"`
 	Packages                []string `toml:"packages"`
 	Owner                   string   `toml:"owner"`
 	Source                  string   `toml:"source"`
@@ -142,8 +144,9 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 
 	// Bind instrumentation to the same canonical package inventory as observation.
 	// A relative coverpkg pattern also matches a toolchain installed below root.
+	// The policy's package limit replaces Go's default, so a slow shared host still finishes.
 	goArgs := []string{
-		"test", "-count=1", "-tags=" + *tags, "-covermode=" + policy.CoverMode,
+		"test", "-count=1", "-timeout=" + policy.PackageTimeout, "-tags=" + *tags, "-covermode=" + policy.CoverMode,
 		"-coverpkg=" + strings.Join(expectedPackages, ","), "-coverprofile=" + profilePath,
 	}
 	if *race {
@@ -303,6 +306,9 @@ func loadPolicy(path string) (coveragePolicy, error) {
 	}
 	if policy.CoverMode != "atomic" {
 		return coveragePolicy{}, fmt.Errorf("covermode must be atomic")
+	}
+	if timeout, err := time.ParseDuration(policy.PackageTimeout); err != nil || timeout <= 0 {
+		return coveragePolicy{}, fmt.Errorf("package_timeout must be a positive Go duration")
 	}
 	if len(policy.Packages) != 1 || policy.Packages[0] != "./..." {
 		return coveragePolicy{}, fmt.Errorf("packages must contain exactly ./...")

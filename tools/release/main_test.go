@@ -416,6 +416,11 @@ func TestNativeSourceCandidateReusesProductBytes(t *testing.T) {
 	}
 }
 
+// selectedFixtureHangBound stops a selected fixture that hangs; it is not a speed check. A CI host shared with other
+// jobs runs a fixture several times slower than a quiet one, and an unselected build fails on the empty PATH instead
+// of running out of time.
+const selectedFixtureHangBound = 3 * time.Minute
+
 func TestNativeProductSelectionDoesNotBuildUnselectedFixtures(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
@@ -452,9 +457,9 @@ func TestNativeProductSelectionDoesNotBuildUnselectedFixtures(t *testing.T) {
 				pattern += "/^" + fixture.subtest + "$"
 				marker += "/" + fixture.subtest
 			}
-			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), selectedFixtureHangBound+15*time.Second)
 			defer cancel()
-			command := exec.CommandContext(ctx, selected, "-test.run="+pattern, "-test.count=1", "-test.timeout=20s", "-test.v")
+			command := exec.CommandContext(ctx, selected, "-test.run="+pattern, "-test.count=1", "-test.timeout="+selectedFixtureHangBound.String(), "-test.v")
 			command.WaitDelay = 2 * time.Second
 			command.Dir = filepath.Join(root, "tools", "release")
 			command.Env = environmentWith(os.Environ(), map[string]string{

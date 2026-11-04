@@ -8,6 +8,9 @@ comparison = "greater-than"
 threshold_scopes = ["aggregate"]
 package_observation = "required"
 covermode = "atomic"
+# Each package's run limit: room for a shared CI host three times slower than a
+# quiet one, below GitHub's 25-minute native job budget so a hang still reports.
+package_timeout = "20m"
 packages = ["./..."]
 owner = "product-toolchain"
 source = "Go statement coverage profile"

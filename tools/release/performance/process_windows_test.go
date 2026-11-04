@@ -322,22 +322,33 @@ func TestWindowsExecutionPreflightReclaimsInterruptedProcesses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
-	defer cancel()
-	input := Command{Tool: tool, Output: filepath.Join(t.TempDir(), "interrupted.json"),
-		Environment: append(os.Environ(), "AIGW_TEST_NATIVE_EXECUTION_WAIT=1"), Measurement: Measurement{Case: "status", Executable: &image}}
-	started := time.Now()
-	rows, controllers, err := ObserveCommand(ctx, input, Workload{Command: []string{program, "-test.run=^TestWindowsExecutionPreflightReclaimsInterruptedProcesses$"}})
-	if err == nil || ctx.Err() == nil {
-		t.Fatalf("interrupted native preflight qualified: %v", err)
+	// The interruption must land after Hyperfine has started the workload. A CI host shared with other jobs can take
+	// longer than a quiet one to get there, so an attempt that ends first repeats with a longer window; the workload
+	// sleeps for a minute, so every window still interrupts it. Each attempt keeps the cleanup bound of 2.7 seconds.
+	for _, window := range []time.Duration{300 * time.Millisecond, time.Second, 3 * time.Second, 9 * time.Second} {
+		ctx, cancel := context.WithTimeout(t.Context(), window)
+		input := Command{Tool: tool, Output: filepath.Join(t.TempDir(), "interrupted.json"),
+			Environment: append(os.Environ(), "AIGW_TEST_NATIVE_EXECUTION_WAIT=1"), Measurement: Measurement{Case: "status", Executable: &image}}
+		started := time.Now()
+		rows, controllers, err := ObserveCommand(ctx, input, Workload{Command: []string{program, "-test.run=^TestWindowsExecutionPreflightReclaimsInterruptedProcesses$"}})
+		interrupted := ctx.Err() != nil
+		cancel()
+		if err == nil || !interrupted {
+			t.Fatalf("interrupted native preflight qualified: %v", err)
+		}
+		if elapsed := time.Since(started); elapsed > window+2700*time.Millisecond {
+			t.Fatalf("interrupted native preflight exceeded its total cleanup bound: %s", elapsed)
+		}
+		if len(controllers) > 1 {
+			t.Fatalf("interruption observed %d native controllers", len(controllers))
+		}
+		assertWindowsExecutionsExited(t, append(controllers, rows...))
+		if len(controllers) == 1 && len(rows) > 0 {
+			return
+		}
+		t.Logf("interruption after %s preceded the workload: %d controllers, %d descendants", window, len(controllers), len(rows))
 	}
-	if elapsed := time.Since(started); elapsed > 3*time.Second {
-		t.Fatalf("interrupted native preflight exceeded its total cleanup bound: %s", elapsed)
-	}
-	if len(controllers) != 1 || len(rows) == 0 {
-		t.Fatalf("interruption did not exercise the owned native process chain: %d controllers, %d descendants", len(controllers), len(rows))
-	}
-	assertWindowsExecutionsExited(t, append(controllers, rows...))
+	t.Fatal("interruption did not exercise the owned native process chain in any window")
 }
 
 func TestWindowsExecutionPreflightReclaimsBeforeFirstEvent(t *testing.T) {
