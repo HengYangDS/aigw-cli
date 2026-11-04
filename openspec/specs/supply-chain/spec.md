@@ -381,3 +381,9 @@ supply chain SHALL NOT be described as current while a pin is unread.
 - **WHEN** a native client or Hermes publishes a newer stable release
 - **THEN** the candidate calculation SHALL report it as an update, or as held
   by the minimum release age with the time when that age ends.
+
+#### Scenario: A transitive locked release advances
+
+- **WHEN** a release locked only as a transitive dependency publishes a newer
+  stable release past the minimum release age
+- **THEN** the candidate calculation SHALL report the lock refresh that takes it.
