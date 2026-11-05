@@ -35,7 +35,7 @@ npm = "npm:npm"
 # Language runtimes
 go = "1.27.3"
 node = "26.13.0"
-npm = "12.2.1"
+npm = "12.2.2"
 # Native client acceptance only; not an AIGW runtime dependency.
 uv = "0.13.7"
 
