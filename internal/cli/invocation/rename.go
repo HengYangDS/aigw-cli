@@ -17,37 +17,11 @@ import (
 const renameSchemaVersion = 2
 
 // renameDocument is the rename commands' JSON document: the plan or its
-// result, with its status and actions in snake_case. A preview's plan says
+// result, whose status and actions are snake_case. A preview's plan says
 // dry_run.
 type renameDocument struct {
-	DryRun             bool              `json:"dry_run,omitempty"`
-	Resource           renaming.Resource `json:"resource"`
-	OldID              string            `json:"old_id"`
-	NewID              string            `json:"new_id"`
-	Status             string            `json:"status"`
-	AffectedReferences []string          `json:"affected_references"`
-	Actions            renameActions     `json:"actions"`
-	ExternalTODOs      []string          `json:"external_todos"`
-}
-
-// renameActions is every configuration, credential and backup effect of a
-// rename.
-type renameActions struct {
-	Configuration string `json:"configuration"`
-	APIToken      string `json:"api_token"`
-	AccountProbe  string `json:"account_probe"`
-	Backup        string `json:"backup"`
-}
-
-func renameDocumentOf(plan renaming.Plan, dryRun bool) renameDocument {
-	return renameDocument{
-		DryRun: dryRun, Resource: plan.Resource, OldID: plan.OldID, NewID: plan.NewID, Status: terminal.SnakeValue(string(plan.Status)),
-		AffectedReferences: plan.AffectedReferences, ExternalTODOs: plan.ExternalTODOs,
-		Actions: renameActions{
-			Configuration: terminal.SnakeValue(plan.Actions.Configuration), APIToken: terminal.SnakeValue(plan.Actions.APIToken),
-			AccountProbe: terminal.SnakeValue(plan.Actions.AccountProbe), Backup: terminal.SnakeValue(plan.Actions.Backup),
-		},
-	}
+	DryRun bool `json:"dry_run,omitempty"`
+	renaming.Plan
 }
 
 // errRenameBlocked fails a blocked rename plan, which changed nothing and
@@ -89,7 +63,7 @@ func RenameArguments(runtime Context, resource string) cobra.PositionalArgs {
 func WriteRenamePlan(runtime Context, plan renaming.Plan, dryRun, jsonMode bool) error {
 	blocked := plan.Status == renaming.StatusBlocked
 	if jsonMode {
-		if err := terminal.WriteDocument(runtime.Out, renameSchemaVersion, !blocked, renameDocumentOf(plan, dryRun)); err != nil || !blocked {
+		if err := terminal.WriteDocument(runtime.Out, renameSchemaVersion, !blocked, renameDocument{DryRun: dryRun, Plan: plan}); err != nil || !blocked {
 			return err
 		}
 		return errRenameBlocked

@@ -45,7 +45,7 @@ const (
 	// StatusApplied identifies a completed rename whose old credential slots remain available.
 	StatusApplied Status = "applied"
 	// StatusAlreadyFinalized identifies an idempotent finalization with no remaining old state.
-	StatusAlreadyFinalized Status = "already-finalized"
+	StatusAlreadyFinalized Status = "already_finalized"
 	// StatusFinalized identifies a completed removal of verified old credential slots.
 	StatusFinalized Status = "finalized"
 )

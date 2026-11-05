@@ -44,16 +44,16 @@ func planCredentialCopies(deps Renamer, plan Plan) (Plan, error) {
 		if !secretValuesEqual(sourceToken, targetToken) {
 			return Plan{}, errors.New("API token credential slots differ")
 		}
-		plan.Actions.APIToken = "reuse-equal-target-and-retain-source"
+		plan.Actions.APIToken = "reuse_equal_target_and_retain_source"
 	case secret.IsReadOnly(deps.Secrets):
-		plan.Actions.APIToken = "provide-equal-environment-variable"
+		plan.Actions.APIToken = "provide_equal_environment_variable"
 		plan.Status = StatusBlocked
 		sourceKey := secret.EnvironmentKey(plan.OldID)
 		targetKey := secret.EnvironmentKey(plan.NewID)
 		plan.blockedReason = fmt.Sprintf("set %s to the same value as %s outside AIGW", targetKey, sourceKey)
 		plan.ExternalTODOs = append(plan.ExternalTODOs, "Set "+targetKey+" to the same value as "+sourceKey+" outside AIGW")
 	default:
-		plan.Actions.APIToken = "copy-and-retain-source"
+		plan.Actions.APIToken = "copy_and_retain_source"
 		plan.tokenCopy = tokenCopy{value: sourceToken, copy: true}
 	}
 
@@ -75,9 +75,9 @@ func planCredentialCopies(deps Renamer, plan Plan) (Plan, error) {
 		if !probeCredentialsEqual(sourceProbe, targetProbe) {
 			return Plan{}, errors.New("account probe credential slots differ")
 		}
-		plan.Actions.AccountProbe = "reuse-equal-target-and-retain-source"
+		plan.Actions.AccountProbe = "reuse_equal_target_and_retain_source"
 	default:
-		plan.Actions.AccountProbe = "copy-and-retain-source"
+		plan.Actions.AccountProbe = "copy_and_retain_source"
 		plan.probeCopy = probeCopy{value: sourceProbe, copy: true}
 	}
 	return plan, nil

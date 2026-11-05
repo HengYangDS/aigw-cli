@@ -49,10 +49,10 @@ func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (P
 		Status:             StatusPlanned,
 		AffectedReferences: references,
 		Actions: Actions{
-			Configuration: "already-renamed",
-			APIToken:      "already-absent",
-			AccountProbe:  "already-absent",
-			Backup:        "converge-to-verified-current",
+			Configuration: "already_renamed",
+			APIToken:      "already_absent",
+			AccountProbe:  "already_absent",
+			Backup:        "converge_to_verified_current",
 		},
 		ExternalTODOs: []string{},
 		Account:       targetAccount,
@@ -60,7 +60,7 @@ func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (P
 		snapshot:      state.Snapshot,
 	}
 	if backupConverged {
-		plan.Actions.Backup = "already-converged"
+		plan.Actions.Backup = "already_converged"
 	}
 
 	blocked := make([]string, 0, 2)
@@ -102,18 +102,18 @@ func planFinalToken(deps Renamer, plan *Plan, oldID, newID string, confirmed boo
 	rotated := !secretValuesEqual(source, target)
 	switch {
 	case rotated && !confirmed:
-		plan.Actions.APIToken = "rotation-confirmation-required"
+		plan.Actions.APIToken = "rotation_confirmation_required"
 		plan.ExternalTODOs = append(plan.ExternalTODOs, "Re-run `aigw verify --for all`, then pass --confirm-api-token-rotation")
 		*blocked = append(*blocked, "API token rotation confirmation is required")
 	case secret.IsReadOnly(deps.Secrets):
-		plan.Actions.APIToken = "external-cleanup-required"
+		plan.Actions.APIToken = "external_cleanup_required"
 		plan.externalTokenCleanup = true
 		plan.ExternalTODOs = append(plan.ExternalTODOs, "Unset "+secret.EnvironmentKey(oldID)+" outside AIGW, then retry finalization")
 	default:
 		plan.deleteToken = true
-		plan.Actions.APIToken = "delete-source"
+		plan.Actions.APIToken = "delete_source"
 		if rotated {
-			plan.Actions.APIToken = "delete-confirmed-rotated-source"
+			plan.Actions.APIToken = "delete_confirmed_rotated_source"
 		}
 	}
 	return true, nil
@@ -136,15 +136,15 @@ func planFinalProbe(deps Renamer, plan *Plan, oldID, newID string, confirmed boo
 	}
 	rotated := !probeCredentialsEqual(source, target)
 	if rotated && !confirmed {
-		plan.Actions.AccountProbe = "rotation-confirmation-required"
+		plan.Actions.AccountProbe = "rotation_confirmation_required"
 		plan.ExternalTODOs = append(plan.ExternalTODOs, "Run `aigw balance "+newID+"`, then pass --confirm-account-probe-rotation")
 		*blocked = append(*blocked, "account probe credential rotation confirmation is required")
 		return true, nil
 	}
 	plan.deleteProbe = true
-	plan.Actions.AccountProbe = "delete-source"
+	plan.Actions.AccountProbe = "delete_source"
 	if rotated {
-		plan.Actions.AccountProbe = "verify-balance-and-delete-confirmed-rotated-source"
+		plan.Actions.AccountProbe = "verify_balance_and_delete_confirmed_rotated_source"
 		plan.verifyProbe = true
 	}
 	return true, nil
@@ -172,7 +172,7 @@ func applyFinalize(ctx context.Context, deps Renamer, plan Plan) (Plan, error) {
 		if err := deleteCredentialSlot(deps.Secrets, plan.OldID, "API token"); err != nil {
 			cleanupErrors = append(cleanupErrors, err)
 		} else {
-			plan.Actions.APIToken = "source-deleted"
+			plan.Actions.APIToken = "source_deleted"
 		}
 	}
 	if plan.externalTokenCleanup {
@@ -181,14 +181,14 @@ func applyFinalize(ctx context.Context, deps Renamer, plan Plan) (Plan, error) {
 		} else if present {
 			cleanupErrors = append(cleanupErrors, fmt.Errorf("unset %s outside AIGW, then retry finalization", secret.EnvironmentKey(plan.OldID)))
 		} else {
-			plan.Actions.APIToken = "already-absent"
+			plan.Actions.APIToken = "already_absent"
 		}
 	}
 	if plan.deleteProbe {
 		if err := deleteCredentialSlot(deps.Accounts, plan.OldID, "account probe"); err != nil {
 			cleanupErrors = append(cleanupErrors, err)
 		} else {
-			plan.Actions.AccountProbe = "source-deleted"
+			plan.Actions.AccountProbe = "source_deleted"
 		}
 	}
 	if len(cleanupErrors) > 0 {

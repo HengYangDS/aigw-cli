@@ -50,7 +50,7 @@ func TestAccountFinalizationConvergesForwardingBackupBeforeRetirement(t *testing
 		t.Fatal(err)
 	}
 	plan, err := planFinalize(Renamer{Config: store, Secrets: secret.NewMemoryStore(), Accounts: &faultProbeStore{}}, "old", "new", FinalizeOptions{})
-	if err != nil || plan.Status == StatusAlreadyFinalized || plan.Actions.Backup != "converge-to-verified-current" {
+	if err != nil || plan.Status == StatusAlreadyFinalized || plan.Actions.Backup != "converge_to_verified_current" {
 		t.Fatalf("finalization ignored missing forwarding recovery state: %#v, %v", plan, err)
 	}
 }
