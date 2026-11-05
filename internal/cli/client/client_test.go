@@ -90,7 +90,6 @@ func adapterRuntime(t *testing.T, cfg domain.Config) (invocation.Context, *bytes
 		Host:       hostAt(t.TempDir()),
 		Secrets:    secretStore,
 		Out:        out,
-		RenderOut:  out,
 		Runner:     runner,
 		Discovery:  adapterDiscovery{},
 	}, out, secretStore, runner
@@ -464,7 +463,6 @@ func TestCommandsPropagateConfigurationLoadErrors(t *testing.T) {
 		Config:    store.NewStore(badPath, clients.Admission()),
 		Secrets:   secret.NewMemoryStore(),
 		Out:       &bytes.Buffer{},
-		RenderOut: &bytes.Buffer{},
 		Discovery: adapterDiscovery{},
 	}
 	for _, test := range []struct {
@@ -517,9 +515,8 @@ func TestDisableCodexReturnsProjectionFailure(t *testing.T) {
 	}
 }
 
-func TestDiscoverFallsBackToPrimaryOutput(t *testing.T) {
+func TestDiscoverRendersToTheInvocationOutput(t *testing.T) {
 	runtime, out, _, _ := adapterRuntime(t, adapterConfig())
-	runtime.RenderOut = nil
 	if err := executeAdapter(t, runtime, "discover"); err != nil {
 		t.Fatal(err)
 	}

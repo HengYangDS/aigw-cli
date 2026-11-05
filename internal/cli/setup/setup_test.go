@@ -289,9 +289,8 @@ func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *t
 			}
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
 		}),
-		In:        strings.NewReader("token\n"),
-		Out:       io.Discard,
-		RenderOut: io.Discard,
+		In:  strings.NewReader("token\n"),
+		Out: io.Discard,
 	}
 	request := setupRequest{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, Model: "claude-test", TokenStdin: true}
 
@@ -328,7 +327,7 @@ func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 			}
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
 		}),
-		In: strings.NewReader("token\n"), Out: io.Discard, RenderOut: io.Discard,
+		In: strings.NewReader("token\n"), Out: io.Discard,
 	}
 	err = runSetup(t.Context(), run, setupRequest{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, Model: "claude-test", TokenStdin: true})
 	if err == nil || !strings.Contains(err.Error(), "credential postimage changed") {
@@ -406,9 +405,8 @@ interfaces = { openai_responses = ["text"] }
 				AutoManaged: true,
 			}},
 		}},
-		In:        strings.NewReader("token\n"),
-		Out:       io.Discard,
-		RenderOut: io.Discard,
+		In:  strings.NewReader("token\n"),
+		Out: io.Discard,
 	}
 
 	err := runManifestSetup(context.Background(), runtime, setupRequest{From: manifestPath, Account: "team", TokenStdin: true})
@@ -532,7 +530,6 @@ func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
 		}),
 		Out:         io.Discard,
-		RenderOut:   io.Discard,
 		Interactive: false,
 	}
 	request := setupRequest{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, Model: "claude-test"}

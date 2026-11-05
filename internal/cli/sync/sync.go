@@ -64,8 +64,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			after, _, err := synchronizer.DesiredSyncConfiguration(adoptedConfig)
 			if err != nil {
-				return invocation.Problem(
-					runtime,
+				return terminal.ProblemError(
 					"Synchronization prerequisites are unavailable",
 					"AIGW could not determine which selected Client Bindings can be projected with the currently available clients and credentials.",
 					"Configuration and client projections remain unchanged.",

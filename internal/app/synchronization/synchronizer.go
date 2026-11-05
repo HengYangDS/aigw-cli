@@ -139,7 +139,6 @@ type Synchronizer struct {
 	Registry                  adapter.Registry
 	Host                      discovery.Host
 	AIGWExecutable            string
-	CredentialPath            string
 	ResolveCredentialPath     func() (string, error)
 	ResolveProgram            func() (secret.Program, error)
 	Files                     secret.Files
@@ -227,11 +226,11 @@ func (s Synchronizer) registry() adapter.Registry {
 }
 
 // CredentialEntrypointPath resolves the invocation-owned reader identity only
-// when needed. Explicit paths remain authoritative; a failed resolver never
-// authorizes fallback to an installer-owned public executable.
+// when needed. A failed resolver never authorizes fallback to an
+// installer-owned public executable.
 func (s Synchronizer) CredentialEntrypointPath() (string, error) {
-	if s.CredentialPath != "" || s.ResolveCredentialPath == nil {
-		return s.CredentialPath, nil
+	if s.ResolveCredentialPath == nil {
+		return "", nil
 	}
 	path, err := s.ResolveCredentialPath()
 	if err != nil {
@@ -245,9 +244,6 @@ func (s Synchronizer) CredentialEntrypointPath() (string, error) {
 
 func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...domain.Config) (adapter.Dependencies, error) {
 	executable := s.AIGWExecutable
-	if s.CredentialPath != "" {
-		executable = s.CredentialPath
-	}
 	for _, cfg := range configurations {
 		accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
 		if err != nil {
@@ -309,7 +305,7 @@ func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...str
 }
 
 func (s Synchronizer) credentialEntrypointAccounts(cfg domain.Config, clientIDs ...string) ([]string, error) {
-	if s.CredentialPath == "" && s.ResolveCredentialPath == nil {
+	if s.ResolveCredentialPath == nil {
 		return nil, nil
 	}
 	if len(clientIDs) == 0 {
@@ -346,7 +342,7 @@ const (
 // can project now. A deferred client does not prove that cached or rollback
 // callers have stopped using an earlier command.
 func (s Synchronizer) CredentialEntrypointPlan(cfg domain.Config, clientIDs ...string) (CredentialEntrypointAction, error) {
-	if s.CredentialPath == "" && s.ResolveCredentialPath == nil {
+	if s.ResolveCredentialPath == nil {
 		return CredentialEntrypointUnchanged, nil
 	}
 	if len(clientIDs) == 0 {

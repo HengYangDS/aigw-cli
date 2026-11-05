@@ -1,7 +1,7 @@
 // Package invocation defines the capabilities available to one CLI invocation
 // and the CLI behavior that several commands share: Token input, rendering,
-// problems, the optional Account argument, and the rename subcommands'
-// arguments, selection and plan output.
+// the optional Account argument, and the rename subcommands' arguments,
+// selection and plan output.
 package invocation
 
 import (
@@ -31,8 +31,6 @@ type Context struct {
 	Width       int
 	Interactive bool
 	Prompt      Prompter
-	RenderOut   io.Writer
-	Problem     func(title, evidence, impact, fix string, cause error) error
 }
 
 // ReadToken reads an explicitly requested token source without consulting
@@ -78,22 +76,12 @@ func ValidateToken(value string) error {
 	return nil
 }
 
-// Renderer creates the presentation projection bound to this invocation.
+// Renderer creates the presentation projection bound to this invocation's
+// output.
 func Renderer(runtime Context) *terminal.Renderer {
-	out := runtime.RenderOut
-	if out == nil {
-		out = runtime.Out
-	}
+	out := runtime.Out
 	if out == nil {
 		out = io.Discard
 	}
 	return terminal.NewRendererWithWidth(out, runtime.Color, runtime.Width)
-}
-
-// Problem preserves a structured user-facing error when the composition root supplies one.
-func Problem(runtime Context, title, evidence, impact, fix string, cause error) error {
-	if runtime.Problem != nil {
-		return runtime.Problem(title, evidence, impact, fix, cause)
-	}
-	return cause
 }

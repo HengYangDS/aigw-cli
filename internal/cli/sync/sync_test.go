@@ -3,6 +3,7 @@ package sync
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,7 +46,7 @@ func TestDryRunPreservesUnusedChangedCredentialEntrypointWithoutWriting(t *testi
 			if err != nil {
 				t.Fatal(err)
 			}
-			runtime := invocation.Context{Clients: clients.Registry(), Executable: source, CredentialPath: helper, Config: store, Discovery: staticDiscovery{}, Out: &bytes.Buffer{}}
+			runtime := invocation.Context{Clients: clients.Registry(), Executable: source, ResolveCredentialPath: func() (string, error) { return helper, nil }, Config: store, Discovery: staticDiscovery{}, Out: &bytes.Buffer{}}
 			if command == "sync" {
 				cmd := NewCommand(runtime)
 				cmd.SilenceErrors = true
@@ -146,7 +147,7 @@ func TestSyncMetadataObservationScopeExpiresWithCommand(t *testing.T) {
 	})
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Config: store, Executable: source, Secrets: tokens, Out: &bytes.Buffer{}, Discovery: staticDiscovery{},
-		Host: hostAt(root), CredentialPath: reader,
+		Host: hostAt(root), ResolveCredentialPath: func() (string, error) { return reader, nil },
 	}
 	cmd := NewCommand(runtime)
 	cmd.SilenceErrors, cmd.SilenceUsage = true, true
@@ -196,7 +197,7 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 			}
 			out := &bytes.Buffer{}
 			errOut := &bytes.Buffer{}
-			command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out, RenderOut: out})
+			command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out})
 			command.SilenceErrors = true
 			command.SilenceUsage = true
 			command.SetOut(out)
@@ -204,7 +205,7 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 			command.SetArgs(test.args)
 
 			err := command.Execute()
-			if err == nil || !strings.Contains(err.Error(), "discovery") {
+			if err == nil || !strings.Contains(errors.Unwrap(err).Error(), "discovery") {
 				t.Fatalf("sync error = %v, want discovery failure", err)
 			}
 			if strings.Contains(out.String(), "completed") {

@@ -46,7 +46,7 @@ type updateDocument struct {
 func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
-		return invocation.Problem(runtime,
+		return terminal.ProblemError(
 			"Configuration is not ready for a Homebrew rollback",
 			"AIGW could not read the configuration, including each connection's retry policy.",
 			"No credential, policy or program changed.",
@@ -54,7 +54,7 @@ func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
 	}
 	for _, binding := range cfg.Clients {
 		if binding.RetryPolicy != nil {
-			return invocation.Problem(runtime,
+			return terminal.ProblemError(
 				"Homebrew rollback retry-policy capability is unproved",
 				"No retained Homebrew program was supplied to the native configuration probe.",
 				"No credential, policy or program changed.",
@@ -64,7 +64,7 @@ func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
 	}
 	custody, err := credentialCustody(runtime.Dependencies)
 	if err != nil {
-		return invocation.Problem(runtime,
+		return terminal.ProblemError(
 			"Credentials are not ready for a Homebrew rollback",
 			"AIGW could not read the configuration that names its credentials.",
 			"No credential or program changed.",
@@ -72,7 +72,7 @@ func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
 			err)
 	}
 	if err := custody.Release(""); err != nil {
-		return invocation.Problem(runtime,
+		return terminal.ProblemError(
 			"Credentials are not ready for a Homebrew rollback",
 			"AIGW could not return every Keychain item to the reader of earlier releases.",
 			"The installed program is unchanged and can still read every credential.",
@@ -157,21 +157,21 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return reportIncompleteCleanup(runtime, jsonMode, rollback, result, err)
 			}
 			if !rollback && errors.Is(err, program.ErrCandidateIdentity) {
-				return invocation.Problem(runtime,
+				return terminal.ProblemError(
 					"Candidate has different program bytes at the current version",
 					"The verified local archive does not match the active program identity.",
 					"The active and retained programs are unchanged.",
 					"Use the exact current release artifact or a verified newer version.", err)
 			}
 			if !rollback && errors.Is(err, program.ErrProgramStartupVerification) {
-				return invocation.Problem(runtime,
+				return terminal.ProblemError(
 					"Candidate program failed startup verification",
 					"The candidate did not run its version check.",
 					"The installed program is unchanged.",
 					"Verify the candidate archive for this platform and retry only with a valid artifact.", err)
 			}
 			if errors.Is(err, program.ErrRollbackConfiguration) {
-				return invocation.Problem(runtime,
+				return terminal.ProblemError(
 					"Program rollback did not complete",
 					"The retained program did not complete the isolated configuration-read check.",
 					"The active program, retained program and configuration remain unchanged.",
@@ -179,8 +179,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			if err != nil {
 				if rollback {
-					return invocation.Problem(
-						runtime,
+					return terminal.ProblemError(
 						"Program rollback did not complete",
 						"AIGW could not activate the retained previous program.",
 						"No previous program version was confirmed active.",
@@ -188,7 +187,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 						err,
 					)
 				}
-				return invocation.Problem(runtime,
+				return terminal.ProblemError(
 					"Program update did not complete",
 					"AIGW could not complete release verification and program replacement.",
 					"No updated program version was confirmed active; client settings and credentials were not changed.",
@@ -240,7 +239,7 @@ func reportIncompleteCleanup(runtime invocation.Context, jsonMode, rollback bool
 		title, impact = "Program restored; cleanup is incomplete", "The previous program is active and reads its credentials; client settings were not changed."
 	}
 	fix := "Run `aigw installation` and `aigw doctor` before retrying cleanup or another program transition."
-	problem := invocation.Problem(runtime, title,
+	problem := terminal.ProblemError(title,
 		"Program replacement completed, but an owned temporary resource could not be removed.",
 		impact, fix, cause)
 	if !jsonMode {

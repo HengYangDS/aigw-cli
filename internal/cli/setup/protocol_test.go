@@ -33,7 +33,7 @@ func TestSetupValidatesSelectedHermesProtocol(t *testing.T) {
 			}
 			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
 		}),
-		Out: io.Discard, RenderOut: io.Discard,
+		Out: io.Discard,
 	}
 	request := setupRequest{
 		Account: "team", Route: "shared", Client: hermes.ID, Model: "shared-model",

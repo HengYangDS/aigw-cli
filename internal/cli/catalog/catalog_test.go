@@ -144,7 +144,6 @@ func TestCatalogOutputFailuresAndHelpers(t *testing.T) {
 		t.Fatalf("JSON output error = %v, want %v", err, want)
 	}
 
-	deps.RenderOut = errorWriter{err: want}
 	if err := executeCatalogCommand(t, NewCommand(deps)); !errors.Is(err, want) {
 		t.Fatalf("human output error = %v, want %v", err, want)
 	}

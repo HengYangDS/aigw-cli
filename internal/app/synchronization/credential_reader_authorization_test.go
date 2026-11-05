@@ -18,7 +18,7 @@ import (
 	"aigw-cli/internal/secret"
 )
 
-func newKeyringReaderFixture(t *testing.T, target string) Synchronizer {
+func newKeyringReaderFixture(t *testing.T, target string) (Synchronizer, string) {
 	t.Helper()
 	root := filepath.Dir(target)
 	sourceName := "aigw"
@@ -67,7 +67,7 @@ func main() {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Synchronizer{Registry: builtinClients, Config: &configStoreStub{}, Secrets: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
+	return Synchronizer{Registry: builtinClients, Config: &configStoreStub{}, Secrets: store, Discovery: targetDiscovery(target), AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}, reader
 }
 
 func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
@@ -75,8 +75,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 		t.Run(account, func(t *testing.T) {
 			root := t.TempDir()
 			target := filepath.Join(root, "codex.toml")
-			syncer := newKeyringReaderFixture(t, target)
-			reader := syncer.CredentialPath
+			syncer, reader := newKeyringReaderFixture(t, target)
 			original := []byte("model_provider = \"native\"\n")
 			if err := os.WriteFile(target, original, 0o600); err != nil {
 				t.Fatal(err)
@@ -141,24 +140,23 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 
 func TestKeyringReaderCopyVerifiesEachSelectedAccountOnce(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "codex.toml")
-	syncer := newKeyringReaderFixture(t, target)
-	reader := syncer.CredentialPath
+	syncer, reader := newKeyringReaderFixture(t, target)
 	if err := os.MkdirAll(filepath.Dir(reader), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(filepath.Dir(reader), "allow-reader"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	requireSingleCopiedCredentialRead(t, syncer, testConfig(target), "gateway")
+	requireSingleCopiedCredentialRead(t, syncer, reader, testConfig(target), "gateway")
 }
 
 func TestSyncObservesNativeAvailabilityOncePerInvocation(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "codex.toml")
-	syncer := newKeyringReaderFixture(t, target)
-	if err := os.MkdirAll(filepath.Dir(syncer.CredentialPath), 0o700); err != nil {
+	syncer, reader := newKeyringReaderFixture(t, target)
+	if err := os.MkdirAll(filepath.Dir(reader), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(filepath.Dir(syncer.CredentialPath), "allow-reader"), nil, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(filepath.Dir(reader), "allow-reader"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	before := testConfig(target)
@@ -179,7 +177,7 @@ func TestSyncObservesNativeAvailabilityOncePerInvocation(t *testing.T) {
 		}
 		for _, operation := range []struct{ executable, name string }{
 			{syncer.AIGWExecutable, "__aigw-native-credential-exists"},
-			{syncer.CredentialPath, "__aigw-native-credential-read"},
+			{reader, "__aigw-native-credential-read"},
 		} {
 			data, err := os.ReadFile(filepath.Join(filepath.Dir(operation.executable), "operations"))
 			if err != nil {
@@ -194,9 +192,9 @@ func TestSyncObservesNativeAvailabilityOncePerInvocation(t *testing.T) {
 	}
 }
 
-func requireSingleCopiedCredentialRead(t *testing.T, syncer Synchronizer, cfg domain.Config, account string) {
+func requireSingleCopiedCredentialRead(t *testing.T, syncer Synchronizer, reader string, cfg domain.Config, account string) {
 	t.Helper()
-	logs := []string{filepath.Join(filepath.Dir(syncer.AIGWExecutable), "operations"), filepath.Join(filepath.Dir(syncer.CredentialPath), "operations")}
+	logs := []string{filepath.Join(filepath.Dir(syncer.AIGWExecutable), "operations"), filepath.Join(filepath.Dir(reader), "operations")}
 	for _, path := range logs {
 		if err := os.WriteFile(path, nil, 0o600); err != nil {
 			t.Fatal(err)

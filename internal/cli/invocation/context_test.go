@@ -3,7 +3,6 @@ package invocation
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -64,49 +63,13 @@ func TestReadTokenRejectsImplicitInputOutsideInteractiveTerminal(t *testing.T) {
 	}
 }
 
-func TestRendererUsesTheBoundRenderWriter(t *testing.T) {
+func TestRendererWritesToTheInvocationOutput(t *testing.T) {
 	var out bytes.Buffer
-	runtime := Context{Out: &bytes.Buffer{}, RenderOut: &out, Width: 80}
-
-	Renderer(runtime).Rows(terminal.Field{Label: "Account", Value: "team-gateway"})
-
+	Renderer(Context{Out: &out, Width: 80}).Rows(terminal.Field{Label: "Account", Value: "team-gateway"})
 	if got := out.String(); !strings.Contains(got, "team-gateway") {
-		t.Fatalf("Renderer() output = %q, want bound render writer", got)
-	}
-}
-
-func TestRendererFallsBackToOutputAndDiscard(t *testing.T) {
-	var out bytes.Buffer
-	Renderer(Context{Out: &out, Width: 80}).Rows(terminal.Field{Label: "Route", Value: "portable"})
-	if !strings.Contains(out.String(), "portable") {
-		t.Fatalf("Renderer() output = %q, want output fallback", out.String())
+		t.Fatalf("Renderer() output = %q, want the invocation output", got)
 	}
 	Renderer(Context{}).Rows(terminal.Field{Label: "Route", Value: "discarded"})
-}
-
-func TestProblemUsesStructuredProblemFactory(t *testing.T) {
-	cause := errors.New("connection refused")
-	runtime := Context{Problem: func(title, evidence, impact, fix string, got error) error {
-		if title != "Unavailable" || evidence != "probe failed" || impact != "cannot test" || fix != "check endpoint" {
-			t.Fatalf("unexpected problem fields: %q, %q, %q, %q", title, evidence, impact, fix)
-		}
-		if !errors.Is(got, cause) {
-			t.Fatalf("cause = %v, want %v", got, cause)
-		}
-		return fmt.Errorf("structured: %w", got)
-	}}
-
-	err := Problem(runtime, "Unavailable", "probe failed", "cannot test", "check endpoint", cause)
-	if err == nil || err.Error() != "structured: connection refused" {
-		t.Fatalf("Problem() = %v, want structured error", err)
-	}
-}
-
-func TestProblemFallsBackToCause(t *testing.T) {
-	cause := errors.New("not configured")
-	if got := Problem(Context{}, "ignored", "ignored", "ignored", "ignored", cause); !errors.Is(got, cause) {
-		t.Fatalf("Problem() = %v, want original cause %v", got, cause)
-	}
 }
 
 type failingReader struct{ err error }

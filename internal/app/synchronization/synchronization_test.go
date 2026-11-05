@@ -114,6 +114,12 @@ func hostAt(home string) discovery.Host {
 	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
 }
 
+// readerAt resolves the credential reader at path, as the composition root
+// resolves the reader of the running program.
+func readerAt(path string) func() (string, error) {
+	return func() (string, error) { return path, nil }
+}
+
 func targetDiscovery(target string) staticDiscovery {
 	return staticDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
 		ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),

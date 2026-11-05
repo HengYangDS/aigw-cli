@@ -54,8 +54,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			if instruction, writable := secret.TokenRecovery(runtime.Secrets, accountName); !writable {
 				cause := fmt.Errorf("credential backend is read-only")
-				return invocation.Problem(
-					runtime,
+				return terminal.ProblemError(
 					"Token cannot be rotated by this credential backend",
 					"The selected environment backend reads Tokens from the parent process and does not persist changes.",
 					"No Token was read, validated, or changed.",

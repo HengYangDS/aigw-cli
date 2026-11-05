@@ -36,7 +36,7 @@ func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Secrets = store
-	runtime.RenderOut = failingWriter{err: errors.New("write failed")}
+	runtime.Out = failingWriter{err: errors.New("write failed")}
 	command = NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
@@ -154,7 +154,7 @@ func TestUseRollsBackAutomaticBackendSelection(t *testing.T) {
 func TestUseKeepsCommittedTokenWhenRenderingFails(t *testing.T) {
 	run, _, store, _ := tokenAcquisitionRuntime(t)
 	outputError := errors.New("output closed")
-	run.RenderOut = failingWriter{err: outputError}
+	run.Out = failingWriter{err: outputError}
 	command := NewCommand(run)
 	command.SilenceErrors = true
 	command.SilenceUsage = true

@@ -20,6 +20,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/cli/status"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/terminal"
 )
 
 func configuredCodexScopedCheck(t *testing.T) (invocation.Context, *bytes.Buffer) {
@@ -204,15 +205,12 @@ func TestMixedInvalidAndDeferredClientsShareOneRecoveryAction(t *testing.T) {
 	if result.Clients[claudeclient.ID].State != domainreadiness.Deferred || result.Clients[codex.ID].State != domainreadiness.Invalid || result.NextAction+result.NextDetail == "" || result.Problem == "" {
 		t.Fatalf("mixed JSON check = %+v", result)
 	}
-	humanAction := ""
-	runtime.Problem = func(_, _, _, action string, cause error) error {
-		humanAction = action
-		return cause
-	}
 	command = NewCommand(runtime)
-	if err := executeCommand(command); err == nil {
+	err := executeCommand(command)
+	if err == nil {
 		t.Fatal("human check accepted invalid Codex projection")
 	}
+	humanAction := terminal.ProblemFor(err).Fix
 	if humanAction != result.NextAction {
 		t.Fatalf("human recovery %q differs from JSON action %q", humanAction, result.NextAction)
 	}

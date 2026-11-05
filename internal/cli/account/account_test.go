@@ -34,7 +34,6 @@ func emptyAccountRuntime(t *testing.T) invocation.Context {
 		Config:      store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()),
 		Interactive: true,
 		Out:         &bytes.Buffer{},
-		RenderOut:   &bytes.Buffer{},
 	}
 }
 

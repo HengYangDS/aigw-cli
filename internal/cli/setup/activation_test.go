@@ -24,7 +24,7 @@ func TestManifestSetupOffersEqualCompatibleAccountsWithoutTokens(t *testing.T) {
 	recommendation.Alternatives = []domain.ClientSelection{{Route: "dmx"}}
 	cfg.Recommendations[claude.ID] = recommendation
 	output := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), Out: output, RenderOut: output}
+	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), Out: output}
 	result := buildManifestSetupResult(runtime, cfg, []string{"ucloud", "dmx"}, "", nil, nil)
 	want := "Choose one compatible Account: aigw rotate dmx or aigw rotate ucloud"
 	if result.NextAction != want || len(result.DeferredActions) != 1 || result.DeferredActions[0] != want {
@@ -44,7 +44,7 @@ func TestGuidedSetupDefersMissingClientBeforeVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 	output := &bytes.Buffer{}
-	renderSetupClients(invocation.Context{Clients: clients.Registry(), Secrets: store, Out: output, RenderOut: output}, cfg, claude.ID)
+	renderSetupClients(invocation.Context{Clients: clients.Registry(), Secrets: store, Out: output}, cfg, claude.ID)
 	want := "Install Claude if needed, then run `aigw sync`"
 	if !strings.Contains(output.String(), want) || strings.Contains(output.String(), "Next: aigw check") {
 		t.Fatalf("guided setup admitted verification before projection: %q", output.String())

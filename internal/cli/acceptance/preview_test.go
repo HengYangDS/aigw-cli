@@ -64,7 +64,7 @@ func TestSetupAndAddPreviewsUseNoCredential(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			app.CredentialPath = reader
+			app.ResolveCredentialPath = func() (string, error) { return reader, nil }
 			store := &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), getErr: errCredentialTouched, setErr: errCredentialTouched, existsErr: errCredentialTouched}
 			app.Secrets = store
 			if err := cli.Execute(app, test.args); err != nil {

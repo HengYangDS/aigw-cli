@@ -181,7 +181,7 @@ func TestUninstallPreservesDriftedSharedReader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app.CredentialPath = reader
+	app.ResolveCredentialPath = func() (string, error) { return reader, nil }
 	codexTarget := filepath.Join(root, "codex", "config.toml")
 	writeFile(t, codexTarget, []byte("approval_policy = \"on-request\"\n"), 0o600)
 	configureUninstallClients(t, app, codexTarget)
@@ -218,7 +218,7 @@ func TestPortableUninstallPreservesExternalCredentialCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app.CredentialPath = reader
+	app.ResolveCredentialPath = func() (string, error) { return reader, nil }
 	codexTarget := filepath.Join(root, "codex", "config.toml")
 	writeFile(t, codexTarget, []byte("approval_policy = \"on-request\"\n"), 0o600)
 	configureUninstallClients(t, app, codexTarget)

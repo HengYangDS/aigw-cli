@@ -40,7 +40,6 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt-codex"]}`)), Request: request}, nil
 	})
 	deps, out := catalogRuntime(t, cfg, map[string]string{"gateway": "token", "anthropic": "ignored"}, client)
-	deps.RenderOut = out
 	if err := executeCatalogCommand(t, NewCommand(deps)); err != nil {
 		t.Fatal(err)
 	}

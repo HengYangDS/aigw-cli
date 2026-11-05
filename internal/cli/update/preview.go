@@ -25,7 +25,7 @@ func runPreview(cmd *cobra.Command, runtime invocation.Context, jsonMode bool, c
 		result, err = runtime.Updater.Preview(cmd.Context(), runtime.Version)
 	}
 	if err != nil {
-		return invocation.Problem(runtime,
+		return terminal.ProblemError(
 			"Update preview did not complete",
 			"AIGW could not determine the version that an update would install.",
 			"No file, rollback copy or Keychain item changed.",

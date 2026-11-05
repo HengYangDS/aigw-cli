@@ -61,7 +61,6 @@ type App struct {
 	DataDir               string
 	Version               string
 	Executable            string
-	CredentialPath        string
 	ResolveCredentialPath func() (string, error)
 	ResolveProgram        func() (secret.Program, error)
 	Files                 secret.Files
@@ -294,18 +293,17 @@ func environmentMap(values []string) map[string]string {
 
 func (a *App) invocationContext() invocation.Context {
 	return invocation.Context{
-		Version: appVersion(a), Executable: a.Executable, CredentialPath: a.CredentialPath, InstallTarget: a.InstallTarget,
+		Version: appVersion(a), Executable: a.Executable, InstallTarget: a.InstallTarget,
 		ResolveCredentialPath: a.ResolveCredentialPath,
 		ResolveProgram:        a.ResolveProgram,
 		Files:                 a.Files,
 		Host:                  a.Host,
 		Env:                   a.Env,
 		Config:                a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
-		In:        a.In,
-		RenderOut: a.outputWriter(),
-		Color:     a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
+		In:    a.In,
+		Color: a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,
-		Discovery: a.Discovery, Clients: a.Clients, Updater: a.Updater, Problem: terminal.ProblemError,
+		Discovery: a.Discovery, Clients: a.Clients, Updater: a.Updater,
 	}
 }
 

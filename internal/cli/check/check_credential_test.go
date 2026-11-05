@@ -14,6 +14,7 @@ import (
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/native"
+	"aigw-cli/internal/terminal"
 )
 
 func TestCheckJSONClassifiesCredentialReadFailures(t *testing.T) {
@@ -61,11 +62,6 @@ func TestCheckJSONClassifiesCredentialReadFailures(t *testing.T) {
 
 func TestCheckReportsUnresolvedBindingsBeforeCredentialOrNetworkAccess(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	var problem, action string
-	runtime.Problem = func(title, _, _, fix string, cause error) error {
-		problem, action = title, fix
-		return cause
-	}
 	store := &observingSecretStore{value: "fixture-token"}
 	runtime.Secrets = store
 	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -78,8 +74,8 @@ func TestCheckReportsUnresolvedBindingsBeforeCredentialOrNetworkAccess(t *testin
 	if err == nil || !errors.Is(err, result.resolveErr) || command != "" || unchecked {
 		t.Fatalf("unresolved binding was reported as checked: %q, %t, %v", command, unchecked, err)
 	}
-	if problem != "Codex binding cannot be resolved" || action != "aigw use --for codex <route>" {
-		t.Fatalf("binding failure omitted its actionable scope: %q, %q", problem, action)
+	if problem := terminal.ProblemFor(err); problem.Title != "Codex binding cannot be resolved" || problem.Fix != "aigw use --for codex <route>" {
+		t.Fatalf("binding failure omitted its actionable scope: %q, %q", problem.Title, problem.Fix)
 	}
 	if store.getCalls != 0 || store.existsCalls != 0 {
 		t.Fatal("an unresolved binding observed credentials")
@@ -88,11 +84,6 @@ func TestCheckReportsUnresolvedBindingsBeforeCredentialOrNetworkAccess(t *testin
 
 func TestCheckReportsAnUnsentInferenceRequestWithoutClaimingEndpointFailure(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	var problem, evidence string
-	runtime.Problem = func(title, detail, _, _ string, cause error) error {
-		problem, evidence = title, detail
-		return cause
-	}
 	selected, err := cfg.ResolveRuntime(codex.ID, "")
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +99,7 @@ func TestCheckReportsAnUnsentInferenceRequestWithoutClaimingEndpointFailure(t *t
 	if err == nil || command != "" || unchecked || diagnostic.Kind != diagnostics.ModelUnresolved {
 		t.Fatalf("unsent inference was reported as checked: %q, %t, %v", command, unchecked, err)
 	}
-	if evidence != "No request was sent" || !strings.Contains(problem, "Route has no upstream model") {
-		t.Fatalf("unsent request lost its precise diagnostic: %q, %q", problem, evidence)
+	if problem := terminal.ProblemFor(err); problem.Evidence != "No request was sent" || !strings.Contains(problem.Title, "Route has no upstream model") {
+		t.Fatalf("unsent request lost its precise diagnostic: %q, %q", problem.Title, problem.Evidence)
 	}
 }

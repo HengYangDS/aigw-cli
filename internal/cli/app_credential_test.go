@@ -33,9 +33,6 @@ func TestNewDefaultBindsCredentialEntrypointToExecutableBytes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if app.CredentialPath != "" {
-		t.Fatal("default app eagerly read executable bytes before any credential consumer")
-	}
 	executable, err := os.Open(app.Executable)
 	if err != nil {
 		t.Fatal(err)
@@ -63,14 +60,6 @@ func TestNewDefaultBindsCredentialEntrypointToExecutableBytes(t *testing.T) {
 		})
 	}
 	wait.Wait()
-	app.CredentialPath = filepath.Join(root, "explicit-reader")
-	app.ResolveCredentialPath = func() (string, error) {
-		t.Fatal("explicit reader path invoked the default resolver")
-		return "", nil
-	}
-	if explicit, err := app.invocationContext().Synchronizer().CredentialEntrypointPath(); err != nil || explicit != app.CredentialPath {
-		t.Fatalf("explicit reader path = %q, %v", explicit, err)
-	}
 	if _, err := os.Lstat(want); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("app construction wrote a credential entrypoint: %v", err)
 	}
@@ -111,7 +100,7 @@ func TestInvocationReaderIdentityIsMemoizedWithoutGlobalState(t *testing.T) {
 		if calls != 1 {
 			t.Fatalf("identity reads = %d, want one for this invocation", calls)
 		}
-		other := synchronization.Synchronizer{CredentialPath: "independent-reader"}
+		other := synchronization.Synchronizer{ResolveCredentialPath: func() (string, error) { return "independent-reader", nil }}
 		if path, err := other.CredentialEntrypointPath(); path != "independent-reader" || err != nil {
 			t.Fatalf("independent reader was contaminated: %q, %v", path, err)
 		}

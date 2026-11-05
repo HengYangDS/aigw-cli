@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/store"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,7 +31,7 @@ func TestRollbackCoversLoadCheckpointAndBackupFailures(t *testing.T) {
 		command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configStore})
 		command.SilenceErrors = true
 		command.SilenceUsage = true
-		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "parse verified checkpoint") {
+		if err := command.Execute(); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "parse verified checkpoint") {
 			t.Fatalf("rollback error = %v", err)
 		}
 	})
@@ -44,7 +45,7 @@ func TestRollbackCoversLoadCheckpointAndBackupFailures(t *testing.T) {
 		command.SilenceErrors = true
 		command.SilenceUsage = true
 		command.SetArgs([]string{"--last-change"})
-		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "parse config") {
+		if err := command.Execute(); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "parse config") {
 			t.Fatalf("rollback error = %v", err)
 		}
 	})

@@ -99,7 +99,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					impact = "Managed client withdrawal is committed; configuration, Tokens and versioned credential readers are retained."
 				}
 				fix := "Inspect the selected target and retained files; after resolving file access, retry `uninstall --path <path>` from another verified AIGW executable."
-				problem := invocation.Problem(runtime,
+				problem := terminal.ProblemError(
 					title,
 					"AIGW could not remove every selected portable program file.",
 					impact, fix, err)

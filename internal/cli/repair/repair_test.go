@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -27,7 +28,7 @@ import (
 
 func TestRenderRepairPreviewNamesEachClientAndItsSurface(t *testing.T) {
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Out: out, RenderOut: out, Width: 120}
+	runtime := invocation.Context{Clients: clients.Registry(), Out: out, Width: 120}
 	explicit := string(codex.HomeExplicit("0123456789ab"))
 	plans := []adapter.ProjectionPlan{
 		{Client: codex.ID, Target: "/known", Action: "update", Surface: string(codex.HomeDefault)},
@@ -85,7 +86,7 @@ func TestRenderRepairPreviewJSONReportsEachPlannedSurface(t *testing.T) {
 
 func TestRunRepairReportsDiscoveryFailureWithoutMutatingConfiguration(t *testing.T) {
 	store, cfg := configuredRepairStore(t)
-	if err := runRepair(context.Background(), invocation.Context{Clients: clients.Registry(), Config: store}, false, false); err == nil || !strings.Contains(err.Error(), "discovery") {
+	if err := runRepair(context.Background(), invocation.Context{Clients: clients.Registry(), Config: store}, false, false); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "discovery") {
 		t.Fatalf("runRepair() error = %v, want discovery failure", err)
 	}
 	if saved, err := store.Load(); err != nil || saved.SelectedRoute(codex.ID) != cfg.SelectedRoute(codex.ID) {
@@ -258,7 +259,7 @@ func TestRepairPreservesUnprovenCachedCredentialEntrypoint(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Executable: source, CredentialPath: helper, Config: store, Discovery: staticDiscovery{}, Out: out}
+	runtime := invocation.Context{Clients: clients.Registry(), Executable: source, ResolveCredentialPath: func() (string, error) { return helper, nil }, Config: store, Discovery: staticDiscovery{}, Out: out}
 	if err := runRepair(t.Context(), runtime, true, true); err != nil {
 		t.Fatal(err)
 	}

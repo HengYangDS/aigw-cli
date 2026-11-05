@@ -300,7 +300,7 @@ func resolveUseRuntime(runtime invocation.Context, cfg domain.Config, client, ro
 	if !runtime.Interactive {
 		choice := strings.Join(names, "|")
 		refusal := fmt.Errorf("Route %q has multiple compatible protocols for %s; pass --protocol <%s>", routeID, client, choice)
-		return domain.Runtime{}, invocation.Problem(runtime, refusal.Error(), "", "No Client Binding changed.",
+		return domain.Runtime{}, terminal.ProblemError(refusal.Error(), "", "No Client Binding changed.",
 			fmt.Sprintf("aigw use --for %s --protocol <%s> %s", client, choice, routeID), refusal)
 	}
 	choice, err := runtime.Prompt.Select("Select the endpoint protocol: ", choices)

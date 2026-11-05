@@ -79,7 +79,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 	}
 	target := filepath.Join(root, "codex.toml")
 	runtime := invocation.Context{Clients: clients.Registry(),
-		Executable: source, CredentialPath: reader, Secrets: secretStore,
+		Executable: source, ResolveCredentialPath: func() (string, error) { return reader, nil }, Secrets: secretStore,
 		Config: store.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission()),
 		Discovery: setupDiscovery{result: discovery.Result{
 			Executables: map[string]string{codex.ID: source},
@@ -88,7 +88,7 @@ func TestManifestSetupObservesNativeAvailabilityOncePerInvocation(t *testing.T) 
 				ConfigPath: target, Present: true, AutoManaged: true,
 			}},
 		}},
-		Out: io.Discard, RenderOut: io.Discard,
+		Out: io.Discard,
 	}
 	cmd := NewCommand(runtime)
 	cmd.SetContext(t.Context())

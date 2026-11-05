@@ -380,17 +380,17 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		return err
 	}
 	if len(cfg.Routes) == 0 {
-		return invocation.Problem(runtime, "Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
+		return terminal.ProblemError("Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	selected := selectedCheckClient(cmd)
 	cfg, action, err := checkConfigurationFor(cfg, selected)
 	if err != nil {
-		return invocation.Problem(runtime, "Client is not enabled", err.Error(), "No endpoint or model was checked.", action, err)
+		return terminal.ProblemError("Client is not enabled", err.Error(), "No endpoint or model was checked.", action, err)
 	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
 		problem, evidence, _, cause := activationCheckIssue(activation)
-		return invocation.Problem(runtime, problem, evidence, "No endpoint or model was checked.", activation.NextActionFor(nil), cause)
+		return terminal.ProblemError(problem, evidence, "No endpoint or model was checked.", activation.NextActionFor(nil), cause)
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)
 	if !evaluation.ok() {
@@ -403,7 +403,7 @@ func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
 			}
 			invocation.Renderer(runtime).Rows(field)
 		}
-		return invocation.Problem(runtime, "Enabled client check failed", "At least one enabled client did not pass its applicable check scope.", "All-client readiness was not established.", action, fmt.Errorf("enabled client check failed"))
+		return terminal.ProblemError("Enabled client check failed", "At least one enabled client did not pass its applicable check scope.", "All-client readiness was not established.", action, fmt.Errorf("enabled client check failed"))
 	}
 	rows := []terminal.Field{}
 	verificationCommands := []string{}
@@ -463,21 +463,21 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 		return fallback
 	}
 	if result.resolveErr != nil {
-		return terminal.Field{}, "", false, invocation.Problem(runtime, runtime.Clients.Admission().Label(client)+" binding cannot be resolved", result.resolveErr.Error(), runtime.Clients.Admission().Label(client)+" cannot determine which Route to use.", recommendedAction("aigw use --for "+client+" <route>"), result.resolveErr)
+		return terminal.Field{}, "", false, terminal.ProblemError(runtime.Clients.Admission().Label(client)+" binding cannot be resolved", result.resolveErr.Error(), runtime.Clients.Admission().Label(client)+" cannot determine which Route to use.", recommendedAction("aigw use --for "+client+" <route>"), result.resolveErr)
 	}
 	if result.credentialErr != nil {
 		evidence := "Account " + result.runtime.AccountID + " has no available Token."
 		if result.credentialState == domainreadiness.Unavailable {
 			evidence = "The selected credential backend could not return Account " + result.runtime.AccountID + "'s Token; its presence cannot be inferred."
 		}
-		return terminal.Field{}, "", false, invocation.Problem(
-			runtime, runtime.Clients.Admission().Label(client)+" "+result.issue, evidence, runtime.Clients.Admission().Label(client)+" cannot authenticate to its selected endpoint.", recommendedAction(result.fix),
+		return terminal.Field{}, "", false, terminal.ProblemError(
+			runtime.Clients.Admission().Label(client)+" "+result.issue, evidence, runtime.Clients.Admission().Label(client)+" cannot authenticate to its selected endpoint.", recommendedAction(result.fix),
 			fmt.Errorf("%s account token unavailable: %w", client, result.credentialErr),
 		)
 	}
 	if !result.adapter {
 		impact := runtime.Clients.Admission().Label(client) + " cannot receive its AIGW Route, Token, or configuration projection."
-		return terminal.Field{}, "", false, invocation.Problem(runtime, runtime.Clients.Admission().Label(client)+" projection is not ready", result.issue, impact, recommendedAction(result.fix), fmt.Errorf("%s projection not ready", client))
+		return terminal.Field{}, "", false, terminal.ProblemError(runtime.Clients.Admission().Label(client)+" projection is not ready", result.issue, impact, recommendedAction(result.fix), fmt.Errorf("%s projection not ready", client))
 	}
 	if !result.runtime.UsesAIGWCredentialStore() {
 		detail := "Client-owned authentication requires an explicit live verification"
@@ -502,7 +502,7 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 			// AIGW selects the endpoint; it neither runs nor restarts it.
 			impact += " AIGW owns this configuration, not the endpoint's lifecycle."
 		}
-		return terminal.Field{}, "", false, invocation.Problem(runtime, diagnostic.Summary, evidence, impact, recommendedAction(diagnostic.Fix), fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
+		return terminal.Field{}, "", false, terminal.ProblemError(diagnostic.Summary, evidence, impact, recommendedAction(diagnostic.Fix), fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
 	}
 	label := "Endpoint checked"
 	inferenceUnverified := true

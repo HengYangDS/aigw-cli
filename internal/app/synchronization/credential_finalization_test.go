@@ -50,7 +50,7 @@ func TestFinalizeCredentialEntrypointRefusesReaderChangedAfterPreparation(t *tes
 			if err != nil {
 				t.Fatal(err)
 			}
-			syncer := Synchronizer{Registry: builtinClients, AIGWExecutable: source, CredentialPath: reader}
+			syncer := Synchronizer{Registry: builtinClients, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
 			entrypoint, _, err := syncer.prepareCredentialEntrypoint(testConfig(filepath.Join(root, "codex.toml")), codex.ID)
 			if err != nil || entrypoint == nil {
 				t.Fatalf("prepared reader = %v, %v", entrypoint, err)
@@ -235,7 +235,7 @@ func TestConvergedProjectionValidatesReaderWithoutApplying(t *testing.T) {
 					}
 				}
 			}
-			syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
+			syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
 			cfg := testConfig(clientAdapter.target)
 			store.bindConfiguration(t, cfg)
 			err = syncer.CommitProjection(t.Context(), cfg, cfg, "sync")
@@ -262,7 +262,7 @@ func TestConvergedProjectionRechecksTargetsAfterConfigurationCommit(t *testing.T
 				t.Fatal(err)
 			}
 			store := &configStoreStub{}
-			syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, CredentialPath: reader}
+			syncer := Synchronizer{Registry: builtinClients, Config: store, Discovery: targetDiscovery(target), AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
 			cfg := testConfig(target)
 			store.bindConfiguration(t, cfg)
 			if err := syncer.CommitProjection(t.Context(), cfg, cfg, "initial sync"); err != nil {
@@ -332,7 +332,7 @@ func TestProjectionCompensatesMissingEntrypointAfterApply(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			syncer := Synchronizer{Config: configStore, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
+			syncer := Synchronizer{Config: configStore, Registry: registry, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
 			after := testConfig(target)
 			if mode == "commit" {
 				err = syncer.CommitProjection(t.Context(), before, after, "sync")
@@ -390,7 +390,7 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 				t.Fatal(err)
 			}
 			store := &configStoreStub{restoreErr: tc.configErr}
-			syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, CredentialPath: reader}
+			syncer := Synchronizer{Config: store, Registry: registry, AIGWExecutable: source, ResolveCredentialPath: readerAt(reader)}
 			err = syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), testConfig(target), "sync")
 			var recovery interface{ ConfigurationRestored() bool }
 			if !errors.Is(err, cause) || !errors.As(err, &recovery) || recovery.ConfigurationRestored() != tc.restored || store.restores != 1 {
@@ -413,7 +413,7 @@ func TestPrepareCredentialEntrypointRejectsInvalidBindingBeforeReading(t *testin
 	cfg := testConfig(filepath.Join(root, "codex.toml"))
 	delete(cfg.Routes, "gpt")
 	syncer := Synchronizer{Registry: builtinClients,
-		CredentialPath: filepath.Join(root, "data", "credential", "aigw"),
+		ResolveCredentialPath: readerAt(filepath.Join(root, "data", "credential", "aigw")),
 		ResolveProgram: func() (secret.Program, error) {
 			t.Fatal("an invalid binding read the AIGW program")
 			return secret.Program{}, nil

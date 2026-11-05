@@ -133,11 +133,12 @@ func TestEnableWithExternalCredentialPreservesUnusedCachedEntrypoint(t *testing.
 	if err := os.WriteFile(runtime.Executable, []byte("AIGW fixture"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	runtime.CredentialPath = filepath.Join(root, "data", "credential", "aigw")
-	if _, err := secret.EnsureEntrypoint(runtime.Executable, runtime.CredentialPath); err != nil {
+	reader := filepath.Join(root, "data", "credential", "aigw")
+	runtime.ResolveCredentialPath = func() (string, error) { return reader, nil }
+	if _, err := secret.EnsureEntrypoint(runtime.Executable, reader); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(runtime.CredentialPath+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
+	if err := os.WriteFile(reader+".sha256", []byte("changed receipt\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", "/opt/claude"); err != nil {
@@ -147,7 +148,7 @@ func TestEnableWithExternalCredentialPreservesUnusedCachedEntrypoint(t *testing.
 	if loadErr != nil || !stored.Clients[claude.ID].Enabled {
 		t.Fatalf("committed enablement was not preserved: %#v, %v", stored.Clients, loadErr)
 	}
-	if _, err := os.Lstat(runtime.CredentialPath); err != nil {
+	if _, err := os.Lstat(reader); err != nil {
 		t.Fatalf("enablement removed a possible cached command: %v", err)
 	}
 }

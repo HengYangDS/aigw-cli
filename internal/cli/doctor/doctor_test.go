@@ -344,16 +344,14 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	}
 
 	out.Reset()
-	render := &bytes.Buffer{}
-	deps.RenderOut = render
 	deps.Env = nil
 	if err := executeDoctorCommand(newCommand(deps, inspect)); err != nil {
 		t.Fatal(err)
 	}
-	if out.Len() != 0 || !strings.Contains(render.String(), "No client is enabled") ||
-		!strings.Contains(render.String(), "Claude") || !strings.Contains(render.String(), "Configured") ||
-		!strings.Contains(render.String(), "Codex") || !strings.Contains(render.String(), "Deferred") {
-		t.Fatalf("out=%q render=%q", out.String(), render.String())
+	if !strings.Contains(out.String(), "No client is enabled") ||
+		!strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Configured") ||
+		!strings.Contains(out.String(), "Codex") || !strings.Contains(out.String(), "Deferred") {
+		t.Fatalf("out=%q", out.String())
 	}
 
 	cmd = newCommand(deps, inspect)
@@ -468,7 +466,6 @@ func TestCommandPropagatesWriterFailures(t *testing.T) {
 	if err := executeDoctorCommand(cmd); !errors.Is(err, want) {
 		t.Fatalf("JSON write error = %v", err)
 	}
-	deps.RenderOut = failingWriter{err: want}
 	if err := executeDoctorCommand(newCommand(deps, nil)); !errors.Is(err, want) {
 		t.Fatalf("render error = %v", err)
 	}
@@ -478,11 +475,10 @@ func TestCommandPropagatesWriterFailureWhilePresentingProblems(t *testing.T) {
 	cfg := validDoctorConfig()
 	deps, _, _ := doctorDependencies(t, cfg)
 	want := errors.New("write failed")
-	deps.RenderOut = failingWriter{err: want}
+	deps.Out = failingWriter{err: want}
 	if err := executeDoctorCommand(newCommand(deps, nil)); !errors.Is(err, want) {
 		t.Fatalf("problem render error = %v", err)
 	}
-	deps.Out = failingWriter{err: want}
 	cmd := newCommand(deps, nil)
 	cmd.SetArgs([]string{"--json"})
 	if err := executeDoctorCommand(cmd); !errors.Is(err, want) {

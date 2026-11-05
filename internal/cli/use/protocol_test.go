@@ -19,7 +19,6 @@ import (
 
 func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
-	runtime.Problem = terminal.ProblemError
 	cfg.Routes["shared"] = domain.Route{
 		Account: "gateway", Model: "shared-model",
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{

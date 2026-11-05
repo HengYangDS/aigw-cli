@@ -7,6 +7,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 	"bytes"
 	"encoding/base64"
 	"errors"
@@ -103,15 +104,13 @@ func TestEndpointTestNamesTheDisabledBindingsItSkips(t *testing.T) {
 		t.Fatalf("a disabled Client Binding was probed: %s", request.URL)
 		return nil, nil
 	})
-	runtime.Problem = func(title, evidence, impact, fix string, cause error) error {
-		if title != "No enabled client has a selected Route" || evidence != "Only disabled clients have a selected Route." || impact != "Without --for, test probes only the enabled clients." || fix != "aigw test --for <client>" {
-			t.Fatalf("problem = %q, %q, %q, %q", title, evidence, impact, fix)
-		}
-		return cause
-	}
 
-	if err := executeCommand(NewCommand(runtime)); err == nil || !strings.Contains(err.Error(), "no enabled Client Binding selected") {
+	err := executeCommand(NewCommand(runtime))
+	if err == nil || !strings.Contains(errors.Unwrap(err).Error(), "no enabled Client Binding selected") {
 		t.Fatalf("error = %v", err)
+	}
+	if problem := terminal.ProblemFor(err); problem != (terminal.Problem{Title: "No enabled client has a selected Route", Evidence: "Only disabled clients have a selected Route.", Impact: "Without --for, test probes only the enabled clients.", Fix: "aigw test --for <client>"}) {
+		t.Fatalf("problem = %+v", problem)
 	}
 }
 
@@ -213,16 +212,13 @@ func TestEndpointTestRequiresASelectedClientBindingByDefault(t *testing.T) {
 		t.Fatal("endpoint request must not run without a selected Client Binding")
 		return nil, nil
 	})
-	runtime.Problem = func(title, evidence, impact, fix string, cause error) error {
-		if title != "No Client Binding is selected" || evidence != "Routes exist, but no client has a selected Route." || impact != "There is no selected endpoint to test." || fix != "aigw use --for <client> <route>" {
-			t.Fatalf("problem = %q, %q, %q, %q", title, evidence, impact, fix)
-		}
-		return cause
-	}
 
 	err := executeCommand(NewCommand(runtime))
-	if err == nil || !strings.Contains(err.Error(), "no Client Binding selected") {
+	if err == nil || !strings.Contains(errors.Unwrap(err).Error(), "no Client Binding selected") {
 		t.Fatalf("error = %v", err)
+	}
+	if problem := terminal.ProblemFor(err); problem != (terminal.Problem{Title: "No Client Binding is selected", Evidence: "Routes exist, but no client has a selected Route.", Impact: "There is no selected endpoint to test.", Fix: "aigw use --for <client> <route>"}) {
+		t.Fatalf("problem = %+v", problem)
 	}
 }
 
@@ -399,10 +395,13 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 	})
 
 	t.Run("not configured", func(t *testing.T) {
-		problem := errors.New("structured problem")
-		runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()), Out: io.Discard, Problem: func(string, string, string, string, error) error { return problem }}
-		if err := executeCommand(NewCommand(runtime)); !errors.Is(err, problem) {
-			t.Fatalf("error = %v", err)
+		runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()), Out: io.Discard}
+		err := executeCommand(NewCommand(runtime))
+		if err == nil {
+			t.Fatal("test ran without a configuration")
+		}
+		if problem := terminal.ProblemFor(err); problem.Title != "Not configured" || problem.Fix != "aigw setup" {
+			t.Fatalf("error = %v, problem = %+v", err, problem)
 		}
 	})
 

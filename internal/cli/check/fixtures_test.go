@@ -114,7 +114,7 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, domain.Config
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(),
 		Config: configStore, Secrets: secret.NewMemoryStore(),
-		Out: out, RenderOut: out, Width: 120,
+		Out: out, Width: 120,
 	}
 	var err error
 	runtime.Accounts, err = secret.NewDiagnosticCredentialStore(runtime.Secrets)

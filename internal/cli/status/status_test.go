@@ -5,6 +5,7 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/claudedesktop"
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/hermes"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
@@ -26,11 +27,41 @@ import (
 	"aigw-cli/internal/app"
 )
 
+// inspectedAdapter is a built-in client adapter whose projection inspection
+// reports ready as the test decides, without reading native files.
+type inspectedAdapter struct {
+	adapter.Adapter
+	ready bool
+}
+
+func (clientAdapter inspectedAdapter) Inspect(context.Context, adapter.Dependencies, domain.Config, domain.Runtime) adapter.Status {
+	return adapter.Status{Ready: clientAdapter.ready}
+}
+
+// inspectProjections gives runtime the built-in adapters, each inspecting its
+// client's projection as ready reports.
+func inspectProjections(t *testing.T, runtime *invocation.Context, ready func(clientID string) bool) {
+	t.Helper()
+	builtin := []adapter.Adapter{claude.New(), claudedesktop.New(), codex.New(), hermes.New()}
+	inspected := make([]adapter.Adapter, 0, len(builtin))
+	for _, clientAdapter := range builtin {
+		inspected = append(inspected, inspectedAdapter{Adapter: clientAdapter, ready: ready(clientAdapter.Spec().ID)})
+	}
+	registry, err := adapter.NewRegistry(inspected...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(registry.IDs(), runtime.Clients.IDs()) {
+		t.Fatalf("inspected clients = %v, want the built-in clients %v", registry.IDs(), runtime.Clients.IDs())
+	}
+	runtime.Clients = registry
+}
+
+func everyProjectionReady(string) bool { return true }
+
 func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
-	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) adapter.Status {
-		return adapter.Status{Ready: true}
-	}
+	inspectProjections(t, &runtime, everyProjectionReady)
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -99,9 +130,7 @@ func TestStatusHumanAndJSONShareMixedClientContinuation(t *testing.T) {
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	runtime.ClientInspector = func(_ context.Context, _ domain.Config, client string, _ domain.Runtime) adapter.Status {
-		return adapter.Status{Ready: client == codex.ID}
-	}
+	inspectProjections(t, &runtime, func(client string) bool { return client == codex.ID })
 	if err := RunStatus(runtime, true); err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +294,7 @@ func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *test
 func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	emptyPath := filepath.Join(t.TempDir(), "configuration.toml")
 	emptyOut := &bytes.Buffer{}
-	emptyRuntime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(emptyPath, clients.Admission()), Out: emptyOut, RenderOut: emptyOut, Secrets: secret.NewMemoryStore()}
+	emptyRuntime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(emptyPath, clients.Admission()), Out: emptyOut, Secrets: secret.NewMemoryStore()}
 	if err := RunStatus(emptyRuntime, false); err != nil {
 		t.Fatal(err)
 	}
@@ -364,7 +393,7 @@ func TestStatusJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 
 func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Out: out, RenderOut: out, Width: 120}
+	runtime := invocation.Context{Clients: clients.Registry(), Out: out, Width: 120}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Routes["available"] = domain.Route{Label: "Available"}
 	clients := map[string]app.ClientStatus{}
@@ -414,9 +443,7 @@ func TestStatusObservesCredentialsWithoutReadingValues(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	store := &observingSecretStore{value: "must-not-be-read"}
 	runtime.Secrets = store
-	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) adapter.Status {
-		return adapter.Status{Ready: true}
-	}
+	inspectProjections(t, &runtime, everyProjectionReady)
 
 	collectStatus(runtime.Dependencies, cfg)
 	if store.existsCalls != 1 || store.getCalls != 0 {
@@ -440,9 +467,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	}
 	store := &observingSecretStore{value: "account-token"}
 	runtime.Secrets = store
-	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) adapter.Status {
-		return adapter.Status{Ready: true}
-	}
+	inspectProjections(t, &runtime, everyProjectionReady)
 
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
@@ -504,9 +529,7 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	runtime.ClientInspector = func(context.Context, domain.Config, string, domain.Runtime) adapter.Status {
-		return adapter.Status{Ready: true}
-	}
+	inspectProjections(t, &runtime, everyProjectionReady)
 	if err := RunStatus(runtime, true); err != nil {
 		t.Fatal(err)
 	}

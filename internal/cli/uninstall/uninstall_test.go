@@ -45,7 +45,7 @@ func TestUninstallCommandDefaultsToRunningExecutableAndReportsFailure(t *testing
 	}
 	command = NewCommand(invocation.Context{Clients: clients.Registry(), Executable: ""})
 	command.SetArgs(nil)
-	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "target is empty") {
+	if err := command.Execute(); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "target is empty") {
 		t.Fatalf("empty target error = %v", err)
 	}
 }
@@ -159,7 +159,8 @@ func TestUninstallPreservesEveryVersionedReader(t *testing.T) {
 		}
 	}
 	command := NewCommand(invocation.Context{Clients: clients.Registry(),
-		Executable: invoker, CredentialPath: invokerReader, Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
+		Executable: invoker, ResolveCredentialPath: func() (string, error) { return invokerReader, nil },
+		Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
 	})
 	command.SetArgs([]string{"--path", target})
 	if err := command.Execute(); err != nil {
@@ -205,7 +206,7 @@ func TestUninstallPreservesReaderSharedByIdenticalInstallations(t *testing.T) {
 		t.Fatal(err)
 	}
 	command := NewCommand(invocation.Context{Clients: clients.Registry(),
-		Executable: invoker, CredentialPath: invokerReader,
+		Executable: invoker, ResolveCredentialPath: func() (string, error) { return invokerReader, nil },
 		Config: store.NewStore(filepath.Join(root, "config.toml"), clients.Admission()),
 	})
 	command.SetArgs([]string{"--path", target})

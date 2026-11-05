@@ -41,7 +41,6 @@ type Updater interface {
 type Dependencies struct {
 	Version               string
 	Executable            string
-	CredentialPath        string
 	ResolveCredentialPath func() (string, error)
 	ResolveProgram        func() (secret.Program, error)
 	Files                 secret.Files
@@ -61,17 +60,10 @@ type Dependencies struct {
 	// operation of this invocation goes through it.
 	Clients adapter.Registry
 	Updater Updater
-	// ClientInspector observes one client's projection in place of the
-	// synchronizer in every inspection of this invocation; nil means the
-	// synchronizer inspects it.
-	ClientInspector func(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) adapter.Status
 }
 
 // InspectClient observes one client's projection without changing it.
 func (d Dependencies) InspectClient(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) adapter.Status {
-	if d.ClientInspector != nil {
-		return d.ClientInspector(ctx, cfg, clientID, runtime)
-	}
 	return d.Synchronizer().Inspect(ctx, cfg, clientID, runtime)
 }
 
@@ -93,7 +85,6 @@ func (d Dependencies) Synchronizer() synchronization.Synchronizer {
 		Registry:              d.Clients,
 		Host:                  d.Host,
 		AIGWExecutable:        d.Executable,
-		CredentialPath:        d.CredentialPath,
 		ResolveCredentialPath: d.ResolveCredentialPath,
 		ResolveProgram:        d.ResolveProgram,
 		Files:                 d.Files,

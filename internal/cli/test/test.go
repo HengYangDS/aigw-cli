@@ -66,14 +66,14 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if len(cfg.Routes) == 0 {
-				return invocation.Problem(runtime, "Not configured", "No Routes have been created.", "No client endpoint is available to test.", "aigw setup", fmt.Errorf("not configured"))
+				return terminal.ProblemError("Not configured", "No Routes have been created.", "No client endpoint is available to test.", "aigw setup", fmt.Errorf("not configured"))
 			}
 			clients, err := endpointTestClients(cfg, client, routeName)
 			if err != nil {
 				return err
 			}
 			if len(clients) == 0 {
-				return noSelectedEndpoint(runtime, cfg)
+				return noSelectedEndpoint(cfg)
 			}
 			resolved := make(map[string]domain.Runtime, len(clients))
 			for _, spec := range clients {
@@ -194,13 +194,13 @@ func endpointTestClients(cfg domain.Config, client, routeName string) ([]domain.
 
 // noSelectedEndpoint explains why test without --for found nothing to probe:
 // no client has a selected Route, or only disabled clients do.
-func noSelectedEndpoint(runtime invocation.Context, cfg domain.Config) error {
+func noSelectedEndpoint(cfg domain.Config) error {
 	for _, spec := range cfg.Admission().Specs() {
 		if cfg.SelectedRoute(spec.ID) != "" {
-			return invocation.Problem(runtime, "No enabled client has a selected Route", "Only disabled clients have a selected Route.", "Without --for, test probes only the enabled clients.", "aigw test --for <client>", fmt.Errorf("no enabled Client Binding selected"))
+			return terminal.ProblemError("No enabled client has a selected Route", "Only disabled clients have a selected Route.", "Without --for, test probes only the enabled clients.", "aigw test --for <client>", fmt.Errorf("no enabled Client Binding selected"))
 		}
 	}
-	return invocation.Problem(runtime, "No Client Binding is selected", "Routes exist, but no client has a selected Route.", "There is no selected endpoint to test.", "aigw use --for <client> <route>", fmt.Errorf("no Client Binding selected"))
+	return terminal.ProblemError("No Client Binding is selected", "Routes exist, but no client has a selected Route.", "There is no selected endpoint to test.", "aigw use --for <client> <route>", fmt.Errorf("no Client Binding selected"))
 }
 
 // validateEndpointTestSelection refuses an incomplete or inconsistent endpoint

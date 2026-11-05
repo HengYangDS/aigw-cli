@@ -94,7 +94,7 @@ func TestPathReturnsOutputFailure(t *testing.T) {
 }
 
 func TestExportWritesASecretFreeRoundTripManifest(t *testing.T) {
-	runtime, _, out, _ := savedRuntime(t, localConfig())
+	runtime, _, out := savedRuntime(t, localConfig())
 	secretStore := runtime.Secrets
 	if err := secretStore.Set("local", "must-not-appear"); err != nil {
 		t.Fatal(err)
@@ -131,7 +131,7 @@ func TestExportSurfacesLoadAndOutputFailures(t *testing.T) {
 	})
 
 	t.Run("output", func(t *testing.T) {
-		runtime, _, _, _ := savedRuntime(t, localConfig())
+		runtime, _, _ := savedRuntime(t, localConfig())
 		runtime.Out = failingWriter{}
 		if err := executeManifestCommand(newExportCommand(runtime)); err == nil || !strings.Contains(err.Error(), "write refused") {
 			t.Fatalf("error = %v", err)
@@ -148,7 +148,7 @@ func TestExportSurfacesManifestValidationFailure(t *testing.T) {
 }
 
 func TestImportMergesPublicConfigurationAndDefersReadiness(t *testing.T) {
-	runtime, path, _, renderOut := savedRuntime(t, localConfig())
+	runtime, path, out := savedRuntime(t, localConfig())
 	manifestPath := writeManifest(t, importManifest)
 	command := NewCommand(runtime)
 	command.SetArgs([]string{"import", manifestPath})
@@ -163,7 +163,7 @@ func TestImportMergesPublicConfigurationAndDefersReadiness(t *testing.T) {
 	if loaded.Routes["remote"].Account != "gateway" {
 		t.Fatalf("imported config = %#v", loaded)
 	}
-	output := renderOut.String()
+	output := out.String()
 	for _, want := range []string{"Configuration manifest imported", "Routes", "Accounts", "aigw status"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("output %q does not contain %q", output, want)
@@ -175,7 +175,7 @@ func TestImportMergesPublicConfigurationAndDefersReadiness(t *testing.T) {
 }
 
 func TestImportPreservesExplicitSelectionWithoutSuggestingNoOpSync(t *testing.T) {
-	runtime, _, _, renderOut := savedRuntime(t, localConfig())
+	runtime, _, out := savedRuntime(t, localConfig())
 	if err := runtime.Secrets.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +191,7 @@ func TestImportPreservesExplicitSelectionWithoutSuggestingNoOpSync(t *testing.T)
 	if got := cfg.SelectedRoute(codex.ID); got != "local" {
 		t.Fatalf("explicit Codex Route changed to %q", got)
 	}
-	if output := strings.TrimSpace(renderOut.String()); !strings.HasSuffix(output, "aigw status") || strings.Contains(output, "Next\n  aigw sync") {
+	if output := strings.TrimSpace(out.String()); !strings.HasSuffix(output, "aigw status") || strings.Contains(output, "Next\n  aigw sync") {
 		t.Fatalf("import suggested activation without inspecting the selected Route: %q", output)
 	}
 }
@@ -209,7 +209,7 @@ func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *tes
 	cfg.SetSelectedRoute(hermes.ID, "local", "")
 	clientTarget := filepath.Join(t.TempDir(), "hermes.yaml")
 	cfg.SetClientActivation(hermes.ID, true, "/opt/hermes", []string{clientTarget})
-	runtime, path, out, renderOut := savedRuntime(t, cfg)
+	runtime, path, out := savedRuntime(t, cfg)
 	before, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -242,24 +242,25 @@ func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *tes
 		t.Fatalf("import preview = %+v", preview)
 	}
 	after, err := os.ReadFile(path)
-	if err != nil || !bytes.Equal(before, after) || reads != 0 || renderOut.Len() != 0 {
-		t.Fatalf("preview changed state or read Tokens: config=%t reads=%d render=%q error=%v", bytes.Equal(before, after), reads, renderOut.String(), err)
+	if err != nil || !bytes.Equal(before, after) || reads != 0 {
+		t.Fatalf("preview changed state or read Tokens: config=%t reads=%d error=%v", bytes.Equal(before, after), reads, err)
 	}
 	if _, err := os.Stat(clientTarget); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("preview wrote client projection: %v", err)
 	}
+	out.Reset()
 	human := newImportCommand(runtime)
 	human.SetArgs([]string{manifestPath, "--keep-account", "local", "--retire-route", "old", "--dry-run"})
 	if err := executeManifestCommand(human); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(renderOut.String(), "Configuration import preview") || !strings.Contains(renderOut.String(), "Potential client projections") || reads != 0 {
-		t.Fatalf("human preview omitted the impact or read Tokens: %q, reads=%d", renderOut.String(), reads)
+	if !strings.Contains(out.String(), "Configuration import preview") || !strings.Contains(out.String(), "Potential client projections") || reads != 0 {
+		t.Fatalf("human preview omitted the impact or read Tokens: %q, reads=%d", out.String(), reads)
 	}
 }
 
 func TestImportDoesNotInspectUnselectedAccountCredentials(t *testing.T) {
-	runtime, _, _, _ := savedRuntime(t, localConfig())
+	runtime, _, _ := savedRuntime(t, localConfig())
 	reads := 0
 	runtime.Secrets = secret.NewEnvironmentStore(func(string) string {
 		reads++
@@ -279,7 +280,7 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 	conflicting := strings.ReplaceAll(importManifest, "gateway", "local")
 	conflicting = strings.ReplaceAll(conflicting, "remote", "local")
 
-	runtime, path, out, _ := savedRuntime(t, localConfig())
+	runtime, path, out := savedRuntime(t, localConfig())
 	manifestPath := writeManifest(t, conflicting)
 	withoutConsent := newImportCommand(runtime)
 	withoutConsent.SetArgs([]string{manifestPath, "--dry-run", "--json"})
@@ -323,7 +324,7 @@ func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 		Primary:      domain.ClientSelection{Route: "old"},
 		Alternatives: []domain.ClientSelection{{Route: "shared-old"}},
 	}
-	runtime, _, _, renderOut := savedRuntime(t, cfg)
+	runtime, _, out := savedRuntime(t, cfg)
 	command := newImportCommand(runtime)
 	incoming := strings.Replace(importManifest, "[routes.remote]", "[models.gpt-declared]\nlabel = \"Declared\"\n\n[routes.remote]", 1)
 	command.SetArgs([]string{writeManifest(t, incoming), "--retire-route", "old", "--retire-route", "shared-old", "--retire-route", "declared-old"})
@@ -352,8 +353,8 @@ func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 	if recommendation := got.Recommendations[codex.ID]; recommendation.Primary.Route != "remote" || len(recommendation.Alternatives) != 0 {
 		t.Fatalf("recommendation was not replaced: %#v", got.Recommendations)
 	}
-	if !strings.Contains(renderOut.String(), "Retired Routes") {
-		t.Fatalf("import did not report Route retirement: %q", renderOut.String())
+	if !strings.Contains(out.String(), "Retired Routes") {
+		t.Fatalf("import did not report Route retirement: %q", out.String())
 	}
 }
 
@@ -369,7 +370,7 @@ func TestImportRejectsRouteRetirementBeforeWriting(t *testing.T) {
 		{"incoming", strings.ReplaceAll(importManifest, "remote", "local"), "local", "also declared in the imported configuration manifest"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			runtime, path, _, _ := savedRuntime(t, localConfig())
+			runtime, path, _ := savedRuntime(t, localConfig())
 			before, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
@@ -390,19 +391,6 @@ func TestImportRejectsRouteRetirementBeforeWriting(t *testing.T) {
 	}
 }
 
-func TestImportFallsBackToThePrimaryOutput(t *testing.T) {
-	runtime, _, out, renderOut := savedRuntime(t, localConfig())
-	runtime.RenderOut = nil
-	command := newImportCommand(runtime)
-	command.SetArgs([]string{writeManifest(t, importManifest)})
-	if err := executeManifestCommand(command); err != nil {
-		t.Fatal(err)
-	}
-	if output := out.String(); !strings.Contains(output, "Configuration manifest imported") || renderOut.Len() != 0 {
-		t.Fatalf("output = %q", output)
-	}
-}
-
 func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 	validPath := writeManifest(t, importManifest)
 	tests := []struct {
@@ -414,7 +402,7 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 		{
 			name: "read",
 			runtime: func(t *testing.T) invocation.Context {
-				runtime, _, _, _ := savedRuntime(t, localConfig())
+				runtime, _, _ := savedRuntime(t, localConfig())
 				return runtime
 			},
 			path: func(t *testing.T) string { return filepath.Join(t.TempDir(), "absent.toml") },
@@ -423,7 +411,7 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 		{
 			name: "parse",
 			runtime: func(t *testing.T) invocation.Context {
-				runtime, _, _, _ := savedRuntime(t, localConfig())
+				runtime, _, _ := savedRuntime(t, localConfig())
 				return runtime
 			},
 			path: func(t *testing.T) string { return writeManifest(t, "not = [valid") },
@@ -444,7 +432,7 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 		{
 			name: "merge",
 			runtime: func(t *testing.T) invocation.Context {
-				runtime, _, _, _ := savedRuntime(t, localConfig())
+				runtime, _, _ := savedRuntime(t, localConfig())
 				return runtime
 			},
 			path: func(t *testing.T) string {
@@ -466,7 +454,7 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 }
 
 func TestImportReturnsConfigurationTransactionFailure(t *testing.T) {
-	runtime, path, _, _ := savedRuntime(t, localConfig())
+	runtime, path, _ := savedRuntime(t, localConfig())
 	backup := path + ".bak"
 	if err := os.Mkdir(backup, 0o700); err != nil {
 		t.Fatal(err)
@@ -481,7 +469,7 @@ func TestImportReturnsConfigurationTransactionFailure(t *testing.T) {
 	}
 }
 
-func savedRuntime(t *testing.T, cfg domain.Config) (invocation.Context, string, *bytes.Buffer, *bytes.Buffer) {
+func savedRuntime(t *testing.T, cfg domain.Config) (invocation.Context, string, *bytes.Buffer) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	configStore := store.NewStore(path, clients.Admission())
@@ -489,14 +477,12 @@ func savedRuntime(t *testing.T, cfg domain.Config) (invocation.Context, string, 
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	renderOut := &bytes.Buffer{}
 	return invocation.Context{Clients: clients.Registry(),
-		Config:    configStore,
-		Secrets:   secret.NewMemoryStore(),
-		Out:       out,
-		RenderOut: renderOut,
-		Width:     120,
-	}, path, out, renderOut
+		Config:  configStore,
+		Secrets: secret.NewMemoryStore(),
+		Out:     out,
+		Width:   120,
+	}, path, out
 }
 
 func localConfig() domain.Config {

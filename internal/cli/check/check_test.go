@@ -8,6 +8,7 @@ import (
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 	"context"
 	"encoding/json"
 	"errors"
@@ -111,11 +112,6 @@ func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/json=%t", client, jsonMode), func(t *testing.T) {
 				runtime, cfg, output := configuredReadinessRuntime(t)
 				runtime.Version = "1.0.0"
-				problemDetail, problemAction := "", ""
-				runtime.Problem = func(_, evidence, _, action string, cause error) error {
-					problemDetail, problemAction = evidence, action
-					return cause
-				}
 				cfg.SetClientActivation(client, true, "", nil)
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
@@ -132,9 +128,12 @@ func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 				} else {
 					command.SetArgs([]string{})
 				}
-				if err := executeCommand(command); err == nil {
+				err := executeCommand(command)
+				if err == nil {
 					t.Fatal("invalid projection was accepted")
 				}
+				problem := terminal.ProblemFor(err)
+				problemDetail, problemAction := problem.Evidence, problem.Fix
 				if store.getCalls != 0 || store.existsCalls != 1 {
 					t.Fatalf("deferred projection observed Token value or repeated metadata lookup: get=%d exists=%d", store.getCalls, store.existsCalls)
 				}
@@ -330,7 +329,7 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 	t.Run("no enabled clients", func(t *testing.T) {
 		runtime, _, _ := configuredReadinessRuntime(t)
 		runtime.Version = "1.0.0"
-		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(err.Error(), "no enabled Client Bindings") {
+		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "no enabled Client Bindings") {
 			t.Fatalf("RunCheck() error = %v", err)
 		}
 	})
@@ -364,7 +363,7 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 		if err := runtime.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
-		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(err.Error(), "projection not ready") {
+		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "projection not ready") {
 			t.Fatalf("RunCheck() error = %v", err)
 		}
 	})

@@ -36,7 +36,7 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out, RenderOut: out}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out}
 	list := newListCommand(runtime)
 	list.SetArgs([]string{"--json"})
 	if err := list.Execute(); err != nil {
@@ -82,7 +82,7 @@ func TestRouteHumanOutputNamesClientsByLabel(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out, RenderOut: out}
+	runtime := invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out}
 	for _, command := range []*cobra.Command{newListCommand(runtime), newShowCommand(runtime)} {
 		out.Reset()
 		if command.Name() == "show" {
@@ -183,7 +183,7 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 			if err := secretStore.Set("team", "retained-token"); err != nil {
 				t.Fatal(err)
 			}
-			command := newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Out: &bytes.Buffer{}, RenderOut: &bytes.Buffer{}})
+			command := newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Out: &bytes.Buffer{}})
 			command.SetArgs([]string{"claude"})
 			if err := command.Execute(); err != nil {
 				t.Fatal(err)
@@ -229,7 +229,7 @@ func TestRemovePreviewNamesTheRecommendationsThatItChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	command := newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: out, RenderOut: &bytes.Buffer{}})
+	command := newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: out})
 	command.SetArgs([]string{"spare", "--dry-run", "--json"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
@@ -242,7 +242,7 @@ func TestRemovePreviewNamesTheRecommendationsThatItChanges(t *testing.T) {
 		t.Fatalf("removal preview = %s, %v", out.String(), err)
 	}
 	rendered := &bytes.Buffer{}
-	command = newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: rendered, RenderOut: rendered})
+	command = newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: rendered})
 	command.SetArgs([]string{"spare", "--dry-run"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
@@ -254,7 +254,7 @@ func TestRemovePreviewNamesTheRecommendationsThatItChanges(t *testing.T) {
 		t.Fatalf("removal preview changed the configuration: %v", err)
 	}
 	out.Reset()
-	command = newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: out, RenderOut: &bytes.Buffer{}})
+	command = newRemoveCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: out})
 	command.SetArgs([]string{"spare", "--json"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
@@ -298,10 +298,9 @@ func blockedRouteRuntime(t *testing.T) invocation.Context {
 		t.Fatal(err)
 	}
 	return invocation.Context{Clients: clients.Registry(),
-		Config:    configStore,
-		Secrets:   secret.NewMemoryStore(),
-		Out:       &bytes.Buffer{},
-		RenderOut: &bytes.Buffer{},
+		Config:  configStore,
+		Secrets: secret.NewMemoryStore(),
+		Out:     &bytes.Buffer{},
 	}
 }
 
@@ -326,7 +325,7 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 				t.Fatal(err)
 			}
 			out := &bytes.Buffer{}
-			command := newAddCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: out, RenderOut: out})
+			command := newAddCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: out})
 			args := []string{"ucloud-minimax-new", "--account", "ucloud", "--model", "minimax-m3", "--protocol", "openai_responses"}
 			if test.upstream != "" {
 				args = append(args, "--upstream-model", test.upstream)

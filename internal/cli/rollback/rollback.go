@@ -70,8 +70,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					if checkpointErr != nil {
 						cause = errors.Join(checkpointErr, backupErr)
 					}
-					return invocation.Problem(
-						runtime,
+					return terminal.ProblemError(
 						"Configuration rollback is unavailable",
 						"No valid recovery source is available for the current configuration.",
 						"The current configuration remains active and unchanged.",
@@ -100,8 +99,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return nil
 			}
 			if err := runtime.Synchronizer().Commit(cmd.Context(), current, restored, "rollback"); err != nil {
-				return invocation.Problem(
-					runtime,
+				return terminal.ProblemError(
 					"Configuration rollback did not complete",
 					"One rollback step failed; the cause identifies the affected boundary.",
 					rollbackFailureImpact(err),
