@@ -17,17 +17,57 @@ import (
 )
 
 // GatewayAbsent reports whether no Hermes gateway runs for the home: no process
-// holds <home>/gateway.lock, Hermes's own authority on a running gateway, and
-// the gateway process that <home>/gateway_state.json records has exited. A
-// gateway releases its lock before it writes its exit records and logs into the
-// home, and Hermes keeps the state file after the gateway stops, so the free
-// lock alone does not prove that the process ended. Missing files mean that no
-// gateway started or recorded a run.
+// holds <home>/gateway.lock, Hermes's own authority on a running gateway, the
+// gateway process that <home>/gateway_state.json records has exited, and no
+// launched gateway is still starting. A gateway releases its lock before it
+// writes its exit records and logs into the home, and Hermes keeps the state
+// file after the gateway stops, so the free lock alone does not prove that the
+// process ended. A launch writes <home>/logs/gateway-stdio.log before the
+// gateway takes its lock or records itself, so a home with that log is still
+// owned until <home>/state/gateway.lifecycle.json says the gateway exited.
+// Missing files mean that no gateway started or recorded a run.
 func GatewayAbsent(home string) (bool, error) {
 	if free, err := gatewayLockFree(home); err != nil || !free {
 		return false, err
 	}
-	return recordedGatewayExited(home)
+	if exited, err := recordedGatewayExited(home); err != nil || !exited {
+		return false, err
+	}
+	return launchedGatewayFinished(home)
+}
+
+// launchedGatewayFinished reports whether a gateway launched into the home has
+// ended, from Hermes's own lifecycle record. A home without a launch log never
+// launched one.
+func launchedGatewayFinished(home string) (bool, error) {
+	if _, err := os.Stat(filepath.Join(home, "logs", "gateway-stdio.log")); errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	} else if err != nil {
+		return false, err
+	}
+	data, err := os.ReadFile(filepath.Join(home, "state", "gateway.lifecycle.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var lifecycle struct {
+		Phase string `json:"phase"`
+		PID   int    `json:"pid"`
+	}
+	if err := json.Unmarshal(data, &lifecycle); err != nil {
+		return false, fmt.Errorf("read the Hermes gateway lifecycle: %w", err)
+	}
+	switch lifecycle.Phase {
+	case "exited":
+		return true, nil
+	case "running":
+		// Hermes reads a running record whose process is gone as an unclean exit.
+		return processExited(lifecycle.PID)
+	default:
+		return false, nil
+	}
 }
 
 func gatewayLockFree(home string) (bool, error) {
@@ -47,8 +87,8 @@ func gatewayLockFree(home string) (bool, error) {
 	return true, syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
 }
 
-// recordedGatewayExited tests the recorded process with signal 0, which
-// delivers nothing and only reports whether the process exists.
+// recordedGatewayExited reports whether the gateway process that
+// gateway_state.json records has exited.
 func recordedGatewayExited(home string) (bool, error) {
 	data, err := os.ReadFile(filepath.Join(home, "gateway_state.json"))
 	if errors.Is(err, os.ErrNotExist) {
@@ -63,10 +103,17 @@ func recordedGatewayExited(home string) (bool, error) {
 	if err := json.Unmarshal(data, &state); err != nil {
 		return false, fmt.Errorf("read the Hermes gateway state: %w", err)
 	}
-	if state.PID <= 0 {
+	return processExited(state.PID)
+}
+
+// processExited tests a recorded process with signal 0, which delivers nothing
+// and only reports whether the process exists. A record without a process
+// names none.
+func processExited(pid int) (bool, error) {
+	if pid <= 0 {
 		return true, nil
 	}
-	switch err := syscall.Kill(state.PID, 0); {
+	switch err := syscall.Kill(pid, 0); {
 	case errors.Is(err, syscall.ESRCH):
 		return true, nil
 	case err == nil, errors.Is(err, syscall.EPERM):
