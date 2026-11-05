@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"syscall"
 	"testing"
 	"time"
@@ -28,6 +29,7 @@ func TestStartCapturedWindowsProcessOwnsEveryFailureBoundary(t *testing.T) {
 		{name: "open process", failAt: "open", wantClosed: 1, wantStopped: true},
 		{name: "assign process", failAt: "assign", wantClosed: 2, wantStopped: true},
 		{name: "close process", failAt: "close", wantClosed: 2, wantStopped: true},
+		{name: "resume process", failAt: "resume", wantClosed: 2, wantStopped: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -64,6 +66,12 @@ func TestStartCapturedWindowsProcessOwnsEveryFailureBoundary(t *testing.T) {
 					}
 					return nil
 				},
+				resumeProcess: func(uint32) error {
+					if test.failAt == "resume" {
+						return failure
+					}
+					return nil
+				},
 				closeHandle: func(handle windows.Handle) error {
 					closed++
 					if test.failAt == "close" && handle == 20 {
@@ -96,6 +104,7 @@ func TestStartCapturedWindowsProcessReturnsIdempotentCleanup(t *testing.T) {
 		},
 		openProcess:   func(uint32, bool, uint32) (windows.Handle, error) { return 20, nil },
 		assignProcess: func(windows.Handle, windows.Handle) error { return nil },
+		resumeProcess: func(uint32) error { return nil },
 		closeHandle: func(windows.Handle) error {
 			closed++
 			return nil
@@ -201,11 +210,81 @@ func TestStartCapturedWindowsProcessRetainsStopFailure(t *testing.T) {
 		startCommand:  func(command *exec.Cmd) error { command.Process = &os.Process{Pid: 42}; return nil },
 		openProcess:   func(uint32, bool, uint32) (windows.Handle, error) { return 20, nil },
 		assignProcess: func(windows.Handle, windows.Handle) error { return refused },
+		resumeProcess: func(uint32) error { return nil },
 		closeHandle:   func(windows.Handle) error { return nil },
 		stopCommand:   func(*exec.Cmd) error { return stopFailure },
 	}
 	cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api)
 	if cleanup != nil || !errors.Is(err, refused) || !errors.Is(err, stopFailure) {
 		t.Fatalf("startup lost exact owned cleanup failure: cleanup=%t error=%v", cleanup != nil, err)
+	}
+}
+
+// A child runs no code before it is in its Job: it starts suspended, joins the
+// Job, and only then resumes. A child that exits at once can therefore never
+// make the assignment fail, and nothing it starts escapes the Job.
+func TestStartCapturedWindowsProcessAssignsBeforeTheChildRuns(t *testing.T) {
+	var steps []string
+	api := windowsProcessAPI{
+		createJob:    func(*windows.SecurityAttributes, *uint16) (windows.Handle, error) { return 10, nil },
+		configureJob: func(windows.Handle, uint32, uintptr, uint32) (int, error) { return 1, nil },
+		startCommand: func(command *exec.Cmd) error {
+			if command.SysProcAttr == nil || command.SysProcAttr.CreationFlags&windows.CREATE_SUSPENDED == 0 {
+				steps = append(steps, "start running")
+			} else {
+				steps = append(steps, "start suspended")
+			}
+			command.Process = &os.Process{Pid: 42}
+			return nil
+		},
+		openProcess: func(uint32, bool, uint32) (windows.Handle, error) { return 20, nil },
+		assignProcess: func(windows.Handle, windows.Handle) error {
+			steps = append(steps, "assign")
+			return nil
+		},
+		resumeProcess: func(pid uint32) error {
+			if pid != 42 {
+				t.Fatalf("resumed process %d, want 42", pid)
+			}
+			steps = append(steps, "resume")
+			return nil
+		},
+		closeHandle: func(windows.Handle) error { return nil },
+		stopCommand: func(*exec.Cmd) error { return nil },
+	}
+	command := exec.Command("fixture")
+	command.SysProcAttr = &syscall.SysProcAttr{CreationFlags: windows.DEBUG_PROCESS}
+	cleanup, err := startCapturedWindowsProcess(command, api)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"start suspended", "assign", "resume"}; !slices.Equal(steps, want) {
+		t.Fatalf("start sequence = %v, want %v", steps, want)
+	}
+	if command.SysProcAttr.CreationFlags&windows.DEBUG_PROCESS == 0 {
+		t.Fatal("suspended start dropped the caller's creation flags")
+	}
+}
+
+// A resume that fails leaves the child suspended in its Job; startup stops it
+// and reports both causes.
+func TestStartCapturedWindowsProcessStopsAChildThatCannotResume(t *testing.T) {
+	refused, stopped := errors.New("resume refused"), false
+	api := windowsProcessAPI{
+		createJob:     func(*windows.SecurityAttributes, *uint16) (windows.Handle, error) { return 10, nil },
+		configureJob:  func(windows.Handle, uint32, uintptr, uint32) (int, error) { return 1, nil },
+		startCommand:  func(command *exec.Cmd) error { command.Process = &os.Process{Pid: 42}; return nil },
+		openProcess:   func(uint32, bool, uint32) (windows.Handle, error) { return 20, nil },
+		assignProcess: func(windows.Handle, windows.Handle) error { return nil },
+		resumeProcess: func(uint32) error { return refused },
+		closeHandle:   func(windows.Handle) error { return nil },
+		stopCommand:   func(*exec.Cmd) error { stopped = true; return nil },
+	}
+	cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api)
+	if cleanup != nil || !errors.Is(err, refused) || !stopped {
+		t.Fatalf("unresumable child: cleanup=%t stopped=%t error=%v", cleanup != nil, stopped, err)
 	}
 }
