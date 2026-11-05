@@ -127,16 +127,9 @@ func TestRunBuildUsesPublicArgumentContract(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "VERSION"), []byte("invalid-version\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	previous, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(root); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(previous) })
+	t.Chdir(root)
 	var output bytes.Buffer
-	err = run([]string{"build", filepath.Join(t.TempDir(), "dist")}, &output)
+	err := run([]string{"build", filepath.Join(t.TempDir(), "dist")}, &output)
 	if err == nil || !strings.Contains(err.Error(), "invalid release version") {
 		t.Fatalf("build error = %v", err)
 	}

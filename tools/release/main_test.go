@@ -345,12 +345,6 @@ func TestExecuteReturnsPortableProcessStatus(t *testing.T) {
 	}
 }
 
-func TestReleaseEnvironmentSelection(t *testing.T) {
-	if envDefault("MISSING_RELEASE_ENV", "fallback") != "fallback" || firstNonEmpty("", "value") != "value" || firstNonEmpty() != "" {
-		t.Fatal("environment selection failed")
-	}
-}
-
 func buildNativeProgram(t *testing.T, root, version string) string {
 	t.Helper()
 	for _, name := range []string{"CI_COMMIT_TAG", "GITHUB_REF_TYPE"} {

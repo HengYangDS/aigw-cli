@@ -11,22 +11,6 @@ import (
 	"syscall"
 )
 
-func envDefault(name, fallback string) string {
-	if value := os.Getenv(name); value != "" {
-		return value
-	}
-	return fallback
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
 func main() { os.Exit(execute(os.Args[1:], os.Stdout, os.Stderr)) }
 
 func execute(args []string, stdout, stderr io.Writer) int {

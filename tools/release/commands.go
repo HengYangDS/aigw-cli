@@ -6,6 +6,7 @@ import (
 	"aigw-cli/tools/release/identity"
 	"aigw-cli/tools/release/provenance"
 	"aigw-cli/tools/release/publication"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -144,8 +145,8 @@ func publicationCommands(ctx context.Context) commandSet {
 				return err
 			}
 			created, err := publication.PublishGitHub(ctx, http.DefaultClient, publication.GitHubConfig{
-				APIBase: envDefault("GITHUB_API_URL", "https://api.github.com"), Repository: os.Getenv("GITHUB_REPOSITORY"),
-				Tag: os.Getenv("CI_COMMIT_TAG"), Token: firstNonEmpty(os.Getenv("GH_TOKEN"), os.Getenv("GITHUB_TOKEN")), Artifacts: args[0],
+				APIBase: cmp.Or(os.Getenv("GITHUB_API_URL"), "https://api.github.com"), Repository: os.Getenv("GITHUB_REPOSITORY"),
+				Tag: os.Getenv("CI_COMMIT_TAG"), Token: cmp.Or(os.Getenv("GH_TOKEN"), os.Getenv("GITHUB_TOKEN")), Artifacts: args[0],
 				Trust:              trust,
 				Source:             source,
 				VerifyDistribution: verifyMacOSPublication,
