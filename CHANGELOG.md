@@ -14,6 +14,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Security
+
+- A Token typed at an interactive terminal is no longer echoed when `NO_COLOR`
+  or `AIGW_ACCESSIBLE` selects accessible prompts. `setup`, `rotate`, `use`,
+  account diagnostics and manifest import now read it with echo disabled, as
+  the default prompts always did. A Token piped to standard input is read as
+  before.
+
 ## [0.6.0] - 2026-11-01
 
 History: [GitLab][0.6.0-gitlab] · [GitHub][0.6.0-github]

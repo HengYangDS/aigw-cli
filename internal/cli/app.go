@@ -254,7 +254,7 @@ func NewDefault(clients adapter.Registry) (*App, error) {
 		Color:         terminal.ColorEnabled(runtime.GOOS, env, terminal.Interactive(os.Stdout), terminal.EnableVirtualTerminal),
 		Runner:        process.Runner{},
 		HTTP:          &http.Client{},
-		Prompt:        terminal.NewPrompter(os.Stdin, os.Stdout, env["NO_COLOR"] != ""),
+		Prompt:        terminal.NewPrompter(os.Stdin, os.Stdout, terminal.Accessible(env)),
 		Discovery:     adapter.NewDiscoverer(clients, host),
 		Clients:       clients,
 		Updater:       program.Current(executable),
