@@ -31,8 +31,8 @@ bounds do not change.
 
 ### Modified Capabilities
 
-- `release-distribution`: an owned child joins its native process group or Job
-  before it runs any code.
+- `secret-storage`: a credential subprocess joins the process group or Job that
+  owns its cleanup before it runs any code.
 
 ## Impact
 

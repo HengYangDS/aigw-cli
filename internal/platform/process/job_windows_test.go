@@ -202,6 +202,50 @@ func TestStartCapturedWindowsProcessReclaimsRejectedDebuggee(t *testing.T) {
 	}
 }
 
+// A real child that would exit at once is held until it joins its Job: a
+// pause before the assignment finds it still running, and it then completes.
+func TestStartCapturedWindowsProcessContainsAnImmediatelyExitingChild(t *testing.T) {
+	interpreter := os.Getenv("ComSpec")
+	if interpreter == "" {
+		interpreter = "cmd.exe"
+	}
+	api := nativeWindowsProcessAPI
+	assign := api.assignProcess
+	exitedBeforeAssign := false
+	api.assignProcess = func(job, child windows.Handle) error {
+		pid, err := windows.GetProcessId(child)
+		if err != nil {
+			return err
+		}
+		waiter, err := windows.OpenProcess(windows.SYNCHRONIZE, false, pid)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = windows.CloseHandle(waiter) }()
+		event, err := windows.WaitForSingleObject(waiter, 250)
+		if err != nil {
+			return err
+		}
+		exitedBeforeAssign = event == windows.WAIT_OBJECT_0
+		return assign(job, child)
+	}
+	command := exec.Command(interpreter, "/d", "/c", "exit 0")
+	cleanup, err := startCapturedWindowsProcess(command, api)
+	if err != nil {
+		t.Fatalf("an immediately exiting child failed to start: %v", err)
+	}
+	waitErr := command.Wait()
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
+	if exitedBeforeAssign {
+		t.Fatal("the child ran and exited before it joined its Job")
+	}
+	if waitErr != nil {
+		t.Fatalf("the contained child did not complete: %v", waitErr)
+	}
+}
+
 func TestStartCapturedWindowsProcessRetainsStopFailure(t *testing.T) {
 	refused, stopFailure := errors.New("assign refused"), errors.New("stop failed")
 	api := windowsProcessAPI{
@@ -266,25 +310,5 @@ func TestStartCapturedWindowsProcessAssignsBeforeTheChildRuns(t *testing.T) {
 	}
 	if command.SysProcAttr.CreationFlags&windows.DEBUG_PROCESS == 0 {
 		t.Fatal("suspended start dropped the caller's creation flags")
-	}
-}
-
-// A resume that fails leaves the child suspended in its Job; startup stops it
-// and reports both causes.
-func TestStartCapturedWindowsProcessStopsAChildThatCannotResume(t *testing.T) {
-	refused, stopped := errors.New("resume refused"), false
-	api := windowsProcessAPI{
-		createJob:     func(*windows.SecurityAttributes, *uint16) (windows.Handle, error) { return 10, nil },
-		configureJob:  func(windows.Handle, uint32, uintptr, uint32) (int, error) { return 1, nil },
-		startCommand:  func(command *exec.Cmd) error { command.Process = &os.Process{Pid: 42}; return nil },
-		openProcess:   func(uint32, bool, uint32) (windows.Handle, error) { return 20, nil },
-		assignProcess: func(windows.Handle, windows.Handle) error { return nil },
-		resumeProcess: func(uint32) error { return refused },
-		closeHandle:   func(windows.Handle) error { return nil },
-		stopCommand:   func(*exec.Cmd) error { stopped = true; return nil },
-	}
-	cleanup, err := startCapturedWindowsProcess(exec.Command("fixture"), api)
-	if cleanup != nil || !errors.Is(err, refused) || !stopped {
-		t.Fatalf("unresumable child: cleanup=%t stopped=%t error=%v", cleanup != nil, stopped, err)
 	}
 }

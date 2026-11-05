@@ -26,6 +26,9 @@ type windowsProcessAPI struct {
 	stopCommand   func(*exec.Cmd) error
 }
 
+// procGetProcessIDOfThread names a thread's owning process; x/sys does not wrap it.
+var procGetProcessIDOfThread = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetProcessIdOfThread")
+
 var nativeWindowsProcessAPI = windowsProcessAPI{
 	createJob:     windows.CreateJobObject,
 	configureJob:  windows.SetInformationJobObject,
@@ -37,9 +40,9 @@ var nativeWindowsProcessAPI = windowsProcessAPI{
 	stopCommand:   stopCapturedCommand,
 }
 
-// resumeSuspendedProcess resumes the one thread of a process created with
-// CREATE_SUSPENDED. os/exec closes the creation's thread handle, so the thread
-// is found through a snapshot of the process's threads.
+// resumeSuspendedProcess resumes the threads of a process created with
+// CREATE_SUSPENDED. os/exec closes the creation's thread handle, so the
+// threads are found through a snapshot of the system's threads.
 func resumeSuspendedProcess(pid uint32) (result error) {
 	snapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPTHREAD, 0)
 	if err != nil {
@@ -52,9 +55,15 @@ func resumeSuspendedProcess(pid uint32) (result error) {
 		if entry.OwnerProcessID != pid {
 			continue
 		}
-		thread, err := windows.OpenThread(windows.THREAD_SUSPEND_RESUME, false, entry.ThreadID)
+		thread, err := windows.OpenThread(windows.THREAD_SUSPEND_RESUME|windows.THREAD_QUERY_LIMITED_INFORMATION, false, entry.ThreadID)
 		if err != nil {
 			return fmt.Errorf("open suspended child thread: %w", err)
+		}
+		// A thread identifier can be reused once its thread ends; resume only a
+		// thread that still belongs to this child.
+		owner, _, ownerErr := procGetProcessIDOfThread.Call(uintptr(thread))
+		if uint32(owner) != pid { // #nosec G115 -- GetProcessIdOfThread returns a Win32 DWORD process identifier.
+			return errors.Join(fmt.Errorf("suspended child thread %d now belongs to another process: %w", entry.ThreadID, ownerErr), windows.CloseHandle(thread))
 		}
 		_, resumeErr := windows.ResumeThread(thread)
 		if err := errors.Join(resumeErr, windows.CloseHandle(thread)); err != nil {
