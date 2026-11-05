@@ -1,16 +1,21 @@
 package status
 
 import (
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/claudedesktop"
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"bytes"
+	"context"
 	"io"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -92,3 +97,35 @@ func executeCommand(command *cobra.Command) error {
 	command.SilenceUsage = true
 	return command.Execute()
 }
+
+// inspectedAdapter is a built-in client adapter whose projection inspection
+// reports ready as the test decides, without reading native files.
+type inspectedAdapter struct {
+	adapter.Adapter
+	ready bool
+}
+
+func (clientAdapter inspectedAdapter) Inspect(context.Context, adapter.Dependencies, domain.Config, domain.Runtime) adapter.Status {
+	return adapter.Status{Ready: clientAdapter.ready}
+}
+
+// inspectProjections gives runtime the built-in adapters, each inspecting its
+// client's projection as ready reports.
+func inspectProjections(t *testing.T, runtime *invocation.Context, ready func(clientID string) bool) {
+	t.Helper()
+	builtin := []adapter.Adapter{claude.New(), claudedesktop.New(), codex.New(), hermes.New()}
+	inspected := make([]adapter.Adapter, 0, len(builtin))
+	for _, clientAdapter := range builtin {
+		inspected = append(inspected, inspectedAdapter{Adapter: clientAdapter, ready: ready(clientAdapter.Spec().ID)})
+	}
+	registry, err := adapter.NewRegistry(inspected...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(registry.IDs(), runtime.Clients.IDs()) {
+		t.Fatalf("inspected clients = %v, want the built-in clients %v", registry.IDs(), runtime.Clients.IDs())
+	}
+	runtime.Clients = registry
+}
+
+func everyProjectionReady(string) bool { return true }
