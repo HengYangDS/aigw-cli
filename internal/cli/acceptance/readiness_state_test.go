@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -394,5 +395,69 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Credential metadata unavailable") || strings.Count(out.String(), "aigw doctor") != 1 || strings.Contains(out.String(), "aigw check") {
 		t.Fatalf("status did not present one safe metadata recovery action:\n%s", out.String())
+	}
+}
+
+// Status reports Claude's projection ready only once its settings are
+// synchronized, and check reads the Token and reaches the endpoint only then;
+// neither reads the Token while observing readiness.
+func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
+	app, out, _, _, endpoint := testApp(t, "")
+	app.Version = "1.0.0"
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Accounts["one"] = domain.Account{
+		Label: "One",
+		Endpoints: domain.Endpoints{
+			Anthropic:       "https://claude.example.test",
+			OpenAIResponses: "https://codex.example.test/v1",
+		},
+	}
+	cfg.Routes["claude"] = domain.Route{
+		Label: "Claude", Account: "one", Model: "claude-test",
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	}
+	cfg.Routes["codex"] = domain.Route{
+		Label: "Codex", Account: "one", Model: "gpt-test",
+		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	}
+	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	secretStore := &recordingCredentialStore[string]{backend: secret.NewMemoryStore()}
+	if err := secretStore.backend.Set("one", "token"); err != nil {
+		t.Fatal(err)
+	}
+	app.Secrets = secretStore
+	for _, synchronized := range []bool{false, true} {
+		if synchronized {
+			synchronizeClaudeProjection(t, app, cfg)
+		}
+		out.Reset()
+		secretReads := len(secretStore.getCalls)
+		if err := cli.Execute(app, []string{"status", "--json"}); err != nil {
+			t.Fatal(err)
+		}
+		var status struct {
+			Clients map[string]struct {
+				ProjectionReady bool `json:"projection_ready"`
+			} `json:"clients"`
+		}
+		if err := json.Unmarshal(out.Bytes(), &status); err != nil {
+			t.Fatal(err)
+		}
+		if client := status.Clients[claude.ID]; client.ProjectionReady != synchronized || len(secretStore.getCalls) != secretReads {
+			t.Errorf("synchronized=%t client=%+v secret reads=%d", synchronized, client, len(secretStore.getCalls)-secretReads)
+		}
+		err := cli.Execute(app, []string{"check"})
+		if synchronized {
+			if err != nil || endpoint.calls == 0 {
+				t.Errorf("synchronized check: error=%v requests=%d", err, endpoint.calls)
+			}
+		} else if err == nil || endpoint.calls != 0 || len(secretStore.getCalls) != secretReads || !strings.Contains(out.String(), "aigw sync") {
+			t.Errorf("unsynchronized check: error=%v requests=%d secret reads=%d output=%s", err, endpoint.calls, len(secretStore.getCalls)-secretReads, out.String())
+		}
 	}
 }
