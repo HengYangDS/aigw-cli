@@ -4,8 +4,6 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
-	"os"
-	"runtime"
 
 	"aigw-cli/internal/secret"
 )
@@ -133,13 +131,6 @@ func readOptionalProbeCredential(store secret.DiagnosticCredentialStore, id stri
 		return secret.DiagnosticCredential{}, false, err
 	}
 	return value, true, nil
-}
-
-func expectedPersistedMode() os.FileMode {
-	if runtime.GOOS == "windows" {
-		return 0o666
-	}
-	return 0o600
 }
 
 func secretValuesEqual(left, right string) bool {

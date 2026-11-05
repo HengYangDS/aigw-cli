@@ -41,7 +41,7 @@ func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (P
 		}
 	}
 
-	backupConverged := state.Snapshot.BackupConverged(expectedPersistedMode())
+	backupConverged := state.Snapshot.BackupConverged()
 	plan := Plan{
 		Resource:           ResourceAccount,
 		OldID:              oldID,

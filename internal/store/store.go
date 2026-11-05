@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"time"
 
@@ -56,14 +57,25 @@ func (snapshot Snapshot) equal(other Snapshot) bool {
 }
 
 // BackupConverged reports whether every rollback component equals the current
-// generation, including intentionally absent optional components.
-func (snapshot Snapshot) BackupConverged(mode os.FileMode) bool {
+// generation, including intentionally absent optional components, with the
+// mode that the Store persists.
+func (snapshot Snapshot) BackupConverged() bool {
+	mode := persistedFileMode()
 	return snapshot.Backup.Exists && snapshot.Backup.Mode == mode &&
 		bytes.Equal(snapshot.Backup.Data, snapshot.Config.Data) &&
 		backupComponentConverged(snapshot.Forwarding, snapshot.forwardingBackup, mode) &&
 		backupComponentConverged(snapshot.retries, snapshot.retriesBackup, mode) &&
 		backupComponentConverged(snapshot.Catalog, snapshot.catalogBackup, mode) &&
 		backupComponentConverged(snapshot.capabilities, snapshot.capabilitiesBackup, mode)
+}
+
+// persistedFileMode is the mode that a file the Store writes with 0o600 reports;
+// Windows reports every writable file as 0o666.
+func persistedFileMode() os.FileMode {
+	if runtime.GOOS == "windows" {
+		return 0o666
+	}
+	return 0o600
 }
 
 // VerifiedBackupState pairs current backup bytes with client evidence when any client is enabled.
