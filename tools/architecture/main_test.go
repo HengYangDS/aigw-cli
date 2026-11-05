@@ -95,6 +95,7 @@ func TestRunCleanFixture(t *testing.T) {
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "// Package pkg owns the fixture behavior.\npackage pkg\n\nfunc Hello() string { return \"ok\" }\n")
 	writeFile(t, filepath.Join(root, "cmd", "tool", "main.go"), "// Command tool runs the fixture.\npackage main\n\nfunc main() {}\n")
 	writeFile(t, filepath.Join(root, "tools", "helper", "main.go"), "// Command helper runs the fixture.\npackage main\n\nfunc main() {}\n")
+	trackFixture(t, root)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -126,6 +127,7 @@ func TestRunDetectsCoreViolations(t *testing.T) {
 	writeFile(t, filepath.Join(root, "tools", "release", "legacy.go"), "package main\n")
 	writeFile(t, filepath.Join(root, "internal", "cli", "account", "account.go"), "package account\n\nimport _ \"fixture/internal/cli/route\"\n")
 	writeFile(t, filepath.Join(root, "internal", "cli", "route", "route.go"), "package route\n\nimport _ \"fixture/internal/cli/invocation\"\n")
+	trackFixture(t, root)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -154,6 +156,7 @@ func TestArchitectureLeavesGoSyntaxToGoToolchain(t *testing.T) {
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "internal", "bad", "bad.go"), "package bad\nfunc (\n")
+	trackFixture(t, root)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -226,6 +229,7 @@ func TestWriteReportFailure(t *testing.T) {
 	policyPath := writePolicy(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
+	trackFixture(t, root)
 	var stderr bytes.Buffer
 	code := run([]string{"-root", root, "-policy", policyPath}, rejectingWriter{}, &stderr)
 	if code != 1 {
@@ -241,6 +245,7 @@ func TestAbsolutePolicyPath(t *testing.T) {
 	policyPath := writePolicy(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
+	trackFixture(t, root)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
@@ -279,19 +284,6 @@ func TestTrackedFilesRejectsBrokenRepositoryMetadata(t *testing.T) {
 	}
 }
 
-func TestWorkspaceFilesSkipsGitMetadataDirectories(t *testing.T) {
-	root := t.TempDir()
-	writeFile(t, filepath.Join(root, ".git-shadow", "private"), "ignored")
-	writeFile(t, filepath.Join(root, "docs", "kept.md"), "kept")
-	files, err := workspaceFiles(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(files) != 1 || files[0] != "docs/kept.md" {
-		t.Fatalf("files=%v", files)
-	}
-}
-
 func TestStartsWithDotDotAcceptsBothPortableSeparators(t *testing.T) {
 	for _, value := range []string{"..", "../x", `..\x`} {
 		if !startsWithDotDot(value) {
@@ -325,6 +317,7 @@ func TestDeclaredGoRootsMustBeDirectories(t *testing.T) {
 			if state == "file" {
 				writeFile(t, filepath.Join(root, "internal"), "not-a-directory")
 			}
+			trackFixture(t, root)
 			var stdout bytes.Buffer
 			var stderr bytes.Buffer
 			code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)

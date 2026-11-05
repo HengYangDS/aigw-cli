@@ -81,6 +81,7 @@ func TestRelativePolicyFromRoot(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
+	trackFixture(t, root)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	code := run([]string{"-root", root, "-policy", defaultPolicyPath}, &stdout, &stderr)
@@ -99,6 +100,7 @@ func TestCollectIgnoresNonGoFiles(t *testing.T) {
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "note.txt"), "x")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
+	trackFixture(t, root)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
@@ -117,6 +119,7 @@ func TestAbsolutePolicyOutsideRoot(t *testing.T) {
 	policyPath := writePolicy(t, other, validPolicy)
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
+	trackFixture(t, root)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
@@ -143,23 +146,13 @@ func TestAnalyzeRepositoryDirect(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
+	trackFixture(t, root)
 	report, err := analyzeRepository(root, mustPolicy(t), "policy.toml")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !report.OK {
 		t.Fatalf("%+v", report.Findings)
-	}
-}
-
-func TestSemanticStageRejectsBrokenRepositoryMetadata(t *testing.T) {
-	root := t.TempDir()
-	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	report := newReport("policy", root)
-	if err := checkSemanticNames(root, &report); err == nil || !strings.Contains(err.Error(), "list tracked files") {
-		t.Fatalf("error = %v", err)
 	}
 }
 
@@ -170,9 +163,6 @@ func TestAnalyzeRepositoryPropagatesSemanticStageFailures(t *testing.T) {
 	for name, configure := range map[string]func(){
 		"decision records": func() {
 			repositoryAnalysis.decisionRecords = func(string, *Report) error { return want }
-		},
-		"semantic names": func() {
-			repositoryAnalysis.semanticNames = func(string, *Report) error { return want }
 		},
 		"package children": func() {
 			repositoryAnalysis.packageChildren = func(string, policy, *Report) error { return want }
@@ -187,11 +177,10 @@ func TestAnalyzeRepositoryPropagatesSemanticStageFailures(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			repositoryAnalysis = original
 			configure()
-			p := policy{
-				CheckDecisionRecords: name == "decision records",
-				CheckSemanticNames:   name == "semantic names",
-			}
-			if _, err := analyzeRepository(t.TempDir(), p, "policy.toml"); !errors.Is(err, want) {
+			root := t.TempDir()
+			trackFixture(t, root)
+			p := policy{CheckDecisionRecords: name == "decision records"}
+			if _, err := analyzeRepository(root, p, "policy.toml"); !errors.Is(err, want) {
 				t.Fatalf("error = %v, want %v", err, want)
 			}
 		})
@@ -272,6 +261,7 @@ func TestMainCoversEntry(t *testing.T) {
 	policyPath := writePolicy(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
+	trackFixture(t, root)
 	os.Args = []string{"architecture", "-root", root, "-policy", policyPath}
 	main()
 	if code != 0 {
@@ -289,6 +279,7 @@ func TestRunReportsAnalysisFailure(t *testing.T) {
 	root := t.TempDir()
 	policyPath := writePolicy(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
+	trackFixture(t, root)
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), "analyze repository: stage failed") {
 		t.Fatalf("code=%d stderr=%q", code, stderr.String())

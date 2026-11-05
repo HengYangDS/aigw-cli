@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -19,17 +20,31 @@ func runGit(t *testing.T, root string, args ...string) {
 	}
 }
 
-func TestWorkspaceScanIsIndependentOfParentRepository(t *testing.T) {
-	parent := t.TempDir()
-	runGit(t, parent, "init", "-q")
-	root := filepath.Join(parent, "fixture")
-	writeFile(t, filepath.Join(root, "owned.go"), "package fixture\n")
+// trackFixture makes root a Git checkout whose index holds every fixture file,
+// whatever the host's ignore rules, as the analyzed repository's index does.
+func trackFixture(t *testing.T, root string) {
+	t.Helper()
+	runGit(t, root, "init", "-q")
+	runGit(t, root, "add", "--all", "--force")
+}
+
+func trackedFixture(t *testing.T, root string) []string {
+	t.Helper()
 	files, err := trackedFiles(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(files) != 1 || files[0] != "owned.go" {
-		t.Fatalf("workspace files = %v, want owned.go", files)
+	return files
+}
+
+func TestTrackedInventoryRequiresTheRequestedCheckout(t *testing.T) {
+	parent := t.TempDir()
+	runGit(t, parent, "init", "-q")
+	root := filepath.Join(parent, "fixture")
+	writeFile(t, filepath.Join(root, "owned.go"), "package fixture\n")
+	runGit(t, parent, "add", "--all")
+	if files, err := trackedFiles(root); err == nil || !strings.Contains(err.Error(), "list tracked files") {
+		t.Fatalf("a root without its own checkout read its parent's index: %v, %v", files, err)
 	}
 }
 
@@ -65,9 +80,7 @@ func TestSemanticNamesAcceptNativeCarrierGrammars(t *testing.T) {
 	writeFile(t, filepath.Join(root, "internal", "routing", "route_plan.go"), "package routing\n")
 	runGit(t, root, "add", ".")
 	report := newReport("policy", root)
-	if err := checkSemanticNames(root, &report); err != nil {
-		t.Fatal(err)
-	}
+	checkSemanticNames(trackedFixture(t, root), &report)
 	if !report.OK {
 		t.Fatalf("findings=%+v", report.Findings)
 	}
@@ -80,9 +93,7 @@ func TestSemanticNamesIgnoreUntrackedHostFiles(t *testing.T) {
 	runGit(t, root, "add", "README.md")
 	writeFile(t, filepath.Join(root, "2026-scratch.md"), "# Host scratch\n")
 	report := newReport("policy", root)
-	if err := checkSemanticNames(root, &report); err != nil {
-		t.Fatal(err)
-	}
+	checkSemanticNames(trackedFixture(t, root), &report)
 	if !report.OK {
 		t.Fatalf("untracked host files are outside repository-owned state: findings=%+v", report.Findings)
 	}
@@ -95,9 +106,7 @@ func TestSemanticNamesRejectWrongCarrierAndNumericNames(t *testing.T) {
 	writeFile(t, filepath.Join(root, "internal", "routing", "route-plan.go"), "package routing\n")
 	runGit(t, root, "add", ".")
 	report := newReport("policy", root)
-	if err := checkSemanticNames(root, &report); err != nil {
-		t.Fatal(err)
-	}
+	checkSemanticNames(trackedFixture(t, root), &report)
 	assertFinding(t, report.Findings, "semantic_name_markdown", "docs/2026-plan.md")
 	assertFinding(t, report.Findings, "semantic_name_go", "internal/routing/route-plan.go")
 }
@@ -113,9 +122,7 @@ func TestSemanticNamesAcceptLanguageIndependentCarriers(t *testing.T) {
 			writeFile(t, filepath.Join(root, "scripts", "checks", test.name), test.content)
 			runGit(t, root, "add", ".")
 			report := newReport("policy", root)
-			if err := checkSemanticNames(root, &report); err != nil {
-				t.Fatal(err)
-			}
+			checkSemanticNames(trackedFixture(t, root), &report)
 			if !report.OK {
 				t.Fatalf("language choice alone was treated as a repository defect: %+v", report.Findings)
 			}
@@ -133,8 +140,9 @@ func TestSemanticNamesIgnoreTrackedDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 	report := newReport("policy", root)
-	if err := checkSemanticNames(root, &report); err != nil {
-		t.Fatalf("deleted tracked paths are absent from the workspace: %v", err)
+	checkSemanticNames(trackedFixture(t, root), &report)
+	if !report.OK {
+		t.Fatalf("deleted tracked paths are absent from the workspace: %+v", report.Findings)
 	}
 }
 
@@ -178,11 +186,5 @@ func TestReadModuleIdentityReportsScannerFailure(t *testing.T) {
 	}
 	if _, err := readModuleIdentity(path); !errors.Is(err, bufio.ErrTooLong) {
 		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestWorkspaceFilesReportsMissingRoot(t *testing.T) {
-	if _, err := workspaceFiles(filepath.Join(t.TempDir(), "missing")); err == nil {
-		t.Fatal("missing workspace root accepted")
 	}
 }

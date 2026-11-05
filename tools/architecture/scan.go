@@ -13,13 +13,11 @@ import (
 
 var repositoryAnalysis = struct {
 	decisionRecords func(string, *Report) error
-	semanticNames   func(string, *Report) error
 	packageChildren func(string, policy, *Report) error
 	goFiles         func(string, policy) ([]goFileInfo, error)
 	layers          func(string, []goFileInfo, policy, *Report) error
 }{
 	decisionRecords: checkDecisionRecords,
-	semanticNames:   checkSemanticNames,
 	packageChildren: checkPackageChildren,
 	goFiles:         collectGoFiles,
 	layers:          checkLayers,
@@ -40,14 +38,12 @@ func analyzeRepository(root string, p policy, policyPath string) (Report, error)
 			return Report{}, err
 		}
 	}
-	if p.CheckSemanticNames {
-		if err := repositoryAnalysis.semanticNames(absRoot, &report); err != nil {
-			return Report{}, err
-		}
-	}
 	tracked, err := trackedFiles(absRoot)
 	if err != nil {
 		return Report{}, err
+	}
+	if p.CheckSemanticNames {
+		checkSemanticNames(tracked, &report)
 	}
 	checkTrackedCarrierClasses(tracked, p, &report)
 	if err := repositoryAnalysis.packageChildren(absRoot, p, &report); err != nil {

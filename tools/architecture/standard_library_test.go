@@ -15,6 +15,7 @@ func TestRunEnforcesStandardLibraryOnly(t *testing.T) {
 	writeFile(t, filepath.Join(root, "go.mod"), "module fixture\n")
 	writeFile(t, filepath.Join(root, "internal", "model", "model.go"), "// Package model owns the fixture model.\npackage model\n\nimport _ \"fixture/internal/store\"\n")
 	writeFile(t, filepath.Join(root, "internal", "store", "store.go"), "// Package store owns the fixture store.\npackage store\n")
+	trackFixture(t, root)
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 {
 		t.Fatalf("code=%d want 1 stderr=%q stdout=%s", code, stderr.String(), stdout.String())

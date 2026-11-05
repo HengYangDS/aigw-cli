@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path"
@@ -26,11 +25,7 @@ var nativeCarrierNames = map[string]bool{
 	"AGENTS.md": true, "CHANGELOG.md": true, "CONTRIBUTING.md": true, "README.md": true,
 }
 
-func checkSemanticNames(root string, report *Report) error {
-	files, err := trackedFiles(root)
-	if err != nil {
-		return err
-	}
+func checkSemanticNames(files []string, report *Report) {
 	for _, relative := range files {
 		name := path.Base(relative)
 		grammar, managed := semanticNameGrammars[strings.ToLower(path.Ext(name))]
@@ -41,14 +36,9 @@ func checkSemanticNames(root string, report *Report) error {
 			report.addFinding(Finding{Rule: grammar.rule, Path: relative, Message: "project-owned file name does not follow its carrier grammar"})
 		}
 	}
-	return nil
 }
 
 func trackedFiles(root string) ([]string, error) {
-	gitPath := filepath.Join(root, ".git")
-	if _, err := os.Stat(gitPath); os.IsNotExist(err) {
-		return workspaceFiles(root)
-	}
 	command := exec.Command("git", "--git-dir", ".git", "--work-tree", ".", "ls-files", "-z", "--cached")
 	command.Dir = root
 	// This inventory belongs to the requested checkout's index, not its caller's.
@@ -76,28 +66,6 @@ func trackedFiles(root string) ([]string, error) {
 		files = append(files, relative)
 	}
 	return files, nil
-}
-
-func workspaceFiles(root string) ([]string, error) {
-	var files []string
-	err := filepath.WalkDir(root, func(filePath string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() {
-			if filePath != root && strings.HasPrefix(entry.Name(), ".git") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		relative, err := filepath.Rel(root, filePath)
-		if err != nil {
-			return err
-		}
-		files = append(files, toPOSIX(relative))
-		return nil
-	})
-	return files, err
 }
 
 func isOpenSpecCarrier(relative, name string) bool {

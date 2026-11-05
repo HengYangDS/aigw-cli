@@ -15,6 +15,7 @@ func TestRunEnforcesUsedExportsOnly(t *testing.T) {
 	policyPath := writePolicy(t, root, validPolicy+"used_exports_only = [\"internal/model\"]\n")
 	writeFile(t, filepath.Join(root, "go.mod"), "module fixture\n")
 	writeFile(t, filepath.Join(root, "internal", "model", "model.go"), "// Package model owns the fixture model.\npackage model\n\n// Unused is exported for no caller.\nfunc Unused() {}\n")
+	trackFixture(t, root)
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 {
 		t.Fatalf("code=%d want 1 stderr=%q stdout=%s", code, stderr.String(), stdout.String())
@@ -34,6 +35,7 @@ func TestRunWithUsedExportsOnlyLeavesGoSyntaxToGoToolchain(t *testing.T) {
 	writeFile(t, filepath.Join(root, "internal", "model", "model.go"), "// Package model owns the fixture model.\npackage model\n\n// Used has a caller.\nfunc Used() {}\n")
 	writeFile(t, filepath.Join(root, "internal", "user", "user.go"), "// Package user calls the model.\npackage user\n\nimport \"fixture/internal/model\"\n\nvar _ = model.Used\n")
 	writeFile(t, filepath.Join(root, "internal", "bad", "bad.go"), "package bad\nfunc (\n")
+	trackFixture(t, root)
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 0 {
 		t.Fatalf("code=%d want 0 stderr=%q stdout=%s", code, stderr.String(), stdout.String())
