@@ -69,7 +69,14 @@ func TestVerificationProjectsAnotherModelWithoutChangingOwnedFiles(t *testing.T)
 }
 
 func TestVerificationRejectsAmbiguousNativePolicy(t *testing.T) {
-	for _, content := range []string{"security: [invalid]", "updates: &policy {}", "security: *missing", "model: [invalid]", "gateway: [invalid]", "gateway: &gateway {}"} {
+	for _, content := range []string{
+		"security: [invalid]", "updates: &policy {}", "security: *missing", "model: [invalid]", "gateway: [invalid]", "gateway: &gateway {}",
+		// A replaced extension setting that another setting references would
+		// leave the projection with a dangling alias.
+		"hooks_auto_accept: &on true\nsecurity:\n  redact_secrets: *on\n",
+		"mcp_servers:\n  shared: &server {command: /bin/true}\nplugins_extra: *server\n",
+		"hooks: &hooks {}\nnotes: *hooks\n",
+	} {
 		t.Run(content, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.yaml")
 			if err := os.WriteFile(path, []byte(content), 0o600); err != nil {

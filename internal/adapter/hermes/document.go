@@ -38,6 +38,12 @@ func setField(node *yaml.Node, key string, value *yaml.Node) {
 		if value == nil {
 			node.Content = append(node.Content[:index], node.Content[index+2:]...)
 		} else {
+			// A key's line comment follows its value: left on the key, it would
+			// end the line before a flow value and leave unreadable YAML.
+			name := node.Content[index]
+			if name.LineComment != "" && value.LineComment == "" {
+				value.LineComment, name.LineComment = name.LineComment, ""
+			}
 			node.Content[index+1] = value
 		}
 		return
@@ -158,7 +164,16 @@ func (plan *Plan) PrepareVerification() ([]byte, error) {
 		}
 		setField(memory, "provider", nil)
 	}
-	return encode(root)
+	data, err = encode(root)
+	if err != nil {
+		return nil, err
+	}
+	// A replaced setting can hold an anchor that another setting still
+	// references; the projection must stay readable on its own.
+	if _, err := parse(data); err != nil {
+		return nil, fmt.Errorf("Hermes verification settings are shared through YAML anchors; use independent values: %w", err)
+	}
+	return data, nil
 }
 
 func selectedModel(root *yaml.Node) *yaml.Node {

@@ -262,21 +262,42 @@ func TestHermesVerificationRequiresOneConfiguredHome(t *testing.T) {
 // hooks: each one adds startup work to the bounded turn, and an extension that
 // cannot start there must not decide the result.
 func TestHermesVerificationStartsNoOperatorMCPServersOrHooks(t *testing.T) {
+	for name, operator := range map[string]string{
+		"plain": strings.Join([]string{
+			"mcp_servers:",
+			"  operator-search:",
+			"    command: /operator/bin/search-mcp",
+			"  operator-remote:",
+			"    url: https://mcp.operator.test/v1",
+			"    enabled: true",
+			"hooks:",
+			"  pre_llm_call:",
+			"    - command: /operator/bin/guidance",
+			"hooks_auto_accept: true",
+			"",
+		}, "\n"),
+		// A line comment on a replaced key must stay with readable YAML.
+		"key comments": strings.Join([]string{
+			"mcp_servers: # managed by hermes mcp add",
+			"  operator-search:",
+			"    command: /operator/bin/search-mcp",
+			"hooks: # operator guidance",
+			"  pre_llm_call:",
+			"    - command: /operator/bin/guidance",
+			"hooks_auto_accept: true # approved once",
+			"",
+		}, "\n"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			requireHermesVerificationLeavesOutExtensions(t, []byte(operator))
+		})
+	}
+}
+
+func requireHermesVerificationLeavesOutExtensions(t *testing.T, operator []byte) {
+	t.Helper()
 	cfg, selected, deps := hermesVerificationFixture(t)
 	target := cfg.Clients[ID].Targets[0]
-	operator := []byte(strings.Join([]string{
-		"mcp_servers:",
-		"  operator-search:",
-		"    command: /operator/bin/search-mcp",
-		"  operator-remote:",
-		"    url: https://mcp.operator.test/v1",
-		"    enabled: true",
-		"hooks:",
-		"  pre_llm_call:",
-		"    - command: /operator/bin/guidance",
-		"hooks_auto_accept: true",
-		"",
-	}, "\n"))
 	if err := os.WriteFile(target, operator, 0o600); err != nil {
 		t.Fatal(err)
 	}

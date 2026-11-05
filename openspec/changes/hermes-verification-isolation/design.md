@@ -22,13 +22,17 @@ settings, and it keeps the native model settings. The proposal names the gap.
 ## Decisions
 
 - **Explicit empty mappings.** The projection names `mcp_servers: {}` and
-  `hooks: {}` rather than deleting the keys. An absent key falls back to the
-  native defaults; the empty mapping states that the turn starts nothing.
+  `hooks: {}` rather than deleting the keys. Hermes merges the file over its
+  defaults, which hold no servers or hooks, so both forms start nothing today;
+  the explicit mapping keeps the projection's intent readable.
 - **Hook consent is removed, not set false.** `hooks_auto_accept` only grants
   consent for configured hooks. With no hooks it has nothing to grant, so the
   projection drops the key and keeps the native default.
 - **One owner.** The settings join the existing projection, which stays the
   only place that decides what a verification home contains.
+- **Readable output.** A replaced key's line comment moves onto its new value,
+  and the projection refuses a result that does not parse again, such as an
+  alias whose anchor sat inside a replaced setting.
 - **Not `--safe-mode`.** Hermes's `chat --safe-mode` disables every
   customization, including the model and provider settings that verification
   must keep, so it cannot keep the Route while dropping the extensions.
@@ -42,3 +46,6 @@ settings, and it keeps the native model settings. The proposal names the gap.
   Hermes's own gateway boot under contention, outside this Change.
 - A longer turn bound would hide that cost instead of reporting it, so the
   bound stays.
+- A Hermes administrator layer (`/etc/hermes` or `HERMES_MANAGED_DIR`) or a
+  `HERMES_CONFIG_BACKEND` can still add settings over the projection. They are
+  the host's own policy, absent on the operator Mac, and outside this Change.
