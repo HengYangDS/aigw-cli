@@ -290,13 +290,12 @@ func TestHermesVerificationStartsNoOperatorMCPServersOrHooks(t *testing.T) {
 		if err := yaml.Unmarshal(data, &projected); err != nil {
 			t.Fatal(err)
 		}
-		if servers, present := projected["mcp_servers"]; !present || servers == nil || len(servers.(map[string]any)) != 0 {
-			t.Fatalf("verification projects operator MCP servers %v, want an explicit empty mapping", servers)
+		for _, key := range []string{"mcp_servers", "hooks"} {
+			if entries, isMapping := projected[key].(map[string]any); !isMapping || len(entries) != 0 {
+				t.Fatalf("verification projects operator %s %v, want an explicit empty mapping", key, projected[key])
+			}
 		}
-		if hooks, present := projected["hooks"]; !present || hooks == nil || len(hooks.(map[string]any)) != 0 {
-			t.Fatalf("verification projects operator shell hooks %v, want an explicit empty mapping", hooks)
-		}
-		if accept, present := projected["hooks_auto_accept"]; present && accept != false {
+		if accept, present := projected["hooks_auto_accept"]; present {
 			t.Fatalf("verification keeps operator hook consent %v", accept)
 		}
 	}
