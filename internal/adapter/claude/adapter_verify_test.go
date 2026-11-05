@@ -3,7 +3,6 @@ package claude
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -12,7 +11,6 @@ import (
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 )
 
@@ -106,69 +104,6 @@ func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
 	}
 }
 
-type routeVerificationRunner struct {
-	plans     []process.Plan
-	config    []byte
-	challenge string
-}
-
-func (runner *routeVerificationRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
-	output, err := runner.RunCapture(ctx, plan)
-	return output, nil, err
-}
-
-func (runner *routeVerificationRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
-	runner.plans = append(runner.plans, plan)
-	if slices.Equal(plan.Args, []string{"--version"}) {
-		return []byte("codex-cli 9.9.9\n"), nil
-	}
-	outputPath := argumentValue(plan.Args, "--output-last-message")
-	if outputPath == "" {
-		if argumentValue(plan.Args, "--output-format") == "stream-json" {
-			return []byte(`{"type":"result","is_error":false,"result":"AIGW_OK"}` + "\n"), nil
-		}
-		return []byte("AIGW_OK\n"), nil
-	}
-	home := environmentValue(plan.Env, "CODEX_HOME")
-	var err error
-	runner.config, err = os.ReadFile(filepath.Join(home, "config.toml"))
-	if err != nil {
-		return nil, err
-	}
-	tool := ""
-	if !slices.Contains(plan.Args, "resume") {
-		challenge, err := os.ReadFile(filepath.Join(filepath.Dir(outputPath), "challenge.txt"))
-		if err != nil {
-			return nil, err
-		}
-		runner.challenge = strings.TrimSpace(string(challenge))
-		tool = fmt.Sprintf(`{"type":"item.completed","item":{"type":"command_execution","status":"completed","command":"cat challenge.txt","exit_code":0,"aggregated_output":%q}}`+"\n", runner.challenge)
-	}
-	if err := os.WriteFile(outputPath, []byte(runner.challenge+"\n"), 0o600); err != nil {
-		return nil, err
-	}
-	return []byte(fmt.Sprintf(`{"type":"thread.started","thread_id":"00000000-0000-4000-8000-000000000001"}`+"\n"+`%s{"type":"item.completed","item":{"type":"agent_message","text":%q}}`+"\n"+`{"type":"turn.completed"}`+"\n", tool, runner.challenge)), nil
-}
-
-func argumentValue(arguments []string, name string) string {
-	for index, argument := range arguments {
-		if argument == name && index+1 < len(arguments) {
-			return arguments[index+1]
-		}
-	}
-	return ""
-}
-
-func environmentValue(environment []string, name string) string {
-	prefix := name + "="
-	for _, entry := range environment {
-		if value, ok := strings.CutPrefix(entry, prefix); ok {
-			return value
-		}
-	}
-	return ""
-}
-
 func TestFailedClaudeVerificationProjectionRemovesItsWorkspace(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("TMPDIR", root)
@@ -220,7 +155,7 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testi
 	if err := store.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	runner := &routeVerificationRunner{}
+	runner := &captureAdapterRunner{outputs: [][]byte{[]byte(`{"type":"result","is_error":false,"result":"AIGW_OK"}` + "\n")}}
 	if _, err := (claudeAdapter{}).Verify(context.Background(), adapter.Dependencies{
 		Runner: runner, Secrets: store, Host: hostAt(root), AIGWExecutable: aigwExecutable,
 	}, cfg, runtime, "alternate"); err != nil {
@@ -275,7 +210,7 @@ func TestClaudeVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing
 			if err := store.Set("gateway", "fixture-token"); err != nil {
 				t.Fatal(err)
 			}
-			runner := &routeVerificationRunner{}
+			runner := &captureAdapterRunner{}
 			deps := adapter.Dependencies{Runner: runner, Secrets: store, Host: hostAt(home)}
 			want := "unknown route"
 			if failure == "selected route" {
