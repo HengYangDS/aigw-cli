@@ -93,6 +93,18 @@ Repository configuration, tools, source, tests, documentation, and release asset
 - **THEN** the command fails before changing any authored input
 - **AND** it does not substitute ambient configuration or defaults.
 
+#### Scenario: A peer receives a branch or tag
+
+- **WHEN** a branch or release tag is published to a Forge peer
+- **THEN** ETHOS publishes it
+- **AND** repository tools only verify the published Forge objects.
+
+#### Scenario: A repository command has no consumer
+
+- **WHEN** a repository tool subcommand, option, field or reader has no
+  production, CI, documentation or operator consumer
+- **THEN** it is removed rather than retained beside its owner.
+
 ### Requirement: Semantic documentation architecture
 
 Documentation SHALL have one global entry point and semantic organization.
