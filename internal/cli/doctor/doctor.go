@@ -4,7 +4,8 @@ package doctor
 import (
 	"context"
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"aigw-cli/internal/app"
@@ -423,12 +424,7 @@ func forbiddenClientTokenEnvironment(values []string) []string {
 			}
 		}
 	}
-	names := make([]string, 0, len(present))
-	for name := range present {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return slices.Sorted(maps.Keys(present))
 }
 
 // allOK reports whether every diagnostic passed.

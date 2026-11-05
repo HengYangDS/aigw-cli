@@ -11,7 +11,6 @@ import (
 	"maps"
 	"regexp"
 	"slices"
-	"sort"
 	"strings"
 )
 
@@ -275,12 +274,7 @@ func cloneInterfaces(interfaces map[EndpointProtocol][]Capability) map[EndpointP
 
 // RouteIDs returns canonical lexical identity order, independent of presentation.
 func (c *Config) RouteIDs() []string {
-	ids := make([]string, 0, len(c.Routes))
-	for id := range c.Routes {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-	return ids
+	return slices.Sorted(maps.Keys(c.Routes))
 }
 
 // ProtocolClientIDs returns clients whose declared protocol overlaps one Route.
@@ -389,12 +383,7 @@ func (c *Config) SelectedAccountIDs() []string {
 			selected[runtime.AccountID] = true
 		}
 	}
-	accountIDs := make([]string, 0, len(selected))
-	for accountID := range selected {
-		accountIDs = append(accountIDs, accountID)
-	}
-	sort.Strings(accountIDs)
-	return accountIDs
+	return slices.Sorted(maps.Keys(selected))
 }
 
 // RequiredAccountTokenIDs returns the stable set of Accounts whose Tokens are
@@ -408,12 +397,7 @@ func (c *Config) RequiredAccountTokenIDs() []string {
 			required[runtime.AccountID] = true
 		}
 	}
-	accountIDs := make([]string, 0, len(required))
-	for accountID := range required {
-		accountIDs = append(accountIDs, accountID)
-	}
-	sort.Strings(accountIDs)
-	return accountIDs
+	return slices.Sorted(maps.Keys(required))
 }
 
 // SelectRoutesForConnectedAccounts preserves the complete capability catalog

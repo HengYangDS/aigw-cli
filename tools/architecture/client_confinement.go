@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"go/scanner"
 	"go/token"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"unicode"
@@ -146,19 +146,9 @@ func checkClientConfinement(root string, files []goFileInfo, c clientConfinement
 }
 
 func reportClientConfinement(naming map[string]map[string]clientOccurrence, usedTerms map[string]bool, c clientConfinement, report *Report) {
-	packages := make([]string, 0, len(naming))
-	for dir := range naming {
-		packages = append(packages, dir)
-	}
-	sort.Strings(packages)
 	report.ClientPackages = map[string][]string{}
-	for _, dir := range packages {
-		ids := make([]string, 0, len(naming[dir]))
-		for id := range naming[dir] {
-			ids = append(ids, id)
-		}
-		sort.Strings(ids)
-		for _, id := range ids {
+	for _, dir := range slices.Sorted(maps.Keys(naming)) {
+		for _, id := range slices.Sorted(maps.Keys(naming[dir])) {
 			report.ClientPackages[id] = append(report.ClientPackages[id], dir)
 			occurrence := naming[dir][id]
 			report.addFinding(Finding{
@@ -171,12 +161,7 @@ func reportClientConfinement(naming map[string]map[string]clientOccurrence, used
 			})
 		}
 	}
-	owners := make([]string, 0, len(c.NativeTerms))
-	for owner := range c.NativeTerms {
-		owners = append(owners, owner)
-	}
-	sort.Strings(owners)
-	for _, owner := range owners {
+	for _, owner := range slices.Sorted(maps.Keys(c.NativeTerms)) {
 		dir := c.AdapterRoot + "/" + strings.ReplaceAll(owner, "-", "")
 		for _, term := range c.NativeTerms[owner] {
 			if usedTerms[owner+"\x00"+term] {

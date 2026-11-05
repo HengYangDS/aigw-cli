@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"sort"
 	"strings"
 )
 
@@ -50,12 +49,7 @@ func (err *UnsupportedManifestVersionError) Error() string {
 // so all consumers share this definition instead of depending on a CLI command
 // package.
 func ManifestAccountNames(incoming Manifest) []string {
-	names := make([]string, 0, len(incoming.Accounts))
-	for name := range incoming.Accounts {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
+	return slices.Sorted(maps.Keys(incoming.Accounts))
 }
 
 // Admit validates a decoded team manifest for the admitted clients and returns

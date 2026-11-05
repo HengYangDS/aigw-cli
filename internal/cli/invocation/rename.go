@@ -6,7 +6,8 @@ import (
 	"aigw-cli/internal/terminal"
 	"errors"
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -198,13 +199,8 @@ func ResolveRenameIDs(runtime Context, resource string, args []string) (string, 
 }
 
 func routeChoices(cfg domain.Config) []terminal.Choice {
-	names := make([]string, 0, len(cfg.Routes))
-	for name := range cfg.Routes {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	choices := make([]terminal.Choice, 0, len(names))
-	for _, name := range names {
+	choices := make([]terminal.Choice, 0, len(cfg.Routes))
+	for _, name := range slices.Sorted(maps.Keys(cfg.Routes)) {
 		route := cfg.Routes[name]
 		label := cfg.RouteLabel(name)
 		if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
@@ -216,13 +212,8 @@ func routeChoices(cfg domain.Config) []terminal.Choice {
 }
 
 func accountChoices(cfg domain.Config) []terminal.Choice {
-	names := make([]string, 0, len(cfg.Accounts))
-	for name := range cfg.Accounts {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	choices := make([]terminal.Choice, 0, len(names))
-	for _, name := range names {
+	choices := make([]terminal.Choice, 0, len(cfg.Accounts))
+	for _, name := range slices.Sorted(maps.Keys(cfg.Accounts)) {
 		choices = append(choices, terminal.Choice{Value: name, Label: cfg.Accounts[name].Label})
 	}
 	return choices

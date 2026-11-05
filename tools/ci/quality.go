@@ -142,11 +142,7 @@ func loadTrackedCarrierClasses(path string) ([]string, error) {
 	if err := toml.Unmarshal(data, &document); err != nil {
 		return nil, fmt.Errorf("decode architecture policy: %w", err)
 	}
-	classes := make([]string, 0, len(document.TrackedCarrierClasses))
-	for name := range document.TrackedCarrierClasses {
-		classes = append(classes, name)
-	}
-	slices.Sort(classes)
+	classes := slices.Sorted(maps.Keys(document.TrackedCarrierClasses))
 	if len(classes) == 0 {
 		return nil, fmt.Errorf("architecture policy declares no tracked carrier classes")
 	}
