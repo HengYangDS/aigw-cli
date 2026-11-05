@@ -10,15 +10,6 @@ import (
 	"testing"
 )
 
-func TestMarkdownPolicyCommandUsesRequestedCheckout(t *testing.T) {
-	if err := run([]string{"check-markdown-policy", repositoryRoot(t)}, &bytes.Buffer{}, systemRunner); err != nil {
-		t.Fatal(err)
-	}
-	if err := run([]string{"check-markdown-policy", t.TempDir()}, &bytes.Buffer{}, systemRunner); err == nil {
-		t.Fatal("Markdown policy command ignored its requested checkout")
-	}
-}
-
 func TestDocumentInputsAreIndependentOfCommandLineLength(t *testing.T) {
 	root := newGitRepository(t)
 	var files []string

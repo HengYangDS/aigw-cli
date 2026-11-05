@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"aigw-cli/tools/ci/evidence"
-	"aigw-cli/tools/ci/markdown"
 	"aigw-cli/tools/ci/projection"
 	"aigw-cli/tools/release/construction"
 	"aigw-cli/tools/release/identity"
@@ -34,18 +33,17 @@ func main() {
 
 func run(args []string, stdout io.Writer, runner commandRunner) error {
 	if len(args) == 0 {
-		return errors.New("usage: ci <project|source|quality|openspec|links|format|check-format|check-go|check-source-size|check-spelling|check-toml|check-markdown|check-markdown-policy|check-mermaid|check-secrets|native|native-clients|release-evidence|trust-input>")
+		return errors.New("usage: ci <project|source|quality|openspec|links|format|check-format|check-go|check-source-size|check-spelling|check-toml|check-markdown|check-mermaid|check-secrets|native|native-clients|release-evidence|trust-input>")
 	}
 	checks := map[string]func(string, commandRunner) error{
 		"links": checkLinks, "check-go": checkGo, "check-workflows": checkWorkflows,
 		"check-toml": checkTOML, "check-secrets": checkSecrets,
-		"check-format":          func(root string, runner commandRunner) error { return formatSource(root, runner, false) },
-		"format":                func(root string, runner commandRunner) error { return formatSource(root, runner, true) },
-		"check-source-size":     checkSourceSize,
-		"check-spelling":        checkSpelling,
-		"check-mermaid":         checkMermaid,
-		"check-markdown":        checkMarkdown,
-		"check-markdown-policy": func(root string, _ commandRunner) error { return markdown.CheckPolicy(root) },
+		"check-format":      func(root string, runner commandRunner) error { return formatSource(root, runner, false) },
+		"format":            func(root string, runner commandRunner) error { return formatSource(root, runner, true) },
+		"check-source-size": checkSourceSize,
+		"check-spelling":    checkSpelling,
+		"check-mermaid":     checkMermaid,
+		"check-markdown":    checkMarkdown,
 	}
 	if check := checks[args[0]]; check != nil {
 		if len(args) != 2 {

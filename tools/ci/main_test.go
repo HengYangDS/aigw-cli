@@ -361,8 +361,6 @@ func TestRunRejectsInvalidCommandShapes(t *testing.T) {
 		{"check-format", ".", "extra"},
 		{"check-markdown"},
 		{"check-markdown", ".", "extra"},
-		{"check-markdown-policy"},
-		{"check-markdown-policy", ".", "extra"},
 		{"check-secrets"},
 		{"check-secrets", ".", "extra"},
 		{"native", "--platform", "linux", "extra"},
