@@ -65,7 +65,6 @@ func Probe(ctx context.Context, sender diagnostic.Sender, providerAccount domain
 			TokenUnlimitedQuota: token.UnlimitedQuota,
 			TokenRemainingCount: token.RemainCount,
 			TokenUnlimitedCount: token.UnlimitedCount,
-			TokenExpiredAt:      token.ExpiredTime,
 		}, nil
 	}
 	return diagnostic.Report{AccountBalance: float64(user.Data.Quota) / 500000}, fmt.Errorf("current API Token was not found in the DMXAPI account")
@@ -80,7 +79,6 @@ type token struct {
 	UnlimitedQuota bool   `json:"unlimited_quota"`
 	RemainCount    int64  `json:"remain_count"`
 	UnlimitedCount bool   `json:"unlimited_count"`
-	ExpiredTime    int64  `json:"expired_time"`
 }
 
 func fetchTokens(ctx context.Context, sender diagnostic.Sender, base string, auth diagnostic.Credential) ([]token, error) {

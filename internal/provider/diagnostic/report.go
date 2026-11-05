@@ -14,5 +14,4 @@ type Report struct {
 	TokenUnlimitedQuota bool
 	TokenRemainingCount int64
 	TokenUnlimitedCount bool
-	TokenExpiredAt      int64
 }
