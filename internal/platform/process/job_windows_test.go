@@ -212,12 +212,11 @@ func TestStartCapturedWindowsProcessContainsAnImmediatelyExitingChild(t *testing
 	api := nativeWindowsProcessAPI
 	assign := api.assignProcess
 	exitedBeforeAssign := false
+	command := exec.Command(interpreter, "/d", "/c", "exit 0")
 	api.assignProcess = func(job, child windows.Handle) error {
-		pid, err := windows.GetProcessId(child)
-		if err != nil {
-			return err
-		}
-		waiter, err := windows.OpenProcess(windows.SYNCHRONIZE, false, pid)
+		// The startup handle carries only the assignment rights, so the pause
+		// waits on its own handle to the started child.
+		waiter, err := windows.OpenProcess(windows.SYNCHRONIZE, false, uint32(command.Process.Pid)) // #nosec G115 -- exec.Start supplies the native DWORD PID.
 		if err != nil {
 			return err
 		}
@@ -229,7 +228,6 @@ func TestStartCapturedWindowsProcessContainsAnImmediatelyExitingChild(t *testing
 		exitedBeforeAssign = event == windows.WAIT_OBJECT_0
 		return assign(job, child)
 	}
-	command := exec.Command(interpreter, "/d", "/c", "exit 0")
 	cleanup, err := startCapturedWindowsProcess(command, api)
 	if err != nil {
 		t.Fatalf("an immediately exiting child failed to start: %v", err)
