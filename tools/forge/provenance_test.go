@@ -45,13 +45,8 @@ func TestSelectedPeerDoesNotDependOnAnotherRemote(t *testing.T) {
 			gitTest(t, fixture.repository, "remote", "add", selected, healthy)
 			gitTest(t, fixture.repository, "remote", "add", other, missing)
 			want := gitOutputForTest(t, fixture.repository, "rev-parse", "main")
+			gitTest(t, fixture.repository, "push", "-q", selected, "main:main", "main:dev")
 
-			if err := run([]string{
-				"project", "--repository", fixture.repository, "--source", "main", "--remote", selected,
-				"--email", fixture.email, "--allowed-signers", fixture.allowedSigners,
-			}); err != nil {
-				t.Fatalf("publish selected peer while %s is unavailable: %v", other, err)
-			}
 			if err := run([]string{
 				"refs", "--repository", fixture.repository, "--remote", selected,
 				"--expect", "main=" + want, "--expect", "dev=" + want,
@@ -197,36 +192,20 @@ func TestCommitVerificationRejectsMissingOrUnrelatedBase(t *testing.T) {
 	}
 }
 
-func TestGitObjectOperationsUseTheSelectedRevisionPolicy(t *testing.T) {
-	for _, operation := range []string{"commits", "project"} {
-		t.Run(operation, func(t *testing.T) {
-			fixture := newForgeFixture(t)
-			remote := newBareRepository(t)
-			gitTest(t, fixture.repository, "remote", "add", "peer", remote)
-			writeCommitWithSubjectForTest(t, fixture.repository, "selected", "selected\n", "docs(cli): qualify the selected object")
-			selected := gitOutputForTest(t, fixture.repository, "rev-parse", "main")
-			gitTest(t, fixture.repository, "checkout", "-q", "-b", "other")
-			policy := `[commit_policy]
+func TestCommitVerificationUsesTheSelectedRevisionPolicy(t *testing.T) {
+	fixture := newForgeFixture(t)
+	writeCommitWithSubjectForTest(t, fixture.repository, "selected", "selected\n", "docs(cli): qualify the selected object")
+	selected := gitOutputForTest(t, fixture.repository, "rev-parse", "main")
+	gitTest(t, fixture.repository, "checkout", "-q", "-b", "other")
+	policy := `[commit_policy]
 scopes = ["other"]
 `
-			writeCommitWithSubjectForTest(t, fixture.repository, ".ethos/workspace.toml", policy, "chore: change another branch policy")
-			arguments := []string{operation, "--repository", fixture.repository, "--email", fixture.email, "--allowed-signers", fixture.allowedSigners}
-			if operation == "commits" {
-				arguments = append(arguments, "--revision", selected)
-			} else {
-				arguments = append(arguments, "--source", "main", "--remote", "peer")
-			}
-			if err := run(arguments); err != nil {
-				t.Fatalf("selected revision was checked against another checkout: %v", err)
-			}
-			if operation == "project" {
-				for _, branch := range []string{"main", "dev"} {
-					if got := gitOutputForTest(t, remote, "rev-parse", branch); got != selected {
-						t.Fatalf("published %s = %s, want %s", branch, got, selected)
-					}
-				}
-			}
-		})
+	writeCommitWithSubjectForTest(t, fixture.repository, ".ethos/workspace.toml", policy, "chore: change another branch policy")
+	if err := run([]string{
+		"commits", "--repository", fixture.repository, "--revision", selected,
+		"--email", fixture.email, "--allowed-signers", fixture.allowedSigners,
+	}); err != nil {
+		t.Fatalf("selected revision was checked against another checkout: %v", err)
 	}
 }
 
@@ -346,16 +325,19 @@ func TestReleaseTagUsesTheSharedSemanticVersionGrammar(t *testing.T) {
 
 func TestTagVerificationRejectsInvalidShapesAndTrust(t *testing.T) {
 	fixture := newForgeFixture(t)
-	for name, arguments := range map[string][]string{
-		"usage":      {"tag"},
-		"malformed":  {"tag", "--repository", fixture.repository, "--tag", "latest", "--allowed-signers", fixture.allowedSigners},
-		"missing":    {"tag", "--repository", fixture.repository, "--tag", "v9.9.9", "--allowed-signers", fixture.allowedSigners},
-		"trust":      {"tag", "--repository", fixture.repository, "--tag", "v1.2.3", "--allowed-signers", "missing"},
-		"tags usage": {"tags"},
+	for name, test := range map[string]struct {
+		arguments []string
+		want      string
+	}{
+		"usage":      {[]string{"tag"}, "usage"},
+		"malformed":  {[]string{"tag", "--repository", fixture.repository, "--tag", "latest", "--allowed-signers", fixture.allowedSigners}, "malformed"},
+		"missing":    {[]string{"tag", "--repository", fixture.repository, "--tag", "v9.9.9", "--allowed-signers", fixture.allowedSigners}, "does not exist"},
+		"trust":      {[]string{"tag", "--repository", fixture.repository, "--tag", "v1.2.3", "--allowed-signers", "missing"}, "trust input"},
+		"tags usage": {[]string{"tags"}, "usage"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if err := run(arguments); err == nil {
-				t.Fatal("invalid tag verification accepted")
+			if err := run(test.arguments); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("invalid tag verification = %v, want %q", err, test.want)
 			}
 		})
 	}

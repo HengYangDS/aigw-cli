@@ -452,8 +452,8 @@ trust or installation. Keep the artifact directory immutable and exclusively own
 Build/sign once, then publish those identical bytes to every selected peer.
 `build-ci` compares two reproducible construction passes; its historical name does
 not require a Runner. Final Developer ID/timestamped bytes are separately verified
-rather than claimed byte-identical. [Forge Operations](docs/operations/forge-operations.md)
-owns tag publication and the native Apple submission/verification procedure.
+rather than claimed byte-identical. ETHOS publishes [tags](docs/operations/forge-operations.md#publish-a-tag);
+[Forge Operations](docs/operations/forge-operations.md) owns the native Apple submission/verification procedure.
 Never rebuild, rewrite history or re-sign separately at each peer.
 
 ### Hosted release verification
@@ -479,8 +479,8 @@ Use focused Conventional Commits and validate [chronology](CHANGELOG.md):
 headings require their exact signed tag/date. GitLab display name `AIGW CLI`
 does not authorize changing the stable clone path `aigw-cli`.
 
-[Branch publication](docs/operations/forge-operations.md#publish-a-branch) owns
-exact-object admission, remote leases and authorized divergent cutover.
+ETHOS owns [branch publication](docs/operations/forge-operations.md#publish-a-branch):
+exact-object admission and one compare-and-swap request for each peer ref.
 Source trust uses `AIGW_RELEASE_AUTHOR_EMAIL` / `AIGW_RELEASE_ALLOWED_SIGNERS_FILE`;
 Forge transport remains independently authorized. History maps, peer-specific
 actors and tree-only equivalence do not establish object identity.

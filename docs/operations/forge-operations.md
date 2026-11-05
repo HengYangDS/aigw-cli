@@ -111,38 +111,27 @@ mise exec --locked -- go run ./tools/forge tags \
 
 ## Publish a Branch
 
-`main` publishes the same exact commit atomically to peer `main` and `dev`.
-`proposal/*` publishes only its matching ref. No other branch is admissible.
+ETHOS publishes branches and release tags; `tools/forge` only verifies objects.
+With `HEAD` set to the checkout's exact commit, preview one full ref for one
+declared peer. The preview derives an exact compare-and-swap request from the
+local object and the observed peer ref:
 
 ```sh
-mise exec --locked -- go run ./tools/forge project \
-  --remote gitlab \
-  --source main \
-  --email "$AIGW_RELEASE_AUTHOR_EMAIL" \
-  --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
+ethos publish --ref refs/heads/main --peer gitlab --probe-remote \
+  --expect-head "$HEAD" --json
 ```
 
-A fast-forward or equal tip needs no destructive option. Every update carries
-an exact lease for the observed remote tip, including expected absence. An
-explicit `--expect-remote-tip` is checked even for a fast-forward or equal tip;
-it is never ignored because the update appears safe. Concurrent remote drift
-rejects the atomic publication instead of silently changing its admitted base.
-A one-time divergent
-cutover requires every fresh observed peer tip:
+Apply exactly the receipt that the preview's `next_action` names. ETHOS rechecks
+local trust, target obligations and the peer ref before the update, so remote
+drift refuses the request instead of changing its admitted base:
 
 ```sh
-mise exec --locked -- go run ./tools/forge project \
-  --remote github \
-  --source main \
-  --email "$AIGW_RELEASE_AUTHOR_EMAIL" \
-  --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE" \
-  --expect-remote-tip "main=$OLD_MAIN" \
-  --expect-remote-tip "dev=$OLD_DEV"
+ethos publish --receipt "$RECEIPT" --receipt-sha256 "$RECEIPT_SHA256" \
+  --apply --authorize --expect-head "$HEAD" --json
 ```
 
-The operator temporarily authorizes protected-branch force push, runs the exact
-compare-and-swap transaction, verifies the two remote OIDs, and immediately
-restores force push to disabled. A changed tip invalidates the prepared command.
+Without `--peer`, a request selects every declared peer and reports each
+peer's outcome; it does not claim atomicity across peers.
 
 ## macOS signing and notarization
 
@@ -219,24 +208,14 @@ channel, not a reason to alter these accepted executable bytes.
 
 ## Publish a Tag
 
-Create and sign an annotated tag once in local Git. Publish that exact tag
-object independently:
+Create and sign an annotated tag once in local Git. ETHOS publishes that exact
+tag object through the same preview and receipt as a
+[branch](#publish-a-branch):
 
 ```sh
-mise exec --locked -- go run ./tools/forge publish-tag \
-  --remote gitlab \
-  --tag "$TAG" \
-  --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
-
-mise exec --locked -- go run ./tools/forge publish-tag \
-  --remote github \
-  --tag "$TAG" \
-  --allowed-signers "$AIGW_RELEASE_ALLOWED_SIGNERS_FILE"
+ethos publish --ref "refs/tags/$TAG" --peer github --probe-remote \
+  --expect-head "$HEAD" --json
 ```
-
-An equal remote tag is idempotent. A different object fails closed unless its
-exact OID is supplied through `--expect-remote-tag` for an explicitly approved
-cutover.
 
 ## Completion
 

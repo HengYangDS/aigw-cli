@@ -33,11 +33,11 @@ Release identity also owns Changelog chronology, exact tag-to-HEAD binding,
 and release-epoch lookup. CI invokes that owner directly; no generic repository
 command layer or duplicated Changelog parser remains.
 
-[Forge commands](../../tools/forge/main.go), [Git-object verification](../../tools/forge/provenance.go),
-and [peer publication](../../tools/forge/project.go) have distinct owners.
-Publication calls the same typed commit verifier as the read-only command.
-That verifier projects ETHOS's fixed commit grammar and consumes optional scope
-restrictions and SSH-signing requirements from the resolved source commit.
+[Forge commands](../../tools/forge/main.go) and [Git-object verification](../../tools/forge/provenance.go)
+have distinct owners; ETHOS publishes branches and tags, and these commands only
+verify local and published objects. The commit verifier projects ETHOS's fixed
+commit grammar and consumes optional scope restrictions and SSH-signing
+requirements from the resolved source commit.
 Identity metadata also comes from that object; unrelated checkouts and
 uncommitted files cannot replace it.
 Peer selection cannot change that object or its verification authority.

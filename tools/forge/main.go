@@ -1,5 +1,5 @@
-// Command forge verifies product Git objects and publishes them unchanged to
-// independently selected optional Forge peers.
+// Command forge verifies product Git objects and the branch objects that
+// independently selected optional Forge peers expose.
 package main
 
 import (
@@ -25,7 +25,7 @@ func execute(arguments []string, stderr *os.File) int {
 
 func run(arguments []string) error {
 	if len(arguments) == 0 {
-		return errors.New("usage: forge <commits|tag|tags|refs|project|publish-tag>")
+		return errors.New("usage: forge <commits|tag|tags|refs>")
 	}
 	switch arguments[0] {
 	case "commits":
@@ -36,10 +36,6 @@ func run(arguments []string) error {
 		return runTagSetVerification(arguments[1:])
 	case "refs":
 		return runRefVerification(arguments[1:])
-	case "project":
-		return runProjection(arguments[1:])
-	case "publish-tag":
-		return runTagPublication(arguments[1:])
 	default:
 		return fmt.Errorf("unknown forge command: %s", arguments[0])
 	}
@@ -140,45 +136,6 @@ func runRefVerification(arguments []string) error {
 	}
 	_, err = fmt.Printf("remote branch objects verified: %s (%d ref(s))\n", *remote, len(wanted))
 	return err
-}
-
-func runProjection(arguments []string) error {
-	var expected repeatedFlag
-	flags := flag.NewFlagSet("forge project", flag.ContinueOnError)
-	repository := flags.String("repository", ".", "canonical local Git repository")
-	source := flags.String("source", "main", "local publication branch")
-	remote := flags.String("remote", "", "target Git remote")
-	email := flags.String("email", "", "product author and committer email")
-	allowedSigners := flags.String("allowed-signers", "", "product SSH trust input")
-	flags.Var(&expected, "expect-remote-tip", "branch=OID expected remote state; required for divergent cutover")
-	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *remote == "" || *email == "" || *allowedSigners == "" {
-		return errors.New("usage: forge project --remote <name> --email <email> --allowed-signers <path> [--source <main|proposal/*>] [--expect-remote-tip <branch=OID>]...")
-	}
-	tips, err := parseExpectedTips(expected)
-	if err != nil {
-		return err
-	}
-	return project(projectionOptions{
-		repository:     *repository,
-		source:         *source,
-		remote:         *remote,
-		email:          *email,
-		allowedSigners: *allowedSigners,
-		expectedTips:   tips,
-	})
-}
-
-func runTagPublication(arguments []string) error {
-	flags := flag.NewFlagSet("forge publish-tag", flag.ContinueOnError)
-	repository := flags.String("repository", ".", "canonical local Git repository")
-	remote := flags.String("remote", "", "target Git remote")
-	tag := flags.String("tag", "", "product release tag")
-	allowedSigners := flags.String("allowed-signers", "", "product SSH trust input")
-	expected := flags.String("expect-remote-tag", "", "exact divergent remote tag object")
-	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *remote == "" || *tag == "" || *allowedSigners == "" {
-		return errors.New("usage: forge publish-tag --remote <name> --tag <tag> --allowed-signers <path> [--expect-remote-tag <OID>]")
-	}
-	return publishTag(*repository, *remote, *tag, *allowedSigners, *expected)
 }
 
 func parseExpectedTips(values []string) (map[string]string, error) {

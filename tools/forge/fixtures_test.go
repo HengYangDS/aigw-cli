@@ -127,35 +127,6 @@ func TestBareRepositoryUsesCompactOwnedScratch(t *testing.T) {
 	}
 }
 
-func setHostileGitHooks(t *testing.T) {
-	t.Helper()
-	config := filepath.Join(t.TempDir(), "config")
-	command := exec.Command("git", "config", "--file", config, "core.hooksPath", filepath.Join(t.TempDir(), "host-hooks"))
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("hostile git config: %v: %s", err, output)
-	}
-	t.Setenv("GIT_CONFIG_GLOBAL", config)
-	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
-}
-
-func seedRemoteBranches(t *testing.T, remote string) {
-	t.Helper()
-	repository := t.TempDir()
-	gitTest(t, repository, "init", "-q", "-b", "main")
-	gitTest(t, repository, "config", "user.name", "Previous Publisher")
-	gitTest(t, repository, "config", "user.email", "previous@example.invalid")
-	gitTest(t, repository, "config", "commit.gpgsign", "false")
-	gitTest(t, repository, "config", "core.hooksPath", filepath.Join(repository, ".disabled-hooks"))
-	if err := os.WriteFile(filepath.Join(repository, "old"), []byte("old\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	gitTest(t, repository, "add", "old")
-	gitTest(t, repository, "commit", "-q", "-m", "old history")
-	gitTest(t, repository, "branch", "dev", "main")
-	gitTest(t, repository, "remote", "add", "peer", remote)
-	gitTest(t, repository, "push", "-q", "peer", "main", "dev")
-}
-
 func gitTest(t *testing.T, repository string, arguments ...string) {
 	t.Helper()
 	arguments = append([]string{"-C", repository}, arguments...)
