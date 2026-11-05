@@ -9,7 +9,7 @@
 ## 2. Verification
 
 - [ ] 2.1 Run the local quality graph at the lane head.
-- [ ] 2.2 Run `aigw verify --for hermes` from a lane build against the real
+- [x] 2.2 Run `aigw verify --for hermes` from a lane build against the real
       Hermes, and confirm that its home is gone and no gateway outlives it.
 - [ ] 2.3 Prove the lane head with the full ETHOS proof.
 - [ ] 2.4 Confirm the hosted three-platform graph at the lane head.
