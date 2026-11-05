@@ -129,6 +129,14 @@ literals or compatibility fallbacks.
 - **AND** it SHALL NOT disable that mode or patch the tool to make the release
   pass.
 
+#### Scenario: An advisory names a dependency that a locked tool bundles
+
+- **WHEN** a published advisory names a dependency that the locked release of
+  a tool bundles, such as npm bundling undici, and a newer release of that tool
+  bundles a fixed version
+- **THEN** the declaration and its lock SHALL advance to that tool release as for
+  an advisory that names the tool itself.
+
 ### Requirement: Native verification runs the declared Mise release
 
 Local verification and every Forge job SHALL run the Mise release that the
