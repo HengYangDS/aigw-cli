@@ -257,3 +257,62 @@ func TestHermesVerificationRequiresOneConfiguredHome(t *testing.T) {
 		}
 	}
 }
+
+// A verification turn must not start the operator's MCP servers or shell
+// hooks: each one adds startup work to the bounded turn, and an extension that
+// cannot start there must not decide the result.
+func TestHermesVerificationStartsNoOperatorMCPServersOrHooks(t *testing.T) {
+	cfg, selected, deps := hermesVerificationFixture(t)
+	target := cfg.Clients[ID].Targets[0]
+	operator := []byte(strings.Join([]string{
+		"mcp_servers:",
+		"  operator-search:",
+		"    command: /operator/bin/search-mcp",
+		"  operator-remote:",
+		"    url: https://mcp.operator.test/v1",
+		"    enabled: true",
+		"hooks:",
+		"  pre_llm_call:",
+		"    - command: /operator/bin/guidance",
+		"hooks_auto_accept: true",
+		"",
+	}, "\n"))
+	if err := os.WriteFile(target, operator, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runner := &captureAdapterRunner{outputs: [][]byte{[]byte("Hermes fixture"), []byte("AIGW_OK")}}
+	runner.observe = func(plan process.Plan) {
+		data, err := os.ReadFile(filepath.Join(plan.Directory, "config.yaml"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var projected map[string]any
+		if err := yaml.Unmarshal(data, &projected); err != nil {
+			t.Fatal(err)
+		}
+		if servers, present := projected["mcp_servers"]; !present || servers == nil || len(servers.(map[string]any)) != 0 {
+			t.Fatalf("verification projects operator MCP servers %v, want an explicit empty mapping", servers)
+		}
+		if hooks, present := projected["hooks"]; !present || hooks == nil || len(hooks.(map[string]any)) != 0 {
+			t.Fatalf("verification projects operator shell hooks %v, want an explicit empty mapping", hooks)
+		}
+		if accept, present := projected["hooks_auto_accept"]; present && accept != false {
+			t.Fatalf("verification keeps operator hook consent %v", accept)
+		}
+	}
+	deps.Runner = runner
+	_, err := (hermesAdapter{}).Verify(t.Context(), deps, cfg, selected, "")
+	if runtime.GOOS == "windows" {
+		requireHermesVerificationRefusal(t, err, runner.calls)
+		return
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runner.calls != 2 {
+		t.Fatalf("verification made %d native calls, want the version probe and one turn", runner.calls)
+	}
+	if after, err := os.ReadFile(target); err != nil || string(after) != string(operator) {
+		t.Fatalf("verification changed the operator's native configuration: %v", err)
+	}
+}

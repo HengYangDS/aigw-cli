@@ -14,6 +14,14 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+### Fixed
+
+- `aigw verify --for hermes` no longer starts the operator's Hermes MCP
+  servers or shell hooks inside the verification turn. The private
+  verification home now names none and carries no hook consent, as the
+  verification contract already required. The operator's own Hermes
+  configuration does not change.
+
 ## [0.6.1] - 2026-11-05
 
 History: [GitLab][0.6.1-gitlab] · [GitHub][0.6.1-github]

@@ -113,7 +113,8 @@ const VerificationGatewayIdleExitSeconds = 2
 
 // PrepareVerification preserves native settings in an isolated projection,
 // disables dependency installation, passive software-update checks and launcher
-// publication, and bounds the idle life of the gateway a chat starts.
+// publication, leaves out operator extensions, and bounds the idle life of the
+// gateway a chat starts.
 func (plan *Plan) PrepareVerification() ([]byte, error) {
 	if !plan.configBefore.Exists {
 		return nil, errors.New("Hermes native configuration is missing; run aigw sync")
@@ -143,10 +144,14 @@ func (plan *Plan) PrepareVerification() ([]byte, error) {
 		setField(section, policy.setting, &yaml.Node{Kind: yaml.ScalarNode, Tag: policy.tag, Value: policy.value})
 	}
 	// Dependency-only profiles retain the native member union; the probe itself
-	// must not activate operator plugins or their credential-backed providers.
+	// must not activate operator plugins or their credential-backed providers,
+	// start operator MCP servers or run operator shell hooks.
 	plugins := mapping()
 	setField(plugins, "enabled", &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"})
 	setField(root, "plugins", plugins)
+	setField(root, "mcp_servers", mapping())
+	setField(root, "hooks", mapping())
+	setField(root, "hooks_auto_accept", nil)
 	if memory := field(root, "memory"); memory != nil {
 		if memory.Kind != yaml.MappingNode || memory.Anchor != "" {
 			return nil, errors.New("Hermes memory must be an independent mapping for verification")
