@@ -261,7 +261,7 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	command := &cobra.Command{}
 	command.SetContext(context.Background())
 
-	if err := RunCheck(command, runtime); err != nil {
+	if err := runCheck(command, runtime); err != nil {
 		t.Fatalf("client-native check error = %v", err)
 	}
 	if store.getCalls != 0 || store.existsCalls != 0 || requests != 0 {
@@ -329,8 +329,8 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 	t.Run("no enabled clients", func(t *testing.T) {
 		runtime, _, _ := configuredReadinessRuntime(t)
 		runtime.Version = "1.0.0"
-		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "no enabled Client Bindings") {
-			t.Fatalf("RunCheck() error = %v", err)
+		if err := runCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "no enabled Client Bindings") {
+			t.Fatalf("runCheck() error = %v", err)
 		}
 	})
 
@@ -344,8 +344,8 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 		if err := runtime.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
-		if err := RunCheck(&cobra.Command{}, runtime); !errors.Is(err, want) {
-			t.Fatalf("RunCheck() error = %v, want %v", err, want)
+		if err := runCheck(&cobra.Command{}, runtime); !errors.Is(err, want) {
+			t.Fatalf("runCheck() error = %v, want %v", err, want)
 		}
 	})
 
@@ -363,8 +363,8 @@ func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
 		if err := runtime.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
-		if err := RunCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "projection not ready") {
-			t.Fatalf("RunCheck() error = %v", err)
+		if err := runCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "projection not ready") {
+			t.Fatalf("runCheck() error = %v", err)
 		}
 	})
 }

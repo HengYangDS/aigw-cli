@@ -49,7 +49,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if jsonMode {
 				return runJSONCheck(cmd, runtime)
 			}
-			return RunCheck(cmd, runtime)
+			return runCheck(cmd, runtime)
 		},
 	}
 	cmd.Flags().StringVar(&client, "for", "", "Check one enabled client: "+runtime.Clients.Admission().Usage()+"; omit for all")
@@ -372,9 +372,9 @@ func writeJSONFailure(runtime invocation.Context, state domainreadiness.State, m
 	return terminal.Presented(cause)
 }
 
-// RunCheck verifies selected client bindings, configured projections, and
+// runCheck verifies selected client bindings, configured projections, and
 // the performed endpoint or inference scope without mutating local state.
-func RunCheck(cmd *cobra.Command, runtime invocation.Context) error {
+func runCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
 		return err
