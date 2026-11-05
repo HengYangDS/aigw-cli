@@ -6,6 +6,6 @@
 
 ## 2. Verification
 
-- [ ] 2.1 `mise run check` and `mise run dependencies:check` pass on the lane
-      head.
-- [ ] 2.2 The hosted graph passes at the proposal head.
+- [x] 2.1 `mise run check` and `mise run dependencies:check` pass on the lane
+      head (f8eef5f5).
+- [x] 2.2 The hosted graph passes at the proposal head (PR 237).
