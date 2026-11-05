@@ -26,7 +26,6 @@ type installDocument struct {
 	Version    string `json:"version,omitempty"`
 	Rollback   string `json:"rollback,omitempty"`
 	Unchanged  bool   `json:"unchanged,omitempty"`
-	NextAction string `json:"next_action,omitempty"`
 	NextDetail string `json:"next_detail,omitempty"`
 }
 
