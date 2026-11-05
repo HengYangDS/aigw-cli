@@ -14,6 +14,18 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
+## [0.6.1] - 2026-11-05
+
+History: [GitLab][0.6.1-gitlab] · [GitHub][0.6.1-github]
+
+### Security
+
+- A Token typed at an interactive terminal is no longer echoed when `NO_COLOR`
+  or `AIGW_ACCESSIBLE` selects accessible prompts. `setup`, `rotate`, `use`,
+  account diagnostics and manifest import now read it with echo disabled, as
+  the default prompts always did. A Token piped to standard input is read as
+  before.
+
 ## [0.6.0] - 2026-11-01
 
 History: [GitLab][0.6.0-gitlab] · [GitHub][0.6.0-github]
@@ -1815,8 +1827,10 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
-[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.6.0...main
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.6.0...main
+[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.6.1...main
+[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.6.1...main
+[0.6.1-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.6.0...v0.6.1
+[0.6.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.6.0...v0.6.1
 [0.6.0-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.5.0...v0.6.0
 [0.6.0-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.5.0...v0.6.0
 [0.5.0-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.18...v0.5.0

@@ -157,26 +157,65 @@ func TestTerminalPromptAccessibleTextRejectsEmptyInput(t *testing.T) {
 	}
 }
 
-func TestTerminalPromptAccessibleSecretReadsPlainLine(t *testing.T) {
-	p := Prompt{in: strings.NewReader("hunter2\n"), out: &bytes.Buffer{}, accessible: true}
+func TestTerminalPromptAccessibleSecretHidesTerminalInput(t *testing.T) {
+	out := &bytes.Buffer{}
+	plain := strings.NewReader("echoed\n")
+	p := Prompt{in: plain, out: out, accessible: true, hidden: scriptedPasswordInput(nil, " s3cret ")}
 	value, err := p.Secret("Token: ")
-	if err != nil {
-		t.Fatalf("Secret() error = %v", err)
+	if err != nil || value != "s3cret" {
+		t.Fatalf("Secret() = %q, %v", value, err)
 	}
-	if value != "hunter2" {
-		t.Fatalf("Secret() = %q, want hunter2", value)
+	if out.String() != "Token: \n" {
+		t.Fatalf("prompt output = %q, want only the label and a line ending", out.String())
+	}
+	if plain.Len() != len("echoed\n") {
+		t.Fatal("a terminal Token was read through the echoing line reader")
 	}
 }
 
-func TestTerminalPromptEnvironmentAccessibleOverridesFieldSetting(t *testing.T) {
-	t.Setenv("AIGW_ACCESSIBLE", "1")
-	p := Prompt{in: strings.NewReader("env-value\n"), out: &bytes.Buffer{}, accessible: false}
-	value, err := p.Text("Name: ")
-	if err != nil {
-		t.Fatalf("Text() error = %v", err)
+func TestTerminalPromptAccessibleSecretRefusesEmptyOrFailedTerminalInput(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		input passwordInput
+		want  string
+	}{
+		{name: "empty", input: scriptedPasswordInput(nil, "  "), want: "no input received"},
+		{name: "read", input: scriptedPasswordInput(errors.New("read failed")), want: "read hidden input"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			p := Prompt{in: strings.NewReader(""), out: &bytes.Buffer{}, accessible: true, hidden: test.input}
+			if _, err := p.Secret("Token: "); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("Secret() error = %v, want %q", err, test.want)
+			}
+		})
 	}
-	if value != "env-value" {
-		t.Fatalf("Text() = %q, want env-value", value)
+}
+
+func TestTerminalPromptAccessibleSecretReadsPipedLineWithoutEcho(t *testing.T) {
+	out := &bytes.Buffer{}
+	p := Prompt{in: strings.NewReader("hunter2\n"), out: out, accessible: true, hidden: passwordInput{isTerminal: func() bool { return false }}}
+	value, err := p.Secret("Token: ")
+	if err != nil || value != "hunter2" {
+		t.Fatalf("Secret() = %q, %v", value, err)
+	}
+	if strings.Contains(out.String(), "hunter2") {
+		t.Fatalf("prompt output %q contains the Token", out.String())
+	}
+}
+
+func TestAccessibleFollowsTheEnvironment(t *testing.T) {
+	for _, test := range []struct {
+		env  map[string]string
+		want bool
+	}{
+		{env: map[string]string{}, want: false},
+		{env: map[string]string{"NO_COLOR": ""}, want: false},
+		{env: map[string]string{"NO_COLOR": "1"}, want: true},
+		{env: map[string]string{"AIGW_ACCESSIBLE": "1"}, want: true},
+	} {
+		if got := Accessible(test.env); got != test.want {
+			t.Fatalf("Accessible(%v) = %v, want %v", test.env, got, test.want)
+		}
 	}
 }
 
