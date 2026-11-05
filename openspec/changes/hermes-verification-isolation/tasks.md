@@ -8,8 +8,8 @@
 
 ## 2. Verification
 
-- [ ] 2.1 Run the local quality graph at the lane head.
-- [ ] 2.2 Run `aigw verify --for hermes` from a lane build against the real
+- [x] 2.1 Run the local quality graph at the lane head.
+- [x] 2.2 Run `aigw verify --for hermes` from a lane build against the real
       Hermes, and confirm that the verification home starts no operator MCP
       server.
 - [ ] 2.3 Prove the lane head with the full ETHOS proof.
