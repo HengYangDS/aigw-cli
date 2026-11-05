@@ -152,15 +152,12 @@ func TestRunBuildUsesPublicArgumentContract(t *testing.T) {
 func TestRunArtifactCommands(t *testing.T) {
 	version := "1.2.3"
 	key := artifactSigningKey(t)
-	left, right := writeArtifactFixture(t, version, key), writeArtifactFixture(t, version, key)
+	artifacts := writeArtifactFixture(t, version, key)
 	var output bytes.Buffer
-	if err := run([]string{"validate-artifacts", left, version}, &output); err != nil {
+	if err := run([]string{"validate-artifacts", artifacts, version}, &output); err != nil {
 		t.Fatal(err)
 	}
-	if err := run([]string{"compare-artifacts", left, right, version}, &output); err != nil {
-		t.Fatal(err)
-	}
-	for _, args := range [][]string{{"validate-artifacts"}, {"compare-artifacts"}, {"verify-macos-distribution"}, {"verify-macos-distribution", "artifacts", "1.2.3"}} {
+	for _, args := range [][]string{{"validate-artifacts"}, {"verify-macos-distribution"}, {"verify-macos-distribution", "artifacts", "1.2.3"}} {
 		if err := run(args, &output); err == nil {
 			t.Fatalf("invalid invocation accepted: %v", args)
 		}
@@ -215,7 +212,6 @@ func TestRunReleasePolicyCommands(t *testing.T) {
 	var output bytes.Buffer
 	for _, args := range [][]string{
 		{"validate-toolchain", module},
-		{"validate-version", "1.2.3-rc.1"},
 		{"validate-changelog"},
 	} {
 		if err := run(args, &output); err != nil {
@@ -224,7 +220,6 @@ func TestRunReleasePolicyCommands(t *testing.T) {
 	}
 	for _, args := range [][]string{
 		{"validate-toolchain"},
-		{"validate-version"},
 		{"validate-changelog", "extra"},
 	} {
 		if err := run(args, &output); err == nil {

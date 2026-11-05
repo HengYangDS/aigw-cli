@@ -83,12 +83,6 @@ func policyCommands() commandSet {
 			}
 			return identity.ValidateToolchain(args[0], runtime.Version())
 		},
-		"validate-version": func(args []string, _ io.Writer) error {
-			if err := requireArguments(args, 1, "usage: release validate-version <version>"); err != nil {
-				return err
-			}
-			return identity.ValidateVersion(args[0])
-		},
 		"validate-version-tag": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 0, "usage: release validate-version-tag"); err != nil {
 				return err
@@ -128,12 +122,6 @@ func artifactCommands(ctx context.Context) commandSet {
 				return err
 			}
 			return artifact.ValidateMatrix(args[0], args[1])
-		},
-		"compare-artifacts": func(args []string, _ io.Writer) error {
-			if err := requireArguments(args, 3, "usage: release compare-artifacts <left-directory> <right-directory> <version>"); err != nil {
-				return err
-			}
-			return artifact.CompareMatrices(args[0], args[1], args[2])
 		},
 	}
 }

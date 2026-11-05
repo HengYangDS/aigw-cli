@@ -339,7 +339,8 @@ func TestExecuteReturnsPortableProcessStatus(t *testing.T) {
 		t.Fatalf("failure status=%d stderr=%q", status, stderr.String())
 	}
 	stderr.Reset()
-	if status := execute([]string{"validate-version", "1.2.3-rc.1"}, &stdout, &stderr); status != 0 {
+	t.Setenv("CI_COMMIT_TAG", "v1.2.3-rc.1")
+	if status := execute([]string{"validate-version-tag"}, &stdout, &stderr); status != 0 {
 		t.Fatalf("success status=%d stderr=%q", status, stderr.String())
 	}
 }
