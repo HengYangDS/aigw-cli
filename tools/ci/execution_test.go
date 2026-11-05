@@ -46,14 +46,7 @@ func TestAuthoredChecksRefuseAnUnavailableCheckoutBeforeNativeExecution(t *testi
 
 func TestSystemRunnerPreservesSuccessfulToolDiagnostics(t *testing.T) {
 	root := t.TempDir()
-	previous, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(root); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(previous) })
+	t.Chdir(root)
 
 	diagnosticsPath := filepath.Join(root, "diagnostics.txt")
 	diagnostics, err := os.Create(diagnosticsPath)
@@ -181,14 +174,7 @@ func TestSystemRunnerPreservesNativeImmediateExitDiagnostics(t *testing.T) {
 
 func TestSystemRunnerBoundsFailedCommandDiagnostics(t *testing.T) {
 	root := t.TempDir()
-	previous, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(root); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(previous) })
+	t.Chdir(root)
 
 	diagnostics, err := os.Create(filepath.Join(root, "diagnostics.txt"))
 	if err != nil {

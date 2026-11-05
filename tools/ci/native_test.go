@@ -277,14 +277,7 @@ func TestNativeAcceptanceRequiresTheRealHostPlatform(t *testing.T) {
 	t.Setenv("AIGW_SYSTEM_CREDENTIAL_TEST_SCOPE", "")
 	t.Setenv("AIGW_ACCEPTANCE_BASELINE", "")
 	root := repositoryRoot(t)
-	previous, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(root); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(previous) })
+	t.Chdir(root)
 
 	for _, args := range [][]string{{"native"}, {"native", "--platform", runtime.GOOS}} {
 		var calls []command
