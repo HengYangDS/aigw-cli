@@ -3,33 +3,19 @@ package claudedesktop
 import (
 	"encoding/json"
 	"errors"
-	"path/filepath"
 )
 
 const (
-	profileID     = "6500fbf3-029c-5c0d-842a-48ee47e228c5"
-	legacyRouteID = "aigw"
-	profileName   = "AIGW"
-	stateSuffix   = ".aigw-state.json"
+	profileID   = "6500fbf3-029c-5c0d-842a-48ee47e228c5"
+	profileName = "AIGW"
+	stateSuffix = ".aigw-state.json"
 )
 
 func prepareState(before snapshots, standard, thirdParty, metadata document) (ownershipState, error) {
-	if before.state.Exists && before.legacyState.Exists {
-		return ownershipState{}, errors.New("multiple Claude Desktop ownership states are present")
-	}
 	if before.state.Exists {
-		if before.legacyProfile.Exists {
-			return ownershipState{}, errors.New("legacy Claude Desktop profile exists beside the current ownership state")
-		}
-		return readOwnedState(before.state.Data, profileID, standard, thirdParty, before.profile.Data, metadata)
+		return readOwnedState(before.state.Data, standard, thirdParty, before.profile.Data, metadata)
 	}
-	if before.legacyState.Exists {
-		if before.profile.Exists {
-			return ownershipState{}, errors.New("current Claude Desktop profile exists beside the legacy ownership state")
-		}
-		return readOwnedState(before.legacyState.Data, legacyRouteID, standard, thirdParty, before.legacyProfile.Data, metadata)
-	}
-	if before.profile.Exists || before.legacyProfile.Exists || hasProfileEntry(metadata, profileID, legacyRouteID) {
+	if before.profile.Exists || hasProfileEntry(metadata, profileID) {
 		return ownershipState{}, errors.New("Claude Desktop AIGW profile already exists without AIGW ownership")
 	}
 	return ownershipState{
@@ -46,20 +32,17 @@ func prepareState(before snapshots, standard, thirdParty, metadata document) (ow
 	}, nil
 }
 
-func readOwnedState(data []byte, id string, standard, thirdParty document, profile []byte, metadata document) (ownershipState, error) {
+func readOwnedState(data []byte, standard, thirdParty document, profile []byte, metadata document) (ownershipState, error) {
 	var state ownershipState
 	if err := json.Unmarshal(data, &state); err != nil || state.Version != 1 || state.WriterID != "aigw-cli" {
 		return ownershipState{}, errors.New("Claude Desktop ownership state is unavailable or invalid")
 	}
-	currentHash, err := managedHash(id, standard, thirdParty, profile, metadata)
+	currentHash, err := managedHash(profileID, standard, thirdParty, profile, metadata)
 	if err != nil {
 		return ownershipState{}, err
 	}
 	if currentHash == state.ManagedSHA256 {
 		return state, nil
-	}
-	if id != profileID {
-		return ownershipState{}, changedOutsideAIGW(nil)
 	}
 	// Claude Desktop may save the profile again in its own encoding.
 	equivalent, changed := equivalentProfile(state, standard, thirdParty, metadata, profile)
@@ -67,10 +50,4 @@ func readOwnedState(data []byte, id string, standard, thirdParty document, profi
 		return ownershipState{}, changedOutsideAIGW(changed)
 	}
 	return state, nil
-}
-
-func legacyPaths(paths Paths) (string, string) {
-	directory := filepath.Dir(paths.Profile)
-	profile := filepath.Join(directory, legacyRouteID+".json")
-	return profile, profile + stateSuffix
 }

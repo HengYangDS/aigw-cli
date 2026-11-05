@@ -312,17 +312,6 @@ func TestUnattributableChangesAreRefused(t *testing.T) {
 				return earlierRelease(t, func(profile map[string]any) { profile["inferenceModels"] = []any{} })
 			},
 		},
-		{
-			name: "legacy profile",
-			setup: func(t *testing.T) (Paths, Desired) {
-				paths, desired := writeLegacyProjection(t)
-				legacyProfile, _ := legacyPaths(paths)
-				editJSON(t, legacyProfile, func(profile map[string]any) {
-					profile["inferenceGatewayBaseUrl"] = "https://external-edit.example.test"
-				})
-				return paths, desired
-			},
-		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

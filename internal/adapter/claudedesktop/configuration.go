@@ -139,8 +139,6 @@ type projectedFiles struct {
 	standard, thirdParty document
 	profile, state       []byte
 	metadata             document
-	legacyProfile        []byte
-	legacyState          []byte
 	original             originalState
 }
 
@@ -162,7 +160,7 @@ func Prepare(paths Paths, desired *Desired) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	if desired == nil && !before.state.Exists && !before.legacyState.Exists {
+	if desired == nil && !before.state.Exists {
 		return Plan{Action: ActionUnchanged}, nil
 	}
 	state, err := prepareState(before, standard, thirdParty, metadata)
@@ -200,14 +198,8 @@ func Prepare(paths Paths, desired *Desired) (Plan, error) {
 	if err != nil {
 		return Plan{}, err
 	}
-	if before.state.Exists || before.legacyState.Exists {
-		ownedProfile := before.profile
-		ownedPath := paths.Profile
-		if before.legacyState.Exists {
-			ownedProfile = before.legacyProfile
-			ownedPath, _ = legacyPaths(paths)
-		}
-		observed, err := decodeObject(ownedPath, ownedProfile)
+	if before.state.Exists {
+		observed, err := decodeObject(paths.Profile, before.profile)
 		if err != nil {
 			return Plan{}, err
 		}
@@ -229,12 +221,9 @@ func buildPlan(action Action, paths Paths, before snapshots, projected projected
 		snapshot(projected.profile, before.profile),
 		snapshot(encoded[2], before.metadata),
 		snapshot(projected.state, before.state),
-		snapshot(projected.legacyProfile, before.legacyProfile),
-		snapshot(projected.legacyState, before.legacyState),
 	}
-	legacyProfile, legacyState := legacyPaths(paths)
-	pathList := []string{paths.StandardConfig, paths.ThirdPartyConfig, paths.Profile, paths.Metadata, paths.State, legacyProfile, legacyState}
-	beforeList := []platform.FileSnapshot{before.standard, before.thirdParty, before.profile, before.metadata, before.state, before.legacyProfile, before.legacyState}
+	pathList := []string{paths.StandardConfig, paths.ThirdPartyConfig, paths.Profile, paths.Metadata, paths.State}
+	beforeList := []platform.FileSnapshot{before.standard, before.thirdParty, before.profile, before.metadata, before.state}
 	changes := make([]fileChange, 0, len(pathList))
 	for index, path := range pathList {
 		if beforeList[index].Equal(after[index]) {
@@ -295,18 +284,16 @@ func (receipt Receipt) Rollback() error {
 }
 
 type snapshots struct {
-	standard, thirdParty       platform.FileSnapshot
-	profile, state             platform.FileSnapshot
-	legacyProfile, legacyState platform.FileSnapshot
-	metadata                   platform.FileSnapshot
+	standard, thirdParty platform.FileSnapshot
+	profile, state       platform.FileSnapshot
+	metadata             platform.FileSnapshot
 }
 
 func capture(paths Paths) (snapshots, error) {
 	values := []*platform.FileSnapshot{}
 	result := snapshots{}
-	values = append(values, &result.standard, &result.thirdParty, &result.profile, &result.metadata, &result.state, &result.legacyProfile, &result.legacyState)
-	legacyProfile, legacyState := legacyPaths(paths)
-	pathList := []string{paths.StandardConfig, paths.ThirdPartyConfig, paths.Profile, paths.Metadata, paths.State, legacyProfile, legacyState}
+	values = append(values, &result.standard, &result.thirdParty, &result.profile, &result.metadata, &result.state)
+	pathList := []string{paths.StandardConfig, paths.ThirdPartyConfig, paths.Profile, paths.Metadata, paths.State}
 	for index, path := range pathList {
 		snapshot, err := platform.CaptureFileSnapshot(path)
 		if err != nil {
@@ -390,7 +377,7 @@ func addProfileEntry(metadata document) error {
 		return err
 	}
 	entry, _ := json.Marshal(map[string]string{"id": profileID, "name": profileName})
-	entries = append(removeOwnedEntries(entries, profileID, legacyRouteID), entry)
+	entries = append(removeOwnedEntries(entries, profileID), entry)
 	metadata["entries"] = raw(entries)
 	return nil
 }
@@ -400,7 +387,7 @@ func removeProfileEntries(metadata document) error {
 	if err != nil {
 		return err
 	}
-	entries = removeOwnedEntries(entries, profileID, legacyRouteID)
+	entries = removeOwnedEntries(entries, profileID)
 	if len(entries) == 0 {
 		delete(metadata, "entries")
 	} else {
