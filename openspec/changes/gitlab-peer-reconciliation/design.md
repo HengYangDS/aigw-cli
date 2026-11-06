@@ -72,7 +72,7 @@ tagged-only, with separate review and protected registrations and separated
 caches. Protected pipelines verify every pushed commit against the
 allowed-signers file, and GitLab marks the accepted head's SSH signature
 verified. Unlike GitHub's required signatures, GitLab cannot refuse an unsigned
-push: project 456 answers 404 for push rules, a Premium feature.
+push: the AIGW GitLab project answers 404 for push rules, a Premium feature.
 
 ### Catch-up precedes admission
 
