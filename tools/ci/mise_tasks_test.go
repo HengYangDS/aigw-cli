@@ -167,6 +167,11 @@ type ethosProfile struct {
 	} `toml:"proof"`
 }
 
+// miseChildHangBound stops a mise child that hangs; it is not a speed check. A
+// CI host shared with other jobs runs a child several times slower than a
+// quiet one.
+const miseChildHangBound = 3 * time.Minute
+
 func TestMiseNpmEnvironmentIsBoundToThisRepository(t *testing.T) {
 	root := repositoryRoot(t)
 	foreign := t.TempDir()
@@ -207,7 +212,7 @@ func TestMiseNpmEnvironmentIsBoundToThisRepository(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() { _ = stderr.Close() })
-			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
+			ctx, cancel := context.WithTimeout(t.Context(), miseChildHangBound)
 			defer cancel()
 			start := time.Now()
 			err = (nativeprocess.Runner{}).RunStream(ctx, nativeprocess.Plan{
@@ -346,7 +351,7 @@ func TestBootstrapRejectsAmbientGoWithEmptyToolCache(t *testing.T) {
 	if output, err := exec.Command("mise", "-C", root, "which", "go").CombinedOutput(); err == nil {
 		t.Fatalf("isolated mise unexpectedly resolved Go: %s", output)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), miseChildHangBound)
 	defer cancel()
 	output, err := exec.CommandContext(ctx, "mise", "-C", root, "run", "--locked", "bootstrap").CombinedOutput()
 	if ctx.Err() != nil {
