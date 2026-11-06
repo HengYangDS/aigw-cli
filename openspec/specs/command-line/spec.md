@@ -462,6 +462,13 @@ no other program, and leave no file, credential or Keychain change behind.
   removal affects
 - **AND** the configuration SHALL be unchanged.
 
+#### Scenario: A preview refuses what its write refuses
+
+- **WHEN** `aigw sync --dry-run` or `aigw repair --dry-run` meets a
+  configuration transition that `aigw sync` or `aigw repair` refuses
+- **THEN** the preview SHALL refuse it with the error the write gives
+- **AND** it SHALL report no plan.
+
 ### Requirement: Exit status follows the outcome
 
 A command SHALL exit 0 when it succeeds and 1 when it fails or refuses, with or

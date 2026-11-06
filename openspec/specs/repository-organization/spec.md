@@ -76,6 +76,15 @@ Repository configuration, tools, source, tests, documentation, and release asset
 - **AND** an adapter SHALL keep its own sequence only where its order or
   error text differs.
 
+#### Scenario: Product packages and repository tools repeat one step
+
+- **WHEN** product packages or repository tools implement the same step, such
+  as a file digest, a process runner or an authorized download
+- **THEN** that step SHALL have one owner in a package that every consumer may
+  import
+- **AND** no consumer SHALL keep a private copy, a forwarding wrapper or a hook
+  that only tests set.
+
 #### Scenario: Contributor uses another host
 
 - **WHEN** the repository is verified on macOS, Linux, or Windows
