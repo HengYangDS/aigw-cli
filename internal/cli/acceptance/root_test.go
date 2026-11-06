@@ -212,6 +212,43 @@ func TestFlagErrorsSuggestTheCommandHelp(t *testing.T) {
 	}
 }
 
+// Only a usage error, an unknown command, flag or argument that Cobra refused
+// before the command ran, names the help of the command that refused it. A
+// failure while the command runs that names no fix of its own names the
+// diagnostic, which does not fail the same way.
+func TestUsageErrorsNameTheirHelpAndOtherFailuresTheDiagnostic(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	if err := app.Config.Save(twoModelConfig()); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		args []string
+		fix  string
+	}{
+		{[]string{"not-a-command"}, "aigw --help"},
+		{[]string{"route", "list", "--not-a-flag"}, "aigw route list --help"},
+		{[]string{"route", "show"}, "aigw route show --help"},
+		{[]string{"route", "list", "extra"}, "aigw route list --help"},
+		{[]string{"completion", "tcsh"}, "aigw completion --help"},
+		{[]string{"route", "show", "missing"}, "aigw check"},
+	} {
+		out.Reset()
+		if err := cli.Execute(app, tc.args); err == nil || !strings.Contains(out.String(), "Fix\n  "+tc.fix+"\n") {
+			t.Fatalf("%v err=%v output=%s", tc.args, err, out.String())
+		}
+	}
+	out.Reset()
+	if err := cli.Execute(app, []string{"route", "show", "--json"}); err == nil {
+		t.Fatal("a missing argument succeeded")
+	}
+	var failure struct {
+		NextAction string `json:"next_action"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &failure); err != nil || failure.NextAction != "aigw route show --help" {
+		t.Fatalf("JSON argument error = %s, %v", out.String(), err)
+	}
+}
+
 func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	for _, tc := range []struct {

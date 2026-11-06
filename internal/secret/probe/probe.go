@@ -83,13 +83,52 @@ func probeEndpoint(ctx context.Context, httpClient HTTPDoer, admission domain.Ad
 		return err
 	}
 	if status == http.StatusUnauthorized || status == http.StatusForbidden {
-		return fmt.Errorf("%s authentication was rejected (HTTP %d)", admission.Label(client), status)
+		return &TokenRejectedError{Label: admission.Label(client), Status: status}
 	}
 	if status < http.StatusOK || status >= http.StatusMultipleChoices {
-		return fmt.Errorf("%s endpoint returned HTTP %d", admission.Label(client), status)
+		return &EndpointStatusError{Label: admission.Label(client), Protocol: protocol, Status: status}
 	}
 	return nil
 }
+
+// TokenRejectedError reports that the provider refused the Token with HTTP
+// 401 or 403.
+type TokenRejectedError struct {
+	Label  string
+	Status int
+}
+
+// Error names the client whose request the provider refused, and the status.
+func (e *TokenRejectedError) Error() string {
+	return fmt.Sprintf("%s authentication was rejected (HTTP %d)", e.Label, e.Status)
+}
+
+// EndpointStatusError reports a status of the endpoint that neither accepts
+// nor rejects the Token, such as 404 from a wrong endpoint URL.
+type EndpointStatusError struct {
+	Label    string
+	Protocol domain.EndpointProtocol
+	Status   int
+}
+
+// Error names the client whose endpoint answered, and the status.
+func (e *EndpointStatusError) Error() string {
+	return fmt.Sprintf("%s endpoint returned HTTP %d", e.Label, e.Status)
+}
+
+// UnreachableError reports an endpoint that sent no response.
+type UnreachableError struct {
+	Label string
+	Err   error
+}
+
+// Error names the client whose endpoint did not answer, and why.
+func (e *UnreachableError) Error() string {
+	return fmt.Sprintf("%s endpoint is unreachable: %v", e.Label, e.Err)
+}
+
+// Unwrap returns the transport failure.
+func (e *UnreachableError) Unwrap() error { return e.Err }
 
 // Status executes one bounded authenticated endpoint request and closes
 // its response before returning the status. A status is transport evidence;
@@ -103,7 +142,7 @@ func Status(ctx context.Context, httpClient HTTPDoer, admission domain.Admission
 	}
 	response, err := Send(httpClient, request)
 	if err != nil {
-		return 0, fmt.Errorf("%s endpoint is unreachable: %w", admission.Label(client), err)
+		return 0, &UnreachableError{Label: admission.Label(client), Err: err}
 	}
 	if _, err := io.Copy(io.Discard, response.Body); err != nil {
 		_ = response.Body.Close()

@@ -312,11 +312,14 @@ func homebrewProgram(t *testing.T, app *cli.App) {
 }
 
 // requireAuthorityRefusal checks a Homebrew rollback that could not read the
-// configuration naming its credentials: it fails without reporting readiness
-// and leaves the configuration as it was.
+// configuration naming its credentials: it fails without reporting readiness,
+// shows the configuration stage that its fix names, reruns the rollback after
+// that fix, and leaves the configuration as it was.
 func requireAuthorityRefusal(t *testing.T, err error, output, path string, before []byte, beforeErr error) {
 	t.Helper()
-	if err == nil || strings.Contains(output, "Credentials are ready") || !strings.Contains(output, "could not read the configuration") {
+	text := strings.Join(strings.Fields(output), " ")
+	if err == nil || strings.Contains(output, "Credentials are ready") || !strings.Contains(output, "stopped at the configuration") ||
+		!strings.Contains(text, "`aigw config path` prints its location. Then rerun `aigw update --rollback` before Homebrew installs the earlier release.") {
 		t.Fatalf("Homebrew rollback without a readable configuration = %v\n%s", err, output)
 	}
 	if after, afterErr := os.ReadFile(path); string(after) != string(before) || (afterErr == nil) != (beforeErr == nil) {
@@ -399,13 +402,13 @@ func TestUpdateCandidateStartupFailureKeepsSafeDiagnosis(t *testing.T) {
 func TestUpdatePreservesReleaseFailureAsItsCause(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	const canary = "TRACEBACK_CANARY /private/forge-only-canary"
-	cause := fmt.Errorf("release lookup failed: %w: %s", errors.New("exit status 1"), canary)
+	cause := fmt.Errorf("release lookup failed: %w: %w: %s", program.ErrReleaseSource, errors.New("exit status 1"), canary)
 	app.Updater = &fakeUpdater{updateErr: cause}
 
 	if err := cli.Execute(app, []string{"update"}); !errors.Is(err, cause) {
 		t.Fatalf("error = %v, want %v", err, cause)
 	}
-	if strings.Contains(out.String(), canary) || !strings.Contains(out.String(), "aigw update --candidate <archive> --checksums <checksums>") ||
+	if strings.Contains(out.String(), canary) || !strings.Contains(out.String(), "Fix\n  aigw update --candidate <archive> --checksums <checksums>") ||
 		strings.Contains(out.String(), "aigw doctor") {
 		t.Fatalf("update exposed private diagnostics or omitted recovery: %s", out.String())
 	}

@@ -3,13 +3,15 @@
 package rotate
 
 import (
-	clientactivation "aigw-cli/internal/app/activation"
+	"errors"
+	"fmt"
 
+	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
 	"aigw-cli/internal/terminal"
-	"fmt"
 
 	"github.com/spf13/cobra"
 )
@@ -75,11 +77,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			account.ID = accountName
 			if err := probe.Validate(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), account, token); err != nil {
-				retry := "aigw rotate " + accountName
-				if tokenStdin {
-					retry += " --token-stdin"
-				}
-				return terminal.ProblemError("Token validation failed: "+err.Error(), "", "No Token was stored; the previous Token is unchanged.", retry, err)
+				return validationProblem(cmd, args, runtime.Secrets, accountName, err)
 			}
 			if err := cmd.Context().Err(); err != nil {
 				return err
@@ -110,4 +108,35 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().BoolVar(&tokenStdin, "token-stdin", false, "Read one token line from standard input")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the rotated Account Token's outcome as JSON")
 	return cmd
+}
+
+// validationProblem explains a Token that rotation did not store. A Token that
+// the provider rejected, or an endpoint that did not answer, needs the same
+// command again; another status means that the Account's endpoint is wrong,
+// so the fix edits it.
+func validationProblem(cmd *cobra.Command, args []string, secrets secret.Store, accountName string, err error) error {
+	impact := "No Token was stored."
+	if previous, existsErr := secrets.Exists(accountName); existsErr == nil && previous {
+		impact = "No Token was stored; the previous Token is unchanged."
+	}
+	fix := "aigw check"
+	_, rejected := errors.AsType[*probe.TokenRejectedError](err)
+	_, unreachable := errors.AsType[*probe.UnreachableError](err)
+	if status, ok := errors.AsType[*probe.EndpointStatusError](err); ok {
+		fix = editEndpoint(accountName, status.Protocol)
+	} else if rejected || unreachable {
+		fix = invocation.Retry(cmd, args)
+	}
+	return terminal.ProblemError("Token validation failed: "+err.Error(), "", impact, fix, err)
+}
+
+// editEndpoint is the account edit that corrects the endpoint that the Token
+// probe reached: the OpenAI Responses endpoint when the Account has one, and
+// otherwise the Anthropic endpoint.
+func editEndpoint(accountName string, protocol domain.EndpointProtocol) string {
+	flag := "--anthropic-url"
+	if protocol == domain.ProtocolOpenAIResponses {
+		flag = "--openai-url"
+	}
+	return "aigw account edit " + accountName + " " + flag + " <url>"
 }

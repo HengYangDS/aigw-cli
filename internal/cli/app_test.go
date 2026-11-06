@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -71,6 +72,9 @@ func TestNewDefaultBuildsAFunctioningApp(t *testing.T) {
 	}
 }
 
+// A command that another AIGW command keeps from the configuration says so and
+// names its own exact command line to run once that command finishes; the
+// step waits on another command, so JSON carries it as guidance.
 func TestExecuteReturnsBusyLockErrorWhenAnotherMutationHoldsIt(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
@@ -85,10 +89,25 @@ func TestExecuteReturnsBusyLockErrorWhenAnotherMutationHoldsIt(t *testing.T) {
 		}
 	})
 
-	app := &App{Clients: clients.Registry(), Config: configStore, Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
-	err = Execute(app, []string{"add", "dmx", "--for", "claude", "--upstream-model", "claude-test", "--anthropic-url", "https://example.test", "--token-stdin"})
-	if err == nil || !strings.Contains(err.Error(), "retry after the other command finishes") {
+	out := &bytes.Buffer{}
+	app := &App{Clients: clients.Registry(), Config: configStore, Out: out, Err: &bytes.Buffer{}}
+	err = Execute(app, []string{"add", "dmx", "--for", "claude", "--upstream-model", "claude-test", "--anthropic-url", "https://example.test", "--token-stdin", "--json"})
+	if !errors.Is(err, store.ErrConfigurationBusy) {
 		t.Fatalf("Execute() error = %v, want a busy-lock error", err)
+	}
+	var failure struct {
+		Error      string `json:"error"`
+		Impact     string `json:"impact"`
+		NextAction string `json:"next_action"`
+		NextDetail string `json:"next_detail"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &failure); err != nil {
+		t.Fatalf("busy-lock failure is not one JSON document: %v\n%s", err, out.String())
+	}
+	want := "After the other aigw command finishes, rerun `aigw add dmx --anthropic-url https://example.test --for claude --json --token-stdin --upstream-model claude-test`."
+	if failure.Error != "Another AIGW command holds the configuration" || failure.Impact != "This command changed nothing." ||
+		failure.NextAction != "" || failure.NextDetail != want {
+		t.Fatalf("busy-lock failure = %+v", failure)
 	}
 }
 

@@ -165,13 +165,13 @@ Problem
   Unknown account "missing"
 
 Fix
-  aigw account rename --help
+  aigw check
 -- refusal.json --
 {
   "schema_version": 3,
   "ok": false,
   "error": "Unknown account \"missing\"",
-  "next_action": "aigw account rename --help"
+  "next_action": "aigw check"
 }
 -- edit.json --
 {
@@ -189,7 +189,7 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "Unknown account \"missing\"",
-  "next_action": "aigw account edit --help"
+  "next_action": "aigw check"
 }
 -- enabled.json --
 {
@@ -219,7 +219,7 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "unknown account or route \"missing\"",
-  "next_action": "aigw account diagnostics disable --help"
+  "next_action": "aigw check"
 }
 -- system.txt --
 dmx-system-token

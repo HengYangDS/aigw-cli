@@ -182,6 +182,29 @@ func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 	}
 }
 
+// A probe failure that a caller acts on has a type: a rejected Token, an
+// endpoint that answered another status over its protocol, and one that sent
+// no response.
+func TestValidateTypesTheFailuresThatCallersActOn(t *testing.T) {
+	t.Parallel()
+	account := domain.Provider{ID: "team", Endpoints: domain.Endpoints{OpenAIResponses: "https://responses.example/v1"}}
+	validate := func(doer probe.HTTPDoer) error {
+		return probe.Validate(context.Background(), doer, clients.Admission(), account, "secret")
+	}
+	if rejected, ok := errors.AsType[*probe.TokenRejectedError](validate(staticResponse(http.StatusForbidden, http.NoBody))); !ok || rejected.Status != http.StatusForbidden {
+		t.Fatalf("forbidden = %#v, %t", rejected, ok)
+	}
+	if status, ok := errors.AsType[*probe.EndpointStatusError](validate(staticResponse(http.StatusNotFound, http.NoBody))); !ok ||
+		status.Status != http.StatusNotFound || status.Protocol != domain.ProtocolOpenAIResponses {
+		t.Fatalf("not found = %#v, %t", status, ok)
+	}
+	offline := errors.New("offline")
+	unreachable := validate(doerFunc(func(*http.Request) (*http.Response, error) { return nil, offline }))
+	if _, ok := errors.AsType[*probe.UnreachableError](unreachable); !ok || !errors.Is(unreachable, offline) {
+		t.Fatalf("unreachable = %#v", unreachable)
+	}
+}
+
 func TestValidateHTTPClientDoesNotFollowRedirects(t *testing.T) {
 	t.Parallel()
 

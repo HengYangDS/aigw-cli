@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -155,12 +156,20 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 		}
 	})
 
+	// A Token that the provider rejects names the exact retry, which reads a
+	// Token again as the setup did, and keeps --json.
 	t.Run("token validation", func(t *testing.T) {
-		app, _, _, _, httpClient := testApp(t, "token\n")
-		httpClient.status = http.StatusUnauthorized
-		err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "claude", "--upstream-model", "m", "--anthropic-url", "https://one.test", "--token-stdin"})
-		if err == nil || !strings.Contains(err.Error(), "Token validation failed") {
-			t.Fatalf("error = %v", err)
+		args := []string{"setup", "--route", "one", "--for", "claude", "--upstream-model", "m", "--anthropic-url", "https://one.test", "--token-stdin"}
+		for want, extra := range map[string][]string{
+			"Fix\n  aigw setup --anthropic-url https://one.test --for claude --route one --token-stdin --upstream-model m\n":                nil,
+			`"next_action": "aigw setup --anthropic-url https://one.test --for claude --json --route one --token-stdin --upstream-model m"`: {"--json"},
+		} {
+			app, out, _, _, httpClient := testApp(t, "token\n")
+			httpClient.status = http.StatusUnauthorized
+			err := cli.Execute(app, append(slices.Clone(args), extra...))
+			if err == nil || !strings.Contains(err.Error(), "Token validation failed") || !strings.Contains(out.String(), want) {
+				t.Fatalf("error = %v, output:\n%s", err, out.String())
+			}
 		}
 	})
 

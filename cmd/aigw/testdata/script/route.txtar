@@ -207,7 +207,7 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "Unknown route \"missing\"",
-  "next_action": "aigw route show --help"
+  "next_action": "aigw check"
 }
 -- third.json --
 {
@@ -227,7 +227,7 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "Route \"third\" already exists",
-  "next_action": "aigw route add --help"
+  "next_action": "aigw check"
 }
 -- edited.json --
 {
@@ -243,7 +243,7 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "Unknown route \"missing\"",
-  "next_action": "aigw route edit --help"
+  "next_action": "aigw check"
 }
 -- removed.json --
 {
@@ -289,5 +289,5 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "Unknown route \"missing\"",
-  "next_action": "aigw route rename --help"
+  "next_action": "aigw check"
 }

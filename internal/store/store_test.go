@@ -266,7 +266,7 @@ func TestLockSerializesMutations(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
 	defer cancel()
 	_, err = store.Lock(ctx)
-	if err == nil || !strings.Contains(err.Error(), "context deadline") {
+	if !errors.Is(err, ErrConfigurationBusy) || !strings.Contains(err.Error(), "context deadline") {
 		t.Fatalf("second lock error = %v", err)
 	}
 }

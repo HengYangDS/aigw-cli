@@ -25,11 +25,9 @@ func runPreview(cmd *cobra.Command, runtime invocation.Context, jsonMode bool, c
 		result, err = runtime.Updater.Preview(cmd.Context(), runtime.Version)
 	}
 	if err != nil {
-		return terminal.ProblemError(
-			"Update preview did not complete",
-			"AIGW could not determine the version that an update would install.",
+		return programProblem("Update preview did not complete", "AIGW could not determine the version that an update would install.",
 			"No file, rollback copy or Keychain item changed.",
-			"aigw update --dry-run --candidate <archive> --checksums <checksums>", err)
+			releaseFix(err, candidate.ArchivePath != "", "aigw update --dry-run --candidate <archive> --checksums <checksums>"), err)
 	}
 	document := updateDocument{DryRun: true, State: result.State, Version: result.Version, Summary: result.Summary,
 		CurrentVersion: runtime.Version, Path: runtime.Executable}

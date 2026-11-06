@@ -110,7 +110,7 @@ Problem
   portable AIGW file $WORK is a directory; name the program file
 
 Fix
-  aigw uninstall --help
+  aigw check
 -- removed.json --
 {
   "schema_version": 1,
@@ -132,7 +132,7 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "portable AIGW file $WORK is a directory; name the program file",
-  "next_action": "aigw uninstall --help"
+  "next_action": "aigw check"
 }
 -- removed-windows.json --
 {

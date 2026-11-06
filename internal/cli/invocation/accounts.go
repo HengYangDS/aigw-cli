@@ -13,13 +13,12 @@ func ProviderReference(cfg domain.Config, args []string) (string, error) {
 	if len(args) == 1 {
 		return args[0], nil
 	}
-	if len(cfg.Providers) == 0 {
+	switch len(cfg.Providers) {
+	case 0:
 		return "", errors.New("no account is configured; run `aigw setup`")
+	case 1:
+		return cfg.CatalogProviderIDs()[0], nil
+	default:
+		return "", fmt.Errorf("account is required when configuration contains %d accounts", len(cfg.Providers))
 	}
-	for accountID := range cfg.Providers {
-		if len(cfg.Providers) == 1 {
-			return accountID, nil
-		}
-	}
-	return "", fmt.Errorf("account is required when configuration contains %d accounts", len(cfg.Providers))
 }

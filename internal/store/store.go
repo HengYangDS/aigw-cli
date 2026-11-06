@@ -344,6 +344,10 @@ func (s Store) RestoreSnapshot(before, after Snapshot) error {
 	return errors.Join(failures...)
 }
 
+// ErrConfigurationBusy reports that another AIGW command held the
+// configuration lock for the whole bounded wait.
+var ErrConfigurationBusy = errors.New("config is busy; another AIGW mutation is running")
+
 // Lock acquires the bounded configuration mutation lock and returns its release function.
 func (s Store) Lock(ctx context.Context) (func() error, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -353,11 +357,14 @@ func (s Store) Lock(ctx context.Context) (func() error, error) {
 	}
 	guard := flock.New(s.path + ".lock")
 	locked, err := guard.TryLockContext(ctx, 50*time.Millisecond)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return nil, fmt.Errorf("%w: %w", ErrConfigurationBusy, err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("acquire config lock: %w", err)
 	}
 	if !locked {
-		return nil, fmt.Errorf("config is busy; another AIGW mutation is running")
+		return nil, ErrConfigurationBusy
 	}
 	return guard.Unlock, nil
 }

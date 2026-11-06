@@ -70,7 +70,7 @@ Problem
   Plain Gateway does not support precise balance queries
 
 Fix
-  aigw balance --help
+  aigw check
 -- balance.txt --
 AIGW  Account and quota
 ────────────────────────────────────────
@@ -111,5 +111,5 @@ Next
   "schema_version": 3,
   "ok": false,
   "error": "Plain Gateway does not support precise balance queries",
-  "next_action": "aigw balance --help"
+  "next_action": "aigw check"
 }

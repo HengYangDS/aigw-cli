@@ -46,11 +46,9 @@ type updateDocument struct {
 func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
-		return terminal.ProblemError(
-			"Configuration is not ready for a Homebrew rollback",
+		return homebrewConfigurationProblem(runtime, "Configuration is not ready for a Homebrew rollback",
 			"AIGW could not read the configuration, including each connection's retry policy.",
-			"No credential, policy or program changed.",
-			terminal.ConfigurationLoadFix(err), err)
+			"No credential, policy or program changed.", err)
 	}
 	for _, binding := range cfg.Clients {
 		if binding.RetryPolicy != nil {
@@ -64,12 +62,9 @@ func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
 	}
 	custody, err := credentialCustody(runtime.Dependencies)
 	if err != nil {
-		return terminal.ProblemError(
-			"Credentials are not ready for a Homebrew rollback",
+		return homebrewConfigurationProblem(runtime, "Credentials are not ready for a Homebrew rollback",
 			"AIGW could not read the configuration that names its credentials.",
-			"No credential or program changed.",
-			terminal.ConfigurationLoadFix(err),
-			err)
+			"No credential or program changed.", err)
 	}
 	if err := custody.Release(""); err != nil {
 		return terminal.ProblemError(
@@ -118,10 +113,14 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		}),
 		RunE: func(ctx *cobra.Command, _ []string) error {
 			if err := program.RequirePortableOwnership(runtime.Executable); err != nil {
-				if rollback && errors.Is(err, program.ErrHomebrewManaged) {
+				if !errors.Is(err, program.ErrHomebrewManaged) {
+					return err
+				}
+				if rollback {
 					return prepareHomebrewRollback(runtime, jsonMode)
 				}
-				return err
+				return terminal.ProblemError("Homebrew manages this AIGW program", "A Homebrew receipt owns the program file.",
+					"No program file changed.", "brew upgrade --cask aigw", err)
 			}
 			if runtime.Updater == nil {
 				return fmt.Errorf("Automatic update is unavailable; install a verified release from GitLab or GitHub")
@@ -179,19 +178,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			if err != nil {
 				if rollback {
-					return terminal.ProblemError(
-						"Program rollback did not complete",
-						"AIGW could not activate the retained previous program.",
-						"No previous program version was confirmed active.",
-						"aigw installation",
-						err,
-					)
+					return programProblem("Program rollback did not complete", "AIGW could not activate the retained previous program.",
+						"No previous program version was confirmed active.", "aigw installation", err)
 				}
-				return terminal.ProblemError(
-					"Program update did not complete",
-					"AIGW could not complete release verification and program replacement.",
+				return programProblem("Program update did not complete", "AIGW could not complete release verification and program replacement.",
 					"No updated program version was confirmed active; client settings and credentials were not changed.",
-					"aigw update --candidate <archive> --checksums <checksums>", err)
+					releaseFix(err, candidateArchive != "", "aigw update --candidate <archive> --checksums <checksums>"), err)
 			}
 			title := "Update"
 			if rollback {
@@ -213,6 +205,37 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	// version, which a preview never does.
 	cmd.MarkFlagsMutuallyExclusive("dry-run", "rollback")
 	return cmd
+}
+
+// homebrewConfigurationProblem refuses a Homebrew rollback whose configuration
+// did not load: its evidence names the stage that failed, and its fix repairs
+// the configuration before the rollback runs again.
+func homebrewConfigurationProblem(runtime invocation.Context, title, evidence, impact string, err error) error {
+	if stage, ok := terminal.ConfigurationLoadEvidence("AIGW "+runtime.Version, err); ok {
+		evidence = stage
+	}
+	fix := terminal.ConfigurationLoadFix(err) + " Then rerun `aigw update --rollback` before Homebrew installs the earlier release."
+	return terminal.ProblemError(title, evidence, impact, fix, err)
+}
+
+// programProblem presents a program transition, or its preview, that did not
+// complete. An error that states its own fix reaches the user unchanged; any
+// other keeps its cause private behind the problem.
+func programProblem(title, evidence, impact, fix string, err error) error {
+	if terminal.StatesFix(err) {
+		return err
+	}
+	return terminal.ProblemError(title, evidence, impact, fix, err)
+}
+
+// releaseFix is the fix of a failed transition: archive, a verified local
+// archive, when the release sources failed and the command did not already
+// name a candidate; otherwise the report of the active program.
+func releaseFix(err error, candidate bool, archive string) string {
+	if !candidate && errors.Is(err, program.ErrReleaseSource) {
+		return archive
+	}
+	return "aigw installation"
 }
 
 // reportTransition writes a completed program transition and its next step:

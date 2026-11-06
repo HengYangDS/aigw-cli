@@ -231,7 +231,7 @@ Problem
   Token validation failed: Claude authentication was rejected (HTTP 401)
 
 Fix
-  aigw setup --help
+  Run the same command again.
 -- connected.txt --
 AIGW  First-time setup
 ────────────────────────────────────────

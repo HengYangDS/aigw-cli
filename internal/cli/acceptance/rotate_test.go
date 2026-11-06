@@ -155,6 +155,57 @@ func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 	})
 }
 
+// A Token that rotation could not validate names the retry when the provider
+// rejected it or the endpoint did not answer, the endpoint's edit for any
+// other status, and the previous Token only when one exists.
+func TestRotateNamesTheFixOfItsValidationFailure(t *testing.T) {
+	offline := func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") }
+	for _, test := range []struct {
+		name     string
+		args     []string
+		status   int
+		handler  func(*http.Request) (*http.Response, error)
+		previous bool
+		fix      string
+		impact   string
+	}{
+		{name: "prompted Token", args: []string{"rotate", "one"}, status: http.StatusUnauthorized,
+			fix: "aigw rotate one", impact: "No Token was stored."},
+		{name: "piped Token", args: []string{"rotate", "one", "--token-stdin"}, status: http.StatusForbidden, previous: true,
+			fix: "aigw rotate one --token-stdin", impact: "No Token was stored; the previous Token is unchanged."},
+		{name: "unreachable endpoint", args: []string{"rotate", "--token-stdin"}, handler: offline,
+			fix: "aigw rotate --token-stdin", impact: "No Token was stored."},
+		{name: "another status", args: []string{"rotate", "one", "--token-stdin"}, status: http.StatusNotFound,
+			fix: "aigw account edit one --anthropic-url <url>", impact: "No Token was stored."},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			app, out, secretStore, _, httpClient := testApp(t, "new-token\n")
+			saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+			if test.previous {
+				if err := secretStore.Set("one", "old-token"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			httpClient.status, httpClient.handler = test.status, test.handler
+			app.Interactive, app.Prompt = true, &scriptedPrompt{secrets: []string{"new-token"}}
+			if err := cli.Execute(app, test.args); err == nil {
+				t.Fatal("an unvalidated Token was stored")
+			}
+			if !strings.Contains(out.String(), "Impact\n  "+test.impact+"\n") || !strings.Contains(out.String(), "Fix\n  "+test.fix+"\n") {
+				t.Fatalf("rotation failure output:\n%s", out.String())
+			}
+		})
+	}
+	// As JSON, the retry keeps --json, and a script can run it as it stands.
+	app, out, _, _, httpClient := testApp(t, "new-token\n")
+	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+	httpClient.status = http.StatusUnauthorized
+	if err := cli.Execute(app, []string{"rotate", "one", "--token-stdin", "--json"}); err == nil ||
+		!strings.Contains(out.String(), `"next_action": "aigw rotate one --json --token-stdin"`) {
+		t.Fatalf("rotation failure document = %v\n%s", err, out.String())
+	}
+}
+
 func TestRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "new-token\n")
 	cfg := domain.NewConfig(clients.Admission())

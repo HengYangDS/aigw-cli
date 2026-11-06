@@ -52,7 +52,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				target = runtime.Executable
 			}
 			if err := program.RequirePortableOwnership(target); err != nil {
-				return err
+				if !errors.Is(err, program.ErrHomebrewManaged) {
+					return err
+				}
+				return terminal.ProblemError("Homebrew manages this AIGW program", "A Homebrew receipt owns the program file.",
+					"No client setting or program file changed; clients that AIGW configured still call it.", "brew uninstall --cask aigw", err)
 			}
 			// A directory at the program's path or at its rollback copy's
 			// path is refused before any client is withdrawn.

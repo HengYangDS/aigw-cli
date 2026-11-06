@@ -35,7 +35,7 @@ func (u Updater) Preview(ctx context.Context, currentVersion string) (Transition
 	}
 	resolved, err := resolveLatestRelease(ctx, sources, public, "public release metadata failed", "no configured release source publishes its metadata without authentication")
 	if err != nil {
-		return Transition{}, err
+		return Transition{}, releaseSourceFailure(err)
 	}
 	return u.previewReplacement(previewVersion(resolved[0].Tag, currentVersion, "release"))
 }

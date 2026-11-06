@@ -3,6 +3,7 @@ package invocation
 import (
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 
 	"aigw-cli/internal/adapter"
@@ -126,13 +127,24 @@ func plain(word string) bool {
 // without --dry-run and --json, or prose when a word would need quoting,
 // because no one quoting runs in every shell of a platform.
 func ApplyCommand(cmd *cobra.Command, args []string) string {
+	line, isPlain := commandLine(cmd, args, "dry-run", "json")
+	if !isPlain {
+		return applyInProse
+	}
+	return line
+}
+
+// commandLine rebuilds cmd's command line from its arguments and the flags
+// that it was given, except omitted ones, and reports whether every word
+// runs as written in the platform's shells.
+func commandLine(cmd *cobra.Command, args []string, omitted ...string) (string, bool) {
 	words := append(strings.Fields(cmd.CommandPath()), args...)
 	isPlain := true
 	for _, arg := range args {
 		isPlain = isPlain && plain(arg)
 	}
 	cmd.Flags().Visit(func(flag *pflag.Flag) {
-		if flag.Name == "dry-run" || flag.Name == "json" {
+		if slices.Contains(omitted, flag.Name) {
 			return
 		}
 		name := flag.Name
@@ -153,10 +165,7 @@ func ApplyCommand(cmd *cobra.Command, args []string) string {
 			isPlain = isPlain && plain(value)
 		}
 	})
-	if !isPlain {
-		return applyInProse
-	}
-	return strings.Join(words, " ")
+	return strings.Join(words, " "), isPlain
 }
 
 // ApplyWithThisProgram continues a preview of a command that changes the

@@ -124,20 +124,23 @@ func Execute(app *App, args []string) error {
 	defer func() { app.output = nil }()
 	var unlock func() error
 	root := NewRoot(app)
-	root.PersistentPreRunE = func(command *cobra.Command, _ []string) error {
+	root.PersistentPreRunE = func(command *cobra.Command, positional []string) error {
 		// Cobra normally validates flag relationships after this mutation boundary.
 		if err := command.ValidateRequiredFlags(); err != nil {
-			return fmt.Errorf("%w; run `%s --help`", err, command.CommandPath())
+			return refusedFlag(command, err)
 		}
 		if err := command.ValidateFlagGroups(); err != nil {
-			return fmt.Errorf("%w; run `%s --help`", err, command.CommandPath())
+			return refusedFlag(command, err)
 		}
 		if !requiresConfigurationLock(app, command) {
 			return nil
 		}
 		locked, err := app.Config.Lock(command.Context())
+		if errors.Is(err, store.ErrConfigurationBusy) {
+			return invocation.ConfigurationBusy(command, positional, err)
+		}
 		if err != nil {
-			return fmt.Errorf("%w; retry after the other command finishes", err)
+			return err
 		}
 		unlock = locked
 		return nil
@@ -146,6 +149,7 @@ func Execute(app *App, args []string) error {
 	command, err := root, unknownSubcommand(root, args)
 	if err == nil {
 		command, err = root.ExecuteC()
+		err = refusedCommand(root, args, err)
 	}
 	if output.err != nil && !errors.Is(err, output.err) {
 		err = errors.Join(err, output.err)
@@ -164,8 +168,27 @@ func Execute(app *App, args []string) error {
 		return err
 	}
 	renderer := app.Renderer()
-	terminal.RenderError(renderer, terminal.CommandFailure(Version, command.CommandPath(), err), jsonMode)
+	terminal.RenderError(renderer, terminal.LocalFailure(Version, invocation.TokenRejection(command, err)), jsonMode)
 	return terminal.Presented(errors.Join(err, renderer.Err()))
+}
+
+// refusedFlag marks a flag that command refused as a usage error, naming the
+// command's help in the refusal as every flag error does.
+func refusedFlag(command *cobra.Command, err error) error {
+	return terminal.Usage(command.CommandPath(), fmt.Errorf("%w; run `%s --help`", err, command.CommandPath()))
+}
+
+// refusedCommand marks the refusal of an unknown command at the root, which
+// Cobra returns while it finds the command and before any command runs, as a
+// usage error of the root.
+func refusedCommand(root *cobra.Command, args []string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if _, _, unknown := root.Find(args); unknown != nil {
+		return terminal.Usage(root.CommandPath(), err)
+	}
+	return err
 }
 
 func finishExecution(commandErr error, unlock func() error) error {
@@ -388,13 +411,15 @@ func NewRoot(app *App) *cobra.Command {
 	root.AddCommand(completion, credentialcli.NewCommand(runtime))
 	// A flag error names the help of the command that refused the flag, as a
 	// flag-group failure does; a command that help does not list, such as the
-	// help command, names top-level help.
+	// help command, names top-level help. An argument error is a usage error
+	// of its command too.
 	root.SetFlagErrorFunc(func(command *cobra.Command, err error) error {
 		if !command.IsAvailableCommand() {
 			command = command.Root()
 		}
-		return fmt.Errorf("%w; run `%s --help`", err, command.CommandPath())
+		return refusedFlag(command, err)
 	})
+	invocation.MarkUsageErrors(root)
 	return root
 }
 
@@ -414,7 +439,7 @@ func unknownSubcommand(root *cobra.Command, args []string) error {
 		if slices.ContainsFunc(group.Commands(), func(child *cobra.Command) bool { return child.Name() == arg || child.HasAlias(arg) }) {
 			return nil
 		}
-		return fmt.Errorf("unknown command %q for %q; run `%s --help`", arg, group.CommandPath(), group.CommandPath())
+		return terminal.Usage(group.CommandPath(), fmt.Errorf("unknown command %q for %q; run `%s --help`", arg, group.CommandPath(), group.CommandPath()))
 	}
 	return nil
 }

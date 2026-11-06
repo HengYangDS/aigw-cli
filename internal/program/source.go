@@ -74,7 +74,7 @@ func validateReleaseSources(sources ...ReleaseSource) error {
 		}
 	}
 	if !configured {
-		return fmt.Errorf("release source is not configured; install an official release or use `aigw update --candidate ARCHIVE --checksums MANIFEST`")
+		return fmt.Errorf("release source is not configured; install an official release or use `aigw update --candidate <archive> --checksums <checksums>`")
 	}
 	return nil
 }

@@ -122,9 +122,22 @@ func RefuseDirectories(target string) error {
 // which AIGW did not write and neither removes nor replaces.
 func refuseRollbackDirectory(path string) error {
 	if info, err := os.Lstat(path); err == nil && info.IsDir() {
-		return fmt.Errorf("rollback copy path %s is a directory that AIGW did not write; move it, then run the command again", path)
+		return rollbackDirectoryError{path: path}
 	}
 	return nil
+}
+
+// rollbackDirectoryError is a directory at the rollback copy's path. The
+// command succeeds once that directory moves.
+type rollbackDirectoryError struct{ path string }
+
+func (e rollbackDirectoryError) Error() string {
+	return fmt.Sprintf("rollback copy path %s is a directory that AIGW did not write; move it, then run the command again", e.path)
+}
+
+// NextAction is the step after which the command succeeds.
+func (e rollbackDirectoryError) NextAction() string {
+	return "Move the directory at the rollback copy path, then run the command again."
 }
 
 // admitUninstall refuses an uninstall target that AIGW does not own, that is

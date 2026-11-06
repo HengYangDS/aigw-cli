@@ -231,10 +231,24 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (Transition,
 	}
 	resolved, err := resolveLatestRelease(ctx, sources, u.latestTagFromSource, "release metadata failed", "no configured release source is reachable")
 	if err != nil {
-		return Transition{}, err
+		return Transition{}, releaseSourceFailure(err)
 	}
 	return u.updateFromResolvedPeers(ctx, resolved, currentVersion)
 }
+
+// ErrReleaseSource identifies a failure of the configured release sources:
+// reading their metadata, downloading a release or authenticating what they
+// serve. A verified local archive installs without them.
+var ErrReleaseSource = errors.New("release source failed")
+
+// releaseSourceError marks a failure of the release sources while its
+// message stays the cause's.
+type releaseSourceError struct{ err error }
+
+func (e releaseSourceError) Error() string   { return e.err.Error() }
+func (e releaseSourceError) Unwrap() []error { return []error{e.err, ErrReleaseSource} }
+
+func releaseSourceFailure(err error) error { return releaseSourceError{err: err} }
 
 // resolveLatestRelease reads the latest tag of every configured source through
 // latest, which also reports whether a failure leaves its source unreachable,
@@ -307,7 +321,7 @@ func (u Updater) updateFromResolvedPeers(ctx context.Context, releases []resolve
 	}
 	for _, candidate := range downloads[1:] {
 		if candidate.Digest != downloads[0].Digest {
-			return Transition{}, fmt.Errorf("reachable release sources disagree on %s asset bytes: %s != %s", asset, downloads[0].Source.Provider, candidate.Source.Provider)
+			return Transition{}, releaseSourceFailure(fmt.Errorf("reachable release sources disagree on %s asset bytes: %s != %s", asset, downloads[0].Source.Provider, candidate.Source.Provider))
 		}
 	}
 	archive := downloads[0].Asset
@@ -334,7 +348,7 @@ func (u Updater) downloadPeerAssets(ctx context.Context, releases []resolvedRele
 				unavailableSources = append(unavailableSources, fmt.Errorf("%s: %w", release.Source.Provider, err))
 				continue
 			}
-			return nil, fmt.Errorf("%s release assets failed: %w", release.Source.Provider, err)
+			return nil, releaseSourceFailure(fmt.Errorf("%s release assets failed: %w", release.Source.Provider, err))
 		}
 		path := filepath.Join(directory, asset)
 		key := u.ReleasePublicKey
@@ -342,16 +356,16 @@ func (u Updater) downloadPeerAssets(ctx context.Context, releases []resolvedRele
 			key = artifact.BuildReleasePublicKey
 		}
 		if err := artifact.VerifySignature(filepath.Join(directory, "checksums.txt"), filepath.Join(directory, "checksums.txt.sig"), key); err != nil {
-			return nil, fmt.Errorf("%s release authentication failed: %w", release.Source.Provider, err)
+			return nil, releaseSourceFailure(fmt.Errorf("%s release authentication failed: %w", release.Source.Provider, err))
 		}
 		digest, err := artifact.VerifyChecksum(path, filepath.Join(directory, "checksums.txt"), asset)
 		if err != nil {
-			return nil, fmt.Errorf("%s release checksum failed: %w", release.Source.Provider, err)
+			return nil, releaseSourceFailure(fmt.Errorf("%s release checksum failed: %w", release.Source.Provider, err))
 		}
 		downloads = append(downloads, downloadedRelease{Source: release.Source, Asset: path, Digest: digest})
 	}
 	if len(downloads) == 0 {
-		return nil, fmt.Errorf("all reachable release sources failed while downloading %s: %w", asset, errors.Join(unavailableSources...))
+		return nil, releaseSourceFailure(fmt.Errorf("all reachable release sources failed while downloading %s: %w", asset, errors.Join(unavailableSources...)))
 	}
 	return downloads, nil
 }

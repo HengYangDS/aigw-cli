@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -229,7 +230,7 @@ func TestUpdatePreviewInTextFromACandidateAndOnFailure(t *testing.T) {
 	if updater.candidateReceived.ArchivePath != archive || updater.candidateReceived.ChecksumsPath != checksums || updater.candidateCalls+updater.updateCalls != 0 {
 		t.Fatalf("candidate preview = %#v, installs %d", updater.candidateReceived, updater.candidateCalls+updater.updateCalls)
 	}
-	updater.previewErr = errors.New("metadata unavailable")
+	updater.previewErr = fmt.Errorf("metadata unavailable: %w", program.ErrReleaseSource)
 	out.Reset()
 	if err := cli.Execute(app, []string{"update", "--dry-run"}); err == nil || !strings.Contains(out.String()+err.Error(), "Update preview did not complete") {
 		t.Fatalf("failed preview = %v\n%s", err, out.String())
@@ -238,6 +239,12 @@ func TestUpdatePreviewInTextFromACandidateAndOnFailure(t *testing.T) {
 	// verified local archive; doctor inspects neither.
 	if !strings.Contains(out.String(), "Fix\n  aigw update --dry-run --candidate <archive> --checksums <checksums>") || strings.Contains(out.String(), "aigw doctor") {
 		t.Fatalf("failed preview names another fix:\n%s", out.String())
+	}
+	// A preview of a named archive never names another archive.
+	out.Reset()
+	if err := cli.Execute(app, []string{"update", "--dry-run", "--candidate", archive, "--checksums", checksums}); err == nil ||
+		!strings.Contains(out.String(), "Fix\n  aigw installation") || strings.Contains(out.String(), "<archive>") {
+		t.Fatalf("failed candidate preview = %v\n%s", err, out.String())
 	}
 	if _, err := os.Stat(program.RollbackPath(app.Executable)); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("an update preview wrote the rollback copy: %v", err)

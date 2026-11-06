@@ -28,15 +28,22 @@ type presentedError struct{ cause error }
 func (e *presentedError) Error() string { return e.cause.Error() }
 func (e *presentedError) Unwrap() error { return e.cause }
 
-// commandError is an error that the command at its path returned. The
-// command's help is its fix when the error names none of its own.
-type commandError struct {
+// usageError is a command invoked with an unknown command, flag or argument,
+// which the help of the command that refused it explains.
+type usageError struct {
 	command string
 	cause   error
 }
 
-func (e *commandError) Error() string { return e.cause.Error() }
-func (e *commandError) Unwrap() error { return e.cause }
+func (e *usageError) Error() string { return e.cause.Error() }
+func (e *usageError) Unwrap() error { return e.cause }
+
+// Usage marks err as a usage error of the command at path: Cobra refused an
+// unknown command, flag or argument before the command ran. The command's help
+// is its fix unless the error names a fix of its own.
+func Usage(path string, err error) error {
+	return &usageError{command: path, cause: err}
+}
 
 type configurationRecovery interface {
 	error
@@ -80,28 +87,23 @@ func RenderCredentialError(renderer *Renderer, err error) {
 	RenderError(renderer, err, false)
 }
 
-// CommandFailure prepares the failure of the command at path for
-// presentation. A configuration load failure becomes a problem that names its
-// stage, the AIGW version that stopped there and `aigw config path`. A
-// structured problem returns unchanged. Any other error, including a
-// configuration recovery outcome and an unsupported configuration version,
-// which carry their own guidance, is attributed to the command, whose help
-// becomes its fix when it names none of its own.
-func CommandFailure(version, path string, err error) error {
-	if err == nil {
-		return nil
-	}
+// LocalFailure turns a configuration load failure into a problem that names
+// its stage, the AIGW version that stopped there and `aigw config path`. Other
+// errors, including structured problems, configuration recovery outcomes and
+// an unsupported configuration version, which carries its own guidance,
+// return unchanged.
+func LocalFailure(version string, err error) error {
 	if _, structured := errors.AsType[*userError](err); structured {
 		return err
 	}
 	failure, loading := errors.AsType[*store.LoadError](err)
 	_, recovery := ConfigurationRecoveryImpact(err)
 	_, unsupported := errors.AsType[*domain.UnsupportedConfigVersionError](err)
-	if loading && !recovery && !unsupported {
-		evidence, _ := ConfigurationLoadEvidence("AIGW "+version, err)
-		return ProblemError(configurationLoadTitle(failure.Phase), evidence, "", configurationLoadFix(failure.Phase), err)
+	if !loading || recovery || unsupported {
+		return err
 	}
-	return &commandError{command: path, cause: err}
+	evidence, _ := ConfigurationLoadEvidence("AIGW "+version, err)
+	return ProblemError(configurationLoadTitle(failure.Phase), evidence, "", configurationLoadFix(failure.Phase), err)
 }
 
 // ConfigurationLoadEvidence states the configuration stage at which subject
@@ -303,9 +305,6 @@ func typedErrorMessage(err error) (string, bool) {
 		}
 		return message, true
 	}
-	if failure, ok := errors.AsType[*store.LoadError](err); ok {
-		return configurationLoadTitle(failure.Phase), true
-	}
 	if access, ok := errors.AsType[*os.PathError](err); ok {
 		return localFileAccessMessage(access.Op, access.Err), true
 	}
@@ -360,30 +359,47 @@ func cobraUnknownFlag(message string) (string, string, bool) {
 	return flag, hint, true
 }
 
-// errorFix prefers the next action an error states for itself or names in its
-// message: only the guard that refused knows which action can succeed on the
-// same state. A failure that AIGW recognizes by its type has a known fix. Any
-// other error takes the help of the command that returned it, which names
-// every argument and flag that the command accepts and cannot fail the same
-// way.
+// errorFix prefers the fix that an error states for itself: only the guard
+// that refused knows which action can succeed on the same state. A failure
+// that AIGW recognizes by its type has a known fix, and a usage error names
+// the help of the command that refused it. Any other error names
+// `aigw check`, a diagnostic that does not fail the same way.
 func errorFix(err error, message string) string {
-	if refusal, ok := errors.AsType[interface {
-		error
-		NextAction() string
-	}](err); ok && refusal.NextAction() != "" {
-		return refusal.NextAction()
-	}
-	if command := mentionedAIGWCommand(message); command != "" {
-		return command
+	if fix, ok := statedFix(err, message); ok {
+		return fix
 	}
 	if fix, ok := typedErrorFix(err); ok {
 		return fix
 	}
-	command := "aigw"
-	if failed, ok := errors.AsType[*commandError](err); ok && failed.command != "" {
-		command = failed.command
+	if usage, ok := errors.AsType[*usageError](err); ok {
+		return usage.command + " --help"
 	}
-	return command + " --help"
+	return "aigw check"
+}
+
+// StatesFix reports whether err states its own fix, as a structured problem,
+// as a next action or as an `aigw` command in its own message, so that a
+// caller presents it unchanged instead of replacing that fix. A hint that
+// the presentation adds, such as a local file failure's, is not the error's.
+func StatesFix(err error) bool {
+	if user, ok := errors.AsType[*userError](err); ok {
+		return user.problem.Fix != ""
+	}
+	_, ok := statedFix(err, err.Error())
+	return ok
+}
+
+// statedFix is the next action that err states for itself, or else the
+// `aigw` command that its message names.
+func statedFix(err error, message string) (string, bool) {
+	if refusal, ok := errors.AsType[interface {
+		error
+		NextAction() string
+	}](err); ok && refusal.NextAction() != "" {
+		return refusal.NextAction(), true
+	}
+	command := mentionedAIGWCommand(message)
+	return command, command != ""
 }
 
 // typedErrorFix is the fix of a failure that AIGW recognizes by its type,

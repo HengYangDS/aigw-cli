@@ -86,13 +86,7 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  Program update did not complete
-
-Evidence
-  AIGW could not complete release verification and program replacement.
-
-Impact
-  No updated program version was confirmed active; client settings and credentials were not changed.
+  release source is not configured; install an official release or use `aigw update --candidate <archive> --checksums <checksums>`
 
 Fix
   aigw update --candidate <archive> --checksums <checksums>
@@ -123,9 +117,7 @@ Next
 {
   "schema_version": 3,
   "ok": false,
-  "error": "Program update did not complete",
-  "evidence": "AIGW could not complete release verification and program replacement.",
-  "impact": "No updated program version was confirmed active; client settings and credentials were not changed.",
+  "error": "release source is not configured; install an official release or use `aigw update --candidate \u003carchive\u003e --checksums \u003cchecksums\u003e`",
   "next_detail": "aigw update --candidate \u003carchive\u003e --checksums \u003cchecksums\u003e"
 }
 -- current.json --
