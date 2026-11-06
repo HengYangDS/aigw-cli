@@ -277,7 +277,7 @@ Evidence
 Impact
   Claude and Codex cannot continue requests
 
-Recommended action
+Fix
   aigw rotate
 `
 	if out.String() != want {

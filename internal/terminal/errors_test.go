@@ -71,26 +71,26 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 	}{
 		"read": {
 			err:  &store.LoadError{Phase: store.LoadPhaseRead, Err: &os.PathError{Op: "open", Path: "/private/config.toml", Err: os.ErrPermission}},
-			want: []string{"Cannot read local configuration", "read stage (open: permission denied)", "aigw doctor"},
+			want: []string{"Cannot read local configuration", "read stage (open: permission denied)", "Restore read access", "aigw config path"},
 		},
 		"parse": {
 			err:  &store.LoadError{Phase: store.LoadPhaseParse, Err: fmt.Errorf("%s: %w", content, syntax)},
-			want: []string{"Cannot parse local configuration", fmt.Sprintf("parse stage at line %d, column %d", line, column), "aigw doctor"},
+			want: []string{"Cannot parse local configuration", fmt.Sprintf("parse stage at line %d, column %d", line, column), "parse position", "aigw config path"},
 		},
 		"validate": {
 			err:  &store.LoadError{Phase: store.LoadPhaseValidate, Err: errors.New(content)},
-			want: []string{"Cannot validate local configuration", "AIGW 9.8.7 stopped at the configuration validate stage", "newer AIGW", "aigw doctor"},
+			want: []string{"Cannot validate local configuration", "AIGW 9.8.7 stopped at the configuration validate stage", "newer AIGW", "fail validation", "aigw config path"},
 		},
 		"unknown stage": {
 			err:  &store.LoadError{Phase: "replay", Err: errors.New(content)},
-			want: []string{"Cannot load local configuration", "stopped at the configuration replay stage", "aigw doctor"},
+			want: []string{"Cannot load local configuration", "stopped at the configuration replay stage", "aigw config path"},
 		},
 	} {
 		for _, jsonMode := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", name, jsonMode), func(t *testing.T) {
 				var out bytes.Buffer
 				renderer := NewRenderer(&out, false)
-				RenderError(renderer, LocalFailure("9.8.7", fmt.Errorf("load: %w", test.err)), jsonMode)
+				RenderError(renderer, CommandFailure("9.8.7", "aigw status", fmt.Errorf("load: %w", test.err)), jsonMode)
 				rendered := out.String()
 				if renderer.Err() != nil || strings.Contains(rendered, content) || strings.Contains(rendered, "/private/config.toml") {
 					t.Fatalf("configuration diagnostic exposed private detail: %q, %v", rendered, renderer.Err())
@@ -100,17 +100,40 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 						t.Fatalf("configuration diagnostic omits %q: %q", required, rendered)
 					}
 				}
+				// A command that loads the configuration would fail the same
+				// way, and a load failure states no impact of its own.
+				for _, forbidden := range []string{"aigw doctor", "aigw check", "aigw status", "Impact", "impact"} {
+					if strings.Contains(rendered, forbidden) {
+						t.Fatalf("configuration diagnostic names %q: %q", forbidden, rendered)
+					}
+				}
 			})
 		}
 	}
 }
 
-func TestLocalFailureKeepsOtherErrorsUnchanged(t *testing.T) {
+func TestCommandFailureKeepsProblemsAndAttributesOtherErrors(t *testing.T) {
+	if got := CommandFailure("1.2.3", "aigw status", nil); got != nil {
+		t.Fatalf("CommandFailure(nil) = %v", got)
+	}
+	problem := ProblemError("Problem", "", "", "aigw sync", nil)
+	if got := CommandFailure("1.2.3", "aigw status", problem); !errors.Is(got, problem) || !errors.Is(problem, got) {
+		t.Fatalf("CommandFailure changed a structured problem into %#v", got)
+	}
 	recovery := presentationProjectionError{restored: true, cause: &os.PathError{Op: "write", Path: "/private/x", Err: os.ErrPermission}}
 	unsupported := &store.LoadError{Phase: store.LoadPhaseValidate, Err: &domain.UnsupportedConfigVersionError{Version: 0, ExpectedVersion: domain.ConfigVersion}}
-	for _, err := range []error{nil, errors.New("plain failure"), ProblemError("Problem", "", "", "", nil), recovery, unsupported} {
-		if got := LocalFailure("1.2.3", err); !errors.Is(got, err) || !errors.Is(err, got) {
-			t.Fatalf("LocalFailure changed %#v into %#v", err, got)
+	for _, err := range []error{errors.New("plain failure"), recovery, unsupported} {
+		if got := CommandFailure("1.2.3", "aigw status", err); !errors.Is(got, err) || got.Error() != err.Error() {
+			t.Fatalf("CommandFailure lost %#v in %#v", err, got)
+		}
+	}
+	for err, want := range map[error]string{
+		errors.New("plain failure"): "aigw status --help",
+		recovery:                    "Run `aigw doctor` before retrying.",
+		unsupported:                 ConfigurationLoadFix(unsupported),
+	} {
+		if got := ProblemFor(CommandFailure("1.2.3", "aigw status", err)).Fix; got != want {
+			t.Fatalf("fix of %v = %q, want %q", err, got, want)
 		}
 	}
 }
@@ -211,15 +234,25 @@ func TestOutputLocalizationMalformedAndSpecificBranches(t *testing.T) {
 	}
 }
 
+// A generic failure states no impact: its owner, not the presentation, knows
+// whether anything changed, so it neither claims nor denies a rollback.
 func TestRenderErrorLeavesTransactionOutcomeToItsOwner(t *testing.T) {
-	var out bytes.Buffer
-	RenderError(NewRenderer(&out, false), errors.New("output is unavailable"), false)
-	if !strings.Contains(out.String(), "The command could not finish; inspect current state before retrying.") {
-		t.Fatalf("generic failure did not preserve transaction uncertainty: %s", &out)
+	for _, jsonMode := range []bool{false, true} {
+		var out bytes.Buffer
+		RenderError(NewRenderer(&out, false), CommandFailure("1.2.3", "aigw sync", errors.New("output is unavailable")), jsonMode)
+		rendered := out.String()
+		if !strings.Contains(rendered, "output is unavailable") || !strings.Contains(rendered, "aigw sync --help") {
+			t.Fatalf("json=%t generic failure lacks its problem or fix: %s", jsonMode, rendered)
+		}
+		for _, forbidden := range []string{"Impact", "impact", "roll", "could not finish"} {
+			if strings.Contains(rendered, forbidden) {
+				t.Fatalf("json=%t generic failure states %q: %s", jsonMode, forbidden, rendered)
+			}
+		}
 	}
 }
 
-func TestRenderErrorAndSuggestedFixBranches(t *testing.T) {
+func TestRenderErrorAndFixBranches(t *testing.T) {
 	cause := errors.New("cause")
 	problem := ProblemError("Problem title", "Evidence", "Impact", "aigw repair", cause)
 	if problem.Error() != "Problem title" || !errors.Is(problem, cause) {
@@ -229,20 +262,31 @@ func TestRenderErrorAndSuggestedFixBranches(t *testing.T) {
 	if presented.Error() != "Problem title" || !errors.Is(presented, cause) {
 		t.Fatalf("presented error = %v", presented)
 	}
+	decodeErr := toml.Unmarshal([]byte("broken = \n"), &struct{}{})
 
 	for _, test := range []struct {
 		err  error
 		want string
 	}{
-		{problem, "Problem title"},
+		{problem, "aigw repair"},
 		{errors.New("unknown command \"oops\" for \"aigw\""), "aigw --help"},
 		{errors.New("failed; run `aigw repair`"), "aigw repair"},
-		{errors.New("plain failure"), "aigw check"},
+		{errors.New("plain failure"), "aigw --help"},
+		// An error that names no fix takes the help of the command that
+		// returned it, including an argument that a leaf command refused.
+		{CommandFailure("1.2.3", "aigw", errors.New("unknown command \"oops\" for \"aigw\"")), "aigw --help"},
+		{CommandFailure("1.2.3", "aigw route list", errors.New("unknown command \"extra\" for \"aigw route list\"")), "aigw route list --help"},
+		{CommandFailure("1.2.3", "aigw provider show", errors.New("accepts 1 arg(s), received 0")), "aigw provider show --help"},
+		{CommandFailure("1.2.3", "aigw test", fmt.Errorf("resolve: %w", &domain.RuntimeBindingUnselectedError{Client: codex.ID})), "aigw use --for codex <route>"},
+		{CommandFailure("1.2.3", "aigw config import", fmt.Errorf("parse manifest: %w", decodeErr)), "Correct the value at the reported document location and rerun the command."},
 	} {
 		var out bytes.Buffer
 		RenderError(NewRenderer(&out, false), test.err, false)
-		if !strings.Contains(out.String(), test.want) {
-			t.Fatalf("output = %q, want %q", out.String(), test.want)
+		if fix := ProblemFor(test.err).Fix; fix != test.want || !strings.Contains(out.String(), "Fix\n  "+test.want) {
+			t.Fatalf("fix = %q, output = %q, want %q", fix, out.String(), test.want)
+		}
+		if strings.Contains(out.String(), "aigw check") {
+			t.Fatalf("output names an unrelated check: %q", out.String())
 		}
 	}
 	var out bytes.Buffer
@@ -315,7 +359,7 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 		{name: "unsupported version", err: &domain.UnsupportedConfigVersionError{Version: 3, ExpectedVersion: 2}, want: "unsupported configuration version: found 3, expected 2. AIGW does not reinterpret configuration schemas"},
 		{name: "migratable version", err: &domain.UnsupportedConfigVersionError{Version: domain.LegacyConfigVersion, ExpectedVersion: domain.ConfigVersion}, want: fmt.Sprintf("unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`", domain.LegacyConfigVersion, domain.ConfigVersion)},
 		{name: "published migratable version", err: &domain.UnsupportedConfigVersionError{Version: domain.PublishedConfigVersion, ExpectedVersion: domain.ConfigVersion}, want: fmt.Sprintf("unsupported configuration version: found %d, expected %d. AIGW does not reinterpret configuration schemas; run `aigw config migrate --dry-run`", domain.PublishedConfigVersion, domain.ConfigVersion)},
-		{name: "config load", err: &store.LoadError{Phase: store.LoadPhaseRead, Err: errors.New("details changed")}, want: "Cannot read local configuration; run `aigw doctor` to inspect or restore it"},
+		{name: "config load", err: &store.LoadError{Phase: store.LoadPhaseRead, Err: errors.New("details changed")}, want: "Cannot read local configuration"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

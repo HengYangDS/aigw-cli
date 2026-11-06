@@ -243,7 +243,7 @@ func TestCheckJSONKeepsConfigurationFailureMachineReadable(t *testing.T) {
 	if strings.Contains(out.String(), `"config_path"`) || strings.Contains(out.String(), app.Config.Path()) {
 		t.Fatalf("check exposed a private configuration path: %s", out.String())
 	}
-	if result.OK || result.Error == "" || result.Stage != "configuration_parse" || result.NextAction != "" || !strings.Contains(result.NextDetail, "aigw doctor") {
+	if result.OK || result.Error == "" || result.Stage != "configuration_parse" || result.NextAction != "" || !strings.Contains(result.NextDetail, "aigw config path") {
 		t.Fatalf("malformed-configuration JSON result = %#v", result)
 	}
 }

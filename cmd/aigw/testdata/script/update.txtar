@@ -58,10 +58,7 @@ AIGW  Action required
 Problem
   if any flags in the group [dry-run rollback] are set none of the others can be; [dry-run rollback] were all set; run `aigw update --help`
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw update --help
 -- help.txt --
 AIGW  aigw update
@@ -97,8 +94,8 @@ Evidence
 Impact
   No updated program version was confirmed active; client settings and credentials were not changed.
 
-Recommended action
-  Run `aigw doctor` to inspect current state; verify the selected release source or use a verified local archive.
+Fix
+  aigw update --candidate <archive> --checksums <checksums>
 -- rollback.txt --
 AIGW  Action required
 ────────────────────────────────────────
@@ -112,8 +109,8 @@ Evidence
 Impact
   No previous program version was confirmed active.
 
-Recommended action
-  aigw check
+Fix
+  aigw installation
 -- current.txt --
 AIGW  Update
 ────────────────────────────────────────
@@ -124,12 +121,12 @@ Next
   aigw sync
 -- unconfigured.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Program update did not complete",
   "evidence": "AIGW could not complete release verification and program replacement.",
   "impact": "No updated program version was confirmed active; client settings and credentials were not changed.",
-  "next_detail": "Run `aigw doctor` to inspect current state; verify the selected release source or use a verified local archive."
+  "next_detail": "aigw update --candidate \u003carchive\u003e --checksums \u003cchecksums\u003e"
 }
 -- current.json --
 {

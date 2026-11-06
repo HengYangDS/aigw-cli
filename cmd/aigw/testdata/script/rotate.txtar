@@ -43,13 +43,10 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  account is required when configuration contains 0 accounts
+  no account is configured; run `aigw setup`
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
-  aigw check
+Fix
+  aigw setup
 -- rotated.txt.out --
 AIGW  Token updated
 ────────────────────────────────────────
@@ -70,10 +67,10 @@ Problem
   Token validation failed: Claude authentication was rejected (HTTP 401)
 
 Impact
-  The command could not finish; inspect current state before retrying.
+  No Token was stored; the previous Token is unchanged.
 
-Recommended action
-  aigw check
+Fix
+  aigw rotate team --token-stdin
 -- rotated.json --
 {
   "schema_version": 1,
@@ -86,9 +83,8 @@ Recommended action
 }
 -- json-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "--json reads the Token only from --token-stdin; run `aigw rotate --help`",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw rotate --help"
 }

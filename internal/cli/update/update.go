@@ -50,7 +50,7 @@ func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
 			"Configuration is not ready for a Homebrew rollback",
 			"AIGW could not read the configuration, including each connection's retry policy.",
 			"No credential, policy or program changed.",
-			"Run `aigw doctor` to inspect or restore the configuration, then retry `aigw update --rollback`.", err)
+			terminal.ConfigurationLoadFix(err), err)
 	}
 	for _, binding := range cfg.Clients {
 		if binding.RetryPolicy != nil {
@@ -68,7 +68,7 @@ func prepareHomebrewRollback(runtime invocation.Context, jsonMode bool) error {
 			"Credentials are not ready for a Homebrew rollback",
 			"AIGW could not read the configuration that names its credentials.",
 			"No credential or program changed.",
-			"Run `aigw doctor` to inspect or restore the configuration, then retry `aigw update --rollback` before Homebrew installs the earlier release.",
+			terminal.ConfigurationLoadFix(err),
 			err)
 	}
 	if err := custody.Release(""); err != nil {
@@ -183,7 +183,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 						"Program rollback did not complete",
 						"AIGW could not activate the retained previous program.",
 						"No previous program version was confirmed active.",
-						"aigw check",
+						"aigw installation",
 						err,
 					)
 				}
@@ -191,7 +191,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					"Program update did not complete",
 					"AIGW could not complete release verification and program replacement.",
 					"No updated program version was confirmed active; client settings and credentials were not changed.",
-					"Run `aigw doctor` to inspect current state; verify the selected release source or use a verified local archive.", err)
+					"aigw update --candidate <archive> --checksums <checksums>", err)
 			}
 			title := "Update"
 			if rollback {

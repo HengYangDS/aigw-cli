@@ -69,11 +69,8 @@ AIGW  Action required
 Problem
   Plain Gateway does not support precise balance queries
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
-  aigw check
+Fix
+  aigw balance --help
 -- balance.txt --
 AIGW  Account and quota
 ────────────────────────────────────────
@@ -111,9 +108,8 @@ Next
 }
 -- json-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Plain Gateway does not support precise balance queries",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw check"
+  "next_action": "aigw balance --help"
 }

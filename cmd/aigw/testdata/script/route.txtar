@@ -106,10 +106,9 @@ Next
 }
 -- remove-preview-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Route \"team\" is selected for claude; first run `aigw use --for claude \u003cother-route\u003e`",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_detail": "aigw use --for claude \u003cother-route\u003e"
 }
 -- token.txt --
@@ -201,18 +200,14 @@ AIGW  Action required
 Problem
   Route "team" is selected for claude; first run `aigw use --for claude <other-route>`
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw use --for claude <other-route>
 -- missing.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Unknown route \"missing\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw check"
+  "next_action": "aigw route show --help"
 }
 -- third.json --
 {
@@ -229,11 +224,10 @@ Recommended action
 }
 -- exists.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Route \"third\" already exists",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw check"
+  "next_action": "aigw route add --help"
 }
 -- edited.json --
 {
@@ -246,11 +240,10 @@ Recommended action
 }
 -- unknown.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Unknown route \"missing\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw check"
+  "next_action": "aigw route edit --help"
 }
 -- removed.json --
 {
@@ -261,19 +254,17 @@ Recommended action
 }
 -- selected.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Route \"team\" is selected for claude; first run `aigw use --for claude \u003cother-route\u003e`",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_detail": "aigw use --for claude \u003cother-route\u003e"
 }
 -- list-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "unknown command \"extra\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw --help"
+  "next_action": "aigw route list --help"
 }
 -- rename.json --
 {
@@ -295,9 +286,8 @@ Recommended action
 }
 -- rename-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Unknown route \"missing\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw check"
+  "next_action": "aigw route rename --help"
 }

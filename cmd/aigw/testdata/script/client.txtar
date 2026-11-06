@@ -149,10 +149,7 @@ AIGW  Action required
 Problem
   Client must be claude, claude-desktop, codex, or hermes; run `aigw client enable --help`: invalid argument "unknown" for "aigw client enable"
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw client enable --help
 -- disabled.json --
 {
@@ -181,25 +178,22 @@ Recommended action
 }
 -- json-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Client must be claude, claude-desktop, codex, or hermes; run `aigw client enable --help`: invalid argument \"unknown\" for \"aigw client enable\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw client enable --help"
 }
 -- disable-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Client must be claude, claude-desktop, codex, or hermes; run `aigw client disable --help`: invalid argument \"unknown\" for \"aigw client disable\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw client disable --help"
 }
 -- discover-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "unknown command \"extra\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw --help"
+  "next_action": "aigw client discover --help"
 }

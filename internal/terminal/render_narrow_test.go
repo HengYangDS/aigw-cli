@@ -107,7 +107,7 @@ func TestRendererKeepsCompactOutputWithinTerminalWidth(t *testing.T) {
 	var out bytes.Buffer
 	r := terminal.NewRendererWithWidth(&out, false, width)
 	r.Title("AIGW", "Action required")
-	r.Section("Recommended action")
+	r.Section("Fix")
 	r.StatusLine(terminal.Warn, "Precise balance", "Disabled until connected")
 	r.Success("Client configuration synchronized")
 	r.Problem(terminal.Problem{

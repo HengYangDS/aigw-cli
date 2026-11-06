@@ -164,7 +164,7 @@ func Execute(app *App, args []string) error {
 		return err
 	}
 	renderer := app.Renderer()
-	terminal.RenderError(renderer, terminal.LocalFailure(Version, err), jsonMode)
+	terminal.RenderError(renderer, terminal.CommandFailure(Version, command.CommandPath(), err), jsonMode)
 	return terminal.Presented(errors.Join(err, renderer.Err()))
 }
 

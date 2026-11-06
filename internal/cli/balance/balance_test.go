@@ -15,7 +15,7 @@ func TestBalanceRequiresAProviderBeforeProviderWork(t *testing.T) {
 	balanceCommand := NewCommand(runtime)
 	balanceCommand.SilenceErrors = true
 	balanceCommand.SilenceUsage = true
-	if err := balanceCommand.Execute(); err == nil || !strings.Contains(err.Error(), "0 accounts") {
+	if err := balanceCommand.Execute(); err == nil || !strings.Contains(err.Error(), "no account is configured; run `aigw setup`") {
 		t.Fatalf("balance error = %v", err)
 	}
 }

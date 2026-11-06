@@ -49,6 +49,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if len(before.Models) == 0 {
+				return terminal.ProblemError("Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
+			}
 			operation := runtime
 			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 			synchronizer := operation.Synchronizer()

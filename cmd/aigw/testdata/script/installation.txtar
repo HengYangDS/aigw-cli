@@ -34,18 +34,14 @@ AIGW  Action required
 Problem
   unknown command "extra"
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
-  aigw --help
+Fix
+  aigw installation --help
 -- refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "unknown command \"extra\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw --help"
+  "next_action": "aigw installation --help"
 }
 -- installation.json --
 {

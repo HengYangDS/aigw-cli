@@ -164,18 +164,14 @@ AIGW  Action required
 Problem
   Unknown account "missing"
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
-  aigw check
+Fix
+  aigw account rename --help
 -- refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Unknown account \"missing\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw check"
+  "next_action": "aigw account rename --help"
 }
 -- edit.json --
 {
@@ -190,11 +186,10 @@ Recommended action
 }
 -- edit-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Unknown account \"missing\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw check"
+  "next_action": "aigw account edit --help"
 }
 -- enabled.json --
 {
@@ -207,10 +202,9 @@ Recommended action
 }
 -- enable-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "--json reads the system token only from --system-token-stdin with --user-id; run `aigw account diagnostics enable --help`",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw account diagnostics enable --help"
 }
 -- disabled.json --
@@ -222,11 +216,10 @@ Recommended action
 }
 -- disable-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "unknown account or route \"missing\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw check"
+  "next_action": "aigw account diagnostics disable --help"
 }
 -- system.txt --
 dmx-system-token
@@ -249,11 +242,10 @@ upstream_model = "probe-model"
 interfaces = { anthropic = ["text"] }
 -- list-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "unknown command \"extra\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw --help"
+  "next_action": "aigw account list --help"
 }
 -- rename.json --
 {

@@ -20,6 +20,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 )
 
 type syncDiscovery struct{ result discovery.Result }
@@ -166,7 +167,7 @@ func TestSyncMetadataObservationScopeExpiresWithCommand(t *testing.T) {
 }
 
 // A preview refuses what synchronization refuses, with the same error, and
-// reports no plan: here a home without a configuration.
+// reports no plan: here a home without a configuration, whose fix is setup.
 func TestDryRunRefusesWhatSynchronizationRefuses(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	execute := func(args ...string) (string, error) {
@@ -178,8 +179,8 @@ func TestDryRunRefusesWhatSynchronizationRefuses(t *testing.T) {
 		return out.String(), err
 	}
 	_, refused := execute()
-	if refused == nil || refused.Error() != "refuse invalid config: at least one route is required" {
-		t.Fatalf("synchronization error = %v, want the refusal of an empty configuration", refused)
+	if problem := terminal.ProblemFor(refused); refused == nil || problem.Title != "Not configured" || problem.Fix != "aigw setup" {
+		t.Fatalf("synchronization error = %v (%+v), want the refusal of an empty configuration", refused, problem)
 	}
 	for _, args := range [][]string{{"--dry-run"}, {"--dry-run", "--json"}} {
 		if output, err := execute(args...); err == nil || err.Error() != refused.Error() || output != "" {

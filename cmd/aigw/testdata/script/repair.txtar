@@ -45,7 +45,7 @@ Evidence
 Impact
   Cannot check, synchronize, or repair configuration that does not exist.
 
-Recommended action
+Fix
   aigw setup
 -- preview.json --
 {
@@ -75,7 +75,7 @@ Next
   aigw check
 -- empty.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Not configured",
   "evidence": "No Routes have been created.",

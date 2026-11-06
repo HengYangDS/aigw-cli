@@ -81,7 +81,8 @@ type styles struct {
 	problem lipgloss.Style
 }
 
-// Problem contains one actionable failure explanation with evidence, impact, and recovery guidance.
+// Problem is one failure as a person reads it: what happened, its evidence,
+// any specific impact it has, and the one fix to apply.
 type Problem struct {
 	Title    string
 	Evidence string
@@ -274,7 +275,8 @@ func (r *Renderer) Next(command string) {
 	r.Command(command)
 }
 
-// Problem renders a complete actionable problem report.
+// Problem renders a complete actionable problem report: the Problem, its
+// Evidence and Impact when it has them, and its Fix.
 func (r *Renderer) Problem(problem Problem) {
 	r.ProductTitle("Action required")
 	r.Section("Problem")
@@ -288,7 +290,7 @@ func (r *Renderer) Problem(problem Problem) {
 		r.writeHumanText(problem.Impact, r.styles.dim)
 	}
 	if problem.Fix != "" {
-		r.Section("Recommended action")
+		r.Section("Fix")
 		r.writeHumanText(problem.Fix, r.styles.command)
 	}
 }

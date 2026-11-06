@@ -69,8 +69,5 @@ AIGW  Action required
 Problem
   unknown command "nothing"
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw --help

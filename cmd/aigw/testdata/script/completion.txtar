@@ -34,8 +34,5 @@ AIGW  Action required
 Problem
   supported shells: bash, zsh, fish, powershell
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
-  aigw check
+Fix
+  aigw completion --help

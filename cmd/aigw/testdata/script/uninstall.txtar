@@ -78,10 +78,7 @@ AIGW  Action required
 Problem
   unknown option --target; run `aigw uninstall --help`
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw uninstall --help
 -- help.txt --
 AIGW  aigw uninstall
@@ -112,11 +109,8 @@ AIGW  Action required
 Problem
   portable AIGW file $WORK is a directory; name the program file
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
-  aigw check
+Fix
+  aigw uninstall --help
 -- removed.json --
 {
   "schema_version": 1,
@@ -135,11 +129,10 @@ Recommended action
 }
 -- json-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "portable AIGW file $WORK is a directory; name the program file",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw check"
+  "next_action": "aigw uninstall --help"
 }
 -- removed-windows.json --
 {

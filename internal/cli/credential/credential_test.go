@@ -121,7 +121,7 @@ func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
 				if !ok {
 					t.Fatalf("directory read error = %v, want a path error", readErr)
 				}
-				want = []string{"AIGW 9.8.7 credential reader", "configuration read stage", "(" + failure.Op + ": " + failure.Err.Error() + ")", "aigw doctor"}
+				want = []string{"AIGW 9.8.7 credential reader", "configuration read stage", "(" + failure.Op + ": " + failure.Err.Error() + ")", "read access", "aigw config path"}
 			case "parse":
 				data = []byte("[invalid configuration")
 			case "validate":
@@ -148,8 +148,10 @@ func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
 					t.Fatalf("diagnostic lacks %q:\n%s", text, diagnostic)
 				}
 			}
-			if strings.Contains(diagnostic, filepath.Dir(path)) || strings.Contains(diagnostic, "future_capability") {
-				t.Fatalf("diagnostic disclosed a path or configuration content:\n%s", diagnostic)
+			// The diagnostic names no path or configuration content, and no
+			// doctor, which loads the same configuration and fails the same way.
+			if strings.Contains(diagnostic, filepath.Dir(path)) || strings.Contains(diagnostic, "future_capability") || strings.Contains(diagnostic, "aigw doctor") {
+				t.Fatalf("diagnostic disclosed a path or configuration content, or named doctor:\n%s", diagnostic)
 			}
 		})
 	}

@@ -80,19 +80,22 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 }
 
 // configurationProblem names this reader's version and the configuration stage
-// that failed. Client logs receive it, so it omits the path and content.
+// that failed. Client logs receive it, so it omits the path and content. Its
+// fix is the installed AIGW's sync, which installs a reader for a newer
+// configuration and names the stage of one that it cannot load either; a
+// read failure needs the client's read access instead.
 func configurationProblem(version string, err error) error {
 	reader := "This AIGW credential reader"
 	if version != "" {
 		reader = "AIGW " + version + " credential reader"
 	}
 	evidence := reader + " could not load the configuration."
-	fix := "If a newer AIGW wrote this configuration, run `aigw sync` with the installed AIGW and reload the client to use its current reader; otherwise run `aigw doctor`."
+	fix := "Run `aigw sync` with the installed AIGW and reload the client to use its current reader."
 	if stage, ok := terminal.ConfigurationLoadEvidence(reader, err); ok {
 		evidence = stage
 	}
 	if failure, ok := errors.AsType[*store.LoadError](err); ok && failure.Phase == store.LoadPhaseRead {
-		fix = "Restore the client's read access to the AIGW configuration; run `aigw doctor` to inspect it."
+		fix = "Restore the client's read access to the configuration file; `aigw config path` prints its location."
 	}
 	return terminal.ProblemError("Cannot read AIGW configuration", evidence, "Credential lookup did not start.", fix, err)
 }

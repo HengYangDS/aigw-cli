@@ -75,7 +75,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			account.ID = accountName
 			if err := probe.Validate(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), account, token); err != nil {
-				return fmt.Errorf("Token validation failed: %w", err)
+				retry := "aigw rotate " + accountName
+				if tokenStdin {
+					retry += " --token-stdin"
+				}
+				return terminal.ProblemError("Token validation failed: "+err.Error(), "", "No Token was stored; the previous Token is unchanged.", retry, err)
 			}
 			if err := cmd.Context().Err(); err != nil {
 				return err

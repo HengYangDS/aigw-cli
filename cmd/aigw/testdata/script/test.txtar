@@ -61,7 +61,7 @@ Evidence
 Impact
   No client endpoint is available to test.
 
-Recommended action
+Fix
   aigw setup
 -- disabled.txt --
 AIGW  Action required
@@ -76,7 +76,7 @@ Evidence
 Impact
   Without --for, test probes only the enabled clients.
 
-Recommended action
+Fix
   aigw test --for <client>
 -- tested.txt --
 AIGW  Connectivity test
@@ -95,11 +95,8 @@ AIGW  Action required
 Problem
   no Route selected for client "codex"
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
-  aigw check
+Fix
+  aigw use --for codex <route>
 -- tested.json --
 {
   "schema_version": 1,
@@ -115,9 +112,8 @@ Recommended action
 }
 -- json-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "--for must be claude, claude-desktop, codex, or hermes; run `aigw test --help`",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw test --help"
 }

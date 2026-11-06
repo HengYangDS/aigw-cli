@@ -28,6 +28,16 @@ type presentedError struct{ cause error }
 func (e *presentedError) Error() string { return e.cause.Error() }
 func (e *presentedError) Unwrap() error { return e.cause }
 
+// commandError is an error that the command at its path returned. The
+// command's help is its fix when the error names none of its own.
+type commandError struct {
+	command string
+	cause   error
+}
+
+func (e *commandError) Error() string { return e.cause.Error() }
+func (e *commandError) Unwrap() error { return e.cause }
+
 type configurationRecovery interface {
 	error
 	ConfigurationRestored() bool
@@ -70,31 +80,28 @@ func RenderCredentialError(renderer *Renderer, err error) {
 	RenderError(renderer, err, false)
 }
 
-// LocalFailure turns a configuration load failure into a problem that names
-// its stage and the AIGW version that stopped there. Other errors, including
-// structured problems, configuration recovery outcomes and an unsupported
-// configuration version, which carries its own migration guidance, return
-// unchanged.
-func LocalFailure(version string, err error) error {
-	if _, presented := errors.AsType[*userError](err); presented {
+// CommandFailure prepares the failure of the command at path for
+// presentation. A configuration load failure becomes a problem that names its
+// stage, the AIGW version that stopped there and `aigw config path`. A
+// structured problem returns unchanged. Any other error, including a
+// configuration recovery outcome and an unsupported configuration version,
+// which carry their own guidance, is attributed to the command, whose help
+// becomes its fix when it names none of its own.
+func CommandFailure(version, path string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if _, structured := errors.AsType[*userError](err); structured {
 		return err
 	}
-	if _, recovery := ConfigurationRecoveryImpact(err); recovery {
-		return err
+	failure, loading := errors.AsType[*store.LoadError](err)
+	_, recovery := ConfigurationRecoveryImpact(err)
+	_, unsupported := errors.AsType[*domain.UnsupportedConfigVersionError](err)
+	if loading && !recovery && !unsupported {
+		evidence, _ := ConfigurationLoadEvidence("AIGW "+version, err)
+		return ProblemError(configurationLoadTitle(failure.Phase), evidence, "", configurationLoadFix(failure.Phase), err)
 	}
-	if _, unsupported := errors.AsType[*domain.UnsupportedConfigVersionError](err); unsupported {
-		return err
-	}
-	failure, ok := errors.AsType[*store.LoadError](err)
-	if !ok {
-		return err
-	}
-	evidence, _ := ConfigurationLoadEvidence("AIGW "+version, err)
-	return ProblemError(
-		configurationLoadTitle(failure.Phase), evidence,
-		"The command could not finish; inspect current state before retrying.",
-		configurationLoadFix(failure.Phase), err,
-	)
+	return &commandError{command: path, cause: err}
 }
 
 // ConfigurationLoadEvidence states the configuration stage at which subject
@@ -134,16 +141,27 @@ func configurationLoadTitle(phase store.LoadPhase) string {
 	}
 }
 
+// ConfigurationLoadFix is the fix for a configuration that did not load. It
+// names the stage at which err stopped and `aigw config path`, never a command
+// that loads the configuration and so fails the same way.
+func ConfigurationLoadFix(err error) string {
+	var phase store.LoadPhase
+	if failure, ok := errors.AsType[*store.LoadError](err); ok {
+		phase = failure.Phase
+	}
+	return configurationLoadFix(phase)
+}
+
 func configurationLoadFix(phase store.LoadPhase) string {
 	switch phase {
 	case store.LoadPhaseRead:
-		return "Restore read access to the AIGW configuration; run `aigw doctor` to inspect it."
+		return "Restore read access to the configuration file; `aigw config path` prints its location."
 	case store.LoadPhaseParse:
-		return "Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it."
+		return "Correct the configuration file at that parse position, or restore it from a backup; `aigw config path` prints its location."
 	case store.LoadPhaseValidate:
-		return "If a newer AIGW wrote this configuration, use that installed AIGW; otherwise run `aigw doctor` to inspect or restore it."
+		return "If a newer AIGW wrote the configuration file, use that installed AIGW; otherwise correct the values that fail validation, or restore the file from a backup. `aigw config path` prints its location."
 	default:
-		return "Run `aigw doctor` to inspect or restore the configuration."
+		return "Correct the configuration file, or restore it from a backup; `aigw config path` prints its location."
 	}
 }
 
@@ -171,11 +189,12 @@ func fileErrorReason(err error) string {
 
 // failureSchemaVersion is the version of the failure document that a command
 // writes when it cannot produce its own.
-const failureSchemaVersion = 2
+const failureSchemaVersion = 3
 
 // failureDocument is the JSON failure of a command that could not produce its
-// own document. Its next step is a command that a script can run as it
-// stands, or guidance when the step needs a choice or is prose.
+// own document. Its impact is present only when the failure states a specific
+// one. Its next step is a command that a script can run as it stands, or
+// guidance when the step needs a choice or is prose.
 type failureDocument struct {
 	documentHeader
 	Error      string `json:"error"`
@@ -222,7 +241,8 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 }
 
 // ProblemFor is the actionable problem that err presents: a typed problem as
-// it was raised, or a product-owned message for any other error.
+// it was raised, or a product-owned message for any other error, which states
+// no impact of its own.
 func ProblemFor(err error) Problem {
 	var problem Problem
 	if user, ok := errors.AsType[*userError](err); ok {
@@ -242,11 +262,7 @@ func ProblemFor(err error) Problem {
 		}
 	} else {
 		message := localizedErrorMessage(err)
-		problem = Problem{
-			Title:  message,
-			Impact: "The command could not finish; inspect current state before retrying.",
-			Fix:    errorFix(err, message),
-		}
+		problem = Problem{Title: message, Fix: errorFix(err, message)}
 	}
 	return problem
 }
@@ -288,7 +304,7 @@ func typedErrorMessage(err error) (string, bool) {
 		return message, true
 	}
 	if failure, ok := errors.AsType[*store.LoadError](err); ok {
-		return configurationLoadTitle(failure.Phase) + "; run `aigw doctor` to inspect or restore it", true
+		return configurationLoadTitle(failure.Phase), true
 	}
 	if access, ok := errors.AsType[*os.PathError](err); ok {
 		return localFileAccessMessage(access.Op, access.Err), true
@@ -344,8 +360,12 @@ func cobraUnknownFlag(message string) (string, string, bool) {
 	return flag, hint, true
 }
 
-// errorFix prefers the next action an error states for itself: only the guard
-// that refused knows which action can succeed on the same state.
+// errorFix prefers the next action an error states for itself or names in its
+// message: only the guard that refused knows which action can succeed on the
+// same state. A failure that AIGW recognizes by its type has a known fix. Any
+// other error takes the help of the command that returned it, which names
+// every argument and flag that the command accepts and cannot fail the same
+// way.
 func errorFix(err error, message string) string {
 	if refusal, ok := errors.AsType[interface {
 		error
@@ -353,23 +373,33 @@ func errorFix(err error, message string) string {
 	}](err); ok && refusal.NextAction() != "" {
 		return refusal.NextAction()
 	}
-	return suggestedFix(message)
-}
-
-func suggestedFix(message string) string {
 	if command := mentionedAIGWCommand(message); command != "" {
 		return command
 	}
-	switch {
-	case strings.Contains(message, "unknown command"), strings.Contains(message, "unknown option"), strings.Contains(message, "unknown flag"):
-		return "aigw --help"
-	case strings.Contains(message, "unsupported configuration version"):
-		return "aigw doctor"
-	case strings.Contains(message, "Cannot decode TOML document"):
-		return "Correct the value at the reported document location and rerun the command."
-	default:
-		return "aigw check"
+	if fix, ok := typedErrorFix(err); ok {
+		return fix
 	}
+	command := "aigw"
+	if failed, ok := errors.AsType[*commandError](err); ok && failed.command != "" {
+		command = failed.command
+	}
+	return command + " --help"
+}
+
+// typedErrorFix is the fix of a failure that AIGW recognizes by its type,
+// independent of its text: a client without a selected Route, a configuration
+// that does not load, and a TOML document that does not decode.
+func typedErrorFix(err error) (string, bool) {
+	if unselected, ok := errors.AsType[*domain.RuntimeBindingUnselectedError](err); ok {
+		return fmt.Sprintf("aigw use --for %s <route>", unselected.Client), true
+	}
+	if failure, ok := errors.AsType[*store.LoadError](err); ok {
+		return configurationLoadFix(failure.Phase), true
+	}
+	if _, ok := errors.AsType[*toml.DecodeError](err); ok {
+		return "Correct the value at the reported document location and rerun the command.", true
+	}
+	return "", false
 }
 
 func mentionedAIGWCommand(message string) string {

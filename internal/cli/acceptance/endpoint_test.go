@@ -231,7 +231,7 @@ func TestTestCommandRequiresClientScopeForModelOverride(t *testing.T) {
 		t.Fatal("test command unexpectedly succeeded")
 	}
 	text := out.String()
-	for _, want := range []string{"--route requires one explicit --for client", "Recommended action", "aigw test --help"} {
+	for _, want := range []string{"--route requires one explicit --for client", "\nFix\n  aigw test --help"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("localized terminal error lacks %q:\n%s", want, text)
 		}

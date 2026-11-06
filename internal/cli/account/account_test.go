@@ -21,7 +21,7 @@ func TestProviderDiagnosticsRequireAProviderBeforeProviderWork(t *testing.T) {
 	accountCommand.SetArgs([]string{"diagnostics", "enable"})
 	accountCommand.SilenceErrors = true
 	accountCommand.SilenceUsage = true
-	if err := accountCommand.Execute(); err == nil || !strings.Contains(err.Error(), "0 accounts") {
+	if err := accountCommand.Execute(); err == nil || !strings.Contains(err.Error(), "no account is configured; run `aigw setup`") {
 		t.Fatalf("account diagnostics enable error = %v", err)
 	}
 }

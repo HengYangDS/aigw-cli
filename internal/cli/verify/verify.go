@@ -145,7 +145,7 @@ func writeVerification(cmd *cobra.Command, runtime invocation.Context, cfg domai
 			result, err := runtime.Synchronizer().Verify(cmd.Context(), cfg, target, runtimes[target], routeName)
 			if err != nil {
 				failure, item.State = err, "failed"
-				problem := terminal.ProblemFor(err)
+				problem := terminal.ProblemFor(terminal.CommandFailure(runtime.Version, cmd.CommandPath(), err))
 				item.Detail = problem.Title
 				document.NextAction, document.NextDetail = terminal.NextSteps(problem.Fix)
 			} else {

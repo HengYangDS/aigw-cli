@@ -17,7 +17,7 @@ func TestProviderReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
 	}{
 		{name: "explicit", accounts: map[string]domain.Provider{"one": {}, "two": {}}, args: []string{"two"}, want: "two"},
 		{name: "only account", accounts: map[string]domain.Provider{"one": {}}, want: "one"},
-		{name: "none", accounts: map[string]domain.Provider{}, wantErr: "0 accounts"},
+		{name: "none", accounts: map[string]domain.Provider{}, wantErr: "no account is configured; run `aigw setup`"},
 		{name: "ambiguous", accounts: map[string]domain.Provider{"one": {}, "two": {}}, wantErr: "2 accounts"},
 	}
 	for _, test := range tests {

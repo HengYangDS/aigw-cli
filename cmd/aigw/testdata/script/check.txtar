@@ -57,7 +57,7 @@ Evidence
 Impact
   Cannot check, synchronize, or repair configuration that does not exist.
 
-Recommended action
+Fix
   aigw setup
 -- empty.json --
 {
@@ -150,19 +150,18 @@ Evidence
 Impact
   No endpoint or model was checked.
 
-Recommended action
+Fix
   aigw use --for codex <route>
 -- broken.toml --
 version = 7
 [accounts.team
 -- broken.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Cannot parse local configuration",
   "evidence": "AIGW 0.1.0-dev stopped at the configuration parse stage at line 2, column 15.",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_detail": "Correct the configuration at that position or restore it from a backup; run `aigw doctor` to inspect it.",
+  "next_detail": "Correct the configuration file at that parse position, or restore it from a backup; `aigw config path` prints its location.",
   "stage": "configuration_parse",
   "line": 2,
   "column": 15

@@ -44,10 +44,7 @@ AIGW  Action required
 Problem
   choose a verification client with --for; run `aigw verify --help`
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw verify --help
 -- verified.txt --
 AIGW  Live protocol verification
@@ -67,11 +64,8 @@ AIGW  Action required
 Problem
   no Route selected for client "codex"
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
-  aigw check
+Fix
+  aigw use --for codex <route>
 -- verified.json --
 {
   "schema_version": 1,
@@ -89,9 +83,8 @@ Recommended action
 }
 -- json-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "choose a verification client with --for; run `aigw verify --help`",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw verify --help"
 }

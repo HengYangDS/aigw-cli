@@ -144,16 +144,12 @@ AIGW  Action required
 Problem
   unknown route "missing"; run `aigw route list`
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw route list
 -- refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "unknown route \"missing\"; run `aigw route list`",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw route list"
 }

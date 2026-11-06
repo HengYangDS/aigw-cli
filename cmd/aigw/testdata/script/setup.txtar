@@ -180,10 +180,7 @@ AIGW  Action required
 Problem
   unknown option --model; run `aigw setup --help`
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw setup --help
 -- rejected.txt --
 sk-rejected-token
@@ -233,11 +230,8 @@ AIGW  Action required
 Problem
   Token validation failed: Claude authentication was rejected (HTTP 401)
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
-  aigw check
+Fix
+  aigw setup --help
 -- connected.txt --
 AIGW  First-time setup
 ────────────────────────────────────────
@@ -281,10 +275,9 @@ Next
 }
 -- configured.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "AIGW is already configured; run `aigw add` to add an account, `aigw route add` to add a model route, or `aigw config import` to merge a reviewed manifest",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_detail": "aigw add"
 }
 -- flags.json --
@@ -313,9 +306,8 @@ Next
 }
 -- flags-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "--json requires --route or --from; run `aigw setup --help`",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw setup --help"
 }

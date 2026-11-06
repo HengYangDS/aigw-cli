@@ -78,7 +78,7 @@ Evidence
 Impact
   The current configuration remains active and unchanged.
 
-Recommended action
+Fix
   aigw doctor
 -- restored.txt --
 AIGW  Rolled back safely
@@ -120,9 +120,8 @@ Next
 }
 -- json-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "unknown command \"extra\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw --help"
+  "next_action": "aigw rollback --help"
 }

@@ -30,13 +30,15 @@ func TestStatusAndCheckHideUnreadableConfigDetails(t *testing.T) {
 				t.Fatalf("%s unexpectedly succeeded", strings.Join(command, " "))
 			}
 			text := out.String()
-			// The parse stage and its position locate the failure without the document.
-			for _, want := range []string{"Cannot parse local configuration", "stopped at the configuration parse stage at line 1", "aigw doctor"} {
+			// The parse stage and its position locate the failure without the
+			// document, and the fix names the configuration's path, never a
+			// command that would load it again.
+			for _, want := range []string{"Cannot parse local configuration", "stopped at the configuration parse stage at line 1", "aigw config path"} {
 				if !strings.Contains(text, want) {
 					t.Fatalf("%s output lacks %q:\n%s", strings.Join(command, " "), want, text)
 				}
 			}
-			for _, forbidden := range []string{"parse config:", "validate config:", "version = [", app.Config.Path()} {
+			for _, forbidden := range []string{"parse config:", "validate config:", "version = [", app.Config.Path(), "aigw doctor"} {
 				if strings.Contains(text, forbidden) {
 					t.Fatalf("%s leaked %q:\n%s", strings.Join(command, " "), forbidden, text)
 				}

@@ -234,6 +234,11 @@ func TestUpdatePreviewInTextFromACandidateAndOnFailure(t *testing.T) {
 	if err := cli.Execute(app, []string{"update", "--dry-run"}); err == nil || !strings.Contains(out.String()+err.Error(), "Update preview did not complete") {
 		t.Fatalf("failed preview = %v\n%s", err, out.String())
 	}
+	// A preview that cannot read release metadata can still preview a
+	// verified local archive; doctor inspects neither.
+	if !strings.Contains(out.String(), "Fix\n  aigw update --dry-run --candidate <archive> --checksums <checksums>") || strings.Contains(out.String(), "aigw doctor") {
+		t.Fatalf("failed preview names another fix:\n%s", out.String())
+	}
 	if _, err := os.Stat(program.RollbackPath(app.Executable)); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("an update preview wrote the rollback copy: %v", err)
 	}

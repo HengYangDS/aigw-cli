@@ -41,10 +41,7 @@ AIGW  Action required
 Problem
   not configured; run `aigw setup`
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw setup
 -- catalog.txt --
 AIGW  Authenticated model catalog
@@ -103,17 +100,15 @@ Next
 }
 -- empty.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "not configured; run `aigw setup`",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_detail": "aigw setup"
 }
 -- refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "unknown command \"extra\"",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw --help"
+  "next_action": "aigw catalog --help"
 }

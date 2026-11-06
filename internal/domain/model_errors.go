@@ -4,12 +4,12 @@ import "fmt"
 
 // RuntimeBindingUnselectedError reports that a client has no selected Route.
 type RuntimeBindingUnselectedError struct {
-	client string
+	Client string
 }
 
 // Error formats a missing client selection without implying invalid configuration.
 func (e *RuntimeBindingUnselectedError) Error() string {
-	return fmt.Sprintf("no Route selected for client %q", e.client)
+	return fmt.Sprintf("no Route selected for client %q", e.Client)
 }
 
 // UnsupportedConfigVersionError reports a configuration schema newer or older than the one accepted by this build.

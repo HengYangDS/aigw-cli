@@ -97,7 +97,7 @@ func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
 		"Program rollback did not complete",
 		"AIGW could not activate the retained previous program.",
 		"No previous program version was confirmed active.",
-		"aigw check",
+		"Fix\n  aigw installation",
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("output missing %q:\n%s", want, out.String())
@@ -106,8 +106,8 @@ func TestUpdateRollbackReturnsLocalRollbackError(t *testing.T) {
 	if strings.Contains(out.String(), cause.Error()) {
 		t.Fatalf("output exposes implementation error:\n%s", out.String())
 	}
-	if count := strings.Count(out.String(), "aigw check"); count != 1 {
-		t.Fatalf("safe next action count = %d, want 1:\n%s", count, out.String())
+	if count := strings.Count(out.String(), "aigw installation"); count != 1 || strings.Contains(out.String(), "aigw check") {
+		t.Fatalf("safe next action count = %d, want 1 and no client check:\n%s", count, out.String())
 	}
 }
 
@@ -405,7 +405,8 @@ func TestUpdatePreservesReleaseFailureAsItsCause(t *testing.T) {
 	if err := cli.Execute(app, []string{"update"}); !errors.Is(err, cause) {
 		t.Fatalf("error = %v, want %v", err, cause)
 	}
-	if strings.Contains(out.String(), canary) || !strings.Contains(out.String(), "aigw doctor") {
+	if strings.Contains(out.String(), canary) || !strings.Contains(out.String(), "aigw update --candidate <archive> --checksums <checksums>") ||
+		strings.Contains(out.String(), "aigw doctor") {
 		t.Fatalf("update exposed private diagnostics or omitted recovery: %s", out.String())
 	}
 }

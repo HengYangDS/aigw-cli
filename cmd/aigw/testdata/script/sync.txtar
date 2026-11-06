@@ -40,13 +40,16 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  refuse invalid config: at least one route is required
+  Not configured
+
+Evidence
+  No Routes have been created.
 
 Impact
-  The command could not finish; inspect current state before retrying.
+  Cannot check, synchronize, or repair configuration that does not exist.
 
-Recommended action
-  aigw check
+Fix
+  aigw setup
 -- preview.json --
 {
   "schema_version": 2,
@@ -75,11 +78,12 @@ Next
   aigw check
 -- empty.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
-  "error": "refuse invalid config: at least one route is required",
-  "impact": "The command could not finish; inspect current state before retrying.",
-  "next_action": "aigw check"
+  "error": "Not configured",
+  "evidence": "No Routes have been created.",
+  "impact": "Cannot check, synchronize, or repair configuration that does not exist.",
+  "next_detail": "aigw setup"
 }
 -- preview-windows.json --
 {

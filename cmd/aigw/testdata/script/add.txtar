@@ -130,10 +130,7 @@ AIGW  Action required
 Problem
   unknown option --model; run `aigw add --help`
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw add --help
 -- token.txt --
 sk-team-token-0001
@@ -162,10 +159,7 @@ AIGW  Action required
 Problem
   --for and --upstream-model are required; --for must be claude, claude-desktop, codex, or hermes; run `aigw add --help`
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw add --help
 -- connected.txt --
 AIGW  Account connected
@@ -202,10 +196,7 @@ AIGW  Action required
 Problem
   Route "team" already exists; creation does not replace Routes; run `aigw add --help`
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw add --help
 -- second.json --
 {
@@ -222,9 +213,8 @@ Recommended action
 }
 -- json-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "--json reads the Token only from --token-stdin; run `aigw add --help`",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw add --help"
 }

@@ -103,10 +103,7 @@ AIGW  Action required
 Problem
   unknown option --target; run `aigw install --help`
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw install --help
 -- replace-preview.json --
 {
@@ -158,10 +155,7 @@ AIGW  Action required
 Problem
   Local file access failed (read: is a directory); run `aigw doctor` to inspect current state
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw doctor
 -- help-windows.txt --
 AIGW  aigw install
@@ -191,10 +185,7 @@ AIGW  Action required
 Problem
   Local file access failed <varies>; run `aigw doctor` to inspect current state
 
-Impact
-  The command could not finish; inspect current state before retrying.
-
-Recommended action
+Fix
   aigw doctor
 -- installed.json --
 {
@@ -205,10 +196,9 @@ Recommended action
 }
 -- json-refusal.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Local file access failed (read: is a directory); run `aigw doctor` to inspect current state",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw doctor"
 }
 -- installed-windows.json --
@@ -220,9 +210,8 @@ Recommended action
 }
 -- json-refusal-windows.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
   "error": "Local file access failed <varies>; run `aigw doctor` to inspect current state",
-  "impact": "The command could not finish; inspect current state before retrying.",
   "next_action": "aigw doctor"
 }
