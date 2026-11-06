@@ -27,14 +27,12 @@ const (
 )
 
 // TargetRef identifies a persistent configuration file together with the
-// host surface and ownership mode that authorizes AIGW to change it.
+// host surface that it belongs to.
 // Executable is the client this target's configuration is read by. It is the
 // only source of client-specific facts, such as the bundled model catalog, so a
 // target without one is projected without them rather than against a guess.
 type TargetRef struct {
 	SurfaceID      string
-	Authority      string
-	ProjectionMode string
 	Path           string
 	Executable     string
 	CreateIfAbsent bool

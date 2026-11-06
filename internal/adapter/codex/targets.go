@@ -41,8 +41,8 @@ func normalizeCodexTargets(values []TargetRef) ([]TargetRef, error) {
 	normalized := make([]TargetRef, 0, len(values))
 	seen := make(map[string]struct{}, len(values))
 	for _, target := range values {
-		if target.Path == "" || target.SurfaceID == "" || target.Authority == "" || target.ProjectionMode == "" {
-			return nil, fmt.Errorf("Codex target requires surface_id, authority, projection_mode, and path")
+		if target.Path == "" || target.SurfaceID == "" {
+			return nil, fmt.Errorf("Codex target requires surface_id and path")
 		}
 		sourcePath, err := absoluteCodexTargetPath(target.Path)
 		if err != nil {
@@ -119,24 +119,17 @@ func targetCodexStatePath(target TargetRef) string {
 	return codexStatePath(target.Path)
 }
 
+// validateDesiredCodexTarget refuses a surface other than a Codex home. The
+// refusal keeps the text that released versions print.
 func validateDesiredCodexTarget(target TargetRef) error {
-	surfaceID := surface.ID(target.SurfaceID)
-	authority := surface.Authority(target.Authority)
-	switch {
-	case IsHome(surfaceID) && authority == surface.AuthorityAIGW && target.ProjectionMode == ProjectionFullSelection:
-		return nil
-	default:
-		return fmt.Errorf("Codex target %s cannot use authority %s with projection mode %s", target.SurfaceID, target.Authority, target.ProjectionMode)
+	if !IsHome(surface.ID(target.SurfaceID)) {
+		return fmt.Errorf("Codex target %s cannot use authority aigw with projection mode %s", target.SurfaceID, ProjectionFullSelection)
 	}
+	return nil
 }
 
 // HomeTarget names the existing configuration at path as the default Codex
 // Home.
 func HomeTarget(path string) TargetRef {
-	return TargetRef{
-		SurfaceID:      string(HomeDefault),
-		Authority:      string(surface.AuthorityAIGW),
-		ProjectionMode: ProjectionFullSelection,
-		Path:           path,
-	}
+	return TargetRef{SurfaceID: string(HomeDefault), Path: path}
 }

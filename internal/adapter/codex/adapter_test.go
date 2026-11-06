@@ -144,7 +144,6 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *tes
 				Executables: map[string]string{ID: "/usr/bin/codex"},
 				Surfaces: []discovery.Surface{{
 					ID:          "codex-home-default",
-					Authority:   "aigw",
 					ConfigPath:  target,
 					AutoManaged: true,
 				}},

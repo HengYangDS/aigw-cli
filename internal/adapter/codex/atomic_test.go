@@ -307,7 +307,7 @@ func TestReconcileConfigsRollsBackCatalogWhenConfigWriteFails(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	original := []byte("model_provider = 'native'\nuser_setting = true\n")
 	path := writeCodexTestConfig(t, string(original))
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 
 	writeOriginal := writeFileAtomicIfUnchanged

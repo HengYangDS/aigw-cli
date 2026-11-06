@@ -4,7 +4,6 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/secret"
@@ -80,7 +79,6 @@ func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutAccountTo
 		Executables: map[string]string{codex.ID: executableFixture(t, "codex")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  target,
 			Present:     true,
 			AutoManaged: true,
@@ -221,7 +219,6 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 				}
 				discovered.Surfaces = []discovery.Surface{{
 					ID:          string(codex.HomeDefault),
-					Authority:   string(surfaceidentity.AuthorityAIGW),
 					ConfigPath:  target,
 					Present:     true,
 					AutoManaged: true,
@@ -324,8 +321,8 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 			app.Discovery = fakeDiscovery{result: discovery.Result{
 				Executables: map[string]string{codex.ID: "/opt/codex"},
 				Surfaces: []discovery.Surface{
-					{ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: targets[0], Present: true, AutoManaged: true},
-					{ID: string(codex.HomeExplicit("second")), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: targets[1], Present: true, AutoManaged: true},
+					{ID: string(codex.HomeDefault), ConfigPath: targets[0], Present: true, AutoManaged: true},
+					{ID: string(codex.HomeExplicit("second")), ConfigPath: targets[1], Present: true, AutoManaged: true},
 				},
 			}}
 			if err := cli.Execute(app, args); err != nil {
@@ -420,7 +417,7 @@ func TestSetupFromConfigurationManifestProjectionFailureRestoresOwnedFiles(t *te
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{claude.ID: claudeExecutable, codex.ID: "/opt/codex-real"},
 		Surfaces: []discovery.Surface{{
-			ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
+			ID:         string(codex.HomeDefault),
 			ConfigPath: codexTarget, Present: true, AutoManaged: true,
 		}},
 	}}

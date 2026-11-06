@@ -7,14 +7,11 @@ import (
 // Surface is a stable host classification. Discovery only inspects paths; it
 // never runs the executable or opens a client session.
 type Surface struct {
-	ID                    string `json:"surface_id"`
-	Product               string `json:"product"`
-	Authority             string `json:"authority"`
-	Executable            string `json:"executable,omitempty"`
-	ConfigPath            string `json:"config_path,omitempty"`
-	Present               bool   `json:"present"`
-	AutoManaged           bool   `json:"auto_managed"`
-	ManualFallbackAllowed bool   `json:"manual_fallback_allowed"`
+	ID          string
+	Executable  string
+	ConfigPath  string
+	Present     bool
+	AutoManaged bool
 }
 
 // Surface resolves one discovered configuration surface by its stable identifier.

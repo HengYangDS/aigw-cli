@@ -38,22 +38,17 @@ func TestIsHomeClassifiesCodexHomes(t *testing.T) {
 	}
 }
 
-// Codex homes are AIGW-owned: a desired target accepts the AIGW authority and
-// refuses any other.
-func TestCodexHomesHaveTheAIGWAuthority(t *testing.T) {
+// A desired target must be a Codex home, and the refusal of any other surface
+// keeps its released text.
+func TestDesiredCodexTargetsAreCodexHomes(t *testing.T) {
 	for _, id := range []surfaceidentity.ID{HomeDefault, HomeExplicit("0123456789ab")} {
-		target := TargetRef{SurfaceID: string(id), Authority: string(surfaceidentity.AuthorityAIGW), ProjectionMode: ProjectionFullSelection}
-		if err := validateDesiredCodexTarget(target); err != nil {
-			t.Fatalf("%s with the AIGW authority = %v", id, err)
-		}
-		target.Authority = "foreign"
-		if err := validateDesiredCodexTarget(target); err == nil {
-			t.Fatalf("%s accepted a foreign authority", id)
+		if err := validateDesiredCodexTarget(TargetRef{SurfaceID: string(id)}); err != nil {
+			t.Fatalf("%s = %v", id, err)
 		}
 	}
-	unknown := TargetRef{SurfaceID: "unknown", Authority: string(surfaceidentity.AuthorityAIGW), ProjectionMode: ProjectionFullSelection}
-	if err := validateDesiredCodexTarget(unknown); err == nil {
-		t.Fatal("an unknown surface was accepted as a Codex target")
+	err := validateDesiredCodexTarget(TargetRef{SurfaceID: "unknown"})
+	if err == nil || err.Error() != "Codex target unknown cannot use authority aigw with projection mode full-selection" {
+		t.Fatalf("an unknown surface = %v", err)
 	}
 }
 

@@ -136,7 +136,7 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 	after.SetClientActivation(codex.ID, true, "/opt/codex", []string{codexTarget})
 	deps := adapter.Dependencies{
 		Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{
-			ID: "codex-home-default", Authority: "aigw", ConfigPath: codexTarget, Present: true, AutoManaged: true,
+			ID: "codex-home-default", ConfigPath: codexTarget, Present: true, AutoManaged: true,
 		}}}},
 		Host:           hostAt(dir),
 		AIGWExecutable: "/opt/aigw",

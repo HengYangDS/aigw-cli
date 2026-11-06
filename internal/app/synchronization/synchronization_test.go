@@ -9,7 +9,6 @@ import (
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/store"
 	"bytes"
 	"context"
@@ -122,7 +121,7 @@ func readerAt(path string) func() (string, error) {
 
 func targetDiscovery(target string) staticDiscovery {
 	return staticDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
-		ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
+		ID:         string(codex.HomeDefault),
 		ConfigPath: target, Present: true, AutoManaged: true,
 	}}}}
 }

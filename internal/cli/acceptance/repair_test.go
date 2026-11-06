@@ -10,7 +10,6 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -137,7 +136,6 @@ func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: claudeExecutable, codex.ID: "/opt/codex"}, Surfaces: []discovery.Surface{{
 		ID:          string(codex.HomeDefault),
-		Authority:   string(surfaceidentity.AuthorityAIGW),
 		ConfigPath:  target,
 		Present:     true,
 		AutoManaged: true,
@@ -184,7 +182,6 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 		Executables: map[string]string{codex.ID: shadowExecutable},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  newTarget,
 			Present:     true,
 			AutoManaged: true,
@@ -252,7 +249,6 @@ func TestRepairMigratesMissingClientExecutables(t *testing.T) {
 		},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  target,
 			Present:     true,
 			AutoManaged: true,
@@ -300,7 +296,6 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 	}
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{codex.ID: "/opt/codex"}, Surfaces: []discovery.Surface{{
 		ID:          string(codex.HomeDefault),
-		Authority:   string(surfaceidentity.AuthorityAIGW),
 		ConfigPath:  target,
 		Present:     true,
 		AutoManaged: true,

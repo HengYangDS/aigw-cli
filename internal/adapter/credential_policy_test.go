@@ -52,7 +52,7 @@ func configuredClient(t *testing.T, id string) (domain.Config, adapter.Dependenc
 	deps := adapter.Dependencies{AIGWExecutable: filepath.Join(root, "aigw"), Host: discovery.Host{GOOS: runtime.GOOS, Home: root, Env: map[string]string{"HOME": root, "USERPROFILE": root}}}
 	discovered := discovery.Result{
 		Executables: map[string]string{id: executable},
-		Surfaces:    []discovery.Surface{{ID: "codex-home-default", Authority: "aigw", ConfigPath: target, AutoManaged: true}, {ID: "hermes-home-default", Authority: "aigw", ConfigPath: target}},
+		Surfaces:    []discovery.Surface{{ID: "codex-home-default", ConfigPath: target, AutoManaged: true}, {ID: "hermes-home-default", ConfigPath: target}},
 	}
 	deps.Discovery = fixedDiscovery{result: discovered}
 	return cfg, deps, discovered

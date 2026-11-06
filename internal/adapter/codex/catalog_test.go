@@ -51,7 +51,7 @@ func catalogSlugList(t *testing.T, data []byte) []string {
 // the newer bundled table: a worse outcome than the fallback it prevents.
 func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 	dir := t.TempDir()
-	target := codexHomeTarget(filepath.Join(dir, "configuration.toml"))
+	target := HomeTarget(filepath.Join(dir, "configuration.toml"))
 	target.Executable = filepath.Join(dir, "codex")
 	owned := []byte(`{"models":[{"slug":"openai.gpt-5.5"}]}` + "\n")
 	before := platform.FileSnapshot{Exists: true, Data: owned, SHA256: hashBytes(owned), Mode: 0o600}
@@ -110,7 +110,7 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 // whatever the user put there.
 func TestCodexCatalogProjectionYieldsToUserAuthoredCatalog(t *testing.T) {
 	dir := t.TempDir()
-	target := codexHomeTarget(filepath.Join(dir, "configuration.toml"))
+	target := HomeTarget(filepath.Join(dir, "configuration.toml"))
 	target.Executable = filepath.Join(dir, "codex")
 	original := codexBundledCatalog
 	defer func() { codexBundledCatalog = original }()
@@ -132,7 +132,7 @@ func TestKnownBaseModelUsesBundledCatalogForCustomProvider(t *testing.T) {
 	const model = "gpt-6.1-sol"
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, model, "gpt-6-luna")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime(model)
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
@@ -225,7 +225,7 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 		t.Fatalf("serialized Runtime models = %q / %q, want exact wire/canonical pair", exposedWire, exposedCanonical)
 	}
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
@@ -288,7 +288,7 @@ func TestCodexCatalogProjectionKeepsAnExistingNativeWireModel(t *testing.T) {
 func TestCopyProjectionRebasesOwnedCatalogReference(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-6.1-sol")
 	source := writeCodexTestConfig(t, "user_setting = true\n")
-	ref := codexHomeTarget(source)
+	ref := HomeTarget(source)
 	ref.Executable = filepath.Join(filepath.Dir(source), "codex")
 	runtime := catalogTestRuntime("gpt-6.1-sol")
 	if _, err := ReconcileConfigs(nil, []TargetRef{ref}, runtime, runtime, false); err != nil {
@@ -444,7 +444,7 @@ func TestCodexCatalogProjectionKeepsNamedProfilePolicy(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	const original = "# User settings\n[profiles.user]\nmodel = 'user-model'\nmodel_catalog_json = 'user-catalog.json'\n"
 	path := writeCodexTestConfig(t, original)
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtime := catalogTestRuntime("openai.gpt-5.6-sol")
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtime, runtime, false); err != nil {

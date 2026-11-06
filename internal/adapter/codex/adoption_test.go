@@ -105,7 +105,7 @@ func TestReconcileConfigsTransitionAcceptsTheModelBeingProjected(t *testing.T) {
 			}
 			next := previous
 			next.RouteID, next.RouteLabel, next.Model = "next", "Next", "gpt-next"
-			target := codexHomeTarget(path)
+			target := HomeTarget(path)
 			_, err = ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, previous, next, false)
 			after, readErr := os.ReadFile(path)
 			if readErr != nil {

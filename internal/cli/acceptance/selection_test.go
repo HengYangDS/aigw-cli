@@ -4,7 +4,6 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
-	"aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -38,7 +37,6 @@ func TestUseSelectsClientNativeRouteWithoutAccessingAccountTokens(t *testing.T) 
 		Executables: map[string]string{codex.ID: executableFixture(t, "codex")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surface.AuthorityAIGW),
 			ConfigPath:  target,
 			AutoManaged: true,
 		}},
@@ -208,7 +206,6 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 		},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surface.AuthorityAIGW),
 			ConfigPath:  codexTarget,
 			AutoManaged: true,
 		}},

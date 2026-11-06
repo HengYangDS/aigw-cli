@@ -12,7 +12,6 @@ import (
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/domain"
 )
 
@@ -45,8 +44,6 @@ func (codexAdapter) Discover(source adapter.DiscoverySource) discovery.Result {
 		Executables: map[string]string{ID: source.Executable(ID)},
 		Surfaces: []discovery.Surface{{
 			ID:          string(HomeDefault),
-			Product:     "Codex",
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  path,
 			Present:     source.FilePresent(path),
 			AutoManaged: true,
@@ -264,8 +261,6 @@ func targetRefs(discovered discovery.Result, paths []string, executable string) 
 		if surface, ok := discovered.SurfaceForConfigPath(path); ok {
 			refs = append(refs, TargetRef{
 				SurfaceID:      surface.ID,
-				Authority:      surface.Authority,
-				ProjectionMode: ProjectionFullSelection,
 				Path:           path,
 				Executable:     executable,
 				CreateIfAbsent: surface.AutoManaged,
@@ -274,11 +269,9 @@ func targetRefs(discovered discovery.Result, paths []string, executable string) 
 		}
 		sum := sha256.Sum256([]byte(filepath.Clean(path)))
 		refs = append(refs, TargetRef{
-			SurfaceID:      string(HomeExplicit(hex.EncodeToString(sum[:6]))),
-			Authority:      string(surfaceidentity.AuthorityAIGW),
-			ProjectionMode: ProjectionFullSelection,
-			Path:           path,
-			Executable:     executable,
+			SurfaceID:  string(HomeExplicit(hex.EncodeToString(sum[:6]))),
+			Path:       path,
+			Executable: executable,
 		})
 	}
 	return refs, nil

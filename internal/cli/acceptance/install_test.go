@@ -15,7 +15,6 @@ import (
 
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/discovery"
-	"aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -361,7 +360,6 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 		},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surface.AuthorityAIGW),
 			ConfigPath:  codexTarget,
 			AutoManaged: true,
 		}},

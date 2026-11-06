@@ -4,7 +4,6 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -29,7 +28,6 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 		Executables: map[string]string{codex.ID: "/usr/local/bin/codex"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  target,
 			Present:     true,
 			AutoManaged: true,
@@ -87,7 +85,6 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 		Executables: map[string]string{codex.ID: "/usr/local/bin/codex"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  target,
 			Present:     false,
 			AutoManaged: true,
@@ -240,7 +237,6 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
 		},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  codexTarget,
 			AutoManaged: true,
 		}},
@@ -287,7 +283,6 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 		Executables: map[string]string{codex.ID: "/usr/local/bin/codex"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  target,
 			Present:     true,
 			AutoManaged: true,

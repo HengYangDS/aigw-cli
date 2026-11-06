@@ -11,7 +11,7 @@ import (
 func TestValidateConfigReportsCatalogDrift(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
@@ -57,7 +57,7 @@ func TestValidateConfigRejectsUnownedManagedCatalogLine(t *testing.T) {
 		return ExecutableIdentity{}, nil, fmt.Errorf("native catalog unavailable")
 	}
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("gpt-5.6-sol")
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {

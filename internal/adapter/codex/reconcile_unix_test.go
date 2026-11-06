@@ -10,7 +10,7 @@ import (
 
 func TestReconcileConfigsCreatesDefaultTargetOwnerOnly(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".codex", "config.toml")
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.CreateIfAbsent = true
 
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime(), atomicTestRuntime(), false); err != nil {

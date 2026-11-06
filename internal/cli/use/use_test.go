@@ -17,7 +17,6 @@ import (
 	"aigw-cli/internal/adapter/claudedesktop"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -135,7 +134,7 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	run.Discovery = staticDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
-		ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW),
+		ID:         string(codex.HomeDefault),
 		ConfigPath: target, Present: true, AutoManaged: true,
 	}}}}
 	before, err := run.Config.CaptureSnapshot()

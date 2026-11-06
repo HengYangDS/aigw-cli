@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter"
-	"aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 
@@ -314,13 +313,7 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 	if _, err := canonicalCodexTargetPath(t.TempDir() + "/missing/config.toml"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := normalizeCodexTargets([]TargetRef{{
-		SurfaceID: string(HomeDefault), Authority: string(surface.AuthorityAIGW),
-		ProjectionMode: ProjectionFullSelection, Path: config,
-	}, {
-		SurfaceID: string(HomeDefault), Authority: string(surface.AuthorityAIGW),
-		ProjectionMode: ProjectionFullSelection, Path: config,
-	}}); err == nil {
+	if _, err := normalizeCodexTargets([]TargetRef{HomeTarget(config), HomeTarget(config)}); err == nil {
 		t.Fatal("duplicate target was accepted")
 	}
 	if _, err := codexStateForTarget(platform.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection"}`)}); err == nil {

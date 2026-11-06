@@ -37,7 +37,7 @@ generate = true
 [[hooks.session_start]]
 command = "audit"
 `)
-	ref := codexHomeTarget(source)
+	ref := HomeTarget(source)
 	ref.Executable = filepath.Join(filepath.Dir(source), "codex")
 	runtime := catalogTestRuntime("gpt-6.1-sol")
 	if _, err := ReconcileConfigs(nil, []TargetRef{ref}, runtime, runtime, false); err != nil {
@@ -103,7 +103,7 @@ func TestCopyProjectionKeepsAUserCatalogReachable(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			source := writeCodexTestConfig(t, "model_catalog_json = "+test.value+"\nmodel_reasoning_effort = \"high\"\n")
-			ref := codexHomeTarget(source)
+			ref := HomeTarget(source)
 			ref.Executable = filepath.Join(filepath.Dir(source), "codex")
 			runtime := catalogTestRuntime("gpt-6.1-sol")
 			if _, err := ReconcileConfigs(nil, []TargetRef{ref}, runtime, runtime, false); err != nil {

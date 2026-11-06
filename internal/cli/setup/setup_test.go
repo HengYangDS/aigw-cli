@@ -19,7 +19,6 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/adapter/hermes"
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
@@ -399,7 +398,6 @@ interfaces = { openai_responses = ["text"] }
 			Executables: map[string]string{codex.ID: "/opt/codex"},
 			Surfaces: []discovery.Surface{{
 				ID:          string(codex.HomeDefault),
-				Authority:   string(surfaceidentity.AuthorityAIGW),
 				ConfigPath:  filepath.Join(t.TempDir(), "codex", "configuration.toml"),
 				Present:     true,
 				AutoManaged: true,

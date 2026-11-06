@@ -5,7 +5,6 @@ import (
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/adapter/hermes"
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -282,7 +281,6 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 		Executables: map[string]string{claude.ID: "/opt/claude-real", codex.ID: "/opt/codex-real"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  codexTarget,
 			Present:     true,
 			AutoManaged: true,
@@ -473,7 +471,6 @@ func TestWizardFailureLeavesNoRouteSecretOrClientProjection(t *testing.T) {
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{claude.ID: "/opt/claude-real", codex.ID: "/opt/codex-real"}, Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  codexTarget,
 			Present:     true,
 			AutoManaged: true,

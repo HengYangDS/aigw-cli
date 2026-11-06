@@ -9,7 +9,6 @@ import (
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/contract"
 	"aigw-cli/internal/adapter/discovery"
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 )
 
 func TestCodexAdapterKeepsTheSeamContract(t *testing.T) {
@@ -33,7 +32,7 @@ func TestCodexAdapterKeepsTheSeamContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		surface := discovery.Surface{ID: string(HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, AutoManaged: true}
+		surface := discovery.Surface{ID: string(HomeDefault), ConfigPath: target, AutoManaged: true}
 		return contract.Fixture{
 			Adapter: New(), Home: home, Before: before, After: after, Runtime: runtime,
 			Dependencies: adapter.Dependencies{

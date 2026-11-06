@@ -15,7 +15,6 @@ import (
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/adapter/hermes"
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -168,7 +167,6 @@ func TestShippedTeamManifestImportsWithAnOfflineProvider(t *testing.T) {
 		Executables: map[string]string{codex.ID: executableFixture(t, "codex")},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  target,
 			Present:     true,
 			AutoManaged: true,
@@ -387,7 +385,6 @@ func TestShippedTeamManifestMixedClientProjectionHasOneContinuation(t *testing.T
 		Executables: map[string]string{codex.ID: "/opt/codex"},
 		Surfaces: []discovery.Surface{{
 			ID:          string(codex.HomeDefault),
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			ConfigPath:  target,
 			Present:     true,
 			AutoManaged: true,

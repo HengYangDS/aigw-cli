@@ -59,7 +59,7 @@ interfaces = { anthropic = ["text", "streaming", "tools"] }
 	executable := executableFixture(t, "hermes")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{hermes.ID: executable},
-		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
+		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
 	for _, args := range [][]string{{"sync"}, {"status", "--json"}, {"check"}, {"test", "--for", "hermes"}, {"verify", "--for", "hermes"}} {
 		output.Reset()
@@ -111,7 +111,7 @@ func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "hermes", "config.yaml")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{hermes.ID: executableFixture(t, "hermes")},
-		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
+		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
 	if err := cli.Execute(app, []string{"setup", "--from", manifest, "--account", "dmxapi"}); err != nil {
@@ -151,7 +151,7 @@ func TestHermesExplicitSelectionAdoptsNativeSwitchThenSyncs(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "hermes", "config.yaml")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{hermes.ID: executableFixture(t, "hermes")},
-		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
+		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
 	for _, args := range [][]string{{"setup", "--from", manifest}, {"use", "--for", "hermes", "--protocol", "openai_responses", "ucloud-gpt-6.1-sol"}} {
@@ -275,7 +275,7 @@ func shippedHermesAppWith(t *testing.T, reader bool) (*cli.App, *bytes.Buffer, *
 	target := filepath.Join(t.TempDir(), "hermes", "config.yaml")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{hermes.ID: executableFixture(t, "hermes")},
-		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
+		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
 	for _, args := range [][]string{{"setup", "--from", manifest}, {"use", "--for", "hermes", "--protocol", "openai_responses", "dmxapi-gpt-6.1-sol"}} {

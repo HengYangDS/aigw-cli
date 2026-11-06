@@ -16,7 +16,7 @@ func writeLegacyCodexProjection(t *testing.T, path string, runtimeModel string) 
 	}
 	runtime := atomicTestRuntime()
 	runtime.Model = runtimeModel
-	if _, err := ReconcileConfigs(nil, []TargetRef{codexHomeTarget(path)}, runtime, runtime, false); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	statePath := codexStatePath(path)
@@ -102,7 +102,7 @@ func TestReconcileConfigsTransitionAttributesLegacyRootSelections(t *testing.T) 
 	next.RouteLabel = "Next"
 	next.Endpoint = "https://next.test/v1"
 	next.Model = "gpt-next"
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, previous, next, false); err != nil {
 		t.Fatalf("legacy sidecar transition rejected unchanged root values: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestReconcileConfigsTransitionRejectsChangedLegacyRootModel(t *testing.T) {
 
 	next := previous
 	next.Model = "gpt-next"
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	_, err = ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, previous, next, false)
 	if err == nil || !strings.Contains(err.Error(), "model selection changed") {
 		t.Fatalf("transition error = %v, want model selection conflict", err)
@@ -150,7 +150,7 @@ func TestReconcileConfigsAuthorizedTransitionReplacesChangedRootSelections(t *te
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, previous, previous, false); err != nil {
 		t.Fatal(err)
 	}

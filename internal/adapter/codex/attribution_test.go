@@ -14,7 +14,7 @@ func TestReconcileConfigsRejectsUnattributedSidecar(t *testing.T) {
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime(), atomicTestRuntime(), false); err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestReconcileConfigsRejectsUnattributedSidecarBesideSymlinkTarget(t *testin
 		t.Fatal(err)
 	}
 
-	_, err = ReconcileConfigs(nil, []TargetRef{codexHomeTarget(aliasPath)}, runtime, runtime, false)
+	_, err = ReconcileConfigs(nil, []TargetRef{HomeTarget(aliasPath)}, runtime, runtime, false)
 	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") {
 		t.Fatalf("ReconcileConfigs() error = %v, want incomplete attribution", err)
 	}
@@ -290,7 +290,7 @@ func TestNormalizeCodexTargetsRejectsIncompleteAndDuplicateTargets(t *testing.T)
 		t.Error("expected error for missing fields")
 	}
 
-	target := TargetRef{Path: "p", SurfaceID: "s", Authority: "a", ProjectionMode: "m"}
+	target := TargetRef{Path: "p", SurfaceID: "s"}
 	_, err = normalizeCodexTargets([]TargetRef{target, target})
 	if err == nil || !strings.Contains(err.Error(), "duplicated") {
 		t.Errorf("expected duplicate error, got %v", err)

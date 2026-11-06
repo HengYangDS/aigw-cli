@@ -13,7 +13,6 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -218,7 +217,6 @@ func TestEnableCodexValidatesTargetsAndPersistsProjection(t *testing.T) {
 	}
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
 		ID:         string(codex.HomeDefault),
-		Authority:  string(surfaceidentity.AuthorityAIGW),
 		ConfigPath: target,
 		Present:    true,
 	}}}}
@@ -260,7 +258,6 @@ func TestEnableCodexWithClientNativeAuthenticationDoesNotAccessAccountTokens(t *
 	}
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
 		ID:         string(codex.HomeDefault),
-		Authority:  string(surfaceidentity.AuthorityAIGW),
 		ConfigPath: target,
 		Present:    true,
 	}}}}
@@ -440,7 +437,7 @@ func TestDisableCodexRestoresProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{
-		ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target,
+		ID: string(codex.HomeDefault), ConfigPath: target,
 	}}}}
 	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", "/opt/codex", "--target", target); err != nil {
 		t.Fatal(err)

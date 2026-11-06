@@ -52,8 +52,6 @@ func (claudeDesktopAdapter) Discover(source adapter.DiscoverySource) discovery.R
 		Executables: map[string]string{ID: executable},
 		Surfaces: []discovery.Surface{{
 			ID:          string(LibrarySurface),
-			Product:     "Claude Desktop",
-			Authority:   string(surfaceidentity.AuthorityAIGW),
 			Executable:  executable,
 			ConfigPath:  library,
 			Present:     executable != "",

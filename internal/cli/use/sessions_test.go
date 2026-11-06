@@ -28,7 +28,7 @@ func TestUseTellsHermesUsersThatExistingSessionsKeepTheirRoute(t *testing.T) {
 	target := filepath.Join(t.TempDir(), ".hermes", "config.yaml")
 	runtime.Discovery = staticDiscovery{result: discovery.Result{
 		Executables: map[string]string{hermes.ID: executable},
-		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", Product: "Hermes", Authority: "aigw", ConfigPath: target}},
+		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
 	for _, id := range []string{"first", "second"} {
 		cfg.Routes[id] = domain.Route{

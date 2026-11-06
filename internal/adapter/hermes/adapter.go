@@ -47,7 +47,7 @@ func (hermesAdapter) Discover(source adapter.DiscoverySource) discovery.Result {
 	path := filepath.Join(homeDirectory(source.Platform()), "config.yaml")
 	return discovery.Result{
 		Executables: map[string]string{ID: executable},
-		Surfaces:    []discovery.Surface{{ID: hermesSurface, Product: "Hermes", Authority: "aigw", Executable: executable, ConfigPath: path, Present: source.FilePresent(path)}},
+		Surfaces:    []discovery.Surface{{ID: hermesSurface, Executable: executable, ConfigPath: path, Present: source.FilePresent(path)}},
 	}
 }
 

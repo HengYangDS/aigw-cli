@@ -17,7 +17,7 @@ import (
 func TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol", "gpt-5.5")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\nuser_setting = true\n")
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
 
@@ -88,7 +88,7 @@ func TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog(t *testing.T) {
 func TestCodexCatalogReferenceAcceptsEquivalentTOMLButRejectsChangedTarget(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	path := writeCodexTestConfig(t, "model_provider = 'native'\n")
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
@@ -138,7 +138,7 @@ func TestCodexCatalogReferenceAcceptsEquivalentTOMLButRejectsChangedTarget(t *te
 func TestReconcileConfigsLeavesNativeProviderCatalogAlone(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol", "gpt-5.5")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("gpt-5.6-sol")
 	runtimeConfig.ModelProvider = "openai"
@@ -178,7 +178,7 @@ func TestUnknownModelPinsCompleteBundledCatalogWithoutInventingMetadata(t *testi
 			stubCodexBundledCatalog(t, client, "gpt-6.1-sol", "gpt-6-luna")
 			bundled := projectionCatalog("gpt-6.1-sol", "gpt-6-luna")
 			path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-			target := codexHomeTarget(path)
+			target := HomeTarget(path)
 			target.Executable = filepath.Join(filepath.Dir(path), "codex")
 			runtimeConfig := catalogTestRuntime(test.wireModel)
 			runtimeConfig.CanonicalModelID = test.canonicalModelID
@@ -214,7 +214,7 @@ func TestUnknownModelPinsCompleteBundledCatalogWithoutInventingMetadata(t *testi
 func TestReconcileConfigsRebuildsTheCatalogAfterAClientUpgrade(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
@@ -279,7 +279,7 @@ func TestReconcileConfigsKeepsUserAuthoredCatalogSelections(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	own := "/home/user/own-catalog.json"
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\nmodel_catalog_json = \""+own+"\"\n")
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
@@ -321,7 +321,7 @@ func TestReconcileConfigsConvergesDriftedCatalogPermissions(t *testing.T) {
 	}
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
 	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
@@ -377,7 +377,7 @@ func TestReconcileConfigsRefusesToAdoptAForeignCatalogFile(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	original := "model_provider = \"native\"\nuser_setting = true\n"
 	path := writeCodexTestConfig(t, original)
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	catalogPath := codexCatalogPath(path)
 	foreign := []byte(`{"models":[{"slug":"not-ours"}]}`)
@@ -420,7 +420,7 @@ func TestReconcileConfigsRefusesToAdoptAForeignCatalogFile(t *testing.T) {
 // A configuration naming a catalog that does not exist yet stops the client from
 // starting at all, so the file is created first and deleted last.
 func TestCodexArtifactsFollowTheCatalogDependencyOrder(t *testing.T) {
-	target := codexHomeTarget(filepath.Join(t.TempDir(), "configuration.toml"))
+	target := HomeTarget(filepath.Join(t.TempDir(), "configuration.toml"))
 	configBefore := platform.FileSnapshot{Exists: true, Data: []byte("old"), SHA256: hashBytes([]byte("old")), Mode: 0o600}
 	catalogData := []byte("{}")
 
@@ -474,7 +474,7 @@ func TestReconcileConfigsRollsBackConfigStateAndCatalogTogether(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-5.6-sol")
 	original := "model_provider = \"native\"\nuser_setting = true\n"
 	path := writeCodexTestConfig(t, original)
-	target := codexHomeTarget(path)
+	target := HomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 
 	originalWrite := writeFileAtomicIfUnchanged

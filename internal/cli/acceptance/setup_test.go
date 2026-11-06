@@ -4,7 +4,6 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -234,7 +233,7 @@ func TestSetupRollsBackConfigAndSecretWhenCodexProjectionFails(t *testing.T) {
 	target := t.TempDir()
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{codex.ID: "/opt/codex"},
-		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
+		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: target, Present: true, AutoManaged: true}},
 	}}
 	err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "codex", "--upstream-model", "m", "--openai-url", "https://one.test/v1", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
@@ -254,7 +253,7 @@ func TestSetupRestoresExistingSecretWhenCodexProjectionFails(t *testing.T) {
 	target := t.TempDir()
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{codex.ID: "/opt/codex"},
-		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
+		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: target, Present: true, AutoManaged: true}},
 	}}
 	err := cli.Execute(app, []string{"setup", "--route", "one", "--for", "codex", "--upstream-model", "m", "--openai-url", "https://one.test/v1", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
@@ -281,7 +280,7 @@ func TestSetupRollbackRemovesNewAutomaticBackendSelection(t *testing.T) {
 	target := t.TempDir()
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{codex.ID: "/opt/codex"},
-		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ConfigPath: target, Present: true, AutoManaged: true}},
+		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: target, Present: true, AutoManaged: true}},
 	}}
 
 	err = cli.Execute(app, []string{"setup", "--route", "one", "--for", "codex", "--upstream-model", "m", "--openai-url", "https://one.test/v1", "--token-stdin"})

@@ -35,7 +35,7 @@ func (clientAdapter rehearsalAdapter) target() string {
 func (clientAdapter rehearsalAdapter) Discover(source adapter.DiscoverySource) discovery.Result {
 	return discovery.Result{
 		Executables: map[string]string{rehearsalID: source.Executable(rehearsalID)},
-		Surfaces:    []discovery.Surface{{ID: "rehearsal-home", Product: "Rehearsal", Authority: "aigw", ConfigPath: clientAdapter.target(), Present: source.FilePresent(clientAdapter.target())}},
+		Surfaces:    []discovery.Surface{{ID: "rehearsal-home", ConfigPath: clientAdapter.target(), Present: source.FilePresent(clientAdapter.target())}},
 	}
 }
 
