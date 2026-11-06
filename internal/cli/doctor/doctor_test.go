@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
@@ -304,38 +305,37 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 	}
 }
 
+// Claude Code is enabled with its projection in place and Codex is selected
+// but not enabled, so doctor passes and names the Codex step that remains.
 func TestCommandHumanAndJSONPaths(t *testing.T) {
 	cfg := validDoctorConfig()
+	cfg.SetClientActivation(claude.ID, true, filepath.Join(t.TempDir(), "claude"), nil)
 	deps, out, secretStore := doctorDependencies(t, cfg)
-	inspect := func(app.Dependencies, domain.Config) map[string]domainreadiness.Client {
-		return map[string]domainreadiness.Client{
-			claude.ID: {State: domainreadiness.Configured, Route: "claude", Account: "team"},
-			codex.ID:  {State: domainreadiness.Deferred, NextAction: "aigw sync"},
-		}
-	}
+	inspectClaude(t, &deps, adapter.Status{Ready: true})
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	result := executeJSON(t, newCommand(deps, inspect), out)
-	if !result.OK || !allOK(result.Checks) {
+	result := executeJSON(t, NewCommand(deps), out)
+	if !result.OK || !allOK(result.Checks) || result.NextAction != "aigw sync" {
 		t.Fatalf("result = %#v", result)
 	}
-	if result.Clients[claude.ID].State != domainreadiness.Configured {
+	if result.Clients[claude.ID].State != domainreadiness.Configured || result.Clients[claude.ID].Route != "claude" || result.Clients[claude.ID].Account != "team" ||
+		result.Clients[codex.ID].State != domainreadiness.Deferred || result.Clients[codex.ID].NextAction != "aigw sync" {
 		t.Fatalf("canonical clients = %#v", result.Clients)
 	}
 
 	out.Reset()
-	cmd := newCommand(deps, inspect)
+	cmd := NewCommand(deps)
 	if err := executeDoctorCommand(cmd); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "No client is enabled") || !strings.Contains(out.String(), "Local diagnostics passed") {
+	if !strings.Contains(out.String(), "Selected client work remains") || !strings.Contains(out.String(), "Local diagnostics passed") {
 		t.Fatalf("human output = %s", out.String())
 	}
 
 	out.Reset()
 	deps.Env = []string{"OPENAI_API_KEY=secret"}
-	cmd = newCommand(deps, inspect)
+	cmd = NewCommand(deps)
 	if err := executeDoctorCommand(cmd); err == nil || !strings.Contains(err.Error(), "doctor found problems") {
 		t.Fatalf("doctor error = %v", err)
 	}
@@ -345,16 +345,16 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 
 	out.Reset()
 	deps.Env = nil
-	if err := executeDoctorCommand(newCommand(deps, inspect)); err != nil {
+	if err := executeDoctorCommand(NewCommand(deps)); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "No client is enabled") ||
+	if !strings.Contains(out.String(), "Selected client work remains") ||
 		!strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Configured") ||
 		!strings.Contains(out.String(), "Codex") || !strings.Contains(out.String(), "Deferred") {
 		t.Fatalf("out=%q", out.String())
 	}
 
-	cmd = newCommand(deps, inspect)
+	cmd = NewCommand(deps)
 	cmd.SetArgs([]string{"unexpected"})
 	if err := executeDoctorCommand(cmd); err == nil {
 		t.Fatal("doctor accepted a positional argument")
@@ -375,7 +375,7 @@ func TestCommandJSONExposesTheCanonicalCredentialBackendSelection(t *testing.T) 
 	}
 	deps.Secrets = store
 
-	result := executeJSON(t, newCommand(deps, nil), out)
+	result := executeJSON(t, NewCommand(deps), out)
 	want := secret.BackendSelection{
 		Kind:         "file",
 		Availability: "available",
@@ -406,7 +406,7 @@ func TestCommandJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 	}
 	deps.Secrets = store
 
-	result := executeJSON(t, newCommand(deps, nil), out)
+	result := executeJSON(t, NewCommand(deps), out)
 	if result.CredentialBackend.Availability != "unavailable" || result.CredentialBackend.RecoveryAction != "aigw doctor" {
 		t.Fatalf("credential backend = %#v", result.CredentialBackend)
 	}
@@ -416,32 +416,25 @@ func TestCommandJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 	}
 }
 
+// A client whose selected Account's Token metadata cannot be read is
+// unavailable, and doctor fails with that client's next step.
 func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
 	cfg := validDoctorConfig()
 	deps, out, secretStore := doctorDependencies(t, cfg)
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	inspect := func(app.Dependencies, domain.Config) map[string]domainreadiness.Client {
-		return map[string]domainreadiness.Client{
-			claude.ID: {
-				State:      domainreadiness.Unavailable,
-				Route:      "claude",
-				Account:    "team",
-				Detail:     "Credential metadata is unavailable",
-				NextAction: "aigw doctor",
-			},
-		}
-	}
+	deps.Secrets = unobservableSecrets{Store: secretStore}
 
-	result := executeJSON(t, newCommand(deps, inspect), out)
+	result := executeJSON(t, NewCommand(deps), out)
 	state, ok := result.Clients[claude.ID]
-	if result.OK || result.NextAction != "aigw doctor" || !ok || state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" {
+	if result.OK || result.NextAction != "aigw doctor" || !ok || state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" ||
+		state.Route != "claude" || state.Account != "team" || state.Detail != "Credential metadata is unavailable" {
 		t.Fatalf("canonical clients = %#v\n%s", result.Clients, out.String())
 	}
 
 	out.Reset()
-	if err := executeDoctorCommand(newCommand(deps, inspect)); err == nil {
+	if err := executeDoctorCommand(NewCommand(deps)); err == nil {
 		t.Fatal("doctor succeeded despite an unavailable client capability")
 	}
 	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Unavailable") || !strings.Contains(out.String(), "aigw doctor") || strings.Contains(out.String(), "No problems found") {
@@ -461,12 +454,12 @@ func TestCommandPropagatesWriterFailures(t *testing.T) {
 	}
 	want := errors.New("write failed")
 	deps.Out = failingWriter{err: want}
-	cmd := newCommand(deps, nil)
+	cmd := NewCommand(deps)
 	cmd.SetArgs([]string{"--json"})
 	if err := executeDoctorCommand(cmd); !errors.Is(err, want) {
 		t.Fatalf("JSON write error = %v", err)
 	}
-	if err := executeDoctorCommand(newCommand(deps, nil)); !errors.Is(err, want) {
+	if err := executeDoctorCommand(NewCommand(deps)); !errors.Is(err, want) {
 		t.Fatalf("render error = %v", err)
 	}
 }
@@ -476,10 +469,10 @@ func TestCommandPropagatesWriterFailureWhilePresentingProblems(t *testing.T) {
 	deps, _, _ := doctorDependencies(t, cfg)
 	want := errors.New("write failed")
 	deps.Out = failingWriter{err: want}
-	if err := executeDoctorCommand(newCommand(deps, nil)); !errors.Is(err, want) {
+	if err := executeDoctorCommand(NewCommand(deps)); !errors.Is(err, want) {
 		t.Fatalf("problem render error = %v", err)
 	}
-	cmd := newCommand(deps, nil)
+	cmd := NewCommand(deps)
 	cmd.SetArgs([]string{"--json"})
 	if err := executeDoctorCommand(cmd); !errors.Is(err, want) {
 		t.Fatalf("problem JSON write error = %v", err)

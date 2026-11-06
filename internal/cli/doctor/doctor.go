@@ -87,15 +87,8 @@ var forbiddenClientTokenEnvironmentNames = []string{
 	"OPENAI_API_KEY",
 }
 
-// inspector observes the canonical state of every admitted client.
-type inspector func(app.Dependencies, domain.Config) map[string]domainreadiness.Client
-
 // NewCommand constructs the diagnostic command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	return newCommand(runtime, clientStates)
-}
-
-func newCommand(runtime invocation.Context, inspect inspector) *cobra.Command {
 	var jsonMode bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
@@ -104,7 +97,8 @@ func newCommand(runtime invocation.Context, inspect inspector) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			operation := runtime.Dependencies
 			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
-			result := collectResult(cmd.Context(), operation, inspect)
+			result := collectResult(cmd.Context(), operation)
+			observeClients(&result, operation)
 			if jsonMode {
 				if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result.document()); err != nil {
 					return err
@@ -162,7 +156,7 @@ func newCommand(runtime invocation.Context, inspect inspector) *cobra.Command {
 	return cmd
 }
 
-func collectResult(ctx context.Context, deps app.Dependencies, inspect inspector) commandResult {
+func collectResult(ctx context.Context, deps app.Dependencies) commandResult {
 	backend, backendErr := secret.Inspect(deps.Secrets)
 	checks := collectChecks(ctx, deps)
 	if backendErr != nil {
@@ -175,13 +169,20 @@ func collectResult(ctx context.Context, deps app.Dependencies, inspect inspector
 	result := commandResult{
 		CredentialBackend: backend,
 		Checks:            checks,
-		Clients:           inspectClients(deps, inspect),
 		OK:                allOK(checks),
 		OKScope:           "local_diagnostics",
 	}
 	if !result.OK {
 		result.NextAction = nextAction(checks)
 	}
+	return result
+}
+
+// observeClients completes result with the canonical state of every admitted
+// client and the activation that the clients leave. Client inspection does not
+// take the command's context, as for status and check.
+func observeClients(result *commandResult, deps app.Dependencies) {
+	result.Clients = inspectClients(deps)
 	for _, spec := range deps.Config.Admission().Specs() {
 		client, observed := result.Clients[spec.ID]
 		if !observed {
@@ -204,9 +205,8 @@ func collectResult(ctx context.Context, deps app.Dependencies, inspect inspector
 		}
 	}
 	if cfg, err := deps.Config.Load(); err == nil {
-		applyActivation(&result, cfg, deps.Secrets)
+		applyActivation(result, cfg, deps.Secrets)
 	}
-	return result
 }
 
 func applyActivation(result *commandResult, cfg domain.Config, store secret.Store) {
@@ -230,26 +230,20 @@ func applyActivation(result *commandResult, cfg domain.Config, store secret.Stor
 	}
 }
 
-// clientStates returns the canonical, secret-free local state of every
-// admitted client without authenticating an endpoint or reading Token values.
-func clientStates(deps app.Dependencies, cfg domain.Config) map[string]domainreadiness.Client {
+// inspectClients returns the canonical, secret-free local state of every
+// admitted client without authenticating an endpoint or reading Token values,
+// and no client when the configuration cannot be read.
+func inspectClients(deps app.Dependencies) map[string]domainreadiness.Client {
+	cfg, err := deps.Config.Load()
+	if err != nil {
+		return map[string]domainreadiness.Client{}
+	}
 	observed := app.InspectStatusClients(deps, cfg, nil, "")
 	clients := make(map[string]domainreadiness.Client, len(observed))
 	for client, status := range observed {
 		clients[client] = status.Client
 	}
 	return clients
-}
-
-func inspectClients(deps app.Dependencies, inspect inspector) map[string]domainreadiness.Client {
-	if inspect == nil {
-		return map[string]domainreadiness.Client{}
-	}
-	cfg, err := deps.Config.Load()
-	if err != nil {
-		return map[string]domainreadiness.Client{}
-	}
-	return inspect(deps, cfg)
 }
 
 func renderClients(renderer *terminal.Renderer, admission domain.Admission, clients map[string]domainreadiness.Client) {

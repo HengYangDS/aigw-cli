@@ -1,11 +1,11 @@
 package doctor
 
 import (
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
-	"aigw-cli/internal/app"
+	"aigw-cli/internal/adapter/codex"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/domain"
 	"aigw-cli/internal/terminal"
 	"bytes"
 	"path/filepath"
@@ -139,30 +139,40 @@ func TestCodexTargetLabelNamesOnlyFilesUnderHome(t *testing.T) {
 	}
 }
 
+// Doctor passes with a configured or deferred client and fails with an invalid
+// or unavailable one. Doctor observes no endpoint, so a client is never
+// endpoint- or inference-checked or degraded here.
 func TestResultClassifiesObservedClientStates(t *testing.T) {
+	notSynchronized := adapter.Status{Issue: "Claude settings are not synchronized with the selected Route", RepairAction: "aigw sync"}
 	for _, test := range []struct {
-		state domainreadiness.State
-		ok    bool
+		state        domainreadiness.State
+		enabled      bool
+		inspection   adapter.Status
+		unobservable bool
+		ok           bool
+		next         string
 	}{
-		{domainreadiness.Configured, true},
-		{domainreadiness.Deferred, true},
-		{domainreadiness.EndpointChecked, true},
-		{domainreadiness.InferenceChecked, true},
-		{domainreadiness.Invalid, false},
-		{domainreadiness.Degraded, false},
-		{domainreadiness.Unavailable, false},
-		{domainreadiness.State("unclassified"), false},
+		{state: domainreadiness.Configured, enabled: true, inspection: adapter.Status{Ready: true}, ok: true},
+		{state: domainreadiness.Deferred, ok: true, next: "aigw use --for claude claude"},
+		{state: domainreadiness.Invalid, enabled: true, inspection: notSynchronized, next: "aigw sync"},
+		{state: domainreadiness.Unavailable, unobservable: true, next: "aigw doctor"},
 	} {
 		t.Run(string(test.state), func(t *testing.T) {
-			deps, out, secretStore := doctorDependencies(t, validDoctorConfig())
+			cfg := validDoctorConfig()
+			delete(cfg.Clients, codex.ID)
+			if test.enabled {
+				cfg.SetClientActivation(claude.ID, true, filepath.Join(t.TempDir(), "claude"), nil)
+			}
+			deps, out, secretStore := doctorDependencies(t, cfg)
 			if err := secretStore.Set("team", "token"); err != nil {
 				t.Fatal(err)
 			}
-			inspect := func(app.Dependencies, domain.Config) map[string]domainreadiness.Client {
-				return map[string]domainreadiness.Client{claude.ID: {State: test.state}}
+			if test.unobservable {
+				deps.Secrets = unobservableSecrets{Store: secretStore}
 			}
-			result := executeJSON(t, newCommand(deps, inspect), out)
-			if result.OK != test.ok || (!test.ok && result.NextAction != "aigw doctor --json") || (test.ok && result.NextAction != "aigw use --for claude claude") {
+			inspectClaude(t, &deps, test.inspection)
+			result := executeJSON(t, NewCommand(deps), out)
+			if result.Clients[claude.ID].State != test.state || result.OK != test.ok || result.NextAction != test.next {
 				t.Fatalf("doctor result=%#v", result)
 			}
 		})
@@ -206,7 +216,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 		t.Fatal(err)
 	}
 	deps.Env = []string{"OPENAI_API_KEY=secret"}
-	checks := executeJSON(t, newCommand(deps, nil), out).Checks
+	checks := executeJSON(t, NewCommand(deps), out).Checks
 	longest := 0
 	for _, check := range checks {
 		longest = max(longest, terminal.DisplayWidth("✓ "+checkLabel(clients.Admission(), check)))
@@ -214,7 +224,7 @@ func TestHumanChecksShareOneValueColumn(t *testing.T) {
 	for _, width := range []int{0, 72, 100} {
 		out.Reset()
 		deps.Width = width
-		if err := executeDoctorCommand(newCommand(deps, nil)); err == nil {
+		if err := executeDoctorCommand(NewCommand(deps)); err == nil {
 			t.Fatal("doctor accepted a global client token environment variable")
 		}
 		_, section, _ := strings.Cut(out.String(), "\nChecks\n")
