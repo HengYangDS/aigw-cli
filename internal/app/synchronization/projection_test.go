@@ -2,8 +2,10 @@ package synchronization
 
 import (
 	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/claudedesktop"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -130,15 +132,30 @@ func TestDesiredClientConfigurationSurfacesCredentialObservationFailures(t *test
 	before.Routes["codex"] = domain.Route{Label: "Codex", Account: "gateway", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	before.SetSelectedRoute(claude.ID, "claude", "")
 	before.SetSelectedRoute(codex.ID, "codex", "")
+	before.SetSelectedRoute(claudedesktop.ID, "claude", "")
+	before.SetSelectedRoute(hermes.ID, "claude", "")
 	want := errors.New("credential observation failed")
 	syncer := Synchronizer{Registry: builtinClients, Secrets: secretReadStub{err: want}, Discovery: staticDiscovery{}}
 
-	for _, client := range []string{claude.ID, codex.ID} {
+	// These clients read the credential store before they check their
+	// executable, so a store failure surfaces even without one.
+	for _, client := range []string{claude.ID, codex.ID, claudedesktop.ID} {
 		enabled := before.Clone()
 		enabled.SetClientActivation(client, true, "", nil)
 		if _, _, err := syncer.DesiredClientConfiguration(enabled, client); !errors.Is(err, want) {
 			t.Fatalf("DesiredClientConfiguration(%q) error = %v, want %v", client, err, want)
 		}
+	}
+	// Hermes activates only a runnable executable and checks it first, so
+	// without one it neither reads the store nor activates.
+	enabled := before.Clone()
+	enabled.SetClientActivation(hermes.ID, true, "", nil)
+	after, _, err := syncer.DesiredClientConfiguration(enabled, hermes.ID)
+	if err != nil {
+		t.Fatalf("DesiredClientConfiguration(hermes) error = %v, want no store read", err)
+	}
+	if binding := after.Clients[hermes.ID]; binding.Executable != "" || len(binding.Targets) != 0 {
+		t.Fatalf("Hermes without a runnable executable was activated: %+v", binding)
 	}
 }
 
