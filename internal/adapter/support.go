@@ -6,13 +6,53 @@ import (
 	"fmt"
 
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 )
 
-// ResolveExecutable keeps a configured executable that is still available and
+// ConvergeBinding is the start that every client adapter's Converge shares.
+// It resolves the client's selected Route, its enabled Client Binding and the
+// executable to keep, and checks that AIGW's credential store holds the
+// selected Account's Token when the Route reads it from there. ready reports
+// whether all of them are present; when it is false, the adapter leaves the
+// client's activation unchanged. With requireRunnable, an executable that is
+// not runnable is not ready, and the credential store is not read.
+func ConvergeBinding(deps Dependencies, cfg *domain.Config, discovered discovery.Result, clientID string, requireRunnable bool) (binding domain.ClientBinding, executable string, ready bool, err error) {
+	runtime, err := cfg.ResolveRuntime(clientID, "")
+	if _, unselected := errors.AsType[*domain.RuntimeBindingUnselectedError](err); unselected {
+		return domain.ClientBinding{}, "", false, nil
+	}
+	if err != nil {
+		return domain.ClientBinding{}, "", false, err
+	}
+	binding, configured := cfg.Clients[clientID]
+	if !configured || !binding.Enabled {
+		return domain.ClientBinding{}, "", false, nil
+	}
+	executable, err = resolveExecutable(clientID, binding.Executable, discovered.Executable(clientID))
+	if err != nil {
+		return domain.ClientBinding{}, "", false, err
+	}
+	if requireRunnable {
+		runnable, err := discovery.ExecutableAvailable(executable)
+		if err != nil || !runnable {
+			return domain.ClientBinding{}, "", false, err
+		}
+	}
+	available := !runtime.UsesAIGWCredentialStore()
+	if runtime.UsesAIGWCredentialStore() {
+		available, err = SecretAvailable(deps.Secrets, runtime.AccountID)
+		if err != nil {
+			return domain.ClientBinding{}, "", false, err
+		}
+	}
+	return binding, executable, executable != "" && available, nil
+}
+
+// resolveExecutable keeps a configured executable that is still available and
 // otherwise adopts the discovered one.
-func ResolveExecutable(clientID, configured, discovered string) (string, error) {
+func resolveExecutable(clientID, configured, discovered string) (string, error) {
 	available, err := discovery.ExecutableAvailable(configured)
 	if err != nil {
 		return "", fmt.Errorf("inspect configured %s executable: %w", clientID, err)

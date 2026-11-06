@@ -60,46 +60,20 @@ func homeDirectory(host discovery.Host) string {
 }
 
 func (hermesAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
-	selected, err := cfg.ResolveRuntime(ID, "")
-	if _, absent := errors.AsType[*domain.RuntimeBindingUnselectedError](err); absent {
-		return nil
-	}
-	if err != nil {
+	// Hermes activates only a runnable executable, which it checks before it
+	// reads the secret store.
+	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID, true)
+	if err != nil || !ready {
 		return err
 	}
-	clientAdapter, explicitlyConfigured := cfg.Clients[ID]
-	if !explicitlyConfigured || !clientAdapter.Enabled {
-		return nil
-	}
-	executable, err := adapter.ResolveExecutable(ID, clientAdapter.Executable, discovered.Executable(ID))
-	if err != nil {
-		return err
-	}
-	available, err := discovery.ExecutableAvailable(executable)
-	if err != nil {
-		return err
-	}
-	if !available {
-		return nil
-	}
-	credentialAvailable := !selected.UsesAIGWCredentialStore()
-	if selected.UsesAIGWCredentialStore() {
-		credentialAvailable, err = adapter.SecretAvailable(deps.Secrets, selected.AccountID)
-		if err != nil {
-			return err
-		}
-	}
-	if !credentialAvailable {
-		return nil
-	}
-	if len(clientAdapter.Targets) == 0 {
+	if len(binding.Targets) == 0 {
 		surface, found := discovered.Surface(hermesSurface)
 		if !found || surface.ConfigPath == "" {
 			return nil
 		}
-		clientAdapter.Targets = []string{surface.ConfigPath}
+		binding.Targets = []string{surface.ConfigPath}
 	}
-	cfg.SetClientActivation(ID, true, executable, clientAdapter.Targets)
+	cfg.SetClientActivation(ID, true, executable, binding.Targets)
 	return nil
 }
 

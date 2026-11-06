@@ -63,30 +63,11 @@ func (claudeDesktopAdapter) Discover(source adapter.DiscoverySource) discovery.R
 }
 
 func (claudeDesktopAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
-	runtime, err := cfg.ResolveRuntime(ID, "")
-	if err != nil {
-		if _, unselected := errors.AsType[*domain.RuntimeBindingUnselectedError](err); unselected {
-			return nil
-		}
+	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID, false)
+	if err != nil || !ready {
 		return err
 	}
-	binding, explicitlyConfigured := cfg.Clients[ID]
-	if !explicitlyConfigured || !binding.Enabled {
-		return nil
-	}
-	executable, err := adapter.ResolveExecutable(ID, binding.Executable, discovered.Executable(ID))
-	if err != nil {
-		return err
-	}
-	available := !runtime.UsesAIGWCredentialStore()
-	if runtime.UsesAIGWCredentialStore() {
-		available, err = adapter.SecretAvailable(deps.Secrets, runtime.AccountID)
-		if err != nil {
-			return err
-		}
-	}
-	target := claudeDesktopTarget(binding.Targets, discovered)
-	if executable != "" && target != "" && available {
+	if target := claudeDesktopTarget(binding.Targets, discovered); target != "" {
 		cfg.SetClientActivation(ID, true, executable, []string{target})
 	}
 	return nil

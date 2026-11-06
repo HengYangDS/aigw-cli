@@ -2,7 +2,6 @@ package claude
 
 import (
 	"context"
-	"errors"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
@@ -35,31 +34,11 @@ func (claudeAdapter) Discover(source adapter.DiscoverySource) discovery.Result {
 }
 
 func (claudeAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
-	runtime, err := cfg.ResolveRuntime(ID, "")
-	if err != nil {
-		if _, unselected := errors.AsType[*domain.RuntimeBindingUnselectedError](err); unselected {
-			return nil
-		}
+	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID, false)
+	if err != nil || !ready {
 		return err
 	}
-	clientAdapter, explicitlyConfigured := cfg.Clients[ID]
-	if !explicitlyConfigured || !clientAdapter.Enabled {
-		return nil
-	}
-	executable, err := adapter.ResolveExecutable(ID, clientAdapter.Executable, discovered.Executable(ID))
-	if err != nil {
-		return err
-	}
-	available := !runtime.UsesAIGWCredentialStore()
-	if runtime.UsesAIGWCredentialStore() {
-		available, err = adapter.SecretAvailable(deps.Secrets, runtime.AccountID)
-		if err != nil {
-			return err
-		}
-	}
-	if executable != "" && available {
-		cfg.SetClientActivation(ID, true, executable, clientAdapter.Targets)
-	}
+	cfg.SetClientActivation(ID, true, executable, binding.Targets)
 	return nil
 }
 

@@ -75,30 +75,11 @@ func (codexAdapter) ValidateTarget(discovered discovery.Result, path string) err
 }
 
 func (codexAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
-	runtime, err := cfg.ResolveRuntime(ID, "")
-	if err != nil {
-		if _, unselected := errors.AsType[*domain.RuntimeBindingUnselectedError](err); unselected {
-			return nil
-		}
+	binding, executable, ready, err := adapter.ConvergeBinding(deps, cfg, discovered, ID, false)
+	if err != nil || !ready {
 		return err
 	}
-	binding, explicitlyConfigured := cfg.Clients[ID]
-	if !explicitlyConfigured || !binding.Enabled {
-		return nil
-	}
-	targets := convergedTargets(discovered, binding.Targets)
-	executable, err := adapter.ResolveExecutable(ID, binding.Executable, discovered.Executable(ID))
-	if err != nil {
-		return err
-	}
-	available := !runtime.UsesAIGWCredentialStore()
-	if runtime.UsesAIGWCredentialStore() {
-		available, err = adapter.SecretAvailable(deps.Secrets, runtime.AccountID)
-		if err != nil {
-			return err
-		}
-	}
-	if executable != "" && len(targets) > 0 && available {
+	if targets := convergedTargets(discovered, binding.Targets); len(targets) > 0 {
 		cfg.SetClientActivation(ID, true, executable, targets)
 	}
 	return nil
