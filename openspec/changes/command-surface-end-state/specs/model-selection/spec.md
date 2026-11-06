@@ -36,9 +36,8 @@ SHALL keep its own selection, and there SHALL be no global selection.
 ### Requirement: Selection prompts only in a terminal
 
 `aigw use` with a missing argument SHALL prompt only in a terminal and without
-`--json`, through filterable lists that show recommended models first.
-Otherwise it SHALL refuse as `command-line` requires of every command, before
-it takes the configuration lock, reads a Token or a catalog, or writes anything.
+`--json`, through filterable lists that show recommended models first, and
+SHALL otherwise refuse as `command-line` requires of every command.
 
 #### Scenario: A terminal prompts for what is missing
 
@@ -48,13 +47,6 @@ it takes the configuration lock, reads a Token or a catalog, or writes anything.
   for a client that can use the model
 - **AND** every model list SHALL be filterable and show recommended models
   first.
-
-#### Scenario: A script omits an argument
-
-- **WHEN** `aigw use codex` runs from a pipe, in CI or with `--json`
-- **THEN** it SHALL refuse as `command-line` requires, naming the missing
-  `<provider/model>` argument
-- **AND** it SHALL read no Token and write no configuration or client file.
 
 ### Requirement: Using a model adds it after the catalog check
 
@@ -88,13 +80,14 @@ read no catalog.
 - **WHEN** `aigw use` or `aigw model add` runs with `--unlisted`
 - **THEN** AIGW SHALL add the model without reading the provider's catalog.
 
-#### Scenario: Using a model that has not been added is previewed
+#### Scenario: Adding a model is previewed
 
-- **WHEN** `aigw use <client> <provider/model> --dry-run` names a model that
-  has not been added
-- **THEN** it SHALL report the addition and the selection, and say that the
+- **WHEN** `aigw use <client> <provider/model>` or `aigw model add` runs with
+  `--dry-run` for a model that has not been added
+- **THEN** it SHALL read no catalog, report the addition and say that the
   catalog listing was not checked
-- **AND** it SHALL read no catalog and no Token, and write nothing.
+- **AND** `aigw use` SHALL also report the selection, read no Token and write
+  nothing.
 
 ### Requirement: The client decides a model's protocol
 
@@ -126,7 +119,9 @@ prompt or `--protocol`, and SHALL NOT infer one from a catalog or a name.
 - **WHEN** Hermes selects a model with several compatible protocols and no
   current or recommended protocol applies
 - **THEN** a selection in a terminal SHALL offer each compatible protocol
-- **AND** a non-interactive selection SHALL refuse, naming `--protocol`
+- **AND** a non-interactive selection SHALL refuse with the Fix
+  `aigw use <client> <provider/model> --protocol <a|b>`, with the client, the
+  model and the compatible protocols filled in
 - **AND** a failed or incompatible choice SHALL leave every selection
   unchanged.
 
@@ -137,30 +132,16 @@ prompt or `--protocol`, and SHALL NOT infer one from a catalog or a name.
 - **THEN** validation SHALL probe only the chosen protocol and endpoint
 - **AND** a failed probe SHALL NOT store the Token or change the selection.
 
-#### Scenario: A non-interactive refusal names its retry
-
-- **WHEN** a non-interactive selection refuses because more than one protocol
-  is compatible
-- **THEN** its Fix SHALL be
-  `aigw use <client> <provider/model> --protocol <a|b>`, with the client, the
-  model and the compatible protocols filled in
-- **AND** JSON SHALL carry that Fix as `next_detail`, because it asks for a
-  choice.
-
 ### Requirement: Selection fails closed instead of guessing
 
 AIGW SHALL NOT infer a client, model or capability, or choose among protocols
 that a client and a provider share, from identifiers, families, endpoint
-presence, another client's selection or declaration order. A family SHALL come
-only from `--family`, a team file or an existing family whose ID equals the
-model ID, ignoring case, and never from part of an ID.
+presence, another client's selection or declaration order.
 
 #### Scenario: A client has no selected model
 
 - **WHEN** an operation requires a client that has no selected model
 - **THEN** AIGW SHALL report that exact missing selection
-- **AND** SHALL name `aigw use <client> <provider/model>` with the client
-  filled in
 - **AND** SHALL NOT substitute another client's model.
 
 ### Requirement: An added model takes only the family with its ID
@@ -223,13 +204,10 @@ the committed configuration or credentials.
 #### Scenario: A selection needs a missing Token
 
 - **WHEN** the selected model's provider has no Token
-- **THEN** `aigw use` in a terminal SHALL prompt for it and validate it with
-  one authenticated request before storing it
-- **AND** without a terminal it SHALL refuse and name
-  `aigw provider rotate <provider>`, or the environment variable to set when
-  Tokens come from the environment
-- **AND** with `--dry-run` it SHALL neither prompt for nor validate a Token,
-  and SHALL report it as missing.
+- **THEN** `aigw use` in a terminal SHALL prompt for it and store it only after
+  the validation that `secret-storage` requires
+- **AND** without a terminal it SHALL refuse, and with `--dry-run` report the
+  Token as missing, without prompting, as `command-line` requires.
 
 #### Scenario: Re-select the active model
 
@@ -484,14 +462,14 @@ configuration, Tokens, other clients and neighboring user state.
   rollback source
 - **AND** no verified snapshot continues to claim the withdrawn files.
 
-### Requirement: Synchronization adopts the model chosen in Hermes
+### Requirement: Synchronization adopts a Hermes or Codex model choice
 
-When Hermes' own model selection changed to another model in the catalog that
-AIGW wrote, and nothing else that AIGW owns in the Hermes configuration
-changed, `aigw sync` SHALL record the matching model as Hermes's selection
-instead of refusing. The match SHALL use the provider and protocol of the
-Hermes provider entry and the model's exact ID, and synchronization SHALL NOT
-rewrite Hermes's choice.
+When Hermes's or Codex's own model selection changed to another added model,
+and nothing else that AIGW owns in that client's configuration changed,
+`aigw sync` SHALL record that model as the client's selection instead of
+refusing, and SHALL NOT rewrite the choice. The match SHALL use the model's
+exact ID and the provider and protocol of the Hermes provider entry, or those
+of Codex's selection.
 
 #### Scenario: The operator picks another listed model in Hermes
 
@@ -502,36 +480,6 @@ rewrite Hermes's choice.
 - **AND** the result SHALL report the adopted model
 - **AND** other clients, credentials and Hermes sessions SHALL remain
   unchanged.
-
-#### Scenario: No added model matches the native choice
-
-- **WHEN** no added model has the provider entry's provider and protocol and
-  the chosen ID
-- **THEN** synchronization SHALL fail without changing configuration or client
-  files
-- **AND** it SHALL name `aigw use hermes` with that provider and model.
-
-#### Scenario: Other managed Hermes settings changed
-
-- **WHEN** a managed provider entry, endpoint or credential command changed
-  outside AIGW
-- **THEN** synchronization SHALL refuse without changing configuration or
-  client files.
-
-#### Scenario: An explicit selection names another model
-
-- **WHEN** the operator runs `aigw use hermes <provider/model>` after choosing
-  a different model in Hermes
-- **THEN** AIGW SHALL write the named model, not the native choice.
-
-### Requirement: Synchronization adopts the model chosen in Codex
-
-When Codex's own model selection changed to the ID of another added model of
-the selected provider and protocol, and no other value that AIGW owns in that
-Codex configuration file changed, `aigw sync` SHALL record that model as
-Codex's selection instead of refusing. It SHALL NOT rewrite the chosen model
-or adopt a changed provider, provider table, scheduler, catalog or credential
-command.
 
 #### Scenario: The operator picks another model of the same provider in Codex
 
@@ -545,84 +493,50 @@ command.
 
 #### Scenario: No added model matches the native choice
 
-- **WHEN** no added model of the selected provider and protocol has the chosen
-  ID
+- **WHEN** no added model has the chosen ID and the provider and protocol that
+  the match uses
 - **THEN** synchronization SHALL fail without changing configuration or client
   files
-- **AND** its Fix SHALL be `aigw use codex <provider>/<model>` for that
+- **AND** its Fix SHALL be `aigw use <client> <provider>/<model>` for that
   provider and the chosen ID.
 
-#### Scenario: Other managed Codex settings changed
+#### Scenario: Other managed settings changed
 
-- **WHEN** the provider selection, the provider table, the scheduler or the
-  catalog changed outside AIGW, with or without a model change
+- **WHEN** a managed Hermes provider entry, endpoint or credential command, or
+  Codex's provider selection, provider table, scheduler, catalog or credential
+  command changed outside AIGW, with or without a model change
 - **THEN** synchronization SHALL refuse without changing configuration or
   client files.
 
 #### Scenario: An explicit selection names another model
 
-- **WHEN** the operator runs `aigw use codex <provider/model>` after choosing a
-  different model in Codex
+- **WHEN** the operator runs `aigw use <client> <provider/model>` for Hermes or
+  Codex after choosing a different model in that client
 - **THEN** AIGW SHALL write the named model, not the native choice.
 
 ### Requirement: Checking a named model leaves every selection unchanged
 
-`aigw check` SHALL NOT change a client's selection or client configuration
-files. `--model <provider/model>` SHALL require exactly one named client, a
-retry that a check names SHALL keep the same client and model, and a
-`client`-depth check SHALL run the real client privately, reaching the
-operator's user-owned files without copying or owning them.
+`aigw check <client> --model <provider/model>` SHALL check that model instead
+of the client's selection and SHALL NOT change any selection, client
+configuration file, Token or configuration. `--model` SHALL require exactly one
+named client, a retry that the check names SHALL keep its client and model, and
+`--token-stdin` SHALL require `--model` and the `endpoint` or `model` depth.
+`cli-readiness` owns the depths and `secret-storage` the one-time Token.
 
 #### Scenario: Check a named model at the endpoint depth
 
 - **WHEN** the operator runs
   `aigw check codex --model ucloud/gpt-6.1-sol --depth endpoint`
-- **THEN** only that model's provider endpoint and credential boundary are
+- **THEN** only that model's provider endpoint and credential boundary SHALL be
   checked
-- **AND** no client configuration file or selection changes.
+- **AND** no selection, client configuration file, Token or configuration SHALL
+  change.
 
-#### Scenario: Check a named model in a real client session
+#### Scenario: A named-model check lacks its scope
 
-- **WHEN** the operator runs
-  `aigw check <client> --model <provider/model> --depth client`
-- **THEN** AIGW SHALL run that client with a private client configuration
-- **AND** SHALL require successful completion from the real client
-- **AND** an HTTP request alone SHALL NOT establish the client result.
-
-#### Scenario: Check every enabled client
-
-- **WHEN** `aigw check --depth client` runs without a named client
-- **THEN** each enabled client SHALL be checked independently
-- **AND** `--model` SHALL be refused there, because one model cannot stand in
-  for several clients' selections.
-
-#### Scenario: Check a named model with a one-time Token
-
-- **WHEN** `aigw check <client> --model <provider/model> --token-stdin` runs at
-  the `endpoint` or `model` depth
-- **THEN** only that model's provider endpoint SHALL receive the Token, as
-  read, without decoding a storage envelope
-- **AND** the credential store, configuration and client files SHALL stay
-  unchanged
-- **AND** `--token-stdin` without `--model`, or at the `local` or `client`
-  depth, SHALL be refused before standard input is read.
-
-#### Scenario: A client session leaves operator extensions out
-
-- **WHEN** a `client`-depth check runs a real client
-- **THEN** the client SHALL run in a private home or its native isolation mode
-  without starting the operator's MCP servers, plugins, hooks, notifications or
-  memory providers
-- **AND** an operator extension that cannot start or authorize there SHALL NOT
-  decide the result.
-
-#### Scenario: A Hermes session starts no operator extension
-
-- **WHEN** a `client`-depth check runs Hermes, and the operator's Hermes
-  configuration names MCP servers, shell hooks or hook consent
-- **THEN** the private home SHALL name no MCP servers and no shell hooks and
-  SHALL carry no hook consent
-- **AND** the operator's Hermes configuration SHALL stay unchanged.
+- **WHEN** `aigw check` gets `--model` without exactly one named client, or
+  `--token-stdin` without `--model` or at the `local` or `client` depth
+- **THEN** it SHALL refuse before it reads standard input or sends a request.
 
 #### Scenario: A check of a named model names its retry
 
@@ -633,132 +547,126 @@ operator's user-owned files without copying or owning them.
 - **AND** the same outcome without `--model` SHALL name
   `aigw check <client> --depth client`.
 
-#### Scenario: The operator's Codex catalog is relative to its configuration
+### Requirement: A client-depth check runs the client privately
 
-- **WHEN** the operator's own `model_catalog_json` is a path relative to the
-  Codex configuration that names it
-- **THEN** the private client configuration SHALL name the same catalog file
-  by its absolute path
-- **AND** the catalog and the operator's configuration SHALL stay unchanged,
-  and AIGW SHALL NOT take ownership of the catalog.
+A `client`-depth check SHALL run the real client privately, with a private
+client configuration that reaches the operator's user-owned files without
+copying or owning them.
 
-#### Scenario: A rooted Windows catalog reference keeps its drive
+#### Scenario: A client session leaves operator extensions out
 
-- **WHEN** on Windows the operator's own `model_catalog_json` is rooted
-  without a drive, such as `\catalogs\models.json`
-- **THEN** the private client configuration SHALL name that path on the drive
-  of the configuration that names it
+- **WHEN** a `client`-depth check runs a real client
+- **THEN** the client SHALL run in a private home or its native isolation mode
+  without starting the operator's MCP servers, plugins, hooks, notifications or
+  memory providers
+- **AND** an operator extension that cannot start or authorize there SHALL NOT
+  decide the result
+- **AND** for Hermes the private home SHALL name no MCP servers or shell hooks
+  and carry no hook consent, and the operator's configuration SHALL stay
+  unchanged.
+
+#### Scenario: The operator's Codex catalog is not an absolute path
+
+- **WHEN** the operator's own `model_catalog_json` is relative to the Codex
+  configuration that names it, or on Windows rooted without a drive, such as
+  `\catalogs\models.json`
+- **THEN** the private client configuration SHALL name that file by its
+  absolute path, on the drive of that configuration for a rooted path
 - **AND** a reference that names a drive without a root, such as
-  `D:models.json`, SHALL stay unchanged.
+  `D:models.json`, the catalog and the operator's configuration SHALL stay
+  unchanged, and AIGW SHALL NOT take ownership of the catalog.
 
 ## REMOVED Requirements
 
 ### Requirement: Route selection is explicitly client-scoped
 
-**Reason**: Routes become models named `provider/model`, and
-`aigw use <client> <provider/model>` replaces `aigw use --for`.
+**Reason**: `aigw use <client> <provider/model>` replaces `aigw use --for`.
 
 **Migration**: Read "A client uses one model" and "Selection prompts only in a
-terminal" in this capability.
+terminal".
 
 ### Requirement: Connectivity and verification use explicit Route semantics
 
-**Reason**: `aigw check` replaces `aigw test` and `aigw verify`, and
-`--model <provider/model>` replaces `--route`.
+**Reason**: `check --model` replaces `test --route` and `verify --route`.
 
 **Migration**: Read "Checking a named model leaves every selection unchanged"
-in this capability.
+and "A client-depth check runs the client privately".
 
 ### Requirement: Ambiguous or incompatible selection fails closed
 
-**Reason**: A model that lacks the client's protocol now gains it after the
-catalog check, so only a provider without an endpoint for the client's
-protocols is refused.
+**Reason**: Selection now adds a missing client protocol instead of refusing.
 
 **Migration**: Read "Selection fails closed instead of guessing" and "The
-client decides a model's protocol" in this capability.
+client decides a model's protocol".
 
 ### Requirement: Selection owns one guarded transaction
 
 **Reason**: Adding a model joins the selection's transaction.
 
-**Migration**: Read "A selection commits in one guarded transaction" in this
-capability.
+**Migration**: Read "A selection commits in one guarded transaction".
 
 ### Requirement: Provider preference is advisory control-plane input
 
 **Reason**: Accounts and Routes become providers and models.
 
-**Migration**: Read "Recommendations are advisory" in this capability.
+**Migration**: Read "Recommendations are advisory".
 
 ### Requirement: Ambiguous client protocols require an explicit choice
 
-**Reason**: Flag-driven setup is removed, and `aigw use` may add a protocol to
-a model.
+**Reason**: Flag-driven setup goes, and `aigw use` may add a protocol.
 
-**Migration**: Read "The client decides a model's protocol" in this
-capability.
+**Migration**: Read "The client decides a model's protocol".
 
 ### Requirement: Forwarding selection belongs to one Client Binding
 
-**Reason**: `aigw client edit --via` and `--direct` replace the forwarding
-flags of `aigw use`.
+**Reason**: `aigw client edit --via` and `--direct` replace `use`'s forwarding.
 
-**Migration**: Read "Forwarding belongs to one client" in this capability.
+**Migration**: Read "Forwarding belongs to one client".
 
 ### Requirement: Hermes selection says existing sessions keep their route
 
 **Reason**: Routes become models named `provider/model`.
 
-**Migration**: Read "Hermes selection says existing sessions keep their model"
-in this capability.
+**Migration**: Read "Hermes selection says existing sessions keep their model".
 
 ### Requirement: Retry policy belongs to one client connection
 
-**Reason**: A move to another provider now clears the retry budgets instead of
-requiring explicit retry intent.
+**Reason**: A provider change now clears retry budgets, needing no retry intent.
 
 **Migration**: Read "Retry budgets belong to one client" and "Forwarding
-follows the upstream endpoint and retry budgets follow the provider" in this
-capability.
+follows the upstream endpoint and retry budgets follow the provider".
 
 ### Requirement: Retry policy preserves guarded recovery
 
-**Reason**: The program-rollback probe of the retry policy goes, because the
-previous program reads its own configuration files, which stay unchanged.
+**Reason**: The program-rollback probe goes, because the previous program reads
+its own configuration files, which stay unchanged.
 
-**Migration**: Read "Retry budgets keep guarded recovery" in this capability;
-`credential-continuity` owns what `aigw self rollback` stages.
+**Migration**: Read "Retry budgets keep guarded recovery", and
+`credential-continuity` for what `aigw self rollback` stages.
 
 ### Requirement: Forwarding keeps the upstream it records
 
-**Reason**: Forwarding is now cleared, and reported, whenever the client's
-upstream endpoint changes, instead of refusing the change; providers are not
-renamed, and no earlier program reads the new verified snapshot.
+**Reason**: Forwarding is now cleared and reported, not refused, when the
+client's upstream endpoint changes, providers are not renamed, and no earlier
+program reads the new verified snapshot.
 
 **Migration**: Read "Forwarding follows the upstream endpoint and retry budgets
-follow the provider" in this capability.
+follow the provider".
 
 ### Requirement: Client deactivation is ownership-bounded
 
-**Reason**: Client Bindings become client selections, and `aigw self uninstall`
-replaces `aigw uninstall`.
+**Reason**: Client Bindings become selections, and `uninstall` moves to `self`.
 
-**Migration**: Read "Disabling a client withdraws only what AIGW wrote" in this
-capability.
+**Migration**: Read "Disabling a client withdraws only what AIGW wrote".
 
 ### Requirement: Synchronization adopts a Hermes model choice
 
-**Reason**: A model's name is unique within its provider, so several matches
-cannot occur.
+**Reason**: Model IDs are unique per provider, so a match cannot be ambiguous.
 
-**Migration**: Read "Synchronization adopts the model chosen in Hermes" in this
-capability.
+**Migration**: Read "Synchronization adopts a Hermes or Codex model choice".
 
 ### Requirement: Synchronization adopts a Codex model choice
 
-**Reason**: A model's name is unique within its provider, so several matches
-cannot occur.
+**Reason**: Model IDs are unique per provider, so a match cannot be ambiguous.
 
-**Migration**: Read "Synchronization adopts the model chosen in Codex" in this
-capability.
+**Migration**: Read "Synchronization adopts a Hermes or Codex model choice".

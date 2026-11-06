@@ -47,11 +47,6 @@ model. Only `[clients.<id>]` SHALL own a client's selected model, protocol,
 authentication, `model_provider`, enabled intent and client-only options. Each
 capability requires separate proof.
 
-#### Scenario: A model ID contains a slash
-
-- **WHEN** a command receives `aihubmix/openai/gpt-oss` as a model
-- **THEN** it SHALL resolve provider `aihubmix` and model ID `openai/gpt-oss`.
-
 #### Scenario: A provider repeats a model ID
 
 - **WHEN** a team file or `aigw.toml` gives one provider the same model ID twice
@@ -156,11 +151,6 @@ without `[clients]`.
 - **AND** a recommendation that names it SHALL fail validation
 - **AND** only a team file, or the one-time import, SHALL set `deprecated`.
 
-#### Scenario: A client's settings stay in its table
-
-- **WHEN** a client declares `authentication` or `model_provider`
-- **THEN** `aigw.toml` SHALL hold them under `[clients.<id>]`.
-
 #### Scenario: A model is its own family
 
 - **WHEN** a model omits `family`
@@ -208,8 +198,8 @@ SHALL clear those on that protocol.
 
 ### Requirement: Adding a model applies the catalog check and selects nothing
 
-`aigw model add <provider/model>` SHALL apply the catalog check of `aigw use`,
-unless `--unlisted` is given, and SHALL select the model for no client. Its
+`aigw model add <provider/model>` SHALL apply the catalog check that
+`model-selection` defines and SHALL select the model for no client. Its
 `--protocol` SHALL be optional only for a provider with one endpoint. Without
 `--family` it SHALL follow the family rule of `model-selection`, and an unknown
 `--family` SHALL create that family, labelled from the model.
@@ -219,24 +209,7 @@ unless `--unlisted` is given, and SHALL select the model for no client. Its
 - **WHEN** `aigw model add <provider/model>` adds a model
 - **THEN** no client's selection SHALL change
 - **AND** client configuration files that list that provider's models SHALL
-  change in the same transaction
-- **AND** a model or protocol that `aigw use` adds SHALL update those files too,
-  as `model-selection` states.
-
-#### Scenario: The catalog check refuses the model
-
-- **WHEN** the provider's catalog does not list the model ID, cannot be read or
-  lists no model
-- **THEN** `aigw model add` SHALL refuse before any write, naming the closest
-  listed IDs when the catalog lists any
-- **AND** otherwise its Fix SHALL be the same command with `--unlisted`, which
-  reads no catalog.
-
-#### Scenario: Preview an addition
-
-- **WHEN** `aigw model add <provider/model> --dry-run` runs
-- **THEN** it SHALL read no catalog, report the model and say that the listing
-  was not checked.
+  change in the same transaction.
 
 #### Scenario: The endpoints decide whether a protocol is needed
 
@@ -311,62 +284,6 @@ models that declare one protocol.
 - **WHEN** `aigw model list --client claude` runs
 - **THEN** it SHALL list only the models that declare a protocol Claude Code
   speaks.
-
-### Requirement: Model search reads authenticated catalogs
-
-`aigw model search [query]` SHALL read the authenticated catalog of every
-provider, or of each provider named with repeatable `--provider`, and print
-once, under its provider, each model that matches the query, with its state. It
-SHALL read each distinct protocol source once, concurrently, within the existing
-15-second bound. A provider whose catalog cannot be read SHALL get one line with
-its fix, and the command SHALL then exit 1.
-
-#### Scenario: Search two providers
-
-- **WHEN** `aigw model search sonnet --provider dmxapi --provider ucloud` runs
-- **THEN** each provider SHALL appear once, with each matching model on one
-  line as `provider/model` with its state
-- **AND** a model that several protocol sources list SHALL appear once
-- **AND** JSON output SHALL keep which protocol source listed each model.
-
-#### Scenario: One catalog cannot be read
-
-- **WHEN** the catalog of one selected provider cannot be read
-- **THEN** that provider SHALL get one line that names its fix
-- **AND** the other providers SHALL still print their models
-- **AND** the command SHALL exit 1.
-
-#### Scenario: A provider is read on one protocol but not another
-
-- **WHEN** one protocol source of a provider can be read and another cannot
-- **THEN** search SHALL show the models that it got and name the failed source
-- **AND** it SHALL report no model of that provider as `missing`
-- **AND** the command SHALL exit 1.
-
-### Requirement: Catalogs are observations, not authority
-
-A provider catalog SHALL count only as evidence of what the provider lists when
-it is read. A newly listed model SHALL NOT change the configuration,
-recommendations, client selections or client configuration files until an
-operator adds it. A model that a catalog no longer lists SHALL NOT be treated
-as withdrawn, renamed or incompatible.
-
-#### Scenario: A provider lists a new model
-
-- **WHEN** a catalog read observes a model ID that the configuration does not
-  name
-- **THEN** `aigw model search` SHALL report it as `available`
-- **AND** the configuration, recommendations, client selections and client
-  configuration files SHALL be unchanged
-- **AND** only a team file or the removal of a model SHALL change a
-  recommendation.
-
-#### Scenario: A provider no longer lists an added model
-
-- **WHEN** every protocol source of a provider is read and none lists an added
-  model
-- **THEN** AIGW SHALL keep the model and every client's selection of it
-- **AND** AIGW SHALL NOT infer a rename from a newly listed ID.
 
 ### Requirement: Providers are removed with their models and Tokens
 
@@ -604,12 +521,22 @@ client's model or retry a request automatically.
 
 ### Requirement: Model discovery reports catalog evidence only
 
-`aigw model search` and the catalog checks of `aigw use` and `aigw model add`
-SHALL share one authenticated catalog observation path. Search SHALL report
-each model as `added`, `available`, `missing` or `deprecated`, and a catalog
-it could not observe with its reason. It MUST NOT describe catalog membership
-as inference reachability or client readiness. An incomplete, oversized or
-ambiguous HTTP response SHALL be a failed observation, not partial success.
+`aigw model search [query]` SHALL read the authenticated catalog of every
+provider, or of each that repeatable `--provider` names, and report each
+matching model once under its provider as `added`, `available`, `missing` or
+`deprecated`. It SHALL share one observation path with the catalog checks of
+`aigw use` and `aigw model add`, and a catalog SHALL count only as evidence of
+what its provider lists when read, never as inference reachability or client
+readiness.
+
+#### Scenario: Search two providers
+
+- **WHEN** `aigw model search sonnet --provider dmxapi --provider ucloud` runs
+- **THEN** it SHALL read each distinct protocol source once, concurrently,
+  within the existing 15-second bound
+- **AND** each provider SHALL appear once, with each matching model on one line
+  as `provider/model` with its state, even when several sources list it
+- **AND** JSON output SHALL keep which protocol source listed each model.
 
 #### Scenario: A configured model appears in the catalog
 
@@ -617,19 +544,39 @@ ambiguous HTTP response SHALL be a failed observation, not partial success.
 - **THEN** `aigw model search` reports that model as `added`
 - **AND** performs no inference or client invocation.
 
+#### Scenario: A provider lists a new model
+
+- **WHEN** a catalog read observes a model ID that the configuration does not
+  name
+- **THEN** `aigw model search` SHALL report it as `available`
+- **AND** the configuration, recommendations, client selections and client
+  configuration files SHALL stay unchanged until an operator adds it, and only
+  a team file or the removal of a model SHALL change a recommendation.
+
 #### Scenario: A model is absent from a successfully observed catalog
 
 - **WHEN** every protocol source of a provider is read completely, and none
   lists the ID of an added model
 - **THEN** `aigw model search` reports that model as `missing` rather than
-  unavailable, even when it is deprecated.
+  unavailable, even when it is deprecated
+- **AND** AIGW SHALL NOT treat it as withdrawn, renamed or incompatible: it
+  SHALL keep the model and every client's selection of it and infer no rename
+  from a newly listed ID.
+
+#### Scenario: A provider is read on one protocol but not another
+
+- **WHEN** one protocol source of a provider can be read and another cannot
+- **THEN** search SHALL show the models that it got and name the failed source
+- **AND** it SHALL report no model of that provider as `missing`
+- **AND** the command SHALL exit 1.
 
 #### Scenario: Catalog observation fails
 
 - **WHEN** the Token cannot be observed, the endpoint is absent, the request
   fails, or the response is incomplete or oversized
-- **THEN** that provider has no established model membership
-- **AND** its reason and fix remain visible without blocking other providers.
+- **THEN** that provider has no established model membership, and SHALL get
+  one line with its reason and fix while the other providers still print
+- **AND** the command SHALL exit 1.
 
 #### Scenario: A catalog response is ambiguous
 
@@ -646,59 +593,53 @@ ambiguous HTTP response SHALL be a failed observation, not partial success.
 
 **Reason**: Its scenarios name Accounts, which providers replace.
 
-**Migration**: "Provider endpoints compose with independent products" in this
-capability keeps every scenario under provider names.
+**Migration**: Read "Provider endpoints compose with independent products".
 
 ### Requirement: Models, Routes, and Client Bindings have distinct authority
 
-**Reason**: Providers, models named `provider/model`, families and clients
-replace Accounts, Routes, canonical Models and Client Bindings.
+**Reason**: Providers, models, families and clients replace Accounts, Routes,
+canonical Models and Client Bindings.
 
-**Migration**: "Providers, models, families and clients have distinct
-authority" in this capability; one model for several clients, the family rule,
-the protocol choice and advisory recommendations belong to `model-selection`,
-team-file recommendations to `progressive-team-onboarding`, an unselected client
-to `client-adapters`, and the import's merge of models that share an ID to
+**Migration**: Read "Providers, models, families and clients have distinct
+authority", with selection rules in `model-selection`, team-file
+recommendations in `progressive-team-onboarding`, an unselected client in
+`client-adapters`, and the import of models sharing an ID in
 `credential-continuity`.
 
 ### Requirement: Schema replacement is explicit and reversible
 
-**Reason**: `aigw config migrate` is removed; `aigw sync` imports a schema 6
-configuration once into `aigw.toml`.
+**Reason**: `aigw sync` imports a schema 6 configuration once, replacing
+`aigw config migrate`.
 
-**Migration**: The one-time import, its refusals for other commands and older
-schemas, and its rollback belong to `credential-continuity`; the schema 8 file
-belongs to "One configuration file holds providers, models and families" in
-this capability.
+**Migration**: `credential-continuity` owns the import, its refusals and its
+rollback, and "One configuration file holds providers, models and families"
+the schema 8 file.
 
 ### Requirement: Route and Client Binding compatibility
 
 **Reason**: It mixed configuration compatibility with check, status, doctor
 and setup output that now have their own owners.
 
-**Migration**: "Every client selects a compatible model" in this capability; the
-depths, skips, client-native authentication and missing or unused Tokens of
-`aigw check` in `cli-readiness`; `aigw use` in `model-selection`; team-file
-recommendations in `progressive-team-onboarding`; earlier schemas in
-`credential-continuity`.
+**Migration**: Read "Every client selects a compatible model", with
+`aigw check` in `cli-readiness`, `aigw use` in `model-selection`, team files in
+`progressive-team-onboarding` and earlier schemas in `credential-continuity`.
 
 ### Requirement: Provider catalog evolution is observed before admission
 
 **Reason**: The search states `added`, `available`, `missing` and `deprecated`
 replace the admission states.
 
-**Migration**: "Catalogs are observations, not authority" and "Model search
-reads authenticated catalogs" in this capability; a recommended model that
-stops working in "Recommendations are advisory" in `model-selection`.
+**Migration**: Read "Model discovery reports catalog evidence only", and
+"Recommendations are advisory" in `model-selection` for a recommended model
+that stops working.
 
 ### Requirement: Stored capabilities follow their recorded Route
 
-**Reason**: The separate capability component is removed; each model declares
-its capabilities per protocol in `aigw.toml`, which records no endpoint.
+**Reason**: Each model declares its capabilities per protocol in `aigw.toml`,
+replacing the separate capability component.
 
-**Migration**: "Models declare their protocols and capabilities" in this
-capability, which clears them when a protocol's endpoint changes;
-`credential-continuity` imports schema 6 capabilities once.
+**Migration**: Read "Models declare their protocols and capabilities", and
+`credential-continuity` for the one-time import of schema 6 capabilities.
 
 ## RENAMED Requirements
 
