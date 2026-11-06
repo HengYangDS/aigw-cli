@@ -93,12 +93,7 @@ func resolveImage(name string) (toolImage, error) {
 	if err != nil {
 		return toolImage{}, fmt.Errorf("resolve %s: %w", name, err)
 	}
-	file, err := os.Open(path)
-	if err != nil {
-		return toolImage{}, fmt.Errorf("read %s: %w", path, err)
-	}
-	defer func() { _ = file.Close() }()
-	digest, err := platform.ReadSHA256(file)
+	digest, err := platform.FileSHA256(path)
 	if err != nil {
 		return toolImage{}, fmt.Errorf("read %s: %w", path, err)
 	}

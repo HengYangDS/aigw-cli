@@ -125,7 +125,7 @@ func supplyWindowsInput(getenv func(string) string, runner commandRunner) ([]str
 	if err := runner(download); err != nil {
 		return nil, fmt.Errorf("download native public input: %w", err)
 	}
-	if digest, err := fileSHA256(archive); err != nil || digest != getenv("AIGW_NATIVE_INPUT_SHA256") {
+	if digest, err := platform.FileSHA256(archive); err != nil || digest != getenv("AIGW_NATIVE_INPUT_SHA256") {
 		return nil, errors.Join(errors.New("native public input checksum mismatch"), err)
 	}
 	if err := os.Mkdir(extracted, 0o700); err != nil {
@@ -242,8 +242,8 @@ func runNativeClients(arguments []string, stdout io.Writer, runner commandRunner
 // failure; a failed or interrupted supply also removes it before returning.
 func supplyClients(host, root, githubEnvironment string, release clientRelease, stdout io.Writer, runner commandRunner, interrupted <-chan os.Signal) (err error) {
 	layout, found := clientLayouts[host]
-	platform, _, _ := strings.Cut(host, "/")
-	clients := construction.NativeAcceptanceClients(platform)
+	system, _, _ := strings.Cut(host, "/")
+	clients := construction.NativeAcceptanceClients(system)
 	if !found || len(clients) == 0 {
 		return fmt.Errorf("no official native client distribution for %s", host)
 	}
@@ -285,7 +285,7 @@ func supplyClients(host, root, githubEnvironment string, release clientRelease, 
 		return err
 	}
 	var environment []string
-	if platform == "windows" {
+	if system == "windows" {
 		environment, err = windowsClientEnvironment(supply, "Claude requires native Git Bash")
 	} else {
 		environment, err = posixClientEnvironment(supply, layout, clients)
@@ -303,7 +303,7 @@ func supplyClients(host, root, githubEnvironment string, release clientRelease, 
 		if !slices.Contains([]string{"AIGW_ACCEPTANCE_CODEX", "AIGW_ACCEPTANCE_CLAUDE", "AIGW_ACCEPTANCE_HERMES"}, key) {
 			continue
 		}
-		digest, err := fileSHA256(executable)
+		digest, err := platform.FileSHA256(executable)
 		if err != nil {
 			return err
 		}
@@ -333,7 +333,7 @@ func installHermes(supply string, release clientRelease, stdout io.Writer, runne
 	if err := runner(download); err != nil {
 		return fmt.Errorf("download the official Hermes installer: %w", err)
 	}
-	if digest, err := fileSHA256(installer); err != nil || digest != release.hermesInstaller {
+	if digest, err := platform.FileSHA256(installer); err != nil || digest != release.hermesInstaller {
 		return errors.Join(errors.New("official Hermes installer checksum mismatch"), err)
 	}
 	// The installer receives a declared environment rather than the job's, so
@@ -412,15 +412,6 @@ func appendGitHubEnvironment(path string, entries ...string) error {
 	}
 	_, err = io.WriteString(file, strings.Join(entries, "\n")+"\n")
 	return errors.Join(err, file.Close())
-}
-
-func fileSHA256(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	digest, err := platform.ReadSHA256(file)
-	return digest, errors.Join(err, file.Close())
 }
 
 func regularFile(path string) bool {

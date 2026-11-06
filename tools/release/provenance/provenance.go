@@ -245,7 +245,7 @@ func provenanceBytes(readSource func(string) ([]byte, error), toolchain, candida
 	names := artifact.ProvenanceSubjects(version)
 	subjects := make([]subject, 0, len(names))
 	for _, name := range names {
-		sum, digestErr := fileDigest(filepath.Join(candidate, name))
+		sum, digestErr := platform.FileSHA256(filepath.Join(candidate, name))
 		if digestErr != nil {
 			return nil, fmt.Errorf("digest release subject %s: %w", name, digestErr)
 		}
@@ -297,13 +297,4 @@ func readToolVersions(readSource func(string) ([]byte, error), toolchain string)
 		versions[name] = version
 	}
 	return versions, nil
-}
-
-func fileDigest(path string) (digest string, err error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer func() { err = errors.Join(err, file.Close()) }()
-	return platform.ReadSHA256(file)
 }

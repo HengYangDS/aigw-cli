@@ -145,6 +145,17 @@ func ReadSHA256(reader io.Reader) (string, error) {
 	return hex.EncodeToString(digest.Sum(nil)), nil
 }
 
+// FileSHA256 streams the file at path and returns its lowercase hexadecimal
+// SHA-256, or its open, read or close error unwrapped.
+func FileSHA256(path string) (digest string, err error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer func() { err = errors.Join(err, file.Close()) }()
+	return ReadSHA256(file)
+}
+
 func persistedMode(mode os.FileMode) os.FileMode {
 	if runtime.GOOS != "windows" {
 		return mode.Perm()

@@ -64,11 +64,25 @@ func TestFileSnapshotOwnsExactContentAndPermissionIdentity(t *testing.T) {
 	}
 }
 
-func TestSHA256DigestsBytesAndStreamsAlike(t *testing.T) {
+func TestSHA256DigestsBytesStreamsAndFilesAlike(t *testing.T) {
 	const want = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 	streamed, err := platform.ReadSHA256(strings.NewReader("abc"))
 	if got := platform.SHA256([]byte("abc")); got != want || err != nil || streamed != want {
 		t.Fatalf("SHA256 = %q, ReadSHA256 = %q, %v; want %q", got, streamed, err, want)
+	}
+	directory := t.TempDir()
+	path := filepath.Join(directory, "file")
+	if err := os.WriteFile(path, []byte("abc"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := platform.FileSHA256(path); got != want || err != nil {
+		t.Fatalf("FileSHA256 = %q, %v; want %q", got, err, want)
+	}
+	if got, err := platform.FileSHA256(filepath.Join(directory, "absent")); got != "" || !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("FileSHA256 of an absent file = %q, %v", got, err)
+	}
+	if got, err := platform.FileSHA256(directory); got != "" || err == nil {
+		t.Fatalf("FileSHA256 of a directory = %q, %v", got, err)
 	}
 	if snapshot := platform.NewFileSnapshot([]byte("abc"), 0o600); snapshot.SHA256 != want {
 		t.Fatalf("snapshot digest = %q, want %q", snapshot.SHA256, want)

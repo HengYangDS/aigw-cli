@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +9,7 @@ import (
 
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/codex/modelcatalog"
+	"aigw-cli/internal/platform"
 
 	"github.com/rogpeppe/go-internal/robustio"
 )
@@ -133,8 +132,7 @@ func catalogProbe(document modelcatalog.Document, model string) modelProbe {
 	}
 	delete(metadata, "slug")
 	canonical, _ := json.Marshal(metadata)
-	digest := sha256.Sum256(canonical)
 	probe.Present = true
-	probe.MetadataSHA256 = hex.EncodeToString(digest[:])
+	probe.MetadataSHA256 = platform.SHA256(canonical)
 	return probe
 }
