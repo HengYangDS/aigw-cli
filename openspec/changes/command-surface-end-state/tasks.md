@@ -103,6 +103,11 @@
       own coverage directory, merged after the run, so that concurrent
       processes no longer race on the coverage metadata file; the Windows
       guest job passes without that diagnostic.
+- [ ] 5.7 Embed only the GitHub release source in official builds: remove the
+      GitLab build variables and their linker flags, make release construction
+      refuse an environment that sets a GitLab release source, and update
+      `docs/architecture/repository-tooling.md`; tests show the refusal and
+      that `aigw self update` still reads a GitLab peer named at run time.
 
 ## 6. One configuration file
 
@@ -156,7 +161,8 @@
 ## 9. Publication and acceptance
 
 - [ ] 9.1 Tag v0.7.0, notarize its macOS archives, and publish its Releases on
-      both peers and its Homebrew Cask.
+      both peers and its Homebrew Cask; a byte scan of the six archives finds
+      no GitLab origin or project path.
 - [ ] 9.2 Install 0.7.0 through Homebrew on this Mac and accept it:
       `aigw check --depth client` passes with the real clients, a Codex session
       started before the upgrade keeps its credential, a rollback to 0.6.1 and

@@ -377,6 +377,8 @@ There is no staged compatibility and no intermediate release. Lane work continue
 
 **Foundations land with their first consumer.** The architecture gate's `used_exports_only` rule refuses an exported identifier that nothing outside its package uses, in `internal/domain`, `internal/cli/invocation`, `internal/terminal` and every command package. So tasks 2.1, 2.2 and 2.4 land together with task 3.1, the model commands that first use them; task 2.3 lands alone, because every command already renders failures.
 
+**Release source.** Every official archive up to 0.6.1 embeds the private GitLab peer's origin and project path as an update source, and the owner ruled on 2026-11-06 that this identity must not be public. From 0.7.0 an official build embeds only the public GitHub source, and release construction refuses an environment that sets `AIGW_GITLAB_RELEASE_ORIGIN` or `AIGW_GITLAB_RELEASE_REPOSITORY`. At run time those variables still add a GitLab peer to `aigw self update`, under the existing source validation (task 5.7).
+
 **Global constraints.**
 
 - Linux, macOS and Windows: the build, vet and lint pass on all three, and hosted coverage stays above 95% on each. No PowerShell or Linux-only shell scripts.

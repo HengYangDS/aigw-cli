@@ -26,6 +26,22 @@ described through `aigw self install`, `aigw self update`, `aigw self rollback`,
 - **AND** after `aigw config rollback` completes, the active and retained
   programs SHALL be unchanged.
 
+### Requirement: Official archives embed only the public release source
+
+An official build SHALL embed the public GitHub release origin and repository
+as its only release source. A GitLab release peer SHALL be named only at run
+time, through `AIGW_GITLAB_RELEASE_ORIGIN` and `AIGW_GITLAB_RELEASE_REPOSITORY`.
+
+#### Scenario: A build environment names a GitLab release source
+
+- **WHEN** release construction runs with either GitLab release variable set
+- **THEN** it SHALL refuse before building and name the variable to unset.
+
+#### Scenario: An operator updates from a GitLab peer
+
+- **WHEN** `aigw self update` runs with both GitLab release variables set
+- **THEN** it SHALL read that peer as well as the embedded GitHub source.
+
 ## MODIFIED Requirements
 
 ### Requirement: A local archive's identity is verified before a no-op result
