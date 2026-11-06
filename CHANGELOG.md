@@ -30,6 +30,11 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   gateway ends, or retains and names it once its time limits pass. Before,
   AIGW deleted the home, and the gateway re-created it and ran for ten minutes
   in a home that AIGW reported as reclaimed.
+- `aigw sync --dry-run` and `aigw repair --dry-run` now check a configuration
+  change as `aigw sync` and `aigw repair` do, so a preview refuses what its
+  write refuses, with the same error and no plan. Before, `aigw sync --dry-run`
+  printed a plan for a home without a configuration, which `aigw sync`
+  refuses.
 
 ## [0.6.1] - 2026-11-05
 

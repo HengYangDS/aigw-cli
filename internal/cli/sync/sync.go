@@ -6,11 +6,8 @@ package sync
 import (
 	"fmt"
 
-	"aigw-cli/internal/adapter"
-	"aigw-cli/internal/app"
 	clientactivation "aigw-cli/internal/app/activation"
 	domainreadiness "aigw-cli/internal/app/readiness"
-	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -27,19 +24,16 @@ const schemaVersion = 2
 // would write and the credential reader that it would install. Its next step
 // is a command that a script can run, or guidance.
 type syncResult struct {
-	DryRun               bool                          `json:"dry_run,omitempty"`
-	Selections           map[string]string             `json:"selections"`
-	AdoptedSelections    map[string]string             `json:"adopted_selections,omitempty"`
-	Projections          []invocation.Projection       `json:"projections,omitempty"`
-	CredentialEntrypoint *app.CredentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
-	EnabledClients       int                           `json:"enabled_clients"`
-	State                string                        `json:"state,omitempty"`
-	NextAction           string                        `json:"next_action,omitempty"`
-	NextDetail           string                        `json:"next_detail,omitempty"`
-	// next is the follow-up before it is split, and plans the preview's
-	// targets as human output names them.
-	next  string
-	plans []adapter.ProjectionPlan
+	DryRun            bool              `json:"dry_run,omitempty"`
+	Selections        map[string]string `json:"selections"`
+	AdoptedSelections map[string]string `json:"adopted_selections,omitempty"`
+	invocation.Preview
+	EnabledClients int    `json:"enabled_clients"`
+	State          string `json:"state,omitempty"`
+	NextAction     string `json:"next_action,omitempty"`
+	NextDetail     string `json:"next_detail,omitempty"`
+	// next is the follow-up before it is split.
+	next string
 }
 
 // NewCommand constructs the command that projects current bindings to discovered clients.
@@ -82,14 +76,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 			if dryRun {
-				if err := prepareSyncPreview(synchronizer, before, after, &result); err != nil {
+				if err := prepareSyncPreview(operation, before, after, &result); err != nil {
 					return err
 				}
 			} else if err := synchronizer.CommitProjection(cmd.Context(), before, after, "sync"); err != nil {
 				return err
 			}
 			if jsonMode {
-				result.Projections = invocation.Projections(runtime, result.plans)
 				result.NextAction, result.NextDetail = terminal.NextSteps(result.next)
 				return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 			}
@@ -137,21 +130,18 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
-func prepareSyncPreview(synchronizer synchronization.Synchronizer, before, after domain.Config, result *syncResult) error {
-	plans, err := synchronizer.Plan(before, after)
+// prepareSyncPreview previews the synchronization as it would be committed,
+// refusing what the commit would refuse.
+func prepareSyncPreview(runtime invocation.Context, before, after domain.Config, result *syncResult) error {
+	preview, err := invocation.PreviewProjection(runtime, before, after)
 	if err != nil {
 		return err
 	}
-	entrypoint, err := app.PlanCredentialEntrypoint(synchronizer, after)
-	if err != nil {
-		return err
-	}
-	result.plans = plans
-	result.CredentialEntrypoint = entrypoint
-	if entrypoint != nil && result.next == "aigw check" {
+	result.Preview = preview
+	if preview.CredentialEntrypoint != nil && result.next == "aigw check" {
 		result.next = "aigw sync"
 	}
-	for _, plan := range plans {
+	for _, plan := range preview.Plans() {
 		if plan.ChangesState && result.next == "aigw check" {
 			result.next = "aigw sync"
 			break
@@ -178,14 +168,15 @@ func renderSyncPreview(r *terminal.Renderer, after domain.Config, result syncRes
 	}
 	r.Rows(bindings...)
 	r.Section("Projection targets")
-	targets := make([]terminal.Field, 0, len(result.plans)+1)
+	plans := result.Plans()
+	targets := make([]terminal.Field, 0, len(plans)+1)
 	switch {
-	case len(result.plans) == 0 && result.EnabledClients != 0 && result.State == string(domainreadiness.Deferred):
+	case len(plans) == 0 && result.EnabledClients != 0 && result.State == string(domainreadiness.Deferred):
 		targets = append(targets, terminal.Field{State: terminal.Info, Label: "Projection", Value: "No selected client can be projected yet"})
-	case len(result.plans) == 0:
+	case len(plans) == 0:
 		targets = append(targets, terminal.Field{State: terminal.OK, Label: "Projection", Value: "No client configuration needs changing"})
 	}
-	for _, plan := range result.plans {
+	for _, plan := range plans {
 		targets = append(targets, terminal.Field{Label: plan.Target, Value: plan.Action})
 	}
 	r.Rows(targets...)

@@ -165,6 +165,32 @@ func TestSyncMetadataObservationScopeExpiresWithCommand(t *testing.T) {
 	}
 }
 
+// A preview refuses what synchronization refuses, with the same error, and
+// reports no plan: here a home without a configuration.
+func TestDryRunRefusesWhatSynchronizationRefuses(t *testing.T) {
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	execute := func(args ...string) (string, error) {
+		out := &bytes.Buffer{}
+		command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Discovery: syncDiscovery{}, Out: out})
+		command.SilenceErrors, command.SilenceUsage = true, true
+		command.SetArgs(args)
+		err := command.Execute()
+		return out.String(), err
+	}
+	_, refused := execute()
+	if refused == nil || refused.Error() != "refuse invalid config: at least one route is required" {
+		t.Fatalf("synchronization error = %v, want the refusal of an empty configuration", refused)
+	}
+	for _, args := range [][]string{{"--dry-run"}, {"--dry-run", "--json"}} {
+		if output, err := execute(args...); err == nil || err.Error() != refused.Error() || output != "" {
+			t.Fatalf("%v error = %v, output = %q; want %q and no plan", args, err, output, refused)
+		}
+	}
+	if _, err := os.Stat(configStore.Path()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("a refused synchronization wrote the configuration: %v", err)
+	}
+}
+
 func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 	t.Run("configuration load", func(t *testing.T) {
 		command := NewCommand(invocation.Context{Clients: clients.Registry(), Config: store.NewStore(t.TempDir(), clients.Admission())})

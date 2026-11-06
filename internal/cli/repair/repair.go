@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"aigw-cli/internal/adapter"
-	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/terminal"
 
@@ -34,11 +32,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 // to the configuration, and in a preview the client files that it would write
 // and the credential reader that it would install.
 type repairResult struct {
-	DryRun               bool                          `json:"dry_run,omitempty"`
-	ConfigurationAction  string                        `json:"configuration_action"`
-	Projections          []invocation.Projection       `json:"projections,omitempty"`
-	CredentialEntrypoint *app.CredentialEntrypointPlan `json:"credential_entrypoint,omitempty"`
-	NextAction           string                        `json:"next_action"`
+	DryRun              bool   `json:"dry_run,omitempty"`
+	ConfigurationAction string `json:"configuration_action"`
+	invocation.Preview
+	NextAction string `json:"next_action"`
 }
 
 func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode bool) error {
@@ -60,43 +57,39 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 			err,
 		)
 	}
-	var plans []adapter.ProjectionPlan
-	var entrypoint *app.CredentialEntrypointPlan
+	// A preview refuses what the commit would refuse.
+	var preview invocation.Preview
 	if dryRun {
-		plans, err = synchronizer.Plan(before, after)
-		if err != nil {
-			return err
-		}
-		entrypoint, err = app.PlanCredentialEntrypoint(synchronizer, after)
+		preview, err = invocation.PreviewProjection(runtime, before, after)
 		if err != nil {
 			return err
 		}
 	} else if err := synchronizer.CommitProjection(ctx, before, after, "repair"); err != nil {
 		return err
 	}
-	return renderRepairResult(runtime, dryRun, jsonMode, !reflect.DeepEqual(before, after), plans, entrypoint)
+	return renderRepairResult(runtime, dryRun, jsonMode, !reflect.DeepEqual(before, after), preview)
 }
 
-func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, plans []adapter.ProjectionPlan, entrypoint *app.CredentialEntrypointPlan) error {
+func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurationChanged bool, preview invocation.Preview) error {
 	// Human output keeps the planner's spelling beside the projection rows;
 	// the document spells it in snake_case.
 	configuration := "already-converged"
 	if configurationChanged {
 		configuration = "update"
 	}
-	result := repairResult{DryRun: dryRun, ConfigurationAction: terminal.SnakeValue(configuration), CredentialEntrypoint: entrypoint, NextAction: "aigw check"}
+	result := repairResult{DryRun: dryRun, ConfigurationAction: terminal.SnakeValue(configuration), Preview: preview, NextAction: "aigw check"}
 	if dryRun && configurationChanged {
 		result.NextAction = "aigw repair"
 	}
-	if entrypoint != nil {
+	if preview.CredentialEntrypoint != nil {
 		result.NextAction = "aigw repair"
 	}
+	plans := preview.Plans()
 	for _, plan := range plans {
 		if dryRun && plan.ChangesState {
 			result.NextAction = "aigw repair"
 		}
 	}
-	result.Projections = invocation.Projections(runtime, plans)
 	if jsonMode {
 		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 	}
@@ -108,10 +101,10 @@ func renderRepairResult(runtime invocation.Context, dryRun, jsonMode, configurat
 			rows = append(rows, terminal.Field{Label: runtime.Clients.Admission().Label(plan.Client) + " · " + plan.Surface, Value: plan.Action})
 		}
 		r.Rows(rows...)
-		if entrypoint != nil {
+		if preview.CredentialEntrypoint != nil {
 			// The entrypoint path is too long to share the projection column.
 			r.Section("Credential entrypoint")
-			r.Text("Install " + entrypoint.Path)
+			r.Text("Install " + preview.CredentialEntrypoint.Path)
 		}
 		r.Success("Preview did not write configuration, state files, authentication, client executables, or conversations")
 	} else {

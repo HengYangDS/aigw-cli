@@ -18,6 +18,7 @@ import (
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/adapter/hermes"
+	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -25,6 +26,16 @@ import (
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
 )
+
+// previewOf is the preview of plans that names no credential reader.
+func previewOf(t *testing.T, runtime invocation.Context, plans []adapter.ProjectionPlan) invocation.Preview {
+	t.Helper()
+	preview, err := invocation.WithEntrypoint(runtime, domain.Config{}, synchronization.Projection{Targets: plans})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return preview
+}
 
 func TestRenderRepairPreviewNamesEachClientAndItsSurface(t *testing.T) {
 	out := &bytes.Buffer{}
@@ -35,7 +46,7 @@ func TestRenderRepairPreviewNamesEachClientAndItsSurface(t *testing.T) {
 		{Client: codex.ID, Target: "/explicit", Action: "create", Surface: explicit},
 		{Client: claudedesktop.ID, Target: "/library", Action: "update", Surface: string(claudedesktop.LibrarySurface)},
 	}
-	if err := renderRepairResult(runtime, true, false, true, plans, nil); err != nil {
+	if err := renderRepairResult(runtime, true, false, true, previewOf(t, runtime, plans)); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"Repair preview", "Codex · " + string(codex.HomeDefault), "Codex · " + explicit, "Claude Desktop · " + string(claudedesktop.LibrarySurface), "create"} {
@@ -67,7 +78,7 @@ func TestRenderRepairPreviewJSONReportsEachPlannedSurface(t *testing.T) {
 		{Client: hermes.ID, Target: "/hermes/config.yaml", Action: "unchanged", Surface: string(hermes.HomeSurface)},
 	}
 
-	if err := renderRepairResult(runtime, true, true, false, plans, nil); err != nil {
+	if err := renderRepairResult(runtime, true, true, false, previewOf(t, runtime, plans)); err != nil {
 		t.Fatal(err)
 	}
 	var got repairResult
@@ -182,6 +193,64 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 				t.Fatal("failed repair changed configuration, backup, or verified checkpoint")
 			}
 		})
+	}
+}
+
+// reroutingAdapter is Codex's adapter, whose convergence moves Codex to route,
+// a transition that repair refuses while Codex has a retry policy for its
+// current connection.
+type reroutingAdapter struct {
+	adapter.Adapter
+	route string
+}
+
+func (clientAdapter reroutingAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
+	if err := clientAdapter.Adapter.Converge(deps, cfg, discovered); err != nil {
+		return err
+	}
+	cfg.SetSelectedRoute(codex.ID, clientAdapter.route, "")
+	return nil
+}
+
+// A preview refuses what repair refuses, with the same error, and reports no
+// plan.
+func TestDryRunRefusesWhatRepairRefuses(t *testing.T) {
+	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
+	cfg := domain.NewConfig(clients.Admission())
+	for _, id := range []string{"one", "two"} {
+		cfg.Accounts[id] = domain.Account{Label: id, Endpoints: domain.Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
+		cfg.Routes[id] = domain.Route{Label: id, Account: id, Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	}
+	cfg.SetSelectedRoute(codex.ID, "one", "")
+	zero := uint64(0)
+	binding := cfg.Clients[codex.ID]
+	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero}
+	cfg.Clients[codex.ID] = binding
+	if err := configStore.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	registry, err := adapter.NewRegistry(claude.New(), claudedesktop.New(), reroutingAdapter{Adapter: codex.New(), route: "two"}, hermes.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := configStore.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := &bytes.Buffer{}
+	runtime := invocation.Context{Clients: registry, Config: configStore, Discovery: staticDiscovery{}, Out: out}
+	refused := runRepair(t.Context(), runtime, false, false)
+	if refused == nil || !strings.Contains(refused.Error(), "connection changed with a selected retry policy") {
+		t.Fatalf("repair error = %v, want the retry policy refusal", refused)
+	}
+	for _, jsonMode := range []bool{false, true} {
+		out.Reset()
+		if err := runRepair(t.Context(), runtime, true, jsonMode); err == nil || err.Error() != refused.Error() || out.Len() != 0 {
+			t.Fatalf("preview with JSON %v error = %v, output = %q; want %q and no plan", jsonMode, err, out, refused)
+		}
+	}
+	if after, err := configStore.CaptureSnapshot(); err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatalf("a refused repair changed the configuration: %v", err)
 	}
 }
 

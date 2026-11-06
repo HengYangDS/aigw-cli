@@ -31,6 +31,10 @@ type Preview struct {
 	plans                []adapter.ProjectionPlan
 }
 
+// Plans returns the projection plans of the client files that the preview
+// names, for a command that renders its preview itself.
+func (preview Preview) Plans() []adapter.ProjectionPlan { return preview.plans }
+
 // Projection is one client file that a change writes or would write, as a
 // document names it: the client, its surface, the file relative to the home
 // directory, absent outside it, and the snake_case action.

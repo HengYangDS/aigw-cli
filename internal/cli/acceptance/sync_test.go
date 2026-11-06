@@ -23,6 +23,12 @@ import (
 func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 	t.Run("disabled", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
+		cfg := domain.NewConfig(clients.Admission())
+		addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
+		cfg.SetSelectedRoute(codex.ID, "one", "")
+		if err := app.Config.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
 		if err := cli.Execute(app, []string{"sync", "--dry-run"}); err != nil {
 			t.Fatal(err)
 		}
