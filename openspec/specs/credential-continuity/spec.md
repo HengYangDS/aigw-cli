@@ -2,8 +2,8 @@
 
 ## Purpose
 
-Define how Account credentials stay readable and owned across upgrade,
-migration, rollback and configuration evolution.
+Define how provider Tokens stay readable and owned across upgrade, import,
+rollback and configuration evolution.
 
 ## Requirements
 

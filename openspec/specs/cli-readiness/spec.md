@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Provide one read-only readiness contract for active AIGW client routes, with a
-stable machine-readable projection and the same evaluation used by the human
-health check and doctor, and define how real clients verify a Route.
+Provide one read-only readiness contract for the models that enabled clients
+use, with a stable machine-readable document and the same evaluation at every
+depth of `aigw check`, and define how a real client session proves a model.
 
 ## Requirements
 

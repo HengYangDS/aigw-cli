@@ -2,10 +2,10 @@
 
 ## Purpose
 
-Define how AIGW's generated projections derive from one canonical model with a
-byte-stable text layout, and how a client projection writes only the native
-values that AIGW owns: conflicts are refused before any write, projection is
-transactional and inspectable with matching Account Token delivery, and
+Define how AIGW derives every client configuration file it writes from one
+canonical configuration with a byte-stable text layout, and how it writes only
+the native values that AIGW owns: conflicts are refused before any write, writes
+are transactional and inspectable with matching provider Token delivery, and
 recovery is verified.
 
 ## Requirements

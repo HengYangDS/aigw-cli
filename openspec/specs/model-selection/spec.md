@@ -1,10 +1,12 @@
-# route-client-selection Specification
+# model-selection Specification
 
 ## Purpose
 
-Define deterministic client selection from explicit operator intent, reusable
-Routes, and independent Client Bindings without inference from names or provider
-details.
+Define how a client uses one provider's model, named `provider/model`:
+explicit selection, adding a model from the provider's catalog with its
+protocol, family and capabilities, recommendations, forwarding and retry
+budgets, checks of a named model and disabling a client, without guessing what
+the operator did not say.
 
 ## Requirements
 

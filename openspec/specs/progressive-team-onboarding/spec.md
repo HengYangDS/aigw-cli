@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Define progressive team setup as the independent import of reviewed provider
-capability, followed by explicit Account connection and projection only to
-clients that are present on the current host.
+Define progressive team setup as the independent import of a reviewed team file,
+followed by explicit provider connection and configuration only of the clients
+that are present on the current host.
 
 ## Requirements
 
