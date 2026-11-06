@@ -42,7 +42,7 @@ func TestUseForwardingPreviewIsCredentialFreeAndDoesNotWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	var result useResult
-	if err := json.Unmarshal(out.Bytes(), &result); err != nil || !result.DryRun || result.Endpoint != "http://127.0.0.1:8792/v1" || result.UpstreamEndpoint != cfg.Accounts["gateway"].Endpoints.OpenAIResponses {
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil || !result.DryRun || result.Endpoint != "http://127.0.0.1:8792/v1" || result.UpstreamEndpoint != cfg.Providers["gateway"].Endpoints.OpenAIResponses {
 		t.Fatalf("selection preview = %s, %v", out.Bytes(), err)
 	}
 	out.Reset()
@@ -188,7 +188,7 @@ func TestUseForwardingApplyNoOpAndDirectPreserveAccount(t *testing.T) {
 			t.Fatal(err)
 		}
 		current, err := runtime.Config.Load()
-		if err != nil || !reflect.DeepEqual(current.Accounts, cfg.Accounts) {
+		if err != nil || !reflect.DeepEqual(current.Providers, cfg.Providers) {
 			t.Fatalf("forwarding selection changed its Account: %v", err)
 		}
 		want := "http://127.0.0.1:8792/v1"
@@ -244,7 +244,7 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 	t.Helper()
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{
+	cfg.Providers["gateway"] = domain.Provider{
 		Label: "Gateway",
 		Endpoints: domain.Endpoints{
 			Anthropic:       "https://gateway.example.test",
@@ -252,9 +252,9 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 		},
 	}
 	cfg.Models["codex"] = domain.Model{
-		Label:   "Codex",
-		Account: "gateway",
-		Family:  "gpt-test",
+		Label:    "Codex",
+		Provider: "gateway",
+		Family:   "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolOpenAIResponses: {},
 		},
@@ -275,10 +275,10 @@ func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.Models["claude"] = domain.Model{
-		Label:   "Claude",
-		Purpose: "Team reviewer",
-		Account: "gateway",
-		Family:  "claude-next",
+		Label:    "Claude",
+		Purpose:  "Team reviewer",
+		Provider: "gateway",
+		Family:   "claude-next",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {},
 		},
@@ -358,7 +358,7 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 				t.Fatal(err)
 			}
 			cfg.Models["desktop"] = domain.Model{
-				Label: "Desktop", Account: "gateway", Family: "claude-test",
+				Label: "Desktop", Provider: "gateway", Family: "claude-test",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 			}
 			var executable, library string

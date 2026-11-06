@@ -93,10 +93,10 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 func TestBalanceExplainsWhenConfiguredDiagnosticDriverIsNotBundled(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["future"] = domain.Account{
+	cfg.Providers["future"] = domain.Provider{
 		Label:        "Future Gateway",
 		Endpoints:    domain.Endpoints{OpenAIResponses: "https://future.test/v1"},
-		AccountProbe: &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://future.test"},
+		BalanceProbe: &domain.BalanceProbe{Kind: "future-provider", BaseURL: "https://future.test"},
 	}
 	cfg.Models["gpt"] = qualifiedRoute("GPT", "future", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
@@ -124,9 +124,9 @@ func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-test")
-	account := cfg.Accounts["dmx"]
-	account.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
-	cfg.Accounts["dmx"] = account
+	account := cfg.Providers["dmx"]
+	account.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
+	cfg.Providers["dmx"] = account
 	cfg.SetSelectedModel(codex.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -229,9 +229,9 @@ func TestAccountDiagnosticsEnableStoresSeparateCredentialAndBalanceShowsDetails(
 	accountStore := app.Accounts
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-test")
-	providerAccount := cfg.Accounts["dmx"]
-	providerAccount.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
-	cfg.Accounts["dmx"] = providerAccount
+	providerAccount := cfg.Providers["dmx"]
+	providerAccount.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
+	cfg.Providers["dmx"] = providerAccount
 	cfg.SetSelectedModel(codex.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -279,12 +279,12 @@ func TestBalanceKeepsDiagnosticCredentialsAtTheirOrigin(t *testing.T) {
 	t.Cleanup(origin.Close)
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{
+	cfg.Providers["dmx"] = domain.Provider{
 		Label:        "DMXAPI",
 		Endpoints:    domain.Endpoints{OpenAIResponses: origin.URL + "/v1"},
-		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: origin.URL},
+		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: origin.URL},
 	}
-	cfg.Models["gpt"] = domain.Model{Label: "GPT", Account: "dmx", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["gpt"] = domain.Model{Label: "GPT", Provider: "dmx", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

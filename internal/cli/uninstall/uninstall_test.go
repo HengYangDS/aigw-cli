@@ -87,9 +87,9 @@ func TestUninstallCommandHandlesConfigurationAndWithdrawalFailures(t *testing.T)
 		}
 		configStore := store.NewStore(filepath.Join(root, "configuration.toml"), clients.Admission())
 		cfg := domain.NewConfig(clients.Admission())
-		cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+		cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 		cfg.Models["claude"] = domain.Model{
-			Label: "Claude", Account: "gateway", Family: "claude-test",
+			Label: "Claude", Provider: "gateway", Family: "claude-test",
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 		}
 		cfg.SetSelectedModel(claude.ID, "claude", "")

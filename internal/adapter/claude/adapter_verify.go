@@ -17,7 +17,7 @@ import (
 )
 
 func retainedExecutable(path string, cfg domain.Config, runtime domain.Runtime, currentReader string) (string, error) {
-	if !runtime.RequiresAccountToken() {
+	if !runtime.RequiresProviderToken() {
 		return runtime.CredentialExecutable(currentReader), nil
 	}
 	reader, err := adapter.RetainedDefaultReader(currentReader, cfg.Clients[ID].CredentialCommand != "", func() (string, error) {
@@ -34,13 +34,13 @@ func (claudeAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg 
 	token := ""
 	if clientAdapter.CredentialCommand == "" {
 		if deps.Secrets == nil {
-			return adapter.Verification{}, fmt.Errorf("token for account %q is unavailable: secret store is unavailable", runtime.AccountID)
+			return adapter.Verification{}, fmt.Errorf("token for account %q is unavailable: secret store is unavailable", runtime.ProviderID)
 		}
 		var err error
-		token, err = deps.Secrets.Get(runtime.AccountID)
+		token, err = deps.Secrets.Get(runtime.ProviderID)
 		if err != nil {
-			instruction, _ := secret.TokenRecovery(deps.Secrets, runtime.AccountID)
-			return adapter.Verification{}, fmt.Errorf("token for account %q is unavailable: %w; %s", runtime.AccountID, err, instruction)
+			instruction, _ := secret.TokenRecovery(deps.Secrets, runtime.ProviderID)
+			return adapter.Verification{}, fmt.Errorf("token for account %q is unavailable: %w; %s", runtime.ProviderID, err, instruction)
 		}
 	}
 	if !clientAdapter.Enabled || clientAdapter.Executable == "" {

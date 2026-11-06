@@ -53,10 +53,10 @@ func routeFor(cfg domain.Config, selected domain.Runtime, model string) (string,
 	var matches []string
 	for _, routeID := range cfg.CatalogModelIDs() {
 		route := cfg.Models[routeID]
-		if route.Account != selected.AccountID || route.UpstreamModelID() != model {
+		if route.Provider != selected.ProviderID || route.UpstreamModelID() != model {
 			continue
 		}
-		if slices.Contains(spec.CompatibleModelProtocols(cfg.Accounts[route.Account], route), selected.Protocol) {
+		if slices.Contains(spec.CompatibleModelProtocols(cfg.Providers[route.Provider], route), selected.Protocol) {
 			matches = append(matches, routeID)
 		}
 	}
@@ -64,7 +64,7 @@ func routeFor(cfg domain.Config, selected domain.Runtime, model string) (string,
 	case 1:
 		return matches[0], nil
 	case 0:
-		return "", fmt.Errorf("Codex selects model %q, which no Route of Account %q provides; run `aigw use --for codex <route>`", model, selected.AccountID)
+		return "", fmt.Errorf("Codex selects model %q, which no Route of Account %q provides; run `aigw use --for codex <route>`", model, selected.ProviderID)
 	default:
 		commands := make([]string, 0, len(matches))
 		for _, routeID := range matches {

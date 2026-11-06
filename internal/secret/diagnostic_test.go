@@ -116,7 +116,7 @@ func TestDiagnosticCredentialStorePreservesBackendErrors(t *testing.T) {
 	}
 }
 
-func TestDiagnosticCredentialStoreValidatesAccountAndCompleteCredential(t *testing.T) {
+func TestDiagnosticCredentialStoreValidatesProviderAndCompleteCredential(t *testing.T) {
 	store := testDiagnosticCredentialStore(t)
 	for _, name := range []string{"bad name", "", "../escape"} {
 		if err := store.Set(name, DiagnosticCredential{SystemToken: "s", UserID: "1"}); err == nil {

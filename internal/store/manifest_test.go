@@ -14,16 +14,16 @@ import (
 
 func TestManifestExportOmitsDerivedModelLabelsAndPreservesWireCase(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["dmxapi"] = domain.Account{
+	cfg.Providers["dmxapi"] = domain.Provider{
 		Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
 	cfg.Families["gpt-6-astra"] = domain.Family{Label: "GPT-6 Astra"}
 	cfg.Models["dmxapi-gpt-6-astra"] = domain.Model{
-		Label: "DMXAPI · GPT-6 Astra", Account: "dmxapi", Family: "gpt-6-astra",
+		Label: "DMXAPI · GPT-6 Astra", Provider: "dmxapi", Family: "gpt-6-astra",
 		UpstreamModel: "GPT-6-Astra", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
 	}
 	cfg.Models["dmxapi-gpt-6-astra-cdx"] = domain.Model{
-		Label: "DMXAPI · GPT-6 Astra · CDX", Account: "dmxapi", Family: "gpt-6-astra",
+		Label: "DMXAPI · GPT-6 Astra · CDX", Provider: "dmxapi", Family: "gpt-6-astra",
 		UpstreamModel: "GPT-6-Astra-CDX", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
 	}
 	data, err := Export(cfg)
@@ -53,17 +53,17 @@ func TestManifestExportOmitsDerivedModelLabelsAndPreservesWireCase(t *testing.T)
 
 func TestManifestMergeTreatsOldPlainLabelAsDerivedButPreservesCustomOverride(t *testing.T) {
 	current := domain.NewConfig(testAdmission())
-	current.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
+	current.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
 	current.Families["gpt-6-sol"] = domain.Family{Label: "GPT-6 Sol"}
-	route := domain.Model{Label: "UCloud · GPT-6 Sol", Account: "ucloud", Family: "gpt-6-sol", UpstreamModel: "gpt-6-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}}}
+	route := domain.Model{Label: "UCloud · GPT-6 Sol", Provider: "ucloud", Family: "gpt-6-sol", UpstreamModel: "gpt-6-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}}}
 	current.Models["ucloud-gpt-6-sol"] = route
 	current.SetSelectedModel(ClientCodex, "ucloud-gpt-6-sol", "")
 	incoming := domain.Manifest{
-		Version:  domain.ManifestVersion,
-		Accounts: map[string]domain.Account{"ucloud": current.Accounts["ucloud"]},
-		Families: map[string]domain.Family{"gpt-6-sol": current.Families["gpt-6-sol"]},
+		Version:   domain.ManifestVersion,
+		Providers: map[string]domain.Provider{"ucloud": current.Providers["ucloud"]},
+		Families:  map[string]domain.Family{"gpt-6-sol": current.Families["gpt-6-sol"]},
 		Models: map[string]domain.Model{"ucloud-gpt-6-sol": {
-			Account: route.Account, Family: route.Family, UpstreamModel: route.UpstreamModel, Protocols: route.Protocols,
+			Provider: route.Provider, Family: route.Family, UpstreamModel: route.UpstreamModel, Protocols: route.Protocols,
 		}},
 	}
 	merged, err := domain.Merge(current, incoming)
@@ -78,7 +78,7 @@ func TestManifestMergeTreatsOldPlainLabelAsDerivedButPreservesCustomOverride(t *
 	}
 }
 
-func TestManifestSeparatesFamiliesFromQualifiedAccountModels(t *testing.T) {
+func TestManifestSeparatesFamiliesFromQualifiedProviderModels(t *testing.T) {
 	manifest, err := Parse([]byte(`version = 7
 [models.gpt-6-astra]
 label = "GPT-6 Astra"
@@ -105,7 +105,7 @@ route = "ucloud-gpt-6-astra"
 		t.Fatalf("canonical model label = %q", got)
 	}
 	route := manifest.Models["ucloud-gpt-6-astra"]
-	if route.Account != "ucloud" || route.Family != "gpt-6-astra" || route.UpstreamModel != "gpt-6-astra" {
+	if route.Provider != "ucloud" || route.Family != "gpt-6-astra" || route.UpstreamModel != "gpt-6-astra" {
 		t.Fatalf("route identity = %#v", route)
 	}
 	wantCapabilities := []domain.Capability{domain.CapabilityText, domain.CapabilityReasoning, domain.CapabilityStreaming, domain.CapabilityTools, domain.CapabilityContinuation}
@@ -147,13 +147,13 @@ interfaces = { openai_responses = ["text"] }
 	}
 }
 
-func TestManifestAccountNamesReturnsEveryCredentialOwnerOnce(t *testing.T) {
+func TestManifestProviderIDsReturnsEveryCredentialOwnerOnce(t *testing.T) {
 	incoming := domain.Manifest{
-		Accounts: map[string]domain.Account{"shared": {}, "direct": {}},
-		Models:   map[string]domain.Model{"alias": {Account: "shared"}, "implicit": {}},
+		Providers: map[string]domain.Provider{"shared": {}, "direct": {}},
+		Models:    map[string]domain.Model{"alias": {Provider: "shared"}, "implicit": {}},
 	}
 	want := []string{"direct", "shared"}
-	if got := domain.ManifestAccountNames(incoming); !reflect.DeepEqual(got, want) {
+	if got := domain.ManifestProviderIDs(incoming); !reflect.DeepEqual(got, want) {
 		t.Fatalf("account names = %#v, want %#v", got, want)
 	}
 }
@@ -220,7 +220,7 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected, err := merged.SelectModelsForConnectedAccounts([]string{"northstar"})
+	selected, err := merged.SelectModelsForConnectedProviders([]string{"northstar"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,7 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtime.AccountID != "northstar" || runtime.Endpoint != "https://northstar.example.test/v1" || runtime.UpstreamModel != "northstar-model" || runtime.ModelProvider != "northstar" || runtime.Authentication != domain.AuthenticationAccountToken || !runtime.RequiresAccountToken() {
+	if runtime.ProviderID != "northstar" || runtime.Endpoint != "https://northstar.example.test/v1" || runtime.UpstreamModel != "northstar-model" || runtime.ModelProvider != "northstar" || runtime.Authentication != domain.AuthenticationProviderToken || !runtime.RequiresProviderToken() {
 		t.Fatalf("runtime = %#v", runtime)
 	}
 }
@@ -270,7 +270,7 @@ model = "claude-test"
 
 func TestExportRejectsModelThatCannotBeParsedBack(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
 	cfg.Models["codex"] = testModel("Codex", "team", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(ClientCodex, "codex", "")
 	cfg.Clients[ClientClaude] = domain.ClientBinding{Model: "codex", Protocol: domain.ProtocolOpenAIResponses}
@@ -298,7 +298,7 @@ model = "model"
 interfaces = { openai_responses = [] }
 `), testAdmission())
 	var missing *domain.RuntimeMissingEndpointError
-	if !errors.As(err, &missing) || missing.AccountID != "gateway" || missing.Protocol != domain.ProtocolOpenAIResponses {
+	if !errors.As(err, &missing) || missing.ProviderID != "gateway" || missing.Protocol != domain.ProtocolOpenAIResponses {
 		t.Fatalf("manifest protocol validation = %v", err)
 	}
 }
@@ -392,7 +392,7 @@ model = "claude-team"
 	}
 }
 
-func TestParseInitializesMissingAccountsAndDefaultsToFirstModel(t *testing.T) {
+func TestParseInitializesMissingProvidersAndDefaultsToFirstModel(t *testing.T) {
 	raw := []byte(`version = 7
 [routes.solo]
 label = "Solo"
@@ -459,7 +459,7 @@ func TestExportRejectsInvalidConfiguration(t *testing.T) {
 
 func TestExportOmitsSecretsAndAdaptersAndPublishesDeclaredRecommendations(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Models["team"] = testModel("Team", "team", "claude-team", domain.ProtocolAnthropic)
 	cfg.Recommendations[ClientClaude] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "team"}}
 	cfg.SetSelectedModel(ClientClaude, "team", "")
@@ -487,14 +487,14 @@ func TestExportOmitsSecretsAndAdaptersAndPublishesDeclaredRecommendations(t *tes
 
 func TestExportIsCanonicalTypedManifestProjection(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["team"] = domain.Account{
+	cfg.Providers["team"] = domain.Provider{
 		Label:     "Team",
 		Endpoints: domain.Endpoints{Anthropic: "https://team.example.test"},
 	}
 	cfg.Models["team"] = domain.Model{
-		Label:   "Team Claude",
-		Account: "team",
-		Family:  "claude-team",
+		Label:    "Team Claude",
+		Provider: "team",
+		Family:   "claude-team",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {},
 		},
@@ -510,7 +510,7 @@ func TestExportIsCanonicalTypedManifestProjection(t *testing.T) {
 		t.Fatalf("parse exported manifest: %v", err)
 	}
 	projected := domain.NewConfig(testAdmission())
-	projected.Accounts = manifest.Accounts
+	projected.Providers = manifest.Providers
 	projected.Models = manifest.Models
 	projected.Recommendations = manifest.Recommendations
 	second, err := Export(projected)

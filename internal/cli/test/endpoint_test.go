@@ -416,9 +416,9 @@ func TestEndpointTestCommandCoversInputAndResolutionFailures(t *testing.T) {
 
 	t.Run("missing explicit endpoint", func(t *testing.T) {
 		runtime, cfg, _ := configuredReadinessRuntime(t)
-		accountConfig := cfg.Accounts["one"]
+		accountConfig := cfg.Providers["one"]
 		accountConfig.Endpoints.OpenAIResponses = ""
-		cfg.Accounts["one"] = accountConfig
+		cfg.Providers["one"] = accountConfig
 		data, err := toml.Marshal(cfg)
 		if err != nil {
 			t.Fatal(err)

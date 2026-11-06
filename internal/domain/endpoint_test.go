@@ -5,11 +5,11 @@ import (
 	"testing"
 )
 
-func TestValidateAllowsExplicitLoopbackDevelopmentAccount(t *testing.T) {
+func TestValidateAllowsExplicitLoopbackDevelopmentProvider(t *testing.T) {
 	cfg := validConfig()
-	a := cfg.Accounts["dmx"]
+	a := cfg.Providers["dmx"]
 	a.Endpoints.OpenAIResponses = "http://127.0.0.1:18765/v1"
-	cfg.Accounts["dmx"] = a
+	cfg.Providers["dmx"] = a
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
@@ -42,9 +42,9 @@ func TestEndpointHTTPAdmissionUsesLoopbackIdentity(t *testing.T) {
 
 func TestValidateEndpointRejectsMalformedURL(t *testing.T) {
 	cfg := validConfig()
-	a := cfg.Accounts["dmx"]
+	a := cfg.Providers["dmx"]
 	a.Endpoints.Anthropic = "://not-a-valid-url"
-	cfg.Accounts["dmx"] = a
+	cfg.Providers["dmx"] = a
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "must use http or https") {
 		t.Fatalf("malformed URL error = %v", err)
 	}

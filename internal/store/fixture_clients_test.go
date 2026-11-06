@@ -55,14 +55,14 @@ func testModel(label, account, model string, protocols ...domain.EndpointProtoco
 	for _, protocol := range protocols {
 		interfaces[protocol] = []domain.Capability{}
 	}
-	return domain.Model{Label: label, Account: account, Family: model, Protocols: interfaces}
+	return domain.Model{Label: label, Provider: account, Family: model, Protocols: interfaces}
 }
 
 // validConfig is the two-Account configuration that the store's tests start
 // from: Claude selects the DMXAPI Route and Codex the Backup Route.
 func validConfig() domain.Config {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts = map[string]domain.Account{
+	cfg.Providers = map[string]domain.Provider{
 		"dmx":    {Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}},
 		"backup": {Label: "Backup", Endpoints: domain.Endpoints{OpenAIResponses: "https://backup.test/v1"}},
 	}

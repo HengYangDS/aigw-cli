@@ -39,7 +39,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			providerAccount, exists := cfg.Accounts[args[0]]
+			providerAccount, exists := cfg.Providers[args[0]]
 			if !exists {
 				return fmt.Errorf("Unknown account %q", args[0])
 			}
@@ -53,7 +53,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			if anthropicURL != "" {
 				providerAccount.Endpoints.Anthropic = strings.TrimRight(anthropicURL, "/")
 			}
-			cfg.Accounts[args[0]] = providerAccount
+			cfg.Providers[args[0]] = providerAccount
 			var preview invocation.Preview
 			next := "aigw check"
 			if dryRun {
@@ -126,15 +126,15 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		accountName, providerAccount, err := cfg.ResolveAccount(name)
+		accountName, providerAccount, err := cfg.ResolveProvider(name)
 		if err != nil {
 			return err
 		}
-		if providerAccount.AccountProbe == nil {
+		if providerAccount.BalanceProbe == nil {
 			return fmt.Errorf("Account %q does not support precise account diagnostics", accountName)
 		}
-		if !provider.Supports(providerAccount.AccountProbe.Kind) {
-			return fmt.Errorf("This AIGW version does not include precise diagnostics for provider %q", providerAccount.AccountProbe.Kind)
+		if !provider.Supports(providerAccount.BalanceProbe.Kind) {
+			return fmt.Errorf("This AIGW version does not include precise diagnostics for provider %q", providerAccount.BalanceProbe.Kind)
 		}
 		var systemToken string
 		if systemTokenStdin {
@@ -183,7 +183,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		accountName, _, err := cfg.ResolveAccount(name)
+		accountName, _, err := cfg.ResolveProvider(name)
 		if err != nil {
 			return err
 		}
@@ -210,7 +210,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 }
 
 type accountListOutput struct {
-	Accounts []domain.Account `json:"accounts"`
+	Accounts []domain.Provider `json:"accounts"`
 }
 
 func newListCommand(runtime invocation.Context) *cobra.Command {
@@ -222,9 +222,9 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			result := accountListOutput{Accounts: make([]domain.Account, 0, len(cfg.Accounts))}
-			for _, id := range cfg.CatalogAccountIDs() {
-				account := cfg.Accounts[id]
+			result := accountListOutput{Accounts: make([]domain.Provider, 0, len(cfg.Providers))}
+			for _, id := range cfg.CatalogProviderIDs() {
+				account := cfg.Providers[id]
 				account.ID = id
 				result.Accounts = append(result.Accounts, account)
 			}

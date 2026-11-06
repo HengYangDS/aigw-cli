@@ -31,9 +31,9 @@ func configuredApp(t *testing.T) *App {
 	t.Helper()
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "http://127.0.0.1:1234/v1", Anthropic: "https://one.test"}}
+	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "http://127.0.0.1:1234/v1", Anthropic: "https://one.test"}}
 	cfg.Models["one"] = domain.Model{
-		Label: "One", Purpose: "Primary", Account: "one", Family: "gpt",
+		Label: "One", Purpose: "Primary", Provider: "one", Family: "gpt",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedModel(codex.ID, "one", "")

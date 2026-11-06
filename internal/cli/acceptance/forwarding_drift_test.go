@@ -28,7 +28,7 @@ func TestAccountEditRefusesToMoveAForwardedUpstream(t *testing.T) {
 			target := filepath.Join(t.TempDir(), "config.toml")
 			writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)
 			cfg := domain.NewConfig(clients.Admission())
-			cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+			cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 			cfg.Models["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", domain.ProtocolOpenAIResponses)
 			cfg.SetSelectedModel(codex.ID, "sol", "")
 			cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})

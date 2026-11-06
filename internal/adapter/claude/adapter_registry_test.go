@@ -24,7 +24,7 @@ func claudeRegistry() adapter.Registry {
 func TestClaudeProjectionTreatsAnInvalidRuntimeAsChanged(t *testing.T) {
 	t.Run("invalid enabled Claude runtime", func(t *testing.T) {
 		before := domain.NewConfig(testAdmission())
-		before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+		before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 		before.Models["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
 		before.SetSelectedModel(ID, "claude", "")
 		before.SetClientActivation(ID, true, "/opt/claude", nil)
@@ -40,7 +40,7 @@ func TestClaudeProjectionTreatsAnInvalidRuntimeAsChanged(t *testing.T) {
 func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "missing")
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{
+	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}

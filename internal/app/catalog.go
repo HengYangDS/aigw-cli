@@ -106,8 +106,8 @@ type CatalogReport struct {
 // it serves, without changing configuration.
 func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer, cfg domain.Config) CatalogReport {
 	result := CatalogReport{Observations: []CatalogObservation{}}
-	for _, accountName := range cfg.CatalogAccountIDs() {
-		account := cfg.Accounts[accountName]
+	for _, accountName := range cfg.CatalogProviderIDs() {
+		account := cfg.Providers[accountName]
 		sources := catalogSources(account)
 		if len(sources) == 0 {
 			result.Observations = append(result.Observations, CatalogObservation{
@@ -148,7 +148,7 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 	return result
 }
 
-func catalogSources(account domain.Account) []CatalogSource {
+func catalogSources(account domain.Provider) []CatalogSource {
 	protocols := []domain.EndpointProtocol{
 		domain.ProtocolAnthropic,
 		domain.ProtocolOpenAIChatCompletions,
@@ -177,7 +177,7 @@ func catalogDifference(cfg domain.Config, account string, protocol domain.Endpoi
 	for _, routeID := range cfg.CatalogModelIDs() {
 		route := cfg.Models[routeID]
 		capabilities, admitted := route.Protocols[protocol]
-		if route.Account != account || !admitted {
+		if route.Provider != account || !admitted {
 			continue
 		}
 		capabilities = slices.Clone(capabilities)

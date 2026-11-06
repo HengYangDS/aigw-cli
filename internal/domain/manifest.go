@@ -15,7 +15,7 @@ const ManifestVersion = 7
 type Manifest struct {
 	Version         int                             `toml:"version"`
 	Recommendations map[string]ClientRecommendation `toml:"recommendations,omitempty"`
-	Accounts        map[string]Account              `toml:"accounts,omitempty"`
+	Providers       map[string]Provider             `toml:"accounts,omitempty"`
 	Families        map[string]Family               `toml:"models"`
 	Models          map[string]Model                `toml:"routes"`
 }
@@ -24,11 +24,11 @@ type Manifest struct {
 // Configuration manifests are token-free and must not silently redirect an
 // existing Account and its system-held Token to a different endpoint.
 type MergeOptions struct {
-	KeepAccounts    map[string]bool
-	ReplaceAccounts map[string]bool
-	ReplaceFamilies map[string]bool
-	ReplaceModels   map[string]bool
-	RetireModels    map[string]bool
+	KeepProviders    map[string]bool
+	ReplaceProviders map[string]bool
+	ReplaceFamilies  map[string]bool
+	ReplaceModels    map[string]bool
+	RetireModels     map[string]bool
 }
 
 // UnsupportedManifestVersionError reports a team manifest of another schema
@@ -44,20 +44,20 @@ func (err *UnsupportedManifestVersionError) Error() string {
 	)
 }
 
-// ManifestAccountNames returns every credential owner referenced by a
+// ManifestProviderIDs returns every credential owner referenced by a
 // configuration manifest. Credential ownership is part of the manifest model,
 // so all consumers share this definition instead of depending on a CLI command
 // package.
-func ManifestAccountNames(incoming Manifest) []string {
-	return slices.Sorted(maps.Keys(incoming.Accounts))
+func ManifestProviderIDs(incoming Manifest) []string {
+	return slices.Sorted(maps.Keys(incoming.Providers))
 }
 
 // Admit validates a decoded team manifest for the admitted clients and returns
 // its normalized form: it declares at least one Route, recommends Routes only
 // for admitted clients and declared Routes, and validates as a configuration.
 func (m Manifest) Admit(admission Admission) (Manifest, error) {
-	if m.Accounts == nil {
-		m.Accounts = map[string]Account{}
+	if m.Providers == nil {
+		m.Providers = map[string]Provider{}
 	}
 	if m.Recommendations == nil {
 		m.Recommendations = map[string]ClientRecommendation{}
@@ -66,7 +66,7 @@ func (m Manifest) Admit(admission Admission) (Manifest, error) {
 		return Manifest{}, fmt.Errorf("configuration manifest must define at least one route")
 	}
 	check := NewConfig(admission)
-	check.Accounts = m.Accounts
+	check.Providers = m.Providers
 	check.Families = m.Families
 	check.Models = m.Models
 	check.Normalize()
@@ -100,13 +100,13 @@ func ExportManifest(cfg Config) (Manifest, error) {
 		return Manifest{}, err
 	}
 	for routeID, route := range cfg.Models {
-		derived := modelLabel(Model{Account: route.Account, Family: route.Family}, cfg.Accounts[route.Account], cfg.Families[route.Family])
+		derived := modelLabel(Model{Provider: route.Provider, Family: route.Family}, cfg.Providers[route.Provider], cfg.Families[route.Family])
 		if route.Label == derived {
 			route.Label = ""
 			cfg.Models[routeID] = route
 		}
 	}
-	return Manifest{Version: ManifestVersion, Recommendations: cfg.Recommendations, Accounts: cfg.Accounts, Families: cfg.Families, Models: cfg.Models}, nil
+	return Manifest{Version: ManifestVersion, Recommendations: cfg.Recommendations, Providers: cfg.Providers, Families: cfg.Families, Models: cfg.Models}, nil
 }
 
 // Merge combines a manifest with existing configuration while preserving conflicting owned entries.
@@ -131,16 +131,16 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 		retiredModels[merged.Models[name].Family] = true
 		delete(merged.Models, name)
 	}
-	for name, account := range incoming.Accounts {
-		if existing, exists := merged.Accounts[name]; exists {
-			if equivalentAccount(existing, account) || options.KeepAccounts[name] {
+	for name, account := range incoming.Providers {
+		if existing, exists := merged.Providers[name]; exists {
+			if equivalentProvider(existing, account) || options.KeepProviders[name] {
 				continue
 			}
-			if !options.ReplaceAccounts[name] {
+			if !options.ReplaceProviders[name] {
 				return Config{}, fmt.Errorf("account %q conflicts with local configuration; inspect it with `aigw config export`, then use --keep-account %s to retain local metadata or --replace-account %s to use incoming metadata; its Token is unchanged", name, name, name)
 			}
 		}
-		merged.Accounts[name] = account
+		merged.Providers[name] = account
 	}
 	for name, model := range incoming.Families {
 		if existing, exists := merged.Families[name]; exists {
@@ -155,7 +155,7 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 	}
 	for name, route := range incoming.Models {
 		if existing, exists := merged.Models[name]; exists {
-			if equivalentModel(existing, route) && modelLabel(existing, merged.Accounts[route.Account], merged.Families[route.Family]) == modelLabel(route, merged.Accounts[route.Account], merged.Families[route.Family]) {
+			if equivalentModel(existing, route) && modelLabel(existing, merged.Providers[route.Provider], merged.Families[route.Family]) == modelLabel(route, merged.Providers[route.Provider], merged.Families[route.Family]) {
 				continue
 			}
 			if !options.ReplaceModels[name] {
@@ -189,22 +189,22 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 }
 
 func validateMergeSelectors(cfg Config, incoming Manifest, options MergeOptions) error {
-	for _, name := range slices.Sorted(maps.Keys(options.KeepAccounts)) {
-		if !options.KeepAccounts[name] {
+	for _, name := range slices.Sorted(maps.Keys(options.KeepProviders)) {
+		if !options.KeepProviders[name] {
 			continue
 		}
-		if options.ReplaceAccounts[name] {
+		if options.ReplaceProviders[name] {
 			return fmt.Errorf("--keep-account %q conflicts with --replace-account for the same Account", name)
 		}
-		if _, exists := cfg.Accounts[name]; !exists {
+		if _, exists := cfg.Providers[name]; !exists {
 			return fmt.Errorf("--keep-account %q does not name an existing local Account", name)
 		}
-		if _, exists := incoming.Accounts[name]; !exists {
+		if _, exists := incoming.Providers[name]; !exists {
 			return fmt.Errorf("--keep-account %q does not name an Account in the imported configuration manifest", name)
 		}
 	}
-	for name := range options.ReplaceAccounts {
-		if _, exists := incoming.Accounts[name]; !exists {
+	for name := range options.ReplaceProviders {
+		if _, exists := incoming.Providers[name]; !exists {
 			return fmt.Errorf("--replace-account %q does not name an Account in the imported configuration manifest", name)
 		}
 	}
@@ -237,15 +237,15 @@ func validateMergeSelectors(cfg Config, incoming Manifest, options MergeOptions)
 	return nil
 }
 
-func equivalentAccount(left, right Account) bool {
+func equivalentProvider(left, right Provider) bool {
 	return left.Label == right.Label && left.Order == right.Order &&
 		normalizeEndpoint(left.Endpoints.OpenAIResponses) == normalizeEndpoint(right.Endpoints.OpenAIResponses) &&
 		normalizeEndpoint(left.Endpoints.OpenAIChatCompletions) == normalizeEndpoint(right.Endpoints.OpenAIChatCompletions) &&
 		normalizeEndpoint(left.Endpoints.Anthropic) == normalizeEndpoint(right.Endpoints.Anthropic) &&
-		equivalentProbe(left.AccountProbe, right.AccountProbe)
+		equivalentProbe(left.BalanceProbe, right.BalanceProbe)
 }
 
-func equivalentProbe(left, right *AccountProbe) bool {
+func equivalentProbe(left, right *BalanceProbe) bool {
 	if left == nil || right == nil {
 		return left == right
 	}
@@ -256,7 +256,7 @@ func normalizeEndpoint(value string) string { return strings.TrimRight(strings.T
 
 func equivalentModel(left, right Model) bool {
 	return left.Purpose == right.Purpose &&
-		left.Account == right.Account &&
+		left.Provider == right.Provider &&
 		left.Family == right.Family &&
 		left.UpstreamModelID() == right.UpstreamModelID() &&
 		left.LifecycleState() == right.LifecycleState() &&

@@ -11,7 +11,7 @@ func TestRuntimeResolutionPreservesConfiguration(t *testing.T) {
 	cfg := validConfig()
 	want := validConfig()
 	resolved, err := cfg.ResolveRuntime(ClientClaude, "")
-	if err != nil || resolved.AccountID != "dmx" || resolved.Endpoint != cfg.Accounts["dmx"].Endpoints.Anthropic {
+	if err != nil || resolved.ProviderID != "dmx" || resolved.Endpoint != cfg.Providers["dmx"].Endpoints.Anthropic {
 		t.Fatalf("selected Account capability = %#v, %v", resolved, err)
 	}
 	if !reflect.DeepEqual(cfg, want) {
@@ -68,9 +68,9 @@ func BenchmarkResolveRuntime(b *testing.B) {
 	}
 }
 
-func TestResolveRuntimeReturnsAccountEndpointAndModel(t *testing.T) {
+func TestResolveRuntimeReturnsProviderEndpointAndModel(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
+	cfg.Providers["dmx"] = Provider{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
 	cfg.Models["gpt-5.6"] = testModel("GPT-5.6", "dmx", "gpt-5.6", ProtocolOpenAIResponses)
 	cfg.Models["claude-opus"] = testModel("Claude Opus", "dmx", "claude-opus", ProtocolAnthropic)
 	cfg.SetSelectedModel(ClientCodex, "gpt-5.6", "")
@@ -79,7 +79,7 @@ func TestResolveRuntimeReturnsAccountEndpointAndModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.ModelID != "gpt-5.6" || got.AccountID != "dmx" || got.UpstreamModel != "gpt-5.6" || got.Endpoint != "https://dmx.test/v1" {
+	if got.ModelID != "gpt-5.6" || got.ProviderID != "dmx" || got.UpstreamModel != "gpt-5.6" || got.Endpoint != "https://dmx.test/v1" {
 		t.Fatalf("runtime = %#v", got)
 	}
 	got, err = cfg.ResolveRuntime(ClientClaude, "")
@@ -91,9 +91,9 @@ func TestResolveRuntimeReturnsAccountEndpointAndModel(t *testing.T) {
 	}
 }
 
-func TestResolveRuntimeRejectsUnknownModelAccountAndEndpoint(t *testing.T) {
+func TestResolveRuntimeRejectsUnknownModelProviderAndEndpoint(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Providers["dmx"] = Provider{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Models["codex"] = testModel("Codex", "dmx", "gpt-test", ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(ClientCodex, "codex", "")
 
@@ -105,8 +105,8 @@ func TestResolveRuntimeRejectsUnknownModelAccountAndEndpoint(t *testing.T) {
 	orphan.Models = map[string]Model{"codex": testModel("Codex", "missing-account", "gpt-test", ProtocolOpenAIResponses)}
 	orphan.SetSelectedModel(ClientCodex, "codex", "")
 	_, err := orphan.ResolveRuntime(ClientCodex, "")
-	var accountErr *RuntimeModelUnknownAccountError
-	if !errors.As(err, &accountErr) || accountErr.ModelID != "codex" || accountErr.AccountID != "missing-account" {
+	var accountErr *RuntimeModelUnknownProviderError
+	if !errors.As(err, &accountErr) || accountErr.ModelID != "codex" || accountErr.ProviderID != "missing-account" {
 		t.Fatalf("unknown account error = %v", err)
 	}
 
@@ -116,15 +116,15 @@ func TestResolveRuntimeRejectsUnknownModelAccountAndEndpoint(t *testing.T) {
 	cfg.Models["claude"] = claudeRoute
 	_, err = cfg.ResolveRuntime(ClientClaude, "claude")
 	var endpointErr *RuntimeMissingEndpointError
-	if !errors.As(err, &endpointErr) || endpointErr.AccountID != "dmx" || endpointErr.Protocol != ProtocolAnthropic {
+	if !errors.As(err, &endpointErr) || endpointErr.ProviderID != "dmx" || endpointErr.Protocol != ProtocolAnthropic {
 		t.Fatalf("missing endpoint error = %v", err)
 	}
 }
 
-func TestSelectModelsForConnectedAccountsKeepsCapabilityAndChoosesUsableModels(t *testing.T) {
+func TestSelectModelsForConnectedProvidersKeepsCapabilityAndChoosesUsableModels(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["alpha"] = Account{Label: "Alpha", Endpoints: Endpoints{Anthropic: "https://alpha.test", OpenAIResponses: "https://alpha.test/v1"}}
-	cfg.Accounts["beta"] = Account{Label: "Beta", Endpoints: Endpoints{Anthropic: "https://beta.test", OpenAIResponses: "https://beta.test/v1"}}
+	cfg.Providers["alpha"] = Provider{Label: "Alpha", Endpoints: Endpoints{Anthropic: "https://alpha.test", OpenAIResponses: "https://alpha.test/v1"}}
+	cfg.Providers["beta"] = Provider{Label: "Beta", Endpoints: Endpoints{Anthropic: "https://beta.test", OpenAIResponses: "https://beta.test/v1"}}
 	cfg.Models["alpha-claude"] = testModel("Alpha Claude", "alpha", "claude-test", ProtocolAnthropic)
 	cfg.Models["alpha-codex"] = testModel("Alpha Codex", "alpha", "gpt-test", ProtocolOpenAIResponses)
 	cfg.Models["beta-claude"] = testModel("Beta Claude", "beta", "claude-test", ProtocolAnthropic)
@@ -138,21 +138,21 @@ func TestSelectModelsForConnectedAccountsKeepsCapabilityAndChoosesUsableModels(t
 	codexRecommendation.Alternatives = []ClientSelection{{Model: "beta-codex"}}
 	cfg.Recommendations[ClientCodex] = codexRecommendation
 
-	one, err := cfg.SelectModelsForConnectedAccounts([]string{"beta"})
+	one, err := cfg.SelectModelsForConnectedProviders([]string{"beta"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if one.SelectedModel(ClientClaude) != "beta-claude" || one.SelectedModel(ClientCodex) != "beta-codex" {
 		t.Fatalf("one connected Account bindings = %#v", one.Clients)
 	}
-	if len(one.Accounts) != 2 || len(one.Models) != 4 {
+	if len(one.Providers) != 2 || len(one.Models) != 4 {
 		t.Fatalf("route selection discarded catalog capability: %#v", one)
 	}
 	if !one.Clients[ClientClaude].Enabled || !one.Clients[ClientCodex].Enabled {
 		t.Fatalf("explicit setup selection did not retain deferred activation intent: %#v", one.Clients)
 	}
 
-	both, err := cfg.SelectModelsForConnectedAccounts([]string{"alpha", "beta"})
+	both, err := cfg.SelectModelsForConnectedProviders([]string{"alpha", "beta"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,15 +160,15 @@ func TestSelectModelsForConnectedAccountsKeepsCapabilityAndChoosesUsableModels(t
 		t.Fatalf("usable recommendations changed: bindings=%#v recommendations=%#v", both.Clients, cfg.Recommendations)
 	}
 
-	if _, err := cfg.SelectModelsForConnectedAccounts([]string{"missing"}); err == nil || !strings.Contains(err.Error(), "unknown account") {
+	if _, err := cfg.SelectModelsForConnectedProviders([]string{"missing"}); err == nil || !strings.Contains(err.Error(), "unknown account") {
 		t.Fatalf("unknown connected Account error = %v", err)
 	}
 }
 
-func TestSelectModelsForConnectedAccountsPreservesRecommendedModels(t *testing.T) {
+func TestSelectModelsForConnectedProvidersPreservesRecommendedModels(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["preferred"] = Account{Label: "Preferred", Endpoints: Endpoints{Anthropic: "https://preferred.test", OpenAIResponses: "https://preferred.test/v1"}}
-	cfg.Accounts["connected"] = Account{Label: "Connected", Endpoints: Endpoints{Anthropic: "https://connected.test", OpenAIResponses: "https://connected.test/v1"}}
+	cfg.Providers["preferred"] = Provider{Label: "Preferred", Endpoints: Endpoints{Anthropic: "https://preferred.test", OpenAIResponses: "https://preferred.test/v1"}}
+	cfg.Providers["connected"] = Provider{Label: "Connected", Endpoints: Endpoints{Anthropic: "https://connected.test", OpenAIResponses: "https://connected.test/v1"}}
 	cfg.Models["preferred-claude"] = testModel("Preferred Claude", "preferred", "claude-fable-5", ProtocolAnthropic)
 	cfg.Models["preferred-codex"] = testModel("Preferred Codex", "preferred", "gpt-5.6-sol", ProtocolOpenAIResponses)
 	cfg.Models["connected-claude"] = testModel("Connected Claude", "connected", "claude-fable-5", ProtocolAnthropic)
@@ -183,7 +183,7 @@ func TestSelectModelsForConnectedAccountsPreservesRecommendedModels(t *testing.T
 	codexRecommendation.Alternatives = []ClientSelection{{Model: "connected-codex-sol"}}
 	cfg.Recommendations[ClientCodex] = codexRecommendation
 
-	selected, err := cfg.SelectModelsForConnectedAccounts([]string{"connected"})
+	selected, err := cfg.SelectModelsForConnectedProviders([]string{"connected"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,15 +195,15 @@ func TestSelectModelsForConnectedAccountsPreservesRecommendedModels(t *testing.T
 	}
 }
 
-func TestSelectModelsForConnectedAccountsDoesNotSubstituteAnotherRecommendedModel(t *testing.T) {
+func TestSelectModelsForConnectedProvidersDoesNotSubstituteAnotherRecommendedModel(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["preferred"] = Account{Label: "Preferred", Endpoints: Endpoints{OpenAIResponses: "https://preferred.test/v1"}}
-	cfg.Accounts["connected"] = Account{Label: "Connected", Endpoints: Endpoints{OpenAIResponses: "https://connected.test/v1"}}
+	cfg.Providers["preferred"] = Provider{Label: "Preferred", Endpoints: Endpoints{OpenAIResponses: "https://preferred.test/v1"}}
+	cfg.Providers["connected"] = Provider{Label: "Connected", Endpoints: Endpoints{OpenAIResponses: "https://connected.test/v1"}}
 	cfg.Models["preferred"] = testModel("Preferred", "preferred", "gpt-preferred", ProtocolOpenAIResponses)
 	cfg.Models["different"] = testModel("Different", "connected", "gpt-different", ProtocolOpenAIResponses)
 	cfg.SetRecommendedModel(ClientCodex, "preferred")
 
-	selected, err := cfg.SelectModelsForConnectedAccounts([]string{"connected"})
+	selected, err := cfg.SelectModelsForConnectedProviders([]string{"connected"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +215,7 @@ func TestSelectModelsForConnectedAccountsDoesNotSubstituteAnotherRecommendedMode
 func TestSelectModelsPreservesUnavailableExplicitChoice(t *testing.T) {
 	cfg := validConfig()
 	cfg.SetRecommendedModel(ClientCodex, "backup")
-	chosen, err := cfg.SelectModelsForConnectedAccounts(nil)
+	chosen, err := cfg.SelectModelsForConnectedProviders(nil)
 	if err != nil || !reflect.DeepEqual(chosen.Clients, cfg.Clients) {
 		t.Fatalf("unavailable explicit choices changed: %#v, %v", chosen.Clients, err)
 	}
@@ -223,45 +223,45 @@ func TestSelectModelsPreservesUnavailableExplicitChoice(t *testing.T) {
 
 func TestSelectModelsPrefersUsableRecommendationOverIdentifierOrder(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test"}}
+	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test"}}
 	cfg.Models["alpha"] = testModel("Alpha", "team", "first-model", ProtocolAnthropic)
 	cfg.Models["zeta"] = testModel("Zeta", "team", "recommended-model", ProtocolAnthropic)
 	cfg.SetRecommendedModel(ClientClaude, "zeta")
-	deferred, err := cfg.SelectModelsForConnectedAccounts(nil)
+	deferred, err := cfg.SelectModelsForConnectedProviders(nil)
 	if err != nil || len(deferred.Clients) != 0 || deferred.RecommendedModel(ClientClaude) != "zeta" {
 		t.Fatalf("deferred recommendation = %#v, %v", deferred, err)
 	}
-	selected, err := deferred.SelectModelsForConnectedAccounts([]string{"team"})
+	selected, err := deferred.SelectModelsForConnectedProviders([]string{"team"})
 	if err != nil || selected.SelectedModel(ClientClaude) != "zeta" {
 		t.Fatalf("recommendation lost to identifier order: %#v, %v", selected.Clients, err)
 	}
 }
 
-func TestSelectedAccountIDsReturnsUniqueStableActiveAccounts(t *testing.T) {
+func TestSelectedProviderIDsReturnsUniqueStableActiveProviders(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["alpha"] = Account{Label: "Alpha", Endpoints: Endpoints{Anthropic: "https://alpha.test", OpenAIResponses: "https://alpha.test/v1"}}
-	cfg.Accounts["optional"] = Account{Label: "Optional", Endpoints: Endpoints{OpenAIResponses: "https://optional.test/v1"}}
+	cfg.Providers["alpha"] = Provider{Label: "Alpha", Endpoints: Endpoints{Anthropic: "https://alpha.test", OpenAIResponses: "https://alpha.test/v1"}}
+	cfg.Providers["optional"] = Provider{Label: "Optional", Endpoints: Endpoints{OpenAIResponses: "https://optional.test/v1"}}
 	cfg.Models["alpha-claude"] = testModel("Alpha Claude", "alpha", "claude-test", ProtocolAnthropic)
 	cfg.Models["alpha-codex"] = testModel("Alpha Codex", "alpha", "gpt-test", ProtocolOpenAIResponses)
 	cfg.Models["optional"] = testModel("Optional", "optional", "gpt-optional", ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(ClientClaude, "alpha-claude", "")
 	cfg.SetSelectedModel(ClientCodex, "alpha-codex", "")
 
-	if got := cfg.SelectedAccountIDs(); !reflect.DeepEqual(got, []string{"alpha"}) {
+	if got := cfg.SelectedProviderIDs(); !reflect.DeepEqual(got, []string{"alpha"}) {
 		t.Fatalf("SelectedAccountIDs() = %#v", got)
 	}
 }
 
-func TestSelectModelsForConnectedAccountsSelectsACompatibleModelForAnUnselectedClient(t *testing.T) {
+func TestSelectModelsForConnectedProvidersSelectsACompatibleModelForAnUnselectedClient(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["claude-only"] = Account{Label: "Claude only", Endpoints: Endpoints{Anthropic: "https://claude.test"}}
-	cfg.Accounts["codex"] = Account{Label: "Codex", Endpoints: Endpoints{OpenAIResponses: "https://codex.test/v1"}}
+	cfg.Providers["claude-only"] = Provider{Label: "Claude only", Endpoints: Endpoints{Anthropic: "https://claude.test"}}
+	cfg.Providers["codex"] = Provider{Label: "Codex", Endpoints: Endpoints{OpenAIResponses: "https://codex.test/v1"}}
 	cfg.Models["claude"] = testModel("Claude", "claude-only", "claude-test", ProtocolAnthropic)
 	cfg.Models["codex"] = testModel("Codex", "codex", "gpt-test", ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(ClientCodex, "codex", "")
 	cfg.SetRecommendedModel(ClientClaude, "claude")
 
-	got, err := cfg.SelectModelsForConnectedAccounts([]string{"claude-only"}, ClientClaude)
+	got, err := cfg.SelectModelsForConnectedProviders([]string{"claude-only"}, ClientClaude)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,15 +270,15 @@ func TestSelectModelsForConnectedAccountsSelectsACompatibleModelForAnUnselectedC
 	}
 }
 
-func TestSelectModelsForConnectedAccountsDefaultsToRecommendedClients(t *testing.T) {
+func TestSelectModelsForConnectedProvidersDefaultsToRecommendedClients(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{
+	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{
 		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
 	}}
 	cfg.Models["shared"] = testModel("Shared", "team", "model", ProtocolOpenAIResponses)
 	cfg.SetRecommendedModel(ClientCodex, "shared")
 
-	selected, err := cfg.SelectModelsForConnectedAccounts([]string{"team"})
+	selected, err := cfg.SelectModelsForConnectedProviders([]string{"team"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,12 +293,12 @@ func TestSelectModelsForConnectedAccountsDefaultsToRecommendedClients(t *testing
 	}
 }
 
-func TestSelectModelsForConnectedAccountsPreservesRecommendedProtocolForEquivalentModel(t *testing.T) {
+func TestSelectModelsForConnectedProvidersPreservesRecommendedProtocolForEquivalentModel(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["preferred"] = Account{Label: "Preferred", Endpoints: Endpoints{
+	cfg.Providers["preferred"] = Provider{Label: "Preferred", Endpoints: Endpoints{
 		Anthropic: "https://preferred.test", OpenAIResponses: "https://preferred.test/v1",
 	}}
-	cfg.Accounts["connected"] = Account{Label: "Connected", Endpoints: Endpoints{
+	cfg.Providers["connected"] = Provider{Label: "Connected", Endpoints: Endpoints{
 		Anthropic: "https://connected.test", OpenAIResponses: "https://connected.test/v1",
 	}}
 	cfg.Models["preferred"] = testModel("Preferred", "preferred", "shared-model", ProtocolAnthropic, ProtocolOpenAIResponses)
@@ -308,7 +308,7 @@ func TestSelectModelsForConnectedAccountsPreservesRecommendedProtocolForEquivale
 		Alternatives: []ClientSelection{{Model: "connected", Protocol: ProtocolAnthropic}},
 	}
 
-	selected, err := cfg.SelectModelsForConnectedAccounts([]string{"connected"})
+	selected, err := cfg.SelectModelsForConnectedProviders([]string{"connected"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +327,7 @@ func TestSelectModelsForConnectedAccountsPreservesRecommendedProtocolForEquivale
 
 func TestExplicitModelSelectionUsesUnboundRecommendationOptions(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{
+	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{
 		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
 	}}
 	cfg.Models["recommended"] = testModel("Recommended", "team", "recommended-model", ProtocolAnthropic, ProtocolOpenAIResponses)
@@ -347,13 +347,13 @@ func TestExplicitModelSelectionUsesUnboundRecommendationOptions(t *testing.T) {
 	}
 }
 
-func TestSelectModelsForConnectedAccountsSkipsModelsWithoutTheClientEndpoint(t *testing.T) {
+func TestSelectModelsForConnectedProvidersSkipsModelsWithoutTheClientEndpoint(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test"}}
+	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{Anthropic: "https://team.test"}}
 	cfg.Models["generic"] = testModel("Generic", "team", "claude-test", ProtocolAnthropic)
 	cfg.Models["invalid-codex"] = testModel("Invalid Codex", "team", "gpt-test", ProtocolOpenAIResponses)
 
-	selected, err := cfg.SelectModelsForConnectedAccounts([]string{"team"})
+	selected, err := cfg.SelectModelsForConnectedProviders([]string{"team"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -363,7 +363,7 @@ func TestSelectModelsForConnectedAccountsSkipsModelsWithoutTheClientEndpoint(t *
 }
 
 func TestClientEndpointRejectsUnknownClientAndMissingProtocolEndpoint(t *testing.T) {
-	account := Account{ID: "dmx", Label: "DMXAPI", Endpoints: Endpoints{Anthropic: "https://dmx.test"}}
+	account := Provider{ID: "dmx", Label: "DMXAPI", Endpoints: Endpoints{Anthropic: "https://dmx.test"}}
 	admission := testAdmission()
 	if _, admitted := admission.Spec("gemini"); admitted {
 		t.Fatal("an unknown client is admitted")
@@ -378,10 +378,10 @@ func TestClientEndpointRejectsUnknownClientAndMissingProtocolEndpoint(t *testing
 	}
 }
 
-func TestResolveAccountRejectsModelWithUnknownAccount(t *testing.T) {
+func TestResolveProviderRejectsModelWithUnknownProvider(t *testing.T) {
 	cfg := NewConfig(testAdmission())
 	cfg.Models["orphan"] = testModel("Orphan", "missing", "", ProtocolAnthropic)
-	_, _, err := cfg.ResolveAccount("orphan")
+	_, _, err := cfg.ResolveProvider("orphan")
 	if err == nil || !strings.Contains(err.Error(), "references unknown account") {
 		t.Fatalf("orphan route error = %v", err)
 	}
@@ -397,15 +397,15 @@ func TestDomainErrorTextAndModelSelectionBranches(t *testing.T) {
 	if got := (&RuntimeModelClientMismatchError{ModelID: "one", ExpectedClient: "codex", ActualClient: "claude"}).Error(); !strings.Contains(got, "for codex") {
 		t.Fatalf("mismatch error = %q", got)
 	}
-	if got := (&RuntimeModelUnknownAccountError{ModelID: "one", AccountID: "missing"}).Error(); !strings.Contains(got, "unknown account") {
+	if got := (&RuntimeModelUnknownProviderError{ModelID: "one", ProviderID: "missing"}).Error(); !strings.Contains(got, "unknown account") {
 		t.Fatalf("account error = %q", got)
 	}
-	if got := (&RuntimeMissingEndpointError{AccountID: "one", Protocol: EndpointProtocol("future")}).Error(); !strings.Contains(got, "future endpoint") {
+	if got := (&RuntimeMissingEndpointError{ProviderID: "one", Protocol: EndpointProtocol("future")}).Error(); !strings.Contains(got, "future endpoint") {
 		t.Fatalf("endpoint error = %q", got)
 	}
 
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["generic"] = Account{Label: "Generic", Endpoints: Endpoints{Anthropic: "https://one.test"}}
+	cfg.Providers["generic"] = Provider{Label: "Generic", Endpoints: Endpoints{Anthropic: "https://one.test"}}
 	cfg.Models["a-skip"] = testModel("Skip", "generic", "", ProtocolAnthropic)
 	cfg.Models["b-endpoint"] = testModel("Endpoint", "generic", "claude-endpoint", ProtocolAnthropic)
 	for _, route := range []string{"a-skip", "b-endpoint"} {
@@ -418,10 +418,10 @@ func TestDomainErrorTextAndModelSelectionBranches(t *testing.T) {
 	}
 }
 
-func TestSelectedModelCopiesRecommendedOptionsOnlyForItsAccount(t *testing.T) {
+func TestSelectedModelCopiesRecommendedOptionsOnlyForItsProvider(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["native"] = Account{Label: "Native", Endpoints: Endpoints{OpenAIResponses: "https://native.test/v1"}}
-	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://team.test/v1"}}
+	cfg.Providers["native"] = Provider{Label: "Native", Endpoints: Endpoints{OpenAIResponses: "https://native.test/v1"}}
+	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://team.test/v1"}}
 	cfg.Models["native-gpt"] = testModel("Native", "native", "gpt-native", ProtocolOpenAIResponses)
 	cfg.Models["team-gpt"] = testModel("Team", "team", "gpt-team", ProtocolOpenAIResponses)
 	cfg.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{
@@ -431,7 +431,7 @@ func TestSelectedModelCopiesRecommendedOptionsOnlyForItsAccount(t *testing.T) {
 	other := cfg.Clone()
 	other.SetSelectedModel(ClientCodex, "team-gpt", "")
 	runtime, err := other.ResolveRuntime(ClientCodex, "")
-	if err != nil || !runtime.RequiresAccountToken() || other.Clients[ClientCodex].ModelProvider != "" {
+	if err != nil || !runtime.RequiresProviderToken() || other.Clients[ClientCodex].ModelProvider != "" {
 		t.Fatalf("another Account's Route inherited the recommendation's native options: %#v, %v", other.Clients[ClientCodex], err)
 	}
 	recommended := cfg.Clone()

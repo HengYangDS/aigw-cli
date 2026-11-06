@@ -143,7 +143,7 @@ func (rehearsalAdapter) Withdraw(cfg *domain.Config) {
 // governs, before and after the rehearsal client selects its Route.
 func rehearsalConfiguration(admission domain.Admission) (domain.Config, domain.Config) {
 	before := domain.NewConfig(admission)
-	before.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	before.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	before.Models["rehearsal"] = qualifiedRoute("", "gateway", "rehearsal-model", domain.ProtocolOpenAIResponses)
 	after := before.Clone()
 	after.Clients[rehearsalID] = domain.ClientBinding{Model: "rehearsal", Enabled: true}

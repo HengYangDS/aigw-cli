@@ -58,7 +58,7 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, domain.Config
 	configPath := filepath.Join(t.TempDir(), "configuration.toml")
 	configStore := store.NewStore(configPath, clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = domain.Account{
+	cfg.Providers["one"] = domain.Provider{
 		Label: "One",
 		Endpoints: domain.Endpoints{
 			Anthropic:       "https://claude.example.test",
@@ -66,11 +66,11 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, domain.Config
 		},
 	}
 	cfg.Models["claude"] = domain.Model{
-		Label: "Claude", Account: "one", Family: "claude-test",
+		Label: "Claude", Provider: "one", Family: "claude-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.Models["codex"] = domain.Model{
-		Label: "Codex", Account: "one", Family: "gpt-test",
+		Label: "Codex", Provider: "one", Family: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedModel(claude.ID, "claude", "")

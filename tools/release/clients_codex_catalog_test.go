@@ -62,8 +62,8 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	if err := os.WriteFile(configPath, append(reference, readFile(t, configPath)...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	journey.setEnvironment(secret.EnvironmentKey(route.Account), token)
-	journey.run("setup", "--from", journey.manifest, "--account", route.Account)
+	journey.setEnvironment(secret.EnvironmentKey(route.Provider), token)
+	journey.run("setup", "--from", journey.manifest, "--account", route.Provider)
 	journey.enableNativeClient(codex.ID, executable)
 	for _, args := range [][]string{
 		{"verify", "--for", codex.ID},

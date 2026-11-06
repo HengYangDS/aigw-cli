@@ -27,8 +27,8 @@ func (noClientDiscovery) Discover() discovery.Result {
 func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -91,10 +91,10 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["missing"] = domain.Account{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
-	cfg.Accounts["connected"] = domain.Account{Label: "Connected", Endpoints: domain.Endpoints{OpenAIResponses: "https://connected.test/v1"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "missing", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "connected", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Providers["missing"] = domain.Provider{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
+	cfg.Providers["connected"] = domain.Provider{Label: "Connected", Endpoints: domain.Endpoints{OpenAIResponses: "https://connected.test/v1"}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "missing", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "connected", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetRecommendedModel(codex.ID, "codex")
 	if err := configStore.Save(cfg); err != nil {

@@ -81,7 +81,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if !clientRuntime.RequiresAccountToken() {
+				if !clientRuntime.RequiresProviderToken() {
 					return fmt.Errorf(
 						"route %q uses client-owned authentication; run `%s` to test it through %s",
 						clientRuntime.ModelID,
@@ -98,7 +98,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			for _, spec := range clients {
 				target := spec.ID
 				clientRuntime := resolved[target]
-				accountName := clientRuntime.AccountID
+				accountName := clientRuntime.ProviderID
 				token, instruction, err := endpointTestToken(runtime, accountName, tokenStdin, tokenFormat)
 				if err != nil {
 					return fmt.Errorf("token for account %q is unavailable: %w; %s", accountName, err, instruction)

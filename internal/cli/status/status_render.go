@@ -91,19 +91,19 @@ func renderTransportStatus(r *terminal.Renderer, admission domain.Admission, res
 
 func renderDiagnosticStatus(runtime invocation.Context, r *terminal.Renderer, cfg domain.Config) {
 	r.Section("Optional diagnostics")
-	accountIDs := cfg.SelectedAccountIDs()
+	accountIDs := cfg.SelectedProviderIDs()
 	if len(accountIDs) == 0 {
 		r.Rows(terminal.Field{State: terminal.Info, Label: "Precise balance", Value: "No selected account"})
 		return
 	}
 	rows := make([]terminal.Field, 0, len(accountIDs))
 	for _, accountName := range accountIDs {
-		account := cfg.Accounts[accountName]
-		if account.AccountProbe == nil {
+		account := cfg.Providers[accountName]
+		if account.BalanceProbe == nil {
 			rows = append(rows, terminal.Field{State: terminal.Info, Label: accountName, Value: "Provider does not expose a balance probe"})
 			continue
 		}
-		if !provider.Supports(account.AccountProbe.Kind) {
+		if !provider.Supports(account.BalanceProbe.Kind) {
 			rows = append(rows, terminal.Field{State: terminal.Info, Label: accountName, Value: "Provider diagnostics unavailable in this version"})
 			continue
 		}

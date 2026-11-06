@@ -9,13 +9,13 @@ import (
 
 func configuredCatalog() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	cfg.Models["codex"] = domain.Model{
-		Label: "Codex", Account: "gateway", Family: "gpt-codex",
+		Label: "Codex", Provider: "gateway", Family: "gpt-codex",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.Models["claude"] = domain.Model{
-		Label: "Claude", Account: "gateway", Family: "gpt-claude",
+		Label: "Claude", Provider: "gateway", Family: "gpt-claude",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedModel(codex.ID, "codex", "")

@@ -10,20 +10,20 @@ import (
 func TestAccountReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
 	tests := []struct {
 		name     string
-		accounts map[string]domain.Account
+		accounts map[string]domain.Provider
 		args     []string
 		want     string
 		wantErr  string
 	}{
-		{name: "explicit", accounts: map[string]domain.Account{"one": {}, "two": {}}, args: []string{"two"}, want: "two"},
-		{name: "only account", accounts: map[string]domain.Account{"one": {}}, want: "one"},
-		{name: "none", accounts: map[string]domain.Account{}, wantErr: "0 accounts"},
-		{name: "ambiguous", accounts: map[string]domain.Account{"one": {}, "two": {}}, wantErr: "2 accounts"},
+		{name: "explicit", accounts: map[string]domain.Provider{"one": {}, "two": {}}, args: []string{"two"}, want: "two"},
+		{name: "only account", accounts: map[string]domain.Provider{"one": {}}, want: "one"},
+		{name: "none", accounts: map[string]domain.Provider{}, wantErr: "0 accounts"},
+		{name: "ambiguous", accounts: map[string]domain.Provider{"one": {}, "two": {}}, wantErr: "2 accounts"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := domain.NewConfig(clients.Admission())
-			cfg.Accounts = test.accounts
+			cfg.Providers = test.accounts
 			got, err := AccountReference(cfg, test.args)
 			if test.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), test.wantErr) {

@@ -18,8 +18,8 @@ func TestPublishedProfilesMigrateByTheAdmittedProfileProtocol(t *testing.T) {
 	provider := domain.ClientSpec{ID: "provider", Label: "Provider", EndpointProtocols: responses}
 	admission := domain.NewAdmission(native, provider)
 	published := publishedConfig{
-		Accounts: map[string]domain.Account{"gateway": {Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}},
-		Profiles: map[string]publishedProfile{"route": {Label: "Route", Account: "gateway", Client: "native", Model: "model"}},
+		Providers: map[string]domain.Provider{"gateway": {Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}},
+		Profiles:  map[string]publishedProfile{"route": {Label: "Route", Provider: "gateway", Client: "native", Model: "model"}},
 	}
 	migrated, err := migratePublishedConfig(published, admission)
 	if err != nil {
@@ -28,7 +28,7 @@ func TestPublishedProfilesMigrateByTheAdmittedProfileProtocol(t *testing.T) {
 	if protocols := migrated.Models["route"].AdmittedProtocols(); !reflect.DeepEqual(protocols, responses) {
 		t.Fatalf("migrated Route protocols = %v", protocols)
 	}
-	published.Profiles["route"] = publishedProfile{Label: "Route", Account: "gateway", Client: "provider", Model: "model"}
+	published.Profiles["route"] = publishedProfile{Label: "Route", Provider: "gateway", Client: "provider", Model: "model"}
 	if _, err := migratePublishedConfig(published, admission); err == nil || !strings.Contains(err.Error(), `no admitted client protocol for "provider"`) {
 		t.Fatalf("a profile of a client without a published protocol migrated: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestStoreAndManifestFollowTheInjectedAdmission(t *testing.T) {
 	future := domain.ClientSpec{ID: "future", Label: "Future", EndpointProtocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}}
 	admission := domain.NewAdmission(future)
 	cfg := domain.NewConfig(admission)
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Models["route"] = testModel("Route", "gateway", "model", domain.ProtocolOpenAIResponses)
 	cfg.Recommendations["future"] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "route"}}
 	cfg.SetSelectedModel("future", "route", "")

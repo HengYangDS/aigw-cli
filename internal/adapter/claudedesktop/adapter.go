@@ -245,10 +245,10 @@ func claudeDesktopRouteIDs(cfg domain.Config, selected domain.Runtime) []string 
 			continue
 		}
 		route := cfg.Models[routeID]
-		if route.Account != selected.AccountID || seen[route.Family] {
+		if route.Provider != selected.ProviderID || seen[route.Family] {
 			continue
 		}
-		account := cfg.Accounts[route.Account]
+		account := cfg.Providers[route.Provider]
 		if !slices.Contains(spec.CompatibleModelProtocols(account, route), selected.Protocol) {
 			continue
 		}

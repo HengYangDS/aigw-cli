@@ -36,7 +36,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 			t.Fatal(err)
 		}
 		cfg := domain.NewConfig(testAdmission())
-		cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+		cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 		cfg.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 		cfg.Clients[ID] = domain.ClientBinding{Model: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
 		runtime, err := cfg.ResolveRuntime(ID, "")
@@ -127,14 +127,14 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *tes
 		authentication domain.Authentication
 		wantCommand    bool
 	}{
-		{name: "aigw account token", provider: modelProviderAIGW, authentication: domain.AuthenticationAccountToken, wantCommand: true},
-		{name: "provider account token", provider: "amazon-bedrock", authentication: domain.AuthenticationAccountToken, wantCommand: true},
+		{name: "aigw account token", provider: modelProviderAIGW, authentication: domain.AuthenticationProviderToken, wantCommand: true},
+		{name: "provider account token", provider: "amazon-bedrock", authentication: domain.AuthenticationProviderToken, wantCommand: true},
 		{name: "client native", provider: "amazon-bedrock", authentication: domain.AuthenticationClientNative},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			target := filepath.Join(t.TempDir(), "config.toml")
 			cfg := domain.NewConfig(testAdmission())
-			cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+			cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 			cfg.Models["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 			cfg.Clients[ID] = domain.ClientBinding{
 				Model: "codex", Enabled: true, ModelProvider: test.provider,
@@ -208,7 +208,7 @@ func qualifiedRoute(label, account, model string, protocols ...domain.EndpointPr
 		interfaces[protocol] = []domain.Capability{}
 	}
 	return domain.Model{
-		Label: label, Account: account, Family: model, UpstreamModel: model, Protocols: interfaces,
+		Label: label, Provider: account, Family: model, UpstreamModel: model, Protocols: interfaces,
 	}
 }
 
@@ -246,7 +246,7 @@ func (runner *captureAdapterRunner) RunCapture(ctx context.Context, plan process
 
 func codexConfiguration(target string) domain.Config {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.Clients[ID] = domain.ClientBinding{Model: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg

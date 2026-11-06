@@ -62,7 +62,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if label == "" {
 				label = name
 			}
-			account := domain.Account{Label: label, Endpoints: domain.Endpoints{
+			account := domain.Provider{Label: label, Endpoints: domain.Endpoints{
 				OpenAIResponses: strings.TrimRight(openAIURL, "/"),
 				Anthropic:       strings.TrimRight(anthropicURL, "/"),
 			}}
@@ -73,7 +73,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			route := domain.Model{
-				Label: label, Account: name, Family: strings.TrimSpace(model),
+				Label: label, Provider: name, Family: strings.TrimSpace(model),
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
 			next := "aigw check"
@@ -136,7 +136,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 // the configuration, as if its Token were stored, without reading, checking or
 // storing it. add always stores the Token, so a backend that stores none
 // refuses the preview as it would refuse add.
-func previewConnection(runtime invocation.Context, cfg domain.Config, name, client string, account domain.Account, route domain.Model) (invocation.Preview, error) {
+func previewConnection(runtime invocation.Context, cfg domain.Config, name, client string, account domain.Provider, route domain.Model) (invocation.Preview, error) {
 	if secret.IsReadOnly(runtime.Secrets) {
 		return invocation.Preview{}, errors.New("add cannot store a Token in the read-only environment secret backend")
 	}

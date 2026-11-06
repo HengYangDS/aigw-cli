@@ -36,9 +36,9 @@ func TestHermesNativeProjection(t *testing.T) {
 			}
 			hermesHome := filepath.Join(home, "hermes")
 			cfg := domain.NewConfig(testAdmission())
-			cfg.Accounts["fixture"] = domain.Account{Label: "Fixture", Endpoints: domain.Endpoints{Anthropic: "https://provider.invalid", OpenAIResponses: "https://provider.invalid/v1", OpenAIChatCompletions: "https://provider.invalid/v1"}}
+			cfg.Providers["fixture"] = domain.Provider{Label: "Fixture", Endpoints: domain.Endpoints{Anthropic: "https://provider.invalid", OpenAIResponses: "https://provider.invalid/v1", OpenAIChatCompletions: "https://provider.invalid/v1"}}
 			cfg.Models["hermes"] = domain.Model{
-				Label: "Hermes", Account: "fixture", Family: "fixture-model",
+				Label: "Hermes", Provider: "fixture", Family: "fixture-model",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
 			cfg.Clients[ID] = domain.ClientBinding{Model: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
@@ -102,7 +102,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	connectedAccounts := []string{"aihubmix", "ucloud"}
-	cfg, err = cfg.SelectModelsForConnectedAccounts(connectedAccounts, ID)
+	cfg, err = cfg.SelectModelsForConnectedProviders(connectedAccounts, ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,11 +189,11 @@ func assertNativeHermesCatalog(t *testing.T, routes map[string]domain.Model, acc
 	}
 	want := map[string][]string{}
 	for _, route := range routes {
-		if !connected[route.Account] {
+		if !connected[route.Provider] {
 			continue
 		}
 		for _, protocol := range route.AdmittedProtocols() {
-			providerID := hermesProviderID(route.Account, protocol)
+			providerID := hermesProviderID(route.Provider, protocol)
 			want[providerID] = append(want[providerID], route.UpstreamModelID())
 		}
 	}

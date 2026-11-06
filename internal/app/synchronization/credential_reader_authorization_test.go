@@ -81,9 +81,9 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			selected := testConfig(target)
-			selected.Accounts[account] = selected.Accounts["gateway"]
+			selected.Providers[account] = selected.Providers["gateway"]
 			route := selected.Models["gpt"]
-			route.Account = account
+			route.Provider = account
 			selected.Models["gpt"] = route
 			err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), selected, "test")
 			if err == nil {
@@ -105,9 +105,9 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 				t.Fatal("denied credential reader reached configuration commit")
 			}
 			deferred := testConfig(target)
-			deferred.Accounts["missing"] = deferred.Accounts["gateway"]
+			deferred.Providers["missing"] = deferred.Providers["gateway"]
 			route = deferred.Models["gpt"]
-			route.Account = "missing"
+			route.Provider = "missing"
 			deferred.Models["gpt"] = route
 			if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), deferred, "deferred", codex.ID); err != nil {
 				t.Fatalf("absent Token blocked deferred selection: %v", err)
@@ -122,11 +122,11 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			selected = testConfig(target)
-			selected.Accounts["blocked"] = domain.Account{
+			selected.Providers["blocked"] = domain.Provider{
 				Label: "Blocked", Endpoints: domain.Endpoints{Anthropic: "https://blocked.test"},
 			}
 			selected.Models["blocked-claude"] = domain.Model{
-				Account: "blocked", Family: "claude-test",
+				Provider: "blocked", Family: "claude-test",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 			}
 			selected.SetSelectedModel(claude.ID, "blocked-claude", "")

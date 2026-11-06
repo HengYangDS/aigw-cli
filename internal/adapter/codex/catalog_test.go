@@ -167,7 +167,7 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 		return ExecutableIdentity{Version: "0.160.0", SHA256: "client-catalog"}, bundled, nil
 	}
 	config := domain.NewConfig(testAdmission())
-	config.Accounts = map[string]domain.Account{
+	config.Providers = map[string]domain.Provider{
 		"dmxapi": {
 			Label:     "DMXAPI",
 			Endpoints: domain.Endpoints{OpenAIResponses: "https://api.example.test/v1"},
@@ -179,7 +179,7 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 	config.Models = map[string]domain.Model{
 		routeID: {
 			Label:         "DMXAPI GPT-6.1 Sol CDX",
-			Account:       "dmxapi",
+			Provider:      "dmxapi",
 			Family:        canonicalModel,
 			UpstreamModel: upstreamModel,
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{

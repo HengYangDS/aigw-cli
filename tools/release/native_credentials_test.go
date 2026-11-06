@@ -154,9 +154,9 @@ func configureNativeDiagnosticProbe(t *testing.T, journey *journeyFixture, accou
 	if err != nil {
 		t.Fatal(err)
 	}
-	account := manifest.Accounts[accountID]
-	account.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: endpoint}
-	manifest.Accounts[accountID] = account
+	account := manifest.Providers[accountID]
+	account.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: endpoint}
+	manifest.Providers[accountID] = account
 	data, err := toml.Marshal(manifest)
 	if err != nil {
 		t.Fatal(err)

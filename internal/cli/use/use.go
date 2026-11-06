@@ -220,7 +220,7 @@ type useSelection struct {
 func selectionOf(selected domain.Runtime) useSelection {
 	return useSelection{
 		RetryPolicy: selected.RetryPolicy, Route: selected.ModelID, RouteLabel: selected.ModelLabel,
-		Account: selected.AccountID, AccountLabel: selected.AccountLabel, Client: selected.Client,
+		Account: selected.ProviderID, AccountLabel: selected.ProviderLabel, Client: selected.Client,
 		Endpoint: selected.Endpoint, UpstreamEndpoint: selected.UpstreamEndpoint, Protocol: selected.Protocol,
 		Model: selected.FamilyID, UpstreamModel: selected.UpstreamModel, ModelProvider: selected.ModelProvider,
 		Authentication: selected.Authentication,
@@ -286,7 +286,7 @@ func resolveUseRuntime(runtime invocation.Context, cfg domain.Config, client, ro
 	}
 	route := cfg.Models[routeID]
 	spec, _ := runtime.Clients.Admission().Spec(client)
-	compatible := spec.CompatibleModelProtocols(cfg.Accounts[route.Account], route)
+	compatible := spec.CompatibleModelProtocols(cfg.Providers[route.Provider], route)
 	if len(compatible) < 2 {
 		return domain.Runtime{}, err
 	}
@@ -360,26 +360,26 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg domain.
 	if !selected.UsesAIGWCredentialStore() {
 		return "", nil
 	}
-	available, err := runtime.Secrets.Exists(selected.AccountID)
+	available, err := runtime.Secrets.Exists(selected.ProviderID)
 	if err != nil {
-		return "", fmt.Errorf("cannot inspect Account %q credential: %w", selected.AccountID, err)
+		return "", fmt.Errorf("cannot inspect Account %q credential: %w", selected.ProviderID, err)
 	}
 	if available {
 		return "", nil
 	}
-	instruction, writable := secret.TokenRecovery(runtime.Secrets, selected.AccountID)
+	instruction, writable := secret.TokenRecovery(runtime.Secrets, selected.ProviderID)
 	if !writable {
 		retry := fmt.Sprintf("aigw use --for %s %s", selected.Client, selected.ModelID)
 		spec, _ := runtime.Clients.Admission().Spec(selected.Client)
-		if len(spec.CompatibleModelProtocols(cfg.Accounts[selected.AccountID], cfg.Models[selected.ModelID])) > 1 {
+		if len(spec.CompatibleModelProtocols(cfg.Providers[selected.ProviderID], cfg.Models[selected.ModelID])) > 1 {
 			retry = fmt.Sprintf("aigw use --for %s --protocol %s %s", selected.Client, selected.Protocol, selected.ModelID)
 		}
-		return "", fmt.Errorf("account %q is missing a token; %s; then run `%s`", selected.AccountID, instruction, retry)
+		return "", fmt.Errorf("account %q is missing a token; %s; then run `%s`", selected.ProviderID, instruction, retry)
 	}
 	if !runtime.Interactive {
-		return "", fmt.Errorf("account %q is missing a token; %s", selected.AccountID, instruction)
+		return "", fmt.Errorf("account %q is missing a token; %s", selected.ProviderID, instruction)
 	}
-	account := cfg.Accounts[selected.AccountID]
+	account := cfg.Providers[selected.ProviderID]
 	token, err := runtime.Prompt.Secret("Paste " + account.Label + " token: ")
 	if err != nil {
 		return "", err

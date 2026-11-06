@@ -44,7 +44,7 @@ func TestKeyringExistsPreservesObservationFailure(t *testing.T) {
 	}
 }
 
-func TestExistsRejectsInvalidAccountIdentifiers(t *testing.T) {
+func TestExistsRejectsInvalidProviderIdentifiers(t *testing.T) {
 	stores := []Store{
 		NewMemoryStore(),
 		NewEnvironmentStore(func(string) string { return "value" }),

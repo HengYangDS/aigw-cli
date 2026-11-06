@@ -18,7 +18,7 @@ import (
 func TestStatusSuggestsAccountSpecificDiagnostics(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
 	cfg.Models["gpt-5.6-sol"] = qualifiedRoute("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -37,7 +37,7 @@ func TestStatusSuggestsAccountSpecificDiagnostics(t *testing.T) {
 func TestStatusWarnsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
 	cfg.Models["claude-fable-5"] = qualifiedRoute("Claude Fable", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "claude-fable-5", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude-real", nil)
@@ -99,7 +99,7 @@ func TestStatusDirectsTheSupportedPredecessorToExplicitMigration(t *testing.T) {
 func TestStatusPrioritizesSelectedActivationWhileRetainingRouteGuidance(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
 	cfg.Models["gpt-5.6-sol"] = qualifiedRoute("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
 	cfg.Models["claude-fable-5"] = qualifiedRoute("Claude", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
@@ -253,7 +253,7 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 func TestStatusLabelsRouteCountAsModelConfigurations(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
 	cfg.Models["gpt"] = qualifiedRoute("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.Models["claude"] = qualifiedRoute("Claude", "team", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")

@@ -49,15 +49,15 @@ func executeDoctorCommand(command *cobra.Command) error {
 
 func validDoctorConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = domain.Account{
+	cfg.Providers["team"] = domain.Provider{
 		Label: "Team",
 		Endpoints: domain.Endpoints{
 			Anthropic:       "https://team.test",
 			OpenAIResponses: "https://team.test/v1",
 		},
 	}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "team", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "team", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	return cfg
@@ -151,14 +151,14 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.T) {
 	cfg := validDoctorConfig()
 	cfg.SetClientActivation(claude.ID, true, "", nil)
-	cfg.Accounts["optional"] = domain.Account{
+	cfg.Providers["optional"] = domain.Provider{
 		Label: "Optional",
 		Endpoints: domain.Endpoints{
 			Anthropic:       "https://optional.test",
 			OpenAIResponses: "https://optional.test/v1",
 		},
 	}
-	cfg.Models["optional"] = domain.Model{Label: "Optional", Account: "optional", Family: "gpt-optional"}
+	cfg.Models["optional"] = domain.Model{Label: "Optional", Provider: "optional", Family: "gpt-optional"}
 	deps, _, secretStore := doctorDependencies(t, cfg)
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
@@ -180,16 +180,16 @@ func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 	for _, client := range []string{claude.ID, codex.ID} {
 		cfg.SetClientActivation(client, true, "", nil)
 	}
-	cfg.Accounts["native"] = domain.Account{
+	cfg.Providers["native"] = domain.Provider{
 		Label: "Native",
 		Endpoints: domain.Endpoints{
 			OpenAIResponses: "https://native.test/v1",
 		},
 	}
 	cfg.Models["native"] = domain.Model{
-		Label:   "Native",
-		Account: "native",
-		Family:  "native-model",
+		Label:    "Native",
+		Provider: "native",
+		Family:   "native-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolOpenAIResponses: {},
 		},
@@ -282,7 +282,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	}
 
 	cfg.SetClientActivation(codex.ID, true, "codex", []string{"unused"})
-	delete(cfg.Accounts, "team")
+	delete(cfg.Providers, "team")
 	if check := findCheck(t, adapterChecks(context.Background(), deps.Dependencies, cfg, ""), "projection:codex"); check.OK || check.Detail != "selected client route cannot be resolved" {
 		t.Fatalf("route check = %#v", check)
 	}

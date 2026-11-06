@@ -34,7 +34,7 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 		}},
 	}}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{
+	cfg.Providers["dmx"] = domain.Provider{
 		Label:     "DMXAPI",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
@@ -289,7 +289,7 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 		}},
 	}}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{
+	cfg.Providers["dmx"] = domain.Provider{
 		Label:     "DMXAPI",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}

@@ -74,7 +74,7 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 	renderer.ProductTitle(title)
 	renderer.Rows(
 		terminal.Field{Label: "Schema", Value: fmt.Sprintf("%d → %d", result.FromVersion, result.ToVersion)},
-		terminal.Field{Label: "Accounts", Value: fmt.Sprintf("%d", len(result.Accounts))},
+		terminal.Field{Label: "Accounts", Value: fmt.Sprintf("%d", len(result.Providers))},
 		terminal.Field{Label: "Routes", Value: fmt.Sprintf("%d", len(result.Models))},
 	)
 	if bindings := migrationClientRows(runtime.Clients.Admission(), result.Clients); len(bindings) > 0 {

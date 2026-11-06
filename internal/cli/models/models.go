@@ -100,12 +100,12 @@ func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 		route := cfg.Models[routeID]
 		protocols := route.AdmittedProtocols()
 		if len(protocols) == 0 {
-			rows = append(rows, modelRow{Route: routeID, Account: route.Account, Model: route.UpstreamModelID(), Catalog: "Catalog not observed", State: "not_observed"})
+			rows = append(rows, modelRow{Route: routeID, Account: route.Provider, Model: route.UpstreamModelID(), Catalog: "Catalog not observed", State: "not_observed"})
 			continue
 		}
 		for _, protocol := range protocols {
 			membership, state := "Catalog not observed", "not_observed"
-			if observation, ok := observations[observationKey(route.Account, protocol)]; ok {
+			if observation, ok := observations[observationKey(route.Provider, protocol)]; ok {
 				membership, state = observation.Status.Label(), string(observation.Status)
 				if observation.Status == app.CatalogOK {
 					membership, state = "Not listed", "not_listed"
@@ -114,11 +114,11 @@ func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 					}
 				}
 			}
-			rows = append(rows, modelRow{Route: routeID, Account: route.Account, Protocol: protocol, Model: route.UpstreamModelID(), Catalog: membership, State: state})
+			rows = append(rows, modelRow{Route: routeID, Account: route.Provider, Protocol: protocol, Model: route.UpstreamModelID(), Catalog: membership, State: state})
 		}
 	}
 	slices.SortStableFunc(rows, func(left, right modelRow) int {
-		if result := cfg.CompareAccounts(left.Account, right.Account); result != 0 {
+		if result := cfg.CompareProviders(left.Account, right.Account); result != 0 {
 			return result
 		}
 		if result := domain.CompareProtocols(left.Protocol, right.Protocol); result != 0 {

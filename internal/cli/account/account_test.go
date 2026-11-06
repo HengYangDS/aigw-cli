@@ -54,12 +54,12 @@ func blockedConfigurationStore(t *testing.T) (store.Store, secret.Store) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	configStore := store.NewStore(path, clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["current"] = domain.Account{
+	cfg.Providers["current"] = domain.Provider{
 		Label:     "Current",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://current.test/v1"},
 	}
 	cfg.Models["current"] = domain.Model{
-		Label: "Current", Account: "current", Family: "gpt-current",
+		Label: "Current", Provider: "current", Family: "gpt-current",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedModel(codex.ID, "current", "")

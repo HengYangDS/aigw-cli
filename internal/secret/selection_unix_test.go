@@ -243,7 +243,7 @@ func TestAutomaticSelectionSuccessfulGetReportsMarkerFailure(t *testing.T) {
 	}
 }
 
-func TestAutomaticDeleteRejectsInvalidAccountAndBrokenSelection(t *testing.T) {
+func TestAutomaticDeleteRejectsInvalidProviderAndBrokenSelection(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "secrets")
 	store, err := Select(Selection{
 		GOOS:         "linux",

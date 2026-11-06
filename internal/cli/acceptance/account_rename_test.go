@@ -260,8 +260,8 @@ func TestAccountRenameSupportsAccountWithoutCredentials(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := got.Accounts["zeta-new"]; !ok {
-		t.Fatalf("renamed account missing: %#v", got.Accounts)
+	if _, ok := got.Providers["zeta-new"]; !ok {
+		t.Fatalf("renamed account missing: %#v", got.Providers)
 	}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
 		if _, err := secretStore.Get(id); !errors.Is(err, secret.ErrNotFound) {
@@ -440,7 +440,7 @@ func TestAccountRenameProjectionFailureRollsBackConfigAndRetainsBothCredentialSl
 func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) {
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := accountRenameConfig()
-	cfg.Accounts["active"] = domain.Account{Label: "Active", Endpoints: domain.Endpoints{OpenAIResponses: "https://active.test/v1"}}
+	cfg.Providers["active"] = domain.Provider{Label: "Active", Endpoints: domain.Endpoints{OpenAIResponses: "https://active.test/v1"}}
 	cfg.Models["active-route"] = qualifiedRoute("Active", "active", "active-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "active-route", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")})
@@ -510,14 +510,14 @@ func (droppingSecretStore) Set(string, string) error { return nil }
 
 func accountRenameConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["alpha"] = domain.Account{Label: "Alpha", Endpoints: domain.Endpoints{OpenAIResponses: "https://alpha.test/v1"}}
-	cfg.Accounts["zeta-old"] = domain.Account{
+	cfg.Providers["alpha"] = domain.Provider{Label: "Alpha", Endpoints: domain.Endpoints{OpenAIResponses: "https://alpha.test/v1"}}
+	cfg.Providers["zeta-old"] = domain.Provider{
 		Label: "Zeta",
 		Endpoints: domain.Endpoints{
 			OpenAIResponses: "https://zeta.test/v1",
 			Anthropic:       "https://zeta.test/anthropic",
 		},
-		AccountProbe: &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://probe.zeta.test"},
+		BalanceProbe: &domain.BalanceProbe{Kind: "future-provider", BaseURL: "https://probe.zeta.test"},
 	}
 	cfg.Models["codex-route"] = qualifiedRoute("Codex", "zeta-old", "codex-model", domain.ProtocolOpenAIResponses)
 	codexRoute := cfg.Models["codex-route"]

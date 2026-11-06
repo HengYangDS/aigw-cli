@@ -70,9 +70,9 @@ func TestCapabilityComponentWriteFailureRestoresOwnedFiles(t *testing.T) {
 			}
 			failure := failCapabilityWrites(t, capabilityComponentPath(store)+suffix)
 			changed := cfg.Clone()
-			account := changed.Accounts["ucloud"]
+			account := changed.Providers["ucloud"]
 			account.Label = "UCloud Updated"
-			changed.Accounts["ucloud"] = account
+			changed.Providers["ucloud"] = account
 			if _, err := store.Commit(before, changed); !errors.Is(err, failure) {
 				t.Fatalf("failed capability write = %v", err)
 			}
@@ -180,12 +180,12 @@ func failCapabilityWrites(t *testing.T, path string) error {
 func everyComponentStore(t *testing.T) (Store, domain.Config) {
 	t.Helper()
 	cfg := convergenceConfig("current")
-	account := cfg.Accounts["current"]
+	account := cfg.Providers["current"]
 	account.Order = 1
 	account.Endpoints.Anthropic = "https://current.test"
-	cfg.Accounts["current"] = account
+	cfg.Providers["current"] = account
 	cfg.Models["tool-search"] = domain.Model{
-		Label: "Tool search", Account: "current", Family: "current-model",
+		Label: "Tool search", Provider: "current", Family: "current-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityToolSearch}},
 	}
 	forwardTo(t, &cfg, "http://127.0.0.1:8792/v1")
@@ -206,9 +206,9 @@ func everyComponentStore(t *testing.T) (Store, domain.Config) {
 
 func relabeled(cfg domain.Config, label string) domain.Config {
 	cfg = cfg.Clone()
-	account := cfg.Accounts["current"]
+	account := cfg.Providers["current"]
 	account.Label = label
-	cfg.Accounts["current"] = account
+	cfg.Providers["current"] = account
 	return cfg
 }
 

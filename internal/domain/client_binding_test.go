@@ -25,11 +25,11 @@ func TestClientForwardingPreservesUpstreamCredentialIdentity(t *testing.T) {
 	if forwarded.Endpoint != strings.TrimRight(binding.ForwardingEndpoint, "/") || forwarded.UpstreamEndpoint != direct.Endpoint {
 		t.Fatalf("forwarded endpoint identities = %#v", forwarded)
 	}
-	if forwarded.AccountID != direct.AccountID || forwarded.UpstreamModel != direct.UpstreamModel || forwarded.ModelProvider != direct.ModelProvider || forwarded.CredentialProjectionFingerprint(ClientCodex) != direct.CredentialProjectionFingerprint(ClientCodex) {
+	if forwarded.ProviderID != direct.ProviderID || forwarded.UpstreamModel != direct.UpstreamModel || forwarded.ModelProvider != direct.ModelProvider || forwarded.CredentialProjectionFingerprint(ClientCodex) != direct.CredentialProjectionFingerprint(ClientCodex) {
 		t.Fatalf("client forwarding changed the upstream credential or model identity: %#v", forwarded)
 	}
 	claude, err := cfg.ResolveRuntime(ClientClaude, "")
-	if err != nil || claude.Endpoint != cfg.Accounts["dmx"].Endpoints.Anthropic {
+	if err != nil || claude.Endpoint != cfg.Providers["dmx"].Endpoints.Anthropic {
 		t.Fatalf("unrelated client changed: %#v, %v", claude, err)
 	}
 }
@@ -57,14 +57,14 @@ func TestClientForwardingRequiresAValidSelectedEndpoint(t *testing.T) {
 	}
 }
 
-func TestClientForwardingDoesNotRedirectAnExplicitOtherAccount(t *testing.T) {
+func TestClientForwardingDoesNotRedirectAnExplicitOtherProvider(t *testing.T) {
 	cfg := validConfig()
 	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
 		t.Fatal(err)
 	}
 	cfg.Models["other"] = testModel("Other", "dmx", "other-model", ProtocolOpenAIResponses)
 	qualified, err := cfg.ResolveRuntime(ClientCodex, "other")
-	if err != nil || qualified.Endpoint != cfg.Accounts["dmx"].Endpoints.OpenAIResponses || qualified.AccountID != "dmx" {
+	if err != nil || qualified.Endpoint != cfg.Providers["dmx"].Endpoints.OpenAIResponses || qualified.ProviderID != "dmx" {
 		t.Fatalf("explicit other-Account qualification inherited the selected forwarding destination: %#v, %v", qualified, err)
 	}
 	cfg.SetSelectedModel(ClientCodex, "other", "")
@@ -103,14 +103,14 @@ func TestCurrentSchemaRemovesLegacySelectionFields(t *testing.T) {
 
 func TestConfigSerializationUsesClientBindingsOnly(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{
+	cfg.Providers["team"] = Provider{
 		Label:     "Team",
 		Endpoints: Endpoints{Anthropic: "https://team.test/anthropic"},
 	}
 	cfg.Models["reasoning"] = Model{
-		Label:   "Reasoning",
-		Account: "team",
-		Family:  "reasoning-model",
+		Label:    "Reasoning",
+		Provider: "team",
+		Family:   "reasoning-model",
 		Protocols: map[EndpointProtocol][]Capability{
 			ProtocolAnthropic:             {CapabilityText},
 			ProtocolOpenAIChatCompletions: {CapabilityText},
@@ -159,7 +159,7 @@ func TestConfigSerializationUsesClientBindingsOnly(t *testing.T) {
 
 func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{
+	cfg.Providers["team"] = Provider{
 		Label: "Team",
 		Endpoints: Endpoints{
 			Anthropic:             "https://team.test/anthropic",
@@ -167,9 +167,9 @@ func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 		},
 	}
 	cfg.Models["reasoning"] = Model{
-		Label:   "Reasoning",
-		Account: "team",
-		Family:  "reasoning-model",
+		Label:    "Reasoning",
+		Provider: "team",
+		Family:   "reasoning-model",
 		Protocols: map[EndpointProtocol][]Capability{
 			ProtocolAnthropic:             {CapabilityText},
 			ProtocolOpenAIChatCompletions: {CapabilityText},
@@ -207,7 +207,7 @@ func TestClientBindingOwnsSelectionAndClientSpecificOptions(t *testing.T) {
 
 func TestClientBindingOwnsNativeAuthentication(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["native"] = Account{
+	cfg.Providers["native"] = Provider{
 		Label:     "Native",
 		Endpoints: Endpoints{OpenAIResponses: "https://native.test/v1"},
 	}
@@ -228,7 +228,7 @@ func TestClientBindingOwnsNativeAuthentication(t *testing.T) {
 	if runtime.ModelProvider != "amazon-bedrock" || runtime.Authentication != AuthenticationClientNative {
 		t.Fatalf("client-specific runtime options = %#v", runtime)
 	}
-	if runtime.RequiresAccountToken() {
+	if runtime.RequiresProviderToken() {
 		t.Fatal("client-native binding unexpectedly requires an Account Token")
 	}
 }

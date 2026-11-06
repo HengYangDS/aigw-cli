@@ -300,7 +300,7 @@ func collectChecks(ctx context.Context, deps app.Dependencies) []checkResult {
 	} else {
 		checks = append(checks, checkResult{Name: "config", OK: true, Detail: "valid"})
 	}
-	for _, name := range cfg.RequiredAccountTokenIDs() {
+	for _, name := range cfg.RequiredProviderTokenIDs() {
 		ok, observationErr := deps.Secrets.Exists(name)
 		if observationErr != nil {
 			checks = append(checks, checkResult{Name: "secret:" + name, Detail: credentialBackendUnavailable, Fix: "inspect the selected credential backend"})

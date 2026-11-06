@@ -31,7 +31,7 @@ func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
 func TestUsePromptsForACompatibleClientOnASharedRoute(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
 	cfg.Models["shared"] = domain.Model{
-		Label: "Shared", Account: "gateway", Family: "shared-model",
+		Label: "Shared", Provider: "gateway", Family: "shared-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic:       {},
 			domain.ProtocolOpenAIResponses: {},
@@ -79,7 +79,7 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.Models["purpose"] = domain.Model{
-		Label: "Purpose", Purpose: "Research", Account: "gateway", Family: "claude-research",
+		Label: "Purpose", Purpose: "Research", Provider: "gateway", Family: "claude-research",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {

@@ -204,7 +204,7 @@ func TestPrepareMigrationTranslatesImmediatePredecessorWithoutInventingCapabilit
 		t.Fatal(err)
 	}
 	if plan.FromVersion != domain.LegacyConfigVersion || plan.ToVersion != domain.ConfigVersion ||
-		len(plan.Accounts) != 1 || len(plan.Models) != 2 ||
+		len(plan.Providers) != 1 || len(plan.Models) != 2 ||
 		len(plan.Clients) != 2 || len(plan.Recommendations) != 1 {
 		t.Fatalf("migration plan = %#v", plan)
 	}
@@ -314,9 +314,9 @@ func TestApplyMigrationRejectsChangedPreimage(t *testing.T) {
 func TestCurrentConfigurationMigrationIsANoOp(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Models["codex"] = domain.Model{
-		Label: "Codex", Account: "gateway", Family: "gpt-test",
+		Label: "Codex", Provider: "gateway", Family: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedModel(ClientCodex, "codex", "")
@@ -367,12 +367,12 @@ func legacyStoreWith(t *testing.T, mutate func(*legacyConfig)) (Store, []byte) {
 	path := filepath.Join(root, "config.toml")
 	config := legacyConfig{
 		Version: domain.LegacyConfigVersion,
-		Accounts: map[string]domain.Account{"gateway": {
+		Providers: map[string]domain.Provider{"gateway": {
 			Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"},
 		}},
 		Profiles: map[string]legacyProfile{
-			ClientClaude: {Label: "Claude", Purpose: "Conversation", Account: "gateway", Model: "claude-test", Protocols: []domain.EndpointProtocol{domain.ProtocolAnthropic}},
-			ClientCodex:  {Label: "Codex", Account: "gateway", Model: "gpt-test", Tier: "flagship", Protocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}},
+			ClientClaude: {Label: "Claude", Purpose: "Conversation", Provider: "gateway", Model: "claude-test", Protocols: []domain.EndpointProtocol{domain.ProtocolAnthropic}},
+			ClientCodex:  {Label: "Codex", Provider: "gateway", Model: "gpt-test", Tier: "flagship", Protocols: []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}},
 		},
 		Recommendations: map[string]legacySelection{ClientCodex: {
 			Profile: ClientCodex, Protocol: domain.ProtocolOpenAIResponses,

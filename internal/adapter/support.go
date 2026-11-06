@@ -64,7 +64,7 @@ func ConvergeBinding(deps Dependencies, cfg *domain.Config, discovered discovery
 	}
 	available := !runtime.UsesAIGWCredentialStore()
 	if runtime.UsesAIGWCredentialStore() {
-		available, err = SecretAvailable(deps.Secrets, runtime.AccountID)
+		available, err = SecretAvailable(deps.Secrets, runtime.ProviderID)
 		if err != nil {
 			return domain.ClientBinding{}, "", false, err
 		}

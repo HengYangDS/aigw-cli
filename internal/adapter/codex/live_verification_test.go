@@ -349,7 +349,7 @@ func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 		t.Fatalf("missing executable file error = %v", err)
 	}
 	drifted := cfg.Clone()
-	drifted.Models["codex"] = domain.Model{Label: "Codex", Account: "one", Family: "other"}
+	drifted.Models["codex"] = domain.Model{Label: "Codex", Provider: "one", Family: "other"}
 	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, drifted, domain.Runtime{ModelID: "codex", UpstreamModel: "other"}, ""); err == nil || !strings.Contains(err.Error(), "synchronized") {
 		t.Fatalf("projection error = %v", err)
 	}
@@ -411,12 +411,12 @@ func TestVerifyCodexRequiresSuccessfulFinalMessage(t *testing.T) {
 
 func verificationConfig() domain.Config {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{
+	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{
 		OpenAIResponses: "https://one.test/v1",
 		Anthropic:       "https://one.test",
 	}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "one", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "one", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "one", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "one", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedModel(ID, "codex", "")
 	cfg.SetSelectedModel(otherClient.ID, "claude", "")
 	return cfg

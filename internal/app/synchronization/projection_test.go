@@ -23,12 +23,12 @@ import (
 func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T) {
 	claudeExecutable := filepath.Join(t.TempDir(), "claude")
 	before := domain.NewConfig(clients.Admission())
-	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{
+	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	before.Models["claude"] = domain.Model{Label: "Claude", Account: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	before.Models["codex"] = domain.Model{Label: "Codex", Account: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	before.Models["claude"] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.Models["codex"] = domain.Model{Label: "Codex", Provider: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetSelectedModel(codex.ID, "codex", "")
 	before.SetClientActivation(codex.ID, true, "/existing/codex", []string{"/explicit/config.toml"})
@@ -54,10 +54,10 @@ func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T
 
 func TestDesiredClientConfigurationDoesNotReselectRoutes(t *testing.T) {
 	before := domain.NewConfig(clients.Admission())
-	before.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
-	before.Accounts["two"] = domain.Account{Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.test"}}
-	before.Models["one"] = domain.Model{Label: "One", Account: "one", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	before.Models["two"] = domain.Model{Label: "Two", Account: "two", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
+	before.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.test"}}
+	before.Models["one"] = domain.Model{Label: "One", Provider: "one", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.Models["two"] = domain.Model{Label: "Two", Provider: "two", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedModel(claude.ID, "one", "")
 	secretStore := secret.NewMemoryStore()
 	if err := secretStore.Set("two", "token"); err != nil {
@@ -75,8 +75,8 @@ func TestDesiredClientConfigurationDoesNotReselectRoutes(t *testing.T) {
 
 func TestDesiredSyncConfigurationDoesNotSearchUnselectedWritableCredentials(t *testing.T) {
 	before := domain.NewConfig(clients.Admission())
-	before.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	before.Models["claude"] = domain.Model{Account: "team", Family: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
+	before.Models["claude"] = domain.Model{Provider: "team", Family: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetRecommendedModel(claude.ID, "claude")
 	want := errors.New("unselected native credential was inspected")
 	syncer := Synchronizer{Registry: builtinClients, Secrets: secretReadStub{err: want}, Discovery: staticDiscovery{}}
@@ -93,11 +93,11 @@ func (failingReadOnlyStore) ReadOnly() bool { return true }
 
 func TestDesiredSyncConfigurationFailsClosedOnReadOnlyMetadataError(t *testing.T) {
 	before := domain.NewConfig(clients.Admission())
-	before.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
+	before.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	want := errors.New("environment metadata unavailable")
 	syncer := Synchronizer{Registry: builtinClients, Secrets: failingReadOnlyStore{secretReadStub{err: want}}, Discovery: staticDiscovery{}}
 	after, _, err := syncer.DesiredSyncConfiguration(before)
-	if !errors.Is(err, want) || len(after.Accounts) != 0 {
+	if !errors.Is(err, want) || len(after.Providers) != 0 {
 		t.Fatalf("failed credential observation admitted a selected configuration: %#v, %v", after, err)
 	}
 }
@@ -105,8 +105,8 @@ func TestDesiredSyncConfigurationFailsClosedOnReadOnlyMetadataError(t *testing.T
 func TestDesiredSyncConfigurationPreservesExplicitDisabledSelection(t *testing.T) {
 	before := domain.NewConfig(clients.Admission())
 	for _, account := range []string{"manual", "recommended"} {
-		before.Accounts[account] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://" + account + ".test"}}
-		before.Models[account] = domain.Model{Account: account, Family: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+		before.Providers[account] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://" + account + ".test"}}
+		before.Models[account] = domain.Model{Provider: account, Family: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	}
 	before.SetRecommendedModel(claude.ID, "recommended")
 	before.SetSelectedModel(claude.ID, "manual", "")
@@ -124,12 +124,12 @@ func TestDesiredSyncConfigurationPreservesExplicitDisabledSelection(t *testing.T
 
 func TestDesiredClientConfigurationSurfacesCredentialObservationFailures(t *testing.T) {
 	before := domain.NewConfig(clients.Admission())
-	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{
+	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	before.Models["claude"] = domain.Model{Label: "Claude", Account: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	before.Models["codex"] = domain.Model{Label: "Codex", Account: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	before.Models["claude"] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.Models["codex"] = domain.Model{Label: "Codex", Provider: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetSelectedModel(codex.ID, "codex", "")
 	before.SetSelectedModel(claudedesktop.ID, "claude", "")
@@ -161,11 +161,11 @@ func TestDesiredClientConfigurationSurfacesCredentialObservationFailures(t *test
 
 func TestDesiredClientConfigurationDoesNotActivateUnboundClients(t *testing.T) {
 	before := domain.NewConfig(clients.Admission())
-	before.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{
+	before.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{
 		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
 	}}
-	before.Models["claude"] = domain.Model{Label: "Claude", Account: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	before.Models["codex"] = domain.Model{Label: "Codex", Account: "team", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	before.Models["claude"] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.Models["codex"] = domain.Model{Label: "Codex", Provider: "team", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	before.SetRecommendedModel(claude.ID, "claude")
 	store := secret.NewMemoryStore()
 	if err := store.Set("team", "token"); err != nil {
@@ -199,8 +199,8 @@ func TestPlanIncludesClaudeProjectionAndRestore(t *testing.T) {
 	dir := t.TempDir()
 	settingsPath := filepath.Join(dir, ".claude", "settings.json")
 	before := domain.NewConfig(clients.Admission())
-	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Models["claude"] = domain.Model{Label: "Claude", Account: "gateway", Family: "claude-team", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	before.Models["claude"] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-team", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedModel(claude.ID, "claude", "")
 	after := before.Clone()
 	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
@@ -230,8 +230,8 @@ func TestCommitProjectionPreservesClaudeModelAcrossHelperChange(t *testing.T) {
 	root := t.TempDir()
 	settings := filepath.Join(root, ".claude", "settings.json")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "gateway", Family: "claude-opus-5-5", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-opus-5-5", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	syncer := Synchronizer{Registry: builtinClients,
@@ -279,8 +279,8 @@ func TestCommitProjectionPreservesClaudeModelAcrossHelperChange(t *testing.T) {
 
 func TestPlanReportsClaudePlanningFailures(t *testing.T) {
 	before := domain.NewConfig(clients.Admission())
-	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Models["claude"] = domain.Model{Label: "Claude", Account: "gateway", Family: "claude-team", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	before.Models["claude"] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-team", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedModel(claude.ID, "claude", "")
 	after := before.Clone()
 	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
@@ -307,10 +307,10 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 				claude.ID: filepath.Join(root, ".claude", "settings.json"),
 			}
 			before := testConfig(targets[codex.ID])
-			account := before.Accounts["gateway"]
+			account := before.Providers["gateway"]
 			account.Endpoints.Anthropic = "https://gateway.test"
-			before.Accounts["gateway"] = account
-			before.Models["claude"] = domain.Model{Label: "Claude", Account: "gateway", Family: "claude-original", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+			before.Providers["gateway"] = account
+			before.Models["claude"] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-original", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 			before.SetSelectedModel(claude.ID, "claude", "")
 			before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 			configStore := store.NewStore(filepath.Join(root, "aigw.toml"), clients.Admission())
@@ -342,13 +342,13 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 				t.Fatal(err)
 			}
 			after := before.Clone()
-			account = after.Accounts["gateway"]
+			account = after.Providers["gateway"]
 			if selected == codex.ID {
 				account.Endpoints.OpenAIResponses = "https://replacement.test/v1"
 			} else {
 				account.Endpoints.Anthropic = "https://replacement.test"
 			}
-			after.Accounts["gateway"] = account
+			after.Providers["gateway"] = account
 			if err := syncer.Commit(t.Context(), before, after, "endpoint edit"); err != nil {
 				t.Fatalf("unrelated %s edits blocked %s: %v", unselected, selected, err)
 			}
@@ -365,8 +365,8 @@ func TestCommitReconcilesOnlyClientsWhoseProjectionChanges(t *testing.T) {
 				t.Fatalf("unselected ownership state changed: %s, %v", preservedState, err)
 			}
 			stored, err := configStore.Load()
-			if err != nil || stored.Accounts["gateway"].Endpoints != account.Endpoints {
-				t.Fatalf("configuration did not commit: %#v, %v", stored.Accounts, err)
+			if err != nil || stored.Providers["gateway"].Endpoints != account.Endpoints {
+				t.Fatalf("configuration did not commit: %#v, %v", stored.Providers, err)
 			}
 		})
 	}

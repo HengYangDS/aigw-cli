@@ -412,9 +412,9 @@ func encodeConfig(cfg domain.Config) ([]byte, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("refuse invalid config: %w", err)
 	}
-	for id, account := range cfg.Accounts {
+	for id, account := range cfg.Providers {
 		account.Order = 0
-		cfg.Accounts[id] = account
+		cfg.Providers[id] = account
 	}
 	for id, model := range cfg.Families {
 		model.Order = 0

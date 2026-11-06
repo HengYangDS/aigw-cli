@@ -321,7 +321,7 @@ func verifyUninstallOwnership(t *testing.T, manager string) {
 	if manager == "homebrew" {
 		expectedBindings = 2
 	}
-	if len(retained.Clients) != expectedBindings || len(retained.EnabledClientIDs()) != 0 || len(retained.Accounts) != 1 || len(retained.Models) != 2 {
+	if len(retained.Clients) != expectedBindings || len(retained.EnabledClientIDs()) != 0 || len(retained.Providers) != 1 || len(retained.Models) != 2 {
 		t.Fatalf("retained capability configuration = %#v", retained)
 	}
 	if manager == "homebrew" && (retained.SelectedModel(claude.ID) != "claude" || retained.SelectedModel(codex.ID) != "codex") {
@@ -365,7 +365,7 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 		}},
 	}}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
 	cfg.Models["claude"] = qualifiedRoute("Claude", "team", "claude-model", domain.ProtocolAnthropic)
 	cfg.Models["codex"] = qualifiedRoute("Codex", "team", "gpt-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(claude.ID, "claude", "")

@@ -22,16 +22,16 @@ func TestSettingsSurfaceIdentityIsStable(t *testing.T) {
 
 func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
-	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
+	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
 	before.Models["route"] = qualifiedRoute("Route", "gateway", "model", domain.ProtocolAnthropic)
 	before.Clients[ID] = domain.ClientBinding{Model: "route", Enabled: true}
 	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
 	after := before.Clone()
-	account := after.Accounts["gateway"]
+	account := after.Providers["gateway"]
 	account.Endpoints = domain.Endpoints{OpenAIResponses: "https://second.test/v1", Anthropic: "https://second.test"}
-	after.Accounts["gateway"] = account
+	after.Providers["gateway"] = account
 	if !(claudeAdapter{}).ProjectionChanged(before, after) {
 		t.Fatal("unchanged forwarding hid a changed credential projection identity")
 	}
@@ -45,7 +45,7 @@ func TestClaudeAdapterApplyValidatesIntentAndRestoresObservedPreimage(t *testing
 	}
 
 	configured := domain.NewConfig(testAdmission())
-	configured.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	configured.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	configured.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
 	configured.SetSelectedModel(ID, "claude", "")
 	configured.SetClientActivation(ID, true, "/usr/bin/claude", nil)
@@ -84,7 +84,7 @@ func qualifiedRoute(label, account, model string, protocols ...domain.EndpointPr
 		interfaces[protocol] = []domain.Capability{}
 	}
 	return domain.Model{
-		Label: label, Account: account, Family: model, UpstreamModel: model, Protocols: interfaces,
+		Label: label, Provider: account, Family: model, UpstreamModel: model, Protocols: interfaces,
 	}
 }
 

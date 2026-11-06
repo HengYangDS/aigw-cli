@@ -52,9 +52,9 @@ func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *tes
 				t.Fatal(err)
 			}
 			forwardTo(t, &cfg, test.nextEndpoint)
-			account := cfg.Accounts["current"]
+			account := cfg.Providers["current"]
 			account.Label = "Updated Account"
-			cfg.Accounts["current"] = account
+			cfg.Providers["current"] = account
 			originalWrite := writeConfigurationFileIfUnchanged
 			originalRemove := removeConfigurationFileIfUnchanged
 			t.Cleanup(func() {

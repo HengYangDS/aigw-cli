@@ -166,12 +166,12 @@ func assessEnabledProjection(cfg domain.Config, store secret.Store, result Activ
 		}
 		runtime, err := cfg.ResolveRuntime(spec.ID, "")
 		if err == nil && runtime.UsesAIGWCredentialStore() {
-			observation, observed := observeCredential(store, result.observedCredentials, runtime.AccountID)
+			observation, observed := observeCredential(store, result.observedCredentials, runtime.ProviderID)
 			switch {
 			case !observed || observation.err != nil:
 				metadataUnavailable = true
 			case !observation.available:
-				result.ClientCredentialPrerequisites[spec.ID], _ = secret.TokenRecovery(store, runtime.AccountID)
+				result.ClientCredentialPrerequisites[spec.ID], _ = secret.TokenRecovery(store, runtime.ProviderID)
 			}
 		}
 		if result.ProjectionPrerequisites[spec.ID] != "" || result.ClientCredentialPrerequisites[spec.ID] != "" {
@@ -224,14 +224,14 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 		return false
 	}
 	if !selected && !assessment.readOnly {
-		assessment.result.ClientCredentialPrerequisites[client], _ = secret.TokenRecovery(assessment.store, candidate.AccountID)
-		if !assessment.seen[candidate.AccountID] {
-			assessment.alternatives = append(assessment.alternatives, "aigw rotate "+candidate.AccountID)
-			assessment.seen[candidate.AccountID] = true
+		assessment.result.ClientCredentialPrerequisites[client], _ = secret.TokenRecovery(assessment.store, candidate.ProviderID)
+		if !assessment.seen[candidate.ProviderID] {
+			assessment.alternatives = append(assessment.alternatives, "aigw rotate "+candidate.ProviderID)
+			assessment.seen[candidate.ProviderID] = true
 		}
 		return false
 	}
-	observation, _ := observeCredential(assessment.store, assessment.result.observedCredentials, candidate.AccountID)
+	observation, _ := observeCredential(assessment.store, assessment.result.observedCredentials, candidate.ProviderID)
 	if observation.err != nil {
 		assessment.result.State = domainreadiness.Unavailable
 		assessment.result.CredentialPrerequisite = "aigw doctor"
@@ -241,13 +241,13 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 		delete(assessment.result.ClientCredentialPrerequisites, client)
 		return true
 	}
-	action, _ := secret.TokenRecovery(assessment.store, candidate.AccountID)
+	action, _ := secret.TokenRecovery(assessment.store, candidate.ProviderID)
 	assessment.result.ClientCredentialPrerequisites[client] = action
 	if selected && assessment.firstMissing == "" {
 		assessment.firstMissing = action
-	} else if !selected && !assessment.seen[candidate.AccountID] {
-		assessment.alternatives = append(assessment.alternatives, secret.EnvironmentKey(candidate.AccountID))
-		assessment.seen[candidate.AccountID] = true
+	} else if !selected && !assessment.seen[candidate.ProviderID] {
+		assessment.alternatives = append(assessment.alternatives, secret.EnvironmentKey(candidate.ProviderID))
+		assessment.seen[candidate.ProviderID] = true
 	}
 	return false
 }
@@ -308,7 +308,7 @@ func assessInactiveClients(cfg domain.Config, store secret.Store, result Activat
 func NextActionAfterAccountConnection(cfg domain.Config, accountID string) string {
 	for _, spec := range cfg.Admission().Specs() {
 		runtime, resolveErr := cfg.ResolveRuntime(spec.ID, "")
-		if resolveErr != nil || runtime.AccountID != accountID {
+		if resolveErr != nil || runtime.ProviderID != accountID {
 			continue
 		}
 		binding := cfg.Clients[spec.ID]
@@ -320,7 +320,7 @@ func NextActionAfterAccountConnection(cfg domain.Config, accountID string) strin
 		}
 		return "aigw check"
 	}
-	prospective, err := cfg.SelectModelsForConnectedAccounts([]string{accountID})
+	prospective, err := cfg.SelectModelsForConnectedProviders([]string{accountID})
 	if err != nil {
 		return "aigw status"
 	}
@@ -330,7 +330,7 @@ func NextActionAfterAccountConnection(cfg domain.Config, accountID string) strin
 		}
 		binding := prospective.Clients[spec.ID]
 		route := prospective.Models[binding.Model]
-		if binding.Model == "" || route.Account != accountID {
+		if binding.Model == "" || route.Provider != accountID {
 			continue
 		}
 		action := "aigw use --for " + spec.ID

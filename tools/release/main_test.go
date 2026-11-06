@@ -92,7 +92,7 @@ func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 	selected := domain.Runtime{
-		ModelID: "fixture", ModelLabel: "Fixture", AccountID: "fixture",
+		ModelID: "fixture", ModelLabel: "Fixture", ProviderID: "fixture",
 		Client: codex.ID, Endpoint: "https://api.example.invalid/v1",
 		UpstreamModel: "gpt-test", CredentialCommand: reader,
 	}

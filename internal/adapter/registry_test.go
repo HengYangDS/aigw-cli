@@ -236,7 +236,7 @@ func TestRegistryReturnsOneRollbackForSuccessfulProjection(t *testing.T) {
 			}
 			before, after := domain.NewConfig(registry.Admission()), domain.NewConfig(registry.Admission())
 			if state == "changed-config" {
-				after.Accounts["new"] = domain.Account{Label: "New"}
+				after.Providers["new"] = domain.Provider{Label: "New"}
 			}
 			receipt, changed, err := registry.Apply(t.Context(), Dependencies{}, before, after)
 			if err != nil || receipt == nil {

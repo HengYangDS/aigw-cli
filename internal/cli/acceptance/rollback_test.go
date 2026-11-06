@@ -178,7 +178,7 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	verified := domain.NewConfig(clients.Admission())
-	verified.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	verified.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	verified.Models["stable"] = qualifiedRoute("Stable", "dmx", "gpt-stable", domain.ProtocolOpenAIResponses)
 	verified.SetSelectedModel(codex.ID, "stable", "")
 	if err := app.Config.Save(verified); err != nil {
@@ -188,15 +188,15 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 		t.Fatal(err)
 	}
 	current := verified.Clone()
-	account := current.Accounts["dmx"]
+	account := current.Providers["dmx"]
 	account.Order = 10
-	current.Accounts["dmx"] = account
+	current.Providers["dmx"] = account
 	current.Models = map[string]domain.Model{"experimental": qualifiedRoute("Experimental", "dmx", "gpt-experimental", domain.ProtocolOpenAIResponses)}
 	current.SetSelectedModel(codex.ID, "experimental", "")
 	// External edits leave the historical checkpoint available for recovery.
 	canonical := current.Clone()
 	account.Order = 0
-	canonical.Accounts["dmx"] = account
+	canonical.Providers["dmx"] = account
 	isolated := store.NewStore(filepath.Join(t.TempDir(), "config.toml"), clients.Admission())
 	if err := isolated.Save(canonical); err != nil {
 		t.Fatal(err)
@@ -204,7 +204,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	writeFile(t, app.Config.Path(), readFile(t, isolated.Path()), 0o600)
 	writeFile(t, strings.TrimSuffix(app.Config.Path(), filepath.Ext(app.Config.Path()))+".catalog.toml", []byte("[accounts]\ndmx = 10\n"), 0o600)
 	checkpoint, err := app.Config.LoadVerifiedCheckpoint()
-	if err != nil || checkpoint.Config.Accounts["dmx"].Order != 10 {
+	if err != nil || checkpoint.Config.Providers["dmx"].Order != 10 {
 		t.Fatalf("checkpoint did not restore current presentation: error=%v", err)
 	}
 	if err := secretStore.Set("dmx", "token"); err != nil {
@@ -221,7 +221,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	if restored.SelectedModel(codex.ID) != "stable" {
 		t.Fatalf("rollback selection = %q, want stable", restored.SelectedModel(codex.ID))
 	}
-	if restored.Accounts["dmx"].Order != 10 {
+	if restored.Providers["dmx"].Order != 10 {
 		t.Fatal("verified rollback discarded current Account presentation")
 	}
 }

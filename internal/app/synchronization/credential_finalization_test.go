@@ -69,10 +69,10 @@ func TestExplicitTokenVerificationRefusesUnresolvedReaderFromNativeBinding(t *te
 	binding.Authentication = domain.AuthenticationClientNative
 	binding.ModelProvider = "amazon-bedrock"
 	cfg.Clients[codex.ID] = binding
-	cfg.Accounts["explicit"] = cfg.Accounts["gateway"]
+	cfg.Providers["explicit"] = cfg.Providers["gateway"]
 	cfg.Models["explicit"] = cfg.Models["gpt"]
 	route := cfg.Models["explicit"]
-	route.Account = "explicit"
+	route.Provider = "explicit"
 	cfg.Models["explicit"] = route
 	runtime, err := cfg.ResolveRuntime(codex.ID, "explicit")
 	if err != nil || !runtime.UsesAIGWCredentialStore() {

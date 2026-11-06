@@ -37,12 +37,12 @@ func TestClaudeWarningsDoNotQualifyVerification(t *testing.T) {
 
 func verificationConfig() domain.Config {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{
+	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{
 		OpenAIResponses: "https://one.test/v1",
 		Anthropic:       "https://one.test",
 	}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "one", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "one", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "one", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "one", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedModel(otherClient.ID, "codex", "")
 	cfg.SetSelectedModel(ID, "claude", "")
 	return cfg

@@ -107,9 +107,9 @@ func TestRunRepairReportsDiscoveryFailureWithoutMutatingConfiguration(t *testing
 
 func TestRepairDesiredConfigPreservesExplicitCodexIntentWhenDiscoveryIsEmpty(t *testing.T) {
 	before := domain.NewConfig(clients.Admission())
-	before.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	before.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	before.Models["one"] = domain.Model{
-		Label: "One", Account: "one", Family: "gpt",
+		Label: "One", Provider: "one", Family: "gpt",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	before.SetSelectedModel(codex.ID, "one", "")
@@ -161,9 +161,9 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 		t.Run(test.name, func(t *testing.T) {
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
-			cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+			cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 			cfg.Models["one"] = domain.Model{
-				Label: "One", Account: "one", Family: "gpt-test",
+				Label: "One", Provider: "one", Family: "gpt-test",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
 			cfg.SetSelectedModel(codex.ID, "one", "")
@@ -218,8 +218,8 @@ func TestDryRunRefusesWhatRepairRefuses(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	for _, id := range []string{"one", "two"} {
-		cfg.Accounts[id] = domain.Account{Label: id, Endpoints: domain.Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
-		cfg.Models[id] = domain.Model{Label: id, Account: id, Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+		cfg.Providers[id] = domain.Provider{Label: id, Endpoints: domain.Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
+		cfg.Models[id] = domain.Model{Label: id, Provider: id, Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	}
 	cfg.SetSelectedModel(codex.ID, "one", "")
 	zero := uint64(0)
@@ -260,9 +260,9 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 	settingsPath := filepath.Join(settingsHome, ".claude", "settings.json")
 	executable := filepath.Join(t.TempDir(), "aigw")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
+	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
 	cfg.Models["one"] = domain.Model{
-		Label: "One", Account: "one", Family: "claude-test",
+		Label: "One", Provider: "one", Family: "claude-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedModel(claude.ID, "one", "")

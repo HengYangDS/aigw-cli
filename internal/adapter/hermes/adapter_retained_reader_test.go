@@ -46,7 +46,7 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Models["hermes"] = qualifiedRoute("Hermes", "team", "model-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(ID, "hermes", "")
 	cfg.SetClientActivation(ID, true, executable, []string{target})
@@ -97,9 +97,9 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 		t.Fatal(err)
 	}
 	changed := cfg.Clone()
-	account := changed.Accounts["team"]
+	account := changed.Providers["team"]
 	account.Endpoints.Anthropic = "https://changed.test"
-	changed.Accounts["team"] = account
+	changed.Providers["team"] = account
 	changedRuntime, err := changed.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)

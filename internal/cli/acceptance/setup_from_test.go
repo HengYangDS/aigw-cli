@@ -33,7 +33,7 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Accounts) != 2 || len(cfg.Models) != 3 {
+	if len(cfg.Providers) != 2 || len(cfg.Models) != 3 {
 		t.Fatalf("imported catalog = %#v", cfg)
 	}
 	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {

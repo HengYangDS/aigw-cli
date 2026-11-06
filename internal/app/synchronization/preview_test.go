@@ -62,7 +62,7 @@ func TestPreviewsRefuseWhatTheirChangesRefuse(t *testing.T) {
 	before := setupConfiguration()
 	invalid := before.Clone()
 	route := invalid.Models["claude"]
-	route.Account = "missing"
+	route.Provider = "missing"
 	invalid.Models["claude"] = route
 	syncer := Synchronizer{Registry: builtinClients}
 	if _, err := syncer.Preview(before, invalid); err == nil {
@@ -74,7 +74,7 @@ func TestPreviewsRefuseWhatTheirChangesRefuse(t *testing.T) {
 	if _, _, err := syncer.PreviewSetup(before, invalid, []string{"team"}, claude.ID); err == nil {
 		t.Fatal("PreviewSetup admitted an invalid configuration")
 	}
-	account := domain.Account{Label: "New", Endpoints: domain.Endpoints{Anthropic: "https://new.test"}}
+	account := domain.Provider{Label: "New", Endpoints: domain.Endpoints{Anthropic: "https://new.test"}}
 	if _, _, err := syncer.PreviewConnection(before, "claude", claude.ID, account, domain.Model{Label: "New", Family: "new-model"}); err == nil {
 		t.Fatal("PreviewConnection replaced an existing Route")
 	}

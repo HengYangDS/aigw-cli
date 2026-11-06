@@ -129,9 +129,9 @@ func (candidate setupDiscovery) Discover() discovery.Result {
 
 func manifestSetupConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "team", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "team", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "codex"}}
@@ -418,14 +418,14 @@ interfaces = { openai_responses = ["text"] }
 
 func TestConfiguredClientsForAccount(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["legacy"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://legacy.test/v1"}}
-	cfg.Accounts["other"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://other.test"}}
+	cfg.Providers["legacy"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://legacy.test/v1"}}
+	cfg.Providers["other"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://other.test"}}
 	cfg.Models["legacy"] = domain.Model{
-		Account: "legacy", Family: "model",
+		Provider: "legacy", Family: "model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.Models["other"] = domain.Model{
-		Account: "other", Family: "model",
+		Provider: "other", Family: "model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 

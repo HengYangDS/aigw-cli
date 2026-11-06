@@ -12,7 +12,7 @@ import (
 func TestExportKeepsClientBindingsLocal(t *testing.T) {
 	declared := func() domain.Config {
 		cfg := domain.NewConfig(testAdmission())
-		cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
+		cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
 		cfg.Models["team-claude"] = testModel("Team Claude", "team", "claude-test", domain.ProtocolAnthropic)
 		cfg.Models["team-claude-alternative"] = testModel("Team Claude Alternative", "team", "claude-alternative", domain.ProtocolAnthropic)
 		cfg.Models["team-codex"] = testModel("Team Codex", "team", "gpt-test", domain.ProtocolOpenAIResponses)
@@ -44,7 +44,7 @@ func TestExportKeepsClientBindingsLocal(t *testing.T) {
 	}
 	claude := manifest.Recommendations[ClientClaude]
 	if claude.Primary.Model != "team-claude" || len(claude.Alternatives) != 1 || claude.Alternatives[0].Model != "team-claude-alternative" ||
-		manifest.Recommendations[ClientCodex].Primary.Model != "team-codex" || manifest.Models["manual-codex"].Account != "team" {
+		manifest.Recommendations[ClientCodex].Primary.Model != "team-codex" || manifest.Models["manual-codex"].Provider != "team" {
 		t.Fatalf("exported recommendations = %#v", manifest.Recommendations)
 	}
 }

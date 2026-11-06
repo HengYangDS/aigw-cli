@@ -95,7 +95,7 @@ func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
 	other.ID, other.Label = "other", "Other"
 	admission := NewAdmission(plain, provider, native, other)
 	base := NewConfig(admission)
-	base.Accounts["gateway"] = Account{Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	base.Providers["gateway"] = Provider{Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	base.Models["route"] = testModel("Route", "gateway", "model", ProtocolOpenAIResponses)
 
 	for name, test := range map[string]struct {

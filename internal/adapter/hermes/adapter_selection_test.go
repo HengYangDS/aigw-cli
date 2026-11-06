@@ -10,7 +10,7 @@ import (
 
 func TestAdoptHermesSelectionLeavesUnprojectedBindingsUnchanged(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Models["opus"] = qualifiedRoute("Opus", "gateway", "claude-opus-5-5", domain.ProtocolAnthropic)
 	cfg.Normalize()
 	for name, prepare := range map[string]func(*domain.Config){
@@ -37,7 +37,7 @@ func TestAdoptHermesSelectionLeavesUnprojectedBindingsUnchanged(t *testing.T) {
 
 func TestHermesRouteForAdoptsOnlyOneExactRoute(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{
 		Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1",
 	}}
 	cfg.Models["opus"] = qualifiedRoute("Opus", "gateway", "claude-opus-5-5", domain.ProtocolAnthropic)

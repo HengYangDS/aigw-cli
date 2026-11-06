@@ -119,10 +119,10 @@ func (s Synchronizer) selectRoute(ctx context.Context, before, after domain.Conf
 	after.Clients[client] = binding
 	var tokens map[string]string
 	if token != "" {
-		if !selected.RequiresAccountToken() {
+		if !selected.RequiresProviderToken() {
 			return false, false, domain.ClientBinding{}, fmt.Errorf("route %q uses client-owned authentication; Account Token storage is not part of selection", binding.Model)
 		}
-		tokens = map[string]string{selected.AccountID: token}
+		tokens = map[string]string{selected.ProviderID: token}
 	}
 	rollback, err := secret.Replace(s.Secrets, tokens)
 	if err != nil {

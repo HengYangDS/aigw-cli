@@ -57,9 +57,9 @@ func TestAccountFinalizationConvergesForwardingBackupBeforeRetirement(t *testing
 
 func migrationConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["old"] = domain.Account{Label: "Old", Endpoints: domain.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "old", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "old", Family: "claude", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Providers["old"] = domain.Provider{Label: "Old", Endpoints: domain.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}}
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "old", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "old", Family: "claude", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	return cfg
@@ -67,11 +67,11 @@ func migrationConfig() domain.Config {
 
 func renamedConfig() domain.Config {
 	cfg := migrationConfig()
-	providerAccount := cfg.Accounts["old"]
-	delete(cfg.Accounts, "old")
-	cfg.Accounts["new"] = providerAccount
+	providerAccount := cfg.Providers["old"]
+	delete(cfg.Providers, "old")
+	cfg.Providers["new"] = providerAccount
 	for id, route := range cfg.Models {
-		route.Account = "new"
+		route.Provider = "new"
 		cfg.Models[id] = route
 	}
 	return cfg
@@ -384,7 +384,7 @@ func TestFinalizeVerifiesDeletedSlotsWithoutReadingCredentialValues(t *testing.T
 
 func TestApplyFinalizeStopsBeforeCleanupWhenProbeVerificationFails(t *testing.T) {
 	store, snapshot := renameFinalizationState(t)
-	plan := Plan{NewID: "new", verifyProbe: true, snapshot: snapshot, Account: domain.Account{Label: "New"}}
+	plan := Plan{NewID: "new", verifyProbe: true, snapshot: snapshot, Account: domain.Provider{Label: "New"}}
 	deps := Renamer{Config: store, Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
 	if _, err := applyFinalize(context.Background(), deps, plan); err == nil || !strings.Contains(err.Error(), "does not declare precise diagnostics") {
 		t.Fatalf("applyFinalize() error = %v", err)
@@ -392,18 +392,18 @@ func TestApplyFinalizeStopsBeforeCleanupWhenProbeVerificationFails(t *testing.T)
 }
 
 func TestVerifyFinalizedAccountProbeFailures(t *testing.T) {
-	base := Plan{NewID: "new", Account: domain.Account{Label: "New"}}
+	base := Plan{NewID: "new", Account: domain.Provider{Label: "New"}}
 	deps := Renamer{Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
 	if err := verifyFinalizedAccountProbe(context.Background(), deps, base); err == nil || !strings.Contains(err.Error(), "does not declare") {
 		t.Fatalf("error = %v", err)
 	}
 
-	base.Account.AccountProbe = &domain.AccountProbe{Kind: "future", BaseURL: "https://new.test"}
+	base.Account.BalanceProbe = &domain.BalanceProbe{Kind: "future", BaseURL: "https://new.test"}
 	if err := verifyFinalizedAccountProbe(context.Background(), deps, base); err == nil || !strings.Contains(err.Error(), "not included") {
 		t.Fatalf("error = %v", err)
 	}
 
-	base.Account.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://new.test"}
+	base.Account.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://new.test"}
 	want := errors.New("read failed")
 	deps.Secrets = &faultTokenStore{getErrors: map[string]error{"new": want}}
 	if err := verifyFinalizedAccountProbe(context.Background(), deps, base); !errors.Is(err, want) {
@@ -440,7 +440,7 @@ func TestVerifyFinalizedAccountProbeKeepsCredentialsAtTheirOrigin(t *testing.T) 
 		http.Redirect(writer, request, target.URL+request.URL.RequestURI(), http.StatusFound)
 	}))
 	t.Cleanup(origin.Close)
-	plan := Plan{NewID: "new", Account: domain.Account{Label: "New", AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: origin.URL}}}
+	plan := Plan{NewID: "new", Account: domain.Provider{Label: "New", BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: origin.URL}}}
 	deps := Renamer{
 		Secrets:  &faultTokenStore{values: map[string]string{"new": "token"}},
 		Accounts: &faultProbeStore{values: map[string]secret.DiagnosticCredential{"new": {SystemToken: "s", UserID: "u"}}},

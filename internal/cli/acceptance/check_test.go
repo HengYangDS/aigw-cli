@@ -98,7 +98,7 @@ func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
 func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
 	cfg.Models["claude-fable-5"] = qualifiedRoute("Claude Fable", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "claude-fable-5", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude-real", nil)
@@ -336,10 +336,10 @@ func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedRoute(t *testing.
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	writeFile(t, codexTarget, []byte("model_provider = \"native\"\n"), 0o600)
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts = map[string]domain.Account{
-		"stale-account":  {Label: "Stale", Endpoints: domain.Endpoints{OpenAIResponses: "https://stale.test/v1"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
-		"claude-account": {Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://claude.test"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
-		"codex-account":  {Label: "Codex", Endpoints: domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}, AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
+	cfg.Providers = map[string]domain.Provider{
+		"stale-account":  {Label: "Stale", Endpoints: domain.Endpoints{OpenAIResponses: "https://stale.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
+		"claude-account": {Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://claude.test"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
+		"codex-account":  {Label: "Codex", Endpoints: domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}},
 	}
 	cfg.Models = map[string]domain.Model{
 		"stale":  qualifiedRoute("Stale", "stale-account", "stale-model", domain.ProtocolOpenAIResponses),
@@ -474,10 +474,10 @@ func TestCheckEvaluatesRoutesIndependentlyOfProgramVersion(t *testing.T) {
 func TestCheckKeepsGenericHealthAvailableWhenExactDiagnosticDriverIsNotBundled(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["future"] = domain.Account{
+	cfg.Providers["future"] = domain.Provider{
 		Label:        "Future Gateway",
 		Endpoints:    domain.Endpoints{Anthropic: "https://future.test"},
-		AccountProbe: &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://future.test"},
+		BalanceProbe: &domain.BalanceProbe{Kind: "future-provider", BaseURL: "https://future.test"},
 	}
 	cfg.Models["claude"] = qualifiedRoute("Claude", "future", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "claude", "")

@@ -68,13 +68,13 @@ type Plan struct {
 	Actions            Actions  `json:"actions"`
 	ExternalTODOs      []string `json:"external_todos"`
 
-	Config               domain.Config  `json:"-"`
-	Route                domain.Model   `json:"-"`
-	Account              domain.Account `json:"-"`
-	tokenCopy            tokenCopy      `json:"-"`
-	probeCopy            probeCopy      `json:"-"`
-	blockedReason        string         `json:"-"`
-	Finalize             bool           `json:"-"`
+	Config               domain.Config   `json:"-"`
+	Route                domain.Model    `json:"-"`
+	Account              domain.Provider `json:"-"`
+	tokenCopy            tokenCopy       `json:"-"`
+	probeCopy            probeCopy       `json:"-"`
+	blockedReason        string          `json:"-"`
+	Finalize             bool            `json:"-"`
 	snapshot             store.Snapshot
 	deleteToken          bool `json:"-"`
 	deleteProbe          bool `json:"-"`

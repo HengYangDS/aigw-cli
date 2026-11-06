@@ -25,9 +25,9 @@ func configuredRepairStore(t *testing.T) (store.Store, domain.Config) {
 	t.Helper()
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
+	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
 	cfg.Models["one"] = domain.Model{
-		Label: "One", Account: "one", Family: "claude-test",
+		Label: "One", Provider: "one", Family: "claude-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedModel(claude.ID, "one", "")

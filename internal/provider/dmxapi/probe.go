@@ -26,11 +26,11 @@ const (
 )
 
 // Probe obtains and classifies DMXAPI account diagnostics without changing provider or AIGW state.
-func Probe(ctx context.Context, sender diagnostic.Sender, providerAccount domain.Account, apiToken string, auth diagnostic.Credential) (diagnostic.Report, error) {
-	if providerAccount.AccountProbe == nil || providerAccount.AccountProbe.Kind != Kind {
+func Probe(ctx context.Context, sender diagnostic.Sender, providerAccount domain.Provider, apiToken string, auth diagnostic.Credential) (diagnostic.Report, error) {
+	if providerAccount.BalanceProbe == nil || providerAccount.BalanceProbe.Kind != Kind {
 		return diagnostic.Report{}, fmt.Errorf("DMXAPI diagnostic provider is not configured")
 	}
-	base := strings.TrimRight(providerAccount.AccountProbe.BaseURL, "/")
+	base := strings.TrimRight(providerAccount.BalanceProbe.BaseURL, "/")
 	var user struct {
 		Success bool `json:"success"`
 		Data    struct {

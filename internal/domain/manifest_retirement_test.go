@@ -8,7 +8,7 @@ import (
 
 func TestMergeModelRetirementRejectsDanglingRecommendationWithoutMutatingInput(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = Account{
+	cfg.Providers["gateway"] = Provider{
 		Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.example/v1"},
 	}
 	cfg.Models["old"] = testModel("Old", "gateway", "gpt-old", ProtocolOpenAIResponses)
@@ -37,7 +37,7 @@ func TestMergeModelRetirementRejectsDanglingRecommendationWithoutMutatingInput(t
 
 func TestMergeFalseRetirementSelectorDoesNotRetireModel(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = Account{
+	cfg.Providers["gateway"] = Provider{
 		Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.example/v1"},
 	}
 	cfg.Models["old"] = testModel("Old", "gateway", "gpt-old", ProtocolOpenAIResponses)

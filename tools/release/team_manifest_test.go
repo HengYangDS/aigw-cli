@@ -49,7 +49,7 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 		}
 	})
 	plan := newTeamManifestJourney(t)
-	for _, account := range append([]string{""}, domain.ManifestAccountNames(plan.manifest)...) {
+	for _, account := range append([]string{""}, domain.ManifestProviderIDs(plan.manifest)...) {
 		if account == "" {
 			t.Run("no-token-no-client", func(t *testing.T) { plan.runAccount(t, account, false) })
 			continue
@@ -68,7 +68,7 @@ func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testi
 	}
 	for _, account := range []string{"dmxapi", "aihubmix", "ucloud"} {
 		route, exists := manifest.Models[account+"-gpt-6.1-sol"]
-		if !exists || route.Account != account || route.Family != "gpt-6.1-sol" || route.UpstreamModelID() != "gpt-6.1-sol" {
+		if !exists || route.Provider != account || route.Family != "gpt-6.1-sol" || route.UpstreamModelID() != "gpt-6.1-sol" {
 			t.Fatalf("%s 6.1 Sol Route = %#v, present=%t", account, route, exists)
 		}
 		if len(route.Protocols) != 1 {
@@ -78,7 +78,7 @@ func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testi
 			t.Fatalf("%s 6.1 Sol lacks Responses: %#v", account, route.Protocols)
 		}
 	}
-	if got := manifest.Accounts["dmxapi"].Endpoints.OpenAIResponses; got != "https://www.dmxapi.cn/v1" {
+	if got := manifest.Providers["dmxapi"].Endpoints.OpenAIResponses; got != "https://www.dmxapi.cn/v1" {
 		t.Fatalf("team DMXAPI endpoint = %q, want direct provider", got)
 	}
 	for client, want := range map[string][]string{
@@ -160,7 +160,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected, err = selected.SelectModelsForConnectedAccounts([]string{account}, plan.clients...)
+	selected, err = selected.SelectModelsForConnectedProviders([]string{account}, plan.clients...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,10 +232,10 @@ func (plan teamManifestJourney) manualRoute(account, client string) (manualRoute
 	model := plan.manifest.Models[recommendation.Primary.Model].Family
 	for _, routeID := range slices.Sorted(maps.Keys(plan.manifest.Models)) {
 		route := plan.manifest.Models[routeID]
-		if route.Account != account || route.Family != model {
+		if route.Provider != account || route.Family != model {
 			continue
 		}
-		protocols := spec.CompatibleModelProtocols(plan.manifest.Accounts[account], route)
+		protocols := spec.CompatibleModelProtocols(plan.manifest.Providers[account], route)
 		if len(protocols) == 0 {
 			continue
 		}
@@ -279,12 +279,12 @@ func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *jo
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Accounts) != len(plan.manifest.Accounts) || len(cfg.Models) != len(plan.manifest.Models) {
+	if len(cfg.Providers) != len(plan.manifest.Providers) || len(cfg.Models) != len(plan.manifest.Models) {
 		t.Fatal("setup lost reviewed team capabilities")
 	}
 	for _, clientID := range plan.clients {
 		selected, err := cfg.ResolveRuntime(clientID, "")
-		if err != nil || selected.AccountID != account || !cfg.Clients[clientID].Enabled {
+		if err != nil || selected.ProviderID != account || !cfg.Clients[clientID].Enabled {
 			t.Fatalf("one connected Account did not activate %s: %#v, %v", clientID, selected, err)
 		}
 		if got := strings.TrimSpace(string(journey.run("credential", clientID, selected.CredentialProjectionFingerprint(clientID)))); got != "team-journey-token" {
@@ -324,10 +324,10 @@ func (plan teamManifestJourney) requireHermesWireCatalog(t *testing.T, journey *
 	}
 	expected := make(map[string][]string)
 	for _, route := range plan.manifest.Models {
-		if route.Account != account {
+		if route.Provider != account {
 			continue
 		}
-		for _, protocol := range spec.CompatibleModelProtocols(cfg.Accounts[account], route) {
+		for _, protocol := range spec.CompatibleModelProtocols(cfg.Providers[account], route) {
 			id := "aigw-" + account + "-" + strings.ReplaceAll(string(protocol), "_", "-")
 			expected[id] = append(expected[id], route.UpstreamModelID())
 		}

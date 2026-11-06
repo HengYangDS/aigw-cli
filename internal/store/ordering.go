@@ -13,15 +13,15 @@ import (
 // catalogOrder is the Store's presentation component. Published credential
 // readers consume the unchanged canonical schema, never this component.
 type catalogOrder struct {
-	Accounts map[string]int `toml:"accounts,omitempty"`
-	Families map[string]int `toml:"models,omitempty"`
+	Providers map[string]int `toml:"accounts,omitempty"`
+	Families  map[string]int `toml:"models,omitempty"`
 }
 
 func encodeCatalogOrder(cfg domain.Config) ([]byte, error) {
-	order := catalogOrder{Accounts: map[string]int{}, Families: map[string]int{}}
-	for id, account := range cfg.Accounts {
+	order := catalogOrder{Providers: map[string]int{}, Families: map[string]int{}}
+	for id, account := range cfg.Providers {
 		if account.Order != 0 {
-			order.Accounts[id] = account.Order
+			order.Providers[id] = account.Order
 		}
 	}
 	for id, model := range cfg.Families {
@@ -29,7 +29,7 @@ func encodeCatalogOrder(cfg domain.Config) ([]byte, error) {
 			order.Families[id] = model.Order
 		}
 	}
-	if len(order.Accounts)+len(order.Families) == 0 {
+	if len(order.Providers)+len(order.Families) == 0 {
 		return nil, nil
 	}
 	data, err := toml.Marshal(order)
@@ -46,10 +46,10 @@ func decodeCatalogOrder(cfg domain.Config, snapshot platform.FileSnapshot) (doma
 	if err := decoder.Decode(&order); err != nil {
 		return domain.Config{}, fmt.Errorf("parse catalog presentation: %w", err)
 	}
-	for id, rank := range order.Accounts {
-		if account, exists := cfg.Accounts[id]; exists {
+	for id, rank := range order.Providers {
+		if account, exists := cfg.Providers[id]; exists {
 			account.Order = rank
-			cfg.Accounts[id] = account
+			cfg.Providers[id] = account
 		}
 	}
 	for id, rank := range order.Families {

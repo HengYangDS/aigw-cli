@@ -12,9 +12,9 @@ import (
 func TestRouteModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	cfg := modelProviderConfig()
 	cfg.Models["native"] = domain.Model{
-		Label:   "Native",
-		Account: "gateway",
-		Family:  "openai.gpt-5.6-sol",
+		Label:    "Native",
+		Provider: "gateway",
+		Family:   "openai.gpt-5.6-sol",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolOpenAIResponses: {},
 		},
@@ -35,8 +35,8 @@ func TestRouteModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	if runtime.ModelProvider != "amazon-bedrock" {
 		t.Fatalf("model provider = %q", runtime.ModelProvider)
 	}
-	if runtime.Authentication != domain.AuthenticationClientNative || runtime.RequiresAccountToken() {
-		t.Fatalf("authentication = %q, requires Token = %t", runtime.Authentication, runtime.RequiresAccountToken())
+	if runtime.Authentication != domain.AuthenticationClientNative || runtime.RequiresProviderToken() {
+		t.Fatalf("authentication = %q, requires Token = %t", runtime.Authentication, runtime.RequiresProviderToken())
 	}
 
 	runtime, err = cfg.ResolveRuntime(ClientCodex, "default")
@@ -46,8 +46,8 @@ func TestRouteModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	if runtime.ModelProvider != "aigw" {
 		t.Fatalf("default model provider = %q", runtime.ModelProvider)
 	}
-	if runtime.Authentication != domain.AuthenticationAccountToken || !runtime.RequiresAccountToken() {
-		t.Fatalf("default authentication = %q, requires Token = %t", runtime.Authentication, runtime.RequiresAccountToken())
+	if runtime.Authentication != domain.AuthenticationProviderToken || !runtime.RequiresProviderToken() {
+		t.Fatalf("default authentication = %q, requires Token = %t", runtime.Authentication, runtime.RequiresProviderToken())
 	}
 
 	claude := modelProviderConfig()
@@ -94,9 +94,9 @@ func TestClientModelProviderPersistsAndParticipatesInManifestSelection(t *testin
 	}
 
 	incoming := domain.Manifest{
-		Version:  domain.ManifestVersion,
-		Accounts: map[string]domain.Account{"gateway": cfg.Accounts["gateway"]},
-		Models:   map[string]domain.Model{"default": cfg.Models["default"]},
+		Version:   domain.ManifestVersion,
+		Providers: map[string]domain.Provider{"gateway": cfg.Providers["gateway"]},
+		Models:    map[string]domain.Model{"default": cfg.Models["default"]},
 		Recommendations: map[string]domain.ClientRecommendation{
 			ClientCodex: {Primary: domain.ClientSelection{Model: "default", ModelProvider: "amazon-bedrock", Authentication: domain.AuthenticationClientNative}},
 		},
@@ -164,13 +164,13 @@ func TestClientBindingAuthenticationRejectsInvalidValuesAndClientNativeWithoutPr
 	}
 }
 
-func TestSelectModelsForConnectedAccountsHonorsRecommendationAuthentication(t *testing.T) {
+func TestSelectModelsForConnectedProvidersHonorsRecommendationAuthentication(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["native"] = domain.Account{
+	cfg.Providers["native"] = domain.Provider{
 		Label:     "Native",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://native.test/v1"},
 	}
-	cfg.Accounts["token"] = domain.Account{
+	cfg.Providers["token"] = domain.Provider{
 		Label:     "Token",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://token.test/v1"},
 	}
@@ -182,7 +182,7 @@ func TestSelectModelsForConnectedAccountsHonorsRecommendationAuthentication(t *t
 		Authentication: domain.AuthenticationClientNative,
 	}}
 
-	withoutTokens, err := cfg.SelectModelsForConnectedAccounts(nil)
+	withoutTokens, err := cfg.SelectModelsForConnectedProviders(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,9 +194,9 @@ func TestSelectModelsForConnectedAccountsHonorsRecommendationAuthentication(t *t
 	token.Recommendations[ClientCodex] = domain.ClientRecommendation{Primary: domain.ClientSelection{
 		Model:          "token",
 		ModelProvider:  "token-provider",
-		Authentication: domain.AuthenticationAccountToken,
+		Authentication: domain.AuthenticationProviderToken,
 	}}
-	withToken, err := token.SelectModelsForConnectedAccounts([]string{"token"})
+	withToken, err := token.SelectModelsForConnectedProviders([]string{"token"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +244,7 @@ func TestValidateKeepsUnselectedBindingsWithinTheDeclarationContract(t *testing.
 
 func modelProviderConfig() domain.Config {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = domain.Account{
+	cfg.Providers["gateway"] = domain.Provider{
 		Label: "Gateway",
 		Endpoints: domain.Endpoints{
 			OpenAIResponses: "https://gateway.test/openai/v1",
@@ -252,9 +252,9 @@ func modelProviderConfig() domain.Config {
 		},
 	}
 	cfg.Models["default"] = domain.Model{
-		Label:   "Default",
-		Account: "gateway",
-		Family:  "gpt-5.6-sol",
+		Label:    "Default",
+		Provider: "gateway",
+		Family:   "gpt-5.6-sol",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolOpenAIResponses: {},
 			domain.ProtocolAnthropic:       {},

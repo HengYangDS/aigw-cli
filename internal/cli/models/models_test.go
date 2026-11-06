@@ -34,8 +34,8 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 	}
 
 	cfg := configuredCatalog()
-	cfg.Accounts["anthropic"] = domain.Account{Label: "Anthropic", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}
-	cfg.Models["anthropic"] = domain.Model{Label: "Anthropic", Account: "anthropic", Family: "claude-only"}
+	cfg.Providers["anthropic"] = domain.Provider{Label: "Anthropic", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}
+	cfg.Models["anthropic"] = domain.Model{Label: "Anthropic", Provider: "anthropic", Family: "claude-only"}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt-codex"]}`)), Request: request}, nil
 	})
@@ -56,12 +56,12 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 
 func TestModelRowsGroupAccountsThenProtocolsThenDeclaredModels(t *testing.T) {
 	cfg := configuredCatalog()
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Order: 10, Endpoints: cfg.Accounts["gateway"].Endpoints}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Order: 10, Endpoints: cfg.Providers["gateway"].Endpoints}
 	cfg.Families["first"] = domain.Family{Label: "First", Order: 10}
 	cfg.Families["second"] = domain.Family{Label: "Second", Order: 20}
 	cfg.Models = map[string]domain.Model{}
 	for _, model := range []string{"second", "first"} {
-		cfg.Models[model] = domain.Model{Account: "gateway", Family: model, Protocols: map[domain.EndpointProtocol][]domain.Capability{
+		cfg.Models[model] = domain.Model{Provider: "gateway", Family: model, Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {}, domain.ProtocolOpenAIChatCompletions: {},
 		}}
 	}
@@ -119,10 +119,10 @@ func TestModelRowsWithoutObservations(t *testing.T) {
 
 func TestAmbiguousCatalogDoesNotReportRoutesAsNotListed(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://responses.test/v1"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://responses.test/v1"}}
 	cfg.Families["shared"] = domain.Family{Label: "Shared"}
 	cfg.Models["responses"] = domain.Model{
-		Label: "Responses", Account: "gateway", Family: "shared", UpstreamModel: "provider-shared",
+		Label: "Responses", Provider: "gateway", Family: "shared", UpstreamModel: "provider-shared",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
 	}
 	for body, want := range map[string]string{

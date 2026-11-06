@@ -56,7 +56,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			if _, exists := cfg.Models[routeName]; exists {
 				return fmt.Errorf("Route %q already exists", routeName)
 			}
-			_, exists := cfg.Accounts[accountName]
+			_, exists := cfg.Providers[accountName]
 			if !exists {
 				return fmt.Errorf("Unknown account %q; first run `aigw add %s ...`", accountName, accountName)
 			}
@@ -66,7 +66,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			before := cfg.Clone()
 			protocol := domain.EndpointProtocol(protocolName)
 			cfg.Models[routeName] = domain.Model{
-				Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Family: model, UpstreamModel: upstreamModel,
+				Label: label, Purpose: strings.TrimSpace(purpose), Provider: accountName, Family: model, UpstreamModel: upstreamModel,
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
 			var preview invocation.Preview
@@ -190,7 +190,7 @@ func collectRouteListItem(runtime invocation.Context, cfg domain.Config, name st
 		return routeListItem{}, err
 	}
 	return routeListItem{
-		ID: name, Label: cfg.ModelLabel(name), Purpose: route.Purpose, Account: route.Account,
+		ID: name, Label: cfg.ModelLabel(name), Purpose: route.Purpose, Account: route.Provider,
 		ProtocolClients: compatible, SelectedClients: cfg.SelectedClientsForModel(name), Model: route.Family,
 	}, nil
 }
@@ -208,8 +208,8 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			if !ok {
 				return fmt.Errorf("Unknown route %q", args[0])
 			}
-			accountName := route.Account
-			account := cfg.Accounts[accountName]
+			accountName := route.Provider
+			account := cfg.Providers[accountName]
 			compatible, err := cfg.ProtocolClientIDs(args[0])
 			if err != nil {
 				return err
@@ -361,7 +361,7 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if jsonMode {
-				document := removeDocument{DryRun: dryRun, Route: name, Account: route.Account, Preview: preview}
+				document := removeDocument{DryRun: dryRun, Route: name, Account: route.Provider, Preview: preview}
 				if dryRun {
 					document.Recommendations = recommendations
 					document.NextAction, document.NextDetail = terminal.NextSteps(invocation.ApplyCommand(cmd, args))
@@ -371,7 +371,7 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			rows := []terminal.Field{
 				{Label: "Route", Value: name},
-				{Label: "Account", Value: route.Account},
+				{Label: "Account", Value: route.Provider},
 			}
 			if dryRun {
 				if len(recommendations) > 0 {

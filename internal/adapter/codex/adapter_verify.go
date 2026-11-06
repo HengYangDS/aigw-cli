@@ -57,7 +57,7 @@ func (codexAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg d
 }
 
 func retainedRuntime(target string, cfg domain.Config, runtime domain.Runtime, currentReader string) (domain.Runtime, error) {
-	if !runtime.RequiresAccountToken() || currentReader == "" {
+	if !runtime.RequiresProviderToken() || currentReader == "" {
 		return runtime, nil
 	}
 	if cfg.Clients[ID].CredentialCommand != "" {
@@ -104,7 +104,7 @@ func isolateProjection(cfg domain.Config, runtime domain.Runtime, binding domain
 	if err != nil {
 		return domain.Config{}, workspace, fmt.Errorf("resolve selected Codex projection: %w", err)
 	}
-	if selected.RequiresAccountToken() {
+	if selected.RequiresProviderToken() {
 		selected.CredentialCommand = selected.CredentialExecutable(runtime.CredentialCommand)
 	}
 	if _, err := ReconcileConfigs([]TargetRef{before}, []TargetRef{after}, selected, runtime, true); err != nil {

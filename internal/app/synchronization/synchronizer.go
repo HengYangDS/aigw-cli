@@ -185,8 +185,8 @@ func (s Synchronizer) DesiredSyncConfiguration(before domain.Config) (domain.Con
 	if !secret.IsReadOnly(s.Secrets) {
 		return s.DesiredClientConfiguration(before)
 	}
-	connected := make([]string, 0, len(before.Accounts))
-	for _, accountID := range slices.Sorted(maps.Keys(before.Accounts)) {
+	connected := make([]string, 0, len(before.Providers))
+	for _, accountID := range slices.Sorted(maps.Keys(before.Providers)) {
 		available, err := s.Secrets.Exists(accountID)
 		if err != nil {
 			return domain.Config{}, discovery.Result{}, fmt.Errorf("inspect Account %q Token availability: %w", accountID, err)
@@ -195,7 +195,7 @@ func (s Synchronizer) DesiredSyncConfiguration(before domain.Config) (domain.Con
 			connected = append(connected, accountID)
 		}
 	}
-	selected, err := before.SelectModelsForConnectedAccounts(connected)
+	selected, err := before.SelectModelsForConnectedProviders(connected)
 	if err != nil {
 		return domain.Config{}, discovery.Result{}, err
 	}
@@ -320,8 +320,8 @@ func (s Synchronizer) credentialEntrypointAccounts(cfg domain.Config, clientIDs 
 		if err != nil {
 			return nil, err
 		}
-		if runtime.RequiresAccountToken() && runtime.CredentialCommand == "" && !slices.Contains(accounts, runtime.AccountID) {
-			accounts = append(accounts, runtime.AccountID)
+		if runtime.RequiresProviderToken() && runtime.CredentialCommand == "" && !slices.Contains(accounts, runtime.ProviderID) {
+			accounts = append(accounts, runtime.ProviderID)
 		}
 	}
 	return accounts, nil

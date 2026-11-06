@@ -45,8 +45,8 @@ func publishedCapability(capability domain.Capability) bool {
 // capabilityIdentity hashes the Account, endpoint, upstream model and
 // interface that a recorded capability qualified.
 func capabilityIdentity(cfg domain.Config, route domain.Model, protocol domain.EndpointProtocol) string {
-	endpoint := cfg.Accounts[route.Account].Endpoints.For(protocol)
-	identity := route.Account + "\x00" + endpoint + "\x00" + route.UpstreamModelID() + "\x00" + string(protocol)
+	endpoint := cfg.Providers[route.Provider].Endpoints.For(protocol)
+	identity := route.Provider + "\x00" + endpoint + "\x00" + route.UpstreamModelID() + "\x00" + string(protocol)
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(identity)))
 }
 

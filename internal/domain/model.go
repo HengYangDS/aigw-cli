@@ -33,8 +33,8 @@ const (
 	// accepts. Normal configuration reads accept ConfigVersion only.
 	LegacyConfigVersion = 5
 
-	// AuthenticationAccountToken selects an AIGW-managed account token.
-	AuthenticationAccountToken Authentication = "account-token"
+	// AuthenticationProviderToken selects an AIGW-managed account token.
+	AuthenticationProviderToken Authentication = "account-token"
 	// AuthenticationClientNative delegates authentication to the selected client's native credential chain.
 	AuthenticationClientNative Authentication = "client-native"
 
@@ -71,7 +71,7 @@ var modelProviderPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`
 // and client bindings.
 type Config struct {
 	Version         int                             `json:"version"                   toml:"version"`
-	Accounts        map[string]Account              `json:"accounts,omitempty"        toml:"accounts,omitempty"`
+	Providers       map[string]Provider             `json:"accounts,omitempty"        toml:"accounts,omitempty"`
 	Families        map[string]Family               `json:"models"                    toml:"models"`
 	Models          map[string]Model                `json:"routes"                    toml:"routes"`
 	Recommendations map[string]ClientRecommendation `json:"recommendations,omitempty" toml:"recommendations,omitempty"`
@@ -81,16 +81,16 @@ type Config struct {
 	admission Admission
 }
 
-// Account defines one provider capability and its protocol endpoints without containing credentials.
-type Account struct {
+// Provider defines one provider capability and its protocol endpoints without containing credentials.
+type Provider struct {
 	ID           string        `json:"id,omitempty"            toml:"-"`
 	Label        string        `json:"label"                   toml:"label"`
 	Order        int           `json:"order,omitempty"         toml:"order,omitempty"`
 	Endpoints    Endpoints     `json:"endpoints"               toml:"endpoints"`
-	AccountProbe *AccountProbe `json:"account_probe,omitempty" toml:"account_probe,omitempty"`
+	BalanceProbe *BalanceProbe `json:"account_probe,omitempty" toml:"account_probe,omitempty"`
 }
 
-// Family identifies one canonical upstream product independently of an Account,
+// Family identifies one canonical upstream product independently of a Provider,
 // protocol, provider channel, recommendation, or client selection.
 type Family struct {
 	ID    string `json:"id,omitempty" toml:"-"`
@@ -98,13 +98,13 @@ type Family struct {
 	Order int    `json:"order,omitempty" toml:"order,omitempty"`
 }
 
-// Model identifies how one Account exposes one Family independently
+// Model identifies how one Provider exposes one Family independently
 // of client selection and native configuration.
 type Model struct {
 	ID            string                            `json:"id,omitempty"             toml:"-"`
 	Label         string                            `json:"label"                    toml:"label,omitempty"`
 	Purpose       string                            `json:"purpose,omitempty"        toml:"purpose,omitempty"`
-	Account       string                            `json:"account"                  toml:"account"`
+	Provider      string                            `json:"account"                  toml:"account"`
 	Family        string                            `json:"model"                    toml:"model"`
 	UpstreamModel string                            `json:"upstream_model,omitempty" toml:"upstream_model,omitempty"`
 	Protocols     map[EndpointProtocol][]Capability `json:"interfaces,omitempty"      toml:"interfaces,omitempty"`
@@ -147,8 +147,8 @@ type Runtime struct {
 	RetryPolicy       *RetryPolicy     `json:"retry_policy,omitempty"`
 	ModelID           string           `json:"route_id"`
 	ModelLabel        string           `json:"route_label"`
-	AccountID         string           `json:"account_id"`
-	AccountLabel      string           `json:"account_label"`
+	ProviderID        string           `json:"account_id"`
+	ProviderLabel     string           `json:"account_label"`
 	Client            string           `json:"client"`
 	Endpoint          string           `json:"endpoint"`
 	UpstreamEndpoint  string           `json:"upstream_endpoint"`
@@ -160,11 +160,11 @@ type Runtime struct {
 	CredentialCommand string           `json:"-"`
 }
 
-// RequiresAccountToken reports whether the selected Route uses Account Token
+// RequiresProviderToken reports whether the selected Route uses Account Token
 // authentication on the wire. The zero value preserves the ordinary Account
 // Token behavior for Routes created before authentication was explicit.
-func (runtime Runtime) RequiresAccountToken() bool {
-	return runtime.Authentication == "" || runtime.Authentication == AuthenticationAccountToken
+func (runtime Runtime) RequiresProviderToken() bool {
+	return runtime.Authentication == "" || runtime.Authentication == AuthenticationProviderToken
 }
 
 // CredentialProjectionFingerprint hashes the client, Account and upstream identities.
@@ -174,7 +174,7 @@ func (runtime Runtime) CredentialProjectionFingerprint(client string) string {
 	if endpoint == "" {
 		endpoint = runtime.Endpoint
 	}
-	return upstreamIdentity(client, runtime.AccountID, endpoint)
+	return upstreamIdentity(client, runtime.ProviderID, endpoint)
 }
 
 func upstreamIdentity(client, accountID, endpoint string) string {
@@ -196,8 +196,8 @@ func (runtime Runtime) ConnectionFingerprint() string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(identity)))
 }
 
-// AccountProbe declares an optional provider-owned diagnostic API independently from inference traffic.
-type AccountProbe struct {
+// BalanceProbe declares an optional provider-owned diagnostic API independently from inference traffic.
+type BalanceProbe struct {
 	Kind    string `json:"kind"     toml:"kind"`
 	BaseURL string `json:"base_url" toml:"base_url"`
 }
@@ -214,7 +214,7 @@ type Endpoints struct {
 func NewConfig(admission Admission) Config {
 	return Config{
 		Version:         ConfigVersion,
-		Accounts:        map[string]Account{},
+		Providers:       map[string]Provider{},
 		Families:        map[string]Family{},
 		Models:          map[string]Model{},
 		Recommendations: map[string]ClientRecommendation{},
@@ -237,12 +237,12 @@ func (c *Config) SetAdmission(admission Admission) { c.admission = admission }
 func (c *Config) Clone() Config {
 	out := NewConfig(c.admission)
 	out.Version = c.Version
-	for name, account := range c.Accounts {
-		if account.AccountProbe != nil {
-			probe := *account.AccountProbe
-			account.AccountProbe = &probe
+	for name, account := range c.Providers {
+		if account.BalanceProbe != nil {
+			probe := *account.BalanceProbe
+			account.BalanceProbe = &probe
 		}
-		out.Accounts[name] = account
+		out.Providers[name] = account
 	}
 	maps.Copy(out.Families, c.Families)
 	for name, route := range c.Models {
@@ -284,11 +284,11 @@ func (c *Config) ProtocolClientIDs(name string) ([]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown route %q", name)
 	}
-	account, ok := c.Accounts[route.Account]
+	account, ok := c.Providers[route.Provider]
 	if !ok {
-		return nil, fmt.Errorf("route %q references unknown account %q", name, route.Account)
+		return nil, fmt.Errorf("route %q references unknown account %q", name, route.Provider)
 	}
-	account.ID = route.Account
+	account.ID = route.Provider
 	specs := c.admission.Specs()
 	compatible := make([]string, 0, len(specs))
 	for _, spec := range specs {
@@ -309,7 +309,7 @@ func (c *Config) ModelLabel(routeID string) string {
 	if !ok {
 		return routeID
 	}
-	return modelLabel(route, c.Accounts[route.Account], c.Families[route.Family])
+	return modelLabel(route, c.Providers[route.Provider], c.Families[route.Family])
 }
 
 // RecommendedModel returns the team recommendation for one client.
@@ -341,23 +341,23 @@ func (c *Config) SelectedClientsForModel(routeID string) []string {
 	return clients
 }
 
-// ResolveAccount accepts either an Account ID or a Route ID and returns the
+// ResolveProvider accepts either an Account ID or a Route ID and returns the
 // referenced Account with its map identity populated.
-func (c *Config) ResolveAccount(reference string) (string, Account, error) {
-	if account, ok := c.Accounts[reference]; ok {
+func (c *Config) ResolveProvider(reference string) (string, Provider, error) {
+	if account, ok := c.Providers[reference]; ok {
 		account.ID = reference
 		return reference, account, nil
 	}
 	route, ok := c.Models[reference]
 	if !ok {
-		return "", Account{}, fmt.Errorf("unknown account or route %q", reference)
+		return "", Provider{}, fmt.Errorf("unknown account or route %q", reference)
 	}
-	account, ok := c.Accounts[route.Account]
+	account, ok := c.Providers[route.Provider]
 	if !ok {
-		return "", Account{}, fmt.Errorf("route %q references unknown account %q", reference, route.Account)
+		return "", Provider{}, fmt.Errorf("route %q references unknown account %q", reference, route.Provider)
 	}
-	account.ID = route.Account
-	return route.Account, account, nil
+	account.ID = route.Provider
+	return route.Provider, account, nil
 }
 
 // EnabledClientIDs returns the stable client scope explicitly enabled by this configuration.
@@ -371,45 +371,45 @@ func (c *Config) EnabledClientIDs() []string {
 	return clients
 }
 
-// SelectedAccountIDs returns the stable set of Accounts selected by resolvable
+// SelectedProviderIDs returns the stable set of Accounts selected by resolvable
 // client bindings. Catalog Accounts that no active binding selects are
 // capabilities available for later connection, not current runtime
 // dependencies.
-func (c *Config) SelectedAccountIDs() []string {
+func (c *Config) SelectedProviderIDs() []string {
 	selected := map[string]bool{}
 	for _, client := range c.admission.IDs() {
 		runtime, err := c.ResolveRuntime(client, "")
-		if err == nil && runtime.AccountID != "" {
-			selected[runtime.AccountID] = true
+		if err == nil && runtime.ProviderID != "" {
+			selected[runtime.ProviderID] = true
 		}
 	}
 	return slices.Sorted(maps.Keys(selected))
 }
 
-// RequiredAccountTokenIDs returns the stable set of Accounts whose Tokens are
+// RequiredProviderTokenIDs returns the stable set of Accounts whose Tokens are
 // retrieved by AIGW for enabled Client Bindings. Client-native authentication
 // and external readers retain their credential ownership.
-func (c *Config) RequiredAccountTokenIDs() []string {
+func (c *Config) RequiredProviderTokenIDs() []string {
 	required := map[string]bool{}
 	for _, client := range c.EnabledClientIDs() {
 		runtime, err := c.ResolveRuntime(client, "")
-		if err == nil && runtime.AccountID != "" && runtime.UsesAIGWCredentialStore() {
-			required[runtime.AccountID] = true
+		if err == nil && runtime.ProviderID != "" && runtime.UsesAIGWCredentialStore() {
+			required[runtime.ProviderID] = true
 		}
 	}
 	return slices.Sorted(maps.Keys(required))
 }
 
-// SelectModelsForConnectedAccounts preserves the complete capability catalog
+// SelectModelsForConnectedProviders preserves the complete capability catalog
 // while filling unselected bindings whose authentication is currently usable. A
 // client-native Route is usable without an AIGW Account Token; an account-token
 // Route is usable only when its Account is connected. The first usable reviewed
 // recommendation wins. Existing selections are never replaced.
-func (c *Config) SelectModelsForConnectedAccounts(accountIDs []string, clients ...string) (Config, error) {
+func (c *Config) SelectModelsForConnectedProviders(accountIDs []string, clients ...string) (Config, error) {
 	selected := c.Clone()
 	connected := make(map[string]bool, len(accountIDs))
 	for _, accountID := range accountIDs {
-		if _, ok := selected.Accounts[accountID]; !ok {
+		if _, ok := selected.Providers[accountID]; !ok {
 			return Config{}, fmt.Errorf("unknown account %q", accountID)
 		}
 		connected[accountID] = true
@@ -443,7 +443,7 @@ func (c *Config) modelForAvailableAuthentication(client string, connected map[st
 		if err != nil {
 			continue
 		}
-		if !runtime.RequiresAccountToken() || connected[runtime.AccountID] {
+		if !runtime.RequiresProviderToken() || connected[runtime.ProviderID] {
 			return selection
 		}
 	}
@@ -465,7 +465,7 @@ func (c *Config) recommendedSelectionFor(client, routeID string) ClientSelection
 	}
 	route, exists := c.Models[routeID]
 	recommendedRoute, recommendedExists := c.Models[recommended.Model]
-	if !exists || !recommendedExists || recommendedRoute.Account != route.Account || !modelAdmitsProtocol(route, recommended.Protocol) {
+	if !exists || !recommendedExists || recommendedRoute.Provider != route.Provider || !modelAdmitsProtocol(route, recommended.Protocol) {
 		return ClientSelection{Model: routeID}
 	}
 	recommended.Model = routeID
@@ -489,7 +489,7 @@ func (c *Config) ResolveRuntime(client, explicitRoute string) (Runtime, error) {
 	}
 	if binding.Model != "" {
 		bound := c.Models[binding.Model]
-		if bound.Account == route.Account && modelAdmitsProtocol(route, binding.Protocol) {
+		if bound.Provider == route.Provider && modelAdmitsProtocol(route, binding.Protocol) {
 			selection.Protocol = binding.Protocol
 		}
 	} else {
@@ -522,11 +522,11 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 	if !ok {
 		return Runtime{}, fmt.Errorf("unknown route %q", name)
 	}
-	account, ok := c.Accounts[route.Account]
+	account, ok := c.Providers[route.Provider]
 	if !ok {
-		return Runtime{}, &RuntimeModelUnknownAccountError{ModelID: name, AccountID: route.Account}
+		return Runtime{}, &RuntimeModelUnknownProviderError{ModelID: name, ProviderID: route.Provider}
 	}
-	account.ID = route.Account
+	account.ID = route.Provider
 	spec, admitted := c.admission.Spec(client)
 	if !admitted {
 		return Runtime{}, fmt.Errorf("unknown client %q", client)
@@ -546,8 +546,8 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		RetryPolicy:       c.retryPolicyFor(client, selection, upstream, protocol),
 		ModelID:           name,
 		ModelLabel:        modelLabel(route, account, c.Families[route.Family]),
-		AccountID:         account.ID,
-		AccountLabel:      account.Label,
+		ProviderID:        account.ID,
+		ProviderLabel:     account.Label,
 		Client:            client,
 		Endpoint:          endpoint,
 		UpstreamEndpoint:  upstream,
@@ -571,13 +571,13 @@ func (c *Config) forwardingFor(client, accountID, upstream string, protocol Endp
 	return binding.ForwardingEndpoint
 }
 
-func modelLabel(route Model, account Account, model Family) string {
+func modelLabel(route Model, account Provider, model Family) string {
 	if route.Label != "" {
 		return route.Label
 	}
 	accountLabel := account.Label
 	if accountLabel == "" {
-		accountLabel = route.Account
+		accountLabel = route.Provider
 	}
 	modelLabel := model.Label
 	if modelLabel == "" {
@@ -597,5 +597,5 @@ func selectedAuthentication(selection ClientSelection) Authentication {
 	if selection.Authentication != "" {
 		return selection.Authentication
 	}
-	return AuthenticationAccountToken
+	return AuthenticationProviderToken
 }

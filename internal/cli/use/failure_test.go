@@ -93,7 +93,7 @@ func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
 				}
 			}}
 			cfg.Models["next"] = domain.Model{
-				Label: "Next", Account: "gateway", Family: "gpt-next",
+				Label: "Next", Provider: "gateway", Family: "gpt-next",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
 			cfg.SetClientActivation(codex.ID, true, "", []string{filepath.Join(t.TempDir(), "missing.toml")})

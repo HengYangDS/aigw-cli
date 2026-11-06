@@ -123,7 +123,7 @@ func TestReplacementCompensationRetainsItsBackendAndCredentialKind(t *testing.T)
 	}
 }
 
-func TestReplacementBatchCompensationRetriesOnlyUnrestoredAccounts(t *testing.T) {
+func TestReplacementBatchCompensationRetriesOnlyUnrestoredProviders(t *testing.T) {
 	store := NewMemoryStore()
 	for account, token := range map[string]string{"one": "old-one", "two": "old-two"} {
 		if err := store.Set(account, token); err != nil {

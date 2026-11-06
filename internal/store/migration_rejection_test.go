@@ -132,7 +132,7 @@ func TestImmediatePredecessorMigrationRejectsInvalidProfiles(t *testing.T) {
 		}, "has no model"},
 		{"missing account", func(config *legacyConfig) {
 			profile := config.Profiles[ClientCodex]
-			profile.Account = "missing"
+			profile.Provider = "missing"
 			config.Profiles[ClientCodex] = profile
 		}, "references unknown account"},
 		{"incompatible binding", func(config *legacyConfig) {

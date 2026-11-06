@@ -163,16 +163,16 @@ func TestCredentialHelperResolvesAnUnselectedRouteProjection(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			account := domain.Account{Label: "Alternate"}
+			account := domain.Provider{Label: "Alternate"}
 			spec, _ := clients.Admission().Spec(client)
 			if spec.EndpointProtocols[0] == domain.ProtocolAnthropic {
 				account.Endpoints.Anthropic = "https://alternate.test"
 			} else {
 				account.Endpoints.OpenAIResponses = "https://alternate.test/v1"
 			}
-			cfg.Accounts["alternate"] = account
+			cfg.Providers["alternate"] = account
 			cfg.Models["alternate"] = domain.Model{
-				Label: "Alternate", Account: "alternate", Family: client + "-alternate",
+				Label: "Alternate", Provider: "alternate", Family: client + "-alternate",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
 			}
 			if err := runtime.Config.Save(cfg); err != nil {
@@ -203,9 +203,9 @@ func TestCredentialHelperResolvesEveryProjectedRouteProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account := cfg.Accounts["gateway"]
+	account := cfg.Providers["gateway"]
 	account.Endpoints.OpenAIChatCompletions = "https://gateway.test/chat/v1"
-	cfg.Accounts["gateway"] = account
+	cfg.Providers["gateway"] = account
 	route := cfg.Models[hermes.ID]
 	route.Protocols = map[domain.EndpointProtocol][]domain.Capability{
 		domain.ProtocolOpenAIResponses:       {},
@@ -252,17 +252,17 @@ func TestCredentialHelperRejectsStaleBindingBeforeSecretAccess(t *testing.T) {
 				case "client":
 					fingerprintClient = "another-client"
 				case "account":
-					cfg.Accounts["other"] = cfg.Accounts[projection.AccountID]
+					cfg.Providers["other"] = cfg.Providers[projection.ProviderID]
 					route := cfg.Models[client]
-					route.Account = "other"
+					route.Provider = "other"
 					cfg.Models[client] = route
 				case "endpoint":
-					account := cfg.Accounts[projection.AccountID]
+					account := cfg.Providers[projection.ProviderID]
 					account.Endpoints = domain.Endpoints{
 						Anthropic:       "https://other.test",
 						OpenAIResponses: "https://other.test/v1",
 					}
-					cfg.Accounts[projection.AccountID] = account
+					cfg.Providers[projection.ProviderID] = account
 				}
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
@@ -386,16 +386,16 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 	t.Helper()
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	account := domain.Account{Label: "Gateway"}
+	account := domain.Provider{Label: "Gateway"}
 	spec, _ := clients.Admission().Spec(client)
 	if spec.EndpointProtocols[0] == domain.ProtocolAnthropic {
 		account.Endpoints.Anthropic = "https://gateway.test"
 	} else {
 		account.Endpoints.OpenAIResponses = "https://gateway.test/v1"
 	}
-	cfg.Accounts["gateway"] = account
+	cfg.Providers["gateway"] = account
 	cfg.Models[client] = domain.Model{
-		Label: client, Account: "gateway", Family: client + "-team",
+		Label: client, Provider: "gateway", Family: client + "-team",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
 	}
 	cfg.Clients[client] = domain.ClientBinding{Model: client, Enabled: enabled, Protocol: spec.EndpointProtocols[0], Executable: client}

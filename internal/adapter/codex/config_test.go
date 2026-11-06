@@ -18,7 +18,7 @@ func codexRuntime(profileID, label, endpoint, model string) domain.Runtime {
 		CredentialCommand: executable,
 		ModelID:           profileID,
 		ModelLabel:        label,
-		AccountID:         "dmx",
+		ProviderID:        "dmx",
 		Client:            codex.ID,
 		Endpoint:          endpoint,
 		UpstreamModel:     model,

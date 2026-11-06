@@ -11,10 +11,10 @@ func AccountReference(cfg domain.Config, args []string) (string, error) {
 	if len(args) == 1 {
 		return args[0], nil
 	}
-	if len(cfg.Accounts) != 1 {
-		return "", fmt.Errorf("account is required when configuration contains %d accounts", len(cfg.Accounts))
+	if len(cfg.Providers) != 1 {
+		return "", fmt.Errorf("account is required when configuration contains %d accounts", len(cfg.Providers))
 	}
-	for accountID := range cfg.Accounts {
+	for accountID := range cfg.Providers {
 		return accountID, nil
 	}
 	return "", fmt.Errorf("no account is configured")

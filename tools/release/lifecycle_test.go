@@ -173,12 +173,12 @@ func (j *journeyFixture) prepareCodexLifecycle() (string, string) {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	account := manifest.Accounts["native-system-keyring-probe"]
+	account := manifest.Providers["native-system-keyring-probe"]
 	account.Endpoints.OpenAIResponses = j.endpoint
-	manifest.Accounts["native-system-keyring-probe"] = account
+	manifest.Providers["native-system-keyring-probe"] = account
 	manifest.Families["gpt-test"] = domain.Family{Label: "GPT Test"}
 	manifest.Models["native-codex"] = domain.Model{
-		Label: "Native Codex", Account: "native-system-keyring-probe", Family: "gpt-test", UpstreamModel: "gpt-test",
+		Label: "Native Codex", Provider: "native-system-keyring-probe", Family: "gpt-test", UpstreamModel: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	manifest.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "native-codex"}}

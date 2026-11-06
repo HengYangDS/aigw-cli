@@ -17,8 +17,8 @@ func ValidIdentifier(name string) bool { return identifierPattern.MatchString(na
 
 // Normalize fills deterministic defaults and canonicalizes collection state in place.
 func (c *Config) Normalize() {
-	if c.Accounts == nil {
-		c.Accounts = map[string]Account{}
+	if c.Providers == nil {
+		c.Providers = map[string]Provider{}
 	}
 	if c.Families == nil {
 		c.Families = map[string]Family{}
@@ -65,11 +65,11 @@ func (c *Config) validateCollections() error {
 	if len(c.Models) == 0 {
 		return errors.New("at least one route is required")
 	}
-	if len(c.Accounts) == 0 {
+	if len(c.Providers) == 0 {
 		return errors.New("at least one account is required")
 	}
-	for _, name := range slices.Sorted(maps.Keys(c.Accounts)) {
-		if err := c.Accounts[name].validate(name); err != nil {
+	for _, name := range slices.Sorted(maps.Keys(c.Providers)) {
+		if err := c.Providers[name].validate(name); err != nil {
 			return err
 		}
 	}
@@ -79,7 +79,7 @@ func (c *Config) validateCollections() error {
 		}
 	}
 	for _, name := range c.ModelIDs() {
-		if err := c.Models[name].validate(name, c.Accounts, c.Families); err != nil {
+		if err := c.Models[name].validate(name, c.Providers, c.Families); err != nil {
 			return err
 		}
 	}
@@ -164,8 +164,8 @@ func (c *Config) validateSelection(client string, selection ClientSelection) err
 	if !ok {
 		return fmt.Errorf("references unknown route %q", selection.Model)
 	}
-	account := c.Accounts[route.Account]
-	account.ID = route.Account
+	account := c.Providers[route.Provider]
+	account.ID = route.Provider
 	spec, _ := c.admission.Spec(client)
 	if _, _, err := spec.resolveModelEndpoint(account, route, selection.Protocol); err != nil {
 		return fmt.Errorf("route %q: %w", selection.Model, err)
@@ -181,7 +181,7 @@ func (selection ClientSelection) validate(spec ClientSpec, admission Admission) 
 		return fmt.Errorf("model_provider is only supported for %s", admission.usageWith(func(spec ClientSpec) bool { return spec.DefaultModelProvider != "" }))
 	}
 	switch authentication := selectedAuthentication(selection); authentication {
-	case AuthenticationAccountToken:
+	case AuthenticationProviderToken:
 	case AuthenticationClientNative:
 		if !spec.ClientNativeAuthentication {
 			return fmt.Errorf("client-native authentication is only supported for %s", admission.usageWith(func(spec ClientSpec) bool { return spec.ClientNativeAuthentication }))
@@ -211,7 +211,7 @@ func (binding ClientBinding) validate(client string, spec ClientSpec) error {
 	return nil
 }
 
-func (account Account) validate(name string) error {
+func (account Provider) validate(name string) error {
 	if !ValidIdentifier(name) {
 		return fmt.Errorf("invalid account name %q; use letters, numbers, dot, dash, or underscore", name)
 	}
@@ -242,13 +242,13 @@ func (account Account) validate(name string) error {
 			return fmt.Errorf("account %q endpoint %s: %w", name, endpoint.protocol, err)
 		}
 	}
-	if account.AccountProbe == nil {
+	if account.BalanceProbe == nil {
 		return nil
 	}
-	if !ValidIdentifier(account.AccountProbe.Kind) {
-		return fmt.Errorf("account %q has invalid account probe provider %q", name, account.AccountProbe.Kind)
+	if !ValidIdentifier(account.BalanceProbe.Kind) {
+		return fmt.Errorf("account %q has invalid account probe provider %q", name, account.BalanceProbe.Kind)
 	}
-	if err := validateEndpoint(account.AccountProbe.BaseURL); err != nil {
+	if err := validateEndpoint(account.BalanceProbe.BaseURL); err != nil {
 		return fmt.Errorf("account %q account probe: %w", name, err)
 	}
 	return nil
@@ -267,16 +267,16 @@ func (model Family) validate(name string) error {
 	return nil
 }
 
-func (route Model) validate(name string, accounts map[string]Account, models map[string]Family) error {
+func (route Model) validate(name string, accounts map[string]Provider, models map[string]Family) error {
 	if !ValidIdentifier(name) {
 		return fmt.Errorf("invalid route name %q; use letters, numbers, dot, dash, or underscore", name)
 	}
-	if route.Account == "" {
+	if route.Provider == "" {
 		return fmt.Errorf("route %q must reference an account", name)
 	}
-	account, ok := accounts[route.Account]
+	account, ok := accounts[route.Provider]
 	if !ok {
-		return fmt.Errorf("route %q references unknown account %q", name, route.Account)
+		return fmt.Errorf("route %q references unknown account %q", name, route.Provider)
 	}
 	if strings.TrimSpace(route.Family) == "" {
 		return fmt.Errorf("route %q must reference a model", name)
@@ -306,7 +306,7 @@ func (route Model) validate(name string, accounts map[string]Account, models map
 			return fmt.Errorf("route %q repeats protocol %q", name, protocol)
 		}
 		if account.Endpoints.For(protocol) == "" {
-			return fmt.Errorf("route %q: %w", name, &RuntimeMissingEndpointError{AccountID: route.Account, Protocol: protocol})
+			return fmt.Errorf("route %q: %w", name, &RuntimeMissingEndpointError{ProviderID: route.Provider, Protocol: protocol})
 		}
 		seen[protocol] = true
 	}

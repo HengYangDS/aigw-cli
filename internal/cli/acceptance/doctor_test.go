@@ -225,7 +225,7 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	}
 	route := qualifiedRoute("GPT 5.6 Sol Codex", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Models["gpt-5.6-sol"] = route
 	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
@@ -353,7 +353,7 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 	homeRelative := "~/.codex/config.toml"
 	route := qualifiedRoute("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
 	cfg.Models["gpt"] = route
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})

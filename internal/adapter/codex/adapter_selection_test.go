@@ -99,8 +99,8 @@ func TestAdoptCodexSelectionLeavesUnchangedBindings(t *testing.T) {
 func codexAdoptionFixture(t *testing.T, count int) (domain.Config, []string) {
 	t.Helper()
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
 	cfg.Models["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", domain.ProtocolOpenAIResponses)
 	cfg.Models["terra"] = qualifiedRoute("Terra", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
 	cfg.Models["other-terra"] = qualifiedRoute("Other terra", "other", "gpt-terra", domain.ProtocolOpenAIResponses)

@@ -21,16 +21,16 @@ func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (P
 		return Plan{}, fmt.Errorf("Load current configuration and verified checkpoint: %w", err)
 	}
 	cfg := state.Current
-	if _, exists := cfg.Accounts[oldID]; exists {
+	if _, exists := cfg.Providers[oldID]; exists {
 		return Plan{}, fmt.Errorf("source account %q still exists in current configuration", oldID)
 	}
-	targetAccount, exists := cfg.Accounts[newID]
+	targetAccount, exists := cfg.Providers[newID]
 	if !exists {
 		return Plan{}, fmt.Errorf("target account %q does not exist in current configuration", newID)
 	}
 	references := make([]string, 0, len(cfg.Models))
 	for routeID, route := range cfg.Models {
-		if route.Account == newID {
+		if route.Provider == newID {
 			references = append(references, "routes."+routeID+".account")
 		}
 	}
@@ -200,11 +200,11 @@ func applyFinalize(ctx context.Context, deps Renamer, plan Plan) (Plan, error) {
 
 func verifyFinalizedAccountProbe(ctx context.Context, deps Renamer, plan Plan) error {
 	providerAccount := plan.Account
-	if providerAccount.AccountProbe == nil {
+	if providerAccount.BalanceProbe == nil {
 		return fmt.Errorf("target account %q does not declare precise diagnostics", plan.NewID)
 	}
-	if !provider.Supports(providerAccount.AccountProbe.Kind) {
-		return fmt.Errorf("target account diagnostics provider %q is not included in this AIGW version", providerAccount.AccountProbe.Kind)
+	if !provider.Supports(providerAccount.BalanceProbe.Kind) {
+		return fmt.Errorf("target account diagnostics provider %q is not included in this AIGW version", providerAccount.BalanceProbe.Kind)
 	}
 	apiToken, err := deps.Secrets.Get(plan.NewID)
 	if err != nil {

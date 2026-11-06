@@ -56,7 +56,7 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 	var alternative domain.Runtime
 	for _, id := range before.ModelIDs() {
 		candidate, err := before.ResolveRuntime(hermes.ID, id)
-		if err == nil && candidate.AccountID == selected.AccountID && candidate.Protocol == selected.Protocol && candidate.UpstreamModel != selected.UpstreamModel {
+		if err == nil && candidate.ProviderID == selected.ProviderID && candidate.Protocol == selected.Protocol && candidate.UpstreamModel != selected.UpstreamModel {
 			alternative = candidate
 			break
 		}
@@ -90,7 +90,7 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 	if err := yaml.Unmarshal(readFile(j.testing, target), &adopted); err != nil {
 		j.testing.Fatal(err)
 	}
-	if !reflect.DeepEqual(original, adopted) || !reflect.DeepEqual(before.Accounts, after.Accounts) {
+	if !reflect.DeepEqual(original, adopted) || !reflect.DeepEqual(before.Providers, after.Providers) {
 		j.testing.Fatal("selection adoption changed native settings or Account metadata")
 	}
 	var preview struct {

@@ -56,9 +56,9 @@ func TestCheckForLimitsCredentialsAndInferenceToOneEnabledClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{Anthropic: "https://other.example.test"}}
+	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Anthropic: "https://other.example.test"}}
 	claude := cfg.Models["claude"]
-	claude.Account = "other"
+	claude.Provider = "other"
 	cfg.Models["claude"] = claude
 	cfg.SetSelectedModel(claudeclient.ID, "claude", "")
 	cfg.SetClientActivation(claudeclient.ID, true, filepath.Join(t.TempDir(), "missing-claude"), nil)
@@ -146,9 +146,9 @@ func TestCheckEndpointReadinessIsIndependentOfDiagnosticCredentials(t *testing.T
 	runtime.Accounts = store
 	configureClaudeExecutable(t, &runtime, &cfg)
 	synchronizeClaudeSettings(t, runtime, cfg)
-	providerAccount := cfg.Accounts["one"]
-	providerAccount.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
-	cfg.Accounts["one"] = providerAccount
+	providerAccount := cfg.Providers["one"]
+	providerAccount.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
+	cfg.Providers["one"] = providerAccount
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

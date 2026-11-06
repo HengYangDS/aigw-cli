@@ -24,7 +24,7 @@ import (
 func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Models["gpt-5.6-sol"] = qualifiedRoute("GPT Route", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -229,8 +229,8 @@ func TestRotateValidationUsesCommandContext(t *testing.T) {
 func TestRotateClaudeOnlyAccountDoesNotTouchCodexTargets(t *testing.T) {
 	app, _, secretStore, runner, httpClient := testApp(t, "new-claude-token\n")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["codex-account"] = domain.Account{Label: "Codex", Endpoints: domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}}
-	cfg.Accounts["claude-account"] = domain.Account{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://claude.test"}}
+	cfg.Providers["codex-account"] = domain.Provider{Label: "Codex", Endpoints: domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}}
+	cfg.Providers["claude-account"] = domain.Provider{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://claude.test"}}
 	cfg.Models["gpt"] = qualifiedRoute("GPT", "codex-account", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.Models["claude"] = qualifiedRoute("Claude", "claude-account", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")

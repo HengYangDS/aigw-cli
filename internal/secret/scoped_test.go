@@ -129,7 +129,7 @@ func TestFileBackendPersistsBothCredentialKinds(t *testing.T) {
 	}
 }
 
-func TestFileBackendCredentialKindsCannotCollideWithAccountIDs(t *testing.T) {
+func TestFileBackendCredentialKindsCannotCollideWithProviderIDs(t *testing.T) {
 	root := t.TempDir()
 	backend, err := Select(Selection{Backend: "file", GOOS: runtime.GOOS, Root: root})
 	if err != nil {

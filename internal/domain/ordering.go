@@ -17,7 +17,7 @@ func (c *Config) CatalogModelIDs() []string {
 	}
 	slices.SortFunc(ids, func(left, right string) int {
 		l, r := c.Models[left], c.Models[right]
-		if result := c.CompareAccounts(l.Account, r.Account); result != 0 {
+		if result := c.CompareProviders(l.Provider, r.Provider); result != 0 {
 			return result
 		}
 		if result := slices.CompareFunc(protocols[left], protocols[right], CompareProtocols); result != 0 {
@@ -31,21 +31,21 @@ func (c *Config) CatalogModelIDs() []string {
 	return ids
 }
 
-// CompareAccounts orders declared Accounts, then undeclared ranks by identity.
-func (c *Config) CompareAccounts(left, right string) int {
-	if result := compareOrder(c.Accounts[left].Order, c.Accounts[right].Order); result != 0 {
+// CompareProviders orders declared Accounts, then undeclared ranks by identity.
+func (c *Config) CompareProviders(left, right string) int {
+	if result := compareOrder(c.Providers[left].Order, c.Providers[right].Order); result != 0 {
 		return result
 	}
 	return strings.Compare(left, right)
 }
 
-// CatalogAccountIDs returns deterministic presentation order for Account rows.
-func (c *Config) CatalogAccountIDs() []string {
-	ids := make([]string, 0, len(c.Accounts))
-	for id := range c.Accounts {
+// CatalogProviderIDs returns deterministic presentation order for Account rows.
+func (c *Config) CatalogProviderIDs() []string {
+	ids := make([]string, 0, len(c.Providers))
+	for id := range c.Providers {
 		ids = append(ids, id)
 	}
-	slices.SortFunc(ids, c.CompareAccounts)
+	slices.SortFunc(ids, c.CompareProviders)
 	return ids
 }
 

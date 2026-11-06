@@ -219,7 +219,7 @@ func TestTestCommandRejectsAuthenticationFailure(t *testing.T) {
 func TestTestCommandRequiresClientScopeForRouteOverride(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
 	cfg.Models["gpt"] = qualifiedRoute("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -327,7 +327,7 @@ func TestTestCommandUsesAnthropicAPIKeyHeader(t *testing.T) {
 func TestTestCommandUsesAccountTokenForRuntimeRoute(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Models["gpt-5.6-sol"] = qualifiedRoute("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -348,7 +348,7 @@ func TestTestCommandUsesAccountTokenForRuntimeRoute(t *testing.T) {
 func TestTestCommandUsesCodexModelsEndpointAndRejectsNotFound(t *testing.T) {
 	app, _, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Models["gpt-5.6-sol"] = qualifiedRoute("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	if err := app.Config.Save(cfg); err != nil {

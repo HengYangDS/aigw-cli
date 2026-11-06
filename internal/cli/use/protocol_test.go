@@ -20,7 +20,7 @@ import (
 func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
 	cfg.Models["shared"] = domain.Model{
-		Account: "gateway", Family: "shared-model",
+		Provider: "gateway", Family: "shared-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
 		},
@@ -60,7 +60,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	}
 	runtime.Secrets = store
 	cfg.Models["shared"] = domain.Model{
-		Account: "gateway", Family: "shared-model",
+		Provider: "gateway", Family: "shared-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
 		},
@@ -127,7 +127,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 func TestUseValidatesSelectedProtocolWhenAcquiringToken(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
 	cfg.Models["shared"] = domain.Model{
-		Account: "gateway", Family: "shared-model",
+		Provider: "gateway", Family: "shared-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
 		},

@@ -211,9 +211,9 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
-			cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+			cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 			cfg.Models["one"] = domain.Model{
-				Label: "One", Account: "one", Family: "gpt-test",
+				Label: "One", Provider: "one", Family: "gpt-test",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
 			cfg.SetSelectedModel(codex.ID, "one", "")
@@ -251,9 +251,9 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 	t.Run("planning", func(t *testing.T) {
 		configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 		cfg := domain.NewConfig(clients.Admission())
-		cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+		cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 		cfg.Models["one"] = domain.Model{
-			Label: "One", Account: "one", Family: "gpt-test",
+			Label: "One", Provider: "one", Family: "gpt-test",
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 		}
 		cfg.SetSelectedModel(codex.ID, "one", "")
@@ -274,14 +274,14 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-	cfg.Accounts["two"] = domain.Account{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
+	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
 	cfg.Models["one"] = domain.Model{
-		Label: "One", Account: "one", Family: "gpt-test",
+		Label: "One", Provider: "one", Family: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.Models["two"] = domain.Model{
-		Label: "Two", Account: "two", Family: "gpt-test",
+		Label: "Two", Provider: "two", Family: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedModel(codex.ID, "one", "")
@@ -313,9 +313,9 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	target := t.TempDir()
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
+	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	cfg.Models["one"] = domain.Model{
-		Label: "One", Account: "one", Family: "gpt-test",
+		Label: "One", Provider: "one", Family: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedModel(codex.ID, "one", "")

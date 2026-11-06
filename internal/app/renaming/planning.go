@@ -11,24 +11,24 @@ func planAccount(cfg domain.Config, oldID, newID string) (Plan, error) {
 	if !domain.ValidIdentifier(newID) {
 		return Plan{}, fmt.Errorf("Invalid new account ID %q", newID)
 	}
-	providerAccount, ok := cfg.Accounts[oldID]
+	providerAccount, ok := cfg.Providers[oldID]
 	if !ok {
 		return Plan{}, fmt.Errorf("Unknown account %q", oldID)
 	}
-	if _, exists := cfg.Accounts[newID]; exists {
+	if _, exists := cfg.Providers[newID]; exists {
 		return Plan{}, fmt.Errorf("Account %q already exists", newID)
 	}
 
 	next := cfg.Clone()
-	delete(next.Accounts, oldID)
+	delete(next.Providers, oldID)
 	providerAccount.ID = newID
-	next.Accounts[newID] = providerAccount
+	next.Providers[newID] = providerAccount
 	references := make([]string, 0, len(next.Models))
 	for routeID, route := range next.Models {
-		if route.Account != oldID {
+		if route.Provider != oldID {
 			continue
 		}
-		route.Account = newID
+		route.Provider = newID
 		next.Models[routeID] = route
 		references = append(references, "routes."+routeID+".account")
 	}

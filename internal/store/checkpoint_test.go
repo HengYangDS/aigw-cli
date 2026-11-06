@@ -82,10 +82,10 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := NewStore(path, testAdmission())
 	cfg := admitted(domain.Config{
-		Version:  domain.ConfigVersion,
-		Accounts: map[string]domain.Account{"dmx": {Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
-		Models:   map[string]domain.Model{"claude": testModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)},
-		Clients:  map[string]domain.ClientBinding{ClientClaude: {Model: "claude"}},
+		Version:   domain.ConfigVersion,
+		Providers: map[string]domain.Provider{"dmx": {Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
+		Models:    map[string]domain.Model{"claude": testModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)},
+		Clients:   map[string]domain.ClientBinding{ClientClaude: {Model: "claude"}},
 	})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)

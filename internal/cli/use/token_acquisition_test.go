@@ -71,7 +71,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 		}, want: "client discovery is unavailable"},
 		{name: "commit", prepare: func(value invocation.Context, cfg domain.Config) invocation.Context {
 			cfg.Models["next"] = domain.Model{
-				Label: "Next", Account: "gateway", Family: "gpt-next",
+				Label: "Next", Provider: "gateway", Family: "gpt-next",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
 			cfg.SetClientActivation(codex.ID, true, "", []string{filepath.Join(t.TempDir(), "missing-configuration.toml")})

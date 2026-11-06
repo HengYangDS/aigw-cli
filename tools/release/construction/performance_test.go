@@ -23,7 +23,7 @@ func TestNativeForwardingPerformanceOwnsItsCandidateOnlyScope(t *testing.T) {
 	summary.Blocks = slices.DeleteFunc(summary.Blocks, func(row performance.Measurement) bool {
 		return row.Variant != "candidate" || !slices.Contains([]string{"credential", "projection", "sync", "status", "export"}, row.Case)
 	})
-	binding := domain.Runtime{Client: claude.ID, ModelID: "selected-route", AccountID: "account",
+	binding := domain.Runtime{Client: claude.ID, ModelID: "selected-route", ProviderID: "account",
 		Protocol: domain.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "http://127.0.0.1:18792/v1"}
 	for index := range summary.Blocks {
 		row := &summary.Blocks[index]

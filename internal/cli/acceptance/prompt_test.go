@@ -392,11 +392,11 @@ func TestFirstRunCreatesExplicitGenericAccountWithoutBundledProviderDefault(t *t
 		t.Fatal("generic Account Token was not stored")
 	}
 	route, ok := cfg.Models["gpt-5.6-terra"]
-	if !ok || route.Account != "team-gateway" || route.Family != "gpt-5.6-terra" || cfg.SelectedModel(codex.ID) != "gpt-5.6-terra" {
+	if !ok || route.Provider != "team-gateway" || route.Family != "gpt-5.6-terra" || cfg.SelectedModel(codex.ID) != "gpt-5.6-terra" {
 		t.Fatalf("generic route = %#v", route)
 	}
-	if _, exists := cfg.Accounts["dmx"]; exists {
-		t.Fatalf("first-run wizard seeded a provider Account: %#v", cfg.Accounts)
+	if _, exists := cfg.Providers["dmx"]; exists {
+		t.Fatalf("first-run wizard seeded a provider Account: %#v", cfg.Providers)
 	}
 }
 
@@ -435,7 +435,7 @@ func TestSetupWithoutFlagsRefusesBeforePromptingWhenAlreadyConfigured(t *testing
 	app, _, _, _, _ := testApp(t, "")
 	app.Interactive = true
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Models["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	if err := app.Config.Save(cfg); err != nil {

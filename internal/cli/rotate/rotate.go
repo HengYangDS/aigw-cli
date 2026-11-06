@@ -48,7 +48,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			accountName, account, err := cfg.ResolveAccount(name)
+			accountName, account, err := cfg.ResolveProvider(name)
 			if err != nil {
 				return err
 			}

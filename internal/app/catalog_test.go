@@ -17,8 +17,8 @@ import (
 
 func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Models["other"] = domain.Model{Account: "other", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Models["matching"] = domain.Model{Account: "one", Family: "canonical", UpstreamModel: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["other"] = domain.Model{Provider: "other", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["matching"] = domain.Model{Provider: "one", Family: "canonical", UpstreamModel: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	models, missing := catalogDifference(cfg, "one", domain.ProtocolOpenAIResponses, []string{"gpt"})
 	if len(models) != 1 || models[0].State != CatalogAdmitted || len(models[0].Routes) != 1 || models[0].Routes[0].ID != "matching" || len(missing) != 0 {
 		t.Fatalf("difference models=%#v missing=%#v", models, missing)
@@ -148,7 +148,7 @@ func TestFetchIDsOwnsCatalogProtocol(t *testing.T) {
 
 func TestCatalogObservationsFollowAccountOrder(t *testing.T) {
 	cfg := configuredCatalog()
-	cfg.Accounts["alpha"] = domain.Account{Label: "Alpha"}
+	cfg.Providers["alpha"] = domain.Provider{Label: "Alpha"}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt-codex"]}`)), Request: request}, nil
 	})
@@ -160,7 +160,7 @@ func TestCatalogObservationsFollowAccountOrder(t *testing.T) {
 
 func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{
+	cfg.Providers["gateway"] = domain.Provider{
 		Label: "Gateway",
 		Endpoints: domain.Endpoints{
 			OpenAIChatCompletions: "https://chat.test/v1",
@@ -171,7 +171,7 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 	cfg.Families["missing"] = domain.Family{Label: "Missing"}
 	cfg.Models["chat"] = domain.Model{
 		Label:         "Chat",
-		Account:       "gateway",
+		Provider:      "gateway",
 		Family:        "shared",
 		UpstreamModel: "provider-shared",
 		Lifecycle:     domain.ModelDeprecated,
@@ -181,7 +181,7 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 	}
 	cfg.Models["responses"] = domain.Model{
 		Label:         "Responses",
-		Account:       "gateway",
+		Provider:      "gateway",
 		Family:        "shared",
 		UpstreamModel: "provider-shared",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
@@ -193,7 +193,7 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 	}
 	cfg.Models["missing"] = domain.Model{
 		Label:         "Missing",
-		Account:       "gateway",
+		Provider:      "gateway",
 		Family:        "missing",
 		UpstreamModel: "provider-missing",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{

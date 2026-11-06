@@ -469,7 +469,7 @@ func TestFileStoreReadAndDeleteBoundaries(t *testing.T) {
 	}
 }
 
-func TestFileStoreRejectsInvalidAccountNames(t *testing.T) {
+func TestFileStoreRejectsInvalidProviderNames(t *testing.T) {
 	store := newFileStore(filepath.Join(t.TempDir(), "secrets"))
 	if _, err := store.Get("invalid account"); err == nil {
 		t.Fatal("Get() accepted an invalid Account ID")

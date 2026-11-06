@@ -208,7 +208,7 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 	if runtime.Endpoint == "" {
 		return settingsChange{}, fmt.Errorf("route %q has no Claude endpoint", runtime.ModelID)
 	}
-	if runtime.AccountID == "" {
+	if runtime.ProviderID == "" {
 		return settingsChange{}, fmt.Errorf("route %q has no account", runtime.ModelID)
 	}
 	executable, err = validateExecutable(executable)

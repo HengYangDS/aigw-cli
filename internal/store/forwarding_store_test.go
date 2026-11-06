@@ -143,7 +143,7 @@ func TestForwardingRequiresAValidSelectedUpstream(t *testing.T) {
 			case "unselected":
 				delete(cfg.Clients, ClientCodex)
 			case "missing upstream":
-				delete(cfg.Accounts, "backup")
+				delete(cfg.Providers, "backup")
 			}
 			before := cfg.Clone()
 			if err := cfg.SetForwardingEndpoint(ClientCodex, test.endpoint); err == nil || !strings.Contains(err.Error(), test.want) {

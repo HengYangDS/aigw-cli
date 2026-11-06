@@ -68,7 +68,7 @@ func TestRouteAddValidation(t *testing.T) {
 func TestRouteRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Models["gpt-default"] = qualifiedRoute("GPT Default", "dmx", "gpt-default", domain.ProtocolOpenAIResponses)
 	cfg.Models["gpt-unused"] = qualifiedRoute("GPT Unused", "dmx", "gpt-unused", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt-default", "")
@@ -83,7 +83,7 @@ func TestRouteRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 		t.Fatalf("account token changed: %q %v", got, err)
 	}
 	got, _ := app.Config.Load()
-	if _, ok := got.Models["gpt-unused"]; ok || got.Accounts["dmx"].Label != "DMXAPI" {
+	if _, ok := got.Models["gpt-unused"]; ok || got.Providers["dmx"].Label != "DMXAPI" {
 		t.Fatalf("remove config = %#v", got)
 	}
 }
@@ -108,7 +108,7 @@ func TestRouteAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 	route := got.Models["claude"]
-	if route.Account != "dmx" || route.Family != "claude-test" {
+	if route.Provider != "dmx" || route.Family != "claude-test" {
 		t.Fatalf("added route = %#v", route)
 	}
 	if got.SelectedModel(codex.ID) != "gpt" || !secretExists(t, secretStore, "dmx") || secretExists(t, secretStore, "claude") {
@@ -133,7 +133,7 @@ func TestRouteAddDoesNotConflateRouteCreationWithClientCompatibility(t *testing.
 		t.Fatal(err)
 	}
 	route, exists := got.Models["claude"]
-	if !exists || route.Account != "openai-only" || route.Family != "claude-test" {
+	if !exists || route.Provider != "openai-only" || route.Family != "claude-test" {
 		t.Fatalf("created Route = %#v, exists=%v", route, exists)
 	}
 	if got.SelectedModel(claude.ID) != "" {
@@ -165,16 +165,16 @@ func TestRouteReadsDoNotInspectCredentials(t *testing.T) {
 func TestRouteReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["native"] = domain.Account{
+	cfg.Providers["native"] = domain.Provider{
 		Label: "Native",
 		Endpoints: domain.Endpoints{
 			OpenAIResponses: "https://native.test/v1",
 		},
 	}
 	cfg.Models["native"] = domain.Model{
-		Label:   "Native",
-		Account: "native",
-		Family:  "native-model",
+		Label:    "Native",
+		Provider: "native",
+		Family:   "native-model",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolOpenAIResponses: {},
 		},
@@ -228,7 +228,7 @@ func TestRouteReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
 func TestRouteListJSONIsStableAndClientIndependent(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["shared"] = domain.Account{Label: "Shared", Endpoints: domain.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
+	cfg.Providers["shared"] = domain.Provider{Label: "Shared", Endpoints: domain.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
 	cfg.Models["zeta"] = qualifiedRoute("Zeta", "shared", "claude-test", domain.ProtocolAnthropic)
 	cfg.Models["alpha"] = qualifiedRoute("Alpha", "shared", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.Clients[codex.ID] = domain.ClientBinding{
@@ -274,7 +274,7 @@ func TestRouteListJSONIsStableAndClientIndependent(t *testing.T) {
 func TestRouteShowRendersEverySecretFreeField(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["shared"] = domain.Account{Label: "Shared", Endpoints: domain.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
+	cfg.Providers["shared"] = domain.Provider{Label: "Shared", Endpoints: domain.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
 	cfg.Models["codex"] = qualifiedRoute("Codex Model", "shared", "gpt-test", domain.ProtocolOpenAIResponses)
 	route := cfg.Models["codex"]
 	route.Purpose = "Daily work"

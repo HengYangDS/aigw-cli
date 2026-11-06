@@ -20,7 +20,7 @@ func TestClaudeVerificationBoundsClientProcesses(t *testing.T) {
 		t.Fatal(err)
 	}
 	claudeConfig := domain.NewConfig(testAdmission())
-	claudeConfig.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	claudeConfig.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	claudeConfig.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
 	claudeConfig.SetSelectedModel(ID, "claude", "")
 	claudeConfig.SetClientActivation(ID, true, claudeExecutable, nil)
@@ -59,7 +59,7 @@ func TestClaudeVerificationRequiresTheSynchronizedProjection(t *testing.T) {
 	}
 	runner := &captureAdapterRunner{err: errors.New("client must not start")}
 	deps := adapter.Dependencies{Runner: runner, Secrets: store, Host: hostAt(root), AIGWExecutable: filepath.Join(root, "aigw")}
-	runtime := domain.Runtime{AccountID: "gateway", ModelID: "claude", UpstreamModel: "claude-model", Endpoint: "https://gateway.test"}
+	runtime := domain.Runtime{ProviderID: "gateway", ModelID: "claude", UpstreamModel: "claude-model", Endpoint: "https://gateway.test"}
 	_, err := (claudeAdapter{}).Verify(context.Background(), deps, cfg, runtime, "")
 	if err == nil || !strings.Contains(err.Error(), "not synchronized") || runner.calls != 0 {
 		t.Fatalf("unsynchronized projection: calls=%d error=%v", runner.calls, err)
@@ -67,7 +67,7 @@ func TestClaudeVerificationRequiresTheSynchronizedProjection(t *testing.T) {
 }
 
 func TestClaudeAdapterReportsExecutableAndSecretFailures(t *testing.T) {
-	runtime := domain.Runtime{AccountID: "gateway"}
+	runtime := domain.Runtime{ProviderID: "gateway"}
 	secretStore := secret.NewMemoryStore()
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
@@ -129,7 +129,7 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testi
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Models["selected"] = qualifiedRoute("", "gateway", "claude-selected", domain.ProtocolAnthropic)
 	cfg.Models["alternate"] = qualifiedRoute("", "gateway", "claude-alternate", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(ID, "selected", "")
@@ -198,7 +198,7 @@ func TestClaudeVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing
 				t.Fatal(err)
 			}
 			cfg := domain.NewConfig(testAdmission())
-			cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+			cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 			cfg.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
 			binding := domain.ClientBinding{Model: "claude", Enabled: true, Executable: executable}
 			cfg.Clients[ID] = binding

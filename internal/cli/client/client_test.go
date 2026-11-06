@@ -60,15 +60,15 @@ func (r *adapterRunner) RunCaptureStreams(ctx context.Context, plan process.Plan
 
 func adapterConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{
+	cfg.Providers["gateway"] = domain.Provider{
 		Label: "Gateway",
 		Endpoints: domain.Endpoints{
 			Anthropic:       "https://gateway.test",
 			OpenAIResponses: "https://gateway.test/v1",
 		},
 	}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "gateway", Family: "codex-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Provider: "gateway", Family: "codex-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	return cfg
@@ -155,9 +155,9 @@ func TestEnableRejectsInvalidInputsBeforeMutation(t *testing.T) {
 
 func TestEnableRejectsInvalidConfigurationAndMissingSecret(t *testing.T) {
 	missingEndpoint := adapterConfig()
-	account := missingEndpoint.Accounts["gateway"]
+	account := missingEndpoint.Providers["gateway"]
 	account.Endpoints.Anthropic = ""
-	missingEndpoint.Accounts["gateway"] = account
+	missingEndpoint.Providers["gateway"] = account
 	runtime, _, _, _ := adapterRuntime(t, adapterConfig())
 	data, err := toml.Marshal(missingEndpoint)
 	if err != nil {
@@ -381,7 +381,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	if adapter, ok := got.Clients[claude.ID]; !ok || adapter.Enabled {
 		t.Fatalf("explicit disabled intent was not retained: %#v", got.Clients)
 	}
-	if got.SelectedModel(claude.ID) != "claude" || got.Models["claude"].Account != "gateway" {
+	if got.SelectedModel(claude.ID) != "claude" || got.Models["claude"].Provider != "gateway" {
 		t.Fatalf("capability configuration changed: %#v", got)
 	}
 	if token, err := secretStore.Get("gateway"); err != nil || token != "token" {

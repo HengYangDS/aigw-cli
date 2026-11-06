@@ -139,7 +139,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	}
 	journey.run(args...)
 	cfg, err := configStore.Load()
-	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint || cfg.Accounts["native-system-keyring-probe"].Endpoints.OpenAIResponses != upstream.URL+"/v1" {
+	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint || cfg.Providers["native-system-keyring-probe"].Endpoints.OpenAIResponses != upstream.URL+"/v1" {
 		t.Fatalf("forwarding did not preserve Account ownership: %v", err)
 	}
 	journey.run("check", "--for", codex.ID)
@@ -381,9 +381,9 @@ func (j *journeyFixture) importCatalogOrder() []byte {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	account, model := ranked.Accounts["native-system-keyring-probe"], ranked.Families["claude-test"]
+	account, model := ranked.Providers["native-system-keyring-probe"], ranked.Families["claude-test"]
 	account.Order, model.Order = 10, 20
-	ranked.Accounts["native-system-keyring-probe"], ranked.Families["claude-test"] = account, model
+	ranked.Providers["native-system-keyring-probe"], ranked.Families["claude-test"] = account, model
 	data, err := toml.Marshal(ranked)
 	if err != nil {
 		j.testing.Fatal(err)
@@ -398,7 +398,7 @@ func (j *journeyFixture) importCatalogOrder() []byte {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	if selected.Accounts["native-system-keyring-probe"].Order != 10 || selected.Families["claude-test"].Order != 20 ||
+	if selected.Providers["native-system-keyring-probe"].Order != 10 || selected.Families["claude-test"].Order != 20 ||
 		!updated.Catalog().Exists || !bytes.Equal(updated.Config.Data, before) {
 		j.testing.Fatal("catalog ranks were not isolated from published routing")
 	}

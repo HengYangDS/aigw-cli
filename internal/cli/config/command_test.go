@@ -113,7 +113,7 @@ func TestExportWritesASecretFreeRoundTripManifest(t *testing.T) {
 		t.Fatalf("parse exported manifest: %v\n%s", err, data)
 	}
 	// The local Codex binding stays local; the manifest carries Accounts and Routes.
-	if len(parsed.Recommendations) != 0 || parsed.Models["local"].Account != "local" {
+	if len(parsed.Recommendations) != 0 || parsed.Models["local"].Provider != "local" {
 		t.Fatalf("exported manifest = %#v", parsed)
 	}
 }
@@ -160,7 +160,7 @@ func TestImportMergesPublicConfigurationAndDefersReadiness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Models["remote"].Account != "gateway" {
+	if loaded.Models["remote"].Provider != "gateway" {
 		t.Fatalf("imported config = %#v", loaded)
 	}
 	output := out.String()
@@ -198,11 +198,11 @@ func TestImportPreservesExplicitSelectionWithoutSuggestingNoOpSync(t *testing.T)
 
 func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *testing.T) {
 	cfg := localConfig()
-	account := cfg.Accounts["local"]
+	account := cfg.Providers["local"]
 	account.Endpoints.OpenAIResponses = "http://127.0.0.1:8792/local/v1"
-	cfg.Accounts["local"] = account
+	cfg.Providers["local"] = account
 	cfg.Models["old"] = domain.Model{
-		Label: "Old", Account: "local", Family: "gpt-old",
+		Label: "Old", Provider: "local", Family: "gpt-old",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.Families["gpt-old"] = domain.Family{Label: "Old"}
@@ -300,7 +300,7 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Accounts["local"].Label != "Gateway" || loaded.Models["local"].Label != "Remote" {
+	if loaded.Providers["local"].Label != "Gateway" || loaded.Models["local"].Label != "Remote" {
 		t.Fatalf("explicit replacement did not converge: %#v", loaded)
 	}
 }
@@ -309,7 +309,7 @@ func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 	cfg := localConfig()
 	addRoute := func(id, label, model string) {
 		cfg.Models[id] = domain.Model{
-			Label: label, Account: "local", Family: model,
+			Label: label, Provider: "local", Family: model,
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 		}
 	}
@@ -347,7 +347,7 @@ func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 	if _, exists := got.Families["gpt-old"]; exists {
 		t.Fatal("Model orphaned by retired Route remains")
 	}
-	if got.Families["gpt-shared"].Label != "Shared" || got.Families["gpt-declared"].Label != "Declared" || got.SelectedModel(codex.ID) != "local" || got.Models["remote"].Account != "gateway" {
+	if got.Families["gpt-shared"].Label != "Shared" || got.Families["gpt-declared"].Label != "Declared" || got.SelectedModel(codex.ID) != "local" || got.Models["remote"].Provider != "gateway" {
 		t.Fatalf("unrelated state or imported Route changed: %#v", got)
 	}
 	if recommendation := got.Recommendations[codex.ID]; recommendation.Primary.Model != "remote" || len(recommendation.Alternatives) != 0 {
@@ -487,9 +487,9 @@ func savedRuntime(t *testing.T, cfg domain.Config) (invocation.Context, string, 
 
 func localConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["local"] = domain.Account{Label: "Local", Endpoints: domain.Endpoints{OpenAIResponses: "https://local.example/v1"}}
+	cfg.Providers["local"] = domain.Provider{Label: "Local", Endpoints: domain.Endpoints{OpenAIResponses: "https://local.example/v1"}}
 	cfg.Models["local"] = domain.Model{
-		Label: "Local", Account: "local", Family: "gpt-local",
+		Label: "Local", Provider: "local", Family: "gpt-local",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedModel(codex.ID, "local", "")

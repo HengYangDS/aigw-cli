@@ -98,9 +98,9 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, cl
 // which their components restore when the checkpoint is read.
 func publishedCheckpointConfig(current domain.Config) domain.Config {
 	cfg := current.Clone()
-	for id, account := range cfg.Accounts {
+	for id, account := range cfg.Providers {
 		account.Order = 0
-		cfg.Accounts[id] = account
+		cfg.Providers[id] = account
 	}
 	for id, model := range cfg.Families {
 		model.Order = 0

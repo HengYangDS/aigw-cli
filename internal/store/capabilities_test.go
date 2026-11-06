@@ -99,12 +99,12 @@ func TestStoredCapabilityAppliesOnlyToItsRecordedModel(t *testing.T) {
 			case "upstream model":
 				route.UpstreamModel = "claude-other"
 			case "endpoint":
-				account := cfg.Accounts["ucloud"]
+				account := cfg.Providers["ucloud"]
 				account.Endpoints.Anthropic = "https://other.test"
-				cfg.Accounts["ucloud"] = account
+				cfg.Providers["ucloud"] = account
 			case "account":
-				cfg.Accounts["other"] = cfg.Accounts["ucloud"]
-				route.Account = "other"
+				cfg.Providers["other"] = cfg.Providers["ucloud"]
+				route.Provider = "other"
 			case "interface":
 				route.Protocols = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}}
 			}
@@ -224,17 +224,17 @@ func TestStoredCapabilitySurvivesRecovery(t *testing.T) {
 // later tool_search capability on one Anthropic Route.
 func toolSearchConfig() domain.Config {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{
+	cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{
 		Anthropic: "https://ucloud.test", OpenAIResponses: "https://ucloud.test/v1",
 	}}
 	cfg.Models["claude"] = domain.Model{
-		Label: "Claude", Account: "ucloud", Family: "claude", UpstreamModel: "claude-wire",
+		Label: "Claude", Provider: "ucloud", Family: "claude", UpstreamModel: "claude-wire",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: append(slices.Clone(publishedSchemaSixCapabilities), domain.CapabilityToolSearch),
 		},
 	}
 	cfg.Models["gpt"] = domain.Model{
-		Label: "GPT", Account: "ucloud", Family: "gpt",
+		Label: "GPT", Provider: "ucloud", Family: "gpt",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText, domain.CapabilityReasoning}},
 	}
 	return cfg

@@ -165,8 +165,8 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	if err := journey.prepareNativeClient(client, executable, p.team); err != nil {
 		t.Fatal(err)
 	}
-	journey.setEnvironment(secret.EnvironmentKey(route.Account), token)
-	journey.run("setup", "--from", journey.manifest, "--account", route.Account)
+	journey.setEnvironment(secret.EnvironmentKey(route.Provider), token)
+	journey.run("setup", "--from", journey.manifest, "--account", route.Provider)
 	journey.enableNativeClient(client, executable)
 	retainedCredential := journey.retainedCredential(client)
 	before := journey.preserveClientFiles(client)
@@ -233,7 +233,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	journey.verifyNativeConfigEditing(client, executable)
 	const renamedAccount = "renamed-client-account"
 	journey.setEnvironment(secret.EnvironmentKey(renamedAccount), token)
-	journey.run("account", "rename", route.Account, renamedAccount)
+	journey.run("account", "rename", route.Provider, renamedAccount)
 	count := completions.Load()
 	journey.run("verify", "--for", "all")
 	if completions.Load() <= count {
@@ -243,12 +243,12 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 	if err != nil || len(checkpoint.Clients) != 1 || checkpoint.Clients[0] != client {
 		t.Fatalf("single-client checkpoint = %v: %v", checkpoint.Clients, err)
 	}
-	journey.environment = environmentWithout(journey.environment, secret.EnvironmentKey(route.Account))
-	journey.run("account", "rename", route.Account, renamedAccount, "--finalize")
+	journey.environment = environmentWithout(journey.environment, secret.EnvironmentKey(route.Provider))
+	journey.run("account", "rename", route.Provider, renamedAccount, "--finalize")
 	var retirement struct {
 		Status string `json:"status"`
 	}
-	if err := json.Unmarshal(journey.run("account", "rename", route.Account, renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already_finalized" {
+	if err := json.Unmarshal(journey.run("account", "rename", route.Provider, renamedAccount, "--finalize", "--dry-run", "--json"), &retirement); err != nil || retirement.Status != "already_finalized" {
 		t.Fatalf("repeated retirement = %q: %v", retirement.Status, err)
 	}
 	journey.requireExternalCredentialClient(client, executable, renamedAccount, completions.Load)
@@ -457,14 +457,14 @@ terminal:
 	}
 	manifest.Recommendations = map[string]domain.ClientRecommendation{client: manifest.Recommendations[client]}
 	// The retained reader predates presentation order; this journey owns connections.
-	for name, account := range manifest.Accounts {
+	for name, account := range manifest.Providers {
 		account.Order = 0
 		account.Endpoints.OpenAIResponses = j.endpoint
 		account.Endpoints.Anthropic = strings.TrimSuffix(j.endpoint, "/v1")
-		if account.AccountProbe != nil {
-			account.AccountProbe.BaseURL = j.endpoint
+		if account.BalanceProbe != nil {
+			account.BalanceProbe.BaseURL = j.endpoint
 		}
-		manifest.Accounts[name] = account
+		manifest.Providers[name] = account
 	}
 	for id, model := range manifest.Families {
 		model.Order = 0

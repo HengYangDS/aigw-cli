@@ -39,7 +39,7 @@ func (reader failingReader) Read([]byte) (int, error) { return 0, reader.err }
 func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 	t.Parallel()
 
-	account := domain.Account{
+	account := domain.Provider{
 		ID: "team",
 		Endpoints: domain.Endpoints{
 			Anthropic:       "https://anthropic.example/api",
@@ -113,7 +113,7 @@ func TestValidateNamesTheDefaultProbeClient(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			account := domain.Account{ID: "team", Endpoints: test.endpoints}
+			account := domain.Provider{ID: "team", Endpoints: test.endpoints}
 			err := probe.Validate(context.Background(), staticResponse(http.StatusUnauthorized, http.NoBody), test.admission, account, "secret")
 			if err == nil || err.Error() != test.want {
 				t.Fatalf("Validate() = %v, want %q", err, test.want)
@@ -147,7 +147,7 @@ func TestValidateRuntimeUsesTheSelectedEndpointProtocol(t *testing.T) {
 func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 	t.Parallel()
 
-	account := domain.Account{
+	account := domain.Provider{
 		ID: "team",
 		Endpoints: domain.Endpoints{
 			OpenAIResponses: "https://responses.example/v1",
@@ -155,21 +155,21 @@ func TestValidateRejectsInvalidRequestsAndResponses(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		account domain.Account
+		account domain.Provider
 		client  string
 		doer    probe.HTTPDoer
 		want    string
 	}{
 		{name: "unknown client", account: account, client: "unknown", want: `unsupported credential validation client "unknown"`},
 		{name: "missing endpoint", account: account, client: claude.ID, want: "no Anthropic Messages endpoint"},
-		{name: "invalid URL", account: domain.Account{ID: "team", Endpoints: domain.Endpoints{OpenAIResponses: "://bad"}}, client: codex.ID, want: "missing protocol scheme"},
+		{name: "invalid URL", account: domain.Provider{ID: "team", Endpoints: domain.Endpoints{OpenAIResponses: "://bad"}}, client: codex.ID, want: "missing protocol scheme"},
 		{name: "unreachable", account: account, client: codex.ID, doer: doerFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") }), want: "Codex endpoint is unreachable: offline"},
 		{name: "read body", account: account, client: codex.ID, doer: staticResponse(http.StatusOK, responseBody{Reader: failingReader{err: errors.New("broken body")}}), want: "read Codex endpoint response: broken body"},
 		{name: "close body", account: account, client: codex.ID, doer: staticResponse(http.StatusOK, responseBody{Reader: strings.NewReader("ok"), closeErr: errors.New("broken close")}), want: "close Codex endpoint response: broken close"},
 		{name: "unauthorized", account: account, client: codex.ID, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Codex authentication was rejected (HTTP 401)"},
 		{name: "forbidden", account: account, client: codex.ID, doer: staticResponse(http.StatusForbidden, http.NoBody), want: "Codex authentication was rejected (HTTP 403)"},
 		{name: "unexpected status", account: account, client: codex.ID, doer: staticResponse(http.StatusBadGateway, http.NoBody), want: "Codex endpoint returned HTTP 502"},
-		{name: "multi-word client label", account: domain.Account{ID: "team", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}, client: claudedesktop.ID, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Claude Desktop authentication was rejected (HTTP 401)"},
+		{name: "multi-word client label", account: domain.Provider{ID: "team", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}, client: claudedesktop.ID, doer: staticResponse(http.StatusUnauthorized, http.NoBody), want: "Claude Desktop authentication was rejected (HTTP 401)"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -195,7 +195,7 @@ func TestValidateHTTPClientDoesNotFollowRedirects(t *testing.T) {
 		writer.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(server.Close)
-	account := domain.Account{ID: "team", Endpoints: domain.Endpoints{OpenAIResponses: server.URL + "/v1"}}
+	account := domain.Provider{ID: "team", Endpoints: domain.Endpoints{OpenAIResponses: server.URL + "/v1"}}
 
 	httpClient := server.Client()
 	err := probe.Validate(context.Background(), httpClient, clients.Admission(), account, "secret", codex.ID)

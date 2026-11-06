@@ -44,26 +44,26 @@ func (e *RuntimeModelClientMismatchError) Error() string {
 	return fmt.Sprintf("route %q is for %s, not %s", e.ModelID, e.ExpectedClient, e.ActualClient)
 }
 
-// RuntimeModelUnknownAccountError reports a route whose referenced account is absent.
-type RuntimeModelUnknownAccountError struct {
-	ModelID   string
-	AccountID string
+// RuntimeModelUnknownProviderError reports a route whose referenced account is absent.
+type RuntimeModelUnknownProviderError struct {
+	ModelID    string
+	ProviderID string
 }
 
 // Error formats the unresolved account reference for a route.
-func (e *RuntimeModelUnknownAccountError) Error() string {
-	return fmt.Sprintf("route %q references unknown account %q", e.ModelID, e.AccountID)
+func (e *RuntimeModelUnknownProviderError) Error() string {
+	return fmt.Sprintf("route %q references unknown account %q", e.ModelID, e.ProviderID)
 }
 
 // RuntimeMissingEndpointError reports that an account lacks the protocol endpoint required by its client.
 type RuntimeMissingEndpointError struct {
-	AccountID string
-	Protocol  EndpointProtocol
+	ProviderID string
+	Protocol   EndpointProtocol
 }
 
 // Error formats the account and missing endpoint protocol.
 func (e *RuntimeMissingEndpointError) Error() string {
-	return fmt.Sprintf("account %q has no %s endpoint", e.AccountID, ProtocolLabel(e.Protocol))
+	return fmt.Sprintf("account %q has no %s endpoint", e.ProviderID, ProtocolLabel(e.Protocol))
 }
 
 // ProtocolLabel returns the native display name of an endpoint protocol.

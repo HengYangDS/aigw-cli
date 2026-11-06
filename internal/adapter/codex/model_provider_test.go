@@ -98,7 +98,7 @@ func TestCodexProviderNameDoesNotSelectCredentialOwnership(t *testing.T) {
 			t.Fatalf("provider name changed client-owned authentication:\n%s", data)
 		}
 	}
-	runtime.Authentication = domain.AuthenticationAccountToken
+	runtime.Authentication = domain.AuthenticationProviderToken
 	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestCodexSyncRejectsAccountTokenProviderWithoutCredentialCommand(t *testing
 	}
 	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
 	runtime.ModelProvider = "synthetic-provider"
-	runtime.Authentication = domain.AuthenticationAccountToken
+	runtime.Authentication = domain.AuthenticationProviderToken
 	for _, command := range []string{"", "aigw"} {
 		runtime.CredentialCommand = command
 		if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err == nil {
@@ -160,7 +160,7 @@ func TestCodexValidateResolvesCurrentAIGWExecutable(t *testing.T) {
 	}
 	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
 	runtime.ModelProvider = "synthetic-provider"
-	runtime.Authentication = domain.AuthenticationAccountToken
+	runtime.Authentication = domain.AuthenticationProviderToken
 	runtime.CredentialCommand = executable
 	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)

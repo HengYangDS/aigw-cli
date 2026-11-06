@@ -60,12 +60,12 @@ func (c *Config) retryPolicyFor(client string, selection ClientSelection, upstre
 	bound, exists := c.Models[binding.Model]
 	selected := c.Models[selection.Model]
 	spec, _ := c.admission.Spec(client)
-	if !exists || bound.Account != selected.Account || binding.RetryPolicy == nil ||
+	if !exists || bound.Provider != selected.Provider || binding.RetryPolicy == nil ||
 		selectedModelProvider(spec, binding.selection()) != selectedModelProvider(spec, selection) ||
 		selectedAuthentication(binding.selection()) != selectedAuthentication(selection) {
 		return nil
 	}
-	endpoint, boundProtocol, err := spec.resolveModelEndpoint(c.Accounts[bound.Account], bound, binding.Protocol)
+	endpoint, boundProtocol, err := spec.resolveModelEndpoint(c.Providers[bound.Provider], bound, binding.Protocol)
 	if err != nil || endpoint != upstream || boundProtocol != protocol {
 		return nil
 	}

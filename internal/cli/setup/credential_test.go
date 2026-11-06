@@ -17,7 +17,7 @@ import (
 )
 
 func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
-	account := domain.Account{ID: "one", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}}
+	account := domain.Provider{ID: "one", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}}
 
 	t.Run("unknown client", func(t *testing.T) {
 		err := probe.Validate(context.Background(), nil, clients.Admission(), account, "token", "other")
@@ -27,7 +27,7 @@ func TestVerifyCredentialRequestAndResponseErrors(t *testing.T) {
 	})
 
 	t.Run("missing endpoint", func(t *testing.T) {
-		err := probe.Validate(context.Background(), nil, clients.Admission(), domain.Account{ID: "one", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}, "token", codex.ID)
+		err := probe.Validate(context.Background(), nil, clients.Admission(), domain.Provider{ID: "one", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}, "token", codex.ID)
 		if err == nil || !strings.Contains(err.Error(), "no OpenAI") {
 			t.Fatalf("error = %v", err)
 		}

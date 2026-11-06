@@ -36,13 +36,13 @@ func qualifiedRoute(label, account, model string, protocols ...domain.EndpointPr
 		interfaces[protocol] = []domain.Capability{}
 	}
 	return domain.Model{
-		Label: label, Account: account, Family: model, UpstreamModel: model, Protocols: interfaces,
+		Label: label, Provider: account, Family: model, UpstreamModel: model, Protocols: interfaces,
 	}
 }
 
 func codexConfiguration(target string) domain.Config {
 	cfg := domain.NewConfig(Admission())
-	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.Clients[codex.ID] = domain.ClientBinding{Model: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
@@ -83,15 +83,15 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 
 func TestChangedClientsRetainsAdmissionOrderAndIndependentResults(t *testing.T) {
 	before := codexConfiguration("/target")
-	account := before.Accounts["gateway"]
+	account := before.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
-	before.Accounts["gateway"] = account
+	before.Providers["gateway"] = account
 	before.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
 	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	after := before.Clone()
 	account.Endpoints = domain.Endpoints{OpenAIResponses: "https://replacement.test/v1", Anthropic: "https://replacement.test"}
-	after.Accounts["gateway"] = account
+	after.Providers["gateway"] = account
 	registry := Registry()
 	changed := registry.ChangedClients(before, after)
 	want := before.EnabledClientIDs()
@@ -123,7 +123,7 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 	}
 
 	before := domain.NewConfig(Admission())
-	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{
+	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
@@ -181,14 +181,14 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 		t.Fatal(err)
 	}
 	before := domain.NewConfig(registry.Admission())
-	before.Accounts["direct"] = domain.Account{
+	before.Providers["direct"] = domain.Provider{
 		Label: "Direct",
 		Endpoints: domain.Endpoints{
 			Anthropic:       "https://direct.example.test",
 			OpenAIResponses: "https://direct.example.test/v1",
 		},
 	}
-	before.Accounts["gateway"] = domain.Account{
+	before.Providers["gateway"] = domain.Provider{
 		Label: "External gateway",
 		Endpoints: domain.Endpoints{
 			Anthropic:       "http://127.0.0.1:9876",
@@ -224,9 +224,9 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 
 func TestRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 	cfg := domain.NewConfig(Admission())
-	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Models["claude"] = domain.Model{
-		Account: "gateway", Family: "claude-test",
+		Provider: "gateway", Family: "claude-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	store := secret.NewMemoryStore()

@@ -100,8 +100,8 @@ func (s *configStoreStub) RestoreSnapshot(store.Snapshot, store.Snapshot) error 
 
 func testConfig(target string) domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Models["gpt"] = domain.Model{Label: "GPT", Account: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Models["gpt"] = domain.Model{Label: "GPT", Provider: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	return cfg
@@ -199,7 +199,7 @@ func TestCancelledCommitPreservesConfiguration(t *testing.T) {
 				t.Fatal(err)
 			}
 			after := before.Clone()
-			after.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
+			after.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 			syncer := Synchronizer{Registry: builtinClients, Config: configStore}
 			ctx, cancel := context.WithCancel(t.Context())
 			cancel()
@@ -227,8 +227,8 @@ func TestCommitPersistenceFailureBoundaries(t *testing.T) {
 	// The committed configuration must itself be savable, so the injected
 	// persistence failures are the ones that stop the commit.
 	after := domain.NewConfig(clients.Admission())
-	after.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	after.Models["gpt"] = domain.Model{Label: "GPT", Account: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	after.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	after.Models["gpt"] = domain.Model{Label: "GPT", Provider: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	want := errors.New("failure")
 	tests := []struct {
 		name  string
@@ -371,9 +371,9 @@ func TestCommitProjectionPreservesConfigurationWhenPreflightFails(t *testing.T) 
 	target := t.TempDir()
 	before := testConfig(target)
 	after := before.Clone()
-	account := after.Accounts["gateway"]
+	account := after.Providers["gateway"]
 	account.Label = "Renamed gateway"
-	after.Accounts["gateway"] = account
+	after.Providers["gateway"] = account
 	configPath := filepath.Join(t.TempDir(), "aigw.toml")
 	configStore := store.NewStore(configPath, clients.Admission())
 	if err := configStore.Save(before); err != nil {
@@ -414,9 +414,9 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := domain.NewConfig(clients.Admission())
-	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	before.Models["claude"] = domain.Model{
-		Label: "Claude", Account: "gateway", Family: "claude-team",
+		Label: "Claude", Provider: "gateway", Family: "claude-team",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	before.SetSelectedModel(claude.ID, "claude", "")
@@ -488,9 +488,9 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := domain.NewConfig(clients.Admission())
-	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	before.Models["claude"] = domain.Model{
-		Label: "Claude", Account: "gateway", Family: "claude-team",
+		Label: "Claude", Provider: "gateway", Family: "claude-team",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	before.SetSelectedModel(claude.ID, "claude", "")

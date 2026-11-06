@@ -168,7 +168,7 @@ func TestLoadBackupRoundTrips(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := backup.Accounts["old"]; !ok {
+	if _, ok := backup.Providers["old"]; !ok {
 		t.Fatalf("backup config = %#v, want the previous version", backup)
 	}
 }
@@ -376,7 +376,7 @@ func TestCaptureVerifiedBackupStateWithoutEnabledClientsNeedsNoCheckpoint(t *tes
 
 func convergenceConfig(id string) domain.Config {
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts[id] = domain.Account{Label: strings.ToUpper(id), Endpoints: domain.Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
+	cfg.Providers[id] = domain.Provider{Label: strings.ToUpper(id), Endpoints: domain.Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
 	cfg.Models[id] = testModel(strings.ToUpper(id), id, id+"-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(ClientCodex, id, "")
 	return cfg

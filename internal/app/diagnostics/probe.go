@@ -141,16 +141,16 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 		result = classifySuccessfulResponse(result, runtime.Protocol, body)
 	case resp.StatusCode == http.StatusUnauthorized:
 		result.Kind, result.Summary = InvalidToken, "Account Token is invalid or does not belong to the configured endpoint"
-		result.Fix = invalidTokenFix("run `aigw rotate " + runtime.AccountID + "`")
+		result.Fix = invalidTokenFix("run `aigw rotate " + runtime.ProviderID + "`")
 	case isHardQuotaFailure(resp.StatusCode, lower):
 		result.Kind, result.Summary = QuotaExhausted, "Token quota is exhausted"
-		result.Fix = "Increase the Token quota for Account " + runtime.AccountID + " in the provider console"
+		result.Fix = "Increase the Token quota for Account " + runtime.ProviderID + " in the provider console"
 	case resp.StatusCode == http.StatusForbidden && containsAny(lower, "disabled", "disable"):
 		result.Kind, result.Summary = TokenDisabled, "Token is disabled"
-		result.Fix = "Enable the Token for Account " + runtime.AccountID + " in the provider console"
+		result.Fix = "Enable the Token for Account " + runtime.ProviderID + " in the provider console"
 	case resp.StatusCode == http.StatusForbidden:
 		result.Kind, result.Summary = TokenRestricted, "Token or Account is restricted"
-		result.Fix = "Review access restrictions for Account " + runtime.AccountID + " in the provider console"
+		result.Fix = "Review access restrictions for Account " + runtime.ProviderID + " in the provider console"
 	case resp.StatusCode == http.StatusTooManyRequests:
 		result.Kind, result.Summary, result.Retryable = RateLimited, "Request rate or concurrency quota is exhausted", true
 		result.Fix = "Reduce concurrency and try again later; if it persists, check the provider rate-limit policy"

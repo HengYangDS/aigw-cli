@@ -66,7 +66,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	routeIDs := make([]string, 0, len(p.manifest.Models))
 	completions := map[string]*atomic.Int64{}
 	for routeID, route := range p.manifest.Models {
-		if route.Account != account || !slices.Contains(route.AdmittedProtocols(), domain.ProtocolOpenAIResponses) {
+		if route.Provider != account || !slices.Contains(route.AdmittedProtocols(), domain.ProtocolOpenAIResponses) {
 			continue
 		}
 		if _, duplicate := completions[route.UpstreamModel]; duplicate {

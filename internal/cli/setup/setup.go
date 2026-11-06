@@ -193,7 +193,7 @@ func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 	if !ok {
 		return setupPlan{}, fmt.Errorf("--for must be %s; run `aigw setup --help`", cfg.Admission().Usage())
 	}
-	account := domain.Account{ID: plan.request.Account, Endpoints: endpoints}
+	account := domain.Provider{ID: plan.request.Account, Endpoints: endpoints}
 	if compatible := spec.CompatibleProtocols(account); plan.request.Protocol == "" && len(compatible) > 1 {
 		names := make([]string, 0, len(compatible))
 		for _, candidate := range compatible {
@@ -218,12 +218,12 @@ func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 	if strings.TrimSpace(plan.request.Model) == "" {
 		return setupPlan{}, fmt.Errorf("--for %s requires --upstream-model", plan.request.Client)
 	}
-	storedAccount := domain.Account{Label: plan.request.Label, Endpoints: endpoints}
+	storedAccount := domain.Provider{Label: plan.request.Label, Endpoints: endpoints}
 	plan.route = domain.Model{
-		Label: plan.request.Label, Account: plan.request.Account, Family: strings.TrimSpace(plan.request.Model),
+		Label: plan.request.Label, Provider: plan.request.Account, Family: strings.TrimSpace(plan.request.Model),
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 	}
-	plan.config.Accounts[plan.request.Account] = storedAccount
+	plan.config.Providers[plan.request.Account] = storedAccount
 	plan.config.Models[plan.request.Route] = plan.route
 	plan.config.Clients[plan.request.Client] = domain.ClientBinding{Model: plan.request.Route, Enabled: true, Protocol: protocol}
 	if err := plan.config.Validate(); err != nil {

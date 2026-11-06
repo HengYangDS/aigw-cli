@@ -17,20 +17,20 @@ func NewEnvironmentStore(getenv func(string) string) Store {
 
 // EnvironmentKey returns the API-token variable name for an Account.
 func EnvironmentKey(account string) string {
-	return "AIGW_TOKEN_" + environmentAccountID(account)
+	return "AIGW_TOKEN_" + environmentProviderID(account)
 }
 
 // DiagnosticSystemTokenEnvironmentKey returns the provider-diagnostic system-token variable name for an Account.
 func DiagnosticSystemTokenEnvironmentKey(account string) string {
-	return "AIGW_DIAGNOSTIC_SYSTEM_TOKEN_" + environmentAccountID(account)
+	return "AIGW_DIAGNOSTIC_SYSTEM_TOKEN_" + environmentProviderID(account)
 }
 
 // DiagnosticUserIDEnvironmentKey returns the provider-diagnostic user-ID variable name for an Account.
 func DiagnosticUserIDEnvironmentKey(account string) string {
-	return "AIGW_DIAGNOSTIC_USER_ID_" + environmentAccountID(account)
+	return "AIGW_DIAGNOSTIC_USER_ID_" + environmentProviderID(account)
 }
 
-func environmentAccountID(account string) string {
+func environmentProviderID(account string) string {
 	var encoded strings.Builder
 	for _, character := range strings.ToUpper(account) {
 		if character >= 'A' && character <= 'Z' || character >= '0' && character <= '9' {

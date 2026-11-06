@@ -25,16 +25,16 @@ func codexRegistry() adapter.Registry {
 
 func TestCodexProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
-	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
+	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
 	before.Models["route"] = qualifiedRoute("Route", "gateway", "model", domain.ProtocolOpenAIResponses)
 	before.Clients[ID] = domain.ClientBinding{Model: "route", Enabled: true}
 	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
 	after := before.Clone()
-	account := after.Accounts["gateway"]
+	account := after.Providers["gateway"]
 	account.Endpoints = domain.Endpoints{OpenAIResponses: "https://second.test/v1", Anthropic: "https://second.test"}
-	after.Accounts["gateway"] = account
+	after.Providers["gateway"] = account
 	if !(codexAdapter{}).ProjectionChanged(before, after) {
 		t.Fatal("unchanged forwarding hid a changed credential projection identity")
 	}

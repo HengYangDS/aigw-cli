@@ -205,7 +205,7 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Accounts) != 2 {
+	if len(cfg.Providers) != 2 {
 		t.Fatalf("team config = %#v", cfg)
 	}
 	if cfg.SelectedModel(claude.ID) != "dmxapi-claude" || cfg.SelectedModel(codex.ID) != "dmxapi-gpt" {

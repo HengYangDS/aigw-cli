@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-func TestConfigQueriesOwnAccountAndModelSelectionSemantics(t *testing.T) {
+func TestConfigQueriesOwnProviderAndModelSelectionSemantics(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = Account{
+	cfg.Providers["gateway"] = Provider{
 		Label:     "Gateway",
 		Endpoints: Endpoints{Anthropic: "https://gateway.test/anthropic"},
 	}
@@ -21,18 +21,18 @@ func TestConfigQueriesOwnAccountAndModelSelectionSemantics(t *testing.T) {
 	if got := cfg.ModelIDs(); !reflect.DeepEqual(got, []string{"alpha", "zeta"}) {
 		t.Fatalf("RouteIDs() = %#v", got)
 	}
-	accountID, providerAccount, err := cfg.ResolveAccount("alpha")
+	accountID, providerAccount, err := cfg.ResolveProvider("alpha")
 	if err != nil || accountID != "gateway" || providerAccount.ID != "gateway" {
 		t.Fatalf("ResolveAccount(route) = %q, %#v, %v", accountID, providerAccount, err)
 	}
-	accountID, _, err = cfg.ResolveAccount("gateway")
+	accountID, _, err = cfg.ResolveProvider("gateway")
 	if err != nil || accountID != "gateway" {
 		t.Fatalf("ResolveAccount(account) = %q, %v", accountID, err)
 	}
-	if got := cfg.SelectedAccountIDs(); !reflect.DeepEqual(got, []string{"gateway"}) {
+	if got := cfg.SelectedProviderIDs(); !reflect.DeepEqual(got, []string{"gateway"}) {
 		t.Fatalf("SelectedAccountIDs() = %#v; want the selected Route's Account", got)
 	}
-	if _, _, err := cfg.ResolveAccount("missing"); err == nil {
+	if _, _, err := cfg.ResolveProvider("missing"); err == nil {
 		t.Fatal("ResolveAccount() accepted an unknown reference")
 	}
 }
@@ -53,39 +53,39 @@ func TestEnabledClientIDsFollowConfigurationNotSupportedCapabilities(t *testing.
 	}
 }
 
-func TestRequiredAccountTokensFollowEnabledModelsAndAuthentication(t *testing.T) {
+func TestRequiredProviderTokensFollowEnabledModelsAndAuthentication(t *testing.T) {
 	cfg := validConfig()
 	cfg.Normalize()
-	if got := cfg.RequiredAccountTokenIDs(); len(got) != 0 {
+	if got := cfg.RequiredProviderTokenIDs(); len(got) != 0 {
 		t.Fatalf("disabled Routes require Tokens: %v", got)
 	}
 	binding := cfg.Clients[ClientCodex]
 	binding.Enabled = true
 	cfg.Clients[ClientCodex] = binding
-	want := []string{cfg.Models[cfg.SelectedModel(ClientCodex)].Account}
-	if got := cfg.RequiredAccountTokenIDs(); !reflect.DeepEqual(got, want) {
+	want := []string{cfg.Models[cfg.SelectedModel(ClientCodex)].Provider}
+	if got := cfg.RequiredProviderTokenIDs(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("enabled Token scope = %v, want %v", got, want)
 	}
 	binding.CredentialCommand = filepath.Join(t.TempDir(), "external-reader")
 	cfg.Clients[ClientCodex] = binding
-	if got := cfg.RequiredAccountTokenIDs(); len(got) != 0 {
+	if got := cfg.RequiredProviderTokenIDs(); len(got) != 0 {
 		t.Fatalf("external credential ownership requires a duplicate Token: %v", got)
 	}
 	runtime, err := cfg.ResolveRuntime(ClientCodex, "")
-	if err != nil || !runtime.RequiresAccountToken() || runtime.UsesAIGWCredentialStore() {
+	if err != nil || !runtime.RequiresProviderToken() || runtime.UsesAIGWCredentialStore() {
 		t.Fatalf("external credential ownership changed wire authentication: %+v, %v", runtime, err)
 	}
-	cfg.Accounts[want[0]] = cfg.Accounts["dmx"]
+	cfg.Providers[want[0]] = cfg.Providers["dmx"]
 	cfg.Models["dmx"] = testModel("Shared", want[0], "claude-test", ProtocolAnthropic)
 	claude := cfg.Clients[ClientClaude]
 	claude.Enabled = true
 	cfg.Clients[ClientClaude] = claude
-	if got := cfg.RequiredAccountTokenIDs(); !reflect.DeepEqual(got, want) {
+	if got := cfg.RequiredProviderTokenIDs(); !reflect.DeepEqual(got, want) {
 		t.Fatalf("shared Account lost its AIGW-owned credential consumer: %v", got)
 	}
 	claude.CredentialCommand = binding.CredentialCommand
 	cfg.Clients[ClientClaude] = claude
-	if got := cfg.RequiredAccountTokenIDs(); len(got) != 0 {
+	if got := cfg.RequiredProviderTokenIDs(); len(got) != 0 {
 		t.Fatalf("shared external credential consumers require a duplicate Token: %v", got)
 	}
 	delete(cfg.Clients, ClientClaude)
@@ -93,7 +93,7 @@ func TestRequiredAccountTokensFollowEnabledModelsAndAuthentication(t *testing.T)
 	binding.Authentication = AuthenticationClientNative
 	binding.ModelProvider = "native"
 	cfg.Clients[ClientCodex] = binding
-	if got := cfg.RequiredAccountTokenIDs(); len(got) != 0 {
+	if got := cfg.RequiredProviderTokenIDs(); len(got) != 0 {
 		t.Fatalf("client-native authentication requires Tokens: %v", got)
 	}
 }
@@ -101,7 +101,7 @@ func TestRequiredAccountTokensFollowEnabledModelsAndAuthentication(t *testing.T)
 func validConfig() Config {
 	return Config{
 		Version: ConfigVersion,
-		Accounts: map[string]Account{
+		Providers: map[string]Provider{
 			"dmx":    {Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}},
 			"backup": {Label: "Backup", Endpoints: Endpoints{OpenAIResponses: "https://backup.test/v1"}},
 		},
@@ -123,7 +123,7 @@ func testModel(label, account, model string, protocols ...EndpointProtocol) Mode
 	for _, protocol := range protocols {
 		interfaces[protocol] = []Capability{}
 	}
-	return Model{Label: label, Account: account, Family: model, Protocols: interfaces}
+	return Model{Label: label, Provider: account, Family: model, Protocols: interfaces}
 }
 
 func TestValidateRejectsNonCanonicalSchemaVersion(t *testing.T) {
@@ -150,23 +150,23 @@ func TestNewConfigUsesCurrentSchema(t *testing.T) {
 
 func TestConfigCloneDoesNotShareMutableState(t *testing.T) {
 	original := validConfig()
-	account := original.Accounts["dmx"]
-	account.AccountProbe = &AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}
-	original.Accounts["dmx"] = account
+	account := original.Providers["dmx"]
+	account.BalanceProbe = &BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"}
+	original.Providers["dmx"] = account
 	original.Clients = map[string]ClientBinding{}
 	original.SetClientActivation(ClientCodex, true, "", []string{"one"})
 	original.SetRecommendedModel(ClientClaude, "dmx")
 
 	clone := original.Clone()
-	clone.Accounts["dmx"].AccountProbe.BaseURL = "https://changed.test"
-	if original.Accounts["dmx"].AccountProbe.BaseURL != "https://diagnostics.test" {
+	clone.Providers["dmx"].BalanceProbe.BaseURL = "https://changed.test"
+	if original.Providers["dmx"].BalanceProbe.BaseURL != "https://diagnostics.test" {
 		t.Fatal("clone shares account diagnostics with original")
 	}
-	original.Accounts["dmx"].AccountProbe.Kind = "another"
-	if clone.Accounts["dmx"].AccountProbe.Kind != "dmxapi" {
+	original.Providers["dmx"].BalanceProbe.Kind = "another"
+	if clone.Providers["dmx"].BalanceProbe.Kind != "dmxapi" {
 		t.Fatal("original shares account diagnostics with clone")
 	}
-	clone.Accounts["dmx"] = Account{Label: "Changed"}
+	clone.Providers["dmx"] = Provider{Label: "Changed"}
 	clone.Models["default"] = Model{Label: "Changed"}
 	clone.SetSelectedModel(ClientClaude, "changed", "")
 	clone.SetRecommendedModel(ClientClaude, "changed")
@@ -174,7 +174,7 @@ func TestConfigCloneDoesNotShareMutableState(t *testing.T) {
 	adapter.Targets[0] = "changed"
 	clone.Clients[ClientCodex] = adapter
 
-	if original.Accounts["dmx"].Label == "Changed" || original.Models["default"].Label == "Changed" {
+	if original.Providers["dmx"].Label == "Changed" || original.Models["default"].Label == "Changed" {
 		t.Fatal("clone shares map state with original")
 	}
 	if original.SelectedModel(ClientClaude) == "changed" || original.RecommendedModel(ClientClaude) == "changed" {
@@ -192,7 +192,7 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 		want string
 	}{
 		{"invalid route name", func(c *Config) { c.Models["bad name"] = c.Models["dmx"] }, "route name"},
-		{"uppercase account name", func(c *Config) { c.Accounts["DMX"] = c.Accounts["dmx"] }, "must be lowercase"},
+		{"uppercase account name", func(c *Config) { c.Providers["DMX"] = c.Providers["dmx"] }, "must be lowercase"},
 		{"unknown selected route", func(c *Config) { c.SetSelectedModel(ClientClaude, "missing", "") }, "unknown route"},
 		{"unknown client", func(c *Config) { c.Clients["chat"] = ClientBinding{Model: "dmx"} }, "unknown client binding"},
 		{"unknown recommended route", func(c *Config) { c.SetRecommendedModel(ClientClaude, "missing") }, "unknown route"},
@@ -203,19 +203,19 @@ func TestValidateRejectsUnsafeOrAmbiguousConfiguration(t *testing.T) {
 			c.Recommendations[ClientCodex] = ClientRecommendation{Primary: ClientSelection{Model: "dmx", Protocol: ProtocolAnthropic}}
 		}, "does not support"},
 		{"url user info", func(c *Config) {
-			a := c.Accounts["dmx"]
+			a := c.Providers["dmx"]
 			a.Endpoints.Anthropic = "https://user:secret@example.test"
-			c.Accounts["dmx"] = a
+			c.Providers["dmx"] = a
 		}, "userinfo"},
 		{"url secret query", func(c *Config) {
-			a := c.Accounts["dmx"]
+			a := c.Providers["dmx"]
 			a.Endpoints.Anthropic = "https://example.test?api_key=secret"
-			c.Accounts["dmx"] = a
+			c.Providers["dmx"] = a
 		}, "credential-like"},
 		{"remote plain http", func(c *Config) {
-			a := c.Accounts["dmx"]
+			a := c.Providers["dmx"]
 			a.Endpoints.Anthropic = "http://example.test"
-			c.Accounts["dmx"] = a
+			c.Providers["dmx"] = a
 		}, "loopback"},
 	}
 	for _, tt := range tests {
@@ -237,7 +237,7 @@ func TestValidationReportsStableFirstProblemWithoutChangingConfiguration(t *test
 		want string
 	}{
 		{"accounts", func(c *Config) {
-			c.Accounts = map[string]Account{"alpha": {}, "zeta": {}}
+			c.Providers = map[string]Provider{"alpha": {}, "zeta": {}}
 		}, `account "alpha" has an empty label`},
 		{"routes", func(c *Config) {
 			c.Models = map[string]Model{"alpha": {}, "zeta": {}}
@@ -252,12 +252,12 @@ func TestValidationReportsStableFirstProblemWithoutChangingConfiguration(t *test
 			c.Clients = map[string]ClientBinding{"alpha": {}, "zeta": {}}
 		}, `unknown client binding "alpha"`},
 		{"protocol endpoints", func(c *Config) {
-			c.Accounts = map[string]Account{"alpha": {Label: "Alpha", Endpoints: Endpoints{
+			c.Providers = map[string]Provider{"alpha": {Label: "Alpha", Endpoints: Endpoints{
 				OpenAIResponses: "invalid", Anthropic: "invalid",
 			}}}
 		}, `account "alpha" endpoint anthropic: URL must use http or https and include a host`},
 		{"credential query parameters", func(c *Config) {
-			c.Accounts = map[string]Account{"alpha": {Label: "Alpha", Endpoints: Endpoints{
+			c.Providers = map[string]Provider{"alpha": {Label: "Alpha", Endpoints: Endpoints{
 				Anthropic: "https://example.test?token=value&api_key=value",
 			}}}
 		}, `account "alpha" endpoint anthropic: credential-like query parameter "api_key" is forbidden`},
@@ -282,17 +282,17 @@ func TestValidationReportsStableFirstProblemWithoutChangingConfiguration(t *test
 
 func TestValidateAllowsProviderNeutralExplicitDiagnostics(t *testing.T) {
 	cfg := validConfig()
-	account := cfg.Accounts["dmx"]
-	account.AccountProbe = &AccountProbe{Kind: "future-provider", BaseURL: "https://diagnostics.example.test"}
-	cfg.Accounts["dmx"] = account
+	account := cfg.Providers["dmx"]
+	account.BalanceProbe = &BalanceProbe{Kind: "future-provider", BaseURL: "https://diagnostics.example.test"}
+	cfg.Providers["dmx"] = account
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("explicit provider diagnostics must remain configuration-valid even when this build has no driver: %v", err)
 	}
 }
 
-func TestValidateRejectsRuntimeModelReferencingUnknownAccountOrInvalidClientOptions(t *testing.T) {
+func TestValidateRejectsRuntimeModelReferencingUnknownProviderOrInvalidClientOptions(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["dmx"] = Account{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
+	cfg.Providers["dmx"] = Provider{Label: "DMXAPI", Endpoints: Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
 	cfg.Models["codex"] = testModel("Codex", "missing", "gpt-5.6", ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(ClientCodex, "codex", "")
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "unknown account") {
@@ -312,14 +312,14 @@ func TestValidateRequiresEachSelectedBindingsClientProtocol(t *testing.T) {
 			cfg.Normalize()
 			cfg.Families["model"] = Family{Label: "Model"}
 			cfg.Models = map[string]Model{"selected-route": {
-				Label: "Selected Route", Account: "dmx", Family: "model",
+				Label: "Selected Route", Provider: "dmx", Family: "model",
 				Protocols: map[EndpointProtocol][]Capability{client.EndpointProtocols[0]: {}},
 			}}
 			cfg.Clients = map[string]ClientBinding{client.ID: {Model: "selected-route", Protocol: client.EndpointProtocols[0]}}
 			if err := cfg.Validate(); err != nil {
 				t.Fatalf("compatible route: %v", err)
 			}
-			account := cfg.Accounts["dmx"]
+			account := cfg.Providers["dmx"]
 			switch client.EndpointProtocols[0] {
 			case ProtocolAnthropic:
 				account.Endpoints.Anthropic = ""
@@ -328,11 +328,11 @@ func TestValidateRequiresEachSelectedBindingsClientProtocol(t *testing.T) {
 			case ProtocolOpenAIChatCompletions:
 				account.Endpoints.OpenAIChatCompletions = ""
 			}
-			cfg.Accounts["dmx"] = account
+			cfg.Providers["dmx"] = account
 			before := cfg.Clone()
 			err := cfg.Validate()
 			var missing *RuntimeMissingEndpointError
-			if !errors.As(err, &missing) || missing.AccountID != "dmx" || missing.Protocol != client.EndpointProtocols[0] {
+			if !errors.As(err, &missing) || missing.ProviderID != "dmx" || missing.Protocol != client.EndpointProtocols[0] {
 				t.Fatalf("incompatible route error = %v; want Account dmx protocol %s", err, client.EndpointProtocols[0])
 			}
 			if !strings.Contains(err.Error(), "selected-route") {
@@ -411,7 +411,7 @@ func TestModelUpstreamModelIDPreservesExactProviderIdentity(t *testing.T) {
 func TestNormalizeFillsEveryNilCollection(t *testing.T) {
 	cfg := Config{}
 	cfg.Normalize()
-	if cfg.Accounts == nil || cfg.Models == nil || cfg.Recommendations == nil || cfg.Clients == nil {
+	if cfg.Providers == nil || cfg.Models == nil || cfg.Recommendations == nil || cfg.Clients == nil {
 		t.Fatalf("normalized config still has nil collections: %#v", cfg)
 	}
 }
@@ -426,7 +426,7 @@ func TestValidateAdmitsClientAdapterTargets(t *testing.T) {
 	}
 }
 
-func TestValidateRequiresAtLeastOneModelAndAccount(t *testing.T) {
+func TestValidateRequiresAtLeastOneModelAndProvider(t *testing.T) {
 	cfg := validConfig()
 	cfg.Models = map[string]Model{}
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "at least one route") {
@@ -434,13 +434,13 @@ func TestValidateRequiresAtLeastOneModelAndAccount(t *testing.T) {
 	}
 
 	cfg = validConfig()
-	cfg.Accounts = map[string]Account{}
+	cfg.Providers = map[string]Provider{}
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "at least one account") {
 		t.Fatalf("empty accounts error = %v", err)
 	}
 }
 
-func TestValidateRejectsEmptyLabelsAndUnnamedOrUnendpointedAccounts(t *testing.T) {
+func TestValidateRejectsEmptyLabelsAndUnnamedOrUnendpointedProviders(t *testing.T) {
 	tests := []struct {
 		name string
 		edit func(*Config)
@@ -450,29 +450,29 @@ func TestValidateRejectsEmptyLabelsAndUnnamedOrUnendpointedAccounts(t *testing.T
 			c.Families = map[string]Family{"claude-test": {Label: "  "}}
 		}, "empty label"},
 		{"invalid account name", func(c *Config) {
-			c.Accounts["bad name"] = c.Accounts["dmx"]
+			c.Providers["bad name"] = c.Providers["dmx"]
 		}, "invalid account name"},
 		{"empty account label", func(c *Config) {
-			a := c.Accounts["dmx"]
+			a := c.Providers["dmx"]
 			a.Label = " "
-			c.Accounts["dmx"] = a
+			c.Providers["dmx"] = a
 		}, "empty label"},
 		{"account without endpoint", func(c *Config) {
-			c.Accounts["dmx"] = Account{Label: "DMXAPI"}
+			c.Providers["dmx"] = Provider{Label: "DMXAPI"}
 		}, "must define at least one endpoint"},
 		{"account probe invalid kind", func(c *Config) {
-			a := c.Accounts["dmx"]
-			a.AccountProbe = &AccountProbe{Kind: "bad kind", BaseURL: "https://diagnostics.example.test"}
-			c.Accounts["dmx"] = a
+			a := c.Providers["dmx"]
+			a.BalanceProbe = &BalanceProbe{Kind: "bad kind", BaseURL: "https://diagnostics.example.test"}
+			c.Providers["dmx"] = a
 		}, "invalid account probe provider"},
 		{"account probe invalid endpoint", func(c *Config) {
-			a := c.Accounts["dmx"]
-			a.AccountProbe = &AccountProbe{Kind: "future", BaseURL: "not-a-url"}
-			c.Accounts["dmx"] = a
+			a := c.Providers["dmx"]
+			a.BalanceProbe = &BalanceProbe{Kind: "future", BaseURL: "not-a-url"}
+			c.Providers["dmx"] = a
 		}, "account probe"},
 		{"route missing account", func(c *Config) {
 			p := c.Models["dmx"]
-			p.Account = ""
+			p.Provider = ""
 			c.Models["dmx"] = p
 		}, "must reference an account"},
 		{"binding references unknown route", func(c *Config) {

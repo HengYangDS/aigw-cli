@@ -268,7 +268,7 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 	writeFile(t, target, []byte("model_provider = \"native\"\nforeign = true\n"), 0o600)
 	writeFile(t, claudeSettingsPath(t, app.Host), []byte(`{"theme":"dark","env":{"CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS":"1"}}`), 0o600)
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	for _, id := range []string{claude.ID, codex.ID} {
 		executable := filepath.Join(root, id)
 		writeFile(t, executable, []byte("public fixture"), 0o700)
@@ -381,7 +381,7 @@ func assertCredentialPolicyDisableReenable(t *testing.T, app *cli.App, root, tar
 func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://example.invalid"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://example.invalid"}}
 	cfg.Models["claude"] = qualifiedRoute("Claude", "gateway", "fixture-model", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	command := filepath.Join(t.TempDir(), "explicit-helper")

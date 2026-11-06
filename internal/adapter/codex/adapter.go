@@ -123,7 +123,7 @@ func (codexAdapter) ProjectionChanged(before, after domain.Config) bool {
 	if beforeErr != nil || afterErr != nil {
 		return true
 	}
-	return beforeRuntime.AccountID != afterRuntime.AccountID ||
+	return beforeRuntime.ProviderID != afterRuntime.ProviderID ||
 		!beforeRuntime.SameUpstream(afterRuntime) ||
 		beforeRuntime.ModelID != afterRuntime.ModelID ||
 		beforeRuntime.ModelLabel != afterRuntime.ModelLabel ||
@@ -222,7 +222,7 @@ func reconciliationInputs(deps adapter.Dependencies, before, after domain.Config
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
 	previous, _ := before.ResolveRuntime(ID, "")
-	if previous.RequiresAccountToken() {
+	if previous.RequiresProviderToken() {
 		previous.CredentialCommand = previous.CredentialExecutable(deps.AIGWExecutable)
 	}
 	if !afterBinding.Enabled {
@@ -232,7 +232,7 @@ func reconciliationInputs(deps adapter.Dependencies, before, after domain.Config
 	if err != nil {
 		return nil, nil, domain.Runtime{}, domain.Runtime{}, err
 	}
-	if runtime.RequiresAccountToken() {
+	if runtime.RequiresProviderToken() {
 		runtime.CredentialCommand = runtime.CredentialExecutable(deps.AIGWExecutable)
 	}
 	return beforeRefs, afterRefs, previous, runtime, nil

@@ -80,7 +80,7 @@ func TestForwardingSnapshotRestoresPresenceAndPriorBinding(t *testing.T) {
 	}
 }
 
-func TestForwardingStoreRejectsMixedAccountGenerations(t *testing.T) {
+func TestForwardingStoreRejectsMixedProviderGenerations(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
 	cfg := validConfig()
 	if err := cfg.SetForwardingEndpoint(ClientCodex, "http://127.0.0.1:8792/backup/v1"); err != nil {
@@ -276,7 +276,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	store := NewStore(path, testAdmission())
 	want := admitted(domain.Config{
 		Version:         domain.ConfigVersion,
-		Accounts:        map[string]domain.Account{"dmx": {Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
+		Providers:       map[string]domain.Provider{"dmx": {Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
 		Models:          map[string]domain.Model{"dmx": testModel("DMXAPI", "dmx", "claude-test", domain.ProtocolAnthropic)},
 		Recommendations: map[string]domain.ClientRecommendation{ClientClaude: {Primary: domain.ClientSelection{Model: "dmx"}}},
 		Clients:         map[string]domain.ClientBinding{ClientClaude: {Model: "dmx"}},
@@ -295,7 +295,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["dmx"].Endpoints.Anthropic != "https://example.test" || got.SelectedModel(ClientClaude) != "dmx" || got.RecommendedModel(ClientClaude) != "dmx" {
+	if got.Providers["dmx"].Endpoints.Anthropic != "https://example.test" || got.SelectedModel(ClientClaude) != "dmx" || got.RecommendedModel(ClientClaude) != "dmx" {
 		t.Fatalf("round trip = %#v", got)
 	}
 }
@@ -305,7 +305,7 @@ func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 	store := NewStore(path, testAdmission())
 	cfg := admitted(domain.Config{
 		Version: domain.ConfigVersion,
-		Accounts: map[string]domain.Account{
+		Providers: map[string]domain.Provider{
 			"dmx": {Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}},
 		},
 		Models: map[string]domain.Model{
@@ -342,9 +342,9 @@ func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 
 func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
 	incompatible := validConfig()
-	account := incompatible.Accounts["dmx"]
+	account := incompatible.Providers["dmx"]
 	account.Endpoints.Anthropic = ""
-	incompatible.Accounts["dmx"] = account
+	incompatible.Providers["dmx"] = account
 	for name, cfg := range map[string]domain.Config{
 		"empty":                       admitted(domain.Config{Version: domain.ConfigVersion}),
 		"incompatible legacy Profile": incompatible,
@@ -374,10 +374,10 @@ func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := admitted(domain.Config{
-		Version:  domain.ConfigVersion,
-		Accounts: map[string]domain.Account{"gateway": {Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}},
-		Models:   map[string]domain.Model{"gateway": testModel("Gateway", "gateway", "claude-test", domain.ProtocolAnthropic)},
-		Clients:  map[string]domain.ClientBinding{ClientClaude: {Model: "gateway"}},
+		Version:   domain.ConfigVersion,
+		Providers: map[string]domain.Provider{"gateway": {Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}},
+		Models:    map[string]domain.Model{"gateway": testModel("Gateway", "gateway", "claude-test", domain.ProtocolAnthropic)},
+		Clients:   map[string]domain.ClientBinding{ClientClaude: {Model: "gateway"}},
 	})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -425,7 +425,7 @@ func TestCommitInvalidatesAndRestoreSnapshotRecoversVerifiedCheckpoint(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if checkpoint.Config.Accounts["before"].Label != "BEFORE" {
+	if checkpoint.Config.Providers["before"].Label != "BEFORE" {
 		t.Fatalf("restored checkpoint = %#v", checkpoint)
 	}
 }
@@ -434,16 +434,16 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := NewStore(path, testAdmission())
 	first := admitted(domain.Config{
-		Version:  domain.ConfigVersion,
-		Accounts: map[string]domain.Account{"one": {Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}},
-		Models:   map[string]domain.Model{"one": testModel("One", "one", "claude-one", domain.ProtocolAnthropic)},
-		Clients:  map[string]domain.ClientBinding{ClientClaude: {Model: "one"}},
+		Version:   domain.ConfigVersion,
+		Providers: map[string]domain.Provider{"one": {Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}},
+		Models:    map[string]domain.Model{"one": testModel("One", "one", "claude-one", domain.ProtocolAnthropic)},
+		Clients:   map[string]domain.ClientBinding{ClientClaude: {Model: "one"}},
 	})
 	if err := store.Save(first); err != nil {
 		t.Fatal(err)
 	}
 	second := first
-	second.Accounts = map[string]domain.Account{"two": {Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.test"}}}
+	second.Providers = map[string]domain.Provider{"two": {Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.test"}}}
 	second.Models = map[string]domain.Model{"two": testModel("Two", "two", "claude-two", domain.ProtocolAnthropic)}
 	second.Clients = map[string]domain.ClientBinding{ClientClaude: {Model: "two"}}
 	if err := store.Save(second); err != nil {

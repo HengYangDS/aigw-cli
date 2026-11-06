@@ -67,7 +67,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request s
 		return err
 	}
 
-	accountNames := domain.ManifestAccountNames(manifest)
+	accountNames := domain.ManifestProviderIDs(manifest)
 	discovered, err := runtime.Discover()
 	if err != nil {
 		return err
@@ -95,7 +95,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request s
 			tokens[item.account] = item.token
 		}
 	}
-	cfg, err = cfg.SelectModelsForConnectedAccounts(connectedAccounts)
+	cfg, err = cfg.SelectModelsForConnectedProviders(connectedAccounts)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 	}
 	connecting := make([]string, 0, len(accountNames))
 	if request.Account != "" {
-		if _, ok := cfg.Accounts[request.Account]; !ok {
+		if _, ok := cfg.Providers[request.Account]; !ok {
 			return fmt.Errorf("unknown Account %q; choose one of %s", request.Account, strings.Join(accountNames, ", "))
 		}
 		connecting = append(connecting, request.Account)
@@ -136,7 +136,7 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 			}
 		}
 	}
-	planned, err := cfg.SelectModelsForConnectedAccounts(connecting)
+	planned, err := cfg.SelectModelsForConnectedProviders(connecting)
 	if err != nil {
 		return err
 	}
@@ -321,7 +321,7 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 
 func collectManifestSetupCredentials(runtime invocation.Context, cfg domain.Config, accountNames []string, selectedAccount string, tokenStdin bool) ([]setupCredential, error) {
 	if selectedAccount != "" {
-		if _, ok := cfg.Accounts[selectedAccount]; !ok {
+		if _, ok := cfg.Providers[selectedAccount]; !ok {
 			return nil, fmt.Errorf("unknown Account %q; choose one of %s", selectedAccount, strings.Join(accountNames, ", "))
 		}
 		accountNames = []string{selectedAccount}
@@ -371,7 +371,7 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg domain.Conf
 	if !runtime.Interactive {
 		return nil, fmt.Errorf("Account %q is not connected; run setup interactively or add --token-stdin", selectedAccount)
 	}
-	account := cfg.Accounts[selectedAccount]
+	account := cfg.Providers[selectedAccount]
 	token, err := runtime.Prompt.Secret("Paste " + account.Label + " token: ")
 	if err != nil {
 		return nil, err
@@ -385,7 +385,7 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg domain.Conf
 func configuredClientsForAccount(cfg domain.Config, accountName string) []string {
 	seen := map[string]bool{}
 	for routeID, route := range cfg.Models {
-		if route.Account != accountName {
+		if route.Provider != accountName {
 			continue
 		}
 		clients, err := cfg.ProtocolClientIDs(routeID)
@@ -409,7 +409,7 @@ func accountHasRecommendedTokenSelection(cfg domain.Config, accountName string) 
 	for _, recommendation := range cfg.Recommendations {
 		for _, selection := range recommendation.Selections() {
 			route := cfg.Models[selection.Model]
-			if route.Account == accountName && selection.Authentication != domain.AuthenticationClientNative {
+			if route.Provider == accountName && selection.Authentication != domain.AuthenticationClientNative {
 				return true
 			}
 		}
@@ -425,14 +425,14 @@ func manifestSetupSelectedClients(cfg domain.Config, connected map[string]setupC
 			continue
 		}
 		runtime, err := cfg.ResolveRuntime(client, "")
-		if err != nil || runtime.AccountID == "" {
+		if err != nil || runtime.ProviderID == "" {
 			continue
 		}
 		if !available[client] {
 			continue
 		}
 		if runtime.UsesAIGWCredentialStore() {
-			if _, ok := connected[runtime.AccountID]; !ok {
+			if _, ok := connected[runtime.ProviderID]; !ok {
 				continue
 			}
 		}

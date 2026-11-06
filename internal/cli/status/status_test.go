@@ -43,9 +43,9 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		t.Fatalf("ready status = %q", got)
 	}
 
-	accountConfig := cfg.Accounts["one"]
-	accountConfig.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
-	cfg.Accounts["one"] = accountConfig
+	accountConfig := cfg.Providers["one"]
+	accountConfig.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.example.test"}
+	cfg.Providers["one"] = accountConfig
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	}
 
 	cfg.Models["codex-only"] = domain.Model{
-		Label: "Codex only", Purpose: "Selection", Account: "one", Family: "gpt-test",
+		Label: "Codex only", Purpose: "Selection", Provider: "one", Family: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	delete(cfg.Clients, codex.ID)
@@ -153,23 +153,23 @@ func TestStatusStatesClaudeDesktopQualifiedModesAndPlatforms(t *testing.T) {
 func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T) {
 	for _, test := range []struct {
 		name        string
-		probe       *domain.AccountProbe
+		probe       *domain.BalanceProbe
 		credential  bool
 		environment bool
 		want        string
 	}{
 		{name: "no probe", want: "Provider does not expose a balance probe"},
-		{name: "unsupported probe", probe: &domain.AccountProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "Provider diagnostics unavailable in this version"},
-		{name: "missing probe credential", probe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance not ready"},
-		{name: "available probe credential", probe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Diagnostic credential present · content not verified"},
-		{name: "incomplete environment pair", probe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, environment: true, want: secret.DiagnosticUserIDEnvironmentKey("one")},
+		{name: "unsupported probe", probe: &domain.BalanceProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "Provider diagnostics unavailable in this version"},
+		{name: "missing probe credential", probe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance not ready"},
+		{name: "available probe credential", probe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Diagnostic credential present · content not verified"},
+		{name: "incomplete environment pair", probe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, environment: true, want: secret.DiagnosticUserIDEnvironmentKey("one")},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, buffer := configuredReadinessRuntime(t)
-			providerAccount := cfg.Accounts["one"]
+			providerAccount := cfg.Providers["one"]
 			providerAccount.Endpoints.OpenAIResponses = "http://127.0.0.1:1234/v1"
-			providerAccount.AccountProbe = test.probe
-			cfg.Accounts["one"] = providerAccount
+			providerAccount.BalanceProbe = test.probe
+			cfg.Providers["one"] = providerAccount
 			if err := runtime.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -206,9 +206,9 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 
 func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
-	account := cfg.Accounts["one"]
+	account := cfg.Providers["one"]
 	account.Endpoints = domain.Endpoints{Anthropic: "http://127.0.0.2:4567", OpenAIResponses: "http://[::ffff:127.0.0.2]:4568/v1"}
-	cfg.Accounts["one"] = account
+	cfg.Providers["one"] = account
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -508,7 +508,7 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 		t.Fatal(err)
 	}
 	observed := result.Clients[codex.ID]
-	if !observed.ProjectionReady || observed.Authentication != string(domain.AuthenticationAccountToken) {
+	if !observed.ProjectionReady || observed.Authentication != string(domain.AuthenticationProviderToken) {
 		t.Fatalf("local projection observation = %#v", observed)
 	}
 }

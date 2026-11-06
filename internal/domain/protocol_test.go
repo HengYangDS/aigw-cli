@@ -10,8 +10,8 @@ import (
 
 func TestModelSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://responses.test/v1", Anthropic: "https://messages.test", OpenAIChatCompletions: "https://chat.test/v1"}}
-	cfg.Models["hermes"] = Model{Label: "Hermes", Account: "team", Family: "model-test", Protocols: map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}}
+	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://responses.test/v1", Anthropic: "https://messages.test", OpenAIChatCompletions: "https://chat.test/v1"}}
+	cfg.Models["hermes"] = Model{Label: "Hermes", Provider: "team", Family: "model-test", Protocols: map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}}
 	cfg.Clients[ClientHermes] = ClientBinding{Model: "hermes", Protocol: ProtocolAnthropic}
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
@@ -57,13 +57,13 @@ func TestExplicitProtocolMustBeSupportedByClient(t *testing.T) {
 
 func TestModelProtocolsConstrainClientCompatibilityAndRuntimeSelection(t *testing.T) {
 	cfg := NewConfig(testAdmission())
-	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{
+	cfg.Providers["team"] = Provider{Label: "Team", Endpoints: Endpoints{
 		OpenAIResponses:       "https://responses.test/v1",
 		OpenAIChatCompletions: "https://chat.test/v1",
 	}}
 	cfg.Models["chat-only"] = Model{
 		Label:     "Chat only",
-		Account:   "team",
+		Provider:  "team",
 		Family:    "model-test",
 		Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}},
 	}
@@ -81,7 +81,7 @@ func TestModelProtocolsConstrainClientCompatibilityAndRuntimeSelection(t *testin
 	}
 	cfg.Models["responses-only"] = Model{
 		Label:     "Responses only",
-		Account:   "team",
+		Provider:  "team",
 		Family:    "another-model",
 		Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}},
 	}
@@ -148,9 +148,9 @@ func TestModelToolSearchBelongsToTheAnthropicInterface(t *testing.T) {
 	for _, protocol := range []EndpointProtocol{ProtocolAnthropic, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions} {
 		t.Run(string(protocol), func(t *testing.T) {
 			cfg := validConfig()
-			account := cfg.Accounts["dmx"]
+			account := cfg.Providers["dmx"]
 			account.Endpoints.OpenAIChatCompletions = "https://example.test/chat/v1"
-			cfg.Accounts["dmx"] = account
+			cfg.Providers["dmx"] = account
 			route := cfg.Models["dmx"]
 			route.Protocols = map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}
 			route.Protocols[protocol] = []Capability{CapabilityTools, Capability("tool_search")}
@@ -171,8 +171,8 @@ func TestModelToolSearchBelongsToTheAnthropicInterface(t *testing.T) {
 
 func TestModelCapabilitiesRemainScopedToTheExactWireInterface(t *testing.T) {
 	route := Model{
-		Account: "team",
-		Family:  "model",
+		Provider: "team",
+		Family:   "model",
 		Protocols: map[EndpointProtocol][]Capability{
 			ProtocolOpenAIResponses:       {CapabilityText, CapabilityReasoning},
 			ProtocolOpenAIChatCompletions: {CapabilityText},
@@ -195,13 +195,13 @@ func TestModelCapabilitiesRemainScopedToTheExactWireInterface(t *testing.T) {
 }
 
 func TestManifestEquivalenceIncludesEveryEndpointAndProtocol(t *testing.T) {
-	left := Account{Label: "Team", Endpoints: Endpoints{OpenAIChatCompletions: "https://first.test/v1"}}
+	left := Provider{Label: "Team", Endpoints: Endpoints{OpenAIChatCompletions: "https://first.test/v1"}}
 	right := left
 	right.Endpoints.OpenAIChatCompletions = "https://second.test/v1"
-	if equivalentAccount(left, right) {
+	if equivalentProvider(left, right) {
 		t.Fatal("manifest import treated different Chat Completions endpoints as equivalent")
 	}
-	route := Model{Account: "team", Family: "model", Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}}
+	route := Model{Provider: "team", Family: "model", Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}}
 	if !equivalentModel(route, route) {
 		t.Fatal("manifest import treated equal provider model identities as different")
 	}

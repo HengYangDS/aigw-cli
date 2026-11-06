@@ -103,18 +103,18 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		keeping := selectorSet(keepAccounts)
 		retiring := selectorSet(retireRoutes)
 		cfg, err = domain.MergeWithOptions(cfg, incoming, domain.MergeOptions{
-			KeepAccounts:    keeping,
-			ReplaceAccounts: selectorSet(replaceAccounts),
-			ReplaceFamilies: selectorSet(replaceModels),
-			ReplaceModels:   selectorSet(replaceRoutes),
-			RetireModels:    retiring,
+			KeepProviders:    keeping,
+			ReplaceProviders: selectorSet(replaceAccounts),
+			ReplaceFamilies:  selectorSet(replaceModels),
+			ReplaceModels:    selectorSet(replaceRoutes),
+			RetireModels:     retiring,
 		})
 		if err != nil {
 			return err
 		}
 		result := importResult{
 			DryRun:               dryRun,
-			ImportedAccounts:     len(domain.ManifestAccountNames(incoming)),
+			ImportedAccounts:     len(domain.ManifestProviderIDs(incoming)),
 			ImportedRoutes:       len(incoming.Models),
 			KeptAccounts:         slices.Sorted(maps.Keys(keeping)),
 			RetiredRoutes:        slices.Sorted(maps.Keys(retiring)),

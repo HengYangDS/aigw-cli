@@ -35,15 +35,15 @@ func forwardedConfig(t *testing.T) domain.Config {
 func TestForwardingRefusesAChangeThatMovesItsUpstream(t *testing.T) {
 	for name, move := range map[string]func(*domain.Config){
 		"Account endpoint": func(cfg *domain.Config) {
-			account := cfg.Accounts["backup"]
+			account := cfg.Providers["backup"]
 			account.Endpoints.OpenAIResponses = "https://moved.test/v1"
-			cfg.Accounts["backup"] = account
+			cfg.Providers["backup"] = account
 		},
 		"Account rename": func(cfg *domain.Config) {
-			cfg.Accounts["renamed"] = cfg.Accounts["backup"]
-			delete(cfg.Accounts, "backup")
+			cfg.Providers["renamed"] = cfg.Providers["backup"]
+			delete(cfg.Providers, "backup")
 			route := cfg.Models["backup"]
-			route.Account = "renamed"
+			route.Provider = "renamed"
 			cfg.Models["backup"] = route
 		},
 	} {
@@ -62,7 +62,7 @@ func TestForwardingRefusesAChangeThatMovesItsUpstream(t *testing.T) {
 
 func TestForwardingRefusesAProtocolChange(t *testing.T) {
 	cfg := validConfig()
-	cfg.Accounts["multi"] = domain.Account{Label: "Multi", Endpoints: domain.Endpoints{OpenAIResponses: "https://multi.test/v1", OpenAIChatCompletions: "https://multi.test/v1"}}
+	cfg.Providers["multi"] = domain.Provider{Label: "Multi", Endpoints: domain.Endpoints{OpenAIResponses: "https://multi.test/v1", OpenAIChatCompletions: "https://multi.test/v1"}}
 	cfg.Models["multi"] = testModel("Multi", "multi", "multi-model", domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions)
 	cfg.SetSelectedModel(ClientHermes, "multi", domain.ProtocolOpenAIResponses)
 	if err := cfg.SetForwardingEndpoint(ClientHermes, forwardingTestEndpoint); err != nil {
@@ -86,9 +86,9 @@ func TestForwardingRefusalResetsASelectedRetryPolicy(t *testing.T) {
 	binding := cfg.Clients[ClientCodex]
 	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &retries}
 	cfg.Clients[ClientCodex] = binding
-	account := cfg.Accounts["backup"]
+	account := cfg.Providers["backup"]
 	account.Endpoints.OpenAIResponses = "https://moved.test/v1"
-	cfg.Accounts["backup"] = account
+	cfg.Providers["backup"] = account
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "`aigw use --for codex backup --direct --native-retries`") {
 		t.Fatalf("the advised command would refuse its own connection change: %v", err)
 	}
@@ -114,9 +114,9 @@ func TestDirectSelectionDropsForwardingWithItsUpstream(t *testing.T) {
 	if binding := cfg.Clients[ClientCodex]; binding.ForwardingEndpoint != "" || binding.ForwardingUpstreamIdentity != "" || binding.ForwardingProtocol != "" {
 		t.Fatalf("the direct selection kept part of the forwarding: %#v", binding)
 	}
-	account := cfg.Accounts["backup"]
+	account := cfg.Providers["backup"]
 	account.Endpoints.OpenAIResponses = "https://moved.test/v1"
-	cfg.Accounts["backup"] = account
+	cfg.Providers["backup"] = account
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("an Account edit after the direct selection was refused: %v", err)
 	}

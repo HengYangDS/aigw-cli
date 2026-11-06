@@ -191,7 +191,7 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg domain.C
 		result.fix = "aigw verify --for " + client
 		return result
 	}
-	token, tokenErr := runtime.Secrets.Get(clientRuntime.AccountID)
+	token, tokenErr := runtime.Secrets.Get(clientRuntime.ProviderID)
 	if tokenErr != nil {
 		result.credentialErr = tokenErr
 		if !errors.Is(tokenErr, secret.ErrNotFound) {
@@ -202,8 +202,8 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg domain.C
 		}
 		result.credentialState = domainreadiness.Deferred
 		result.issue = "account token is unavailable"
-		result.fix = "aigw rotate " + clientRuntime.AccountID
-		if instruction, writable := secret.TokenRecovery(runtime.Secrets, clientRuntime.AccountID); !writable {
+		result.fix = "aigw rotate " + clientRuntime.ProviderID
+		if instruction, writable := secret.TokenRecovery(runtime.Secrets, clientRuntime.ProviderID); !writable {
 			result.fix = instruction
 		}
 		return result
@@ -213,7 +213,7 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg domain.C
 		scope = diagnostics.ScopeEndpoint
 	}
 	result.diagnostic = diagnostics.ProbeBounded(cmd.Context(), runtime.HTTP, clientRuntime, token, scope)
-	instruction, _ := secret.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
+	instruction, _ := secret.TokenRecovery(runtime.Secrets, clientRuntime.ProviderID)
 	result.diagnostic = result.diagnostic.WithTokenRecovery(instruction)
 	if result.diagnostic.Kind != diagnostics.Healthy {
 		result.issue = result.diagnostic.Summary
@@ -308,7 +308,7 @@ func checkedClientStatuses(runtime invocation.Context, cfg domain.Config, activa
 	for _, client := range evaluation.clients {
 		status := clients[client.client]
 		status.Route = client.runtime.ModelID
-		status.Account = client.runtime.AccountID
+		status.Account = client.runtime.ProviderID
 		status.Authentication = client.runtime.Authentication
 		status.EndpointConfigured = client.endpointConfigured
 		status.ProjectionReady = client.adapter
@@ -466,9 +466,9 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 		return terminal.Field{}, "", false, terminal.ProblemError(runtime.Clients.Admission().Label(client)+" binding cannot be resolved", result.resolveErr.Error(), runtime.Clients.Admission().Label(client)+" cannot determine which Route to use.", recommendedAction("aigw use --for "+client+" <route>"), result.resolveErr)
 	}
 	if result.credentialErr != nil {
-		evidence := "Account " + result.runtime.AccountID + " has no available Token."
+		evidence := "Account " + result.runtime.ProviderID + " has no available Token."
 		if result.credentialState == domainreadiness.Unavailable {
-			evidence = "The selected credential backend could not return Account " + result.runtime.AccountID + "'s Token; its presence cannot be inferred."
+			evidence = "The selected credential backend could not return Account " + result.runtime.ProviderID + "'s Token; its presence cannot be inferred."
 		}
 		return terminal.Field{}, "", false, terminal.ProblemError(
 			runtime.Clients.Admission().Label(client)+" "+result.issue, evidence, runtime.Clients.Admission().Label(client)+" cannot authenticate to its selected endpoint.", recommendedAction(result.fix),

@@ -80,15 +80,15 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		accountName, providerAccount, err := cfg.ResolveAccount(name)
+		accountName, providerAccount, err := cfg.ResolveProvider(name)
 		if err != nil {
 			return err
 		}
-		if providerAccount.AccountProbe == nil {
+		if providerAccount.BalanceProbe == nil {
 			return fmt.Errorf("%s does not support precise balance queries", providerAccount.Label)
 		}
-		if !provider.Supports(providerAccount.AccountProbe.Kind) {
-			return fmt.Errorf("Precise diagnostics provider %q is not included in this AIGW version; continue using `aigw check` for general diagnostics", providerAccount.AccountProbe.Kind)
+		if !provider.Supports(providerAccount.BalanceProbe.Kind) {
+			return fmt.Errorf("Precise diagnostics provider %q is not included in this AIGW version; continue using `aigw check` for general diagnostics", providerAccount.BalanceProbe.Kind)
 		}
 		credential, err := runtime.Accounts.Get(accountName)
 		if err != nil {

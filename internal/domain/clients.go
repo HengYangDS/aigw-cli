@@ -83,17 +83,17 @@ func naturalChoices(choices []string) string {
 
 // ResolveEndpoint selects an explicitly requested protocol or the sole available
 // supported endpoint. Multiple choices require a Route-level selection.
-func (s ClientSpec) ResolveEndpoint(account Account, requested EndpointProtocol) (string, EndpointProtocol, error) {
+func (s ClientSpec) ResolveEndpoint(account Provider, requested EndpointProtocol) (string, EndpointProtocol, error) {
 	return s.resolveEndpoint(account, nil, requested)
 }
 
 // resolveModelEndpoint selects one endpoint admitted by the client, Account,
 // and Route interface declaration.
-func (s ClientSpec) resolveModelEndpoint(account Account, route Model, requested EndpointProtocol) (string, EndpointProtocol, error) {
+func (s ClientSpec) resolveModelEndpoint(account Provider, route Model, requested EndpointProtocol) (string, EndpointProtocol, error) {
 	return s.resolveEndpoint(account, modelAdmittedProtocols(route), requested)
 }
 
-func (s ClientSpec) resolveEndpoint(account Account, admitted []EndpointProtocol, requested EndpointProtocol) (string, EndpointProtocol, error) {
+func (s ClientSpec) resolveEndpoint(account Provider, admitted []EndpointProtocol, requested EndpointProtocol) (string, EndpointProtocol, error) {
 	protocol := requested
 	if protocol == "" && len(s.EndpointProtocols) == 1 {
 		protocol = s.EndpointProtocols[0]
@@ -125,20 +125,20 @@ func (s ClientSpec) resolveEndpoint(account Account, admitted []EndpointProtocol
 	}
 	endpoint := account.Endpoints.For(protocol)
 	if endpoint == "" {
-		return "", "", &RuntimeMissingEndpointError{AccountID: account.ID, Protocol: protocol}
+		return "", "", &RuntimeMissingEndpointError{ProviderID: account.ID, Protocol: protocol}
 	}
 	return strings.TrimRight(endpoint, "/"), protocol, nil
 }
 
 // CompatibleProtocols returns the protocols this client and Account both
 // expose, preserving the client's declared preference order.
-func (s ClientSpec) CompatibleProtocols(account Account) []EndpointProtocol {
+func (s ClientSpec) CompatibleProtocols(account Provider) []EndpointProtocol {
 	return s.compatibleProtocols(account, nil)
 }
 
 // CompatibleModelProtocols returns the client protocols admitted by both
 // the Account endpoints and the Route's verified interface declaration.
-func (s ClientSpec) CompatibleModelProtocols(account Account, route Model) []EndpointProtocol {
+func (s ClientSpec) CompatibleModelProtocols(account Provider, route Model) []EndpointProtocol {
 	return s.compatibleProtocols(account, modelAdmittedProtocols(route))
 }
 
@@ -146,7 +146,7 @@ func modelAdmittedProtocols(route Model) []EndpointProtocol {
 	return route.AdmittedProtocols()
 }
 
-func (s ClientSpec) compatibleProtocols(account Account, admitted []EndpointProtocol) []EndpointProtocol {
+func (s ClientSpec) compatibleProtocols(account Provider, admitted []EndpointProtocol) []EndpointProtocol {
 	protocols := make([]EndpointProtocol, 0, len(s.EndpointProtocols))
 	for _, protocol := range s.EndpointProtocols {
 		if account.Endpoints.For(protocol) != "" && (admitted == nil || slices.Contains(admitted, protocol)) {
@@ -275,7 +275,7 @@ func (runtime Runtime) CredentialExecutable(native string) string {
 // UsesAIGWCredentialStore distinguishes AIGW-owned retrieval from an explicitly
 // configured client helper without changing the Provider authentication protocol.
 func (runtime Runtime) UsesAIGWCredentialStore() bool {
-	return runtime.RequiresAccountToken() && runtime.CredentialCommand == ""
+	return runtime.RequiresProviderToken() && runtime.CredentialCommand == ""
 }
 
 // SetSelectedModel changes one client's Route and endpoint protocol while

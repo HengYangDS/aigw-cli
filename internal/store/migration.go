@@ -30,7 +30,7 @@ type MigrationPlan struct {
 	Direction       MigrationDirection                     `json:"direction"`
 	FromVersion     int                                    `json:"from_version"`
 	ToVersion       int                                    `json:"to_version"`
-	Accounts        []string                               `json:"accounts"`
+	Providers       []string                               `json:"accounts"`
 	Models          []string                               `json:"routes"`
 	Clients         map[string]domain.ClientBinding        `json:"clients"`
 	Recommendations map[string]domain.ClientRecommendation `json:"recommendations"`
@@ -42,7 +42,7 @@ type MigrationPlan struct {
 
 type legacyConfig struct {
 	Version         int                        `toml:"version"`
-	Accounts        map[string]domain.Account  `toml:"accounts"`
+	Providers       map[string]domain.Provider `toml:"accounts"`
 	Profiles        map[string]legacyProfile   `toml:"profiles"`
 	Recommendations map[string]legacySelection `toml:"recommendations,omitempty"`
 	Clients         map[string]legacyBinding   `toml:"clients,omitempty"`
@@ -51,7 +51,7 @@ type legacyConfig struct {
 type legacyProfile struct {
 	Label     string                    `toml:"label"`
 	Purpose   string                    `toml:"purpose,omitempty"`
-	Account   string                    `toml:"account"`
+	Provider  string                    `toml:"account"`
 	Model     string                    `toml:"model"`
 	Tier      string                    `toml:"tier,omitempty"`
 	Protocols []domain.EndpointProtocol `toml:"protocols,omitempty"`
@@ -77,7 +77,7 @@ type legacyBinding struct {
 
 type publishedConfig struct {
 	Version           int                         `toml:"version"`
-	Accounts          map[string]domain.Account   `toml:"accounts"`
+	Providers         map[string]domain.Provider  `toml:"accounts"`
 	Profiles          map[string]publishedProfile `toml:"profiles"`
 	Models            map[string]string           `toml:"routes"`
 	RecommendedModels map[string]string           `toml:"recommended_routes,omitempty"`
@@ -87,7 +87,7 @@ type publishedConfig struct {
 type publishedProfile struct {
 	Label          string                `toml:"label"`
 	Purpose        string                `toml:"purpose,omitempty"`
-	Account        string                `toml:"account"`
+	Provider       string                `toml:"account"`
 	Client         string                `toml:"client"`
 	Model          string                `toml:"model"`
 	ModelProvider  string                `toml:"model_provider,omitempty"`
@@ -228,20 +228,20 @@ func configurationVersion(data []byte) (int, error) {
 
 func migrateLegacyConfig(legacy legacyConfig, admission domain.Admission) (domain.Config, error) {
 	cfg := domain.NewConfig(admission)
-	for id, account := range legacy.Accounts {
-		if account.AccountProbe != nil {
-			probe := *account.AccountProbe
-			account.AccountProbe = &probe
+	for id, account := range legacy.Providers {
+		if account.BalanceProbe != nil {
+			probe := *account.BalanceProbe
+			account.BalanceProbe = &probe
 		}
-		cfg.Accounts[id] = account
+		cfg.Providers[id] = account
 	}
 	for _, id := range slices.Sorted(maps.Keys(legacy.Profiles)) {
 		profile := legacy.Profiles[id]
 		if strings.TrimSpace(profile.Model) == "" {
 			return domain.Config{}, fmt.Errorf("profile %q has no model", id)
 		}
-		if _, exists := cfg.Accounts[profile.Account]; !exists {
-			return domain.Config{}, fmt.Errorf("profile %q references unknown account %q", id, profile.Account)
+		if _, exists := cfg.Providers[profile.Provider]; !exists {
+			return domain.Config{}, fmt.Errorf("profile %q references unknown account %q", id, profile.Provider)
 		}
 		if len(profile.Protocols) == 0 {
 			return domain.Config{}, fmt.Errorf("profile %q has no explicit protocol and cannot be migrated without guessing", id)
@@ -254,7 +254,7 @@ func migrateLegacyConfig(legacy legacyConfig, admission domain.Admission) (domai
 			interfaces[protocol] = []domain.Capability{}
 		}
 		cfg.Models[id] = domain.Model{
-			Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account,
+			Label: profile.Label, Purpose: profile.Purpose, Provider: profile.Provider,
 			Family: profile.Model, UpstreamModel: profile.Model, Protocols: interfaces,
 		}
 	}
@@ -277,7 +277,7 @@ func migrateLegacyConfig(legacy legacyConfig, admission domain.Admission) (domai
 
 func migratePublishedConfig(published publishedConfig, admission domain.Admission) (domain.Config, error) {
 	cfg := domain.NewConfig(admission)
-	maps.Copy(cfg.Accounts, published.Accounts)
+	maps.Copy(cfg.Providers, published.Providers)
 	selections := make(map[string]domain.ClientSelection, len(published.Profiles))
 	for _, id := range slices.Sorted(maps.Keys(published.Profiles)) {
 		profile := published.Profiles[id]
@@ -286,8 +286,8 @@ func migratePublishedConfig(published publishedConfig, admission domain.Admissio
 		if protocol == "" {
 			return domain.Config{}, fmt.Errorf("published profile %q has no admitted client protocol for %q", id, profile.Client)
 		}
-		if _, exists := cfg.Accounts[profile.Account]; !exists {
-			return domain.Config{}, fmt.Errorf("published profile %q references unknown account %q", id, profile.Account)
+		if _, exists := cfg.Providers[profile.Provider]; !exists {
+			return domain.Config{}, fmt.Errorf("published profile %q references unknown account %q", id, profile.Provider)
 		}
 		if strings.TrimSpace(profile.Model) == "" {
 			return domain.Config{}, fmt.Errorf("published profile %q has no model", id)
@@ -296,7 +296,7 @@ func migratePublishedConfig(published publishedConfig, admission domain.Admissio
 			cfg.Families[profile.Model] = domain.Family{Label: profile.Model}
 		}
 		cfg.Models[id] = domain.Model{
-			Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account,
+			Label: profile.Label, Purpose: profile.Purpose, Provider: profile.Provider,
 			Family: profile.Model, UpstreamModel: profile.Model,
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 		}
@@ -361,7 +361,7 @@ func summarizeMigration(path string, before Snapshot, cfg domain.Config, data []
 	}
 	return MigrationPlan{
 		Required: required, Direction: direction, FromVersion: from, ToVersion: to,
-		Accounts: slices.Sorted(maps.Keys(cfg.Accounts)), Models: cfg.ModelIDs(),
+		Providers: slices.Sorted(maps.Keys(cfg.Providers)), Models: cfg.ModelIDs(),
 		Clients: maps.Clone(cfg.Clients), Recommendations: maps.Clone(cfg.Recommendations),
 		path: path, before: before, data: slices.Clone(data),
 	}

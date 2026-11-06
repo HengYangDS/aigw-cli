@@ -229,9 +229,9 @@ func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	configStore := store.NewStore(path, clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Models["gpt"] = domain.Model{
-		Label: "GPT", Account: "dmx", Family: "gpt-test",
+		Label: "GPT", Provider: "dmx", Family: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedModel(codex.ID, "gpt", "")

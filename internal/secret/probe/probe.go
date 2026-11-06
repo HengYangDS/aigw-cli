@@ -27,7 +27,7 @@ type HTTPDoer interface {
 // admission resolves the clients. When clients is empty, the account's OpenAI
 // Responses endpoint, or else its Anthropic endpoint, selects the probe, and
 // the first admitted client that speaks only that protocol names it.
-func Validate(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, account domain.Account, token string, clients ...string) error {
+func Validate(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, account domain.Provider, token string, clients ...string) error {
 	if len(clients) == 0 {
 		client, err := defaultValidationClient(admission, account)
 		if err != nil {
@@ -58,7 +58,7 @@ func Validate(ctx context.Context, httpClient HTTPDoer, admission domain.Admissi
 
 // defaultValidationClient names the client whose protocol probes an Account
 // Token when the caller requests none.
-func defaultValidationClient(admission domain.Admission, account domain.Account) (string, error) {
+func defaultValidationClient(admission domain.Admission, account domain.Provider) (string, error) {
 	protocol := domain.ProtocolAnthropic
 	if account.Endpoints.OpenAIResponses != "" {
 		protocol = domain.ProtocolOpenAIResponses

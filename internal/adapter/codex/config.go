@@ -91,7 +91,7 @@ func (plan ProjectionPlan) ChangesState() bool {
 // trusted. The caller must validate the intact reader and the complete owned
 // projection before executing it.
 func ObservedCredentialCommand(path string, runtime domain.Runtime) (string, error) {
-	if !runtime.RequiresAccountToken() {
+	if !runtime.RequiresProviderToken() {
 		return "", fmt.Errorf("Codex Route %q does not use an Account Token", runtime.ModelID)
 	}
 	data, err := os.ReadFile(path)
@@ -112,7 +112,7 @@ func ObservedCredentialCommand(path string, runtime domain.Runtime) (string, err
 // AIGW Route. It never changes the target; callers can safely use it for
 // diagnostics before offering an explicit sync.
 func ValidateConfig(path string, runtime domain.Runtime) error {
-	if runtime.RequiresAccountToken() && runtime.CredentialCommand == "" {
+	if runtime.RequiresProviderToken() && runtime.CredentialCommand == "" {
 		executable, err := os.Executable()
 		if err != nil {
 			return fmt.Errorf("resolve AIGW executable: %w", err)
@@ -295,7 +295,7 @@ func codexEndpoint(runtime domain.Runtime) (string, error) {
 	if runtime.Endpoint == "" {
 		return "", fmt.Errorf("Route %q has no Codex endpoint", runtime.ModelID)
 	}
-	if runtime.RequiresAccountToken() {
+	if runtime.RequiresProviderToken() {
 		if runtime.CredentialCommand == "" {
 			return "", fmt.Errorf("Route %q account-token Codex provider requires a credential command", runtime.ModelID)
 		}
@@ -351,7 +351,7 @@ func codexManagedBlock(runtime domain.Runtime, endpoint string) string {
 		name := "AIGW: " + runtime.ModelLabel
 		projection.Name = &name
 	}
-	if runtime.RequiresAccountToken() {
+	if runtime.RequiresProviderToken() {
 		projection.Auth = &struct {
 			Command string   `toml:"command"`
 			Args    []string `toml:"args"`

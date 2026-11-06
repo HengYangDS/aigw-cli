@@ -42,14 +42,14 @@ func TestUseSelectsClientNativeRouteWithoutAccessingAccountTokens(t *testing.T) 
 		}},
 	}}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["aws"] = domain.Account{
+	cfg.Providers["aws"] = domain.Provider{
 		Label:     "AWS Bedrock",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"},
 	}
 	cfg.Models["bedrock"] = domain.Model{
-		Label:   "AWS Bedrock",
-		Account: "aws",
-		Family:  "openai.gpt-5.6-sol",
+		Label:    "AWS Bedrock",
+		Provider: "aws",
+		Family:   "openai.gpt-5.6-sol",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolOpenAIResponses: {},
 		},
@@ -95,7 +95,7 @@ func TestUseForClaudeLeavesUnselectedCodexDriftUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
 	cfg.Models["gpt"] = qualifiedRoute("GPT", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.Models["claude-fable"] = qualifiedRoute("Claude Fable", "gateway", "claude-fable", domain.ProtocolAnthropic)
 	cfg.Models["claude-sonnet"] = qualifiedRoute("Claude Sonnet", "gateway", "claude-sonnet", domain.ProtocolAnthropic)
@@ -439,7 +439,7 @@ func TestUseCodexRouteOnSameAccountDoesNotRebindCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Models["sol"] = qualifiedRoute("Sol", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
 	cfg.Models["terra"] = qualifiedRoute("Terra", "dmx", "gpt-5.6-terra", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "sol", "")
@@ -493,7 +493,7 @@ func TestUseRejectsUnknownRoute(t *testing.T) {
 func TestUseSurfacesUnknownAccountReference(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
+	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
 	cfg.Models["one"] = qualifiedRoute("One", "one", "claude-one", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {

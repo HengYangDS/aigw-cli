@@ -101,7 +101,7 @@ func WriteRenamePlan(runtime Context, plan renaming.Plan, dryRun, jsonMode bool)
 		rows = []terminal.Field{
 			{Label: "Previous route", Value: plan.OldID},
 			{Label: "New route", Value: plan.NewID},
-			{Label: "Account", Value: plan.Route.Account},
+			{Label: "Account", Value: plan.Route.Provider},
 		}
 	}
 	if len(plan.AffectedReferences) > 0 {
@@ -186,9 +186,9 @@ func routeChoices(cfg domain.Config) []terminal.Choice {
 }
 
 func accountChoices(cfg domain.Config) []terminal.Choice {
-	choices := make([]terminal.Choice, 0, len(cfg.Accounts))
-	for _, name := range slices.Sorted(maps.Keys(cfg.Accounts)) {
-		choices = append(choices, terminal.Choice{Value: name, Label: cfg.Accounts[name].Label})
+	choices := make([]terminal.Choice, 0, len(cfg.Providers))
+	for _, name := range slices.Sorted(maps.Keys(cfg.Providers)) {
+		choices = append(choices, terminal.Choice{Value: name, Label: cfg.Providers[name].Label})
 	}
 	return choices
 }

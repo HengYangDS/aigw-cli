@@ -41,10 +41,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return terminal.ProblemError(fmt.Sprintf("%s credential projection no longer matches an available Account and endpoint", client), "", "No Account Token was read or returned.", "Run `aigw sync` and reload the client's configuration.", err)
 			}
-			if !clientRuntime.RequiresAccountToken() {
+			if !clientRuntime.RequiresProviderToken() {
 				return terminal.ProblemError(fmt.Sprintf("%s uses client-owned authentication", client), "", "AIGW does not supply an Account Token for this route.", fmt.Sprintf("Run `aigw verify --for %s` to verify authentication through the client.", client), nil)
 			}
-			token, err := runtime.Secrets.Get(clientRuntime.AccountID)
+			token, err := runtime.Secrets.Get(clientRuntime.ProviderID)
 			if err != nil {
 				if errors.Is(err, context.DeadlineExceeded) {
 					return terminal.ProblemError("Account Token read exceeded its deadline", "", "The credential subprocess was stopped; no Token was returned.", "Check the selected credential service before retrying; configuration synchronization cannot repair a stalled read.", err)
@@ -104,11 +104,11 @@ func resolveProjectedRuntime(cfg domain.Config, client, fingerprint string) (dom
 	}
 	for _, routeID := range cfg.ModelIDs() {
 		route := cfg.Models[routeID]
-		account, exists := cfg.Accounts[route.Account]
+		account, exists := cfg.Providers[route.Provider]
 		if !exists {
 			continue
 		}
-		account.ID = route.Account
+		account.ID = route.Provider
 		protocols := spec.CompatibleModelProtocols(account, route)
 		for _, protocol := range protocols {
 			clientRuntime, err := cfg.ResolveModelProtocol(client, routeID, protocol)

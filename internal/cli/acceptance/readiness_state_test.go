@@ -55,7 +55,7 @@ type canonicalReadinessDocument struct {
 func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://example.invalid"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://example.invalid"}}
 	cfg.Models["claude"] = qualifiedRoute("Claude", "gateway", "fixture", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	command := filepath.Join(t.TempDir(), "credential adapter")
@@ -291,10 +291,10 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 				claude.ID,
 				"claude-test",
 			)
-			cfg.Accounts["team"] = domain.Account{
+			cfg.Providers["team"] = domain.Provider{
 				Label:        "Team",
 				Endpoints:    domain.Endpoints{Anthropic: "https://team.test"},
-				AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
+				BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 			}
 			cfg.SetSelectedModel(claude.ID, "claude", "")
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
@@ -366,10 +366,10 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 		claude.ID,
 		"claude-test",
 	)
-	cfg.Accounts["team"] = domain.Account{
+	cfg.Providers["team"] = domain.Provider{
 		Label:        "Team",
 		Endpoints:    domain.Endpoints{Anthropic: "https://team.test"},
-		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
+		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 	}
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
@@ -405,7 +405,7 @@ func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
 	app, out, _, _, endpoint := testApp(t, "")
 	app.Version = "1.0.0"
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["one"] = domain.Account{
+	cfg.Providers["one"] = domain.Provider{
 		Label: "One",
 		Endpoints: domain.Endpoints{
 			Anthropic:       "https://claude.example.test",
@@ -413,11 +413,11 @@ func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
 		},
 	}
 	cfg.Models["claude"] = domain.Model{
-		Label: "Claude", Account: "one", Family: "claude-test",
+		Label: "Claude", Provider: "one", Family: "claude-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.Models["codex"] = domain.Model{
-		Label: "Codex", Account: "one", Family: "gpt-test",
+		Label: "Codex", Provider: "one", Family: "gpt-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.SetSelectedModel(claude.ID, "claude", "")

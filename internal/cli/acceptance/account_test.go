@@ -33,7 +33,7 @@ func TestAccountListJSONIsStableAndSecretFree(t *testing.T) {
 		t.Fatal(err)
 	}
 	var result struct {
-		Accounts []domain.Account `json:"accounts"`
+		Accounts []domain.Provider `json:"accounts"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
@@ -75,9 +75,9 @@ func TestAccountListFollowsDeclaredPresentationOrder(t *testing.T) {
 		order     int
 	}{{"aihubmix", "AIHubMix", 30}, {"dmxapi", "DMXAPI", 10}, {"ucloud", "UCloud", 20}} {
 		addAccountRoute(&cfg, account.id, account.id, account.label, domain.Endpoints{OpenAIResponses: "https://" + account.id + ".test/v1"}, codex.ID, "gpt-test")
-		declared := cfg.Accounts[account.id]
+		declared := cfg.Providers[account.id]
 		declared.Order = account.order
-		cfg.Accounts[account.id] = declared
+		cfg.Providers[account.id] = declared
 	}
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -87,7 +87,7 @@ func TestAccountListFollowsDeclaredPresentationOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	var result struct {
-		Accounts []domain.Account `json:"accounts"`
+		Accounts []domain.Provider `json:"accounts"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
@@ -142,8 +142,8 @@ func TestAccountEditValidation(t *testing.T) {
 			t.Fatal(err)
 		}
 		cfg, _ := app.Config.Load()
-		if cfg.Accounts["one"].Label != "Renamed" || cfg.Accounts["one"].Endpoints.Anthropic != "https://new.test" {
-			t.Fatalf("account = %#v", cfg.Accounts["one"])
+		if cfg.Providers["one"].Label != "Renamed" || cfg.Providers["one"].Endpoints.Anthropic != "https://new.test" {
+			t.Fatalf("account = %#v", cfg.Providers["one"])
 		}
 	})
 }
@@ -165,11 +165,11 @@ func TestAccountEditUpdatesSharedEndpointWithoutRouteDuplication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["dmx"].Endpoints.OpenAIResponses != "https://new.test/v1" {
-		t.Fatalf("account endpoint = %#v", got.Accounts["dmx"])
+	if got.Providers["dmx"].Endpoints.OpenAIResponses != "https://new.test/v1" {
+		t.Fatalf("account endpoint = %#v", got.Providers["dmx"])
 	}
 	for _, route := range got.Models {
-		if route.Account != "dmx" {
+		if route.Provider != "dmx" {
 			t.Fatalf("shared route lost account reference: %#v", route)
 		}
 	}
@@ -215,9 +215,9 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 		app.Interactive = true
 		saveProbeRoute(t, app.Config)
 		cfg, _ := app.Config.Load()
-		providerAccount := cfg.Accounts["dmx"]
-		providerAccount.AccountProbe.Kind = "future"
-		cfg.Accounts["dmx"] = providerAccount
+		providerAccount := cfg.Providers["dmx"]
+		providerAccount.BalanceProbe.Kind = "future"
+		cfg.Providers["dmx"] = providerAccount
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}

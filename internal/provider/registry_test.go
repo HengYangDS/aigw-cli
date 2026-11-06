@@ -14,12 +14,12 @@ import (
 )
 
 func TestUnknownDiagnosticProviderIsRejectedAtExecutionNotConfiguration(t *testing.T) {
-	providerAccount := domain.Account{
+	providerAccount := domain.Provider{
 		ID:           "future",
 		Label:        "Future Gateway",
-		AccountProbe: &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://diagnostics.example.test"},
+		BalanceProbe: &domain.BalanceProbe{Kind: "future-provider", BaseURL: "https://diagnostics.example.test"},
 	}
-	if provider.Supports(providerAccount.AccountProbe.Kind) {
+	if provider.Supports(providerAccount.BalanceProbe.Kind) {
 		t.Fatal("an unbundled provider must not report support")
 	}
 	_, err := provider.Probe(context.Background(), nil, providerAccount, "api-token", diagnostic.Credential{SystemToken: "platform-token", UserID: "1"})
@@ -35,7 +35,7 @@ func TestBundledDMXAPIDiagnosticsAreExplicitlyRegistered(t *testing.T) {
 }
 
 func TestProbeRequiresAccountProbeConfiguration(t *testing.T) {
-	_, err := provider.Probe(context.Background(), nil, domain.Account{ID: "no-probe"}, "api-token", diagnostic.Credential{})
+	_, err := provider.Probe(context.Background(), nil, domain.Provider{ID: "no-probe"}, "api-token", diagnostic.Credential{})
 	if err == nil || !strings.Contains(err.Error(), "no exact diagnostic provider") {
 		t.Fatalf("error = %v", err)
 	}
@@ -58,9 +58,9 @@ func TestProbeDispatchesToDMXAPI(t *testing.T) {
 		}
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
 	})
-	providerAccount := domain.Account{
+	providerAccount := domain.Provider{
 		ID:           "dmx",
-		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostic.test"},
+		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostic.test"},
 	}
 	report, err := provider.Probe(t.Context(), probe.Sender{Client: client}, providerAccount, "sk-abcd-middle-wxyz", diagnostic.Credential{SystemToken: "platform-token"})
 	if err != nil || report.AccountBalance != 12.5 || report.TokenRemaining != 5 || report.TokenName != "Selected Token" || report.TokenStatus != "enabled" {

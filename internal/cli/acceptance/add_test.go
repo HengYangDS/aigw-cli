@@ -27,7 +27,7 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 				t.Fatal(err)
 			}
 			cfg := domain.NewConfig(clients.Admission())
-			cfg.Accounts["old"] = domain.Account{Label: "Old", Endpoints: domain.Endpoints{Anthropic: "https://old.test", OpenAIResponses: "https://old.test/v1"}}
+			cfg.Providers["old"] = domain.Provider{Label: "Old", Endpoints: domain.Endpoints{Anthropic: "https://old.test", OpenAIResponses: "https://old.test/v1"}}
 			paths := map[string]string{codex.ID: target, claude.ID: claudeSettingsPath(t, app.Host)}
 			for _, id := range []string{claude.ID, codex.ID} {
 				protocol := domain.ProtocolOpenAIResponses
@@ -190,7 +190,7 @@ func TestAddWithoutLabelDefaultsToRouteName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Models["dmx"].Label != "dmx" || cfg.Accounts["dmx"].Label != "dmx" {
+	if cfg.Models["dmx"].Label != "dmx" || cfg.Providers["dmx"].Label != "dmx" {
 		t.Fatalf("route/account label = %#v, want the route name as a default", cfg.Models["dmx"])
 	}
 }

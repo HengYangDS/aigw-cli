@@ -17,7 +17,7 @@ func TestModelOwnsFamilyIdentityWithoutClientState(t *testing.T) {
 }
 
 func TestClientSpecResolvesItsDeclaredEndpoint(t *testing.T) {
-	account := Account{ID: "team", Endpoints: Endpoints{
+	account := Provider{ID: "team", Endpoints: Endpoints{
 		Anthropic:       "https://anthropic.example/v1/",
 		OpenAIResponses: "https://responses.example/v1/",
 	}}
@@ -75,7 +75,7 @@ func TestAdmissionLabelsEachClientByItsSpecification(t *testing.T) {
 }
 
 func TestClientSpecRejectsUnimplementedProtocol(t *testing.T) {
-	_, _, err := (ClientSpec{ID: "future", EndpointProtocols: []EndpointProtocol{"future"}}).ResolveEndpoint(Account{}, "")
+	_, _, err := (ClientSpec{ID: "future", EndpointProtocols: []EndpointProtocol{"future"}}).ResolveEndpoint(Provider{}, "")
 	if err == nil || !strings.Contains(err.Error(), "unsupported endpoint protocol") {
 		t.Fatalf("unsupported protocol error = %v", err)
 	}
@@ -144,7 +144,7 @@ func TestCredentialRetrievalDoesNotChangeWireAuthentication(t *testing.T) {
 		{runtime: Runtime{CredentialCommand: filepath.Join(t.TempDir(), "helper")}, account: true},
 		{runtime: Runtime{Authentication: AuthenticationClientNative}},
 	} {
-		if test.runtime.RequiresAccountToken() != test.account || test.runtime.UsesAIGWCredentialStore() != test.native {
+		if test.runtime.RequiresProviderToken() != test.account || test.runtime.UsesAIGWCredentialStore() != test.native {
 			t.Fatalf("credential ownership differs from protocol: %#v", test)
 		}
 	}

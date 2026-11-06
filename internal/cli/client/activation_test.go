@@ -17,7 +17,7 @@ import (
 func TestClaudeDesktopLifecycleReportsRequiredRestart(t *testing.T) {
 	cfg := adapterConfig()
 	cfg.Models["desktop"] = domain.Model{
-		Label: "Desktop", Account: "gateway", Family: "claude-test",
+		Label: "Desktop", Provider: "gateway", Family: "claude-test",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedModel(claudedesktop.ID, "desktop", "")

@@ -91,8 +91,8 @@ func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, filepath.Join(root, "predecessor"), nil)
 	runtime, err := cfg.ResolveRuntime(claude.ID, "")
@@ -267,10 +267,10 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 		t.Fatalf("external credential plan = %q, %v; cached caller may remain", action, err)
 	}
 	otherActive := disabled.Clone()
-	account := otherActive.Accounts["gateway"]
+	account := otherActive.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
-	otherActive.Accounts["gateway"] = account
-	otherActive.Models["claude"] = domain.Model{Account: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	otherActive.Providers["gateway"] = account
+	otherActive.Models["claude"] = domain.Model{Provider: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	otherActive.SetSelectedModel(claude.ID, "claude", "")
 	otherActive.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	if action, err := syncer.CredentialEntrypointPlan(otherActive); err != nil || action != CredentialEntrypointUnchanged {
@@ -390,10 +390,10 @@ func TestDisablingOneTokenClientRetainsEntrypointForAnother(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := testConfig(target)
-	account := before.Accounts["gateway"]
+	account := before.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
-	before.Accounts["gateway"] = account
-	before.Models["claude"] = domain.Model{Account: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.Providers["gateway"] = account
+	before.Models["claude"] = domain.Model{Provider: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
@@ -426,10 +426,10 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 		t.Fatal(err)
 	}
 	before := testConfig(target)
-	account := before.Accounts["gateway"]
+	account := before.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
-	before.Accounts["gateway"] = account
-	before.Models["claude"] = domain.Model{Account: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.Providers["gateway"] = account
+	before.Models["claude"] = domain.Model{Provider: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	binding := before.Clients[claude.ID]

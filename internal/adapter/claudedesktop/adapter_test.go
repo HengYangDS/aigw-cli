@@ -41,12 +41,12 @@ func newClaudeDesktopFixture(t *testing.T) claudeDesktopFixture {
 	}
 	library := filepath.Join(root, "Claude-3p", "configLibrary")
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test/v1"}}
-	cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{Anthropic: "https://other.test/v1"}}
-	cfg.Models["alternate"] = domain.Model{Label: "Opus 5", Account: "gateway", Family: "claude-opus-5", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["manual"] = domain.Model{Label: "Manual", Account: "gateway", Family: "manual-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["other-account"] = domain.Model{Label: "Other", Account: "other", Family: "other-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Models["selected"] = domain.Model{Label: "Fable 5.1", Account: "gateway", Family: "claude-fable-5-1", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test/v1"}}
+	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Anthropic: "https://other.test/v1"}}
+	cfg.Models["alternate"] = domain.Model{Label: "Opus 5", Provider: "gateway", Family: "claude-opus-5", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["manual"] = domain.Model{Label: "Manual", Provider: "gateway", Family: "manual-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["other-account"] = domain.Model{Label: "Other", Provider: "other", Family: "other-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["selected"] = domain.Model{Label: "Fable 5.1", Provider: "gateway", Family: "claude-fable-5-1", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedModel(ID, "selected", "")
 	cfg.SetClientActivation(ID, true, executable, []string{library})
 	store := secret.NewMemoryStore()
@@ -97,7 +97,7 @@ func TestClaudeDesktopCatalogDeduplicatesLogicalModelsButUsesWireNames(t *testin
 	selected.Family, selected.UpstreamModel = "claude-sonnet-5-5", "claude-sonnet-5-5-cc"
 	fixture.cfg.Models["selected"] = selected
 	fixture.cfg.Models["ordinary"] = domain.Model{
-		Account: "gateway", Family: "claude-sonnet-5-5", UpstreamModel: "claude-sonnet-5-5",
+		Provider: "gateway", Family: "claude-sonnet-5-5", UpstreamModel: "claude-sonnet-5-5",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	alternate := fixture.cfg.Models["alternate"]
@@ -136,7 +136,7 @@ func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T
 	wires := map[string]string{}
 	want := map[string]bool{}
 	for _, route := range cfg.Models {
-		if route.Account == runtime.AccountID && slices.Contains(spec.CompatibleModelProtocols(cfg.Accounts[route.Account], route), runtime.Protocol) {
+		if route.Provider == runtime.ProviderID && slices.Contains(spec.CompatibleModelProtocols(cfg.Providers[route.Provider], route), runtime.Protocol) {
 			wires[route.UpstreamModelID()] = route.Family
 			want[route.Family] = true
 		}
@@ -253,7 +253,7 @@ func TestClaudeDesktopProjectionChangeDetection(t *testing.T) {
 		t.Fatal("target change was not detected")
 	}
 	recataloged := fixture.cfg.Clone()
-	recataloged.Models["daily"] = domain.Model{Label: "Daily", Account: "gateway", Family: "claude-daily", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	recataloged.Models["daily"] = domain.Model{Label: "Daily", Provider: "gateway", Family: "claude-daily", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	if !fixture.clientAdapter.ProjectionChanged(fixture.cfg, recataloged) {
 		t.Fatal("catalog change was not detected")
 	}
@@ -281,8 +281,8 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(testAdmission())
-	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test/v1"}}
-	cfg.Models["selected"] = domain.Model{Account: "gateway", Family: "claude-fable-5-1", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test/v1"}}
+	cfg.Models["selected"] = domain.Model{Provider: "gateway", Family: "claude-fable-5-1", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedModel(ID, "selected", "")
 	cfg.SetClientActivation(ID, true, "", nil)
 	store := secret.NewMemoryStore()
@@ -337,9 +337,9 @@ func TestClaudeDesktopInspectionKeepsIntactRetainedVersionedReader(t *testing.T)
 		t.Fatal(err)
 	}
 	changed := fixture.cfg.Clone()
-	account := changed.Accounts["gateway"]
+	account := changed.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://changed.test"
-	changed.Accounts["gateway"] = account
+	changed.Providers["gateway"] = account
 	changedRuntime, err := changed.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)

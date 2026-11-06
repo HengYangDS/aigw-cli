@@ -23,7 +23,7 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
 	cfg.Models["claude-fable-5"] = qualifiedRoute("Claude Fable", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "claude-fable-5", "")
 	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)
@@ -65,7 +65,7 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
 	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.Models["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
@@ -219,7 +219,7 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 		}, want: "token for account"},
 		{name: "all with unavailable Codex executable", args: []string{"verify", "--for", "all"}, prep: func(app *cli.App) {
 			cfg := domain.NewConfig(clients.Admission())
-			cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}}
+			cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}}
 			cfg.Models["claude"] = qualifiedRoute("Claude", "one", "claude-test", domain.ProtocolAnthropic)
 			cfg.Models["codex"] = qualifiedRoute("Codex", "one", "gpt-test", domain.ProtocolOpenAIResponses)
 			cfg.SetSelectedModel(claude.ID, "claude", "")
@@ -249,7 +249,7 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 func TestVerifyCodexRunsTheConfiguredClientWithIsolatedContinuation(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	executable := executableFixture(t, "codex")
@@ -317,7 +317,7 @@ func TestVerifyCodexRunsTheConfiguredClientWithIsolatedContinuation(t *testing.T
 func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{
+	cfg.Providers["dmx"] = domain.Provider{
 		Label: "DMX",
 		Endpoints: domain.Endpoints{
 			OpenAIResponses: "https://example.test/v1",
@@ -356,8 +356,8 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 func TestVerifyUsesExplicitClientWithRouteOverride(t *testing.T) {
 	app, _, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
+	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
 	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.Models["other-gpt"] = qualifiedRoute("Other GPT", "other", "other-gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")

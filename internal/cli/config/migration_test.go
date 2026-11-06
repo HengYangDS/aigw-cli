@@ -21,7 +21,7 @@ import (
 func TestMigrationPreviewNamesClientsAndProtocolsByLabel(t *testing.T) {
 	out := &bytes.Buffer{}
 	plan := store.MigrationPlan{
-		Required: true, FromVersion: 5, ToVersion: 6, Accounts: []string{"gateway"}, Models: []string{"messages", "responses"},
+		Required: true, FromVersion: 5, ToVersion: 6, Providers: []string{"gateway"}, Models: []string{"messages", "responses"},
 		Clients: map[string]domain.ClientBinding{
 			claudedesktop.ID: {Model: "messages", Protocol: domain.ProtocolAnthropic, Targets: []string{"/library"}},
 			codex.ID:         {Model: "responses", Protocol: domain.ProtocolOpenAIResponses, Targets: []string{"/a", "/b"}},

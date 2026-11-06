@@ -16,7 +16,7 @@ import (
 func TestRouteRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
 	cfg.Models["gpt-old"] = qualifiedRoute("GPT Old", "dmx", "gpt-old", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt-old", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -33,7 +33,7 @@ func TestRouteRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 		t.Fatalf("route rename created route-level secret slots")
 	}
 	got, _ := app.Config.Load()
-	if got.SelectedModel(codex.ID) != "gpt-new" || got.Models["gpt-new"].Account != "dmx" {
+	if got.SelectedModel(codex.ID) != "gpt-new" || got.Models["gpt-new"].Provider != "dmx" {
 		t.Fatalf("rename config = %#v", got)
 	}
 }
@@ -68,7 +68,7 @@ func TestRouteRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing.T
 		t.Fatalf("bindings after rename = %#v", got.Clients)
 	}
 	route, ok := got.Models["zeta-new"]
-	if !ok || route.Label != "Zeta" || route.Account != "gateway" {
+	if !ok || route.Label != "Zeta" || route.Provider != "gateway" {
 		t.Fatalf("renamed route = %#v, present = %v", route, ok)
 	}
 	if _, ok := got.Models["zeta-old"]; ok {
@@ -237,7 +237,7 @@ func TestRouteRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testing.
 
 func routeRenameConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	route := qualifiedRoute("Zeta", "gateway", "zeta-model", domain.ProtocolOpenAIResponses)
 	route.Purpose = "Keep this label and purpose"
 	cfg.Models["zeta-old"] = route

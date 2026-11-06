@@ -124,13 +124,13 @@ func admitEnablement(runtime invocation.Context, cfg domain.Config, client strin
 		return err
 	}
 	if clientRuntime.UsesAIGWCredentialStore() {
-		available, err := runtime.Secrets.Exists(clientRuntime.AccountID)
+		available, err := runtime.Secrets.Exists(clientRuntime.ProviderID)
 		if err != nil {
-			return fmt.Errorf("Cannot inspect Account %q credential: %w", clientRuntime.AccountID, err)
+			return fmt.Errorf("Cannot inspect Account %q credential: %w", clientRuntime.ProviderID, err)
 		}
 		if !available {
-			instruction, _ := secret.TokenRecovery(runtime.Secrets, clientRuntime.AccountID)
-			return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.AccountID, instruction)
+			instruction, _ := secret.TokenRecovery(runtime.Secrets, clientRuntime.ProviderID)
+			return fmt.Errorf("Account %q is missing a token; %s", clientRuntime.ProviderID, instruction)
 		}
 	}
 	if !runtime.Clients.ValidatesTargets(client) {

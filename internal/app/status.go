@@ -64,7 +64,7 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 		}
 		facts := domainreadiness.ClientFacts{
 			Route:              clientRuntime.ModelID,
-			Account:            clientRuntime.AccountID,
+			Account:            clientRuntime.ProviderID,
 			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
 			ProjectionEnabled:  cfg.Clients[clientID].Enabled,
 			ProjectionDeferred: cfg.Clients[clientID].Enabled && projectionPrerequisite != "",
@@ -72,7 +72,7 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 			ProjectionIssue:    adapterStatus.Issue,
 			ProjectionAction:   projectionAction,
 		}
-		applyCredentialFacts(&facts, activation, runtime.Secrets, clientID, clientRuntime.AccountID)
+		applyCredentialFacts(&facts, activation, runtime.Secrets, clientID, clientRuntime.ProviderID)
 		state := domainreadiness.ClassifyClient(facts)
 		if adapterStatus.NativeModelOverride && state.State == domainreadiness.Configured {
 			state.NativeModelOverride = true

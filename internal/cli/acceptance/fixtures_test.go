@@ -255,10 +255,10 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secret.Store,
 }
 
 func addAccountRoute(cfg *domain.Config, routeName, accountName, label string, endpoints domain.Endpoints, client, model string) {
-	if _, exists := cfg.Accounts[accountName]; !exists {
-		cfg.Accounts[accountName] = domain.Account{Label: label, Endpoints: endpoints}
+	if _, exists := cfg.Providers[accountName]; !exists {
+		cfg.Providers[accountName] = domain.Provider{Label: label, Endpoints: endpoints}
 	}
-	account := cfg.Accounts[accountName]
+	account := cfg.Providers[accountName]
 	account.ID = accountName
 	spec, admitted := clients.Admission().Spec(client)
 	if !admitted {
@@ -273,7 +273,7 @@ func addAccountRoute(cfg *domain.Config, routeName, accountName, label string, e
 
 func qualifiedRoute(label, account, model string, protocol domain.EndpointProtocol) domain.Model {
 	return domain.Model{
-		Label: label, Account: account, Family: model, UpstreamModel: model,
+		Label: label, Provider: account, Family: model, UpstreamModel: model,
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 	}
 }
@@ -348,12 +348,12 @@ func saveCommandRoute(t *testing.T, app *cli.App, endpoints domain.Endpoints, cl
 func saveProbeRoute(t *testing.T, appConfig store.Store) {
 	t.Helper()
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{
+	cfg.Providers["dmx"] = domain.Provider{
 		Label:        "DMXAPI",
 		Endpoints:    domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
-		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"},
+		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"},
 	}
-	cfg.Models["gpt"] = domain.Model{Label: "GPT", Account: "dmx", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["gpt"] = domain.Model{Label: "GPT", Provider: "dmx", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := appConfig.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -453,7 +453,7 @@ func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
 	t.Helper()
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
+	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
 	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.Models["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")

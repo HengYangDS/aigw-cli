@@ -13,7 +13,7 @@ import (
 // and configuration admission. Existing identities are never implicitly replaced.
 // Configuration, credential and projection failures retain their shared recovery
 // semantics; the caller owns no compensation after this operation returns.
-func (s Synchronizer) ConnectAccount(ctx context.Context, before domain.Config, name, client string, account domain.Account, route domain.Model, acquireToken func() (string, error)) error {
+func (s Synchronizer) ConnectAccount(ctx context.Context, before domain.Config, name, client string, account domain.Provider, route domain.Model, acquireToken func() (string, error)) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -35,20 +35,20 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before domain.Config, 
 // PlanConnection returns the configuration that ConnectAccount would write:
 // the Account, its first Model and Route, and the client's selection of that
 // Route. It reads no Token and writes nothing.
-func (s Synchronizer) PlanConnection(before domain.Config, name, client string, account domain.Account, route domain.Model) (domain.Config, error) {
+func (s Synchronizer) PlanConnection(before domain.Config, name, client string, account domain.Provider, route domain.Model) (domain.Config, error) {
 	if _, exists := before.Models[name]; exists {
 		return domain.Config{}, fmt.Errorf("Route %q already exists; creation does not replace Routes", name)
 	}
-	if _, exists := before.Accounts[name]; exists {
+	if _, exists := before.Providers[name]; exists {
 		return domain.Config{}, fmt.Errorf("Account %q already exists; add a Route to that Account instead", name)
 	}
 	after := before.Clone()
 	account.ID = name
-	route.Account = name
+	route.Provider = name
 	if route.UpstreamModel == "" {
 		route.UpstreamModel = route.Family
 	}
-	after.Accounts[name] = account
+	after.Providers[name] = account
 	if _, exists := after.Families[route.Family]; !exists {
 		after.Families[route.Family] = domain.Family{Label: route.Family}
 	}

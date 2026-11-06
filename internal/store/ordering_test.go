@@ -50,7 +50,7 @@ anthropic = []
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Accounts["unranked"] = domain.Account{Label: "Unranked", Endpoints: domain.Endpoints{Anthropic: "https://unranked.test"}}
+	cfg.Providers["unranked"] = domain.Provider{Label: "Unranked", Endpoints: domain.Endpoints{Anthropic: "https://unranked.test"}}
 	cfg.Families["unranked"] = domain.Family{Label: "Unranked"}
 	cfg.Models["zulu-unranked"] = testModel("Unranked", "zulu", "unranked", domain.ProtocolAnthropic)
 	cfg.Models["unranked"] = testModel("Unranked", "unranked", "first", domain.ProtocolAnthropic)
@@ -66,7 +66,7 @@ anthropic = []
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reparsed.Accounts["zulu"] != cfg.Accounts["zulu"] || reparsed.Families["first"] != cfg.Families["first"] {
+	if reparsed.Providers["zulu"] != cfg.Providers["zulu"] || reparsed.Families["first"] != cfg.Families["first"] {
 		t.Fatal("export lost declared presentation metadata")
 	}
 	store := NewStore(t.TempDir()+"/config.toml", testAdmission())
@@ -140,8 +140,8 @@ func TestCatalogModelIDsGroupsServicesBeforeFamilies(t *testing.T) {
 			if ranked {
 				rank = 10
 			}
-			cfg.Accounts["alpha"] = domain.Account{Label: "Alpha", Endpoints: endpoints, Order: 2 * rank}
-			cfg.Accounts["zulu"] = domain.Account{Label: "Zulu", Endpoints: endpoints, Order: rank}
+			cfg.Providers["alpha"] = domain.Provider{Label: "Alpha", Endpoints: endpoints, Order: 2 * rank}
+			cfg.Providers["zulu"] = domain.Provider{Label: "Zulu", Endpoints: endpoints, Order: rank}
 			cfg.Families["strong"] = domain.Family{Label: "Strong", Order: rank}
 			cfg.Families["weak"] = domain.Family{Label: "Weak", Order: 2 * rank}
 			for _, row := range []struct {
@@ -157,7 +157,7 @@ func TestCatalogModelIDsGroupsServicesBeforeFamilies(t *testing.T) {
 			} {
 				cfg.Models[row.id] = testModel(row.id, row.account, row.model, row.protocol)
 			}
-			cfg.Models["z-multi"] = domain.Model{Account: "zulu", Family: "strong", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}, domain.ProtocolAnthropic: {}}}
+			cfg.Models["z-multi"] = domain.Model{Provider: "zulu", Family: "strong", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}, domain.ProtocolAnthropic: {}}}
 			cfg.SetSelectedModel(ClientCodex, "z-responses-strong", "")
 			cfg.Normalize()
 			canonical := cfg.ModelIDs()
@@ -185,9 +185,9 @@ func TestCatalogModelIDsGroupsServicesBeforeFamilies(t *testing.T) {
 func TestCatalogOrderSurvivesVerifiedBackupAndCompensation(t *testing.T) {
 	store := NewStore(t.TempDir()+"/config.toml", testAdmission())
 	cfg := convergenceConfig("current")
-	account := cfg.Accounts["current"]
+	account := cfg.Providers["current"]
 	account.Order = 10
-	cfg.Accounts["current"] = account
+	cfg.Providers["current"] = account
 	cfg.Normalize()
 	model := cfg.Families["current-model"]
 	model.Order = 20
@@ -203,7 +203,7 @@ func TestCatalogOrderSurvivesVerifiedBackupAndCompensation(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkpoint, err := store.LoadVerifiedCheckpoint()
-	if err != nil || checkpoint.Config.Accounts["current"].Order != 30 || checkpoint.Config.Families["current-model"].Order != 40 {
+	if err != nil || checkpoint.Config.Providers["current"].Order != 30 || checkpoint.Config.Families["current-model"].Order != 40 {
 		t.Fatalf("verified routing did not retain current presentation: %v", err)
 	}
 	state, err := store.CaptureVerifiedBackupState()
@@ -214,7 +214,7 @@ func TestCatalogOrderSurvivesVerifiedBackupAndCompensation(t *testing.T) {
 		t.Fatal(err)
 	}
 	backup, err := store.LoadBackup()
-	if err != nil || backup.Accounts["current"].Order != 30 || backup.Families["current-model"].Order != 40 {
+	if err != nil || backup.Providers["current"].Order != 30 || backup.Families["current-model"].Order != 40 {
 		t.Fatalf("verified backup lost presentation: %v", err)
 	}
 	before, err := store.CaptureSnapshot()
@@ -222,7 +222,7 @@ func TestCatalogOrderSurvivesVerifiedBackupAndCompensation(t *testing.T) {
 		t.Fatal(err)
 	}
 	account.Order = 50
-	cfg.Accounts["current"] = account
+	cfg.Providers["current"] = account
 	after, err := store.Commit(before, cfg)
 	if err != nil {
 		t.Fatal(err)

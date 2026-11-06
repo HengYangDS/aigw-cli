@@ -26,10 +26,10 @@ import (
 func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
+	cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
 	cfg.Families["gpt-6-sol"] = domain.Family{Label: "GPT-6 Sol"}
 	cfg.Models["ucloud-gpt-6-sol"] = domain.Model{
-		Account: "ucloud", Family: "gpt-6-sol", UpstreamModel: "GPT-6-Sol",
+		Provider: "ucloud", Family: "gpt-6-sol", UpstreamModel: "GPT-6-Sol",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
 	}
 	if err := configStore.Save(cfg); err != nil {
@@ -72,9 +72,9 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 func TestRouteHumanOutputNamesClientsByLabel(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
+	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Models["messages"] = domain.Model{
-		Account: "gateway", Family: "model-a",
+		Provider: "gateway", Family: "model-a",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	cfg.SetSelectedModel(claudedesktop.ID, "messages", "")
@@ -158,13 +158,13 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 		t.Run(fmt.Sprint(len(alternatives)), func(t *testing.T) {
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
-			cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
+			cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
 			cfg.Models["claude"] = domain.Model{
-				Label: "Claude", Account: "team", Family: "claude-test",
+				Label: "Claude", Provider: "team", Family: "claude-test",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 			}
 			cfg.Models["codex"] = domain.Model{
-				Label: "Codex", Account: "team", Family: "gpt-test",
+				Label: "Codex", Provider: "team", Family: "gpt-test",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
 			cfg.SetRecommendedModel(claude.ID, "claude")
@@ -196,7 +196,7 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 			if err != nil || !reflect.DeepEqual(after.Recommendations[claude.ID], want) || after.RecommendedModel(codex.ID) != "codex" {
 				t.Fatalf("removal recommendation state = %#v, %v", after.Recommendations, err)
 			}
-			if token, err := secretStore.Get("team"); err != nil || token != "retained-token" || !reflect.DeepEqual(after.Accounts, cfg.Accounts) || !reflect.DeepEqual(after.Clients, cfg.Clients) {
+			if token, err := secretStore.Get("team"); err != nil || token != "retained-token" || !reflect.DeepEqual(after.Providers, cfg.Providers) || !reflect.DeepEqual(after.Clients, cfg.Clients) {
 				t.Fatalf("removal changed unrelated account, credential or client state: %v", err)
 			}
 		})
@@ -210,10 +210,10 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 func TestRemovePreviewNamesTheRecommendationsThatItChanges(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
+	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	for _, name := range []string{"first", "spare"} {
 		cfg.Models[name] = domain.Model{
-			Label: name, Account: "team", Family: name + "-model",
+			Label: name, Provider: "team", Family: name + "-model",
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 		}
 	}
@@ -274,14 +274,14 @@ func blockedRouteRuntime(t *testing.T) invocation.Context {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	configStore := store.NewStore(path, clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Accounts["current"] = domain.Account{
+	cfg.Providers["current"] = domain.Provider{
 		Label:     "Current",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://current.test/v1"},
 	}
 	cfg.Models["current"] = domain.Model{
-		Label:   "Current",
-		Account: "current",
-		Family:  "gpt-current",
+		Label:    "Current",
+		Provider: "current",
+		Family:   "gpt-current",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolOpenAIResponses: {},
 		},
@@ -315,10 +315,10 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
-			cfg.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://provider.test/v1"}}
+			cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://provider.test/v1"}}
 			cfg.Families["minimax-m3"] = domain.Family{Label: "MiniMax M3"}
 			cfg.Models["ucloud-minimax-m3"] = domain.Model{
-				Account: "ucloud", Family: "minimax-m3", UpstreamModel: "MiniMax-M3",
+				Provider: "ucloud", Family: "minimax-m3", UpstreamModel: "MiniMax-M3",
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
 			if err := configStore.Save(cfg); err != nil {

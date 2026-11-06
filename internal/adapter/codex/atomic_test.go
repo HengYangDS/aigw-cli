@@ -22,7 +22,7 @@ func atomicTestRuntime() domain.Runtime {
 		CredentialCommand: executable,
 		ModelID:           "gpt-5.6-terra",
 		ModelLabel:        "GPT-5.6 Terra",
-		AccountID:         "gateway",
+		ProviderID:        "gateway",
 		Client:            ID,
 		Endpoint:          "http://127.0.0.1:48721/v1",
 		UpstreamModel:     "gpt-5.6-terra",

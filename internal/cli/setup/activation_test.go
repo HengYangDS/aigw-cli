@@ -16,8 +16,8 @@ import (
 func TestManifestSetupOffersEqualCompatibleAccountsWithoutTokens(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	for _, account := range []string{"ucloud", "dmx"} {
-		cfg.Accounts[account] = domain.Account{Label: account, Endpoints: domain.Endpoints{Anthropic: "https://" + account + ".test"}}
-		cfg.Models[account] = domain.Model{Label: account, Account: account, Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+		cfg.Providers[account] = domain.Provider{Label: account, Endpoints: domain.Endpoints{Anthropic: "https://" + account + ".test"}}
+		cfg.Models[account] = domain.Model{Label: account, Provider: account, Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	}
 	cfg.SetRecommendedModel(claude.ID, "ucloud")
 	recommendation := cfg.Recommendations[claude.ID]

@@ -71,7 +71,7 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 	t.Run("source account remains", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
 		current := accountRenameConfig()
-		current.Accounts["zeta-new"] = current.Accounts["zeta-old"]
+		current.Providers["zeta-new"] = current.Providers["zeta-old"]
 		current.SetClientActivation(claude.ID, true, "", nil)
 		if err := app.Config.Save(current); err != nil {
 			t.Fatal(err)
@@ -210,9 +210,9 @@ func TestAccountFinalizeRequiresTargetAPIToken(t *testing.T) {
 func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	before := accountRenameConfig()
-	providerAccount := before.Accounts["zeta-old"]
-	providerAccount.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://dmx.test"}
-	before.Accounts["zeta-old"] = providerAccount
+	providerAccount := before.Providers["zeta-old"]
+	providerAccount.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://dmx.test"}
+	before.Providers["zeta-old"] = providerAccount
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
 	}
@@ -401,12 +401,12 @@ func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.B
 }
 
 func renamedAccountConfig(cfg domain.Config) domain.Config {
-	providerAccount := cfg.Accounts["zeta-old"]
-	delete(cfg.Accounts, "zeta-old")
-	cfg.Accounts["zeta-new"] = providerAccount
+	providerAccount := cfg.Providers["zeta-old"]
+	delete(cfg.Providers, "zeta-old")
+	cfg.Providers["zeta-new"] = providerAccount
 	for routeID, route := range cfg.Models {
-		if route.Account == "zeta-old" {
-			route.Account = "zeta-new"
+		if route.Provider == "zeta-old" {
+			route.Provider = "zeta-new"
 			cfg.Models[routeID] = route
 		}
 	}

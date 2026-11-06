@@ -32,7 +32,7 @@ func TestUseTellsHermesUsersThatExistingSessionsKeepTheirRoute(t *testing.T) {
 	}}
 	for _, id := range []string{"first", "second"} {
 		cfg.Models[id] = domain.Model{
-			Label: id, Account: "gateway", Family: id + "-model",
+			Label: id, Provider: "gateway", Family: id + "-model",
 			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 		}
 	}

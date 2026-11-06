@@ -59,8 +59,8 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	afterConfig := cfg.Clone()
-	afterConfig.Accounts["ready"] = domain.Account{Label: "Ready", Endpoints: domain.Endpoints{Anthropic: "https://ready.test"}}
-	afterConfig.Models["claude"] = domain.Model{Label: "Claude", Account: "ready", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	afterConfig.Providers["ready"] = domain.Provider{Label: "Ready", Endpoints: domain.Endpoints{Anthropic: "https://ready.test"}}
+	afterConfig.Models["claude"] = domain.Model{Label: "Claude", Provider: "ready", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	afterConfig.SetSelectedModel(claude.ID, "claude", "")
 	afterConfig.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 
@@ -118,8 +118,8 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	codexBinding.Authentication = domain.AuthenticationClientNative
 	codexBinding.ModelProvider = "amazon-bedrock"
 	cfg.Clients[codex.ID] = codexBinding
-	cfg.Accounts["missing"] = domain.Account{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
-	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "missing", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Providers["missing"] = domain.Provider{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "missing", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	if err := cfg.Validate(); err != nil {
