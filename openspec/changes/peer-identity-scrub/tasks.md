@@ -1,9 +1,9 @@
 ## 1. Scrub
 
-- [ ] 1.1 Remove both peers' `forge_repository` from `.ethos/release.toml`;
+- [x] 1.1 Remove both peers' `forge_repository` from `.ethos/release.toml`;
       `ethos status` stays ready, and publish previews to both peers pass
       through the clone's Git configuration.
-- [ ] 1.2 Remove CHANGELOG's History rows and compare links, keeping its
+- [x] 1.2 Remove CHANGELOG's History rows and compare links, keeping its
       headings and text; `validate-changelog` and the Markdown link check pass.
 - [x] 1.3 Cite the GitLab pipelines of the two archived task records by number,
       without a link.
