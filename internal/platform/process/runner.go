@@ -49,10 +49,18 @@ const nativeDiagnosticSymbols = "⚠✗✖✘❌"
 // ordinary stderr progress or arbitrary response text. A marker is a warning or
 // error word, or a warning or error sign that begins a line.
 func DiagnosticFailure(diagnostic []byte) bool {
-	for line := range strings.SplitSeq(strings.ToLower(ansi.Strip(string(diagnostic))), "\n") {
-		if sign, _ := utf8.DecodeRuneInString(strings.TrimLeftFunc(line, unicode.IsSpace)); strings.ContainsRune(nativeDiagnosticSymbols, sign) {
+	return diagnosticMarker(diagnostic, false)
+}
+
+// diagnosticMarker reports a marker in text. continued says that text's first
+// line began in an earlier piece, so that only a word can mark it.
+func diagnosticMarker(text []byte, continued bool) bool {
+	for line := range strings.SplitSeq(strings.ToLower(ansi.Strip(string(text))), "\n") {
+		sign, _ := utf8.DecodeRuneInString(strings.TrimLeftFunc(line, unicode.IsSpace))
+		if !continued && strings.ContainsRune(nativeDiagnosticSymbols, sign) {
 			return true
 		}
+		continued = false
 		fields := strings.FieldsFunc(line, func(r rune) bool {
 			return r <= ' ' || strings.ContainsRune("[]():", r)
 		})
@@ -70,21 +78,49 @@ func DiagnosticFailure(diagnostic []byte) bool {
 // error has.
 const DiagnosticLimit = capturedProcessOutputLimit
 
+// diagnosticWordReach is how much of a long line's piece waits for the next
+// piece: more than the longest marker and the escape sequence before it.
+const diagnosticWordReach = 64
+
 // Diagnostics is the standard error that RunDiagnosed replayed: its first
 // DiagnosticLimit bytes, whether more followed, and whether any of its lines
-// carries a DiagnosticFailure marker. A line longer than DiagnosticLimit cannot
-// be examined whole, so it counts as a failure.
+// carries a DiagnosticFailure marker. A line longer than DiagnosticLimit is
+// examined in pieces that keep their last word for the next piece, so its
+// markers count as in a whole line while memory stays bounded.
 type Diagnostics struct {
 	Head      []byte
 	Truncated bool
 	Failure   bool
+
+	unfinished []byte
+	continued  bool
 }
 
 func (diagnostics *Diagnostics) observe(piece []byte, whole bool) {
 	kept := min(len(piece), DiagnosticLimit-len(diagnostics.Head))
 	diagnostics.Head = append(diagnostics.Head, piece[:kept]...)
 	diagnostics.Truncated = diagnostics.Truncated || kept < len(piece)
-	diagnostics.Failure = diagnostics.Failure || !whole || DiagnosticFailure(piece)
+	text := append(diagnostics.unfinished, piece...)
+	continued := diagnostics.continued
+	diagnostics.unfinished, diagnostics.continued = nil, !whole
+	if !whole {
+		cut := unfinishedWord(text)
+		diagnostics.unfinished = bytes.Clone(text[cut:])
+		text = text[:cut]
+	}
+	diagnostics.Failure = diagnostics.Failure || diagnosticMarker(text, continued)
+}
+
+// unfinishedWord returns where the part of text that waits for the next piece
+// begins. It starts at a space when one is near, so that no word is examined
+// cut in two; a word longer than the reach can then only match by its end.
+func unfinishedWord(text []byte) int {
+	cut := max(len(text)-diagnosticWordReach, 0)
+	floor := max(cut-diagnosticWordReach, 0)
+	if space := bytes.LastIndexAny(text[floor:cut], " \t\r"); space >= 0 {
+		return floor + space + 1
+	}
+	return cut
 }
 
 // RunDiagnosed runs plan as RunStream does with standard error in a native
