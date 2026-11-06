@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -46,7 +47,6 @@ type GitLabConfig struct {
 }
 
 type githubRelease struct {
-	ID        int64  `json:"id"`
 	UploadURL string `json:"upload_url"`
 	Assets    []struct {
 		Name string `json:"name"`
@@ -56,20 +56,14 @@ type githubRelease struct {
 
 // PublishGitHub creates or verifies one immutable GitHub Release and its complete asset inventory.
 func PublishGitHub(ctx context.Context, client *http.Client, config GitHubConfig) (bool, error) {
-	identity, err := publishInputs(config.APIBase, config.Repository, config.Tag, config.Token, config.Artifacts)
+	identity, err := admission{
+		apiBase: config.APIBase, target: config.Repository, tag: config.Tag, token: config.Token, artifacts: config.Artifacts,
+		trust: config.Trust, source: config.Source, verifyDistribution: config.VerifyDistribution,
+	}.admit(ctx)
 	if err != nil {
 		return false, err
 	}
 	version := identity.String()
-	if err := provenance.VerifyMatrix(ctx, config.Artifacts, version, config.Trust); err != nil {
-		return false, err
-	}
-	if err := provenance.VerifyProvenance(ctx, config.Artifacts, config.Tag, config.Source); err != nil {
-		return false, err
-	}
-	if err := verifyDistribution(ctx, identity, config.Artifacts, config.VerifyDistribution); err != nil {
-		return false, err
-	}
 	base := strings.TrimSuffix(config.APIBase, "/")
 	releaseURL := base + "/repos/" + config.Repository + "/releases/tags/" + config.Tag
 	release, status, err := githubRequest(ctx, client, http.MethodGet, releaseURL, config.Token, nil)
@@ -117,20 +111,11 @@ func PublishGitLab(ctx context.Context, client *http.Client, config GitLabConfig
 	if err != nil {
 		return false, err
 	}
-	identity, err := publishInputs(config.APIBase, config.ProjectID, config.Tag, token, config.Artifacts)
+	identity, err := config.admission(token).admit(ctx)
 	if err != nil {
 		return false, err
 	}
 	version := identity.String()
-	if err := provenance.VerifyMatrix(ctx, config.Artifacts, version, config.Trust); err != nil {
-		return false, err
-	}
-	if err := provenance.VerifyProvenance(ctx, config.Artifacts, config.Tag, config.Source); err != nil {
-		return false, err
-	}
-	if err := verifyDistribution(ctx, identity, config.Artifacts, config.VerifyDistribution); err != nil {
-		return false, err
-	}
 	base := strings.TrimSuffix(config.APIBase, "/") + "/projects/" + url.PathEscape(config.ProjectID)
 	releaseURL := base + "/releases/" + config.Tag
 	release, status, err := gitLabRequest(ctx, client, http.MethodGet, releaseURL, header, token, nil)
@@ -170,20 +155,11 @@ func UploadGitLab(ctx context.Context, client *http.Client, config GitLabConfig)
 	if err != nil {
 		return err
 	}
-	identity, err := publishInputs(config.APIBase, config.ProjectID, config.Tag, token, config.Artifacts)
+	identity, err := config.admission(token).admit(ctx)
 	if err != nil {
 		return err
 	}
 	version := identity.String()
-	if err := provenance.VerifyMatrix(ctx, config.Artifacts, version, config.Trust); err != nil {
-		return err
-	}
-	if err := provenance.VerifyProvenance(ctx, config.Artifacts, config.Tag, config.Source); err != nil {
-		return err
-	}
-	if err := verifyDistribution(ctx, identity, config.Artifacts, config.VerifyDistribution); err != nil {
-		return err
-	}
 	base := strings.TrimSuffix(config.APIBase, "/") + "/projects/" + url.PathEscape(config.ProjectID) + "/packages/generic/aigw/" + url.PathEscape(version)
 	for _, name := range artifact.Names(version) {
 		file, err := os.Open(filepath.Join(config.Artifacts, name))
@@ -205,6 +181,48 @@ func UploadGitLab(ctx context.Context, client *http.Client, config GitLabConfig)
 		}
 	}
 	return nil
+}
+
+// admission is what a publication verifies before its first Forge request.
+type admission struct {
+	apiBase, target, tag, token, artifacts string
+	trust                                  provenance.SignatureTrust
+	source                                 provenance.SourceTrust
+	verifyDistribution                     func(context.Context, string, string) error
+}
+
+func (config GitLabConfig) admission(token string) admission {
+	return admission{
+		apiBase: config.APIBase, target: config.ProjectID, tag: config.Tag, token: token, artifacts: config.Artifacts,
+		trust: config.Trust, source: config.Source, verifyDistribution: config.VerifyDistribution,
+	}
+}
+
+// admit verifies the publication inputs, the signed artifact matrix, the
+// release provenance and, for a stable version, its distribution, and returns
+// the release version.
+func (input admission) admit(ctx context.Context) (*semver.Version, error) {
+	identity, err := publishInputs(input.apiBase, input.target, input.tag, input.token, input.artifacts)
+	if err != nil {
+		return nil, err
+	}
+	version := identity.String()
+	if err := provenance.VerifyMatrix(ctx, input.artifacts, version, input.trust); err != nil {
+		return nil, err
+	}
+	if err := provenance.VerifyProvenance(ctx, input.artifacts, input.tag, input.source); err != nil {
+		return nil, err
+	}
+	if identity.Prerelease() != "" {
+		return identity, nil
+	}
+	if input.verifyDistribution == nil {
+		return nil, errors.New("stable publication requires distribution verification")
+	}
+	if err := input.verifyDistribution(ctx, input.artifacts, version); err != nil {
+		return nil, err
+	}
+	return identity, nil
 }
 
 func publishInputs(apiBase, target, tag, token, artifacts string) (*semver.Version, error) {
@@ -300,32 +318,8 @@ func verifyGitHubAssets(ctx context.Context, client *http.Client, config GitHubC
 	if !slices.Equal(actual, sortedExpected) {
 		return fmt.Errorf("GitHub release asset set differs: %v", actual)
 	}
-	for _, name := range expected {
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, assets[name], nil)
-		if err != nil {
-			return err
-		}
-		request.Header.Set("Accept", "application/octet-stream")
-		same, err := assetAuthority(config.APIBase, assets[name])
-		if err != nil {
-			return err
-		}
-		if same {
-			request.Header.Set("Authorization", "Bearer "+config.Token)
-		}
-		remote, err := responseBytes(client, request)
-		if err != nil {
-			return err
-		}
-		local, err := os.ReadFile(filepath.Join(config.Artifacts, name))
-		if err != nil {
-			return err
-		}
-		if !bytes.Equal(local, remote) {
-			return fmt.Errorf("GitHub release asset differs from locally verified %s", name)
-		}
-	}
-	return nil
+	download := assetDownload{forge: "GitHub", apiBase: config.APIBase, header: "Authorization", credential: "Bearer " + config.Token, accept: "application/octet-stream"}
+	return download.compare(ctx, client, assets, expected, config.Artifacts)
 }
 
 func gitLabRequest(ctx context.Context, client *http.Client, method, endpoint, header, token string, body []byte) (remoteRelease, int, error) {
@@ -366,31 +360,49 @@ func verifyGitLabAssets(ctx context.Context, client *http.Client, config GitLabC
 	for _, link := range actual.Assets.Links {
 		remote[lastPath(link.URL)] = link.URL
 	}
-	for _, name := range artifact.Names(version) {
-		endpoint, found := remote[name]
+	download := assetDownload{forge: "GitLab", apiBase: config.APIBase, header: header, credential: token}
+	return download.compare(ctx, client, remote, artifact.Names(version), config.Artifacts)
+}
+
+// assetDownload is how one Forge serves release assets: its name in messages,
+// the API base whose authority alone receives the credential header, and the
+// Accept header that a download needs, if any.
+type assetDownload struct {
+	forge, apiBase, header, credential, accept string
+}
+
+// compare downloads each asset that names lists from its URL in urls, in order,
+// and requires the bytes of the locally verified artifact in artifacts.
+func (download assetDownload) compare(ctx context.Context, client *http.Client, urls map[string]string, names []string, artifacts string) error {
+	for _, name := range names {
+		endpoint, found := urls[name]
 		if !found {
-			return fmt.Errorf("GitLab release verification is missing asset %s", name)
+			return fmt.Errorf("%s release verification is missing asset %s", download.forge, name)
 		}
-		// lastPath accepted this URL as the exact expected asset name; request
-		// construction cannot fail before the stricter authority check below.
-		request, _ := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-		same, err := assetAuthority(config.APIBase, endpoint)
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		if err != nil {
+			return err
+		}
+		if download.accept != "" {
+			request.Header.Set("Accept", download.accept)
+		}
+		same, err := assetAuthority(download.apiBase, endpoint)
 		if err != nil {
 			return err
 		}
 		if same {
-			request.Header.Set(header, token)
+			request.Header.Set(download.header, download.credential)
 		}
-		data, err := responseBytes(client, request)
+		remote, err := responseBytes(client, request)
 		if err != nil {
 			return err
 		}
-		local, err := os.ReadFile(filepath.Join(config.Artifacts, name))
+		local, err := os.ReadFile(filepath.Join(artifacts, name))
 		if err != nil {
 			return err
 		}
-		if !bytes.Equal(local, data) {
-			return fmt.Errorf("GitLab release asset differs from locally verified %s", name)
+		if !bytes.Equal(local, remote) {
+			return fmt.Errorf("%s release asset differs from locally verified %s", download.forge, name)
 		}
 	}
 	return nil
@@ -436,16 +448,5 @@ func lastPath(raw string) string {
 	if err != nil {
 		return ""
 	}
-	parts := strings.Split(strings.TrimSuffix(parsed.Path, "/"), "/")
-	return parts[len(parts)-1]
-}
-
-func verifyDistribution(ctx context.Context, version *semver.Version, directory string, verify func(context.Context, string, string) error) error {
-	if version.Prerelease() != "" {
-		return nil
-	}
-	if verify == nil {
-		return errors.New("stable publication requires distribution verification")
-	}
-	return verify(ctx, directory, version.String())
+	return path.Base(parsed.Path)
 }

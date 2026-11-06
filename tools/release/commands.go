@@ -133,6 +133,15 @@ func publicationCommands(ctx context.Context) commandSet {
 		Principal:      os.Getenv("AIGW_RELEASE_ARTIFACT_SIGNER"),
 	}
 	source := provenance.SourceTrust{Repository: ".", AllowedSigners: os.Getenv("AIGW_RELEASE_ALLOWED_SIGNERS_FILE")}
+	gitLab := func(artifacts string) publication.GitLabConfig {
+		return publication.GitLabConfig{
+			APIBase: os.Getenv("CI_API_V4_URL"), ProjectID: os.Getenv("CI_PROJECT_ID"), Tag: os.Getenv("CI_COMMIT_TAG"),
+			JobToken: os.Getenv("CI_JOB_TOKEN"), AccessToken: os.Getenv("GITLAB_TOKEN"), Artifacts: artifacts,
+			Trust:              trust,
+			Source:             source,
+			VerifyDistribution: verifyMacOSPublication,
+		}
+	}
 	return commandSet{
 		"verify-artifacts": func(args []string, _ io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release verify-artifacts <artifact-directory>"); err != nil {
@@ -163,25 +172,13 @@ func publicationCommands(ctx context.Context) commandSet {
 			if err := requireArguments(args, 1, "usage: release upload-gitlab <artifact-directory>"); err != nil {
 				return err
 			}
-			return publication.UploadGitLab(ctx, http.DefaultClient, publication.GitLabConfig{
-				APIBase: os.Getenv("CI_API_V4_URL"), ProjectID: os.Getenv("CI_PROJECT_ID"), Tag: os.Getenv("CI_COMMIT_TAG"),
-				JobToken: os.Getenv("CI_JOB_TOKEN"), AccessToken: os.Getenv("GITLAB_TOKEN"), Artifacts: args[0],
-				Trust:              trust,
-				Source:             source,
-				VerifyDistribution: verifyMacOSPublication,
-			})
+			return publication.UploadGitLab(ctx, http.DefaultClient, gitLab(args[0]))
 		},
 		"publish-gitlab": func(args []string, stdout io.Writer) error {
 			if err := requireArguments(args, 1, "usage: release publish-gitlab <artifact-directory>"); err != nil {
 				return err
 			}
-			created, err := publication.PublishGitLab(ctx, http.DefaultClient, publication.GitLabConfig{
-				APIBase: os.Getenv("CI_API_V4_URL"), ProjectID: os.Getenv("CI_PROJECT_ID"), Tag: os.Getenv("CI_COMMIT_TAG"),
-				JobToken: os.Getenv("CI_JOB_TOKEN"), AccessToken: os.Getenv("GITLAB_TOKEN"), Artifacts: args[0],
-				Trust:              trust,
-				Source:             source,
-				VerifyDistribution: verifyMacOSPublication,
-			})
+			created, err := publication.PublishGitLab(ctx, http.DefaultClient, gitLab(args[0]))
 			if err != nil {
 				return err
 			}
