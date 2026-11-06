@@ -15,7 +15,6 @@ id = "github"
 provider = "github"
 role = "public_distribution"
 git_remote = "github"
-forge_repository = "https://github.com/HengYangDS/aigw-cli"
 capabilities = ["repository", "ci_cd", "publication"]
 ci_surface = ".github/workflows/verify.yml"
 
