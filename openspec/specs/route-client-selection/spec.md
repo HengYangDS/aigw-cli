@@ -66,6 +66,14 @@ user-owned files without copying or owning them.
 - **AND** an operator extension that cannot start or authorize there SHALL NOT
   decide the verification result.
 
+#### Scenario: Hermes verification starts no operator extension
+
+- **WHEN** `aigw verify` runs Hermes for one Route, and the operator's Hermes
+  configuration names MCP servers, shell hooks or hook consent
+- **THEN** the private verification home SHALL name no MCP servers and no shell
+  hooks and SHALL carry no hook consent
+- **AND** the operator's Hermes configuration SHALL stay unchanged.
+
 #### Scenario: A failed explicit-Route command names its retry
 
 - **WHEN** `aigw verify --for <client> --route <route>` fails, or
