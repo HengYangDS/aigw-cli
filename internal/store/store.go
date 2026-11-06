@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 
@@ -34,26 +35,12 @@ type Store struct {
 // pre-setup state is not a valid  Config and cannot be restored through
 // Save.
 type Snapshot struct {
-	Config             platform.FileSnapshot
-	Backup             platform.FileSnapshot
-	Forwarding         platform.FileSnapshot
-	forwardingBackup   platform.FileSnapshot
-	retries            platform.FileSnapshot
-	retriesBackup      platform.FileSnapshot
-	Catalog            platform.FileSnapshot
-	catalogBackup      platform.FileSnapshot
-	capabilities       platform.FileSnapshot
-	capabilitiesBackup platform.FileSnapshot
-	Verified           platform.FileSnapshot
-}
-
-func (snapshot Snapshot) equal(other Snapshot) bool {
-	return snapshot.Config.Equal(other.Config) && snapshot.Backup.Equal(other.Backup) &&
-		snapshot.Forwarding.Equal(other.Forwarding) && snapshot.forwardingBackup.Equal(other.forwardingBackup) &&
-		snapshot.Catalog.Equal(other.Catalog) && snapshot.catalogBackup.Equal(other.catalogBackup) &&
-		snapshot.capabilities.Equal(other.capabilities) && snapshot.capabilitiesBackup.Equal(other.capabilitiesBackup) &&
-		snapshot.retries.Equal(other.retries) && snapshot.retriesBackup.Equal(other.retriesBackup) &&
-		snapshot.Verified.Equal(other.Verified)
+	Config   platform.FileSnapshot
+	Backup   platform.FileSnapshot
+	Verified platform.FileSnapshot
+	// components and backups are the optional components' two generations.
+	components componentSnapshots
+	backups    componentSnapshots
 }
 
 // BackupConverged reports whether every rollback component equals the current
@@ -61,12 +48,15 @@ func (snapshot Snapshot) equal(other Snapshot) bool {
 // mode that the Store persists.
 func (snapshot Snapshot) BackupConverged() bool {
 	mode := persistedFileMode()
-	return snapshot.Backup.Exists && snapshot.Backup.Mode == mode &&
-		bytes.Equal(snapshot.Backup.Data, snapshot.Config.Data) &&
-		backupComponentConverged(snapshot.Forwarding, snapshot.forwardingBackup, mode) &&
-		backupComponentConverged(snapshot.retries, snapshot.retriesBackup, mode) &&
-		backupComponentConverged(snapshot.Catalog, snapshot.catalogBackup, mode) &&
-		backupComponentConverged(snapshot.capabilities, snapshot.capabilitiesBackup, mode)
+	if !snapshot.Backup.Exists || snapshot.Backup.Mode != mode || !bytes.Equal(snapshot.Backup.Data, snapshot.Config.Data) {
+		return false
+	}
+	for index := range components {
+		if !backupComponentConverged(snapshot.components[index], snapshot.backups[index], mode) {
+			return false
+		}
+	}
+	return true
 }
 
 // persistedFileMode is the mode that a file the Store writes with 0o600 reports;
@@ -111,33 +101,19 @@ func (s Store) CaptureSnapshot() (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	forwarding, err := platform.CaptureFileSnapshot(s.forwardingPath())
-	if err != nil {
-		return Snapshot{}, err
+	snapshot := Snapshot{Config: configSnapshot, Backup: backupSnapshot, Verified: verifiedSnapshot}
+	for index, component := range components {
+		current, err := platform.CaptureFileSnapshot(s.componentPath(index))
+		if err != nil && !component.bothGenerations {
+			return Snapshot{}, err
+		}
+		backup, backupErr := platform.CaptureFileSnapshot(s.componentPath(index) + ".bak")
+		if failure := errors.Join(err, backupErr); failure != nil {
+			return Snapshot{}, failure
+		}
+		snapshot.components[index], snapshot.backups[index] = current, backup
 	}
-	forwardingBackup, err := platform.CaptureFileSnapshot(s.forwardingPath() + ".bak")
-	if err != nil {
-		return Snapshot{}, err
-	}
-	retries, err := platform.CaptureFileSnapshot(s.retriesPath())
-	retriesBackup, retriesErr := platform.CaptureFileSnapshot(s.retriesPath() + ".bak")
-	if failure := errors.Join(err, retriesErr); failure != nil {
-		return Snapshot{}, failure
-	}
-	catalog, err := platform.CaptureFileSnapshot(s.catalogPath())
-	if err != nil {
-		return Snapshot{}, err
-	}
-	catalogBackup, err := platform.CaptureFileSnapshot(s.catalogPath() + ".bak")
-	if err != nil {
-		return Snapshot{}, err
-	}
-	capabilities, err := platform.CaptureFileSnapshot(s.capabilitiesPath())
-	capabilitiesBackup, backupErr := platform.CaptureFileSnapshot(s.capabilitiesPath() + ".bak")
-	if failure := errors.Join(err, backupErr); failure != nil {
-		return Snapshot{}, failure
-	}
-	return Snapshot{Config: configSnapshot, Backup: backupSnapshot, Forwarding: forwarding, forwardingBackup: forwardingBackup, retries: retries, retriesBackup: retriesBackup, Catalog: catalog, catalogBackup: catalogBackup, capabilities: capabilities, capabilitiesBackup: capabilitiesBackup, Verified: verifiedSnapshot}, nil
+	return snapshot, nil
 }
 
 // Commit saves one configuration and returns the exact postimage needed for a
@@ -161,16 +137,17 @@ func (s Store) Commit(before Snapshot, cfg domain.Config) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	return s.commitComponents(before, data, forwarding, catalog, capabilities, retries)
+	return s.commitComponents(before, data, [componentCount][]byte{
+		forwardingComponent: forwarding, retriesComponent: retries, catalogComponent: catalog, capabilitiesComponent: capabilities,
+	})
 }
 
 func (s Store) commitData(before Snapshot, data []byte) (Snapshot, error) {
-	return s.commitComponents(before, data, nil, nil, nil, nil)
+	return s.commitComponents(before, data, [componentCount][]byte{})
 }
 
-func (s Store) commitComponents(before Snapshot, data, forwarding, catalog, capabilities, retries []byte) (Snapshot, error) {
-	if before.Config.Exists && configurationDataEquivalent(before.Config.Data, data, s.admission) && componentUnchanged(before.Forwarding, forwarding) &&
-		componentUnchanged(before.Catalog, catalog) && componentUnchanged(before.capabilities, capabilities) && componentUnchanged(before.retries, retries) {
+func (s Store) commitComponents(before Snapshot, data []byte, next [componentCount][]byte) (Snapshot, error) {
+	if before.Config.Exists && configurationDataEquivalent(before.Config.Data, data, s.admission) && componentsUnchanged(before.components, next) {
 		current, err := s.CaptureSnapshot()
 		if err != nil {
 			return Snapshot{}, err
@@ -195,26 +172,13 @@ func (s Store) commitComponents(before Snapshot, data, forwarding, catalog, capa
 		}
 		after.Config = config
 	}
-	forwardingAfter, err := s.writeOptional(s.forwardingPath(), before.Forwarding, forwarding)
-	if err != nil {
-		return Snapshot{}, errors.Join(fmt.Errorf("write client forwarding: %w", err), s.RestoreSnapshot(before, after))
+	for index, component := range components {
+		written, err := s.writeOptional(s.componentPath(index), before.components[index], next[index])
+		if err != nil {
+			return Snapshot{}, errors.Join(fmt.Errorf("write %s: %w", component.whole, err), s.RestoreSnapshot(before, after))
+		}
+		after.components[index] = written
 	}
-	after.Forwarding = forwardingAfter
-	retriesAfter, err := s.writeOptional(s.retriesPath(), before.retries, retries)
-	if err != nil {
-		return Snapshot{}, errors.Join(fmt.Errorf("write client retry policies: %w", err), s.RestoreSnapshot(before, after))
-	}
-	after.retries = retriesAfter
-	catalogAfter, err := s.writeOptional(s.catalogPath(), before.Catalog, catalog)
-	if err != nil {
-		return Snapshot{}, errors.Join(fmt.Errorf("write catalog presentation: %w", err), s.RestoreSnapshot(before, after))
-	}
-	after.Catalog = catalogAfter
-	capabilitiesAfter, err := s.writeOptional(s.capabilitiesPath(), before.capabilities, capabilities)
-	if err != nil {
-		return Snapshot{}, errors.Join(fmt.Errorf("write route capabilities: %w", err), s.RestoreSnapshot(before, after))
-	}
-	after.capabilities = capabilitiesAfter
 	verified, err := removeConfigurationFileIfUnchanged(s.path+".verified.json", before.Verified)
 	if err != nil {
 		return Snapshot{}, errors.Join(fmt.Errorf("invalidate verified checkpoint: %w", err), s.RestoreSnapshot(before, after))
@@ -231,7 +195,7 @@ func (s Store) commitComponents(before Snapshot, data, forwarding, catalog, capa
 // canonical and component preimages, including the empty pre-setup state.
 func (snapshot Snapshot) MatchesConfiguration(expected domain.Config) (bool, error) {
 	if !snapshot.Config.Exists {
-		if snapshot.Forwarding.Exists || snapshot.Catalog.Exists || snapshot.capabilities.Exists || snapshot.retries.Exists {
+		if slices.ContainsFunc(snapshot.components[:], func(component platform.FileSnapshot) bool { return component.Exists }) {
 			return false, errors.New("configuration component has no canonical configuration")
 		}
 		expected = expected.Clone()
@@ -277,7 +241,7 @@ func (s Store) CaptureVerifiedBackupState() (VerifiedBackupState, error) {
 	if err != nil {
 		return VerifiedBackupState{}, err
 	}
-	checkpoint.Config, err = decodeComponents(checkpoint.Config, snapshot.Catalog, snapshot.capabilities)
+	checkpoint.Config, err = decodeComponents(checkpoint.Config, snapshot.Catalog(), snapshot.components[capabilitiesComponent])
 	if err != nil {
 		return VerifiedBackupState{}, err
 	}
@@ -300,17 +264,10 @@ func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
 	if !current.Config.Equal(expected.Config) {
 		return errors.New("config preimage changed; refusing to converge backup")
 	}
-	if !current.Forwarding.Equal(expected.Forwarding) || !current.forwardingBackup.Equal(expected.forwardingBackup) {
-		return errors.New("client forwarding preimage changed; refusing to converge backup")
-	}
-	if !current.Catalog.Equal(expected.Catalog) || !current.catalogBackup.Equal(expected.catalogBackup) {
-		return errors.New("catalog presentation preimage changed; refusing to converge backup")
-	}
-	if !current.capabilities.Equal(expected.capabilities) || !current.capabilitiesBackup.Equal(expected.capabilitiesBackup) {
-		return errors.New("route capability preimage changed; refusing to converge backup")
-	}
-	if !current.retries.Equal(expected.retries) || !current.retriesBackup.Equal(expected.retriesBackup) {
-		return errors.New("client retry policy preimage changed; refusing to converge backup")
+	for _, index := range restoreOrder {
+		if !current.components[index].Equal(expected.components[index]) || !current.backups[index].Equal(expected.backups[index]) {
+			return fmt.Errorf("%s preimage changed; refusing to converge backup", components[index].record)
+		}
 	}
 	if !current.Verified.Equal(expected.Verified) {
 		return errors.New("verified checkpoint preimage changed; refusing to converge backup")
@@ -327,26 +284,13 @@ func (s Store) ConvergeVerifiedBackup(expected Snapshot) error {
 	if err != nil {
 		return fmt.Errorf("converge verified config backup: %w", err)
 	}
-	forwardingBackup, err := s.writeOptional(s.forwardingPath()+".bak", expected.forwardingBackup, expected.Forwarding.Data)
-	if err != nil {
-		return errors.Join(fmt.Errorf("converge verified forwarding backup: %w", err), s.RestoreSnapshot(expected, after))
+	for index, component := range components {
+		written, err := s.writeOptional(s.componentPath(index)+".bak", expected.backups[index], expected.components[index].Data)
+		if err != nil {
+			return errors.Join(fmt.Errorf("converge verified %s backup: %w", component.verifiedBackup, err), s.RestoreSnapshot(expected, after))
+		}
+		after.backups[index] = written
 	}
-	after.forwardingBackup = forwardingBackup
-	retriesBackup, err := s.writeOptional(s.retriesPath()+".bak", expected.retriesBackup, expected.retries.Data)
-	if err != nil {
-		return errors.Join(fmt.Errorf("converge verified retry policy backup: %w", err), s.RestoreSnapshot(expected, after))
-	}
-	after.retriesBackup = retriesBackup
-	catalogBackup, err := s.writeOptional(s.catalogPath()+".bak", expected.catalogBackup, expected.Catalog.Data)
-	if err != nil {
-		return errors.Join(fmt.Errorf("converge verified catalog backup: %w", err), s.RestoreSnapshot(expected, after))
-	}
-	after.catalogBackup = catalogBackup
-	capabilitiesBackup, err := s.writeOptional(s.capabilitiesPath()+".bak", expected.capabilitiesBackup, expected.capabilities.Data)
-	if err != nil {
-		return errors.Join(fmt.Errorf("converge verified route capability backup: %w", err), s.RestoreSnapshot(expected, after))
-	}
-	after.capabilitiesBackup = capabilitiesBackup
 	current, err = s.CaptureSnapshot()
 	if err != nil || !current.equal(after) {
 		return errors.Join(errors.New("configuration changed during backup convergence"), err, s.RestoreSnapshot(expected, after))
@@ -389,29 +333,13 @@ func (s Store) RestoreSnapshot(before, after Snapshot) error {
 	if err := platform.RestoreFileAtomicIfPostimage(s.path+".verified.json", before.Verified, after.Verified); err != nil {
 		failures = append(failures, fmt.Errorf("restore verified checkpoint snapshot: %w", err))
 	}
-	if err := platform.RestoreFileAtomicIfPostimage(s.forwardingPath(), before.Forwarding, after.Forwarding); err != nil {
-		failures = append(failures, fmt.Errorf("restore client forwarding snapshot: %w", err))
-	}
-	if err := platform.RestoreFileAtomicIfPostimage(s.forwardingPath()+".bak", before.forwardingBackup, after.forwardingBackup); err != nil {
-		failures = append(failures, fmt.Errorf("restore client forwarding backup snapshot: %w", err))
-	}
-	if err := platform.RestoreFileAtomicIfPostimage(s.catalogPath(), before.Catalog, after.Catalog); err != nil {
-		failures = append(failures, fmt.Errorf("restore catalog presentation snapshot: %w", err))
-	}
-	if err := platform.RestoreFileAtomicIfPostimage(s.catalogPath()+".bak", before.catalogBackup, after.catalogBackup); err != nil {
-		failures = append(failures, fmt.Errorf("restore catalog presentation backup: %w", err))
-	}
-	if err := platform.RestoreFileAtomicIfPostimage(s.capabilitiesPath(), before.capabilities, after.capabilities); err != nil {
-		failures = append(failures, fmt.Errorf("restore route capability snapshot: %w", err))
-	}
-	if err := platform.RestoreFileAtomicIfPostimage(s.capabilitiesPath()+".bak", before.capabilitiesBackup, after.capabilitiesBackup); err != nil {
-		failures = append(failures, fmt.Errorf("restore route capability backup: %w", err))
-	}
-	if err := platform.RestoreFileAtomicIfPostimage(s.retriesPath(), before.retries, after.retries); err != nil {
-		failures = append(failures, fmt.Errorf("restore client retry policy snapshot: %w", err))
-	}
-	if err := platform.RestoreFileAtomicIfPostimage(s.retriesPath()+".bak", before.retriesBackup, after.retriesBackup); err != nil {
-		failures = append(failures, fmt.Errorf("restore client retry policy backup: %w", err))
+	for _, index := range restoreOrder {
+		if err := platform.RestoreFileAtomicIfPostimage(s.componentPath(index), before.components[index], after.components[index]); err != nil {
+			failures = append(failures, fmt.Errorf("restore %s snapshot: %w", components[index].record, err))
+		}
+		if err := platform.RestoreFileAtomicIfPostimage(s.componentPath(index)+".bak", before.backups[index], after.backups[index]); err != nil {
+			failures = append(failures, fmt.Errorf("restore %s: %w", components[index].restoredBackup, err))
+		}
 	}
 	return errors.Join(failures...)
 }
@@ -449,7 +377,7 @@ func (s Store) Load() (domain.Config, error) {
 func (s Store) LoadCredentialConfig() (domain.Config, error) {
 	data, err := os.ReadFile(s.path)
 	if errors.Is(err, os.ErrNotExist) {
-		forwarding, forwardingErr := platform.CaptureFileSnapshot(s.forwardingPath())
+		forwarding, forwardingErr := platform.CaptureFileSnapshot(s.componentPath(forwardingComponent))
 		if forwardingErr != nil || forwarding.Exists {
 			return domain.Config{}, newLoadError(LoadPhaseRead, errors.Join(errors.New("client forwarding has no canonical configuration"), forwardingErr))
 		}
@@ -458,7 +386,7 @@ func (s Store) LoadCredentialConfig() (domain.Config, error) {
 	if err != nil {
 		return domain.Config{}, newLoadError(LoadPhaseRead, err)
 	}
-	forwarding, err := platform.CaptureFileSnapshot(s.forwardingPath())
+	forwarding, err := platform.CaptureFileSnapshot(s.componentPath(forwardingComponent))
 	if err != nil {
 		return domain.Config{}, newLoadError(LoadPhaseRead, err)
 	}
@@ -529,7 +457,7 @@ func (s Store) LoadBackup() (domain.Config, error) {
 	if err != nil {
 		return domain.Config{}, fmt.Errorf("read previous config backup: %w", err)
 	}
-	forwarding, err := platform.CaptureFileSnapshot(s.forwardingPath() + ".bak")
+	forwarding, err := platform.CaptureFileSnapshot(s.componentPath(forwardingComponent) + ".bak")
 	if err != nil {
 		return domain.Config{}, newLoadError(LoadPhaseRead, err)
 	}

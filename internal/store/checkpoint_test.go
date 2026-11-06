@@ -30,7 +30,7 @@ func TestForwardingChangedDuringVerificationRejectsCheckpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(store.forwardingPath(), data, 0o600); err != nil {
+	if err := os.WriteFile(store.componentPath(forwardingComponent), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	before, err := store.CaptureSnapshot()
@@ -65,7 +65,7 @@ func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) 
 	writeConfigurationFileIfUnchanged = func(path string, expected platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
 		postimage, err := originalWrite(path, expected, data, mode)
 		if err == nil && path == store.Path()+".verified.json" {
-			err = os.WriteFile(store.forwardingPath(), newer, 0o600)
+			err = os.WriteFile(store.componentPath(forwardingComponent), newer, 0o600)
 		}
 		return postimage, err
 	}
@@ -73,7 +73,7 @@ func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) 
 		t.Fatalf("concurrent forwarding update was certified: %v", err)
 	}
 	after, err := store.CaptureSnapshot()
-	if err != nil || after.Verified.Exists || !bytes.Equal(after.Forwarding.Data, newer) {
+	if err != nil || after.Verified.Exists || !bytes.Equal(after.Forwarding().Data, newer) {
 		t.Fatalf("checkpoint compensation lost newer forwarding or retained stale proof: %v", err)
 	}
 }

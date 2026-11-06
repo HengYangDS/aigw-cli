@@ -106,7 +106,7 @@ func TestCatalogOrderRejectsNegativeRanksWithoutChangingStoredBytes(t *testing.T
 				identifier = "current-model"
 			}
 			catalog := []byte("[" + subject + "]\n" + identifier + " = -1\n")
-			if err := os.WriteFile(store.catalogPath(), catalog, 0o600); err != nil {
+			if err := os.WriteFile(store.componentPath(catalogComponent), catalog, 0o600); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := store.Load(); err == nil || !strings.Contains(err.Error(), "order must not be negative") {
@@ -116,7 +116,7 @@ func TestCatalogOrderRejectsNegativeRanksWithoutChangingStoredBytes(t *testing.T
 			if err != nil {
 				t.Fatal(err)
 			}
-			afterCatalog, err := os.ReadFile(store.catalogPath())
+			afterCatalog, err := os.ReadFile(store.componentPath(catalogComponent))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -199,7 +199,7 @@ func TestCatalogOrderSurvivesVerifiedBackupAndCompensation(t *testing.T) {
 		t.Fatal(err)
 	}
 	presentation := []byte("[accounts]\ncurrent = 30\n[models]\ncurrent-model = 40\n")
-	if err := os.WriteFile(store.catalogPath(), presentation, 0o600); err != nil {
+	if err := os.WriteFile(store.componentPath(catalogComponent), presentation, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	checkpoint, err := store.LoadVerifiedCheckpoint()

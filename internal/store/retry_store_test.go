@@ -46,7 +46,7 @@ func TestRetryCheckpointDoesNotAdoptUnverifiedPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(store.retriesPath(), data, 0o600); err != nil {
+	if err := os.WriteFile(store.componentPath(retriesComponent), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.CaptureVerifiedBackupState(); err == nil {
@@ -104,7 +104,7 @@ func TestRetryPolicyBackupAdmissionAndNativeReset(t *testing.T) {
 		t.Fatal(err)
 	}
 	before, err := store.CaptureSnapshot()
-	if err != nil || !before.retries.Exists {
+	if err != nil || !before.components[retriesComponent].Exists {
 		t.Fatalf("selected policy was not recorded: %v", err)
 	}
 	admission, err := store.RollbackConfiguration()
@@ -122,7 +122,7 @@ func TestRetryPolicyBackupAdmissionAndNativeReset(t *testing.T) {
 	binding.RetryPolicy = nil
 	cfg.Clients[ClientCodex] = binding
 	after, err := store.Commit(before, cfg)
-	if err != nil || after.retries.Exists || !bytes.Equal(before.Config.Data, after.Config.Data) {
+	if err != nil || after.components[retriesComponent].Exists || !bytes.Equal(before.Config.Data, after.Config.Data) {
 		t.Fatalf("native reset changed canonical bytes or retained policy: %v", err)
 	}
 	backup, err := store.LoadBackup()
@@ -152,7 +152,7 @@ func TestRetryPolicyComponentsRefuseInvalidIdentityOrContent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	valid := string(snapshot.retries.Data)
+	valid := string(snapshot.components[retriesComponent].Data)
 	runtime, err := cfg.ResolveRuntime(ClientCodex, "")
 	if err != nil {
 		t.Fatal(err)
@@ -167,7 +167,7 @@ func TestRetryPolicyComponentsRefuseInvalidIdentityOrContent(t *testing.T) {
 		"missing budget":       strings.ReplaceAll(valid, "request_max_retries = 0", ""),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if err := os.WriteFile(store.retriesPath(), []byte(invalid), 0o600); err != nil {
+			if err := os.WriteFile(store.componentPath(retriesComponent), []byte(invalid), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := store.Load(); err == nil {
@@ -176,7 +176,7 @@ func TestRetryPolicyComponentsRefuseInvalidIdentityOrContent(t *testing.T) {
 			if _, err := store.LoadCredentialConfig(); err != nil {
 				t.Fatalf("policy corruption interrupted credential authority: %v", err)
 			}
-			retained, err := os.ReadFile(store.retriesPath())
+			retained, err := os.ReadFile(store.componentPath(retriesComponent))
 			if err != nil || string(retained) != invalid {
 				t.Fatalf("refused read rewrote the component: %v", err)
 			}
@@ -218,7 +218,7 @@ func TestRetryPolicyAdmissionRefusesConflictingOrUnreadableComponents(t *testing
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(store.retriesPath(), data, 0o600); err != nil {
+		if err := os.WriteFile(store.componentPath(retriesComponent), data, 0o600); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := store.Load(); err == nil || !strings.Contains(err.Error(), "conflicts with its recorded declaration") {
@@ -227,7 +227,7 @@ func TestRetryPolicyAdmissionRefusesConflictingOrUnreadableComponents(t *testing
 	})
 	t.Run("corrupt component", func(t *testing.T) {
 		store, _ := declared(t)
-		if err := os.WriteFile(store.retriesPath(), []byte("["), 0o600); err != nil {
+		if err := os.WriteFile(store.componentPath(retriesComponent), []byte("["), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := store.RollbackConfiguration(); err == nil || !strings.Contains(err.Error(), "parse client retry policies") {
@@ -236,7 +236,7 @@ func TestRetryPolicyAdmissionRefusesConflictingOrUnreadableComponents(t *testing
 	})
 	t.Run("invalid catalog", func(t *testing.T) {
 		store, _ := declared(t)
-		if err := os.WriteFile(store.catalogPath(), []byte("["), 0o600); err != nil {
+		if err := os.WriteFile(store.componentPath(catalogComponent), []byte("["), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := store.RollbackConfiguration(); err == nil {
@@ -245,10 +245,10 @@ func TestRetryPolicyAdmissionRefusesConflictingOrUnreadableComponents(t *testing
 	})
 	t.Run("unreadable component", func(t *testing.T) {
 		store, _ := declared(t)
-		if err := os.Remove(store.retriesPath()); err != nil {
+		if err := os.Remove(store.componentPath(retriesComponent)); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Mkdir(store.retriesPath(), 0o700); err != nil {
+		if err := os.Mkdir(store.componentPath(retriesComponent), 0o700); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := store.CaptureSnapshot(); err == nil {

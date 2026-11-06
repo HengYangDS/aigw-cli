@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"reflect"
-	"strings"
 
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
@@ -21,10 +19,6 @@ type retryPolicies struct {
 type retryConnection struct {
 	Identity string             `toml:"connection_identity"`
 	Policy   domain.RetryPolicy `toml:"retry_policy"`
-}
-
-func (s Store) retriesPath() string {
-	return strings.TrimSuffix(s.path, filepath.Ext(s.path)) + ".retries.toml"
 }
 
 func encodeRetryPolicies(cfg domain.Config) ([]byte, error) {
@@ -87,7 +81,7 @@ func (s Store) RollbackConfiguration() ([]byte, error) {
 	if err != nil || !snapshot.Config.Exists {
 		return nil, err
 	}
-	if !snapshot.retries.Exists {
+	if !snapshot.components[retriesComponent].Exists {
 		return snapshot.Config.Data, nil
 	}
 	cfg, err := s.loadSnapshot(snapshot)

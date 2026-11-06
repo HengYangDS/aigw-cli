@@ -189,7 +189,7 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint s
 	}
 	journey.run("rollback", "--last-change")
 	restored, err := configStore.CaptureSnapshot()
-	if err != nil || !restored.Config.Equal(selected.Config) || !restored.Forwarding.Equal(selected.Forwarding) {
+	if err != nil || !restored.Config.Equal(selected.Config) || !restored.Forwarding().Equal(selected.Forwarding()) {
 		t.Fatalf("configuration forward restore lost exact binding bytes: %v", err)
 	}
 	journey.run("update", "--rollback")
@@ -399,10 +399,10 @@ func (j *journeyFixture) importCatalogOrder() []byte {
 		j.testing.Fatal(err)
 	}
 	if selected.Accounts["native-system-keyring-probe"].Order != 10 || selected.Models["claude-test"].Order != 20 ||
-		!updated.Catalog.Exists || !bytes.Equal(updated.Config.Data, before) {
+		!updated.Catalog().Exists || !bytes.Equal(updated.Config.Data, before) {
 		j.testing.Fatal("catalog ranks were not isolated from published routing")
 	}
-	return updated.Catalog.Data
+	return updated.Catalog().Data
 }
 
 func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecessorVersion string) {
@@ -431,12 +431,12 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 		journey.requireCredential(successor[client], "native-journey-token")
 	}
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) ||
-		!bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
+		!bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog().Data, state.catalog) {
 		t.Fatal("current-schema rollback changed published routing or catalog presentation")
 	}
 	journey.run("sync")
 	journey.run("check")
-	if !bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
+	if !bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog().Data, state.catalog) {
 		t.Fatal("published predecessor synchronization changed catalog presentation")
 	}
 	for _, client := range state.clients {
@@ -453,7 +453,7 @@ func (state *publishedNativeJourney) rollbackAndRecover(t *testing.T, predecesso
 	journey.requireVersion(state.version)
 	journey.requireProgramBytes(state.candidate)
 	if !bytes.Equal(readFile(t, journey.config), state.predecessor) ||
-		!bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog.Data, state.catalog) {
+		!bytes.Equal(capturePublishedSnapshot(t, store.NewStore(journey.config, builtinclients.Admission())).Catalog().Data, state.catalog) {
 		t.Fatal("current-schema recovery rewrote published routing or catalog presentation")
 	}
 	state.finish(t)

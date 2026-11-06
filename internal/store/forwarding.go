@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"path/filepath"
 	"slices"
-	"strings"
 
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
@@ -26,10 +24,6 @@ type forwardingDestination struct {
 	Endpoint         string                  `toml:"endpoint"`
 	UpstreamIdentity string                  `toml:"upstream_identity"`
 	Protocol         domain.EndpointProtocol `toml:"protocol"`
-}
-
-func (s Store) forwardingPath() string {
-	return strings.TrimSuffix(s.path, filepath.Ext(s.path)) + ".forwarding.toml"
 }
 
 // encodeForwarding writes each forwarded binding's recorded upstream, never the

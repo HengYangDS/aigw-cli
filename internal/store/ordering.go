@@ -3,8 +3,6 @@ package store
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
-	"strings"
 
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
@@ -17,10 +15,6 @@ import (
 type catalogOrder struct {
 	Accounts map[string]int `toml:"accounts,omitempty"`
 	Models   map[string]int `toml:"models,omitempty"`
-}
-
-func (s Store) catalogPath() string {
-	return strings.TrimSuffix(s.path, filepath.Ext(s.path)) + ".catalog.toml"
 }
 
 func encodeCatalogOrder(cfg domain.Config) ([]byte, error) {
@@ -71,13 +65,13 @@ func decodeCatalogOrder(cfg domain.Config, snapshot platform.FileSnapshot) (doma
 }
 
 func (s Store) loadSnapshot(snapshot Snapshot) (domain.Config, error) {
-	cfg, err := decodeStoreConfig(snapshot.Config.Data, snapshot.Forwarding, s.admission)
+	cfg, err := decodeStoreConfig(snapshot.Config.Data, snapshot.Forwarding(), s.admission)
 	if err != nil {
 		return domain.Config{}, err
 	}
-	cfg, err = decodeComponents(cfg, snapshot.Catalog, snapshot.capabilities)
+	cfg, err = decodeComponents(cfg, snapshot.Catalog(), snapshot.components[capabilitiesComponent])
 	if err != nil {
 		return domain.Config{}, err
 	}
-	return decodeRetryPolicies(cfg, snapshot.retries)
+	return decodeRetryPolicies(cfg, snapshot.components[retriesComponent])
 }

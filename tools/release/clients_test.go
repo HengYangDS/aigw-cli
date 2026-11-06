@@ -311,7 +311,7 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	continueClient()
 	j.run("rollback", "--last-change")
 	restored := capturePublishedSnapshot(j.testing, configStore)
-	if !restored.Config.Equal(before.Config) || !restored.Forwarding.Equal(before.Forwarding) {
+	if !restored.Config.Equal(before.Config) || !restored.Forwarding().Equal(before.Forwarding()) {
 		j.testing.Fatal("native forwarding rollback lost the original binding bytes")
 	}
 	j.requireCredential(retained, token)

@@ -64,7 +64,7 @@ func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *tes
 			failure := errors.New("component mutation failed")
 			newer := []byte("# concurrent operator content\n")
 			failedPath := map[string]string{
-				"forwarding": store.forwardingPath(), "forwarding-backup": store.forwardingPath() + ".bak",
+				"forwarding": store.componentPath(forwardingComponent), "forwarding-backup": store.componentPath(forwardingComponent) + ".bak",
 				"config": store.Path(), "checkpoint": store.Path() + ".verified.json",
 			}[test.component]
 			beforeFailure := func() {}

@@ -432,7 +432,7 @@ func (j *journeyFixture) requireStoredCredentialAcrossUpdate(candidate, archive,
 			j.requireCredential(credential, token)
 		}
 		j.run("sync")
-		if !bytes.Equal(capturePublishedSnapshot(j.testing, store.NewStore(j.config, builtinclients.Admission())).Catalog.Data, catalog) {
+		if !bytes.Equal(capturePublishedSnapshot(j.testing, store.NewStore(j.config, builtinclients.Admission())).Catalog().Data, catalog) {
 			j.testing.Fatal("credential lifecycle changed catalog presentation")
 		}
 		current := j.retainedCredentials()

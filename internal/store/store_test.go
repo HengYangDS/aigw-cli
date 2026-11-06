@@ -140,7 +140,7 @@ func TestForwardingUnchangedCanonicalRejectsStalePreimage(t *testing.T) {
 		t.Fatal("forwarding committed despite a newer canonical preimage")
 	}
 	after, err := store.CaptureSnapshot()
-	if err != nil || !bytes.Equal(after.Config.Data, newer) || !after.Backup.Equal(before.Backup) || after.Forwarding.Exists {
+	if err != nil || !bytes.Equal(after.Config.Data, newer) || !after.Backup.Equal(before.Backup) || after.Forwarding().Exists {
 		t.Fatalf("rejected stale commit changed independent state: %v", err)
 	}
 }

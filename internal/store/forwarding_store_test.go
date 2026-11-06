@@ -41,7 +41,7 @@ func TestStoreForwardingReadFailuresPreserveRecoveryInputs(t *testing.T) {
 			if err != nil || want.Clients[ClientCodex].ForwardingEndpoint == "" {
 				t.Fatalf("valid forwarding read: %v", err)
 			}
-			path := store.forwardingPath() + reader.suffix
+			path := store.componentPath(forwardingComponent) + reader.suffix
 			valid, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)

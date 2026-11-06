@@ -6,9 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"path/filepath"
 	"slices"
-	"strings"
 
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
@@ -28,10 +26,6 @@ type routeCapabilities struct {
 type recordedCapabilities struct {
 	Identity     string              `toml:"identity"`
 	Capabilities []domain.Capability `toml:"capabilities"`
-}
-
-func (s Store) capabilitiesPath() string {
-	return strings.TrimSuffix(s.path, filepath.Ext(s.path)) + ".capabilities.toml"
 }
 
 // publishedCapability reports whether every published schema-six reader
