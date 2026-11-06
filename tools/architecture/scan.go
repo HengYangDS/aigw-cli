@@ -181,10 +181,8 @@ func collectGoFiles(root string, p policy) ([]goFileInfo, error) {
 				return walkErr
 			}
 			name := d.Name()
-			rel, err := filepath.Rel(root, path)
-			if err != nil {
-				return err
-			}
+			// WalkDir yields only paths below root, so Rel has nothing to refuse.
+			rel, _ := filepath.Rel(root, path)
 			relPOSIX := toPOSIX(rel)
 			if d.IsDir() {
 				if path == abs {

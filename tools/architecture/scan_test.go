@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -75,15 +74,24 @@ func TestRelativePolicyFromRoot(t *testing.T) {
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
 	trackFixture(t, root)
+	t.Chdir(root)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := run([]string{"-root", root}, &stdout, &stderr)
+	code := run([]string{"--root", "."}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
 	}
 	report := decodeReport(t, stdout.String())
 	if report.Policy != policyPath {
 		t.Fatalf("policy=%q", report.Policy)
+	}
+	want, err := os.Stat(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reported := filepath.FromSlash(report.Root)
+	if got, err := os.Stat(reported); !filepath.IsAbs(reported) || err != nil || !os.SameFile(got, want) {
+		t.Fatalf("root=%q, want the working directory %q: %v", report.Root, root, err)
 	}
 }
 
@@ -183,19 +191,10 @@ func TestCollectGoFilesRejectsInvalidRoot(t *testing.T) {
 }
 
 func TestCollectGoFilesPropagatesWalkFailures(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
-	if os.Geteuid() == 0 {
-		t.Skip("root lists a directory without read permission")
-	}
 	root := t.TempDir()
 	closed := filepath.Join(root, "internal", "closed")
 	writeFile(t, filepath.Join(closed, "owner.go"), "package closed\n")
-	if err := os.Chmod(closed, 0o300); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(closed, 0o700) })
+	closeDirectory(t, closed)
 	if _, err := collectGoFiles(root, policy{GoRoots: []string{"internal"}}); err == nil || !strings.Contains(err.Error(), "walk go root internal") {
 		t.Fatalf("walk error = %v", err)
 	}

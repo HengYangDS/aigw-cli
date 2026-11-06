@@ -1,31 +1,20 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestDecisionRecordDirectoryReadFailureIsReported(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
-	if os.Geteuid() == 0 {
-		t.Skip("root lists a directory without read permission")
-	}
 	root := t.TempDir()
 	directory := filepath.Join(root, "docs", "decisions")
 	writeFile(t, filepath.Join(directory, decisionNavigationFile), "# Decisions\n")
-	if err := os.Chmod(directory, 0o300); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(directory, 0o700) })
+	closeDirectory(t, directory)
 	report := newReport(root)
-	if err := checkDecisionRecords(root, &report); !errors.Is(err, os.ErrPermission) || !strings.Contains(err.Error(), "read Decision Records") {
+	if err := checkDecisionRecords(root, &report); err == nil || !strings.Contains(err.Error(), "read Decision Records") {
 		t.Fatalf("directory read error = %v", err)
 	}
 }

@@ -63,6 +63,16 @@ func writeFile(t *testing.T, path, body string) {
 	}
 }
 
+// closeDirectory keeps dir from being listed until the test ends, and skips a
+// test whose identity, such as root, lists it anyway.
+func closeDirectory(t *testing.T, dir string) {
+	t.Helper()
+	denyListing(t, dir)
+	if _, err := os.ReadDir(dir); err == nil {
+		t.Skip("this identity lists a directory that denies listing")
+	}
+}
+
 func decodeReport(t *testing.T, raw string) Report {
 	t.Helper()
 	var report Report
