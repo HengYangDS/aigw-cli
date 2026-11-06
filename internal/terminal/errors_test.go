@@ -319,6 +319,12 @@ func TestStatesFixNamesOnlyAnErrorsOwnFix(t *testing.T) {
 		&os.PathError{Op: "read", Path: "/private/x", Err: os.ErrPermission}: false,
 		errors.New("release lookup failed"):                                  false,
 		Usage("aigw update", errors.New("accepts 0 arg(s), received 1")):     false,
+		// Only the text and next action that the outer error adds are its
+		// own; a wrapped cause's are not.
+		fmt.Errorf("refused; run `aigw sync`: %w", errors.New("cause")):                true,
+		fmt.Errorf("activate: %w", errors.New("private; run `aigw sync`")):             false,
+		fmt.Errorf("activate: %w", nextActionError{}):                                  false,
+		fmt.Errorf("activate: %w: %w", errors.New("x"), errors.New("run `aigw sync`")): false,
 	} {
 		if got := StatesFix(err); got != want {
 			t.Errorf("StatesFix(%v) = %t, want %t", err, got, want)

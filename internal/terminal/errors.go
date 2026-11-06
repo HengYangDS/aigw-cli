@@ -377,16 +377,35 @@ func errorFix(err error, message string) string {
 	return "aigw check"
 }
 
-// StatesFix reports whether err states its own fix, as a structured problem,
-// as a next action or as an `aigw` command in its own message, so that a
-// caller presents it unchanged instead of replacing that fix. A hint that
-// the presentation adds, such as a local file failure's, is not the error's.
+// StatesFix reports whether err states its own fix: a structured problem, a
+// next action of err itself, or an `aigw` command in the text that err adds to
+// the errors that it wraps. A fix that a wrapped cause names, or a hint that the
+// presentation adds, is not err's own, so a caller that presents err unchanged
+// shows no cause that it meant to keep private.
 func StatesFix(err error) bool {
 	if user, ok := errors.AsType[*userError](err); ok {
 		return user.problem.Fix != ""
 	}
-	_, ok := statedFix(err, err.Error())
-	return ok
+	// Only err's own next action counts, never a wrapped cause's.
+	if refusal, ok := err.(interface{ NextAction() string }); ok && refusal.NextAction() != "" {
+		return true
+	}
+	return mentionedAIGWCommand(ownMessage(err)) != ""
+}
+
+// ownMessage is the text that err adds to the messages of the errors that it
+// wraps.
+func ownMessage(err error) string {
+	message, causes := err.Error(), []error{errors.Unwrap(err)}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		causes = joined.Unwrap()
+	}
+	for _, cause := range causes {
+		if cause != nil {
+			message = strings.Replace(message, cause.Error(), "", 1)
+		}
+	}
+	return message
 }
 
 // statedFix is the next action that err states for itself, or else the

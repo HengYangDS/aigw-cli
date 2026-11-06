@@ -19,6 +19,6 @@ func ProviderReference(cfg domain.Config, args []string) (string, error) {
 	case 1:
 		return cfg.CatalogProviderIDs()[0], nil
 	default:
-		return "", fmt.Errorf("account is required when configuration contains %d accounts", len(cfg.Providers))
+		return "", &ArgumentError{Err: fmt.Errorf("account is required when configuration contains %d accounts", len(cfg.Providers))}
 	}
 }

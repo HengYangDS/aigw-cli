@@ -230,6 +230,9 @@ func TestUsageErrorsNameTheirHelpAndOtherFailuresTheDiagnostic(t *testing.T) {
 		{[]string{"route", "show"}, "aigw route show --help"},
 		{[]string{"route", "list", "extra"}, "aigw route list --help"},
 		{[]string{"completion", "tcsh"}, "aigw completion --help"},
+		// An argument that a command finds missing while it runs is a usage
+		// error of that command too.
+		{[]string{"rotate"}, "aigw rotate --help"},
 		{[]string{"route", "show", "missing"}, "aigw check"},
 	} {
 		out.Reset()

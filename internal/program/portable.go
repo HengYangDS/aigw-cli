@@ -128,16 +128,22 @@ func refuseRollbackDirectory(path string) error {
 }
 
 // rollbackDirectoryError is a directory at the rollback copy's path. The
-// command succeeds once that directory moves.
+// command succeeds once that directory moves. It names the rollback copy by
+// its file name, which is the same beside every program, and never the
+// program's private directory.
 type rollbackDirectoryError struct{ path string }
 
+func (e rollbackDirectoryError) name() string {
+	return e.path[strings.LastIndexAny(e.path, `/\`)+1:]
+}
+
 func (e rollbackDirectoryError) Error() string {
-	return fmt.Sprintf("rollback copy path %s is a directory that AIGW did not write; move it, then run the command again", e.path)
+	return fmt.Sprintf("rollback copy path %s beside the program is a directory that AIGW did not write; move it, then run the command again", e.name())
 }
 
 // NextAction is the step after which the command succeeds.
 func (e rollbackDirectoryError) NextAction() string {
-	return "Move the directory at the rollback copy path, then run the command again."
+	return "Move the directory " + e.name() + " beside the program, then run the command again."
 }
 
 // admitUninstall refuses an uninstall target that AIGW does not own, that is

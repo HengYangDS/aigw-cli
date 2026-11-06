@@ -1,6 +1,7 @@
 # update refuses a source build without a release source and a rollback
 # without a retained program, and reports a current release from a
-# configured source, in text and as JSON.
+# configured source, in text and as JSON. A preview without a release source
+# continues with a preview.
 exec aigw update --help
 cmp stdout help.txt
 
@@ -10,6 +11,8 @@ exitcode 1 aigw update --rollback
 cmp stdout rollback.txt
 exitcode 1 aigw update --json
 cmp stdout unconfigured.json
+exitcode 1 aigw update --dry-run
+cmp stdout unconfigured-preview.txt
 
 env AIGW_GITHUB_RELEASE_ORIGIN=$UPSTREAM
 env AIGW_GITHUB_RELEASE_REPOSITORY=team/aigw
@@ -129,3 +132,18 @@ Next
   "summary": "already running the latest version v0.1.0-dev",
   "next_action": "aigw sync"
 }
+-- unconfigured-preview.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Update preview did not complete
+
+Evidence
+  AIGW could not determine the version that an update would install.
+
+Impact
+  No file, rollback copy or Keychain item changed.
+
+Fix
+  aigw update --dry-run --candidate <archive> --checksums <checksums>

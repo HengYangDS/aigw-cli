@@ -3,6 +3,7 @@ package cli_test
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -27,6 +28,11 @@ func TestUpdateFailureNamesTheFixOfItsCause(t *testing.T) {
 			want: "aigw installation", problem: "Program update did not complete"},
 		{name: "stated fix", args: []string{"update"}, updater: &fakeUpdater{updateErr: ownFix},
 			want: "aigw update --candidate <archive> --checksums <checksums>", problem: ownFix.Error()},
+		// A command that a wrapped cause names is not the error's own fix, and
+		// the cause stays private.
+		{name: "cause names a command", args: []string{"update"},
+			updater: &fakeUpdater{updateErr: fmt.Errorf("activate update: %w", errors.New("private cause; run `aigw sync`"))},
+			want:    "aigw installation", problem: "Program update did not complete"},
 		{name: "stated next action", args: []string{"update", "--rollback"}, updater: &fakeUpdater{rollbackErr: movedDirectoryError{}},
 			want: movedDirectoryError{}.NextAction(), problem: movedDirectoryError{}.Error()},
 	} {
@@ -36,7 +42,8 @@ func TestUpdateFailureNamesTheFixOfItsCause(t *testing.T) {
 			if err := cli.Execute(app, test.args); err == nil {
 				t.Fatal("failed update succeeded")
 			}
-			if !strings.Contains(out.String(), "Problem\n  "+test.problem) || !strings.Contains(out.String(), "Fix\n  "+test.want) {
+			if !strings.Contains(out.String(), "Problem\n  "+test.problem) || !strings.Contains(out.String(), "Fix\n  "+test.want) ||
+				strings.Contains(out.String(), "private cause") {
 				t.Fatalf("update failure output:\n%s", out.String())
 			}
 		})
@@ -52,7 +59,8 @@ func (movedDirectoryError) NextAction() string {
 	return "Move the directory at the rollback copy path, then run the command again."
 }
 
-// A program that Homebrew installed is updated and removed with Homebrew.
+// A program that Homebrew installed is updated and removed with Homebrew, and
+// a portable installation from it names Homebrew's command too.
 func TestHomebrewOwnedProgramNamesHomebrew(t *testing.T) {
 	for _, test := range []struct {
 		args []string
@@ -61,16 +69,16 @@ func TestHomebrewOwnedProgramNamesHomebrew(t *testing.T) {
 		{args: []string{"update"}, want: "brew upgrade --cask aigw"},
 		{args: []string{"update", "--dry-run"}, want: "brew upgrade --cask aigw"},
 		{args: []string{"uninstall"}, want: "brew uninstall --cask aigw"},
+		{args: []string{"install", "--path", filepath.Join(t.TempDir(), "portable", "aigw")}, want: "brew upgrade --cask aigw"},
 	} {
-		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
+		t.Run(strings.Join(test.args[:min(len(test.args), 2)], " "), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
 			homebrewProgram(t, app)
 			app.Updater = &fakeUpdater{}
 			if err := cli.Execute(app, test.args); err == nil {
 				t.Fatal("a Homebrew-owned program was changed")
 			}
-			if !strings.Contains(out.String(), "Homebrew manages this AIGW program") || !strings.Contains(out.String(), "Fix\n  "+test.want) ||
-				strings.Contains(out.String(), "aigw update --rollback") {
+			if !strings.Contains(out.String(), "Homebrew manages this") || !strings.Contains(out.String(), "Fix\n  "+test.want+"\n") {
 				t.Fatalf("Homebrew-owned program output:\n%s", out.String())
 			}
 		})

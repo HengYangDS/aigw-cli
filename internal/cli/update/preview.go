@@ -1,6 +1,8 @@
 package update
 
 import (
+	"errors"
+
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/program"
 	"aigw-cli/internal/terminal"
@@ -25,9 +27,14 @@ func runPreview(cmd *cobra.Command, runtime invocation.Context, jsonMode bool, c
 		result, err = runtime.Updater.Preview(cmd.Context(), runtime.Version)
 	}
 	if err != nil {
-		return programProblem("Update preview did not complete", "AIGW could not determine the version that an update would install.",
-			"No file, rollback copy or Keychain item changed.",
-			releaseFix(err, candidate.ArchivePath != "", "aigw update --dry-run --candidate <archive> --checksums <checksums>"), err)
+		title, evidence, impact := "Update preview did not complete", "AIGW could not determine the version that an update would install.",
+			"No file, rollback copy or Keychain item changed."
+		// A preview continues with a preview, even when the error names the
+		// update that installs.
+		if candidate.ArchivePath == "" && errors.Is(err, program.ErrReleaseSource) {
+			return terminal.ProblemError(title, evidence, impact, "aigw update --dry-run --candidate <archive> --checksums <checksums>", err)
+		}
+		return programProblem(title, evidence, impact, "aigw installation", err)
 	}
 	document := updateDocument{DryRun: true, State: result.State, Version: result.Version, Summary: result.Summary,
 		CurrentVersion: runtime.Version, Path: runtime.Executable}

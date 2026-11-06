@@ -5,6 +5,7 @@ package rotate
 import (
 	"errors"
 	"fmt"
+	"net/http"
 
 	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
@@ -111,23 +112,31 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 }
 
 // validationProblem explains a Token that rotation did not store. A Token that
-// the provider rejected, or an endpoint that did not answer, needs the same
-// command again; another status means that the Account's endpoint is wrong,
-// so the fix edits it.
+// the provider rejected, an endpoint that did not answer, and a status that a
+// later request may not repeat need the same command again; another status
+// points at the Account's endpoint, so the fix edits it.
 func validationProblem(cmd *cobra.Command, args []string, secrets secret.Store, accountName string, err error) error {
 	impact := "No Token was stored."
 	if previous, existsErr := secrets.Exists(accountName); existsErr == nil && previous {
 		impact = "No Token was stored; the previous Token is unchanged."
 	}
 	fix := "aigw check"
+	status, answered := errors.AsType[*probe.EndpointStatusError](err)
 	_, rejected := errors.AsType[*probe.TokenRejectedError](err)
 	_, unreachable := errors.AsType[*probe.UnreachableError](err)
-	if status, ok := errors.AsType[*probe.EndpointStatusError](err); ok {
+	switch {
+	case answered && !transientStatus(status.Status):
 		fix = editEndpoint(accountName, status.Protocol)
-	} else if rejected || unreachable {
+	case answered, rejected, unreachable:
 		fix = invocation.Retry(cmd, args)
 	}
 	return terminal.ProblemError("Token validation failed: "+err.Error(), "", impact, fix, err)
+}
+
+// transientStatus reports a status that a later request may not repeat: a
+// timeout, a rate limit or a server error.
+func transientStatus(status int) bool {
+	return status == http.StatusRequestTimeout || status == http.StatusTooManyRequests || status >= http.StatusInternalServerError
 }
 
 // editEndpoint is the account edit that corrects the endpoint that the Token

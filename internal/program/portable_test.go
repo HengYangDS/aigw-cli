@@ -195,7 +195,10 @@ func TestPlansAndChangesRefuseARollbackDirectoryAlike(t *testing.T) {
 		"uninstall plan": func() error { _, err := PlanUninstall(target); return err },
 		"uninstall":      func() error { return Uninstall(target) },
 	} {
-		if err := change(); err == nil || !strings.Contains(err.Error(), "rollback copy path "+RollbackPath(target)+" is a directory") {
+		// The refusal names the rollback copy's file, never the private
+		// directory that holds the program.
+		if err := change(); err == nil || !strings.Contains(err.Error(), "rollback copy path "+filepath.Base(RollbackPath(target))+" beside the program is a directory") ||
+			strings.Contains(err.Error(), filepath.Dir(target)) {
 			t.Fatalf("%s = %v", name, err)
 		}
 	}

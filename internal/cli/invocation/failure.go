@@ -12,6 +12,17 @@ import (
 // sameCommand is a retry whose command line would need quoting.
 const sameCommand = "Run the same command again."
 
+// ArgumentError is an argument that a command refuses while it runs, such as
+// an omitted one that the configuration cannot supply. The CLI root makes it a
+// usage error of the command that ran.
+type ArgumentError struct{ Err error }
+
+// Error is the refusal's message.
+func (e *ArgumentError) Error() string { return e.Err.Error() }
+
+// Unwrap returns the refusal.
+func (e *ArgumentError) Unwrap() error { return e.Err }
+
 // MarkUsageErrors makes the argument refusal of every command in the tree
 // under root a usage error of that command, whose help is its fix.
 func MarkUsageErrors(root *cobra.Command) {

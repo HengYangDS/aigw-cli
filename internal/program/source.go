@@ -74,10 +74,21 @@ func validateReleaseSources(sources ...ReleaseSource) error {
 		}
 	}
 	if !configured {
-		return fmt.Errorf("release source is not configured; install an official release or use `aigw update --candidate <archive> --checksums <checksums>`")
+		return unconfiguredSourceError{}
 	}
 	return nil
 }
+
+// unconfiguredSourceError is a program built without a release source. It is
+// a failure of the release sources that states its own fix.
+type unconfiguredSourceError struct{}
+
+func (unconfiguredSourceError) Error() string {
+	return "release source is not configured; install an official release or use `aigw update --candidate <archive> --checksums <checksums>`"
+}
+
+// Is reports the error as a failure of the release sources.
+func (unconfiguredSourceError) Is(target error) bool { return target == ErrReleaseSource }
 
 // Validate admits one release peer for embedded metadata and runtime selection.
 func (s ReleaseSource) Validate() error {

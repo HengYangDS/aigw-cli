@@ -177,6 +177,10 @@ func TestRotateNamesTheFixOfItsValidationFailure(t *testing.T) {
 			fix: "aigw rotate --token-stdin", impact: "No Token was stored."},
 		{name: "another status", args: []string{"rotate", "one", "--token-stdin"}, status: http.StatusNotFound,
 			fix: "aigw account edit one --anthropic-url <url>", impact: "No Token was stored."},
+		{name: "server error", args: []string{"rotate", "one", "--token-stdin"}, status: http.StatusServiceUnavailable,
+			fix: "aigw rotate one --token-stdin", impact: "No Token was stored."},
+		{name: "rate limit", args: []string{"rotate", "one", "--token-stdin"}, status: http.StatusTooManyRequests,
+			fix: "aigw rotate one --token-stdin", impact: "No Token was stored."},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, secretStore, _, httpClient := testApp(t, "new-token\n")

@@ -183,7 +183,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 				return programProblem("Program update did not complete", "AIGW could not complete release verification and program replacement.",
 					"No updated program version was confirmed active; client settings and credentials were not changed.",
-					releaseFix(err, candidateArchive != "", "aigw update --candidate <archive> --checksums <checksums>"), err)
+					releaseFix(err, candidateArchive != ""), err)
 			}
 			title := "Update"
 			if rollback {
@@ -228,12 +228,12 @@ func programProblem(title, evidence, impact, fix string, err error) error {
 	return terminal.ProblemError(title, evidence, impact, fix, err)
 }
 
-// releaseFix is the fix of a failed transition: archive, a verified local
-// archive, when the release sources failed and the command did not already
-// name a candidate; otherwise the report of the active program.
-func releaseFix(err error, candidate bool, archive string) string {
+// releaseFix is the fix of a failed update: a verified local archive when the
+// release sources failed and the command did not already name a candidate;
+// otherwise the report of the active program.
+func releaseFix(err error, candidate bool) string {
 	if !candidate && errors.Is(err, program.ErrReleaseSource) {
-		return archive
+		return "aigw update --candidate <archive> --checksums <checksums>"
 	}
 	return "aigw installation"
 }

@@ -9,8 +9,19 @@ import (
 	"strings"
 )
 
-// ErrHomebrewManaged means a valid Homebrew receipt owns the executable.
-var ErrHomebrewManaged = errors.New("Homebrew manages this executable; use Homebrew for upgrade, rollback, or removal instead of portable installation commands, and run `aigw update --rollback` before Homebrew installs an earlier release")
+// ErrHomebrewManaged means a valid Homebrew receipt owns the executable, which
+// Homebrew upgrades and removes; its next action is the Homebrew command.
+var ErrHomebrewManaged error = homebrewManagedError{}
+
+// homebrewManagedError is ErrHomebrewManaged.
+type homebrewManagedError struct{}
+
+func (homebrewManagedError) Error() string {
+	return "Homebrew manages this executable; upgrade, roll back or remove it with Homebrew, such as `brew upgrade --cask aigw`, instead of portable installation commands, and run `aigw update --rollback` before Homebrew installs an earlier release"
+}
+
+// NextAction is the Homebrew command that keeps the program current.
+func (homebrewManagedError) NextAction() string { return "brew upgrade --cask aigw" }
 
 // InstalledProgram reports whether an installation rolls back through
 // executable: Homebrew's receipt owns it, or AIGW retained the portable
