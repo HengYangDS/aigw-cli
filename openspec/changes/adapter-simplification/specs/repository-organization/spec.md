@@ -19,10 +19,10 @@ Repository configuration, tools, source, tests, documentation, and release asset
 #### Scenario: Several client adapters repeat one step
 
 - **WHEN** two or more client adapters implement the same step, such as a
-  Converge preamble, a guarded multi-file write or a document encoder
+  Converge preamble or a document encoder
 - **THEN** that step SHALL have one owner that the adapters call
-- **AND** an adapter SHALL keep its own sequence only where its order differs
-  on purpose.
+- **AND** an adapter SHALL keep its own sequence only where its order or
+  error text differs.
 
 #### Scenario: Contributor uses another host
 

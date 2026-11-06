@@ -4,8 +4,6 @@ The client adapters repeat code that one owner should hold. A fresh-context
 review traced each copy to its callers:
 
 - Each adapter writes the same Converge preamble.
-- Three adapters each implement a guarded multi-file write with reverse
-  rollback.
 - The JSON encoders, the receipt slices and the `.aigw-state.json` suffix are
   copied between adapters.
 - Codex keeps a lattice of forwarders that only tests call.
@@ -17,9 +15,6 @@ Every copy is code to keep correct more than once.
 
 - One Converge preamble helper in `internal/adapter`; each adapter keeps only
   its own targets rule.
-- One guarded multi-file write with reverse rollback beside the platform's
-  guarded file functions, used by Claude Code, Claude Desktop and Codex.
-  Hermes keeps its deliberate config-before-state order.
 - One indented JSON encoder, one raw-message encoder, one receipt slice and one
   state-file suffix in `internal/adapter`.
 - Codex's test-only forwarders go; tests call the functions production calls.

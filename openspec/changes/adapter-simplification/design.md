@@ -28,12 +28,15 @@ suffix move to `internal/adapter`, because every adapter already depends on
 it. Hermes's preamble checks that its executable exists before it reads the
 secret store, and the helper keeps that order.
 
-### The platform owns the guarded multi-file write
+### Guarded multi-file writes stay with their adapters
 
-Claude Desktop's version, with Codex's exact-mode write, moves beside the
-platform's guarded file functions. Test fault injection becomes a parameter
-instead of package variables. Hermes restores its config before its state on
-purpose, so it keeps its own sequence.
+Claude Code, Claude Desktop and Codex each write several files under a
+preimage guard and restore them on failure, but the three differ. Claude
+Code restores its settings before its state and attempts both, while Claude
+Desktop and Codex restore in reverse write order. Codex and Claude Code wrap
+their errors in their own words, and Claude Desktop returns them unwrapped.
+One helper would need an order switch and per-adapter error formatting, so
+each adapter keeps its own sequence, as Hermes already does.
 
 ### Forwarders go rather than stay as facades
 
@@ -42,6 +45,8 @@ production calls.
 
 ## Risks / Trade-offs
 
-- A shared write path touches every adapter's files at once. Each adapter's
-  existing write, refusal and rollback tests must pass unchanged, and a
-  removal is skipped where it would change bytes, modes or order.
+- Codex's reconciliation is exported as `ReconcileConfigs`, with a
+  `HomeTarget` constructor, because tests in other packages call it. It is
+  the function production calls, not a forwarder.
+- One refusal keeps released text that names an authority and a projection
+  mode the code no longer models, so the printed text stays unchanged.
