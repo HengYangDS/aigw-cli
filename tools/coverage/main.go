@@ -2,7 +2,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -19,13 +18,13 @@ import (
 	pathpkg "path"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
 	"aigw-cli/internal/platform/process"
 
 	"github.com/pelletier/go-toml/v2"
+	"golang.org/x/tools/cover"
 )
 
 const defaultPolicyPath = ".config/checks/coverage/policy.toml"
@@ -355,74 +354,30 @@ func parsePackageList(output string) ([]string, error) {
 }
 
 func readCoverage(path, expectedMode string) (coverageResult, error) {
-	file, err := os.Open(path)
+	profiles, err := cover.ParseProfiles(path)
 	if err != nil {
 		return coverageResult{}, err
 	}
-	defer func() { _ = file.Close() }()
-
-	scanner := bufio.NewScanner(file)
-	if !scanner.Scan() {
-		return coverageResult{}, fmt.Errorf("profile is empty")
-	}
-	if header := scanner.Text(); header != "mode: "+expectedMode {
-		return coverageResult{}, fmt.Errorf("profile mode %q does not match %q", header, expectedMode)
-	}
-
 	result := coverageResult{Packages: map[string]coverageCount{}}
-	type sourceRange struct {
-		packageName string
-		statements  int64
-		covered     bool
-	}
-	ranges := map[string]sourceRange{}
-	line := 1
-	for scanner.Scan() {
-		line++
-		fields := strings.Fields(scanner.Text())
-		if len(fields) != 3 {
-			return coverageResult{}, fmt.Errorf("line %d must have three fields", line)
+	for _, profile := range profiles {
+		if profile.Mode != expectedMode {
+			return coverageResult{}, fmt.Errorf("profile mode %q does not match %q", "mode: "+profile.Mode, expectedMode)
 		}
-		separator := strings.LastIndex(fields[0], ":")
-		if separator <= 0 {
-			return coverageResult{}, fmt.Errorf("line %d has invalid source range", line)
-		}
-		packageName := pathpkg.Dir(fields[0][:separator])
-		statements, err := strconv.ParseInt(fields[1], 10, 64)
-		if err != nil || statements < 0 {
-			return coverageResult{}, fmt.Errorf("line %d has invalid statement count", line)
-		}
-		count, err := strconv.ParseInt(fields[2], 10, 64)
-		if err != nil || count < 0 {
-			return coverageResult{}, fmt.Errorf("line %d has invalid execution count", line)
-		}
-		rangeID := fields[0]
-		covered := count > 0
-		if existing, ok := ranges[rangeID]; ok {
-			if existing.packageName != packageName || existing.statements != statements {
-				return coverageResult{}, fmt.Errorf("line %d conflicts with repeated source range", line)
+		packageName := pathpkg.Dir(profile.FileName)
+		packageCoverage := result.Packages[packageName]
+		for _, block := range profile.Blocks {
+			statements := int64(block.NumStmt)
+			if statements > math.MaxInt64-result.Total {
+				return coverageResult{}, fmt.Errorf("coverage profile overflows statement total")
 			}
-			existing.covered = existing.covered || covered
-			ranges[rangeID] = existing
-			continue
+			result.Total += statements
+			packageCoverage.Total += statements
+			if block.Count > 0 {
+				result.Covered += statements
+				packageCoverage.Covered += statements
+			}
 		}
-		ranges[rangeID] = sourceRange{packageName: packageName, statements: statements, covered: covered}
-	}
-	if err := scanner.Err(); err != nil {
-		return coverageResult{}, err
-	}
-	for _, source := range ranges {
-		if source.statements > math.MaxInt64-result.Total {
-			return coverageResult{}, fmt.Errorf("coverage profile overflows statement total")
-		}
-		result.Total += source.statements
-		packageCoverage := result.Packages[source.packageName]
-		packageCoverage.Total += source.statements
-		if source.covered {
-			result.Covered += source.statements
-			packageCoverage.Covered += source.statements
-		}
-		result.Packages[source.packageName] = packageCoverage
+		result.Packages[packageName] = packageCoverage
 	}
 	if result.Total == 0 {
 		return coverageResult{}, fmt.Errorf("profile contains no statements")

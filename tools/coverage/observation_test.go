@@ -110,7 +110,7 @@ func TestReadCoverageRejectsConflictingRepeatedRange(t *testing.T) {
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := readCoverage(path, "atomic"); err == nil || !strings.Contains(err.Error(), "conflicts with repeated source range") {
+	if _, err := readCoverage(path, "atomic"); err == nil || !strings.Contains(err.Error(), "inconsistent NumStmt") {
 		t.Fatalf("error = %v", err)
 	}
 }
