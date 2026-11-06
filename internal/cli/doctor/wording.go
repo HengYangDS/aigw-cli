@@ -118,7 +118,7 @@ func checkDetail(admission domain.Admission, check checkResult) string {
 		if detail == spec.Label+" configuration target is missing" {
 			return "Enabled, but no " + spec.Label + " configuration file is configured"
 		}
-	case routeBinding(admission, name):
+	case modelBinding(admission, name):
 		spec, _ := doctorWording(admission, name, "projection:")
 		return "Current " + spec.Label + " binding cannot be resolved"
 	case isTargetCheck(admission, name):
@@ -138,7 +138,7 @@ func adapterStates(admission domain.Admission, name string) bool {
 	return wording.AdapterStates
 }
 
-func routeBinding(admission domain.Admission, name string) bool {
+func modelBinding(admission domain.Admission, name string) bool {
 	_, wording := doctorWording(admission, name, "projection:")
 	return wording.ModelBinding
 }

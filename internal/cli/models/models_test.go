@@ -69,7 +69,7 @@ func TestModelRowsGroupAccountsThenProtocolsThenDeclaredFamilies(t *testing.T) {
 	index := 0
 	for _, protocol := range []domain.EndpointProtocol{domain.ProtocolAnthropic, domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions} {
 		for _, model := range []string{"first", "second"} {
-			if rows[index].Protocol != protocol || rows[index].Model != model {
+			if rows[index].Protocol != protocol || rows[index].UpstreamModel != model {
 				t.Fatalf("catalog row %d = %#v; want protocol=%s model=%s", index, rows[index], protocol, model)
 			}
 			index++
@@ -112,12 +112,12 @@ func TestModelsCommandName(t *testing.T) {
 
 func TestModelRowsWithoutObservations(t *testing.T) {
 	rows := modelRows(configuredCatalog(), app.CatalogReport{})
-	if len(rows) != 2 || rows[0].Route != "claude" || rows[1].Route != "codex" {
+	if len(rows) != 2 || rows[0].Model != "claude" || rows[1].Model != "codex" {
 		t.Fatalf("route rows = %#v", rows)
 	}
 }
 
-func TestAmbiguousCatalogDoesNotReportRoutesAsNotListed(t *testing.T) {
+func TestAmbiguousCatalogDoesNotReportModelsAsNotListed(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://responses.test/v1"}}
 	cfg.Families["shared"] = domain.Family{Label: "Shared"}

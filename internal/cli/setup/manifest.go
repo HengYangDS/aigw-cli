@@ -21,7 +21,7 @@ const schemaVersion = 2
 
 type manifestSetupImported struct {
 	Accounts []string `json:"accounts"`
-	Routes   []string `json:"routes"`
+	Models   []string `json:"routes"`
 }
 
 type manifestSetupResult struct {
@@ -155,7 +155,7 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 	}
 	result := manifestSetupResult{
 		DryRun:             true,
-		Imported:           manifestSetupImported{Accounts: append([]string(nil), accountNames...), Routes: planned.ModelIDs()},
+		Imported:           manifestSetupImported{Accounts: append([]string(nil), accountNames...), Models: planned.ModelIDs()},
 		ConnectedAccounts:  []string{},
 		Selections:         map[string]string{},
 		ProjectedClients:   []string{},
@@ -176,7 +176,7 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 	r.Section("Imported capability")
 	r.Rows(
 		terminal.Field{Label: "Accounts", Value: strings.Join(result.Imported.Accounts, ", ")},
-		terminal.Field{Label: "Routes", Value: strings.Join(result.Imported.Routes, ", ")},
+		terminal.Field{Label: "Routes", Value: strings.Join(result.Imported.Models, ", ")},
 	)
 	r.Section("Account connections")
 	connections := make([]terminal.Field, 0, len(accountNames))
@@ -221,7 +221,7 @@ func buildManifestSetupResult(
 	result := manifestSetupResult{
 		Imported: manifestSetupImported{
 			Accounts: append([]string(nil), accountNames...),
-			Routes:   cfg.ModelIDs(),
+			Models:   cfg.ModelIDs(),
 		},
 		ConnectedAccounts:  make([]string, 0, len(connected)),
 		Selections:         make(map[string]string, len(cfg.Clients)),
@@ -277,7 +277,7 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 	r.Section("Imported capability")
 	r.Rows(
 		terminal.Field{Label: "Accounts", Value: strings.Join(result.Imported.Accounts, ", ")},
-		terminal.Field{Label: "Routes", Value: strings.Join(result.Imported.Routes, ", ")},
+		terminal.Field{Label: "Routes", Value: strings.Join(result.Imported.Models, ", ")},
 		terminal.Field{Label: "Connected accounts", Value: fmt.Sprintf("%d of %d", len(result.ConnectedAccounts), len(result.Imported.Accounts))},
 	)
 	r.Section("Account connections")

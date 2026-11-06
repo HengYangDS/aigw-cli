@@ -32,7 +32,7 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryAccountChoices(t *
 				t.Fatal(err)
 			}
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountRoute(&cfg, "codex", "provider", "Provider", domain.Endpoints{OpenAIResponses: test.endpoint}, codex.ID, "gpt-test")
+			addAccountModel(&cfg, "codex", "provider", "Provider", domain.Endpoints{OpenAIResponses: test.endpoint}, codex.ID, "gpt-test")
 			cfg.SetSelectedModel(codex.ID, "codex", "")
 			cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 			if err := app.Config.Save(cfg); err != nil {
@@ -78,7 +78,7 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryAccountChoices(t *
 func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "local", "local", "Local Endpoint", domain.Endpoints{Anthropic: "http://127.0.0.2:4567"}, claude.ID, "model-test")
+	addAccountModel(&cfg, "local", "local", "Local Endpoint", domain.Endpoints{Anthropic: "http://127.0.0.2:4567"}, claude.ID, "model-test")
 	cfg.SetSelectedModel(claude.ID, "local", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
@@ -105,7 +105,7 @@ func TestCheckIdentifiesExternalLoopbackTransportWithoutClaimingOwnership(t *tes
 func TestCheckDoesNotDescribeRemoteHTTPSAsExternalLoopbackTransport(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "remote", "remote", "Remote Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "model-test")
+	addAccountModel(&cfg, "remote", "remote", "Remote Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "model-test")
 	cfg.SetSelectedModel(claude.ID, "remote", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
@@ -146,7 +146,7 @@ func TestEndpointOnlyCheckUsesSelectedTLSOrLoopbackAccount(t *testing.T) {
 				t.Fatal(err)
 			}
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountRoute(&cfg, "codex", "selected", "Selected", domain.Endpoints{OpenAIResponses: server.URL + "/v1"}, codex.ID, "gpt-test")
+			addAccountModel(&cfg, "codex", "selected", "Selected", domain.Endpoints{OpenAIResponses: server.URL + "/v1"}, codex.ID, "gpt-test")
 			cfg.SetSelectedModel(codex.ID, "codex", "")
 			cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 			if err := app.Config.Save(cfg); err != nil {
@@ -189,7 +189,7 @@ func TestSelectedAccountWorksWithoutInstalledClient(t *testing.T) {
 	app.Discovery = fakeDiscovery{}
 	app.HTTP = server.Client()
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "codex", "provider", "Provider", domain.Endpoints{OpenAIResponses: server.URL + "/v1"}, codex.ID, "gpt-test")
+	addAccountModel(&cfg, "codex", "provider", "Provider", domain.Endpoints{OpenAIResponses: server.URL + "/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

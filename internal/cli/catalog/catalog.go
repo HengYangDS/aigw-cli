@@ -57,7 +57,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			} else {
 				renderCatalogObservation(r, rows, observation, all)
 			}
-			renderMissingRoutes(r, observation.MissingRoutes)
+			renderMissingModels(r, observation.MissingModels)
 		}
 		r.Next("aigw route add <route> --account <account> --model <model> --protocol <protocol>")
 		return r.Err()
@@ -108,8 +108,8 @@ func catalogModelDisplay(model app.CatalogModel) (terminal.State, string) {
 	if model.State == app.CatalogCandidate {
 		return terminal.Info, "Candidate; protocol and client capabilities are unqualified"
 	}
-	routes := make([]string, 0, len(model.Routes))
-	for _, route := range model.Routes {
+	routes := make([]string, 0, len(model.Models))
+	for _, route := range model.Models {
 		routes = append(routes, route.ID)
 	}
 	if model.State == app.CatalogDeprecated {
@@ -118,7 +118,7 @@ func catalogModelDisplay(model app.CatalogModel) (terminal.State, string) {
 	return terminal.OK, "Admitted Routes: " + strings.Join(routes, ", ")
 }
 
-func renderMissingRoutes(r *terminal.Renderer, routes []app.CatalogRoute) {
+func renderMissingModels(r *terminal.Renderer, routes []app.CatalogRoute) {
 	for _, route := range routes {
 		r.StatusLine(terminal.Warn, "Route", route.ID)
 		r.Detail(route.UpstreamModel + " · missing from this observation; requalification required")

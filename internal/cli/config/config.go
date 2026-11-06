@@ -70,9 +70,9 @@ func newExportCommand(runtime invocation.Context) *cobra.Command {
 type importResult struct {
 	DryRun               bool     `json:"dry_run,omitempty"`
 	ImportedAccounts     int      `json:"imported_accounts"`
-	ImportedRoutes       int      `json:"imported_routes"`
+	ImportedModels       int      `json:"imported_routes"`
 	KeptAccounts         []string `json:"kept_accounts,omitempty"`
-	RetiredRoutes        []string `json:"retired_routes,omitempty"`
+	RetiredModels        []string `json:"retired_routes,omitempty"`
 	ProjectionCandidates []string `json:"projection_candidates,omitempty"`
 	NextAction           string   `json:"next_action,omitempty"`
 	NextDetail           string   `json:"next_detail,omitempty"`
@@ -115,9 +115,9 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		result := importResult{
 			DryRun:               dryRun,
 			ImportedAccounts:     len(domain.ManifestProviderIDs(incoming)),
-			ImportedRoutes:       len(incoming.Models),
+			ImportedModels:       len(incoming.Models),
 			KeptAccounts:         slices.Sorted(maps.Keys(keeping)),
-			RetiredRoutes:        slices.Sorted(maps.Keys(retiring)),
+			RetiredModels:        slices.Sorted(maps.Keys(retiring)),
 			ProjectionCandidates: runtime.Clients.ChangedClients(before, cfg),
 		}
 		next := "aigw status"
@@ -137,14 +137,14 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			r.ProductTitle("Configuration manifest imported")
 		}
 		rows := []terminal.Field{
-			{Label: "Routes", Value: fmt.Sprintf("%d", result.ImportedRoutes)},
+			{Label: "Routes", Value: fmt.Sprintf("%d", result.ImportedModels)},
 			{Label: "Accounts", Value: fmt.Sprintf("%d", result.ImportedAccounts)},
 		}
 		if len(keeping) > 0 {
 			rows = append(rows, terminal.Field{Label: "Kept Accounts", Value: strings.Join(result.KeptAccounts, ", ")})
 		}
 		if len(retiring) > 0 {
-			rows = append(rows, terminal.Field{Label: "Retired Routes", Value: strings.Join(result.RetiredRoutes, ", ")})
+			rows = append(rows, terminal.Field{Label: "Retired Routes", Value: strings.Join(result.RetiredModels, ", ")})
 		}
 		if dryRun {
 			candidates := "none"

@@ -52,7 +52,7 @@ func TestReaderCommandsReadEachAIGWExecutableOnce(t *testing.T) {
 		{args: []string{"setup", "--account", "gateway", "--route", "claude-team", "--label", "Gateway",
 			"--anthropic-url", "https://gateway.test", "--for", "claude", "--upstream-model", "claude-team", "--token-stdin"}, stdin: "fixture-token\n", programReads: 2},
 		{args: []string{"sync"}, programReads: 1},
-		{args: []string{"use", "--for", "claude", "claude-next"}, prepare: addNextClaudeRoute, programReads: 1},
+		{args: []string{"use", "--for", "claude", "claude-next"}, prepare: addNextClaudeModel, programReads: 1},
 	} {
 		t.Run(step.args[0], func(t *testing.T) {
 			if step.prepare != nil {
@@ -83,13 +83,13 @@ func TestReaderCommandsReadEachAIGWExecutableOnce(t *testing.T) {
 	}
 }
 
-func addNextClaudeRoute(t *testing.T, app *cli.App) {
+func addNextClaudeModel(t *testing.T, app *cli.App) {
 	t.Helper()
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	addAccountRoute(&cfg, "claude-next", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-next")
+	addAccountModel(&cfg, "claude-next", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-next")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

@@ -317,7 +317,7 @@ func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testi
 
 // When aigw test cannot probe a Route itself, it defers to aigw verify for the
 // same client and Route; dropping --route would verify the selected Route.
-func TestEndpointTestDefersToVerifyForTheSameRoute(t *testing.T) {
+func TestEndpointTestDefersToVerifyForTheSameModel(t *testing.T) {
 	helper := filepath.Join(t.TempDir(), "credential-helper")
 	for _, test := range []struct {
 		name      string

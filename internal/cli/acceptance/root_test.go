@@ -246,7 +246,7 @@ func TestExecuteReturnsHumanOutputFailure(t *testing.T) {
 
 func TestFailureSuggestionUsesCommandNamedInEnglishGuidance(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	if err := app.Config.Save(twoRouteConfig()); err != nil {
+	if err := app.Config.Save(twoModelConfig()); err != nil {
 		t.Fatal(err)
 	}
 	err := cli.Execute(app, []string{"setup", "--route", "new-route"})
@@ -266,7 +266,7 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountRoute(&cfg, "claude", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+			addAccountModel(&cfg, "claude", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -287,7 +287,7 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 
 func TestPublicMutationFailureDoesNotExposePrivatePath(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 	privatePath := app.Config.Path() + ".bak"
 	if err := os.Mkdir(privatePath, 0o700); err != nil {
 		t.Fatal(err)

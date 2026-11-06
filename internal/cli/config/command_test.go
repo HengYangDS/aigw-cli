@@ -305,7 +305,7 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 	}
 }
 
-func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
+func TestImportRetiresExplicitUnselectedModels(t *testing.T) {
 	cfg := localConfig()
 	addRoute := func(id, label, model string) {
 		cfg.Models[id] = domain.Model{
@@ -358,7 +358,7 @@ func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 	}
 }
 
-func TestImportRejectsRouteRetirementBeforeWriting(t *testing.T) {
+func TestImportRejectsModelRetirementBeforeWriting(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		manifest string

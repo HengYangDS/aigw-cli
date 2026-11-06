@@ -47,7 +47,7 @@ func testHermesRetainedReader(t *testing.T, retained, current string) {
 	}
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["hermes"] = qualifiedRoute("Hermes", "team", "model-test", domain.ProtocolAnthropic)
+	cfg.Models["hermes"] = qualifiedModel("Hermes", "team", "model-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(ID, "hermes", "")
 	cfg.SetClientActivation(ID, true, executable, []string{target})
 	store := secret.NewMemoryStore()

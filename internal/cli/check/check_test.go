@@ -73,7 +73,7 @@ func TestCheckEvaluationClientLookupDistinguishesMissingClient(t *testing.T) {
 	}
 }
 
-func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
+func TestCheckReadsEachEnabledModelCredentialOnce(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	store := &observingSecretStore{value: "token"}
 	runtime.Secrets = store

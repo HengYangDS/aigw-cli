@@ -13,11 +13,11 @@ import (
 	"testing"
 )
 
-func TestRouteRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
+func TestModelRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Models["gpt-old"] = qualifiedRoute("GPT Old", "dmx", "gpt-old", domain.ProtocolOpenAIResponses)
+	cfg.Models["gpt-old"] = qualifiedModel("GPT Old", "dmx", "gpt-old", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt-old", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -38,10 +38,10 @@ func TestRouteRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 	}
 }
 
-func TestRouteRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing.T) {
+func TestModelRenameInteractiveZeroArgsSortsChoicesAndUpdatesModels(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
-	cfg := routeRenameConfig()
-	cfg.Models["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha", domain.ProtocolOpenAIResponses)
+	cfg := modelRenameConfig()
+	cfg.Models["alpha"] = qualifiedModel("Alpha", "gateway", "alpha", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "zeta-old", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -82,9 +82,9 @@ func TestRouteRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing.T
 	}
 }
 
-func TestRouteRenameInteractiveOneArgPromptsOnlyForTarget(t *testing.T) {
+func TestModelRenameInteractiveOneArgPromptsOnlyForTarget(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	if err := app.Config.Save(routeRenameConfig()); err != nil {
+	if err := app.Config.Save(modelRenameConfig()); err != nil {
 		t.Fatal(err)
 	}
 	prompt := &scriptedPrompt{texts: []string{"zeta-new"}}
@@ -110,14 +110,14 @@ func TestRouteRenameInteractiveOneArgPromptsOnlyForTarget(t *testing.T) {
 	}
 }
 
-func TestRouteRenameNonInteractiveRequiresBothIDs(t *testing.T) {
+func TestModelRenameNonInteractiveRequiresBothIDs(t *testing.T) {
 	for _, args := range [][]string{
 		{"route", "rename"},
 		{"route", "rename", "zeta-old"},
 	} {
 		t.Run(strings.Join(args, "_"), func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")
-			if err := app.Config.Save(routeRenameConfig()); err != nil {
+			if err := app.Config.Save(modelRenameConfig()); err != nil {
 				t.Fatal(err)
 			}
 			before, err := os.ReadFile(app.Config.Path())
@@ -140,9 +140,9 @@ func TestRouteRenameNonInteractiveRequiresBothIDs(t *testing.T) {
 	}
 }
 
-func TestRouteRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
+func TestModelRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
-	cfg := routeRenameConfig()
+	cfg := modelRenameConfig()
 	cfg.SetSelectedModel(codex.ID, "zeta-old", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -207,12 +207,12 @@ func TestRouteRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	}
 }
 
-func TestRouteRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testing.T) {
+func TestModelRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testing.T) {
 	for _, target := range []string{"alpha", "Invalid Target"} {
 		t.Run(target, func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")
-			cfg := routeRenameConfig()
-			cfg.Models["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha-model", domain.ProtocolOpenAIResponses)
+			cfg := modelRenameConfig()
+			cfg.Models["alpha"] = qualifiedModel("Alpha", "gateway", "alpha-model", domain.ProtocolOpenAIResponses)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -235,10 +235,10 @@ func TestRouteRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testing.
 	}
 }
 
-func routeRenameConfig() domain.Config {
+func modelRenameConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	route := qualifiedRoute("Zeta", "gateway", "zeta-model", domain.ProtocolOpenAIResponses)
+	route := qualifiedModel("Zeta", "gateway", "zeta-model", domain.ProtocolOpenAIResponses)
 	route.Purpose = "Keep this label and purpose"
 	cfg.Models["zeta-old"] = route
 	cfg.SetSelectedModel(codex.ID, "zeta-old", "")

@@ -19,7 +19,7 @@ const (
 // adding the Route would change beyond the configuration.
 type addDocument struct {
 	DryRun        bool                    `json:"dry_run,omitempty"`
-	Route         string                  `json:"route"`
+	Model         string                  `json:"route"`
 	Account       string                  `json:"account"`
 	Label         string                  `json:"label"`
 	Purpose       string                  `json:"purpose,omitempty"`
@@ -35,7 +35,7 @@ type addDocument struct {
 // after the edit.
 type editDocument struct {
 	DryRun  bool   `json:"dry_run,omitempty"`
-	Route   string `json:"route"`
+	Model   string `json:"route"`
 	Label   string `json:"label"`
 	Purpose string `json:"purpose,omitempty"`
 	invocation.Preview
@@ -47,7 +47,7 @@ type editDocument struct {
 // the clients whose recommendation the removal would change.
 type removeDocument struct {
 	DryRun          bool     `json:"dry_run,omitempty"`
-	Route           string   `json:"route"`
+	Model           string   `json:"route"`
 	Account         string   `json:"account"`
 	Recommendations []string `json:"recommendations,omitempty"`
 	invocation.Preview

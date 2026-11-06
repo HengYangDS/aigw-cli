@@ -37,7 +37,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		}
 		cfg := domain.NewConfig(testAdmission())
 		cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-		cfg.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+		cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 		cfg.Clients[ID] = domain.ClientBinding{Model: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
 		runtime, err := cfg.ResolveRuntime(ID, "")
 		if err != nil {
@@ -135,7 +135,7 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *tes
 			target := filepath.Join(t.TempDir(), "config.toml")
 			cfg := domain.NewConfig(testAdmission())
 			cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-			cfg.Models["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+			cfg.Models["codex"] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 			cfg.Clients[ID] = domain.ClientBinding{
 				Model: "codex", Enabled: true, ModelProvider: test.provider,
 				Authentication: test.authentication, Executable: "/usr/bin/codex", Targets: []string{target},
@@ -202,7 +202,7 @@ type fixedDiscoverer struct{ result discovery.Result }
 
 func (discoverer fixedDiscoverer) Discover() discovery.Result { return discoverer.result }
 
-func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
+func qualifiedModel(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
 	interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(protocols))
 	for _, protocol := range protocols {
 		interfaces[protocol] = []domain.Capability{}
@@ -247,7 +247,7 @@ func (runner *captureAdapterRunner) RunCapture(ctx context.Context, plan process
 func codexConfiguration(target string) domain.Config {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.Clients[ID] = domain.ClientBinding{Model: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }

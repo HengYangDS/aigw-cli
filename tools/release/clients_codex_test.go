@@ -57,7 +57,7 @@ func (j *journeyFixture) requireNativeCodexPreferences() {
 	}
 }
 
-func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
+func (p nativeClientJourneyPlan) runCodexGeneralModels(t *testing.T) {
 	t.Helper()
 	const (
 		account = "aihubmix"
@@ -111,7 +111,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 				Executable: journey.binary, Env: journey.environment,
 				Args: []string{"verify", "--for", codex.ID, "--route", routeID},
 			})
-			completed := requireNativeCodexRouteOutcome(t, executable, route, stdout, stderr, err, token)
+			completed := requireNativeCodexModelOutcome(t, executable, route, stdout, stderr, err, token)
 			want := int64(3)
 			if !completed {
 				want = 2
@@ -131,7 +131,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 }
 
-func requireNativeCodexRouteOutcome(t *testing.T, executable string, route domain.Model, stdout, stderr []byte, runErr error, token string) bool {
+func requireNativeCodexModelOutcome(t *testing.T, executable string, route domain.Model, stdout, stderr []byte, runErr error, token string) bool {
 	t.Helper()
 	if runErr == nil {
 		if !bytes.Contains(stdout, []byte("Completed")) || process.DiagnosticFailure(stderr) {
@@ -202,7 +202,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	cancel()
 	route := p.manifest.Models[routeID]
 	route.ID = routeID
-	requireNativeCodexRouteOutcome(t, executable, route, stdout, stderr, verifyErr, token)
+	requireNativeCodexModelOutcome(t, executable, route, stdout, stderr, verifyErr, token)
 	if verifyErr == nil {
 		t.Fatal("Grok native metadata warning was accepted as complete verification")
 	}

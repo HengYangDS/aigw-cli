@@ -34,7 +34,7 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 				if id == claude.ID {
 					protocol = domain.ProtocolAnthropic
 				}
-				cfg.Models[id] = qualifiedRoute(id, "old", "old-model", protocol)
+				cfg.Models[id] = qualifiedModel(id, "old", "old-model", protocol)
 				cfg.SetSelectedModel(id, id, "")
 				cfg.SetClientActivation(id, true, executableFixture(t, id), nil)
 			}
@@ -93,7 +93,7 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "new-token\n")
 	claudeExecutable := executableFixture(t, "claude")
 	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: claudeExecutable}}}
-	saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://old.test"}, claude.ID, "old-model")
+	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://old.test"}, claude.ID, "old-model")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -129,10 +129,10 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 	}
 }
 
-func TestAddPreservesExistingAccountWithDifferentRouteID(t *testing.T) {
+func TestAddPreservesExistingAccountWithDifferentModelID(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "new-token\n")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "existing-route", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "old-model")
+	addAccountModel(&cfg, "existing-route", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "old-model")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestAddPreservesExistingAccountWithDifferentRouteID(t *testing.T) {
 	}
 }
 
-func TestAddRejectsInvalidRouteName(t *testing.T) {
+func TestAddRejectsInvalidModelName(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
 	err := cli.Execute(app, []string{"add", "not valid!", "--anthropic-url", "https://example.test", "--for", "claude", "--upstream-model", "claude-test", "--token-stdin"})
 	if err == nil || !strings.Contains(err.Error(), "Invalid account ID") {
@@ -170,7 +170,7 @@ func TestAddSurfacesConfigLoadFailure(t *testing.T) {
 	}
 }
 
-func TestAddRejectsDuplicateRoute(t *testing.T) {
+func TestAddRejectsDuplicateModel(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
 	if err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--upstream-model", "claude-test", "--token-stdin"}); err != nil {
 		t.Fatal(err)
@@ -181,7 +181,7 @@ func TestAddRejectsDuplicateRoute(t *testing.T) {
 	}
 }
 
-func TestAddWithoutLabelDefaultsToRouteName(t *testing.T) {
+func TestAddWithoutLabelDefaultsToModelName(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "token\n")
 	if err := cli.Execute(app, []string{"add", "dmx", "--anthropic-url", "https://example.test", "--for", "claude", "--upstream-model", "claude-test", "--token-stdin"}); err != nil {
 		t.Fatal(err)
@@ -250,7 +250,7 @@ func TestAddCompensatesCredentialAfterConfigurationFailure(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			app, _, backend, _, _ := testApp(t, "token\n")
-			saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://current.test"}, claude.ID, "current")
+			saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://current.test"}, claude.ID, "current")
 			before := readFile(t, app.Config.Path())
 			if err := os.Mkdir(app.Config.Path()+".bak", 0o700); err != nil {
 				t.Fatal(err)
@@ -277,7 +277,7 @@ func TestAddCompensatesCredentialAfterConfigurationFailure(t *testing.T) {
 	}
 }
 
-func TestAddWithTokenStdinCreatesRouteWithoutPrintingSecret(t *testing.T) {
+func TestAddWithTokenStdinCreatesModelWithoutPrintingSecret(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "top-secret\n")
 	err := cli.Execute(app, []string{"add", "dmx", "--label", "DMXAPI", "--openai-url", "https://example.test/v1", "--anthropic-url", "https://example.test", "--for", "codex", "--upstream-model", "gpt-test", "--token-stdin"})
 	if err != nil {

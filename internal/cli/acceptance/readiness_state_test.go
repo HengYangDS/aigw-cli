@@ -56,7 +56,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://example.invalid"}}
-	cfg.Models["claude"] = qualifiedRoute("Claude", "gateway", "fixture", domain.ProtocolAnthropic)
+	cfg.Models["claude"] = qualifiedModel("Claude", "gateway", "fixture", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	command := filepath.Join(t.TempDir(), "credential adapter")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
@@ -130,7 +130,7 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 			app, out, secretStore, _, httpClient := testApp(t, "")
 			app.Version = "1.0.0"
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountRoute(
+			addAccountModel(
 				&cfg,
 				"claude",
 				"team",
@@ -173,7 +173,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			app.Version = "1.0.0"
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountRoute(
+			addAccountModel(
 				&cfg,
 				"claude",
 				"team",
@@ -209,7 +209,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Version = "1.0.0"
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(
+	addAccountModel(
 		&cfg,
 		"claude",
 		"team",
@@ -247,7 +247,7 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
 			app.Version = "1.0.0"
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountRoute(
+			addAccountModel(
 				&cfg,
 				"claude",
 				"team",
@@ -282,7 +282,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 		t.Run(command, func(t *testing.T) {
 			app, _, secretStore, runner, httpClient := testApp(t, "")
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountRoute(
+			addAccountModel(
 				&cfg,
 				"claude",
 				"team",
@@ -357,7 +357,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(
+	addAccountModel(
 		&cfg,
 		"claude",
 		"team",

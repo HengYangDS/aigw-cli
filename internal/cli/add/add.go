@@ -23,7 +23,7 @@ const schemaVersion = 1
 type addDocument struct {
 	DryRun        bool   `json:"dry_run,omitempty"`
 	Account       string `json:"account"`
-	Route         string `json:"route"`
+	Model         string `json:"route"`
 	Client        string `json:"client"`
 	Label         string `json:"label"`
 	Family        string `json:"model"`
@@ -91,7 +91,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			if jsonMode {
 				document := addDocument{
-					DryRun: dryRun, Account: name, Route: name, Client: client, Label: label,
+					DryRun: dryRun, Account: name, Model: name, Client: client, Label: label,
 					Family: route.Family, UpstreamModel: route.UpstreamModelID(), TokenStored: !dryRun, Preview: preview,
 				}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)

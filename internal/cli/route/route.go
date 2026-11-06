@@ -82,7 +82,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			if jsonMode {
 				added := cfg.Models[routeName]
 				document := addDocument{
-					DryRun: dryRun, Route: routeName, Account: accountName, Label: label, Purpose: added.Purpose,
+					DryRun: dryRun, Model: routeName, Account: accountName, Label: label, Purpose: added.Purpose,
 					Family: model, UpstreamModel: added.UpstreamModelID(), Protocol: protocol, Preview: preview,
 				}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)
@@ -135,13 +135,13 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			result := routeListOutput{Routes: make([]routeListItem, 0, len(cfg.Models))}
+			result := modelListOutput{Models: make([]modelListItem, 0, len(cfg.Models))}
 			for _, name := range cfg.CatalogModelIDs() {
-				item, collectErr := collectRouteListItem(runtime, cfg, name)
+				item, collectErr := collectModelListItem(runtime, cfg, name)
 				if collectErr != nil {
 					return collectErr
 				}
-				result.Routes = append(result.Routes, item)
+				result.Models = append(result.Models, item)
 			}
 			if jsonMode {
 				return terminal.WriteDocument(runtime.Out, listSchemaVersion, true, result)
@@ -149,7 +149,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Routes")
 			r.Section("Available routes")
-			for _, item := range result.Routes {
+			for _, item := range result.Models {
 				state, stateText := terminal.Info, "Available"
 				if len(item.SelectedClients) > 0 {
 					state, stateText = terminal.OK, "Selected for "+clientLabels(runtime.Clients.Admission(), item.SelectedClients)
@@ -169,11 +169,11 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 	return command
 }
 
-type routeListOutput struct {
-	Routes []routeListItem `json:"routes"`
+type modelListOutput struct {
+	Models []modelListItem `json:"routes"`
 }
 
-type routeListItem struct {
+type modelListItem struct {
 	ID              string   `json:"id"`
 	Label           string   `json:"label"`
 	Purpose         string   `json:"purpose,omitempty"`
@@ -183,13 +183,13 @@ type routeListItem struct {
 	Family          string   `json:"model"`
 }
 
-func collectRouteListItem(runtime invocation.Context, cfg domain.Config, name string) (routeListItem, error) {
+func collectModelListItem(runtime invocation.Context, cfg domain.Config, name string) (modelListItem, error) {
 	route := cfg.Models[name]
 	compatible, err := cfg.ProtocolClientIDs(name)
 	if err != nil {
-		return routeListItem{}, err
+		return modelListItem{}, err
 	}
-	return routeListItem{
+	return modelListItem{
 		ID: name, Label: cfg.ModelLabel(name), Purpose: route.Purpose, Account: route.Provider,
 		ProtocolClients: compatible, SelectedClients: cfg.SelectedClientsForModel(name), Family: route.Family,
 	}, nil
@@ -298,7 +298,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if jsonMode {
-				document := editDocument{DryRun: dryRun, Route: args[0], Label: route.Label, Purpose: route.Purpose, Preview: preview}
+				document := editDocument{DryRun: dryRun, Model: args[0], Label: route.Label, Purpose: route.Purpose, Preview: preview}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)
 				return terminal.WriteDocument(runtime.Out, editSchemaVersion, true, document)
 			}
@@ -361,7 +361,7 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if jsonMode {
-				document := removeDocument{DryRun: dryRun, Route: name, Account: route.Provider, Preview: preview}
+				document := removeDocument{DryRun: dryRun, Model: name, Account: route.Provider, Preview: preview}
 				if dryRun {
 					document.Recommendations = recommendations
 					document.NextAction, document.NextDetail = terminal.NextSteps(invocation.ApplyCommand(cmd, args))

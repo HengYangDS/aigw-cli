@@ -10,7 +10,7 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestClaudeDesktopToolSearchRequiresEveryExposedRoute(t *testing.T) {
+func TestClaudeDesktopToolSearchRequiresEveryExposedModel(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
 	declareToolSearch(fixture.cfg, "selected", "alternate")
 	fixture.apply(t)

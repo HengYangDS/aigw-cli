@@ -169,7 +169,7 @@ func TestRenamerRetainsRetryStateWhenConfigurationCommitFails(t *testing.T) {
 					t.Fatalf("prepared retry credential = %q, error = %v", value, getErr)
 				}
 			} else {
-				_, err = renamer.RenameRoute(t.Context(), "codex", "new", false)
+				_, err = renamer.RenameModel(t.Context(), "codex", "new", false)
 			}
 			if !errors.Is(err, failure) {
 				t.Fatalf("rename error = %v, want commit failure", err)
@@ -190,7 +190,7 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	if _, err := planAccount(cfg, "missing", "new"); err == nil {
 		t.Fatal("expected unknown account")
 	}
-	if _, err := planRoute(cfg, "missing", "new"); err == nil {
+	if _, err := planModel(cfg, "missing", "new"); err == nil {
 		t.Fatal("expected unknown route")
 	}
 
@@ -199,7 +199,7 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	if _, err := planAccount(invalid, "old", "new"); err == nil || !strings.Contains(err.Error(), "Validate") {
 		t.Fatalf("account error = %v", err)
 	}
-	if _, err := planRoute(invalid, "codex", "new-codex"); err == nil || !strings.Contains(err.Error(), "Validate") {
+	if _, err := planModel(invalid, "codex", "new-codex"); err == nil || !strings.Contains(err.Error(), "Validate") {
 		t.Fatalf("route error = %v", err)
 	}
 
@@ -213,7 +213,7 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 			{Model: "codex", Protocol: domain.ProtocolOpenAIResponses},
 		},
 	}
-	plan, err := planRoute(cfg, "codex", "new-codex")
+	plan, err := planModel(cfg, "codex", "new-codex")
 	if err != nil || plan.Config.SelectedModel(claude.ID) != "claude" ||
 		plan.Config.RecommendedModel(codex.ID) != "new-codex" ||
 		plan.Config.RecommendedModel(claude.ID) != "claude" {

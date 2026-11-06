@@ -52,7 +52,7 @@ func TestDesiredClientConfigurationScopesDiscoveryToRequestedClient(t *testing.T
 	}
 }
 
-func TestDesiredClientConfigurationDoesNotReselectRoutes(t *testing.T) {
+func TestDesiredClientConfigurationDoesNotReselectModels(t *testing.T) {
 	before := domain.NewConfig(clients.Admission())
 	before.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
 	before.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.test"}}

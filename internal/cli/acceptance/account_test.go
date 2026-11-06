@@ -20,8 +20,8 @@ import (
 func TestAccountListJSONIsStableAndSecretFree(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "zeta", "zeta", "Zeta", domain.Endpoints{Anthropic: "https://zeta.test"}, claude.ID, "claude-test")
-	addAccountRoute(&cfg, "alpha", "alpha", "Alpha", domain.Endpoints{OpenAIResponses: "https://alpha.test/v1"}, codex.ID, "gpt-test")
+	addAccountModel(&cfg, "zeta", "zeta", "Zeta", domain.Endpoints{Anthropic: "https://zeta.test"}, claude.ID, "claude-test")
+	addAccountModel(&cfg, "alpha", "alpha", "Alpha", domain.Endpoints{OpenAIResponses: "https://alpha.test/v1"}, codex.ID, "gpt-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestAccountListFollowsDeclaredPresentationOrder(t *testing.T) {
 		id, label string
 		order     int
 	}{{"aihubmix", "AIHubMix", 30}, {"dmxapi", "DMXAPI", 10}, {"ucloud", "UCloud", 20}} {
-		addAccountRoute(&cfg, account.id, account.id, account.label, domain.Endpoints{OpenAIResponses: "https://" + account.id + ".test/v1"}, codex.ID, "gpt-test")
+		addAccountModel(&cfg, account.id, account.id, account.label, domain.Endpoints{OpenAIResponses: "https://" + account.id + ".test/v1"}, codex.ID, "gpt-test")
 		declared := cfg.Providers[account.id]
 		declared.Order = account.order
 		cfg.Providers[account.id] = declared
@@ -128,7 +128,7 @@ func TestAccountEditValidation(t *testing.T) {
 
 	t.Run("account edit unknown", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"account", "edit", "missing", "--label", "New"})
 		if err == nil || !strings.Contains(err.Error(), "Unknown account") {
 			t.Fatalf("error = %v", err)
@@ -137,7 +137,7 @@ func TestAccountEditValidation(t *testing.T) {
 
 	t.Run("account edit label and anthropic", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		if err := cli.Execute(app, []string{"account", "edit", "one", "--label", "Renamed", "--anthropic-url", "https://new.test/"}); err != nil {
 			t.Fatal(err)
 		}
@@ -148,11 +148,11 @@ func TestAccountEditValidation(t *testing.T) {
 	})
 }
 
-func TestAccountEditUpdatesSharedEndpointWithoutRouteDuplication(t *testing.T) {
+func TestAccountEditUpdatesSharedEndpointWithoutModelDuplication(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "gpt", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, codex.ID, "gpt-test")
-	addAccountRoute(&cfg, "claude", "dmx", "DMXAPI", domain.Endpoints{}, claude.ID, "claude-test")
+	addAccountModel(&cfg, "gpt", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, codex.ID, "gpt-test")
+	addAccountModel(&cfg, "claude", "dmx", "DMXAPI", domain.Endpoints{}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -195,7 +195,7 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 	t.Run("unknown explicit account", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		saveProbeRoute(t, app.Config)
+		saveProbeModel(t, app.Config)
 		if err := cli.Execute(app, []string{"account", "diagnostics", "enable", "missing"}); err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown") {
 			t.Fatalf("error = %v", err)
 		}
@@ -204,7 +204,7 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 	t.Run("no probe", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		saveCommandRoute(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
+		saveCommandModel(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err == nil || !strings.Contains(err.Error(), "does not support") {
 			t.Fatalf("error = %v", err)
 		}
@@ -213,7 +213,7 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 	t.Run("unsupported probe", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		saveProbeRoute(t, app.Config)
+		saveProbeModel(t, app.Config)
 		cfg, _ := app.Config.Load()
 		providerAccount := cfg.Providers["dmx"]
 		providerAccount.BalanceProbe.Kind = "future"
@@ -229,7 +229,7 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 	t.Run("secret prompt", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		saveProbeRoute(t, app.Config)
+		saveProbeModel(t, app.Config)
 		want := errors.New("cancelled")
 		app.Prompt = &scriptedPrompt{secretErr: want}
 		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); !errors.Is(err, want) {
@@ -240,7 +240,7 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 	t.Run("text prompt", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		saveProbeRoute(t, app.Config)
+		saveProbeModel(t, app.Config)
 		app.Prompt = &scriptedPrompt{secrets: []string{"system-token"}}
 		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err == nil || !strings.Contains(err.Error(), "no text") {
 			t.Fatalf("error = %v", err)
@@ -250,7 +250,7 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 	t.Run("credential write", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		saveProbeRoute(t, app.Config)
+		saveProbeModel(t, app.Config)
 		want := errors.New("credential write failed")
 		app.Prompt = &scriptedPrompt{secrets: []string{"system-token"}, texts: []string{"user"}}
 		app.Accounts = &recordingCredentialStore[secret.DiagnosticCredential]{backend: app.Accounts, setErr: want}
@@ -262,7 +262,7 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 
 func TestAccountDiagnosticsEnableAcceptsExplicitNoninteractiveInput(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "platform-system-token\n")
-	saveProbeRoute(t, app.Config)
+	saveProbeModel(t, app.Config)
 	if err := cli.Execute(app, []string{
 		"account", "diagnostics", "enable", "dmx",
 		"--system-token-stdin", "--user-id", "operator-42",
@@ -290,7 +290,7 @@ func TestAccountDiagnosticsEnableRejectsIncompleteExplicitInputBeforeReading(t *
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "unread-system-token\n")
-			saveProbeRoute(t, app.Config)
+			saveProbeModel(t, app.Config)
 			args := append([]string{"account", "diagnostics", "enable", "dmx"}, test.args...)
 			if err := cli.Execute(app, args); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("incomplete diagnostic input error = %v", err)
@@ -317,7 +317,7 @@ func TestAccountDiagnosticsDisableBranches(t *testing.T) {
 
 	t.Run("unknown", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveProbeRoute(t, app.Config)
+		saveProbeModel(t, app.Config)
 		if err := cli.Execute(app, []string{"account", "diagnostics", "disable", "missing"}); err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown") {
 			t.Fatalf("error = %v", err)
 		}
@@ -325,7 +325,7 @@ func TestAccountDiagnosticsDisableBranches(t *testing.T) {
 
 	t.Run("delete failure", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveProbeRoute(t, app.Config)
+		saveProbeModel(t, app.Config)
 		want := errors.New("delete failed")
 		app.Accounts = &recordingCredentialStore[secret.DiagnosticCredential]{backend: app.Accounts, deleteErr: want}
 		if err := cli.Execute(app, []string{"account", "diagnostics", "disable", "dmx"}); !errors.Is(err, want) {
@@ -335,7 +335,7 @@ func TestAccountDiagnosticsDisableBranches(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
-		saveProbeRoute(t, app.Config)
+		saveProbeModel(t, app.Config)
 		diagnosticStore := app.Accounts
 		_ = diagnosticStore.Set("dmx", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		if err := cli.Execute(app, []string{"account", "diagnostics", "disable", "dmx"}); err != nil {

@@ -15,7 +15,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 	}{
 		{
 			name:       "route is available but not selected",
-			facts:      ClientFacts{SuggestedRoute: "claude", BindingAction: "aigw use --for claude claude"},
+			facts:      ClientFacts{SuggestedModel: "claude", BindingAction: "aigw use --for claude claude"},
 			wantState:  Deferred,
 			wantAction: "aigw use --for claude claude",
 		},
@@ -27,14 +27,14 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		},
 		{
 			name:       "selected account is not connected",
-			facts:      ClientFacts{Route: "claude", Account: "team", CredentialRequired: true},
+			facts:      ClientFacts{Model: "claude", Account: "team", CredentialRequired: true},
 			wantState:  Deferred,
 			wantAction: "aigw rotate team",
 		},
 		{
 			name: "credential metadata is unavailable",
 			facts: ClientFacts{
-				Route:                      "claude",
+				Model:                      "claude",
 				Account:                    "team",
 				CredentialRequired:         true,
 				CredentialObservationIssue: "Credential metadata is unavailable",
@@ -45,7 +45,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "client is intentionally absent",
 			facts: ClientFacts{
-				Route:               "claude",
+				Model:               "claude",
 				Account:             "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -56,7 +56,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "selected inactive client retains its activation prerequisite",
 			facts: ClientFacts{
-				Route:               "codex",
+				Model:               "codex",
 				Account:             "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -68,7 +68,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "selected client projection is deferred",
 			facts: ClientFacts{
-				Route:              "hermes-route",
+				Model:              "hermes-route",
 				Account:            "team",
 				ProjectionEnabled:  true,
 				ProjectionDeferred: true,
@@ -80,7 +80,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "enabled projection is invalid",
 			facts: ClientFacts{
-				Route:               "codex",
+				Model:               "codex",
 				Account:             "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -94,7 +94,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "invalid projection defaults to repair",
 			facts: ClientFacts{
-				Route:               "claude",
+				Model:               "claude",
 				Account:             "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -107,7 +107,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		{
 			name: "local prerequisites are configured",
 			facts: ClientFacts{
-				Route:               "claude",
+				Model:               "claude",
 				Account:             "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
@@ -149,9 +149,9 @@ func TestStateLabelUsesTheCanonicalVocabulary(t *testing.T) {
 	}
 }
 
-func TestClassifyClientIncludesRouteFailures(t *testing.T) {
+func TestClassifyClientIncludesModelFailures(t *testing.T) {
 	got := ClassifyClient(ClientFacts{
-		Route:         "missing",
+		Model:         "missing",
 		BindingIssue:  "unknown route \"missing\"",
 		BindingAction: "aigw use <claude-route>",
 	})
@@ -163,7 +163,7 @@ func TestClassifyClientIncludesRouteFailures(t *testing.T) {
 func TestClassifyClientPrioritizesObservedProjectionFailure(t *testing.T) {
 	for _, metadataIssue := range []string{"", "Credential metadata is unavailable"} {
 		got := ClassifyClient(ClientFacts{
-			Route: "codex", Account: "team", CredentialRequired: true,
+			Model: "codex", Account: "team", CredentialRequired: true,
 			CredentialObservationIssue: metadataIssue,
 			ProjectionEnabled:          true, ProjectionIssue: "projection drift", ProjectionAction: "aigw sync",
 		})
@@ -174,7 +174,7 @@ func TestClassifyClientPrioritizesObservedProjectionFailure(t *testing.T) {
 }
 
 func TestWithProbeMapsDiagnosticSemantics(t *testing.T) {
-	configured := Client{State: Configured, Route: "codex", Account: "team"}
+	configured := Client{State: Configured, Model: "codex", Account: "team"}
 	tests := []struct {
 		name string
 		kind diagnostics.Kind
@@ -221,7 +221,7 @@ func TestWithProbeDoesNotOverrideDeferredState(t *testing.T) {
 }
 
 func TestWithProbeDistinguishesSuccessfulInferenceFromEndpointEvidence(t *testing.T) {
-	configured := Client{State: Configured, Route: "codex", Account: "team"}
+	configured := Client{State: Configured, Model: "codex", Account: "team"}
 
 	inference := WithProbe(configured, diagnostics.Result{
 		Kind: diagnostics.Healthy, Scope: diagnostics.ScopeInference, Summary: "Inference diagnostic returned a successful response",

@@ -234,9 +234,9 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 		t.Fatalf("declarative import made %d provider requests", httpClient.calls)
 	}
 	wantRoutes := map[string]domain.Model{
-		"aihubmix-claude": qualifiedRoute("AIHubMix Claude", "aihubmix", "claude-test", domain.ProtocolAnthropic),
-		"dmxapi-claude":   qualifiedRoute("DMXAPI Claude", "dmxapi", "claude-test", domain.ProtocolAnthropic),
-		"dmxapi-gpt":      qualifiedRoute("DMXAPI GPT", "dmxapi", "gpt-test", domain.ProtocolOpenAIResponses),
+		"aihubmix-claude": qualifiedModel("AIHubMix Claude", "aihubmix", "claude-test", domain.ProtocolAnthropic),
+		"dmxapi-claude":   qualifiedModel("DMXAPI Claude", "dmxapi", "claude-test", domain.ProtocolAnthropic),
+		"dmxapi-gpt":      qualifiedModel("DMXAPI GPT", "dmxapi", "gpt-test", domain.ProtocolOpenAIResponses),
 	}
 	if !reflect.DeepEqual(cfg.Models, wantRoutes) {
 		t.Fatalf("manifest model matrix was not preserved: %#v", cfg.Models)

@@ -11,7 +11,7 @@ import (
 func TestAdoptHermesSelectionLeavesUnprojectedBindingsUnchanged(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["opus"] = qualifiedRoute("Opus", "gateway", "claude-opus-5-5", domain.ProtocolAnthropic)
+	cfg.Models["opus"] = qualifiedModel("Opus", "gateway", "claude-opus-5-5", domain.ProtocolAnthropic)
 	cfg.Normalize()
 	for name, prepare := range map[string]func(*domain.Config){
 		"disabled": func(*domain.Config) {},
@@ -35,30 +35,30 @@ func TestAdoptHermesSelectionLeavesUnprojectedBindingsUnchanged(t *testing.T) {
 	}
 }
 
-func TestHermesRouteForAdoptsOnlyOneExactRoute(t *testing.T) {
+func TestHermesModelForAdoptsOnlyOneExactModel(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{
 		Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1",
 	}}
-	cfg.Models["opus"] = qualifiedRoute("Opus", "gateway", "claude-opus-5-5", domain.ProtocolAnthropic)
-	cfg.Models["sol"] = qualifiedRoute("Sol", "gateway", "gpt-6.1-sol", domain.ProtocolOpenAIResponses)
+	cfg.Models["opus"] = qualifiedModel("Opus", "gateway", "claude-opus-5-5", domain.ProtocolAnthropic)
+	cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-6.1-sol", domain.ProtocolOpenAIResponses)
 	cfg.Normalize()
 
-	routeID, protocol, err := hermesRouteFor(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "claude-opus-5-5"})
+	routeID, protocol, err := hermesModelFor(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "claude-opus-5-5"})
 	if err != nil || routeID != "opus" || protocol != domain.ProtocolAnthropic {
 		t.Fatalf("adopted Route = %q %q, %v", routeID, protocol, err)
 	}
 	// The model must belong to the selected provider's protocol, not any protocol.
-	if _, _, err := hermesRouteFor(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "gpt-6.1-sol"}); err == nil {
+	if _, _, err := hermesModelFor(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "gpt-6.1-sol"}); err == nil {
 		t.Fatal("a model of another protocol was adopted")
 	}
-	if _, _, err := hermesRouteFor(cfg, Selection{Provider: "aigw-other-anthropic", Model: "claude-opus-5-5"}); err == nil || !strings.Contains(err.Error(), "aigw use --for hermes") {
+	if _, _, err := hermesModelFor(cfg, Selection{Provider: "aigw-other-anthropic", Model: "claude-opus-5-5"}); err == nil || !strings.Contains(err.Error(), "aigw use --for hermes") {
 		t.Fatalf("an unprojected provider was not refused with a selection command: %v", err)
 	}
 
-	cfg.Models["opus-copy"] = qualifiedRoute("Opus copy", "gateway", "claude-opus-5-5", domain.ProtocolAnthropic)
+	cfg.Models["opus-copy"] = qualifiedModel("Opus copy", "gateway", "claude-opus-5-5", domain.ProtocolAnthropic)
 	cfg.Normalize()
-	_, _, err = hermesRouteFor(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "claude-opus-5-5"})
+	_, _, err = hermesModelFor(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "claude-opus-5-5"})
 	if err == nil {
 		t.Fatal("an ambiguous native choice was adopted")
 	}

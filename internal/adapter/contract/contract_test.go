@@ -47,7 +47,7 @@ const (
 	planCreatesDirectory       = "creates a directory while it plans a projection"
 	withdrawalPlanWrites       = "withdraws while it plans the withdrawal"
 	inspectWritesProjected     = "Inspect writes after a projection"
-	verifyWritesForRoute       = "Verify writes for an explicit Route"
+	verifyWritesForModel       = "Verify writes for an explicit Route"
 	plansWhenConverged         = "plans a change when converged"
 	convergedWrites            = "writes when converged"
 	convergedRollbackWrites    = "rolls back a converged projection by writing"
@@ -131,7 +131,7 @@ func (clientAdapter fixtureAdapter) Inspect(_ context.Context, _ adapter.Depende
 
 func (clientAdapter fixtureAdapter) Verify(_ context.Context, _ adapter.Dependencies, cfg domain.Config, _ domain.Runtime, route string) (adapter.Verification, error) {
 	clientAdapter.mutate(verifyMutates, cfg)
-	if clientAdapter.breaks == verifyWritesForRoute && route != "" {
+	if clientAdapter.breaks == verifyWritesForModel && route != "" {
 		return adapter.Verification{}, clientAdapter.write("verified.txt", route)
 	}
 	return adapter.Verification{Scope: fixtureID}, nil
@@ -402,7 +402,7 @@ func TestInvariantsRefuseEveryBrokenPromise(t *testing.T) {
 		{breaks: planCreatesDirectory, refused: map[string]string{plans: "planning changed [planned-dir]"}},
 		{breaks: withdrawalPlanWrites, refused: map[string]string{withdrawal: "planning a withdrawal changed"}},
 		{breaks: inspectWritesProjected, refused: map[string]string{plans: "inspection and verification after a projection changed"}},
-		{breaks: verifyWritesForRoute, refused: map[string]string{observation: "inspection and verification before a projection changed", plans: "inspection and verification after a projection changed"}},
+		{breaks: verifyWritesForModel, refused: map[string]string{observation: "inspection and verification before a projection changed", plans: "inspection and verification after a projection changed"}},
 		{breaks: plansWhenConverged, refused: map[string]string{plans: "a converged projection plans changes"}},
 		{breaks: convergedWrites, refused: map[string]string{plans: "applying a converged projection changed"}},
 		{breaks: convergedRollbackWrites, refused: map[string]string{plans: "rolling back a converged projection changed"}},

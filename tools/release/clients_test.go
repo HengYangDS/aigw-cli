@@ -127,7 +127,7 @@ func TestNativeClientJourney(t *testing.T) {
 	for _, client := range construction.NativeAcceptanceClients(runtime.GOOS) {
 		t.Run(client, func(t *testing.T) { plan.run(t, client) })
 	}
-	t.Run("codex-general-routes", plan.runCodexGeneralRoutes)
+	t.Run("codex-general-routes", plan.runCodexGeneralModels)
 	t.Run("codex-tool-loop", plan.runCodexToolLoop)
 	t.Run("codex-relative-catalog", plan.runCodexRelativeCatalog)
 	t.Run("codex-connection-retries", plan.runCodexConnectionRetries)

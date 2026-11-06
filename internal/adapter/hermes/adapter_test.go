@@ -59,7 +59,7 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 	source := discovery.System{GOOS: runtime.GOOS, Home: home, Path: home}
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://provider.test"}}
-	cfg.Models["hermes"] = qualifiedRoute("Hermes", "team", "model-test", domain.ProtocolAnthropic)
+	cfg.Models["hermes"] = qualifiedModel("Hermes", "team", "model-test", domain.ProtocolAnthropic)
 	cfg.Clients[ID] = domain.ClientBinding{Model: "hermes", Enabled: true, Protocol: domain.ProtocolAnthropic}
 	store := secret.NewMemoryStore()
 	if err := store.Set("team", "fixture-token"); err != nil {
@@ -137,8 +137,8 @@ func TestHermesLifecycleUsesItsOwnSurfaceAndDefersAbsentClient(t *testing.T) {
 func TestHermesProjectionTracksUnselectedProviderModels(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	before.Models["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", domain.ProtocolOpenAIResponses)
-	before.Models["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", domain.ProtocolOpenAIResponses)
+	before.Models["selected"] = qualifiedModel("Selected", "gateway", "gpt-6-sol", domain.ProtocolOpenAIResponses)
+	before.Models["extra"] = qualifiedModel("Extra", "gateway", "grok-4.6", domain.ProtocolOpenAIResponses)
 	before.SetSelectedModel(ID, "selected", "")
 	before.SetClientActivation(ID, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
 	before.Normalize()
@@ -211,7 +211,7 @@ func TestHermesCatalogFollowsDeclaredAccountAndFamilyOrder(t *testing.T) {
 	}
 }
 
-func TestHermesCatalogCoversShippedRouteWireIDs(t *testing.T) {
+func TestHermesCatalogCoversShippedModelWireIDs(t *testing.T) {
 	team, err := os.ReadFile(filepath.Join("..", "..", "..", "manifests", "team.toml"))
 	if err != nil {
 		t.Fatal(err)
@@ -247,8 +247,8 @@ func TestHermesCatalogCoversShippedRouteWireIDs(t *testing.T) {
 func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	before.Models["selected"] = qualifiedRoute("Selected", "gateway", "gpt-6-sol", domain.ProtocolOpenAIResponses)
-	before.Models["extra"] = qualifiedRoute("Extra", "gateway", "grok-4.6", domain.ProtocolOpenAIResponses)
+	before.Models["selected"] = qualifiedModel("Selected", "gateway", "gpt-6-sol", domain.ProtocolOpenAIResponses)
+	before.Models["extra"] = qualifiedModel("Extra", "gateway", "grok-4.6", domain.ProtocolOpenAIResponses)
 	before.SetSelectedModel(ID, "selected", "")
 	before.SetClientActivation(ID, true, "/opt/hermes", []string{"/home/test/.hermes/config.yaml"})
 	before.Normalize()
@@ -316,7 +316,7 @@ func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *
 	}
 }
 
-func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
+func qualifiedModel(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
 	interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(protocols))
 	for _, protocol := range protocols {
 		interfaces[protocol] = []domain.Capability{}

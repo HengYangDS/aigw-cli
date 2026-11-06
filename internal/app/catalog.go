@@ -40,7 +40,7 @@ func (status CatalogStatus) Label() string {
 type CatalogModel struct {
 	ID     string            `json:"id"`
 	State  CatalogEntryState `json:"state"`
-	Routes []CatalogRoute    `json:"routes,omitempty"`
+	Models []CatalogRoute    `json:"routes,omitempty"`
 }
 
 // CatalogRoute is a Route as one catalog observation sees it.
@@ -68,7 +68,7 @@ type CatalogObservation struct {
 	SecretAvailable bool           `json:"secret_available"`
 	Status          CatalogStatus  `json:"status"`
 	Models          []CatalogModel `json:"models"`
-	MissingRoutes   []CatalogRoute `json:"missing_routes"`
+	MissingModels   []CatalogRoute `json:"missing_routes"`
 }
 
 // CatalogStatus is the outcome of one catalog observation.
@@ -112,7 +112,7 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 		if len(sources) == 0 {
 			result.Observations = append(result.Observations, CatalogObservation{
 				Account: accountName, Label: account.Label, Status: CatalogEndpointUnavailable,
-				Models: []CatalogModel{}, MissingRoutes: []CatalogRoute{},
+				Models: []CatalogModel{}, MissingModels: []CatalogRoute{},
 			})
 			continue
 		}
@@ -124,7 +124,7 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 		for _, source := range sources {
 			entry := CatalogObservation{
 				Account: accountName, Label: account.Label, Source: source,
-				SecretAvailable: secretAvailable, Models: []CatalogModel{}, MissingRoutes: []CatalogRoute{},
+				SecretAvailable: secretAvailable, Models: []CatalogModel{}, MissingModels: []CatalogRoute{},
 			}
 			switch {
 			case observationErr != nil:
@@ -139,7 +139,7 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 				}
 				entry.Status = CatalogOK
 				entry.Source.Endpoint = endpoint
-				entry.Models, entry.MissingRoutes = catalogDifference(cfg, accountName, source.Protocol, ids)
+				entry.Models, entry.MissingModels = catalogDifference(cfg, accountName, source.Protocol, ids)
 				entry.ObservationID = catalogObservationID(accountName, source.Protocol, endpoint, ids)
 			}
 			result.Observations = append(result.Observations, entry)
@@ -204,17 +204,17 @@ func catalogDifference(cfg domain.Config, account string, protocol domain.Endpoi
 			}
 			state = CatalogDeprecated
 		}
-		models = append(models, CatalogModel{ID: id, State: state, Routes: routes})
+		models = append(models, CatalogModel{ID: id, State: state, Models: routes})
 	}
 	slices.SortStableFunc(models, func(left, right CatalogModel) int {
-		if len(left.Routes) == 0 && len(right.Routes) > 0 {
+		if len(left.Models) == 0 && len(right.Models) > 0 {
 			return 1
 		}
-		if len(right.Routes) == 0 && len(left.Routes) > 0 {
+		if len(right.Models) == 0 && len(left.Models) > 0 {
 			return -1
 		}
-		if len(left.Routes) > 0 && len(right.Routes) > 0 {
-			if rank := cfg.CompareFamilies(left.Routes[0].Family, right.Routes[0].Family); rank != 0 {
+		if len(left.Models) > 0 && len(right.Models) > 0 {
+			if rank := cfg.CompareFamilies(left.Models[0].Family, right.Models[0].Family); rank != 0 {
 				return rank
 			}
 		}

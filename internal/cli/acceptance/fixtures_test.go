@@ -254,7 +254,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secret.Store,
 	return app, out, secretStore, runner, httpClient
 }
 
-func addAccountRoute(cfg *domain.Config, routeName, accountName, label string, endpoints domain.Endpoints, client, model string) {
+func addAccountModel(cfg *domain.Config, routeName, accountName, label string, endpoints domain.Endpoints, client, model string) {
 	if _, exists := cfg.Providers[accountName]; !exists {
 		cfg.Providers[accountName] = domain.Provider{Label: label, Endpoints: endpoints}
 	}
@@ -268,10 +268,10 @@ func addAccountRoute(cfg *domain.Config, routeName, accountName, label string, e
 	if err != nil {
 		panic("test fixture cannot resolve a wire interface: " + err.Error())
 	}
-	cfg.Models[routeName] = qualifiedRoute(label, accountName, model, protocol)
+	cfg.Models[routeName] = qualifiedModel(label, accountName, model, protocol)
 }
 
-func qualifiedRoute(label, account, model string, protocol domain.EndpointProtocol) domain.Model {
+func qualifiedModel(label, account, model string, protocol domain.EndpointProtocol) domain.Model {
 	return domain.Model{
 		Label: label, Provider: account, Family: model, UpstreamModel: model,
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
@@ -335,17 +335,17 @@ func blockRemoval(t *testing.T, path string) {
 	t.Cleanup(func() { _ = os.Chmod(directory, 0o700) })
 }
 
-func saveCommandRoute(t *testing.T, app *cli.App, endpoints domain.Endpoints, client, model string) {
+func saveCommandModel(t *testing.T, app *cli.App, endpoints domain.Endpoints, client, model string) {
 	t.Helper()
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "one", "one", "One", endpoints, client, model)
+	addAccountModel(&cfg, "one", "one", "One", endpoints, client, model)
 	cfg.SetSelectedModel(client, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func saveProbeRoute(t *testing.T, appConfig store.Store) {
+func saveProbeModel(t *testing.T, appConfig store.Store) {
 	t.Helper()
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{
@@ -360,10 +360,10 @@ func saveProbeRoute(t *testing.T, appConfig store.Store) {
 	}
 }
 
-func twoRouteConfig() domain.Config {
+func twoModelConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "one", "one", "One Gateway", domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, codex.ID, "model-one")
-	addAccountRoute(&cfg, "two", "two", "Two Gateway", domain.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, codex.ID, "model-two")
+	addAccountModel(&cfg, "one", "one", "One Gateway", domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, codex.ID, "model-one")
+	addAccountModel(&cfg, "two", "two", "Two Gateway", domain.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, codex.ID, "model-two")
 	for _, routeID := range []string{"one", "two"} {
 		route := cfg.Models[routeID]
 		route.Protocols[domain.ProtocolAnthropic] = []domain.Capability{}
@@ -454,8 +454,8 @@ func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.Models["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
+	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["claude"] = qualifiedModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)

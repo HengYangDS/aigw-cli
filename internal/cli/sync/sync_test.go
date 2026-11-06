@@ -271,7 +271,7 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 	})
 }
 
-func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
+func TestSyncRollsBackModelSelectionWhenProjectionFails(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}

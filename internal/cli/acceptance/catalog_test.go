@@ -50,8 +50,8 @@ func TestCatalogDiscoversSortedModelsWithoutWritingConfigOrLeakingToken(t *testi
 	app, out, secretStore, runner, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://responses.dmx.test/v1", Anthropic: "https://anthropic.dmx.test"}}
-	cfg.Models["gpt-configured"] = qualifiedRoute("GPT", "dmx", "gpt-5.6", domain.ProtocolOpenAIResponses)
-	cfg.Models["claude-configured"] = qualifiedRoute("Claude", "dmx", "gpt-5.6", domain.ProtocolAnthropic)
+	cfg.Models["gpt-configured"] = qualifiedModel("GPT", "dmx", "gpt-5.6", domain.ProtocolOpenAIResponses)
+	cfg.Models["claude-configured"] = qualifiedModel("Claude", "dmx", "gpt-5.6", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt-configured", "")
 	cfg.SetSelectedModel(claude.ID, "claude-configured", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -165,7 +165,7 @@ func TestCatalogDefaultHumanOutputShowsOnlyConfiguredModels(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Models["configured"] = qualifiedRoute("Configured", "gateway", "configured-model", domain.ProtocolOpenAIResponses)
+	cfg.Models["configured"] = qualifiedModel("Configured", "gateway", "configured-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "configured", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -195,7 +195,7 @@ func TestCatalogAllHumanAndJSONOutputIncludeEveryModel(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Models["configured"] = qualifiedRoute("Configured", "gateway", "configured-model", domain.ProtocolOpenAIResponses)
+	cfg.Models["configured"] = qualifiedModel("Configured", "gateway", "configured-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "configured", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -234,7 +234,7 @@ func TestCatalogReportsUnavailableAccountWithoutBlockingHealthyAccount(t *testin
 	cfg.Providers["healthy"] = domain.Provider{Label: "Healthy", Endpoints: domain.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
 	cfg.Providers["missing-token"] = domain.Provider{Label: "Missing Token", Endpoints: domain.Endpoints{OpenAIResponses: "https://missing.test/v1"}}
 	cfg.Providers["anthropic-only"] = domain.Provider{Label: "Anthropic Only", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}
-	cfg.Models["healthy-model"] = qualifiedRoute("Healthy", "healthy", "healthy-model", domain.ProtocolOpenAIResponses)
+	cfg.Models["healthy-model"] = qualifiedModel("Healthy", "healthy", "healthy-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "healthy-model", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -264,7 +264,7 @@ func TestCatalogReportsMalformedAccountPayloadWithoutBlockingHealthyAccount(t *t
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["broken"] = domain.Provider{Label: "Broken", Endpoints: domain.Endpoints{OpenAIResponses: "https://broken.test/v1"}}
 	cfg.Providers["healthy"] = domain.Provider{Label: "Healthy", Endpoints: domain.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
-	cfg.Models["healthy-model"] = qualifiedRoute("Healthy", "healthy", "healthy-model", domain.ProtocolOpenAIResponses)
+	cfg.Models["healthy-model"] = qualifiedModel("Healthy", "healthy", "healthy-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "healthy-model", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -296,8 +296,8 @@ func TestModelsCommandReportsCatalogMembershipWithoutClaimingReachability(t *tes
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Models["gpt-5.6-sol"] = qualifiedRoute("GPT-5.6 Sol Codex", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
-	cfg.Models["gpt-5.6"] = qualifiedRoute("GPT-5.6", "dmx", "gpt-5.6", domain.ProtocolOpenAIResponses)
+	cfg.Models["gpt-5.6-sol"] = qualifiedModel("GPT-5.6 Sol Codex", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
+	cfg.Models["gpt-5.6"] = qualifiedModel("GPT-5.6", "dmx", "gpt-5.6", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -319,11 +319,11 @@ func TestModelsCommandReportsCatalogMembershipWithoutClaimingReachability(t *tes
 	}
 }
 
-func TestModelsCommandKeepsLongRouteNamesOnOneLine(t *testing.T) {
+func TestModelsCommandKeepsLongModelNamesOnOneLine(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Models["claude-opus-5"] = qualifiedRoute("Claude Opus 5", "dmx", "claude-opus-5", domain.ProtocolAnthropic)
+	cfg.Models["claude-opus-5"] = qualifiedModel("Claude Opus 5", "dmx", "claude-opus-5", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "claude-opus-5", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -345,11 +345,11 @@ func TestModelsCommandKeepsLongRouteNamesOnOneLine(t *testing.T) {
 	}
 }
 
-func TestCatalogContinuationUsesTheActualRouteAddContract(t *testing.T) {
+func TestCatalogContinuationUsesTheActualModelAddContract(t *testing.T) {
 	app, out, _, runner, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://provider.test/v1"}}
-	cfg.Models["gateway-current"] = qualifiedRoute("Current", "gateway", "current-model", domain.ProtocolOpenAIResponses)
+	cfg.Models["gateway-current"] = qualifiedModel("Current", "gateway", "current-model", domain.ProtocolOpenAIResponses)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

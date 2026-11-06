@@ -101,7 +101,7 @@ func WriteRenamePlan(runtime Context, plan renaming.Plan, dryRun, jsonMode bool)
 		rows = []terminal.Field{
 			{Label: "Previous route", Value: plan.OldID},
 			{Label: "New route", Value: plan.NewID},
-			{Label: "Account", Value: plan.Route.Provider},
+			{Label: "Account", Value: plan.Model.Provider},
 		}
 	}
 	if len(plan.AffectedReferences) > 0 {
@@ -148,7 +148,7 @@ func ResolveRenameIDs(runtime Context, resource string, args []string) (string, 
 	if err != nil {
 		return "", "", err
 	}
-	choices := routeChoices(cfg)
+	choices := modelChoices(cfg)
 	if resource == "account" {
 		choices = accountChoices(cfg)
 	}
@@ -172,7 +172,7 @@ func ResolveRenameIDs(runtime Context, resource string, args []string) (string, 
 	return oldID, strings.TrimSpace(newID), nil
 }
 
-func routeChoices(cfg domain.Config) []terminal.Choice {
+func modelChoices(cfg domain.Config) []terminal.Choice {
 	choices := make([]terminal.Choice, 0, len(cfg.Models))
 	for _, name := range slices.Sorted(maps.Keys(cfg.Models)) {
 		route := cfg.Models[name]

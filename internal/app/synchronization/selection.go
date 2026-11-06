@@ -93,20 +93,20 @@ func (s Synchronizer) validateRetryTransition(before, after domain.Config, conne
 	return nil
 }
 
-// SelectRoute commits one client's Route selection and projection, optionally storing
+// SelectModel commits one client's Route selection and projection, optionally storing
 // its validated Account Token. Failure compensates owned credential writes;
 // success leaves no rollback obligation with the caller. The result reports
 // configuration and native projection changes separately, not Token acquisition
 // or live inference.
-func (s Synchronizer) SelectRoute(ctx context.Context, before domain.Config, client, routeID string, protocol domain.EndpointProtocol, connection domain.ConnectionChange, token string) (changed, projectionChanged bool, binding domain.ClientBinding, resultErr error) {
+func (s Synchronizer) SelectModel(ctx context.Context, before domain.Config, client, routeID string, protocol domain.EndpointProtocol, connection domain.ConnectionChange, token string) (changed, projectionChanged bool, binding domain.ClientBinding, resultErr error) {
 	after, _, err := s.PrepareSelection(before, client, routeID, protocol, connection)
 	if err != nil {
 		return false, false, domain.ClientBinding{}, err
 	}
-	return s.selectRoute(ctx, before, after, client, connection, token)
+	return s.selectModel(ctx, before, after, client, connection, token)
 }
 
-func (s Synchronizer) selectRoute(ctx context.Context, before, after domain.Config, client string, connection domain.ConnectionChange, token string) (changed, projectionChanged bool, binding domain.ClientBinding, resultErr error) {
+func (s Synchronizer) selectModel(ctx context.Context, before, after domain.Config, client string, connection domain.ConnectionChange, token string) (changed, projectionChanged bool, binding domain.ClientBinding, resultErr error) {
 	if err := ctx.Err(); err != nil {
 		return false, false, domain.ClientBinding{}, err
 	}

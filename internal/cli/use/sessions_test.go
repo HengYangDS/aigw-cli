@@ -12,7 +12,7 @@ import (
 	"aigw-cli/internal/secret"
 )
 
-func TestUseTellsHermesUsersThatExistingSessionsKeepTheirRoute(t *testing.T) {
+func TestUseTellsHermesUsersThatExistingSessionsKeepTheirModel(t *testing.T) {
 	const note = "Keep the route they started with; new sessions use this selection"
 	runtime, cfg, out := configuredRuntime(t)
 	store := secret.NewMemoryStore()

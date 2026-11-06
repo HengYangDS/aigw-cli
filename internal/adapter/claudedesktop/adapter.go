@@ -234,9 +234,9 @@ func claudeDesktopDesired(deps adapter.Dependencies, cfg domain.Config, selected
 	}, nil
 }
 
-// claudeDesktopRouteIDs lists the Routes the profile exposes: the selected
+// claudeDesktopModelIDs lists the Routes the profile exposes: the selected
 // Route, then each compatible Route of its Account with a distinct Model.
-func claudeDesktopRouteIDs(cfg domain.Config, selected domain.Runtime) []string {
+func claudeDesktopModelIDs(cfg domain.Config, selected domain.Runtime) []string {
 	routeIDs := []string{selected.ModelID}
 	seen := map[string]bool{cfg.Models[selected.ModelID].Family: true}
 	spec := claudeDesktopAdapter{}.Spec()
@@ -259,7 +259,7 @@ func claudeDesktopRouteIDs(cfg domain.Config, selected domain.Runtime) []string 
 }
 
 func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {
-	routeIDs := claudeDesktopRouteIDs(cfg, selected)
+	routeIDs := claudeDesktopModelIDs(cfg, selected)
 	models := []Model{{Name: selected.UpstreamModel, Label: selected.ModelLabel}}
 	for _, routeID := range routeIDs[1:] {
 		models = append(models, Model{Name: cfg.Models[routeID].UpstreamModelID(), Label: cfg.ModelLabel(routeID)})
@@ -270,7 +270,7 @@ func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {
 // claudeDesktopToolSearch enables Desktop's profile-wide host tool search only
 // when every exposed Route qualified it on the selected protocol.
 func claudeDesktopToolSearch(cfg domain.Config, selected domain.Runtime) bool {
-	for _, routeID := range claudeDesktopRouteIDs(cfg, selected) {
+	for _, routeID := range claudeDesktopModelIDs(cfg, selected) {
 		if !cfg.Models[routeID].Declares(selected.Protocol, domain.CapabilityToolSearch) {
 			return false
 		}

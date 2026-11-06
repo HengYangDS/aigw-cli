@@ -18,7 +18,7 @@ import (
 
 func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
-	saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +58,7 @@ func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
 func TestCheckNamesTheEnvironmentTokenForARejectedToken(t *testing.T) {
 	app, out, _, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
+	addAccountModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(claude.ID, "dmx", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)

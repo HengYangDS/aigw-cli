@@ -80,7 +80,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			synchronizer := operation.Synchronizer()
-			configurationChanged, projectionChanged, binding, err := synchronizer.SelectRoute(cmd.Context(), cfg, client, name, selected.Protocol, connection, token)
+			configurationChanged, projectionChanged, binding, err := synchronizer.SelectModel(cmd.Context(), cfg, client, name, selected.Protocol, connection, token)
 			if err != nil {
 				return err
 			}
@@ -203,8 +203,8 @@ type useResult struct {
 // endpoint serves.
 type useSelection struct {
 	RetryPolicy      *domain.RetryPolicy     `json:"retry_policy,omitempty"`
-	Route            string                  `json:"route"`
-	RouteLabel       string                  `json:"route_label"`
+	Model            string                  `json:"route"`
+	ModelLabel       string                  `json:"route_label"`
 	Account          string                  `json:"account"`
 	AccountLabel     string                  `json:"account_label"`
 	Client           string                  `json:"client"`
@@ -219,7 +219,7 @@ type useSelection struct {
 
 func selectionOf(selected domain.Runtime) useSelection {
 	return useSelection{
-		RetryPolicy: selected.RetryPolicy, Route: selected.ModelID, RouteLabel: selected.ModelLabel,
+		RetryPolicy: selected.RetryPolicy, Model: selected.ModelID, ModelLabel: selected.ModelLabel,
 		Account: selected.ProviderID, AccountLabel: selected.ProviderLabel, Client: selected.Client,
 		Endpoint: selected.Endpoint, UpstreamEndpoint: selected.UpstreamEndpoint, Protocol: selected.Protocol,
 		Family: selected.FamilyID, UpstreamModel: selected.UpstreamModel, ModelProvider: selected.ModelProvider,
@@ -320,7 +320,7 @@ func resolveUseSelection(runtime invocation.Context, cfg domain.Config, client s
 				return "", "", err
 			}
 		}
-		route, err := chooseRoute(runtime, cfg, client, "Select the Route to use: ")
+		route, err := chooseModel(runtime, cfg, client, "Select the Route to use: ")
 		return client, route, err
 	}
 
@@ -390,19 +390,19 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg domain.
 	return token, nil
 }
 
-func chooseRoute(runtime invocation.Context, cfg domain.Config, client, label string) (string, error) {
+func chooseModel(runtime invocation.Context, cfg domain.Config, client, label string) (string, error) {
 	choices := make([]terminal.Choice, 0, len(cfg.Models))
 	for _, id := range cfg.CatalogModelIDs() {
 		compatible, err := cfg.ProtocolClientIDs(id)
 		if err != nil || !slices.Contains(compatible, client) {
 			continue
 		}
-		choices = append(choices, terminal.Choice{Value: id, Label: routeChoiceLabel(cfg, id)})
+		choices = append(choices, terminal.Choice{Value: id, Label: modelChoiceLabel(cfg, id)})
 	}
 	return runtime.Prompt.Select(label, choices)
 }
 
-func routeChoiceLabel(cfg domain.Config, routeID string) string {
+func modelChoiceLabel(cfg domain.Config, routeID string) string {
 	label := cfg.ModelLabel(routeID)
 	route := cfg.Models[routeID]
 	if purpose := strings.TrimSpace(route.Purpose); purpose != "" {

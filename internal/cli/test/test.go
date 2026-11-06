@@ -32,14 +32,14 @@ type testDocument struct {
 // testedEndpoint is one client's endpoint observation.
 type testedEndpoint struct {
 	Client     string `json:"client"`
-	Route      string `json:"route"`
+	Model      string `json:"route"`
 	HTTPStatus int    `json:"http_status"`
 	Detail     string `json:"detail,omitempty"`
 }
 
 type endpointTestResult struct {
 	client  string
-	routeID string
+	modelID string
 	status  int
 	detail  string
 }
@@ -116,7 +116,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				} else if status < http.StatusOK || status >= http.StatusMultipleChoices {
 					return fmt.Errorf("%s endpoint returned HTTP %d", runtime.Clients.Admission().Label(target), status)
 				}
-				results = append(results, endpointTestResult{client: target, routeID: clientRuntime.ModelID, status: status, detail: detail})
+				results = append(results, endpointTestResult{client: target, modelID: clientRuntime.ModelID, status: status, detail: detail})
 			}
 			return writeTestResults(runtime, results, jsonMode)
 		},
@@ -136,7 +136,7 @@ func writeTestResults(runtime invocation.Context, results []endpointTestResult, 
 	if jsonMode {
 		document := testDocument{Endpoints: make([]testedEndpoint, 0, len(results)), NextAction: "aigw check"}
 		for _, result := range results {
-			document.Endpoints = append(document.Endpoints, testedEndpoint{Client: result.client, Route: result.routeID, HTTPStatus: result.status, Detail: result.detail})
+			document.Endpoints = append(document.Endpoints, testedEndpoint{Client: result.client, Model: result.modelID, HTTPStatus: result.status, Detail: result.detail})
 		}
 		return terminal.WriteDocument(runtime.Out, schemaVersion, true, document)
 	}
@@ -146,7 +146,7 @@ func writeTestResults(runtime invocation.Context, results []endpointTestResult, 
 	r.Section("Endpoints")
 	rows := make([]terminal.Field, 0, len(results))
 	for _, result := range results {
-		value := fmt.Sprintf("%s · HTTP %d", result.routeID, result.status)
+		value := fmt.Sprintf("%s · HTTP %d", result.modelID, result.status)
 		if result.detail != "" {
 			value += " · " + result.detail
 		}

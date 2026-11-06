@@ -119,7 +119,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 
 	t.Run("already configured", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "token\n")
-		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"setup", "--route", "two", "--for", "claude", "--upstream-model", "m", "--anthropic-url", "https://two.test", "--token-stdin"})
 		if err == nil || !strings.Contains(err.Error(), "already configured") {
 			t.Fatalf("error = %v", err)
@@ -138,7 +138,7 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 	t.Run("interactive already configured", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Interactive = true
-		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		err := cli.Execute(app, []string{"setup"})
 		if err == nil || !strings.Contains(err.Error(), "already configured") {
 			t.Fatalf("error = %v", err)

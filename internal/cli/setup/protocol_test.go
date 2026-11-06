@@ -36,7 +36,7 @@ func TestSetupValidatesSelectedHermesProtocol(t *testing.T) {
 		Out: io.Discard,
 	}
 	request := setupRequest{
-		Account: "team", Route: "shared", Client: hermes.ID, Model: "shared-model",
+		Account: "team", Model: "shared", Client: hermes.ID, UpstreamModel: "shared-model",
 		OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
 		Protocol: string(domain.ProtocolAnthropic),
 	}

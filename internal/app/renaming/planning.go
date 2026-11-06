@@ -55,7 +55,7 @@ func planAccount(cfg domain.Config, oldID, newID string) (Plan, error) {
 	}, nil
 }
 
-func planRoute(cfg domain.Config, oldID, newID string) (Plan, error) {
+func planModel(cfg domain.Config, oldID, newID string) (Plan, error) {
 	if !domain.ValidIdentifier(newID) {
 		return Plan{}, fmt.Errorf("Invalid new route ID %q", newID)
 	}
@@ -103,7 +103,7 @@ func planRoute(cfg domain.Config, oldID, newID string) (Plan, error) {
 	}
 
 	return Plan{
-		Resource:           ResourceRoute,
+		Resource:           ResourceModel,
 		OldID:              oldID,
 		NewID:              newID,
 		Status:             StatusPlanned,
@@ -116,6 +116,6 @@ func planRoute(cfg domain.Config, oldID, newID string) (Plan, error) {
 		},
 		ExternalTODOs: []string{},
 		Config:        next,
-		Route:         route,
+		Model:         route,
 	}, nil
 }

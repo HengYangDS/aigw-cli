@@ -117,7 +117,7 @@ func TestDoctorAcceptsDeferredTeamSetupWithoutTokensOrClients(t *testing.T) {
 
 func TestDoctorReportsCredentialObservationFailure(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -179,7 +179,7 @@ func TestDoctorJSONDoesNotExposeConfigurationPath(t *testing.T) {
 
 func TestDoctorJSONDoesNotExposeMissingCodexTarget(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+	saveCommandModel(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
@@ -223,7 +223,7 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	route := qualifiedRoute("GPT 5.6 Sol Codex", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
+	route := qualifiedModel("GPT 5.6 Sol Codex", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Models["gpt-5.6-sol"] = route
@@ -282,7 +282,7 @@ func TestDoctorReportsGlobalClientTokenEnvironmentWithoutLeakingValue(t *testing
 
 func TestDoctorPreservesUnrelatedEnvironment(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	if err := secretStore.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
@@ -315,7 +315,7 @@ func TestDoctorHumanOutputUsesConciseCheckLabels(t *testing.T) {
 func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
+	addAccountModel(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(claude.ID, "team", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
@@ -351,7 +351,7 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 		t.Fatal(err)
 	}
 	homeRelative := "~/.codex/config.toml"
-	route := qualifiedRoute("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
+	route := qualifiedModel("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
 	cfg.Models["gpt"] = route
@@ -480,7 +480,7 @@ func TestDoctorFormatsPreserveTheDiagnosticOutcome(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			if test.configured {
-				saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+				saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 				if err := secretStore.Set("one", "token"); err != nil {
 					t.Fatal(err)
 				}

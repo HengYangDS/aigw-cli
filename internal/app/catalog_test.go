@@ -20,7 +20,7 @@ func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
 	cfg.Models["other"] = domain.Model{Provider: "other", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.Models["matching"] = domain.Model{Provider: "one", Family: "canonical", UpstreamModel: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	models, missing := catalogDifference(cfg, "one", domain.ProtocolOpenAIResponses, []string{"gpt"})
-	if len(models) != 1 || models[0].State != CatalogAdmitted || len(models[0].Routes) != 1 || models[0].Routes[0].ID != "matching" || len(missing) != 0 {
+	if len(models) != 1 || models[0].State != CatalogAdmitted || len(models[0].Models) != 1 || models[0].Models[0].ID != "matching" || len(missing) != 0 {
 		t.Fatalf("difference models=%#v missing=%#v", models, missing)
 	}
 	for status, want := range map[CatalogStatus]string{
@@ -216,8 +216,8 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 		t.Fatalf("catalog observation mutated configuration:\nbefore=%#v\nafter=%#v", before, cfg)
 	}
 	assertObservationIdentityAndSources(t, result)
-	assertRouteCapabilityIsolation(t, result)
-	assertCatalogCandidateAndMissingRoute(t, result)
+	assertModelCapabilityIsolation(t, result)
+	assertCatalogCandidateAndMissingModel(t, result)
 }
 
 func assertObservationIdentityAndSources(t *testing.T, result CatalogReport) {
@@ -239,44 +239,44 @@ func assertObservationIdentityAndSources(t *testing.T, result CatalogReport) {
 	}
 }
 
-func assertRouteCapabilityIsolation(t *testing.T, result CatalogReport) {
+func assertModelCapabilityIsolation(t *testing.T, result CatalogReport) {
 	t.Helper()
 	chat := observationForProtocol(t, result, domain.ProtocolOpenAIChatCompletions)
 	responses := observationForProtocol(t, result, domain.ProtocolOpenAIResponses)
 	chatShared := observedModel(t, chat, "provider-shared")
-	if chatShared.State != CatalogDeprecated || len(chatShared.Routes) != 1 || chatShared.Routes[0].ID != "chat" ||
-		chatShared.Routes[0].Lifecycle != domain.ModelDeprecated || chatShared.Routes[0].Evidence != CatalogObserved ||
-		!reflect.DeepEqual(chatShared.Routes[0].Capabilities, []domain.Capability{domain.CapabilityText}) {
-		t.Fatalf("chat admission = %#v", chatShared.Routes)
+	if chatShared.State != CatalogDeprecated || len(chatShared.Models) != 1 || chatShared.Models[0].ID != "chat" ||
+		chatShared.Models[0].Lifecycle != domain.ModelDeprecated || chatShared.Models[0].Evidence != CatalogObserved ||
+		!reflect.DeepEqual(chatShared.Models[0].Capabilities, []domain.Capability{domain.CapabilityText}) {
+		t.Fatalf("chat admission = %#v", chatShared.Models)
 	}
 	responsesShared := observedModel(t, responses, "provider-shared")
-	if responsesShared.State != CatalogAdmitted || len(responsesShared.Routes) != 1 || responsesShared.Routes[0].ID != "responses" ||
-		responsesShared.Routes[0].Lifecycle != domain.ModelAdmitted || responsesShared.Routes[0].Evidence != CatalogObserved ||
-		!reflect.DeepEqual(responsesShared.Routes[0].Capabilities, []domain.Capability{
+	if responsesShared.State != CatalogAdmitted || len(responsesShared.Models) != 1 || responsesShared.Models[0].ID != "responses" ||
+		responsesShared.Models[0].Lifecycle != domain.ModelAdmitted || responsesShared.Models[0].Evidence != CatalogObserved ||
+		!reflect.DeepEqual(responsesShared.Models[0].Capabilities, []domain.Capability{
 			domain.CapabilityReasoning,
 			domain.CapabilityText,
 		}) {
-		t.Fatalf("Responses admission = %#v", responsesShared.Routes)
+		t.Fatalf("Responses admission = %#v", responsesShared.Models)
 	}
-	if slices.Contains(chatShared.Routes[0].Capabilities, domain.CapabilityReasoning) {
-		t.Fatalf("Responses reasoning leaked into Chat Completions: %#v", chatShared.Routes[0])
+	if slices.Contains(chatShared.Models[0].Capabilities, domain.CapabilityReasoning) {
+		t.Fatalf("Responses reasoning leaked into Chat Completions: %#v", chatShared.Models[0])
 	}
 }
 
-func assertCatalogCandidateAndMissingRoute(t *testing.T, result CatalogReport) {
+func assertCatalogCandidateAndMissingModel(t *testing.T, result CatalogReport) {
 	t.Helper()
 	chat := observationForProtocol(t, result, domain.ProtocolOpenAIChatCompletions)
 	responses := observationForProtocol(t, result, domain.ProtocolOpenAIResponses)
 	candidate := observedModel(t, responses, "provider-new")
-	if candidate.State != CatalogCandidate || len(candidate.Routes) != 0 {
+	if candidate.State != CatalogCandidate || len(candidate.Models) != 0 {
 		t.Fatalf("candidate = %#v", candidate)
 	}
-	if len(responses.MissingRoutes) != 1 || responses.MissingRoutes[0].ID != "missing" ||
-		responses.MissingRoutes[0].Lifecycle != domain.ModelAdmitted || responses.MissingRoutes[0].Evidence != CatalogRequalificationRequired {
-		t.Fatalf("missing Routes = %#v", responses.MissingRoutes)
+	if len(responses.MissingModels) != 1 || responses.MissingModels[0].ID != "missing" ||
+		responses.MissingModels[0].Lifecycle != domain.ModelAdmitted || responses.MissingModels[0].Evidence != CatalogRequalificationRequired {
+		t.Fatalf("missing Routes = %#v", responses.MissingModels)
 	}
-	if len(chat.MissingRoutes) != 0 {
-		t.Fatalf("Chat Completions missing Routes = %#v", chat.MissingRoutes)
+	if len(chat.MissingModels) != 0 {
+		t.Fatalf("Chat Completions missing Routes = %#v", chat.MissingModels)
 	}
 }
 

@@ -260,7 +260,7 @@ func TestHumanDoctorNamesNativeClaudeModelPreferenceAndVerification(t *testing.T
 	renderClients(renderer, clients.Admission(), map[string]domainreadiness.Client{
 		claude.ID: {
 			State:               domainreadiness.Configured,
-			Route:               "fable",
+			Model:               "fable",
 			NativeModelOverride: true,
 			Detail:              "Claude Code uses a native model preference",
 			NextAction:          "aigw verify --for claude",

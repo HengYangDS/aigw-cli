@@ -148,7 +148,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	}
 }
 
-func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.T) {
+func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveModels(t *testing.T) {
 	cfg := validDoctorConfig()
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	cfg.Providers["optional"] = domain.Provider{
@@ -319,7 +319,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	if !result.OK || !allOK(result.Checks) || result.NextAction != "aigw sync" {
 		t.Fatalf("result = %#v", result)
 	}
-	if result.Clients[claude.ID].State != domainreadiness.Configured || result.Clients[claude.ID].Route != "claude" || result.Clients[claude.ID].Account != "team" ||
+	if result.Clients[claude.ID].State != domainreadiness.Configured || result.Clients[claude.ID].Model != "claude" || result.Clients[claude.ID].Account != "team" ||
 		result.Clients[codex.ID].State != domainreadiness.Deferred || result.Clients[codex.ID].NextAction != "aigw sync" {
 		t.Fatalf("canonical clients = %#v", result.Clients)
 	}
@@ -429,7 +429,7 @@ func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
 	result := executeJSON(t, NewCommand(deps), out)
 	state, ok := result.Clients[claude.ID]
 	if result.OK || result.NextAction != "aigw doctor" || !ok || state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" ||
-		state.Route != "claude" || state.Account != "team" || state.Detail != "Credential metadata is unavailable" {
+		state.Model != "claude" || state.Account != "team" || state.Detail != "Credential metadata is unavailable" {
 		t.Fatalf("canonical clients = %#v\n%s", result.Clients, out.String())
 	}
 

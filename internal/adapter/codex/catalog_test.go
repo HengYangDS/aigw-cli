@@ -154,7 +154,7 @@ func TestKnownBaseModelUsesBundledCatalogForCustomProvider(t *testing.T) {
 	}
 }
 
-func TestCodexCatalogProjectsChannelWireFromRouteFamily(t *testing.T) {
+func TestCodexCatalogProjectsChannelWireFromModelFamily(t *testing.T) {
 	const (
 		canonicalModel = "gpt-6.1-sol"
 		upstreamModel  = "gpt-6.1-sol-cdx"

@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testing.T) {
+func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedModel(t *testing.T) {
 	cfg, selected := codexVerificationFixture(t)
 	target := cfg.Clients[ID].Targets[0]
 	if _, err := ReconcileConfigs([]TargetRef{HomeTarget(target)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
@@ -36,12 +36,12 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Models["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", domain.ProtocolOpenAIResponses)
+	cfg.Models["alternate"] = qualifiedModel("", "gateway", "gpt-alternate", domain.ProtocolOpenAIResponses)
 	runtime, err := cfg.ResolveRuntime(ID, "alternate")
 	if err != nil {
 		t.Fatal(err)
 	}
-	runner := &routeVerificationRunner{}
+	runner := &modelVerificationRunner{}
 	if _, err := (codexAdapter{}).Verify(context.Background(), adapter.Dependencies{
 		Runner: runner, AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
 	}, cfg, runtime, "alternate"); err != nil {
@@ -108,12 +108,12 @@ func TestCodexVerificationRepairsCosmeticRootSelectionDriftInIsolation(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Models["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", domain.ProtocolOpenAIResponses)
+	cfg.Models["alternate"] = qualifiedModel("", "gateway", "gpt-alternate", domain.ProtocolOpenAIResponses)
 	runtime, err := cfg.ResolveRuntime(ID, "alternate")
 	if err != nil {
 		t.Fatal(err)
 	}
-	runner := &routeVerificationRunner{}
+	runner := &modelVerificationRunner{}
 	if _, err := (codexAdapter{}).Verify(context.Background(), adapter.Dependencies{
 		Runner: runner, AIGWExecutable: filepath.Join(t.TempDir(), "aigw"),
 	}, cfg, runtime, "alternate"); err != nil {
@@ -135,18 +135,18 @@ func TestCodexVerificationRepairsCosmeticRootSelectionDriftInIsolation(t *testin
 	_ = selected
 }
 
-type routeVerificationRunner struct {
+type modelVerificationRunner struct {
 	plans     []process.Plan
 	config    []byte
 	challenge string
 }
 
-func (runner *routeVerificationRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
+func (runner *modelVerificationRunner) RunCaptureStreams(ctx context.Context, plan process.Plan) ([]byte, []byte, error) {
 	output, err := runner.RunCapture(ctx, plan)
 	return output, nil, err
 }
 
-func (runner *routeVerificationRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
+func (runner *modelVerificationRunner) RunCapture(_ context.Context, plan process.Plan) ([]byte, error) {
 	runner.plans = append(runner.plans, plan)
 	if slices.Equal(plan.Args, []string{"--version"}) {
 		return []byte("codex-cli 9.9.9\n"), nil

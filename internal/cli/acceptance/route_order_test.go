@@ -13,7 +13,7 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-func TestRouteListGroupsServicesAndPreservesStoredBindings(t *testing.T) {
+func TestModelListGroupsServicesAndPreservesStoredBindings(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	endpoints := domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1", OpenAIChatCompletions: "https://team.test/v1"}
@@ -30,7 +30,7 @@ func TestRouteListGroupsServicesAndPreservesStoredBindings(t *testing.T) {
 		{"d-responses-strong", "strong", domain.ProtocolOpenAIResponses},
 		{"e-native-strong", "strong", domain.ProtocolAnthropic},
 	} {
-		cfg.Models[row.id] = qualifiedRoute(row.id, "team", row.model, row.protocol)
+		cfg.Models[row.id] = qualifiedModel(row.id, "team", row.model, row.protocol)
 	}
 	cfg.SetSelectedModel(codex.ID, "d-responses-strong", "")
 	if err := app.Config.Save(cfg); err != nil {

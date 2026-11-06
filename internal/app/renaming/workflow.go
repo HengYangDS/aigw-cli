@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-// RenameRoute updates one Route identity and all Client Binding references as one transaction.
-func (s Renamer) RenameRoute(ctx context.Context, oldID, newID string, dryRun bool) (Plan, error) {
+// RenameModel updates one Route identity and all Client Binding references as one transaction.
+func (s Renamer) RenameModel(ctx context.Context, oldID, newID string, dryRun bool) (Plan, error) {
 	if err := ctx.Err(); err != nil {
 		return Plan{}, err
 	}
@@ -14,7 +14,7 @@ func (s Renamer) RenameRoute(ctx context.Context, oldID, newID string, dryRun bo
 	if err != nil {
 		return Plan{}, err
 	}
-	plan, err := planRoute(cfg, oldID, newID)
+	plan, err := planModel(cfg, oldID, newID)
 	if err != nil || dryRun {
 		return plan, err
 	}

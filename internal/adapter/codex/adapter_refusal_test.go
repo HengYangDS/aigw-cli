@@ -44,7 +44,7 @@ func TestCodexVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing.
 			if err := store.Set("gateway", "fixture-token"); err != nil {
 				t.Fatal(err)
 			}
-			runner := &routeVerificationRunner{}
+			runner := &modelVerificationRunner{}
 			deps := adapter.Dependencies{Runner: runner, Secrets: store}
 			want := "unknown route"
 			if failure == "selected route" {

@@ -249,7 +249,7 @@ func TestManifestSetupCredentialInput(t *testing.T) {
 	})
 }
 
-func TestManifestSetupClientSelectionRequiresConnectedRouteAndUsableSurface(t *testing.T) {
+func TestManifestSetupClientSelectionRequiresConnectedModelAndUsableSurface(t *testing.T) {
 	cfg := manifestSetupConfig()
 	connected := map[string]setupCredential{"team": {account: "team", token: "token"}}
 
@@ -291,7 +291,7 @@ func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *t
 		In:  strings.NewReader("token\n"),
 		Out: io.Discard,
 	}
-	request := setupRequest{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, Model: "claude-test", TokenStdin: true}
+	request := setupRequest{Account: "team", Model: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, UpstreamModel: "claude-test", TokenStdin: true}
 
 	err := runSetup(context.Background(), runtime, request)
 	if err == nil || !strings.Contains(err.Error(), "setup failed") || !strings.Contains(err.Error(), "credential rollback also failed") || !strings.Contains(err.Error(), "credential postimage changed") {
@@ -328,7 +328,7 @@ func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 		}),
 		In: strings.NewReader("token\n"), Out: io.Discard,
 	}
-	err = runSetup(t.Context(), run, setupRequest{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, Model: "claude-test", TokenStdin: true})
+	err = runSetup(t.Context(), run, setupRequest{Account: "team", Model: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, UpstreamModel: "claude-test", TokenStdin: true})
 	if err == nil || !strings.Contains(err.Error(), "credential postimage changed") {
 		t.Fatalf("setup error = %v, want uncompensated credential", err)
 	}
@@ -437,7 +437,7 @@ func TestConfiguredClientsForAccount(t *testing.T) {
 
 func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 	_, err := planSetup(domain.NewConfig(clients.Admission()), setupRequest{
-		Route: "shared", Client: hermes.ID, Model: "shared-model",
+		Model: "shared", Client: hermes.ID, UpstreamModel: "shared-model",
 		OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
 	})
 	if err == nil || !strings.Contains(err.Error(), "--protocol") {
@@ -450,7 +450,7 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 		t.Fatalf("ambiguous Hermes setup recommendation = %q, want %q", rendered.String(), want)
 	}
 	_, err = planSetup(domain.NewConfig(clients.Admission()), setupRequest{
-		Route: "chat", Client: hermes.ID, Model: "chat-model",
+		Model: "chat", Client: hermes.ID, UpstreamModel: "chat-model",
 		Protocol: string(domain.ProtocolOpenAIChatCompletions),
 	})
 	if err == nil || !strings.Contains(err.Error(), "--chat-url") {
@@ -465,7 +465,7 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 		{
 			name: "Anthropic among two endpoints",
 			request: setupRequest{
-				Route: "shared", Client: hermes.ID, Model: "shared-model",
+				Model: "shared", Client: hermes.ID, UpstreamModel: "shared-model",
 				OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
 				Protocol: string(domain.ProtocolAnthropic),
 			},
@@ -474,7 +474,7 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 		{
 			name: "Chat Completions",
 			request: setupRequest{
-				Route: "chat", Client: hermes.ID, Model: "chat-model",
+				Model: "chat", Client: hermes.ID, UpstreamModel: "chat-model",
 				ChatURL: "https://chat.test/v1", Protocol: string(domain.ProtocolOpenAIChatCompletions),
 			},
 			protocol: domain.ProtocolOpenAIChatCompletions,
@@ -530,7 +530,7 @@ func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 		Out:         io.Discard,
 		Interactive: false,
 	}
-	request := setupRequest{Account: "team", Route: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, Model: "claude-test"}
+	request := setupRequest{Account: "team", Model: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, UpstreamModel: "claude-test"}
 	if err := runSetup(context.Background(), runtime, request); err != nil {
 		t.Fatal(err)
 	}

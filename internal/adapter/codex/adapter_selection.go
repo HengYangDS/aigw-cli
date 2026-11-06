@@ -38,7 +38,7 @@ func (codexAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) (
 	if chosen == "" {
 		return "", nil
 	}
-	routeID, err := routeFor(*cfg, selected, chosen)
+	routeID, err := modelFor(*cfg, selected, chosen)
 	if err != nil {
 		return "", err
 	}
@@ -46,9 +46,9 @@ func (codexAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) (
 	return routeID, nil
 }
 
-// routeFor maps Codex's model to the one Route with the selected Account,
+// modelFor maps Codex's model to the one Route with the selected Account,
 // protocol and that upstream model, which the managed provider already reaches.
-func routeFor(cfg domain.Config, selected domain.Runtime, model string) (string, error) {
+func modelFor(cfg domain.Config, selected domain.Runtime, model string) (string, error) {
 	spec := codexAdapter{}.Spec()
 	var matches []string
 	for _, routeID := range cfg.CatalogModelIDs() {

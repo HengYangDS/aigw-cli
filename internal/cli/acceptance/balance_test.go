@@ -29,7 +29,7 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 
 	t.Run("unknown explicit account", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveProbeRoute(t, app.Config)
+		saveProbeModel(t, app.Config)
 		if err := cli.Execute(app, []string{"balance", "missing"}); err == nil || !strings.Contains(strings.ToLower(err.Error()), "unknown") {
 			t.Fatalf("error = %v", err)
 		}
@@ -37,7 +37,7 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 
 	t.Run("no probe", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
+		saveCommandModel(t, app, domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		if err := cli.Execute(app, []string{"balance"}); err == nil || !strings.Contains(err.Error(), "does not support") {
 			t.Fatalf("error = %v", err)
 		}
@@ -45,7 +45,7 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 
 	t.Run("missing api token", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveProbeRoute(t, app.Config)
+		saveProbeModel(t, app.Config)
 		diagnosticStore := app.Accounts
 		_ = diagnosticStore.Set("dmx", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		if err := cli.Execute(app, []string{"balance"}); err == nil {
@@ -55,7 +55,7 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 
 	t.Run("provider failure", func(t *testing.T) {
 		app, _, secretStore, _, httpClient := testApp(t, "")
-		saveProbeRoute(t, app.Config)
+		saveProbeModel(t, app.Config)
 		diagnosticStore := app.Accounts
 		_ = diagnosticStore.Set("dmx", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		_ = secretStore.Set("dmx", "sk-abcd-middle-wxyz")
@@ -68,7 +68,7 @@ func TestBalanceOperationalAndRenderingBranches(t *testing.T) {
 
 	t.Run("disabled unlimited token", func(t *testing.T) {
 		app, out, secretStore, _, httpClient := testApp(t, "")
-		saveProbeRoute(t, app.Config)
+		saveProbeModel(t, app.Config)
 		diagnosticStore := app.Accounts
 		_ = diagnosticStore.Set("dmx", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		_ = secretStore.Set("dmx", "sk-abcd-middle-wxyz")
@@ -98,7 +98,7 @@ func TestBalanceExplainsWhenConfiguredDiagnosticDriverIsNotBundled(t *testing.T)
 		Endpoints:    domain.Endpoints{OpenAIResponses: "https://future.test/v1"},
 		BalanceProbe: &domain.BalanceProbe{Kind: "future-provider", BaseURL: "https://future.test"},
 	}
-	cfg.Models["gpt"] = qualifiedRoute("GPT", "future", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["gpt"] = qualifiedModel("GPT", "future", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -123,7 +123,7 @@ func handleDMXBalance(req *http.Request) (*http.Response, error) {
 func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-test")
+	addAccountModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-test")
 	account := cfg.Providers["dmx"]
 	account.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
 	cfg.Providers["dmx"] = account
@@ -147,7 +147,7 @@ func TestBalanceDoesNotReportUnreadableDiagnosticCredentialAsMissing(t *testing.
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, httpClient := testApp(t, "")
-			saveProbeRoute(t, app.Config)
+			saveProbeModel(t, app.Config)
 			store := &recordingCredentialStore[secret.DiagnosticCredential]{backend: app.Accounts, getErr: test.cause}
 			app.Accounts = store
 
@@ -172,7 +172,7 @@ func TestBalanceDoesNotReportUnreadableDiagnosticCredentialAsMissing(t *testing.
 
 func TestBalanceReportsIncompleteEnvironmentDiagnosticPair(t *testing.T) {
 	app, out, _, _, httpClient := testApp(t, "")
-	saveProbeRoute(t, app.Config)
+	saveProbeModel(t, app.Config)
 	values := map[string]string{secret.DiagnosticSystemTokenEnvironmentKey("dmx"): "private-system-token"}
 	backend := secret.NewEnvironmentStore(func(key string) string { return values[key] })
 	accounts, err := secret.NewDiagnosticCredentialStore(backend)
@@ -203,7 +203,7 @@ func TestBalanceReportsIncompleteEnvironmentDiagnosticPair(t *testing.T) {
 // diagnostics name the two variables that supply them.
 func TestBalanceNamesEnvironmentVariablesForAbsentDiagnostics(t *testing.T) {
 	app, out, _, _, httpClient := testApp(t, "")
-	saveProbeRoute(t, app.Config)
+	saveProbeModel(t, app.Config)
 	backend := secret.NewEnvironmentStore(func(string) string { return "" })
 	accounts, err := secret.NewDiagnosticCredentialStore(backend)
 	if err != nil {
@@ -228,7 +228,7 @@ func TestAccountDiagnosticsEnableStoresSeparateCredentialAndBalanceShowsDetails(
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	accountStore := app.Accounts
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-test")
+	addAccountModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-test")
 	providerAccount := cfg.Providers["dmx"]
 	providerAccount.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
 	cfg.Providers["dmx"] = providerAccount

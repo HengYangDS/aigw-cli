@@ -158,7 +158,7 @@ func observeWithoutEffects(ctx context.Context, fixture Fixture, when string) er
 	if err := unchangedCaller("Inspect", caller, fixture.After); err != nil {
 		return fmt.Errorf("%s: %w", when, err)
 	}
-	for _, route := range []string{"", explicitRoute(fixture)} {
+	for _, route := range []string{"", explicitModel(fixture)} {
 		_, _ = fixture.Adapter.Verify(ctx, fixture.Dependencies, fixture.After, fixture.Runtime, route)
 		if err := unchangedCaller("Verify", caller, fixture.After); err != nil {
 			return fmt.Errorf("%s: %w", when, err)
@@ -167,9 +167,9 @@ func observeWithoutEffects(ctx context.Context, fixture Fixture, when string) er
 	return unchangedFiles(fixture.Home, before, "inspection and verification "+when)
 }
 
-// explicitRoute is the Route that one verification names: the fixture's
+// explicitModel is the Route that one verification names: the fixture's
 // selected Route, or a placeholder when the fixture selects none.
-func explicitRoute(fixture Fixture) string {
+func explicitModel(fixture Fixture) string {
 	if fixture.Runtime.ModelID != "" {
 		return fixture.Runtime.ModelID
 	}

@@ -120,7 +120,7 @@ func TestHelperOnlyMigrationRetainsNativeModelPreference(t *testing.T) {
 	}
 }
 
-func TestHelperMigrationDoesNotCarryModelPreferenceAcrossRouteChanges(t *testing.T) {
+func TestHelperMigrationDoesNotCarryModelPreferenceAcrossModelChanges(t *testing.T) {
 	for _, test := range []struct {
 		name   string
 		change func(*domain.Runtime)

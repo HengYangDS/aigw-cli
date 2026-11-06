@@ -23,7 +23,7 @@ func TestSettingsSurfaceIdentityIsStable(t *testing.T) {
 func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
-	before.Models["route"] = qualifiedRoute("Route", "gateway", "model", domain.ProtocolAnthropic)
+	before.Models["route"] = qualifiedModel("Route", "gateway", "model", domain.ProtocolAnthropic)
 	before.Clients[ID] = domain.ClientBinding{Model: "route", Enabled: true}
 	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
@@ -46,7 +46,7 @@ func TestClaudeAdapterApplyValidatesIntentAndRestoresObservedPreimage(t *testing
 
 	configured := domain.NewConfig(testAdmission())
 	configured.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	configured.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	configured.Models["claude"] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
 	configured.SetSelectedModel(ID, "claude", "")
 	configured.SetClientActivation(ID, true, "/usr/bin/claude", nil)
 	if _, err := (claudeAdapter{}).Apply(context.Background(), adapter.Dependencies{}, domain.NewConfig(testAdmission()), configured); err == nil || !strings.Contains(err.Error(), "settings path is empty") {
@@ -78,7 +78,7 @@ func hostAt(home string) discovery.Host {
 	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
 }
 
-func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
+func qualifiedModel(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
 	interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(protocols))
 	for _, protocol := range protocols {
 		interfaces[protocol] = []domain.Capability{}

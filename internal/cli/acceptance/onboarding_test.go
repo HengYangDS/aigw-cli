@@ -38,7 +38,7 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 		Label:     "DMXAPI",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
-	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetClientActivation(codex.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -211,7 +211,7 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 	}
 }
 
-func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
+func TestSyncActivatesLateTokenWithoutChangingIndependentModel(t *testing.T) {
 	app, _, secretStore, runner, _ := testApp(t, "")
 	app.Discovery = fakeDiscovery{}
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
@@ -293,7 +293,7 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 		Label:     "DMXAPI",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
-	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["gpt"] = qualifiedModel("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

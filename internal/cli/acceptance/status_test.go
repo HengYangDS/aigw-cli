@@ -19,7 +19,7 @@ func TestStatusSuggestsAccountSpecificDiagnostics(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
-	cfg.Models["gpt-5.6-sol"] = qualifiedRoute("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
+	cfg.Models["gpt-5.6-sol"] = qualifiedModel("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -38,7 +38,7 @@ func TestStatusWarnsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
-	cfg.Models["claude-fable-5"] = qualifiedRoute("Claude Fable", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
+	cfg.Models["claude-fable-5"] = qualifiedModel("Claude Fable", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "claude-fable-5", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude-real", nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -96,12 +96,12 @@ func TestStatusDirectsTheSupportedPredecessorToExplicitMigration(t *testing.T) {
 	}
 }
 
-func TestStatusPrioritizesSelectedActivationWhileRetainingRouteGuidance(t *testing.T) {
+func TestStatusPrioritizesSelectedActivationWhileRetainingModelGuidance(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}}
-	cfg.Models["gpt-5.6-sol"] = qualifiedRoute("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
-	cfg.Models["claude-fable-5"] = qualifiedRoute("Claude", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
+	cfg.Models["gpt-5.6-sol"] = qualifiedModel("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
+	cfg.Models["claude-fable-5"] = qualifiedModel("Claude", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	cfg.SetRecommendedModel(claude.ID, "claude-fable-5")
 	if err := app.Config.Save(cfg); err != nil {
@@ -150,7 +150,7 @@ func TestStatusKeepsTheFirstRunNextActionSimple(t *testing.T) {
 func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
+	addAccountModel(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude-real", nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -167,11 +167,11 @@ func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 	}
 }
 
-func TestStatusShowsIndependentRoutesAndJSONNeverContainsToken(t *testing.T) {
+func TestStatusShowsIndependentModelsAndJSONNeverContainsToken(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "codex", "dmx", "Codex", domain.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
-	addAccountRoute(&cfg, "claude", "dmx", "Claude", domain.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, claude.ID, "claude-test")
+	addAccountModel(&cfg, "codex", "dmx", "Codex", domain.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
+	addAccountModel(&cfg, "claude", "dmx", "Claude", domain.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -193,7 +193,7 @@ func TestStatusShowsIndependentRoutesAndJSONNeverContainsToken(t *testing.T) {
 	}
 }
 
-func TestStatusReportsRouteTransport(t *testing.T) {
+func TestStatusReportsModelTransport(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
 		endpoint  string
@@ -210,7 +210,7 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			app.Config = store.NewStore(filepath.Join(t.TempDir(), "localhost-4567-configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountRoute(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: tc.endpoint}, codex.ID, "model-test")
+			addAccountModel(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: tc.endpoint}, codex.ID, "model-test")
 			cfg.SetSelectedModel(codex.ID, "team", "")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -250,12 +250,12 @@ func TestStatusReportsRouteTransport(t *testing.T) {
 	}
 }
 
-func TestStatusLabelsRouteCountAsModelConfigurations(t *testing.T) {
+func TestStatusLabelsModelCountAsModelConfigurations(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Models["gpt"] = qualifiedRoute("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.Models["claude"] = qualifiedRoute("Claude", "team", "claude-test", domain.ProtocolAnthropic)
+	cfg.Models["gpt"] = qualifiedModel("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["claude"] = qualifiedModel("Claude", "team", "claude-test", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	if err := app.Config.Save(cfg); err != nil {

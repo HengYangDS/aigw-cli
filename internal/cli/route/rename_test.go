@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestRouteRenamePreservesInvocationAndDomainErrors(t *testing.T) {
+func TestModelRenamePreservesInvocationAndDomainErrors(t *testing.T) {
 	for _, constructor := range []struct {
 		name string
 		new  func(invocation.Context) *cobra.Command

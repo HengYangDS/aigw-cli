@@ -57,7 +57,7 @@ func (state State) Label() string {
 // operator action is required.
 type Client struct {
 	State      State  `json:"state"`
-	Route      string `json:"route,omitempty"`
+	Model      string `json:"route,omitempty"`
 	Account    string `json:"account,omitempty"`
 	Detail     string `json:"detail,omitempty"`
 	NextAction string `json:"next_action,omitempty"`
@@ -70,7 +70,7 @@ type Client struct {
 
 // ClientFacts are the local observations that determine one client's state.
 type ClientFacts struct {
-	Route                      string
+	Model                      string
 	Account                    string
 	BindingIssue               string
 	BindingAction              string
@@ -83,19 +83,19 @@ type ClientFacts struct {
 	ProjectionReady            bool
 	ProjectionIssue            string
 	ProjectionAction           string
-	SuggestedRoute             string
+	SuggestedModel             string
 }
 
 // ClassifyClient classifies local readiness facts without performing probes or
 // reading credential values.
 func ClassifyClient(facts ClientFacts) Client {
-	state := Client{Route: facts.Route, Account: facts.Account, ProjectionDeferred: facts.ProjectionDeferred}
+	state := Client{Model: facts.Model, Account: facts.Account, ProjectionDeferred: facts.ProjectionDeferred}
 	switch {
 	case facts.BindingIssue != "":
 		state.State = Invalid
 		state.Detail = facts.BindingIssue
 		state.NextAction = facts.BindingAction
-	case facts.Route == "":
+	case facts.Model == "":
 		state.State = Deferred
 		state.Detail = "No route is selected for this client"
 		if facts.BindingAction != "" {

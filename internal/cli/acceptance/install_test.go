@@ -366,8 +366,8 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 	}}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
-	cfg.Models["claude"] = qualifiedRoute("Claude", "team", "claude-model", domain.ProtocolAnthropic)
-	cfg.Models["codex"] = qualifiedRoute("Codex", "team", "gpt-model", domain.ProtocolOpenAIResponses)
+	cfg.Models["claude"] = qualifiedModel("Claude", "team", "claude-model", domain.ProtocolAnthropic)
+	cfg.Models["codex"] = qualifiedModel("Codex", "team", "gpt-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)

@@ -48,7 +48,7 @@ func renderClientStatus(r *terminal.Renderer, admission domain.Admission, result
 	for _, client := range clientIDs {
 		spec, _ := admission.Spec(client)
 		clientStatus := result.Clients[client]
-		message := clientStatus.Route + " · " + clientStatus.State.Label()
+		message := clientStatus.Model + " · " + clientStatus.State.Label()
 		state := terminal.Info
 		switch clientStatus.State {
 		case domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
@@ -56,14 +56,14 @@ func renderClientStatus(r *terminal.Renderer, admission domain.Admission, result
 		case domainreadiness.Configured:
 			state = terminal.Info
 		case domainreadiness.Deferred:
-			if clientStatus.Route == "" {
+			if clientStatus.Model == "" {
 				message = "No " + spec.Label + " route selected"
 			}
 		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
 			state = terminal.Warn
 		}
-		if clientStatus.Detail != "" && clientStatus.Route != "" {
-			message = clientStatus.Route + " · " + clientStatus.State.Label() + " · " + clientStatus.Detail
+		if clientStatus.Detail != "" && clientStatus.Model != "" {
+			message = clientStatus.Model + " · " + clientStatus.State.Label() + " · " + clientStatus.Detail
 		}
 		if len(clientStatus.QualifiedModes) > 0 && len(clientStatus.QualifiedPlatforms) > 0 {
 			message += " · Qualified: " + strings.Join(clientStatus.QualifiedModes, ", ") + " · " + strings.Join(clientStatus.QualifiedPlatforms, ", ")

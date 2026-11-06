@@ -17,7 +17,7 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
+func TestModelSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	before := setupConfiguration()
 	before.Models["next"] = domain.Model{Label: "Next", Provider: "team", Family: "claude-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
@@ -26,7 +26,7 @@ func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	}
 	credentials := setupTokenStore(t, "existing-token")
 	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials, Discovery: setupDiscovery(nil)}
-	changed, _, _, err := syncer.SelectRoute(t.Context(), before, claude.ID, "next", "", domain.ConnectionChange{}, "")
+	changed, _, _, err := syncer.SelectModel(t.Context(), before, claude.ID, "next", "", domain.ConnectionChange{}, "")
 	if err != nil || !changed {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
 	}
@@ -38,7 +38,7 @@ func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changed, _, _, err = syncer.SelectRoute(t.Context(), current, claude.ID, "next", "", domain.ConnectionChange{}, "")
+	changed, _, _, err = syncer.SelectModel(t.Context(), current, claude.ID, "next", "", domain.ConnectionChange{}, "")
 	if err != nil || changed || credentials.writes != 0 {
 		t.Fatalf("repeated selection = %t, %v; credential writes=%d", changed, err, credentials.writes)
 	}
@@ -48,7 +48,7 @@ func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	}
 }
 
-func TestRouteSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
+func TestModelSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 	direct := ""
 	for _, test := range []struct {
 		name, route, wantEndpoint string
@@ -91,7 +91,7 @@ func TestRouteSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 	}
 }
 
-func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
+func TestModelSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 	for _, phase := range []string{"cancelled", "discovery", "persistence"} {
 		t.Run(phase, func(t *testing.T) {
 			before := setupConfiguration()
@@ -111,7 +111,7 @@ func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 				syncer.Discovery = setupDiscovery(cancel)
 				failure = context.Canceled
 			}
-			_, _, _, err := syncer.SelectRoute(ctx, before, claude.ID, "claude", "", domain.ConnectionChange{}, "new-token")
+			_, _, _, err := syncer.SelectModel(ctx, before, claude.ID, "claude", "", domain.ConnectionChange{}, "new-token")
 			if !errors.Is(err, failure) {
 				t.Fatalf("selection error = %v, want %v", err, failure)
 			}
@@ -125,7 +125,7 @@ func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 	}
 }
 
-func TestRouteSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
+func TestModelSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 	for _, route := range []string{"unknown", "native"} {
 		t.Run(route, func(t *testing.T) {
 			cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
@@ -140,7 +140,7 @@ func TestRouteSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 			if route == "native" {
 				client = codex.ID
 			}
-			_, _, _, err := (Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials}).SelectRoute(t.Context(), cfg, client, route, "", domain.ConnectionChange{}, "token")
+			_, _, _, err := (Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials}).SelectModel(t.Context(), cfg, client, route, "", domain.ConnectionChange{}, "token")
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid selection reached credential mutation: writes=%d, error=%v", credentials.writes, err)
 			}

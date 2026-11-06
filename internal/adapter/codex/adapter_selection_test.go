@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestAdoptCodexSelectionRecordsTheOneMatchingRoute(t *testing.T) {
+func TestAdoptCodexSelectionRecordsTheOneMatchingModel(t *testing.T) {
 	cfg, targets := codexAdoptionFixture(t, 1)
 	native := chooseCodexModel(t, targets[0], "gpt-terra")
 	routeID, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg)
@@ -36,7 +36,7 @@ func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg, targets := codexAdoptionFixture(t, 1)
 			if test.copy {
-				cfg.Models["terra-copy"] = qualifiedRoute("Terra copy", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
+				cfg.Models["terra-copy"] = qualifiedModel("Terra copy", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
 				cfg.Normalize()
 			}
 			chooseCodexModel(t, targets[0], test.model)
@@ -101,9 +101,9 @@ func codexAdoptionFixture(t *testing.T, count int) (domain.Config, []string) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
-	cfg.Models["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", domain.ProtocolOpenAIResponses)
-	cfg.Models["terra"] = qualifiedRoute("Terra", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
-	cfg.Models["other-terra"] = qualifiedRoute("Other terra", "other", "gpt-terra", domain.ProtocolOpenAIResponses)
+	cfg.Models["sol"] = qualifiedModel("Sol", "gateway", "gpt-sol", domain.ProtocolOpenAIResponses)
+	cfg.Models["terra"] = qualifiedModel("Terra", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
+	cfg.Models["other-terra"] = qualifiedModel("Other terra", "other", "gpt-terra", domain.ProtocolOpenAIResponses)
 	targets := make([]string, 0, count)
 	for range count {
 		target := filepath.Join(t.TempDir(), "config.toml")

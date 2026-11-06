@@ -204,7 +204,7 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 	}
 }
 
-func TestStatusDescribesEachLoopbackRouteWithoutInferringServiceIdentity(t *testing.T) {
+func TestStatusDescribesEachLoopbackModelWithoutInferringServiceIdentity(t *testing.T) {
 	runtime, cfg, buffer := configuredReadinessRuntime(t)
 	account := cfg.Providers["one"]
 	account.Endpoints = domain.Endpoints{Anthropic: "http://127.0.0.2:4567", OpenAIResponses: "http://[::ffff:127.0.0.2]:4568/v1"}
@@ -386,7 +386,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 		runtime := invocation.Context{Clients: clients.Registry(), Out: out, Width: 120}
 		renderClientStatus(invocation.Renderer(runtime), runtime.Clients.Admission(), statusReport{
 			Clients: map[string]app.ClientStatus{claude.ID: {
-				Client: domainreadiness.Client{State: state, Route: "route"},
+				Client: domainreadiness.Client{State: state, Model: "route"},
 			}},
 		}, []string{claude.ID})
 		if !strings.Contains(out.String(), state.Label()) {
@@ -395,11 +395,11 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 	}
 }
 
-func TestStatusReportsSelectedUnknownRoute(t *testing.T) {
+func TestStatusReportsSelectedUnknownModel(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
 	cfg.SetSelectedModel(claude.ID, "missing", "")
 	state := app.InspectStatusClients(runtime.Dependencies, cfg, nil, "")[claude.ID]
-	if state.State != domainreadiness.Invalid || state.Route != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
+	if state.State != domainreadiness.Invalid || state.Model != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
 		t.Fatalf("Claude status = %#v", state)
 	}
 }

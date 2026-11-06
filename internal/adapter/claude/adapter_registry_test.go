@@ -25,7 +25,7 @@ func TestClaudeProjectionTreatsAnInvalidRuntimeAsChanged(t *testing.T) {
 	t.Run("invalid enabled Claude runtime", func(t *testing.T) {
 		before := domain.NewConfig(testAdmission())
 		before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-		before.Models["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
+		before.Models["claude"] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
 		before.SetSelectedModel(ID, "claude", "")
 		before.SetClientActivation(ID, true, "/opt/claude", nil)
 		after := before.Clone()
@@ -44,8 +44,8 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	cfg.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
-	cfg.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["claude"] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(ID, "claude", "")
 	cfg.SetSelectedModel(otherClient.ID, "codex", "")
 	cfg.SetClientActivation(ID, true, missing, nil)
@@ -70,7 +70,7 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 	}
 }
 
-func TestClaudeConvergenceIgnoresOnlyAnUnselectedRoute(t *testing.T) {
+func TestClaudeConvergenceIgnoresOnlyAnUnselectedModel(t *testing.T) {
 	for _, clientID := range []string{ID} {
 		t.Run(clientID+" without a route", func(t *testing.T) {
 			if _, err := claudeRegistry().Converge(adapter.Dependencies{}, domain.NewConfig(testAdmission()), discovery.Result{}, clientID); err != nil {

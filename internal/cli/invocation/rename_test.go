@@ -40,9 +40,9 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 		{"Account already finalized", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "already_finalized", Finalize: true, Account: domain.Provider{Label: "New"}}},
 		{"Account finalization complete", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "finalized", Finalize: true, Account: domain.Provider{Label: "New"}}},
 		{"Account rename plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "planned", Account: domain.Provider{Label: "New"}}},
-		{"Route rename plan", renaming.Plan{Resource: "route", OldID: "old", NewID: "new", Status: "planned", Route: domain.Model{Provider: "account"}, AffectedReferences: []string{"routes.codex"}}},
+		{"Route rename plan", renaming.Plan{Resource: "route", OldID: "old", NewID: "new", Status: "planned", Model: domain.Model{Provider: "account"}, AffectedReferences: []string{"routes.codex"}}},
 		{"Account renamed", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Account: domain.Provider{Label: "New"}, AffectedReferences: []string{"routes.codex.account"}}},
-		{"Route renamed", renaming.Plan{Resource: "route", OldID: "old", NewID: "new", Status: "applied", Route: domain.Model{Provider: "account"}}},
+		{"Route renamed", renaming.Plan{Resource: "route", OldID: "old", NewID: "new", Status: "applied", Model: domain.Model{Provider: "account"}}},
 	}
 	for _, test := range statuses {
 		t.Run(test.title+"/"+string(test.plan.Status), func(t *testing.T) {

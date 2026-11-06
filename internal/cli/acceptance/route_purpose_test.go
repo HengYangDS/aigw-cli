@@ -11,10 +11,10 @@ import (
 	"testing"
 )
 
-func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
+func TestModelPurposeIsOptionalHumanGuidance(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "current", "team", "Team Gateway", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-current")
+	addAccountModel(&cfg, "current", "team", "Team Gateway", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-current")
 	cfg.SetSelectedModel(claude.ID, "current", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -91,11 +91,11 @@ func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
 	}
 }
 
-func TestRouteListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T) {
+func TestModelListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountRoute(&cfg, "gpt", "team", "Team Gateway", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "gpt-test")
-	cfg.Models["gpt"] = qualifiedRoute("GPT Test", "team", "gpt-test", domain.ProtocolOpenAIResponses)
+	addAccountModel(&cfg, "gpt", "team", "Team Gateway", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "gpt-test")
+	cfg.Models["gpt"] = qualifiedModel("GPT Test", "team", "gpt-test", domain.ProtocolOpenAIResponses)
 	route := cfg.Models["gpt"]
 	route.Purpose = "native Codex picker-aligned daily default"
 	cfg.Models["gpt"] = route

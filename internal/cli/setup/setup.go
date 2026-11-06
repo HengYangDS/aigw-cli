@@ -21,9 +21,9 @@ import (
 
 // setupRequest contains the explicit setup inputs before discovery and validation resolve their effects.
 type setupRequest struct {
-	From, Account, Route, Label      string
+	From, Account, Model, Label      string
 	OpenAIURL, AnthropicURL, ChatURL string
-	Client, Model, Protocol          string
+	Client, UpstreamModel, Protocol  string
 	TokenStdin                       bool
 	PromptToken                      bool
 	JSON                             bool
@@ -44,7 +44,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if !cmd.Flags().Changed("from") {
 				// Setup with --json never prompts, so the guided flow needs its
 				// first Route as a flag, before anything is read or created.
-				if request.JSON && strings.TrimSpace(request.Route) == "" {
+				if request.JSON && strings.TrimSpace(request.Model) == "" {
 					return fmt.Errorf("--json requires --route or --from; run `%s --help`", cmd.CommandPath())
 				}
 				return nil
@@ -86,13 +86,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&request.From, "from", "", "Set up all routes from a token-free configuration manifest")
 	cmd.Flags().StringVar(&request.Account, "account", "", "Account ID; guided setup uses the first Route ID when omitted, --from connects only this Account")
-	cmd.Flags().StringVar(&request.Route, "route", "", "First route ID")
+	cmd.Flags().StringVar(&request.Model, "route", "", "First route ID")
 	cmd.Flags().StringVar(&request.Label, "label", "", "Provider display name")
 	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")
 	cmd.Flags().StringVar(&request.AnthropicURL, "anthropic-url", "", "Anthropic base URL")
 	cmd.Flags().StringVar(&request.ChatURL, "chat-url", "", "OpenAI Chat Completions base URL")
 	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first route: "+runtime.Clients.Admission().Usage())
-	cmd.Flags().StringVar(&request.Model, "upstream-model", "", "Exact provider model ID for --for")
+	cmd.Flags().StringVar(&request.UpstreamModel, "upstream-model", "", "Exact provider model ID for --for")
 	cmd.Flags().StringVar(&request.Protocol, "protocol", "", "Endpoint protocol when more than one URL is configured")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
 	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the setup result as JSON")
@@ -107,7 +107,7 @@ type setupPlan struct {
 	request setupRequest
 	before  domain.Config
 	config  domain.Config
-	route   domain.Model
+	model   domain.Model
 }
 
 type setupCredential struct {
@@ -164,19 +164,19 @@ func runSetup(ctx context.Context, runtime invocation.Context, request setupRequ
 
 func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 	plan := setupPlan{request: request, before: cfg.Clone(), config: cfg}
-	plan.request.Route = strings.TrimSpace(plan.request.Route)
+	plan.request.Model = strings.TrimSpace(plan.request.Model)
 	plan.request.Account = strings.TrimSpace(plan.request.Account)
-	if plan.request.Route == "" {
+	if plan.request.Model == "" {
 		return setupPlan{}, fmt.Errorf("--route is required; import the reviewed team manifest with `aigw setup --from <path>` or run `aigw setup --help`")
 	}
 	if plan.request.Account == "" {
-		plan.request.Account = plan.request.Route
+		plan.request.Account = plan.request.Model
 	}
 	if !domain.ValidIdentifier(plan.request.Account) {
 		return setupPlan{}, fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Account)
 	}
-	if !domain.ValidIdentifier(plan.request.Route) {
-		return setupPlan{}, fmt.Errorf("Invalid route ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Route)
+	if !domain.ValidIdentifier(plan.request.Model) {
+		return setupPlan{}, fmt.Errorf("Invalid route ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Model)
 	}
 	if plan.request.Label == "" {
 		plan.request.Label = plan.request.Account
@@ -215,17 +215,17 @@ func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 		}
 		return setupPlan{}, fmt.Errorf("--for %s requires %s", plan.request.Client, setupEndpointFlag(required))
 	}
-	if strings.TrimSpace(plan.request.Model) == "" {
+	if strings.TrimSpace(plan.request.UpstreamModel) == "" {
 		return setupPlan{}, fmt.Errorf("--for %s requires --upstream-model", plan.request.Client)
 	}
 	storedAccount := domain.Provider{Label: plan.request.Label, Endpoints: endpoints}
-	plan.route = domain.Model{
-		Label: plan.request.Label, Provider: plan.request.Account, Family: strings.TrimSpace(plan.request.Model),
+	plan.model = domain.Model{
+		Label: plan.request.Label, Provider: plan.request.Account, Family: strings.TrimSpace(plan.request.UpstreamModel),
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 	}
 	plan.config.Providers[plan.request.Account] = storedAccount
-	plan.config.Models[plan.request.Route] = plan.route
-	plan.config.Clients[plan.request.Client] = domain.ClientBinding{Model: plan.request.Route, Enabled: true, Protocol: protocol}
+	plan.config.Models[plan.request.Model] = plan.model
+	plan.config.Clients[plan.request.Client] = domain.ClientBinding{Model: plan.request.Model, Enabled: true, Protocol: protocol}
 	if err := plan.config.Validate(); err != nil {
 		return setupPlan{}, err
 	}
@@ -247,9 +247,9 @@ func writeSetupPreview(runtime invocation.Context, plan setupPlan) error {
 	if plan.request.JSON {
 		result := manifestSetupResult{
 			DryRun:             true,
-			Imported:           manifestSetupImported{Accounts: []string{plan.request.Account}, Routes: []string{plan.request.Route}},
+			Imported:           manifestSetupImported{Accounts: []string{plan.request.Account}, Models: []string{plan.request.Model}},
 			ConnectedAccounts:  []string{},
-			Selections:         map[string]string{plan.request.Client: plan.request.Route},
+			Selections:         map[string]string{plan.request.Client: plan.request.Model},
 			ProjectedClients:   []string{},
 			OnlineVerification: "not_checked",
 			Preview:            preview,
@@ -262,12 +262,12 @@ func writeSetupPreview(runtime invocation.Context, plan setupPlan) error {
 	r.Section("Account")
 	r.Rows(
 		terminal.Field{Label: "Account", Value: plan.request.Account},
-		terminal.Field{Label: "Route", Value: plan.request.Route},
-		terminal.Field{Label: "Model", Value: plan.route.Family},
+		terminal.Field{Label: "Route", Value: plan.request.Model},
+		terminal.Field{Label: "Model", Value: plan.model.Family},
 		terminal.Field{State: terminal.Info, Label: "API Token", Value: "Not read in a preview"},
 	)
 	r.Section("Client Bindings")
-	r.Rows(terminal.Field{Label: runtime.Clients.Admission().Label(plan.request.Client), Value: plan.request.Route})
+	r.Rows(terminal.Field{Label: runtime.Clients.Admission().Label(plan.request.Client), Value: plan.request.Model})
 	invocation.RenderPreview(r, preview, plan.request.apply)
 	return nil
 }
@@ -278,8 +278,8 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 	r.Section("Account")
 	r.Rows(
 		terminal.Field{Label: "Account", Value: plan.request.Account},
-		terminal.Field{Label: "Route", Value: plan.request.Route},
-		terminal.Field{Label: "Model", Value: plan.route.Family},
+		terminal.Field{Label: "Route", Value: plan.request.Model},
+		terminal.Field{Label: "Model", Value: plan.model.Family},
 		terminal.Field{State: terminal.OK, Label: "API Token", Value: "Validated"},
 	)
 }
@@ -290,7 +290,7 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 func buildFlagSetupResult(runtime invocation.Context, plan setupPlan) manifestSetupResult {
 	activation := clientactivation.AssessActivation(plan.config, runtime.Secrets)
 	result := manifestSetupResult{
-		Imported:           manifestSetupImported{Accounts: []string{plan.request.Account}, Routes: []string{plan.request.Route}},
+		Imported:           manifestSetupImported{Accounts: []string{plan.request.Account}, Models: []string{plan.request.Model}},
 		ConnectedAccounts:  []string{plan.request.Account},
 		Selections:         make(map[string]string, len(plan.config.Clients)),
 		ProjectedClients:   []string{},
@@ -439,11 +439,11 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	request.Route, err = runtime.Prompt.Text("Route ID (for example, team-model): ")
+	request.Model, err = runtime.Prompt.Text("Route ID (for example, team-model): ")
 	if err != nil {
 		return err
 	}
-	request.Model, err = runtime.Prompt.Text("Upstream model ID: ")
+	request.UpstreamModel, err = runtime.Prompt.Text("Upstream model ID: ")
 	if err != nil {
 		return err
 	}

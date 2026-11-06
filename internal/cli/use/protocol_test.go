@@ -71,7 +71,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 
 	selector := &promptStub{selected: "shared"}
 	runtime.Prompt = selector
-	if _, err := chooseRoute(runtime, cfg, hermes.ID, "Select Route"); err != nil ||
+	if _, err := chooseModel(runtime, cfg, hermes.ID, "Select Route"); err != nil ||
 		!slices.ContainsFunc(selector.choices, func(choice terminal.Choice) bool { return choice.Value == "shared" }) {
 		t.Fatalf("Hermes Route choice = %#v, %v", selector.choices, err)
 	}

@@ -21,7 +21,7 @@ func TestClaudeVerificationBoundsClientProcesses(t *testing.T) {
 	}
 	claudeConfig := domain.NewConfig(testAdmission())
 	claudeConfig.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	claudeConfig.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	claudeConfig.Models["claude"] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
 	claudeConfig.SetSelectedModel(ID, "claude", "")
 	claudeConfig.SetClientActivation(ID, true, claudeExecutable, nil)
 	claudeRuntime, err := claudeConfig.ResolveRuntime(ID, "")
@@ -122,7 +122,7 @@ func TestFailedClaudeVerificationProjectionRemovesItsWorkspace(t *testing.T) {
 	}
 }
 
-func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testing.T) {
+func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedModel(t *testing.T) {
 	root := t.TempDir()
 	executable := filepath.Join(root, "claude")
 	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
@@ -130,8 +130,8 @@ func TestClaudeVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testi
 	}
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Models["selected"] = qualifiedRoute("", "gateway", "claude-selected", domain.ProtocolAnthropic)
-	cfg.Models["alternate"] = qualifiedRoute("", "gateway", "claude-alternate", domain.ProtocolAnthropic)
+	cfg.Models["selected"] = qualifiedModel("", "gateway", "claude-selected", domain.ProtocolAnthropic)
+	cfg.Models["alternate"] = qualifiedModel("", "gateway", "claude-alternate", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(ID, "selected", "")
 	cfg.SetClientActivation(ID, true, executable, nil)
 	selected, err := cfg.ResolveRuntime(ID, "")
@@ -199,7 +199,7 @@ func TestClaudeVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing
 			}
 			cfg := domain.NewConfig(testAdmission())
 			cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-			cfg.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
+			cfg.Models["claude"] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
 			binding := domain.ClientBinding{Model: "claude", Enabled: true, Executable: executable}
 			cfg.Clients[ID] = binding
 			selected, err := cfg.ResolveRuntime(ID, "")

@@ -51,7 +51,7 @@ func TestUseForwardingPreviewIsCredentialFreeAndDoesNotWrite(t *testing.T) {
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, value := range []string{"Selection preview", "Client", "Route", result.RouteLabel, "Endpoint", result.Endpoint, "Account upstream", result.UpstreamEndpoint, "Credentials, configuration and client files were unchanged"} {
+	for _, value := range []string{"Selection preview", "Client", "Route", result.ModelLabel, "Endpoint", result.Endpoint, "Account upstream", result.UpstreamEndpoint, "Credentials, configuration and client files were unchanged"} {
 		if !strings.Contains(out.String(), value) {
 			t.Fatalf("human preview omitted %q: %s", value, out.String())
 		}
@@ -267,7 +267,7 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 	return invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out, Width: 120, Discovery: staticDiscovery{}}, cfg, out
 }
 
-func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
+func TestUseSelectsOnlyTheModelsDeclaredClient(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
 	secretStore := secret.NewMemoryStore()
 	runtime.Secrets = secretStore

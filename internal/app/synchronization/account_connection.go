@@ -28,7 +28,7 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before domain.Config, 
 	if strings.TrimSpace(token) == "" {
 		return fmt.Errorf("Account connection requires a non-empty Token")
 	}
-	_, _, _, err = s.selectRoute(ctx, before, after, client, domain.ConnectionChange{}, token)
+	_, _, _, err = s.selectModel(ctx, before, after, client, domain.ConnectionChange{}, token)
 	return err
 }
 

@@ -243,7 +243,7 @@ func (hermesAdapter) AdoptSelection(deps adapter.Dependencies, cfg *domain.Confi
 	if err != nil || !changed {
 		return "", err
 	}
-	routeID, protocol, err := hermesRouteFor(*cfg, native)
+	routeID, protocol, err := hermesModelFor(*cfg, native)
 	if err != nil {
 		return "", err
 	}
@@ -255,9 +255,9 @@ func (hermesAdapter) AdoptSelection(deps adapter.Dependencies, cfg *domain.Confi
 	return routeID, nil
 }
 
-// hermesRouteFor maps a projected provider and model to the one catalog
+// hermesModelFor maps a projected provider and model to the one catalog
 // Route with that provider's Account, protocol and upstream model.
-func hermesRouteFor(cfg domain.Config, native Selection) (string, domain.EndpointProtocol, error) {
+func hermesModelFor(cfg domain.Config, native Selection) (string, domain.EndpointProtocol, error) {
 	catalog, err := hermesCatalog(cfg)
 	if err != nil {
 		return "", "", err

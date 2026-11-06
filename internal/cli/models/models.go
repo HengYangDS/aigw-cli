@@ -14,11 +14,11 @@ import (
 )
 
 type modelRow struct {
-	Route    string
-	Account  string
-	Protocol domain.EndpointProtocol
-	Model    string
-	Catalog  string
+	Model         string
+	Account       string
+	Protocol      domain.EndpointProtocol
+	UpstreamModel string
+	Catalog       string
 	// State is Catalog as a JSON value: listed, not_listed, not_observed or
 	// the catalog observation's status.
 	State string
@@ -30,13 +30,13 @@ const schemaVersion = 1
 // modelsDocument is `aigw models`'s JSON document: each Route's catalog
 // membership.
 type modelsDocument struct {
-	Routes     []routeModel `json:"routes"`
+	Models     []routeModel `json:"routes"`
 	NextDetail string       `json:"next_detail"`
 }
 
 // routeModel is one Route and protocol's catalog membership.
 type routeModel struct {
-	Route         string                  `json:"route"`
+	Model         string                  `json:"route"`
 	Account       string                  `json:"account"`
 	Protocol      domain.EndpointProtocol `json:"protocol,omitempty"`
 	Family        string                  `json:"model"`
@@ -61,11 +61,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			rows := modelRows(cfg, app.DiscoverCatalog(cmd.Context(), runtime.Secrets, runtime.HTTP, cfg))
 			if jsonMode {
-				document := modelsDocument{Routes: make([]routeModel, 0, len(rows)), NextDetail: "aigw use --for <client> <route>"}
+				document := modelsDocument{Models: make([]routeModel, 0, len(rows)), NextDetail: "aigw use --for <client> <route>"}
 				for _, row := range rows {
-					document.Routes = append(document.Routes, routeModel{
-						Route: row.Route, Account: row.Account, Protocol: row.Protocol,
-						Family: cfg.Models[row.Route].Family, UpstreamModel: row.Model, Catalog: row.State,
+					document.Models = append(document.Models, routeModel{
+						Model: row.Model, Account: row.Account, Protocol: row.Protocol,
+						Family: cfg.Models[row.Model].Family, UpstreamModel: row.UpstreamModel, Catalog: row.State,
 					})
 				}
 				return terminal.WriteDocument(runtime.Out, schemaVersion, true, document)
@@ -79,8 +79,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if row.Catalog == "Listed" || row.Catalog == "Not listed" {
 					state = terminal.Info
 				}
-				r.StatusLine(state, "Route", row.Route)
-				r.Detail(fmt.Sprintf("%s · %s · %s · account %s", row.Model, domain.ProtocolLabel(row.Protocol), row.Catalog, row.Account))
+				r.StatusLine(state, "Route", row.Model)
+				r.Detail(fmt.Sprintf("%s · %s · %s · account %s", row.UpstreamModel, domain.ProtocolLabel(row.Protocol), row.Catalog, row.Account))
 			}
 			r.Next("aigw use")
 			return r.Err()
@@ -100,7 +100,7 @@ func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 		route := cfg.Models[routeID]
 		protocols := route.AdmittedProtocols()
 		if len(protocols) == 0 {
-			rows = append(rows, modelRow{Route: routeID, Account: route.Provider, Model: route.UpstreamModelID(), Catalog: "Catalog not observed", State: "not_observed"})
+			rows = append(rows, modelRow{Model: routeID, Account: route.Provider, UpstreamModel: route.UpstreamModelID(), Catalog: "Catalog not observed", State: "not_observed"})
 			continue
 		}
 		for _, protocol := range protocols {
@@ -114,7 +114,7 @@ func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 					}
 				}
 			}
-			rows = append(rows, modelRow{Route: routeID, Account: route.Provider, Protocol: protocol, Model: route.UpstreamModelID(), Catalog: membership, State: state})
+			rows = append(rows, modelRow{Model: routeID, Account: route.Provider, Protocol: protocol, UpstreamModel: route.UpstreamModelID(), Catalog: membership, State: state})
 		}
 	}
 	slices.SortStableFunc(rows, func(left, right modelRow) int {
@@ -124,7 +124,7 @@ func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 		if result := domain.CompareProtocols(left.Protocol, right.Protocol); result != 0 {
 			return result
 		}
-		return cfg.CompareFamilies(cfg.Models[left.Route].Family, cfg.Models[right.Route].Family)
+		return cfg.CompareFamilies(cfg.Models[left.Model].Family, cfg.Models[right.Model].Family)
 	})
 	return rows
 }

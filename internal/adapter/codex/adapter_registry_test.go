@@ -26,7 +26,7 @@ func codexRegistry() adapter.Registry {
 func TestCodexProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
 	before.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
-	before.Models["route"] = qualifiedRoute("Route", "gateway", "model", domain.ProtocolOpenAIResponses)
+	before.Models["route"] = qualifiedModel("Route", "gateway", "model", domain.ProtocolOpenAIResponses)
 	before.Clients[ID] = domain.ClientBinding{Model: "route", Enabled: true}
 	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
@@ -87,7 +87,7 @@ func TestCodexConvergenceRefusesAnUninspectableConfiguredExecutable(t *testing.T
 	}
 }
 
-func TestCodexConvergenceIgnoresOnlyAnUnselectedRoute(t *testing.T) {
+func TestCodexConvergenceIgnoresOnlyAnUnselectedModel(t *testing.T) {
 	t.Run("without a route", func(t *testing.T) {
 		if _, err := codexRegistry().Converge(adapter.Dependencies{}, domain.NewConfig(testAdmission()), discovery.Result{}, ID); err != nil {
 			t.Fatalf("Converge(codex) without a route = %v", err)

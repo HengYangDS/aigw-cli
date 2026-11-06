@@ -15,7 +15,7 @@ func newRenameCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		plan, err := runtime.Renamer().RenameRoute(cmd.Context(), oldID, newID, dryRun)
+		plan, err := runtime.Renamer().RenameModel(cmd.Context(), oldID, newID, dryRun)
 		if err != nil {
 			return err
 		}

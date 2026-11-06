@@ -201,14 +201,14 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 // current connection.
 type reroutingAdapter struct {
 	adapter.Adapter
-	route string
+	model string
 }
 
 func (clientAdapter reroutingAdapter) Converge(deps adapter.Dependencies, cfg *domain.Config, discovered discovery.Result) error {
 	if err := clientAdapter.Adapter.Converge(deps, cfg, discovered); err != nil {
 		return err
 	}
-	cfg.SetSelectedModel(codex.ID, clientAdapter.route, "")
+	cfg.SetSelectedModel(codex.ID, clientAdapter.model, "")
 	return nil
 }
 
@@ -229,7 +229,7 @@ func TestDryRunRefusesWhatRepairRefuses(t *testing.T) {
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	registry, err := adapter.NewRegistry(claude.New(), claudedesktop.New(), reroutingAdapter{Adapter: codex.New(), route: "two"}, hermes.New())
+	registry, err := adapter.NewRegistry(claude.New(), claudedesktop.New(), reroutingAdapter{Adapter: codex.New(), model: "two"}, hermes.New())
 	if err != nil {
 		t.Fatal(err)
 	}

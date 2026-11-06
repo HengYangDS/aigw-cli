@@ -17,7 +17,7 @@ import (
 	"aigw-cli/internal/secret"
 )
 
-func TestAccountRenameInteractiveCopiesCredentialsAndUpdatesEveryRoute(t *testing.T) {
+func TestAccountRenameInteractiveCopiesCredentialsAndUpdatesEveryModel(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	cfg := accountRenameConfig()
 	if err := app.Config.Save(cfg); err != nil {
@@ -441,7 +441,7 @@ func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) 
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := accountRenameConfig()
 	cfg.Providers["active"] = domain.Provider{Label: "Active", Endpoints: domain.Endpoints{OpenAIResponses: "https://active.test/v1"}}
-	cfg.Models["active-route"] = qualifiedRoute("Active", "active", "active-model", domain.ProtocolOpenAIResponses)
+	cfg.Models["active-route"] = qualifiedModel("Active", "active", "active-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "active-route", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
@@ -519,11 +519,11 @@ func accountRenameConfig() domain.Config {
 		},
 		BalanceProbe: &domain.BalanceProbe{Kind: "future-provider", BaseURL: "https://probe.zeta.test"},
 	}
-	cfg.Models["codex-route"] = qualifiedRoute("Codex", "zeta-old", "codex-model", domain.ProtocolOpenAIResponses)
+	cfg.Models["codex-route"] = qualifiedModel("Codex", "zeta-old", "codex-model", domain.ProtocolOpenAIResponses)
 	codexRoute := cfg.Models["codex-route"]
 	codexRoute.Purpose = "Codex purpose"
 	cfg.Models["codex-route"] = codexRoute
-	cfg.Models["claude-route"] = qualifiedRoute("Claude", "zeta-old", "claude-model", domain.ProtocolAnthropic)
+	cfg.Models["claude-route"] = qualifiedModel("Claude", "zeta-old", "claude-model", domain.ProtocolAnthropic)
 	claudeRoute := cfg.Models["claude-route"]
 	claudeRoute.Purpose = "Claude purpose"
 	cfg.Models["claude-route"] = claudeRoute

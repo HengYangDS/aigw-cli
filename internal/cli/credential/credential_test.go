@@ -155,7 +155,7 @@ func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
 	}
 }
 
-func TestCredentialHelperResolvesAnUnselectedRouteProjection(t *testing.T) {
+func TestCredentialHelperResolvesAnUnselectedModelProjection(t *testing.T) {
 	for _, client := range clients.Admission().IDs() {
 		t.Run(client, func(t *testing.T) {
 			runtime, buffer := helperRuntime(t, client, true)
@@ -197,7 +197,7 @@ func TestCredentialHelperResolvesAnUnselectedRouteProjection(t *testing.T) {
 	}
 }
 
-func TestCredentialHelperResolvesEveryProjectedRouteProtocol(t *testing.T) {
+func TestCredentialHelperResolvesEveryProjectedModelProtocol(t *testing.T) {
 	runtime, buffer := helperRuntime(t, hermes.ID, true)
 	cfg, err := runtime.Config.Load()
 	if err != nil {

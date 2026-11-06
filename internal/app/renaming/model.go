@@ -30,8 +30,8 @@ type Resource string
 const (
 	// ResourceAccount identifies an Account rename.
 	ResourceAccount Resource = "account"
-	// ResourceRoute identifies a Route rename.
-	ResourceRoute Resource = "route"
+	// ResourceModel identifies a Route rename.
+	ResourceModel Resource = "route"
 )
 
 // Status identifies the lifecycle state of a rename plan.
@@ -69,7 +69,7 @@ type Plan struct {
 	ExternalTODOs      []string `json:"external_todos"`
 
 	Config               domain.Config   `json:"-"`
-	Route                domain.Model    `json:"-"`
+	Model                domain.Model    `json:"-"`
 	Account              domain.Provider `json:"-"`
 	tokenCopy            tokenCopy       `json:"-"`
 	probeCopy            probeCopy       `json:"-"`

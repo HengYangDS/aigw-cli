@@ -175,7 +175,7 @@ interfaces = { anthropic = ["text"] }
 	assertManifestSetupLeavesNoConfig(t, app)
 }
 
-func TestSetupFromConfigurationManifestRejectsRouteWithoutFamily(t *testing.T) {
+func TestSetupFromConfigurationManifestRejectsModelWithoutFamily(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	manifestPath := writeConfigurationManifest(t, `version = 7
 [recommendations.claude.primary]
@@ -228,7 +228,7 @@ func TestManifestSetupSurfacesManifestAndConfigFailures(t *testing.T) {
 
 	t.Run("already configured", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		path := writeConfigurationManifest(t, configurationManifestFixture)
 		err := cli.Execute(app, []string{"setup", "--from", path})
 		if err == nil || !strings.Contains(err.Error(), "already configured") {

@@ -12,7 +12,7 @@ import (
 type statusReport struct {
 	CredentialBackend secret.BackendSelection     `json:"credential_backend"`
 	Clients           map[string]app.ClientStatus `json:"clients"`
-	Routes            int                         `json:"routes"`
+	Models            int                         `json:"routes"`
 	EnabledClients    int                         `json:"enabled_clients"`
 	State             domainreadiness.State       `json:"state,omitempty"`
 	NextAction        string                      `json:"next_action,omitempty"`
@@ -39,7 +39,7 @@ func collectStatus(runtime app.Dependencies, cfg domain.Config) statusReport {
 	return statusReport{
 		CredentialBackend: backend,
 		Clients:           clients,
-		Routes:            len(cfg.Models),
+		Models:            len(cfg.Models),
 		EnabledClients:    activation.EnabledClients,
 		State:             activation.State,
 		NextAction:        activation.NextActionFor(orderedClientStates(runtime, clients)),

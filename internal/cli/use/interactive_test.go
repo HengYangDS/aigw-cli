@@ -14,7 +14,7 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
+func TestInteractiveModelChoiceDerivesUnlabeledModelName(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
 	route := cfg.Models["codex"]
 	route.Label = ""
@@ -22,13 +22,13 @@ func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
 	cfg.Families["gpt-test"] = domain.Family{Label: "GPT Test"}
 	choice := &promptStub{selected: "codex"}
 	runtime.Prompt = choice
-	selected, err := chooseRoute(runtime, cfg, codex.ID, "Select Route")
+	selected, err := chooseModel(runtime, cfg, codex.ID, "Select Route")
 	if err != nil || selected != "codex" || len(choice.choices) != 1 || choice.choices[0].Label != "Gateway · GPT Test" {
 		t.Fatalf("derived interactive Route choice = %q, %+v, %v", selected, choice.choices, err)
 	}
 }
 
-func TestUsePromptsForACompatibleClientOnASharedRoute(t *testing.T) {
+func TestUsePromptsForACompatibleClientOnASharedModel(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
 	cfg.Models["shared"] = domain.Model{
 		Label: "Shared", Provider: "gateway", Family: "shared-model",

@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestVerificationCommandKeepsOnlyAnExplicitRoute(t *testing.T) {
+func TestVerificationCommandKeepsOnlyAnExplicitModel(t *testing.T) {
 	if got := Command(clientHermes, ""); got != "aigw verify --for hermes" {
 		t.Fatalf("selected-binding command = %q", got)
 	}

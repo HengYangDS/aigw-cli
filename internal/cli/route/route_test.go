@@ -23,7 +23,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
+func TestModelInventoryDerivesUnlabeledTeamModelName(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
@@ -42,12 +42,12 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 	if err := list.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	var listed routeListOutput
+	var listed modelListOutput
 	if err := json.Unmarshal(out.Bytes(), &listed); err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Routes) != 1 || listed.Routes[0].Label != "UCloud · GPT-6 Sol" {
-		t.Fatalf("derived route inventory = %+v", listed.Routes)
+	if len(listed.Models) != 1 || listed.Models[0].Label != "UCloud · GPT-6 Sol" {
+		t.Fatalf("derived route inventory = %+v", listed.Models)
 	}
 	if !strings.Contains(out.String(), `"protocol_clients"`) || strings.Contains(out.String(), `"compatible_clients"`) {
 		t.Fatalf("protocol overlap was presented as client qualification: %s", out)
@@ -69,7 +69,7 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 	}
 }
 
-func TestRouteHumanOutputNamesClientsByLabel(t *testing.T) {
+func TestModelHumanOutputNamesClientsByLabel(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
@@ -105,7 +105,7 @@ func TestRouteHumanOutputNamesClientsByLabel(t *testing.T) {
 	}
 }
 
-func TestRouteMutationsReturnConfigurationTransactionFailures(t *testing.T) {
+func TestModelMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 	tests := []struct {
 		name    string
 		command func(invocation.Context) commandExecutor
@@ -128,7 +128,7 @@ func TestRouteMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			runtime := blockedRouteRuntime(t)
+			runtime := blockedModelRuntime(t)
 			command := test.command(runtime)
 			command.SetArgs(test.args)
 			if err := command.Execute(); err == nil {
@@ -138,7 +138,7 @@ func TestRouteMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 	}
 }
 
-func TestChoiceLabelUsesRouteMetadataWithoutGlobalRanking(t *testing.T) {
+func TestChoiceLabelUsesModelMetadataWithoutGlobalRanking(t *testing.T) {
 	route := domain.Model{Label: "UCloud · Grok 4.6", Purpose: "Coding"}
 	if got := choiceLabel(route); got != "UCloud · Grok 4.6 · Coding" {
 		t.Fatalf("choice label = %q", got)
@@ -150,7 +150,7 @@ type commandExecutor interface {
 	Execute() error
 }
 
-func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
+func TestRemoveModelRemovesOnlyItsRecommendation(t *testing.T) {
 	for _, alternatives := range [][]domain.ClientSelection{nil, {
 		{Model: "backup", Protocol: domain.ProtocolAnthropic},
 		{Model: "reserve", Protocol: domain.ProtocolAnthropic},
@@ -269,7 +269,7 @@ func TestRemovePreviewNamesTheRecommendationsThatItChanges(t *testing.T) {
 	}
 }
 
-func blockedRouteRuntime(t *testing.T) invocation.Context {
+func blockedModelRuntime(t *testing.T) invocation.Context {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	configStore := store.NewStore(path, clients.Admission())
@@ -304,7 +304,7 @@ func blockedRouteRuntime(t *testing.T) invocation.Context {
 	}
 }
 
-func TestRouteAddSeparatesFamilyFromExactProviderWireID(t *testing.T) {
+func TestModelAddSeparatesFamilyFromExactProviderWireID(t *testing.T) {
 	for _, test := range []struct {
 		name, upstream, wantWire string
 	}{
@@ -349,7 +349,7 @@ func TestRouteAddSeparatesFamilyFromExactProviderWireID(t *testing.T) {
 	}
 }
 
-func TestRouteAddRejectsEmptyExplicitUpstreamBeforeConfigurationAccess(t *testing.T) {
+func TestModelAddRejectsEmptyExplicitUpstreamBeforeConfigurationAccess(t *testing.T) {
 	for _, upstream := range []string{"", " \t"} {
 		configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 		original := []byte("invalid configuration [")

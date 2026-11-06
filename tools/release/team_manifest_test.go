@@ -29,8 +29,8 @@ type teamManifestJourney struct {
 	clients  []string
 }
 
-type manualRouteSelection struct {
-	route    string
+type manualModelSelection struct {
+	model    string
 	protocol domain.EndpointProtocol
 }
 
@@ -190,13 +190,13 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 		}
 	}
 	for client, choice := range manual {
-		journey.run("use", "--for", client, "--protocol", string(choice.protocol), choice.route)
+		journey.run("use", "--for", client, "--protocol", string(choice.protocol), choice.model)
 		actual, err = store.NewStore(journey.config, builtinclients.Admission()).Load()
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := actual.SelectedModel(client); got != choice.route {
-			t.Fatalf("explicit use selected %s Route %q, want %q", client, got, choice.route)
+		if got := actual.SelectedModel(client); got != choice.model {
+			t.Fatalf("explicit use selected %s Route %q, want %q", client, got, choice.model)
 		}
 	}
 	plan.requireSelectedAccount(t, journey, account)
@@ -204,14 +204,14 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 
 func (plan teamManifestJourney) manualSelections(
 	t *testing.T, account string, selected domain.Config,
-) map[string]manualRouteSelection {
+) map[string]manualModelSelection {
 	t.Helper()
-	manual := make(map[string]manualRouteSelection)
+	manual := make(map[string]manualModelSelection)
 	for _, client := range plan.clients {
 		if selected.SelectedModel(client) != "" {
 			continue
 		}
-		choice, ok := plan.manualRoute(account, client)
+		choice, ok := plan.manualModel(account, client)
 		if !ok {
 			t.Fatalf("Account %q has no compatible declared or manual Route for %s", account, client)
 		}
@@ -220,14 +220,14 @@ func (plan teamManifestJourney) manualSelections(
 	return manual
 }
 
-func (plan teamManifestJourney) manualRoute(account, client string) (manualRouteSelection, bool) {
+func (plan teamManifestJourney) manualModel(account, client string) (manualModelSelection, bool) {
 	spec, found := builtinclients.Admission().Spec(client)
 	if !found {
-		return manualRouteSelection{}, false
+		return manualModelSelection{}, false
 	}
 	recommendation, found := plan.manifest.Recommendations[client]
 	if !found {
-		return manualRouteSelection{}, false
+		return manualModelSelection{}, false
 	}
 	model := plan.manifest.Models[recommendation.Primary.Model].Family
 	for _, routeID := range slices.Sorted(maps.Keys(plan.manifest.Models)) {
@@ -243,9 +243,9 @@ func (plan teamManifestJourney) manualRoute(account, client string) (manualRoute
 		if !slices.Contains(protocols, protocol) {
 			protocol = protocols[0]
 		}
-		return manualRouteSelection{route: routeID, protocol: protocol}, true
+		return manualModelSelection{model: routeID, protocol: protocol}, true
 	}
-	return manualRouteSelection{}, false
+	return manualModelSelection{}, false
 }
 
 func requireNoActivationBeforeToken(t *testing.T, journey *journeyFixture) {

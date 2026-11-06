@@ -20,7 +20,7 @@ func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesT
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}}
-	cfg.Models["local"] = qualifiedRoute("Local", "team", "local-model", domain.ProtocolAnthropic)
+	cfg.Models["local"] = qualifiedModel("Local", "team", "local-model", domain.ProtocolAnthropic)
 	cfg.SetSelectedModel(claude.ID, "local", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -122,7 +122,7 @@ func TestConfigCommandIOFailures(t *testing.T) {
 
 	t.Run("export output", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		saveCommandRoute(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+		saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
 		want := errors.New("output failed")
 		app.Out = failingOutput{err: want}
 		if err := cli.Execute(app, []string{"config", "export"}); !errors.Is(err, want) {
@@ -187,11 +187,11 @@ interfaces = { anthropic = ["text"] }
 	}
 }
 
-func TestConfigImportRefusesRouteConflictUntilExplicitReplacement(t *testing.T) {
+func TestConfigImportRefusesModelConflictUntilExplicitReplacement(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Models["shared"] = qualifiedRoute("Personal Model", "team", "personal-model", domain.ProtocolOpenAIResponses)
+	cfg.Models["shared"] = qualifiedModel("Personal Model", "team", "personal-model", domain.ProtocolOpenAIResponses)
 	cfg.SetSelectedModel(codex.ID, "shared", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

@@ -29,7 +29,7 @@ type verifyDocument struct {
 // not_run after an earlier client failed.
 type verifiedClient struct {
 	Client        string `json:"client"`
-	Route         string `json:"route"`
+	Model         string `json:"route"`
 	State         string `json:"state"`
 	Scope         string `json:"scope,omitempty"`
 	ClientVersion string `json:"client_version,omitempty"`
@@ -140,7 +140,7 @@ func writeVerification(cmd *cobra.Command, runtime invocation.Context, cfg domai
 	document := verifyDocument{Clients: make([]verifiedClient, 0, len(clients))}
 	var failure error
 	for _, target := range clients {
-		item := verifiedClient{Client: target, Route: runtimes[target].ModelID, State: "not_run"}
+		item := verifiedClient{Client: target, Model: runtimes[target].ModelID, State: "not_run"}
 		if failure == nil {
 			result, err := runtime.Synchronizer().Verify(cmd.Context(), cfg, target, runtimes[target], routeName)
 			if err != nil {
