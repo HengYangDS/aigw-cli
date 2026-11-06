@@ -25,7 +25,9 @@ import (
 	"golang.org/x/tools/cover"
 )
 
-const defaultPolicyPath = ".config/checks/coverage/policy.toml"
+// policyPath is where the coverage policy lives in the checkout that the tool
+// runs from.
+const policyPath = ".config/checks/coverage/policy.toml"
 
 type coveragePolicy struct {
 	MinimumStatementPercent float64  `toml:"minimum_statement_percent"`
@@ -83,20 +85,9 @@ func main() {
 	os.Exit(realMain(os.Args[1:], os.Stdout, os.Stderr, systemRunner{}))
 }
 
-// createCoverageProfile is overridden in tests to exercise temporary-file
-// creation and closure failures without depending on platform-specific
-// temporary-directory environment variables (TMPDIR is not honored on
-// Windows).
-var createCoverageProfile = func() (*os.File, error) {
-	return os.CreateTemp("", "aigw-coverage-*.out")
-}
-
-var removeCoverageProfile = os.Remove
-
 func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (code int) {
 	flags := flag.NewFlagSet("coverage", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	policyPath := flags.String("policy", defaultPolicyPath, "coverage policy TOML")
 	race := flags.Bool("race", false, "enable Go's race detector")
 	jsonOutput := flags.Bool("json", false, "preserve native Go test JSON on stdout; coverage reports use stderr")
 	tags := flags.String("tags", "", "Go build tags for package observation and tests")
@@ -109,7 +100,7 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 		return 2
 	}
 
-	policy, err := loadPolicy(*policyPath)
+	policy, err := loadPolicy()
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "load coverage policy: %v\n", err)
 		return 1
@@ -127,14 +118,14 @@ func realMain(args []string, stdout, stderr io.Writer, runner commandRunner) (co
 		_, _ = fmt.Fprintf(stderr, "parse package list: %v\n", err)
 		return 1
 	}
-	profile, err := createCoverageProfile()
+	profile, err := os.CreateTemp("", "aigw-coverage-*.out")
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "create coverage profile: %v\n", err)
 		return 1
 	}
 	profilePath := profile.Name()
 	defer func() {
-		if err := removeCoverageProfile(profilePath); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(profilePath); err != nil && !os.IsNotExist(err) {
 			_, _ = fmt.Fprintf(stderr, "remove coverage profile %s: %v\n", profilePath, err)
 			code = 1
 		}
@@ -283,8 +274,8 @@ func retainCoverageProfile(source, target string) error {
 	return os.WriteFile(target, data, 0o600)
 }
 
-func loadPolicy(path string) (coveragePolicy, error) {
-	data, err := os.ReadFile(path)
+func loadPolicy() (coveragePolicy, error) {
+	data, err := os.ReadFile(policyPath)
 	if err != nil {
 		return coveragePolicy{}, err
 	}

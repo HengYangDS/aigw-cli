@@ -31,8 +31,9 @@ func TestRealMainJSONPreservesTheSingleNativeAttempt(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			runner := &recordingRunner{profile: test.profile, output: events, err: test.failure}
 			retained := filepath.Join(t.TempDir(), "coverage.out")
+			usePolicy(t, validPolicy)
 			var stdout, stderr bytes.Buffer
-			arguments := []string{"--policy", writePolicy(t, validPolicy), "--json", "--race", "--tags=native_resource_acceptance", "--profile-output", retained}
+			arguments := []string{"--json", "--race", "--tags=native_resource_acceptance", "--profile-output", retained}
 			if code := realMain(arguments, &stdout, &stderr, runner); code != test.code {
 				t.Fatalf("JSON attempt code=%d, want %d: %s", code, test.code, &stderr)
 			}
@@ -86,8 +87,9 @@ func TestRealMainForwardsBuildTagsToTheWholeGoScope(t *testing.T) {
 		listedPackages: []string{"example/a", "example/declarations"},
 		metadata:       fmt.Sprintf(`{"Dir":%q,"ImportPath":"example/declarations","GoFiles":["declarations.go"]}`, directory),
 	}
+	usePolicy(t, validPolicy)
 	var stdout, stderr bytes.Buffer
-	arguments := []string{"--policy", writePolicy(t, validPolicy), "--tags=native_resource_acceptance"}
+	arguments := []string{"--tags=native_resource_acceptance"}
 	if code := realMain(arguments, &stdout, &stderr, runner); code != 0 {
 		t.Fatalf("tagged coverage code=%d stderr=%s", code, &stderr)
 	}
@@ -153,6 +155,7 @@ func TestCoverageObservesDeclarationOnlyPackagesWithNativeGo(t *testing.T) {
 		"empty/value.go":      "package empty\nfunc Value() {}\n",
 		".toolchain/go.mod":   "module tool.fixture\n",
 		".toolchain/value.go": "package tool\nfunc Value() int { return 1 }\nfunc Unused() int { return 0 }\n",
+		policyPath:            validPolicy,
 	}
 	for name, content := range files {
 		file := filepath.Join(root, filepath.FromSlash(name))
@@ -163,10 +166,9 @@ func TestCoverageObservesDeclarationOnlyPackagesWithNativeGo(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	policy := writePolicy(t, validPolicy)
 	t.Chdir(root)
 	var stdout, stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policy, "--json"}, &stdout, &stderr, systemRunner{}); code != 0 {
+	if code := realMain([]string{"--json"}, &stdout, &stderr, systemRunner{}); code != 0 {
 		t.Fatalf("native declaration-only observation: code=%d\n%s\n%s", code, &stdout, &stderr)
 	}
 	decoder, passed := json.NewDecoder(&stdout), false
@@ -331,8 +333,9 @@ func TestRetainCoverageProfile(t *testing.T) {
 		t.Fatal("invalid target parent was accepted")
 	}
 	runner := &recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 100 1\n", err: errors.New("native test refused")}
+	usePolicy(t, validPolicy)
 	var stdout, stderr bytes.Buffer
-	if code := realMain([]string{"--policy", writePolicy(t, validPolicy), "--profile-output", filepath.Join(blocked, "coverage.out")}, &stdout, &stderr, runner); code != 1 {
+	if code := realMain([]string{"--profile-output", filepath.Join(blocked, "coverage.out")}, &stdout, &stderr, runner); code != 1 {
 		t.Fatalf("combined test/retention failure code = %d, want 1", code)
 	}
 	if !strings.Contains(stderr.String(), "native test refused") || !strings.Contains(stderr.String(), blocked) || stdout.Len() != 0 {

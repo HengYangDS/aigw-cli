@@ -4,25 +4,23 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestRealMainRejectsUnavailableTemporaryDirectory(t *testing.T) {
-	// TMPDIR is not honored by os.CreateTemp on Windows (it uses
-	// TMP/TEMP/USERPROFILE instead), so the temporary-directory failure is
-	// forced directly through createCoverageProfile instead of relying on
-	// a platform-specific environment variable.
+	usePolicy(t, validPolicy)
 	missing := filepath.Join(t.TempDir(), "missing")
-	restore := stubCoverageProfile(func() (*os.File, error) {
-		return os.CreateTemp(missing, "aigw-coverage-*.out")
-	})
-	defer restore()
+	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+		t.Setenv(name, missing)
+	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", writePolicy(t, validPolicy)}, &stdout, &stderr, &recordingRunner{}); code != 1 {
+	if code := realMain(nil, &stdout, &stderr, &recordingRunner{}); code != 1 {
 		t.Fatalf("realMain code = %d, want 1", code)
 	}
 	if !strings.Contains(stderr.String(), "create coverage profile") {
@@ -30,66 +28,58 @@ func TestRealMainRejectsUnavailableTemporaryDirectory(t *testing.T) {
 	}
 }
 
-func TestRealMainRejectsCoverageProfileCloseFailure(t *testing.T) {
-	restore := stubCoverageProfile(func() (*os.File, error) {
-		file, err := os.CreateTemp(t.TempDir(), "aigw-coverage-*.out")
-		if err != nil {
-			return nil, err
-		}
-		// Close it early so the Close call inside realMain observes the
-		// already-closed error deterministically on every platform.
-		if err := file.Close(); err != nil {
-			return nil, err
-		}
-		return file, nil
+// undeletableProfileRunner runs as recordingRunner does, and then keeps the
+// profile from being removed until the test ends: Windows refuses to delete an
+// open file, and other hosts refuse to delete an entry of a directory without
+// write permission. The profile stays readable.
+type undeletableProfileRunner struct {
+	recordingRunner
+	t *testing.T
+}
+
+func (r *undeletableProfileRunner) Run(name string, args []string, stdout, stderr io.Writer) error {
+	err := r.recordingRunner.Run(name, args, stdout, stderr)
+	if args[0] != "test" {
+		return err
+	}
+	held, openErr := os.Open(r.path)
+	if openErr != nil {
+		r.t.Fatal(openErr)
+	}
+	directory := filepath.Dir(r.path)
+	if chmodErr := os.Chmod(directory, 0o500); chmodErr != nil {
+		r.t.Fatal(chmodErr)
+	}
+	r.t.Cleanup(func() {
+		_ = held.Close()
+		_ = os.Chmod(directory, 0o700)
 	})
-	defer restore()
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", writePolicy(t, validPolicy)}, &stdout, &stderr, &recordingRunner{}); code != 1 {
-		t.Fatalf("realMain code = %d, want 1", code)
-	}
-	if !strings.Contains(stderr.String(), "close coverage profile") {
-		t.Fatalf("stderr = %q", stderr.String())
-	}
+	return err
 }
 
 func TestCoverageCleanupFailurePreventsSuccessfulExit(t *testing.T) {
+	if runtime.GOOS != "windows" && os.Geteuid() == 0 {
+		t.Skip("root removes an entry of a directory without write permission")
+	}
 	for _, failure := range []error{nil, errors.New("test process failed")} {
 		t.Run(fmt.Sprint(failure), func(t *testing.T) {
-			directory := t.TempDir()
-			remove := removeCoverageProfile
-			t.Cleanup(func() { removeCoverageProfile = remove })
-			var removed string
-			removeCoverageProfile = func(path string) error {
-				removed = path
-				return &os.PathError{Op: "remove", Path: path, Err: os.ErrPermission}
+			usePolicy(t, validPolicy)
+			scratch := t.TempDir()
+			for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+				t.Setenv(name, scratch)
 			}
-			var profilePath string
-			restore := stubCoverageProfile(func() (*os.File, error) {
-				profile, err := os.CreateTemp(directory, "coverage-")
-				if err != nil {
-					return nil, err
-				}
-				profilePath = profile.Name()
-				return profile, nil
-			})
-			defer restore()
 			var stdout, stderr bytes.Buffer
-			runner := &recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 100 1\n", err: failure}
-			code := realMain([]string{"--policy", writePolicy(t, validPolicy)}, &stdout, &stderr, runner)
-			if code != 1 || removed != profilePath || !strings.Contains(stderr.String(), "remove coverage profile") || !strings.Contains(stderr.String(), profilePath) {
+			runner := &undeletableProfileRunner{t: t, profile: "mode: atomic\nexample/a.go:1.1,2.1 100 1\n", err: failure}
+			code := realMain(nil, &stdout, &stderr, runner)
+			if code != 1 || !strings.Contains(stderr.String(), "remove coverage profile") || !strings.Contains(stderr.String(), runner.path) {
 				t.Fatalf("cleanup failed without a failing result: code=%d, %s", code, stderr.String())
+			}
+			if failure == nil && !strings.Contains(stdout.String(), "statement coverage: 100.00%") {
+				t.Fatalf("the run failed before its cleanup: %s, %s", stdout.String(), stderr.String())
 			}
 			if failure != nil && !strings.Contains(stderr.String(), failure.Error()) {
 				t.Fatalf("cleanup hid the test failure: %s", stderr.String())
 			}
 		})
 	}
-}
-
-func stubCoverageProfile(factory func() (*os.File, error)) func() {
-	original := createCoverageProfile
-	createCoverageProfile = factory
-	return func() { createCoverageProfile = original }
 }

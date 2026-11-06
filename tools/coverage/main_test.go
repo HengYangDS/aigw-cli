@@ -99,13 +99,19 @@ func profilePackages(profile string) []string {
 	return packages
 }
 
-func writePolicy(t *testing.T, body string) string {
+// usePolicy runs the rest of the test from a new temporary checkout whose
+// coverage policy is body.
+func usePolicy(t *testing.T, body string) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "policy.toml")
+	root := t.TempDir()
+	path := filepath.Join(root, filepath.FromSlash(policyPath))
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	return path
+	t.Chdir(root)
 }
 
 func TestLoadPolicyAcceptsTheGoCoverageAuthorityWithoutASecondAnalyzer(t *testing.T) {
@@ -125,7 +131,8 @@ remediation = "test meaningful behavior remove unreachable code or simplify the 
 review_condition = "reassess when escaped defects show the aggregate boundary or mandatory package observation is insufficient"
 `
 
-	if _, err := loadPolicy(writePolicy(t, policy)); err != nil {
+	usePolicy(t, policy)
+	if _, err := loadPolicy(); err != nil {
 		t.Fatalf("statement-only policy rejected: %v", err)
 	}
 }
@@ -147,12 +154,12 @@ review_condition = "reassess after repeated denominator-only blocks"
 `
 
 func TestRealMainPassesAggregatePolicyAndReportsPackageEvidence(t *testing.T) {
-	policyPath := writePolicy(t, validPolicy)
+	usePolicy(t, validPolicy)
 	runner := &recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 96 1\nexample/a.go:3.1,4.1 4 0\n"}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	if code := realMain([]string{"--policy", policyPath, "--race"}, &stdout, &stderr, runner); code != 0 {
+	if code := realMain([]string{"--race"}, &stdout, &stderr, runner); code != 0 {
 		t.Fatalf("realMain code = %d, stderr = %q", code, stderr.String())
 	}
 	if runner.name != "go" {
@@ -182,7 +189,7 @@ func TestRealMainPassesAggregatePolicyAndReportsPackageEvidence(t *testing.T) {
 }
 
 func TestRealMainRejectsResultOutputFailure(t *testing.T) {
-	policyPath := writePolicy(t, validPolicy)
+	usePolicy(t, validPolicy)
 	for _, test := range []struct {
 		name, additionalProfile, rejectedPrefix, diagnostic string
 	}{
@@ -193,7 +200,7 @@ func TestRealMainRejectsResultOutputFailure(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			runner := &recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 96 1\nexample/a.go:3.1,4.1 4 0\n" + test.additionalProfile}
 			var stderr bytes.Buffer
-			if code := realMain([]string{"--policy", policyPath}, rejectingWriter{prefix: test.rejectedPrefix}, &stderr, runner); code != 1 {
+			if code := realMain(nil, rejectingWriter{prefix: test.rejectedPrefix}, &stderr, runner); code != 1 {
 				t.Fatalf("realMain code = %d, want 1", code)
 			}
 			if !strings.Contains(stderr.String(), test.diagnostic) {
@@ -207,12 +214,12 @@ func TestRealMainRejectsResultOutputFailure(t *testing.T) {
 }
 
 func TestRealMainRejectsExactAggregateFloor(t *testing.T) {
-	policyPath := writePolicy(t, validPolicy)
+	usePolicy(t, validPolicy)
 	runner := &recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 95 1\nexample/a.go:3.1,4.1 5 0\n"}
 	output := filepath.Join(t.TempDir(), "failed-coverage.out")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath, "--profile-output", output}, &stdout, &stderr, runner); code != 1 {
+	if code := realMain([]string{"--profile-output", output}, &stdout, &stderr, runner); code != 1 {
 		t.Fatalf("realMain code = %d, want 1", code)
 	}
 	if !strings.Contains(stderr.String(), "coverage 95.00% does not exceed 95.00%") {
@@ -224,11 +231,11 @@ func TestRealMainRejectsExactAggregateFloor(t *testing.T) {
 }
 
 func TestRealMainReportsLowPackageRatioWhenAggregatePasses(t *testing.T) {
-	policyPath := writePolicy(t, validPolicy)
+	usePolicy(t, validPolicy)
 	runner := &recordingRunner{profile: "mode: atomic\nexample/low/a.go:1.1,2.1 94 1\nexample/low/a.go:3.1,4.1 6 0\nexample/high/b.go:1.1,2.1 400 1\n"}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 0 {
+	if code := realMain(nil, &stdout, &stderr, runner); code != 0 {
 		t.Fatalf("realMain code = %d, stderr = %q", code, stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "package example/low statement coverage: 94.00%") {
@@ -237,11 +244,11 @@ func TestRealMainReportsLowPackageRatioWhenAggregatePasses(t *testing.T) {
 }
 
 func TestRealMainRejectsWhollyUnexecutedPackage(t *testing.T) {
-	policyPath := writePolicy(t, validPolicy)
+	usePolicy(t, validPolicy)
 	runner := &recordingRunner{profile: "mode: atomic\nexample/idle/a.go:1.1,2.1 4 0\nexample/live/b.go:1.1,2.1 100 1\n"}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 1 {
+	if code := realMain(nil, &stdout, &stderr, runner); code != 1 {
 		t.Fatalf("realMain code = %d, want 1", code)
 	}
 	if !strings.Contains(stderr.String(), "package example/idle has no executed statements") {
@@ -250,11 +257,11 @@ func TestRealMainRejectsWhollyUnexecutedPackage(t *testing.T) {
 }
 
 func TestRealMainReportsPackageWithoutMeasuredStatements(t *testing.T) {
-	policyPath := writePolicy(t, validPolicy)
+	usePolicy(t, validPolicy)
 	runner := &recordingRunner{profile: "mode: atomic\nexample/empty/a.go:1.1,2.1 0 0\nexample/live/b.go:1.1,2.1 100 1\n"}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 0 {
+	if code := realMain(nil, &stdout, &stderr, runner); code != 0 {
 		t.Fatalf("realMain code = %d, stderr=%s", code, &stderr)
 	}
 	if !strings.Contains(stdout.String(), "package example/empty statement coverage: not applicable (0 measured statements)") {
@@ -263,14 +270,14 @@ func TestRealMainReportsPackageWithoutMeasuredStatements(t *testing.T) {
 }
 
 func TestRealMainRejectsListedPackageMissingFromProfile(t *testing.T) {
-	policyPath := writePolicy(t, validPolicy)
+	usePolicy(t, validPolicy)
 	runner := &recordingRunner{
 		profile:        "mode: atomic\nexample/covered/a.go:1.1,2.1 100 1\n",
 		listedPackages: []string{"example/covered", "example/missing"},
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 1 {
+	if code := realMain(nil, &stdout, &stderr, runner); code != 1 {
 		t.Fatalf("realMain code = %d, want 1", code)
 	}
 	if !strings.Contains(stderr.String(), "package example/missing is absent from the coverage profile") {
@@ -286,8 +293,9 @@ func TestRealMainBindsCoverageToSelectedPackages(t *testing.T) {
 				profile += foreign + "/foreign.go:1.1,2.1 1000 1\n"
 			}
 			runner := &recordingRunner{profile: profile, listedPackages: []string{"example/second", "example"}}
+			usePolicy(t, validPolicy)
 			var stdout, stderr bytes.Buffer
-			code := realMain([]string{"--policy", writePolicy(t, validPolicy)}, &stdout, &stderr, runner)
+			code := realMain(nil, &stdout, &stderr, runner)
 			if !contains(runner.args, "-coverpkg=example,example/second") {
 				t.Fatalf("coverage selection differs from package observation: %q", runner.args)
 			}
@@ -315,9 +323,10 @@ func TestRealMainRejectsNativeCommandFailure(t *testing.T) {
 		{"test execution with counters", recordingRunner{profile: "mode: atomic\nexample/a.go:1.1,2.1 100 1\n", err: errors.New("test failure")}, "native coverage attempt failed: test failure"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
+			usePolicy(t, validPolicy)
 			var stdout, stderr bytes.Buffer
 			output := filepath.Join(t.TempDir(), "profile.out")
-			if code := realMain([]string{"--policy", writePolicy(t, validPolicy), "--profile-output", output}, &stdout, &stderr, &test.runner); code != 1 {
+			if code := realMain([]string{"--profile-output", output}, &stdout, &stderr, &test.runner); code != 1 {
 				t.Fatalf("realMain code = %d, want 1", code)
 			}
 			if !strings.Contains(stderr.String(), test.want) {
@@ -354,7 +363,7 @@ func TestSystemRunnerExecutesCommand(t *testing.T) {
 }
 
 func TestRealMainRejectsPositionalArgumentAndInvalidProfile(t *testing.T) {
-	policyPath := writePolicy(t, validPolicy)
+	usePolicy(t, validPolicy)
 	tests := []struct {
 		name    string
 		args    []string
@@ -362,8 +371,8 @@ func TestRealMainRejectsPositionalArgumentAndInvalidProfile(t *testing.T) {
 		want    string
 		code    int
 	}{
-		{name: "positional argument", args: []string{"--policy", policyPath, "./internal/..."}, want: "does not accept positional", code: 2},
-		{name: "empty profile", args: []string{"--policy", policyPath}, want: "read coverage profile", code: 1},
+		{name: "positional argument", args: []string{"./internal/..."}, want: "does not accept positional", code: 2},
+		{name: "empty profile", want: "read coverage profile", code: 1},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -386,10 +395,10 @@ func (emptyListRunner) Run(name string, args []string, stdout, stderr io.Writer)
 }
 
 func TestRealMainRejectsEmptyPackageList(t *testing.T) {
-	policyPath := writePolicy(t, validPolicy)
+	usePolicy(t, validPolicy)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, emptyListRunner{}); code != 1 {
+	if code := realMain(nil, &stdout, &stderr, emptyListRunner{}); code != 1 {
 		t.Fatalf("realMain code = %d, want 1", code)
 	}
 	if !strings.Contains(stderr.String(), "go list returned no packages") {
@@ -398,14 +407,14 @@ func TestRealMainRejectsEmptyPackageList(t *testing.T) {
 }
 
 func TestRealMainDeduplicatesRepeatedListedPackages(t *testing.T) {
-	policyPath := writePolicy(t, validPolicy)
+	usePolicy(t, validPolicy)
 	runner := &recordingRunner{
 		profile:        "mode: atomic\nexample/dup/a.go:1.1,2.1 100 1\n",
 		listedPackages: []string{"example/dup", "example/dup"},
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if code := realMain([]string{"--policy", policyPath}, &stdout, &stderr, runner); code != 0 {
+	if code := realMain(nil, &stdout, &stderr, runner); code != 0 {
 		t.Fatalf("realMain code = %d, stderr = %q", code, stderr.String())
 	}
 	if strings.Contains(stderr.String(), "is absent from the coverage profile") {
@@ -422,7 +431,7 @@ func TestRealMainRejectsInvalidArgumentsAndPolicy(t *testing.T) {
 		code int
 	}{
 		{name: "unknown flag", args: []string{"--unknown"}, want: "flag provided but not defined", code: 2},
-		{name: "missing policy", args: []string{"--policy", filepath.Join(t.TempDir(), "missing.toml")}, want: "load coverage policy", code: 1},
+		{name: "missing policy", want: "load coverage policy", code: 1},
 		{name: "unknown field", body: validPolicy + "exclude = [\"tools\"]\n", want: "load coverage policy", code: 1},
 		{name: "wrong comparison", body: strings.Replace(validPolicy, "greater-than", "at-least", 1), want: "comparison", code: 1},
 		{name: "wrong threshold scope", body: strings.Replace(validPolicy, `["aggregate"]`, `["package"]`, 1), want: "threshold_scopes", code: 1},
@@ -442,13 +451,14 @@ func TestRealMainRejectsInvalidArgumentsAndPolicy(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			args := test.args
 			if test.body != "" {
-				args = []string{"--policy", writePolicy(t, test.body)}
+				usePolicy(t, test.body)
+			} else {
+				t.Chdir(t.TempDir())
 			}
 			var stdout bytes.Buffer
 			var stderr bytes.Buffer
-			if code := realMain(args, &stdout, &stderr, &recordingRunner{}); code != test.code {
+			if code := realMain(test.args, &stdout, &stderr, &recordingRunner{}); code != test.code {
 				t.Fatalf("realMain code = %d, want %d", code, test.code)
 			}
 			if !strings.Contains(stderr.String(), test.want) {
