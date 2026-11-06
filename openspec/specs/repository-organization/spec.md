@@ -68,6 +68,14 @@ Repository configuration, tools, source, tests, documentation, and release asset
 - **THEN** the content is organized under its semantic owner
 - **AND** those structures do not remain as a competing implementation or policy.
 
+#### Scenario: Several client adapters repeat one step
+
+- **WHEN** two or more client adapters implement the same step, such as a
+  Converge preamble or a document encoder
+- **THEN** that step SHALL have one owner that the adapters call
+- **AND** an adapter SHALL keep its own sequence only where its order or
+  error text differs.
+
 #### Scenario: Contributor uses another host
 
 - **WHEN** the repository is verified on macOS, Linux, or Windows
