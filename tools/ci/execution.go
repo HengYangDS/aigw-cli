@@ -2,7 +2,6 @@ package main
 
 import (
 	nativeprocess "aigw-cli/internal/platform/process"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -35,30 +34,6 @@ func (call command) environment() []string {
 	return append(inherited.Environ(), call.Env...)
 }
 
-const commandDiagnosticLimit = 64 * 1024
-
-type diagnosticCapture struct {
-	output    bytes.Buffer
-	truncated bool
-}
-
-func (capture *diagnosticCapture) Write(data []byte) (int, error) {
-	remaining := commandDiagnosticLimit - capture.output.Len()
-	if remaining > 0 {
-		_, _ = capture.output.Write(data[:min(len(data), remaining)])
-	}
-	capture.truncated = capture.truncated || len(data) > remaining
-	return len(data), nil
-}
-
-func (capture *diagnosticCapture) text() string {
-	diagnostics := strings.TrimSpace(capture.output.String())
-	if capture.truncated {
-		return diagnostics + "\n[diagnostics truncated]"
-	}
-	return diagnostics
-}
-
 type commandRunner func(command) error
 
 type outputRunner func(command) ([]byte, error)
@@ -73,16 +48,19 @@ func systemOutputRunner(call command) (output []byte, err error) {
 	}()
 	// Native file descriptors preserve diagnostics from tools that exit before
 	// their asynchronous pipe writes drain.
-	runErr := runOwned(call, capture, capture)
+	runErr := runOwned(call, func(ctx context.Context, plan nativeprocess.Plan) error {
+		return (nativeprocess.Runner{}).RunStream(ctx, plan, capture, capture)
+	})
 	closeErr := capture.Close()
 	output, readErr := os.ReadFile(capture.Name())
 	return output, errors.Join(runErr, closeErr, readErr)
 }
 
-// runOwned runs call through the native process owner: in its own process
-// group or Job, stopped when this process is interrupted or the call's timeout
-// expires, and with every remaining descendant reclaimed before return.
-func runOwned(call command, stdout, stderr io.Writer) error {
+// runOwned runs call's plan through run and the native process owner: in its
+// own process group or Job, stopped when this process is interrupted or the
+// call's timeout expires, and with every remaining descendant reclaimed before
+// return.
+func runOwned(call command, run func(context.Context, nativeprocess.Plan) error) error {
 	ctx := context.Background()
 	if call.Timeout > 0 {
 		var cancel context.CancelFunc
@@ -93,7 +71,7 @@ func runOwned(call command, stdout, stderr io.Writer) error {
 		Executable: call.Name, Args: call.Args, Directory: call.Dir,
 		Env: call.environment(), Stdin: call.Input,
 	}
-	return errors.Join((nativeprocess.Runner{}).RunStream(ctx, plan, stdout, stderr), ctx.Err())
+	return errors.Join(run(ctx, plan), ctx.Err())
 }
 
 func runCommands(commands []command, stdout io.Writer, runner commandRunner) error {
@@ -108,31 +86,26 @@ func runCommands(commands []command, stdout io.Writer, runner commandRunner) err
 	return nil
 }
 
-func systemRunner(call command) (err error) {
-	capture, err := os.CreateTemp("", "aigw-ci-diagnostics-*")
-	if err != nil {
-		return fmt.Errorf("create command diagnostics: %w", err)
-	}
-	defer func() {
-		err = errors.Join(err, capture.Close(), os.Remove(capture.Name()))
-	}()
+func systemRunner(call command) error {
 	// A native descriptor preserves diagnostic writes before immediate exit;
 	// standard output remains live and diagnostics replay without a memory limit.
-	runErr := runOwned(call, os.Stdout, capture)
-	var failureOutput diagnosticCapture
-	_, seekErr := capture.Seek(0, io.SeekStart)
-	var readErr error
-	if seekErr == nil {
-		_, readErr = io.Copy(io.MultiWriter(os.Stderr, &failureOutput), capture)
+	var diagnostics nativeprocess.Diagnostics
+	err := runOwned(call, func(ctx context.Context, plan nativeprocess.Plan) (runErr error) {
+		diagnostics, runErr = (nativeprocess.Runner{}).RunDiagnosed(ctx, plan, os.Stdout, os.Stderr)
+		return runErr
+	})
+	text := strings.TrimSpace(string(diagnostics.Head))
+	if diagnostics.Truncated {
+		text += "\n[diagnostics truncated]"
 	}
-	if err = errors.Join(runErr, seekErr, readErr); err != nil {
-		if text := failureOutput.text(); text != "" {
+	if err != nil {
+		if text != "" {
 			return fmt.Errorf("%w: %s", err, text)
 		}
 		return err
 	}
-	if failureOutput.truncated || nativeprocess.DiagnosticFailure(failureOutput.output.Bytes()) {
-		return fmt.Errorf("native gate diagnostics prevent qualification: %s", failureOutput.text())
+	if diagnostics.Truncated || diagnostics.Failure {
+		return fmt.Errorf("native gate diagnostics prevent qualification: %s", text)
 	}
 	return nil
 }

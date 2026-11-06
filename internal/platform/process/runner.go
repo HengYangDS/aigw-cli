@@ -1,6 +1,7 @@
 package process
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -62,6 +63,57 @@ func DiagnosticFailure(diagnostic []byte) bool {
 		}
 	}
 	return false
+}
+
+// DiagnosticLimit bounds the head of standard error that RunDiagnosed keeps,
+// the budget that a captured standard error has.
+const DiagnosticLimit = capturedProcessOutputLimit
+
+// Diagnostics is the standard error that RunDiagnosed replayed: its first
+// DiagnosticLimit bytes, whether more followed, and whether any of its lines
+// carries a DiagnosticFailure marker.
+type Diagnostics struct {
+	Head      []byte
+	Truncated bool
+	Failure   bool
+}
+
+func (diagnostics *Diagnostics) observe(line []byte) {
+	kept := min(len(line), DiagnosticLimit-len(diagnostics.Head))
+	diagnostics.Head = append(diagnostics.Head, line[:kept]...)
+	diagnostics.Truncated = diagnostics.Truncated || kept < len(line)
+	diagnostics.Failure = diagnostics.Failure || DiagnosticFailure(line)
+}
+
+// RunDiagnosed runs plan as RunStream does with standard error in a native
+// temporary file, which keeps what a child writes just before it exits. Once
+// the child has exited, it replays that file to stderr line by line and
+// reports what the file held; the file is removed before return.
+func (runner Runner) RunDiagnosed(ctx context.Context, plan Plan, stdout, stderr io.Writer) (diagnostics Diagnostics, err error) {
+	capture, err := os.CreateTemp("", "aigw-diagnostics-*")
+	if err != nil {
+		return Diagnostics{}, fmt.Errorf("create command diagnostics: %w", err)
+	}
+	defer func() { err = errors.Join(err, capture.Close(), os.Remove(capture.Name())) }()
+	runErr := runner.RunStream(ctx, plan, stdout, capture)
+	if _, err := capture.Seek(0, io.SeekStart); err != nil {
+		return Diagnostics{}, errors.Join(runErr, err)
+	}
+	reader := bufio.NewReader(capture)
+	for {
+		line, readErr := reader.ReadBytes('\n')
+		var writeErr error
+		if len(line) > 0 {
+			_, writeErr = stderr.Write(line)
+		}
+		diagnostics.observe(line)
+		if readErr != nil || writeErr != nil {
+			if errors.Is(readErr, io.EOF) {
+				readErr = nil
+			}
+			return diagnostics, errors.Join(runErr, readErr, writeErr)
+		}
+	}
 }
 
 // FileRunner streams a process's standard output into an owned file.

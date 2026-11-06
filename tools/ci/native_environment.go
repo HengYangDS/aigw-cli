@@ -1,12 +1,13 @@
 package main
 
 import (
+	nativeprocess "aigw-cli/internal/platform/process"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -230,8 +231,7 @@ func physicalWorkdir() (string, error) {
 // runAttached runs a command whose own steps qualify their diagnostics, with
 // its output attached to this process.
 func runAttached(call command) error {
-	process := exec.Command(call.Name, call.Args...)
-	process.Env = append(process.Environ(), call.Env...)
-	process.Stdout, process.Stderr = os.Stdout, os.Stderr
-	return process.Run()
+	return runOwned(call, func(ctx context.Context, plan nativeprocess.Plan) error {
+		return (nativeprocess.Runner{}).RunStream(ctx, plan, os.Stdout, os.Stderr)
+	})
 }

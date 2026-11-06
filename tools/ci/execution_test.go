@@ -1,6 +1,7 @@
 package main
 
 import (
+	nativeprocess "aigw-cli/internal/platform/process"
 	"bytes"
 	"context"
 	"errors"
@@ -87,7 +88,7 @@ func TestSystemRunnerRejectsSuccessfulNativeWarnings(t *testing.T) {
 		{"colored warning", "\x1b[33mwarning\x1b[0m: partial analysis", true},
 		{"error", "ERROR native gate: incomplete analysis", true},
 		{"deprecation", "DeprecationWarning: obsolete configuration", true},
-		{"truncated evidence", strings.Repeat("x", commandDiagnosticLimit+1), true},
+		{"truncated evidence", strings.Repeat("x", nativeprocess.DiagnosticLimit+1), true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -96,7 +97,7 @@ func TestSystemRunnerRejectsSuccessfulNativeWarnings(t *testing.T) {
 				t.Fatal(err)
 			}
 			environment := "AIGW_CI_TEST_DIAGNOSTIC=" + test.diagnostic
-			if len(test.diagnostic) > commandDiagnosticLimit {
+			if len(test.diagnostic) > nativeprocess.DiagnosticLimit {
 				environment = fmt.Sprintf("AIGW_CI_TEST_DIAGNOSTIC_SIZE=%d", len(test.diagnostic))
 			}
 			previous := os.Stderr
@@ -134,8 +135,8 @@ func TestSystemRunnerPreservesNativeImmediateExitDiagnostics(t *testing.T) {
 	}{
 		{"ordinary progress", " tool progress\n", 8192, 0, false},
 		{"warning", " warning: incomplete analysis\n", 8192, 0, true},
-		{"warning beyond pipe capacity", " warning: incomplete analysis\n", commandDiagnosticLimit - 1, 0, true},
-		{"failed large diagnostics", " failure detail\n", commandDiagnosticLimit - 1, 7, true},
+		{"warning beyond pipe capacity", " warning: incomplete analysis\n", nativeprocess.DiagnosticLimit - 1, 0, true},
+		{"failed large diagnostics", " failure detail\n", nativeprocess.DiagnosticLimit - 1, 7, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			diagnostics, err := os.Create(filepath.Join(outputRoot, test.name+".txt"))
@@ -186,7 +187,7 @@ func TestSystemRunnerBoundsFailedCommandDiagnostics(t *testing.T) {
 		Name: os.Args[0],
 		Args: []string{"-test.run=^TestSystemRunnerDiagnosticHelper$"},
 		Env: []string{
-			fmt.Sprintf("AIGW_CI_TEST_DIAGNOSTIC_SIZE=%d", commandDiagnosticLimit+1),
+			fmt.Sprintf("AIGW_CI_TEST_DIAGNOSTIC_SIZE=%d", nativeprocess.DiagnosticLimit+1),
 			"AIGW_CI_TEST_FAIL=1",
 		},
 	})

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -160,6 +161,61 @@ func TestRunCaptureKeepsResultAndDiagnosticBudgetsSeparate(t *testing.T) {
 				t.Fatalf("invalid capture returned %d bytes: %v", len(output), err)
 			}
 		})
+	}
+}
+
+func TestRunDiagnosedReplaysAndQualifiesTheCompleteDiagnostics(t *testing.T) {
+	if size := os.Getenv("AIGW_TEST_DIAGNOSED_SIZE"); size != "" {
+		count, _ := strconv.Atoi(size)
+		_, _ = os.Stdout.WriteString("result")
+		_, _ = os.Stderr.WriteString(strings.Repeat("x", count) + "\n" + os.Getenv("AIGW_TEST_DIAGNOSED_TAIL"))
+		code, _ := strconv.Atoi(os.Getenv("AIGW_TEST_DIAGNOSED_EXIT"))
+		os.Exit(code)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+		t.Setenv(name, root)
+	}
+	for _, test := range []struct {
+		name, tail        string
+		size, exit        int
+		truncated, failed bool
+	}{
+		{"progress", "progress\n", 8, 0, false, false},
+		{"warning", "warning: incomplete", 8, 0, false, true},
+		{"beyond the head", "warning: late\n", DiagnosticLimit, 3, true, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			diagnostics, err := (Runner{}).RunDiagnosed(t.Context(), Plan{
+				Executable: executable,
+				Args:       []string{"-test.run=^TestRunDiagnosedReplaysAndQualifiesTheCompleteDiagnostics$"},
+				Env: append(os.Environ(), "AIGW_TEST_DIAGNOSED_SIZE="+strconv.Itoa(test.size),
+					"AIGW_TEST_DIAGNOSED_TAIL="+test.tail, "AIGW_TEST_DIAGNOSED_EXIT="+strconv.Itoa(test.exit)),
+			}, &stdout, &stderr)
+			want := strings.Repeat("x", test.size) + "\n" + test.tail
+			var exitError *exec.ExitError
+			if (test.exit == 0) != (err == nil) || test.exit != 0 && (!errors.As(err, &exitError) || exitError.ExitCode() != test.exit) {
+				t.Fatalf("exit %d: %v", test.exit, err)
+			}
+			if stdout.String() != "result" || stderr.String() != want || string(diagnostics.Head) != want[:min(len(want), DiagnosticLimit)] ||
+				diagnostics.Truncated != test.truncated || diagnostics.Failure != test.failed {
+				t.Fatalf("stdout=%q stderr=%d head=%d truncated=%t failure=%t", stdout.String(), stderr.Len(), len(diagnostics.Head), diagnostics.Truncated, diagnostics.Failure)
+			}
+			if entries, readErr := os.ReadDir(root); readErr != nil || len(entries) != 0 {
+				t.Fatalf("diagnostic capture residue: %v error=%v", entries, readErr)
+			}
+		})
+	}
+	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+		t.Setenv(name, filepath.Join(root, "missing"))
+	}
+	if _, err := (Runner{}).RunDiagnosed(t.Context(), Plan{Executable: executable}, io.Discard, io.Discard); err == nil || !strings.Contains(err.Error(), "create command diagnostics") {
+		t.Fatalf("unavailable capture directory: %v", err)
 	}
 }
 

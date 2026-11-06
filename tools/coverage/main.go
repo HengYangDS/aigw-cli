@@ -4,6 +4,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -15,13 +16,14 @@ import (
 	"maps"
 	"math"
 	"os"
-	"os/exec"
 	pathpkg "path"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"aigw-cli/internal/platform/process"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -71,10 +73,7 @@ type commandRunner interface {
 type systemRunner struct{}
 
 func (systemRunner) Run(name string, args []string, stdout, stderr io.Writer) error {
-	command := exec.Command(name, args...)
-	command.Stdout = stdout
-	command.Stderr = stderr
-	return command.Run()
+	return (process.Runner{}).RunStream(context.Background(), process.Plan{Executable: name, Args: args, Env: os.Environ()}, stdout, stderr)
 }
 
 func main() {

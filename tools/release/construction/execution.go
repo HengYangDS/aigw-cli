@@ -3,7 +3,6 @@ package construction
 import (
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -54,13 +53,6 @@ func executeTool(ctx context.Context) toolRunner {
 		if stderr == nil {
 			stderr = os.Stderr
 		}
-		diagnostics, err := os.CreateTemp("", "aigw-release-diagnostics-*")
-		if err != nil {
-			return fmt.Errorf("create native tool diagnostics: %w", err)
-		}
-		defer func() {
-			result = errors.Join(result, diagnostics.Close(), os.Remove(diagnostics.Name()))
-		}()
 		stdoutWriter := stdout
 		file, native := stdout.(*os.File)
 		if native {
@@ -84,27 +76,14 @@ func executeTool(ctx context.Context) toolRunner {
 			}()
 			stdoutWriter = capture
 		}
-		runErr := (process.Runner{}).RunStream(callContext, process.Plan{
+		diagnostics, err := (process.Runner{}).RunDiagnosed(callContext, process.Plan{
 			Executable: executable, Directory: call.Directory,
 			Args: call.Args, Env: append(os.Environ(), call.Env...),
-		}, stdoutWriter, diagnostics)
-		if _, err := diagnostics.Seek(0, io.SeekStart); err != nil {
-			return errors.Join(runErr, err)
+		}, stdoutWriter, stderr)
+		if diagnostics.Failure {
+			err = errors.Join(err, fmt.Errorf("%s diagnostics prevent qualification", call.Name))
 		}
-		reader := bufio.NewReader(diagnostics)
-		for {
-			line, readErr := reader.ReadBytes('\n')
-			_, writeErr := stderr.Write(line)
-			if process.DiagnosticFailure(line) {
-				runErr = errors.Join(runErr, fmt.Errorf("%s diagnostics prevent qualification", call.Name))
-			}
-			if readErr != nil || writeErr != nil {
-				if errors.Is(readErr, io.EOF) {
-					readErr = nil
-				}
-				return errors.Join(runErr, readErr, writeErr)
-			}
-		}
+		return err
 	}
 }
 
