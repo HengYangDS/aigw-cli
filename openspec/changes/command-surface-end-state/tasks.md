@@ -132,7 +132,7 @@
       the Markdown, link and spelling checks pass.
 - [ ] 7.3 Add a decision record that supersedes DR-0003 and DR-0004, and
       register it.
-- [ ] 7.5 Rename the `route-client-selection` specification to
+- [x] 7.5 Rename the `route-client-selection` specification to
       `model-selection`, and rewrite the Purpose sections that still name an
       Account or a Route, which a delta cannot change.
 - [ ] 7.4 Record the breaking changes and the upgrade step in CHANGELOG, set
