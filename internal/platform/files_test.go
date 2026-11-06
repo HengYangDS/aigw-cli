@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"testing/iotest"
 
 	"aigw-cli/internal/platform"
 )
@@ -60,6 +61,21 @@ func TestFileSnapshotOwnsExactContentAndPermissionIdentity(t *testing.T) {
 	absent := platform.FileSnapshot{}
 	if !absent.Equal(platform.FileSnapshot{}) || absent.Equal(platform.NewFileSnapshot(nil, 0o600)) {
 		t.Fatal("absent file identity must remain distinct from an existing empty file")
+	}
+}
+
+func TestSHA256DigestsBytesAndStreamsAlike(t *testing.T) {
+	const want = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+	streamed, err := platform.ReadSHA256(strings.NewReader("abc"))
+	if got := platform.SHA256([]byte("abc")); got != want || err != nil || streamed != want {
+		t.Fatalf("SHA256 = %q, ReadSHA256 = %q, %v; want %q", got, streamed, err, want)
+	}
+	if snapshot := platform.NewFileSnapshot([]byte("abc"), 0o600); snapshot.SHA256 != want {
+		t.Fatalf("snapshot digest = %q, want %q", snapshot.SHA256, want)
+	}
+	failure := errors.New("read failed")
+	if digest, err := platform.ReadSHA256(iotest.ErrReader(failure)); digest != "" || !errors.Is(err, failure) {
+		t.Fatalf("ReadSHA256 of a failing reader = %q, %v", digest, err)
 	}
 }
 

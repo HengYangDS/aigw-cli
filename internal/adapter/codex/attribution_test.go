@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/platform"
 )
 
 func TestReconcileConfigsRejectsUnattributedSidecar(t *testing.T) {
@@ -109,7 +111,7 @@ func TestReconcileConfigsRejectsUnattributedSidecarBesideSymlinkTarget(t *testin
 	unattributed := codexState{
 		OriginalProvider: `model_provider = "native"`,
 		OriginalModel:    `model = "gpt-native"`,
-		ManagedBlockHash: hashText(block),
+		ManagedBlockHash: platform.SHA256([]byte(block)),
 	}
 	unattributedData, err := json.Marshal(unattributed)
 	if err != nil {

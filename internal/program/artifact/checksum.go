@@ -1,14 +1,13 @@
 package artifact
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"aigw-cli/internal/platform"
 )
 
 // VerifyChecksum verifies one manifest entry and returns the authenticated archive digest.
@@ -40,11 +39,10 @@ func VerifyChecksum(archivePath, checksumPath, archiveName string) (string, erro
 		return "", fmt.Errorf("open update archive: %w", err)
 	}
 	defer func() { _ = archive.Close() }()
-	hash := sha256.New()
-	if _, err := io.Copy(hash, archive); err != nil {
+	actual, err := platform.ReadSHA256(archive)
+	if err != nil {
 		return "", fmt.Errorf("hash update archive: %w", err)
 	}
-	actual := hex.EncodeToString(hash.Sum(nil))
 	if actual != expected {
 		return "", fmt.Errorf("checksum mismatch for %s", archiveName)
 	}

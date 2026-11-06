@@ -264,7 +264,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	state.ManagedBlockHash = hashText(block)
+	state.ManagedBlockHash = platform.SHA256([]byte(block))
 	state.ProjectedModel = runtime.Model
 	if provider == modelProviderAIGW {
 		state.ProjectedProvider = ""
@@ -408,10 +408,6 @@ func rollbackCodexArtifacts(committed []committedCodexArtifact) error {
 		}
 	}
 	return errors.Join(failures...)
-}
-
-func hashBytes(data []byte) string {
-	return hashText(string(data))
 }
 
 func codexStateForTarget(snapshot platform.FileSnapshot) (codexState, error) {

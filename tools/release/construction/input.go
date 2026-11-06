@@ -1,6 +1,7 @@
 package construction
 
 import (
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/program/artifact"
 	"archive/tar"
 	"bytes"
@@ -104,11 +105,11 @@ func (input *NativeAcceptance) preparePackage(ctx context.Context, request build
 		return err
 	}
 	defer func() { result = errors.Join(result, file.Close()) }()
-	digest := sha256.New()
-	if _, err := io.Copy(digest, file); err != nil {
+	digest, err := platform.ReadSHA256(file)
+	if err != nil {
 		return err
 	}
-	if fmt.Sprintf("%x", digest.Sum(nil)) != input.InputSHA256 {
+	if digest != input.InputSHA256 {
 		return errors.New("native input package checksum mismatch")
 	}
 	if _, err := file.Seek(0, io.SeekStart); err != nil {

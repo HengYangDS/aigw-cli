@@ -2,7 +2,6 @@ package claude
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -479,7 +478,7 @@ func managedSettingsHash(document settingsDocument) string {
 		}
 	}
 	data, _ := json.Marshal(managed)
-	return hashBytes(data)
+	return platform.SHA256(data)
 }
 
 func decodeSettingsState(data []byte) (settingsState, error) {
@@ -493,9 +492,4 @@ func decodeSettingsState(data []byte) (settingsState, error) {
 		return settingsState{}, errors.New("Claude settings state is incomplete or not owned by AIGW")
 	}
 	return state, nil
-}
-
-func hashBytes(data []byte) string {
-	sum := sha256.Sum256(data)
-	return fmt.Sprintf("%x", sum)
 }

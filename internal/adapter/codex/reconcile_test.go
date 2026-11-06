@@ -370,7 +370,7 @@ func attributedCodexStateFixture(block string) codexState {
 		panic(err)
 	}
 	return codexState{
-		ManagedBlockHash:       hashText(block),
+		ManagedBlockHash:       platform.SHA256([]byte(block)),
 		OriginalScheduler:      originalScheduler,
 		ProjectedSchedulerHash: codexSchedulerHash(projectedScheduler),
 		ProjectionMode:         ProjectionFullSelection,

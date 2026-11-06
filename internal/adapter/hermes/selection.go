@@ -47,7 +47,7 @@ func ObserveSelection(path string, current Desired) (Selection, bool, error) {
 	if err != nil {
 		return Selection{}, false, err
 	}
-	if digest(owned) == state.ManagedDigest {
+	if platform.SHA256(owned) == state.ManagedDigest {
 		return Selection{}, false, nil
 	}
 	if !selectionOnlyDrift(root, state, &current) {
@@ -111,7 +111,7 @@ func selectionOnlyDrift(root *yaml.Node, state ownership, previous *Desired) boo
 			setString(replacement, "base_url", baseURL.Value)
 			setString(replacement, "api_mode", transport.Value)
 			setField(root, "model", replacement)
-			if proven, err := managedBytes(root, state.ProviderIDs); err == nil && digest(proven) == state.ManagedDigest {
+			if proven, err := managedBytes(root, state.ProviderIDs); err == nil && platform.SHA256(proven) == state.ManagedDigest {
 				return true
 			}
 		}

@@ -166,7 +166,7 @@ func codexCatalogProjection(target TargetRef, model, canonicalModelID, base stri
 	// override the client's newer bundled table, which is a worse failure than
 	// the fallback it was meant to prevent.
 	recorded := ExecutableIdentity{Version: state.CatalogClientVersion, SHA256: state.CatalogClientSHA256}
-	if state.CatalogHash != "" && live.same(recorded) && before.Exists && hashBytes(before.Data) == state.CatalogHash {
+	if state.CatalogHash != "" && live.same(recorded) && before.Exists && platform.SHA256(before.Data) == state.CatalogHash {
 		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: before.Data, client: recorded, state: catalogStateProjected}
 	}
 	if state.CatalogHash == "" && state.CatalogState == "" {
@@ -184,7 +184,7 @@ func codexCatalogProjection(target TargetRef, model, canonicalModelID, base stri
 // not written over either: an unrecognized file there is a conflict to report,
 // not a file to adopt.
 func codexCatalogDesiredSnapshot(plan codexCatalogPlan, before platform.FileSnapshot, ownedHash string) (platform.FileSnapshot, error) {
-	owned := before.Exists && ownedHash != "" && hashBytes(before.Data) == ownedHash
+	owned := before.Exists && ownedHash != "" && platform.SHA256(before.Data) == ownedHash
 	if plan.data != nil {
 		if before.Exists && !owned {
 			return platform.FileSnapshot{}, newConflictError(fmt.Sprintf(
@@ -227,7 +227,7 @@ func applyCodexCatalogState(state *codexState, plan codexCatalogPlan) {
 	state.CatalogClientSHA256 = plan.client.SHA256
 	state.CatalogHash = ""
 	if plan.data != nil {
-		state.CatalogHash = hashBytes(plan.data)
+		state.CatalogHash = platform.SHA256(plan.data)
 	}
 }
 

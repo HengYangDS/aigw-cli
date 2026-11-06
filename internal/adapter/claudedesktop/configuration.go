@@ -3,8 +3,6 @@ package claudedesktop
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -462,8 +460,7 @@ func managedHash(id string, standard, thirdParty document, profile []byte, metad
 	if err != nil {
 		return "", err
 	}
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:]), nil
+	return platform.SHA256(data), nil
 }
 
 func encodeOptional(value document, existed bool) ([]byte, error) {

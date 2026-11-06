@@ -2,10 +2,7 @@ package codex
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -14,6 +11,7 @@ import (
 	"strings"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
 )
 
@@ -143,9 +141,9 @@ func fileSHA256(path string) (string, error) {
 		return "", fmt.Errorf("read Codex executable: %w", err)
 	}
 	defer func() { _ = file.Close() }()
-	digest := sha256.New()
-	if _, err := io.Copy(digest, file); err != nil {
+	digest, err := platform.ReadSHA256(file)
+	if err != nil {
 		return "", fmt.Errorf("hash Codex executable: %w", err)
 	}
-	return hex.EncodeToString(digest.Sum(nil)), nil
+	return digest, nil
 }

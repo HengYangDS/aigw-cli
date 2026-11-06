@@ -49,7 +49,7 @@ func TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog(t *testing.T) {
 		t.Fatalf("catalog slugs = %v", slugs)
 	}
 	state := readCodexSidecar(t, path)
-	if state.CatalogState != catalogStateProjected || state.CatalogHash != hashBytes(catalog) {
+	if state.CatalogState != catalogStateProjected || state.CatalogHash != platform.SHA256(catalog) {
 		t.Fatalf("sidecar catalog attribution = %+v", state)
 	}
 	if state.CatalogClientVersion != "1.0.0" || state.CatalogClientSHA256 != "aaaa" {
@@ -239,7 +239,7 @@ func TestReconcileConfigsRebuildsTheCatalogAfterAClientUpgrade(t *testing.T) {
 	if !strings.Contains(string(second), "openai.gpt-6") {
 		t.Fatalf("rebuilt catalog lacks the new model:\n%s", second)
 	}
-	if state := readCodexSidecar(t, path); state.CatalogClientVersion != "2.0.0" || state.CatalogHash != hashBytes(second) {
+	if state := readCodexSidecar(t, path); state.CatalogClientVersion != "2.0.0" || state.CatalogHash != platform.SHA256(second) {
 		t.Fatalf("sidecar was not rebound to the installed client: %+v", state)
 	}
 
@@ -421,7 +421,7 @@ func TestReconcileConfigsRefusesToAdoptAForeignCatalogFile(t *testing.T) {
 // starting at all, so the file is created first and deleted last.
 func TestCodexArtifactsFollowTheCatalogDependencyOrder(t *testing.T) {
 	target := HomeTarget(filepath.Join(t.TempDir(), "configuration.toml"))
-	configBefore := platform.FileSnapshot{Exists: true, Data: []byte("old"), SHA256: hashBytes([]byte("old")), Mode: 0o600}
+	configBefore := platform.FileSnapshot{Exists: true, Data: []byte("old"), SHA256: platform.SHA256([]byte("old")), Mode: 0o600}
 	catalogData := []byte("{}")
 
 	created := codexArtifactsForDesiredState(
@@ -440,7 +440,7 @@ func TestCodexArtifactsFollowTheCatalogDependencyOrder(t *testing.T) {
 
 	catalogBefore := platform.NewFileSnapshot(catalogData, 0o600)
 	removed := codexArtifactsForDesiredState(
-		target, configBefore, []byte("new"), platform.FileSnapshot{Exists: true, Data: []byte("state"), SHA256: hashBytes([]byte("state")), Mode: 0o600}, nil,
+		target, configBefore, []byte("new"), platform.FileSnapshot{Exists: true, Data: []byte("state"), SHA256: platform.SHA256([]byte("state")), Mode: 0o600}, nil,
 		catalogBefore, platform.FileSnapshot{},
 	)
 	wantRemove := []string{target.Path, codexStatePath(target.Path), codexCatalogPath(target.Path)}
@@ -451,7 +451,7 @@ func TestCodexArtifactsFollowTheCatalogDependencyOrder(t *testing.T) {
 	// An unchanged catalog is not an artifact at all, so a converged target
 	// performs no writes.
 	unchanged := codexArtifactsForDesiredState(
-		target, configBefore, configBefore.Data, platform.FileSnapshot{Exists: true, Data: []byte("state"), SHA256: hashBytes([]byte("state")), Mode: 0o600}, []byte("state"),
+		target, configBefore, configBefore.Data, platform.FileSnapshot{Exists: true, Data: []byte("state"), SHA256: platform.SHA256([]byte("state")), Mode: 0o600}, []byte("state"),
 		catalogBefore, catalogBefore,
 	)
 	if len(unchanged) != 0 {

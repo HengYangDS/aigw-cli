@@ -46,7 +46,7 @@ func ObserveSelection(path string) (string, bool, error) {
 func ownedSelectionIntact(path, text string, state codexState, catalog platform.FileSnapshot) bool {
 	provider := codexStateProvider(state)
 	block, err := codexManagedBlockForProviderIn(text, provider)
-	if err != nil || state.ManagedBlockHash != hashText(block) {
+	if err != nil || state.ManagedBlockHash != platform.SHA256([]byte(block)) {
 		return false
 	}
 	providerLine, err := codexSelectionLine(text, "model_provider")
@@ -56,5 +56,5 @@ func ownedSelectionIntact(path, text string, state codexState, catalog platform.
 	if validateCodexSchedulerOwnership(state, text) != nil || validateCodexCatalogReference(path, text, state) != nil {
 		return false
 	}
-	return state.CatalogHash == "" || catalog.Exists && hashBytes(catalog.Data) == state.CatalogHash
+	return state.CatalogHash == "" || catalog.Exists && platform.SHA256(catalog.Data) == state.CatalogHash
 }

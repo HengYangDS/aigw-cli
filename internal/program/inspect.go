@@ -1,7 +1,7 @@
 package program
 
 import (
-	"crypto/sha256"
+	"aigw-cli/internal/platform"
 	"errors"
 	"fmt"
 	"io"
@@ -71,10 +71,14 @@ func inspectProgramFile(path string) (result ProgramFile, resultErr error) {
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, file.Close()) }()
-	digest := sha256.New()
-	size, err := io.Copy(digest, file)
+	digest, err := platform.ReadSHA256(file)
 	if err != nil {
 		return result, err
 	}
-	return ProgramFile{Path: resolved, SHA256: fmt.Sprintf("%x", digest.Sum(nil)), SizeBytes: size}, nil
+	// The offset after reading to the end is the size of the bytes digested.
+	size, err := file.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return result, err
+	}
+	return ProgramFile{Path: resolved, SHA256: digest, SizeBytes: size}, nil
 }

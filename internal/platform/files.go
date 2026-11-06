@@ -120,13 +120,29 @@ func writeFileAtomicIfUnchanged(
 // NewFileSnapshot captures owned bytes, their digest and permission bits for an
 // existing file. The zero value represents an absent file instead.
 func NewFileSnapshot(data []byte, mode os.FileMode) FileSnapshot {
-	sum := sha256.Sum256(data)
 	return FileSnapshot{
 		Exists: true,
 		Data:   append([]byte(nil), data...),
-		SHA256: hex.EncodeToString(sum[:]),
+		SHA256: SHA256(data),
 		Mode:   mode.Perm(),
 	}
+}
+
+// SHA256 returns the lowercase hexadecimal SHA-256 of data, the digest that a
+// FileSnapshot records.
+func SHA256(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+// ReadSHA256 reads reader to its end and returns the lowercase hexadecimal
+// SHA-256 of what it read, or the read error unwrapped.
+func ReadSHA256(reader io.Reader) (string, error) {
+	digest := sha256.New()
+	if _, err := io.Copy(digest, reader); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(digest.Sum(nil)), nil
 }
 
 func persistedMode(mode os.FileMode) os.FileMode {

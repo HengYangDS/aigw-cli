@@ -284,7 +284,7 @@ func TestReconcileConfigsRejectsUnattributedStateWithoutOriginalSelections(t *te
 	if err := os.WriteFile(path, []byte(unattributed), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	stateData := []byte("{\n  \"managed_block_hash\": \"" + hashText(block) + "\"\n}\n")
+	stateData := []byte("{\n  \"managed_block_hash\": \"" + platform.SHA256([]byte(block)) + "\"\n}\n")
 	if err := os.WriteFile(codexStatePath(path), stateData, 0o600); err != nil {
 		t.Fatal(err)
 	}

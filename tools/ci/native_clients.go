@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -20,6 +18,7 @@ import (
 	claudeclient "aigw-cli/internal/adapter/claude"
 	codexclient "aigw-cli/internal/adapter/codex"
 	hermesclient "aigw-cli/internal/adapter/hermes"
+	"aigw-cli/internal/platform"
 	"aigw-cli/tools/release/construction"
 
 	"github.com/rogpeppe/go-internal/robustio"
@@ -420,9 +419,8 @@ func fileSHA256(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	digest := sha256.New()
-	_, err = io.Copy(digest, file)
-	return hex.EncodeToString(digest.Sum(nil)), errors.Join(err, file.Close())
+	digest, err := platform.ReadSHA256(file)
+	return digest, errors.Join(err, file.Close())
 }
 
 func regularFile(path string) bool {

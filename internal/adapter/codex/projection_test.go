@@ -153,7 +153,7 @@ func TestRemoveCodexProjectionRejectsInvalidCapturedSchedulerState(t *testing.T)
 		t.Fatal(err)
 	}
 	state := codexState{
-		ManagedBlockHash:       hashText(block),
+		ManagedBlockHash:       platform.SHA256([]byte(block)),
 		OriginalScheduler:      map[string]*int{"invalid": nil},
 		ProjectedSchedulerHash: codexSchedulerHash(current),
 	}
@@ -431,7 +431,7 @@ func TestRemoveCodexProjectionRejectsChangedManagedBlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	state := codexState{ManagedBlockHash: hashText(block)}
+	state := codexState{ManagedBlockHash: platform.SHA256([]byte(block))}
 	current = strings.Replace(current, runtime.Endpoint, "https://changed.example/v1", 1)
 
 	if _, err := removeCodexProjectionTransition(current, state, domain.Runtime{}, "", false); err == nil || !strings.Contains(err.Error(), "provider block changed") {

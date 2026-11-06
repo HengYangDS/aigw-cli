@@ -3,8 +3,6 @@ package hermes
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"slices"
@@ -227,7 +225,7 @@ func (plan *Plan) prepareDesired(root *yaml.Node, desired Desired, state ownersh
 	if err != nil {
 		return err
 	}
-	afterDigest := digest(after)
+	afterDigest := platform.SHA256(after)
 	if plan.stateBefore.Exists && bytes.Equal(before, after) && !orderChanged && state.ManagedDigest == afterDigest {
 		return nil
 	}
@@ -257,7 +255,7 @@ func (plan *Plan) readOwnership(root *yaml.Node, desired, previous *Desired) (ow
 	if err != nil {
 		return state, nil, err
 	}
-	if digest(current) != state.ManagedDigest && !selectionOnlyDrift(root, state, previous) {
+	if platform.SHA256(current) != state.ManagedDigest && !selectionOnlyDrift(root, state, previous) {
 		return state, nil, errExternalEdit
 	}
 	return state, current, nil
@@ -317,11 +315,6 @@ func (desired Desired) providerIDs() []string {
 		ids = append(ids, provider.ID)
 	}
 	return ids
-}
-
-func digest(data []byte) string {
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
 }
 
 // Apply commits the prepared projection while protecting newer edits.

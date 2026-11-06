@@ -54,10 +54,10 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 	target := HomeTarget(filepath.Join(dir, "configuration.toml"))
 	target.Executable = filepath.Join(dir, "codex")
 	owned := []byte(`{"models":[{"slug":"openai.gpt-5.5"}]}` + "\n")
-	before := platform.FileSnapshot{Exists: true, Data: owned, SHA256: hashBytes(owned), Mode: 0o600}
+	before := platform.FileSnapshot{Exists: true, Data: owned, SHA256: platform.SHA256(owned), Mode: 0o600}
 	state := codexState{
 		CatalogState:         catalogStateProjected,
-		CatalogHash:          hashBytes(owned),
+		CatalogHash:          platform.SHA256(owned),
 		CatalogClientVersion: "1.0.0",
 		CatalogClientSHA256:  "aaaa",
 	}
@@ -94,7 +94,7 @@ func TestCodexCatalogProjectionReusesOnlyTheSameClient(t *testing.T) {
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, nil, fmt.Errorf("dump failed")
 	}
-	edited := platform.FileSnapshot{Exists: true, Data: []byte("{}"), SHA256: hashBytes([]byte("{}")), Mode: 0o600}
+	edited := platform.FileSnapshot{Exists: true, Data: []byte("{}"), SHA256: platform.SHA256([]byte("{}")), Mode: 0o600}
 	if plan = codexCatalogProjection(target, "openai.gpt-5.5", "", "", state, edited); plan.state != catalogStateStale {
 		t.Fatalf("edited catalog: plan = %+v", plan)
 	}
@@ -335,15 +335,15 @@ func TestCopyProjectionRebasesOwnedCatalogReference(t *testing.T) {
 
 func TestCodexCatalogDesiredSnapshotRemovesOnlyOwnedFiles(t *testing.T) {
 	foreign := []byte(`{"models":[]}`)
-	before := platform.FileSnapshot{Exists: true, Data: foreign, SHA256: hashBytes(foreign), Mode: 0o600}
-	got, err := codexCatalogDesiredSnapshot(codexCatalogPlan{}, before, hashBytes([]byte("other")))
+	before := platform.FileSnapshot{Exists: true, Data: foreign, SHA256: platform.SHA256(foreign), Mode: 0o600}
+	got, err := codexCatalogDesiredSnapshot(codexCatalogPlan{}, before, platform.SHA256([]byte("other")))
 	if err != nil || !got.Equal(before) {
 		t.Fatalf("foreign catalog would be removed: %+v, err = %v", got, err)
 	}
 	if got, err = codexCatalogDesiredSnapshot(codexCatalogPlan{}, before, ""); err != nil || !got.Equal(before) {
 		t.Fatalf("unowned catalog would be removed: %+v, err = %v", got, err)
 	}
-	if got, err = codexCatalogDesiredSnapshot(codexCatalogPlan{}, before, hashBytes(foreign)); err != nil || got.Exists {
+	if got, err = codexCatalogDesiredSnapshot(codexCatalogPlan{}, before, platform.SHA256(foreign)); err != nil || got.Exists {
 		t.Fatalf("owned catalog was not removed: %+v, err = %v", got, err)
 	}
 	if got, err = codexCatalogDesiredSnapshot(codexCatalogPlan{data: []byte("x")}, platform.FileSnapshot{}, ""); err != nil || got.Mode != 0o600 {
@@ -360,8 +360,8 @@ func TestCodexCatalogDesiredSnapshotConvergesOwnedPermissions(t *testing.T) {
 	}
 	owned := []byte(`{"models":[{"slug":"gpt-5.5"}]}`)
 	for _, drifted := range []os.FileMode{0o640, 0o644, 0o664, 0o600} {
-		before := platform.FileSnapshot{Exists: true, Data: owned, SHA256: hashBytes(owned), Mode: drifted}
-		got, err := codexCatalogDesiredSnapshot(codexCatalogPlan{path: "/tmp/catalog.json", data: []byte("x")}, before, hashBytes(owned))
+		before := platform.FileSnapshot{Exists: true, Data: owned, SHA256: platform.SHA256(owned), Mode: drifted}
+		got, err := codexCatalogDesiredSnapshot(codexCatalogPlan{path: "/tmp/catalog.json", data: []byte("x")}, before, platform.SHA256(owned))
 		if err != nil {
 			t.Fatalf("owned catalog at %v was rejected: %v", drifted, err)
 		}
@@ -379,9 +379,9 @@ func TestCodexCatalogDesiredSnapshotFailsClosedOnForeignFile(t *testing.T) {
 	plan := codexCatalogPlan{path: "/tmp/catalog.json", data: []byte("x")}
 	for name, ownedHash := range map[string]string{
 		"no recorded hash":    "",
-		"hash of other bytes": hashBytes([]byte("other")),
+		"hash of other bytes": platform.SHA256([]byte("other")),
 	} {
-		before := platform.FileSnapshot{Exists: true, Data: foreign, SHA256: hashBytes(foreign), Mode: 0o644}
+		before := platform.FileSnapshot{Exists: true, Data: foreign, SHA256: platform.SHA256(foreign), Mode: 0o644}
 		got, err := codexCatalogDesiredSnapshot(plan, before, ownedHash)
 		if err == nil {
 			t.Fatalf("%s: foreign catalog was adopted: %+v", name, got)

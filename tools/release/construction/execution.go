@@ -1,11 +1,10 @@
 package construction
 
 import (
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
 	"bufio"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -120,9 +119,9 @@ func resolveImage(name string) (toolImage, error) {
 		return toolImage{}, fmt.Errorf("read %s: %w", path, err)
 	}
 	defer func() { _ = file.Close() }()
-	digest := sha256.New()
-	if _, err := io.Copy(digest, file); err != nil {
+	digest, err := platform.ReadSHA256(file)
+	if err != nil {
 		return toolImage{}, fmt.Errorf("read %s: %w", path, err)
 	}
-	return toolImage{Path: path, SHA256: hex.EncodeToString(digest.Sum(nil))}, nil
+	return toolImage{Path: path, SHA256: digest}, nil
 }

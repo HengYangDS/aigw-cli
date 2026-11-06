@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	"aigw-cli/internal/platform"
+
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pelletier/go-toml/v2/unstable"
 )
@@ -181,7 +183,7 @@ func codexSchedulerHash(text string) string {
 		}
 	}
 	sort.Strings(values)
-	return hashText(strings.Join(values, "\n"))
+	return platform.SHA256([]byte(strings.Join(values, "\n")))
 }
 
 // codexSchedulerHashMatches accepts only the current projection identity.

@@ -4,8 +4,6 @@
 package codex
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -160,7 +158,7 @@ func ValidateConfig(path string, runtime domain.Runtime) error {
 	if err != nil {
 		return err
 	}
-	if state.ManagedBlockHash != hashText(actualBlock) {
+	if state.ManagedBlockHash != platform.SHA256([]byte(actualBlock)) {
 		return newConflictError("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits", nil)
 	}
 	if err := validateCodexSchedulerOwnership(state, text); err != nil {
@@ -175,7 +173,7 @@ func ValidateConfig(path string, runtime domain.Runtime) error {
 			return fmt.Errorf("Codex config model selection does not match Route %q", runtime.RouteID)
 		}
 	}
-	if hashText(actualBlock) != hashText(expectedBlock) {
+	if platform.SHA256([]byte(actualBlock)) != platform.SHA256([]byte(expectedBlock)) {
 		return fmt.Errorf("Codex config provider block does not match Route %q", runtime.RouteID)
 	}
 	if err := validateCodexScheduler(text); err != nil {
@@ -230,7 +228,7 @@ func validateCodexCatalog(path, text string, state codexState) error {
 		}
 		return fmt.Errorf("read Codex model catalog: %w", err)
 	}
-	if hashBytes(data) != state.CatalogHash {
+	if platform.SHA256(data) != state.CatalogHash {
 		return newConflictError("Codex config conflict: AIGW-managed model catalog changed; refusing to overwrite user edits", nil)
 	}
 	return nil
@@ -371,7 +369,7 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 	if err != nil {
 		return "", err
 	}
-	if state.ManagedBlockHash != hashText(block) {
+	if state.ManagedBlockHash != platform.SHA256([]byte(block)) {
 		return "", newConflictError("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits", nil)
 	}
 	providerLine, err := codexSelectionLine(current, "model_provider")
@@ -382,7 +380,7 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 		return "", newConflictError("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits", nil)
 	}
 	projectedModel := state.ProjectedModel
-	if projectedModel == "" && previous.Model != "" && hashText(codexManagedBlock(previous, previous.Endpoint)) == state.ManagedBlockHash {
+	if projectedModel == "" && previous.Model != "" && platform.SHA256([]byte(codexManagedBlock(previous, previous.Endpoint))) == state.ManagedBlockHash {
 		projectedModel = previous.Model
 	}
 	modelLine, err := codexSelectionLine(current, "model")
@@ -509,8 +507,3 @@ func removeManagedCodexLine(base, key string) (string, error) {
 }
 
 func codexStatePath(path string) string { return path + adapter.StateSuffix }
-
-func hashText(text string) string {
-	sum := sha256.Sum256([]byte(text))
-	return hex.EncodeToString(sum[:])
-}

@@ -1,6 +1,7 @@
 package construction
 
 import (
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/program/artifact"
 	"archive/zip"
 	"context"
@@ -111,11 +112,11 @@ func verifyNotarizedArchives(request buildRequest, directory string, submission 
 		return err
 	}
 	defer func() { result = errors.Join(result, upload.Close()) }()
-	hash := sha256.New()
-	if _, err := io.Copy(hash, upload); err != nil {
+	uploaded, err := platform.ReadSHA256(upload)
+	if err != nil {
 		return err
 	}
-	if fmt.Sprintf("%x", hash.Sum(nil)) != digest {
+	if uploaded != digest {
 		return errors.New("uploaded ZIP differs from the archive accepted by Apple")
 	}
 	info, err := upload.Stat()
@@ -139,6 +140,7 @@ func verifyNotarizedArchives(request buildRequest, directory string, submission 
 		wanted[fmt.Sprintf("%x", sha256.Sum256(program))] = target.Arch
 		sizes[uint64(len(program))] = int64(len(program))
 	}
+	hash := sha256.New()
 	for _, entry := range archive.File {
 		size, matches := sizes[entry.UncompressedSize64]
 		if entry.FileInfo().IsDir() || !matches {

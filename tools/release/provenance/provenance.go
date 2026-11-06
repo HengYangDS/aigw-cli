@@ -3,6 +3,7 @@
 package provenance
 
 import (
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/program/artifact"
 	"bytes"
 	"context"
@@ -298,10 +299,11 @@ func readToolVersions(readSource func(string) ([]byte, error), toolchain string)
 	return versions, nil
 }
 
-func fileDigest(path string) (string, error) {
-	data, err := os.ReadFile(path)
+func fileDigest(path string) (digest string, err error) {
+	file, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%x", sha256.Sum256(data)), nil
+	defer func() { err = errors.Join(err, file.Close()) }()
+	return platform.ReadSHA256(file)
 }
