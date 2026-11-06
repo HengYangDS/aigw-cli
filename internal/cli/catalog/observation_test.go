@@ -14,7 +14,7 @@ func TestDeprecatedCatalogEntryDoesNotPresentAsAdmitted(t *testing.T) {
 	state, detail := catalogModelDisplay(app.CatalogModel{
 		ID:    "legacy",
 		State: app.CatalogDeprecated,
-		Models: []app.CatalogRoute{{
+		Models: []app.ConfiguredModel{{
 			ID: "legacy-route", Lifecycle: domain.ModelDeprecated, Evidence: app.CatalogObserved,
 		}},
 	})
@@ -27,8 +27,8 @@ func TestDefaultCatalogRenderingKeepsDeprecatedModelsSeparateFromCandidates(t *t
 	out := new(bytes.Buffer)
 	renderCatalogObservation(terminal.NewRendererWithWidth(out, false, 120), nil, app.CatalogObservation{
 		Models: []app.CatalogModel{
-			{ID: "current", State: app.CatalogAdmitted, Models: []app.CatalogRoute{{ID: "current-route"}}},
-			{ID: "legacy", State: app.CatalogDeprecated, Models: []app.CatalogRoute{{ID: "legacy-route"}}},
+			{ID: "current", State: app.CatalogAdmitted, Models: []app.ConfiguredModel{{ID: "current-route"}}},
+			{ID: "legacy", State: app.CatalogDeprecated, Models: []app.ConfiguredModel{{ID: "legacy-route"}}},
 			{ID: "future", State: app.CatalogCandidate},
 		},
 	}, false)

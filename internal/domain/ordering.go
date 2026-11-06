@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// CatalogModelIDs groups display rows by Account, protocol set, and Model order.
+// CatalogModelIDs groups display rows by provider, protocol set, and family order.
 // ModelIDs retains canonical lexical enumeration for identity and diagnostics.
 func (c *Config) CatalogModelIDs() []string {
 	ids := c.ModelIDs()
@@ -49,7 +49,7 @@ func (c *Config) CatalogProviderIDs() []string {
 	return ids
 }
 
-// CompareFamilies orders canonical Models without interpreting provider wire IDs.
+// CompareFamilies orders families without interpreting provider wire IDs.
 func (c *Config) CompareFamilies(left, right string) int {
 	if result := compareOrder(c.Families[left].Order, c.Families[right].Order); result != 0 {
 		return result

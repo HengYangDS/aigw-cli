@@ -34,7 +34,7 @@ func TestBundledDMXAPIDiagnosticsAreExplicitlyRegistered(t *testing.T) {
 	}
 }
 
-func TestProbeRequiresAccountProbeConfiguration(t *testing.T) {
+func TestProbeRequiresBalanceProbeConfiguration(t *testing.T) {
 	_, err := provider.Probe(context.Background(), nil, domain.Provider{ID: "no-probe"}, "api-token", diagnostic.Credential{})
 	if err == nil || !strings.Contains(err.Error(), "no exact diagnostic provider") {
 		t.Fatalf("error = %v", err)

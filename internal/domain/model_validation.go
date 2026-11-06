@@ -211,29 +211,29 @@ func (binding ClientBinding) validate(client string, spec ClientSpec) error {
 	return nil
 }
 
-func (account Provider) validate(name string) error {
+func (provider Provider) validate(name string) error {
 	if !ValidIdentifier(name) {
 		return fmt.Errorf("invalid account name %q; use letters, numbers, dot, dash, or underscore", name)
 	}
 	if name != strings.ToLower(name) {
 		return fmt.Errorf("invalid account name %q; environment-backed account IDs must be lowercase", name)
 	}
-	if strings.TrimSpace(account.Label) == "" {
+	if strings.TrimSpace(provider.Label) == "" {
 		return fmt.Errorf("account %q has an empty label", name)
 	}
-	if account.Order < 0 {
+	if provider.Order < 0 {
 		return fmt.Errorf("account %q order must not be negative", name)
 	}
-	if account.Endpoints.OpenAIResponses == "" && account.Endpoints.Anthropic == "" && account.Endpoints.OpenAIChatCompletions == "" {
+	if provider.Endpoints.OpenAIResponses == "" && provider.Endpoints.Anthropic == "" && provider.Endpoints.OpenAIChatCompletions == "" {
 		return fmt.Errorf("account %q must define at least one endpoint", name)
 	}
 	for _, endpoint := range []struct {
 		protocol EndpointProtocol
 		url      string
 	}{
-		{ProtocolAnthropic, account.Endpoints.Anthropic},
-		{ProtocolOpenAIResponses, account.Endpoints.OpenAIResponses},
-		{ProtocolOpenAIChatCompletions, account.Endpoints.OpenAIChatCompletions},
+		{ProtocolAnthropic, provider.Endpoints.Anthropic},
+		{ProtocolOpenAIResponses, provider.Endpoints.OpenAIResponses},
+		{ProtocolOpenAIChatCompletions, provider.Endpoints.OpenAIChatCompletions},
 	} {
 		if endpoint.url == "" {
 			continue
@@ -242,59 +242,59 @@ func (account Provider) validate(name string) error {
 			return fmt.Errorf("account %q endpoint %s: %w", name, endpoint.protocol, err)
 		}
 	}
-	if account.BalanceProbe == nil {
+	if provider.BalanceProbe == nil {
 		return nil
 	}
-	if !ValidIdentifier(account.BalanceProbe.Kind) {
-		return fmt.Errorf("account %q has invalid account probe provider %q", name, account.BalanceProbe.Kind)
+	if !ValidIdentifier(provider.BalanceProbe.Kind) {
+		return fmt.Errorf("account %q has invalid account probe provider %q", name, provider.BalanceProbe.Kind)
 	}
-	if err := validateEndpoint(account.BalanceProbe.BaseURL); err != nil {
+	if err := validateEndpoint(provider.BalanceProbe.BaseURL); err != nil {
 		return fmt.Errorf("account %q account probe: %w", name, err)
 	}
 	return nil
 }
 
-func (model Family) validate(name string) error {
+func (family Family) validate(name string) error {
 	if !ValidIdentifier(name) {
 		return fmt.Errorf("invalid model name %q; use letters, numbers, dot, dash, or underscore", name)
 	}
-	if strings.TrimSpace(model.Label) == "" {
+	if strings.TrimSpace(family.Label) == "" {
 		return fmt.Errorf("model %q has an empty label", name)
 	}
-	if model.Order < 0 {
+	if family.Order < 0 {
 		return fmt.Errorf("model %q order must not be negative", name)
 	}
 	return nil
 }
 
-func (route Model) validate(name string, accounts map[string]Provider, models map[string]Family) error {
+func (model Model) validate(name string, providers map[string]Provider, families map[string]Family) error {
 	if !ValidIdentifier(name) {
 		return fmt.Errorf("invalid route name %q; use letters, numbers, dot, dash, or underscore", name)
 	}
-	if route.Provider == "" {
+	if model.Provider == "" {
 		return fmt.Errorf("route %q must reference an account", name)
 	}
-	account, ok := accounts[route.Provider]
+	provider, ok := providers[model.Provider]
 	if !ok {
-		return fmt.Errorf("route %q references unknown account %q", name, route.Provider)
+		return fmt.Errorf("route %q references unknown account %q", name, model.Provider)
 	}
-	if strings.TrimSpace(route.Family) == "" {
+	if strings.TrimSpace(model.Family) == "" {
 		return fmt.Errorf("route %q must reference a model", name)
 	}
-	if len(models) > 0 {
-		if _, ok := models[route.Family]; !ok {
-			return fmt.Errorf("route %q references unknown model %q", name, route.Family)
+	if len(families) > 0 {
+		if _, ok := families[model.Family]; !ok {
+			return fmt.Errorf("route %q references unknown model %q", name, model.Family)
 		}
 	}
-	if route.UpstreamModel != "" && strings.TrimSpace(route.UpstreamModel) == "" {
+	if model.UpstreamModel != "" && strings.TrimSpace(model.UpstreamModel) == "" {
 		return fmt.Errorf("route %q has an empty upstream model", name)
 	}
-	switch route.LifecycleState() {
+	switch model.LifecycleState() {
 	case ModelAdmitted, ModelDeprecated:
 	default:
-		return fmt.Errorf("route %q has invalid lifecycle %q", name, route.Lifecycle)
+		return fmt.Errorf("route %q has invalid lifecycle %q", name, model.Lifecycle)
 	}
-	protocols := modelAdmittedProtocols(route)
+	protocols := modelAdmittedProtocols(model)
 	seen := make(map[EndpointProtocol]bool, len(protocols))
 	for _, protocol := range protocols {
 		switch protocol {
@@ -305,12 +305,12 @@ func (route Model) validate(name string, accounts map[string]Provider, models ma
 		if seen[protocol] {
 			return fmt.Errorf("route %q repeats protocol %q", name, protocol)
 		}
-		if account.Endpoints.For(protocol) == "" {
-			return fmt.Errorf("route %q: %w", name, &RuntimeMissingEndpointError{ProviderID: route.Provider, Protocol: protocol})
+		if provider.Endpoints.For(protocol) == "" {
+			return fmt.Errorf("route %q: %w", name, &RuntimeMissingEndpointError{ProviderID: model.Provider, Protocol: protocol})
 		}
 		seen[protocol] = true
 	}
-	for protocol, capabilities := range route.Protocols {
+	for protocol, capabilities := range model.Protocols {
 		seenCapabilities := make(map[Capability]bool, len(capabilities))
 		for _, capability := range capabilities {
 			if !capability.Known() {

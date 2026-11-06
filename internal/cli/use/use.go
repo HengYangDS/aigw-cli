@@ -199,8 +199,8 @@ type useResult struct {
 }
 
 // useSelection is the selection that `aigw use` reports: each reference named
-// after its type, and the Model by its canonical ID beside the ID that the
-// endpoint serves.
+// after its type, and the model's family beside the ID that the endpoint
+// serves.
 type useSelection struct {
 	RetryPolicy      *domain.RetryPolicy     `json:"retry_policy,omitempty"`
 	Model            string                  `json:"route"`

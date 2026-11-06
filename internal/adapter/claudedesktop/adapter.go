@@ -234,8 +234,8 @@ func claudeDesktopDesired(deps adapter.Dependencies, cfg domain.Config, selected
 	}, nil
 }
 
-// claudeDesktopModelIDs lists the Routes the profile exposes: the selected
-// Route, then each compatible Route of its Account with a distinct Model.
+// claudeDesktopModelIDs lists the models the profile exposes: the selected
+// model, then each compatible model of its provider with a distinct family.
 func claudeDesktopModelIDs(cfg domain.Config, selected domain.Runtime) []string {
 	routeIDs := []string{selected.ModelID}
 	seen := map[string]bool{cfg.Models[selected.ModelID].Family: true}

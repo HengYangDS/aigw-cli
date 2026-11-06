@@ -40,11 +40,11 @@ func (status CatalogStatus) Label() string {
 type CatalogModel struct {
 	ID     string            `json:"id"`
 	State  CatalogEntryState `json:"state"`
-	Models []CatalogRoute    `json:"routes,omitempty"`
+	Models []ConfiguredModel `json:"routes,omitempty"`
 }
 
-// CatalogRoute is a Route as one catalog observation sees it.
-type CatalogRoute struct {
+// ConfiguredModel is a configured model as one catalog observation sees it.
+type ConfiguredModel struct {
 	ID            string                `json:"id"`
 	Family        string                `json:"model"`
 	UpstreamModel string                `json:"upstream_model"`
@@ -61,14 +61,14 @@ type CatalogSource struct {
 
 // CatalogObservation is one Account's catalog for one protocol.
 type CatalogObservation struct {
-	ObservationID   string         `json:"observation_id,omitempty"`
-	Provider        string         `json:"account"`
-	Label           string         `json:"label"`
-	Source          CatalogSource  `json:"source"`
-	SecretAvailable bool           `json:"secret_available"`
-	Status          CatalogStatus  `json:"status"`
-	Models          []CatalogModel `json:"models"`
-	MissingModels   []CatalogRoute `json:"missing_routes"`
+	ObservationID   string            `json:"observation_id,omitempty"`
+	Provider        string            `json:"account"`
+	Label           string            `json:"label"`
+	Source          CatalogSource     `json:"source"`
+	SecretAvailable bool              `json:"secret_available"`
+	Status          CatalogStatus     `json:"status"`
+	Models          []CatalogModel    `json:"models"`
+	MissingModels   []ConfiguredModel `json:"missing_routes"`
 }
 
 // CatalogStatus is the outcome of one catalog observation.
@@ -112,7 +112,7 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 		if len(sources) == 0 {
 			result.Observations = append(result.Observations, CatalogObservation{
 				Provider: accountName, Label: account.Label, Status: CatalogEndpointUnavailable,
-				Models: []CatalogModel{}, MissingModels: []CatalogRoute{},
+				Models: []CatalogModel{}, MissingModels: []ConfiguredModel{},
 			})
 			continue
 		}
@@ -124,7 +124,7 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 		for _, source := range sources {
 			entry := CatalogObservation{
 				Provider: accountName, Label: account.Label, Source: source,
-				SecretAvailable: secretAvailable, Models: []CatalogModel{}, MissingModels: []CatalogRoute{},
+				SecretAvailable: secretAvailable, Models: []CatalogModel{}, MissingModels: []ConfiguredModel{},
 			}
 			switch {
 			case observationErr != nil:
@@ -164,7 +164,7 @@ func catalogSources(account domain.Provider) []CatalogSource {
 	return sources
 }
 
-func catalogDifference(cfg domain.Config, account string, protocol domain.EndpointProtocol, ids []string) ([]CatalogModel, []CatalogRoute) {
+func catalogDifference(cfg domain.Config, account string, protocol domain.EndpointProtocol, ids []string) ([]CatalogModel, []ConfiguredModel) {
 	ids = slices.Clone(ids)
 	slices.Sort(ids)
 	observed := make(map[string]bool, len(ids))
@@ -172,8 +172,8 @@ func catalogDifference(cfg domain.Config, account string, protocol domain.Endpoi
 		observed[id] = true
 	}
 
-	routesByModel := make(map[string][]CatalogRoute)
-	missing := []CatalogRoute{}
+	routesByModel := make(map[string][]ConfiguredModel)
+	missing := []ConfiguredModel{}
 	for _, routeID := range cfg.CatalogModelIDs() {
 		route := cfg.Models[routeID]
 		capabilities, admitted := route.Protocols[protocol]
@@ -182,7 +182,7 @@ func catalogDifference(cfg domain.Config, account string, protocol domain.Endpoi
 		}
 		capabilities = slices.Clone(capabilities)
 		slices.Sort(capabilities)
-		entry := CatalogRoute{
+		entry := ConfiguredModel{
 			ID: routeID, Family: route.Family, UpstreamModel: route.UpstreamModelID(),
 			Capabilities: capabilities, Lifecycle: route.LifecycleState(), Evidence: CatalogObserved,
 		}

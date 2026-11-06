@@ -79,7 +79,7 @@ type importResult struct {
 }
 
 func newImportCommand(runtime invocation.Context) *cobra.Command {
-	var keepAccounts, replaceAccounts, replaceModels, replaceRoutes, retireRoutes []string
+	var keepProviders, replaceProviders, replaceFamilies, replaceModels, retireModels []string
 	var dryRun, jsonMode bool
 	cmd := &cobra.Command{Use: "import <configuration.toml>", Short: "Merge a secret-free configuration manifest", Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
 		if strings.TrimSpace(args[0]) == "" {
@@ -100,13 +100,13 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			return err
 		}
 		before := cfg.Clone()
-		keeping := selectorSet(keepAccounts)
-		retiring := selectorSet(retireRoutes)
+		keeping := selectorSet(keepProviders)
+		retiring := selectorSet(retireModels)
 		cfg, err = domain.MergeWithOptions(cfg, incoming, domain.MergeOptions{
 			KeepProviders:    keeping,
-			ReplaceProviders: selectorSet(replaceAccounts),
-			ReplaceFamilies:  selectorSet(replaceModels),
-			ReplaceModels:    selectorSet(replaceRoutes),
+			ReplaceProviders: selectorSet(replaceProviders),
+			ReplaceFamilies:  selectorSet(replaceFamilies),
+			ReplaceModels:    selectorSet(replaceModels),
 			RetireModels:     retiring,
 		})
 		if err != nil {
@@ -160,11 +160,11 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		r.Next(next)
 		return nil
 	}}
-	cmd.Flags().StringSliceVar(&keepAccounts, "keep-account", nil, "Retain local public Account metadata instead of the imported version")
-	cmd.Flags().StringSliceVar(&replaceAccounts, "replace-account", nil, "Explicitly replace conflicting account metadata; system tokens remain unchanged")
-	cmd.Flags().StringSliceVar(&replaceModels, "replace-model", nil, "Explicitly replace conflicting canonical model metadata")
-	cmd.Flags().StringSliceVar(&replaceRoutes, "replace-route", nil, "Explicitly replace conflicting model routes")
-	cmd.Flags().StringSliceVar(&retireRoutes, "retire-route", nil, "Retire an existing unselected Route absent from the imported manifest")
+	cmd.Flags().StringSliceVar(&keepProviders, "keep-account", nil, "Retain local public Account metadata instead of the imported version")
+	cmd.Flags().StringSliceVar(&replaceProviders, "replace-account", nil, "Explicitly replace conflicting account metadata; system tokens remain unchanged")
+	cmd.Flags().StringSliceVar(&replaceFamilies, "replace-model", nil, "Explicitly replace conflicting canonical model metadata")
+	cmd.Flags().StringSliceVar(&replaceModels, "replace-route", nil, "Explicitly replace conflicting model routes")
+	cmd.Flags().StringSliceVar(&retireModels, "retire-route", nil, "Retire an existing unselected Route absent from the imported manifest")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview the merge and possible client projection changes without writing")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the import preview or result as JSON")
 	return cmd

@@ -180,7 +180,7 @@ type ClientSelection struct {
 }
 
 // ClientRecommendation orders reviewed choices without creating an active
-// selection or a global ranking attached to a Model or Route.
+// selection or a global ranking attached to a family or model.
 type ClientRecommendation struct {
 	Primary      ClientSelection   `json:"primary"                toml:"primary"`
 	Alternatives []ClientSelection `json:"alternatives,omitempty" toml:"alternatives,omitempty"`

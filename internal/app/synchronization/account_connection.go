@@ -8,7 +8,7 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-// ConnectProvider adds one Account and its first Model and Route, selects the Route for
+// ConnectProvider adds one provider and its first family and model, selects the model for
 // that client, and projects only that client. Token acquisition follows identity
 // and configuration admission. Existing identities are never implicitly replaced.
 // Configuration, credential and projection failures retain their shared recovery
@@ -33,8 +33,8 @@ func (s Synchronizer) ConnectProvider(ctx context.Context, before domain.Config,
 }
 
 // PlanConnection returns the configuration that ConnectProvider would write:
-// the Account, its first Model and Route, and the client's selection of that
-// Route. It reads no Token and writes nothing.
+// the provider, its first family and model, and the client's selection of that
+// model. It reads no Token and writes nothing.
 func (s Synchronizer) PlanConnection(before domain.Config, name, client string, account domain.Provider, route domain.Model) (domain.Config, error) {
 	if _, exists := before.Models[name]; exists {
 		return domain.Config{}, fmt.Errorf("Route %q already exists; creation does not replace Routes", name)

@@ -118,7 +118,7 @@ func catalogModelDisplay(model app.CatalogModel) (terminal.State, string) {
 	return terminal.OK, "Admitted Routes: " + strings.Join(routes, ", ")
 }
 
-func renderMissingModels(r *terminal.Renderer, routes []app.CatalogRoute) {
+func renderMissingModels(r *terminal.Renderer, routes []app.ConfiguredModel) {
 	for _, route := range routes {
 		r.StatusLine(terminal.Warn, "Route", route.ID)
 		r.Detail(route.UpstreamModel + " · missing from this observation; requalification required")

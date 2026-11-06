@@ -92,7 +92,7 @@ func (m Manifest) Admit(admission Admission) (Manifest, error) {
 // ExportManifest projects configuration into the canonical credential-free team
 // manifest. Recommendations are the declared team preference and stay as
 // declared; Client Bindings are the operator's own choices and stay local; a
-// Route label that its Account and Model would derive is omitted.
+// model label that its provider and family would derive is omitted.
 func ExportManifest(cfg Config) (Manifest, error) {
 	cfg = cfg.Clone()
 	cfg.Normalize()
@@ -123,12 +123,12 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 	if err := validateMergeSelectors(cfg, incoming, options); err != nil {
 		return Config{}, err
 	}
-	retiredModels := make(map[string]bool, len(options.RetireModels))
+	retiredFamilies := make(map[string]bool, len(options.RetireModels))
 	for name, retire := range options.RetireModels {
 		if !retire {
 			continue
 		}
-		retiredModels[merged.Models[name].Family] = true
+		retiredFamilies[merged.Models[name].Family] = true
 		delete(merged.Models, name)
 	}
 	for name, account := range incoming.Providers {
@@ -166,19 +166,19 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 	}
 	maps.Copy(merged.Families, incoming.Families)
 	maps.Copy(merged.Recommendations, incoming.Recommendations)
-	for model := range retiredModels {
-		if _, declared := incoming.Families[model]; declared {
+	for family := range retiredFamilies {
+		if _, declared := incoming.Families[family]; declared {
 			continue
 		}
 		referenced := false
 		for _, route := range merged.Models {
-			if route.Family == model {
+			if route.Family == family {
 				referenced = true
 				break
 			}
 		}
 		if !referenced {
-			delete(merged.Families, model)
+			delete(merged.Families, family)
 		}
 	}
 	merged.Normalize()

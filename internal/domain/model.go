@@ -67,8 +67,8 @@ const (
 var identifierPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 var modelProviderPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 
-// Config is the typed source of truth for Accounts, Models, Routes, recommendations,
-// and client bindings.
+// Config is the typed source of truth for providers, families, models,
+// recommendations, and client bindings.
 type Config struct {
 	Version         int                             `json:"version"                   toml:"version"`
 	Providers       map[string]Provider             `json:"accounts,omitempty"        toml:"accounts,omitempty"`
@@ -112,30 +112,30 @@ type Model struct {
 }
 
 // UpstreamModelID returns the exact identifier sent to this Route's provider.
-func (route Model) UpstreamModelID() string {
-	if route.UpstreamModel != "" {
-		return route.UpstreamModel
+func (model Model) UpstreamModelID() string {
+	if model.UpstreamModel != "" {
+		return model.UpstreamModel
 	}
-	return route.Family
+	return model.Family
 }
 
 // LifecycleState returns the Route's explicit lifecycle or its admitted default.
-func (route Model) LifecycleState() ModelLifecycle {
-	if route.Lifecycle != "" {
-		return route.Lifecycle
+func (model Model) LifecycleState() ModelLifecycle {
+	if model.Lifecycle != "" {
+		return model.Lifecycle
 	}
 	return ModelAdmitted
 }
 
 // Declares reports whether the Route qualified capability on protocol.
-func (route Model) Declares(protocol EndpointProtocol, capability Capability) bool {
-	return slices.Contains(route.Protocols[protocol], capability)
+func (model Model) Declares(protocol EndpointProtocol, capability Capability) bool {
+	return slices.Contains(model.Protocols[protocol], capability)
 }
 
 // AdmittedProtocols returns the Route's wire interfaces in stable order.
-func (route Model) AdmittedProtocols() []EndpointProtocol {
-	protocols := make([]EndpointProtocol, 0, len(route.Protocols))
-	for protocol := range route.Protocols {
+func (model Model) AdmittedProtocols() []EndpointProtocol {
+	protocols := make([]EndpointProtocol, 0, len(model.Protocols))
+	for protocol := range model.Protocols {
 		protocols = append(protocols, protocol)
 	}
 	slices.Sort(protocols)
@@ -302,7 +302,7 @@ func (c *Config) ProtocolClientIDs(name string) ([]string, error) {
 // SelectedModel returns the Route explicitly selected by one client.
 func (c *Config) SelectedModel(client string) string { return c.Clients[client].Model }
 
-// ModelLabel returns an explicit display override or derives Account · Model
+// ModelLabel returns an explicit display override or derives Provider · Family
 // from the two labels already declared by configuration.
 func (c *Config) ModelLabel(routeID string) string {
 	route, ok := c.Models[routeID]
@@ -571,19 +571,19 @@ func (c *Config) forwardingFor(client, accountID, upstream string, protocol Endp
 	return binding.ForwardingEndpoint
 }
 
-func modelLabel(route Model, account Provider, model Family) string {
-	if route.Label != "" {
-		return route.Label
+func modelLabel(model Model, provider Provider, family Family) string {
+	if model.Label != "" {
+		return model.Label
 	}
-	accountLabel := account.Label
-	if accountLabel == "" {
-		accountLabel = route.Provider
+	providerLabel := provider.Label
+	if providerLabel == "" {
+		providerLabel = model.Provider
 	}
-	modelLabel := model.Label
-	if modelLabel == "" {
-		modelLabel = route.Family
+	familyLabel := family.Label
+	if familyLabel == "" {
+		familyLabel = model.Family
 	}
-	return accountLabel + " · " + modelLabel
+	return providerLabel + " · " + familyLabel
 }
 
 func selectedModelProvider(spec ClientSpec, selection ClientSelection) string {
