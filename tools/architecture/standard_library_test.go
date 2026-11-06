@@ -36,7 +36,7 @@ func TestStandardLibraryOnlyRefusesModuleAndThirdPartyImports(t *testing.T) {
 		{relPath: "internal/domain/model_test.go", dir: "internal/domain", isTest: true},
 		{relPath: "internal/store/store.go", dir: "internal/store"},
 	}
-	report := newReport("policy", root)
+	report := newReport(root)
 	if err := checkStandardLibraryOnly(root, files, policy{StandardLibraryOnly: []string{"internal/domain"}}, &report); err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestStandardLibraryOnlyReportsAStaleEntry(t *testing.T) {
 	writeFile(t, filepath.Join(root, "internal", "fixtures", "fixture_test.go"), "package fixtures\n")
 	// A package with only test files has no production Go files either.
 	files := []goFileInfo{{relPath: "internal/fixtures/fixture_test.go", dir: "internal/fixtures", isTest: true}}
-	report := newReport("policy", root)
+	report := newReport(root)
 	if err := checkStandardLibraryOnly(root, files, policy{StandardLibraryOnly: []string{"internal/retired", "internal/fixtures"}}, &report); err != nil {
 		t.Fatal(err)
 	}

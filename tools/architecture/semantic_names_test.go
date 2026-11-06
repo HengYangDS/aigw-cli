@@ -79,7 +79,7 @@ func TestSemanticNamesAcceptNativeCarrierGrammars(t *testing.T) {
 	writeFile(t, filepath.Join(root, "docs", "release-policy.md"), "# Policy\n")
 	writeFile(t, filepath.Join(root, "internal", "routing", "route_plan.go"), "package routing\n")
 	runGit(t, root, "add", ".")
-	report := newReport("policy", root)
+	report := newReport(root)
 	checkSemanticNames(trackedFixture(t, root), &report)
 	if !report.OK {
 		t.Fatalf("findings=%+v", report.Findings)
@@ -92,7 +92,7 @@ func TestSemanticNamesIgnoreUntrackedHostFiles(t *testing.T) {
 	writeFile(t, filepath.Join(root, "README.md"), "# Project\n")
 	runGit(t, root, "add", "README.md")
 	writeFile(t, filepath.Join(root, "2026-scratch.md"), "# Host scratch\n")
-	report := newReport("policy", root)
+	report := newReport(root)
 	checkSemanticNames(trackedFixture(t, root), &report)
 	if !report.OK {
 		t.Fatalf("untracked host files are outside repository-owned state: findings=%+v", report.Findings)
@@ -105,7 +105,7 @@ func TestSemanticNamesRejectWrongCarrierAndNumericNames(t *testing.T) {
 	writeFile(t, filepath.Join(root, "docs", "2026-plan.md"), "# Plan\n")
 	writeFile(t, filepath.Join(root, "internal", "routing", "route-plan.go"), "package routing\n")
 	runGit(t, root, "add", ".")
-	report := newReport("policy", root)
+	report := newReport(root)
 	checkSemanticNames(trackedFixture(t, root), &report)
 	assertFinding(t, report.Findings, "semantic_name_markdown", "docs/2026-plan.md")
 	assertFinding(t, report.Findings, "semantic_name_go", "internal/routing/route-plan.go")
@@ -121,7 +121,7 @@ func TestSemanticNamesAcceptLanguageIndependentCarriers(t *testing.T) {
 			runGit(t, root, "init", "-q")
 			writeFile(t, filepath.Join(root, "scripts", "checks", test.name), test.content)
 			runGit(t, root, "add", ".")
-			report := newReport("policy", root)
+			report := newReport(root)
 			checkSemanticNames(trackedFixture(t, root), &report)
 			if !report.OK {
 				t.Fatalf("language choice alone was treated as a repository defect: %+v", report.Findings)
@@ -139,7 +139,7 @@ func TestSemanticNamesIgnoreTrackedDeletion(t *testing.T) {
 	if err := os.Remove(removed); err != nil {
 		t.Fatal(err)
 	}
-	report := newReport("policy", root)
+	report := newReport(root)
 	checkSemanticNames(trackedFixture(t, root), &report)
 	if !report.OK {
 		t.Fatalf("deleted tracked paths are absent from the workspace: %+v", report.Findings)

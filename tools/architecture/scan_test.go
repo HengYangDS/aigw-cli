@@ -213,27 +213,6 @@ func TestCollectGoFilesIgnoresConfiguredFilePath(t *testing.T) {
 	}
 }
 
-func TestMainCoversEntry(t *testing.T) {
-	originalArgs := os.Args
-	originalExit := exitFunc
-	defer func() {
-		os.Args = originalArgs
-		exitFunc = originalExit
-	}()
-	var code int
-	exitFunc = func(c int) { code = c }
-	root := t.TempDir()
-	writeRepository(t, root, validPolicy)
-	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
-	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
-	trackFixture(t, root)
-	os.Args = []string{"architecture", "-root", root}
-	main()
-	if code != 0 {
-		t.Fatalf("main exit=%d", code)
-	}
-}
-
 func TestRunReportsAnalysisFailure(t *testing.T) {
 	root := t.TempDir()
 	writeRepository(t, root, validPolicy+"layers = [[\"internal\"]]\n")

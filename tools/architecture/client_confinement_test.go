@@ -54,7 +54,7 @@ var confinementSources = map[string]string{
 
 func TestClientConfinementRefusesPackagesThatNameAnotherClient(t *testing.T) {
 	root, files := confinementFixture(t, confinementSources)
-	report := newReport("policy.toml", root)
+	report := newReport(root)
 	if err := checkClientConfinement(root, files, confinementPolicy(), &report); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestClientConfinementReadsTheAdapterPackageNameOfAMultiWordID(t *testing.T)
 		"internal/cli/sync/desktop.go":           "package sync\n\nimport \"aigw-cli/internal/client/claudedesktop\"\n\nvar _ = claudedesktop.LibraryPathFor\n",
 		"internal/client/claudedesktop/paths.go": "package claudedesktop\n\nfunc LibraryPathFor() {}\n",
 	})
-	report := newReport("policy.toml", root)
+	report := newReport(root)
 	if err := checkClientConfinement(root, files, confinementPolicy(), &report); err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestClientConfinementReadsTheAdapterPackageNameOfAMultiWordID(t *testing.T)
 
 func TestClientConfinementReportsNamingPackagesPerClient(t *testing.T) {
 	root, files := confinementFixture(t, confinementSources)
-	report := newReport("policy.toml", root)
+	report := newReport(root)
 	if err := checkClientConfinement(root, files, confinementPolicy(), &report); err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestClientConfinementDecodesLiteralValues(t *testing.T) {
 			root, files := confinementFixture(t, map[string]string{
 				"internal/shared/paths.go": "package shared\n\nconst home = " + literal + "\n",
 			})
-			report := newReport("policy.toml", root)
+			report := newReport(root)
 			if err := checkClientConfinement(root, files, confinementPolicy(), &report); err != nil {
 				t.Fatal(err)
 			}
@@ -152,7 +152,7 @@ func TestClientConfinementAcceptsDeclaredNativeTermsOnlyInTheirAdapter(t *testin
 		"internal/shared/modes.go":             "package shared\n\nvar mode = \"codex_responses\"\n",
 		"internal/client/hermes/identifier.go": "package hermes\n\nvar codexResponses = 1\n",
 	})
-	report := newReport("policy.toml", root)
+	report := newReport(root)
 	if err := checkClientConfinement(root, files, policy, &report); err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +181,7 @@ func TestClientConfinementRefusesAnUnusedNativeTerm(t *testing.T) {
 	root, files := confinementFixture(t, map[string]string{
 		"internal/client/hermes/document.go": "package hermes\n\nvar mode = \"anthropic_messages\"\n",
 	})
-	report := newReport("policy.toml", root)
+	report := newReport(root)
 	if err := checkClientConfinement(root, files, policy, &report); err != nil {
 		t.Fatal(err)
 	}

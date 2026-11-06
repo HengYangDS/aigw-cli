@@ -251,7 +251,7 @@ func TestDecisionRecordDuplicateSequence(t *testing.T) {
 	body := "---\ndecision_id: DR-0001\ndecision_status: accepted\nstate: canonical\n---\n\n# DR-0001: Fixture\n"
 	writeFile(t, filepath.Join(directory, "dr-0001-a.md"), body)
 	writeFile(t, filepath.Join(directory, "dr-0001-b.md"), body)
-	report := newReport("policy", root)
+	report := newReport(root)
 	if err := checkDecisionRecords(root, &report); err != nil {
 		t.Fatal(err)
 	}

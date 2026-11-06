@@ -9,12 +9,8 @@ import (
 	"path/filepath"
 )
 
-// exitFunc is swapped in tests so main itself stays coverage-reachable
-// without terminating the test process.
-var exitFunc = os.Exit
-
 func main() {
-	exitFunc(run(os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
 func run(args []string, stdout, stderr io.Writer) int {

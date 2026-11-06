@@ -20,7 +20,7 @@ type goFileInfo struct {
 
 func analyzeRepository(root string, p policy) (Report, error) {
 	absRoot := filepath.Clean(root)
-	report := newReport(policyPath, absRoot)
+	report := newReport(absRoot)
 	if err := checkDecisionRecords(absRoot, &report); err != nil {
 		return Report{}, err
 	}

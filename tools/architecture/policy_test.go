@@ -134,7 +134,7 @@ func TestPackageChildrenEnforcePositiveTopology(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "tools", "release", "main.go"), "package main\n")
 	writeFile(t, filepath.Join(root, "tools", "legacy", "main.go"), "package main\n")
-	report := newReport("policy", root)
+	report := newReport(root)
 	p := policy{PackageChildren: map[string][]string{"tools": {"release", "coverage"}}}
 	if err := checkPackageChildren(root, p, &report); err != nil {
 		t.Fatal(err)
@@ -169,14 +169,14 @@ func TestTrackedCarriersResolveToExactlyOneResponsibility(t *testing.T) {
 			Prefixes:       []string{"openspec/changes/archive"},
 		},
 	}}
-	report := newReport("policy", ".")
+	report := newReport(".")
 	checkTrackedCarrierClasses(files, p, &report)
 	if got := countRule(report, "tracked_carrier_responsibility"); got != 0 {
 		t.Fatalf("tracked carrier findings = %d, want none: %+v", got, report.Findings)
 	}
 
 	files = append(files, "orphan.ini")
-	report = newReport("policy", ".")
+	report = newReport(".")
 	checkTrackedCarrierClasses(files, p, &report)
 	if got := countRule(report, "tracked_carrier_responsibility"); got != 1 {
 		t.Fatalf("unclassified carrier findings = %d, want one: %+v", got, report.Findings)
@@ -186,7 +186,7 @@ func TestTrackedCarriersResolveToExactlyOneResponsibility(t *testing.T) {
 		Responsibility: "duplicate Go source owner",
 		ExactPaths:     []string{"cmd/aigw/main.go"},
 	}
-	report = newReport("policy", ".")
+	report = newReport(".")
 	checkTrackedCarrierClasses(files[:3], p, &report)
 	if got := countRule(report, "tracked_carrier_responsibility"); got != 1 {
 		t.Fatalf("multiply classified carrier findings = %d, want one: %+v", got, report.Findings)
@@ -204,7 +204,7 @@ func TestPackageChildrenRequireDeclaredRoots(t *testing.T) {
 			case "invalid":
 				managedRoot = "invalid\x00root"
 			}
-			report := newReport("policy", root)
+			report := newReport(root)
 			p := policy{PackageChildren: map[string][]string{managedRoot: {"release"}}}
 			if err := checkPackageChildren(root, p, &report); err == nil {
 				t.Fatalf("%s managed root was accepted", state)
@@ -226,7 +226,7 @@ func TestPackageChildrenReportsUnreadableManagedRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(managed, 0o700) })
-	report := newReport("policy", root)
+	report := newReport(root)
 	p := policy{PackageChildren: map[string][]string{"tools": {"release"}}}
 	if err := checkPackageChildren(root, p, &report); !errors.Is(err, os.ErrPermission) || !strings.Contains(err.Error(), "read package root tools") {
 		t.Fatalf("directory read error = %v", err)
@@ -236,7 +236,7 @@ func TestPackageChildrenReportsUnreadableManagedRoot(t *testing.T) {
 func TestPackageChildrenIgnoreHiddenDirectories(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "tools", ".cache", "main.go"), "package main\n")
-	report := newReport("policy", root)
+	report := newReport(root)
 	p := policy{PackageChildren: map[string][]string{"tools": {"release"}}}
 	if err := checkPackageChildren(root, p, &report); err != nil {
 		t.Fatal(err)

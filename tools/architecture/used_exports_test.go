@@ -254,7 +254,7 @@ func shadow() int {
 func TestUsedExportsOnlyCountsOnlyUsersOutsideThePackage(t *testing.T) {
 	root := t.TempDir()
 	files := writeUsedExportsFixture(t, root)
-	report := newReport("policy", root)
+	report := newReport(root)
 	if err := checkUsedExportsOnly(root, files, policy{UsedExportsOnly: []string{"internal/model"}}, &report); err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestUsedExportsOnlyReportsAStaleEntry(t *testing.T) {
 	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/aigw\n")
 	writeFile(t, filepath.Join(root, "internal", "fixtures", "fixture_test.go"), "package fixtures\n\nfunc Exported() {}\n")
 	files := []goFileInfo{{relPath: "internal/fixtures/fixture_test.go", dir: "internal/fixtures", isTest: true}}
-	report := newReport("policy", root)
+	report := newReport(root)
 	if err := checkUsedExportsOnly(root, files, policy{UsedExportsOnly: []string{"internal/retired", "internal/fixtures"}}, &report); err != nil {
 		t.Fatal(err)
 	}

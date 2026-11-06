@@ -33,10 +33,10 @@ type Report struct {
 	ClientPackages map[string][]string `json:"client_packages,omitempty"`
 }
 
-func newReport(policyPath, root string) Report {
+func newReport(root string) Report {
 	return Report{
 		OK:       true,
-		Policy:   toPOSIX(policyPath),
+		Policy:   policyPath,
 		Root:     toPOSIX(root),
 		Summary:  map[string]int{},
 		Findings: []Finding{},

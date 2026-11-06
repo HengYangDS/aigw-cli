@@ -16,7 +16,7 @@ func TestPackageBaseNamesRefuseARepeatedProductionName(t *testing.T) {
 		{relPath: "internal/program/acceptance/peers_test.go", dir: "internal/program/acceptance", isTest: true},
 		{relPath: "internal/domain/model.go", dir: "internal/domain"},
 	}
-	report := newReport("policy", t.TempDir())
+	report := newReport(t.TempDir())
 	checkPackageBaseNames(files, &report)
 	var got [][]string
 	for _, finding := range report.Findings {

@@ -46,7 +46,7 @@ func layerPolicy() policy {
 func layerReport(t *testing.T, p policy, imports map[string][]string) Report {
 	t.Helper()
 	root, files := layerFixture(t, imports)
-	report := newReport("policy", root)
+	report := newReport(root)
 	if err := checkLayers(root, files, p, &report); err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func TestLayersReportUnplacedPackagesAndUnusedEntries(t *testing.T) {
 	root, files := layerFixture(t, map[string][]string{"internal/domain": nil, "internal/other": nil})
 	writeFile(t, filepath.Join(root, "internal", "other", "second.go"), "package other\n")
 	files = append(files, goFileInfo{relPath: "internal/other/second.go", name: "second.go", dir: "internal/other"})
-	report := newReport("policy", root)
+	report := newReport(root)
 	if err := checkLayers(root, files, p, &report); err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func TestLayersSkipTestFilesAndOtherModules(t *testing.T) {
 	writeFile(t, filepath.Join(root, "internal", "domain", "source_test.go"), "package domain\n\nimport _ \"example.com/aigw/internal/app\"\n")
 	writeFile(t, filepath.Join(root, "internal", "domain", "source.go"), "package domain\n\nimport (\n\t_ \"fmt\"\n\t_ \"github.com/example/library\"\n)\n")
 	files = append(files, goFileInfo{relPath: "internal/domain/source_test.go", name: "source_test.go", dir: "internal/domain", isTest: true})
-	report := newReport("policy", root)
+	report := newReport(root)
 	if err := checkLayers(root, files, policy{Layers: [][]string{{"internal/app"}, {"internal/domain"}}}, &report); err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func TestLayersSkipTestFilesAndOtherModules(t *testing.T) {
 func TestLayersRequireModuleIdentityAndReadableSources(t *testing.T) {
 	p := policy{Layers: [][]string{{"internal"}}}
 	empty := t.TempDir()
-	report := newReport("policy", empty)
+	report := newReport(empty)
 	if err := checkLayers(empty, nil, p, &report); err == nil || !strings.Contains(err.Error(), "read go.mod") {
 		t.Fatalf("module identity error = %v", err)
 	}
