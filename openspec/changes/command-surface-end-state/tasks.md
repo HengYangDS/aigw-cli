@@ -16,7 +16,7 @@
       argument without one.
 - [ ] 2.2 Accept `anthropic`, `responses` and `chat` as protocol names at the
       command line and refuse any other spelling with the valid list.
-- [ ] 2.3 Render every failure as Problem and one exact Fix, without the
+- [x] 2.3 Render every failure as Problem and one exact Fix, without the
       generic Impact text or an unrelated fix; existing scripts show the new
       failure blocks.
 - [ ] 2.4 Add completion functions for clients, providers, `provider/model`,
