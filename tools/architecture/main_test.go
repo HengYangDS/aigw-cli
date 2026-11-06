@@ -63,13 +63,17 @@ func writeFile(t *testing.T, path, body string) {
 	}
 }
 
-// closeDirectory keeps dir from being listed until the test ends, and skips a
-// test whose identity, such as root, lists it anyway.
+// closeDirectory keeps dir from being listed until the test ends. Root lists
+// a directory that denies listing, so its test skips; any other identity must
+// be refused, or the failure branch under test would go unexecuted.
 func closeDirectory(t *testing.T, dir string) {
 	t.Helper()
+	if os.Geteuid() == 0 {
+		t.Skip("root lists a directory that denies listing")
+	}
 	denyListing(t, dir)
 	if _, err := os.ReadDir(dir); err == nil {
-		t.Skip("this identity lists a directory that denies listing")
+		t.Fatal("the directory that denies listing can still be listed")
 	}
 }
 
