@@ -85,22 +85,12 @@ func (claudeDesktopAdapter) Plan(deps adapter.Dependencies, before, after domain
 	return result, nil
 }
 
-type claudeDesktopReceipt []Receipt
-
-func (receipt claudeDesktopReceipt) Rollback() error {
-	var result error
-	for _, item := range slices.Backward(receipt) {
-		result = errors.Join(result, item.Rollback())
-	}
-	return result
-}
-
 func (claudeDesktopAdapter) Apply(_ context.Context, deps adapter.Dependencies, before, after domain.Config) (adapter.ProjectionReceipt, error) {
 	plans, _, err := claudeDesktopPlans(deps, before, after)
 	if err != nil {
 		return nil, err
 	}
-	receipts := claudeDesktopReceipt{}
+	receipts := adapter.ProjectionReceipts{}
 	for _, plan := range plans {
 		receipt, err := plan.Apply()
 		if err != nil {

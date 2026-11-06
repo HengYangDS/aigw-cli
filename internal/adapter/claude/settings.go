@@ -13,13 +13,10 @@ import (
 	"strings"
 	"unicode"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
-)
-
-const (
-	settingsStateSuffix = ".aigw-state.json"
 )
 
 var (
@@ -83,7 +80,7 @@ func (plan SettingsPlan) ChangesState() bool {
 // Effects returns every file that applying the plan may write or remove: the
 // settings file and its ownership state.
 func (plan SettingsPlan) Effects() []string {
-	return []string{plan.Target, plan.Target + settingsStateSuffix}
+	return []string{plan.Target, plan.Target + adapter.StateSuffix}
 }
 
 // SettingsReceipt records the settings projection that was actually applied.
@@ -117,7 +114,7 @@ type settingsChange struct {
 // CopyProjection copies one complete AIGW-owned Claude projection to a private
 // target without interpreting or changing its contents.
 func CopyProjection(source, target string) error {
-	for _, suffix := range []string{"", settingsStateSuffix} {
+	for _, suffix := range []string{"", adapter.StateSuffix} {
 		snapshot, err := platform.CaptureFileSnapshot(source + suffix)
 		if err != nil {
 			return err
@@ -168,7 +165,7 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 	if path == "" {
 		return settingsChange{}, errors.New("Claude settings path is empty")
 	}
-	statePath := path + settingsStateSuffix
+	statePath := path + adapter.StateSuffix
 	settingsBefore, err := captureSnapshot(path)
 	if err != nil {
 		return settingsChange{}, fmt.Errorf("read Claude settings: %w", err)
@@ -206,7 +203,7 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 			change.removeSettings = true
 			return change, nil
 		}
-		change.settingsData = encodeSettings(document)
+		change.settingsData, _ = adapter.EncodeJSON(document)
 		return change, nil
 	}
 	if runtime.Endpoint == "" {
@@ -244,9 +241,9 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 		change.plan = SettingsPlan{Action: SettingsActionAlreadyConverged, Target: path}
 		return change, nil
 	}
-	change.settingsData = encodeSettings(document)
+	change.settingsData, _ = adapter.EncodeJSON(document)
 	state.ManagedSHA256 = projectedHash
-	change.stateData = encodeSettingsState(state)
+	change.stateData, _ = adapter.EncodeJSON(state)
 	change.plan = SettingsPlan{Action: SettingsActionProject, Target: path}
 	return change, nil
 }
@@ -279,7 +276,7 @@ func (state *settingsState) acceptModelPreference(document settingsDocument, pre
 	previous := maps.Clone(document)
 	delete(previous, "model")
 	if previousModel != "" {
-		previous["model"] = encodeRaw(previousModel)
+		previous["model"] = adapter.RawJSON(previousModel)
 	}
 	if state.ManagedSHA256 != managedSettingsHash(previous) {
 		return false
@@ -346,11 +343,6 @@ func decodeSettings(snapshot platform.FileSnapshot) (settingsDocument, error) {
 	return document, nil
 }
 
-func encodeSettings(document settingsDocument) []byte {
-	data, _ := json.MarshalIndent(document, "", "  ")
-	return append(data, '\n')
-}
-
 func decodeEnvironment(document settingsDocument) (map[string]json.RawMessage, error) {
 	raw, ok := document["env"]
 	if !ok {
@@ -366,24 +358,19 @@ func decodeEnvironment(document settingsDocument) (map[string]json.RawMessage, e
 	return environment, nil
 }
 
-func encodeRaw(value string) json.RawMessage {
-	data, _ := json.Marshal(value)
-	return data
-}
-
 func projectSettings(document settingsDocument, runtime domain.Runtime, executable string) {
 	environment, _ := decodeEnvironment(document)
 	for _, key := range managedEnvironmentKeys {
 		delete(environment, key)
 	}
-	environment["ANTHROPIC_BASE_URL"] = encodeRaw(runtime.Endpoint)
+	environment["ANTHROPIC_BASE_URL"] = adapter.RawJSON(runtime.Endpoint)
 	document["env"], _ = json.Marshal(environment)
 	if runtime.Model == "" {
 		delete(document, "model")
 	} else {
-		document["model"] = encodeRaw(runtime.Model)
+		document["model"] = adapter.RawJSON(runtime.Model)
 	}
-	document["apiKeyHelper"] = encodeRaw(credentialHelper(executable, runtime.CredentialProjectionFingerprint(ID)))
+	document["apiKeyHelper"] = adapter.RawJSON(credentialHelper(executable, runtime.CredentialProjectionFingerprint(ID)))
 }
 
 func validateExecutable(executable string) (string, error) {
@@ -488,7 +475,7 @@ func managedSettingsHash(document settingsDocument) string {
 	for key, raw := range managed {
 		var value string
 		if bytes.HasPrefix(bytes.TrimSpace(raw), []byte(`"`)) && json.Unmarshal(raw, &value) == nil {
-			managed[key] = encodeRaw(value)
+			managed[key] = adapter.RawJSON(value)
 		}
 	}
 	data, _ := json.Marshal(managed)
@@ -506,11 +493,6 @@ func decodeSettingsState(data []byte) (settingsState, error) {
 		return settingsState{}, errors.New("Claude settings state is incomplete or not owned by AIGW")
 	}
 	return state, nil
-}
-
-func encodeSettingsState(state settingsState) []byte {
-	data, _ := json.MarshalIndent(state, "", "  ")
-	return append(data, '\n')
 }
 
 func hashBytes(data []byte) string {

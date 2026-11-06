@@ -71,3 +71,13 @@ func TestExternalCredentialRunnerPreservesCancellationWithoutDiagnostics(t *test
 		t.Fatalf("stream cancellation=%v, output bytes=%d/%d", err, len(stdout), len(stderr))
 	}
 }
+
+func TestEncodeJSONWritesTheAdapterDocumentBytes(t *testing.T) {
+	data, err := EncodeJSON(map[string]string{"helper": "<aigw> & more"})
+	if err != nil || string(data) != "{\n  \"helper\": \"\\u003caigw\\u003e \\u0026 more\"\n}\n" {
+		t.Fatalf("document = %q, %v", data, err)
+	}
+	if _, err := EncodeJSON(map[string]any{"unsupported": func() {}}); err == nil {
+		t.Fatal("unsupported JSON value was accepted")
+	}
+}

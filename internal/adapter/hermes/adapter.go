@@ -304,22 +304,12 @@ func (hermesAdapter) Plan(deps adapter.Dependencies, before, after domain.Config
 	return result, nil
 }
 
-type hermesReceipt []Receipt
-
-func (receipt hermesReceipt) Rollback() error {
-	var result error
-	for _, item := range slices.Backward(receipt) {
-		result = errors.Join(result, item.Rollback())
-	}
-	return result
-}
-
 func (hermesAdapter) Apply(_ context.Context, deps adapter.Dependencies, before, after domain.Config) (adapter.ProjectionReceipt, error) {
 	plans, _, err := hermesPlans(deps, before, after)
 	if err != nil {
 		return nil, err
 	}
-	receipts := hermesReceipt{}
+	receipts := adapter.ProjectionReceipts{}
 	for _, plan := range plans {
 		receipt, err := plan.Apply()
 		if err != nil {

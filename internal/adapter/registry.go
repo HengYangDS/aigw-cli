@@ -222,14 +222,14 @@ func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, a
 	}
 	changed := slices.ContainsFunc(plans, func(plan ProjectionPlan) bool { return plan.ChangesState })
 	if len(plans) > 0 && reflect.DeepEqual(before, after) && !changed {
-		return projectionReceipts{}, false, ctx.Err()
+		return ProjectionReceipts{}, false, ctx.Err()
 	}
-	receipts := make([]ProjectionReceipt, 0, len(adapters))
+	receipts := make(ProjectionReceipts, 0, len(adapters))
 	defer func() {
 		if resultErr == nil {
 			return
 		}
-		if rollbackErr := rollbackReceipts(receipts); rollbackErr != nil {
+		if rollbackErr := receipts.Rollback(); rollbackErr != nil {
 			resultErr = fmt.Errorf("%w: client projection failed: %w; rollback also failed: %w", ErrProjectionRollbackFailed, resultErr, rollbackErr)
 			return
 		}
@@ -251,12 +251,25 @@ func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, a
 		}
 		receipts = append(receipts, receipt)
 	}
-	return projectionReceipts(receipts), changed, nil
+	return receipts, changed, nil
 }
 
-type projectionReceipts []ProjectionReceipt
+// ProjectionReceipts compensates projections applied one after another.
+type ProjectionReceipts []ProjectionReceipt
 
-func (receipts projectionReceipts) Rollback() error { return rollbackReceipts(receipts) }
+// Rollback compensates every receipt in reverse order and joins their failures.
+func (receipts ProjectionReceipts) Rollback() error {
+	var failures []error
+	for _, receipt := range slices.Backward(receipts) {
+		if receipt == nil {
+			continue
+		}
+		if err := receipt.Rollback(); err != nil {
+			failures = append(failures, err)
+		}
+	}
+	return errors.Join(failures...)
+}
 
 // ChangedClients returns clients whose persistent projection changes, in admission order.
 func (registry Registry) ChangedClients(before, after domain.Config) []string {
@@ -378,17 +391,4 @@ func (registry Registry) adapter(clientID string) (Adapter, error) {
 		return nil, fmt.Errorf("client %q has no admitted operational adapter", clientID)
 	}
 	return adapter, nil
-}
-
-func rollbackReceipts(receipts []ProjectionReceipt) error {
-	var failures []error
-	for _, receipt := range slices.Backward(receipts) {
-		if receipt == nil {
-			continue
-		}
-		if err := receipt.Rollback(); err != nil {
-			failures = append(failures, err)
-		}
-	}
-	return errors.Join(failures...)
 }

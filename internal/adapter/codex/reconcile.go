@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 
@@ -52,7 +53,7 @@ type ReconciliationReceipt struct {
 // plugins, hooks, memories and notifications, so a verification home never
 // starts extensions it cannot authorize.
 func CopyProjection(source, target string) error {
-	suffixes := [...]string{"", ".aigw-state.json", ".aigw-model-catalog.json"}
+	suffixes := [...]string{"", adapter.StateSuffix, ".aigw-model-catalog.json"}
 	var snapshots [len(suffixes)]platform.FileSnapshot
 	for index, suffix := range suffixes {
 		snapshot, err := platform.CaptureFileSnapshot(source + suffix)
@@ -305,7 +306,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	state.ProjectedSchedulerHash = codexSchedulerHash(string(projected))
 	state.ProjectionMode = ProjectionFullSelection
 	state.WriterID = ProjectionWriterID
-	stateData := encodeCodexState(state)
+	stateData, _ := adapter.EncodeJSON(state)
 	converged := stateSnapshot.Exists && bytes.Equal(stateSnapshot.Data, stateData) && catalogSnapshot.Equal(catalogDesired)
 	if converged && !bytes.Equal(configSnapshot.Data, projected) {
 		current := string(configSnapshot.Data)
@@ -317,7 +318,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	}
 	if !converged {
 		state.TransactionID = transactionID
-		stateData = encodeCodexState(state)
+		stateData, _ = adapter.EncodeJSON(state)
 	}
 	action := ProjectionActionUpdate
 	if converged {
@@ -461,11 +462,6 @@ func codexStateForTarget(snapshot platform.FileSnapshot) (codexState, error) {
 		return codexState{}, err
 	}
 	return state, nil
-}
-
-func encodeCodexState(state codexState) []byte {
-	data, _ := json.MarshalIndent(state, "", "  ")
-	return append(data, '\n')
 }
 
 func validateCodexStateAttribution(state codexState) error {

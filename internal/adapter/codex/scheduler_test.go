@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/surface"
 	"aigw-cli/internal/platform"
 
@@ -284,7 +285,10 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 		WriterID:       ProjectionWriterID,
 		TransactionID:  "transaction",
 	}
-	data := encodeCodexState(state)
+	data, err := adapter.EncodeJSON(state)
+	if err != nil {
+		t.Fatal(err)
+	}
 	parsed, err := codexStateForTarget(platform.FileSnapshot{Exists: true, Data: data})
 	if err != nil || parsed.TransactionID != state.TransactionID {
 		t.Fatalf("state = %#v, err=%v", parsed, err)

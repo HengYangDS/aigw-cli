@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strings"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/platform"
 )
 
@@ -49,7 +50,7 @@ func PathsForLibrary(library string) Paths {
 		ThirdPartyConfig: filepath.Join(thirdPartyRoot, "claude_desktop_config.json"),
 		Profile:          profile,
 		Metadata:         filepath.Join(library, "_meta.json"),
-		State:            profile + stateSuffix,
+		State:            profile + adapter.StateSuffix,
 	}
 }
 
@@ -180,9 +181,9 @@ func Prepare(paths Paths, desired *Desired) (Plan, error) {
 		})
 	}
 
-	standard["deploymentMode"] = raw("3p")
-	thirdParty["deploymentMode"] = raw("3p")
-	metadata["appliedId"] = raw(profileID)
+	standard["deploymentMode"] = adapter.RawJSON("3p")
+	thirdParty["deploymentMode"] = adapter.RawJSON("3p")
+	metadata["appliedId"] = adapter.RawJSON(profileID)
 	if err := addProfileEntry(metadata); err != nil {
 		return Plan{}, err
 	}
@@ -320,7 +321,7 @@ func encodeProfile(desired Desired) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return encode(profile)
+	return adapter.EncodeJSON(profile)
 }
 
 func profileDocument(desired Desired) (document, error) {
@@ -336,16 +337,16 @@ func profileDocument(desired Desired) (document, error) {
 		models = append(models, entry)
 	}
 	profile := document{
-		"inferenceCredentialHelper":     raw(desired.CredentialExecutable),
-		"inferenceCredentialHelperArgs": raw(desired.CredentialArguments),
-		"inferenceGatewayBaseUrl":       raw(strings.TrimRight(desired.BaseURL, "/")),
-		"inferenceModels":               raw(models),
+		"inferenceCredentialHelper":     adapter.RawJSON(desired.CredentialExecutable),
+		"inferenceCredentialHelperArgs": adapter.RawJSON(desired.CredentialArguments),
+		"inferenceGatewayBaseUrl":       adapter.RawJSON(strings.TrimRight(desired.BaseURL, "/")),
+		"inferenceModels":               adapter.RawJSON(models),
 	}
 	for _, setting := range managedPolicy {
 		profile[setting.key] = slices.Clone(setting.value)
 	}
 	if desired.ToolSearch {
-		profile["toolSearchEnabled"] = raw(true)
+		profile["toolSearchEnabled"] = adapter.RawJSON(true)
 	}
 	return profile, nil
 }
@@ -378,7 +379,7 @@ func addProfileEntry(metadata document) error {
 	}
 	entry, _ := json.Marshal(map[string]string{"id": profileID, "name": profileName})
 	entries = append(removeOwnedEntries(entries, profileID), entry)
-	metadata["entries"] = raw(entries)
+	metadata["entries"] = adapter.RawJSON(entries)
 	return nil
 }
 
@@ -391,7 +392,7 @@ func removeProfileEntries(metadata document) error {
 	if len(entries) == 0 {
 		delete(metadata, "entries")
 	} else {
-		metadata["entries"] = raw(entries)
+		metadata["entries"] = adapter.RawJSON(entries)
 	}
 	return nil
 }
@@ -465,24 +466,11 @@ func managedHash(id string, standard, thirdParty document, profile []byte, metad
 	return hex.EncodeToString(sum[:]), nil
 }
 
-func raw(value any) json.RawMessage {
-	data, _ := json.Marshal(value)
-	return data
-}
-
-func encode(value any) ([]byte, error) {
-	data, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	return append(data, '\n'), nil
-}
-
 func encodeOptional(value document, existed bool) ([]byte, error) {
 	if len(value) == 0 && !existed {
 		return nil, nil
 	}
-	return encode(value)
+	return adapter.EncodeJSON(value)
 }
 
 func snapshot(data []byte, before platform.FileSnapshot) platform.FileSnapshot {

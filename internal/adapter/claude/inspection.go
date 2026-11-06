@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 )
@@ -47,7 +48,7 @@ func InspectSettings(path string, runtime domain.Runtime, executable string) (Se
 	if err != nil {
 		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized: read settings: %w", err)
 	}
-	stateBefore, err := captureSnapshot(path + settingsStateSuffix)
+	stateBefore, err := captureSnapshot(path + adapter.StateSuffix)
 	if err != nil {
 		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized: read ownership state: %w", err)
 	}
@@ -79,7 +80,7 @@ func InspectSettings(path string, runtime domain.Runtime, executable string) (Se
 	if runtime.Model == "" {
 		delete(previous, "model")
 	} else {
-		previous["model"] = encodeRaw(runtime.Model)
+		previous["model"] = adapter.RawJSON(runtime.Model)
 	}
 	if managedSettingsHash(previous) == expectedHash {
 		return SettingsInspection{NativeModelOverride: true}, nil

@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
+
 	"go.yaml.in/yaml/v3"
 )
 
@@ -28,7 +30,7 @@ func TestVerificationProjectsAnotherModelWithoutChangingOwnedFiles(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	state, err := os.ReadFile(path + stateSuffix)
+	state, err := os.ReadFile(path + adapter.StateSuffix)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +62,7 @@ func TestVerificationProjectsAnotherModelWithoutChangingOwnedFiles(t *testing.T)
 	if memory := configMap(t, result, "memory"); memory["provider"] != nil || memory["enabled"] != true {
 		t.Fatal("verification activated operator memory or lost unrelated preferences")
 	}
-	for source, expected := range map[string][]byte{path: before, path + stateSuffix: state} {
+	for source, expected := range map[string][]byte{path: before, path + adapter.StateSuffix: state} {
 		actual, err := os.ReadFile(source)
 		if err != nil || !bytes.Equal(actual, expected) {
 			t.Fatal("verification changed the source configuration or ownership record")

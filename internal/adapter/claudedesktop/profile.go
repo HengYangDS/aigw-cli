@@ -8,6 +8,8 @@ import (
 	"maps"
 	"slices"
 	"strings"
+
+	"aigw-cli/internal/adapter"
 )
 
 // managedPolicy holds AIGW's fixed profile settings. A setting with
@@ -20,13 +22,13 @@ var managedPolicy = []struct {
 	value          json.RawMessage
 	desktopDefault bool
 }{
-	{"chatTabEnabled", "Allow Chat", raw(true), false},
-	{"coworkTabEnabled", "Allow Cowork", raw(true), true},
-	{"inferenceCredentialKind", "credential kind", raw("helper-script"), false},
-	{"inferenceGatewayAuthScheme", "gateway authentication scheme", raw("bearer"), true},
-	{"inferenceProvider", "inference provider", raw("gateway"), false},
-	{"isClaudeCodeForDesktopEnabled", "Allow Code", raw(true), true},
-	{"modelDiscoveryEnabled", "model discovery", raw(false), false},
+	{"chatTabEnabled", "Allow Chat", adapter.RawJSON(true), false},
+	{"coworkTabEnabled", "Allow Cowork", adapter.RawJSON(true), true},
+	{"inferenceCredentialKind", "credential kind", adapter.RawJSON("helper-script"), false},
+	{"inferenceGatewayAuthScheme", "gateway authentication scheme", adapter.RawJSON("bearer"), true},
+	{"inferenceProvider", "inference provider", adapter.RawJSON("gateway"), false},
+	{"isClaudeCodeForDesktopEnabled", "Allow Code", adapter.RawJSON(true), true},
+	{"modelDiscoveryEnabled", "model discovery", adapter.RawJSON(false), false},
 }
 
 // requestKeys carry the projection request; every key outside requestKeys and
@@ -79,10 +81,10 @@ func readManagedProfile(profile document) (Desired, []string) {
 // the AIGW profile.
 func selectionChanges(standard, thirdParty, metadata document) []string {
 	var changed []string
-	if !sameJSON(standard["deploymentMode"], raw("3p")) || !sameJSON(thirdParty["deploymentMode"], raw("3p")) {
+	if !sameJSON(standard["deploymentMode"], adapter.RawJSON("3p")) || !sameJSON(thirdParty["deploymentMode"], adapter.RawJSON("3p")) {
 		changed = append(changed, "Claude Desktop deployment mode")
 	}
-	if !sameJSON(metadata["appliedId"], raw(profileID)) {
+	if !sameJSON(metadata["appliedId"], adapter.RawJSON(profileID)) {
 		changed = append(changed, "selected Claude Desktop profile")
 	}
 	entry, _ := json.Marshal(map[string]string{"id": profileID, "name": profileName})
@@ -116,8 +118,8 @@ func equivalentProfile(state ownershipState, standard, thirdParty, metadata docu
 		return false, nil
 	}
 	entry, _ := json.Marshal(map[string]string{"id": profileID, "name": profileName})
-	modes := document{"deploymentMode": raw("3p")}
-	recorded, err := managedHash(profileID, modes, modes, encoded, document{"appliedId": raw(profileID), "entries": raw([]json.RawMessage{entry})})
+	modes := document{"deploymentMode": adapter.RawJSON("3p")}
+	recorded, err := managedHash(profileID, modes, modes, encoded, document{"appliedId": adapter.RawJSON(profileID), "entries": adapter.RawJSON([]json.RawMessage{entry})})
 	return err == nil && recorded == state.ManagedSHA256, nil
 }
 
@@ -149,7 +151,7 @@ func projectedProfile(path string, before snapshots, desired Desired) ([]byte, e
 		return nil, err
 	}
 	if !before.state.Exists || !before.profile.Exists {
-		return encode(owned)
+		return adapter.EncodeJSON(owned)
 	}
 	merged, err := decodeObject(path, before.profile)
 	if err != nil {
@@ -166,7 +168,7 @@ func projectedProfile(path string, before snapshots, desired Desired) ([]byte, e
 		delete(merged, key)
 	}
 	maps.Copy(merged, owned)
-	return encode(merged)
+	return adapter.EncodeJSON(merged)
 }
 
 // recordOwnership returns the ownership record for a projection. Its digest
@@ -189,7 +191,7 @@ func recordOwnership(state ownershipState, projected projectedFiles, before snap
 	}
 	desired.BaseURL = strings.TrimRight(desired.BaseURL, "/")
 	state.ManagedRequest = &desired
-	return encode(state)
+	return adapter.EncodeJSON(state)
 }
 
 func changedOutsideAIGW(settings []string) error {

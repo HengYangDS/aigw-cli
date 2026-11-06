@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/adapter"
 )
 
 func TestProjectionPreservesForeignConfigurationAndRestoresOwnedState(t *testing.T) {
@@ -395,18 +397,15 @@ func TestProjectionRejectsUnreadableAndCorruptOwnedState(t *testing.T) {
 func TestInternalDocumentBoundariesFailClosed(t *testing.T) {
 	foreign, _ := json.Marshal(map[string]string{"id": "foreign"})
 	owned, _ := json.Marshal(map[string]string{"id": profileID})
-	metadata := document{"entries": raw([]json.RawMessage{foreign, owned})}
+	metadata := document{"entries": adapter.RawJSON([]json.RawMessage{foreign, owned})}
 	if err := removeProfileEntries(metadata); err != nil {
 		t.Fatal(err)
 	}
 	if entries, err := metadataEntries(metadata); err != nil || len(entries) != 1 {
 		t.Fatalf("metadata entries = %d, %v", len(entries), err)
 	}
-	if err := removeProfileEntries(document{"entries": raw(map[string]any{})}); err == nil {
+	if err := removeProfileEntries(document{"entries": adapter.RawJSON(map[string]any{})}); err == nil {
 		t.Fatal("invalid metadata entries were accepted")
-	}
-	if _, err := encode(map[string]any{"unsupported": func() {}}); err == nil {
-		t.Fatal("unsupported JSON value was accepted")
 	}
 
 	invalid := json.RawMessage("{")
@@ -422,7 +421,7 @@ func TestInternalDocumentBoundariesFailClosed(t *testing.T) {
 			t.Fatal("ownership of an invalid projected document was recorded")
 		}
 	}
-	entries := projectedFiles{standard: document{}, thirdParty: document{}, metadata: document{"entries": raw(map[string]any{})}}
+	entries := projectedFiles{standard: document{}, thirdParty: document{}, metadata: document{"entries": adapter.RawJSON(map[string]any{})}}
 	if _, err := recordOwnership(ownershipState{}, entries, snapshots{}, Desired{}); err == nil {
 		t.Fatal("ownership of invalid metadata entries was recorded")
 	}

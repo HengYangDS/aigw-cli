@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
 	"bytes"
 	"encoding/json"
@@ -35,7 +36,7 @@ func TestSettingsOwnershipUsesStringValuesNotJSONEscapes(t *testing.T) {
 		t.Fatal(err)
 	}
 	observed := make(map[string][]byte)
-	for _, file := range []string{path, path + settingsStateSuffix} {
+	for _, file := range []string{path, path + adapter.StateSuffix} {
 		before, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
@@ -121,7 +122,7 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 		t.Fatalf("managed settings = %#v", got)
 	}
 
-	stateData, err := os.ReadFile(path + settingsStateSuffix)
+	stateData, err := os.ReadFile(path + adapter.StateSuffix)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +196,7 @@ func TestSettingsDisableRestoresOnlyCapturedValues(t *testing.T) {
 	if !reflect.DeepEqual(gotJSON, wantJSON) {
 		t.Fatalf("restored settings = %s, want semantic %s", got, before)
 	}
-	if _, err := os.Stat(path + settingsStateSuffix); !os.IsNotExist(err) {
+	if _, err := os.Stat(path + adapter.StateSuffix); !os.IsNotExist(err) {
 		t.Fatalf("state remains after disable: %v", err)
 	}
 }
@@ -209,7 +210,7 @@ func TestSettingsDisableRestoresAnAbsentSettingsFileToAbsent(t *testing.T) {
 	if _, err := ReconcileSettings(path, true, domain.Runtime{}, "", ""); err != nil {
 		t.Fatal(err)
 	}
-	for _, candidate := range []string{path, path + settingsStateSuffix} {
+	for _, candidate := range []string{path, path + adapter.StateSuffix} {
 		if _, err := os.Stat(candidate); !os.IsNotExist(err) {
 			t.Fatalf("%s remains: %v", candidate, err)
 		}
@@ -273,7 +274,7 @@ func TestSettingsLifecyclePreservesForeignEditsMadeAfterProjection(t *testing.T)
 		if restored.Theme != "dark" || !reflect.DeepEqual(restored.Env, map[string]string{"TEAM_VALUE": "kept"}) {
 			t.Fatalf("disable did not retain exact user fields: %s", data)
 		}
-		if _, err := os.Stat(path + settingsStateSuffix); !os.IsNotExist(err) {
+		if _, err := os.Stat(path + adapter.StateSuffix); !os.IsNotExist(err) {
 			t.Fatalf("disable retained owned state: %v", err)
 		}
 	}
@@ -317,7 +318,7 @@ func TestSettingsRejectsPlaintextCredentialOrForeignHelperWithoutWriting(t *test
 		if err == nil || !strings.Contains(err.Error(), "credential ownership conflict") {
 			t.Fatalf("error = %v", err)
 		}
-		if _, err := os.Stat(path + settingsStateSuffix); !os.IsNotExist(err) {
+		if _, err := os.Stat(path + adapter.StateSuffix); !os.IsNotExist(err) {
 			t.Fatalf("state written after rejection: %v", err)
 		}
 	}
@@ -365,7 +366,7 @@ func TestPlanSettingsMatchesApplyWithoutMutation(t *testing.T) {
 	if err != nil || plan.Action != SettingsActionProject || plan.Target != path {
 		t.Fatalf("initial plan = %#v, %v", plan, err)
 	}
-	for _, candidate := range []string{path, path + settingsStateSuffix} {
+	for _, candidate := range []string{path, path + adapter.StateSuffix} {
 		if _, err := os.Stat(candidate); !os.IsNotExist(err) {
 			t.Fatalf("planning wrote %s: %v", candidate, err)
 		}
@@ -377,7 +378,7 @@ func TestPlanSettingsMatchesApplyWithoutMutation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stateBefore, err := os.ReadFile(path + settingsStateSuffix)
+	stateBefore, err := os.ReadFile(path + adapter.StateSuffix)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -394,7 +395,7 @@ func TestPlanSettingsMatchesApplyWithoutMutation(t *testing.T) {
 	if err != nil || !bytes.Equal(settingsAfter, settingsBefore) {
 		t.Fatalf("settings changed during planning: %q, %v", settingsAfter, err)
 	}
-	stateAfter, err := os.ReadFile(path + settingsStateSuffix)
+	stateAfter, err := os.ReadFile(path + adapter.StateSuffix)
 	if err != nil || !bytes.Equal(stateAfter, stateBefore) {
 		t.Fatalf("state changed during planning: %q, %v", stateAfter, err)
 	}
@@ -451,7 +452,7 @@ func TestSettingsRejectsMalformedOwnedStateForUpdateAndDisable(t *testing.T) {
 			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(path+settingsStateSuffix, []byte("{"), 0o600); err != nil {
+			if err := os.WriteFile(path+adapter.StateSuffix, []byte("{"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := ReconcileSettings(path, disabled, runtime, testExecutable(), runtime.Model); err == nil || !strings.Contains(err.Error(), "parse Claude settings state") {
@@ -463,7 +464,10 @@ func TestSettingsRejectsMalformedOwnedStateForUpdateAndDisable(t *testing.T) {
 
 func TestSettingsStateValidationAndHelperBranches(t *testing.T) {
 	valid := settingsState{Version: 1, WriterID: "aigw-cli", ManagedSHA256: "digest", Original: originalSettings{Environment: map[string]optionalValue{}}}
-	data := encodeSettingsState(valid)
+	data, err := adapter.EncodeJSON(valid)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for name, stateData := range map[string][]byte{
 		"malformed":  []byte("{"),
 		"unknown":    []byte(`{"version":1,"writer_id":"aigw-cli","managed_sha256":"digest","extra":true}`),

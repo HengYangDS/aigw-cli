@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 
@@ -534,7 +535,7 @@ func removeManagedCodexLine(base, key string) (string, error) {
 	return setCodexSelection(base, key, "")
 }
 
-func codexStatePath(path string) string { return path + ".aigw-state.json" }
+func codexStatePath(path string) string { return path + adapter.StateSuffix }
 
 func hashText(text string) string {
 	sum := sha256.Sum256([]byte(text))

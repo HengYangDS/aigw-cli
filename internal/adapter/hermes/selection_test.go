@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"aigw-cli/internal/adapter"
 )
 
 // projectedSelection projects desired, then rewrites Hermes' own selection to
@@ -75,7 +77,7 @@ func TestObserveSelectionReportsOnlyAProvedNativeChoice(t *testing.T) {
 	if _, _, err := ObserveSelection(chosen, invalid); err == nil {
 		t.Fatal("an invalid current projection was accepted")
 	}
-	if err := os.WriteFile(chosen+stateSuffix, []byte("{}\n"), 0o600); err != nil {
+	if err := os.WriteFile(chosen+adapter.StateSuffix, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := ObserveSelection(chosen, desired); err == nil {

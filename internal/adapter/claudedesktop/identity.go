@@ -8,7 +8,6 @@ import (
 const (
 	profileID   = "6500fbf3-029c-5c0d-842a-48ee47e228c5"
 	profileName = "AIGW"
-	stateSuffix = ".aigw-state.json"
 )
 
 func prepareState(before snapshots, standard, thirdParty, metadata document) (ownershipState, error) {

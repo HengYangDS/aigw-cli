@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/adapter"
 )
 
 // desktopSavedProfile reproduces how Claude Desktop 3.1623.0's configuration
@@ -107,7 +109,7 @@ func writeEarlierReleaseRecord(t *testing.T, paths Paths) {
 		t.Fatal(err)
 	}
 	state.ManagedRequest = nil
-	earlier, err := encode(state)
+	earlier, err := adapter.EncodeJSON(state)
 	if err != nil {
 		t.Fatal(err)
 	}

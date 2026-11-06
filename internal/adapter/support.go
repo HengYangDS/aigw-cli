@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -10,6 +11,27 @@ import (
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 )
+
+// StateSuffix names the ownership state file that an adapter keeps beside a
+// native file it projects.
+const StateSuffix = ".aigw-state.json"
+
+// EncodeJSON returns a document that an adapter writes: value as JSON
+// indented by two spaces, with a final newline.
+func EncodeJSON(value any) ([]byte, error) {
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(data, '\n'), nil
+}
+
+// RawJSON encodes one value for a JSON document that an adapter edits. A
+// value that JSON cannot encode yields nil.
+func RawJSON(value any) json.RawMessage {
+	data, _ := json.Marshal(value)
+	return data
+}
 
 // ConvergeBinding is the start that every client adapter's Converge shares.
 // It resolves the client's selected Route, its enabled Client Binding and the

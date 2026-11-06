@@ -7,6 +7,7 @@ import (
 	"io"
 	"slices"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/platform"
 
 	"go.yaml.in/yaml/v3"
@@ -30,7 +31,7 @@ func ObserveSelection(path string, current Desired) (Selection, bool, error) {
 	if err != nil {
 		return Selection{}, false, err
 	}
-	stateSnapshot, err := platform.CaptureFileSnapshot(path + stateSuffix)
+	stateSnapshot, err := platform.CaptureFileSnapshot(path + adapter.StateSuffix)
 	if err != nil || !stateSnapshot.Exists {
 		return Selection{}, false, err
 	}

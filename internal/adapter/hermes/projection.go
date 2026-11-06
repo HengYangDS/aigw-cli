@@ -5,12 +5,12 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/platform"
 
 	"go.yaml.in/yaml/v3"
@@ -89,7 +89,7 @@ func (plan *Plan) ChangesState() bool { return plan.Action == "write" || plan.Ac
 
 // Effects returns every file that applying the plan may write or remove: the
 // configuration and its ownership state.
-func (plan *Plan) Effects() []string { return []string{plan.path, plan.path + stateSuffix} }
+func (plan *Plan) Effects() []string { return []string{plan.path, plan.path + adapter.StateSuffix} }
 
 // ObservedCredentialCommand returns one sidecar-validated managed command.
 func (plan *Plan) ObservedCredentialCommand(providerID string) (string, bool) {
@@ -116,8 +116,6 @@ type ownership struct {
 	FilePresent      bool       `json:"file_present"`
 	ManagedDigest    string     `json:"managed_digest"`
 }
-
-const stateSuffix = ".aigw-state.json"
 
 // Prepare validates and prepares one projection or its withdrawal.
 func Prepare(path string, desired *Desired) (Plan, error) {
@@ -156,7 +154,7 @@ func prepareObserved(path string, desired, previous *Desired, adopted bool) (Pla
 	if err != nil {
 		return Plan{}, err
 	}
-	plan.stateBefore, err = platform.CaptureFileSnapshot(path + stateSuffix)
+	plan.stateBefore, err = platform.CaptureFileSnapshot(path + adapter.StateSuffix)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -239,11 +237,10 @@ func (plan *Plan) prepareDesired(root *yaml.Node, desired Desired, state ownersh
 		plan.keepConfig = true
 	}
 	state.ManagedDigest = afterDigest
-	plan.stateAfter, err = json.MarshalIndent(state, "", "  ")
+	plan.stateAfter, err = adapter.EncodeJSON(state)
 	if err != nil {
 		return err
 	}
-	plan.stateAfter = append(plan.stateAfter, '\n')
 	plan.Action = "write"
 	return nil
 }
@@ -343,9 +340,9 @@ func (plan *Plan) Apply() (Receipt, error) {
 		return Receipt{}, err
 	}
 	if plan.Action == "remove" {
-		receipt.stateAfter, err = platform.RemoveFileIfUnchanged(plan.path+stateSuffix, plan.stateBefore)
+		receipt.stateAfter, err = platform.RemoveFileIfUnchanged(plan.path+adapter.StateSuffix, plan.stateBefore)
 	} else {
-		receipt.stateAfter, err = platform.WriteFileAtomicIfUnchanged(plan.path+stateSuffix, plan.stateBefore, plan.stateAfter, 0o600)
+		receipt.stateAfter, err = platform.WriteFileAtomicIfUnchanged(plan.path+adapter.StateSuffix, plan.stateBefore, plan.stateAfter, 0o600)
 	}
 	if err != nil {
 		return Receipt{}, platform.CompensationFailed(err, platform.RestoreFileAtomicIfPostimage(plan.path, plan.configBefore, receipt.configAfter))
@@ -362,5 +359,5 @@ func (receipt Receipt) Rollback() error {
 	if err := platform.RestoreFileAtomicIfPostimage(receipt.path, receipt.configBefore, receipt.configAfter); err != nil {
 		return err
 	}
-	return platform.RestoreFileAtomicIfPostimage(receipt.path+stateSuffix, receipt.stateBefore, receipt.stateAfter)
+	return platform.RestoreFileAtomicIfPostimage(receipt.path+adapter.StateSuffix, receipt.stateBefore, receipt.stateAfter)
 }

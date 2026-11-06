@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"bytes"
@@ -11,6 +12,16 @@ import (
 	"strings"
 	"testing"
 )
+
+// settingsJSON returns the bytes that a settings projection writes for document.
+func settingsJSON(t *testing.T, document settingsDocument) []byte {
+	t.Helper()
+	data, err := adapter.EncodeJSON(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
 
 func TestSettingsReconcilesOnlyProvenModelPreferenceDrift(t *testing.T) {
 	for _, changedModel := range []string{"", `"user-selected-model"`} {
@@ -26,7 +37,7 @@ func TestSettingsReconcilesOnlyProvenModelPreferenceDrift(t *testing.T) {
 				document["model"] = json.RawMessage(changedModel)
 			}
 			document["theme"] = json.RawMessage(`"dark"`)
-			before := encodeSettings(document)
+			before := settingsJSON(t, document)
 			before = bytes.ReplaceAll(before, []byte("/"), []byte(`\/`))
 			before = bytes.ReplaceAll(before, []byte("user-selected-model"), []byte(`\u0075ser-selected-model`))
 			if err := os.WriteFile(path, before, 0o600); err != nil {
@@ -68,12 +79,12 @@ func TestHelperOnlyMigrationRetainsNativeModelPreference(t *testing.T) {
 		t.Fatal(err)
 	}
 	document := readSettingsFile(t, path)
-	document["model"] = encodeRaw("opus[1m]")
-	before := encodeSettings(document)
+	document["model"] = adapter.RawJSON("opus[1m]")
+	before := settingsJSON(t, document)
 	if err := os.WriteFile(path, before, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	stateBefore, err := os.ReadFile(path + settingsStateSuffix)
+	stateBefore, err := os.ReadFile(path + adapter.StateSuffix)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,10 +100,10 @@ func TestHelperOnlyMigrationRetainsNativeModelPreference(t *testing.T) {
 		t.Fatal(err)
 	}
 	projected := readSettingsFile(t, path)
-	if string(projected["model"]) != string(encodeRaw("opus[1m]")) {
+	if string(projected["model"]) != string(adapter.RawJSON("opus[1m]")) {
 		t.Fatalf("native model choice became %s", projected["model"])
 	}
-	if string(projected["apiKeyHelper"]) != string(encodeRaw(credentialHelper(newHelper, runtime.CredentialProjectionFingerprint(ID)))) {
+	if string(projected["apiKeyHelper"]) != string(adapter.RawJSON(credentialHelper(newHelper, runtime.CredentialProjectionFingerprint(ID)))) {
 		t.Fatal("helper migration did not project the new executable")
 	}
 	if inspection, err := InspectSettings(path, runtime, newHelper); err != nil || !inspection.NativeModelOverride {
@@ -104,7 +115,7 @@ func TestHelperOnlyMigrationRetainsNativeModelPreference(t *testing.T) {
 	if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, before) {
 		t.Fatal("helper rollback lost user settings")
 	}
-	if data, err := os.ReadFile(path + settingsStateSuffix); err != nil || !bytes.Equal(data, stateBefore) {
+	if data, err := os.ReadFile(path + adapter.StateSuffix); err != nil || !bytes.Equal(data, stateBefore) {
 		t.Fatal("helper rollback lost ownership state")
 	}
 }
@@ -128,8 +139,8 @@ func TestHelperMigrationDoesNotCarryModelPreferenceAcrossRouteChanges(t *testing
 				t.Fatal(err)
 			}
 			document := readSettingsFile(t, path)
-			document["model"] = encodeRaw("opus[1m]")
-			if err := os.WriteFile(path, encodeSettings(document), 0o600); err != nil {
+			document["model"] = adapter.RawJSON("opus[1m]")
+			if err := os.WriteFile(path, settingsJSON(t, document), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			next := previous
@@ -138,7 +149,7 @@ func TestHelperMigrationDoesNotCarryModelPreferenceAcrossRouteChanges(t *testing
 			if _, err := ReconcileSettings(path, false, next, newHelper, previous.Model); err != nil {
 				t.Fatal(err)
 			}
-			if got := readSettingsFile(t, path)["model"]; string(got) != string(encodeRaw(next.Model)) {
+			if got := readSettingsFile(t, path)["model"]; string(got) != string(adapter.RawJSON(next.Model)) {
 				t.Fatalf("route change retained a native preference: %s", got)
 			}
 			if inspection, err := InspectSettings(path, next, newHelper); err != nil || inspection.NativeModelOverride {
@@ -175,7 +186,7 @@ func TestSettingsWithdrawalPreservesLaterModelPreference(t *testing.T) {
 				document["model"] = json.RawMessage(test.model)
 				want["model"] = json.RawMessage(test.model)
 			}
-			if err := os.WriteFile(path, encodeSettings(document), 0o600); err != nil {
+			if err := os.WriteFile(path, settingsJSON(t, document), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			if test.reproject {
@@ -187,9 +198,9 @@ func TestSettingsWithdrawalPreservesLaterModelPreference(t *testing.T) {
 				t.Fatal(err)
 			}
 			if got := readSettingsFile(t, path); !reflect.DeepEqual(got, want) {
-				t.Fatalf("withdrawal lost user preference or retained owned fields: %s", encodeSettings(got))
+				t.Fatalf("withdrawal lost user preference or retained owned fields: %s", settingsJSON(t, got))
 			}
-			if _, err := os.Stat(path + settingsStateSuffix); !os.IsNotExist(err) {
+			if _, err := os.Stat(path + adapter.StateSuffix); !os.IsNotExist(err) {
 				t.Fatalf("ownership state remains: %v", err)
 			}
 		})
@@ -207,23 +218,23 @@ func TestSettingsModelRecoveryRequiresUnchangedConnectionOwnership(t *testing.T)
 			document := readSettingsFile(t, path)
 			delete(document, "model")
 			if field == "apiKeyHelper" {
-				document[field] = encodeRaw("foreign")
+				document[field] = adapter.RawJSON("foreign")
 			} else {
 				env, err := decodeEnvironment(document)
 				if err != nil {
 					t.Fatal(err)
 				}
-				env[field] = encodeRaw("foreign")
+				env[field] = adapter.RawJSON("foreign")
 				document["env"], err = json.Marshal(env)
 				if err != nil {
 					t.Fatal(err)
 				}
 			}
-			before := encodeSettings(document)
+			before := settingsJSON(t, document)
 			if err := os.WriteFile(path, before, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			stateBefore, err := os.ReadFile(path + settingsStateSuffix)
+			stateBefore, err := os.ReadFile(path + adapter.StateSuffix)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -235,7 +246,7 @@ func TestSettingsModelRecoveryRequiresUnchangedConnectionOwnership(t *testing.T)
 			if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, before) {
 				t.Fatal("conflict changed settings")
 			}
-			if data, err := os.ReadFile(path + settingsStateSuffix); err != nil || !bytes.Equal(data, stateBefore) {
+			if data, err := os.ReadFile(path + adapter.StateSuffix); err != nil || !bytes.Equal(data, stateBefore) {
 				t.Fatal("conflict adopted foreign ownership")
 			}
 		})
@@ -266,7 +277,7 @@ func TestSettingsReceiptRestoresExactObservedFiles(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			paths := []string{path, path + settingsStateSuffix}
+			paths := []string{path, path + adapter.StateSuffix}
 			before := make(map[string]platform.FileSnapshot)
 			for _, target := range paths {
 				snapshot, err := platform.CaptureFileSnapshot(target)
@@ -297,7 +308,7 @@ func TestSettingsReceiptRestoresExactObservedFiles(t *testing.T) {
 }
 
 func TestSettingsReceiptPreservesNewerFiles(t *testing.T) {
-	for _, suffix := range []string{"", settingsStateSuffix} {
+	for _, suffix := range []string{"", adapter.StateSuffix} {
 		t.Run("edited"+suffix, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
 			runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
@@ -318,7 +329,7 @@ func TestSettingsReceiptPreservesNewerFiles(t *testing.T) {
 			}
 			owned := path
 			if suffix == "" {
-				owned += settingsStateSuffix
+				owned += adapter.StateSuffix
 			}
 			if _, err := os.Stat(owned); !os.IsNotExist(err) {
 				t.Fatalf("independent owned file was not restored to absence: %s, %v", owned, err)

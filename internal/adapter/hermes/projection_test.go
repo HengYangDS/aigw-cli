@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
+
 	"go.yaml.in/yaml/v3"
 )
 
@@ -185,7 +187,7 @@ func TestExplicitSelectionReconcilesOnlyProvedSelectionDrift(t *testing.T) {
 	if _, err := Prepare(path, &desired); err == nil {
 		t.Fatal("ordinary synchronization authorized native selection drift")
 	}
-	stateBefore, err := os.ReadFile(path + stateSuffix)
+	stateBefore, err := os.ReadFile(path + adapter.StateSuffix)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +209,7 @@ func TestExplicitSelectionReconcilesOnlyProvedSelectionDrift(t *testing.T) {
 	if restored, _ := os.ReadFile(path); !bytes.Equal(restored, drifted) {
 		t.Fatal("authorized selection rollback changed the observed native preimage")
 	}
-	if restored, _ := os.ReadFile(path + stateSuffix); !bytes.Equal(restored, stateBefore) {
+	if restored, _ := os.ReadFile(path + adapter.StateSuffix); !bytes.Equal(restored, stateBefore) {
 		t.Fatal("authorized selection rollback changed the observed ownership preimage")
 	}
 	setString(field(field(root, "providers"), other.ID), "key_cmd", "foreign-reader")
@@ -376,7 +378,7 @@ func TestProjectionCompensatesConfigWhenStateWriteConflicts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	statePath := path + stateSuffix
+	statePath := path + adapter.StateSuffix
 	foreign := []byte("{\"foreign\":true}\n")
 	if err := os.WriteFile(statePath, foreign, 0o600); err != nil {
 		t.Fatal(err)
