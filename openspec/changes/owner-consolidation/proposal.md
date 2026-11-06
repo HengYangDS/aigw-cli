@@ -4,8 +4,7 @@ A fresh-context review on 2026-11-05 traced steps that more than one owner
 holds, in product code and in repository tooling:
 
 - Eight streaming SHA-256 copies and four byte-digest copies.
-- Five process runners in the tools, two of which skip process-group and Job
-  cleanup.
+- Two copies of the capture-and-check process runner in the tools.
 - `tools/ci` converts repository paths back and forth, lists tracked files
   twice and creates its scratch directory three times.
 - `tools/coverage` hand-parses the Go cover profiles that

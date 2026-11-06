@@ -31,13 +31,14 @@ and `internal/platform/process`, which adapters, the updater and every tool may
 import. A helper in `tools/release/construction` could not serve
 `tools/coverage`, which sits in the same layer.
 
-### Repository tools gain the cleanup their runners lacked
+### Attached runners stay in the caller's process group
 
-`runAttached` in `tools/ci` and the runner in `tools/coverage` start processes
-with a bare `exec.Command`, so they skip the process-group and Job cleanup that
-the other runners have. Moving them onto `process.Runner.RunStream` adds that
-cleanup. The tools are not released programs, so the change stays inside the
-repository.
+`runAttached` in `tools/ci` and the runner in `tools/coverage` start a child
+that starts nested runners: `dbus-run-session` with an inner `tools/ci`, and
+`go test`. They stay in the caller's process group, because a group of their own
+would let the outer runner kill the intermediate and orphan what it started.
+The capture-and-check runner moves to `internal/platform/process`, which the
+other tool runners share.
 
 ### Coverage profiles use the standard parser
 

@@ -3,11 +3,11 @@
 - [ ] 1.1 Keep one SHA-256 helper in `internal/platform` and use it from every
       streaming and byte-digest copy; digests and their formats are unchanged.
 - [ ] 1.2 Keep the capture-and-check process runner once in
-      `internal/platform/process`; every tool runner uses it or
-      `process.Runner.RunStream`.
-- [ ] 1.3 Give `tools/ci` one slash-relative file list, one tracked-file
-      listing and one scratch-directory helper; every check's findings are
-      unchanged.
+      `internal/platform/process`; `tools/ci` and release construction use it,
+      and attached runners stay in the caller's process group.
+- [ ] 1.3 Give `tools/ci` one slash-relative file list, one scrubbed
+      `git ls-files` invocation and one scratch-directory helper; every check's
+      findings are unchanged.
 - [ ] 1.4 Parse coverage profiles with `golang.org/x/tools/cover`; the coverage
       tool reports the same per-package numbers and total.
 - [ ] 1.5 Give release publication one admission, one asset comparison and one
