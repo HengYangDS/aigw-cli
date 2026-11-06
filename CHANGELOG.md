@@ -23,8 +23,9 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   configuration does not change.
 - When `aigw verify --for hermes` ends while the Hermes gateway it launched is
   still starting, AIGW now keeps the private verification home until that
-  gateway ends. Before, AIGW deleted the home, and the gateway re-created it and
-  ran for ten minutes in a home that AIGW reported as reclaimed.
+  gateway ends, or retains and names it once its time limits pass. Before,
+  AIGW deleted the home, and the gateway re-created it and ran for ten minutes
+  in a home that AIGW reported as reclaimed.
 
 ## [0.6.1] - 2026-11-05
 

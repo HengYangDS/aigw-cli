@@ -24,8 +24,9 @@ import (
 // file after the gateway stops, so the free lock alone does not prove that the
 // process ended. A launch writes <home>/logs/gateway-stdio.log before the
 // gateway takes its lock or records itself, so a home with that log is still
-// owned until <home>/state/gateway.lifecycle.json says the gateway exited.
-// Missing files mean that no gateway started or recorded a run.
+// owned until <home>/state/gateway.lifecycle.json says the gateway exited, or
+// names a process that is gone. A home with none of these files never launched
+// or recorded a gateway.
 func GatewayAbsent(home string) (bool, error) {
 	if free, err := gatewayLockFree(home); err != nil || !free {
 		return false, err
@@ -34,6 +35,25 @@ func GatewayAbsent(home string) (bool, error) {
 		return false, err
 	}
 	return launchedGatewayFinished(home)
+}
+
+// gatewayEvidentlyRunning reports whether Hermes's own records show a gateway
+// still running for the home: a held lock, a live recorded process, or a
+// lifecycle record that names a live process. A launch with none of these
+// keeps its home owned, but nothing proves that a gateway still runs.
+func gatewayEvidentlyRunning(home string) (bool, error) {
+	if free, err := gatewayLockFree(home); err != nil || !free {
+		return !free, err
+	}
+	if exited, err := recordedGatewayExited(home); err != nil || !exited {
+		return !exited, err
+	}
+	lifecycle, err := readGatewayLifecycle(home)
+	if err != nil || lifecycle.Phase != "running" {
+		return false, err
+	}
+	exited, err := processExited(lifecycle.PID)
+	return !exited, err
 }
 
 // launchedGatewayFinished reports whether a gateway launched into the home has
@@ -45,19 +65,9 @@ func launchedGatewayFinished(home string) (bool, error) {
 	} else if err != nil {
 		return false, err
 	}
-	data, err := os.ReadFile(filepath.Join(home, "state", "gateway.lifecycle.json"))
-	if errors.Is(err, os.ErrNotExist) {
-		return false, nil
-	}
+	lifecycle, err := readGatewayLifecycle(home)
 	if err != nil {
 		return false, err
-	}
-	var lifecycle struct {
-		Phase string `json:"phase"`
-		PID   int    `json:"pid"`
-	}
-	if err := json.Unmarshal(data, &lifecycle); err != nil {
-		return false, fmt.Errorf("read the Hermes gateway lifecycle: %w", err)
 	}
 	switch lifecycle.Phase {
 	case "exited":
@@ -68,6 +78,29 @@ func launchedGatewayFinished(home string) (bool, error) {
 	default:
 		return false, nil
 	}
+}
+
+// gatewayLifecycle is the record a Hermes gateway keeps in
+// <home>/state/gateway.lifecycle.json: phase "running" from boot and "exited"
+// on a clean exit. A missing record reads as an empty phase.
+type gatewayLifecycle struct {
+	Phase string `json:"phase"`
+	PID   int    `json:"pid"`
+}
+
+func readGatewayLifecycle(home string) (gatewayLifecycle, error) {
+	var lifecycle gatewayLifecycle
+	data, err := os.ReadFile(filepath.Join(home, "state", "gateway.lifecycle.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return lifecycle, nil
+	}
+	if err != nil {
+		return lifecycle, err
+	}
+	if err := json.Unmarshal(data, &lifecycle); err != nil {
+		return lifecycle, fmt.Errorf("read the Hermes gateway lifecycle: %w", err)
+	}
+	return lifecycle, nil
 }
 
 func gatewayLockFree(home string) (bool, error) {
@@ -123,6 +156,23 @@ func processExited(pid int) (bool, error) {
 	}
 }
 
+// removeVerificationHome deletes the home once its gateway is absent. Otherwise
+// it retains the home and names it, and it says a gateway still runs only when
+// Hermes's own records show one.
+func removeVerificationHome(home string) error {
+	absent, err := GatewayAbsent(home)
+	switch {
+	case err != nil:
+		return fmt.Errorf("cannot confirm that the Hermes verification gateway exited; retained %s: %w", home, err)
+	case absent:
+		return robustio.RemoveAll(home)
+	}
+	if running, err := gatewayEvidentlyRunning(home); err == nil && !running {
+		return fmt.Errorf("cannot confirm that the Hermes gateway launched for verification ended; retained %s", home)
+	}
+	return fmt.Errorf("the Hermes verification gateway is still running; retained %s", home)
+}
+
 // CreateVerificationHome borrows committed dependencies, not their mutable boot
 // state. Native dependency leases remain Hermes-owned and expire on process exit.
 // Its remover deletes the home only while no gateway holds the home's lock.
@@ -135,16 +185,7 @@ func CreateVerificationHome(target string) (string, func() error, error) {
 	if err != nil {
 		return "", nil, errors.New("cannot create an isolated Hermes verification home")
 	}
-	cleanup := func() error {
-		absent, err := GatewayAbsent(home)
-		switch {
-		case err != nil:
-			return fmt.Errorf("cannot confirm that the Hermes verification gateway exited; retained %s: %w", home, err)
-		case !absent:
-			return fmt.Errorf("the Hermes verification gateway is still running; retained %s", home)
-		}
-		return robustio.RemoveAll(home)
-	}
+	cleanup := func() error { return removeVerificationHome(home) }
 	fail := func(err error) (string, func() error, error) {
 		return "", nil, errors.Join(err, cleanup())
 	}

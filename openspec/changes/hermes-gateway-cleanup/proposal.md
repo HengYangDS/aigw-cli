@@ -32,8 +32,9 @@ operator's own Hermes home do not change.
 
 ### Modified Capabilities
 
-- `program-lifecycle`: a client verification home is reclaimed only after a
-  gateway launched into it has ended.
+- `cli-readiness`: Hermes verification deletes its home only after a gateway
+  launched into it has ended, and does not claim a gateway runs without
+  evidence.
 
 ## Impact
 

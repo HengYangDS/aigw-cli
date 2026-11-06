@@ -473,3 +473,37 @@ func requireVerificationHomeRefusal(t *testing.T, target, temporary, want string
 		t.Fatalf("failed preparation left temporary state: %v, %v", entries, err)
 	}
 }
+
+// A launch that never recorded its gateway leaves no proof that anything runs,
+// so the retained home must not be reported as held by a running gateway.
+func TestVerificationHomeRetainsAnUnconfirmedLaunchWithoutClaimingAGateway(t *testing.T) {
+	home, cleanup, err := CreateVerificationHome(filepath.Join(t.TempDir(), "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(home, "logs"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "logs", "gateway-stdio.log"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err = cleanup()
+	if err == nil || !strings.Contains(err.Error(), home) {
+		t.Fatalf("cleanup of an unconfirmed launch = %v, want an error naming the retained home", err)
+	}
+	if strings.Contains(err.Error(), "still running") {
+		t.Fatalf("cleanup claimed a running gateway without evidence: %v", err)
+	}
+	if _, err := os.Stat(home); err != nil {
+		t.Fatalf("cleanup deleted a home whose launch was not confirmed ended: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "logs", "gateway-stdio.log"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(home, "logs", "gateway-stdio.log")); err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
+}

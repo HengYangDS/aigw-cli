@@ -87,10 +87,9 @@ func verifyIsolated(ctx context.Context, deps adapter.Dependencies, configured d
 // releaseVerificationGateway waits for the verification gateway to exit on
 // idle and, when it outlives that bound, asks it once to stop through the
 // native command, which refuses an active turn. It never signals the gateway;
-// the home's remover decides deletion from the gateway lock and the recorded
-// gateway process it leaves. The
-// stop outlives a canceled verification, so an interrupted run still releases
-// its home within the bounds.
+// the home's remover decides deletion from GatewayAbsent's records. The stop
+// outlives a canceled verification, so an interrupted run still releases its
+// home within the bounds.
 func releaseVerificationGateway(ctx context.Context, runner process.VerificationRunner, stop process.Plan) {
 	if AwaitGatewayAbsence(stop.Directory, hermesGatewayIdleWait, hermesGatewayPoll) {
 		return
