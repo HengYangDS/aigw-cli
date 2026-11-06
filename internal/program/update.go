@@ -229,33 +229,37 @@ func (u Updater) Update(ctx context.Context, currentVersion string) (Transition,
 	if err := validateReleaseSources(sources...); err != nil {
 		return Transition{}, err
 	}
-	resolved, err := u.resolvePeerReleases(ctx, sources...)
+	resolved, err := resolveLatestRelease(ctx, sources, u.latestTagFromSource, "release metadata failed", "no configured release source is reachable")
 	if err != nil {
 		return Transition{}, err
 	}
 	return u.updateFromResolvedPeers(ctx, resolved, currentVersion)
 }
 
-func (u Updater) resolvePeerReleases(ctx context.Context, sources ...ReleaseSource) ([]resolvedRelease, error) {
+// resolveLatestRelease reads the latest tag of every configured source through
+// latest, which also reports whether a failure leaves its source unreachable,
+// and returns the sources that answered; they must name one tag. An
+// unreachable source is skipped. failure follows the provider in any other
+// failure, and none begins the failure when no source answered.
+func resolveLatestRelease(ctx context.Context, sources []ReleaseSource, latest func(context.Context, ReleaseSource) (string, bool, error), failure, none string) ([]resolvedRelease, error) {
 	resolved := make([]resolvedRelease, 0, len(sources))
-	unavailableSources := make([]error, 0, len(sources))
+	unreachable := make([]error, 0, len(sources))
 	for _, source := range sources {
 		if source.empty() {
 			continue
 		}
-		tag, sourceUnavailable, err := u.latestTagFromSource(ctx, source)
-		if err == nil {
+		tag, sourceUnreachable, err := latest(ctx, source)
+		switch {
+		case err == nil:
 			resolved = append(resolved, resolvedRelease{Source: source, Tag: tag})
-			continue
+		case sourceUnreachable:
+			unreachable = append(unreachable, fmt.Errorf("%s: %w", source.Provider, err))
+		default:
+			return nil, fmt.Errorf("%s %s: %w", source.Provider, failure, err)
 		}
-		if sourceUnavailable {
-			unavailableSources = append(unavailableSources, fmt.Errorf("%s: %w", source.Provider, err))
-			continue
-		}
-		return nil, fmt.Errorf("%s release metadata failed: %w", source.Provider, err)
 	}
 	if len(resolved) == 0 {
-		return nil, fmt.Errorf("no configured release source is reachable: %w", errors.Join(unavailableSources...))
+		return nil, fmt.Errorf("%s: %w", none, errors.Join(unreachable...))
 	}
 	for _, candidate := range resolved[1:] {
 		if candidate.Tag != resolved[0].Tag {

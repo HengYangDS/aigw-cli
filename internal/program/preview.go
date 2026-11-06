@@ -2,7 +2,6 @@ package program
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -28,29 +27,15 @@ func (u Updater) Preview(ctx context.Context, currentVersion string) (Transition
 	if err := validateReleaseSources(sources...); err != nil {
 		return Transition{}, err
 	}
-	resolved := make([]resolvedRelease, 0, len(sources))
-	unreadable := make([]error, 0, len(sources))
-	for _, source := range sources {
-		if source.empty() {
-			continue
-		}
+	// A source that is unavailable, or that serves its metadata only with
+	// authentication, cannot be read without a token.
+	public := func(ctx context.Context, source ReleaseSource) (string, bool, error) {
 		tag, err := u.publicLatestTag(ctx, source)
-		switch {
-		case err == nil:
-			resolved = append(resolved, resolvedRelease{Source: source, Tag: tag})
-		case isSourceUnavailable(err) || isHTTPStatus(err, http.StatusUnauthorized) || isHTTPStatus(err, http.StatusForbidden) || isHTTPStatus(err, http.StatusNotFound):
-			unreadable = append(unreadable, fmt.Errorf("%s: %w", source.Provider, err))
-		default:
-			return Transition{}, fmt.Errorf("%s public release metadata failed: %w", source.Provider, err)
-		}
+		return tag, isSourceUnavailable(err) || isHTTPStatus(err, http.StatusUnauthorized) || isHTTPStatus(err, http.StatusForbidden) || isHTTPStatus(err, http.StatusNotFound), err
 	}
-	if len(resolved) == 0 {
-		return Transition{}, fmt.Errorf("no configured release source publishes its metadata without authentication: %w", errors.Join(unreadable...))
-	}
-	for _, candidate := range resolved[1:] {
-		if candidate.Tag != resolved[0].Tag {
-			return Transition{}, fmt.Errorf("configured release sources disagree on latest tag: %s=%s, %s=%s", resolved[0].Source.Provider, resolved[0].Tag, candidate.Source.Provider, candidate.Tag)
-		}
+	resolved, err := resolveLatestRelease(ctx, sources, public, "public release metadata failed", "no configured release source publishes its metadata without authentication")
+	if err != nil {
+		return Transition{}, err
 	}
 	return u.previewReplacement(previewVersion(resolved[0].Tag, currentVersion, "release"))
 }

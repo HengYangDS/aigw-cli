@@ -362,7 +362,7 @@ func TestUnavailablePeersPreserveEveryCause(t *testing.T) {
 		{Provider: ReleaseProviderGitHub, Origin: "https://github.test", Repository: "team/product"},
 	}
 	t.Run("metadata", func(t *testing.T) {
-		_, err := u.resolvePeerReleases(t.Context(), sources...)
+		_, err := resolveLatestRelease(t.Context(), sources, u.latestTagFromSource, "release metadata failed", "no configured release source is reachable")
 		if !errors.Is(err, gitlabFailure) || !errors.Is(err, githubFailure) {
 			t.Fatalf("peer metadata error lost a cause: %v", err)
 		}

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -217,4 +218,93 @@ func TestPreviewCandidateReadsTheArchiveNameAlone(t *testing.T) {
 	if _, err := updater.PreviewCandidate("0.2.0", CandidateArchive{ArchivePath: checksums, ChecksumsPath: checksums}); err == nil {
 		t.Fatal("an archive without a release name was previewed")
 	}
+}
+
+// statusServer answers each escaped path with its status and body, and every
+// other path with 404.
+func statusServer(t *testing.T, answers map[string]struct {
+	status int
+	body   string
+}) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		answer, ok := answers[r.URL.EscapedPath()]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		w.WriteHeader(answer.status)
+		_, _ = io.WriteString(w, answer.body)
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+// Preview and Update resolve their sources alike, and each keeps its own words
+// for a failed source, for no readable source and for disagreeing sources.
+func TestReleaseResolutionKeepsItsWords(t *testing.T) {
+	type answer = struct {
+		status int
+		body   string
+	}
+	const githubLatest, gitlabLatest = "/repos/team/aigw/releases/latest", "/api/v4/projects/team%2Faigw/releases/permalink/latest"
+	t.Run("preview", func(t *testing.T) {
+		for _, test := range []struct {
+			name    string
+			gitlab  bool
+			answers map[string]answer
+			want    string
+		}{
+			{"failed source", false, map[string]answer{githubLatest: {http.StatusOK, "{"}},
+				"github public release metadata failed: parse public release metadata: unexpected EOF"},
+			{"no readable source", true, nil,
+				"no configured release source publishes its metadata without authentication: gitlab: gitlab query public release metadata: 404 Not Found\n" +
+					"github: github query public release metadata: 404 Not Found"},
+			{"disagreeing sources", true, map[string]answer{githubLatest: {http.StatusOK, `{"tag_name":"v0.3.0"}`}, gitlabLatest: {http.StatusOK, `{"tag_name":"v0.4.0"}`}},
+				"configured release sources disagree on latest tag: gitlab=v0.4.0, github=v0.3.0"},
+			{"one readable source", true, map[string]answer{githubLatest: {http.StatusOK, `{"tag_name":"v0.3.0"}`}}, ""},
+		} {
+			t.Run(test.name, func(t *testing.T) {
+				result, err := previewUpdater(t, statusServer(t, test.answers), test.gitlab).Preview(t.Context(), "0.2.0")
+				if test.want == "" {
+					if err != nil || result.Version != "0.3.0" {
+						t.Fatalf("preview = %+v, %v; want v0.3.0", result, err)
+					}
+				} else if err == nil || err.Error() != test.want {
+					t.Fatalf("preview error = %v, want %q", err, test.want)
+				}
+			})
+		}
+	})
+	t.Run("update", func(t *testing.T) {
+		for _, name := range []string{"AIGW_GITHUB_RELEASE_ORIGIN", "AIGW_GITHUB_RELEASE_REPOSITORY", "AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY", "GITLAB_TOKEN"} {
+			t.Setenv(name, "")
+		}
+		update := func(t *testing.T, github string, gitlab ReleaseSource, glab *recordingRunner) (Transition, error) {
+			executable := filepath.Join(t.TempDir(), "aigw")
+			if err := os.WriteFile(executable, []byte("program"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			u := Updater{GOOS: runtime.GOOS, GOARCH: runtime.GOARCH, Executable: executable, Runner: glab,
+				GitHub: ReleaseSource{Origin: github, Repository: "team/aigw"}, GitLab: gitlab}
+			return u.Update(t.Context(), "0.3.0")
+		}
+		github := statusServer(t, map[string]answer{githubLatest: {http.StatusForbidden, ""}})
+		if _, err := update(t, github.URL, ReleaseSource{}, &recordingRunner{}); err == nil || err.Error() != "github release metadata failed: github query release metadata: 403 Forbidden" {
+			t.Fatalf("failed source = %v", err)
+		}
+		const unreachable = `no configured release source is reachable: github: query GitHub release metadata: Get "`
+		if _, err := update(t, closedListenerURL(t), ReleaseSource{}, &recordingRunner{}); err == nil || !strings.HasPrefix(err.Error(), unreachable) {
+			t.Fatalf("no reachable source = %v, want it to start with %q", err, unreachable)
+		}
+		github = statusServer(t, map[string]answer{githubLatest: {http.StatusOK, `{"tag_name":"v0.3.0"}`}})
+		gitlab := ReleaseSource{Origin: "https://gitlab.test", Repository: "team/aigw"}
+		const disagree = "configured release sources disagree on latest tag: gitlab=v0.4.0, github=v0.3.0"
+		if _, err := update(t, github.URL, gitlab, &recordingRunner{output: []byte("v0.4.0\n")}); err == nil || err.Error() != disagree {
+			t.Fatalf("disagreeing sources = %v, want %q", err, disagree)
+		}
+		if result, err := update(t, github.URL, gitlab, &recordingRunner{err: exec.ErrNotFound}); err != nil || result.State != TransitionCurrent {
+			t.Fatalf("one reachable source = %+v, %v; want the current version", result, err)
+		}
+	})
 }
