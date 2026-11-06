@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 	"unsafe"
 
@@ -20,9 +21,13 @@ type windowsProcessAPI struct {
 	startCommand  func(*exec.Cmd) error
 	openProcess   func(uint32, bool, uint32) (windows.Handle, error)
 	assignProcess func(windows.Handle, windows.Handle) error
+	resumeProcess func(uint32) error
 	closeHandle   func(windows.Handle) error
 	stopCommand   func(*exec.Cmd) error
 }
+
+// procGetProcessIDOfThread names a thread's owning process; x/sys does not wrap it.
+var procGetProcessIDOfThread = windows.NewLazySystemDLL("kernel32.dll").NewProc("GetProcessIdOfThread")
 
 var nativeWindowsProcessAPI = windowsProcessAPI{
 	createJob:     windows.CreateJobObject,
@@ -30,8 +35,49 @@ var nativeWindowsProcessAPI = windowsProcessAPI{
 	startCommand:  func(command *exec.Cmd) error { return command.Start() },
 	openProcess:   windows.OpenProcess,
 	assignProcess: windows.AssignProcessToJobObject,
+	resumeProcess: resumeSuspendedProcess,
 	closeHandle:   windows.CloseHandle,
 	stopCommand:   stopCapturedCommand,
+}
+
+// resumeSuspendedProcess resumes the threads of a process created with
+// CREATE_SUSPENDED. os/exec closes the creation's thread handle, so the
+// threads are found through a snapshot of the system's threads.
+func resumeSuspendedProcess(pid uint32) (result error) {
+	snapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPTHREAD, 0)
+	if err != nil {
+		return fmt.Errorf("snapshot suspended child threads: %w", err)
+	}
+	defer func() { result = errors.Join(result, windows.CloseHandle(snapshot)) }()
+	entry := windows.ThreadEntry32{Size: uint32(unsafe.Sizeof(windows.ThreadEntry32{}))}
+	resumed := 0
+	for err = windows.Thread32First(snapshot, &entry); err == nil; err = windows.Thread32Next(snapshot, &entry) {
+		if entry.OwnerProcessID != pid {
+			continue
+		}
+		thread, err := windows.OpenThread(windows.THREAD_SUSPEND_RESUME|windows.THREAD_QUERY_LIMITED_INFORMATION, false, entry.ThreadID)
+		if err != nil {
+			return fmt.Errorf("open suspended child thread: %w", err)
+		}
+		// A thread identifier can be reused once its thread ends; resume only a
+		// thread that still belongs to this child.
+		owner, _, ownerErr := procGetProcessIDOfThread.Call(uintptr(thread))
+		if uint32(owner) != pid { // #nosec G115 -- GetProcessIdOfThread returns a Win32 DWORD process identifier.
+			return errors.Join(fmt.Errorf("suspended child thread %d now belongs to another process: %w", entry.ThreadID, ownerErr), windows.CloseHandle(thread))
+		}
+		_, resumeErr := windows.ResumeThread(thread)
+		if err := errors.Join(resumeErr, windows.CloseHandle(thread)); err != nil {
+			return fmt.Errorf("resume suspended child thread: %w", err)
+		}
+		resumed++
+	}
+	if !errors.Is(err, windows.ERROR_NO_MORE_FILES) {
+		return fmt.Errorf("list suspended child threads: %w", err)
+	}
+	if resumed == 0 {
+		return errors.New("suspended child has no thread to resume")
+	}
+	return nil
 }
 
 func stopCapturedCommand(command *exec.Cmd) (result error) {
@@ -101,6 +147,13 @@ func startCapturedWindowsProcess(command *exec.Cmd, api windowsProcessAPI) (clea
 	); err != nil {
 		return nil, err
 	}
+	// The child starts suspended and runs no code until it is in the Job: a
+	// child that exits at once cannot fail the assignment, and nothing it
+	// starts escapes the Job.
+	if command.SysProcAttr == nil {
+		command.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	command.SysProcAttr.CreationFlags |= windows.CREATE_SUSPENDED
 	if err := api.startCommand(command); err != nil {
 		return nil, err
 	}
@@ -109,16 +162,16 @@ func startCapturedWindowsProcess(command *exec.Cmd, api windowsProcessAPI) (clea
 			err = errors.Join(err, api.stopCommand(command))
 		}
 	}()
-	process, err := api.openProcess(
-		windows.PROCESS_SET_QUOTA|windows.PROCESS_TERMINATE,
-		false,
-		uint32(command.Process.Pid), // #nosec G115 -- exec.Start obtained the process identifier from the Win32 DWORD result.
-	)
+	pid := uint32(command.Process.Pid) // #nosec G115 -- exec.Start obtained the process identifier from the Win32 DWORD result.
+	process, err := api.openProcess(windows.PROCESS_SET_QUOTA|windows.PROCESS_TERMINATE, false, pid)
 	if err != nil {
 		return nil, err
 	}
 	assignErr := api.assignProcess(job, process)
 	if err := errors.Join(assignErr, api.closeHandle(process)); err != nil {
+		return nil, err
+	}
+	if err := api.resumeProcess(pid); err != nil {
 		return nil, err
 	}
 	return closeJob, nil

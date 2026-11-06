@@ -21,6 +21,10 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
   verification home now names none and carries no hook consent, as the
   verification contract already required. The operator's own Hermes
   configuration does not change.
+- On Windows, a credential command or other child that AIGW starts no longer
+  fails with "Access is denied" when it exits at once. The child now joins the
+  Job Object that owns its cleanup before it runs any code, so the processes it
+  starts itself are cleaned up with it.
 - When `aigw verify --for hermes` ends while the Hermes gateway it launched is
   still starting, AIGW now keeps the private verification home until that
   gateway ends, or retains and names it once its time limits pass. Before,
