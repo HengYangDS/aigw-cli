@@ -266,7 +266,7 @@ func TestJSONCommandsShareReadableDocumentLayout(t *testing.T) {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountModel(&cfg, "claude", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+			addProviderModel(&cfg, "claude", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}

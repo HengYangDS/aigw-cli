@@ -181,7 +181,7 @@ func TestHermesCatalogUsesProviderWireModelIDs(t *testing.T) {
 	}
 }
 
-func TestHermesCatalogFollowsDeclaredAccountAndFamilyOrder(t *testing.T) {
+func TestHermesCatalogFollowsDeclaredProviderAndFamilyOrder(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	for id, order := range map[string]int{"alpha": 20, "zulu": 10} {
 		cfg.Providers[id] = domain.Provider{Label: id, Order: order, Endpoints: domain.Endpoints{
@@ -262,7 +262,7 @@ func TestHermesProjectionIgnoresUnselectedDisplayOnlyEdits(t *testing.T) {
 	}
 }
 
-func TestHermesProjectionGroupsEveryConnectedAccountsCuratedModelsByProtocol(t *testing.T) {
+func TestHermesProjectionGroupsEveryConnectedProvidersCuratedModelsByProtocol(t *testing.T) {
 	home := t.TempDir()
 	target := filepath.Join(home, ".hermes", "config.yaml")
 	cfg := domain.NewConfig(testAdmission())

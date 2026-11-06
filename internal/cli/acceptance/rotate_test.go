@@ -21,7 +21,7 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
+func TestRotateProviderNamePromptsWithProviderLabel(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
@@ -48,7 +48,7 @@ func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	}
 }
 
-func TestRotateWithoutNameRefusesAmbiguousAccounts(t *testing.T) {
+func TestRotateWithoutNameRefusesAmbiguousProviders(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := twoModelConfig()
 	if err := app.Config.Save(cfg); err != nil {
@@ -158,7 +158,7 @@ func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 func TestRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "new-token\n")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{t.TempDir()})
 	if err := app.Config.Save(cfg); err != nil {
@@ -185,7 +185,7 @@ func TestRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T) {
 				t.Fatal(err)
 			}
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+			addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
 			cfg.SetSelectedModel(codex.ID, "one", "")
 			cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 			wantMessage := "clients control their refresh timing"
@@ -226,7 +226,7 @@ func TestRotateValidationUsesCommandContext(t *testing.T) {
 	}
 }
 
-func TestRotateClaudeOnlyAccountDoesNotTouchCodexTargets(t *testing.T) {
+func TestRotateClaudeOnlyProviderDoesNotTouchCodexTargets(t *testing.T) {
 	app, _, secretStore, runner, httpClient := testApp(t, "new-claude-token\n")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["codex-account"] = domain.Provider{Label: "Codex", Endpoints: domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}}

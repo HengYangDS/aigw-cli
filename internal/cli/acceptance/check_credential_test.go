@@ -58,7 +58,7 @@ func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
 func TestCheckNamesTheEnvironmentTokenForARejectedToken(t *testing.T) {
 	app, out, _, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(claude.ID, "dmx", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)

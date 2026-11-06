@@ -22,7 +22,7 @@ import (
 	"aigw-cli/internal/terminal"
 )
 
-func TestCredentialHelperPrintsOnlyTheProjectedAccountToken(t *testing.T) {
+func TestCredentialHelperPrintsOnlyTheProjectedProviderToken(t *testing.T) {
 	for _, client := range clients.Admission().IDs() {
 		for _, change := range []string{"none", "token", "model", "label"} {
 			t.Run(client+"/"+change, func(t *testing.T) {

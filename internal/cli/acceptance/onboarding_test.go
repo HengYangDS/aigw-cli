@@ -120,7 +120,7 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 	}
 }
 
-func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T) {
+func TestSyncActivatesSelectedEnvironmentProviderAfterManifestSetup(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	tokens := map[string]string{}
 	app.Secrets = secret.NewEnvironmentStore(func(key string) string { return tokens[key] })
@@ -273,7 +273,7 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentModel(t *testing.T) {
 	}
 }
 
-func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) {
+func TestSyncDefersNewlyInstalledClientUntilItsProviderIsConnected(t *testing.T) {
 	app, _, _, runner, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {

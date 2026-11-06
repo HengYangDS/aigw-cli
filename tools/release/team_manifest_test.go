@@ -51,11 +51,11 @@ func TestNativeTeamManifestJourney(t *testing.T) {
 	plan := newTeamManifestJourney(t)
 	for _, account := range append([]string{""}, domain.ManifestProviderIDs(plan.manifest)...) {
 		if account == "" {
-			t.Run("no-token-no-client", func(t *testing.T) { plan.runAccount(t, account, false) })
+			t.Run("no-token-no-client", func(t *testing.T) { plan.runProvider(t, account, false) })
 			continue
 		}
-		t.Run(account+"/token-before-client", func(t *testing.T) { plan.runAccount(t, account, false) })
-		t.Run(account+"/client-before-token", func(t *testing.T) { plan.runAccount(t, account, true) })
+		t.Run(account+"/token-before-client", func(t *testing.T) { plan.runProvider(t, account, false) })
+		t.Run(account+"/client-before-token", func(t *testing.T) { plan.runProvider(t, account, true) })
 	}
 }
 
@@ -124,7 +124,7 @@ func newTeamManifestJourney(t *testing.T) teamManifestJourney {
 	return teamManifestJourney{program: program, team: team, manifest: manifest, clients: clients}
 }
 
-func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientFirst bool) {
+func (plan teamManifestJourney) runProvider(t *testing.T, account string, clientFirst bool) {
 	t.Helper()
 	journey := newNativeJourney(t, plan.program, "https://unused.example.test", false)
 	journey.setEnvironment("CODEX_HOME", filepath.Join(journey.root, "home", ".codex"))
@@ -199,7 +199,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 			t.Fatalf("explicit use selected %s Route %q, want %q", client, got, choice.model)
 		}
 	}
-	plan.requireSelectedAccount(t, journey, account)
+	plan.requireSelectedProvider(t, journey, account)
 }
 
 func (plan teamManifestJourney) manualSelections(
@@ -273,7 +273,7 @@ func requireNoActivationBeforeToken(t *testing.T, journey *journeyFixture) {
 	journey.requireNoClaudeProjection()
 }
 
-func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *journeyFixture, account string) {
+func (plan teamManifestJourney) requireSelectedProvider(t *testing.T, journey *journeyFixture, account string) {
 	t.Helper()
 	cfg, err := store.NewStore(journey.config, builtinclients.Admission()).Load()
 	if err != nil {

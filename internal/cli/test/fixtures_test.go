@@ -22,18 +22,18 @@ type roundTripFunc func(*http.Request) (*http.Response, error)
 func (fn roundTripFunc) Do(request *http.Request) (*http.Response, error) { return fn(request) }
 
 type observingSecretStore struct {
-	value          string
-	getErr         error
-	existsErr      error
-	getCalls       int
-	existsCalls    int
-	getAccounts    []string
-	existsAccounts []string
+	value           string
+	getErr          error
+	existsErr       error
+	getCalls        int
+	existsCalls     int
+	getProviders    []string
+	existsProviders []string
 }
 
 func (store *observingSecretStore) Get(account string) (string, error) {
 	store.getCalls++
-	store.getAccounts = append(store.getAccounts, account)
+	store.getProviders = append(store.getProviders, account)
 	if store.getErr != nil {
 		return "", store.getErr
 	}
@@ -49,7 +49,7 @@ func (*observingSecretStore) Delete(string) error { return nil }
 
 func (store *observingSecretStore) Exists(account string) (bool, error) {
 	store.existsCalls++
-	store.existsAccounts = append(store.existsAccounts, account)
+	store.existsProviders = append(store.existsProviders, account)
 	return store.value != "", store.existsErr
 }
 
@@ -84,7 +84,7 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, domain.Config
 		Out: out, Width: 120,
 	}
 	var err error
-	runtime.Accounts, err = secret.NewDiagnosticCredentialStore(runtime.Secrets)
+	runtime.Providers, err = secret.NewDiagnosticCredentialStore(runtime.Secrets)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,19 +18,19 @@ import (
 	"aigw-cli/internal/secret"
 )
 
-func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) {
+func TestProviderFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) {
 	t.Run("missing checkpoint", func(t *testing.T) {
-		app, _, secretStore, current := prepareAccountFinalizer(t, nil)
+		app, _, secretStore, current := prepareProviderFinalizer(t, nil)
 		if err := secretStore.Set("zeta-new", "target-token"); err != nil {
 			t.Fatal(err)
 		}
 		assertFinalizeRefused(t, app, "verified checkpoint")
-		assertCurrentAccountConfig(t, app, current)
+		assertCurrentProviderConfig(t, app, current)
 	})
 
 	t.Run("stale checkpoint", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
-		before := accountRenameConfig()
+		before := providerRenameConfig()
 		before.SetClientActivation(claude.ID, true, "", nil)
 		if err := app.Config.Save(before); err != nil {
 			t.Fatal(err)
@@ -42,7 +42,7 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 		if err != nil {
 			t.Fatal(err)
 		}
-		current := renamedAccountConfig(before)
+		current := renamedProviderConfig(before)
 		if err := app.Config.Save(current); err != nil {
 			t.Fatal(err)
 		}
@@ -53,11 +53,11 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 			t.Fatal(err)
 		}
 		assertFinalizeRefused(t, app, "does not match current configuration")
-		assertCurrentAccountConfig(t, app, current)
+		assertCurrentProviderConfig(t, app, current)
 	})
 
 	t.Run("partial client coverage", func(t *testing.T) {
-		app, _, secretStore, current := prepareAccountFinalizer(t, nil)
+		app, _, secretStore, current := prepareProviderFinalizer(t, nil)
 		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, []string{codex.ID}); err != nil {
 			t.Fatal(err)
 		}
@@ -65,12 +65,12 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 			t.Fatal(err)
 		}
 		assertFinalizeRefused(t, app, "enabled client")
-		assertCurrentAccountConfig(t, app, current)
+		assertCurrentProviderConfig(t, app, current)
 	})
 
 	t.Run("source account remains", func(t *testing.T) {
 		app, _, secretStore, _, _ := testApp(t, "")
-		current := accountRenameConfig()
+		current := providerRenameConfig()
 		current.Providers["zeta-new"] = current.Providers["zeta-old"]
 		current.SetClientActivation(claude.ID, true, "", nil)
 		if err := app.Config.Save(current); err != nil {
@@ -86,11 +86,11 @@ func TestAccountFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T) 
 	})
 }
 
-func TestAccountFinalizeUsesEnabledClientScope(t *testing.T) {
+func TestProviderFinalizeUsesEnabledClientScope(t *testing.T) {
 	for _, enabled := range []string{"", claude.ID, codex.ID} {
 		t.Run("enabled="+enabled, func(t *testing.T) {
 			app, _, store, _, _ := testApp(t, "")
-			cfg := renamedAccountConfig(accountRenameConfig())
+			cfg := renamedProviderConfig(providerRenameConfig())
 			if enabled != "" {
 				cfg.SetClientActivation(enabled, true, "", nil)
 			}
@@ -120,9 +120,9 @@ func TestAccountFinalizeUsesEnabledClientScope(t *testing.T) {
 	}
 }
 
-func TestAccountFinalizeWithoutCredentialsNeedsNoToken(t *testing.T) {
+func TestProviderFinalizeWithoutCredentialsNeedsNoToken(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
-	if err := app.Config.Save(renamedAccountConfig(accountRenameConfig())); err != nil {
+	if err := app.Config.Save(renamedProviderConfig(providerRenameConfig())); err != nil {
 		t.Fatal(err)
 	}
 	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize"}); err != nil {
@@ -130,8 +130,8 @@ func TestAccountFinalizeWithoutCredentialsNeedsNoToken(t *testing.T) {
 	}
 }
 
-func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
-	app, out, secretStore, current := prepareAccountFinalizer(t, []string{claude.ID, codex.ID})
+func TestProviderFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
+	app, out, secretStore, current := prepareProviderFinalizer(t, []string{claude.ID, codex.ID})
 	const token = "finalize-shared-token"
 	probe := secret.DiagnosticCredential{SystemToken: "finalize-shared-system", UserID: "finalize-shared-user"}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
@@ -156,7 +156,7 @@ func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
 	if !bytes.Equal(readFile(t, app.Config.Path()), configBefore) || !bytes.Equal(readFile(t, app.Config.Path()+".bak"), backupBefore) || !bytes.Equal(readFile(t, app.Config.Path()+".verified.json"), checkpointBefore) {
 		t.Fatal("finalize dry-run changed configuration state")
 	}
-	if !secretExists(t, secretStore, "zeta-old") || !accountCredentialExists(t, app.Accounts, "zeta-old") {
+	if !secretExists(t, secretStore, "zeta-old") || !providerCredentialExists(t, app.Providers, "zeta-old") {
 		t.Fatal("finalize dry-run deleted source credentials")
 	}
 
@@ -167,16 +167,16 @@ func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
 	if !bytes.Equal(readFile(t, app.Config.Path()), configBefore) || !bytes.Equal(readFile(t, app.Config.Path()+".bak"), configBefore) || !bytes.Equal(readFile(t, app.Config.Path()+".verified.json"), checkpointBefore) {
 		t.Fatal("finalize did not converge only the backup to current bytes")
 	}
-	if secretExists(t, secretStore, "zeta-old") || accountCredentialExists(t, app.Accounts, "zeta-old") {
+	if secretExists(t, secretStore, "zeta-old") || providerCredentialExists(t, app.Providers, "zeta-old") {
 		t.Fatal("finalize retained source credentials")
 	}
 	if got, err := secretStore.Get("zeta-new"); err != nil || got != token {
 		t.Fatalf("target token = %q, %v", got, err)
 	}
-	if got, err := app.Accounts.Get("zeta-new"); err != nil || !reflect.DeepEqual(got, probe) {
+	if got, err := app.Providers.Get("zeta-new"); err != nil || !reflect.DeepEqual(got, probe) {
 		t.Fatalf("target probe = %#v, %v", got, err)
 	}
-	assertCurrentAccountConfig(t, app, current)
+	assertCurrentProviderConfig(t, app, current)
 
 	out.Reset()
 	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize", "--dry-run", "--json"}); err != nil {
@@ -193,8 +193,8 @@ func TestAccountFinalizeDryRunApplyAndAlreadyFinalized(t *testing.T) {
 	}
 }
 
-func TestAccountFinalizeRequiresTargetAPIToken(t *testing.T) {
-	app, _, secretStore, _ := prepareAccountFinalizer(t, []string{claude.ID, codex.ID})
+func TestProviderFinalizeRequiresTargetAPIToken(t *testing.T) {
+	app, _, secretStore, _ := prepareProviderFinalizer(t, []string{claude.ID, codex.ID})
 	if err := secretStore.Set("zeta-old", "source-token"); err != nil {
 		t.Fatal(err)
 	}
@@ -207,16 +207,16 @@ func TestAccountFinalizeRequiresTargetAPIToken(t *testing.T) {
 	}
 }
 
-func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *testing.T) {
+func TestProviderFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
-	before := accountRenameConfig()
+	before := providerRenameConfig()
 	providerAccount := before.Providers["zeta-old"]
 	providerAccount.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://dmx.test"}
 	before.Providers["zeta-old"] = providerAccount
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	current := renamedAccountConfig(before)
+	current := renamedProviderConfig(before)
 	for _, client := range []string{claude.ID, codex.ID} {
 		current.SetClientActivation(client, true, "", nil)
 	}
@@ -263,7 +263,7 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 	if err == nil || !strings.Contains(err.Error(), "confirmation") {
 		t.Fatalf("unconfirmed rotation error = %v", err)
 	}
-	if requests != 0 || !secretExists(t, secretStore, "zeta-old") || !accountCredentialExists(t, app.Accounts, "zeta-old") {
+	if requests != 0 || !secretExists(t, secretStore, "zeta-old") || !providerCredentialExists(t, app.Providers, "zeta-old") {
 		t.Fatal("unconfirmed rotation changed credentials or performed a probe")
 	}
 
@@ -271,8 +271,8 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize", "--confirm-api-token-rotation", "--confirm-account-probe-rotation"}); err != nil {
 		t.Fatal(err)
 	}
-	if requests != 2 || secretExists(t, secretStore, "zeta-old") || accountCredentialExists(t, app.Accounts, "zeta-old") {
-		t.Fatalf("confirmed rotation requests=%d source_token=%v source_probe=%v", requests, secretExists(t, secretStore, "zeta-old"), accountCredentialExists(t, app.Accounts, "zeta-old"))
+	if requests != 2 || secretExists(t, secretStore, "zeta-old") || providerCredentialExists(t, app.Providers, "zeta-old") {
+		t.Fatalf("confirmed rotation requests=%d source_token=%v source_probe=%v", requests, secretExists(t, secretStore, "zeta-old"), providerCredentialExists(t, app.Providers, "zeta-old"))
 	}
 	for _, forbidden := range []string{oldToken, newToken, oldProbe.SystemToken, oldProbe.UserID, newProbe.SystemToken, newProbe.UserID} {
 		if strings.Contains(out.String(), forbidden) {
@@ -281,38 +281,38 @@ func TestAccountFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *te
 	}
 }
 
-func TestAccountFinalizePartialDeleteCanRetryAfterBackupConvergence(t *testing.T) {
-	app, _, secretStore, _ := prepareAccountFinalizer(t, []string{claude.ID, codex.ID})
+func TestProviderFinalizePartialDeleteCanRetryAfterBackupConvergence(t *testing.T) {
+	app, _, secretStore, _ := prepareProviderFinalizer(t, []string{claude.ID, codex.ID})
 	const token = "partial-delete-token"
 	probe := secret.DiagnosticCredential{SystemToken: "partial-delete-system", UserID: "partial-delete-user"}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
 		setFinalizerCredentials(t, app, id, token, probe)
 	}
-	baseAccounts := app.Accounts
-	app.Accounts = failingDeleteAccountStore{DiagnosticCredentialStore: baseAccounts, accountID: "zeta-old", err: errors.New("probe delete refused")}
+	baseAccounts := app.Providers
+	app.Providers = failingDeleteProviderStore{DiagnosticCredentialStore: baseAccounts, providerID: "zeta-old", err: errors.New("probe delete refused")}
 
 	err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize"})
 	if err == nil || !strings.Contains(err.Error(), "finalization incomplete") {
 		t.Fatalf("partial delete error = %v", err)
 	}
-	if secretExists(t, secretStore, "zeta-old") || !accountCredentialExists(t, baseAccounts, "zeta-old") {
-		t.Fatalf("partial delete state: source_token=%v source_probe=%v", secretExists(t, secretStore, "zeta-old"), accountCredentialExists(t, baseAccounts, "zeta-old"))
+	if secretExists(t, secretStore, "zeta-old") || !providerCredentialExists(t, baseAccounts, "zeta-old") {
+		t.Fatalf("partial delete state: source_token=%v source_probe=%v", secretExists(t, secretStore, "zeta-old"), providerCredentialExists(t, baseAccounts, "zeta-old"))
 	}
 	if !bytes.Equal(readFile(t, app.Config.Path()), readFile(t, app.Config.Path()+".bak")) {
 		t.Fatal("partial deletion occurred before backup convergence")
 	}
 
-	app.Accounts = baseAccounts
+	app.Providers = baseAccounts
 	if err := cli.Execute(app, []string{"account", "rename", "zeta-old", "zeta-new", "--finalize"}); err != nil {
 		t.Fatal(err)
 	}
-	if accountCredentialExists(t, baseAccounts, "zeta-old") || !accountCredentialExists(t, baseAccounts, "zeta-new") {
+	if providerCredentialExists(t, baseAccounts, "zeta-old") || !providerCredentialExists(t, baseAccounts, "zeta-new") {
 		t.Fatal("retry did not finish probe credential cleanup")
 	}
 }
 
-func TestAccountFinalizeEnvironmentCleanupIsExternalAndRetryable(t *testing.T) {
-	app, _, _, _ := prepareAccountFinalizer(t, []string{claude.ID, codex.ID})
+func TestProviderFinalizeEnvironmentCleanupIsExternalAndRetryable(t *testing.T) {
+	app, _, _, _ := prepareProviderFinalizer(t, []string{claude.ID, codex.ID})
 	const token = "finalize-environment-token"
 	values := map[string]string{
 		secret.EnvironmentKey("zeta-old"): token,
@@ -321,7 +321,7 @@ func TestAccountFinalizeEnvironmentCleanupIsExternalAndRetryable(t *testing.T) {
 	app.Secrets = secret.NewEnvironmentStore(func(key string) string { return values[key] })
 	probe := secret.DiagnosticCredential{SystemToken: "environment-probe-system", UserID: "environment-probe-user"}
 	for _, id := range []string{"zeta-old", "zeta-new"} {
-		if err := app.Accounts.Set(id, probe); err != nil {
+		if err := app.Providers.Set(id, probe); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -330,7 +330,7 @@ func TestAccountFinalizeEnvironmentCleanupIsExternalAndRetryable(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), secret.EnvironmentKey("zeta-old")) || strings.Contains(err.Error(), token) {
 		t.Fatalf("environment cleanup error = %v", err)
 	}
-	if accountCredentialExists(t, app.Accounts, "zeta-old") {
+	if providerCredentialExists(t, app.Providers, "zeta-old") {
 		t.Fatal("environment cleanup did not finish writable probe cleanup")
 	}
 	if !bytes.Equal(readFile(t, app.Config.Path()), readFile(t, app.Config.Path()+".bak")) {
@@ -360,7 +360,7 @@ func setFinalizerCredentials(t *testing.T, app *cli.App, account, token string, 
 	if err := app.Secrets.Set(account, token); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Accounts.Set(account, probe); err != nil {
+	if err := app.Providers.Set(account, probe); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -374,14 +374,14 @@ func decodeFinalizeResult(t *testing.T, data []byte) finalizeResult {
 	return result
 }
 
-func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.Buffer, secret.Store, domain.Config) {
+func prepareProviderFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.Buffer, secret.Store, domain.Config) {
 	t.Helper()
 	app, out, secretStore, _, _ := testApp(t, "")
-	before := accountRenameConfig()
+	before := providerRenameConfig()
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
 	}
-	current := renamedAccountConfig(before)
+	current := renamedProviderConfig(before)
 	enabledClients := clients
 	if enabledClients == nil {
 		enabledClients = []string{claude.ID, codex.ID}
@@ -400,7 +400,7 @@ func prepareAccountFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.B
 	return app, out, secretStore, current
 }
 
-func renamedAccountConfig(cfg domain.Config) domain.Config {
+func renamedProviderConfig(cfg domain.Config) domain.Config {
 	providerAccount := cfg.Providers["zeta-old"]
 	delete(cfg.Providers, "zeta-old")
 	cfg.Providers["zeta-new"] = providerAccount
@@ -421,7 +421,7 @@ func assertFinalizeRefused(t *testing.T, app *cli.App, message string) {
 	}
 }
 
-func assertCurrentAccountConfig(t *testing.T, app *cli.App, want domain.Config) {
+func assertCurrentProviderConfig(t *testing.T, app *cli.App, want domain.Config) {
 	t.Helper()
 	got, err := app.Config.Load()
 	if err != nil {
@@ -441,14 +441,14 @@ func containsString(values []string, substring string) bool {
 	return false
 }
 
-type failingDeleteAccountStore struct {
+type failingDeleteProviderStore struct {
 	secret.DiagnosticCredentialStore
-	accountID string
-	err       error
+	providerID string
+	err        error
 }
 
-func (s failingDeleteAccountStore) Delete(accountID string) error {
-	if accountID == s.accountID {
+func (s failingDeleteProviderStore) Delete(accountID string) error {
+	if accountID == s.providerID {
 		return s.err
 	}
 	return s.DiagnosticCredentialStore.Delete(accountID)

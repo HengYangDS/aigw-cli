@@ -89,7 +89,7 @@ func TestProbeHandlesConfigurationErrors(t *testing.T) {
 	})
 	cred := diagnostic.Credential{}
 
-	// nil AccountProbe
+	// nil BalanceProbe
 	_, err := dmxapi.Probe(ctx, probe.Sender{Client: client}, domain.Provider{BalanceProbe: nil}, "", cred)
 	if err == nil || !strings.Contains(err.Error(), "not configured") {
 		t.Errorf("expected error for nil AccountProbe, got %v", err)

@@ -168,7 +168,7 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 	}
 }
 
-func TestUseForwardingApplyNoOpAndDirectPreserveAccount(t *testing.T) {
+func TestUseForwardingApplyNoOpAndDirectPreserveProvider(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
 	credentials := secret.NewMemoryStore()
 	if err := credentials.Set("gateway", "token"); err != nil {

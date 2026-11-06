@@ -146,14 +146,14 @@ func TestFetchIDsOwnsCatalogProtocol(t *testing.T) {
 	}
 }
 
-func TestCatalogObservationsFollowAccountOrder(t *testing.T) {
+func TestCatalogObservationsFollowProviderOrder(t *testing.T) {
 	cfg := configuredCatalog()
 	cfg.Providers["alpha"] = domain.Provider{Label: "Alpha"}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt-codex"]}`)), Request: request}, nil
 	})
 	observations := DiscoverCatalog(context.Background(), catalogSecrets(t, map[string]string{"gateway": "token"}), client, cfg).Observations
-	if len(observations) != 3 || observations[0].Account != "alpha" || observations[1].Account != "gateway" || observations[2].Account != "gateway" {
+	if len(observations) != 3 || observations[0].Provider != "alpha" || observations[1].Provider != "gateway" || observations[2].Provider != "gateway" {
 		t.Fatalf("catalog observations = %#v", observations)
 	}
 }

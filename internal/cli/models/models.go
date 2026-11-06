@@ -15,7 +15,7 @@ import (
 
 type modelRow struct {
 	Model         string
-	Account       string
+	Provider      string
 	Protocol      domain.EndpointProtocol
 	UpstreamModel string
 	Catalog       string
@@ -37,7 +37,7 @@ type modelsDocument struct {
 // routeModel is one Route and protocol's catalog membership.
 type routeModel struct {
 	Model         string                  `json:"route"`
-	Account       string                  `json:"account"`
+	Provider      string                  `json:"account"`
 	Protocol      domain.EndpointProtocol `json:"protocol,omitempty"`
 	Family        string                  `json:"model"`
 	UpstreamModel string                  `json:"upstream_model"`
@@ -64,7 +64,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				document := modelsDocument{Models: make([]routeModel, 0, len(rows)), NextDetail: "aigw use --for <client> <route>"}
 				for _, row := range rows {
 					document.Models = append(document.Models, routeModel{
-						Model: row.Model, Account: row.Account, Protocol: row.Protocol,
+						Model: row.Model, Provider: row.Provider, Protocol: row.Protocol,
 						Family: cfg.Models[row.Model].Family, UpstreamModel: row.UpstreamModel, Catalog: row.State,
 					})
 				}
@@ -80,7 +80,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					state = terminal.Info
 				}
 				r.StatusLine(state, "Route", row.Model)
-				r.Detail(fmt.Sprintf("%s · %s · %s · account %s", row.UpstreamModel, domain.ProtocolLabel(row.Protocol), row.Catalog, row.Account))
+				r.Detail(fmt.Sprintf("%s · %s · %s · account %s", row.UpstreamModel, domain.ProtocolLabel(row.Protocol), row.Catalog, row.Provider))
 			}
 			r.Next("aigw use")
 			return r.Err()
@@ -93,14 +93,14 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 	observations := make(map[string]app.CatalogObservation, len(catalog.Observations))
 	for _, observation := range catalog.Observations {
-		observations[observationKey(observation.Account, observation.Source.Protocol)] = observation
+		observations[observationKey(observation.Provider, observation.Source.Protocol)] = observation
 	}
 	rows := []modelRow{}
 	for _, routeID := range cfg.CatalogModelIDs() {
 		route := cfg.Models[routeID]
 		protocols := route.AdmittedProtocols()
 		if len(protocols) == 0 {
-			rows = append(rows, modelRow{Model: routeID, Account: route.Provider, UpstreamModel: route.UpstreamModelID(), Catalog: "Catalog not observed", State: "not_observed"})
+			rows = append(rows, modelRow{Model: routeID, Provider: route.Provider, UpstreamModel: route.UpstreamModelID(), Catalog: "Catalog not observed", State: "not_observed"})
 			continue
 		}
 		for _, protocol := range protocols {
@@ -114,11 +114,11 @@ func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 					}
 				}
 			}
-			rows = append(rows, modelRow{Model: routeID, Account: route.Provider, Protocol: protocol, UpstreamModel: route.UpstreamModelID(), Catalog: membership, State: state})
+			rows = append(rows, modelRow{Model: routeID, Provider: route.Provider, Protocol: protocol, UpstreamModel: route.UpstreamModelID(), Catalog: membership, State: state})
 		}
 	}
 	slices.SortStableFunc(rows, func(left, right modelRow) int {
-		if result := cfg.CompareProviders(left.Account, right.Account); result != 0 {
+		if result := cfg.CompareProviders(left.Provider, right.Provider); result != 0 {
 			return result
 		}
 		if result := domain.CompareProtocols(left.Protocol, right.Protocol); result != 0 {

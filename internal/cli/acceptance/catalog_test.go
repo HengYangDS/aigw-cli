@@ -106,8 +106,8 @@ type catalogJSON struct {
 }
 
 type catalogJSONObservation struct {
-	Account string `json:"account"`
-	Source  struct {
+	Provider string `json:"account"`
+	Source   struct {
 		Protocol string `json:"protocol"`
 		Endpoint string `json:"endpoint"`
 	} `json:"source"`
@@ -148,7 +148,7 @@ func assertCatalogObservations(t *testing.T, result catalogJSON) {
 	}
 	wantRoutes := map[string]string{"anthropic": "claude-configured", "openai_responses": "gpt-configured"}
 	for _, observation := range result.Observations {
-		if observation.Account != "dmx" || observation.Status != "ok" || len(observation.Models) != 2 {
+		if observation.Provider != "dmx" || observation.Status != "ok" || len(observation.Models) != 2 {
 			t.Fatalf("catalog observation = %#v", observation)
 		}
 		models := observation.Models
@@ -228,7 +228,7 @@ func TestCatalogAllHumanAndJSONOutputIncludeEveryModel(t *testing.T) {
 	}
 }
 
-func TestCatalogReportsUnavailableAccountWithoutBlockingHealthyAccount(t *testing.T) {
+func TestCatalogReportsUnavailableProviderWithoutBlockingHealthyProvider(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["healthy"] = domain.Provider{Label: "Healthy", Endpoints: domain.Endpoints{OpenAIResponses: "https://healthy.test/v1"}}
@@ -259,7 +259,7 @@ func TestCatalogReportsUnavailableAccountWithoutBlockingHealthyAccount(t *testin
 	}
 }
 
-func TestCatalogReportsMalformedAccountPayloadWithoutBlockingHealthyAccount(t *testing.T) {
+func TestCatalogReportsMalformedProviderPayloadWithoutBlockingHealthyProvider(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["broken"] = domain.Provider{Label: "Broken", Endpoints: domain.Endpoints{OpenAIResponses: "https://broken.test/v1"}}

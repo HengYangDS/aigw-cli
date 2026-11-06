@@ -17,11 +17,11 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestAccountListJSONIsStableAndSecretFree(t *testing.T) {
+func TestProviderListJSONIsStableAndSecretFree(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "zeta", "zeta", "Zeta", domain.Endpoints{Anthropic: "https://zeta.test"}, claude.ID, "claude-test")
-	addAccountModel(&cfg, "alpha", "alpha", "Alpha", domain.Endpoints{OpenAIResponses: "https://alpha.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "zeta", "zeta", "Zeta", domain.Endpoints{Anthropic: "https://zeta.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "alpha", "alpha", "Alpha", domain.Endpoints{OpenAIResponses: "https://alpha.test/v1"}, codex.ID, "gpt-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -67,14 +67,14 @@ func TestAccountListJSONIsStableAndSecretFree(t *testing.T) {
 	}
 }
 
-func TestAccountListFollowsDeclaredPresentationOrder(t *testing.T) {
+func TestProviderListFollowsDeclaredPresentationOrder(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	for _, account := range []struct {
 		id, label string
 		order     int
 	}{{"aihubmix", "AIHubMix", 30}, {"dmxapi", "DMXAPI", 10}, {"ucloud", "UCloud", 20}} {
-		addAccountModel(&cfg, account.id, account.id, account.label, domain.Endpoints{OpenAIResponses: "https://" + account.id + ".test/v1"}, codex.ID, "gpt-test")
+		addProviderModel(&cfg, account.id, account.id, account.label, domain.Endpoints{OpenAIResponses: "https://" + account.id + ".test/v1"}, codex.ID, "gpt-test")
 		declared := cfg.Providers[account.id]
 		declared.Order = account.order
 		cfg.Providers[account.id] = declared
@@ -110,7 +110,7 @@ func TestAccountListFollowsDeclaredPresentationOrder(t *testing.T) {
 	}
 }
 
-func TestAccountEditValidation(t *testing.T) {
+func TestProviderEditValidation(t *testing.T) {
 	t.Run("account edit requires change", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		if err := cli.Execute(app, []string{"account", "edit", "one"}); err == nil {
@@ -148,11 +148,11 @@ func TestAccountEditValidation(t *testing.T) {
 	})
 }
 
-func TestAccountEditUpdatesSharedEndpointWithoutModelDuplication(t *testing.T) {
+func TestProviderEditUpdatesSharedEndpointWithoutModelDuplication(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "gpt", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, codex.ID, "gpt-test")
-	addAccountModel(&cfg, "claude", "dmx", "DMXAPI", domain.Endpoints{}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "gpt", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "claude", "dmx", "DMXAPI", domain.Endpoints{}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -175,7 +175,7 @@ func TestAccountEditUpdatesSharedEndpointWithoutModelDuplication(t *testing.T) {
 	}
 }
 
-func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
+func TestProviderDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 	t.Run("non-interactive", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); err == nil || !strings.Contains(err.Error(), "interactive") {
@@ -253,14 +253,14 @@ func TestAccountDiagnosticsEnableValidationAndDependencyFailures(t *testing.T) {
 		saveProbeModel(t, app.Config)
 		want := errors.New("credential write failed")
 		app.Prompt = &scriptedPrompt{secrets: []string{"system-token"}, texts: []string{"user"}}
-		app.Accounts = &recordingCredentialStore[secret.DiagnosticCredential]{backend: app.Accounts, setErr: want}
+		app.Providers = &recordingCredentialStore[secret.DiagnosticCredential]{backend: app.Providers, setErr: want}
 		if err := cli.Execute(app, []string{"account", "diagnostics", "enable"}); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
 }
 
-func TestAccountDiagnosticsEnableAcceptsExplicitNoninteractiveInput(t *testing.T) {
+func TestProviderDiagnosticsEnableAcceptsExplicitNoninteractiveInput(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "platform-system-token\n")
 	saveProbeModel(t, app.Config)
 	if err := cli.Execute(app, []string{
@@ -269,7 +269,7 @@ func TestAccountDiagnosticsEnableAcceptsExplicitNoninteractiveInput(t *testing.T
 	}); err != nil {
 		t.Fatal(err)
 	}
-	credential, err := app.Accounts.Get("dmx")
+	credential, err := app.Providers.Get("dmx")
 	if err != nil || credential != (secret.DiagnosticCredential{SystemToken: "platform-system-token", UserID: "operator-42"}) {
 		t.Fatalf("explicit diagnostic credential was not stored: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestAccountDiagnosticsEnableAcceptsExplicitNoninteractiveInput(t *testing.T
 	}
 }
 
-func TestAccountDiagnosticsEnableRejectsIncompleteExplicitInputBeforeReading(t *testing.T) {
+func TestProviderDiagnosticsEnableRejectsIncompleteExplicitInputBeforeReading(t *testing.T) {
 	for _, test := range []struct {
 		name string
 		args []string
@@ -299,14 +299,14 @@ func TestAccountDiagnosticsEnableRejectsIncompleteExplicitInputBeforeReading(t *
 			if err != nil || string(unread) != "unread-system-token\n" {
 				t.Fatalf("invalid invocation consumed credential input: %v", err)
 			}
-			if accountCredentialExists(t, app.Accounts, "dmx") || strings.Contains(out.String(), "unread-system-token") {
+			if providerCredentialExists(t, app.Providers, "dmx") || strings.Contains(out.String(), "unread-system-token") {
 				t.Fatal("invalid diagnostic input changed or disclosed a credential")
 			}
 		})
 	}
 }
 
-func TestAccountDiagnosticsDisableBranches(t *testing.T) {
+func TestProviderDiagnosticsDisableBranches(t *testing.T) {
 	t.Run("load", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		app.Config = store.NewStore(t.TempDir(), clients.Admission())
@@ -327,7 +327,7 @@ func TestAccountDiagnosticsDisableBranches(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		saveProbeModel(t, app.Config)
 		want := errors.New("delete failed")
-		app.Accounts = &recordingCredentialStore[secret.DiagnosticCredential]{backend: app.Accounts, deleteErr: want}
+		app.Providers = &recordingCredentialStore[secret.DiagnosticCredential]{backend: app.Providers, deleteErr: want}
 		if err := cli.Execute(app, []string{"account", "diagnostics", "disable", "dmx"}); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
@@ -336,12 +336,12 @@ func TestAccountDiagnosticsDisableBranches(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
 		saveProbeModel(t, app.Config)
-		diagnosticStore := app.Accounts
+		diagnosticStore := app.Providers
 		_ = diagnosticStore.Set("dmx", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"})
 		if err := cli.Execute(app, []string{"account", "diagnostics", "disable", "dmx"}); err != nil {
 			t.Fatal(err)
 		}
-		if accountCredentialExists(t, diagnosticStore, "dmx") || !strings.Contains(out.String(), "credentials were removed") {
+		if providerCredentialExists(t, diagnosticStore, "dmx") || !strings.Contains(out.String(), "credentials were removed") {
 			t.Fatalf("output=%q", out.String())
 		}
 	})

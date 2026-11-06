@@ -82,7 +82,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			if jsonMode {
 				added := cfg.Models[routeName]
 				document := addDocument{
-					DryRun: dryRun, Model: routeName, Account: accountName, Label: label, Purpose: added.Purpose,
+					DryRun: dryRun, Model: routeName, Provider: accountName, Label: label, Purpose: added.Purpose,
 					Family: model, UpstreamModel: added.UpstreamModelID(), Protocol: protocol, Preview: preview,
 				}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)
@@ -154,7 +154,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				if len(item.SelectedClients) > 0 {
 					state, stateText = terminal.OK, "Selected for "+clientLabels(runtime.Clients.Admission(), item.SelectedClients)
 				}
-				detail := []string{choiceLabel(domain.Model{Label: item.Label, Purpose: item.Purpose}), stateText, "Account " + item.Account}
+				detail := []string{choiceLabel(domain.Model{Label: item.Label, Purpose: item.Purpose}), stateText, "Account " + item.Provider}
 				if len(item.ProtocolClients) > 0 {
 					detail = append(detail, "Clients "+clientLabels(runtime.Clients.Admission(), item.ProtocolClients))
 				}
@@ -177,7 +177,7 @@ type modelListItem struct {
 	ID              string   `json:"id"`
 	Label           string   `json:"label"`
 	Purpose         string   `json:"purpose,omitempty"`
-	Account         string   `json:"account"`
+	Provider        string   `json:"account"`
 	ProtocolClients []string `json:"protocol_clients"`
 	SelectedClients []string `json:"selected_clients"`
 	Family          string   `json:"model"`
@@ -190,7 +190,7 @@ func collectModelListItem(runtime invocation.Context, cfg domain.Config, name st
 		return modelListItem{}, err
 	}
 	return modelListItem{
-		ID: name, Label: cfg.ModelLabel(name), Purpose: route.Purpose, Account: route.Provider,
+		ID: name, Label: cfg.ModelLabel(name), Purpose: route.Purpose, Provider: route.Provider,
 		ProtocolClients: compatible, SelectedClients: cfg.SelectedClientsForModel(name), Family: route.Family,
 	}, nil
 }
@@ -361,7 +361,7 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if jsonMode {
-				document := removeDocument{DryRun: dryRun, Model: name, Account: route.Provider, Preview: preview}
+				document := removeDocument{DryRun: dryRun, Model: name, Provider: route.Provider, Preview: preview}
 				if dryRun {
 					document.Recommendations = recommendations
 					document.NextAction, document.NextDetail = terminal.NextSteps(invocation.ApplyCommand(cmd, args))

@@ -62,7 +62,7 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			if err := cli.Execute(app, []string{"add", "new", "--for", clientID, "--upstream-model", "new-model", "--anthropic-url", "https://new.test", "--openai-url", "https://new.test/v1", "--token-stdin"}); err != nil {
 				t.Fatal(err)
 			}
-			assertAccountConnectionOutput(t, out.String())
+			assertProviderConnectionOutput(t, out.String())
 			current, err := app.Config.Load()
 			if err != nil || current.SelectedModel(clientID) != "new" || current.SelectedModel(other) != other {
 				t.Fatalf("creation bindings = %v, %v", current.Clients, err)
@@ -77,7 +77,7 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 	}
 }
 
-func assertAccountConnectionOutput(t *testing.T, output string) {
+func assertProviderConnectionOutput(t *testing.T, output string) {
 	t.Helper()
 	for _, want := range []string{"Account connected", "Account ID", "Route ID", "Client", "Model", "Token"} {
 		if !strings.Contains(output, want) {
@@ -129,10 +129,10 @@ func TestAddProjectionConflictRestoresConfigurationAndToken(t *testing.T) {
 	}
 }
 
-func TestAddPreservesExistingAccountWithDifferentModelID(t *testing.T) {
+func TestAddPreservesExistingProviderWithDifferentModelID(t *testing.T) {
 	app, _, credentials, _, _ := testApp(t, "new-token\n")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "existing-route", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "old-model")
+	addProviderModel(&cfg, "existing-route", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "old-model")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

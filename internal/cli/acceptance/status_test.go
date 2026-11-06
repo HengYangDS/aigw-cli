@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-func TestStatusSuggestsAccountSpecificDiagnostics(t *testing.T) {
+func TestStatusSuggestsProviderSpecificDiagnostics(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}}
@@ -150,7 +150,7 @@ func TestStatusKeepsTheFirstRunNextActionSimple(t *testing.T) {
 func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude-real", nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -170,8 +170,8 @@ func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 func TestStatusShowsIndependentModelsAndJSONNeverContainsToken(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "codex", "dmx", "Codex", domain.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
-	addAccountModel(&cfg, "claude", "dmx", "Claude", domain.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "codex", "dmx", "Codex", domain.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "claude", "dmx", "Claude", domain.Endpoints{Anthropic: "https://example.test", OpenAIResponses: "https://example.test/v1"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	if err := app.Config.Save(cfg); err != nil {
@@ -210,7 +210,7 @@ func TestStatusReportsModelTransport(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			app.Config = store.NewStore(filepath.Join(t.TempDir(), "localhost-4567-configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountModel(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: tc.endpoint}, codex.ID, "model-test")
+			addProviderModel(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: tc.endpoint}, codex.ID, "model-test")
 			cfg.SetSelectedModel(codex.ID, "team", "")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)

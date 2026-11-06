@@ -15,24 +15,24 @@ import (
 // credential and the error says why; a missing configuration names none
 // without an error.
 func credentialCustody(deps app.Dependencies) (program.CredentialCustody, error) {
-	custody := accountCustody{store: deps.Secrets, executable: deps.Executable}
+	custody := providerCustody{store: deps.Secrets, executable: deps.Executable}
 	cfg, err := deps.Config.LoadCredentialConfig()
 	if err == nil {
-		custody.accounts = slices.Sorted(maps.Keys(cfg.Providers))
+		custody.providers = slices.Sorted(maps.Keys(cfg.Providers))
 	}
 	return custody, err
 }
 
-type accountCustody struct {
+type providerCustody struct {
 	store      secret.Store
 	executable string
-	accounts   []string
+	providers  []string
 }
 
-func (custody accountCustody) Release(version string) error {
-	return secret.RestorePredecessorCredentials(custody.store, custody.executable, custody.accounts, version)
+func (custody providerCustody) Release(version string) error {
+	return secret.RestorePredecessorCredentials(custody.store, custody.executable, custody.providers, version)
 }
 
-func (custody accountCustody) Reclaim() error {
-	return secret.ReclaimPredecessorCredentials(custody.store, custody.executable, custody.accounts)
+func (custody providerCustody) Reclaim() error {
+	return secret.ReclaimPredecessorCredentials(custody.store, custody.executable, custody.providers)
 }

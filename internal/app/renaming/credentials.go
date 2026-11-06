@@ -57,11 +57,11 @@ func planCredentialCopies(deps Renamer, plan Plan) (Plan, error) {
 		plan.tokenCopy = tokenCopy{value: sourceToken, copy: true}
 	}
 
-	sourceProbe, sourceProbePresent, err := readOptionalProbeCredential(deps.Accounts, plan.OldID)
+	sourceProbe, sourceProbePresent, err := readOptionalProbeCredential(deps.Providers, plan.OldID)
 	if err != nil {
 		return Plan{}, fmt.Errorf("Read source account probe credential slot: %w", err)
 	}
-	targetProbe, targetProbePresent, err := readOptionalProbeCredential(deps.Accounts, plan.NewID)
+	targetProbe, targetProbePresent, err := readOptionalProbeCredential(deps.Providers, plan.NewID)
 	if err != nil {
 		return Plan{}, fmt.Errorf("Read target account probe credential slot: %w", err)
 	}
@@ -70,14 +70,14 @@ func planCredentialCopies(deps Renamer, plan Plan) (Plan, error) {
 		if targetProbePresent {
 			return Plan{}, errors.New("account probe credential slot state is inconsistent: target exists while source is absent")
 		}
-		plan.Actions.AccountProbe = "absent"
+		plan.Actions.BalanceProbe = "absent"
 	case targetProbePresent:
 		if !probeCredentialsEqual(sourceProbe, targetProbe) {
 			return Plan{}, errors.New("account probe credential slots differ")
 		}
-		plan.Actions.AccountProbe = "reuse_equal_target_and_retain_source"
+		plan.Actions.BalanceProbe = "reuse_equal_target_and_retain_source"
 	default:
-		plan.Actions.AccountProbe = "copy_and_retain_source"
+		plan.Actions.BalanceProbe = "copy_and_retain_source"
 		plan.probeCopy = probeCopy{value: sourceProbe, copy: true}
 	}
 	return plan, nil
@@ -97,10 +97,10 @@ func applyCredentialCopies(deps Renamer, plan Plan) error {
 		}
 	}
 	if plan.probeCopy.copy {
-		if err := deps.Accounts.Set(plan.NewID, plan.probeCopy.value); err != nil {
+		if err := deps.Providers.Set(plan.NewID, plan.probeCopy.value); err != nil {
 			return fmt.Errorf("Copy account probe credential slot: %w", err)
 		}
-		copied, err := deps.Accounts.Get(plan.NewID)
+		copied, err := deps.Providers.Get(plan.NewID)
 		if err != nil {
 			return fmt.Errorf("verify target account probe credential slot: %w", err)
 		}

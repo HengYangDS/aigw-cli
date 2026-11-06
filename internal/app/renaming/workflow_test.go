@@ -23,7 +23,7 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestAccountFinalizationConvergesForwardingBackupBeforeRetirement(t *testing.T) {
+func TestProviderFinalizationConvergesForwardingBackupBeforeRetirement(t *testing.T) {
 	store, _ := renameFinalizationState(t)
 	cfg, err := store.Load()
 	if err != nil {
@@ -49,7 +49,7 @@ func TestAccountFinalizationConvergesForwardingBackupBeforeRetirement(t *testing
 	if err := os.Remove(component); err != nil {
 		t.Fatal(err)
 	}
-	plan, err := planFinalize(Renamer{Config: store, Secrets: secret.NewMemoryStore(), Accounts: &faultProbeStore{}}, "old", "new", FinalizeOptions{})
+	plan, err := planFinalize(Renamer{Config: store, Secrets: secret.NewMemoryStore(), Providers: &faultProbeStore{}}, "old", "new", FinalizeOptions{})
 	if err != nil || plan.Status == StatusAlreadyFinalized || plan.Actions.Backup != "converge_to_verified_current" {
 		t.Fatalf("finalization ignored missing forwarding recovery state: %#v, %v", plan, err)
 	}
@@ -97,7 +97,7 @@ func renameFinalizationState(t *testing.T) (store.Store, store.Snapshot) {
 	return configStore, state.Snapshot
 }
 
-func TestCanceledAccountOperationPreservesOwnedState(t *testing.T) {
+func TestCanceledProviderOperationPreservesOwnedState(t *testing.T) {
 	for _, operation := range []string{"rename", "finalize"} {
 		t.Run(operation, func(t *testing.T) {
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
@@ -119,13 +119,13 @@ func TestCanceledAccountOperationPreservesOwnedState(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			deps := Renamer{Config: configStore, Secrets: tokens, Accounts: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Registry: clients.Registry(), Config: configStore}}
+			deps := Renamer{Config: configStore, Secrets: tokens, Providers: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Registry: clients.Registry(), Config: configStore}}
 			ctx, cancel := context.WithCancel(t.Context())
 			cancel()
 			if operation == "rename" {
-				_, err = deps.RenameAccount(ctx, "old", "new", false)
+				_, err = deps.RenameProvider(ctx, "old", "new", false)
 			} else {
-				_, err = deps.FinalizeAccount(ctx, "old", "new", false, FinalizeOptions{})
+				_, err = deps.FinalizeProvider(ctx, "old", "new", false, FinalizeOptions{})
 			}
 			if !errors.Is(err, context.Canceled) {
 				t.Fatalf("canceled %s error = %v", operation, err)
@@ -162,9 +162,9 @@ func TestRenamerRetainsRetryStateWhenConfigurationCommitFails(t *testing.T) {
 				t.Fatal(err)
 			}
 			failure := errors.New("configuration commit failed")
-			renamer := Renamer{Config: configStore, Secrets: tokens, Accounts: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Registry: clients.Registry(), Config: failingRenameConfigStore{err: failure}}}
+			renamer := Renamer{Config: configStore, Secrets: tokens, Providers: &faultProbeStore{}, Synchronizer: synchronization.Synchronizer{Registry: clients.Registry(), Config: failingRenameConfigStore{err: failure}}}
 			if resource == "account" {
-				_, err = renamer.RenameAccount(t.Context(), "old", "new", false)
+				_, err = renamer.RenameProvider(t.Context(), "old", "new", false)
 				if value, getErr := tokens.Get("new"); getErr != nil || value != "source-token" {
 					t.Fatalf("prepared retry credential = %q, error = %v", value, getErr)
 				}
@@ -187,7 +187,7 @@ func TestRenamerRetainsRetryStateWhenConfigurationCommitFails(t *testing.T) {
 
 func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	cfg := migrationConfig()
-	if _, err := planAccount(cfg, "missing", "new"); err == nil {
+	if _, err := planProvider(cfg, "missing", "new"); err == nil {
 		t.Fatal("expected unknown account")
 	}
 	if _, err := planModel(cfg, "missing", "new"); err == nil {
@@ -196,7 +196,7 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 
 	invalid := cfg.Clone()
 	invalid.SetSelectedModel(codex.ID, "missing", "")
-	if _, err := planAccount(invalid, "old", "new"); err == nil || !strings.Contains(err.Error(), "Validate") {
+	if _, err := planProvider(invalid, "old", "new"); err == nil || !strings.Contains(err.Error(), "Validate") {
 		t.Fatalf("account error = %v", err)
 	}
 	if _, err := planModel(invalid, "codex", "new-codex"); err == nil || !strings.Contains(err.Error(), "Validate") {
@@ -226,8 +226,8 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	}
 }
 
-func TestAccountCredentialPlanningReadErrors(t *testing.T) {
-	base, err := planAccount(migrationConfig(), "old", "new")
+func TestProviderCredentialPlanningReadErrors(t *testing.T) {
+	base, err := planProvider(migrationConfig(), "old", "new")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +244,7 @@ func TestAccountCredentialPlanningReadErrors(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			deps := Renamer{Secrets: test.secrets, Accounts: test.accounts}
+			deps := Renamer{Secrets: test.secrets, Providers: test.accounts}
 			if _, err := planCredentialCopies(deps, base); !errors.Is(err, want) {
 				t.Fatalf("error = %v, want %v", err, want)
 			}
@@ -252,7 +252,7 @@ func TestAccountCredentialPlanningReadErrors(t *testing.T) {
 	}
 }
 
-func TestApplyAccountCredentialCopiesFailures(t *testing.T) {
+func TestApplyProviderCredentialCopiesFailures(t *testing.T) {
 	want := errors.New("operation failed")
 	probe := secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}
 	plan := Plan{OldID: "old", NewID: "new", tokenCopy: tokenCopy{value: "token", copy: true}}
@@ -271,7 +271,7 @@ func TestApplyAccountCredentialCopiesFailures(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := applyCredentialCopies(Renamer{Secrets: test.secrets, Accounts: test.accounts}, test.plan)
+			err := applyCredentialCopies(Renamer{Secrets: test.secrets, Providers: test.accounts}, test.plan)
 			if err == nil {
 				t.Fatal("expected copy failure")
 			}
@@ -279,7 +279,7 @@ func TestApplyAccountCredentialCopiesFailures(t *testing.T) {
 	}
 }
 
-func TestPlanAccountFinalizeCredentialReadErrors(t *testing.T) {
+func TestPlanProviderFinalizeCredentialReadErrors(t *testing.T) {
 	want := errors.New("read failed")
 	probe := secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}
 	tests := []struct {
@@ -296,7 +296,7 @@ func TestPlanAccountFinalizeCredentialReadErrors(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			store, _ := renameFinalizationState(t)
-			deps := Renamer{Config: store, Secrets: test.secrets, Accounts: test.accounts}
+			deps := Renamer{Config: store, Secrets: test.secrets, Providers: test.accounts}
 			if _, err := planFinalize(deps, "old", "new", FinalizeOptions{}); err == nil {
 				t.Fatal("expected finalization planning failure")
 			}
@@ -304,7 +304,7 @@ func TestPlanAccountFinalizeCredentialReadErrors(t *testing.T) {
 	}
 }
 
-func TestPlanAccountFinalizeRejectsIncompleteRenameState(t *testing.T) {
+func TestPlanProviderFinalizeRejectsIncompleteRenameState(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		config  domain.Config
@@ -322,7 +322,7 @@ func TestPlanAccountFinalizeRejectsIncompleteRenameState(t *testing.T) {
 			if err := configStore.SaveVerifiedCheckpoint(t.Context(), test.config, clients.Admission().IDs()); err != nil {
 				t.Fatal(err)
 			}
-			deps := Renamer{Config: configStore, Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
+			deps := Renamer{Config: configStore, Secrets: &faultTokenStore{}, Providers: &faultProbeStore{}}
 			if _, err := planFinalize(deps, "old", test.target, FinalizeOptions{}); err == nil || !strings.Contains(err.Error(), test.problem) {
 				t.Fatalf("planFinalize() error = %v", err)
 			}
@@ -330,7 +330,7 @@ func TestPlanAccountFinalizeRejectsIncompleteRenameState(t *testing.T) {
 	}
 }
 
-func TestApplyAccountFinalizeCleanupFailures(t *testing.T) {
+func TestApplyProviderFinalizeCleanupFailures(t *testing.T) {
 	want := errors.New("cleanup failed")
 	tests := []struct {
 		name     string
@@ -351,7 +351,7 @@ func TestApplyAccountFinalizeCleanupFailures(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			configStore, snapshot := renameFinalizationState(t)
 			test.plan.snapshot = snapshot
-			deps := Renamer{Config: configStore, Secrets: test.secrets, Accounts: test.accounts}
+			deps := Renamer{Config: configStore, Secrets: test.secrets, Providers: test.accounts}
 			if _, err := applyFinalize(context.Background(), deps, test.plan); err == nil {
 				t.Fatal("expected cleanup failure")
 			}
@@ -360,7 +360,7 @@ func TestApplyAccountFinalizeCleanupFailures(t *testing.T) {
 
 	t.Run("backup convergence", func(t *testing.T) {
 		_, snapshot := renameFinalizationState(t)
-		deps := Renamer{Config: store.NewStore(t.TempDir(), clients.Admission()), Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
+		deps := Renamer{Config: store.NewStore(t.TempDir(), clients.Admission()), Secrets: &faultTokenStore{}, Providers: &faultProbeStore{}}
 		if _, err := applyFinalize(context.Background(), deps, Plan{snapshot: snapshot}); err == nil || !strings.Contains(err.Error(), "Converge") {
 			t.Fatalf("error = %v", err)
 		}
@@ -373,7 +373,7 @@ func TestFinalizeVerifiesDeletedSlotsWithoutReadingCredentialValues(t *testing.T
 	tokens := &faultTokenStore{values: map[string]string{"old": "token"}, getErrors: map[string]error{"old": unavailable}}
 	probes := &faultProbeStore{values: map[string]secret.DiagnosticCredential{"old": {SystemToken: "system", UserID: "user"}}, getErrors: map[string]error{"old": unavailable}}
 	plan := Plan{OldID: "old", snapshot: snapshot, deleteToken: true, deleteProbe: true}
-	result, err := applyFinalize(t.Context(), Renamer{Config: store, Secrets: tokens, Accounts: probes}, plan)
+	result, err := applyFinalize(t.Context(), Renamer{Config: store, Secrets: tokens, Providers: probes}, plan)
 	if err != nil || result.Status != "finalized" {
 		t.Fatalf("metadata-only finalization = %#v, %v", result, err)
 	}
@@ -384,41 +384,41 @@ func TestFinalizeVerifiesDeletedSlotsWithoutReadingCredentialValues(t *testing.T
 
 func TestApplyFinalizeStopsBeforeCleanupWhenProbeVerificationFails(t *testing.T) {
 	store, snapshot := renameFinalizationState(t)
-	plan := Plan{NewID: "new", verifyProbe: true, snapshot: snapshot, Account: domain.Provider{Label: "New"}}
-	deps := Renamer{Config: store, Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
+	plan := Plan{NewID: "new", verifyProbe: true, snapshot: snapshot, Provider: domain.Provider{Label: "New"}}
+	deps := Renamer{Config: store, Secrets: &faultTokenStore{}, Providers: &faultProbeStore{}}
 	if _, err := applyFinalize(context.Background(), deps, plan); err == nil || !strings.Contains(err.Error(), "does not declare precise diagnostics") {
 		t.Fatalf("applyFinalize() error = %v", err)
 	}
 }
 
-func TestVerifyFinalizedAccountProbeFailures(t *testing.T) {
-	base := Plan{NewID: "new", Account: domain.Provider{Label: "New"}}
-	deps := Renamer{Secrets: &faultTokenStore{}, Accounts: &faultProbeStore{}}
-	if err := verifyFinalizedAccountProbe(context.Background(), deps, base); err == nil || !strings.Contains(err.Error(), "does not declare") {
+func TestVerifyFinalizedBalanceProbeFailures(t *testing.T) {
+	base := Plan{NewID: "new", Provider: domain.Provider{Label: "New"}}
+	deps := Renamer{Secrets: &faultTokenStore{}, Providers: &faultProbeStore{}}
+	if err := verifyFinalizedBalanceProbe(context.Background(), deps, base); err == nil || !strings.Contains(err.Error(), "does not declare") {
 		t.Fatalf("error = %v", err)
 	}
 
-	base.Account.BalanceProbe = &domain.BalanceProbe{Kind: "future", BaseURL: "https://new.test"}
-	if err := verifyFinalizedAccountProbe(context.Background(), deps, base); err == nil || !strings.Contains(err.Error(), "not included") {
+	base.Provider.BalanceProbe = &domain.BalanceProbe{Kind: "future", BaseURL: "https://new.test"}
+	if err := verifyFinalizedBalanceProbe(context.Background(), deps, base); err == nil || !strings.Contains(err.Error(), "not included") {
 		t.Fatalf("error = %v", err)
 	}
 
-	base.Account.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://new.test"}
+	base.Provider.BalanceProbe = &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://new.test"}
 	want := errors.New("read failed")
 	deps.Secrets = &faultTokenStore{getErrors: map[string]error{"new": want}}
-	if err := verifyFinalizedAccountProbe(context.Background(), deps, base); !errors.Is(err, want) {
+	if err := verifyFinalizedBalanceProbe(context.Background(), deps, base); !errors.Is(err, want) {
 		t.Fatalf("error = %v", err)
 	}
 
 	deps.Secrets = &faultTokenStore{values: map[string]string{"new": "token"}}
-	deps.Accounts = &faultProbeStore{getErrors: map[string]error{"new": want}}
-	if err := verifyFinalizedAccountProbe(context.Background(), deps, base); !errors.Is(err, want) {
+	deps.Providers = &faultProbeStore{getErrors: map[string]error{"new": want}}
+	if err := verifyFinalizedBalanceProbe(context.Background(), deps, base); !errors.Is(err, want) {
 		t.Fatalf("error = %v", err)
 	}
 
-	deps.Accounts = &faultProbeStore{values: map[string]secret.DiagnosticCredential{"new": {SystemToken: "s", UserID: "u"}}}
+	deps.Providers = &faultProbeStore{values: map[string]secret.DiagnosticCredential{"new": {SystemToken: "s", UserID: "u"}}}
 	deps.HTTP = probeTransport(func(*http.Request) (*http.Response, error) { return nil, want })
-	if err := verifyFinalizedAccountProbe(context.Background(), deps, base); !errors.Is(err, want) {
+	if err := verifyFinalizedBalanceProbe(context.Background(), deps, base); !errors.Is(err, want) {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -429,7 +429,7 @@ func (do probeTransport) Do(request *http.Request) (*http.Response, error) { ret
 
 // Finalization, not the Provider, chooses how the diagnostic is sent, so it must
 // pass a sender that keeps the Account's credentials at their origin.
-func TestVerifyFinalizedAccountProbeKeepsCredentialsAtTheirOrigin(t *testing.T) {
+func TestVerifyFinalizedBalanceProbeKeepsCredentialsAtTheirOrigin(t *testing.T) {
 	var followed atomic.Int32
 	target := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		followed.Add(1)
@@ -440,13 +440,13 @@ func TestVerifyFinalizedAccountProbeKeepsCredentialsAtTheirOrigin(t *testing.T) 
 		http.Redirect(writer, request, target.URL+request.URL.RequestURI(), http.StatusFound)
 	}))
 	t.Cleanup(origin.Close)
-	plan := Plan{NewID: "new", Account: domain.Provider{Label: "New", BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: origin.URL}}}
+	plan := Plan{NewID: "new", Provider: domain.Provider{Label: "New", BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: origin.URL}}}
 	deps := Renamer{
-		Secrets:  &faultTokenStore{values: map[string]string{"new": "token"}},
-		Accounts: &faultProbeStore{values: map[string]secret.DiagnosticCredential{"new": {SystemToken: "s", UserID: "u"}}},
-		HTTP:     origin.Client(),
+		Secrets:   &faultTokenStore{values: map[string]string{"new": "token"}},
+		Providers: &faultProbeStore{values: map[string]secret.DiagnosticCredential{"new": {SystemToken: "s", UserID: "u"}}},
+		HTTP:      origin.Client(),
 	}
-	err := verifyFinalizedAccountProbe(context.Background(), deps, plan)
+	err := verifyFinalizedBalanceProbe(context.Background(), deps, plan)
 	if followed.Load() != 0 || err == nil || !strings.Contains(err.Error(), "HTTP 302") {
 		t.Fatalf("finalization followed=%d, error=%v; want the origin's redirect refused", followed.Load(), err)
 	}

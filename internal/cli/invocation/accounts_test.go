@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestAccountReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
+func TestProviderReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
 	tests := []struct {
 		name     string
 		accounts map[string]domain.Provider
@@ -24,7 +24,7 @@ func TestAccountReferenceRequiresAChoiceOnlyWhenAmbiguous(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := domain.NewConfig(clients.Admission())
 			cfg.Providers = test.accounts
-			got, err := AccountReference(cfg, test.args)
+			got, err := ProviderReference(cfg, test.args)
 			if test.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), test.wantErr) {
 					t.Fatalf("AccountReference() error = %v, want %q", err, test.wantErr)

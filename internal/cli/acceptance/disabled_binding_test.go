@@ -17,15 +17,15 @@ import (
 	"aigw-cli/internal/secret"
 )
 
-// accountDenyingStore fails credential metadata reads for chosen Accounts, as
+// providerDenyingStore fails credential metadata reads for chosen Accounts, as
 // a denied operating-system credential item does, and records every read.
-type accountDenyingStore struct {
+type providerDenyingStore struct {
 	secret.Store
 	denied   map[string]error
 	observed []string
 }
 
-func (store *accountDenyingStore) Exists(account string) (bool, error) {
+func (store *providerDenyingStore) Exists(account string) (bool, error) {
 	store.observed = append(store.observed, account)
 	if err := store.denied[account]; err != nil {
 		return false, err
@@ -35,12 +35,12 @@ func (store *accountDenyingStore) Exists(account string) (bool, error) {
 
 // enabledCodexWithDisabledClaude enables Codex on Account one and keeps Claude
 // Code's selected Route on Account two with its binding disabled.
-func enabledCodexWithDisabledClaude(t *testing.T) (*cli.App, *bytes.Buffer, *accountDenyingStore) {
+func enabledCodexWithDisabledClaude(t *testing.T) (*cli.App, *bytes.Buffer, *providerDenyingStore) {
 	t.Helper()
 	app, out, memory, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "gpt", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
-	addAccountModel(&cfg, "claude", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claudeclient.ID, "claude-test")
+	addProviderModel(&cfg, "gpt", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "claude", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claudeclient.ID, "claude-test")
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetSelectedModel(claudeclient.ID, "claude", "")
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
@@ -57,12 +57,12 @@ func enabledCodexWithDisabledClaude(t *testing.T) (*cli.App, *bytes.Buffer, *acc
 	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
-	store := &accountDenyingStore{Store: memory, denied: map[string]error{}}
+	store := &providerDenyingStore{Store: memory, denied: map[string]error{}}
 	app.Secrets = store
 	return app, out, store
 }
 
-func TestDisabledBindingAccountCannotChangeReadiness(t *testing.T) {
+func TestDisabledBindingProviderCannotChangeReadiness(t *testing.T) {
 	app, out, store := enabledCodexWithDisabledClaude(t)
 	commands := [][]string{{"status", "--json"}, {"check", "--json"}, {"doctor", "--json"}}
 	observe := func() []string {

@@ -120,7 +120,7 @@ func TestCodexAdapterApplyRequiresDiscovery(t *testing.T) {
 	}
 }
 
-func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *testing.T) {
+func TestCodexAdapterProjectsCredentialHelperOnlyForProviderTokenProviders(t *testing.T) {
 	for _, test := range []struct {
 		name           string
 		provider       string

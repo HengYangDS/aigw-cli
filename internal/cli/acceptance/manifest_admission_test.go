@@ -27,7 +27,7 @@ func assertManifestSetupLeavesNoConfig(t *testing.T, app *cli.App) {
 	}
 }
 
-func TestSetupFromConfigurationManifestRejectsUnknownSelectedAccountBeforeMutation(t *testing.T) {
+func TestSetupFromConfigurationManifestRejectsUnknownSelectedProviderBeforeMutation(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 
@@ -139,7 +139,7 @@ func TestSetupFromConfigurationManifestDefersValidationWhenClientIsAbsent(t *tes
 	}
 }
 
-func TestSetupFromConfigurationManifestRejectsUnreferencedAccountBeforePrompt(t *testing.T) {
+func TestSetupFromConfigurationManifestRejectsUnreferencedProviderBeforePrompt(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	prompt := &scriptedPrompt{secrets: []string{"must-not-be-read"}}

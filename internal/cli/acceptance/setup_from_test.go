@@ -59,7 +59,7 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 	}
 }
 
-func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutAccountToken(t *testing.T) {
+func TestSetupFromConfigurationManifestProjectsClientNativeCodexWithoutProviderToken(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	credentials := &recordingCredentialStore[string]{backend: secret.NewMemoryStore()}
 	app.Secrets = credentials
@@ -258,7 +258,7 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 	}
 }
 
-func TestSetupFromConfigurationManifestAcceptsOneConnectedAccount(t *testing.T) {
+func TestSetupFromConfigurationManifestAcceptsOneConnectedProvider(t *testing.T) {
 	app, out, store, _, _ := testApp(t, "")
 	if err := store.Set("dmxapi", "aigw-test-dmxapi-token"); err != nil {
 		t.Fatal(err)
@@ -282,7 +282,7 @@ func TestSetupFromConfigurationManifestAcceptsOneConnectedAccount(t *testing.T) 
 	}
 }
 
-func TestSetupFromConfigurationManifestReportsInstalledClientWaitingForAnAccount(t *testing.T) {
+func TestSetupFromConfigurationManifestReportsInstalledClientWaitingForAProvider(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	app.Discovery = fakeDiscovery{result: discovery.Result{
 		Executables: map[string]string{claude.ID: "/opt/claude"},

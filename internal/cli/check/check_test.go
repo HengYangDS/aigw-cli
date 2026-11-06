@@ -44,21 +44,21 @@ func (presentFailingSecretStore) Delete(string) error { return nil }
 
 func (presentFailingSecretStore) Exists(string) (bool, error) { return true, nil }
 
-type failingAccountObservationStore struct {
+type failingProviderObservationStore struct {
 	err   error
 	reads int
 }
 
-func (store *failingAccountObservationStore) Get(string) (secret.DiagnosticCredential, error) {
+func (store *failingProviderObservationStore) Get(string) (secret.DiagnosticCredential, error) {
 	store.reads++
 	return secret.DiagnosticCredential{}, store.err
 }
 
-func (*failingAccountObservationStore) Set(string, secret.DiagnosticCredential) error { return nil }
+func (*failingProviderObservationStore) Set(string, secret.DiagnosticCredential) error { return nil }
 
-func (*failingAccountObservationStore) Delete(string) error { return nil }
+func (*failingProviderObservationStore) Delete(string) error { return nil }
 
-func (store *failingAccountObservationStore) Exists(string) (bool, error) {
+func (store *failingProviderObservationStore) Exists(string) (bool, error) {
 	store.reads++
 	return false, store.err
 }

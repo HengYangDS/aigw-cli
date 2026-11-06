@@ -181,7 +181,7 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-model")
+	addProviderModel(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-model")
 	cfg.SetSelectedModel(claude.ID, "team", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -236,7 +236,7 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "gpt-model")
+	addProviderModel(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "gpt-model")
 	cfg.SetSelectedModel(codex.ID, "team", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

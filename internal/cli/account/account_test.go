@@ -15,8 +15,8 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestAccountDiagnosticsRequireAnAccountBeforeProviderWork(t *testing.T) {
-	runtime := emptyAccountRuntime(t)
+func TestProviderDiagnosticsRequireAProviderBeforeProviderWork(t *testing.T) {
+	runtime := emptyProviderRuntime(t)
 	accountCommand := NewCommand(runtime)
 	accountCommand.SetArgs([]string{"diagnostics", "enable"})
 	accountCommand.SilenceErrors = true
@@ -26,8 +26,8 @@ func TestAccountDiagnosticsRequireAnAccountBeforeProviderWork(t *testing.T) {
 	}
 }
 
-// emptyAccountRuntime is an interactive invocation without configuration.
-func emptyAccountRuntime(t *testing.T) invocation.Context {
+// emptyProviderRuntime is an interactive invocation without configuration.
+func emptyProviderRuntime(t *testing.T) invocation.Context {
 	t.Helper()
 	return invocation.Context{
 		Clients:     clients.Registry(),

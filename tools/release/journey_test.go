@@ -132,7 +132,7 @@ func TestNativeProductJourney(t *testing.T) {
 	}
 }
 
-func TestNativeAccountRetirementWithoutClients(t *testing.T) {
+func TestNativeProviderRetirementWithoutClients(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)

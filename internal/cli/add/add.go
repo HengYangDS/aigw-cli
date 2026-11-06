@@ -22,7 +22,7 @@ const schemaVersion = 1
 // connect and bind, and stores no Token.
 type addDocument struct {
 	DryRun        bool   `json:"dry_run,omitempty"`
-	Account       string `json:"account"`
+	Provider      string `json:"account"`
 	Model         string `json:"route"`
 	Client        string `json:"client"`
 	Label         string `json:"label"`
@@ -85,13 +85,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				next = invocation.ApplyCommand(cmd, args)
 			} else {
 				acquireToken := func() (string, error) { return invocation.ReadToken(runtime, tokenStdin, true) }
-				if err := runtime.Synchronizer().ConnectAccount(cmd.Context(), cfg, name, client, account, route, acquireToken); err != nil {
+				if err := runtime.Synchronizer().ConnectProvider(cmd.Context(), cfg, name, client, account, route, acquireToken); err != nil {
 					return fmt.Errorf("%w; run `%s --help`", err, cmd.CommandPath())
 				}
 			}
 			if jsonMode {
 				document := addDocument{
-					DryRun: dryRun, Account: name, Model: name, Client: client, Label: label,
+					DryRun: dryRun, Provider: name, Model: name, Client: client, Label: label,
 					Family: route.Family, UpstreamModel: route.UpstreamModelID(), TokenStored: !dryRun, Preview: preview,
 				}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)

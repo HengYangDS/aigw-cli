@@ -20,7 +20,7 @@ func TestRepairPreservesConfiguredClaudeExecutable(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-model")
+	addProviderModel(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-model")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -50,7 +50,7 @@ func TestRepairCanRestoreClaudeWithoutAnyCodexModel(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "claude", "claude", "Claude", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -119,8 +119,8 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 func TestRepairRefreshesExplicitlyEnabledClients(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "dmx-claude", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, claude.ID, "claude-model")
-	addAccountModel(&cfg, "dmx-codex", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-model")
+	addProviderModel(&cfg, "dmx-claude", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, claude.ID, "claude-model")
+	addProviderModel(&cfg, "dmx-codex", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test", OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-model")
 	cfg.SetSelectedModel(claude.ID, "dmx-claude", "")
 	cfg.SetSelectedModel(codex.ID, "dmx-codex", "")
 	cfg.SetClientActivation(claude.ID, true, "", nil)
@@ -169,7 +169,7 @@ func TestRepairKeepsConfiguredCodexExecutableAcrossTargetChanges(t *testing.T) {
 	}
 
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(codex.ID, "dmx", "")
 	cfg.SetClientActivation(codex.ID, true, trustedExecutable, []string{existingTarget})
 	if err := app.Config.Save(cfg); err != nil {
@@ -230,8 +230,8 @@ func TestRepairMigratesMissingClientExecutables(t *testing.T) {
 	}
 
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "claude", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, claude.ID, "claude-model")
-	addAccountModel(&cfg, "codex", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, codex.ID, "gpt-model")
+	addProviderModel(&cfg, "claude", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, claude.ID, "claude-model")
+	addProviderModel(&cfg, "codex", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test", OpenAIResponses: "https://gateway.test/v1"}, codex.ID, "gpt-model")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetSelectedModel(codex.ID, "codex", "")
 	cfg.SetClientActivation(claude.ID, true, oldClaude, nil)
@@ -277,7 +277,7 @@ func TestRepairResyncsAnExistingTruncatedCodexProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-5.6-terra")
+	addProviderModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}, codex.ID, "gpt-5.6-terra")
 	cfg.SetSelectedModel(codex.ID, "dmx", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {

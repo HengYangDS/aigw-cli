@@ -138,7 +138,7 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 	}
 }
 
-func TestKeyringReaderCopyVerifiesEachSelectedAccountOnce(t *testing.T) {
+func TestKeyringReaderCopyVerifiesEachSelectedProviderOnce(t *testing.T) {
 	target := filepath.Join(t.TempDir(), "codex.toml")
 	syncer, reader := newKeyringReaderFixture(t, target)
 	if err := os.MkdirAll(filepath.Dir(reader), 0o700); err != nil {

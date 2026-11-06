@@ -41,7 +41,7 @@ func (deniedMetadataStore) Exists(string) (bool, error) {
 	return false, errors.New("metadata denied")
 }
 
-func TestAssessActivationChoosesOneCompatibleEnvironmentAccount(t *testing.T) {
+func TestAssessActivationChoosesOneCompatibleEnvironmentProvider(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Providers["ucloud"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://ucloud.test"}}
 	cfg.Providers["dmx"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://dmx.test"}}
@@ -124,33 +124,33 @@ func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 	}
 }
 
-func TestNextActionAfterAccountConnectionPreservesExplicitSelection(t *testing.T) {
+func TestNextActionAfterProviderConnectionPreservesExplicitSelection(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Models["claude"] = domain.Model{Provider: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.Models["hermes"] = domain.Model{Provider: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetRecommendedModel(claude.ID, "claude")
 	cfg.SetRecommendedModel(hermes.ID, "hermes")
-	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw use --for claude claude" || cfg.SelectedModel(claude.ID) != "" {
+	if got := NextActionAfterProviderConnection(cfg, "team"); got != "aigw use --for claude claude" || cfg.SelectedModel(claude.ID) != "" {
 		t.Fatalf("Account connection mutated or skipped selection: action=%q bindings=%#v", got, cfg.Clients)
 	}
 
 	cfg.SetSelectedModel(claude.ID, "claude", "")
-	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw use --for claude claude" {
+	if got := NextActionAfterProviderConnection(cfg, "team"); got != "aigw use --for claude claude" {
 		t.Fatalf("unprojected selected client action = %q", got)
 	}
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
-	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw check" {
+	if got := NextActionAfterProviderConnection(cfg, "team"); got != "aigw check" {
 		t.Fatalf("projected selected client action = %q", got)
 	}
 	cfg.SetSelectedModel(claude.ID, "", "")
 	cfg.Recommendations = map[string]domain.ClientRecommendation{}
-	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw use --help" {
+	if got := NextActionAfterProviderConnection(cfg, "team"); got != "aigw use --help" {
 		t.Fatalf("Account without a recommendation action = %q", got)
 	}
 }
 
-func TestNextActionAfterAccountConnectionKeepsRequiredProtocolExplicit(t *testing.T) {
+func TestNextActionAfterProviderConnectionKeepsRequiredProtocolExplicit(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{
 		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
@@ -162,12 +162,12 @@ func TestNextActionAfterAccountConnectionKeepsRequiredProtocolExplicit(t *testin
 		Model: "multi", Protocol: domain.ProtocolOpenAIResponses,
 	}}
 	want := "aigw use --for hermes --protocol openai_responses multi"
-	if got := NextActionAfterAccountConnection(cfg, "team"); got != want {
+	if got := NextActionAfterProviderConnection(cfg, "team"); got != want {
 		t.Fatalf("multi-protocol action = %q, want %q", got, want)
 	}
 }
 
-func TestAssessActivationListsUnselectedCompatibleEnvironmentAccounts(t *testing.T) {
+func TestAssessActivationListsUnselectedCompatibleEnvironmentProviders(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Providers["ucloud"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://ucloud.test"}}
 	cfg.Providers["dmx"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://dmx.test"}}
@@ -203,7 +203,7 @@ func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T)
 	}
 }
 
-func TestAssessActivationSelectedWritableAccountRequiresItsToken(t *testing.T) {
+func TestAssessActivationSelectedWritableProviderRequiresItsToken(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	cfg.Models["claude"] = domain.Model{Provider: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}

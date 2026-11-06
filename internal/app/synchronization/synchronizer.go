@@ -88,7 +88,7 @@ func (s Synchronizer) ReconcileClient(ctx context.Context, cfg domain.Config, cl
 }
 
 func (s Synchronizer) prepareCredentialEntrypoint(cfg domain.Config, clientIDs ...string) (*secret.Entrypoint, func() error, error) {
-	accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
+	accounts, err := s.credentialEntrypointProviders(cfg, clientIDs...)
 	if err != nil || len(accounts) == 0 {
 		return nil, nil, err
 	}
@@ -245,7 +245,7 @@ func (s Synchronizer) CredentialEntrypointPath() (string, error) {
 func (s Synchronizer) clientDependencies(clientIDs []string, configurations ...domain.Config) (adapter.Dependencies, error) {
 	executable := s.AIGWExecutable
 	for _, cfg := range configurations {
-		accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
+		accounts, err := s.credentialEntrypointProviders(cfg, clientIDs...)
 		if err != nil {
 			return adapter.Dependencies{}, err
 		}
@@ -278,7 +278,7 @@ func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...str
 	}
 	projectable := make([]string, 0, len(clientIDs))
 	for _, clientID := range clientIDs {
-		accounts, err := s.credentialEntrypointAccounts(cfg, clientID)
+		accounts, err := s.credentialEntrypointProviders(cfg, clientID)
 		if err != nil {
 			return nil, err
 		}
@@ -304,7 +304,7 @@ func (s Synchronizer) credentialReadyClients(cfg domain.Config, clientIDs ...str
 	return projectable, nil
 }
 
-func (s Synchronizer) credentialEntrypointAccounts(cfg domain.Config, clientIDs ...string) ([]string, error) {
+func (s Synchronizer) credentialEntrypointProviders(cfg domain.Config, clientIDs ...string) ([]string, error) {
 	if s.ResolveCredentialPath == nil {
 		return nil, nil
 	}
@@ -355,7 +355,7 @@ func (s Synchronizer) CredentialEntrypointPlan(cfg domain.Config, clientIDs ...s
 		}
 		clientIDs = ready
 	}
-	accounts, err := s.credentialEntrypointAccounts(cfg, clientIDs...)
+	accounts, err := s.credentialEntrypointProviders(cfg, clientIDs...)
 	if err != nil {
 		return CredentialEntrypointUnchanged, err
 	}

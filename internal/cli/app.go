@@ -68,7 +68,7 @@ type App struct {
 	Host                  discovery.Host
 	Config                store.Store
 	Secrets               secret.Store
-	Accounts              secret.DiagnosticCredentialStore
+	Providers             secret.DiagnosticCredentialStore
 	Env                   []string
 	In                    io.Reader
 	Out                   io.Writer
@@ -244,7 +244,7 @@ func NewDefault(clients adapter.Registry) (*App, error) {
 		Host:          host.Platform(),
 		Config:        store.NewStore(paths.Config, clients.Admission()),
 		Secrets:       secretStore,
-		Accounts:      diagnosticCredentialStore,
+		Providers:     diagnosticCredentialStore,
 		Env:           os.Environ(),
 		In:            os.Stdin,
 		Out:           os.Stdout,
@@ -299,7 +299,7 @@ func (a *App) invocationContext() invocation.Context {
 		Files:                 a.Files,
 		Host:                  a.Host,
 		Env:                   a.Env,
-		Config:                a.Config, Secrets: a.Secrets, Accounts: a.Accounts, Out: a.outputWriter(),
+		Config:                a.Config, Secrets: a.Secrets, Providers: a.Providers, Out: a.outputWriter(),
 		In:    a.In,
 		Color: a.Color, Width: terminal.PresentationWidth(a.Out, environmentMap(a.Env)), Interactive: a.Interactive,
 		Runner: a.Runner, HTTP: a.HTTP, Prompt: a.Prompt,

@@ -39,7 +39,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		r.ProductTitle("Authenticated model catalog")
 		r.Text("Each observation proves catalog membership only for its named protocol source.")
 		for _, observation := range result.Observations {
-			title := observation.Label + " · " + observation.Account
+			title := observation.Label + " · " + observation.Provider
 			if observation.Source.Protocol != "" {
 				title += " · " + domain.ProtocolLabel(observation.Source.Protocol)
 			}

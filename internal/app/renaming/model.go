@@ -19,7 +19,7 @@ type HTTPDoer interface {
 type Renamer struct {
 	Config       store.Store
 	Secrets      secret.Store
-	Accounts     secret.DiagnosticCredentialStore
+	Providers    secret.DiagnosticCredentialStore
 	HTTP         HTTPDoer
 	Synchronizer synchronization.Synchronizer
 }
@@ -28,8 +28,8 @@ type Renamer struct {
 type Resource string
 
 const (
-	// ResourceAccount identifies an Account rename.
-	ResourceAccount Resource = "account"
+	// ResourceProvider identifies an Account rename.
+	ResourceProvider Resource = "account"
 	// ResourceModel identifies a Route rename.
 	ResourceModel Resource = "route"
 )
@@ -54,7 +54,7 @@ const (
 type Actions struct {
 	Configuration string `json:"configuration"`
 	APIToken      string `json:"api_token"`
-	AccountProbe  string `json:"account_probe"`
+	BalanceProbe  string `json:"account_probe"`
 	Backup        string `json:"backup"`
 }
 
@@ -70,7 +70,7 @@ type Plan struct {
 
 	Config               domain.Config   `json:"-"`
 	Model                domain.Model    `json:"-"`
-	Account              domain.Provider `json:"-"`
+	Provider             domain.Provider `json:"-"`
 	tokenCopy            tokenCopy       `json:"-"`
 	probeCopy            probeCopy       `json:"-"`
 	blockedReason        string          `json:"-"`
@@ -95,5 +95,5 @@ type probeCopy struct {
 // FinalizeOptions records explicit authorization for credential rotations discovered during planning.
 type FinalizeOptions struct {
 	ConfirmAPITokenRotation     bool
-	ConfirmAccountProbeRotation bool
+	ConfirmBalanceProbeRotation bool
 }

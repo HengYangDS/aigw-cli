@@ -77,7 +77,7 @@ func TestSetupFromConfigurationManifestJSONNamesEveryEnvironmentActivationChoice
 	}
 }
 
-func TestSetupFromTeamManifestConnectsExplicitManualAccountFromEnvironment(t *testing.T) {
+func TestSetupFromTeamManifestConnectsExplicitManualProviderFromEnvironment(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	const token = "aigw-test-aihubmix-token"
 	app.Secrets = secret.NewEnvironmentStore(func(key string) string {
@@ -166,7 +166,7 @@ func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testi
 	}
 }
 
-func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(t *testing.T) {
+func TestSetupFromConfigurationManifestConnectsOneProviderAndKeepsItsTokenSecret(t *testing.T) {
 	t.Setenv("AIGW_TOKEN_UNRELATED", "aigw-test-unrelated-token")
 	app, out, secretStore, runner, httpClient := testApp(t, "")
 	prompt := &scriptedPrompt{secrets: []string{"aigw-test-dmxapi-token"}}
@@ -313,7 +313,7 @@ func TestSetupFromConfigurationManifestRejectsCredentialsBeforePromptOrWrite(t *
 	assertManifestSetupLeavesNoConfig(t, app)
 }
 
-func TestSetupFromConfigurationManifestRejectsStdinTokenWithoutAccountOwner(t *testing.T) {
+func TestSetupFromConfigurationManifestRejectsStdinTokenWithoutProviderOwner(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "aigw-test-one-token\n")
 	manifestPath := writeConfigurationManifest(t, configurationManifestFixture)
 

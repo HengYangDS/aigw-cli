@@ -50,10 +50,10 @@ const schemaVersion = 1
 // balanceDocument is `aigw balance`'s JSON document: the provider's report
 // for the Account and its Account Token.
 type balanceDocument struct {
-	Account        string       `json:"account"`
+	Provider       string       `json:"account"`
 	Label          string       `json:"label"`
 	AccountBalance float64      `json:"account_balance"`
-	AccountToken   balanceToken `json:"account_token"`
+	ProviderToken  balanceToken `json:"account_token"`
 	NextAction     string       `json:"next_action"`
 }
 
@@ -76,7 +76,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		name, err := invocation.AccountReference(cfg, args)
+		name, err := invocation.ProviderReference(cfg, args)
 		if err != nil {
 			return err
 		}
@@ -90,7 +90,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if !provider.Supports(providerAccount.BalanceProbe.Kind) {
 			return fmt.Errorf("Precise diagnostics provider %q is not included in this AIGW version; continue using `aigw check` for general diagnostics", providerAccount.BalanceProbe.Kind)
 		}
-		credential, err := runtime.Accounts.Get(accountName)
+		credential, err := runtime.Providers.Get(accountName)
 		if err != nil {
 			return diagnosticCredentialProblem(runtime.Secrets, accountName, err)
 		}
@@ -107,8 +107,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		}
 		if jsonMode {
 			return terminal.WriteDocument(runtime.Out, schemaVersion, true, balanceDocument{
-				Account: accountName, Label: providerAccount.Label, AccountBalance: report.AccountBalance,
-				AccountToken: balanceToken{
+				Provider: accountName, Label: providerAccount.Label, AccountBalance: report.AccountBalance,
+				ProviderToken: balanceToken{
 					Name: report.TokenName, State: report.TokenStatus, Used: report.TokenUsed, Remaining: report.TokenRemaining,
 					UnlimitedQuota: report.TokenUnlimitedQuota, RemainingRequests: report.TokenRemainingCount, UnlimitedRequests: report.TokenUnlimitedCount,
 				},

@@ -19,7 +19,7 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestDoctorReportsOneCredentialCheckForSharedAccount(t *testing.T) {
+func TestDoctorReportsOneCredentialCheckForSharedProvider(t *testing.T) {
 	app, runner := readyVerificationApp(t)
 	observations := 0
 	present := true
@@ -315,7 +315,7 @@ func TestDoctorHumanOutputUsesConciseCheckLabels(t *testing.T) {
 func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(claude.ID, "team", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)

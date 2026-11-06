@@ -82,7 +82,7 @@ func TestRollbackReportsUnavailableRecoveryWithoutChangingCurrentConfiguration(t
 func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	before := domain.NewConfig(clients.Admission())
-	addAccountModel(&before, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&before, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
 	before.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
@@ -105,7 +105,7 @@ func TestRollbackRestoresLastConfigurationChange(t *testing.T) {
 func TestRollbackUsesPreviousConfigurationWhenVerifiedRecoveryIsInvalid(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	previous := domain.NewConfig(clients.Admission())
-	addAccountModel(&previous, "stable", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-stable")
+	addProviderModel(&previous, "stable", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-stable")
 	previous.SetSelectedModel(claude.ID, "stable", "")
 	if err := app.Config.Save(previous); err != nil {
 		t.Fatal(err)
@@ -139,7 +139,7 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	target := t.TempDir()
 	verified := domain.NewConfig(clients.Admission())
-	addAccountModel(&verified, "stable", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-stable")
+	addProviderModel(&verified, "stable", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-stable")
 	verified.SetSelectedModel(codex.ID, "stable", "")
 	verified.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(verified); err != nil {

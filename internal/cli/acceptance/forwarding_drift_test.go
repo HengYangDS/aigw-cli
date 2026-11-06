@@ -14,7 +14,7 @@ import (
 // A forwarded client reaches the upstream it was selected with. An Account edit
 // that would move that upstream is refused before any write, and the advised
 // direct selection, which passes its own guards, lets the edit succeed.
-func TestAccountEditRefusesToMoveAForwardedUpstream(t *testing.T) {
+func TestProviderEditRefusesToMoveAForwardedUpstream(t *testing.T) {
 	for _, test := range []struct {
 		name      string
 		selection []string

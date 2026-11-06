@@ -8,12 +8,12 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-// ConnectAccount adds one Account and its first Model and Route, selects the Route for
+// ConnectProvider adds one Account and its first Model and Route, selects the Route for
 // that client, and projects only that client. Token acquisition follows identity
 // and configuration admission. Existing identities are never implicitly replaced.
 // Configuration, credential and projection failures retain their shared recovery
 // semantics; the caller owns no compensation after this operation returns.
-func (s Synchronizer) ConnectAccount(ctx context.Context, before domain.Config, name, client string, account domain.Provider, route domain.Model, acquireToken func() (string, error)) error {
+func (s Synchronizer) ConnectProvider(ctx context.Context, before domain.Config, name, client string, account domain.Provider, route domain.Model, acquireToken func() (string, error)) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func (s Synchronizer) ConnectAccount(ctx context.Context, before domain.Config, 
 	return err
 }
 
-// PlanConnection returns the configuration that ConnectAccount would write:
+// PlanConnection returns the configuration that ConnectProvider would write:
 // the Account, its first Model and Route, and the client's selection of that
 // Route. It reads no Token and writes nothing.
 func (s Synchronizer) PlanConnection(before domain.Config, name, client string, account domain.Provider, route domain.Model) (domain.Config, error) {

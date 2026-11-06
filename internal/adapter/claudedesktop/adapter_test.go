@@ -160,7 +160,7 @@ func (fixture claudeDesktopFixture) apply(t *testing.T) {
 	}
 }
 
-func TestClaudeDesktopAdapterProjectsSelectedAccountCatalog(t *testing.T) {
+func TestClaudeDesktopAdapterProjectsSelectedProviderCatalog(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
 	plans, err := fixture.clientAdapter.Plan(fixture.deps, domain.NewConfig(testAdmission()), fixture.cfg)
 	if err != nil {

@@ -124,7 +124,7 @@ func TestVerifyAllUsesEnabledClientScope(t *testing.T) {
 
 func TestVerifyAllWithoutEnabledClientsDoesNotClaimVerification(t *testing.T) {
 	app, _, _, runner, _ := testApp(t, "")
-	if err := app.Config.Save(accountRenameConfig()); err != nil {
+	if err := app.Config.Save(providerRenameConfig()); err != nil {
 		t.Fatal(err)
 	}
 	err := cli.Execute(app, []string{"verify", "--for", "all"})

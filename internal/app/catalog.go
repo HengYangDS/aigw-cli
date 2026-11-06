@@ -62,7 +62,7 @@ type CatalogSource struct {
 // CatalogObservation is one Account's catalog for one protocol.
 type CatalogObservation struct {
 	ObservationID   string         `json:"observation_id,omitempty"`
-	Account         string         `json:"account"`
+	Provider        string         `json:"account"`
 	Label           string         `json:"label"`
 	Source          CatalogSource  `json:"source"`
 	SecretAvailable bool           `json:"secret_available"`
@@ -111,7 +111,7 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 		sources := catalogSources(account)
 		if len(sources) == 0 {
 			result.Observations = append(result.Observations, CatalogObservation{
-				Account: accountName, Label: account.Label, Status: CatalogEndpointUnavailable,
+				Provider: accountName, Label: account.Label, Status: CatalogEndpointUnavailable,
 				Models: []CatalogModel{}, MissingModels: []CatalogRoute{},
 			})
 			continue
@@ -123,7 +123,7 @@ func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer,
 		}
 		for _, source := range sources {
 			entry := CatalogObservation{
-				Account: accountName, Label: account.Label, Source: source,
+				Provider: accountName, Label: account.Label, Source: source,
 				SecretAvailable: secretAvailable, Models: []CatalogModel{}, MissingModels: []CatalogRoute{},
 			}
 			switch {

@@ -85,14 +85,14 @@ func hermesDesired(deps adapter.Dependencies, cfg domain.Config, selected domain
 	connected := map[string]bool{selected.ProviderID: true}
 	desired := Desired{SelectedProvider: hermesProviderID(selected.ProviderID, selected.Protocol), SelectedModel: selected.UpstreamModel}
 	for _, item := range catalog {
-		if _, observed := connected[item.Account]; !observed {
-			available, err := adapter.SecretAvailable(deps.Secrets, item.Account)
+		if _, observed := connected[item.Provider]; !observed {
+			available, err := adapter.SecretAvailable(deps.Secrets, item.Provider)
 			if err != nil {
-				return Desired{}, fmt.Errorf("inspect Hermes Account %q credential: %w", item.Account, err)
+				return Desired{}, fmt.Errorf("inspect Hermes Account %q credential: %w", item.Provider, err)
 			}
-			connected[item.Account] = available
+			connected[item.Provider] = available
 		}
-		if !connected[item.Account] {
+		if !connected[item.Provider] {
 			continue
 		}
 		command, err := secret.Command(item.Runtime.CredentialExecutable(deps.AIGWExecutable), ID, item.Runtime.CredentialProjectionFingerprint(ID), runtime.GOOS)
@@ -112,7 +112,7 @@ func hermesDesired(deps adapter.Dependencies, cfg domain.Config, selected domain
 type hermesCatalogProvider struct {
 	ID       string
 	Name     string
-	Account  string
+	Provider string
 	Protocol domain.EndpointProtocol
 	Endpoint string
 	Runtime  domain.Runtime
@@ -135,7 +135,7 @@ func hermesCatalog(cfg domain.Config) ([]hermesCatalogProvider, error) {
 				if err != nil {
 					return nil, err
 				}
-				item = hermesCatalogProvider{ID: id, Name: account.Label + " · " + domain.ProtocolLabel(protocol), Account: route.Provider, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected}
+				item = hermesCatalogProvider{ID: id, Name: account.Label + " · " + domain.ProtocolLabel(protocol), Provider: route.Provider, Protocol: protocol, Endpoint: selected.Endpoint, Runtime: selected}
 			}
 			if !slices.Contains(item.Models, route.UpstreamModelID()) {
 				item.Models = append(item.Models, route.UpstreamModelID())
@@ -148,7 +148,7 @@ func hermesCatalog(cfg domain.Config) ([]hermesCatalogProvider, error) {
 		result = append(result, providers[id])
 	}
 	slices.SortFunc(result, func(left, right hermesCatalogProvider) int {
-		if order := cfg.CompareProviders(left.Account, right.Account); order != 0 {
+		if order := cfg.CompareProviders(left.Provider, right.Provider); order != 0 {
 			return order
 		}
 		return domain.CompareProtocols(left.Protocol, right.Protocol)
@@ -271,7 +271,7 @@ func hermesModelFor(cfg domain.Config, native Selection) (string, domain.Endpoin
 	var matches []string
 	for _, routeID := range cfg.CatalogModelIDs() {
 		route := cfg.Models[routeID]
-		if route.Provider != provider.Account || route.UpstreamModelID() != native.Model {
+		if route.Provider != provider.Provider || route.UpstreamModelID() != native.Model {
 			continue
 		}
 		if slices.Contains(spec.CompatibleModelProtocols(cfg.Providers[route.Provider], route), provider.Protocol) {
@@ -342,7 +342,7 @@ func (hermesAdapter) ProjectionChanged(before, after domain.Config) bool {
 		return true
 	}
 	return !slices.EqualFunc(oldCatalog, newCatalog, func(left, right hermesCatalogProvider) bool {
-		return left.ID == right.ID && left.Name == right.Name && left.Account == right.Account && left.Protocol == right.Protocol && left.Endpoint == right.Endpoint && slices.Equal(left.Models, right.Models)
+		return left.ID == right.ID && left.Name == right.Name && left.Provider == right.Provider && left.Protocol == right.Protocol && left.Endpoint == right.Endpoint && slices.Equal(left.Models, right.Models)
 	})
 }
 

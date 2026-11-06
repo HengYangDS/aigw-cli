@@ -52,7 +52,7 @@ type Dependencies struct {
 	Env       []string
 	Config    store.Store
 	Secrets   secret.Store
-	Accounts  secret.DiagnosticCredentialStore
+	Providers secret.DiagnosticCredentialStore
 	Runner    process.VerificationRunner
 	HTTP      HTTPDoer
 	Discovery discovery.Discoverer
@@ -94,7 +94,7 @@ func (d Dependencies) Synchronizer() synchronization.Synchronizer {
 // Renamer migrates Account and Route identities with these capabilities.
 func (d Dependencies) Renamer() renaming.Renamer {
 	return renaming.Renamer{
-		Config: d.Config, Secrets: d.Secrets, Accounts: d.Accounts,
+		Config: d.Config, Secrets: d.Secrets, Providers: d.Providers,
 		HTTP: d.HTTP, Synchronizer: d.Synchronizer(),
 	}
 }

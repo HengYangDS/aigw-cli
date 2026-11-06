@@ -13,7 +13,7 @@ import (
 	"aigw-cli/internal/secret"
 )
 
-func TestManifestSetupOffersEqualCompatibleAccountsWithoutTokens(t *testing.T) {
+func TestManifestSetupOffersEqualCompatibleProvidersWithoutTokens(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	for _, account := range []string{"ucloud", "dmx"} {
 		cfg.Providers[account] = domain.Provider{Label: account, Endpoints: domain.Endpoints{Anthropic: "https://" + account + ".test"}}

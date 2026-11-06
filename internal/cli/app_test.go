@@ -46,7 +46,7 @@ func configuredApp(t *testing.T) *App {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &App{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Accounts: diagnostics, Out: out, Err: out}
+	return &App{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Providers: diagnostics, Out: out, Err: out}
 }
 
 func TestNewDefaultBuildsAFunctioningApp(t *testing.T) {
@@ -63,7 +63,7 @@ func TestNewDefaultBuildsAFunctioningApp(t *testing.T) {
 	if filepath.Base(app.Config.Path()) != "config.toml" {
 		t.Fatalf("NewDefault(clients.Registry()) config path = %q, want the stable config.toml contract", app.Config.Path())
 	}
-	if app.Secrets == nil || app.Accounts == nil || app.Runner == nil || app.HTTP == nil || app.Prompt == nil || app.Discovery == nil || app.Updater == nil {
+	if app.Secrets == nil || app.Providers == nil || app.Runner == nil || app.HTTP == nil || app.Prompt == nil || app.Discovery == nil || app.Updater == nil {
 		t.Fatalf("NewDefault(clients.Registry()) left a required dependency nil: %#v", app)
 	}
 	if _, ok := app.Runner.(process.Runner); !ok {

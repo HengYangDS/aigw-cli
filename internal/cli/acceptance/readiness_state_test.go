@@ -130,7 +130,7 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 			app, out, secretStore, _, httpClient := testApp(t, "")
 			app.Version = "1.0.0"
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountModel(
+			addProviderModel(
 				&cfg,
 				"claude",
 				"team",
@@ -173,7 +173,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")
 			app.Version = "1.0.0"
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountModel(
+			addProviderModel(
 				&cfg,
 				"claude",
 				"team",
@@ -209,7 +209,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Version = "1.0.0"
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(
+	addProviderModel(
 		&cfg,
 		"claude",
 		"team",
@@ -247,7 +247,7 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
 			app.Version = "1.0.0"
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountModel(
+			addProviderModel(
 				&cfg,
 				"claude",
 				"team",
@@ -282,7 +282,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 		t.Run(command, func(t *testing.T) {
 			app, _, secretStore, runner, httpClient := testApp(t, "")
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountModel(
+			addProviderModel(
 				&cfg,
 				"claude",
 				"team",
@@ -305,7 +305,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 			if err := secretStore.Set("team", "never-read-this-token"); err != nil {
 				t.Fatal(err)
 			}
-			diagnosticCredentialStore := app.Accounts
+			diagnosticCredentialStore := app.Providers
 			if err := diagnosticCredentialStore.Set("team", secret.DiagnosticCredential{SystemToken: "never-read-this-system-token", UserID: "never-read-this-user"}); err != nil {
 				t.Fatal(err)
 			}
@@ -315,7 +315,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 			tokenObservation := &recordingCredentialStore[string]{backend: secretStore}
 			diagnosticObservation := &recordingCredentialStore[secret.DiagnosticCredential]{backend: diagnosticCredentialStore}
 			app.Secrets = tokenObservation
-			app.Accounts = diagnosticObservation
+			app.Providers = diagnosticObservation
 			prompt := &scriptedPrompt{}
 			app.Interactive = true
 			app.Prompt = prompt
@@ -357,7 +357,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(
+	addProviderModel(
 		&cfg,
 		"claude",
 		"team",
@@ -385,7 +385,7 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 	}
 	want := errors.New("credential metadata unavailable")
 	observed := &recordingCredentialStore[secret.DiagnosticCredential]{backend: diagnosticCredentialStore, existsErr: want}
-	app.Accounts = observed
+	app.Providers = observed
 
 	if err := cli.Execute(app, []string{"status"}); err != nil {
 		t.Fatal(err)

@@ -259,7 +259,7 @@ func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *tes
 	}
 }
 
-func TestImportDoesNotInspectUnselectedAccountCredentials(t *testing.T) {
+func TestImportDoesNotInspectUnselectedProviderCredentials(t *testing.T) {
 	runtime, _, _ := savedRuntime(t, localConfig())
 	reads := 0
 	runtime.Secrets = secret.NewEnvironmentStore(func(string) string {

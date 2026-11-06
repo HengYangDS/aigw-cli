@@ -308,7 +308,7 @@ func checkedClientStatuses(runtime invocation.Context, cfg domain.Config, activa
 	for _, client := range evaluation.clients {
 		status := clients[client.client]
 		status.Model = client.runtime.ModelID
-		status.Account = client.runtime.ProviderID
+		status.Provider = client.runtime.ProviderID
 		status.Authentication = client.runtime.Authentication
 		status.EndpointConfigured = client.endpointConfigured
 		status.ProjectionReady = client.adapter

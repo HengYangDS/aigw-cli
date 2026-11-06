@@ -125,7 +125,7 @@ func TestUseWithoutNameSelectsModelAndCollectsMissingToken(t *testing.T) {
 func TestUseWithoutModelRequiresInteractiveTerminal(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
 	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -140,8 +140,8 @@ func TestUseWithoutModelRequiresInteractiveTerminal(t *testing.T) {
 func TestUseWithoutModelPromptsInteractively(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addAccountModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
 	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -165,7 +165,7 @@ func TestUseWithoutModelPromptsInteractively(t *testing.T) {
 func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
 	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -183,8 +183,8 @@ func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
 func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addAccountModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
 	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -198,8 +198,8 @@ func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addAccountModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
 	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -215,8 +215,8 @@ func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 	app, _, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addAccountModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
 	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -237,8 +237,8 @@ func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	addAccountModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
 	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -363,7 +363,7 @@ func TestFirstRunDefersSelectedHermesProtocolUntilClientInstallation(t *testing.
 	}
 }
 
-func TestFirstRunCreatesExplicitGenericAccountWithoutBundledProviderDefault(t *testing.T) {
+func TestFirstRunCreatesExplicitGenericProviderWithoutBundledProviderDefault(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{

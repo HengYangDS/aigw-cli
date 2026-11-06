@@ -28,7 +28,7 @@ func TestUseSurfacesCredentialObservationFailure(t *testing.T) {
 	}
 }
 
-func TestUseSelectsClientNativeModelWithoutAccessingAccountTokens(t *testing.T) {
+func TestUseSelectsClientNativeModelWithoutAccessingProviderTokens(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	credentials := &recordingCredentialStore[string]{backend: secret.NewMemoryStore()}
 	app.Secrets = credentials
@@ -211,8 +211,8 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 		}},
 	}}
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "claude", "claude-gateway", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
-	addAccountModel(&cfg, "codex", "codex-gateway", "Codex", domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "claude", "claude-gateway", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "codex", "codex-gateway", "Codex", domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}, codex.ID, "gpt-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +284,7 @@ func TestRepeatedUseOfActiveModelDoesNotRewriteOwnedState(t *testing.T) {
 		claude.ID: claudeExecutable,
 	}}}
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "claude", "gateway", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "claude", "gateway", "Claude", domain.Endpoints{Anthropic: "https://claude.test"}, claude.ID, "claude-test")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -412,8 +412,8 @@ func TestUseRollsBackModelWhenAdapterSyncFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-one")
-	addAccountModel(&cfg, "two", "two", "Two", domain.Endpoints{OpenAIResponses: "https://two.test/v1"}, codex.ID, "gpt-two")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-one")
+	addProviderModel(&cfg, "two", "two", "Two", domain.Endpoints{OpenAIResponses: "https://two.test/v1"}, codex.ID, "gpt-two")
 	cfg.SetSelectedModel(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/missing/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
@@ -432,7 +432,7 @@ func TestUseRollsBackModelWhenAdapterSyncFails(t *testing.T) {
 	}
 }
 
-func TestUseCodexModelOnSameAccountDoesNotRebindCredentials(t *testing.T) {
+func TestUseCodexModelOnSameProviderDoesNotRebindCredentials(t *testing.T) {
 	app, _, secretStore, runner, _ := testApp(t, "")
 	target := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
@@ -478,7 +478,7 @@ func TestUseSurfacesConfigLoadFailure(t *testing.T) {
 func TestUseRejectsUnknownModel(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
 	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -490,7 +490,7 @@ func TestUseRejectsUnknownModel(t *testing.T) {
 	}
 }
 
-func TestUseSurfacesUnknownAccountReference(t *testing.T) {
+func TestUseSurfacesUnknownProviderReference(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}

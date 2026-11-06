@@ -205,8 +205,8 @@ type useSelection struct {
 	RetryPolicy      *domain.RetryPolicy     `json:"retry_policy,omitempty"`
 	Model            string                  `json:"route"`
 	ModelLabel       string                  `json:"route_label"`
-	Account          string                  `json:"account"`
-	AccountLabel     string                  `json:"account_label"`
+	Provider         string                  `json:"account"`
+	ProviderLabel    string                  `json:"account_label"`
 	Client           string                  `json:"client"`
 	Endpoint         string                  `json:"endpoint"`
 	UpstreamEndpoint string                  `json:"upstream_endpoint"`
@@ -220,7 +220,7 @@ type useSelection struct {
 func selectionOf(selected domain.Runtime) useSelection {
 	return useSelection{
 		RetryPolicy: selected.RetryPolicy, Model: selected.ModelID, ModelLabel: selected.ModelLabel,
-		Account: selected.ProviderID, AccountLabel: selected.ProviderLabel, Client: selected.Client,
+		Provider: selected.ProviderID, ProviderLabel: selected.ProviderLabel, Client: selected.Client,
 		Endpoint: selected.Endpoint, UpstreamEndpoint: selected.UpstreamEndpoint, Protocol: selected.Protocol,
 		Family: selected.FamilyID, UpstreamModel: selected.UpstreamModel, ModelProvider: selected.ModelProvider,
 		Authentication: selected.Authentication,

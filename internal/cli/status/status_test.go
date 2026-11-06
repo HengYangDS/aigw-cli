@@ -56,7 +56,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if got := buffer.String(); !strings.Contains(got, "aigw account diagnostics enable one") {
 		t.Fatalf("missing diagnostic credential status = %q", got)
 	}
-	if err := runtime.Accounts.Set("one", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
+	if err := runtime.Providers.Set("one", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
 		t.Fatal(err)
 	}
 	buffer.Reset()
@@ -183,10 +183,10 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 				if err != nil {
 					t.Fatal(err)
 				}
-				runtime.Secrets, runtime.Accounts = backend, accounts
+				runtime.Secrets, runtime.Providers = backend, accounts
 			}
 			if test.credential {
-				if err := runtime.Accounts.Set("one", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
+				if err := runtime.Providers.Set("one", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
 					t.Fatal(err)
 				}
 			}

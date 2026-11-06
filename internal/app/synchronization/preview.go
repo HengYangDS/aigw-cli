@@ -47,7 +47,7 @@ func (s Synchronizer) PreviewProjection(before, after domain.Config, clientIDs .
 // It reads, checks and stores no Token of those Accounts and writes nothing.
 func (s Synchronizer) PreviewSetup(before, after domain.Config, accounts []string, clients ...string) (domain.Config, Projection, error) {
 	planner := s
-	planner.Secrets = presumedTokens{accounts: accounts, store: s.Secrets}
+	planner.Secrets = presumedTokens{providers: accounts, store: s.Secrets}
 	after, err := planner.admitSetupTransition(before, after, nil, clients...)
 	if err != nil || len(clients) == 0 {
 		return after, Projection{}, err
@@ -62,7 +62,7 @@ func (s Synchronizer) PreviewSetup(before, after domain.Config, accounts []strin
 	return after, projection, err
 }
 
-// PreviewConnection reports what ConnectAccount would write, as if the new
+// PreviewConnection reports what ConnectProvider would write, as if the new
 // Account's Token were stored: the configuration, with the client's selection
 // of the new Route and its desired configuration, and its projection. It
 // reads, checks and stores no Token of that Account and writes nothing.
@@ -82,7 +82,7 @@ func (s Synchronizer) PreviewConnection(before domain.Config, name, client strin
 	binding.Enabled = true
 	after.Clients[client] = binding
 	selector := s
-	selector.Secrets = presumedTokens{accounts: []string{name}, store: s.Secrets}
+	selector.Secrets = presumedTokens{providers: []string{name}, store: s.Secrets}
 	selector.AuthorizedSelectionClient = client
 	if after, _, err = selector.DesiredClientConfiguration(after, client); err != nil {
 		return domain.Config{}, Projection{}, err
@@ -121,12 +121,12 @@ var errPresumedToken = errors.New("a preview reads and writes no Token")
 // were connected. Other Accounts' presence comes from the store; no Token is
 // read or written.
 type presumedTokens struct {
-	accounts []string
-	store    secret.Store
+	providers []string
+	store     secret.Store
 }
 
 func (presumed presumedTokens) Exists(account string) (bool, error) {
-	if slices.Contains(presumed.accounts, account) {
+	if slices.Contains(presumed.providers, account) {
 		return true, nil
 	}
 	if presumed.store == nil {

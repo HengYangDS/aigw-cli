@@ -26,7 +26,7 @@ func renameRuntime(t *testing.T) invocation.Context {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Accounts: diagnostics, Out: &bytes.Buffer{}}
+	return invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secretStore, Providers: diagnostics, Out: &bytes.Buffer{}}
 }
 
 type selectionPrompt struct {

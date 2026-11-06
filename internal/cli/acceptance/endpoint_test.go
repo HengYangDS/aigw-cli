@@ -34,7 +34,7 @@ func TestEndpointTestKeepsCredentialsAtTheirSelectedOrigin(t *testing.T) {
 			t.Cleanup(origin.Close)
 			app, _, credentials, _, _ := testApp(t, "")
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountModel(&cfg, "selected", "team", "Team", domain.Endpoints{Anthropic: origin.URL, OpenAIResponses: origin.URL}, client, "model")
+			addProviderModel(&cfg, "selected", "team", "Team", domain.Endpoints{Anthropic: origin.URL, OpenAIResponses: origin.URL}, client, "model")
 			cfg.SetSelectedModel(client, "selected", "")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -116,7 +116,7 @@ func TestTestCommandSurfacesOperationalFailures(t *testing.T) {
 func TestTestCommandAuthenticatesWithoutPrintingAuthorizationHeader(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(codex.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -139,7 +139,7 @@ func TestTestCommandAuthenticatesWithoutPrintingAuthorizationHeader(t *testing.T
 func TestTestCommandReturnsResponseReadFailure(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(codex.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -161,7 +161,7 @@ func TestTestCommandReturnsResponseReadFailure(t *testing.T) {
 func TestTestCommandKeepsRequestContextAliveUntilResponseIsDrained(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(codex.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -185,7 +185,7 @@ func TestTestCommandKeepsRequestContextAliveUntilResponseIsDrained(t *testing.T)
 func TestTestCommandDistinguishesReachabilityFromCredentialAcceptance(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(claude.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -203,7 +203,7 @@ func TestTestCommandDistinguishesReachabilityFromCredentialAcceptance(t *testing
 func TestTestCommandRejectsAuthenticationFailure(t *testing.T) {
 	app, _, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(claude.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -301,7 +301,7 @@ func TestEndpointTestAdmitsSelectorsBeforeConfigurationAndCredentials(t *testing
 func TestTestCommandUsesAnthropicAPIKeyHeader(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "claude", "anthropic", "Anthropic", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "claude", "anthropic", "Anthropic", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -324,7 +324,7 @@ func TestTestCommandUsesAnthropicAPIKeyHeader(t *testing.T) {
 	}
 }
 
-func TestTestCommandUsesAccountTokenForRuntimeModel(t *testing.T) {
+func TestTestCommandUsesProviderTokenForRuntimeModel(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
@@ -434,7 +434,7 @@ func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			app, out, secretStore, _, httpClient := testApp(t, "")
 			cfg := domain.NewConfig(clients.Admission())
-			addAccountModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
+			addProviderModel(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
 			cfg.SetSelectedModel(claude.ID, "dmx", "")
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)

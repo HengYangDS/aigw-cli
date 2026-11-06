@@ -64,7 +64,7 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 		}
 		facts := domainreadiness.ClientFacts{
 			Model:              clientRuntime.ModelID,
-			Account:            clientRuntime.ProviderID,
+			Provider:           clientRuntime.ProviderID,
 			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
 			ProjectionEnabled:  cfg.Clients[clientID].Enabled,
 			ProjectionDeferred: cfg.Clients[clientID].Enabled && projectionPrerequisite != "",

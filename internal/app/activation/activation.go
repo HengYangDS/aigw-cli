@@ -302,10 +302,10 @@ func assessInactiveClients(cfg domain.Config, store secret.Store, result Activat
 	return assessment.finish()
 }
 
-// NextActionAfterAccountConnection derives the next explicit client step after
+// NextActionAfterProviderConnection derives the next explicit client step after
 // a successful Token write. It does not inspect another Account's credential,
 // select a Route, or mutate client configuration.
-func NextActionAfterAccountConnection(cfg domain.Config, accountID string) string {
+func NextActionAfterProviderConnection(cfg domain.Config, accountID string) string {
 	for _, spec := range cfg.Admission().Specs() {
 		runtime, resolveErr := cfg.ResolveRuntime(spec.ID, "")
 		if resolveErr != nil || runtime.ProviderID != accountID {

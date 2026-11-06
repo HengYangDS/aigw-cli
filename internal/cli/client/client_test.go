@@ -244,7 +244,7 @@ func TestEnableCodexValidatesTargetsAndPersistsProjection(t *testing.T) {
 	}
 }
 
-func TestEnableCodexWithClientNativeAuthenticationDoesNotAccessAccountTokens(t *testing.T) {
+func TestEnableCodexWithClientNativeAuthenticationDoesNotAccessProviderTokens(t *testing.T) {
 	cfg := adapterConfig()
 	binding := cfg.Clients[codex.ID]
 	binding.ModelProvider = "amazon-bedrock"

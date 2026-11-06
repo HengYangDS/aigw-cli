@@ -24,7 +24,7 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 	t.Run("disabled", func(t *testing.T) {
 		app, out, _, _, _ := testApp(t, "")
 		cfg := domain.NewConfig(clients.Admission())
-		addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
+		addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		cfg.SetSelectedModel(codex.ID, "one", "")
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
@@ -44,7 +44,7 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 			t.Fatal(err)
 		}
 		cfg := domain.NewConfig(clients.Admission())
-		addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
+		addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 		cfg.SetSelectedModel(codex.ID, "one", "")
 		cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 		if err := app.Config.Save(cfg); err != nil {
@@ -80,7 +80,7 @@ func TestCodexSyncReconcilesEachConfiguredHomeWithoutLoggingIn(t *testing.T) {
 		}
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "team-model")
+	addProviderModel(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "team-model")
 	cfg.SetSelectedModel(codex.ID, "team", "")
 	cfg.SetClientActivation("codex", true, "/opt/codex-real", targets)
 	if err := app.Config.Save(cfg); err != nil {
@@ -265,7 +265,7 @@ func TestSyncRefreshesTheClaudeHelperAfterAIGWMoves(t *testing.T) {
 	}}}
 
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "claude", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-team")
+	addProviderModel(&cfg, "claude", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-team")
 	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {

@@ -7,7 +7,7 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-func planAccount(cfg domain.Config, oldID, newID string) (Plan, error) {
+func planProvider(cfg domain.Config, oldID, newID string) (Plan, error) {
 	if !domain.ValidIdentifier(newID) {
 		return Plan{}, fmt.Errorf("Invalid new account ID %q", newID)
 	}
@@ -38,7 +38,7 @@ func planAccount(cfg domain.Config, oldID, newID string) (Plan, error) {
 	}
 
 	return Plan{
-		Resource:           ResourceAccount,
+		Resource:           ResourceProvider,
 		OldID:              oldID,
 		NewID:              newID,
 		Status:             StatusPlanned,
@@ -46,12 +46,12 @@ func planAccount(cfg domain.Config, oldID, newID string) (Plan, error) {
 		Actions: Actions{
 			Configuration: "rename_and_update_route_references",
 			APIToken:      "inspect",
-			AccountProbe:  "inspect",
+			BalanceProbe:  "inspect",
 			Backup:        "refresh_on_apply",
 		},
 		ExternalTODOs: []string{},
 		Config:        next,
-		Account:       providerAccount,
+		Provider:      providerAccount,
 	}, nil
 }
 
@@ -111,7 +111,7 @@ func planModel(cfg domain.Config, oldID, newID string) (Plan, error) {
 		Actions: Actions{
 			Configuration: "rename_and_update_references",
 			APIToken:      "unchanged",
-			AccountProbe:  "unchanged",
+			BalanceProbe:  "unchanged",
 			Backup:        "refresh_on_apply",
 		},
 		ExternalTODOs: []string{},

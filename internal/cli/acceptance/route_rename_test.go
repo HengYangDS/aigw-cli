@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestModelRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
+func TestModelRenameKeepsProviderTokenSlotUnchanged(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}

@@ -81,7 +81,7 @@ func retryTransitionFixture(t *testing.T) domain.Config {
 	return cfg
 }
 
-func TestRetryConnectionTransitionGenericAccountCommit(t *testing.T) {
+func TestRetryConnectionTransitionGenericProviderCommit(t *testing.T) {
 	for _, change := range []string{"label", "endpoint"} {
 		t.Run(change, func(t *testing.T) {
 			cfg := retryTransitionFixture(t)
@@ -130,12 +130,12 @@ func TestRetryConnectionTransitionGenericAccountCommit(t *testing.T) {
 	}
 }
 
-func TestRetryConnectionTransitionAccountAddAdmission(t *testing.T) {
+func TestRetryConnectionTransitionProviderAddAdmission(t *testing.T) {
 	cfg := retryTransitionFixture(t)
 	acquired := false
 	account := domain.Provider{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
 	route := domain.Model{Label: "Other", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	err := (Synchronizer{Registry: builtinClients}).ConnectAccount(t.Context(), cfg, "other", codex.ID, account, route, func() (string, error) { acquired = true; return "", fmt.Errorf("diagnostic token source reached") })
+	err := (Synchronizer{Registry: builtinClients}).ConnectProvider(t.Context(), cfg, "other", codex.ID, account, route, func() (string, error) { acquired = true; return "", fmt.Errorf("diagnostic token source reached") })
 	if err == nil || acquired || !strings.Contains(err.Error(), "retry") {
 		t.Fatalf("new connection admission err=%v acquired=%v", err, acquired)
 	}

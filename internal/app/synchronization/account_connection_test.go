@@ -11,7 +11,7 @@ import (
 	"aigw-cli/internal/secret"
 )
 
-func TestAccountConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
+func TestProviderConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
 	for _, phase := range []string{"cancelled", "route collision", "account collision", "invalid configuration"} {
 		t.Run(phase, func(t *testing.T) {
 			before := setupConfiguration()
@@ -32,7 +32,7 @@ func TestAccountConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
 				account.Endpoints.Anthropic = "invalid-endpoint"
 			}
 			acquired := false
-			err := (Synchronizer{Registry: builtinClients}).ConnectAccount(ctx, before, name, claude.ID, account, route, func() (string, error) {
+			err := (Synchronizer{Registry: builtinClients}).ConnectProvider(ctx, before, name, claude.ID, account, route, func() (string, error) {
 				acquired = true
 				return "token", nil
 			})
@@ -43,7 +43,7 @@ func TestAccountConnectionAdmitsStateBeforeTokenAcquisition(t *testing.T) {
 	}
 }
 
-func TestAccountConnectionPreservesStateWhenTokenAcquisitionFails(t *testing.T) {
+func TestProviderConnectionPreservesStateWhenTokenAcquisitionFails(t *testing.T) {
 	for _, phase := range []string{"input failure", "cancelled during input", "empty token"} {
 		t.Run(phase, func(t *testing.T) {
 			before := setupConfiguration()
@@ -53,7 +53,7 @@ func TestAccountConnectionPreservesStateWhenTokenAcquisitionFails(t *testing.T) 
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			failure := errors.New("input unavailable")
-			err := syncer.ConnectAccount(ctx, before, "new", claude.ID, before.Providers["team"], before.Models["claude"], func() (string, error) {
+			err := syncer.ConnectProvider(ctx, before, "new", claude.ID, before.Providers["team"], before.Models["claude"], func() (string, error) {
 				switch phase {
 				case "input failure":
 					return "", failure

@@ -16,7 +16,7 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesToken(t *testing.T) {
+func TestConfigImportRefusesProviderConflictUntilExplicitReplacementAndPreservesToken(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}}

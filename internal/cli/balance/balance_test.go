@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestBalanceRequiresAnAccountBeforeProviderWork(t *testing.T) {
+func TestBalanceRequiresAProviderBeforeProviderWork(t *testing.T) {
 	runtime := emptyBalanceRuntime(t)
 	balanceCommand := NewCommand(runtime)
 	balanceCommand.SilenceErrors = true

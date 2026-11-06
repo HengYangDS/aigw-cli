@@ -61,7 +61,7 @@ func configuredCatalog() domain.Config {
 	return cfg
 }
 
-func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
+func TestCatalogCommandCoversJSONHumanAndProviderStates(t *testing.T) {
 	emptyDeps, emptyOut := catalogRuntime(t, domain.NewConfig(clients.Admission()), nil, catalogHTTPClient(nil))
 	command := NewCommand(emptyDeps)
 	if err := executeCatalogCommand(t, command, "--json"); err == nil || !strings.Contains(err.Error(), "not configured") || emptyOut.Len() != 0 {
@@ -81,7 +81,7 @@ func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
 	cfg.Models["missing"] = domain.Model{Label: "Missing", Provider: "missing", Family: "missing"}
 	cfg.Models["denied"] = domain.Model{Label: "Denied", Provider: "denied", Family: "denied"}
 	cfg.Models["broken"] = domain.Model{Label: "Broken", Provider: "broken", Family: "broken"}
-	secretStore := &faultingSecrets{values: map[string]string{"gateway": "token", "denied": "token", "broken": "token"}, failAccount: "denied", getErr: errors.New("denied")}
+	secretStore := &faultingSecrets{values: map[string]string{"gateway": "token", "denied": "token", "broken": "token"}, failProvider: "denied", getErr: errors.New("denied")}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		if request.URL.Host == "broken.test" {
 			return nil, errors.New("network unavailable")
@@ -157,13 +157,13 @@ type errorWriter struct{ err error }
 func (writer errorWriter) Write([]byte) (int, error) { return 0, writer.err }
 
 type faultingSecrets struct {
-	values      map[string]string
-	failAccount string
-	getErr      error
+	values       map[string]string
+	failProvider string
+	getErr       error
 }
 
 func (store *faultingSecrets) Get(account string) (string, error) {
-	if store.getErr != nil && (store.failAccount == "" || store.failAccount == account) {
+	if store.getErr != nil && (store.failProvider == "" || store.failProvider == account) {
 		return "", store.getErr
 	}
 	value, ok := store.values[account]
@@ -176,7 +176,7 @@ func (store *faultingSecrets) Get(account string) (string, error) {
 func (*faultingSecrets) Set(string, string) error { return nil }
 func (*faultingSecrets) Delete(string) error      { return nil }
 func (store *faultingSecrets) Exists(account string) (bool, error) {
-	if store.getErr != nil && (store.failAccount == "" || store.failAccount == account) {
+	if store.getErr != nil && (store.failProvider == "" || store.failProvider == account) {
 		return false, store.getErr
 	}
 	_, ok := store.values[account]

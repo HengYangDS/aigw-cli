@@ -251,7 +251,7 @@ func TestManifestSetupCredentialInput(t *testing.T) {
 
 func TestManifestSetupClientSelectionRequiresConnectedModelAndUsableSurface(t *testing.T) {
 	cfg := manifestSetupConfig()
-	connected := map[string]setupCredential{"team": {account: "team", token: "token"}}
+	connected := map[string]setupCredential{"team": {provider: "team", token: "token"}}
 
 	withoutCodexSurface := manifestSetupSelectedClients(cfg, connected, map[string]bool{
 		claude.ID: true,
@@ -291,7 +291,7 @@ func TestGuidedSetupReportsCredentialRollbackDriftAfterConfigurationFailure(t *t
 		In:  strings.NewReader("token\n"),
 		Out: io.Discard,
 	}
-	request := setupRequest{Account: "team", Model: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, UpstreamModel: "claude-test", TokenStdin: true}
+	request := setupRequest{Provider: "team", Model: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, UpstreamModel: "claude-test", TokenStdin: true}
 
 	err := runSetup(context.Background(), runtime, request)
 	if err == nil || !strings.Contains(err.Error(), "setup failed") || !strings.Contains(err.Error(), "credential rollback also failed") || !strings.Contains(err.Error(), "credential postimage changed") {
@@ -328,7 +328,7 @@ func TestFailedSetupPreservesBackendForUncompensatedCredential(t *testing.T) {
 		}),
 		In: strings.NewReader("token\n"), Out: io.Discard,
 	}
-	err = runSetup(t.Context(), run, setupRequest{Account: "team", Model: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, UpstreamModel: "claude-test", TokenStdin: true})
+	err = runSetup(t.Context(), run, setupRequest{Provider: "team", Model: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, UpstreamModel: "claude-test", TokenStdin: true})
 	if err == nil || !strings.Contains(err.Error(), "credential postimage changed") {
 		t.Fatalf("setup error = %v, want uncompensated credential", err)
 	}
@@ -407,7 +407,7 @@ interfaces = { openai_responses = ["text"] }
 		Out: io.Discard,
 	}
 
-	err := runManifestSetup(context.Background(), runtime, setupRequest{From: manifestPath, Account: "team", TokenStdin: true})
+	err := runManifestSetup(context.Background(), runtime, setupRequest{From: manifestPath, Provider: "team", TokenStdin: true})
 	if err == nil || !strings.Contains(err.Error(), "setup failed") || !strings.Contains(err.Error(), "credential rollback also failed") || !strings.Contains(err.Error(), "credential postimage changed") {
 		t.Fatalf("error = %v, want configuration failure with rollback drift", err)
 	}
@@ -416,7 +416,7 @@ interfaces = { openai_responses = ["text"] }
 	}
 }
 
-func TestConfiguredClientsForAccount(t *testing.T) {
+func TestConfiguredClientsForProvider(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["legacy"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://legacy.test/v1"}}
 	cfg.Providers["other"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://other.test"}}
@@ -429,7 +429,7 @@ func TestConfiguredClientsForAccount(t *testing.T) {
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 
-	clients := configuredClientsForAccount(cfg, "legacy")
+	clients := configuredClientsForProvider(cfg, "legacy")
 	if len(clients) != 2 || clients[0] != codex.ID || clients[1] != hermes.ID {
 		t.Fatalf("clients = %#v", clients)
 	}
@@ -497,14 +497,14 @@ func TestSetupTokenPromptAndBackendErrors(t *testing.T) {
 	t.Run("backend error", func(t *testing.T) {
 		want := errors.New("backend failed")
 		app := invocation.Context{Clients: clients.Registry(), Secrets: &scriptedSecretStore{getErr: want}}
-		if _, err := setupToken(app, setupRequest{Account: "one"}); !errors.Is(err, want) {
+		if _, err := setupToken(app, setupRequest{Provider: "one"}); !errors.Is(err, want) {
 			t.Fatalf("error = %v, want %v", err, want)
 		}
 	})
 
 	t.Run("prompt", func(t *testing.T) {
 		app := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), Prompt: scriptedSetupPrompt{value: "prompt-token"}}
-		credential, err := setupToken(app, setupRequest{Account: "one", PromptToken: true, Label: "One"})
+		credential, err := setupToken(app, setupRequest{Provider: "one", PromptToken: true, Label: "One"})
 		if err != nil || !credential.write || credential.token != "prompt-token" {
 			t.Fatalf("credential=%#v error=%v", credential, err)
 		}
@@ -530,7 +530,7 @@ func TestRunSetupConfiguresDiscoveredClaudeClient(t *testing.T) {
 		Out:         io.Discard,
 		Interactive: false,
 	}
-	request := setupRequest{Account: "team", Model: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, UpstreamModel: "claude-test"}
+	request := setupRequest{Provider: "team", Model: "claude", Label: "Team", AnthropicURL: "https://team.test", Client: claude.ID, UpstreamModel: "claude-test"}
 	if err := runSetup(context.Background(), runtime, request); err != nil {
 		t.Fatal(err)
 	}

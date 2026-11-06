@@ -58,7 +58,7 @@ func (state State) Label() string {
 type Client struct {
 	State      State  `json:"state"`
 	Model      string `json:"route,omitempty"`
-	Account    string `json:"account,omitempty"`
+	Provider   string `json:"account,omitempty"`
 	Detail     string `json:"detail,omitempty"`
 	NextAction string `json:"next_action,omitempty"`
 	// NextDetail is a next step that a script cannot run as it stands, which
@@ -71,7 +71,7 @@ type Client struct {
 // ClientFacts are the local observations that determine one client's state.
 type ClientFacts struct {
 	Model                      string
-	Account                    string
+	Provider                   string
 	BindingIssue               string
 	BindingAction              string
 	CredentialObservationIssue string
@@ -89,7 +89,7 @@ type ClientFacts struct {
 // ClassifyClient classifies local readiness facts without performing probes or
 // reading credential values.
 func ClassifyClient(facts ClientFacts) Client {
-	state := Client{Model: facts.Model, Account: facts.Account, ProjectionDeferred: facts.ProjectionDeferred}
+	state := Client{Model: facts.Model, Provider: facts.Provider, ProjectionDeferred: facts.ProjectionDeferred}
 	switch {
 	case facts.BindingIssue != "":
 		state.State = Invalid
@@ -119,7 +119,7 @@ func ClassifyClient(facts ClientFacts) Client {
 		state.Detail = "The selected Account has no available Token"
 		state.NextAction = facts.CredentialAction
 		if state.NextAction == "" {
-			state.NextAction = "aigw rotate " + facts.Account
+			state.NextAction = "aigw rotate " + facts.Provider
 		}
 	case facts.ProjectionDeferred:
 		state.State = Deferred

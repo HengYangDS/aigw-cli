@@ -58,13 +58,13 @@ func configuredCatalog() domain.Config {
 }
 
 type faultingSecrets struct {
-	values      map[string]string
-	failAccount string
-	getErr      error
+	values       map[string]string
+	failProvider string
+	getErr       error
 }
 
 func (store *faultingSecrets) Get(account string) (string, error) {
-	if store.getErr != nil && (store.failAccount == "" || store.failAccount == account) {
+	if store.getErr != nil && (store.failProvider == "" || store.failProvider == account) {
 		return "", store.getErr
 	}
 	value, ok := store.values[account]
@@ -79,7 +79,7 @@ func (*faultingSecrets) Set(string, string) error { return nil }
 func (*faultingSecrets) Delete(string) error { return nil }
 
 func (store *faultingSecrets) Exists(account string) (bool, error) {
-	if store.getErr != nil && (store.failAccount == "" || store.failAccount == account) {
+	if store.getErr != nil && (store.failProvider == "" || store.failProvider == account) {
 		return false, store.getErr
 	}
 	_, ok := store.values[account]

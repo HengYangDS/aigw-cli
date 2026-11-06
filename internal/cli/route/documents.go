@@ -20,7 +20,7 @@ const (
 type addDocument struct {
 	DryRun        bool                    `json:"dry_run,omitempty"`
 	Model         string                  `json:"route"`
-	Account       string                  `json:"account"`
+	Provider      string                  `json:"account"`
 	Label         string                  `json:"label"`
 	Purpose       string                  `json:"purpose,omitempty"`
 	Family        string                  `json:"model"`
@@ -48,7 +48,7 @@ type editDocument struct {
 type removeDocument struct {
 	DryRun          bool     `json:"dry_run,omitempty"`
 	Model           string   `json:"route"`
-	Account         string   `json:"account"`
+	Provider        string   `json:"account"`
 	Recommendations []string `json:"recommendations,omitempty"`
 	invocation.Preview
 	NextAction string `json:"next_action,omitempty"`

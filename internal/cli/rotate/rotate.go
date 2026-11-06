@@ -19,7 +19,7 @@ const schemaVersion = 1
 
 // rotateDocument is `aigw rotate`'s JSON document.
 type rotateDocument struct {
-	Account        string `json:"account"`
+	Provider       string `json:"account"`
 	Label          string `json:"label"`
 	TokenValidated bool   `json:"token_validated"`
 	TokenStored    bool   `json:"token_stored"`
@@ -44,7 +44,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			name, err := invocation.AccountReference(cfg, args)
+			name, err := invocation.ProviderReference(cfg, args)
 			if err != nil {
 				return err
 			}
@@ -84,9 +84,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			next := clientactivation.NextActionAfterAccountConnection(cfg, accountName)
+			next := clientactivation.NextActionAfterProviderConnection(cfg, accountName)
 			if jsonMode {
-				document := rotateDocument{Account: accountName, Label: account.Label, TokenValidated: true, TokenStored: true}
+				document := rotateDocument{Provider: accountName, Label: account.Label, TokenValidated: true, TokenStored: true}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)
 				return terminal.WriteDocument(runtime.Out, schemaVersion, true, document)
 			}

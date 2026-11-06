@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestAccountRenamePreservesInvocationAndDomainErrors(t *testing.T) {
+func TestProviderRenamePreservesInvocationAndDomainErrors(t *testing.T) {
 	for _, constructor := range []struct {
 		name string
 		new  func(invocation.Context) *cobra.Command
@@ -90,7 +90,7 @@ func TestAccountRenamePreservesInvocationAndDomainErrors(t *testing.T) {
 	}
 }
 
-func TestAccountFinalizationRequiresExplicitIntent(t *testing.T) {
+func TestProviderFinalizationRequiresExplicitIntent(t *testing.T) {
 	for _, args := range [][]string{
 		{"old", "--finalize"},
 		{"old", "--finalize=true"},

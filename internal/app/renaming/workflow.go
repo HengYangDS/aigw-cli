@@ -25,9 +25,9 @@ func (s Renamer) RenameModel(ctx context.Context, oldID, newID string, dryRun bo
 	return plan, nil
 }
 
-// RenameAccount prepares target credentials and commits the new Account identity.
+// RenameProvider prepares target credentials and commits the new Account identity.
 // Source and prepared target slots remain available after a failed commit for retry or rollback.
-func (s Renamer) RenameAccount(ctx context.Context, oldID, newID string, dryRun bool) (Plan, error) {
+func (s Renamer) RenameProvider(ctx context.Context, oldID, newID string, dryRun bool) (Plan, error) {
 	if err := ctx.Err(); err != nil {
 		return Plan{}, err
 	}
@@ -35,7 +35,7 @@ func (s Renamer) RenameAccount(ctx context.Context, oldID, newID string, dryRun 
 	if err != nil {
 		return Plan{}, err
 	}
-	plan, err := planAccount(cfg, oldID, newID)
+	plan, err := planProvider(cfg, oldID, newID)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -59,8 +59,8 @@ func (s Renamer) RenameAccount(ctx context.Context, oldID, newID string, dryRun 
 	return plan, nil
 }
 
-// FinalizeAccount converges a verified rollback baseline before retiring old credential slots.
-func (s Renamer) FinalizeAccount(ctx context.Context, oldID, newID string, dryRun bool, options FinalizeOptions) (Plan, error) {
+// FinalizeProvider converges a verified rollback baseline before retiring old credential slots.
+func (s Renamer) FinalizeProvider(ctx context.Context, oldID, newID string, dryRun bool, options FinalizeOptions) (Plan, error) {
 	if err := ctx.Err(); err != nil {
 		return Plan{}, err
 	}

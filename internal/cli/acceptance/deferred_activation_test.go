@@ -103,7 +103,7 @@ func assertDeferredHumanCommand(t *testing.T, app *cli.App, out *bytes.Buffer, c
 	}
 }
 
-func TestShippedTeamManifestWithoutAccountOrClientIsDeferred(t *testing.T) {
+func TestShippedTeamManifestWithoutProviderOrClientIsDeferred(t *testing.T) {
 	app, out, _, runner, httpClient := testApp(t, "")
 	app.Secrets = secret.NewEnvironmentStore(func(string) string { return "" })
 	app.Discovery = fakeDiscovery{}
@@ -208,7 +208,7 @@ func TestShippedTeamManifestImportsWithAnOfflineProvider(t *testing.T) {
 	}
 }
 
-func TestShippedTeamManifestWithWritableStoreRequiresOneAccountChoice(t *testing.T) {
+func TestShippedTeamManifestWithWritableStoreRequiresOneProviderChoice(t *testing.T) {
 	app, out, _, runner, httpClient := testApp(t, "")
 	app.Discovery = fakeDiscovery{}
 

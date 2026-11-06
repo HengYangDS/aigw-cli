@@ -65,7 +65,7 @@ func TestModelAddValidation(t *testing.T) {
 	})
 }
 
-func TestModelRemoveLeavesAccountAndTokenIntact(t *testing.T) {
+func TestModelRemoveLeavesProviderAndTokenIntact(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["dmx"] = domain.Provider{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
@@ -88,10 +88,10 @@ func TestModelRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 	}
 }
 
-func TestModelAddReusesAccountTokenAndLeavesModelUntouched(t *testing.T) {
+func TestModelAddReusesProviderTokenAndLeavesModelUntouched(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "gpt", "dmx", "GPT", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "gpt", "dmx", "GPT", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -119,7 +119,7 @@ func TestModelAddReusesAccountTokenAndLeavesModelUntouched(t *testing.T) {
 func TestModelAddDoesNotConflateModelCreationWithClientCompatibility(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "gpt", "openai-only", "OpenAI Only", domain.Endpoints{OpenAIResponses: "https://openai.test/v1"}, codex.ID, "gpt-test")
+	addProviderModel(&cfg, "gpt", "openai-only", "OpenAI Only", domain.Endpoints{OpenAIResponses: "https://openai.test/v1"}, codex.ID, "gpt-test")
 	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -379,8 +379,8 @@ func TestAdvancedModelReadEditAndRemoveErrors(t *testing.T) {
 	t.Run("remove override", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		cfg := domain.NewConfig(clients.Admission())
-		addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}, claude.ID, "m1")
-		addAccountModel(&cfg, "two", "one", "Two", domain.Endpoints{}, codex.ID, "m2")
+		addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}, claude.ID, "m1")
+		addProviderModel(&cfg, "two", "one", "Two", domain.Endpoints{}, codex.ID, "m2")
 		cfg.SetSelectedModel(claude.ID, "one", "")
 		cfg.SetSelectedModel(codex.ID, "two", "")
 		if err := app.Config.Save(cfg); err != nil {
@@ -400,7 +400,7 @@ func TestModelEditSynchronizesActiveCodexProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
+	addProviderModel(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
 	cfg.SetSelectedModel(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
@@ -422,7 +422,7 @@ func TestModelEditSynchronizesActiveCodexProjection(t *testing.T) {
 func TestModelRemoveRefusesActiveModel(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
+	addProviderModel(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
 	cfg.SetSelectedModel(claude.ID, "team", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

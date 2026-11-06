@@ -20,14 +20,14 @@ import (
 const schemaVersion = 2
 
 type manifestSetupImported struct {
-	Accounts []string `json:"accounts"`
-	Models   []string `json:"routes"`
+	Providers []string `json:"accounts"`
+	Models    []string `json:"routes"`
 }
 
 type manifestSetupResult struct {
 	DryRun             bool                  `json:"dry_run,omitempty"`
 	Imported           manifestSetupImported `json:"imported"`
-	ConnectedAccounts  []string              `json:"connected_accounts"`
+	ConnectedProviders []string              `json:"connected_accounts"`
 	Selections         map[string]string     `json:"selections"`
 	ProjectedClients   []string              `json:"projected_clients"`
 	OnlineVerification string                `json:"online_verification"`
@@ -73,7 +73,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request s
 		return err
 	}
 	for _, accountName := range accountNames {
-		if len(configuredClientsForAccount(cfg, accountName)) == 0 {
+		if len(configuredClientsForProvider(cfg, accountName)) == 0 {
 			return fmt.Errorf("Account %q is not referenced by any configuration route; remove it or add an explicit client route before setup", accountName)
 		}
 	}
@@ -81,7 +81,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request s
 		return writeManifestPreview(runtime, request, before, cfg, accountNames, discovered)
 	}
 
-	credentials, err := collectManifestSetupCredentials(runtime, cfg, accountNames, request.Account, request.TokenStdin)
+	credentials, err := collectManifestSetupCredentials(runtime, cfg, accountNames, request.Provider, request.TokenStdin)
 	if err != nil {
 		return err
 	}
@@ -89,10 +89,10 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request s
 	connected := make(map[string]setupCredential, len(credentials))
 	tokens := make(map[string]string)
 	for _, item := range credentials {
-		connectedAccounts = append(connectedAccounts, item.account)
-		connected[item.account] = item
+		connectedAccounts = append(connectedAccounts, item.provider)
+		connected[item.provider] = item
 		if item.write {
-			tokens[item.account] = item.token
+			tokens[item.provider] = item.token
 		}
 	}
 	cfg, err = cfg.SelectModelsForConnectedProviders(connectedAccounts)
@@ -107,7 +107,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request s
 		return err
 	}
 
-	result := buildManifestSetupResult(runtime, cfg, accountNames, request.Account, connected, selectedClients)
+	result := buildManifestSetupResult(runtime, cfg, accountNames, request.Provider, connected, selectedClients)
 	if request.JSON {
 		return writeSetupDocument(runtime, result)
 	}
@@ -124,14 +124,14 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 		return fmt.Errorf("--token-stdin cannot replace a Token in the read-only environment secret backend")
 	}
 	connecting := make([]string, 0, len(accountNames))
-	if request.Account != "" {
-		if _, ok := cfg.Providers[request.Account]; !ok {
-			return fmt.Errorf("unknown Account %q; choose one of %s", request.Account, strings.Join(accountNames, ", "))
+	if request.Provider != "" {
+		if _, ok := cfg.Providers[request.Provider]; !ok {
+			return fmt.Errorf("unknown Account %q; choose one of %s", request.Provider, strings.Join(accountNames, ", "))
 		}
-		connecting = append(connecting, request.Account)
+		connecting = append(connecting, request.Provider)
 	} else {
 		for _, name := range accountNames {
-			if accountHasRecommendedTokenSelection(cfg, name) {
+			if providerHasRecommendedTokenSelection(cfg, name) {
 				connecting = append(connecting, name)
 			}
 		}
@@ -142,7 +142,7 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 	}
 	connected := make(map[string]setupCredential, len(connecting))
 	for _, account := range connecting {
-		connected[account] = setupCredential{account: account}
+		connected[account] = setupCredential{provider: account}
 	}
 	clients := manifestSetupSelectedClients(planned, connected, manifestSetupAvailableClients(planned.Admission(), discovered.Executables))
 	planned, projection, err := runtime.Synchronizer().PreviewSetup(before, planned, connecting, clients...)
@@ -155,8 +155,8 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 	}
 	result := manifestSetupResult{
 		DryRun:             true,
-		Imported:           manifestSetupImported{Accounts: append([]string(nil), accountNames...), Models: planned.ModelIDs()},
-		ConnectedAccounts:  []string{},
+		Imported:           manifestSetupImported{Providers: append([]string(nil), accountNames...), Models: planned.ModelIDs()},
+		ConnectedProviders: []string{},
 		Selections:         map[string]string{},
 		ProjectedClients:   []string{},
 		OnlineVerification: "not_checked",
@@ -175,7 +175,7 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 	r.ProductTitle("Configuration catalog preview")
 	r.Section("Imported capability")
 	r.Rows(
-		terminal.Field{Label: "Accounts", Value: strings.Join(result.Imported.Accounts, ", ")},
+		terminal.Field{Label: "Accounts", Value: strings.Join(result.Imported.Providers, ", ")},
 		terminal.Field{Label: "Routes", Value: strings.Join(result.Imported.Models, ", ")},
 	)
 	r.Section("Account connections")
@@ -220,10 +220,10 @@ func buildManifestSetupResult(
 ) manifestSetupResult {
 	result := manifestSetupResult{
 		Imported: manifestSetupImported{
-			Accounts: append([]string(nil), accountNames...),
-			Models:   cfg.ModelIDs(),
+			Providers: append([]string(nil), accountNames...),
+			Models:    cfg.ModelIDs(),
 		},
-		ConnectedAccounts:  make([]string, 0, len(connected)),
+		ConnectedProviders: make([]string, 0, len(connected)),
 		Selections:         make(map[string]string, len(cfg.Clients)),
 		ProjectedClients:   []string{},
 		OnlineVerification: "not_checked",
@@ -235,7 +235,7 @@ func buildManifestSetupResult(
 	}
 	for _, name := range accountNames {
 		if _, isConnected := connected[name]; isConnected {
-			result.ConnectedAccounts = append(result.ConnectedAccounts, name)
+			result.ConnectedProviders = append(result.ConnectedProviders, name)
 		}
 	}
 	for client, binding := range cfg.Clients {
@@ -244,7 +244,7 @@ func buildManifestSetupResult(
 		}
 	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
-	explicitlyConnected := selectedAccount != "" && connected[selectedAccount].account != ""
+	explicitlyConnected := selectedAccount != "" && connected[selectedAccount].provider != ""
 	if activation.CredentialPrerequisite != "" && !explicitlyConnected {
 		result.DeferredActions = append(result.DeferredActions, activation.CredentialPrerequisite)
 	}
@@ -261,7 +261,7 @@ func buildManifestSetupResult(
 		}
 	}
 	if explicitlyConnected {
-		result.NextAction = clientactivation.NextActionAfterAccountConnection(cfg, selectedAccount)
+		result.NextAction = clientactivation.NextActionAfterProviderConnection(cfg, selectedAccount)
 		if result.NextAction != "aigw check" && !slices.Contains(result.DeferredActions, result.NextAction) {
 			result.DeferredActions = append(result.DeferredActions, result.NextAction)
 		}
@@ -276,15 +276,15 @@ func renderManifestSetupResult(runtime invocation.Context, result manifestSetupR
 	r.ProductTitle("Configuration catalog imported")
 	r.Section("Imported capability")
 	r.Rows(
-		terminal.Field{Label: "Accounts", Value: strings.Join(result.Imported.Accounts, ", ")},
+		terminal.Field{Label: "Accounts", Value: strings.Join(result.Imported.Providers, ", ")},
 		terminal.Field{Label: "Routes", Value: strings.Join(result.Imported.Models, ", ")},
-		terminal.Field{Label: "Connected accounts", Value: fmt.Sprintf("%d of %d", len(result.ConnectedAccounts), len(result.Imported.Accounts))},
+		terminal.Field{Label: "Connected accounts", Value: fmt.Sprintf("%d of %d", len(result.ConnectedProviders), len(result.Imported.Providers))},
 	)
 	r.Section("Account connections")
-	connections := make([]terminal.Field, 0, len(result.Imported.Accounts))
-	for _, account := range result.Imported.Accounts {
+	connections := make([]terminal.Field, 0, len(result.Imported.Providers))
+	for _, account := range result.Imported.Providers {
 		connection := terminal.Field{State: terminal.Info, Label: account, Value: "Deferred"}
-		if slices.Contains(result.ConnectedAccounts, account) {
+		if slices.Contains(result.ConnectedProviders, account) {
 			connection.State, connection.Value = terminal.OK, "Connected"
 		}
 		connections = append(connections, connection)
@@ -328,10 +328,10 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg domain.Conf
 	}
 	credentials := make([]setupCredential, 0, len(accountNames))
 	for _, name := range accountNames {
-		if selectedAccount == "" && !accountHasRecommendedTokenSelection(cfg, name) {
+		if selectedAccount == "" && !providerHasRecommendedTokenSelection(cfg, name) {
 			continue
 		}
-		credential := setupCredential{account: name}
+		credential := setupCredential{provider: name}
 		available, err := runtime.Secrets.Exists(name)
 		if err != nil {
 			return nil, fmt.Errorf("observe Token for Account %q: %w", name, err)
@@ -356,7 +356,7 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg domain.Conf
 			return nil, err
 		}
 		if len(credentials) == 0 {
-			credentials = append(credentials, setupCredential{account: selectedAccount})
+			credentials = append(credentials, setupCredential{provider: selectedAccount})
 		}
 		credentials[0].token = token
 		credentials[0].write = true
@@ -379,10 +379,10 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg domain.Conf
 	if token == "" {
 		return nil, fmt.Errorf("empty Token refused for Account %q", selectedAccount)
 	}
-	return []setupCredential{{account: selectedAccount, token: token, write: true}}, nil
+	return []setupCredential{{provider: selectedAccount, token: token, write: true}}, nil
 }
 
-func configuredClientsForAccount(cfg domain.Config, accountName string) []string {
+func configuredClientsForProvider(cfg domain.Config, accountName string) []string {
 	seen := map[string]bool{}
 	for routeID, route := range cfg.Models {
 		if route.Provider != accountName {
@@ -405,7 +405,7 @@ func configuredClientsForAccount(cfg domain.Config, accountName string) []string
 	return clients
 }
 
-func accountHasRecommendedTokenSelection(cfg domain.Config, accountName string) bool {
+func providerHasRecommendedTokenSelection(cfg domain.Config, accountName string) bool {
 	for _, recommendation := range cfg.Recommendations {
 		for _, selection := range recommendation.Selections() {
 			route := cfg.Models[selection.Model]

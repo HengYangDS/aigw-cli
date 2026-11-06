@@ -156,7 +156,7 @@ func secretExists(t testing.TB, store secret.Store, account string) bool {
 	return present
 }
 
-func accountCredentialExists(t testing.TB, store secret.DiagnosticCredentialStore, accountID string) bool {
+func providerCredentialExists(t testing.TB, store secret.DiagnosticCredentialStore, accountID string) bool {
 	t.Helper()
 	present, err := store.Exists(accountID)
 	if err != nil {
@@ -241,7 +241,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secret.Store,
 		Host:          hostAt(t.TempDir()),
 		Config:        store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission()),
 		Secrets:       secretStore,
-		Accounts:      diagnostics,
+		Providers:     diagnostics,
 		Env:           []string{},
 		In:            strings.NewReader(stdin),
 		Out:           out,
@@ -254,7 +254,7 @@ func testApp(t *testing.T, stdin string) (*cli.App, *bytes.Buffer, secret.Store,
 	return app, out, secretStore, runner, httpClient
 }
 
-func addAccountModel(cfg *domain.Config, routeName, accountName, label string, endpoints domain.Endpoints, client, model string) {
+func addProviderModel(cfg *domain.Config, routeName, accountName, label string, endpoints domain.Endpoints, client, model string) {
 	if _, exists := cfg.Providers[accountName]; !exists {
 		cfg.Providers[accountName] = domain.Provider{Label: label, Endpoints: endpoints}
 	}
@@ -338,7 +338,7 @@ func blockRemoval(t *testing.T, path string) {
 func saveCommandModel(t *testing.T, app *cli.App, endpoints domain.Endpoints, client, model string) {
 	t.Helper()
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One", endpoints, client, model)
+	addProviderModel(&cfg, "one", "one", "One", endpoints, client, model)
 	cfg.SetSelectedModel(client, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -362,8 +362,8 @@ func saveProbeModel(t *testing.T, appConfig store.Store) {
 
 func twoModelConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
-	addAccountModel(&cfg, "one", "one", "One Gateway", domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, codex.ID, "model-one")
-	addAccountModel(&cfg, "two", "two", "Two Gateway", domain.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, codex.ID, "model-two")
+	addProviderModel(&cfg, "one", "one", "One Gateway", domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, codex.ID, "model-one")
+	addProviderModel(&cfg, "two", "two", "Two Gateway", domain.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, codex.ID, "model-two")
 	for _, routeID := range []string{"one", "two"} {
 		route := cfg.Models[routeID]
 		route.Protocols[domain.ProtocolAnthropic] = []domain.Capability{}

@@ -35,13 +35,13 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 		title string
 		plan  renaming.Plan
 	}{
-		{"Account finalization plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "blocked", Finalize: true, Account: domain.Provider{Label: "New"}, ExternalTODOs: []string{"external action"}}},
-		{"Account finalization plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "planned", Finalize: true, Account: domain.Provider{Label: "New"}}},
-		{"Account already finalized", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "already_finalized", Finalize: true, Account: domain.Provider{Label: "New"}}},
-		{"Account finalization complete", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "finalized", Finalize: true, Account: domain.Provider{Label: "New"}}},
-		{"Account rename plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "planned", Account: domain.Provider{Label: "New"}}},
+		{"Account finalization plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "blocked", Finalize: true, Provider: domain.Provider{Label: "New"}, ExternalTODOs: []string{"external action"}}},
+		{"Account finalization plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "planned", Finalize: true, Provider: domain.Provider{Label: "New"}}},
+		{"Account already finalized", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "already_finalized", Finalize: true, Provider: domain.Provider{Label: "New"}}},
+		{"Account finalization complete", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "finalized", Finalize: true, Provider: domain.Provider{Label: "New"}}},
+		{"Account rename plan", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "planned", Provider: domain.Provider{Label: "New"}}},
 		{"Route rename plan", renaming.Plan{Resource: "route", OldID: "old", NewID: "new", Status: "planned", Model: domain.Model{Provider: "account"}, AffectedReferences: []string{"routes.codex"}}},
-		{"Account renamed", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Account: domain.Provider{Label: "New"}, AffectedReferences: []string{"routes.codex.account"}}},
+		{"Account renamed", renaming.Plan{Resource: "account", OldID: "old", NewID: "new", Status: "applied", Provider: domain.Provider{Label: "New"}, AffectedReferences: []string{"routes.codex.account"}}},
 		{"Route renamed", renaming.Plan{Resource: "route", OldID: "old", NewID: "new", Status: "applied", Model: domain.Model{Provider: "account"}}},
 	}
 	for _, test := range statuses {
@@ -58,7 +58,7 @@ func TestWriteRenameResultHumanStatuses(t *testing.T) {
 	}
 }
 
-func TestAccountRenameContinuationFollowsEnabledClients(t *testing.T) {
+func TestProviderRenameContinuationFollowsEnabledClients(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		cfg := domain.NewConfig(clients.Admission())
 		cfg.SetClientActivation(claude.ID, enabled, "", nil)

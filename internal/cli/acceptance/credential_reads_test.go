@@ -89,7 +89,7 @@ func addNextClaudeModel(t *testing.T, app *cli.App) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	addAccountModel(&cfg, "claude-next", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-next")
+	addProviderModel(&cfg, "claude-next", "gateway", "Gateway", domain.Endpoints{Anthropic: "https://gateway.test"}, claude.ID, "claude-next")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

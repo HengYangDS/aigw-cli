@@ -5,9 +5,9 @@ import (
 	"fmt"
 )
 
-// AccountReference returns the Account that an optional argument names: the
+// ProviderReference returns the Account that an optional argument names: the
 // argument itself, or the only configured Account when it is omitted.
-func AccountReference(cfg domain.Config, args []string) (string, error) {
+func ProviderReference(cfg domain.Config, args []string) (string, error) {
 	if len(args) == 1 {
 		return args[0], nil
 	}

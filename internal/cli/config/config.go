@@ -69,9 +69,9 @@ func newExportCommand(runtime invocation.Context) *cobra.Command {
 // it may change. A preview continues with the command that applies it.
 type importResult struct {
 	DryRun               bool     `json:"dry_run,omitempty"`
-	ImportedAccounts     int      `json:"imported_accounts"`
+	ImportedProviders    int      `json:"imported_accounts"`
 	ImportedModels       int      `json:"imported_routes"`
-	KeptAccounts         []string `json:"kept_accounts,omitempty"`
+	KeptProviders        []string `json:"kept_accounts,omitempty"`
 	RetiredModels        []string `json:"retired_routes,omitempty"`
 	ProjectionCandidates []string `json:"projection_candidates,omitempty"`
 	NextAction           string   `json:"next_action,omitempty"`
@@ -114,9 +114,9 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		}
 		result := importResult{
 			DryRun:               dryRun,
-			ImportedAccounts:     len(domain.ManifestProviderIDs(incoming)),
+			ImportedProviders:    len(domain.ManifestProviderIDs(incoming)),
 			ImportedModels:       len(incoming.Models),
-			KeptAccounts:         slices.Sorted(maps.Keys(keeping)),
+			KeptProviders:        slices.Sorted(maps.Keys(keeping)),
 			RetiredModels:        slices.Sorted(maps.Keys(retiring)),
 			ProjectionCandidates: runtime.Clients.ChangedClients(before, cfg),
 		}
@@ -138,10 +138,10 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		}
 		rows := []terminal.Field{
 			{Label: "Routes", Value: fmt.Sprintf("%d", result.ImportedModels)},
-			{Label: "Accounts", Value: fmt.Sprintf("%d", result.ImportedAccounts)},
+			{Label: "Accounts", Value: fmt.Sprintf("%d", result.ImportedProviders)},
 		}
 		if len(keeping) > 0 {
-			rows = append(rows, terminal.Field{Label: "Kept Accounts", Value: strings.Join(result.KeptAccounts, ", ")})
+			rows = append(rows, terminal.Field{Label: "Kept Accounts", Value: strings.Join(result.KeptProviders, ", ")})
 		}
 		if len(retiring) > 0 {
 			rows = append(rows, terminal.Field{Label: "Retired Routes", Value: strings.Join(result.RetiredModels, ", ")})

@@ -66,7 +66,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			}
 			if jsonMode {
 				document := editDocument{
-					DryRun: dryRun, Account: args[0], Label: providerAccount.Label, Endpoints: providerAccount.Endpoints, Preview: preview,
+					DryRun: dryRun, Provider: args[0], Label: providerAccount.Label, Endpoints: providerAccount.Endpoints, Preview: preview,
 				}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)
 				return terminal.WriteDocument(runtime.Out, editSchemaVersion, true, document)
@@ -122,7 +122,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		name, err := invocation.AccountReference(cfg, args)
+		name, err := invocation.ProviderReference(cfg, args)
 		if err != nil {
 			return err
 		}
@@ -152,12 +152,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 		}
-		if err := runtime.Accounts.Set(accountName, secret.DiagnosticCredential{SystemToken: systemToken, UserID: userID}); err != nil {
+		if err := runtime.Providers.Set(accountName, secret.DiagnosticCredential{SystemToken: systemToken, UserID: userID}); err != nil {
 			return err
 		}
 		if enableJSON {
 			return terminal.WriteDocument(runtime.Out, diagnosticsSchemaVersion, true, diagnosticsDocument{
-				Account: accountName, Label: providerAccount.Label, Diagnostics: "enabled", NextAction: "aigw balance " + accountName,
+				Provider: accountName, Label: providerAccount.Label, Diagnostics: "enabled", NextAction: "aigw balance " + accountName,
 			})
 		}
 		r := invocation.Renderer(runtime)
@@ -179,7 +179,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		name, err := invocation.AccountReference(cfg, args)
+		name, err := invocation.ProviderReference(cfg, args)
 		if err != nil {
 			return err
 		}
@@ -187,11 +187,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if err := runtime.Accounts.Delete(accountName); err != nil {
+		if err := runtime.Providers.Delete(accountName); err != nil {
 			return err
 		}
 		if disableJSON {
-			return terminal.WriteDocument(runtime.Out, diagnosticsSchemaVersion, true, diagnosticsDocument{Account: accountName, Diagnostics: "disabled"})
+			return terminal.WriteDocument(runtime.Out, diagnosticsSchemaVersion, true, diagnosticsDocument{Provider: accountName, Diagnostics: "disabled"})
 		}
 		r := invocation.Renderer(runtime)
 		r.ProductTitle("Account diagnostics disabled")
@@ -209,8 +209,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	return root
 }
 
-type accountListOutput struct {
-	Accounts []domain.Provider `json:"accounts"`
+type providerListOutput struct {
+	Providers []domain.Provider `json:"accounts"`
 }
 
 func newListCommand(runtime invocation.Context) *cobra.Command {
@@ -222,11 +222,11 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			result := accountListOutput{Accounts: make([]domain.Provider, 0, len(cfg.Providers))}
+			result := providerListOutput{Providers: make([]domain.Provider, 0, len(cfg.Providers))}
 			for _, id := range cfg.CatalogProviderIDs() {
 				account := cfg.Providers[id]
 				account.ID = id
-				result.Accounts = append(result.Accounts, account)
+				result.Providers = append(result.Providers, account)
 			}
 			if jsonMode {
 				return terminal.WriteDocument(runtime.Out, listSchemaVersion, true, result)
@@ -234,8 +234,8 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			render := invocation.Renderer(runtime)
 			render.ProductTitle("Accounts")
 			render.Section("Configured endpoints")
-			rows := make([]terminal.Field, 0, len(result.Accounts))
-			for _, account := range result.Accounts {
+			rows := make([]terminal.Field, 0, len(result.Providers))
+			for _, account := range result.Providers {
 				rows = append(rows, terminal.Field{Label: account.ID, Value: account.Label})
 			}
 			render.Rows(rows...)

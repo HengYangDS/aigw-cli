@@ -120,7 +120,7 @@ func TestCodexProviderNameDoesNotSelectCredentialOwnership(t *testing.T) {
 	}
 }
 
-func TestCodexSyncRejectsAccountTokenProviderWithoutCredentialCommand(t *testing.T) {
+func TestCodexSyncRejectsProviderTokenProviderWithoutCredentialCommand(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(path, nil, 0o600); err != nil {
 		t.Fatal(err)

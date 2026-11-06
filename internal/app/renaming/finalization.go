@@ -43,7 +43,7 @@ func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (P
 
 	backupConverged := state.Snapshot.BackupConverged()
 	plan := Plan{
-		Resource:           ResourceAccount,
+		Resource:           ResourceProvider,
 		OldID:              oldID,
 		NewID:              newID,
 		Status:             StatusPlanned,
@@ -51,11 +51,11 @@ func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (P
 		Actions: Actions{
 			Configuration: "already_renamed",
 			APIToken:      "already_absent",
-			AccountProbe:  "already_absent",
+			BalanceProbe:  "already_absent",
 			Backup:        "converge_to_verified_current",
 		},
 		ExternalTODOs: []string{},
-		Account:       targetAccount,
+		Provider:      targetAccount,
 		Finalize:      true,
 		snapshot:      state.Snapshot,
 	}
@@ -68,7 +68,7 @@ func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (P
 	if err != nil {
 		return Plan{}, err
 	}
-	sourceProbePresent, err := planFinalProbe(deps, &plan, oldID, newID, options.ConfirmAccountProbeRotation, &blocked)
+	sourceProbePresent, err := planFinalProbe(deps, &plan, oldID, newID, options.ConfirmBalanceProbeRotation, &blocked)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -120,14 +120,14 @@ func planFinalToken(deps Renamer, plan *Plan, oldID, newID string, confirmed boo
 }
 
 func planFinalProbe(deps Renamer, plan *Plan, oldID, newID string, confirmed bool, blocked *[]string) (bool, error) {
-	source, sourcePresent, err := readOptionalProbeCredential(deps.Accounts, oldID)
+	source, sourcePresent, err := readOptionalProbeCredential(deps.Providers, oldID)
 	if err != nil {
 		return false, fmt.Errorf("Read source account probe credential slot: %w", err)
 	}
 	if !sourcePresent {
 		return false, nil
 	}
-	target, targetPresent, err := readOptionalProbeCredential(deps.Accounts, newID)
+	target, targetPresent, err := readOptionalProbeCredential(deps.Providers, newID)
 	if err != nil {
 		return false, fmt.Errorf("Read target account probe credential slot: %w", err)
 	}
@@ -136,15 +136,15 @@ func planFinalProbe(deps Renamer, plan *Plan, oldID, newID string, confirmed boo
 	}
 	rotated := !probeCredentialsEqual(source, target)
 	if rotated && !confirmed {
-		plan.Actions.AccountProbe = "rotation_confirmation_required"
+		plan.Actions.BalanceProbe = "rotation_confirmation_required"
 		plan.ExternalTODOs = append(plan.ExternalTODOs, "Run `aigw balance "+newID+"`, then pass --confirm-account-probe-rotation")
 		*blocked = append(*blocked, "account probe credential rotation confirmation is required")
 		return true, nil
 	}
 	plan.deleteProbe = true
-	plan.Actions.AccountProbe = "delete_source"
+	plan.Actions.BalanceProbe = "delete_source"
 	if rotated {
-		plan.Actions.AccountProbe = "verify_balance_and_delete_confirmed_rotated_source"
+		plan.Actions.BalanceProbe = "verify_balance_and_delete_confirmed_rotated_source"
 		plan.verifyProbe = true
 	}
 	return true, nil
@@ -155,7 +155,7 @@ func applyFinalize(ctx context.Context, deps Renamer, plan Plan) (Plan, error) {
 		return Plan{}, err
 	}
 	if plan.verifyProbe {
-		if err := verifyFinalizedAccountProbe(ctx, deps, plan); err != nil {
+		if err := verifyFinalizedBalanceProbe(ctx, deps, plan); err != nil {
 			return Plan{}, err
 		}
 	}
@@ -185,10 +185,10 @@ func applyFinalize(ctx context.Context, deps Renamer, plan Plan) (Plan, error) {
 		}
 	}
 	if plan.deleteProbe {
-		if err := deleteCredentialSlot(deps.Accounts, plan.OldID, "account probe"); err != nil {
+		if err := deleteCredentialSlot(deps.Providers, plan.OldID, "account probe"); err != nil {
 			cleanupErrors = append(cleanupErrors, err)
 		} else {
-			plan.Actions.AccountProbe = "source_deleted"
+			plan.Actions.BalanceProbe = "source_deleted"
 		}
 	}
 	if len(cleanupErrors) > 0 {
@@ -198,8 +198,8 @@ func applyFinalize(ctx context.Context, deps Renamer, plan Plan) (Plan, error) {
 	return plan, nil
 }
 
-func verifyFinalizedAccountProbe(ctx context.Context, deps Renamer, plan Plan) error {
-	providerAccount := plan.Account
+func verifyFinalizedBalanceProbe(ctx context.Context, deps Renamer, plan Plan) error {
+	providerAccount := plan.Provider
 	if providerAccount.BalanceProbe == nil {
 		return fmt.Errorf("target account %q does not declare precise diagnostics", plan.NewID)
 	}
@@ -210,7 +210,7 @@ func verifyFinalizedAccountProbe(ctx context.Context, deps Renamer, plan Plan) e
 	if err != nil {
 		return fmt.Errorf("Read target API token for balance verification: %w", err)
 	}
-	credential, err := deps.Accounts.Get(plan.NewID)
+	credential, err := deps.Providers.Get(plan.NewID)
 	if err != nil {
 		return fmt.Errorf("Read target account probe credential for balance verification: %w", err)
 	}

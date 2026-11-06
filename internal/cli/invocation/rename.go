@@ -73,7 +73,7 @@ func WriteRenamePlan(runtime Context, plan renaming.Plan, dryRun, jsonMode bool)
 	isPlan := plan.Status != renaming.StatusApplied
 	referenceLabel := "Client Binding references"
 	var rows []terminal.Field
-	if plan.Resource == renaming.ResourceAccount {
+	if plan.Resource == renaming.ResourceProvider {
 		referenceLabel = "Route references"
 		switch {
 		case plan.Finalize && plan.Status == renaming.StatusFinalized:
@@ -90,7 +90,7 @@ func WriteRenamePlan(runtime Context, plan renaming.Plan, dryRun, jsonMode bool)
 		rows = []terminal.Field{
 			{Label: "Previous account", Value: plan.OldID},
 			{Label: "New account", Value: plan.NewID},
-			{Label: "Label", Value: plan.Account.Label},
+			{Label: "Label", Value: plan.Provider.Label},
 		}
 	} else {
 		if isPlan {
@@ -125,7 +125,7 @@ func WriteRenamePlan(runtime Context, plan renaming.Plan, dryRun, jsonMode bool)
 	case renaming.StatusFinalized:
 		r.Success("The rollback baseline was converged and source credential cleanup is complete")
 	case renaming.StatusApplied:
-		if plan.Resource == renaming.ResourceAccount {
+		if plan.Resource == renaming.ResourceProvider {
 			r.Success("Configuration and target credentials are ready; source credential slots were retained for rollback")
 			if len(plan.Config.EnabledClientIDs()) > 0 {
 				r.Next("aigw verify --for all")
@@ -150,7 +150,7 @@ func ResolveRenameIDs(runtime Context, resource string, args []string) (string, 
 	}
 	choices := modelChoices(cfg)
 	if resource == "account" {
-		choices = accountChoices(cfg)
+		choices = providerChoices(cfg)
 	}
 	var oldID string
 	if len(args) == 1 {
@@ -185,7 +185,7 @@ func modelChoices(cfg domain.Config) []terminal.Choice {
 	return choices
 }
 
-func accountChoices(cfg domain.Config) []terminal.Choice {
+func providerChoices(cfg domain.Config) []terminal.Choice {
 	choices := make([]terminal.Choice, 0, len(cfg.Providers))
 	for _, name := range slices.Sorted(maps.Keys(cfg.Providers)) {
 		choices = append(choices, terminal.Choice{Value: name, Label: cfg.Providers[name].Label})

@@ -17,7 +17,7 @@ const (
 // metadata after the edit.
 type editDocument struct {
 	DryRun    bool             `json:"dry_run,omitempty"`
-	Account   string           `json:"account"`
+	Provider  string           `json:"account"`
 	Label     string           `json:"label"`
 	Endpoints domain.Endpoints `json:"endpoints"`
 	invocation.Preview
@@ -28,7 +28,7 @@ type editDocument struct {
 // diagnosticsDocument is the JSON document of `aigw account diagnostics
 // enable` and `disable`.
 type diagnosticsDocument struct {
-	Account     string `json:"account"`
+	Provider    string `json:"account"`
 	Label       string `json:"label,omitempty"`
 	Diagnostics string `json:"diagnostics"`
 	NextAction  string `json:"next_action,omitempty"`

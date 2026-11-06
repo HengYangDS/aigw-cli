@@ -88,8 +88,8 @@ func TestCheckForLimitsCredentialsAndInferenceToOneEnabledClient(t *testing.T) {
 	if !result.OK || result.EnabledClients != 1 || len(result.Clients) != 1 || checked.CheckPassed == nil || !*checked.CheckPassed || checked.DiagnosticScope != diagnostics.ScopeInference || requests != 1 {
 		t.Fatalf("scoped result = %+v; requests=%d", result, requests)
 	}
-	if !slices.Equal(store.existsAccounts, []string{"one"}) || !slices.Equal(store.getAccounts, []string{"one"}) {
-		t.Fatalf("scoped check observed unrelated credentials: exists=%v get=%v", store.existsAccounts, store.getAccounts)
+	if !slices.Equal(store.existsProviders, []string{"one"}) || !slices.Equal(store.getProviders, []string{"one"}) {
+		t.Fatalf("scoped check observed unrelated credentials: exists=%v get=%v", store.existsProviders, store.getProviders)
 	}
 
 	output.Reset()
@@ -142,8 +142,8 @@ func TestCheckEndpointReadinessIsIndependentOfDiagnosticCredentials(t *testing.T
 	if err := runtime.Secrets.Set("one", "token"); err != nil {
 		t.Fatal(err)
 	}
-	store := &failingAccountObservationStore{err: errors.New("credential metadata unavailable")}
-	runtime.Accounts = store
+	store := &failingProviderObservationStore{err: errors.New("credential metadata unavailable")}
+	runtime.Providers = store
 	configureClaudeExecutable(t, &runtime, &cfg)
 	synchronizeClaudeSettings(t, runtime, cfg)
 	providerAccount := cfg.Providers["one"]

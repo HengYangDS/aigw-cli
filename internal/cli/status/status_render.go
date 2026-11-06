@@ -107,7 +107,7 @@ func renderDiagnosticStatus(runtime invocation.Context, r *terminal.Renderer, cf
 			rows = append(rows, terminal.Field{State: terminal.Info, Label: accountName, Value: "Provider diagnostics unavailable in this version"})
 			continue
 		}
-		available, err := runtime.Accounts.Exists(accountName)
+		available, err := runtime.Providers.Exists(accountName)
 		switch {
 		case err != nil:
 			rows = append(rows, terminal.Field{State: terminal.Warn, Label: accountName, Value: "Credential metadata unavailable · aigw doctor"})

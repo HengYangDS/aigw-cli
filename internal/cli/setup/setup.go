@@ -21,7 +21,7 @@ import (
 
 // setupRequest contains the explicit setup inputs before discovery and validation resolve their effects.
 type setupRequest struct {
-	From, Account, Model, Label      string
+	From, Provider, Model, Label     string
 	OpenAIURL, AnthropicURL, ChatURL string
 	Client, UpstreamModel, Protocol  string
 	TokenStdin                       bool
@@ -40,7 +40,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Short: "Complete first-time setup",
 		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
 			request.From = strings.TrimSpace(request.From)
-			request.Account = strings.TrimSpace(request.Account)
+			request.Provider = strings.TrimSpace(request.Provider)
 			if !cmd.Flags().Changed("from") {
 				// Setup with --json never prompts, so the guided flow needs its
 				// first Route as a flag, before anything is read or created.
@@ -52,10 +52,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if request.From == "" {
 				return fmt.Errorf("--from requires a configuration manifest path")
 			}
-			if cmd.Flags().Changed("account") && request.Account == "" {
+			if cmd.Flags().Changed("account") && request.Provider == "" {
 				return fmt.Errorf("--account requires an Account ID from the configuration manifest")
 			}
-			if request.TokenStdin && request.Account == "" {
+			if request.TokenStdin && request.Provider == "" {
 				return fmt.Errorf("--token-stdin requires --account so one Token has one unambiguous owner; run `%s --help`", cmd.CommandPath())
 			}
 			return nil
@@ -85,7 +85,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&request.From, "from", "", "Set up all routes from a token-free configuration manifest")
-	cmd.Flags().StringVar(&request.Account, "account", "", "Account ID; guided setup uses the first Route ID when omitted, --from connects only this Account")
+	cmd.Flags().StringVar(&request.Provider, "account", "", "Account ID; guided setup uses the first Route ID when omitted, --from connects only this Account")
 	cmd.Flags().StringVar(&request.Model, "route", "", "First route ID")
 	cmd.Flags().StringVar(&request.Label, "label", "", "Provider display name")
 	cmd.Flags().StringVar(&request.OpenAIURL, "openai-url", "", "OpenAI Responses base URL")
@@ -111,9 +111,9 @@ type setupPlan struct {
 }
 
 type setupCredential struct {
-	account string
-	token   string
-	write   bool
+	provider string
+	token    string
+	write    bool
 }
 
 func runSetup(ctx context.Context, runtime invocation.Context, request setupRequest) error {
@@ -148,7 +148,7 @@ func runSetup(ctx context.Context, runtime invocation.Context, request setupRequ
 
 	tokens := make(map[string]string)
 	if credentialChange.write {
-		tokens[credentialChange.account] = credentialChange.token
+		tokens[credentialChange.provider] = credentialChange.token
 	}
 	plan.config, err = runtime.Synchronizer().Setup(ctx, plan.before, plan.config, tokens, plan.request.Client)
 	if err != nil {
@@ -165,21 +165,21 @@ func runSetup(ctx context.Context, runtime invocation.Context, request setupRequ
 func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 	plan := setupPlan{request: request, before: cfg.Clone(), config: cfg}
 	plan.request.Model = strings.TrimSpace(plan.request.Model)
-	plan.request.Account = strings.TrimSpace(plan.request.Account)
+	plan.request.Provider = strings.TrimSpace(plan.request.Provider)
 	if plan.request.Model == "" {
 		return setupPlan{}, fmt.Errorf("--route is required; import the reviewed team manifest with `aigw setup --from <path>` or run `aigw setup --help`")
 	}
-	if plan.request.Account == "" {
-		plan.request.Account = plan.request.Model
+	if plan.request.Provider == "" {
+		plan.request.Provider = plan.request.Model
 	}
-	if !domain.ValidIdentifier(plan.request.Account) {
-		return setupPlan{}, fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Account)
+	if !domain.ValidIdentifier(plan.request.Provider) {
+		return setupPlan{}, fmt.Errorf("Invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Provider)
 	}
 	if !domain.ValidIdentifier(plan.request.Model) {
 		return setupPlan{}, fmt.Errorf("Invalid route ID %q; use letters, numbers, dots, hyphens, or underscores", plan.request.Model)
 	}
 	if plan.request.Label == "" {
-		plan.request.Label = plan.request.Account
+		plan.request.Label = plan.request.Provider
 	}
 	endpoints := domain.Endpoints{
 		OpenAIResponses:       strings.TrimRight(strings.TrimSpace(plan.request.OpenAIURL), "/"),
@@ -193,7 +193,7 @@ func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 	if !ok {
 		return setupPlan{}, fmt.Errorf("--for must be %s; run `aigw setup --help`", cfg.Admission().Usage())
 	}
-	account := domain.Provider{ID: plan.request.Account, Endpoints: endpoints}
+	account := domain.Provider{ID: plan.request.Provider, Endpoints: endpoints}
 	if compatible := spec.CompatibleProtocols(account); plan.request.Protocol == "" && len(compatible) > 1 {
 		names := make([]string, 0, len(compatible))
 		for _, candidate := range compatible {
@@ -220,10 +220,10 @@ func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 	}
 	storedAccount := domain.Provider{Label: plan.request.Label, Endpoints: endpoints}
 	plan.model = domain.Model{
-		Label: plan.request.Label, Provider: plan.request.Account, Family: strings.TrimSpace(plan.request.UpstreamModel),
+		Label: plan.request.Label, Provider: plan.request.Provider, Family: strings.TrimSpace(plan.request.UpstreamModel),
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 	}
-	plan.config.Providers[plan.request.Account] = storedAccount
+	plan.config.Providers[plan.request.Provider] = storedAccount
 	plan.config.Models[plan.request.Model] = plan.model
 	plan.config.Clients[plan.request.Client] = domain.ClientBinding{Model: plan.request.Model, Enabled: true, Protocol: protocol}
 	if err := plan.config.Validate(); err != nil {
@@ -236,7 +236,7 @@ func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 // would create. A preview reads, checks and stores no Token, so it connects no
 // Account and projects no client.
 func writeSetupPreview(runtime invocation.Context, plan setupPlan) error {
-	after, projection, err := runtime.Synchronizer().PreviewSetup(plan.before, plan.config, []string{plan.request.Account}, plan.request.Client)
+	after, projection, err := runtime.Synchronizer().PreviewSetup(plan.before, plan.config, []string{plan.request.Provider}, plan.request.Client)
 	if err != nil {
 		return err
 	}
@@ -247,8 +247,8 @@ func writeSetupPreview(runtime invocation.Context, plan setupPlan) error {
 	if plan.request.JSON {
 		result := manifestSetupResult{
 			DryRun:             true,
-			Imported:           manifestSetupImported{Accounts: []string{plan.request.Account}, Models: []string{plan.request.Model}},
-			ConnectedAccounts:  []string{},
+			Imported:           manifestSetupImported{Providers: []string{plan.request.Provider}, Models: []string{plan.request.Model}},
+			ConnectedProviders: []string{},
 			Selections:         map[string]string{plan.request.Client: plan.request.Model},
 			ProjectedClients:   []string{},
 			OnlineVerification: "not_checked",
@@ -261,7 +261,7 @@ func writeSetupPreview(runtime invocation.Context, plan setupPlan) error {
 	r.ProductTitle("First-time setup preview")
 	r.Section("Account")
 	r.Rows(
-		terminal.Field{Label: "Account", Value: plan.request.Account},
+		terminal.Field{Label: "Account", Value: plan.request.Provider},
 		terminal.Field{Label: "Route", Value: plan.request.Model},
 		terminal.Field{Label: "Model", Value: plan.model.Family},
 		terminal.Field{State: terminal.Info, Label: "API Token", Value: "Not read in a preview"},
@@ -277,7 +277,7 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 	r.ProductTitle("First-time setup")
 	r.Section("Account")
 	r.Rows(
-		terminal.Field{Label: "Account", Value: plan.request.Account},
+		terminal.Field{Label: "Account", Value: plan.request.Provider},
 		terminal.Field{Label: "Route", Value: plan.request.Model},
 		terminal.Field{Label: "Model", Value: plan.model.Family},
 		terminal.Field{State: terminal.OK, Label: "API Token", Value: "Validated"},
@@ -290,8 +290,8 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 func buildFlagSetupResult(runtime invocation.Context, plan setupPlan) manifestSetupResult {
 	activation := clientactivation.AssessActivation(plan.config, runtime.Secrets)
 	result := manifestSetupResult{
-		Imported:           manifestSetupImported{Accounts: []string{plan.request.Account}, Models: []string{plan.request.Model}},
-		ConnectedAccounts:  []string{plan.request.Account},
+		Imported:           manifestSetupImported{Providers: []string{plan.request.Provider}, Models: []string{plan.request.Model}},
+		ConnectedProviders: []string{plan.request.Provider},
 		Selections:         make(map[string]string, len(plan.config.Clients)),
 		ProjectedClients:   []string{},
 		OnlineVerification: "not_checked",
@@ -355,8 +355,8 @@ func setupEndpointFlag(protocol domain.EndpointProtocol) string {
 // so setup must validate and reference its token rather than asking for a
 // second copy and attempting to persist it.
 func setupToken(runtime invocation.Context, request setupRequest) (setupCredential, error) {
-	credential := setupCredential{account: request.Account}
-	previous, err := runtime.Secrets.Get(request.Account)
+	credential := setupCredential{provider: request.Provider}
+	previous, err := runtime.Secrets.Get(request.Provider)
 	if err != nil && !errors.Is(err, secret.ErrNotFound) {
 		return setupCredential{}, err
 	}
@@ -422,7 +422,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 			return fmt.Errorf("unsupported %s endpoint protocol %q", spec.Label, selected)
 		}
 	}
-	request := setupRequest{Account: account, Label: label, Client: client, Protocol: string(protocol), PromptToken: true}
+	request := setupRequest{Provider: account, Label: label, Client: client, Protocol: string(protocol), PromptToken: true}
 	var endpointLabel string
 	var endpointURL *string
 	switch protocol {

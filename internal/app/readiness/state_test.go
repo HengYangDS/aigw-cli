@@ -27,7 +27,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 		},
 		{
 			name:       "selected account is not connected",
-			facts:      ClientFacts{Model: "claude", Account: "team", CredentialRequired: true},
+			facts:      ClientFacts{Model: "claude", Provider: "team", CredentialRequired: true},
 			wantState:  Deferred,
 			wantAction: "aigw rotate team",
 		},
@@ -35,7 +35,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			name: "credential metadata is unavailable",
 			facts: ClientFacts{
 				Model:                      "claude",
-				Account:                    "team",
+				Provider:                   "team",
 				CredentialRequired:         true,
 				CredentialObservationIssue: "Credential metadata is unavailable",
 			},
@@ -46,7 +46,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			name: "client is intentionally absent",
 			facts: ClientFacts{
 				Model:               "claude",
-				Account:             "team",
+				Provider:            "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
 			},
@@ -57,7 +57,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			name: "selected inactive client retains its activation prerequisite",
 			facts: ClientFacts{
 				Model:               "codex",
-				Account:             "team",
+				Provider:            "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
 				ProjectionAction:    "Install Codex if needed, then run `aigw sync`",
@@ -69,7 +69,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			name: "selected client projection is deferred",
 			facts: ClientFacts{
 				Model:              "hermes-route",
-				Account:            "team",
+				Provider:           "team",
 				ProjectionEnabled:  true,
 				ProjectionDeferred: true,
 				ProjectionAction:   "Install Hermes if needed, then run `aigw sync`",
@@ -81,7 +81,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			name: "enabled projection is invalid",
 			facts: ClientFacts{
 				Model:               "codex",
-				Account:             "team",
+				Provider:            "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
 				ProjectionEnabled:   true,
@@ -95,7 +95,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			name: "invalid projection defaults to repair",
 			facts: ClientFacts{
 				Model:               "claude",
-				Account:             "team",
+				Provider:            "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
 				ProjectionEnabled:   true,
@@ -108,7 +108,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			name: "local prerequisites are configured",
 			facts: ClientFacts{
 				Model:               "claude",
-				Account:             "team",
+				Provider:            "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
 				ProjectionEnabled:   true,
@@ -163,7 +163,7 @@ func TestClassifyClientIncludesModelFailures(t *testing.T) {
 func TestClassifyClientPrioritizesObservedProjectionFailure(t *testing.T) {
 	for _, metadataIssue := range []string{"", "Credential metadata is unavailable"} {
 		got := ClassifyClient(ClientFacts{
-			Model: "codex", Account: "team", CredentialRequired: true,
+			Model: "codex", Provider: "team", CredentialRequired: true,
 			CredentialObservationIssue: metadataIssue,
 			ProjectionEnabled:          true, ProjectionIssue: "projection drift", ProjectionAction: "aigw sync",
 		})
@@ -174,7 +174,7 @@ func TestClassifyClientPrioritizesObservedProjectionFailure(t *testing.T) {
 }
 
 func TestWithProbeMapsDiagnosticSemantics(t *testing.T) {
-	configured := Client{State: Configured, Model: "codex", Account: "team"}
+	configured := Client{State: Configured, Model: "codex", Provider: "team"}
 	tests := []struct {
 		name string
 		kind diagnostics.Kind
@@ -221,7 +221,7 @@ func TestWithProbeDoesNotOverrideDeferredState(t *testing.T) {
 }
 
 func TestWithProbeDistinguishesSuccessfulInferenceFromEndpointEvidence(t *testing.T) {
-	configured := Client{State: Configured, Model: "codex", Account: "team"}
+	configured := Client{State: Configured, Model: "codex", Provider: "team"}
 
 	inference := WithProbe(configured, diagnostics.Result{
 		Kind: diagnostics.Healthy, Scope: diagnostics.ScopeInference, Summary: "Inference diagnostic returned a successful response",
