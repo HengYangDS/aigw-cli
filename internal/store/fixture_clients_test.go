@@ -31,10 +31,10 @@ func testClientSpecs() []domain.ClientSpec {
 			ID: ClientCodex, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{responses},
 			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true,
 			DefaultModelProvider: "aigw", ClientNativeAuthentication: true,
-			PublishedProfileProtocol: responses, Doctor: domain.DoctorWording{AdapterStates: true, RouteBinding: true},
+			PublishedProfileProtocol: responses, Doctor: domain.DoctorWording{AdapterStates: true, ModelBinding: true},
 		},
 		{
-			ID: ClientHermes, Label: "Hermes", SessionsKeepRoute: true,
+			ID: ClientHermes, Label: "Hermes", SessionsKeepModel: true,
 			EndpointProtocols: []domain.EndpointProtocol{responses, anthropic, domain.ProtocolOpenAIChatCompletions},
 		},
 	}
@@ -50,12 +50,12 @@ func admitted(cfg domain.Config) domain.Config {
 	return cfg
 }
 
-func testRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Route {
+func testModel(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
 	interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(protocols))
 	for _, protocol := range protocols {
 		interfaces[protocol] = []domain.Capability{}
 	}
-	return domain.Route{Label: label, Account: account, Model: model, Interfaces: interfaces}
+	return domain.Model{Label: label, Account: account, Family: model, Protocols: interfaces}
 }
 
 // validConfig is the two-Account configuration that the store's tests start
@@ -66,13 +66,13 @@ func validConfig() domain.Config {
 		"dmx":    {Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}},
 		"backup": {Label: "Backup", Endpoints: domain.Endpoints{OpenAIResponses: "https://backup.test/v1"}},
 	}
-	cfg.Routes = map[string]domain.Route{
-		"dmx":    testRoute("DMXAPI", "dmx", "claude-test", domain.ProtocolAnthropic),
-		"backup": testRoute("Backup", "backup", "gpt-test", domain.ProtocolOpenAIResponses),
+	cfg.Models = map[string]domain.Model{
+		"dmx":    testModel("DMXAPI", "dmx", "claude-test", domain.ProtocolAnthropic),
+		"backup": testModel("Backup", "backup", "gpt-test", domain.ProtocolOpenAIResponses),
 	}
 	cfg.Clients = map[string]domain.ClientBinding{
-		ClientClaude: {Route: "dmx"},
-		ClientCodex:  {Route: "backup"},
+		ClientClaude: {Model: "dmx"},
+		ClientCodex:  {Model: "backup"},
 	}
 	return cfg
 }

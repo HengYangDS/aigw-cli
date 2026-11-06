@@ -46,7 +46,7 @@ func TestVerificationPlanRequiresConvergedSettings(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "stale":
-				runtime.Model = "changed-model"
+				runtime.UpstreamModel = "changed-model"
 			}
 			_, err := claude.VerificationPlan("claude", settings, "AIGW_OK", nil, runtime)
 			if err == nil || !strings.Contains(err.Error(), "not synchronized") || !strings.Contains(err.Error(), "aigw sync") {
@@ -66,9 +66,9 @@ func TestVerificationPlanRequiresExecutable(t *testing.T) {
 func verificationSettings(t *testing.T) (string, domain.Runtime) {
 	t.Helper()
 	root := t.TempDir()
-	runtime := domain.Runtime{RouteID: "claude", AccountID: "gateway", Endpoint: "https://example.test", Model: "claude-sonnet-4-6", CredentialCommand: filepath.Join(root, "aigw")}
+	runtime := domain.Runtime{ModelID: "claude", AccountID: "gateway", Endpoint: "https://example.test", UpstreamModel: "claude-sonnet-4-6", CredentialCommand: filepath.Join(root, "aigw")}
 	settings := filepath.Join(root, "settings.json")
-	if _, err := claude.ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.Model); err != nil {
+	if _, err := claude.ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 	return settings, runtime

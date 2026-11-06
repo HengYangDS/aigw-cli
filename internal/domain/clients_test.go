@@ -9,9 +9,9 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-func TestRouteOwnsFamilyIdentityWithoutClientState(t *testing.T) {
-	route := Route{Model: "claude-test"}
-	if route.Model != "claude-test" {
+func TestModelOwnsFamilyIdentityWithoutClientState(t *testing.T) {
+	route := Model{Family: "claude-test"}
+	if route.Family != "claude-test" {
 		t.Fatalf("route = %#v", route)
 	}
 }
@@ -84,17 +84,17 @@ func TestClientSpecRejectsUnimplementedProtocol(t *testing.T) {
 func TestExplicitCredentialCommandSurvivesHostConfigRoundTrip(t *testing.T) {
 	cfg := validConfig()
 	cfg.Normalize()
-	cfg.Routes[ClientClaudeDesktop] = testRoute("Claude Desktop", "dmx", "model", ProtocolAnthropic)
-	cfg.SetSelectedRoute(ClientClaudeDesktop, ClientClaudeDesktop, "")
-	cfg.Routes[ClientHermes] = testRoute("Hermes", "backup", "model", ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(ClientHermes, ClientHermes, "")
+	cfg.Models[ClientClaudeDesktop] = testModel("Claude Desktop", "dmx", "model", ProtocolAnthropic)
+	cfg.SetSelectedModel(ClientClaudeDesktop, ClientClaudeDesktop, "")
+	cfg.Models[ClientHermes] = testModel("Hermes", "backup", "model", ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(ClientHermes, ClientHermes, "")
 	for _, client := range testAdmission().IDs() {
 		command := filepath.Join(t.TempDir(), "credential adapter")
 		var adapter ClientBinding
 		if err := toml.Unmarshal([]byte(fmt.Sprintf("enabled = true\ncredential_command = %q\n", command)), &adapter); err != nil {
 			t.Fatal(err)
 		}
-		adapter.Route = cfg.SelectedRoute(client)
+		adapter.Model = cfg.SelectedModel(client)
 		cfg.Clients[client] = adapter
 		runtime, err := cfg.ResolveRuntime(client, "")
 		if err != nil || runtime.CredentialCommand != command {

@@ -56,11 +56,11 @@ func rollbackStore(t *testing.T) store.Store {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Routes["one"] = domain.Route{
-		Label: "One", Account: "one", Model: "claude-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	cfg.Models["one"] = domain.Model{
+		Label: "One", Account: "one", Family: "claude-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(claude.ID, "one", "")
+	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

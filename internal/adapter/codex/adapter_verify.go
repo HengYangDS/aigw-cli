@@ -18,7 +18,7 @@ import (
 func (codexAdapter) Verify(ctx context.Context, deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, explicitRoute string) (_ adapter.Verification, result error) {
 	binding := cfg.Clients[ID]
 	reader := deps.AIGWExecutable
-	if binding.Enabled && binding.Executable != "" && len(binding.Targets) > 0 && binding.Route != "" {
+	if binding.Enabled && binding.Executable != "" && len(binding.Targets) > 0 && binding.Model != "" {
 		targets := append([]string(nil), binding.Targets...)
 		sort.Strings(targets)
 		selected, err := cfg.ResolveRuntime(ID, "")

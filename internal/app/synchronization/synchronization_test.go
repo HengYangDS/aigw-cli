@@ -101,8 +101,8 @@ func (s *configStoreStub) RestoreSnapshot(store.Snapshot, store.Snapshot) error 
 func testConfig(target string) domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Routes["gpt"] = domain.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.Models["gpt"] = domain.Model{Label: "GPT", Account: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	return cfg
 }
@@ -228,7 +228,7 @@ func TestCommitPersistenceFailureBoundaries(t *testing.T) {
 	// persistence failures are the ones that stop the commit.
 	after := domain.NewConfig(clients.Admission())
 	after.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	after.Routes["gpt"] = domain.Route{Label: "GPT", Account: "gateway", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	after.Models["gpt"] = domain.Model{Label: "GPT", Account: "gateway", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	want := errors.New("failure")
 	tests := []struct {
 		name  string
@@ -415,11 +415,11 @@ func TestCommitProjectsAndRestoresClaudeOfficialSettings(t *testing.T) {
 	}
 	before := domain.NewConfig(clients.Admission())
 	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Routes["claude"] = domain.Route{
-		Label: "Claude", Account: "gateway", Model: "claude-team",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	before.Models["claude"] = domain.Model{
+		Label: "Claude", Account: "gateway", Family: "claude-team",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	before.SetSelectedRoute(claude.ID, "claude", "")
+	before.SetSelectedModel(claude.ID, "claude", "")
 	after := before.Clone()
 	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())
@@ -489,11 +489,11 @@ func TestCommitPreservesConfigurationWhenClaudePreflightFails(t *testing.T) {
 	}
 	before := domain.NewConfig(clients.Admission())
 	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	before.Routes["claude"] = domain.Route{
-		Label: "Claude", Account: "gateway", Model: "claude-team",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	before.Models["claude"] = domain.Model{
+		Label: "Claude", Account: "gateway", Family: "claude-team",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	before.SetSelectedRoute(claude.ID, "claude", "")
+	before.SetSelectedModel(claude.ID, "claude", "")
 	after := before.Clone()
 	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	configStore := store.NewStore(filepath.Join(dir, "aigw.toml"), clients.Admission())

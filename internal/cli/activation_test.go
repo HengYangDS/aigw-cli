@@ -28,8 +28,8 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -93,10 +93,10 @@ func TestActivationPrefersUsableRecommendedClientAcrossCommands(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["missing"] = domain.Account{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
 	cfg.Accounts["connected"] = domain.Account{Label: "Connected", Endpoints: domain.Endpoints{OpenAIResponses: "https://connected.test/v1"}}
-	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "missing", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "connected", Model: "gpt", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
-	cfg.SetRecommendedRoute(codex.ID, "codex")
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "missing", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "connected", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.SetRecommendedModel(codex.ID, "codex")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

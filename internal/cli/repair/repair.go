@@ -43,7 +43,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 	if err != nil {
 		return err
 	}
-	if len(before.Routes) == 0 {
+	if len(before.Models) == 0 {
 		return terminal.ProblemError("Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	synchronizer := runtime.Synchronizer()

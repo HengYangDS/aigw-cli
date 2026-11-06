@@ -15,7 +15,7 @@ func writeLegacyCodexProjection(t *testing.T, path string, runtimeModel string) 
 		t.Fatal(err)
 	}
 	runtime := atomicTestRuntime()
-	runtime.Model = runtimeModel
+	runtime.UpstreamModel = runtimeModel
 	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
@@ -59,10 +59,10 @@ func assertCodexSyncRejectsDrift(t *testing.T, path, drifted, want string) {
 
 func ownershipTestRuntime() domain.Runtime {
 	runtime := atomicTestRuntime()
-	runtime.RouteID = "gpt"
-	runtime.RouteLabel = "GPT"
+	runtime.ModelID = "gpt"
+	runtime.ModelLabel = "GPT"
 	runtime.Endpoint = "https://example.test/v1"
-	runtime.Model = "gpt-test"
+	runtime.UpstreamModel = "gpt-test"
 	return runtime
 }
 
@@ -86,7 +86,7 @@ func TestCodexResyncRejectsChangedUnmarkedRootModel(t *testing.T) {
 func TestReconcileConfigsTransitionAttributesLegacyRootSelections(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	previous := atomicTestRuntime()
-	writeLegacyCodexProjection(t, path, previous.Model)
+	writeLegacyCodexProjection(t, path, previous.UpstreamModel)
 	projected, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -98,10 +98,10 @@ func TestReconcileConfigsTransitionAttributesLegacyRootSelections(t *testing.T) 
 	}
 
 	next := previous
-	next.RouteID = "next"
-	next.RouteLabel = "Next"
+	next.ModelID = "next"
+	next.ModelLabel = "Next"
 	next.Endpoint = "https://next.test/v1"
-	next.Model = "gpt-next"
+	next.UpstreamModel = "gpt-next"
 	target := HomeTarget(path)
 	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, previous, next, false); err != nil {
 		t.Fatalf("legacy sidecar transition rejected unchanged root values: %v", err)
@@ -118,7 +118,7 @@ func TestReconcileConfigsTransitionAttributesLegacyRootSelections(t *testing.T) 
 func TestReconcileConfigsTransitionRejectsChangedLegacyRootModel(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "configuration.toml")
 	previous := atomicTestRuntime()
-	writeLegacyCodexProjection(t, path, previous.Model)
+	writeLegacyCodexProjection(t, path, previous.UpstreamModel)
 	projected, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -129,7 +129,7 @@ func TestReconcileConfigsTransitionRejectsChangedLegacyRootModel(t *testing.T) {
 	}
 
 	next := previous
-	next.Model = "gpt-next"
+	next.UpstreamModel = "gpt-next"
 	target := HomeTarget(path)
 	_, err = ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, previous, next, false)
 	if err == nil || !strings.Contains(err.Error(), "model selection changed") {
@@ -165,10 +165,10 @@ func TestReconcileConfigsAuthorizedTransitionReplacesChangedRootSelections(t *te
 	}
 
 	next := previous
-	next.RouteID = "next"
-	next.RouteLabel = "Next"
+	next.ModelID = "next"
+	next.ModelLabel = "Next"
 	next.Endpoint = "https://next.test/v1"
-	next.Model = "gpt-next"
+	next.UpstreamModel = "gpt-next"
 	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, previous, next, true); err != nil {
 		t.Fatalf("authorized transition rejected root selection replacement: %v", err)
 	}

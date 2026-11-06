@@ -35,7 +35,7 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 
 	cfg := configuredCatalog()
 	cfg.Accounts["anthropic"] = domain.Account{Label: "Anthropic", Endpoints: domain.Endpoints{Anthropic: "https://anthropic.test"}}
-	cfg.Routes["anthropic"] = domain.Route{Label: "Anthropic", Account: "anthropic", Model: "claude-only"}
+	cfg.Models["anthropic"] = domain.Model{Label: "Anthropic", Account: "anthropic", Family: "claude-only"}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["gpt-codex"]}`)), Request: request}, nil
 	})
@@ -59,9 +59,9 @@ func TestModelRowsGroupAccountsThenProtocolsThenDeclaredModels(t *testing.T) {
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Order: 10, Endpoints: cfg.Accounts["gateway"].Endpoints}
 	cfg.Families["first"] = domain.Family{Label: "First", Order: 10}
 	cfg.Families["second"] = domain.Family{Label: "Second", Order: 20}
-	cfg.Routes = map[string]domain.Route{}
+	cfg.Models = map[string]domain.Model{}
 	for _, model := range []string{"second", "first"} {
-		cfg.Routes[model] = domain.Route{Account: "gateway", Model: model, Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+		cfg.Models[model] = domain.Model{Account: "gateway", Family: model, Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {}, domain.ProtocolOpenAIChatCompletions: {},
 		}}
 	}
@@ -121,9 +121,9 @@ func TestAmbiguousCatalogDoesNotReportRoutesAsNotListed(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://responses.test/v1"}}
 	cfg.Families["shared"] = domain.Family{Label: "Shared"}
-	cfg.Routes["responses"] = domain.Route{
-		Label: "Responses", Account: "gateway", Model: "shared", UpstreamModel: "provider-shared",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
+	cfg.Models["responses"] = domain.Model{
+		Label: "Responses", Account: "gateway", Family: "shared", UpstreamModel: "provider-shared",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
 	}
 	for body, want := range map[string]string{
 		`{"data":null}`: "Catalog request failed",

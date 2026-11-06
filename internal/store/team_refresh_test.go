@@ -9,7 +9,7 @@ import (
 // The October 27 refresh admits each successor only on the Account and protocol
 // that passed bounded inference and the native Hermes file-tool and recall
 // journey; failed or unlisted Routes stay out.
-func TestTeamManifestKeepsOnlyQualifiedRefreshRoutes(t *testing.T) {
+func TestTeamManifestKeepsOnlyQualifiedRefreshModels(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	for id, expected := range map[string]struct {
 		model, wire string
@@ -28,8 +28,8 @@ func TestTeamManifestKeepsOnlyQualifiedRefreshRoutes(t *testing.T) {
 		"dmxapi-qwen3.8-max-0902":     {"qwen3.8-max-0902", "qwen3.8-max-0902", domain.ProtocolOpenAIResponses},
 		"aihubmix-solar-pro4":         {"solar-pro4", "solar-pro4", domain.ProtocolOpenAIChatCompletions},
 	} {
-		route, ok := manifest.Routes[id]
-		if !ok || route.Model != expected.model || route.UpstreamModelID() != expected.wire ||
+		route, ok := manifest.Models[id]
+		if !ok || route.Family != expected.model || route.UpstreamModelID() != expected.wire ||
 			!slices.Equal(route.AdmittedProtocols(), []domain.EndpointProtocol{expected.protocol}) {
 			t.Errorf("qualified Route %q = %+v, want Model %q, wire %q and %s", id, route, expected.model, expected.wire, expected.protocol)
 		}
@@ -38,7 +38,7 @@ func TestTeamManifestKeepsOnlyQualifiedRefreshRoutes(t *testing.T) {
 	// document; AIHubMix serves Kimi K3.1 Pro only on Chat Completions, as
 	// asserted above.
 	for _, id := range []string{"ucloud-qwen3.8-max-0902", "ucloud-qwen3.8-max"} {
-		if _, admitted := manifest.Routes[id]; admitted {
+		if _, admitted := manifest.Models[id]; admitted {
 			t.Errorf("unqualified Route %q was admitted", id)
 		}
 	}

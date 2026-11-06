@@ -336,7 +336,7 @@ func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 		t.Fatalf("missing target error = %v", err)
 	}
 	missingModel := runtime
-	missingModel.Model = ""
+	missingModel.UpstreamModel = ""
 	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, cfg, missingModel, ""); err == nil || !strings.Contains(err.Error(), "has no Codex model") {
 		t.Fatalf("missing model error = %v", err)
 	}
@@ -349,8 +349,8 @@ func TestVerifyCodexRequiresAvailableCapability(t *testing.T) {
 		t.Fatalf("missing executable file error = %v", err)
 	}
 	drifted := cfg.Clone()
-	drifted.Routes["codex"] = domain.Route{Label: "Codex", Account: "one", Model: "other"}
-	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, drifted, domain.Runtime{RouteID: "codex", Model: "other"}, ""); err == nil || !strings.Contains(err.Error(), "synchronized") {
+	drifted.Models["codex"] = domain.Model{Label: "Codex", Account: "one", Family: "other"}
+	if _, err := VerifyInvocation(context.Background(), &recordingCaptureRunner{}, drifted, domain.Runtime{ModelID: "codex", UpstreamModel: "other"}, ""); err == nil || !strings.Contains(err.Error(), "synchronized") {
 		t.Fatalf("projection error = %v", err)
 	}
 }
@@ -415,9 +415,9 @@ func verificationConfig() domain.Config {
 		OpenAIResponses: "https://one.test/v1",
 		Anthropic:       "https://one.test",
 	}}
-	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "one", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "one", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(ID, "codex", "")
-	cfg.SetSelectedRoute(otherClient.ID, "claude", "")
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "one", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "one", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(ID, "codex", "")
+	cfg.SetSelectedModel(otherClient.ID, "claude", "")
 	return cfg
 }

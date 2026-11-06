@@ -173,10 +173,10 @@ func ResolveRenameIDs(runtime Context, resource string, args []string) (string, 
 }
 
 func routeChoices(cfg domain.Config) []terminal.Choice {
-	choices := make([]terminal.Choice, 0, len(cfg.Routes))
-	for _, name := range slices.Sorted(maps.Keys(cfg.Routes)) {
-		route := cfg.Routes[name]
-		label := cfg.RouteLabel(name)
+	choices := make([]terminal.Choice, 0, len(cfg.Models))
+	for _, name := range slices.Sorted(maps.Keys(cfg.Models)) {
+		route := cfg.Models[name]
+		label := cfg.ModelLabel(name)
 		if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 			label += " · " + purpose
 		}

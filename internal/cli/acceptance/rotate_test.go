@@ -25,8 +25,8 @@ func TestRotateAccountNamePromptsWithAccountLabel(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Routes["gpt-5.6-sol"] = qualifiedRoute("GPT Route", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "gpt-5.6-sol", "")
+	cfg.Models["gpt-5.6-sol"] = qualifiedRoute("GPT Route", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ func TestRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "new-token\n")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
-	cfg.SetSelectedRoute(codex.ID, "one", "")
+	cfg.SetSelectedModel(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{t.TempDir()})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -186,7 +186,7 @@ func TestRotateReportsTokenStorageWithoutNativeClientWrites(t *testing.T) {
 			}
 			cfg := domain.NewConfig(clients.Admission())
 			addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-test")
-			cfg.SetSelectedRoute(codex.ID, "one", "")
+			cfg.SetSelectedModel(codex.ID, "one", "")
 			cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 			wantMessage := "clients control their refresh timing"
 			if !hasTarget {
@@ -231,10 +231,10 @@ func TestRotateClaudeOnlyAccountDoesNotTouchCodexTargets(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["codex-account"] = domain.Account{Label: "Codex", Endpoints: domain.Endpoints{OpenAIResponses: "https://codex.test/v1"}}
 	cfg.Accounts["claude-account"] = domain.Account{Label: "Claude", Endpoints: domain.Endpoints{Anthropic: "https://claude.test"}}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "codex-account", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.Routes["claude"] = qualifiedRoute("Claude", "claude-account", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["gpt"] = qualifiedRoute("GPT", "codex-account", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["claude"] = qualifiedRoute("Claude", "claude-account", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(codex.ID, true, "/missing/codex", []string{filepath.Join(t.TempDir(), "unavailable-codex-configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

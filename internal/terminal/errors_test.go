@@ -307,8 +307,8 @@ func TestTypedErrorLocalizationDoesNotDependOnErrorText(t *testing.T) {
 		err  error
 		want string
 	}{
-		{name: "route client mismatch", err: &domain.RuntimeRouteClientMismatchError{RouteID: "one", ExpectedClient: codex.ID, ActualClient: claude.ID}, want: `route "one" is for codex, not claude`},
-		{name: "route unknown account", err: &domain.RuntimeRouteUnknownAccountError{RouteID: "one", AccountID: "missing"}, want: `route "one" references unknown account "missing"`},
+		{name: "route client mismatch", err: &domain.RuntimeModelClientMismatchError{ModelID: "one", ExpectedClient: codex.ID, ActualClient: claude.ID}, want: `route "one" is for codex, not claude`},
+		{name: "route unknown account", err: &domain.RuntimeModelUnknownAccountError{ModelID: "one", AccountID: "missing"}, want: `route "one" references unknown account "missing"`},
 		{name: "Anthropic endpoint", err: &domain.RuntimeMissingEndpointError{AccountID: "one", Protocol: domain.ProtocolAnthropic}, want: `account "one" has no Anthropic Messages endpoint`},
 		{name: "OpenAI Responses endpoint", err: &domain.RuntimeMissingEndpointError{AccountID: "one", Protocol: domain.ProtocolOpenAIResponses}, want: `account "one" has no OpenAI Responses endpoint`},
 		{name: "OpenAI Chat Completions endpoint", err: &domain.RuntimeMissingEndpointError{AccountID: "one", Protocol: domain.ProtocolOpenAIChatCompletions}, want: `account "one" has no OpenAI Chat Completions endpoint`},

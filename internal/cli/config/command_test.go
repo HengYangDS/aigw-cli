@@ -113,7 +113,7 @@ func TestExportWritesASecretFreeRoundTripManifest(t *testing.T) {
 		t.Fatalf("parse exported manifest: %v\n%s", err, data)
 	}
 	// The local Codex binding stays local; the manifest carries Accounts and Routes.
-	if len(parsed.Recommendations) != 0 || parsed.Routes["local"].Account != "local" {
+	if len(parsed.Recommendations) != 0 || parsed.Models["local"].Account != "local" {
 		t.Fatalf("exported manifest = %#v", parsed)
 	}
 }
@@ -160,7 +160,7 @@ func TestImportMergesPublicConfigurationAndDefersReadiness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Routes["remote"].Account != "gateway" {
+	if loaded.Models["remote"].Account != "gateway" {
 		t.Fatalf("imported config = %#v", loaded)
 	}
 	output := out.String()
@@ -188,7 +188,7 @@ func TestImportPreservesExplicitSelectionWithoutSuggestingNoOpSync(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := cfg.SelectedRoute(codex.ID); got != "local" {
+	if got := cfg.SelectedModel(codex.ID); got != "local" {
 		t.Fatalf("explicit Codex Route changed to %q", got)
 	}
 	if output := strings.TrimSpace(out.String()); !strings.HasSuffix(output, "aigw status") || strings.Contains(output, "Next\n  aigw sync") {
@@ -201,12 +201,12 @@ func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *tes
 	account := cfg.Accounts["local"]
 	account.Endpoints.OpenAIResponses = "http://127.0.0.1:8792/local/v1"
 	cfg.Accounts["local"] = account
-	cfg.Routes["old"] = domain.Route{
-		Label: "Old", Account: "local", Model: "gpt-old",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["old"] = domain.Model{
+		Label: "Old", Account: "local", Family: "gpt-old",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	cfg.Families["gpt-old"] = domain.Family{Label: "Old"}
-	cfg.SetSelectedRoute(hermes.ID, "local", "")
+	cfg.SetSelectedModel(hermes.ID, "local", "")
 	clientTarget := filepath.Join(t.TempDir(), "hermes.yaml")
 	cfg.SetClientActivation(hermes.ID, true, "/opt/hermes", []string{clientTarget})
 	runtime, path, out := savedRuntime(t, cfg)
@@ -300,7 +300,7 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Accounts["local"].Label != "Gateway" || loaded.Routes["local"].Label != "Remote" {
+	if loaded.Accounts["local"].Label != "Gateway" || loaded.Models["local"].Label != "Remote" {
 		t.Fatalf("explicit replacement did not converge: %#v", loaded)
 	}
 }
@@ -308,9 +308,9 @@ func TestImportReplacementFlagsMakeIdentityChangesExplicit(t *testing.T) {
 func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 	cfg := localConfig()
 	addRoute := func(id, label, model string) {
-		cfg.Routes[id] = domain.Route{
-			Label: label, Account: "local", Model: model,
-			Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+		cfg.Models[id] = domain.Model{
+			Label: label, Account: "local", Family: model,
+			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 		}
 	}
 	addRoute("old", "Old", "gpt-old")
@@ -321,8 +321,8 @@ func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 	cfg.Families["gpt-shared"] = domain.Family{Label: "Shared"}
 	cfg.Families["gpt-declared"] = domain.Family{Label: "Declared"}
 	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{
-		Primary:      domain.ClientSelection{Route: "old"},
-		Alternatives: []domain.ClientSelection{{Route: "shared-old"}},
+		Primary:      domain.ClientSelection{Model: "old"},
+		Alternatives: []domain.ClientSelection{{Model: "shared-old"}},
 	}
 	runtime, _, out := savedRuntime(t, cfg)
 	command := newImportCommand(runtime)
@@ -335,22 +335,22 @@ func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, exists := got.Routes["old"]; exists {
+	if _, exists := got.Models["old"]; exists {
 		t.Fatal("explicitly retired Route remains")
 	}
-	if _, exists := got.Routes["shared-old"]; exists {
+	if _, exists := got.Models["shared-old"]; exists {
 		t.Fatal("second explicitly retired Route remains")
 	}
-	if _, exists := got.Routes["declared-old"]; exists {
+	if _, exists := got.Models["declared-old"]; exists {
 		t.Fatal("third explicitly retired Route remains")
 	}
 	if _, exists := got.Families["gpt-old"]; exists {
 		t.Fatal("Model orphaned by retired Route remains")
 	}
-	if got.Families["gpt-shared"].Label != "Shared" || got.Families["gpt-declared"].Label != "Declared" || got.SelectedRoute(codex.ID) != "local" || got.Routes["remote"].Account != "gateway" {
+	if got.Families["gpt-shared"].Label != "Shared" || got.Families["gpt-declared"].Label != "Declared" || got.SelectedModel(codex.ID) != "local" || got.Models["remote"].Account != "gateway" {
 		t.Fatalf("unrelated state or imported Route changed: %#v", got)
 	}
-	if recommendation := got.Recommendations[codex.ID]; recommendation.Primary.Route != "remote" || len(recommendation.Alternatives) != 0 {
+	if recommendation := got.Recommendations[codex.ID]; recommendation.Primary.Model != "remote" || len(recommendation.Alternatives) != 0 {
 		t.Fatalf("recommendation was not replaced: %#v", got.Recommendations)
 	}
 	if !strings.Contains(out.String(), "Retired Routes") {
@@ -488,11 +488,11 @@ func savedRuntime(t *testing.T, cfg domain.Config) (invocation.Context, string, 
 func localConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["local"] = domain.Account{Label: "Local", Endpoints: domain.Endpoints{OpenAIResponses: "https://local.example/v1"}}
-	cfg.Routes["local"] = domain.Route{
-		Label: "Local", Account: "local", Model: "gpt-local",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["local"] = domain.Model{
+		Label: "Local", Account: "local", Family: "gpt-local",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(codex.ID, "local", "")
+	cfg.SetSelectedModel(codex.ID, "local", "")
 	return cfg
 }
 

@@ -58,10 +58,10 @@ func TestAccountFinalizationConvergesForwardingBackupBeforeRetirement(t *testing
 func migrationConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["old"] = domain.Account{Label: "Old", Endpoints: domain.Endpoints{OpenAIResponses: "https://old.test/v1", Anthropic: "https://old.test"}}
-	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "old", Model: "gpt", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "old", Model: "claude", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(codex.ID, "codex", "")
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "old", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "old", Family: "claude", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(codex.ID, "codex", "")
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	return cfg
 }
 
@@ -70,9 +70,9 @@ func renamedConfig() domain.Config {
 	providerAccount := cfg.Accounts["old"]
 	delete(cfg.Accounts, "old")
 	cfg.Accounts["new"] = providerAccount
-	for id, route := range cfg.Routes {
+	for id, route := range cfg.Models {
 		route.Account = "new"
-		cfg.Routes[id] = route
+		cfg.Models[id] = route
 	}
 	return cfg
 }
@@ -195,7 +195,7 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 	}
 
 	invalid := cfg.Clone()
-	invalid.SetSelectedRoute(codex.ID, "missing", "")
+	invalid.SetSelectedModel(codex.ID, "missing", "")
 	if _, err := planAccount(invalid, "old", "new"); err == nil || !strings.Contains(err.Error(), "Validate") {
 		t.Fatalf("account error = %v", err)
 	}
@@ -203,25 +203,25 @@ func TestRenamePlanningValidationAndReferenceBranches(t *testing.T) {
 		t.Fatalf("route error = %v", err)
 	}
 
-	cfg.SetRecommendedRoute(claude.ID, "claude")
-	cfg.SetRecommendedRoute(codex.ID, "codex")
-	cfg.Routes["backup"] = cfg.Routes["codex"]
+	cfg.SetRecommendedModel(claude.ID, "claude")
+	cfg.SetRecommendedModel(codex.ID, "codex")
+	cfg.Models["backup"] = cfg.Models["codex"]
 	cfg.Recommendations[hermes.ID] = domain.ClientRecommendation{
-		Primary: domain.ClientSelection{Route: "claude", Protocol: domain.ProtocolAnthropic},
+		Primary: domain.ClientSelection{Model: "claude", Protocol: domain.ProtocolAnthropic},
 		Alternatives: []domain.ClientSelection{
-			{Route: "backup", Protocol: domain.ProtocolOpenAIResponses},
-			{Route: "codex", Protocol: domain.ProtocolOpenAIResponses},
+			{Model: "backup", Protocol: domain.ProtocolOpenAIResponses},
+			{Model: "codex", Protocol: domain.ProtocolOpenAIResponses},
 		},
 	}
 	plan, err := planRoute(cfg, "codex", "new-codex")
-	if err != nil || plan.Config.SelectedRoute(claude.ID) != "claude" ||
-		plan.Config.RecommendedRoute(codex.ID) != "new-codex" ||
-		plan.Config.RecommendedRoute(claude.ID) != "claude" {
+	if err != nil || plan.Config.SelectedModel(claude.ID) != "claude" ||
+		plan.Config.RecommendedModel(codex.ID) != "new-codex" ||
+		plan.Config.RecommendedModel(claude.ID) != "claude" {
 		t.Fatalf("plan=%#v error=%v", plan, err)
 	}
 	want := cfg.Clone().Recommendations[hermes.ID]
-	want.Alternatives[1].Route = "new-codex"
-	if !reflect.DeepEqual(plan.Config.Recommendations[hermes.ID], want) || cfg.Recommendations[hermes.ID].Alternatives[1].Route != "codex" || !slices.Contains(plan.AffectedReferences, "recommendations.hermes.alternatives.1.route") {
+	want.Alternatives[1].Model = "new-codex"
+	if !reflect.DeepEqual(plan.Config.Recommendations[hermes.ID], want) || cfg.Recommendations[hermes.ID].Alternatives[1].Model != "codex" || !slices.Contains(plan.AffectedReferences, "recommendations.hermes.alternatives.1.route") {
 		t.Fatalf("rename changed alternative order, protocol or input configuration: %#v", plan)
 	}
 }

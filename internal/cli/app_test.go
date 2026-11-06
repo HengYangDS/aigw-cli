@@ -32,11 +32,11 @@ func configuredApp(t *testing.T) *App {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "http://127.0.0.1:1234/v1", Anthropic: "https://one.test"}}
-	cfg.Routes["one"] = domain.Route{
-		Label: "One", Purpose: "Primary", Account: "one", Model: "gpt",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["one"] = domain.Model{
+		Label: "One", Purpose: "Primary", Account: "one", Family: "gpt",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(codex.ID, "one", "")
+	cfg.SetSelectedModel(codex.ID, "one", "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

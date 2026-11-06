@@ -20,8 +20,8 @@ func TestConfigImportRefusesAccountConflictUntilExplicitReplacementAndPreservesT
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = domain.Account{Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}}
-	cfg.Routes["local"] = qualifiedRoute("Local", "team", "local-model", domain.ProtocolAnthropic)
-	cfg.SetSelectedRoute(claude.ID, "local", "")
+	cfg.Models["local"] = qualifiedRoute("Local", "team", "local-model", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, "local", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ interfaces = { anthropic = ["text"] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["team"].Endpoints.Anthropic != "https://personal.example.test" || got.SelectedRoute(claude.ID) != "local" {
+	if got.Accounts["team"].Endpoints.Anthropic != "https://personal.example.test" || got.SelectedModel(claude.ID) != "local" {
 		t.Fatalf("default import mutated local identity: %#v", got)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
@@ -71,7 +71,7 @@ interfaces = { anthropic = ["text"] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["team"].Endpoints.Anthropic != "https://team.example.test" || got.SelectedRoute(claude.ID) != "local" {
+	if got.Accounts["team"].Endpoints.Anthropic != "https://team.example.test" || got.SelectedModel(claude.ID) != "local" {
 		t.Fatalf("explicit replacement result: %#v", got)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
@@ -93,7 +93,7 @@ func TestConfigImportDefersCredentialObservationToStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Accounts) != 2 || len(cfg.Routes) != 3 {
+	if len(cfg.Accounts) != 2 || len(cfg.Models) != 3 {
 		t.Fatalf("imported public catalog = %#v", cfg)
 	}
 	output := out.String()
@@ -191,8 +191,8 @@ func TestConfigImportRefusesRouteConflictUntilExplicitReplacement(t *testing.T) 
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = domain.Account{Label: "Team Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
-	cfg.Routes["shared"] = qualifiedRoute("Personal Model", "team", "personal-model", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "shared", "")
+	cfg.Models["shared"] = qualifiedRoute("Personal Model", "team", "personal-model", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "shared", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,7 @@ interfaces = { openai_responses = ["text"] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Routes["shared"].Model != "team-model" {
-		t.Fatalf("explicit route replacement = %#v", got.Routes["shared"])
+	if got.Models["shared"].Family != "team-model" {
+		t.Fatalf("explicit route replacement = %#v", got.Models["shared"])
 	}
 }

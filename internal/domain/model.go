@@ -20,8 +20,8 @@ type Authentication string
 // Capability identifies one behavior qualified for an exact Route interface.
 type Capability string
 
-// RouteLifecycle identifies a reviewed Route's current admission disposition.
-type RouteLifecycle string
+// ModelLifecycle identifies a reviewed Route's current admission disposition.
+type ModelLifecycle string
 
 const (
 	// ConfigVersion is the only configuration schema version accepted by this build.
@@ -58,10 +58,10 @@ const (
 	// the tool-search beta, deferred tool loading, and tool_reference results.
 	CapabilityToolSearch Capability = "tool_search"
 
-	// RouteAdmitted is the default lifecycle state for a configured Route.
-	RouteAdmitted RouteLifecycle = "admitted"
-	// RouteDeprecated retains existing bindings while excluding new recommendations.
-	RouteDeprecated RouteLifecycle = "deprecated"
+	// ModelAdmitted is the default lifecycle state for a configured Route.
+	ModelAdmitted ModelLifecycle = "admitted"
+	// ModelDeprecated retains existing bindings while excluding new recommendations.
+	ModelDeprecated ModelLifecycle = "deprecated"
 )
 
 var identifierPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
@@ -73,7 +73,7 @@ type Config struct {
 	Version         int                             `json:"version"                   toml:"version"`
 	Accounts        map[string]Account              `json:"accounts,omitempty"        toml:"accounts,omitempty"`
 	Families        map[string]Family               `json:"models"                    toml:"models"`
-	Routes          map[string]Route                `json:"routes"                    toml:"routes"`
+	Models          map[string]Model                `json:"routes"                    toml:"routes"`
 	Recommendations map[string]ClientRecommendation `json:"recommendations,omitempty" toml:"recommendations,omitempty"`
 	Clients         map[string]ClientBinding        `json:"clients,omitempty"         toml:"clients,omitempty"`
 	// admission is the client set that this configuration admits. It is not
@@ -98,44 +98,44 @@ type Family struct {
 	Order int    `json:"order,omitempty" toml:"order,omitempty"`
 }
 
-// Route identifies how one Account exposes one canonical Model independently
+// Model identifies how one Account exposes one Family independently
 // of client selection and native configuration.
-type Route struct {
+type Model struct {
 	ID            string                            `json:"id,omitempty"             toml:"-"`
 	Label         string                            `json:"label"                    toml:"label,omitempty"`
 	Purpose       string                            `json:"purpose,omitempty"        toml:"purpose,omitempty"`
 	Account       string                            `json:"account"                  toml:"account"`
-	Model         string                            `json:"model"                    toml:"model"`
+	Family        string                            `json:"model"                    toml:"model"`
 	UpstreamModel string                            `json:"upstream_model,omitempty" toml:"upstream_model,omitempty"`
-	Interfaces    map[EndpointProtocol][]Capability `json:"interfaces,omitempty"      toml:"interfaces,omitempty"`
-	Lifecycle     RouteLifecycle                    `json:"lifecycle,omitempty"       toml:"lifecycle,omitempty"`
+	Protocols     map[EndpointProtocol][]Capability `json:"interfaces,omitempty"      toml:"interfaces,omitempty"`
+	Lifecycle     ModelLifecycle                    `json:"lifecycle,omitempty"       toml:"lifecycle,omitempty"`
 }
 
 // UpstreamModelID returns the exact identifier sent to this Route's provider.
-func (route Route) UpstreamModelID() string {
+func (route Model) UpstreamModelID() string {
 	if route.UpstreamModel != "" {
 		return route.UpstreamModel
 	}
-	return route.Model
+	return route.Family
 }
 
 // LifecycleState returns the Route's explicit lifecycle or its admitted default.
-func (route Route) LifecycleState() RouteLifecycle {
+func (route Model) LifecycleState() ModelLifecycle {
 	if route.Lifecycle != "" {
 		return route.Lifecycle
 	}
-	return RouteAdmitted
+	return ModelAdmitted
 }
 
 // Declares reports whether the Route qualified capability on protocol.
-func (route Route) Declares(protocol EndpointProtocol, capability Capability) bool {
-	return slices.Contains(route.Interfaces[protocol], capability)
+func (route Model) Declares(protocol EndpointProtocol, capability Capability) bool {
+	return slices.Contains(route.Protocols[protocol], capability)
 }
 
 // AdmittedProtocols returns the Route's wire interfaces in stable order.
-func (route Route) AdmittedProtocols() []EndpointProtocol {
-	protocols := make([]EndpointProtocol, 0, len(route.Interfaces))
-	for protocol := range route.Interfaces {
+func (route Model) AdmittedProtocols() []EndpointProtocol {
+	protocols := make([]EndpointProtocol, 0, len(route.Protocols))
+	for protocol := range route.Protocols {
 		protocols = append(protocols, protocol)
 	}
 	slices.Sort(protocols)
@@ -145,15 +145,15 @@ func (route Route) AdmittedProtocols() []EndpointProtocol {
 // Runtime is the resolved, immutable input used to project or invoke one client route.
 type Runtime struct {
 	RetryPolicy       *RetryPolicy     `json:"retry_policy,omitempty"`
-	RouteID           string           `json:"route_id"`
-	RouteLabel        string           `json:"route_label"`
+	ModelID           string           `json:"route_id"`
+	ModelLabel        string           `json:"route_label"`
 	AccountID         string           `json:"account_id"`
 	AccountLabel      string           `json:"account_label"`
 	Client            string           `json:"client"`
 	Endpoint          string           `json:"endpoint"`
 	UpstreamEndpoint  string           `json:"upstream_endpoint"`
 	Protocol          EndpointProtocol `json:"protocol"`
-	Model             string           `json:"model,omitempty"`
+	UpstreamModel     string           `json:"model,omitempty"`
 	FamilyID          string           `json:"canonical_model_id,omitempty"`
 	ModelProvider     string           `json:"model_provider"`
 	Authentication    Authentication   `json:"authentication"`
@@ -216,7 +216,7 @@ func NewConfig(admission Admission) Config {
 		Version:         ConfigVersion,
 		Accounts:        map[string]Account{},
 		Families:        map[string]Family{},
-		Routes:          map[string]Route{},
+		Models:          map[string]Model{},
 		Recommendations: map[string]ClientRecommendation{},
 		Clients:         map[string]ClientBinding{},
 		admission:       admission,
@@ -245,9 +245,9 @@ func (c *Config) Clone() Config {
 		out.Accounts[name] = account
 	}
 	maps.Copy(out.Families, c.Families)
-	for name, route := range c.Routes {
-		route.Interfaces = cloneInterfaces(route.Interfaces)
-		out.Routes[name] = route
+	for name, route := range c.Models {
+		route.Protocols = cloneInterfaces(route.Protocols)
+		out.Models[name] = route
 	}
 	for client, recommendation := range c.Recommendations {
 		recommendation.Alternatives = slices.Clone(recommendation.Alternatives)
@@ -272,15 +272,15 @@ func cloneInterfaces(interfaces map[EndpointProtocol][]Capability) map[EndpointP
 	return cloned
 }
 
-// RouteIDs returns canonical lexical identity order, independent of presentation.
-func (c *Config) RouteIDs() []string {
-	return slices.Sorted(maps.Keys(c.Routes))
+// ModelIDs returns canonical lexical identity order, independent of presentation.
+func (c *Config) ModelIDs() []string {
+	return slices.Sorted(maps.Keys(c.Models))
 }
 
 // ProtocolClientIDs returns clients whose declared protocol overlaps one Route.
 // Protocol overlap permits selection; it does not qualify native client behavior.
 func (c *Config) ProtocolClientIDs(name string) ([]string, error) {
-	route, ok := c.Routes[name]
+	route, ok := c.Models[name]
 	if !ok {
 		return nil, fmt.Errorf("unknown route %q", name)
 	}
@@ -292,49 +292,49 @@ func (c *Config) ProtocolClientIDs(name string) ([]string, error) {
 	specs := c.admission.Specs()
 	compatible := make([]string, 0, len(specs))
 	for _, spec := range specs {
-		if len(spec.CompatibleRouteProtocols(account, route)) > 0 {
+		if len(spec.CompatibleModelProtocols(account, route)) > 0 {
 			compatible = append(compatible, spec.ID)
 		}
 	}
 	return compatible, nil
 }
 
-// SelectedRoute returns the Route explicitly selected by one client.
-func (c *Config) SelectedRoute(client string) string { return c.Clients[client].Route }
+// SelectedModel returns the Route explicitly selected by one client.
+func (c *Config) SelectedModel(client string) string { return c.Clients[client].Model }
 
-// RouteLabel returns an explicit display override or derives Account · Model
+// ModelLabel returns an explicit display override or derives Account · Model
 // from the two labels already declared by configuration.
-func (c *Config) RouteLabel(routeID string) string {
-	route, ok := c.Routes[routeID]
+func (c *Config) ModelLabel(routeID string) string {
+	route, ok := c.Models[routeID]
 	if !ok {
 		return routeID
 	}
-	return routeLabel(route, c.Accounts[route.Account], c.Families[route.Model])
+	return modelLabel(route, c.Accounts[route.Account], c.Families[route.Family])
 }
 
-// RecommendedRoute returns the team recommendation for one client.
-func (c *Config) RecommendedRoute(client string) string {
-	return c.Recommendations[client].Primary.Route
+// RecommendedModel returns the team recommendation for one client.
+func (c *Config) RecommendedModel(client string) string {
+	return c.Recommendations[client].Primary.Model
 }
 
-// SetRecommendedRoute changes one client recommendation while preserving
+// SetRecommendedModel changes one client recommendation while preserving
 // its protocol and authentication choices.
-func (c *Config) SetRecommendedRoute(client, routeID string) {
+func (c *Config) SetRecommendedModel(client, routeID string) {
 	if c.Recommendations == nil {
 		c.Recommendations = map[string]ClientRecommendation{}
 	}
 	recommendation := c.Recommendations[client]
 	selection := recommendation.Primary
-	selection.Route = routeID
+	selection.Model = routeID
 	recommendation.Primary = selection
 	c.Recommendations[client] = recommendation
 }
 
-// SelectedClientsForRoute returns the stable client set selecting one Route.
-func (c *Config) SelectedClientsForRoute(routeID string) []string {
+// SelectedClientsForModel returns the stable client set selecting one Route.
+func (c *Config) SelectedClientsForModel(routeID string) []string {
 	clients := make([]string, 0, len(c.Clients))
 	for _, client := range c.admission.IDs() {
-		if c.Clients[client].Route == routeID {
+		if c.Clients[client].Model == routeID {
 			clients = append(clients, client)
 		}
 	}
@@ -348,7 +348,7 @@ func (c *Config) ResolveAccount(reference string) (string, Account, error) {
 		account.ID = reference
 		return reference, account, nil
 	}
-	route, ok := c.Routes[reference]
+	route, ok := c.Models[reference]
 	if !ok {
 		return "", Account{}, fmt.Errorf("unknown account or route %q", reference)
 	}
@@ -400,12 +400,12 @@ func (c *Config) RequiredAccountTokenIDs() []string {
 	return slices.Sorted(maps.Keys(required))
 }
 
-// SelectRoutesForConnectedAccounts preserves the complete capability catalog
+// SelectModelsForConnectedAccounts preserves the complete capability catalog
 // while filling unselected bindings whose authentication is currently usable. A
 // client-native Route is usable without an AIGW Account Token; an account-token
 // Route is usable only when its Account is connected. The first usable reviewed
 // recommendation wins. Existing selections are never replaced.
-func (c *Config) SelectRoutesForConnectedAccounts(accountIDs []string, clients ...string) (Config, error) {
+func (c *Config) SelectModelsForConnectedAccounts(accountIDs []string, clients ...string) (Config, error) {
 	selected := c.Clone()
 	connected := make(map[string]bool, len(accountIDs))
 	for _, accountID := range accountIDs {
@@ -419,11 +419,11 @@ func (c *Config) SelectRoutesForConnectedAccounts(accountIDs []string, clients .
 	}
 	for _, client := range clients {
 		binding := selected.clientBinding(client)
-		if binding.Route != "" {
+		if binding.Model != "" {
 			continue
 		}
-		selection := selected.routeForAvailableAuthentication(client, connected)
-		if selection.Route == "" {
+		selection := selected.modelForAvailableAuthentication(client, connected)
+		if selection.Model == "" {
 			continue
 		}
 		binding = binding.withSelection(selection)
@@ -433,10 +433,10 @@ func (c *Config) SelectRoutesForConnectedAccounts(accountIDs []string, clients .
 	return selected, nil
 }
 
-func (c *Config) routeForAvailableAuthentication(client string, connected map[string]bool) ClientSelection {
+func (c *Config) modelForAvailableAuthentication(client string, connected map[string]bool) ClientSelection {
 	recommendation := c.Recommendations[client]
 	for _, selection := range append([]ClientSelection{recommendation.Primary}, recommendation.Alternatives...) {
-		if selection.Route == "" {
+		if selection.Model == "" {
 			continue
 		}
 		runtime, err := c.resolveSelection(client, selection)
@@ -460,15 +460,15 @@ func (c *Config) recommendedSelection(client string) ClientSelection {
 // Account's Route keeps default options.
 func (c *Config) recommendedSelectionFor(client, routeID string) ClientSelection {
 	recommended := c.recommendedSelection(client)
-	if recommended.Route == routeID {
+	if recommended.Model == routeID {
 		return recommended
 	}
-	route, exists := c.Routes[routeID]
-	recommendedRoute, recommendedExists := c.Routes[recommended.Route]
-	if !exists || !recommendedExists || recommendedRoute.Account != route.Account || !routeAdmitsProtocol(route, recommended.Protocol) {
-		return ClientSelection{Route: routeID}
+	route, exists := c.Models[routeID]
+	recommendedRoute, recommendedExists := c.Models[recommended.Model]
+	if !exists || !recommendedExists || recommendedRoute.Account != route.Account || !modelAdmitsProtocol(route, recommended.Protocol) {
+		return ClientSelection{Model: routeID}
 	}
-	recommended.Route = routeID
+	recommended.Model = routeID
 	return recommended
 }
 
@@ -476,20 +476,20 @@ func (c *Config) recommendedSelectionFor(client, routeID string) ClientSelection
 func (c *Config) ResolveRuntime(client, explicitRoute string) (Runtime, error) {
 	binding := c.clientBinding(client)
 	selection := binding.selection()
-	if explicitRoute == "" && selection.Route == "" {
+	if explicitRoute == "" && selection.Model == "" {
 		return Runtime{}, &RuntimeBindingUnselectedError{client: client}
 	}
-	if explicitRoute == "" || explicitRoute == selection.Route {
+	if explicitRoute == "" || explicitRoute == selection.Model {
 		return c.resolveSelection(client, selection)
 	}
-	selection = ClientSelection{Route: explicitRoute}
-	route, ok := c.Routes[explicitRoute]
+	selection = ClientSelection{Model: explicitRoute}
+	route, ok := c.Models[explicitRoute]
 	if !ok {
 		return Runtime{}, fmt.Errorf("unknown route %q", explicitRoute)
 	}
-	if binding.Route != "" {
-		bound := c.Routes[binding.Route]
-		if bound.Account == route.Account && routeAdmitsProtocol(route, binding.Protocol) {
+	if binding.Model != "" {
+		bound := c.Models[binding.Model]
+		if bound.Account == route.Account && modelAdmitsProtocol(route, binding.Protocol) {
 			selection.Protocol = binding.Protocol
 		}
 	} else {
@@ -498,18 +498,18 @@ func (c *Config) ResolveRuntime(client, explicitRoute string) (Runtime, error) {
 	return c.resolveSelection(client, selection)
 }
 
-// ResolveRouteProtocol resolves one reviewed Route through an exact client
+// ResolveModelProtocol resolves one reviewed Route through an exact client
 // protocol while retaining that client's authentication and credential policy.
-func (c *Config) ResolveRouteProtocol(client, routeID string, protocol EndpointProtocol) (Runtime, error) {
+func (c *Config) ResolveModelProtocol(client, routeID string, protocol EndpointProtocol) (Runtime, error) {
 	binding := c.clientBinding(client)
 	return c.resolveSelection(client, ClientSelection{
-		Route: routeID, Protocol: protocol,
+		Model: routeID, Protocol: protocol,
 		ModelProvider: binding.ModelProvider, Authentication: binding.Authentication,
 	})
 }
 
-func routeAdmitsProtocol(route Route, protocol EndpointProtocol) bool {
-	_, admitted := route.Interfaces[protocol]
+func modelAdmitsProtocol(route Model, protocol EndpointProtocol) bool {
+	_, admitted := route.Protocols[protocol]
 	return admitted
 }
 func (c *Config) clientBinding(client string) ClientBinding {
@@ -517,21 +517,21 @@ func (c *Config) clientBinding(client string) ClientBinding {
 }
 
 func (c *Config) resolveSelection(client string, selection ClientSelection) (Runtime, error) {
-	name := selection.Route
-	route, ok := c.Routes[name]
+	name := selection.Model
+	route, ok := c.Models[name]
 	if !ok {
 		return Runtime{}, fmt.Errorf("unknown route %q", name)
 	}
 	account, ok := c.Accounts[route.Account]
 	if !ok {
-		return Runtime{}, &RuntimeRouteUnknownAccountError{RouteID: name, AccountID: route.Account}
+		return Runtime{}, &RuntimeModelUnknownAccountError{ModelID: name, AccountID: route.Account}
 	}
 	account.ID = route.Account
 	spec, admitted := c.admission.Spec(client)
 	if !admitted {
 		return Runtime{}, fmt.Errorf("unknown client %q", client)
 	}
-	endpoint, protocol, err := spec.resolveRouteEndpoint(account, route, selection.Protocol)
+	endpoint, protocol, err := spec.resolveModelEndpoint(account, route, selection.Protocol)
 	if err != nil {
 		return Runtime{}, err
 	}
@@ -544,16 +544,16 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 	}
 	return Runtime{
 		RetryPolicy:       c.retryPolicyFor(client, selection, upstream, protocol),
-		RouteID:           name,
-		RouteLabel:        routeLabel(route, account, c.Families[route.Model]),
+		ModelID:           name,
+		ModelLabel:        modelLabel(route, account, c.Families[route.Family]),
 		AccountID:         account.ID,
 		AccountLabel:      account.Label,
 		Client:            client,
 		Endpoint:          endpoint,
 		UpstreamEndpoint:  upstream,
 		Protocol:          protocol,
-		Model:             route.UpstreamModelID(),
-		FamilyID:          route.Model,
+		UpstreamModel:     route.UpstreamModelID(),
+		FamilyID:          route.Family,
 		ModelProvider:     selectedModelProvider(spec, selection),
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
@@ -571,7 +571,7 @@ func (c *Config) forwardingFor(client, accountID, upstream string, protocol Endp
 	return binding.ForwardingEndpoint
 }
 
-func routeLabel(route Route, account Account, model Family) string {
+func modelLabel(route Model, account Account, model Family) string {
 	if route.Label != "" {
 		return route.Label
 	}
@@ -581,7 +581,7 @@ func routeLabel(route Route, account Account, model Family) string {
 	}
 	modelLabel := model.Label
 	if modelLabel == "" {
-		modelLabel = route.Model
+		modelLabel = route.Family
 	}
 	return accountLabel + " · " + modelLabel
 }

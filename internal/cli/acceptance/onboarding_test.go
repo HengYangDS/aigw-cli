@@ -38,8 +38,8 @@ func TestSyncProjectsExplicitlyEnabledCodexWhenItBecomesAvailable(t *testing.T) 
 		Label:     "DMXAPI",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetClientActivation(codex.ID, true, "", nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -105,7 +105,7 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 		t.Fatal(err)
 	}
 	adapter := after.Clients[codex.ID]
-	if adapter.Route != "dmxapi-gpt" || !adapter.Enabled || adapter.Executable != "/usr/local/bin/codex" || len(adapter.Targets) != 1 {
+	if adapter.Model != "dmxapi-gpt" || !adapter.Enabled || adapter.Executable != "/usr/local/bin/codex" || len(adapter.Targets) != 1 {
 		t.Fatalf("Codex adapter after sync = %#v", adapter)
 	}
 	if adapter.Targets[0] != target {
@@ -181,8 +181,8 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := afterPreview.SelectedRoute(claude.ID); got != before.SelectedRoute(claude.ID) {
-		t.Fatalf("dry-run changed Claude selection from %q to %q", before.SelectedRoute(claude.ID), got)
+	if got := afterPreview.SelectedModel(claude.ID); got != before.SelectedModel(claude.ID) {
+		t.Fatalf("dry-run changed Claude selection from %q to %q", before.SelectedModel(claude.ID), got)
 	}
 	if _, err := os.Stat(settingsPath); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("dry-run wrote Claude settings: %v", err)
@@ -198,7 +198,7 @@ func TestSyncActivatesSelectedEnvironmentAccountAfterManifestSetup(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.SelectedRoute(claude.ID) != wantRoutes[claude.ID] {
+	if after.SelectedModel(claude.ID) != wantRoutes[claude.ID] {
 		t.Fatalf("bindings = %#v, want selections %#v", after.Clients, wantRoutes)
 	}
 	adapter := after.Clients[claude.ID]
@@ -222,8 +222,8 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	before.SetSelectedRoute(claude.ID, "aihubmix-claude", "")
-	before.SetSelectedRoute(codex.ID, "dmxapi-gpt", "")
+	before.SetSelectedModel(claude.ID, "aihubmix-claude", "")
+	before.SetSelectedModel(codex.ID, "dmxapi-gpt", "")
 	before.SetClientActivation(codex.ID, true, "", nil)
 	if err := app.Config.Save(before); err != nil {
 		t.Fatal(err)
@@ -252,8 +252,8 @@ func TestSyncActivatesLateTokenWithoutChangingIndependentRoute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.SelectedRoute(claude.ID) != before.SelectedRoute(claude.ID) ||
-		after.SelectedRoute(codex.ID) != before.SelectedRoute(codex.ID) {
+	if after.SelectedModel(claude.ID) != before.SelectedModel(claude.ID) ||
+		after.SelectedModel(codex.ID) != before.SelectedModel(codex.ID) {
 		t.Fatalf("sync changed independent bindings: got %#v, want %#v", after.Clients, before.Clients)
 	}
 	if after.Clients[claude.ID].Enabled {
@@ -293,8 +293,8 @@ func TestSyncDefersNewlyInstalledClientUntilItsAccountIsConnected(t *testing.T) 
 		Label:     "DMXAPI",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

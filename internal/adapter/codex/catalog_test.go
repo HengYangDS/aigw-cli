@@ -176,20 +176,20 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 	config.Families = map[string]domain.Family{
 		canonicalModel: {ID: canonicalModel, Label: "GPT-6.1 Sol"},
 	}
-	config.Routes = map[string]domain.Route{
+	config.Models = map[string]domain.Model{
 		routeID: {
 			Label:         "DMXAPI GPT-6.1 Sol CDX",
 			Account:       "dmxapi",
-			Model:         canonicalModel,
+			Family:        canonicalModel,
 			UpstreamModel: upstreamModel,
-			Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+			Protocols: map[domain.EndpointProtocol][]domain.Capability{
 				domain.ProtocolOpenAIResponses: {},
 			},
 		},
 	}
 	config.Clients = map[string]domain.ClientBinding{
 		ID: {
-			Route:             routeID,
+			Model:             routeID,
 			Enabled:           true,
 			Protocol:          domain.ProtocolOpenAIResponses,
 			ModelProvider:     modelProviderAIGW,
@@ -200,8 +200,8 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtimeConfig.Model != upstreamModel {
-		t.Fatalf("resolved Codex upstream model = %q, want %q", runtimeConfig.Model, upstreamModel)
+	if runtimeConfig.UpstreamModel != upstreamModel {
+		t.Fatalf("resolved Codex upstream model = %q, want %q", runtimeConfig.UpstreamModel, upstreamModel)
 	}
 	if runtimeConfig.FamilyID != canonicalModel {
 		t.Fatalf("resolved Codex canonical model = %q, want %q", runtimeConfig.FamilyID, canonicalModel)
@@ -399,7 +399,7 @@ func TestCodexCatalogDesiredSnapshotFailsClosedOnForeignFile(t *testing.T) {
 // this work exists for.
 func catalogTestRuntime(model string) domain.Runtime {
 	runtime := atomicTestRuntime()
-	runtime.Model = model
+	runtime.UpstreamModel = model
 	return runtime
 }
 

@@ -19,9 +19,9 @@ import (
 
 func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
-	cfg.Routes["shared"] = domain.Route{
-		Account: "gateway", Model: "shared-model",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+	cfg.Models["shared"] = domain.Model{
+		Account: "gateway", Family: "shared-model",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
 		},
 	}
@@ -59,9 +59,9 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Secrets = store
-	cfg.Routes["shared"] = domain.Route{
-		Account: "gateway", Model: "shared-model",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+	cfg.Models["shared"] = domain.Model{
+		Account: "gateway", Family: "shared-model",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
 		},
 	}
@@ -84,7 +84,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		t.Fatalf("ambiguous Hermes Route error = %v, want explicit protocol guidance", err)
 	}
 	unchanged, err := runtime.Config.Load()
-	if err != nil || unchanged.SelectedRoute(hermes.ID) != "" {
+	if err != nil || unchanged.SelectedModel(hermes.ID) != "" {
 		t.Fatalf("ambiguous selection changed Hermes binding: %#v, %v", unchanged.Clients, err)
 	}
 
@@ -107,9 +107,9 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		t.Fatal(err)
 	}
 	selected, err := runtime.Config.Load()
-	if err != nil || selected.SelectedRoute(hermes.ID) != "shared" ||
+	if err != nil || selected.SelectedModel(hermes.ID) != "shared" ||
 		selected.Clients[hermes.ID].Protocol != domain.ProtocolAnthropic ||
-		selected.SelectedRoute(codex.ID) != "codex" {
+		selected.SelectedModel(codex.ID) != "codex" {
 		t.Fatalf("explicit Hermes protocol selection = %#v, %v", selected.Clients, err)
 	}
 	if output := out.String(); !strings.Contains(output, "Install Hermes if needed, then run `aigw sync`") || strings.Contains(output, "aigw check") {
@@ -126,9 +126,9 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 
 func TestUseValidatesSelectedProtocolWhenAcquiringToken(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
-	cfg.Routes["shared"] = domain.Route{
-		Account: "gateway", Model: "shared-model",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+	cfg.Models["shared"] = domain.Model{
+		Account: "gateway", Family: "shared-model",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
 		},
 	}

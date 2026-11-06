@@ -240,7 +240,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 		return prepareCodexRestoreTransition(target.ref, configSnapshot, stateSnapshot, catalogSnapshot, previous, replaceRootSelections)
 	}
 	block := codexManagedBlock(runtime, endpoint)
-	base, state, err := codexUserConfigTransition(configSnapshot, stateSnapshot, previous, runtime.Model, replaceRootSelections)
+	base, state, err := codexUserConfigTransition(configSnapshot, stateSnapshot, previous, runtime.UpstreamModel, replaceRootSelections)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -249,12 +249,12 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	// safe authorization to remove the file.
 	ownedCatalogHash := state.CatalogHash
 	provider := codexRuntimeProvider(runtime)
-	catalogModel := runtime.Model
+	catalogModel := runtime.UpstreamModel
 	if provider != modelProviderAIGW {
 		catalogModel = ""
 	}
 	catalog := codexCatalogProjection(target.ref, catalogModel, runtime.FamilyID, base, state, catalogSnapshot)
-	projection, err := projectCodex(base, block, runtime.Model, catalog.path, provider)
+	projection, err := projectCodex(base, block, runtime.UpstreamModel, catalog.path, provider)
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
@@ -265,7 +265,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 		return codexPreparedTarget{}, err
 	}
 	state.ManagedBlockHash = platform.SHA256([]byte(block))
-	state.ProjectedModel = runtime.Model
+	state.ProjectedModel = runtime.UpstreamModel
 	if provider == modelProviderAIGW {
 		state.ProjectedProvider = ""
 	} else {

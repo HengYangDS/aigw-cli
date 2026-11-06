@@ -63,9 +63,9 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 		account = "aihubmix"
 		token   = "native-general-route-token"
 	)
-	routeIDs := make([]string, 0, len(p.manifest.Routes))
+	routeIDs := make([]string, 0, len(p.manifest.Models))
 	completions := map[string]*atomic.Int64{}
-	for routeID, route := range p.manifest.Routes {
+	for routeID, route := range p.manifest.Models {
 		if route.Account != account || !slices.Contains(route.AdmittedProtocols(), domain.ProtocolOpenAIResponses) {
 			continue
 		}
@@ -95,7 +95,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	journey.enableNativeClient(codex.ID, executable)
 	selected := readFile(t, journey.config)
 	for _, routeID := range routeIDs {
-		route := p.manifest.Routes[routeID]
+		route := p.manifest.Models[routeID]
 		route.ID = routeID
 		t.Run(routeID, func(t *testing.T) {
 			before := completions[route.UpstreamModel].Load()
@@ -131,7 +131,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralRoutes(t *testing.T) {
 	journey.uninstallWithAndRequireInstallationRemoved(p.candidate)
 }
 
-func requireNativeCodexRouteOutcome(t *testing.T, executable string, route domain.Route, stdout, stderr []byte, runErr error, token string) bool {
+func requireNativeCodexRouteOutcome(t *testing.T, executable string, route domain.Model, stdout, stderr []byte, runErr error, token string) bool {
 	t.Helper()
 	if runErr == nil {
 		if !bytes.Contains(stdout, []byte("Completed")) || process.DiagnosticFailure(stderr) {
@@ -148,7 +148,7 @@ func requireNativeCodexRouteOutcome(t *testing.T, executable string, route domai
 		t.Fatal(err)
 	}
 	document, err := modelcatalog.Parse(bundled)
-	if err != nil || document.Model(route.Model) != nil {
+	if err != nil || document.Model(route.Family) != nil {
 		t.Fatalf("model-metadata refusal is not supported by the native catalog: %v", err)
 	}
 	t.Logf("Route %s issued the native request; metadata qualification remains incomplete", route.ID)
@@ -200,7 +200,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 		Args: []string{"verify", "--for", codex.ID},
 	})
 	cancel()
-	route := p.manifest.Routes[routeID]
+	route := p.manifest.Models[routeID]
 	route.ID = routeID
 	requireNativeCodexRouteOutcome(t, executable, route, stdout, stderr, verifyErr, token)
 	if verifyErr == nil {
@@ -233,7 +233,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 		t.Fatalf("Codex native tool loop: %v\nstdout:\n%s\nstderr:\n%s", runErr,
 			domain.Redact(string(stdout), token), domain.Redact(string(stderr), token))
 	}
-	requireNativeCodexMetadataDiagnostic(t, runtime.Model, stdout, stderr, token)
+	requireNativeCodexMetadataDiagnostic(t, runtime.UpstreamModel, stdout, stderr, token)
 	if !toolOutput.Load() || probe.toolCalls.Load()-callsBefore != 1 || probe.toolResults.Load()-resultsBefore != 1 || probe.rejected.Load() != 0 {
 		t.Fatalf("Codex tool loop evidence: successful tool result=%t calls=%d results=%d rejected=%d",
 			toolOutput.Load(), probe.toolCalls.Load()-callsBefore, probe.toolResults.Load()-resultsBefore, probe.rejected.Load())

@@ -42,9 +42,9 @@ func TestForwardingRefusesAChangeThatMovesItsUpstream(t *testing.T) {
 		"Account rename": func(cfg *domain.Config) {
 			cfg.Accounts["renamed"] = cfg.Accounts["backup"]
 			delete(cfg.Accounts, "backup")
-			route := cfg.Routes["backup"]
+			route := cfg.Models["backup"]
 			route.Account = "renamed"
-			cfg.Routes["backup"] = route
+			cfg.Models["backup"] = route
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -63,8 +63,8 @@ func TestForwardingRefusesAChangeThatMovesItsUpstream(t *testing.T) {
 func TestForwardingRefusesAProtocolChange(t *testing.T) {
 	cfg := validConfig()
 	cfg.Accounts["multi"] = domain.Account{Label: "Multi", Endpoints: domain.Endpoints{OpenAIResponses: "https://multi.test/v1", OpenAIChatCompletions: "https://multi.test/v1"}}
-	cfg.Routes["multi"] = testRoute("Multi", "multi", "multi-model", domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions)
-	cfg.SetSelectedRoute(ClientHermes, "multi", domain.ProtocolOpenAIResponses)
+	cfg.Models["multi"] = testModel("Multi", "multi", "multi-model", domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions)
+	cfg.SetSelectedModel(ClientHermes, "multi", domain.ProtocolOpenAIResponses)
 	if err := cfg.SetForwardingEndpoint(ClientHermes, forwardingTestEndpoint); err != nil {
 		t.Fatal(err)
 	}
@@ -96,12 +96,12 @@ func TestForwardingRefusalResetsASelectedRetryPolicy(t *testing.T) {
 
 func TestForwardingSurvivesASelectionOfTheSameUpstream(t *testing.T) {
 	cfg := forwardedConfig(t)
-	cfg.Routes["other"] = testRoute("Other", "backup", "other-model", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(ClientCodex, "other", "")
+	cfg.Models["other"] = testModel("Other", "backup", "other-model", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(ClientCodex, "other", "")
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	if runtime, err := cfg.ResolveRuntime(ClientCodex, ""); err != nil || runtime.Endpoint != forwardingTestEndpoint || runtime.Model != "other-model" {
+	if runtime, err := cfg.ResolveRuntime(ClientCodex, ""); err != nil || runtime.Endpoint != forwardingTestEndpoint || runtime.UpstreamModel != "other-model" {
 		t.Fatalf("a selection of the same upstream lost forwarding: %#v, %v", runtime, err)
 	}
 }

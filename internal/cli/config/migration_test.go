@@ -21,13 +21,13 @@ import (
 func TestMigrationPreviewNamesClientsAndProtocolsByLabel(t *testing.T) {
 	out := &bytes.Buffer{}
 	plan := store.MigrationPlan{
-		Required: true, FromVersion: 5, ToVersion: 6, Accounts: []string{"gateway"}, Routes: []string{"messages", "responses"},
+		Required: true, FromVersion: 5, ToVersion: 6, Accounts: []string{"gateway"}, Models: []string{"messages", "responses"},
 		Clients: map[string]domain.ClientBinding{
-			claudedesktop.ID: {Route: "messages", Protocol: domain.ProtocolAnthropic, Targets: []string{"/library"}},
-			codex.ID:         {Route: "responses", Protocol: domain.ProtocolOpenAIResponses, Targets: []string{"/a", "/b"}},
+			claudedesktop.ID: {Model: "messages", Protocol: domain.ProtocolAnthropic, Targets: []string{"/library"}},
+			codex.ID:         {Model: "responses", Protocol: domain.ProtocolOpenAIResponses, Targets: []string{"/a", "/b"}},
 		},
 		Recommendations: map[string]domain.ClientRecommendation{
-			claudedesktop.ID: {Primary: domain.ClientSelection{Route: "messages"}},
+			claudedesktop.ID: {Primary: domain.ClientSelection{Model: "messages"}},
 		},
 	}
 	if err := renderMigration(invocation.Context{Clients: clients.Registry(), Out: out}, migrationOutput{DryRun: true, MigrationPlan: plan, NextAction: "aigw config migrate"}); err != nil {

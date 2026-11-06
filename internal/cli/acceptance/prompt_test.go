@@ -117,7 +117,7 @@ func TestUseWithoutNameSelectsRouteAndCollectsMissingToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg, _ := app.Config.Load()
-	if cfg.SelectedRoute(claude.ID) != "two" || cfg.SelectedRoute(codex.ID) != "one" || !secretExists(t, secretStore, "two") || len(prompt.secretCalls) != 1 {
+	if cfg.SelectedModel(claude.ID) != "two" || cfg.SelectedModel(codex.ID) != "one" || !secretExists(t, secretStore, "two") || len(prompt.secretCalls) != 1 {
 		t.Fatalf("config=%#v hasSecret=%v prompts=%d", cfg, secretExists(t, secretStore, "two"), len(prompt.secretCalls))
 	}
 }
@@ -126,7 +126,7 @@ func TestUseWithoutRouteRequiresInteractiveTerminal(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	cfg.SetSelectedRoute(claude.ID, "one", "")
+	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestUseWithoutRoutePromptsInteractively(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
 	addAccountRoute(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
-	cfg.SetSelectedRoute(claude.ID, "one", "")
+	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestUseWithoutRoutePromptsInteractively(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SelectedRoute(claude.ID) != "two" {
+	if got.SelectedModel(claude.ID) != "two" {
 		t.Fatalf("bindings = %#v, want the interactively chosen route", got.Clients)
 	}
 }
@@ -166,7 +166,7 @@ func TestUseSurfacesInteractiveSelectionFailure(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	cfg.SetSelectedRoute(claude.ID, "one", "")
+	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
 	addAccountRoute(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
-	cfg.SetSelectedRoute(claude.ID, "one", "")
+	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -200,7 +200,7 @@ func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
 	addAccountRoute(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
-	cfg.SetSelectedRoute(claude.ID, "one", "")
+	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +217,7 @@ func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
 	addAccountRoute(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
-	cfg.SetSelectedRoute(claude.ID, "one", "")
+	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +239,7 @@ func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
 	addAccountRoute(&cfg, "two", "two", "Two", domain.Endpoints{Anthropic: "https://two.test"}, claude.ID, "claude-two")
-	cfg.SetSelectedRoute(claude.ID, "one", "")
+	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +299,7 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.SelectedRoute(codex.ID) != "gpt-5.6-terra" || cfg.Clients["claude"].Enabled || !cfg.Clients["codex"].Enabled {
+	if cfg.SelectedModel(codex.ID) != "gpt-5.6-terra" || cfg.Clients["claude"].Enabled || !cfg.Clients["codex"].Enabled {
 		t.Fatalf("configured state = %#v", cfg)
 	}
 	if len(runner.plans) != 0 {
@@ -353,7 +353,7 @@ func TestFirstRunDefersSelectedHermesProtocolUntilClientInstallation(t *testing.
 				t.Fatal(err)
 			}
 			selected, err := cfg.ResolveRuntime(hermes.ID, "")
-			if err != nil || selected.RouteID != "hermes-route" || selected.Protocol != test.protocol || selected.Endpoint != test.endpoint {
+			if err != nil || selected.ModelID != "hermes-route" || selected.Protocol != test.protocol || selected.Endpoint != test.endpoint {
 				t.Fatalf("Hermes selection = %+v, %v", selected, err)
 			}
 			if len(runner.plans) != 0 || !strings.Contains(out.String(), "Install Hermes") || !strings.Contains(out.String(), "aigw sync") || !strings.Contains(out.String(), "Claude Desktop") || strings.Contains(out.String(), "wizard-token") {
@@ -391,8 +391,8 @@ func TestFirstRunCreatesExplicitGenericAccountWithoutBundledProviderDefault(t *t
 	if !secretExists(t, secretStore, "team-gateway") {
 		t.Fatal("generic Account Token was not stored")
 	}
-	route, ok := cfg.Routes["gpt-5.6-terra"]
-	if !ok || route.Account != "team-gateway" || route.Model != "gpt-5.6-terra" || cfg.SelectedRoute(codex.ID) != "gpt-5.6-terra" {
+	route, ok := cfg.Models["gpt-5.6-terra"]
+	if !ok || route.Account != "team-gateway" || route.Family != "gpt-5.6-terra" || cfg.SelectedModel(codex.ID) != "gpt-5.6-terra" {
 		t.Fatalf("generic route = %#v", route)
 	}
 	if _, exists := cfg.Accounts["dmx"]; exists {
@@ -422,7 +422,7 @@ func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !secretExists(t, secretStore, "team-gateway") || cfg.SelectedRoute(claude.ID) != "claude-sonnet-5-5" {
+	if !secretExists(t, secretStore, "team-gateway") || cfg.SelectedModel(claude.ID) != "claude-sonnet-5-5" {
 		t.Fatalf("setup state = %#v", cfg)
 	}
 	text := out.String()
@@ -436,8 +436,8 @@ func TestSetupWithoutFlagsRefusesBeforePromptingWhenAlreadyConfigured(t *testing
 	app.Interactive = true
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

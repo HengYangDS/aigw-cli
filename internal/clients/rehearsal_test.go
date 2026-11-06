@@ -49,11 +49,11 @@ func (rehearsalAdapter) projection(cfg domain.Config) ([]byte, error) {
 	if !binding.Enabled {
 		return nil, nil
 	}
-	route, found := cfg.Routes[binding.Route]
+	route, found := cfg.Models[binding.Model]
 	if !found {
-		return nil, fmt.Errorf("rehearsal binding names unknown route %q", binding.Route)
+		return nil, fmt.Errorf("rehearsal binding names unknown route %q", binding.Model)
 	}
-	return json.Marshal(map[string]string{"route": binding.Route, "model": route.Model})
+	return json.Marshal(map[string]string{"route": binding.Model, "model": route.Family})
 }
 
 // change compares the current projection with the one that cfg wants.
@@ -144,9 +144,9 @@ func (rehearsalAdapter) Withdraw(cfg *domain.Config) {
 func rehearsalConfiguration(admission domain.Admission) (domain.Config, domain.Config) {
 	before := domain.NewConfig(admission)
 	before.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	before.Routes["rehearsal"] = qualifiedRoute("", "gateway", "rehearsal-model", domain.ProtocolOpenAIResponses)
+	before.Models["rehearsal"] = qualifiedRoute("", "gateway", "rehearsal-model", domain.ProtocolOpenAIResponses)
 	after := before.Clone()
-	after.Clients[rehearsalID] = domain.ClientBinding{Route: "rehearsal", Enabled: true}
+	after.Clients[rehearsalID] = domain.ClientBinding{Model: "rehearsal", Enabled: true}
 	return before, after
 }
 

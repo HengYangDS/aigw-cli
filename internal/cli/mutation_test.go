@@ -230,11 +230,11 @@ func TestConfigurationLockForInteractiveOnboarding(t *testing.T) {
 	configStore := store.NewStore(path, clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Routes["gpt"] = domain.Route{
-		Label: "GPT", Account: "dmx", Model: "gpt-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["gpt"] = domain.Model{
+		Label: "GPT", Account: "dmx", Family: "gpt-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

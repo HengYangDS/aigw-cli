@@ -27,9 +27,9 @@ type ClientSpec struct {
 	Label                  string
 	EndpointProtocols      []EndpointProtocol
 	RestartAfterProjection bool
-	// SessionsKeepRoute marks a client whose existing sessions keep the route
+	// SessionsKeepModel marks a client whose existing sessions keep the route
 	// they were created with, so a projection change reaches new sessions only.
-	SessionsKeepRoute  bool
+	SessionsKeepModel  bool
 	QualifiedModes     []string
 	QualifiedPlatforms []string
 	// ProductName is the full product name where it differs from Label.
@@ -64,8 +64,8 @@ type DoctorWording struct {
 	// AdapterStates names the adapter's state and its missing executable or
 	// configuration file.
 	AdapterStates bool
-	// RouteBinding reports an unresolvable route as an unresolvable binding.
-	RouteBinding bool
+	// ModelBinding reports an unresolvable route as an unresolvable binding.
+	ModelBinding bool
 }
 
 func naturalChoices(choices []string) string {
@@ -87,10 +87,10 @@ func (s ClientSpec) ResolveEndpoint(account Account, requested EndpointProtocol)
 	return s.resolveEndpoint(account, nil, requested)
 }
 
-// resolveRouteEndpoint selects one endpoint admitted by the client, Account,
+// resolveModelEndpoint selects one endpoint admitted by the client, Account,
 // and Route interface declaration.
-func (s ClientSpec) resolveRouteEndpoint(account Account, route Route, requested EndpointProtocol) (string, EndpointProtocol, error) {
-	return s.resolveEndpoint(account, routeAdmittedProtocols(route), requested)
+func (s ClientSpec) resolveModelEndpoint(account Account, route Model, requested EndpointProtocol) (string, EndpointProtocol, error) {
+	return s.resolveEndpoint(account, modelAdmittedProtocols(route), requested)
 }
 
 func (s ClientSpec) resolveEndpoint(account Account, admitted []EndpointProtocol, requested EndpointProtocol) (string, EndpointProtocol, error) {
@@ -136,13 +136,13 @@ func (s ClientSpec) CompatibleProtocols(account Account) []EndpointProtocol {
 	return s.compatibleProtocols(account, nil)
 }
 
-// CompatibleRouteProtocols returns the client protocols admitted by both
+// CompatibleModelProtocols returns the client protocols admitted by both
 // the Account endpoints and the Route's verified interface declaration.
-func (s ClientSpec) CompatibleRouteProtocols(account Account, route Route) []EndpointProtocol {
-	return s.compatibleProtocols(account, routeAdmittedProtocols(route))
+func (s ClientSpec) CompatibleModelProtocols(account Account, route Model) []EndpointProtocol {
+	return s.compatibleProtocols(account, modelAdmittedProtocols(route))
 }
 
-func routeAdmittedProtocols(route Route) []EndpointProtocol {
+func modelAdmittedProtocols(route Model) []EndpointProtocol {
 	return route.AdmittedProtocols()
 }
 
@@ -173,7 +173,7 @@ func (endpoints Endpoints) For(protocol EndpointProtocol) string {
 // ClientSelection identifies one Route and the client-specific choices needed
 // to resolve it without coupling the Route to a client brand.
 type ClientSelection struct {
-	Route          string           `json:"route,omitempty"              toml:"route,omitempty"`
+	Model          string           `json:"route,omitempty"              toml:"route,omitempty"`
 	Protocol       EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
 	ModelProvider  string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
 	Authentication Authentication   `json:"authentication,omitempty"     toml:"authentication,omitempty"`
@@ -189,7 +189,7 @@ type ClientRecommendation struct {
 // Selections returns the reviewed choices in preference order.
 func (recommendation ClientRecommendation) Selections() []ClientSelection {
 	selections := make([]ClientSelection, 0, 1+len(recommendation.Alternatives))
-	if recommendation.Primary.Route != "" {
+	if recommendation.Primary.Model != "" {
 		selections = append(selections, recommendation.Primary)
 	}
 	return append(selections, recommendation.Alternatives...)
@@ -205,7 +205,7 @@ type ClientBinding struct {
 	// endpoint, and a binding forwards only while its Route still reaches them.
 	ForwardingUpstreamIdentity string           `json:"-"                            toml:"-"`
 	ForwardingProtocol         EndpointProtocol `json:"-"                            toml:"-"`
-	Route                      string           `json:"route,omitempty"              toml:"route,omitempty"`
+	Model                      string           `json:"route,omitempty"              toml:"route,omitempty"`
 	Enabled                    bool             `json:"enabled"                      toml:"enabled"`
 	Protocol                   EndpointProtocol `json:"protocol,omitempty"           toml:"protocol,omitempty"`
 	ModelProvider              string           `json:"model_provider,omitempty"     toml:"model_provider,omitempty"`
@@ -248,7 +248,7 @@ func (c *Config) SetForwardingEndpoint(client, endpoint string) error {
 
 func (binding ClientBinding) selection() ClientSelection {
 	return ClientSelection{
-		Route:          binding.Route,
+		Model:          binding.Model,
 		Protocol:       binding.Protocol,
 		ModelProvider:  binding.ModelProvider,
 		Authentication: binding.Authentication,
@@ -256,7 +256,7 @@ func (binding ClientBinding) selection() ClientSelection {
 }
 
 func (binding ClientBinding) withSelection(selection ClientSelection) ClientBinding {
-	binding.Route = selection.Route
+	binding.Model = selection.Model
 	binding.Protocol = selection.Protocol
 	binding.ModelProvider = selection.ModelProvider
 	binding.Authentication = selection.Authentication
@@ -278,22 +278,22 @@ func (runtime Runtime) UsesAIGWCredentialStore() bool {
 	return runtime.RequiresAccountToken() && runtime.CredentialCommand == ""
 }
 
-// SetSelectedRoute changes one client's Route and endpoint protocol while
+// SetSelectedModel changes one client's Route and endpoint protocol while
 // preserving enabled intent and native options. An empty protocol retains
 // compatible selection or infers the Route's only admitted protocol.
-func (c *Config) SetSelectedRoute(client, routeID string, protocol EndpointProtocol) {
+func (c *Config) SetSelectedModel(client, routeID string, protocol EndpointProtocol) {
 	if c.Clients == nil {
 		c.Clients = map[string]ClientBinding{}
 	}
 	binding := c.Clients[client]
 	previous, previousErr := c.ResolveRuntime(client, "")
-	if binding.Route == "" {
+	if binding.Model == "" {
 		binding = binding.withSelection(c.recommendedSelectionFor(client, routeID))
 	}
-	binding.Route = routeID
+	binding.Model = routeID
 	if protocol != "" {
 		binding.Protocol = protocol
-	} else if route, exists := c.Routes[routeID]; exists && !routeAdmitsProtocol(route, binding.Protocol) {
+	} else if route, exists := c.Models[routeID]; exists && !modelAdmitsProtocol(route, binding.Protocol) {
 		binding.Protocol = ""
 		if protocols := route.AdmittedProtocols(); len(protocols) == 1 {
 			binding.Protocol = protocols[0]

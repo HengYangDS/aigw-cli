@@ -113,7 +113,7 @@ func TestFileSHA256RejectsADirectory(t *testing.T) {
 }
 
 func TestVerificationPlanRejectsIncompleteInputs(t *testing.T) {
-	runtime := domain.Runtime{RouteID: "codex", Model: "gpt-test"}
+	runtime := domain.Runtime{ModelID: "codex", UpstreamModel: "gpt-test"}
 	for _, test := range []struct {
 		name       string
 		executable string
@@ -124,7 +124,7 @@ func TestVerificationPlanRejectsIncompleteInputs(t *testing.T) {
 	}{
 		{name: "missing executable", configPath: "config.toml", outputPath: "output.txt", runtime: runtime, want: "not configured"},
 		{name: "missing config", executable: "codex", outputPath: "output.txt", runtime: runtime, want: "target is not configured"},
-		{name: "missing model", executable: "codex", configPath: "config.toml", outputPath: "output.txt", runtime: domain.Runtime{RouteID: "codex"}, want: "has no Codex model"},
+		{name: "missing model", executable: "codex", configPath: "config.toml", outputPath: "output.txt", runtime: domain.Runtime{ModelID: "codex"}, want: "has no Codex model"},
 		{name: "missing output", executable: "codex", configPath: "config.toml", runtime: runtime, want: "output path is not configured"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -141,7 +141,7 @@ func TestVerificationPlanPreservesCredentialHelperEnvironment(t *testing.T) {
 	t.Setenv("AIGW_TOKEN_GATEWAY", "fixture-token")
 	t.Setenv("CODEX_HOME", filepath.Join(t.TempDir(), "ambient-home"))
 	home := t.TempDir()
-	plan, err := VerificationPlan("codex", filepath.Join(home, "config.toml"), filepath.Join(t.TempDir(), "output.txt"), domain.Runtime{RouteID: "codex", Model: "gpt-test"}, "Read challenge.txt", "")
+	plan, err := VerificationPlan("codex", filepath.Join(home, "config.toml"), filepath.Join(t.TempDir(), "output.txt"), domain.Runtime{ModelID: "codex", UpstreamModel: "gpt-test"}, "Read challenge.txt", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +164,7 @@ func TestVerificationPlanOwnsNativeTemporaryRoot(t *testing.T) {
 	}
 	home := filepath.Join(parent, "codex-home")
 	temporary := filepath.Join(parent, "verification-output")
-	plan, err := VerificationPlan("codex", filepath.Join(home, "config.toml"), filepath.Join(temporary, "response.txt"), domain.Runtime{RouteID: "codex", Model: "gpt-test"}, "Read challenge.txt", "")
+	plan, err := VerificationPlan("codex", filepath.Join(home, "config.toml"), filepath.Join(temporary, "response.txt"), domain.Runtime{ModelID: "codex", UpstreamModel: "gpt-test"}, "Read challenge.txt", "")
 	if err != nil {
 		t.Fatal(err)
 	}

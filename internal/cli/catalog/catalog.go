@@ -26,7 +26,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if err != nil {
 			return err
 		}
-		if len(cfg.Routes) == 0 {
+		if len(cfg.Models) == 0 {
 			// Without Routes there is no catalog to discover, with or
 			// without --json.
 			return fmt.Errorf("not configured; run `aigw setup`")

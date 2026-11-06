@@ -65,7 +65,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(cfg.Routes) == 0 {
+			if len(cfg.Models) == 0 {
 				return terminal.ProblemError("Not configured", "No Routes have been created.", "No client endpoint is available to test.", "aigw setup", fmt.Errorf("not configured"))
 			}
 			clients, err := endpointTestClients(cfg, client, routeName)
@@ -84,13 +84,13 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if !clientRuntime.RequiresAccountToken() {
 					return fmt.Errorf(
 						"route %q uses client-owned authentication; run `%s` to test it through %s",
-						clientRuntime.RouteID,
+						clientRuntime.ModelID,
 						clientverification.Command(spec.ID, routeName),
 						spec.Label,
 					)
 				}
 				if clientRuntime.CredentialCommand != "" && !tokenStdin {
-					return fmt.Errorf("route %q uses an external credential helper; run `%s` or provide an explicit test Token on stdin", clientRuntime.RouteID, clientverification.Command(spec.ID, routeName))
+					return fmt.Errorf("route %q uses an external credential helper; run `%s` or provide an explicit test Token on stdin", clientRuntime.ModelID, clientverification.Command(spec.ID, routeName))
 				}
 				resolved[spec.ID] = clientRuntime
 			}
@@ -116,7 +116,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				} else if status < http.StatusOK || status >= http.StatusMultipleChoices {
 					return fmt.Errorf("%s endpoint returned HTTP %d", runtime.Clients.Admission().Label(target), status)
 				}
-				results = append(results, endpointTestResult{client: target, routeID: clientRuntime.RouteID, status: status, detail: detail})
+				results = append(results, endpointTestResult{client: target, routeID: clientRuntime.ModelID, status: status, detail: detail})
 			}
 			return writeTestResults(runtime, results, jsonMode)
 		},
@@ -185,7 +185,7 @@ func endpointTestClients(cfg domain.Config, client, routeName string) ([]domain.
 	// disabled binding keeps its Route but is not probed.
 	selected := make([]domain.ClientSpec, 0, len(cfg.Clients))
 	for _, spec := range cfg.Admission().Specs() {
-		if cfg.SelectedRoute(spec.ID) != "" && cfg.Clients[spec.ID].Enabled {
+		if cfg.SelectedModel(spec.ID) != "" && cfg.Clients[spec.ID].Enabled {
 			selected = append(selected, spec)
 		}
 	}
@@ -196,7 +196,7 @@ func endpointTestClients(cfg domain.Config, client, routeName string) ([]domain.
 // no client has a selected Route, or only disabled clients do.
 func noSelectedEndpoint(cfg domain.Config) error {
 	for _, spec := range cfg.Admission().Specs() {
-		if cfg.SelectedRoute(spec.ID) != "" {
+		if cfg.SelectedModel(spec.ID) != "" {
 			return terminal.ProblemError("No enabled client has a selected Route", "Only disabled clients have a selected Route.", "Without --for, test probes only the enabled clients.", "aigw test --for <client>", fmt.Errorf("no enabled Client Binding selected"))
 		}
 	}

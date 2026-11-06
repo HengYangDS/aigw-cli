@@ -84,8 +84,8 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	cfg := admitted(domain.Config{
 		Version:  domain.ConfigVersion,
 		Accounts: map[string]domain.Account{"dmx": {Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
-		Routes:   map[string]domain.Route{"claude": testRoute("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)},
-		Clients:  map[string]domain.ClientBinding{ClientClaude: {Route: "claude"}},
+		Models:   map[string]domain.Model{"claude": testModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)},
+		Clients:  map[string]domain.ClientBinding{ClientClaude: {Model: "claude"}},
 	})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if checkpoint.Config.SelectedRoute(ClientClaude) != "claude" || len(checkpoint.Clients) != 2 || checkpoint.VerifiedAt.IsZero() {
+	if checkpoint.Config.SelectedModel(ClientClaude) != "claude" || len(checkpoint.Clients) != 2 || checkpoint.VerifiedAt.IsZero() {
 		t.Fatalf("checkpoint = %#v", checkpoint)
 	}
 	data, err := os.ReadFile(path + ".verified.json")

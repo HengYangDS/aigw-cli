@@ -52,10 +52,10 @@ anthropic = []
 	}
 	cfg.Accounts["unranked"] = domain.Account{Label: "Unranked", Endpoints: domain.Endpoints{Anthropic: "https://unranked.test"}}
 	cfg.Families["unranked"] = domain.Family{Label: "Unranked"}
-	cfg.Routes["zulu-unranked"] = testRoute("Unranked", "zulu", "unranked", domain.ProtocolAnthropic)
-	cfg.Routes["unranked"] = testRoute("Unranked", "unranked", "first", domain.ProtocolAnthropic)
+	cfg.Models["zulu-unranked"] = testModel("Unranked", "zulu", "unranked", domain.ProtocolAnthropic)
+	cfg.Models["unranked"] = testModel("Unranked", "unranked", "first", domain.ProtocolAnthropic)
 	want := []string{"zulu-z", "zulu-a", "zulu-unranked", "alpha", "unranked"}
-	if got := cfg.CatalogRouteIDs(); !slices.Equal(got, want) {
+	if got := cfg.CatalogModelIDs(); !slices.Equal(got, want) {
 		t.Fatalf("declared Account/Model order = %v, want %v", got, want)
 	}
 	exported, err := Export(cfg)
@@ -84,7 +84,7 @@ anthropic = []
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := reloaded.CatalogRouteIDs(); !slices.Equal(got, want) {
+	if got := reloaded.CatalogModelIDs(); !slices.Equal(got, want) {
 		t.Fatalf("stored catalog order = %v, want %v", got, want)
 	}
 }
@@ -127,7 +127,7 @@ func TestCatalogOrderRejectsNegativeRanksWithoutChangingStoredBytes(t *testing.T
 	}
 }
 
-func TestCatalogRouteIDsGroupsServicesBeforeFamilies(t *testing.T) {
+func TestCatalogModelIDsGroupsServicesBeforeFamilies(t *testing.T) {
 	for _, ranked := range []bool{true, false} {
 		name := "unranked"
 		if ranked {
@@ -155,12 +155,12 @@ func TestCatalogRouteIDsGroupsServicesBeforeFamilies(t *testing.T) {
 				{"z-native-weak", "zulu", "weak", domain.ProtocolAnthropic},
 				{"a-native", "alpha", "strong", domain.ProtocolAnthropic},
 			} {
-				cfg.Routes[row.id] = testRoute(row.id, row.account, row.model, row.protocol)
+				cfg.Models[row.id] = testModel(row.id, row.account, row.model, row.protocol)
 			}
-			cfg.Routes["z-multi"] = domain.Route{Account: "zulu", Model: "strong", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}, domain.ProtocolAnthropic: {}}}
-			cfg.SetSelectedRoute(ClientCodex, "z-responses-strong", "")
+			cfg.Models["z-multi"] = domain.Model{Account: "zulu", Family: "strong", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}, domain.ProtocolAnthropic: {}}}
+			cfg.SetSelectedModel(ClientCodex, "z-responses-strong", "")
 			cfg.Normalize()
-			canonical := cfg.RouteIDs()
+			canonical := cfg.ModelIDs()
 			before, err := Export(cfg)
 			if err != nil {
 				t.Fatal(err)
@@ -171,11 +171,11 @@ func TestCatalogRouteIDsGroupsServicesBeforeFamilies(t *testing.T) {
 			} else {
 				want = append([]string{"a-native"}, want...)
 			}
-			if got := cfg.CatalogRouteIDs(); !slices.Equal(got, want) {
+			if got := cfg.CatalogModelIDs(); !slices.Equal(got, want) {
 				t.Fatalf("service/Model order = %v, want %v", got, want)
 			}
 			after, err := Export(cfg)
-			if err != nil || !bytes.Equal(before, after) || !slices.Equal(canonical, cfg.RouteIDs()) {
+			if err != nil || !bytes.Equal(before, after) || !slices.Equal(canonical, cfg.ModelIDs()) {
 				t.Fatalf("presentation changed canonical enumeration, bindings, or export: %v", err)
 			}
 		})

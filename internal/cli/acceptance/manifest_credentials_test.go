@@ -150,7 +150,7 @@ func TestSetupFromConfigurationManifestUsesAnyAvailableEnvironmentToken(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.SelectedRoute(claude.ID) != "dmxapi-claude" || cfg.SelectedRoute(codex.ID) != "dmxapi-gpt" {
+	if cfg.SelectedModel(claude.ID) != "dmxapi-claude" || cfg.SelectedModel(codex.ID) != "dmxapi-gpt" {
 		t.Fatalf("available Account did not become usable: %#v", cfg.Clients)
 	}
 	for _, want := range []string{"Install Claude if needed, then run `aigw sync`", "Install Codex if needed, then run `aigw sync`", "Next", "aigw sync"} {
@@ -208,7 +208,7 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if len(cfg.Accounts) != 2 {
 		t.Fatalf("team config = %#v", cfg)
 	}
-	if cfg.SelectedRoute(claude.ID) != "dmxapi-claude" || cfg.SelectedRoute(codex.ID) != "dmxapi-gpt" {
+	if cfg.SelectedModel(claude.ID) != "dmxapi-claude" || cfg.SelectedModel(codex.ID) != "dmxapi-gpt" {
 		t.Fatalf("connected Account bindings = %#v", cfg.Clients)
 	}
 	if !cfg.Clients["claude"].Enabled || !cfg.Clients["codex"].Enabled {
@@ -233,13 +233,13 @@ func TestSetupFromConfigurationManifestConnectsOneAccountAndKeepsItsTokenSecret(
 	if httpClient.calls != 0 {
 		t.Fatalf("declarative import made %d provider requests", httpClient.calls)
 	}
-	wantRoutes := map[string]domain.Route{
+	wantRoutes := map[string]domain.Model{
 		"aihubmix-claude": qualifiedRoute("AIHubMix Claude", "aihubmix", "claude-test", domain.ProtocolAnthropic),
 		"dmxapi-claude":   qualifiedRoute("DMXAPI Claude", "dmxapi", "claude-test", domain.ProtocolAnthropic),
 		"dmxapi-gpt":      qualifiedRoute("DMXAPI GPT", "dmxapi", "gpt-test", domain.ProtocolOpenAIResponses),
 	}
-	if !reflect.DeepEqual(cfg.Routes, wantRoutes) {
-		t.Fatalf("manifest model matrix was not preserved: %#v", cfg.Routes)
+	if !reflect.DeepEqual(cfg.Models, wantRoutes) {
+		t.Fatalf("manifest model matrix was not preserved: %#v", cfg.Models)
 	}
 
 	assertManifestSetupDoesNotLeakTokens(t, app, out)
@@ -291,7 +291,7 @@ func TestSetupFromConfigurationManifestReusesEnvironmentTokensWithoutPrompting(t
 		t.Fatal(err)
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || len(cfg.Routes) != 3 || cfg.SelectedRoute(codex.ID) != "dmxapi-gpt" {
+	if err != nil || len(cfg.Models) != 3 || cfg.SelectedModel(codex.ID) != "dmxapi-gpt" {
 		t.Fatalf("team config = %#v, %v", cfg, err)
 	}
 }
@@ -355,7 +355,7 @@ func TestSetupFromConfigurationManifestPreservesClientOwnedCredentials(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.SelectedRoute(codex.ID) == "" || !secretExists(t, app.Secrets, "dmxapi") {
+	if cfg.SelectedModel(codex.ID) == "" || !secretExists(t, app.Secrets, "dmxapi") {
 		t.Fatal("setup did not persist the selected Account and route")
 	}
 	authAfter, err := os.ReadFile(authPath)

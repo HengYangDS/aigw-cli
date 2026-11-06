@@ -61,9 +61,9 @@ func TestPresumedTokensAskOnlyOtherAccountsPresence(t *testing.T) {
 func TestPreviewsRefuseWhatTheirChangesRefuse(t *testing.T) {
 	before := setupConfiguration()
 	invalid := before.Clone()
-	route := invalid.Routes["claude"]
+	route := invalid.Models["claude"]
 	route.Account = "missing"
-	invalid.Routes["claude"] = route
+	invalid.Models["claude"] = route
 	syncer := Synchronizer{Registry: builtinClients}
 	if _, err := syncer.Preview(before, invalid); err == nil {
 		t.Fatal("Preview admitted an invalid configuration")
@@ -75,7 +75,7 @@ func TestPreviewsRefuseWhatTheirChangesRefuse(t *testing.T) {
 		t.Fatal("PreviewSetup admitted an invalid configuration")
 	}
 	account := domain.Account{Label: "New", Endpoints: domain.Endpoints{Anthropic: "https://new.test"}}
-	if _, _, err := syncer.PreviewConnection(before, "claude", claude.ID, account, domain.Route{Label: "New", Model: "new-model"}); err == nil {
+	if _, _, err := syncer.PreviewConnection(before, "claude", claude.ID, account, domain.Model{Label: "New", Family: "new-model"}); err == nil {
 		t.Fatal("PreviewConnection replaced an existing Route")
 	}
 }

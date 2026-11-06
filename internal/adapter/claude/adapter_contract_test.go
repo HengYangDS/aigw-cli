@@ -24,8 +24,8 @@ func TestClaudeAdapterKeepsTheSeamContract(t *testing.T) {
 		}
 		before := domain.NewConfig(testAdmission())
 		before.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-		before.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
-		before.SetSelectedRoute(ID, "claude", "")
+		before.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
+		before.SetSelectedModel(ID, "claude", "")
 		after := before.Clone()
 		after.SetClientActivation(ID, true, executable, nil)
 		runtime, err := after.ResolveRuntime(ID, "")

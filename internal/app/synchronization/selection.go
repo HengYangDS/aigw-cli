@@ -25,7 +25,7 @@ func (Synchronizer) PrepareSelection(cfg domain.Config, client, routeID string, 
 	}
 	selected := cfg.Clone()
 	previous, previousErr := cfg.ResolveRuntime(client, "")
-	selected.SetSelectedRoute(client, routeID, protocol)
+	selected.SetSelectedModel(client, routeID, protocol)
 	if connection.ForwardingEndpoint != nil {
 		if err := selected.SetForwardingEndpoint(client, *connection.ForwardingEndpoint); err != nil {
 			return domain.Config{}, domain.Runtime{}, err
@@ -69,7 +69,7 @@ func (Synchronizer) PrepareSelection(cfg domain.Config, client, routeID string, 
 }
 
 func validateRetryConnectionChange(before, after domain.Config, client string, connection domain.ConnectionChange) error {
-	if before.Clients[client].RetryPolicy == nil || after.Clients[client].Route == "" || connection.NativeRetries || connection.RetryPolicy != nil {
+	if before.Clients[client].RetryPolicy == nil || after.Clients[client].Model == "" || connection.NativeRetries || connection.RetryPolicy != nil {
 		return nil
 	}
 	previous, previousErr := before.ResolveRuntime(client, "")
@@ -120,7 +120,7 @@ func (s Synchronizer) selectRoute(ctx context.Context, before, after domain.Conf
 	var tokens map[string]string
 	if token != "" {
 		if !selected.RequiresAccountToken() {
-			return false, false, domain.ClientBinding{}, fmt.Errorf("route %q uses client-owned authentication; Account Token storage is not part of selection", binding.Route)
+			return false, false, domain.ClientBinding{}, fmt.Errorf("route %q uses client-owned authentication; Account Token storage is not part of selection", binding.Model)
 		}
 		tokens = map[string]string{selected.AccountID: token}
 	}

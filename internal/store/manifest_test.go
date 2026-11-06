@@ -12,19 +12,19 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-func TestManifestExportOmitsDerivedRouteLabelsAndPreservesWireCase(t *testing.T) {
+func TestManifestExportOmitsDerivedModelLabelsAndPreservesWireCase(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Accounts["dmxapi"] = domain.Account{
 		Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
 	cfg.Families["gpt-6-astra"] = domain.Family{Label: "GPT-6 Astra"}
-	cfg.Routes["dmxapi-gpt-6-astra"] = domain.Route{
-		Label: "DMXAPI · GPT-6 Astra", Account: "dmxapi", Model: "gpt-6-astra",
-		UpstreamModel: "GPT-6-Astra", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
+	cfg.Models["dmxapi-gpt-6-astra"] = domain.Model{
+		Label: "DMXAPI · GPT-6 Astra", Account: "dmxapi", Family: "gpt-6-astra",
+		UpstreamModel: "GPT-6-Astra", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
 	}
-	cfg.Routes["dmxapi-gpt-6-astra-cdx"] = domain.Route{
-		Label: "DMXAPI · GPT-6 Astra · CDX", Account: "dmxapi", Model: "gpt-6-astra",
-		UpstreamModel: "GPT-6-Astra-CDX", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
+	cfg.Models["dmxapi-gpt-6-astra-cdx"] = domain.Model{
+		Label: "DMXAPI · GPT-6 Astra · CDX", Account: "dmxapi", Family: "gpt-6-astra",
+		UpstreamModel: "GPT-6-Astra-CDX", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
 	}
 	data, err := Export(cfg)
 	if err != nil {
@@ -46,8 +46,8 @@ func TestManifestExportOmitsDerivedRouteLabelsAndPreservesWireCase(t *testing.T)
 		t.Fatalf("provider wire spelling = %#v", got)
 	}
 	parsed, err := Parse(data, testAdmission())
-	if err != nil || parsed.Routes["dmxapi-gpt-6-astra"].Label != "" {
-		t.Fatalf("parsed derived Route label was materialized: %#v, %v", parsed.Routes["dmxapi-gpt-6-astra"], err)
+	if err != nil || parsed.Models["dmxapi-gpt-6-astra"].Label != "" {
+		t.Fatalf("parsed derived Route label was materialized: %#v, %v", parsed.Models["dmxapi-gpt-6-astra"], err)
 	}
 }
 
@@ -55,30 +55,30 @@ func TestManifestMergeTreatsOldPlainLabelAsDerivedButPreservesCustomOverride(t *
 	current := domain.NewConfig(testAdmission())
 	current.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
 	current.Families["gpt-6-sol"] = domain.Family{Label: "GPT-6 Sol"}
-	route := domain.Route{Label: "UCloud · GPT-6 Sol", Account: "ucloud", Model: "gpt-6-sol", UpstreamModel: "gpt-6-sol", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}}}
-	current.Routes["ucloud-gpt-6-sol"] = route
-	current.SetSelectedRoute(ClientCodex, "ucloud-gpt-6-sol", "")
+	route := domain.Model{Label: "UCloud · GPT-6 Sol", Account: "ucloud", Family: "gpt-6-sol", UpstreamModel: "gpt-6-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}}}
+	current.Models["ucloud-gpt-6-sol"] = route
+	current.SetSelectedModel(ClientCodex, "ucloud-gpt-6-sol", "")
 	incoming := domain.Manifest{
 		Version:  domain.ManifestVersion,
 		Accounts: map[string]domain.Account{"ucloud": current.Accounts["ucloud"]},
 		Families: map[string]domain.Family{"gpt-6-sol": current.Families["gpt-6-sol"]},
-		Routes: map[string]domain.Route{"ucloud-gpt-6-sol": {
-			Account: route.Account, Model: route.Model, UpstreamModel: route.UpstreamModel, Interfaces: route.Interfaces,
+		Models: map[string]domain.Model{"ucloud-gpt-6-sol": {
+			Account: route.Account, Family: route.Family, UpstreamModel: route.UpstreamModel, Protocols: route.Protocols,
 		}},
 	}
 	merged, err := domain.Merge(current, incoming)
-	if err != nil || merged.SelectedRoute(ClientCodex) != "ucloud-gpt-6-sol" || merged.Routes["ucloud-gpt-6-sol"].Label != route.Label {
+	if err != nil || merged.SelectedModel(ClientCodex) != "ucloud-gpt-6-sol" || merged.Models["ucloud-gpt-6-sol"].Label != route.Label {
 		t.Fatalf("derived-label merge changed the explicit Client Binding or old label: %+v, %v", merged.Clients, err)
 	}
 	custom := current.Clone()
 	route.Label = "Personal Sol"
-	custom.Routes["ucloud-gpt-6-sol"] = route
+	custom.Models["ucloud-gpt-6-sol"] = route
 	if _, err := domain.Merge(custom, incoming); err == nil || !strings.Contains(err.Error(), "--replace-route") {
 		t.Fatalf("custom Route label was silently overwritten: %v", err)
 	}
 }
 
-func TestManifestSeparatesFamiliesFromQualifiedAccountRoutes(t *testing.T) {
+func TestManifestSeparatesFamiliesFromQualifiedAccountModels(t *testing.T) {
 	manifest, err := Parse([]byte(`version = 7
 [models.gpt-6-astra]
 label = "GPT-6 Astra"
@@ -104,20 +104,20 @@ route = "ucloud-gpt-6-astra"
 	if got := manifest.Families["gpt-6-astra"].Label; got != "GPT-6 Astra" {
 		t.Fatalf("canonical model label = %q", got)
 	}
-	route := manifest.Routes["ucloud-gpt-6-astra"]
-	if route.Account != "ucloud" || route.Model != "gpt-6-astra" || route.UpstreamModel != "gpt-6-astra" {
+	route := manifest.Models["ucloud-gpt-6-astra"]
+	if route.Account != "ucloud" || route.Family != "gpt-6-astra" || route.UpstreamModel != "gpt-6-astra" {
 		t.Fatalf("route identity = %#v", route)
 	}
 	wantCapabilities := []domain.Capability{domain.CapabilityText, domain.CapabilityReasoning, domain.CapabilityStreaming, domain.CapabilityTools, domain.CapabilityContinuation}
-	if got := route.Interfaces[domain.ProtocolOpenAIResponses]; !reflect.DeepEqual(got, wantCapabilities) {
+	if got := route.Protocols[domain.ProtocolOpenAIResponses]; !reflect.DeepEqual(got, wantCapabilities) {
 		t.Fatalf("Responses capabilities = %#v, want %#v", got, wantCapabilities)
 	}
-	if got := manifest.Recommendations[ClientCodex].Primary.Route; got != "ucloud-gpt-6-astra" {
+	if got := manifest.Recommendations[ClientCodex].Primary.Model; got != "ucloud-gpt-6-astra" {
 		t.Fatalf("Codex primary Route = %q", got)
 	}
 }
 
-func TestManifestRetainsDeprecatedRoutesButRejectsThemAsRecommendations(t *testing.T) {
+func TestManifestRetainsDeprecatedModelsButRejectsThemAsRecommendations(t *testing.T) {
 	raw := []byte(`version = 7
 [models.legacy]
 label = "Legacy"
@@ -137,7 +137,7 @@ interfaces = { openai_responses = ["text"] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lifecycle := manifest.Routes["legacy"].LifecycleState(); lifecycle != domain.RouteDeprecated {
+	if lifecycle := manifest.Models["legacy"].LifecycleState(); lifecycle != domain.ModelDeprecated {
 		t.Fatalf("lifecycle = %q", lifecycle)
 	}
 
@@ -150,7 +150,7 @@ interfaces = { openai_responses = ["text"] }
 func TestManifestAccountNamesReturnsEveryCredentialOwnerOnce(t *testing.T) {
 	incoming := domain.Manifest{
 		Accounts: map[string]domain.Account{"shared": {}, "direct": {}},
-		Routes:   map[string]domain.Route{"alias": {Account: "shared"}, "implicit": {}},
+		Models:   map[string]domain.Model{"alias": {Account: "shared"}, "implicit": {}},
 	}
 	want := []string{"direct", "shared"}
 	if got := domain.ManifestAccountNames(incoming); !reflect.DeepEqual(got, want) {
@@ -190,12 +190,12 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatalf("an admitted client was rejected: %v", err)
 	}
-	if manifest.Recommendations["synthetic"].Primary.Route != "synthetic-default" {
+	if manifest.Recommendations["synthetic"].Primary.Model != "synthetic-default" {
 		t.Fatalf("recommended routes = %#v", manifest.Recommendations)
 	}
 }
 
-func TestSyntheticProviderUsesOnlyManifestDataAcrossParseMergeAndRouteResolution(t *testing.T) {
+func TestSyntheticProviderUsesOnlyManifestDataAcrossParseMergeAndModelResolution(t *testing.T) {
 	incoming, err := Parse([]byte(`version = 7
 [recommendations.codex.primary]
 route = "northstar-codex"
@@ -220,7 +220,7 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected, err := merged.SelectRoutesForConnectedAccounts([]string{"northstar"})
+	selected, err := merged.SelectModelsForConnectedAccounts([]string{"northstar"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,12 +228,12 @@ interfaces = { openai_responses = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if runtime.AccountID != "northstar" || runtime.Endpoint != "https://northstar.example.test/v1" || runtime.Model != "northstar-model" || runtime.ModelProvider != "northstar" || runtime.Authentication != domain.AuthenticationAccountToken || !runtime.RequiresAccountToken() {
+	if runtime.AccountID != "northstar" || runtime.Endpoint != "https://northstar.example.test/v1" || runtime.UpstreamModel != "northstar-model" || runtime.ModelProvider != "northstar" || runtime.Authentication != domain.AuthenticationAccountToken || !runtime.RequiresAccountToken() {
 		t.Fatalf("runtime = %#v", runtime)
 	}
 }
 
-func TestParseRejectsIncompatibleRecommendedRoute(t *testing.T) {
+func TestParseRejectsIncompatibleRecommendedModel(t *testing.T) {
 	raw := []byte(`version = 7
 [recommendations.claude.primary]
 route = "codex"
@@ -268,19 +268,19 @@ model = "claude-test"
 	}
 }
 
-func TestExportRejectsRouteThatCannotBeParsedBack(t *testing.T) {
+func TestExportRejectsModelThatCannotBeParsedBack(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Routes["codex"] = testRoute("Codex", "team", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(ClientCodex, "codex", "")
-	cfg.Clients[ClientClaude] = domain.ClientBinding{Route: "codex", Protocol: domain.ProtocolOpenAIResponses}
+	cfg.Models["codex"] = testModel("Codex", "team", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(ClientCodex, "codex", "")
+	cfg.Clients[ClientClaude] = domain.ClientBinding{Model: "codex", Protocol: domain.ProtocolOpenAIResponses}
 
 	if _, err := Export(cfg); err == nil {
 		t.Fatal("export accepted a client-incompatible route")
 	}
 }
 
-func TestParseRejectsRouteWithoutItsClientProtocol(t *testing.T) {
+func TestParseRejectsModelWithoutItsClientProtocol(t *testing.T) {
 	_, err := Parse([]byte(`version = 7
 
 [recommendations.codex.primary]
@@ -336,12 +336,12 @@ interfaces = { anthropic = [] }
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parsed.Version != 7 || parsed.Routes["team"].Purpose != "Default agent" {
+	if parsed.Version != 7 || parsed.Models["team"].Purpose != "Default agent" {
 		t.Fatalf("parsed manifest = %#v", parsed)
 	}
 }
 
-func TestParseRejectsRouteOwnedEndpointResidue(t *testing.T) {
+func TestParseRejectsModelOwnedEndpointResidue(t *testing.T) {
 	raw := []byte(`version = 7
 
 [routes.team]
@@ -363,7 +363,7 @@ func TestParseRejectsMalformedTOML(t *testing.T) {
 	}
 }
 
-func TestParseRejectsManifestWithoutAnyRoute(t *testing.T) {
+func TestParseRejectsManifestWithoutAnyModel(t *testing.T) {
 	raw := []byte(`version = 7
 [accounts.team]
 label = "Team"
@@ -392,7 +392,7 @@ model = "claude-team"
 	}
 }
 
-func TestParseInitializesMissingAccountsAndDefaultsToFirstRoute(t *testing.T) {
+func TestParseInitializesMissingAccountsAndDefaultsToFirstModel(t *testing.T) {
 	raw := []byte(`version = 7
 [routes.solo]
 label = "Solo"
@@ -403,7 +403,7 @@ account = "missing"
 	}
 }
 
-func TestParseRejectsRecommendedRouteWithUnsupportedClient(t *testing.T) {
+func TestParseRejectsRecommendedModelWithUnsupportedClient(t *testing.T) {
 	raw := []byte(`version = 7
 [recommendations.gemini.primary]
 route = "team"
@@ -421,7 +421,7 @@ model = "claude-team"
 	}
 }
 
-func TestParseRejectsRecommendedRouteReferencingUnknownRoute(t *testing.T) {
+func TestParseRejectsRecommendedModelReferencingUnknownModel(t *testing.T) {
 	raw := []byte(`version = 7
 [recommendations.claude.primary]
 route = "missing"
@@ -460,9 +460,9 @@ func TestExportRejectsInvalidConfiguration(t *testing.T) {
 func TestExportOmitsSecretsAndAdaptersAndPublishesDeclaredRecommendations(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["team"] = testRoute("Team", "team", "claude-team", domain.ProtocolAnthropic)
-	cfg.Recommendations[ClientClaude] = domain.ClientRecommendation{Primary: domain.ClientSelection{Route: "team"}}
-	cfg.SetSelectedRoute(ClientClaude, "team", "")
+	cfg.Models["team"] = testModel("Team", "team", "claude-team", domain.ProtocolAnthropic)
+	cfg.Recommendations[ClientClaude] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "team"}}
+	cfg.SetSelectedModel(ClientClaude, "team", "")
 	binding := cfg.Clients[ClientClaude]
 	binding.Enabled = true
 	binding.Executable = "/personal/claude"
@@ -491,15 +491,15 @@ func TestExportIsCanonicalTypedManifestProjection(t *testing.T) {
 		Label:     "Team",
 		Endpoints: domain.Endpoints{Anthropic: "https://team.example.test"},
 	}
-	cfg.Routes["team"] = domain.Route{
+	cfg.Models["team"] = domain.Model{
 		Label:   "Team Claude",
 		Account: "team",
-		Model:   "claude-team",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+		Family:  "claude-team",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {},
 		},
 	}
-	cfg.SetSelectedRoute(ClientClaude, "team", "")
+	cfg.SetSelectedModel(ClientClaude, "team", "")
 
 	first, err := Export(cfg)
 	if err != nil {
@@ -511,7 +511,7 @@ func TestExportIsCanonicalTypedManifestProjection(t *testing.T) {
 	}
 	projected := domain.NewConfig(testAdmission())
 	projected.Accounts = manifest.Accounts
-	projected.Routes = manifest.Routes
+	projected.Models = manifest.Models
 	projected.Recommendations = manifest.Recommendations
 	second, err := Export(projected)
 	if err != nil {

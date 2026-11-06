@@ -53,7 +53,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if _, exists := cfg.Routes[routeName]; exists {
+			if _, exists := cfg.Models[routeName]; exists {
 				return fmt.Errorf("Route %q already exists", routeName)
 			}
 			_, exists := cfg.Accounts[accountName]
@@ -65,9 +65,9 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			}
 			before := cfg.Clone()
 			protocol := domain.EndpointProtocol(protocolName)
-			cfg.Routes[routeName] = domain.Route{
-				Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Model: model, UpstreamModel: upstreamModel,
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
+			cfg.Models[routeName] = domain.Model{
+				Label: label, Purpose: strings.TrimSpace(purpose), Account: accountName, Family: model, UpstreamModel: upstreamModel,
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
 			var preview invocation.Preview
 			next := "aigw use --for <client> " + routeName
@@ -80,7 +80,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			if jsonMode {
-				added := cfg.Routes[routeName]
+				added := cfg.Models[routeName]
 				document := addDocument{
 					DryRun: dryRun, Route: routeName, Account: accountName, Label: label, Purpose: added.Purpose,
 					Model: model, UpstreamModel: added.UpstreamModelID(), Protocol: protocol, Preview: preview,
@@ -135,8 +135,8 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			result := routeListOutput{Routes: make([]routeListItem, 0, len(cfg.Routes))}
-			for _, name := range cfg.CatalogRouteIDs() {
+			result := routeListOutput{Routes: make([]routeListItem, 0, len(cfg.Models))}
+			for _, name := range cfg.CatalogModelIDs() {
 				item, collectErr := collectRouteListItem(runtime, cfg, name)
 				if collectErr != nil {
 					return collectErr
@@ -154,7 +154,7 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				if len(item.SelectedClients) > 0 {
 					state, stateText = terminal.OK, "Selected for "+clientLabels(runtime.Clients.Admission(), item.SelectedClients)
 				}
-				detail := []string{choiceLabel(domain.Route{Label: item.Label, Purpose: item.Purpose}), stateText, "Account " + item.Account}
+				detail := []string{choiceLabel(domain.Model{Label: item.Label, Purpose: item.Purpose}), stateText, "Account " + item.Account}
 				if len(item.ProtocolClients) > 0 {
 					detail = append(detail, "Clients "+clientLabels(runtime.Clients.Admission(), item.ProtocolClients))
 				}
@@ -184,14 +184,14 @@ type routeListItem struct {
 }
 
 func collectRouteListItem(runtime invocation.Context, cfg domain.Config, name string) (routeListItem, error) {
-	route := cfg.Routes[name]
+	route := cfg.Models[name]
 	compatible, err := cfg.ProtocolClientIDs(name)
 	if err != nil {
 		return routeListItem{}, err
 	}
 	return routeListItem{
-		ID: name, Label: cfg.RouteLabel(name), Purpose: route.Purpose, Account: route.Account,
-		ProtocolClients: compatible, SelectedClients: cfg.SelectedClientsForRoute(name), Model: route.Model,
+		ID: name, Label: cfg.ModelLabel(name), Purpose: route.Purpose, Account: route.Account,
+		ProtocolClients: compatible, SelectedClients: cfg.SelectedClientsForModel(name), Model: route.Family,
 	}, nil
 }
 
@@ -204,7 +204,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			route, ok := cfg.Routes[args[0]]
+			route, ok := cfg.Models[args[0]]
 			if !ok {
 				return fmt.Errorf("Unknown route %q", args[0])
 			}
@@ -214,11 +214,11 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			selected := cfg.SelectedClientsForRoute(args[0])
+			selected := cfg.SelectedClientsForModel(args[0])
 			if jsonMode {
 				result := map[string]any{
-					"id": args[0], "label": cfg.RouteLabel(args[0]), "purpose": route.Purpose,
-					"account": accountName, "model": route.Model,
+					"id": args[0], "label": cfg.ModelLabel(args[0]), "purpose": route.Purpose,
+					"account": accountName, "model": route.Family,
 					"protocol_clients": compatible, "selected_clients": selected,
 					"endpoints": account.Endpoints,
 				}
@@ -229,14 +229,14 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			r.Section("Route")
 			rows := []terminal.Field{
 				{Label: "Route ID", Value: args[0]},
-				{Label: "Name", Value: cfg.RouteLabel(args[0])},
+				{Label: "Name", Value: cfg.ModelLabel(args[0])},
 			}
 			if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 				rows = append(rows, terminal.Field{Label: "Purpose", Value: purpose})
 			}
 			rows = append(rows,
 				terminal.Field{Label: "Account", Value: accountName},
-				terminal.Field{Label: "Model", Value: route.Model},
+				terminal.Field{Label: "Model", Value: route.Family},
 				terminal.Field{Label: "Protocol clients", Value: clientLabels(runtime.Clients.Admission(), compatible)},
 			)
 			if len(selected) > 0 {
@@ -276,7 +276,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			before := cfg.Clone()
-			route, ok := cfg.Routes[args[0]]
+			route, ok := cfg.Models[args[0]]
 			if !ok {
 				return fmt.Errorf("Unknown route %q", args[0])
 			}
@@ -286,7 +286,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			if cmd.Flags().Changed("purpose") {
 				route.Purpose = strings.TrimSpace(purpose)
 			}
-			cfg.Routes[args[0]] = route
+			cfg.Models[args[0]] = route
 			var preview invocation.Preview
 			next := "aigw check"
 			if dryRun {
@@ -341,16 +341,16 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			}
 			before := cfg.Clone()
 			name := args[0]
-			route, ok := cfg.Routes[name]
+			route, ok := cfg.Models[name]
 			if !ok {
 				return fmt.Errorf("Unknown route %q", name)
 			}
 			for client, binding := range cfg.Clients {
-				if binding.Route == name {
+				if binding.Model == name {
 					return fmt.Errorf("Route %q is selected for %s; first run `aigw use --for %s <other-route>`", name, client, client)
 				}
 			}
-			delete(cfg.Routes, name)
+			delete(cfg.Models, name)
 			recommendations := removeRecommendations(&cfg, name)
 			var preview invocation.Preview
 			if dryRun {
@@ -401,10 +401,10 @@ func removeRecommendations(cfg *domain.Config, name string) []string {
 	for client, recommendation := range cfg.Recommendations {
 		before := len(recommendation.Alternatives)
 		recommendation.Alternatives = slices.DeleteFunc(recommendation.Alternatives, func(selection domain.ClientSelection) bool {
-			return selection.Route == name
+			return selection.Model == name
 		})
 		switch {
-		case recommendation.Primary.Route != name:
+		case recommendation.Primary.Model != name:
 			if len(recommendation.Alternatives) == before {
 				continue
 			}
@@ -422,7 +422,7 @@ func removeRecommendations(cfg *domain.Config, name string) []string {
 	return changed
 }
 
-func choiceLabel(route domain.Route) string {
+func choiceLabel(route domain.Model) string {
 	label := route.Label
 	if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 		return label + " · " + purpose

@@ -46,16 +46,16 @@ func TestUseSelectsClientNativeRouteWithoutAccessingAccountTokens(t *testing.T) 
 		Label:     "AWS Bedrock",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1"},
 	}
-	cfg.Routes["bedrock"] = domain.Route{
+	cfg.Models["bedrock"] = domain.Model{
 		Label:   "AWS Bedrock",
 		Account: "aws",
-		Model:   "openai.gpt-5.6-sol",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+		Family:  "openai.gpt-5.6-sol",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolOpenAIResponses: {},
 		},
 	}
 	cfg.Clients[codex.ID] = domain.ClientBinding{
-		Route: "bedrock", ModelProvider: "amazon-bedrock",
+		Model: "bedrock", ModelProvider: "amazon-bedrock",
 		Authentication: domain.AuthenticationClientNative,
 	}
 	if err := app.Config.Save(cfg); err != nil {
@@ -72,7 +72,7 @@ func TestUseSelectsClientNativeRouteWithoutAccessingAccountTokens(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := selected.SelectedRoute(codex.ID); got != "bedrock" {
+	if got := selected.SelectedModel(codex.ID); got != "bedrock" {
 		t.Fatalf("Codex route = %q", got)
 	}
 	projection := string(readFile(t, target))
@@ -96,11 +96,11 @@ func TestUseForClaudeLeavesUnselectedCodexDriftUntouched(t *testing.T) {
 	}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.Routes["claude-fable"] = qualifiedRoute("Claude Fable", "gateway", "claude-fable", domain.ProtocolAnthropic)
-	cfg.Routes["claude-sonnet"] = qualifiedRoute("Claude Sonnet", "gateway", "claude-sonnet", domain.ProtocolAnthropic)
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
-	cfg.SetSelectedRoute(claude.ID, "claude-fable", "")
+	cfg.Models["gpt"] = qualifiedRoute("GPT", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["claude-fable"] = qualifiedRoute("Claude Fable", "gateway", "claude-fable", domain.ProtocolAnthropic)
+	cfg.Models["claude-sonnet"] = qualifiedRoute("Claude Sonnet", "gateway", "claude-sonnet", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
+	cfg.SetSelectedModel(claude.ID, "claude-fable", "")
 	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	if err := app.Config.Save(cfg); err != nil {
@@ -132,7 +132,7 @@ func TestUseForClaudeLeavesUnselectedCodexDriftUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SelectedRoute(codex.ID) != "gpt" || got.SelectedRoute(claude.ID) != "claude-sonnet" {
+	if got.SelectedModel(codex.ID) != "gpt" || got.SelectedModel(claude.ID) != "claude-sonnet" {
 		t.Fatalf("client bindings = %#v", got.Clients)
 	}
 	if after := readFile(t, target); !bytes.Equal(after, codexProjection) {
@@ -154,8 +154,8 @@ func TestUseForCodexLeavesUnselectedClaudeDriftUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
-	cfg.Routes["claude"] = qualifiedRoute("Claude", "one", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["claude"] = qualifiedRoute("Claude", "one", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	for _, account := range []string{"one", "two"} {
 		if err := credentials.Set(account, "token"); err != nil {
@@ -183,7 +183,7 @@ func TestUseForCodexLeavesUnselectedClaudeDriftUntouched(t *testing.T) {
 		t.Fatalf("Codex selection was blocked by an unselected Claude projection: %v", err)
 	}
 	after, err := app.Config.Load()
-	if err != nil || after.SelectedRoute(codex.ID) != "two" || after.SelectedRoute(claude.ID) != "claude" {
+	if err != nil || after.SelectedModel(codex.ID) != "two" || after.SelectedModel(claude.ID) != "claude" {
 		t.Fatalf("client-scoped selection = %#v, %v", after.Clients, err)
 	}
 	if !bytes.Equal(readFile(t, claudeSettingsPath(t, app.Host)), foreign) || !bytes.Equal(readFile(t, claudeSettingsPath(t, app.Host)+".aigw-state.json"), state) {
@@ -251,7 +251,7 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if selected.SelectedRoute(claude.ID) != "claude" || selected.SelectedRoute(codex.ID) != "codex" {
+	if selected.SelectedModel(claude.ID) != "claude" || selected.SelectedModel(codex.ID) != "codex" {
 		t.Fatalf("independent client bindings = %#v", selected.Clients)
 	}
 	for account, want := range map[string]string{"claude-gateway": "claude-token", "codex-gateway": "codex-token"} {
@@ -414,7 +414,7 @@ func TestUseRollsBackRouteWhenAdapterSyncFails(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt-one")
 	addAccountRoute(&cfg, "two", "two", "Two", domain.Endpoints{OpenAIResponses: "https://two.test/v1"}, codex.ID, "gpt-two")
-	cfg.SetSelectedRoute(codex.ID, "one", "")
+	cfg.SetSelectedModel(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/missing/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -427,7 +427,7 @@ func TestUseRollsBackRouteWhenAdapterSyncFails(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 	got, _ := app.Config.Load()
-	if got.SelectedRoute(codex.ID) != "one" {
+	if got.SelectedModel(codex.ID) != "one" {
 		t.Fatalf("selection was not rolled back: %#v", got.Clients)
 	}
 }
@@ -440,9 +440,9 @@ func TestUseCodexRouteOnSameAccountDoesNotRebindCredentials(t *testing.T) {
 	}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Routes["sol"] = qualifiedRoute("Sol", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
-	cfg.Routes["terra"] = qualifiedRoute("Terra", "dmx", "gpt-5.6-terra", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "sol", "")
+	cfg.Models["sol"] = qualifiedRoute("Sol", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
+	cfg.Models["terra"] = qualifiedRoute("Terra", "dmx", "gpt-5.6-terra", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "sol", "")
 	cfg.SetClientActivation(codex.ID, true, "/usr/local/bin/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -479,7 +479,7 @@ func TestUseRejectsUnknownRoute(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-one")
-	cfg.SetSelectedRoute(claude.ID, "one", "")
+	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -494,8 +494,8 @@ func TestUseSurfacesUnknownAccountReference(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Routes["one"] = qualifiedRoute("One", "one", "claude-one", domain.ProtocolAnthropic)
-	cfg.SetSelectedRoute(claude.ID, "one", "")
+	cfg.Models["one"] = qualifiedRoute("One", "one", "claude-one", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

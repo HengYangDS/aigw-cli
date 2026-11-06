@@ -37,7 +37,7 @@ func assertDiagnosticOmits(t *testing.T, result diagnostics.Result, forbidden ..
 }
 
 func runtime() domain.Runtime {
-	return domain.Runtime{RouteID: "dmx", RouteLabel: "DMXAPI", AccountID: "dmx", AccountLabel: "DMXAPI", Client: codex.ID, Protocol: domain.ProtocolOpenAIResponses, Endpoint: "https://service.test/v1"}
+	return domain.Runtime{ModelID: "dmx", ModelLabel: "DMXAPI", AccountID: "dmx", AccountLabel: "DMXAPI", Client: codex.ID, Protocol: domain.ProtocolOpenAIResponses, Endpoint: "https://service.test/v1"}
 }
 
 func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {
@@ -262,7 +262,7 @@ func TestProbeBoundedDoesNotRetryCredentialRejection(t *testing.T) {
 
 func TestProbeBoundedPreflightDoesNotClaimHTTPAttempt(t *testing.T) {
 	missingModel := inferenceRuntime()
-	missingModel.Model = ""
+	missingModel.UpstreamModel = ""
 	for _, test := range []struct {
 		name    string
 		runtime domain.Runtime

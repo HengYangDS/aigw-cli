@@ -42,14 +42,14 @@ func TestCredentialHelperPrintsOnlyTheProjectedAccountToken(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				route := cfg.Routes[client]
+				route := cfg.Models[client]
 				switch change {
 				case "model":
-					route.Model = "another-model"
+					route.Family = "another-model"
 				case "label":
 					route.Label = "Another label"
 				}
-				cfg.Routes[client] = route
+				cfg.Models[client] = route
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
 				}
@@ -171,9 +171,9 @@ func TestCredentialHelperResolvesAnUnselectedRouteProjection(t *testing.T) {
 				account.Endpoints.OpenAIResponses = "https://alternate.test/v1"
 			}
 			cfg.Accounts["alternate"] = account
-			cfg.Routes["alternate"] = domain.Route{
-				Label: "Alternate", Account: "alternate", Model: client + "-alternate",
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
+			cfg.Models["alternate"] = domain.Model{
+				Label: "Alternate", Account: "alternate", Family: client + "-alternate",
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
 			}
 			if err := runtime.Config.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -206,12 +206,12 @@ func TestCredentialHelperResolvesEveryProjectedRouteProtocol(t *testing.T) {
 	account := cfg.Accounts["gateway"]
 	account.Endpoints.OpenAIChatCompletions = "https://gateway.test/chat/v1"
 	cfg.Accounts["gateway"] = account
-	route := cfg.Routes[hermes.ID]
-	route.Interfaces = map[domain.EndpointProtocol][]domain.Capability{
+	route := cfg.Models[hermes.ID]
+	route.Protocols = map[domain.EndpointProtocol][]domain.Capability{
 		domain.ProtocolOpenAIResponses:       {},
 		domain.ProtocolOpenAIChatCompletions: {},
 	}
-	cfg.Routes[hermes.ID] = route
+	cfg.Models[hermes.ID] = route
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -253,9 +253,9 @@ func TestCredentialHelperRejectsStaleBindingBeforeSecretAccess(t *testing.T) {
 					fingerprintClient = "another-client"
 				case "account":
 					cfg.Accounts["other"] = cfg.Accounts[projection.AccountID]
-					route := cfg.Routes[client]
+					route := cfg.Models[client]
 					route.Account = "other"
-					cfg.Routes[client] = route
+					cfg.Models[client] = route
 				case "endpoint":
 					account := cfg.Accounts[projection.AccountID]
 					account.Endpoints = domain.Endpoints{
@@ -297,9 +297,9 @@ func TestClaudeCredentialHelperFailsClosedWithoutWritingStdout(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				route := cfg.Routes[claude.ID]
-				route.Model = "changed-after-projection"
-				cfg.Routes[claude.ID] = route
+				route := cfg.Models[claude.ID]
+				route.Family = "changed-after-projection"
+				cfg.Models[claude.ID] = route
 				if err := runtime.Config.Save(cfg); err != nil {
 					t.Fatal(err)
 				}
@@ -394,11 +394,11 @@ func helperRuntime(t *testing.T, client string, enabled bool) (invocation.Contex
 		account.Endpoints.OpenAIResponses = "https://gateway.test/v1"
 	}
 	cfg.Accounts["gateway"] = account
-	cfg.Routes[client] = domain.Route{
-		Label: client, Account: "gateway", Model: client + "-team",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
+	cfg.Models[client] = domain.Model{
+		Label: client, Account: "gateway", Family: client + "-team",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{spec.EndpointProtocols[0]: {}},
 	}
-	cfg.Clients[client] = domain.ClientBinding{Route: client, Enabled: enabled, Protocol: spec.EndpointProtocols[0], Executable: client}
+	cfg.Clients[client] = domain.ClientBinding{Model: client, Enabled: enabled, Protocol: spec.EndpointProtocols[0], Executable: client}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

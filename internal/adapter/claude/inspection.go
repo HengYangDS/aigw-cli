@@ -77,10 +77,10 @@ func InspectSettings(path string, runtime domain.Runtime, executable string) (Se
 		return SettingsInspection{}, nil
 	}
 	previous := maps.Clone(document)
-	if runtime.Model == "" {
+	if runtime.UpstreamModel == "" {
 		delete(previous, "model")
 	} else {
-		previous["model"] = adapter.RawJSON(runtime.Model)
+		previous["model"] = adapter.RawJSON(runtime.UpstreamModel)
 	}
 	if managedSettingsHash(previous) == expectedHash {
 		return SettingsInspection{NativeModelOverride: true}, nil

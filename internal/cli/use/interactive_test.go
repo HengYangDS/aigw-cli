@@ -16,9 +16,9 @@ import (
 
 func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
-	route := cfg.Routes["codex"]
+	route := cfg.Models["codex"]
 	route.Label = ""
-	cfg.Routes["codex"] = route
+	cfg.Models["codex"] = route
 	cfg.Families["gpt-test"] = domain.Family{Label: "GPT Test"}
 	choice := &promptStub{selected: "codex"}
 	runtime.Prompt = choice
@@ -30,9 +30,9 @@ func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
 
 func TestUsePromptsForACompatibleClientOnASharedRoute(t *testing.T) {
 	runtime, cfg, _ := configuredRuntime(t)
-	cfg.Routes["shared"] = domain.Route{
-		Label: "Shared", Account: "gateway", Model: "shared-model",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+	cfg.Models["shared"] = domain.Model{
+		Label: "Shared", Account: "gateway", Family: "shared-model",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic:       {},
 			domain.ProtocolOpenAIResponses: {},
 		},
@@ -63,7 +63,7 @@ func TestUsePromptsForACompatibleClientOnASharedRoute(t *testing.T) {
 		t.Fatalf("shared Route client choices = %#v", selector.choices)
 	}
 	stored, err := runtime.Config.Load()
-	if err != nil || stored.Clients[claude.ID].Route != "shared" {
+	if err != nil || stored.Clients[claude.ID].Model != "shared" {
 		t.Fatalf("interactive client selection = %#v, %v", stored.Clients, err)
 	}
 }
@@ -78,9 +78,9 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Routes["purpose"] = domain.Route{
-		Label: "Purpose", Purpose: "Research", Account: "gateway", Model: "claude-research",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["purpose"] = domain.Model{
+		Label: "Purpose", Purpose: "Research", Account: "gateway", Family: "claude-research",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)

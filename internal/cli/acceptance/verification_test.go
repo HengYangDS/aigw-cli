@@ -24,8 +24,8 @@ func TestVerifyClaudeUsesManagedProcessBoundary(t *testing.T) {
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}
-	cfg.Routes["claude-fable-5"] = qualifiedRoute("Claude Fable", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
-	cfg.SetSelectedRoute(claude.ID, "claude-fable-5", "")
+	cfg.Models["claude-fable-5"] = qualifiedRoute("Claude Fable", "dmx", "claude-fable-5", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, "claude-fable-5", "")
 	cfg.SetClientActivation(claude.ID, true, claudeExecutable, nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -66,10 +66,10 @@ func TestVerifyAllRequiresSynchronizedClientAdapters(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.Routes["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	cfg.SetClientActivation(codex.ID, true, "", nil)
 	synchronizeClaudeProjection(t, app, cfg)
@@ -220,10 +220,10 @@ func TestVerifyRejectsUnavailableConfigurationAndClientState(t *testing.T) {
 		{name: "all with unavailable Codex executable", args: []string{"verify", "--for", "all"}, prep: func(app *cli.App) {
 			cfg := domain.NewConfig(clients.Admission())
 			cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}}
-			cfg.Routes["claude"] = qualifiedRoute("Claude", "one", "claude-test", domain.ProtocolAnthropic)
-			cfg.Routes["codex"] = qualifiedRoute("Codex", "one", "gpt-test", domain.ProtocolOpenAIResponses)
-			cfg.SetSelectedRoute(claude.ID, "claude", "")
-			cfg.SetSelectedRoute(codex.ID, "codex", "")
+			cfg.Models["claude"] = qualifiedRoute("Claude", "one", "claude-test", domain.ProtocolAnthropic)
+			cfg.Models["codex"] = qualifiedRoute("Codex", "one", "gpt-test", domain.ProtocolOpenAIResponses)
+			cfg.SetSelectedModel(claude.ID, "claude", "")
+			cfg.SetSelectedModel(codex.ID, "codex", "")
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			cfg.SetClientActivation(codex.ID, true, "", nil)
 			synchronizeClaudeProjection(t, app, cfg)
@@ -250,8 +250,8 @@ func TestVerifyCodexRunsTheConfiguredClientWithIsolatedContinuation(t *testing.T
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	executable := executableFixture(t, "codex")
 	root := t.TempDir()
 	targets := []string{
@@ -323,8 +323,8 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 			OpenAIResponses: "https://example.test/v1",
 		},
 	}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	activateSynchronizedCodex(t, app, cfg)
 	runner.output = []byte("workdir: /Users/operator/private\nsession id: secret-session\nERROR: model gpt-next is unavailable at https://gateway.example/v1 (request id: secret-request); token=must-not-leak\n")
 	runner.capture = errors.New("exit status 1")
@@ -358,9 +358,9 @@ func TestVerifyUsesExplicitClientWithRouteOverride(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
 	cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.Routes["other-gpt"] = qualifiedRoute("Other GPT", "other", "other-gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["other-gpt"] = qualifiedRoute("Other GPT", "other", "other-gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	target := activateSynchronizedCodex(t, app, cfg)
 	before, err := app.Config.CaptureSnapshot()
 	if err != nil {
@@ -434,9 +434,9 @@ func TestVerifyAllPreservesConfigurationChangedDuringLiveRequest(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		route := cfg.Routes["gpt"]
-		route.Model = "newer-model"
-		cfg.Routes["gpt"] = route
+		route := cfg.Models["gpt"]
+		route.Family = "newer-model"
+		cfg.Models["gpt"] = route
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -452,7 +452,7 @@ func TestVerifyAllPreservesConfigurationChangedDuringLiveRequest(t *testing.T) {
 		t.Fatalf("stale live verification was accepted: %v", err)
 	}
 	current, err := app.Config.Load()
-	if err != nil || current.Routes["gpt"].Model != "newer-model" {
+	if err != nil || current.Models["gpt"].Family != "newer-model" {
 		t.Fatalf("newer configuration was lost: %v", err)
 	}
 	checkpoint, err := os.ReadFile(app.Config.Path() + ".verified.json")
@@ -473,7 +473,7 @@ func TestVerifyAllWritesVerifiedCheckpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(checkpoint.Clients) != 2 || checkpoint.Config.SelectedRoute(codex.ID) != "gpt" {
+	if len(checkpoint.Clients) != 2 || checkpoint.Config.SelectedModel(codex.ID) != "gpt" {
 		t.Fatalf("checkpoint = %#v", checkpoint)
 	}
 }

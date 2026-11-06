@@ -60,7 +60,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 		t.Fatal(err)
 	}
 	selection := p.manifest.Recommendations[codex.ID].Primary
-	route := p.manifest.Routes[selection.Route]
+	route := p.manifest.Models[selection.Model]
 	const token = "native-retry-fixture-token"
 	var failures, mode, completions atomic.Int64
 	base := clientResponseHandler(domain.ProtocolOpenAIResponses, map[string]*atomic.Int64{route.UpstreamModel: &completions}, token, "high", nativeCodexToolShell(t))
@@ -97,15 +97,15 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 	journey.runWith(p.candidate, "sync")
 	// Selection may bind the successor's credential reader; establish that
 	// independent transition before measuring policy-only canonical preservation.
-	journey.runWith(p.candidate, "use", "--for", codex.ID, selection.Route)
+	journey.runWith(p.candidate, "use", "--for", codex.ID, selection.Model)
 	canonical := readFile(t, journey.config)
-	args := []string{"use", "--for", codex.ID, selection.Route, "--request-max-retries", "0", "--stream-max-retries", "0"}
+	args := []string{"use", "--for", codex.ID, selection.Model, "--request-max-retries", "0", "--stream-max-retries", "0"}
 	preview := journey.runWith(p.candidate, append(args, "--dry-run", "--json")...)
 	var selected struct {
 		RetryPolicy *domain.RetryPolicy `json:"retry_policy"`
 		Route       string              `json:"route"`
 	}
-	if err := json.Unmarshal(preview, &selected); err != nil || selected.RetryPolicy == nil || selected.Route != selection.Route {
+	if err := json.Unmarshal(preview, &selected); err != nil || selected.RetryPolicy == nil || selected.Route != selection.Model {
 		t.Fatalf("retry preview omitted policy or Route %q: %v", selected.Route, err)
 	}
 	journey.runWith(p.candidate, args...)
@@ -147,7 +147,7 @@ func (p nativeClientJourneyPlan) runCodexConnectionRetries(t *testing.T) {
 		t.Fatalf("native no-retry boundary: requests=%d, error=%v, deadline=%v\n%s\n%s", failures.Load(), runErr, ctx.Err(), stdout, stderr)
 	}
 	mode.Store(0)
-	journey.runWith(p.candidate, "use", "--for", codex.ID, selection.Route, "--native-retries")
+	journey.runWith(p.candidate, "use", "--for", codex.ID, selection.Model, "--native-retries")
 	if bytes.Contains(readFile(t, path), []byte("max_retries")) {
 		t.Fatal("native reset retained retry fields")
 	}

@@ -37,11 +37,11 @@ func TestHermesNativeProjection(t *testing.T) {
 			hermesHome := filepath.Join(home, "hermes")
 			cfg := domain.NewConfig(testAdmission())
 			cfg.Accounts["fixture"] = domain.Account{Label: "Fixture", Endpoints: domain.Endpoints{Anthropic: "https://provider.invalid", OpenAIResponses: "https://provider.invalid/v1", OpenAIChatCompletions: "https://provider.invalid/v1"}}
-			cfg.Routes["hermes"] = domain.Route{
-				Label: "Hermes", Account: "fixture", Model: "fixture-model",
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
+			cfg.Models["hermes"] = domain.Model{
+				Label: "Hermes", Account: "fixture", Family: "fixture-model",
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
-			cfg.Clients[ID] = domain.ClientBinding{Route: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
+			cfg.Clients[ID] = domain.ClientBinding{Model: "hermes", Enabled: true, Protocol: protocol, Executable: python, Targets: []string{filepath.Join(hermesHome, "config.yaml")}}
 			if err := store.NewStore(configPath, testAdmission()).Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -102,7 +102,7 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	connectedAccounts := []string{"aihubmix", "ucloud"}
-	cfg, err = cfg.SelectRoutesForConnectedAccounts(connectedAccounts, ID)
+	cfg, err = cfg.SelectModelsForConnectedAccounts(connectedAccounts, ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,8 +142,8 @@ func TestHermesNativeCuratedCatalog(t *testing.T) {
 	if err := json.Unmarshal(output, &result); err != nil {
 		t.Fatalf("native catalog result: %v\n%s", err, output)
 	}
-	assertNativeHermesCatalog(t, manifest.Routes, connectedAccounts, result.Providers)
-	if result.Model != selected.Model || result.Protocol != expectedNativeHermesMode(selected.Protocol) || !result.Credential {
+	assertNativeHermesCatalog(t, manifest.Models, connectedAccounts, result.Providers)
+	if result.Model != selected.UpstreamModel || result.Protocol != expectedNativeHermesMode(selected.Protocol) || !result.Credential {
 		t.Fatalf("native selected route = %+v", result)
 	}
 }
@@ -181,7 +181,7 @@ func runHermesNativeScript(t *testing.T, python, home string, env map[string]str
 	return output
 }
 
-func assertNativeHermesCatalog(t *testing.T, routes map[string]domain.Route, accounts []string, providers map[string][]string) {
+func assertNativeHermesCatalog(t *testing.T, routes map[string]domain.Model, accounts []string, providers map[string][]string) {
 	t.Helper()
 	connected := map[string]bool{}
 	for _, accountID := range accounts {

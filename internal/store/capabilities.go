@@ -14,11 +14,11 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-// routeCapabilities is the Store's component for Route capabilities outside
+// modelCapabilities is the Store's component for Route capabilities outside
 // the vocabulary published with schema six. Published credential readers
 // validate that vocabulary strictly and never read this component.
-type routeCapabilities struct {
-	Routes map[string]map[domain.EndpointProtocol]recordedCapabilities `toml:"routes"`
+type modelCapabilities struct {
+	Models map[string]map[domain.EndpointProtocol]recordedCapabilities `toml:"routes"`
 }
 
 // recordedCapabilities applies only while its Route keeps the identity it was
@@ -44,7 +44,7 @@ func publishedCapability(capability domain.Capability) bool {
 
 // capabilityIdentity hashes the Account, endpoint, upstream model and
 // interface that a recorded capability qualified.
-func capabilityIdentity(cfg domain.Config, route domain.Route, protocol domain.EndpointProtocol) string {
+func capabilityIdentity(cfg domain.Config, route domain.Model, protocol domain.EndpointProtocol) string {
 	endpoint := cfg.Accounts[route.Account].Endpoints.For(protocol)
 	identity := route.Account + "\x00" + endpoint + "\x00" + route.UpstreamModelID() + "\x00" + string(protocol)
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(identity)))
@@ -53,59 +53,59 @@ func capabilityIdentity(cfg domain.Config, route domain.Route, protocol domain.E
 // keepPublishedCapabilities removes later capabilities from Routes that the
 // caller owns, leaving the form every published schema-six reader accepts.
 func keepPublishedCapabilities(cfg domain.Config) {
-	for _, route := range cfg.Routes {
-		for protocol, capabilities := range route.Interfaces {
-			route.Interfaces[protocol] = slices.DeleteFunc(capabilities, func(capability domain.Capability) bool {
+	for _, route := range cfg.Models {
+		for protocol, capabilities := range route.Protocols {
+			route.Protocols[protocol] = slices.DeleteFunc(capabilities, func(capability domain.Capability) bool {
 				return !publishedCapability(capability)
 			})
 		}
 	}
 }
 
-func encodeRouteCapabilities(cfg domain.Config) ([]byte, error) {
-	recorded := routeCapabilities{Routes: map[string]map[domain.EndpointProtocol]recordedCapabilities{}}
-	for id, route := range cfg.Routes {
-		for protocol, capabilities := range route.Interfaces {
+func encodeModelCapabilities(cfg domain.Config) ([]byte, error) {
+	recorded := modelCapabilities{Models: map[string]map[domain.EndpointProtocol]recordedCapabilities{}}
+	for id, route := range cfg.Models {
+		for protocol, capabilities := range route.Protocols {
 			later := slices.DeleteFunc(slices.Clone(capabilities), publishedCapability)
 			if len(later) == 0 {
 				continue
 			}
-			if recorded.Routes[id] == nil {
-				recorded.Routes[id] = map[domain.EndpointProtocol]recordedCapabilities{}
+			if recorded.Models[id] == nil {
+				recorded.Models[id] = map[domain.EndpointProtocol]recordedCapabilities{}
 			}
-			recorded.Routes[id][protocol] = recordedCapabilities{Identity: capabilityIdentity(cfg, route, protocol), Capabilities: later}
+			recorded.Models[id][protocol] = recordedCapabilities{Identity: capabilityIdentity(cfg, route, protocol), Capabilities: later}
 		}
 	}
-	if len(recorded.Routes) == 0 {
+	if len(recorded.Models) == 0 {
 		return nil, nil
 	}
 	data, err := toml.Marshal(recorded)
 	return separateTOMLTableBlocks(data), err
 }
 
-// decodeRouteCapabilities adds each recorded capability to its Route while the
+// decodeModelCapabilities adds each recorded capability to its Route while the
 // Route still matches the recorded identity; other entries no longer apply.
-func decodeRouteCapabilities(cfg domain.Config, snapshot platform.FileSnapshot) (domain.Config, error) {
+func decodeModelCapabilities(cfg domain.Config, snapshot platform.FileSnapshot) (domain.Config, error) {
 	if !snapshot.Exists {
 		return cfg, nil
 	}
-	var recorded routeCapabilities
+	var recorded modelCapabilities
 	decoder := toml.NewDecoder(bytes.NewReader(snapshot.Data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&recorded); err != nil {
 		return domain.Config{}, newLoadError(LoadPhaseParse, fmt.Errorf("parse route capabilities: %w", err))
 	}
-	if len(recorded.Routes) == 0 {
+	if len(recorded.Models) == 0 {
 		return domain.Config{}, newLoadError(LoadPhaseValidate, errors.New("route capability component has no entries"))
 	}
-	for _, id := range slices.Sorted(maps.Keys(recorded.Routes)) {
-		for _, protocol := range slices.Sorted(maps.Keys(recorded.Routes[id])) {
-			entry := recorded.Routes[id][protocol]
+	for _, id := range slices.Sorted(maps.Keys(recorded.Models)) {
+		for _, protocol := range slices.Sorted(maps.Keys(recorded.Models[id])) {
+			entry := recorded.Models[id][protocol]
 			if err := entry.validate(id, protocol); err != nil {
 				return domain.Config{}, newLoadError(LoadPhaseValidate, err)
 			}
-			route, exists := cfg.Routes[id]
-			capabilities, admitted := route.Interfaces[protocol]
+			route, exists := cfg.Models[id]
+			capabilities, admitted := route.Protocols[protocol]
 			if !exists || !admitted || entry.Identity != capabilityIdentity(cfg, route, protocol) {
 				continue
 			}
@@ -114,7 +114,7 @@ func decodeRouteCapabilities(cfg domain.Config, snapshot platform.FileSnapshot) 
 					capabilities = append(capabilities, capability)
 				}
 			}
-			route.Interfaces[protocol] = capabilities
+			route.Protocols[protocol] = capabilities
 		}
 	}
 	if err := cfg.Validate(); err != nil {

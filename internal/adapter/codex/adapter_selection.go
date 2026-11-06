@@ -42,7 +42,7 @@ func (codexAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) (
 	if err != nil {
 		return "", err
 	}
-	cfg.SetSelectedRoute(ID, routeID, "")
+	cfg.SetSelectedModel(ID, routeID, "")
 	return routeID, nil
 }
 
@@ -51,12 +51,12 @@ func (codexAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) (
 func routeFor(cfg domain.Config, selected domain.Runtime, model string) (string, error) {
 	spec := codexAdapter{}.Spec()
 	var matches []string
-	for _, routeID := range cfg.CatalogRouteIDs() {
-		route := cfg.Routes[routeID]
+	for _, routeID := range cfg.CatalogModelIDs() {
+		route := cfg.Models[routeID]
 		if route.Account != selected.AccountID || route.UpstreamModelID() != model {
 			continue
 		}
-		if slices.Contains(spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route), selected.Protocol) {
+		if slices.Contains(spec.CompatibleModelProtocols(cfg.Accounts[route.Account], route), selected.Protocol) {
 			matches = append(matches, routeID)
 		}
 	}

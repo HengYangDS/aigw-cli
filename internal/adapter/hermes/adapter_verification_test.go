@@ -26,9 +26,9 @@ func hermesVerificationFixture(t *testing.T) (domain.Config, domain.Runtime, ada
 	}
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["hermes"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	cfg.Models["hermes"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
 	target := filepath.Join(t.TempDir(), "config.yaml")
-	cfg.SetSelectedRoute(ID, "hermes", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(ID, "hermes", domain.ProtocolAnthropic)
 	cfg.SetClientActivation(ID, true, executable, []string{target})
 	if err := os.WriteFile(target, []byte("{}\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -201,8 +201,8 @@ func TestHermesVerificationPreservesNativeModelSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIChatCompletions: "https://gateway.test/v1"}}
-	cfg.Routes["selected"] = qualifiedRoute("", "gateway", "mistral-large-3", domain.ProtocolOpenAIChatCompletions)
-	cfg.SetSelectedRoute(ID, "selected", "")
+	cfg.Models["selected"] = qualifiedRoute("", "gateway", "mistral-large-3", domain.ProtocolOpenAIChatCompletions)
+	cfg.SetSelectedModel(ID, "selected", "")
 	selected, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)

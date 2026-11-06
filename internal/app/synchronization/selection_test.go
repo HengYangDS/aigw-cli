@@ -19,7 +19,7 @@ import (
 
 func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	before := setupConfiguration()
-	before.Routes["next"] = domain.Route{Label: "Next", Account: "team", Model: "claude-next", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.Models["next"] = domain.Model{Label: "Next", Account: "team", Family: "claude-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
 		t.Fatal(err)
@@ -31,7 +31,7 @@ func TestRouteSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
 	}
 	current, err := configStore.Load()
-	if err != nil || current.SelectedRoute(claude.ID) != "next" || before.SelectedRoute(claude.ID) != "claude" {
+	if err != nil || current.SelectedModel(claude.ID) != "next" || before.SelectedModel(claude.ID) != "claude" {
 		t.Fatalf("selection mutated its input or failed persistence: %v", err)
 	}
 	snapshot, err := configStore.CaptureSnapshot()
@@ -66,10 +66,10 @@ func TestRouteSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 				Anthropic: "https://team.test", OpenAIChatCompletions: "https://team.test/v1", OpenAIResponses: "https://team.test/responses/v1",
 			}}
 			cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{OpenAIChatCompletions: "https://other.test/v1"}}
-			cfg.Routes["chat"] = domain.Route{Label: "Chat", Account: "team", Model: "shared", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}}
-			cfg.Routes["dual"] = domain.Route{Label: "Dual", Account: "team", Model: "shared", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}, domain.ProtocolOpenAIResponses: {}}}
-			cfg.Routes["other"] = domain.Route{Label: "Other", Account: "other", Model: "shared", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}}
-			cfg.Clients[hermes.ID] = domain.ClientBinding{Route: "chat", Enabled: true}
+			cfg.Models["chat"] = domain.Model{Label: "Chat", Account: "team", Family: "shared", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}}
+			cfg.Models["dual"] = domain.Model{Label: "Dual", Account: "team", Family: "shared", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}, domain.ProtocolOpenAIResponses: {}}}
+			cfg.Models["other"] = domain.Model{Label: "Other", Account: "other", Family: "shared", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIChatCompletions: {}}}
+			cfg.Clients[hermes.ID] = domain.ClientBinding{Model: "chat", Enabled: true}
 			if err := cfg.SetForwardingEndpoint(hermes.ID, "http://127.0.0.1:8792/selected/v1"); err != nil {
 				t.Fatal(err)
 			}
@@ -84,7 +84,7 @@ func TestRouteSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 			if selected.Protocol != test.protocol || selected.Endpoint != test.wantEndpoint {
 				t.Fatalf("selection = %s %s, want %s %s", selected.Protocol, selected.Endpoint, test.protocol, test.wantEndpoint)
 			}
-			if proposed.Clients[hermes.ID].Route != test.route || !reflect.DeepEqual(cfg.Clients[hermes.ID], binding) {
+			if proposed.Clients[hermes.ID].Model != test.route || !reflect.DeepEqual(cfg.Clients[hermes.ID], binding) {
 				t.Fatal("selection lost its Route or mutated the original binding")
 			}
 		})
@@ -118,7 +118,7 @@ func TestRouteSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 			if token, err := credentials.Get("team"); !errors.Is(err, secret.ErrNotFound) || token != "" {
 				t.Fatalf("failed selection retained credential: %v", err)
 			}
-			if before.SelectedRoute(claude.ID) != "" || (phase != "persistence" && store.commits != 0) {
+			if before.SelectedModel(claude.ID) != "" || (phase != "persistence" && store.commits != 0) {
 				t.Fatal("failed selection modified its configuration input or committed after cancellation")
 			}
 		})
@@ -129,7 +129,7 @@ func TestRouteSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 	for _, route := range []string{"unknown", "native"} {
 		t.Run(route, func(t *testing.T) {
 			cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
-			cfg.Routes["native"] = domain.Route{Label: "Native", Account: "gateway", Model: "model", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+			cfg.Models["native"] = domain.Model{Label: "Native", Account: "gateway", Family: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 			binding := cfg.Clients[codex.ID]
 			binding.ModelProvider = "provider"
 			binding.Authentication = domain.AuthenticationClientNative

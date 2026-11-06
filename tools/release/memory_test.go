@@ -422,8 +422,8 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 		}
 		config := domain.NewConfig(clients.Admission())
 		config.Accounts["memory"] = domain.Account{Label: "Memory", Endpoints: domain.Endpoints{Anthropic: "https://unused.example.test"}}
-		config.Routes["memory"] = domain.Route{Account: "memory", Model: "memory", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
-		config.SetSelectedRoute(claude.ID, "memory", domain.ProtocolAnthropic)
+		config.Models["memory"] = domain.Model{Account: "memory", Family: "memory", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}}
+		config.SetSelectedModel(claude.ID, "memory", domain.ProtocolAnthropic)
 		configStore := store.NewStore(filepath.Join(output, "config.toml"), clients.Admission())
 		if err := configStore.Save(config); err != nil {
 			t.Fatal(err)
@@ -470,7 +470,7 @@ func TestNativeMemoryRetainsInterruptedObservations(t *testing.T) {
 	if row.Variant != "candidate" || row.Case != "status" || row.Block != 1 || len(row.Bytes) != 2 || slices.Contains(row.Bytes, 0) {
 		t.Fatalf("interrupted block lost its two completed native observations: %#v", row)
 	}
-	identity := []string{row.Mode, row.Runtime.RouteID, row.Runtime.Client, string(readFile(t, filepath.Join(output, "observations")))}
+	identity := []string{row.Mode, row.Runtime.ModelID, row.Runtime.Client, string(readFile(t, filepath.Join(output, "observations")))}
 	if !slices.Equal(identity, []string{"direct", "memory", claude.ID, "8"}) || row.Executable == nil {
 		t.Fatalf("interrupted memory observations lost their Runtime or native provenance: %q", identity)
 	}

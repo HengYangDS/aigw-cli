@@ -26,8 +26,8 @@ func codexRegistry() adapter.Registry {
 func TestCodexProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
 	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
-	before.Routes["route"] = qualifiedRoute("Route", "gateway", "model", domain.ProtocolOpenAIResponses)
-	before.Clients[ID] = domain.ClientBinding{Route: "route", Enabled: true}
+	before.Models["route"] = qualifiedRoute("Route", "gateway", "model", domain.ProtocolOpenAIResponses)
+	before.Clients[ID] = domain.ClientBinding{Model: "route", Enabled: true}
 	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
@@ -53,8 +53,8 @@ func TestCodexProjectionTreatsInvalidRuntimeAndTargetChangesAsChanged(t *testing
 	t.Run("invalid enabled Codex runtime", func(t *testing.T) {
 		before := codexConfiguration("/target")
 		after := before.Clone()
-		delete(before.Routes, "codex")
-		delete(after.Routes, "codex")
+		delete(before.Models, "codex")
+		delete(after.Models, "codex")
 		if changed := codexRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != ID {
 			t.Fatal("invalid Codex runtime was treated as unchanged")
 		}
@@ -75,7 +75,7 @@ func TestCodexConvergenceRefusesAnUninspectableConfiguredExecutable(t *testing.T
 		return
 	}
 	cfg := codexConfiguration("/target")
-	cfg.SetSelectedRoute(ID, "codex", "")
+	cfg.SetSelectedModel(ID, "codex", "")
 	loop := filepath.Join(t.TempDir(), "loop")
 	if err := os.Symlink(loop, loop); err != nil {
 		t.Skipf("symbolic link unavailable: %v", err)
@@ -96,7 +96,7 @@ func TestCodexConvergenceIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 
 	t.Run("with a broken route", func(t *testing.T) {
 		cfg := domain.NewConfig(testAdmission())
-		cfg.SetSelectedRoute(ID, "missing-route", "")
+		cfg.SetSelectedModel(ID, "missing-route", "")
 		if _, err := codexRegistry().Converge(adapter.Dependencies{}, cfg, discovery.Result{}, ID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
 			t.Fatalf("Converge(codex) broken route error = %v", err)
 		}

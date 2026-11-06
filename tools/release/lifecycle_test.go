@@ -177,11 +177,11 @@ func (j *journeyFixture) prepareCodexLifecycle() (string, string) {
 	account.Endpoints.OpenAIResponses = j.endpoint
 	manifest.Accounts["native-system-keyring-probe"] = account
 	manifest.Families["gpt-test"] = domain.Family{Label: "GPT Test"}
-	manifest.Routes["native-codex"] = domain.Route{
-		Label: "Native Codex", Account: "native-system-keyring-probe", Model: "gpt-test", UpstreamModel: "gpt-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	manifest.Models["native-codex"] = domain.Model{
+		Label: "Native Codex", Account: "native-system-keyring-probe", Family: "gpt-test", UpstreamModel: "gpt-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	manifest.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Route: "native-codex"}}
+	manifest.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "native-codex"}}
 	manifestData, err := toml.Marshal(manifest)
 	if err != nil {
 		j.testing.Fatal(err)

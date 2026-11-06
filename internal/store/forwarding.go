@@ -65,7 +65,7 @@ func decodeStoreConfig(data []byte, forwarding platform.FileSnapshot, admission 
 	for _, client := range slices.Sorted(maps.Keys(destinations.Clients)) {
 		binding, exists := cfg.Clients[client]
 		destination := destinations.Clients[client]
-		if !exists || binding.Route == "" || destination.Endpoint == "" {
+		if !exists || binding.Model == "" || destination.Endpoint == "" {
 			return domain.Config{}, newLoadError(LoadPhaseValidate, fmt.Errorf("client forwarding %q requires an existing selected binding and endpoint", client))
 		}
 		runtime, err := cfg.ResolveRuntime(client, "")
@@ -104,8 +104,8 @@ func configurationsEqual(left, right domain.Config) (bool, error) {
 	}
 	leftCatalog, leftErr := encodeCatalogOrder(left)
 	rightCatalog, rightErr := encodeCatalogOrder(right)
-	leftCapabilities, leftCapabilitiesErr := encodeRouteCapabilities(left)
-	rightCapabilities, rightCapabilitiesErr := encodeRouteCapabilities(right)
+	leftCapabilities, leftCapabilitiesErr := encodeModelCapabilities(left)
+	rightCapabilities, rightCapabilitiesErr := encodeModelCapabilities(right)
 	return bytes.Equal(leftCatalog, rightCatalog) && bytes.Equal(leftCapabilities, rightCapabilities),
 		errors.Join(leftErr, rightErr, leftCapabilitiesErr, rightCapabilitiesErr)
 }

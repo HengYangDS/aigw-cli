@@ -27,8 +27,8 @@ func TestSettingsReconcilesOnlyProvenModelPreferenceDrift(t *testing.T) {
 	for _, changedModel := range []string{"", `"user-selected-model"`} {
 		t.Run(changedModel, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			selected := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
-			if _, err := ReconcileSettings(path, false, selected, testExecutable(), selected.Model); err != nil {
+			selected := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "claude-team"}
+			if _, err := ReconcileSettings(path, false, selected, testExecutable(), selected.UpstreamModel); err != nil {
 				t.Fatal(err)
 			}
 			document := readSettingsFile(t, path)
@@ -43,14 +43,14 @@ func TestSettingsReconcilesOnlyProvenModelPreferenceDrift(t *testing.T) {
 			if err := os.WriteFile(path, before, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			plan, err := PlanSettings(path, false, selected, testExecutable(), selected.Model)
+			plan, err := PlanSettings(path, false, selected, testExecutable(), selected.UpstreamModel)
 			if err != nil || plan.Action != SettingsActionAlreadyConverged {
 				t.Fatalf("recoverable model drift: %+v, %v", plan, err)
 			}
 			if after, err := os.ReadFile(path); err != nil || !bytes.Equal(after, before) {
 				t.Fatal("preview changed settings")
 			}
-			receipt, err := ReconcileSettings(path, false, selected, testExecutable(), selected.Model)
+			receipt, err := ReconcileSettings(path, false, selected, testExecutable(), selected.UpstreamModel)
 			if err != nil || receipt.Action != SettingsActionAlreadyConverged {
 				t.Fatalf("unchanged connection reconciliation = %#v, %v", receipt, err)
 			}
@@ -73,7 +73,7 @@ func TestHelperOnlyMigrationRetainsNativeModelPreference(t *testing.T) {
 	oldHelper := filepath.Join(root, "old-aigw")
 	newHelper := filepath.Join(root, "new-aigw")
 	runtime := domain.Runtime{
-		RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-opus-5-5",
+		ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "claude-opus-5-5",
 	}
 	if _, err := ReconcileSettings(path, false, runtime, oldHelper, ""); err != nil {
 		t.Fatal(err)
@@ -88,14 +88,14 @@ func TestHelperOnlyMigrationRetainsNativeModelPreference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plan, err := PlanSettings(path, false, runtime, newHelper, runtime.Model)
+	plan, err := PlanSettings(path, false, runtime, newHelper, runtime.UpstreamModel)
 	if err != nil || plan.Action != SettingsActionProject {
 		t.Fatalf("helper-only plan = %#v, %v", plan, err)
 	}
 	if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, before) {
 		t.Fatal("helper-only preview changed settings")
 	}
-	receipt, err := ReconcileSettings(path, false, runtime, newHelper, runtime.Model)
+	receipt, err := ReconcileSettings(path, false, runtime, newHelper, runtime.UpstreamModel)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,13 +127,13 @@ func TestHelperMigrationDoesNotCarryModelPreferenceAcrossRouteChanges(t *testing
 	}{
 		{name: "account", change: func(runtime *domain.Runtime) { runtime.AccountID = "another" }},
 		{name: "endpoint", change: func(runtime *domain.Runtime) { runtime.Endpoint = "https://another.test" }},
-		{name: "model", change: func(runtime *domain.Runtime) { runtime.Model = "claude-sonnet-5-5" }},
+		{name: "model", change: func(runtime *domain.Runtime) { runtime.UpstreamModel = "claude-sonnet-5-5" }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			root := t.TempDir()
 			path := filepath.Join(root, "settings.json")
 			previous := domain.Runtime{
-				RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-opus-5-5",
+				ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "claude-opus-5-5",
 			}
 			if _, err := ReconcileSettings(path, false, previous, filepath.Join(root, "old-aigw"), ""); err != nil {
 				t.Fatal(err)
@@ -146,10 +146,10 @@ func TestHelperMigrationDoesNotCarryModelPreferenceAcrossRouteChanges(t *testing
 			next := previous
 			test.change(&next)
 			newHelper := filepath.Join(root, "new-aigw")
-			if _, err := ReconcileSettings(path, false, next, newHelper, previous.Model); err != nil {
+			if _, err := ReconcileSettings(path, false, next, newHelper, previous.UpstreamModel); err != nil {
 				t.Fatal(err)
 			}
-			if got := readSettingsFile(t, path)["model"]; string(got) != string(adapter.RawJSON(next.Model)) {
+			if got := readSettingsFile(t, path)["model"]; string(got) != string(adapter.RawJSON(next.UpstreamModel)) {
 				t.Fatalf("route change retained a native preference: %s", got)
 			}
 			if inspection, err := InspectSettings(path, next, newHelper); err != nil || inspection.NativeModelOverride {
@@ -175,7 +175,7 @@ func TestSettingsWithdrawalPreservesLaterModelPreference(t *testing.T) {
 			if err := os.WriteFile(path, []byte(`{"model":"original","theme":"dark"}`), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
+			runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "claude-team"}
 			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
 				t.Fatal(err)
 			}
@@ -190,11 +190,11 @@ func TestSettingsWithdrawalPreservesLaterModelPreference(t *testing.T) {
 				t.Fatal(err)
 			}
 			if test.reproject {
-				if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
+				if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err != nil {
 					t.Fatal(err)
 				}
 			}
-			if _, err := ReconcileSettings(path, true, domain.Runtime{}, "", runtime.Model); err != nil {
+			if _, err := ReconcileSettings(path, true, domain.Runtime{}, "", runtime.UpstreamModel); err != nil {
 				t.Fatal(err)
 			}
 			if got := readSettingsFile(t, path); !reflect.DeepEqual(got, want) {
@@ -211,7 +211,7 @@ func TestSettingsModelRecoveryRequiresUnchangedConnectionOwnership(t *testing.T)
 	for _, field := range []string{"apiKeyHelper", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL"} {
 		t.Run(field, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
+			runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "claude-team"}
 			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
 				t.Fatal(err)
 			}
@@ -239,7 +239,7 @@ func TestSettingsModelRecoveryRequiresUnchangedConnectionOwnership(t *testing.T)
 				t.Fatal(err)
 			}
 			for _, disabled := range []bool{false, true} {
-				if _, err := ReconcileSettings(path, disabled, runtime, testExecutable(), runtime.Model); err == nil {
+				if _, err := ReconcileSettings(path, disabled, runtime, testExecutable(), runtime.UpstreamModel); err == nil {
 					t.Fatal("connection conflict accepted as model preference")
 				}
 			}
@@ -271,9 +271,9 @@ func TestSettingsReceiptRestoresExactObservedFiles(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+			runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 			if test.projected {
-				if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
+				if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -286,7 +286,7 @@ func TestSettingsReceiptRestoresExactObservedFiles(t *testing.T) {
 				}
 				before[target] = snapshot
 			}
-			receipt, err := ReconcileSettings(path, test.disabled, runtime, testExecutable(), runtime.Model)
+			receipt, err := ReconcileSettings(path, test.disabled, runtime, testExecutable(), runtime.UpstreamModel)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -311,8 +311,8 @@ func TestSettingsReceiptPreservesNewerFiles(t *testing.T) {
 	for _, suffix := range []string{"", adapter.StateSuffix} {
 		t.Run("edited"+suffix, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-			receipt, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model)
+			runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+			receipt, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel)
 			if err != nil {
 				t.Fatal(err)
 			}

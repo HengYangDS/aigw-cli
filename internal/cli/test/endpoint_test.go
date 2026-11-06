@@ -97,7 +97,7 @@ func TestEndpointTestDefaultsToEnabledBindingsOnly(t *testing.T) {
 
 func TestEndpointTestNamesTheDisabledBindingsItSkips(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	if cfg.SelectedRoute(claude.ID) == "" || cfg.Clients[claude.ID].Enabled {
+	if cfg.SelectedModel(claude.ID) == "" || cfg.Clients[claude.ID].Enabled {
 		t.Fatalf("fixture lost its disabled Client Binding: %+v", cfg.Clients[claude.ID])
 	}
 	runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {

@@ -57,10 +57,10 @@ func TestCheckForLimitsCredentialsAndInferenceToOneEnabledClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{Anthropic: "https://other.example.test"}}
-	claude := cfg.Routes["claude"]
+	claude := cfg.Models["claude"]
 	claude.Account = "other"
-	cfg.Routes["claude"] = claude
-	cfg.SetSelectedRoute(claudeclient.ID, "claude", "")
+	cfg.Models["claude"] = claude
+	cfg.SetSelectedModel(claudeclient.ID, "claude", "")
 	cfg.SetClientActivation(claudeclient.ID, true, filepath.Join(t.TempDir(), "missing-claude"), nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)

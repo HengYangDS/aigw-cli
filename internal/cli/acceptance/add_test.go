@@ -34,8 +34,8 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 				if id == claude.ID {
 					protocol = domain.ProtocolAnthropic
 				}
-				cfg.Routes[id] = qualifiedRoute(id, "old", "old-model", protocol)
-				cfg.SetSelectedRoute(id, id, "")
+				cfg.Models[id] = qualifiedRoute(id, "old", "old-model", protocol)
+				cfg.SetSelectedModel(id, id, "")
 				cfg.SetClientActivation(id, true, executableFixture(t, id), nil)
 			}
 			adapter := cfg.Clients[codex.ID]
@@ -64,7 +64,7 @@ func TestAddProjectsOnlyItsSelectedClient(t *testing.T) {
 			}
 			assertAccountConnectionOutput(t, out.String())
 			current, err := app.Config.Load()
-			if err != nil || current.SelectedRoute(clientID) != "new" || current.SelectedRoute(other) != other {
+			if err != nil || current.SelectedModel(clientID) != "new" || current.SelectedModel(other) != other {
 				t.Fatalf("creation bindings = %v, %v", current.Clients, err)
 			}
 			if !bytes.Contains(readFile(t, paths[clientID]), []byte("new-model")) {
@@ -190,8 +190,8 @@ func TestAddWithoutLabelDefaultsToRouteName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Routes["dmx"].Label != "dmx" || cfg.Accounts["dmx"].Label != "dmx" {
-		t.Fatalf("route/account label = %#v, want the route name as a default", cfg.Routes["dmx"])
+	if cfg.Models["dmx"].Label != "dmx" || cfg.Accounts["dmx"].Label != "dmx" {
+		t.Fatalf("route/account label = %#v, want the route name as a default", cfg.Models["dmx"])
 	}
 }
 
@@ -217,7 +217,7 @@ func TestAddSurfacesSecretStoreSetFailure(t *testing.T) {
 	if loadErr != nil {
 		t.Fatal(loadErr)
 	}
-	if _, exists := cfg.Routes["dmx"]; exists {
+	if _, exists := cfg.Models["dmx"]; exists {
 		t.Fatal("a failed secret write must not leave a persisted route")
 	}
 }
@@ -290,7 +290,7 @@ func TestAddWithTokenStdinCreatesRouteWithoutPrintingSecret(t *testing.T) {
 		t.Fatalf("secret leaked in output: %s", out.String())
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || cfg.SelectedRoute(codex.ID) != "dmx" || cfg.Routes["dmx"].Label != "DMXAPI" {
+	if err != nil || cfg.SelectedModel(codex.ID) != "dmx" || cfg.Models["dmx"].Label != "DMXAPI" {
 		t.Fatalf("config = %#v, %v", cfg, err)
 	}
 }

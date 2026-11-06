@@ -15,7 +15,7 @@ func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "current", "team", "Team Gateway", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-current")
-	cfg.SetSelectedRoute(claude.ID, "current", "")
+	cfg.SetSelectedModel(claude.ID, "current", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -27,8 +27,8 @@ func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Routes["claude-fable-5"].Purpose != "Default agent" {
-		t.Fatalf("purpose = %q", got.Routes["claude-fable-5"].Purpose)
+	if got.Models["claude-fable-5"].Purpose != "Default agent" {
+		t.Fatalf("purpose = %q", got.Models["claude-fable-5"].Purpose)
 	}
 	if err := secretStore.Set("team", "team-token"); err != nil {
 		t.Fatal(err)
@@ -76,8 +76,8 @@ func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Routes["claude-fable-5"].Purpose != "Deep agent" {
-		t.Fatalf("edited purpose = %q", got.Routes["claude-fable-5"].Purpose)
+	if got.Models["claude-fable-5"].Purpose != "Deep agent" {
+		t.Fatalf("edited purpose = %q", got.Models["claude-fable-5"].Purpose)
 	}
 	if err := cli.Execute(app, []string{"route", "edit", "claude-fable-5", "--purpose", ""}); err != nil {
 		t.Fatal(err)
@@ -86,8 +86,8 @@ func TestRoutePurposeIsOptionalHumanGuidance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Routes["claude-fable-5"].Purpose != "" {
-		t.Fatalf("cleared purpose = %q", got.Routes["claude-fable-5"].Purpose)
+	if got.Models["claude-fable-5"].Purpose != "" {
+		t.Fatalf("cleared purpose = %q", got.Models["claude-fable-5"].Purpose)
 	}
 }
 
@@ -95,11 +95,11 @@ func TestRouteListUsesChineseProductLabelsWithoutRewritingPurpose(t *testing.T) 
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "gpt", "team", "Team Gateway", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "gpt-test")
-	cfg.Routes["gpt"] = qualifiedRoute("GPT Test", "team", "gpt-test", domain.ProtocolOpenAIResponses)
-	route := cfg.Routes["gpt"]
+	cfg.Models["gpt"] = qualifiedRoute("GPT Test", "team", "gpt-test", domain.ProtocolOpenAIResponses)
+	route := cfg.Models["gpt"]
 	route.Purpose = "native Codex picker-aligned daily default"
-	cfg.Routes["gpt"] = route
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.Models["gpt"] = route
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

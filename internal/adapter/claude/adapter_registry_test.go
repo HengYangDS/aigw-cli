@@ -25,12 +25,12 @@ func TestClaudeProjectionTreatsAnInvalidRuntimeAsChanged(t *testing.T) {
 	t.Run("invalid enabled Claude runtime", func(t *testing.T) {
 		before := domain.NewConfig(testAdmission())
 		before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-		before.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
-		before.SetSelectedRoute(ID, "claude", "")
+		before.Models["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
+		before.SetSelectedModel(ID, "claude", "")
 		before.SetClientActivation(ID, true, "/opt/claude", nil)
 		after := before.Clone()
-		delete(before.Routes, "claude")
-		delete(after.Routes, "claude")
+		delete(before.Models, "claude")
+		delete(after.Models, "claude")
 		if changed := claudeRegistry().ChangedClients(before, after); len(changed) != 1 || changed[0] != ID {
 			t.Fatal("invalid Claude runtime was treated as unchanged")
 		}
@@ -44,10 +44,10 @@ func TestClaudeConvergesConfiguredExecutablesConservatively(t *testing.T) {
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	cfg.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
-	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(ID, "claude", "")
-	cfg.SetSelectedRoute(otherClient.ID, "codex", "")
+	cfg.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	cfg.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(ID, "claude", "")
+	cfg.SetSelectedModel(otherClient.ID, "codex", "")
 	cfg.SetClientActivation(ID, true, missing, nil)
 
 	after, err := claudeRegistry().Converge(adapter.Dependencies{}, cfg, discovery.Result{}, ID)
@@ -80,7 +80,7 @@ func TestClaudeConvergenceIgnoresOnlyAnUnselectedRoute(t *testing.T) {
 
 		t.Run(clientID+" with a broken route", func(t *testing.T) {
 			cfg := domain.NewConfig(testAdmission())
-			cfg.SetSelectedRoute(clientID, "missing-route", "")
+			cfg.SetSelectedModel(clientID, "missing-route", "")
 			if _, err := claudeRegistry().Converge(adapter.Dependencies{}, cfg, discovery.Result{}, clientID); err == nil || !strings.Contains(err.Error(), `unknown route "missing-route"`) {
 				t.Fatalf("Converge(%q) broken route error = %v", clientID, err)
 			}

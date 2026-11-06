@@ -92,7 +92,7 @@ func (plan ProjectionPlan) ChangesState() bool {
 // projection before executing it.
 func ObservedCredentialCommand(path string, runtime domain.Runtime) (string, error) {
 	if !runtime.RequiresAccountToken() {
-		return "", fmt.Errorf("Codex Route %q does not use an Account Token", runtime.RouteID)
+		return "", fmt.Errorf("Codex Route %q does not use an Account Token", runtime.ModelID)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -103,7 +103,7 @@ func ObservedCredentialCommand(path string, runtime domain.Runtime) (string, err
 		return "", err
 	}
 	if projection.Auth == nil {
-		return "", fmt.Errorf("Codex Route %q has no projected credential command", runtime.RouteID)
+		return "", fmt.Errorf("Codex Route %q has no projected credential command", runtime.ModelID)
 	}
 	return projection.Auth.Command, nil
 }
@@ -164,17 +164,17 @@ func ValidateConfig(path string, runtime domain.Runtime) error {
 	if err := validateCodexSchedulerOwnership(state, text); err != nil {
 		return err
 	}
-	if model := runtime.Model; model != "" {
+	if model := runtime.UpstreamModel; model != "" {
 		modelLine, err := codexSelectionLine(text, "model")
 		if err != nil {
 			return err
 		}
 		if !selectionHasValue(modelLine, "model", model) {
-			return fmt.Errorf("Codex config model selection does not match Route %q", runtime.RouteID)
+			return fmt.Errorf("Codex config model selection does not match Route %q", runtime.ModelID)
 		}
 	}
 	if platform.SHA256([]byte(actualBlock)) != platform.SHA256([]byte(expectedBlock)) {
-		return fmt.Errorf("Codex config provider block does not match Route %q", runtime.RouteID)
+		return fmt.Errorf("Codex config provider block does not match Route %q", runtime.ModelID)
 	}
 	if err := validateCodexScheduler(text); err != nil {
 		return err
@@ -293,14 +293,14 @@ func codexUserConfigTransition(configSnapshot, stateSnapshot platform.FileSnapsh
 
 func codexEndpoint(runtime domain.Runtime) (string, error) {
 	if runtime.Endpoint == "" {
-		return "", fmt.Errorf("Route %q has no Codex endpoint", runtime.RouteID)
+		return "", fmt.Errorf("Route %q has no Codex endpoint", runtime.ModelID)
 	}
 	if runtime.RequiresAccountToken() {
 		if runtime.CredentialCommand == "" {
-			return "", fmt.Errorf("Route %q account-token Codex provider requires a credential command", runtime.RouteID)
+			return "", fmt.Errorf("Route %q account-token Codex provider requires a credential command", runtime.ModelID)
 		}
 		if !filepath.IsAbs(runtime.CredentialCommand) {
-			return "", fmt.Errorf("Route %q account-token Codex provider credential command must be absolute", runtime.RouteID)
+			return "", fmt.Errorf("Route %q account-token Codex provider credential command must be absolute", runtime.ModelID)
 		}
 	}
 	return runtime.Endpoint, nil
@@ -348,7 +348,7 @@ func codexManagedBlock(runtime domain.Runtime, endpoint string) string {
 		projection.StreamMaxRetries = runtime.RetryPolicy.StreamMaxRetries
 	}
 	if provider == modelProviderAIGW {
-		name := "AIGW: " + runtime.RouteLabel
+		name := "AIGW: " + runtime.ModelLabel
 		projection.Name = &name
 	}
 	if runtime.RequiresAccountToken() {
@@ -380,8 +380,8 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 		return "", newConflictError("Codex config conflict: AIGW-managed model_provider selection changed; refusing to overwrite user edits", nil)
 	}
 	projectedModel := state.ProjectedModel
-	if projectedModel == "" && previous.Model != "" && platform.SHA256([]byte(codexManagedBlock(previous, previous.Endpoint))) == state.ManagedBlockHash {
-		projectedModel = previous.Model
+	if projectedModel == "" && previous.UpstreamModel != "" && platform.SHA256([]byte(codexManagedBlock(previous, previous.Endpoint))) == state.ManagedBlockHash {
+		projectedModel = previous.UpstreamModel
 	}
 	modelLine, err := codexSelectionLine(current, "model")
 	if err != nil {

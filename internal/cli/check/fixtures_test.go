@@ -98,16 +98,16 @@ func configuredReadinessRuntime(t *testing.T) (invocation.Context, domain.Config
 			OpenAIResponses: "https://codex.example.test/v1",
 		},
 	}
-	cfg.Routes["claude"] = domain.Route{
-		Label: "Claude", Account: "one", Model: "claude-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	cfg.Models["claude"] = domain.Model{
+		Label: "Claude", Account: "one", Family: "claude-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.Routes["codex"] = domain.Route{
-		Label: "Codex", Account: "one", Model: "gpt-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["codex"] = domain.Model{
+		Label: "Codex", Account: "one", Family: "gpt-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
-	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.SetSelectedModel(codex.ID, "codex", "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +145,7 @@ func synchronizeClaudeSettings(t *testing.T, runtime invocation.Context, cfg dom
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, runtime.Host), false, clientRuntime, runtime.Executable, clientRuntime.Model); err != nil {
+	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, runtime.Host), false, clientRuntime, runtime.Executable, clientRuntime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 }

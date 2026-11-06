@@ -67,10 +67,10 @@ func adapterConfig() domain.Config {
 			OpenAIResponses: "https://gateway.test/v1",
 		},
 	}
-	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "gateway", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "gateway", Model: "codex-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
-	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "gateway", Family: "codex-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.SetSelectedModel(codex.ID, "codex", "")
 	return cfg
 }
 
@@ -381,7 +381,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	if adapter, ok := got.Clients[claude.ID]; !ok || adapter.Enabled {
 		t.Fatalf("explicit disabled intent was not retained: %#v", got.Clients)
 	}
-	if got.SelectedRoute(claude.ID) != "claude" || got.Routes["claude"].Account != "gateway" {
+	if got.SelectedModel(claude.ID) != "claude" || got.Models["claude"].Account != "gateway" {
 		t.Fatalf("capability configuration changed: %#v", got)
 	}
 	if token, err := secretStore.Get("gateway"); err != nil || token != "token" {

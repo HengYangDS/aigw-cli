@@ -38,7 +38,7 @@ func (hermesAdapter) Spec() domain.ClientSpec {
 		EndpointProtocols: []domain.EndpointProtocol{
 			domain.ProtocolOpenAIResponses, domain.ProtocolAnthropic, domain.ProtocolOpenAIChatCompletions,
 		},
-		SessionsKeepRoute: true,
+		SessionsKeepModel: true,
 	}
 }
 
@@ -83,7 +83,7 @@ func hermesDesired(deps adapter.Dependencies, cfg domain.Config, selected domain
 		return Desired{}, err
 	}
 	connected := map[string]bool{selected.AccountID: true}
-	desired := Desired{SelectedProvider: hermesProviderID(selected.AccountID, selected.Protocol), SelectedModel: selected.Model}
+	desired := Desired{SelectedProvider: hermesProviderID(selected.AccountID, selected.Protocol), SelectedModel: selected.UpstreamModel}
 	for _, item := range catalog {
 		if _, observed := connected[item.Account]; !observed {
 			available, err := adapter.SecretAvailable(deps.Secrets, item.Account)
@@ -123,15 +123,15 @@ func hermesCatalog(cfg domain.Config) ([]hermesCatalogProvider, error) {
 	spec := hermesAdapter{}.Spec()
 	providers := make(map[string]hermesCatalogProvider)
 	var ids []string
-	for _, routeID := range cfg.CatalogRouteIDs() {
-		route := cfg.Routes[routeID]
+	for _, routeID := range cfg.CatalogModelIDs() {
+		route := cfg.Models[routeID]
 		account := cfg.Accounts[route.Account]
-		for _, protocol := range spec.CompatibleRouteProtocols(account, route) {
+		for _, protocol := range spec.CompatibleModelProtocols(account, route) {
 			id := hermesProviderID(route.Account, protocol)
 			item, present := providers[id]
 			if !present {
 				ids = append(ids, id)
-				selected, err := cfg.ResolveRouteProtocol(ID, routeID, protocol)
+				selected, err := cfg.ResolveModelProtocol(ID, routeID, protocol)
 				if err != nil {
 					return nil, err
 				}
@@ -247,11 +247,11 @@ func (hermesAdapter) AdoptSelection(deps adapter.Dependencies, cfg *domain.Confi
 	if err != nil {
 		return "", err
 	}
-	if routeID == binding.Route && protocol == selected.Protocol {
+	if routeID == binding.Model && protocol == selected.Protocol {
 		// The binding already names the native choice; only the record is stale.
 		return "", nil
 	}
-	cfg.SetSelectedRoute(ID, routeID, protocol)
+	cfg.SetSelectedModel(ID, routeID, protocol)
 	return routeID, nil
 }
 
@@ -269,12 +269,12 @@ func hermesRouteFor(cfg domain.Config, native Selection) (string, domain.Endpoin
 	provider := catalog[index]
 	spec := hermesAdapter{}.Spec()
 	var matches []string
-	for _, routeID := range cfg.CatalogRouteIDs() {
-		route := cfg.Routes[routeID]
+	for _, routeID := range cfg.CatalogModelIDs() {
+		route := cfg.Models[routeID]
 		if route.Account != provider.Account || route.UpstreamModelID() != native.Model {
 			continue
 		}
-		if slices.Contains(spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route), provider.Protocol) {
+		if slices.Contains(spec.CompatibleModelProtocols(cfg.Accounts[route.Account], route), provider.Protocol) {
 			matches = append(matches, routeID)
 		}
 	}

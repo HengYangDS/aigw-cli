@@ -13,15 +13,15 @@ func TestExportKeepsClientBindingsLocal(t *testing.T) {
 	declared := func() domain.Config {
 		cfg := domain.NewConfig(testAdmission())
 		cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
-		cfg.Routes["team-claude"] = testRoute("Team Claude", "team", "claude-test", domain.ProtocolAnthropic)
-		cfg.Routes["team-claude-alternative"] = testRoute("Team Claude Alternative", "team", "claude-alternative", domain.ProtocolAnthropic)
-		cfg.Routes["team-codex"] = testRoute("Team Codex", "team", "gpt-test", domain.ProtocolOpenAIResponses)
-		cfg.Routes["manual-codex"] = testRoute("Manual Codex", "team", "gpt-manual", domain.ProtocolOpenAIResponses)
+		cfg.Models["team-claude"] = testModel("Team Claude", "team", "claude-test", domain.ProtocolAnthropic)
+		cfg.Models["team-claude-alternative"] = testModel("Team Claude Alternative", "team", "claude-alternative", domain.ProtocolAnthropic)
+		cfg.Models["team-codex"] = testModel("Team Codex", "team", "gpt-test", domain.ProtocolOpenAIResponses)
+		cfg.Models["manual-codex"] = testModel("Manual Codex", "team", "gpt-manual", domain.ProtocolOpenAIResponses)
 		cfg.Recommendations[ClientClaude] = domain.ClientRecommendation{
-			Primary:      domain.ClientSelection{Route: "team-claude"},
-			Alternatives: []domain.ClientSelection{{Route: "team-claude-alternative"}},
+			Primary:      domain.ClientSelection{Model: "team-claude"},
+			Alternatives: []domain.ClientSelection{{Model: "team-claude-alternative"}},
 		}
-		cfg.Recommendations[ClientCodex] = domain.ClientRecommendation{Primary: domain.ClientSelection{Route: "team-codex"}}
+		cfg.Recommendations[ClientCodex] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "team-codex"}}
 		return cfg
 	}
 	unselected, err := Export(declared())
@@ -29,8 +29,8 @@ func TestExportKeepsClientBindingsLocal(t *testing.T) {
 		t.Fatal(err)
 	}
 	selected := declared()
-	selected.SetSelectedRoute(ClientClaude, "team-claude-alternative", "")
-	selected.SetSelectedRoute(ClientCodex, "manual-codex", "")
+	selected.SetSelectedModel(ClientClaude, "team-claude-alternative", "")
+	selected.SetSelectedModel(ClientCodex, "manual-codex", "")
 	exported, err := Export(selected)
 	if err != nil {
 		t.Fatal(err)
@@ -43,8 +43,8 @@ func TestExportKeepsClientBindingsLocal(t *testing.T) {
 		t.Fatal(err)
 	}
 	claude := manifest.Recommendations[ClientClaude]
-	if claude.Primary.Route != "team-claude" || len(claude.Alternatives) != 1 || claude.Alternatives[0].Route != "team-claude-alternative" ||
-		manifest.Recommendations[ClientCodex].Primary.Route != "team-codex" || manifest.Routes["manual-codex"].Account != "team" {
+	if claude.Primary.Model != "team-claude" || len(claude.Alternatives) != 1 || claude.Alternatives[0].Model != "team-claude-alternative" ||
+		manifest.Recommendations[ClientCodex].Primary.Model != "team-codex" || manifest.Models["manual-codex"].Account != "team" {
 		t.Fatalf("exported recommendations = %#v", manifest.Recommendations)
 	}
 }

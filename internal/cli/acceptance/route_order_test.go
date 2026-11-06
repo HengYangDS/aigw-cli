@@ -30,9 +30,9 @@ func TestRouteListGroupsServicesAndPreservesStoredBindings(t *testing.T) {
 		{"d-responses-strong", "strong", domain.ProtocolOpenAIResponses},
 		{"e-native-strong", "strong", domain.ProtocolAnthropic},
 	} {
-		cfg.Routes[row.id] = qualifiedRoute(row.id, "team", row.model, row.protocol)
+		cfg.Models[row.id] = qualifiedRoute(row.id, "team", row.model, row.protocol)
 	}
-	cfg.SetSelectedRoute(codex.ID, "d-responses-strong", "")
+	cfg.SetSelectedModel(codex.ID, "d-responses-strong", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

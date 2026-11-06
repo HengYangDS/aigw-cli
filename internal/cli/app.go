@@ -189,7 +189,7 @@ func credentialInvocation(args []string) bool {
 func requiresConfigurationLock(app *App, command *cobra.Command) bool {
 	if command == command.Root() {
 		cfg, err := app.Config.Load()
-		return err == nil && len(cfg.Routes) == 0 && app.Interactive
+		return err == nil && len(cfg.Models) == 0 && app.Interactive
 	}
 	path := strings.TrimPrefix(command.CommandPath(), command.Root().Name()+" ")
 	switch path {
@@ -322,7 +322,7 @@ func NewRoot(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(cfg.Routes) == 0 && app.Interactive {
+			if len(cfg.Models) == 0 && app.Interactive {
 				return setup.RunWizard(cmd.Context(), app.invocationContext())
 			}
 			return status.RunStatus(app.invocationContext(), false)

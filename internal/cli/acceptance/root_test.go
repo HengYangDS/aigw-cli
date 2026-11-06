@@ -299,8 +299,8 @@ func TestPublicMutationFailureDoesNotExposePrivatePath(t *testing.T) {
 		t.Fatalf("public command exposed the private failure target: %s", out.String())
 	}
 	cfg, err := app.Config.Load()
-	if err != nil || len(cfg.Routes) != 1 {
-		t.Fatalf("mutation changed configuration after failed preflight: %+v, %v", cfg.Routes, err)
+	if err != nil || len(cfg.Models) != 1 {
+		t.Fatalf("mutation changed configuration after failed preflight: %+v, %v", cfg.Models, err)
 	}
 }
 

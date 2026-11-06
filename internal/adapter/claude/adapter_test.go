@@ -23,8 +23,8 @@ func TestSettingsSurfaceIdentityIsStable(t *testing.T) {
 func TestClaudeProjectionChangesWhenForwardedUpstreamIdentityChanges(t *testing.T) {
 	before := domain.NewConfig(testAdmission())
 	before.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://first.test/v1", Anthropic: "https://first.test"}}
-	before.Routes["route"] = qualifiedRoute("Route", "gateway", "model", domain.ProtocolAnthropic)
-	before.Clients[ID] = domain.ClientBinding{Route: "route", Enabled: true}
+	before.Models["route"] = qualifiedRoute("Route", "gateway", "model", domain.ProtocolAnthropic)
+	before.Clients[ID] = domain.ClientBinding{Model: "route", Enabled: true}
 	if err := before.SetForwardingEndpoint(ID, "http://127.0.0.1:8792/v1"); err != nil {
 		t.Fatal(err)
 	}
@@ -46,8 +46,8 @@ func TestClaudeAdapterApplyValidatesIntentAndRestoresObservedPreimage(t *testing
 
 	configured := domain.NewConfig(testAdmission())
 	configured.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	configured.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
-	configured.SetSelectedRoute(ID, "claude", "")
+	configured.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	configured.SetSelectedModel(ID, "claude", "")
 	configured.SetClientActivation(ID, true, "/usr/bin/claude", nil)
 	if _, err := (claudeAdapter{}).Apply(context.Background(), adapter.Dependencies{}, domain.NewConfig(testAdmission()), configured); err == nil || !strings.Contains(err.Error(), "settings path is empty") {
 		t.Fatalf("Apply() error = %v", err)
@@ -78,13 +78,13 @@ func hostAt(home string) discovery.Host {
 	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
 }
 
-func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Route {
+func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
 	interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(protocols))
 	for _, protocol := range protocols {
 		interfaces[protocol] = []domain.Capability{}
 	}
-	return domain.Route{
-		Label: label, Account: account, Model: model, UpstreamModel: model, Interfaces: interfaces,
+	return domain.Model{
+		Label: label, Account: account, Family: model, UpstreamModel: model, Protocols: interfaces,
 	}
 }
 

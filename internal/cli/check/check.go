@@ -142,7 +142,7 @@ func checkConfigurationFor(cfg domain.Config, client string) (domain.Config, str
 	if !cfg.Clients[client].Enabled {
 		// Selecting a Route enables its binding; enablement alone needs an executable.
 		action := "aigw use --for " + client + " <route>"
-		if route := cfg.SelectedRoute(client); route != "" {
+		if route := cfg.SelectedModel(client); route != "" {
 			action = "aigw use --for " + client + " " + route
 		}
 		return cfg, action, fmt.Errorf("%s is not enabled", cfg.Admission().Label(client))
@@ -253,7 +253,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		// which names the stage, as status and sync do.
 		return err
 	}
-	if len(cfg.Routes) == 0 {
+	if len(cfg.Models) == 0 {
 		return writeJSONFailure(runtime, domainreadiness.Deferred, "not configured", "aigw setup", fmt.Errorf("not configured"))
 	}
 	selected := selectedCheckClient(cmd)
@@ -307,7 +307,7 @@ func checkedClientStatuses(runtime invocation.Context, cfg domain.Config, activa
 	clients := app.InspectStatusClients(runtime.Dependencies, cfg, activation, selected)
 	for _, client := range evaluation.clients {
 		status := clients[client.client]
-		status.Route = client.runtime.RouteID
+		status.Route = client.runtime.ModelID
 		status.Account = client.runtime.AccountID
 		status.Authentication = client.runtime.Authentication
 		status.EndpointConfigured = client.endpointConfigured
@@ -379,7 +379,7 @@ func runCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	if len(cfg.Routes) == 0 {
+	if len(cfg.Models) == 0 {
 		return terminal.ProblemError("Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	selected := selectedCheckClient(cmd)
@@ -485,7 +485,7 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 			detail = "External credential helper requires an explicit live verification"
 		}
 		return terminal.Field{
-			State: terminal.OK, Label: runtime.Clients.Admission().Label(client), Value: result.runtime.RouteLabel + " · Local projection checked",
+			State: terminal.OK, Label: runtime.Clients.Admission().Label(client), Value: result.runtime.ModelLabel + " · Local projection checked",
 			Details: []string{detail},
 		}, result.fix, true, nil
 	}
@@ -510,7 +510,7 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 		label = "Inference checked"
 		inferenceUnverified = false
 	}
-	field := terminal.Field{State: terminal.OK, Label: runtime.Clients.Admission().Label(client), Value: result.runtime.RouteLabel + " · " + label}
+	field := terminal.Field{State: terminal.OK, Label: runtime.Clients.Admission().Label(client), Value: result.runtime.ModelLabel + " · " + label}
 	command := ""
 	if result.nativeModelOverride {
 		field.Details = append(field.Details, runtime.Clients.Admission().ProductName(client)+" uses a native model preference; this endpoint check does not verify that model")

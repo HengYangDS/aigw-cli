@@ -61,7 +61,7 @@ func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.
 		"aihubmix-claude-opus-5-5": false,
 		"dmxapi-claude-opus-5-5":   false,
 	} {
-		cfg.SetSelectedRoute(ID, routeID, "")
+		cfg.SetSelectedModel(ID, routeID, "")
 		runtime, err := cfg.ResolveRuntime(ID, "")
 		if err != nil {
 			t.Fatal(err)
@@ -75,11 +75,11 @@ func TestShippedTeamManifestQualifiesDesktopToolSearchOnUCloudClaude(t *testing.
 // declareToolSearch qualifies tool search on the Anthropic interface of each Route.
 func declareToolSearch(cfg domain.Config, routeIDs ...string) {
 	for _, routeID := range routeIDs {
-		route := cfg.Routes[routeID]
-		route.Interfaces = map[domain.EndpointProtocol][]domain.Capability{
+		route := cfg.Models[routeID]
+		route.Protocols = map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {domain.CapabilityTools, domain.Capability("tool_search")},
 		}
-		cfg.Routes[routeID] = route
+		cfg.Models[routeID] = route
 	}
 }
 

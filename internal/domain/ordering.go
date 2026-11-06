@@ -6,24 +6,24 @@ import (
 	"strings"
 )
 
-// CatalogRouteIDs groups display rows by Account, protocol set, and Model order.
-// RouteIDs retains canonical lexical enumeration for identity and diagnostics.
-func (c *Config) CatalogRouteIDs() []string {
-	ids := c.RouteIDs()
+// CatalogModelIDs groups display rows by Account, protocol set, and Model order.
+// ModelIDs retains canonical lexical enumeration for identity and diagnostics.
+func (c *Config) CatalogModelIDs() []string {
+	ids := c.ModelIDs()
 	protocols := make(map[string][]EndpointProtocol, len(ids))
 	for _, id := range ids {
-		protocols[id] = c.Routes[id].AdmittedProtocols()
+		protocols[id] = c.Models[id].AdmittedProtocols()
 		slices.SortFunc(protocols[id], CompareProtocols)
 	}
 	slices.SortFunc(ids, func(left, right string) int {
-		l, r := c.Routes[left], c.Routes[right]
+		l, r := c.Models[left], c.Models[right]
 		if result := c.CompareAccounts(l.Account, r.Account); result != 0 {
 			return result
 		}
 		if result := slices.CompareFunc(protocols[left], protocols[right], CompareProtocols); result != 0 {
 			return result
 		}
-		if result := c.CompareFamilies(l.Model, r.Model); result != 0 {
+		if result := c.CompareFamilies(l.Family, r.Family); result != 0 {
 			return result
 		}
 		return strings.Compare(left, right)

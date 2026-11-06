@@ -295,7 +295,7 @@ func collectChecks(ctx context.Context, deps app.Dependencies) []checkResult {
 		failure.Stage, failure.Line, failure.Column = terminal.ConfigurationFailure(err)
 		return append(checks, failure)
 	}
-	if len(cfg.Routes) == 0 {
+	if len(cfg.Models) == 0 {
 		checks = append(checks, checkResult{Name: "config", Detail: "not configured", Fix: "run `aigw setup`"})
 	} else {
 		checks = append(checks, checkResult{Name: "config", OK: true, Detail: "valid"})

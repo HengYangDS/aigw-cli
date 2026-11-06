@@ -30,21 +30,21 @@ func hostAt(home string) discovery.Host {
 	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
 }
 
-func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Route {
+func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
 	interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(protocols))
 	for _, protocol := range protocols {
 		interfaces[protocol] = []domain.Capability{}
 	}
-	return domain.Route{
-		Label: label, Account: account, Model: model, UpstreamModel: model, Interfaces: interfaces,
+	return domain.Model{
+		Label: label, Account: account, Family: model, UpstreamModel: model, Protocols: interfaces,
 	}
 }
 
 func codexConfiguration(target string) domain.Config {
 	cfg := domain.NewConfig(Admission())
 	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.Clients[codex.ID] = domain.ClientBinding{Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Clients[codex.ID] = domain.ClientBinding{Model: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }
 
@@ -66,10 +66,10 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 			ID: codex.ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{responses},
 			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true,
 			DefaultModelProvider: "aigw", ClientNativeAuthentication: true,
-			PublishedProfileProtocol: responses, Doctor: domain.DoctorWording{AdapterStates: true, RouteBinding: true},
+			PublishedProfileProtocol: responses, Doctor: domain.DoctorWording{AdapterStates: true, ModelBinding: true},
 		},
 		{
-			ID: hermes.ID, Label: "Hermes", SessionsKeepRoute: true,
+			ID: hermes.ID, Label: "Hermes", SessionsKeepModel: true,
 			EndpointProtocols: []domain.EndpointProtocol{responses, anthropic, domain.ProtocolOpenAIChatCompletions},
 		},
 	}
@@ -86,8 +86,8 @@ func TestChangedClientsRetainsAdmissionOrderAndIndependentResults(t *testing.T) 
 	account := before.Accounts["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Accounts["gateway"] = account
-	before.Routes["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
-	before.SetSelectedRoute(claude.ID, "claude", "")
+	before.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	after := before.Clone()
 	account.Endpoints = domain.Endpoints{OpenAIResponses: "https://replacement.test/v1", Anthropic: "https://replacement.test"}
@@ -127,10 +127,10 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	before.Routes["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
-	before.Routes["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
-	before.SetSelectedRoute(claude.ID, "claude", "")
-	before.SetSelectedRoute(codex.ID, "codex", "")
+	before.Models["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
+	before.Models["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	before.SetSelectedModel(claude.ID, "claude", "")
+	before.SetSelectedModel(codex.ID, "codex", "")
 	after := before.Clone()
 	after.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	after.SetClientActivation(codex.ID, true, "/opt/codex", []string{codexTarget})
@@ -195,10 +195,10 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 			OpenAIResponses: "http://127.0.0.1:9876/v1",
 		},
 	}
-	before.Routes["claude"] = qualifiedRoute("", "direct", "claude-test", domain.ProtocolAnthropic)
-	before.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
-	before.SetSelectedRoute(claude.ID, "claude", "")
-	before.SetSelectedRoute(codex.ID, "codex", "")
+	before.Models["claude"] = qualifiedRoute("", "direct", "claude-test", domain.ProtocolAnthropic)
+	before.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	before.SetSelectedModel(claude.ID, "claude", "")
+	before.SetSelectedModel(codex.ID, "codex", "")
 	before.SetClientActivation(claude.ID, true, "/clients/claude", nil)
 	before.SetClientActivation(codex.ID, true, "/clients/codex", []string{"/clients/codex.toml"})
 	wantUnchanged := before.Clone()
@@ -225,9 +225,9 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 func TestRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 	cfg := domain.NewConfig(Admission())
 	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["claude"] = domain.Route{
-		Account: "gateway", Model: "claude-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	cfg.Models["claude"] = domain.Model{
+		Account: "gateway", Family: "claude-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "fixture-token"); err != nil {
@@ -238,7 +238,7 @@ func TestRegistryPlansEnabledUnavailableClientsAsDeferred(t *testing.T) {
 	for _, clientID := range []string{claudedesktop.ID, hermes.ID} {
 		t.Run(clientID, func(t *testing.T) {
 			deferred := cfg.Clone()
-			deferred.SetSelectedRoute(clientID, "claude", "")
+			deferred.SetSelectedModel(clientID, "claude", "")
 			deferred.SetClientActivation(clientID, true, "", nil)
 			plans, err := Registry().Plan(deps, domain.NewConfig(Admission()), deferred, clientID)
 			if err != nil {

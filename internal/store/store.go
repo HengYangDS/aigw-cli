@@ -129,7 +129,7 @@ func (s Store) Commit(before Snapshot, cfg domain.Config) (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	catalog, catalogErr := encodeCatalogOrder(cfg)
-	capabilities, capabilitiesErr := encodeRouteCapabilities(cfg)
+	capabilities, capabilitiesErr := encodeModelCapabilities(cfg)
 	if err = errors.Join(catalogErr, capabilitiesErr); err != nil {
 		return Snapshot{}, err
 	}

@@ -27,8 +27,8 @@ var failureAdvice = []clientverification.Advice{{
 // verifyRuntime performs one bounded Claude CLI request. explicitRoute is
 // the invocation's --route, which its retry advice repeats.
 func verifyRuntime(ctx context.Context, runner process.VerificationRunner, executable, settingsPath string, clientRuntime domain.Runtime, token, explicitRoute string) error {
-	if clientRuntime.Model == "" {
-		return fmt.Errorf("Route %q has no Claude model", clientRuntime.RouteID)
+	if clientRuntime.UpstreamModel == "" {
+		return fmt.Errorf("Route %q has no Claude model", clientRuntime.ModelID)
 	}
 	plan, err := VerificationPlan(executable, settingsPath, "Reply with exactly: AIGW_OK", os.Environ(), clientRuntime)
 	if err != nil {

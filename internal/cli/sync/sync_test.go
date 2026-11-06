@@ -212,11 +212,11 @@ func TestSyncPropagatesPlanningAndReconciliationFailures(t *testing.T) {
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
 			cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-			cfg.Routes["one"] = domain.Route{
-				Label: "One", Account: "one", Model: "gpt-test",
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+			cfg.Models["one"] = domain.Model{
+				Label: "One", Account: "one", Family: "gpt-test",
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
-			cfg.SetSelectedRoute(codex.ID, "one", "")
+			cfg.SetSelectedModel(codex.ID, "one", "")
 			cfg.SetClientActivation(codex.ID, true, "/portable/codex", []string{"/portable/config.toml"})
 			if err := configStore.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -252,11 +252,11 @@ func TestSyncReportsProjectionPlanningAndApplyFailures(t *testing.T) {
 		configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 		cfg := domain.NewConfig(clients.Admission())
 		cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-		cfg.Routes["one"] = domain.Route{
-			Label: "One", Account: "one", Model: "gpt-test",
-			Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+		cfg.Models["one"] = domain.Model{
+			Label: "One", Account: "one", Family: "gpt-test",
+			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 		}
-		cfg.SetSelectedRoute(codex.ID, "one", "")
+		cfg.SetSelectedModel(codex.ID, "one", "")
 		cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{""})
 		if err := configStore.Save(cfg); err != nil {
 			t.Fatal(err)
@@ -276,15 +276,15 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
 	cfg.Accounts["two"] = domain.Account{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
-	cfg.Routes["one"] = domain.Route{
-		Label: "One", Account: "one", Model: "gpt-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["one"] = domain.Model{
+		Label: "One", Account: "one", Family: "gpt-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.Routes["two"] = domain.Route{
-		Label: "Two", Account: "two", Model: "gpt-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["two"] = domain.Model{
+		Label: "Two", Account: "two", Family: "gpt-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(codex.ID, "one", "")
+	cfg.SetSelectedModel(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{t.TempDir()})
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -304,7 +304,7 @@ func TestSyncRollsBackRouteSelectionWhenProjectionFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := after.SelectedRoute(codex.ID); got != "one" {
+	if got := after.SelectedModel(codex.ID); got != "one" {
 		t.Fatalf("failed sync left Client Binding %q, want rolled-back binding one", got)
 	}
 }
@@ -314,11 +314,11 @@ func TestSyncReportsFailureWhenRepairingAnExistingProjection(t *testing.T) {
 	target := t.TempDir()
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-	cfg.Routes["one"] = domain.Route{
-		Label: "One", Account: "one", Model: "gpt-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["one"] = domain.Model{
+		Label: "One", Account: "one", Family: "gpt-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(codex.ID, "one", "")
+	cfg.SetSelectedModel(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)

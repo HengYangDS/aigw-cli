@@ -98,8 +98,8 @@ func TestBalanceExplainsWhenConfiguredDiagnosticDriverIsNotBundled(t *testing.T)
 		Endpoints:    domain.Endpoints{OpenAIResponses: "https://future.test/v1"},
 		AccountProbe: &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://future.test"},
 	}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "future", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.Models["gpt"] = qualifiedRoute("GPT", "future", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestBalanceExplainsOptionalAccountBinding(t *testing.T) {
 	account := cfg.Accounts["dmx"]
 	account.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
 	cfg.Accounts["dmx"] = account
-	cfg.SetSelectedRoute(codex.ID, "dmx", "")
+	cfg.SetSelectedModel(codex.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +232,7 @@ func TestAccountDiagnosticsEnableStoresSeparateCredentialAndBalanceShowsDetails(
 	providerAccount := cfg.Accounts["dmx"]
 	providerAccount.AccountProbe = &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"}
 	cfg.Accounts["dmx"] = providerAccount
-	cfg.SetSelectedRoute(codex.ID, "dmx", "")
+	cfg.SetSelectedModel(codex.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -284,8 +284,8 @@ func TestBalanceKeepsDiagnosticCredentialsAtTheirOrigin(t *testing.T) {
 		Endpoints:    domain.Endpoints{OpenAIResponses: origin.URL + "/v1"},
 		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: origin.URL},
 	}
-	cfg.Routes["gpt"] = domain.Route{Label: "GPT", Account: "dmx", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.Models["gpt"] = domain.Model{Label: "GPT", Account: "dmx", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

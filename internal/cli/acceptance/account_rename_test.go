@@ -441,8 +441,8 @@ func TestAccountRenameNonCurrentCodexAccountDoesNotReauthenticate(t *testing.T) 
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := accountRenameConfig()
 	cfg.Accounts["active"] = domain.Account{Label: "Active", Endpoints: domain.Endpoints{OpenAIResponses: "https://active.test/v1"}}
-	cfg.Routes["active-route"] = qualifiedRoute("Active", "active", "active-model", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "active-route", "")
+	cfg.Models["active-route"] = qualifiedRoute("Active", "active", "active-model", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "active-route", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{filepath.Join(t.TempDir(), "codex", "configuration.toml")})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -519,15 +519,15 @@ func accountRenameConfig() domain.Config {
 		},
 		AccountProbe: &domain.AccountProbe{Kind: "future-provider", BaseURL: "https://probe.zeta.test"},
 	}
-	cfg.Routes["codex-route"] = qualifiedRoute("Codex", "zeta-old", "codex-model", domain.ProtocolOpenAIResponses)
-	codexRoute := cfg.Routes["codex-route"]
+	cfg.Models["codex-route"] = qualifiedRoute("Codex", "zeta-old", "codex-model", domain.ProtocolOpenAIResponses)
+	codexRoute := cfg.Models["codex-route"]
 	codexRoute.Purpose = "Codex purpose"
-	cfg.Routes["codex-route"] = codexRoute
-	cfg.Routes["claude-route"] = qualifiedRoute("Claude", "zeta-old", "claude-model", domain.ProtocolAnthropic)
-	claudeRoute := cfg.Routes["claude-route"]
+	cfg.Models["codex-route"] = codexRoute
+	cfg.Models["claude-route"] = qualifiedRoute("Claude", "zeta-old", "claude-model", domain.ProtocolAnthropic)
+	claudeRoute := cfg.Models["claude-route"]
 	claudeRoute.Purpose = "Claude purpose"
-	cfg.Routes["claude-route"] = claudeRoute
-	cfg.SetSelectedRoute(codex.ID, "codex-route", "")
-	cfg.SetSelectedRoute(claude.ID, "claude-route", "")
+	cfg.Models["claude-route"] = claudeRoute
+	cfg.SetSelectedModel(codex.ID, "codex-route", "")
+	cfg.SetSelectedModel(claude.ID, "claude-route", "")
 	return cfg
 }

@@ -107,7 +107,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					return err
 				}
 				// Each client is a group of one, rendered as its result arrives.
-				row := terminal.Field{State: terminal.OK, Label: runtime.Clients.Admission().Label(target), Value: clientRuntime.RouteID + " · Completed"}
+				row := terminal.Field{State: terminal.OK, Label: runtime.Clients.Admission().Label(target), Value: clientRuntime.ModelID + " · Completed"}
 				if result.Version != "" || result.SHA256 != "" {
 					row.Details = append(row.Details, fmt.Sprintf("%s client: %s · SHA-256 %s", runtime.Clients.Admission().Label(target), result.Version, result.SHA256))
 				}
@@ -140,7 +140,7 @@ func writeVerification(cmd *cobra.Command, runtime invocation.Context, cfg domai
 	document := verifyDocument{Clients: make([]verifiedClient, 0, len(clients))}
 	var failure error
 	for _, target := range clients {
-		item := verifiedClient{Client: target, Route: runtimes[target].RouteID, State: "not_run"}
+		item := verifiedClient{Client: target, Route: runtimes[target].ModelID, State: "not_run"}
 		if failure == nil {
 			result, err := runtime.Synchronizer().Verify(cmd.Context(), cfg, target, runtimes[target], routeName)
 			if err != nil {

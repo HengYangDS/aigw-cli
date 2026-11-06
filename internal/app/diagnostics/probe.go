@@ -107,10 +107,10 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 	var req *http.Request
 	var err error
 	if scope == ScopeInference {
-		if strings.TrimSpace(runtime.Model) == "" {
+		if strings.TrimSpace(runtime.UpstreamModel) == "" {
 			return Result{Kind: ModelUnresolved, Scope: scope, Summary: "Route has no upstream model for inference", Fix: "Check the selected Route's upstream model"}
 		}
-		req, err = domain.ModelInferenceRequest(ctx, runtime.Endpoint, runtime.Protocol, token, runtime.Model)
+		req, err = domain.ModelInferenceRequest(ctx, runtime.Endpoint, runtime.Protocol, token, runtime.UpstreamModel)
 	} else {
 		req, err = domain.ModelCatalogRequest(ctx, runtime.Endpoint, runtime.Protocol, token)
 	}

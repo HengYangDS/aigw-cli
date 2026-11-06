@@ -71,7 +71,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			result.EnabledClients = activation.EnabledClients
 			result.State = string(activation.State)
 			for _, client := range runtime.Clients.Admission().IDs() {
-				if route := after.SelectedRoute(client); route != "" {
+				if route := after.SelectedModel(client); route != "" {
 					result.Selections[client] = route
 				}
 			}
@@ -97,7 +97,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if route, ok := result.AdoptedSelections[client]; ok {
 					outcome = append(outcome, terminal.Field{
 						State: terminal.Info, Label: "Adopted selection",
-						Value: runtime.Clients.Admission().Label(client) + " now uses " + after.RouteLabel(route) + ", chosen in " + runtime.Clients.Admission().Label(client),
+						Value: runtime.Clients.Admission().Label(client) + " now uses " + after.ModelLabel(route) + ", chosen in " + runtime.Clients.Admission().Label(client),
 					})
 				}
 			}
@@ -160,7 +160,7 @@ func renderSyncPreview(r *terminal.Renderer, after domain.Config, result syncRes
 	r.Section("Client Bindings")
 	bindings := make([]terminal.Field, 0, len(after.Admission().IDs()))
 	for _, client := range after.Admission().IDs() {
-		route := after.SelectedRoute(client)
+		route := after.SelectedModel(client)
 		if route == "" {
 			route = "Not selected"
 		}

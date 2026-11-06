@@ -66,7 +66,7 @@ func (s Synchronizer) PreviewSetup(before, after domain.Config, accounts []strin
 // Account's Token were stored: the configuration, with the client's selection
 // of the new Route and its desired configuration, and its projection. It
 // reads, checks and stores no Token of that Account and writes nothing.
-func (s Synchronizer) PreviewConnection(before domain.Config, name, client string, account domain.Account, route domain.Route) (domain.Config, Projection, error) {
+func (s Synchronizer) PreviewConnection(before domain.Config, name, client string, account domain.Account, route domain.Model) (domain.Config, Projection, error) {
 	after, err := s.PlanConnection(before, name, client, account, route)
 	if err != nil {
 		return domain.Config{}, Projection{}, err

@@ -281,20 +281,20 @@ func assessInactiveClients(cfg domain.Config, store secret.Store, result Activat
 		cfg: cfg, store: store, result: result, readOnly: secret.IsReadOnly(store), seen: map[string]bool{},
 	}
 	for _, client := range cfg.Admission().IDs() {
-		if assessment.consider(client, cfg.SelectedRoute(client), true) {
+		if assessment.consider(client, cfg.SelectedModel(client), true) {
 			return assessment.result
 		}
 	}
 	for _, client := range cfg.Admission().IDs() {
-		if cfg.SelectedRoute(client) != "" {
+		if cfg.SelectedModel(client) != "" {
 			continue
 		}
 		recommendation := cfg.Recommendations[client]
-		if assessment.consider(client, recommendation.Primary.Route, false) {
+		if assessment.consider(client, recommendation.Primary.Model, false) {
 			return assessment.result
 		}
 		for _, alternative := range recommendation.Alternatives {
-			if assessment.consider(client, alternative.Route, false) {
+			if assessment.consider(client, alternative.Model, false) {
 				return assessment.result
 			}
 		}
@@ -314,30 +314,30 @@ func NextActionAfterAccountConnection(cfg domain.Config, accountID string) strin
 		binding := cfg.Clients[spec.ID]
 		switch {
 		case !binding.Enabled:
-			return enableAction(spec.ID, runtime.RouteID)
+			return enableAction(spec.ID, runtime.ModelID)
 		case binding.Executable == "":
 			return projectionAction(spec)
 		}
 		return "aigw check"
 	}
-	prospective, err := cfg.SelectRoutesForConnectedAccounts([]string{accountID})
+	prospective, err := cfg.SelectModelsForConnectedAccounts([]string{accountID})
 	if err != nil {
 		return "aigw status"
 	}
 	for _, spec := range cfg.Admission().Specs() {
-		if cfg.SelectedRoute(spec.ID) != "" {
+		if cfg.SelectedModel(spec.ID) != "" {
 			continue
 		}
 		binding := prospective.Clients[spec.ID]
-		route := prospective.Routes[binding.Route]
-		if binding.Route == "" || route.Account != accountID {
+		route := prospective.Models[binding.Model]
+		if binding.Model == "" || route.Account != accountID {
 			continue
 		}
 		action := "aigw use --for " + spec.ID
-		if len(route.Interfaces) > 1 {
+		if len(route.Protocols) > 1 {
 			action += " --protocol " + string(binding.Protocol)
 		}
-		return action + " " + binding.Route
+		return action + " " + binding.Model
 	}
 	return "aigw use --help"
 }
@@ -351,7 +351,7 @@ func AssessActivation(cfg domain.Config, store secret.Store) Activation {
 		return assessEnabledProjection(cfg, store, result)
 	}
 	result.State = domainreadiness.Deferred
-	if len(cfg.Routes) == 0 {
+	if len(cfg.Models) == 0 {
 		result.CapabilityPrerequisite = "aigw setup"
 		return result
 	}

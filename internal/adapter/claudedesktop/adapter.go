@@ -237,32 +237,32 @@ func claudeDesktopDesired(deps adapter.Dependencies, cfg domain.Config, selected
 // claudeDesktopRouteIDs lists the Routes the profile exposes: the selected
 // Route, then each compatible Route of its Account with a distinct Model.
 func claudeDesktopRouteIDs(cfg domain.Config, selected domain.Runtime) []string {
-	routeIDs := []string{selected.RouteID}
-	seen := map[string]bool{cfg.Routes[selected.RouteID].Model: true}
+	routeIDs := []string{selected.ModelID}
+	seen := map[string]bool{cfg.Models[selected.ModelID].Family: true}
 	spec := claudeDesktopAdapter{}.Spec()
-	for _, routeID := range cfg.CatalogRouteIDs() {
-		if routeID == selected.RouteID {
+	for _, routeID := range cfg.CatalogModelIDs() {
+		if routeID == selected.ModelID {
 			continue
 		}
-		route := cfg.Routes[routeID]
-		if route.Account != selected.AccountID || seen[route.Model] {
+		route := cfg.Models[routeID]
+		if route.Account != selected.AccountID || seen[route.Family] {
 			continue
 		}
 		account := cfg.Accounts[route.Account]
-		if !slices.Contains(spec.CompatibleRouteProtocols(account, route), selected.Protocol) {
+		if !slices.Contains(spec.CompatibleModelProtocols(account, route), selected.Protocol) {
 			continue
 		}
 		routeIDs = append(routeIDs, routeID)
-		seen[route.Model] = true
+		seen[route.Family] = true
 	}
 	return routeIDs
 }
 
 func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {
 	routeIDs := claudeDesktopRouteIDs(cfg, selected)
-	models := []Model{{Name: selected.Model, Label: selected.RouteLabel}}
+	models := []Model{{Name: selected.UpstreamModel, Label: selected.ModelLabel}}
 	for _, routeID := range routeIDs[1:] {
-		models = append(models, Model{Name: cfg.Routes[routeID].UpstreamModelID(), Label: cfg.RouteLabel(routeID)})
+		models = append(models, Model{Name: cfg.Models[routeID].UpstreamModelID(), Label: cfg.ModelLabel(routeID)})
 	}
 	return models
 }
@@ -271,7 +271,7 @@ func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {
 // when every exposed Route qualified it on the selected protocol.
 func claudeDesktopToolSearch(cfg domain.Config, selected domain.Runtime) bool {
 	for _, routeID := range claudeDesktopRouteIDs(cfg, selected) {
-		if !cfg.Routes[routeID].Declares(selected.Protocol, domain.CapabilityToolSearch) {
+		if !cfg.Models[routeID].Declares(selected.Protocol, domain.CapabilityToolSearch) {
 			return false
 		}
 	}

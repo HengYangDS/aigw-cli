@@ -67,12 +67,12 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 		t.Fatalf("enabled diagnostic status = %q", got)
 	}
 
-	cfg.Routes["codex-only"] = domain.Route{
-		Label: "Codex only", Purpose: "Selection", Account: "one", Model: "gpt-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["codex-only"] = domain.Model{
+		Label: "Codex only", Purpose: "Selection", Account: "one", Family: "gpt-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
 	delete(cfg.Clients, codex.ID)
-	cfg.SetRecommendedRoute(codex.ID, "codex-only")
+	cfg.SetRecommendedModel(codex.ID, "codex-only")
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -360,7 +360,7 @@ func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Out: out, Width: 120}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Routes["available"] = domain.Route{Label: "Available"}
+	cfg.Models["available"] = domain.Model{Label: "Available"}
 	clients := map[string]app.ClientStatus{}
 	for _, client := range []string{claude.ID, codex.ID} {
 		state := domainreadiness.Client{State: domainreadiness.Invalid}
@@ -397,7 +397,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 
 func TestStatusReportsSelectedUnknownRoute(t *testing.T) {
 	runtime, cfg, _ := configuredReadinessRuntime(t)
-	cfg.SetSelectedRoute(claude.ID, "missing", "")
+	cfg.SetSelectedModel(claude.ID, "missing", "")
 	state := app.InspectStatusClients(runtime.Dependencies, cfg, nil, "")[claude.ID]
 	if state.State != domainreadiness.Invalid || state.Route != "missing" || !strings.Contains(state.Detail, `unknown route "missing"`) {
 		t.Fatalf("Claude status = %#v", state)

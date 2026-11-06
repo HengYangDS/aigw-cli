@@ -70,9 +70,9 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			return value
 		}, want: "client discovery is unavailable"},
 		{name: "commit", prepare: func(value invocation.Context, cfg domain.Config) invocation.Context {
-			cfg.Routes["next"] = domain.Route{
-				Label: "Next", Account: "gateway", Model: "gpt-next",
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+			cfg.Models["next"] = domain.Model{
+				Label: "Next", Account: "gateway", Family: "gpt-next",
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
 			cfg.SetClientActivation(codex.ID, true, "", []string{filepath.Join(t.TempDir(), "missing-configuration.toml")})
 			if err := value.Config.Save(cfg); err != nil {

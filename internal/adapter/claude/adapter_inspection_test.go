@@ -53,13 +53,13 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 	cfg.SetClientActivation(ID, true, executable, nil)
 	settings := filepath.Join(root, ".claude", "settings.json")
 	deps := adapter.Dependencies{Host: hostAt(root), AIGWExecutable: filepath.Join(root, "aigw")}
-	runtime := domain.Runtime{AccountID: "gateway", RouteID: "claude", Model: "claude-model", Endpoint: "https://gateway.test"}
+	runtime := domain.Runtime{AccountID: "gateway", ModelID: "claude", UpstreamModel: "claude-model", Endpoint: "https://gateway.test"}
 	if test.sync {
-		if _, err := ReconcileSettings(settings, false, runtime, deps.AIGWExecutable, runtime.Model); err != nil {
+		if _, err := ReconcileSettings(settings, false, runtime, deps.AIGWExecutable, runtime.UpstreamModel); err != nil {
 			t.Fatal(err)
 		}
 	}
-	runtime.Model = test.model
+	runtime.UpstreamModel = test.model
 	if test.nativeModel != "" {
 		data, err := os.ReadFile(settings)
 		if err != nil {

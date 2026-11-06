@@ -72,9 +72,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			route := domain.Route{
-				Label: label, Account: name, Model: strings.TrimSpace(model),
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
+			route := domain.Model{
+				Label: label, Account: name, Family: strings.TrimSpace(model),
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
 			next := "aigw check"
 			var preview invocation.Preview
@@ -92,7 +92,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if jsonMode {
 				document := addDocument{
 					DryRun: dryRun, Account: name, Route: name, Client: client, Label: label,
-					Model: route.Model, UpstreamModel: route.UpstreamModelID(), TokenStored: !dryRun, Preview: preview,
+					Model: route.Family, UpstreamModel: route.UpstreamModelID(), TokenStored: !dryRun, Preview: preview,
 				}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)
 				return terminal.WriteDocument(runtime.Out, schemaVersion, true, document)
@@ -109,7 +109,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				terminal.Field{Label: "Account ID", Value: name},
 				terminal.Field{Label: "Route ID", Value: name},
 				terminal.Field{Label: "Client", Value: runtime.Clients.Admission().Label(client)},
-				terminal.Field{Label: "Model", Value: route.Model},
+				terminal.Field{Label: "Model", Value: route.Family},
 			)
 			if dryRun {
 				r.Rows(terminal.Field{State: terminal.Info, Label: "Token", Value: "Not read in a preview"})
@@ -136,7 +136,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 // the configuration, as if its Token were stored, without reading, checking or
 // storing it. add always stores the Token, so a backend that stores none
 // refuses the preview as it would refuse add.
-func previewConnection(runtime invocation.Context, cfg domain.Config, name, client string, account domain.Account, route domain.Route) (invocation.Preview, error) {
+func previewConnection(runtime invocation.Context, cfg domain.Config, name, client string, account domain.Account, route domain.Model) (invocation.Preview, error) {
 	if secret.IsReadOnly(runtime.Secrets) {
 		return invocation.Preview{}, errors.New("add cannot store a Token in the read-only environment secret backend")
 	}

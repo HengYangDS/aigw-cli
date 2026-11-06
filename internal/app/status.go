@@ -63,7 +63,7 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 			projectionAction = projectionPrerequisite
 		}
 		facts := domainreadiness.ClientFacts{
-			Route:              clientRuntime.RouteID,
+			Route:              clientRuntime.ModelID,
 			Account:            clientRuntime.AccountID,
 			CredentialRequired: clientRuntime.UsesAIGWCredentialStore(),
 			ProjectionEnabled:  cfg.Clients[clientID].Enabled,
@@ -131,11 +131,11 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 
 func unresolvedClientStatus(cfg *domain.Config, clientID string, resolveErr error) ClientStatus {
 	facts := domainreadiness.ClientFacts{}
-	if route := cfg.SelectedRoute(clientID); route != "" {
+	if route := cfg.SelectedModel(clientID); route != "" {
 		facts.Route = route
 		facts.BindingIssue = resolveErr.Error()
 		facts.BindingAction = "aigw use --for " + clientID + " <route>"
-	} else if suggested := cfg.RecommendedRoute(clientID); suggested != "" {
+	} else if suggested := cfg.RecommendedModel(clientID); suggested != "" {
 		facts.SuggestedRoute = suggested
 		facts.BindingAction = "aigw use --for " + clientID + " " + suggested
 	}

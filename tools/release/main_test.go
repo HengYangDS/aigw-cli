@@ -92,9 +92,9 @@ func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
 		t.Fatal(err)
 	}
 	selected := domain.Runtime{
-		RouteID: "fixture", RouteLabel: "Fixture", AccountID: "fixture",
+		ModelID: "fixture", ModelLabel: "Fixture", AccountID: "fixture",
 		Client: codex.ID, Endpoint: "https://api.example.invalid/v1",
-		Model: "gpt-test", CredentialCommand: reader,
+		UpstreamModel: "gpt-test", CredentialCommand: reader,
 	}
 	target := filepath.Join(t.TempDir(), "config.toml")
 	if err := os.WriteFile(target, []byte("model_provider = 'native'\n"), 0o600); err != nil {

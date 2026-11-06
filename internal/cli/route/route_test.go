@@ -28,9 +28,9 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
 	cfg.Families["gpt-6-sol"] = domain.Family{Label: "GPT-6 Sol"}
-	cfg.Routes["ucloud-gpt-6-sol"] = domain.Route{
-		Account: "ucloud", Model: "gpt-6-sol", UpstreamModel: "GPT-6-Sol",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
+	cfg.Models["ucloud-gpt-6-sol"] = domain.Model{
+		Account: "ucloud", Family: "gpt-6-sol", UpstreamModel: "GPT-6-Sol",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
 	}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -73,11 +73,11 @@ func TestRouteHumanOutputNamesClientsByLabel(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["messages"] = domain.Route{
-		Account: "gateway", Model: "model-a",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	cfg.Models["messages"] = domain.Model{
+		Account: "gateway", Family: "model-a",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(claudedesktop.ID, "messages", "")
+	cfg.SetSelectedModel(claudedesktop.ID, "messages", "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func TestRouteMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 }
 
 func TestChoiceLabelUsesRouteMetadataWithoutGlobalRanking(t *testing.T) {
-	route := domain.Route{Label: "UCloud · Grok 4.6", Purpose: "Coding"}
+	route := domain.Model{Label: "UCloud · Grok 4.6", Purpose: "Coding"}
 	if got := choiceLabel(route); got != "UCloud · Grok 4.6 · Coding" {
 		t.Fatalf("choice label = %q", got)
 	}
@@ -152,29 +152,29 @@ type commandExecutor interface {
 
 func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 	for _, alternatives := range [][]domain.ClientSelection{nil, {
-		{Route: "backup", Protocol: domain.ProtocolAnthropic},
-		{Route: "reserve", Protocol: domain.ProtocolAnthropic},
+		{Model: "backup", Protocol: domain.ProtocolAnthropic},
+		{Model: "reserve", Protocol: domain.ProtocolAnthropic},
 	}} {
 		t.Run(fmt.Sprint(len(alternatives)), func(t *testing.T) {
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
 			cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1"}}
-			cfg.Routes["claude"] = domain.Route{
-				Label: "Claude", Account: "team", Model: "claude-test",
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+			cfg.Models["claude"] = domain.Model{
+				Label: "Claude", Account: "team", Family: "claude-test",
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 			}
-			cfg.Routes["codex"] = domain.Route{
-				Label: "Codex", Account: "team", Model: "gpt-test",
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+			cfg.Models["codex"] = domain.Model{
+				Label: "Codex", Account: "team", Family: "gpt-test",
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
-			cfg.SetRecommendedRoute(claude.ID, "claude")
-			cfg.SetRecommendedRoute(codex.ID, "codex")
-			cfg.SetSelectedRoute(codex.ID, "codex", "")
+			cfg.SetRecommendedModel(claude.ID, "claude")
+			cfg.SetRecommendedModel(codex.ID, "codex")
+			cfg.SetSelectedModel(codex.ID, "codex", "")
 			for _, selection := range alternatives {
-				cfg.Routes[selection.Route] = cfg.Routes["claude"]
+				cfg.Models[selection.Model] = cfg.Models["claude"]
 			}
 			cfg.Recommendations[claude.ID] = domain.ClientRecommendation{
-				Primary: domain.ClientSelection{Route: "claude", Protocol: domain.ProtocolAnthropic}, Alternatives: alternatives,
+				Primary: domain.ClientSelection{Model: "claude", Protocol: domain.ProtocolAnthropic}, Alternatives: alternatives,
 			}
 			if err := configStore.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -193,7 +193,7 @@ func TestRemoveRouteRemovesOnlyItsRecommendation(t *testing.T) {
 			if len(alternatives) != 0 {
 				want = domain.ClientRecommendation{Primary: alternatives[0], Alternatives: alternatives[1:]}
 			}
-			if err != nil || !reflect.DeepEqual(after.Recommendations[claude.ID], want) || after.RecommendedRoute(codex.ID) != "codex" {
+			if err != nil || !reflect.DeepEqual(after.Recommendations[claude.ID], want) || after.RecommendedModel(codex.ID) != "codex" {
 				t.Fatalf("removal recommendation state = %#v, %v", after.Recommendations, err)
 			}
 			if token, err := secretStore.Get("team"); err != nil || token != "retained-token" || !reflect.DeepEqual(after.Accounts, cfg.Accounts) || !reflect.DeepEqual(after.Clients, cfg.Clients) {
@@ -212,14 +212,14 @@ func TestRemovePreviewNamesTheRecommendationsThatItChanges(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
 	for _, name := range []string{"first", "spare"} {
-		cfg.Routes[name] = domain.Route{
-			Label: name, Account: "team", Model: name + "-model",
-			Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+		cfg.Models[name] = domain.Model{
+			Label: name, Account: "team", Family: name + "-model",
+			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 		}
 	}
-	first := domain.ClientSelection{Route: "first", Protocol: domain.ProtocolAnthropic}
+	first := domain.ClientSelection{Model: "first", Protocol: domain.ProtocolAnthropic}
 	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{
-		Primary: first, Alternatives: []domain.ClientSelection{{Route: "spare", Protocol: domain.ProtocolAnthropic}},
+		Primary: first, Alternatives: []domain.ClientSelection{{Model: "spare", Protocol: domain.ProtocolAnthropic}},
 	}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -278,15 +278,15 @@ func blockedRouteRuntime(t *testing.T) invocation.Context {
 		Label:     "Current",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://current.test/v1"},
 	}
-	cfg.Routes["current"] = domain.Route{
+	cfg.Models["current"] = domain.Model{
 		Label:   "Current",
 		Account: "current",
-		Model:   "gpt-current",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+		Family:  "gpt-current",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolOpenAIResponses: {},
 		},
 	}
-	cfg.SetSelectedRoute(codex.ID, "current", "")
+	cfg.SetSelectedModel(codex.ID, "current", "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -317,9 +317,9 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 			cfg := domain.NewConfig(clients.Admission())
 			cfg.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://provider.test/v1"}}
 			cfg.Families["minimax-m3"] = domain.Family{Label: "MiniMax M3"}
-			cfg.Routes["ucloud-minimax-m3"] = domain.Route{
-				Account: "ucloud", Model: "minimax-m3", UpstreamModel: "MiniMax-M3",
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+			cfg.Models["ucloud-minimax-m3"] = domain.Model{
+				Account: "ucloud", Family: "minimax-m3", UpstreamModel: "MiniMax-M3",
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
 			if err := configStore.Save(cfg); err != nil {
 				t.Fatal(err)
@@ -338,11 +338,11 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			added := got.Routes["ucloud-minimax-new"]
-			if added.Model != "minimax-m3" || added.UpstreamModelID() != test.wantWire {
+			added := got.Models["ucloud-minimax-new"]
+			if added.Family != "minimax-m3" || added.UpstreamModelID() != test.wantWire {
 				t.Fatalf("canonical/wire identity = %#v", added)
 			}
-			if len(got.Families) != 1 || got.Families["minimax-m3"].Label != "MiniMax M3" || len(got.Clients) != 0 || got.Routes["ucloud-minimax-m3"].UpstreamModelID() != "MiniMax-M3" {
+			if len(got.Families) != 1 || got.Families["minimax-m3"].Label != "MiniMax M3" || len(got.Clients) != 0 || got.Models["ucloud-minimax-m3"].UpstreamModelID() != "MiniMax-M3" {
 				t.Fatalf("route addition changed existing identities or selections: %#v", got)
 			}
 		})

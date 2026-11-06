@@ -54,33 +54,33 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 		j.testing.Fatal(err)
 	}
 	var alternative domain.Runtime
-	for _, id := range before.RouteIDs() {
+	for _, id := range before.ModelIDs() {
 		candidate, err := before.ResolveRuntime(hermes.ID, id)
-		if err == nil && candidate.AccountID == selected.AccountID && candidate.Protocol == selected.Protocol && candidate.Model != selected.Model {
+		if err == nil && candidate.AccountID == selected.AccountID && candidate.Protocol == selected.Protocol && candidate.UpstreamModel != selected.UpstreamModel {
 			alternative = candidate
 			break
 		}
 	}
-	if alternative.RouteID == "" {
+	if alternative.ModelID == "" {
 		j.testing.Fatal("native Hermes selection requires another owned model on the same protocol")
 	}
 	target := j.clientProjectionPaths(hermes.ID)[0]
-	j.runWith(executable, "config", "set", "model.default", alternative.Model)
+	j.runWith(executable, "config", "set", "model.default", alternative.UpstreamModel)
 	nativeBefore, stateBefore := readFile(j.testing, target), readFile(j.testing, target+".aigw-state.json")
 	var adoption struct {
 		AdoptedSelections map[string]string `json:"adopted_selections"`
 	}
-	if err := json.Unmarshal(j.run("sync", "--dry-run", "--json"), &adoption); err != nil || adoption.AdoptedSelections[hermes.ID] != alternative.RouteID {
+	if err := json.Unmarshal(j.run("sync", "--dry-run", "--json"), &adoption); err != nil || adoption.AdoptedSelections[hermes.ID] != alternative.ModelID {
 		j.testing.Fatalf("synchronization preview did not adopt the native selection: %v, %v", adoption.AdoptedSelections, err)
 	}
-	args := []string{"use", "--for", hermes.ID, "--protocol", string(alternative.Protocol), alternative.RouteID}
+	args := []string{"use", "--for", hermes.ID, "--protocol", string(alternative.Protocol), alternative.ModelID}
 	j.run(append(slices.Clone(args), "--dry-run", "--json")...)
 	if !bytes.Equal(readFile(j.testing, target), nativeBefore) || !bytes.Equal(readFile(j.testing, target+".aigw-state.json"), stateBefore) {
 		j.testing.Fatal("selection preview changed the native preimages")
 	}
 	j.run(args...)
 	after, err := configStore.Load()
-	if err != nil || after.SelectedRoute(hermes.ID) != alternative.RouteID {
+	if err != nil || after.SelectedModel(hermes.ID) != alternative.ModelID {
 		j.testing.Fatalf("native selection adoption: %v", err)
 	}
 	var original, adopted map[string]any
@@ -106,7 +106,7 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 			j.testing.Fatalf("native selection did not converge: %s", projection.Action)
 		}
 	}
-	j.run("use", "--for", hermes.ID, "--protocol", string(selected.Protocol), selected.RouteID)
+	j.run("use", "--for", hermes.ID, "--protocol", string(selected.Protocol), selected.ModelID)
 	j.run("check")
 	j.requireNativePreferences(hermes.ID)
 }

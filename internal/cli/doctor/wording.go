@@ -140,7 +140,7 @@ func adapterStates(admission domain.Admission, name string) bool {
 
 func routeBinding(admission domain.Admission, name string) bool {
 	_, wording := doctorWording(admission, name, "projection:")
-	return wording.RouteBinding
+	return wording.ModelBinding
 }
 
 func doctorTitle(value string) string {

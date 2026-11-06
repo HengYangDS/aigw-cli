@@ -14,14 +14,14 @@ import (
 
 func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 
 	t.Run("settings snapshot", func(t *testing.T) {
 		withSettingsTransaction(t,
 			func(string) (platform.FileSnapshot, error) { return platform.FileSnapshot{}, os.ErrPermission },
 			writeGuarded, removeGuarded, restoreGuarded,
 		)
-		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err == nil || !strings.Contains(err.Error(), "read Claude settings") {
+		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err == nil || !strings.Contains(err.Error(), "read Claude settings") {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -38,7 +38,7 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 			},
 			writeGuarded, removeGuarded, restoreGuarded,
 		)
-		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err == nil || !strings.Contains(err.Error(), "read Claude settings state") {
+		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err == nil || !strings.Contains(err.Error(), "read Claude settings state") {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -50,7 +50,7 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 			},
 			removeGuarded, restoreGuarded,
 		)
-		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err == nil || !strings.Contains(err.Error(), "write Claude settings") {
+		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err == nil || !strings.Contains(err.Error(), "write Claude settings") {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -72,7 +72,7 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 				return platform.RestoreFileAtomicIfPostimage(path, before, after)
 			},
 		)
-		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err == nil || !strings.Contains(err.Error(), "write Claude settings state") || !rolledBack {
+		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err == nil || !strings.Contains(err.Error(), "write Claude settings state") || !rolledBack {
 			t.Fatalf("error=%v rolledBack=%t", err, rolledBack)
 		}
 	})
@@ -92,7 +92,7 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 				return errors.New("rollback failed")
 			},
 		)
-		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err == nil || !strings.Contains(err.Error(), "rollback failed") {
+		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err == nil || !strings.Contains(err.Error(), "rollback failed") {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -103,8 +103,8 @@ func TestSettingsDisableFailuresPreserveManagedProjection(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"theme":"dark"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 
@@ -164,8 +164,8 @@ func TestSettingsDisableAbsentFileReportsRemovalFailures(t *testing.T) {
 	for _, failAt := range []int{1, 2} {
 		t.Run(fmt.Sprintf("remove-%d", failAt), func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
+			runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err != nil {
 				t.Fatal(err)
 			}
 			calls := 0

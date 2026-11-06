@@ -8,11 +8,11 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-func TestRouteSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
+func TestModelSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
 	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{OpenAIResponses: "https://responses.test/v1", Anthropic: "https://messages.test", OpenAIChatCompletions: "https://chat.test/v1"}}
-	cfg.Routes["hermes"] = Route{Label: "Hermes", Account: "team", Model: "model-test", Interfaces: map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}}
-	cfg.Clients[ClientHermes] = ClientBinding{Route: "hermes", Protocol: ProtocolAnthropic}
+	cfg.Models["hermes"] = Model{Label: "Hermes", Account: "team", Family: "model-test", Protocols: map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}}
+	cfg.Clients[ClientHermes] = ClientBinding{Model: "hermes", Protocol: ProtocolAnthropic}
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}
@@ -37,9 +37,9 @@ func TestRouteSelectsProtocolIndependentlyOfClientBrand(t *testing.T) {
 	if runtime, err := cfg.ResolveRuntime("hermes", ""); err != nil || runtime.Protocol != ProtocolAnthropic {
 		t.Fatalf("Route interface did not resolve the sole admitted protocol: %#v, %v", runtime, err)
 	}
-	route := cfg.Routes["hermes"]
-	route.Interfaces = nil
-	cfg.Routes["hermes"] = route
+	route := cfg.Models["hermes"]
+	route.Protocols = nil
+	cfg.Models["hermes"] = route
 	if _, err := cfg.ResolveRuntime("hermes", ""); err == nil || !strings.Contains(err.Error(), "compatible endpoint") {
 		t.Fatalf("unqualified Route did not reject implicit endpoint inference: %v", err)
 	}
@@ -55,19 +55,19 @@ func TestExplicitProtocolMustBeSupportedByClient(t *testing.T) {
 	}
 }
 
-func TestRouteInterfacesConstrainClientCompatibilityAndRuntimeSelection(t *testing.T) {
+func TestModelProtocolsConstrainClientCompatibilityAndRuntimeSelection(t *testing.T) {
 	cfg := NewConfig(testAdmission())
 	cfg.Accounts["team"] = Account{Label: "Team", Endpoints: Endpoints{
 		OpenAIResponses:       "https://responses.test/v1",
 		OpenAIChatCompletions: "https://chat.test/v1",
 	}}
-	cfg.Routes["chat-only"] = Route{
-		Label:      "Chat only",
-		Account:    "team",
-		Model:      "model-test",
-		Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}},
+	cfg.Models["chat-only"] = Model{
+		Label:     "Chat only",
+		Account:   "team",
+		Family:    "model-test",
+		Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}},
 	}
-	cfg.Clients[ClientHermes] = ClientBinding{Route: "chat-only", Protocol: ProtocolOpenAIChatCompletions}
+	cfg.Clients[ClientHermes] = ClientBinding{Model: "chat-only", Protocol: ProtocolOpenAIChatCompletions}
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)
@@ -79,11 +79,11 @@ func TestRouteInterfacesConstrainClientCompatibilityAndRuntimeSelection(t *testi
 	if err != nil || runtime.Protocol != ProtocolOpenAIChatCompletions {
 		t.Fatalf("chat-only runtime = %#v, %v", runtime, err)
 	}
-	cfg.Routes["responses-only"] = Route{
-		Label:      "Responses only",
-		Account:    "team",
-		Model:      "another-model",
-		Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}},
+	cfg.Models["responses-only"] = Model{
+		Label:     "Responses only",
+		Account:   "team",
+		Family:    "another-model",
+		Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}},
 	}
 	runtime, err = cfg.ResolveRuntime(ClientHermes, "responses-only")
 	if err != nil || runtime.Protocol != ProtocolOpenAIResponses {
@@ -99,7 +99,7 @@ func TestRouteInterfacesConstrainClientCompatibilityAndRuntimeSelection(t *testi
 	}
 }
 
-func TestRouteInterfacesRejectUnknownProtocols(t *testing.T) {
+func TestModelProtocolsRejectUnknownProtocols(t *testing.T) {
 	for _, testCase := range []struct {
 		name       string
 		interfaces map[EndpointProtocol][]Capability
@@ -108,9 +108,9 @@ func TestRouteInterfacesRejectUnknownProtocols(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			cfg := validConfig()
-			route := cfg.Routes["dmx"]
-			route.Interfaces = testCase.interfaces
-			cfg.Routes["dmx"] = route
+			route := cfg.Models["dmx"]
+			route.Protocols = testCase.interfaces
+			cfg.Models["dmx"] = route
 			if err := cfg.Validate(); err == nil {
 				t.Fatalf("accepted invalid Route interfaces: %v", testCase.interfaces)
 			}
@@ -118,7 +118,7 @@ func TestRouteInterfacesRejectUnknownProtocols(t *testing.T) {
 	}
 }
 
-func TestRouteInterfacesKeepProtocolAndCapabilitySeparate(t *testing.T) {
+func TestModelProtocolsKeepProtocolAndCapabilitySeparate(t *testing.T) {
 	for _, testCase := range []struct {
 		name         string
 		capabilities []Capability
@@ -130,9 +130,9 @@ func TestRouteInterfacesKeepProtocolAndCapabilitySeparate(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			cfg := validConfig()
-			route := cfg.Routes["backup"]
-			route.Interfaces = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: testCase.capabilities}
-			cfg.Routes["backup"] = route
+			route := cfg.Models["backup"]
+			route.Protocols = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: testCase.capabilities}
+			cfg.Models["backup"] = route
 			err := cfg.Validate()
 			if testCase.wantError == "" && err != nil {
 				t.Fatal(err)
@@ -144,17 +144,17 @@ func TestRouteInterfacesKeepProtocolAndCapabilitySeparate(t *testing.T) {
 	}
 }
 
-func TestRouteToolSearchBelongsToTheAnthropicInterface(t *testing.T) {
+func TestModelToolSearchBelongsToTheAnthropicInterface(t *testing.T) {
 	for _, protocol := range []EndpointProtocol{ProtocolAnthropic, ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions} {
 		t.Run(string(protocol), func(t *testing.T) {
 			cfg := validConfig()
 			account := cfg.Accounts["dmx"]
 			account.Endpoints.OpenAIChatCompletions = "https://example.test/chat/v1"
 			cfg.Accounts["dmx"] = account
-			route := cfg.Routes["dmx"]
-			route.Interfaces = map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}
-			route.Interfaces[protocol] = []Capability{CapabilityTools, Capability("tool_search")}
-			cfg.Routes["dmx"] = route
+			route := cfg.Models["dmx"]
+			route.Protocols = map[EndpointProtocol][]Capability{ProtocolAnthropic: {}}
+			route.Protocols[protocol] = []Capability{CapabilityTools, Capability("tool_search")}
+			cfg.Models["dmx"] = route
 			err := cfg.Validate()
 			if protocol == ProtocolAnthropic {
 				if err != nil {
@@ -169,11 +169,11 @@ func TestRouteToolSearchBelongsToTheAnthropicInterface(t *testing.T) {
 	}
 }
 
-func TestRouteCapabilitiesRemainScopedToTheExactWireInterface(t *testing.T) {
-	route := Route{
+func TestModelCapabilitiesRemainScopedToTheExactWireInterface(t *testing.T) {
+	route := Model{
 		Account: "team",
-		Model:   "model",
-		Interfaces: map[EndpointProtocol][]Capability{
+		Family:  "model",
+		Protocols: map[EndpointProtocol][]Capability{
 			ProtocolOpenAIResponses:       {CapabilityText, CapabilityReasoning},
 			ProtocolOpenAIChatCompletions: {CapabilityText},
 		},
@@ -182,14 +182,14 @@ func TestRouteCapabilitiesRemainScopedToTheExactWireInterface(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var restored Route
+	var restored Model
 	if err := toml.Unmarshal(data, &restored); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Contains(restored.Interfaces[ProtocolOpenAIResponses], CapabilityReasoning) {
+	if !slices.Contains(restored.Protocols[ProtocolOpenAIResponses], CapabilityReasoning) {
 		t.Fatal("Responses reasoning qualification was lost")
 	}
-	if slices.Contains(restored.Interfaces[ProtocolOpenAIChatCompletions], CapabilityReasoning) {
+	if slices.Contains(restored.Protocols[ProtocolOpenAIChatCompletions], CapabilityReasoning) {
 		t.Fatal("Responses reasoning qualification leaked into Chat Completions")
 	}
 }
@@ -201,8 +201,8 @@ func TestManifestEquivalenceIncludesEveryEndpointAndProtocol(t *testing.T) {
 	if equivalentAccount(left, right) {
 		t.Fatal("manifest import treated different Chat Completions endpoints as equivalent")
 	}
-	route := Route{Account: "team", Model: "model", Interfaces: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}}
-	if !equivalentRoute(route, route) {
+	route := Model{Account: "team", Family: "model", Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}}
+	if !equivalentModel(route, route) {
 		t.Fatal("manifest import treated equal provider model identities as different")
 	}
 }

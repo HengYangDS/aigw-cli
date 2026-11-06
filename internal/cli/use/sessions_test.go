@@ -31,9 +31,9 @@ func TestUseTellsHermesUsersThatExistingSessionsKeepTheirRoute(t *testing.T) {
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
 	for _, id := range []string{"first", "second"} {
-		cfg.Routes[id] = domain.Route{
-			Label: id, Account: "gateway", Model: id + "-model",
-			Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+		cfg.Models[id] = domain.Model{
+			Label: id, Account: "gateway", Family: id + "-model",
+			Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 		}
 	}
 	if err := runtime.Config.Save(cfg); err != nil {

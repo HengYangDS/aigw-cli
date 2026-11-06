@@ -143,8 +143,8 @@ func renderUse(runtime invocation.Context, cfg domain.Config, selected domain.Ru
 	r := invocation.Renderer(runtime)
 	r.ProductTitle(title)
 	r.Section("Current selection")
-	rows := []terminal.Field{{Label: "Route", Value: selected.RouteLabel}}
-	if purpose := strings.TrimSpace(cfg.Routes[selected.RouteID].Purpose); purpose != "" {
+	rows := []terminal.Field{{Label: "Route", Value: selected.ModelLabel}}
+	if purpose := strings.TrimSpace(cfg.Models[selected.ModelID].Purpose); purpose != "" {
 		rows = append(rows, terminal.Field{Label: "Purpose", Value: purpose})
 	}
 	rows = append(rows,
@@ -170,7 +170,7 @@ func renderUse(runtime invocation.Context, cfg domain.Config, selected domain.Ru
 	if result.RestartRequired {
 		rows = append(rows, terminal.Field{Label: "Activation", Value: "Restart required"})
 	}
-	if spec.SessionsKeepRoute && projectionChanged {
+	if spec.SessionsKeepModel && projectionChanged {
 		rows = append(rows, existingSessionsField)
 	}
 	r.Rows(rows...)
@@ -219,10 +219,10 @@ type useSelection struct {
 
 func selectionOf(selected domain.Runtime) useSelection {
 	return useSelection{
-		RetryPolicy: selected.RetryPolicy, Route: selected.RouteID, RouteLabel: selected.RouteLabel,
+		RetryPolicy: selected.RetryPolicy, Route: selected.ModelID, RouteLabel: selected.ModelLabel,
 		Account: selected.AccountID, AccountLabel: selected.AccountLabel, Client: selected.Client,
 		Endpoint: selected.Endpoint, UpstreamEndpoint: selected.UpstreamEndpoint, Protocol: selected.Protocol,
-		Model: selected.FamilyID, UpstreamModel: selected.Model, ModelProvider: selected.ModelProvider,
+		Model: selected.FamilyID, UpstreamModel: selected.UpstreamModel, ModelProvider: selected.ModelProvider,
 		Authentication: selected.Authentication,
 	}
 }
@@ -230,7 +230,7 @@ func selectionOf(selected domain.Runtime) useSelection {
 func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.Runtime, connection domain.ConnectionChange, jsonMode bool) error {
 	synchronizer := runtime.Synchronizer()
 	synchronizer.AuthorizedSelectionClient = selected.Client
-	proposed, _, err := synchronizer.PrepareSelection(cfg, selected.Client, selected.RouteID, selected.Protocol, connection)
+	proposed, _, err := synchronizer.PrepareSelection(cfg, selected.Client, selected.ModelID, selected.Protocol, connection)
 	if err != nil {
 		return err
 	}
@@ -254,7 +254,7 @@ func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.R
 	r.Section("Selection")
 	rows := []terminal.Field{
 		{Label: "Client", Value: runtime.Clients.Admission().Label(selected.Client)},
-		{Label: "Route", Value: selected.RouteLabel},
+		{Label: "Route", Value: selected.ModelLabel},
 		{Label: "Endpoint", Value: selected.Endpoint},
 		{Label: "Account upstream", Value: selected.UpstreamEndpoint},
 	}
@@ -262,7 +262,7 @@ func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.R
 	if spec.RetryBudgets {
 		rows = append(rows, retryFields(selected.RetryPolicy)...)
 	}
-	if spec.SessionsKeepRoute &&
+	if spec.SessionsKeepModel &&
 		slices.ContainsFunc(plans, func(plan adapter.ProjectionPlan) bool { return plan.ChangesState }) {
 		rows = append(rows, existingSessionsField)
 	}
@@ -284,9 +284,9 @@ func resolveUseRuntime(runtime invocation.Context, cfg domain.Config, client, ro
 	if err == nil || requested != "" {
 		return selected, err
 	}
-	route := cfg.Routes[routeID]
+	route := cfg.Models[routeID]
 	spec, _ := runtime.Clients.Admission().Spec(client)
-	compatible := spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route)
+	compatible := spec.CompatibleModelProtocols(cfg.Accounts[route.Account], route)
 	if len(compatible) < 2 {
 		return domain.Runtime{}, err
 	}
@@ -325,7 +325,7 @@ func resolveUseSelection(runtime invocation.Context, cfg domain.Config, client s
 	}
 
 	route := args[0]
-	if _, ok := cfg.Routes[route]; !ok {
+	if _, ok := cfg.Models[route]; !ok {
 		return "", "", fmt.Errorf("unknown route %q; run `aigw route list`", route)
 	}
 	if client != "" {
@@ -369,10 +369,10 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg domain.
 	}
 	instruction, writable := secret.TokenRecovery(runtime.Secrets, selected.AccountID)
 	if !writable {
-		retry := fmt.Sprintf("aigw use --for %s %s", selected.Client, selected.RouteID)
+		retry := fmt.Sprintf("aigw use --for %s %s", selected.Client, selected.ModelID)
 		spec, _ := runtime.Clients.Admission().Spec(selected.Client)
-		if len(spec.CompatibleRouteProtocols(cfg.Accounts[selected.AccountID], cfg.Routes[selected.RouteID])) > 1 {
-			retry = fmt.Sprintf("aigw use --for %s --protocol %s %s", selected.Client, selected.Protocol, selected.RouteID)
+		if len(spec.CompatibleModelProtocols(cfg.Accounts[selected.AccountID], cfg.Models[selected.ModelID])) > 1 {
+			retry = fmt.Sprintf("aigw use --for %s --protocol %s %s", selected.Client, selected.Protocol, selected.ModelID)
 		}
 		return "", fmt.Errorf("account %q is missing a token; %s; then run `%s`", selected.AccountID, instruction, retry)
 	}
@@ -391,8 +391,8 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg domain.
 }
 
 func chooseRoute(runtime invocation.Context, cfg domain.Config, client, label string) (string, error) {
-	choices := make([]terminal.Choice, 0, len(cfg.Routes))
-	for _, id := range cfg.CatalogRouteIDs() {
+	choices := make([]terminal.Choice, 0, len(cfg.Models))
+	for _, id := range cfg.CatalogModelIDs() {
 		compatible, err := cfg.ProtocolClientIDs(id)
 		if err != nil || !slices.Contains(compatible, client) {
 			continue
@@ -403,8 +403,8 @@ func chooseRoute(runtime invocation.Context, cfg domain.Config, client, label st
 }
 
 func routeChoiceLabel(cfg domain.Config, routeID string) string {
-	label := cfg.RouteLabel(routeID)
-	route := cfg.Routes[routeID]
+	label := cfg.ModelLabel(routeID)
+	route := cfg.Models[routeID]
 	if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
 		return label + " · " + purpose
 	}

@@ -89,8 +89,8 @@ func TestForwardingStoreRejectsMixedAccountGenerations(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Routes["other"] = testRoute("Other", "dmx", "other-model", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(ClientCodex, "other", "")
+	cfg.Models["other"] = testModel("Other", "dmx", "other-model", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(ClientCodex, "other", "")
 	canonical, err := encodeConfig(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -277,9 +277,9 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	want := admitted(domain.Config{
 		Version:         domain.ConfigVersion,
 		Accounts:        map[string]domain.Account{"dmx": {Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}}},
-		Routes:          map[string]domain.Route{"dmx": testRoute("DMXAPI", "dmx", "claude-test", domain.ProtocolAnthropic)},
-		Recommendations: map[string]domain.ClientRecommendation{ClientClaude: {Primary: domain.ClientSelection{Route: "dmx"}}},
-		Clients:         map[string]domain.ClientBinding{ClientClaude: {Route: "dmx"}},
+		Models:          map[string]domain.Model{"dmx": testModel("DMXAPI", "dmx", "claude-test", domain.ProtocolAnthropic)},
+		Recommendations: map[string]domain.ClientRecommendation{ClientClaude: {Primary: domain.ClientSelection{Model: "dmx"}}},
+		Clients:         map[string]domain.ClientBinding{ClientClaude: {Model: "dmx"}},
 	})
 	if err := store.Save(want); err != nil {
 		t.Fatal(err)
@@ -295,7 +295,7 @@ func TestSaveLoadRoundTripAndSecurePermissions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Accounts["dmx"].Endpoints.Anthropic != "https://example.test" || got.SelectedRoute(ClientClaude) != "dmx" || got.RecommendedRoute(ClientClaude) != "dmx" {
+	if got.Accounts["dmx"].Endpoints.Anthropic != "https://example.test" || got.SelectedModel(ClientClaude) != "dmx" || got.RecommendedModel(ClientClaude) != "dmx" {
 		t.Fatalf("round trip = %#v", got)
 	}
 }
@@ -308,10 +308,10 @@ func TestSaveSeparatesTOMLTableBlocksVisually(t *testing.T) {
 		Accounts: map[string]domain.Account{
 			"dmx": {Label: "DMXAPI", Endpoints: domain.Endpoints{Anthropic: "https://example.test"}},
 		},
-		Routes: map[string]domain.Route{
-			"claude": testRoute("Claude", "dmx", "claude-test", domain.ProtocolAnthropic),
+		Models: map[string]domain.Model{
+			"claude": testModel("Claude", "dmx", "claude-test", domain.ProtocolAnthropic),
 		},
-		Clients: map[string]domain.ClientBinding{ClientClaude: {Route: "claude"}},
+		Clients: map[string]domain.ClientBinding{ClientClaude: {Model: "claude"}},
 	})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -376,8 +376,8 @@ func TestRestoreSnapshotRestoresAnAbsentConfigurationAndBackup(t *testing.T) {
 	cfg := admitted(domain.Config{
 		Version:  domain.ConfigVersion,
 		Accounts: map[string]domain.Account{"gateway": {Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}},
-		Routes:   map[string]domain.Route{"gateway": testRoute("Gateway", "gateway", "claude-test", domain.ProtocolAnthropic)},
-		Clients:  map[string]domain.ClientBinding{ClientClaude: {Route: "gateway"}},
+		Models:   map[string]domain.Model{"gateway": testModel("Gateway", "gateway", "claude-test", domain.ProtocolAnthropic)},
+		Clients:  map[string]domain.ClientBinding{ClientClaude: {Model: "gateway"}},
 	})
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -436,16 +436,16 @@ func TestSaveKeepsOneSecretFreePreviousVersionBackup(t *testing.T) {
 	first := admitted(domain.Config{
 		Version:  domain.ConfigVersion,
 		Accounts: map[string]domain.Account{"one": {Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}},
-		Routes:   map[string]domain.Route{"one": testRoute("One", "one", "claude-one", domain.ProtocolAnthropic)},
-		Clients:  map[string]domain.ClientBinding{ClientClaude: {Route: "one"}},
+		Models:   map[string]domain.Model{"one": testModel("One", "one", "claude-one", domain.ProtocolAnthropic)},
+		Clients:  map[string]domain.ClientBinding{ClientClaude: {Model: "one"}},
 	})
 	if err := store.Save(first); err != nil {
 		t.Fatal(err)
 	}
 	second := first
 	second.Accounts = map[string]domain.Account{"two": {Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.test"}}}
-	second.Routes = map[string]domain.Route{"two": testRoute("Two", "two", "claude-two", domain.ProtocolAnthropic)}
-	second.Clients = map[string]domain.ClientBinding{ClientClaude: {Route: "two"}}
+	second.Models = map[string]domain.Model{"two": testModel("Two", "two", "claude-two", domain.ProtocolAnthropic)}
+	second.Clients = map[string]domain.ClientBinding{ClientClaude: {Model: "two"}}
 	if err := store.Save(second); err != nil {
 		t.Fatal(err)
 	}

@@ -75,7 +75,7 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 	renderer.Rows(
 		terminal.Field{Label: "Schema", Value: fmt.Sprintf("%d → %d", result.FromVersion, result.ToVersion)},
 		terminal.Field{Label: "Accounts", Value: fmt.Sprintf("%d", len(result.Accounts))},
-		terminal.Field{Label: "Routes", Value: fmt.Sprintf("%d", len(result.Routes))},
+		terminal.Field{Label: "Routes", Value: fmt.Sprintf("%d", len(result.Models))},
 	)
 	if bindings := migrationClientRows(runtime.Clients.Admission(), result.Clients); len(bindings) > 0 {
 		renderer.Section("Client Bindings")
@@ -85,7 +85,7 @@ func renderMigration(runtime invocation.Context, result migrationOutput) error {
 		recommendations := make([]terminal.Field, 0, len(result.Recommendations))
 		for _, client := range runtime.Clients.Admission().IDs() {
 			if recommendation, exists := result.Recommendations[client]; exists {
-				recommendations = append(recommendations, terminal.Field{Label: runtime.Clients.Admission().Label(client), Value: recommendation.Primary.Route})
+				recommendations = append(recommendations, terminal.Field{Label: runtime.Clients.Admission().Label(client), Value: recommendation.Primary.Model})
 			}
 		}
 		renderer.Section("Recommendations")
@@ -110,7 +110,7 @@ func migrationClientRows(admission domain.Admission, bindings map[string]domain.
 		if !exists {
 			continue
 		}
-		detail := binding.Route
+		detail := binding.Model
 		if detail == "" {
 			detail = "disabled"
 		}

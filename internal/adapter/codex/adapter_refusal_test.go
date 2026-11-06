@@ -48,7 +48,7 @@ func TestCodexVerificationRefusesUnresolvedSelectionBeforeInvocation(t *testing.
 			deps := adapter.Dependencies{Runner: runner, Secrets: store}
 			want := "unknown route"
 			if failure == "selected route" {
-				binding.Route = "missing"
+				binding.Model = "missing"
 				cfg.Clients[ID] = binding
 			} else {
 				_, deps.AIGWExecutable = versionedReaders(t)

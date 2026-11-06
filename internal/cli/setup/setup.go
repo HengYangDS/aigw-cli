@@ -107,7 +107,7 @@ type setupPlan struct {
 	request setupRequest
 	before  domain.Config
 	config  domain.Config
-	route   domain.Route
+	route   domain.Model
 }
 
 type setupCredential struct {
@@ -219,13 +219,13 @@ func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 		return setupPlan{}, fmt.Errorf("--for %s requires --upstream-model", plan.request.Client)
 	}
 	storedAccount := domain.Account{Label: plan.request.Label, Endpoints: endpoints}
-	plan.route = domain.Route{
-		Label: plan.request.Label, Account: plan.request.Account, Model: strings.TrimSpace(plan.request.Model),
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
+	plan.route = domain.Model{
+		Label: plan.request.Label, Account: plan.request.Account, Family: strings.TrimSpace(plan.request.Model),
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 	}
 	plan.config.Accounts[plan.request.Account] = storedAccount
-	plan.config.Routes[plan.request.Route] = plan.route
-	plan.config.Clients[plan.request.Client] = domain.ClientBinding{Route: plan.request.Route, Enabled: true, Protocol: protocol}
+	plan.config.Models[plan.request.Route] = plan.route
+	plan.config.Clients[plan.request.Client] = domain.ClientBinding{Model: plan.request.Route, Enabled: true, Protocol: protocol}
 	if err := plan.config.Validate(); err != nil {
 		return setupPlan{}, err
 	}
@@ -263,7 +263,7 @@ func writeSetupPreview(runtime invocation.Context, plan setupPlan) error {
 	r.Rows(
 		terminal.Field{Label: "Account", Value: plan.request.Account},
 		terminal.Field{Label: "Route", Value: plan.request.Route},
-		terminal.Field{Label: "Model", Value: plan.route.Model},
+		terminal.Field{Label: "Model", Value: plan.route.Family},
 		terminal.Field{State: terminal.Info, Label: "API Token", Value: "Not read in a preview"},
 	)
 	r.Section("Client Bindings")
@@ -279,7 +279,7 @@ func renderSetupService(runtime invocation.Context, plan setupPlan) {
 	r.Rows(
 		terminal.Field{Label: "Account", Value: plan.request.Account},
 		terminal.Field{Label: "Route", Value: plan.request.Route},
-		terminal.Field{Label: "Model", Value: plan.route.Model},
+		terminal.Field{Label: "Model", Value: plan.route.Family},
 		terminal.Field{State: terminal.OK, Label: "API Token", Value: "Validated"},
 	)
 }
@@ -298,8 +298,8 @@ func buildFlagSetupResult(runtime invocation.Context, plan setupPlan) manifestSe
 		NextAction:         activation.NextActionFor(nil),
 	}
 	for client, binding := range plan.config.Clients {
-		if binding.Route != "" {
-			result.Selections[client] = binding.Route
+		if binding.Model != "" {
+			result.Selections[client] = binding.Model
 		}
 	}
 	if action := activation.ProjectionPrerequisites[plan.request.Client]; action != "" {

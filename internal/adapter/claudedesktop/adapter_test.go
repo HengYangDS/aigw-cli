@@ -43,11 +43,11 @@ func newClaudeDesktopFixture(t *testing.T) claudeDesktopFixture {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test/v1"}}
 	cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{Anthropic: "https://other.test/v1"}}
-	cfg.Routes["alternate"] = domain.Route{Label: "Opus 5", Account: "gateway", Model: "claude-opus-5", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Routes["manual"] = domain.Route{Label: "Manual", Account: "gateway", Model: "manual-model", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Routes["other-account"] = domain.Route{Label: "Other", Account: "other", Model: "other-model", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Routes["selected"] = domain.Route{Label: "Fable 5.1", Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(ID, "selected", "")
+	cfg.Models["alternate"] = domain.Model{Label: "Opus 5", Account: "gateway", Family: "claude-opus-5", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["manual"] = domain.Model{Label: "Manual", Account: "gateway", Family: "manual-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["other-account"] = domain.Model{Label: "Other", Account: "other", Family: "other-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["selected"] = domain.Model{Label: "Fable 5.1", Account: "gateway", Family: "claude-fable-5-1", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(ID, "selected", "")
 	cfg.SetClientActivation(ID, true, executable, []string{library})
 	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "secret"); err != nil {
@@ -74,9 +74,9 @@ func TestLibrarySurfaceIdentityIsStable(t *testing.T) {
 
 func TestClaudeDesktopCatalogDerivesUnlabeledAlternative(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
-	route := fixture.cfg.Routes["alternate"]
+	route := fixture.cfg.Models["alternate"]
 	route.Label = ""
-	fixture.cfg.Routes["alternate"] = route
+	fixture.cfg.Models["alternate"] = route
 	fixture.cfg.Families["claude-opus-5"] = domain.Family{Label: "Claude Opus 5"}
 	models := claudeDesktopModels(fixture.cfg, fixture.runtime)
 	for _, model := range models {
@@ -92,17 +92,17 @@ func TestClaudeDesktopCatalogDerivesUnlabeledAlternative(t *testing.T) {
 
 func TestClaudeDesktopCatalogDeduplicatesLogicalModelsButUsesWireNames(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
-	selected := fixture.cfg.Routes["selected"]
+	selected := fixture.cfg.Models["selected"]
 	selected.Label = "Sonnet 5.5 CC"
-	selected.Model, selected.UpstreamModel = "claude-sonnet-5-5", "claude-sonnet-5-5-cc"
-	fixture.cfg.Routes["selected"] = selected
-	fixture.cfg.Routes["ordinary"] = domain.Route{
-		Account: "gateway", Model: "claude-sonnet-5-5", UpstreamModel: "claude-sonnet-5-5",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	selected.Family, selected.UpstreamModel = "claude-sonnet-5-5", "claude-sonnet-5-5-cc"
+	fixture.cfg.Models["selected"] = selected
+	fixture.cfg.Models["ordinary"] = domain.Model{
+		Account: "gateway", Family: "claude-sonnet-5-5", UpstreamModel: "claude-sonnet-5-5",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	alternate := fixture.cfg.Routes["alternate"]
+	alternate := fixture.cfg.Models["alternate"]
 	alternate.UpstreamModel = "claude-opus-5-ssvip"
-	fixture.cfg.Routes["alternate"] = alternate
+	fixture.cfg.Models["alternate"] = alternate
 	runtime, err := fixture.cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
@@ -126,7 +126,7 @@ func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.SetSelectedRoute(ID, "dmxapi-claude-sonnet-5-5-cc", "")
+	cfg.SetSelectedModel(ID, "dmxapi-claude-sonnet-5-5-cc", "")
 	runtime, err := cfg.ResolveRuntime(ID, "")
 	if err != nil {
 		t.Fatal(err)
@@ -135,13 +135,13 @@ func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T
 	spec := New().Spec()
 	wires := map[string]string{}
 	want := map[string]bool{}
-	for _, route := range cfg.Routes {
-		if route.Account == runtime.AccountID && slices.Contains(spec.CompatibleRouteProtocols(cfg.Accounts[route.Account], route), runtime.Protocol) {
-			wires[route.UpstreamModelID()] = route.Model
-			want[route.Model] = true
+	for _, route := range cfg.Models {
+		if route.Account == runtime.AccountID && slices.Contains(spec.CompatibleModelProtocols(cfg.Accounts[route.Account], route), runtime.Protocol) {
+			wires[route.UpstreamModelID()] = route.Family
+			want[route.Family] = true
 		}
 	}
-	if len(models) != len(want) || models[0].Name != runtime.Model {
+	if len(models) != len(want) || models[0].Name != runtime.UpstreamModel {
 		t.Fatalf("shipped Claude Desktop model projection = %#v", models)
 	}
 	for _, model := range models {
@@ -253,7 +253,7 @@ func TestClaudeDesktopProjectionChangeDetection(t *testing.T) {
 		t.Fatal("target change was not detected")
 	}
 	recataloged := fixture.cfg.Clone()
-	recataloged.Routes["daily"] = domain.Route{Label: "Daily", Account: "gateway", Model: "claude-daily", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	recataloged.Models["daily"] = domain.Model{Label: "Daily", Account: "gateway", Family: "claude-daily", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	if !fixture.clientAdapter.ProjectionChanged(fixture.cfg, recataloged) {
 		t.Fatal("catalog change was not detected")
 	}
@@ -282,8 +282,8 @@ func TestClaudeDesktopAdapterConvergesOnlyForAnInstalledAuthorizedClient(t *test
 	}
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://gateway.test/v1"}}
-	cfg.Routes["selected"] = domain.Route{Account: "gateway", Model: "claude-fable-5-1", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(ID, "selected", "")
+	cfg.Models["selected"] = domain.Model{Account: "gateway", Family: "claude-fable-5-1", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(ID, "selected", "")
 	cfg.SetClientActivation(ID, true, "", nil)
 	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "secret"); err != nil {

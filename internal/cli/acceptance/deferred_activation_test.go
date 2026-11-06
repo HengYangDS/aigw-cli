@@ -269,7 +269,7 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneAccountChoice(t *testing
 		t.Fatalf("suggested Route selection failed: %v\n%s", err, out)
 	}
 	selected, err := app.Config.Load()
-	if err != nil || selected.SelectedRoute(claude.ID) != "dmxapi-claude-opus-5-5" {
+	if err != nil || selected.SelectedModel(claude.ID) != "dmxapi-claude-opus-5-5" {
 		t.Fatalf("suggested Route was not selected: %#v, %v", selected.Clients, err)
 	}
 }

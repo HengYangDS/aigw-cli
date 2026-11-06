@@ -31,7 +31,7 @@ func readSettingsFile(t *testing.T, path string) settingsDocument {
 
 func TestSettingsOwnershipUsesStringValuesNotJSONEscapes(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "claude-team"}
 	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), ""); err != nil {
 		t.Fatal(err)
 	}
@@ -49,14 +49,14 @@ func TestSettingsOwnershipUsesStringValuesNotJSONEscapes(t *testing.T) {
 		}
 		observed[file] = escaped
 	}
-	plan, err := PlanSettings(path, false, runtime, testExecutable(), runtime.Model)
+	plan, err := PlanSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel)
 	if err != nil || plan.Action != SettingsActionAlreadyConverged {
 		t.Fatalf("equivalent JSON requires projection: %#v, %v", plan, err)
 	}
 	if err := ValidateSettings(path, runtime, testExecutable()); err != nil {
 		t.Fatalf("equivalent JSON became projection drift: %v", err)
 	}
-	receipt, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model)
+	receipt, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel)
 	if err != nil || receipt.Action != SettingsActionAlreadyConverged {
 		t.Fatalf("equivalent JSON reconciliation = %#v, %v", receipt, err)
 	}
@@ -87,11 +87,11 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 		t.Fatal(err)
 	}
 	runtime := domain.Runtime{
-		RouteID: "team-claude", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team",
+		ModelID: "team-claude", AccountID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "claude-team",
 	}
 
 	executable := filepath.Join(t.TempDir(), "secret-token AIGW CLI", "aigw")
-	receipt, err := ReconcileSettings(path, false, runtime, executable, runtime.Model)
+	receipt, err := ReconcileSettings(path, false, runtime, executable, runtime.UpstreamModel)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,12 +137,12 @@ func TestSettingsReconcilePreservesForeignContentAndKeepsCredentialsOutOfJSON(t 
 
 func TestSettingsRejectsRelativeExecutableAndProjectsAbsoluteHelper(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-	if _, err := ReconcileSettings(path, false, runtime, "aigw", runtime.Model); err == nil || !strings.Contains(err.Error(), "absolute") {
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	if _, err := ReconcileSettings(path, false, runtime, "aigw", runtime.UpstreamModel); err == nil || !strings.Contains(err.Error(), "absolute") {
 		t.Fatalf("relative executable error = %v", err)
 	}
 	executable := filepath.Join(t.TempDir(), "AIGW CLI", "aigw")
-	if _, err := ReconcileSettings(path, false, runtime, executable, runtime.Model); err != nil {
+	if _, err := ReconcileSettings(path, false, runtime, executable, runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -160,10 +160,10 @@ func TestSettingsRejectsRelativeExecutableAndProjectsAbsoluteHelper(t *testing.T
 
 func TestSettingsRejectsControlCharactersInExecutablePath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 	absolute := filepath.Join(t.TempDir(), "aigw")
 	for _, executable := range []string{absolute + "\x00", absolute + "\n"} {
-		if _, err := ReconcileSettings(path, false, runtime, executable, runtime.Model); err == nil || !strings.Contains(err.Error(), "control") {
+		if _, err := ReconcileSettings(path, false, runtime, executable, runtime.UpstreamModel); err == nil || !strings.Contains(err.Error(), "control") {
 			t.Fatalf("executable %q error = %v", executable, err)
 		}
 	}
@@ -175,8 +175,8 @@ func TestSettingsDisableRestoresOnlyCapturedValues(t *testing.T) {
 	if err := os.WriteFile(path, before, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
-	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "claude-team"}
+	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ReconcileSettings(path, true, domain.Runtime{}, "", ""); err != nil {
@@ -203,8 +203,8 @@ func TestSettingsDisableRestoresOnlyCapturedValues(t *testing.T) {
 
 func TestSettingsDisableRestoresAnAbsentSettingsFileToAbsent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ReconcileSettings(path, true, domain.Runtime{}, "", ""); err != nil {
@@ -219,8 +219,8 @@ func TestSettingsDisableRestoresAnAbsentSettingsFileToAbsent(t *testing.T) {
 
 func TestSettingsLifecyclePreservesForeignEditsMadeAfterProjection(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
-	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "claude-team"}
+	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 	document := readSettingsFile(t, path)
@@ -243,7 +243,7 @@ func TestSettingsLifecyclePreservesForeignEditsMadeAfterProjection(t *testing.T)
 		t.Fatal(err)
 	}
 	runtime.Endpoint = "https://next.test"
-	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
+	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 	document = readSettingsFile(t, path)
@@ -285,8 +285,8 @@ func TestSettingsRejectsForeignMutationOfManagedValues(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"theme":"dark"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
-	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "claude-team"}
+	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -297,14 +297,14 @@ func TestSettingsRejectsForeignMutationOfManagedValues(t *testing.T) {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err = ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model)
+	_, err = ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel)
 	if err == nil || !strings.Contains(err.Error(), "managed Claude settings changed") {
 		t.Fatalf("error = %v", err)
 	}
 }
 
 func TestSettingsRejectsPlaintextCredentialOrForeignHelperWithoutWriting(t *testing.T) {
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 	for _, content := range []string{
 		`{"env":{"ANTHROPIC_AUTH_TOKEN":"plaintext"}}`,
 		`{"env":{"ANTHROPIC_API_KEY":"plaintext"}}`,
@@ -314,7 +314,7 @@ func TestSettingsRejectsPlaintextCredentialOrForeignHelperWithoutWriting(t *test
 		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		_, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model)
+		_, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel)
 		if err == nil || !strings.Contains(err.Error(), "credential ownership conflict") {
 			t.Fatalf("error = %v", err)
 		}
@@ -326,12 +326,12 @@ func TestSettingsRejectsPlaintextCredentialOrForeignHelperWithoutWriting(t *test
 
 func TestSettingsProjectionIsIdempotentAndRejectsInvalidInput(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-	first, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model)
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	first, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model)
+	second, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -345,11 +345,11 @@ func TestSettingsProjectionIsIdempotentAndRejectsInvalidInput(t *testing.T) {
 		want    string
 	}{
 		{name: "missing path", runtime: runtime, want: "settings path"},
-		{name: "missing endpoint", path: path, runtime: domain.Runtime{RouteID: "team", AccountID: "gateway"}, want: "no Claude endpoint"},
-		{name: "missing account", path: path, runtime: domain.Runtime{RouteID: "team", Endpoint: "https://gateway.test"}, want: "no account"},
+		{name: "missing endpoint", path: path, runtime: domain.Runtime{ModelID: "team", AccountID: "gateway"}, want: "no Claude endpoint"},
+		{name: "missing account", path: path, runtime: domain.Runtime{ModelID: "team", Endpoint: "https://gateway.test"}, want: "no account"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := ReconcileSettings(test.path, false, test.runtime, testExecutable(), test.runtime.Model)
+			_, err := ReconcileSettings(test.path, false, test.runtime, testExecutable(), test.runtime.UpstreamModel)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
@@ -359,10 +359,10 @@ func TestSettingsProjectionIsIdempotentAndRejectsInvalidInput(t *testing.T) {
 
 func TestPlanSettingsMatchesApplyWithoutMutation(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", Model: "claude-team"}
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test", UpstreamModel: "claude-team"}
 	executable := testExecutable()
 
-	plan, err := PlanSettings(path, false, runtime, executable, runtime.Model)
+	plan, err := PlanSettings(path, false, runtime, executable, runtime.UpstreamModel)
 	if err != nil || plan.Action != SettingsActionProject || plan.Target != path {
 		t.Fatalf("initial plan = %#v, %v", plan, err)
 	}
@@ -371,7 +371,7 @@ func TestPlanSettingsMatchesApplyWithoutMutation(t *testing.T) {
 			t.Fatalf("planning wrote %s: %v", candidate, err)
 		}
 	}
-	if _, err := ReconcileSettings(path, false, runtime, executable, runtime.Model); err != nil {
+	if _, err := ReconcileSettings(path, false, runtime, executable, runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 	settingsBefore, err := os.ReadFile(path)
@@ -383,7 +383,7 @@ func TestPlanSettingsMatchesApplyWithoutMutation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plan, err = PlanSettings(path, false, runtime, executable, runtime.Model)
+	plan, err = PlanSettings(path, false, runtime, executable, runtime.UpstreamModel)
 	if err != nil || plan.Action != SettingsActionAlreadyConverged {
 		t.Fatalf("converged plan = %#v, %v", plan, err)
 	}
@@ -414,14 +414,14 @@ func TestSettingsNullDocumentBecomesAnEmptyObject(t *testing.T) {
 	if err := os.WriteFile(path, []byte("null\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestSettingsStrictlyRejectsMalformedEnvironmentAndTrailingJSON(t *testing.T) {
-	runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+	runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
 	for name, content := range map[string]string{
 		"malformed document": `{`,
 		"malformed env":      `{"env":"not-an-object"}`,
@@ -433,7 +433,7 @@ func TestSettingsStrictlyRejectsMalformedEnvironmentAndTrailingJSON(t *testing.T
 			if err := os.WriteFile(path, before, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err == nil {
+			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err == nil {
 				t.Fatal("invalid settings accepted")
 			}
 			after, err := os.ReadFile(path)
@@ -448,14 +448,14 @@ func TestSettingsRejectsMalformedOwnedStateForUpdateAndDisable(t *testing.T) {
 	for _, disabled := range []bool{false, true} {
 		t.Run(map[bool]string{false: "update", true: "disable"}[disabled], func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			runtime := domain.Runtime{RouteID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
-			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.Model); err != nil {
+			runtime := domain.Runtime{ModelID: "team", AccountID: "gateway", Endpoint: "https://gateway.test"}
+			if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(path+adapter.StateSuffix, []byte("{"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := ReconcileSettings(path, disabled, runtime, testExecutable(), runtime.Model); err == nil || !strings.Contains(err.Error(), "parse Claude settings state") {
+			if _, err := ReconcileSettings(path, disabled, runtime, testExecutable(), runtime.UpstreamModel); err == nil || !strings.Contains(err.Error(), "parse Claude settings state") {
 				t.Fatalf("error=%v", err)
 			}
 		})

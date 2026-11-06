@@ -18,8 +18,8 @@ func TestManagedProviderSchemaConflictIsNotTOMLSyntax(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := domain.Runtime{
-		Client: codex.ID, RouteID: "test", RouteLabel: "Test",
-		AccountID: "test", Endpoint: "https://endpoint.test/v1", Model: "gpt-6.1-sol",
+		Client: codex.ID, ModelID: "test", ModelLabel: "Test",
+		AccountID: "test", Endpoint: "https://endpoint.test/v1", UpstreamModel: "gpt-6.1-sol",
 		ModelProvider: "test-provider", Authentication: domain.AuthenticationClientNative,
 	}
 	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {

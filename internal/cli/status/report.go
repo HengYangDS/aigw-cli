@@ -39,7 +39,7 @@ func collectStatus(runtime app.Dependencies, cfg domain.Config) statusReport {
 	return statusReport{
 		CredentialBackend: backend,
 		Clients:           clients,
-		Routes:            len(cfg.Routes),
+		Routes:            len(cfg.Models),
 		EnabledClients:    activation.EnabledClients,
 		State:             activation.State,
 		NextAction:        activation.NextActionFor(orderedClientStates(runtime, clients)),

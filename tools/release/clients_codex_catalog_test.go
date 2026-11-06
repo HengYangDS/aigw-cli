@@ -28,7 +28,7 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 		t.Fatal(err)
 	}
 	selection := p.manifest.Recommendations[codex.ID].Primary
-	route := p.manifest.Routes[selection.Route]
+	route := p.manifest.Models[selection.Model]
 	protocol := selection.Protocol
 	if protocol == "" {
 		spec, _ := clients.Admission().Spec(codex.ID)
@@ -49,7 +49,7 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalog, _ := document.Project(route.UpstreamModel, route.Model)
+	catalog, _ := document.Project(route.UpstreamModel, route.Family)
 	if catalog == nil {
 		t.Fatalf("the installed Codex catalog has no entry for %s", route.UpstreamModel)
 	}
@@ -67,7 +67,7 @@ func (p nativeClientJourneyPlan) runCodexRelativeCatalog(t *testing.T) {
 	journey.enableNativeClient(codex.ID, executable)
 	for _, args := range [][]string{
 		{"verify", "--for", codex.ID},
-		{"verify", "--for", codex.ID, "--route", selection.Route},
+		{"verify", "--for", codex.ID, "--route", selection.Model},
 	} {
 		before := completions.Load()
 		journey.run(args...)

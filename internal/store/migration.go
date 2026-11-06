@@ -31,7 +31,7 @@ type MigrationPlan struct {
 	FromVersion     int                                    `json:"from_version"`
 	ToVersion       int                                    `json:"to_version"`
 	Accounts        []string                               `json:"accounts"`
-	Routes          []string                               `json:"routes"`
+	Models          []string                               `json:"routes"`
 	Clients         map[string]domain.ClientBinding        `json:"clients"`
 	Recommendations map[string]domain.ClientRecommendation `json:"recommendations"`
 
@@ -79,8 +79,8 @@ type publishedConfig struct {
 	Version           int                         `toml:"version"`
 	Accounts          map[string]domain.Account   `toml:"accounts"`
 	Profiles          map[string]publishedProfile `toml:"profiles"`
-	Routes            map[string]string           `toml:"routes"`
-	RecommendedRoutes map[string]string           `toml:"recommended_routes,omitempty"`
+	Models            map[string]string           `toml:"routes"`
+	RecommendedModels map[string]string           `toml:"recommended_routes,omitempty"`
 	Adapters          map[string]publishedAdapter `toml:"adapters,omitempty"`
 }
 
@@ -253,9 +253,9 @@ func migrateLegacyConfig(legacy legacyConfig, admission domain.Admission) (domai
 		for _, protocol := range profile.Protocols {
 			interfaces[protocol] = []domain.Capability{}
 		}
-		cfg.Routes[id] = domain.Route{
+		cfg.Models[id] = domain.Model{
 			Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account,
-			Model: profile.Model, UpstreamModel: profile.Model, Interfaces: interfaces,
+			Family: profile.Model, UpstreamModel: profile.Model, Protocols: interfaces,
 		}
 	}
 	for client, selection := range legacy.Recommendations {
@@ -263,7 +263,7 @@ func migrateLegacyConfig(legacy legacyConfig, admission domain.Admission) (domai
 	}
 	for client, binding := range legacy.Clients {
 		cfg.Clients[client] = domain.ClientBinding{
-			Route: binding.Profile, Enabled: binding.Enabled, Protocol: binding.Protocol,
+			Model: binding.Profile, Enabled: binding.Enabled, Protocol: binding.Protocol,
 			ModelProvider: binding.ModelProvider, Authentication: binding.Authentication,
 			Executable: binding.Executable, Targets: slices.Clone(binding.Targets),
 			CredentialCommand: binding.CredentialCommand,
@@ -295,30 +295,30 @@ func migratePublishedConfig(published publishedConfig, admission domain.Admissio
 		if _, exists := cfg.Families[profile.Model]; !exists {
 			cfg.Families[profile.Model] = domain.Family{Label: profile.Model}
 		}
-		cfg.Routes[id] = domain.Route{
+		cfg.Models[id] = domain.Model{
 			Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account,
-			Model: profile.Model, UpstreamModel: profile.Model,
-			Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
+			Family: profile.Model, UpstreamModel: profile.Model,
+			Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 		}
 		selections[id] = domain.ClientSelection{
-			Route: id, Protocol: protocol,
+			Model: id, Protocol: protocol,
 			ModelProvider: profile.ModelProvider, Authentication: profile.Authentication,
 		}
 	}
-	for client, id := range published.RecommendedRoutes {
+	for client, id := range published.RecommendedModels {
 		selection, exists := selections[id]
 		if !exists {
 			return domain.Config{}, fmt.Errorf("published recommendation %q references unknown profile %q", client, id)
 		}
 		cfg.Recommendations[client] = domain.ClientRecommendation{Primary: selection}
 	}
-	for client, id := range published.Routes {
+	for client, id := range published.Models {
 		selection, exists := selections[id]
 		if !exists {
 			return domain.Config{}, fmt.Errorf("published selection %q references unknown profile %q", client, id)
 		}
 		cfg.Clients[client] = domain.ClientBinding{
-			Route: selection.Route, Protocol: selection.Protocol,
+			Model: selection.Model, Protocol: selection.Protocol,
 			ModelProvider: selection.ModelProvider, Authentication: selection.Authentication,
 		}
 	}
@@ -334,7 +334,7 @@ func migratePublishedConfig(published publishedConfig, admission domain.Admissio
 		if profile.ModelProvider == "" && profile.Authentication == "" {
 			continue
 		}
-		selected := published.Routes[profile.Client] == id || published.RecommendedRoutes[profile.Client] == id
+		selected := published.Models[profile.Client] == id || published.RecommendedModels[profile.Client] == id
 		if !selected {
 			return domain.Config{}, fmt.Errorf("published profile %q has client-specific options without a selected or recommended owner", id)
 		}
@@ -347,7 +347,7 @@ func migratePublishedConfig(published publishedConfig, admission domain.Admissio
 
 func migrateLegacySelection(selection legacySelection) domain.ClientSelection {
 	return domain.ClientSelection{
-		Route: selection.Profile, Protocol: selection.Protocol,
+		Model: selection.Profile, Protocol: selection.Protocol,
 		ModelProvider: selection.ModelProvider, Authentication: selection.Authentication,
 	}
 }
@@ -361,7 +361,7 @@ func summarizeMigration(path string, before Snapshot, cfg domain.Config, data []
 	}
 	return MigrationPlan{
 		Required: required, Direction: direction, FromVersion: from, ToVersion: to,
-		Accounts: slices.Sorted(maps.Keys(cfg.Accounts)), Routes: cfg.RouteIDs(),
+		Accounts: slices.Sorted(maps.Keys(cfg.Accounts)), Models: cfg.ModelIDs(),
 		Clients: maps.Clone(cfg.Clients), Recommendations: maps.Clone(cfg.Recommendations),
 		path: path, before: before, data: slices.Clone(data),
 	}

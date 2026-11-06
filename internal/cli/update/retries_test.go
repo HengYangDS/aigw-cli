@@ -20,9 +20,9 @@ import (
 func TestHomebrewRollbackDoesNotReleaseCredentialsBeforeRetryCapability(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["test"] = domain.Account{Label: "Test", Endpoints: domain.Endpoints{OpenAIResponses: "https://endpoint.test/v1"}}
-	cfg.Routes["test"] = domain.Route{Label: "Test", Account: "test", Model: "gpt-6.1-sol", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["test"] = domain.Model{Label: "Test", Account: "test", Family: "gpt-6.1-sol", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	zero := uint64(0)
-	cfg.Clients[codex.ID] = domain.ClientBinding{Route: "test", RetryPolicy: &domain.RetryPolicy{RequestMaxRetries: &zero}}
+	cfg.Clients[codex.ID] = domain.ClientBinding{Model: "test", RetryPolicy: &domain.RetryPolicy{RequestMaxRetries: &zero}}
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), clients.Admission())
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)

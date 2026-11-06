@@ -16,11 +16,11 @@ import (
 
 func TestClaudeDesktopLifecycleReportsRequiredRestart(t *testing.T) {
 	cfg := adapterConfig()
-	cfg.Routes["desktop"] = domain.Route{
-		Label: "Desktop", Account: "gateway", Model: "claude-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	cfg.Models["desktop"] = domain.Model{
+		Label: "Desktop", Account: "gateway", Family: "claude-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(claudedesktop.ID, "desktop", "")
+	cfg.SetSelectedModel(claudedesktop.ID, "desktop", "")
 	runtime, out, secretStore, _ := adapterRuntime(t, cfg)
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
@@ -87,7 +87,7 @@ func TestEnablePreservesExistingHermesTarget(t *testing.T) {
 	cfg := adapterConfig()
 	target := filepath.Join(t.TempDir(), "config.yaml")
 	cfg.Clients[hermes.ID] = domain.ClientBinding{
-		Route:      "claude",
+		Model:      "claude",
 		Protocol:   domain.ProtocolAnthropic,
 		Executable: "/previous/hermes",
 		Targets:    []string{target},

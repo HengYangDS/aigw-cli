@@ -90,7 +90,7 @@ func TestNativeClientInputs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(prepared.Routes, manifest.Routes) || !reflect.DeepEqual(prepared.Recommendations, manifest.Recommendations) {
+		if !reflect.DeepEqual(prepared.Models, manifest.Models) || !reflect.DeepEqual(prepared.Recommendations, manifest.Recommendations) {
 			t.Fatal("native preparation substituted its own route or model for the supplied recommendation")
 		}
 	})
@@ -147,7 +147,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		t.Fatal(err)
 	}
 	selection := p.manifest.Recommendations[client].Primary
-	route := p.manifest.Routes[selection.Route]
+	route := p.manifest.Models[selection.Model]
 	const token = "native-real-client-token"
 	var completions atomic.Int64
 	protocol := selection.Protocol
@@ -281,7 +281,7 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	}))
 	defer forwarding.Close()
 	endpoint := forwarding.URL + strings.TrimPrefix(direct.Endpoint, upstream.URL)
-	args := []string{"use", "--for", client, direct.RouteID, "--protocol", string(direct.Protocol), "--forwarding-endpoint", endpoint}
+	args := []string{"use", "--for", client, direct.ModelID, "--protocol", string(direct.Protocol), "--forwarding-endpoint", endpoint}
 	before := capturePublishedSnapshot(j.testing, configStore)
 	preview := j.run(append(slices.Clone(args), "--dry-run", "--json")...)
 	if !bytes.Contains(preview, []byte(endpoint)) || bytes.Contains(preview, []byte(token)) || !reflect.DeepEqual(before, capturePublishedSnapshot(j.testing, configStore)) {

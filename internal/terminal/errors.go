@@ -267,11 +267,11 @@ func typedErrorMessage(err error) (string, bool) {
 		// surrounding context still names the target.
 		return err.Error(), true
 	}
-	if mismatch, ok := errors.AsType[*domain.RuntimeRouteClientMismatchError](err); ok {
-		return fmt.Sprintf("route %q is for %s, not %s", mismatch.RouteID, mismatch.ExpectedClient, mismatch.ActualClient), true
+	if mismatch, ok := errors.AsType[*domain.RuntimeModelClientMismatchError](err); ok {
+		return fmt.Sprintf("route %q is for %s, not %s", mismatch.ModelID, mismatch.ExpectedClient, mismatch.ActualClient), true
 	}
-	if unknownAccount, ok := errors.AsType[*domain.RuntimeRouteUnknownAccountError](err); ok {
-		return fmt.Sprintf("route %q references unknown account %q", unknownAccount.RouteID, unknownAccount.AccountID), true
+	if unknownAccount, ok := errors.AsType[*domain.RuntimeModelUnknownAccountError](err); ok {
+		return fmt.Sprintf("route %q references unknown account %q", unknownAccount.ModelID, unknownAccount.AccountID), true
 	}
 	if missingEndpoint, ok := errors.AsType[*domain.RuntimeMissingEndpointError](err); ok {
 		return missingEndpoint.Error(), true

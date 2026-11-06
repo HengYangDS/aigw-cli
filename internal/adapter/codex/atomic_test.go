@@ -20,12 +20,12 @@ func atomicTestRuntime() domain.Runtime {
 	}
 	return domain.Runtime{
 		CredentialCommand: executable,
-		RouteID:           "gpt-5.6-terra",
-		RouteLabel:        "GPT-5.6 Terra",
+		ModelID:           "gpt-5.6-terra",
+		ModelLabel:        "GPT-5.6 Terra",
 		AccountID:         "gateway",
 		Client:            ID,
 		Endpoint:          "http://127.0.0.1:48721/v1",
-		Model:             "gpt-5.6-terra",
+		UpstreamModel:     "gpt-5.6-terra",
 	}
 }
 

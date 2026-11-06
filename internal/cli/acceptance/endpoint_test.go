@@ -35,7 +35,7 @@ func TestEndpointTestKeepsCredentialsAtTheirSelectedOrigin(t *testing.T) {
 			app, _, credentials, _, _ := testApp(t, "")
 			cfg := domain.NewConfig(clients.Admission())
 			addAccountRoute(&cfg, "selected", "team", "Team", domain.Endpoints{Anthropic: origin.URL, OpenAIResponses: origin.URL}, client, "model")
-			cfg.SetSelectedRoute(client, "selected", "")
+			cfg.SetSelectedModel(client, "selected", "")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -117,7 +117,7 @@ func TestTestCommandAuthenticatesWithoutPrintingAuthorizationHeader(t *testing.T
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
-	cfg.SetSelectedRoute(codex.ID, "dmx", "")
+	cfg.SetSelectedModel(codex.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestTestCommandReturnsResponseReadFailure(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
-	cfg.SetSelectedRoute(codex.ID, "dmx", "")
+	cfg.SetSelectedModel(codex.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestTestCommandKeepsRequestContextAliveUntilResponseIsDrained(t *testing.T)
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{OpenAIResponses: "https://example.test/v1"}, codex.ID, "gpt-test")
-	cfg.SetSelectedRoute(codex.ID, "dmx", "")
+	cfg.SetSelectedModel(codex.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ func TestTestCommandDistinguishesReachabilityFromCredentialAcceptance(t *testing
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
-	cfg.SetSelectedRoute(claude.ID, "dmx", "")
+	cfg.SetSelectedModel(claude.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func TestTestCommandRejectsAuthenticationFailure(t *testing.T) {
 	app, _, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "dmx", "dmx", "DMX", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
-	cfg.SetSelectedRoute(claude.ID, "dmx", "")
+	cfg.SetSelectedModel(claude.ID, "dmx", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -220,8 +220,8 @@ func TestTestCommandRequiresClientScopeForRouteOverride(t *testing.T) {
 	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.Models["gpt"] = qualifiedRoute("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +302,7 @@ func TestTestCommandUsesAnthropicAPIKeyHeader(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "claude", "anthropic", "Anthropic", domain.Endpoints{Anthropic: "https://example.test"}, claude.ID, "claude-test")
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -328,8 +328,8 @@ func TestTestCommandUsesAccountTokenForRuntimeRoute(t *testing.T) {
 	app, out, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Routes["gpt-5.6-sol"] = qualifiedRoute("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "gpt-5.6-sol", "")
+	cfg.Models["gpt-5.6-sol"] = qualifiedRoute("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -349,8 +349,8 @@ func TestTestCommandUsesCodexModelsEndpointAndRejectsNotFound(t *testing.T) {
 	app, _, secretStore, _, httpClient := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Routes["gpt-5.6-sol"] = qualifiedRoute("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "gpt-5.6-sol", "")
+	cfg.Models["gpt-5.6-sol"] = qualifiedRoute("GPT", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -435,7 +435,7 @@ func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 			app, out, secretStore, _, httpClient := testApp(t, "")
 			cfg := domain.NewConfig(clients.Admission())
 			addAccountRoute(&cfg, "dmx", "dmx", "DMXAPI", domain.Endpoints{Anthropic: "https://dmx.test"}, claude.ID, "claude-test")
-			cfg.SetSelectedRoute(claude.ID, "dmx", "")
+			cfg.SetSelectedModel(claude.ID, "dmx", "")
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {

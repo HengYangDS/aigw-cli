@@ -102,16 +102,16 @@ func resolveProjectedRuntime(cfg domain.Config, client, fingerprint string) (dom
 	if !admitted {
 		return domain.Runtime{}, fmt.Errorf("unknown client %q", client)
 	}
-	for _, routeID := range cfg.RouteIDs() {
-		route := cfg.Routes[routeID]
+	for _, routeID := range cfg.ModelIDs() {
+		route := cfg.Models[routeID]
 		account, exists := cfg.Accounts[route.Account]
 		if !exists {
 			continue
 		}
 		account.ID = route.Account
-		protocols := spec.CompatibleRouteProtocols(account, route)
+		protocols := spec.CompatibleModelProtocols(account, route)
 		for _, protocol := range protocols {
-			clientRuntime, err := cfg.ResolveRouteProtocol(client, routeID, protocol)
+			clientRuntime, err := cfg.ResolveModelProtocol(client, routeID, protocol)
 			if err != nil {
 				continue
 			}

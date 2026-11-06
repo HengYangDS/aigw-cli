@@ -35,7 +35,7 @@ func (s Synchronizer) Inspect(ctx context.Context, cfg domain.Config, clientID s
 // Verify runs one explicit live request through the admitted client adapter.
 func (s Synchronizer) Verify(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime, explicitRoute string) (adapter.Verification, error) {
 	selected := cfg.Clone()
-	selected.SetSelectedRoute(clientID, runtime.RouteID, runtime.Protocol)
+	selected.SetSelectedModel(clientID, runtime.ModelID, runtime.Protocol)
 	binding := selected.Clients[clientID]
 	binding.ModelProvider, binding.Authentication = runtime.ModelProvider, runtime.Authentication
 	selected.Clients[clientID] = binding
@@ -195,7 +195,7 @@ func (s Synchronizer) DesiredSyncConfiguration(before domain.Config) (domain.Con
 			connected = append(connected, accountID)
 		}
 	}
-	selected, err := before.SelectRoutesForConnectedAccounts(connected)
+	selected, err := before.SelectModelsForConnectedAccounts(connected)
 	if err != nil {
 		return domain.Config{}, discovery.Result{}, err
 	}

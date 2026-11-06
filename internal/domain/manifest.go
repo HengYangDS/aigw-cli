@@ -17,7 +17,7 @@ type Manifest struct {
 	Recommendations map[string]ClientRecommendation `toml:"recommendations,omitempty"`
 	Accounts        map[string]Account              `toml:"accounts,omitempty"`
 	Families        map[string]Family               `toml:"models"`
-	Routes          map[string]Route                `toml:"routes"`
+	Models          map[string]Model                `toml:"routes"`
 }
 
 // MergeOptions makes local identity replacement and Route retirement explicit.
@@ -27,8 +27,8 @@ type MergeOptions struct {
 	KeepAccounts    map[string]bool
 	ReplaceAccounts map[string]bool
 	ReplaceFamilies map[string]bool
-	ReplaceRoutes   map[string]bool
-	RetireRoutes    map[string]bool
+	ReplaceModels   map[string]bool
+	RetireModels    map[string]bool
 }
 
 // UnsupportedManifestVersionError reports a team manifest of another schema
@@ -62,23 +62,23 @@ func (m Manifest) Admit(admission Admission) (Manifest, error) {
 	if m.Recommendations == nil {
 		m.Recommendations = map[string]ClientRecommendation{}
 	}
-	if len(m.Routes) == 0 {
+	if len(m.Models) == 0 {
 		return Manifest{}, fmt.Errorf("configuration manifest must define at least one route")
 	}
 	check := NewConfig(admission)
 	check.Accounts = m.Accounts
 	check.Families = m.Families
-	check.Routes = m.Routes
+	check.Models = m.Models
 	check.Normalize()
 	m.Families = check.Families
-	m.Routes = check.Routes
+	m.Models = check.Models
 	for client, recommendation := range m.Recommendations {
 		if !admission.Admits(client) {
 			return Manifest{}, fmt.Errorf("recommendation uses unsupported client %q", client)
 		}
 		for _, selection := range append([]ClientSelection{recommendation.Primary}, recommendation.Alternatives...) {
-			if _, ok := m.Routes[selection.Route]; !ok {
-				return Manifest{}, fmt.Errorf("%s recommendation references unknown route %q", client, selection.Route)
+			if _, ok := m.Models[selection.Model]; !ok {
+				return Manifest{}, fmt.Errorf("%s recommendation references unknown route %q", client, selection.Model)
 			}
 		}
 	}
@@ -99,14 +99,14 @@ func ExportManifest(cfg Config) (Manifest, error) {
 	if err := cfg.Validate(); err != nil {
 		return Manifest{}, err
 	}
-	for routeID, route := range cfg.Routes {
-		derived := routeLabel(Route{Account: route.Account, Model: route.Model}, cfg.Accounts[route.Account], cfg.Families[route.Model])
+	for routeID, route := range cfg.Models {
+		derived := modelLabel(Model{Account: route.Account, Family: route.Family}, cfg.Accounts[route.Account], cfg.Families[route.Family])
 		if route.Label == derived {
 			route.Label = ""
-			cfg.Routes[routeID] = route
+			cfg.Models[routeID] = route
 		}
 	}
-	return Manifest{Version: ManifestVersion, Recommendations: cfg.Recommendations, Accounts: cfg.Accounts, Families: cfg.Families, Routes: cfg.Routes}, nil
+	return Manifest{Version: ManifestVersion, Recommendations: cfg.Recommendations, Accounts: cfg.Accounts, Families: cfg.Families, Models: cfg.Models}, nil
 }
 
 // Merge combines a manifest with existing configuration while preserving conflicting owned entries.
@@ -123,13 +123,13 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 	if err := validateMergeSelectors(cfg, incoming, options); err != nil {
 		return Config{}, err
 	}
-	retiredModels := make(map[string]bool, len(options.RetireRoutes))
-	for name, retire := range options.RetireRoutes {
+	retiredModels := make(map[string]bool, len(options.RetireModels))
+	for name, retire := range options.RetireModels {
 		if !retire {
 			continue
 		}
-		retiredModels[merged.Routes[name].Model] = true
-		delete(merged.Routes, name)
+		retiredModels[merged.Models[name].Family] = true
+		delete(merged.Models, name)
 	}
 	for name, account := range incoming.Accounts {
 		if existing, exists := merged.Accounts[name]; exists {
@@ -153,16 +153,16 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 		}
 		merged.Families[name] = model
 	}
-	for name, route := range incoming.Routes {
-		if existing, exists := merged.Routes[name]; exists {
-			if equivalentRoute(existing, route) && routeLabel(existing, merged.Accounts[route.Account], merged.Families[route.Model]) == routeLabel(route, merged.Accounts[route.Account], merged.Families[route.Model]) {
+	for name, route := range incoming.Models {
+		if existing, exists := merged.Models[name]; exists {
+			if equivalentModel(existing, route) && modelLabel(existing, merged.Accounts[route.Account], merged.Families[route.Family]) == modelLabel(route, merged.Accounts[route.Account], merged.Families[route.Family]) {
 				continue
 			}
-			if !options.ReplaceRoutes[name] {
+			if !options.ReplaceModels[name] {
 				return Config{}, fmt.Errorf("route %q conflicts with local configuration; re-run with `aigw config import <toml> --replace-route %s` to explicitly replace it", name, name)
 			}
 		}
-		merged.Routes[name] = route
+		merged.Models[name] = route
 	}
 	maps.Copy(merged.Families, incoming.Families)
 	maps.Copy(merged.Recommendations, incoming.Recommendations)
@@ -171,8 +171,8 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 			continue
 		}
 		referenced := false
-		for _, route := range merged.Routes {
-			if route.Model == model {
+		for _, route := range merged.Models {
+			if route.Family == model {
 				referenced = true
 				break
 			}
@@ -213,23 +213,23 @@ func validateMergeSelectors(cfg Config, incoming Manifest, options MergeOptions)
 			return fmt.Errorf("--replace-model %q does not name a Model in the imported configuration manifest", name)
 		}
 	}
-	for name := range options.ReplaceRoutes {
-		if _, exists := incoming.Routes[name]; !exists {
+	for name := range options.ReplaceModels {
+		if _, exists := incoming.Models[name]; !exists {
 			return fmt.Errorf("--replace-route %q does not name a Route in the imported configuration manifest", name)
 		}
 	}
-	for _, name := range slices.Sorted(maps.Keys(options.RetireRoutes)) {
-		if !options.RetireRoutes[name] {
+	for _, name := range slices.Sorted(maps.Keys(options.RetireModels)) {
+		if !options.RetireModels[name] {
 			continue
 		}
-		if _, exists := cfg.Routes[name]; !exists {
+		if _, exists := cfg.Models[name]; !exists {
 			return fmt.Errorf("--retire-route %q does not name an existing Route", name)
 		}
-		if _, exists := incoming.Routes[name]; exists {
+		if _, exists := incoming.Models[name]; exists {
 			return fmt.Errorf("--retire-route %q is also declared in the imported configuration manifest", name)
 		}
 		for _, client := range slices.Sorted(maps.Keys(cfg.Clients)) {
-			if cfg.Clients[client].Route == name {
+			if cfg.Clients[client].Model == name {
 				return fmt.Errorf("--retire-route %q is selected by client %q", name, client)
 			}
 		}
@@ -254,13 +254,13 @@ func equivalentProbe(left, right *AccountProbe) bool {
 
 func normalizeEndpoint(value string) string { return strings.TrimRight(strings.TrimSpace(value), "/") }
 
-func equivalentRoute(left, right Route) bool {
+func equivalentModel(left, right Model) bool {
 	return left.Purpose == right.Purpose &&
 		left.Account == right.Account &&
-		left.Model == right.Model &&
+		left.Family == right.Family &&
 		left.UpstreamModelID() == right.UpstreamModelID() &&
 		left.LifecycleState() == right.LifecycleState() &&
-		equalInterfaces(left.Interfaces, right.Interfaces)
+		equalInterfaces(left.Protocols, right.Protocols)
 }
 
 func equalInterfaces(left, right map[EndpointProtocol][]Capability) bool {

@@ -34,7 +34,7 @@ func (codexAdapter) Spec() domain.ClientSpec {
 		TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true,
 		DefaultModelProvider: modelProviderAIGW, ClientNativeAuthentication: true,
 		PublishedProfileProtocol: domain.ProtocolOpenAIResponses,
-		Doctor:                   domain.DoctorWording{AdapterStates: true, RouteBinding: true},
+		Doctor:                   domain.DoctorWording{AdapterStates: true, ModelBinding: true},
 	}
 }
 
@@ -125,10 +125,10 @@ func (codexAdapter) ProjectionChanged(before, after domain.Config) bool {
 	}
 	return beforeRuntime.AccountID != afterRuntime.AccountID ||
 		!beforeRuntime.SameUpstream(afterRuntime) ||
-		beforeRuntime.RouteID != afterRuntime.RouteID ||
-		beforeRuntime.RouteLabel != afterRuntime.RouteLabel ||
+		beforeRuntime.ModelID != afterRuntime.ModelID ||
+		beforeRuntime.ModelLabel != afterRuntime.ModelLabel ||
 		beforeRuntime.Endpoint != afterRuntime.Endpoint ||
-		beforeRuntime.Model != afterRuntime.Model ||
+		beforeRuntime.UpstreamModel != afterRuntime.UpstreamModel ||
 		beforeRuntime.ModelProvider != afterRuntime.ModelProvider ||
 		beforeRuntime.Authentication != afterRuntime.Authentication
 }
@@ -146,7 +146,7 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 	}
 	status := adapter.Status{Ready: true, Checks: make([]adapter.Check, 0, len(binding.Targets))}
 	for index, target := range binding.Targets {
-		check := adapter.Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "route " + runtime.RouteID, Target: target}
+		check := adapter.Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "route " + runtime.ModelID, Target: target}
 		observed, readerErr := retainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
 		issue, detail, repair := "Codex configuration projection drift: ", "", "aigw sync"
 		if readerErr != nil {

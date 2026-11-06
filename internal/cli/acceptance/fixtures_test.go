@@ -268,13 +268,13 @@ func addAccountRoute(cfg *domain.Config, routeName, accountName, label string, e
 	if err != nil {
 		panic("test fixture cannot resolve a wire interface: " + err.Error())
 	}
-	cfg.Routes[routeName] = qualifiedRoute(label, accountName, model, protocol)
+	cfg.Models[routeName] = qualifiedRoute(label, accountName, model, protocol)
 }
 
-func qualifiedRoute(label, account, model string, protocol domain.EndpointProtocol) domain.Route {
-	return domain.Route{
-		Label: label, Account: account, Model: model, UpstreamModel: model,
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
+func qualifiedRoute(label, account, model string, protocol domain.EndpointProtocol) domain.Model {
+	return domain.Model{
+		Label: label, Account: account, Family: model, UpstreamModel: model,
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 	}
 }
 
@@ -284,7 +284,7 @@ func synchronizeClaudeProjection(t *testing.T, app *cli.App, cfg domain.Config) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, app.Host), false, runtime, app.Executable, runtime.Model); err != nil {
+	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, app.Host), false, runtime, app.Executable, runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -339,7 +339,7 @@ func saveCommandRoute(t *testing.T, app *cli.App, endpoints domain.Endpoints, cl
 	t.Helper()
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", endpoints, client, model)
-	cfg.SetSelectedRoute(client, "one", "")
+	cfg.SetSelectedModel(client, "one", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -353,8 +353,8 @@ func saveProbeRoute(t *testing.T, appConfig store.Store) {
 		Endpoints:    domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://www.dmxapi.cn"},
 	}
-	cfg.Routes["gpt"] = domain.Route{Label: "GPT", Account: "dmx", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.Models["gpt"] = domain.Model{Label: "GPT", Account: "dmx", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := appConfig.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -365,11 +365,11 @@ func twoRouteConfig() domain.Config {
 	addAccountRoute(&cfg, "one", "one", "One Gateway", domain.Endpoints{Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1"}, codex.ID, "model-one")
 	addAccountRoute(&cfg, "two", "two", "Two Gateway", domain.Endpoints{Anthropic: "https://two.test", OpenAIResponses: "https://two.test/v1"}, codex.ID, "model-two")
 	for _, routeID := range []string{"one", "two"} {
-		route := cfg.Routes[routeID]
-		route.Interfaces[domain.ProtocolAnthropic] = []domain.Capability{}
-		cfg.Routes[routeID] = route
+		route := cfg.Models[routeID]
+		route.Protocols[domain.ProtocolAnthropic] = []domain.Capability{}
+		cfg.Models[routeID] = route
 	}
-	cfg.SetSelectedRoute(codex.ID, "one", "")
+	cfg.SetSelectedModel(codex.ID, "one", "")
 	return cfg
 }
 
@@ -454,10 +454,10 @@ func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
 	app, _, secretStore, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1", Anthropic: "https://example.test"}}
-	cfg.Routes["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.Routes["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["gpt"] = qualifiedRoute("GPT", "dmx", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["claude"] = qualifiedRoute("Claude", "dmx", "claude-test", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
 	if err := os.WriteFile(codexTarget, []byte("model_provider = \"native\"\n"), 0o600); err != nil {

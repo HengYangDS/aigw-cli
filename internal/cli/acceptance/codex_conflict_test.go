@@ -24,8 +24,8 @@ func TestCodexOutsideRetryEditRecoveryDoesNotLoop(t *testing.T) {
 	writeFile(t, target, []byte("model = \"gpt-native\"\n"), 0o600)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Routes["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "sol", "")
+	cfg.Models["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "sol", "")
 	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

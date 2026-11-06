@@ -68,7 +68,7 @@ func TestCheckReportsUnresolvedBindingsBeforeCredentialOrNetworkAccess(t *testin
 		t.Fatal("an unresolved binding contacted an endpoint")
 		return nil, nil
 	})
-	cfg.SetSelectedRoute(codex.ID, "missing", "")
+	cfg.SetSelectedModel(codex.ID, "missing", "")
 	result := evaluateClient(NewCommand(runtime), runtime, cfg, codex.ID)
 	_, command, unchecked, err := checkedClientField(runtime, result, "")
 	if err == nil || !errors.Is(err, result.resolveErr) || command != "" || unchecked {
@@ -88,7 +88,7 @@ func TestCheckReportsAnUnsentInferenceRequestWithoutClaimingEndpointFailure(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected.Model = ""
+	selected.UpstreamModel = ""
 	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
 		t.Fatal("a missing wire model sent a request")
 		return nil, nil

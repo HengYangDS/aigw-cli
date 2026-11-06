@@ -36,7 +36,7 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", domain.ProtocolOpenAIResponses)
+	cfg.Models["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", domain.ProtocolOpenAIResponses)
 	runtime, err := cfg.ResolveRuntime(ID, "alternate")
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +108,7 @@ func TestCodexVerificationRepairsCosmeticRootSelectionDriftInIsolation(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg.Routes["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", domain.ProtocolOpenAIResponses)
+	cfg.Models["alternate"] = qualifiedRoute("", "gateway", "gpt-alternate", domain.ProtocolOpenAIResponses)
 	runtime, err := cfg.ResolveRuntime(ID, "alternate")
 	if err != nil {
 		t.Fatal(err)

@@ -155,7 +155,7 @@ func decodeComponents(cfg domain.Config, catalog, capabilities platform.FileSnap
 	if err != nil {
 		return domain.Config{}, err
 	}
-	return decodeRouteCapabilities(cfg, capabilities)
+	return decodeModelCapabilities(cfg, capabilities)
 }
 
 func (Store) writeOptional(path string, before platform.FileSnapshot, data []byte) (platform.FileSnapshot, error) {

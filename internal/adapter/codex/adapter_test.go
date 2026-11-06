@@ -37,8 +37,8 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		}
 		cfg := domain.NewConfig(testAdmission())
 		cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-		cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
-		cfg.Clients[ID] = domain.ClientBinding{Route: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
+		cfg.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+		cfg.Clients[ID] = domain.ClientBinding{Model: "codex", Enabled: true, ModelProvider: provider, Executable: "/usr/bin/codex", Targets: []string{target}}
 		runtime, err := cfg.ResolveRuntime(ID, "")
 		if err != nil {
 			t.Fatal(err)
@@ -135,9 +135,9 @@ func TestCodexAdapterProjectsCredentialHelperOnlyForAccountTokenProviders(t *tes
 			target := filepath.Join(t.TempDir(), "config.toml")
 			cfg := domain.NewConfig(testAdmission())
 			cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-			cfg.Routes["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+			cfg.Models["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 			cfg.Clients[ID] = domain.ClientBinding{
-				Route: "codex", Enabled: true, ModelProvider: test.provider,
+				Model: "codex", Enabled: true, ModelProvider: test.provider,
 				Authentication: test.authentication, Executable: "/usr/bin/codex", Targets: []string{target},
 			}
 			discovered := discovery.Result{
@@ -190,9 +190,9 @@ func TestChangedClientsFollowPersistentCodexSemantics(t *testing.T) {
 	}
 
 	purpose := before.Clone()
-	route := purpose.Routes["codex"]
+	route := purpose.Models["codex"]
 	route.Purpose = "display only"
-	purpose.Routes["codex"] = route
+	purpose.Models["codex"] = route
 	if len(adapterRegistry.ChangedClients(before, purpose)) != 0 {
 		t.Fatal("display-only purpose must not change the projection")
 	}
@@ -202,13 +202,13 @@ type fixedDiscoverer struct{ result discovery.Result }
 
 func (discoverer fixedDiscoverer) Discover() discovery.Result { return discoverer.result }
 
-func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Route {
+func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
 	interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(protocols))
 	for _, protocol := range protocols {
 		interfaces[protocol] = []domain.Capability{}
 	}
-	return domain.Route{
-		Label: label, Account: account, Model: model, UpstreamModel: model, Interfaces: interfaces,
+	return domain.Model{
+		Label: label, Account: account, Family: model, UpstreamModel: model, Protocols: interfaces,
 	}
 }
 
@@ -247,8 +247,8 @@ func (runner *captureAdapterRunner) RunCapture(ctx context.Context, plan process
 func codexConfiguration(target string) domain.Config {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Routes["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
-	cfg.Clients[ID] = domain.ClientBinding{Route: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
+	cfg.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Clients[ID] = domain.ClientBinding{Model: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }
 

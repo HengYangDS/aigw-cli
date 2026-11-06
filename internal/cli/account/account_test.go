@@ -58,11 +58,11 @@ func blockedConfigurationStore(t *testing.T) (store.Store, secret.Store) {
 		Label:     "Current",
 		Endpoints: domain.Endpoints{OpenAIResponses: "https://current.test/v1"},
 	}
-	cfg.Routes["current"] = domain.Route{
-		Label: "Current", Account: "current", Model: "gpt-current",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["current"] = domain.Model{
+		Label: "Current", Account: "current", Family: "gpt-current",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(codex.ID, "current", "")
+	cfg.SetSelectedModel(codex.ID, "current", "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

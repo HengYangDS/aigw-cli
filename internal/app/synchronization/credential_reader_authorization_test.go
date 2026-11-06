@@ -82,9 +82,9 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			}
 			selected := testConfig(target)
 			selected.Accounts[account] = selected.Accounts["gateway"]
-			route := selected.Routes["gpt"]
+			route := selected.Models["gpt"]
 			route.Account = account
-			selected.Routes["gpt"] = route
+			selected.Models["gpt"] = route
 			err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), selected, "test")
 			if err == nil {
 				t.Fatal("copied reader denied by the native store was accepted")
@@ -106,9 +106,9 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			}
 			deferred := testConfig(target)
 			deferred.Accounts["missing"] = deferred.Accounts["gateway"]
-			route = deferred.Routes["gpt"]
+			route = deferred.Models["gpt"]
 			route.Account = "missing"
-			deferred.Routes["gpt"] = route
+			deferred.Models["gpt"] = route
 			if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), deferred, "deferred", codex.ID); err != nil {
 				t.Fatalf("absent Token blocked deferred selection: %v", err)
 			}
@@ -125,11 +125,11 @@ func TestKeyringReaderCopyDenialPreventsProjection(t *testing.T) {
 			selected.Accounts["blocked"] = domain.Account{
 				Label: "Blocked", Endpoints: domain.Endpoints{Anthropic: "https://blocked.test"},
 			}
-			selected.Routes["blocked-claude"] = domain.Route{
-				Account: "blocked", Model: "claude-test",
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+			selected.Models["blocked-claude"] = domain.Model{
+				Account: "blocked", Family: "claude-test",
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 			}
-			selected.SetSelectedRoute(claude.ID, "blocked-claude", "")
+			selected.SetSelectedModel(claude.ID, "blocked-claude", "")
 			selected.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 			if err := syncer.CommitProjection(t.Context(), domain.NewConfig(clients.Admission()), selected, "codex", codex.ID); err != nil {
 				t.Fatalf("unrelated Claude Token blocked a Codex-only projection: %v", err)

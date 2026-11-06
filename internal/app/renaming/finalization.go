@@ -28,8 +28,8 @@ func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (P
 	if !exists {
 		return Plan{}, fmt.Errorf("target account %q does not exist in current configuration", newID)
 	}
-	references := make([]string, 0, len(cfg.Routes))
-	for routeID, route := range cfg.Routes {
+	references := make([]string, 0, len(cfg.Models))
+	for routeID, route := range cfg.Models {
 		if route.Account == newID {
 			references = append(references, "routes."+routeID+".account")
 		}

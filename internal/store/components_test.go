@@ -123,9 +123,9 @@ func TestRestoreSnapshotReportsCapabilityComponentConflicts(t *testing.T) {
 		t.Fatal(err)
 	}
 	changed := cfg.Clone()
-	route := changed.Routes["claude"]
-	route.Interfaces = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}
-	changed.Routes["claude"] = route
+	route := changed.Models["claude"]
+	route.Protocols = map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityText}}
+	changed.Models["claude"] = route
 	after, err := store.Commit(before, changed)
 	if err != nil {
 		t.Fatal(err)
@@ -184,9 +184,9 @@ func everyComponentStore(t *testing.T) (Store, domain.Config) {
 	account.Order = 1
 	account.Endpoints.Anthropic = "https://current.test"
 	cfg.Accounts["current"] = account
-	cfg.Routes["tool-search"] = domain.Route{
-		Label: "Tool search", Account: "current", Model: "current-model",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityToolSearch}},
+	cfg.Models["tool-search"] = domain.Model{
+		Label: "Tool search", Account: "current", Family: "current-model",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityToolSearch}},
 	}
 	forwardTo(t, &cfg, "http://127.0.0.1:8792/v1")
 	zero := uint64(0)

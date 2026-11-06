@@ -12,7 +12,7 @@ import (
 // AdmitSetup requires an installation without Routes before first-time setup.
 // Existing installations use configuration import, selection or Token rotation.
 func (Synchronizer) AdmitSetup(before domain.Config) error {
-	if len(before.Routes) > 0 {
+	if len(before.Models) > 0 {
 		return fmt.Errorf("AIGW is already configured; run `aigw add` to add an account, `aigw route add` to add a model route, or `aigw config import` to merge a reviewed manifest")
 	}
 	return nil
@@ -78,7 +78,7 @@ func (s Synchronizer) admitSetupTransition(before, after domain.Config, tokens m
 			return domain.Config{}, fmt.Errorf("setup client %q has no admitted operational adapter", client)
 		}
 		binding := after.Clients[client]
-		if binding.Route == "" {
+		if binding.Model == "" {
 			return domain.Config{}, fmt.Errorf("setup client %q has no selected route", client)
 		}
 		binding.Enabled = true

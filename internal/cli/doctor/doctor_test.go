@@ -56,10 +56,10 @@ func validDoctorConfig() domain.Config {
 			OpenAIResponses: "https://team.test/v1",
 		},
 	}
-	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
-	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "team", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.SetSelectedModel(codex.ID, "codex", "")
 	return cfg
 }
 
@@ -158,7 +158,7 @@ func TestCollectRequiresSecretsOnlyForAccountsSelectedByActiveRoutes(t *testing.
 			OpenAIResponses: "https://optional.test/v1",
 		},
 	}
-	cfg.Routes["optional"] = domain.Route{Label: "Optional", Account: "optional", Model: "gpt-optional"}
+	cfg.Models["optional"] = domain.Model{Label: "Optional", Account: "optional", Family: "gpt-optional"}
 	deps, _, secretStore := doctorDependencies(t, cfg)
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
@@ -186,16 +186,16 @@ func TestCollectDoesNotObserveClientNativeCredentials(t *testing.T) {
 			OpenAIResponses: "https://native.test/v1",
 		},
 	}
-	cfg.Routes["native"] = domain.Route{
+	cfg.Models["native"] = domain.Model{
 		Label:   "Native",
 		Account: "native",
-		Model:   "native-model",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+		Family:  "native-model",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolOpenAIResponses: {},
 		},
 	}
 	cfg.Clients[codex.ID] = domain.ClientBinding{
-		Route: "native", Enabled: true, ModelProvider: "amazon-bedrock",
+		Model: "native", Enabled: true, ModelProvider: "amazon-bedrock",
 		Authentication: domain.AuthenticationClientNative,
 	}
 	deps, _, secretStore := doctorDependencies(t, cfg)
@@ -246,7 +246,7 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, deps.Host), false, clientRuntime, deps.Executable, clientRuntime.Model); err != nil {
+	if _, err := claude.ReconcileSettings(claudeSettingsPath(t, deps.Host), false, clientRuntime, deps.Executable, clientRuntime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 	checks = collectChecks(context.Background(), deps.Dependencies)

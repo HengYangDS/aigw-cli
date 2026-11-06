@@ -182,7 +182,7 @@ func TestAdapterEnableClaudeStoresOnlyClaudeExecutable(t *testing.T) {
 	claudeExecutable := executableFixture(t, "claude")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-model")
-	cfg.SetSelectedRoute(claude.ID, "team", "")
+	cfg.SetSelectedModel(claude.ID, "team", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +237,7 @@ func TestAdapterEnableAndDisableCodexOwnsOnlyConfiguredTarget(t *testing.T) {
 	}
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "team", "team", "Team", domain.Endpoints{OpenAIResponses: "https://team.test/v1"}, codex.ID, "gpt-model")
-	cfg.SetSelectedRoute(codex.ID, "team", "")
+	cfg.SetSelectedModel(codex.ID, "team", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -276,8 +276,8 @@ func TestSyncPreservesExplicitCredentialCommandsAcrossAIGWUpgrade(t *testing.T) 
 		if id == claude.ID {
 			protocol = domain.ProtocolAnthropic
 		}
-		cfg.Routes[id] = qualifiedRoute(id, "gateway", "fixture-model", protocol)
-		cfg.SetSelectedRoute(id, id, "")
+		cfg.Models[id] = qualifiedRoute(id, "gateway", "fixture-model", protocol)
+		cfg.SetSelectedModel(id, id, "")
 		cfg.SetClientActivation(id, true, executable, nil)
 	}
 	clientAdapter := cfg.Clients[codex.ID]
@@ -382,8 +382,8 @@ func TestExplicitClaudeVerificationUsesSynchronizedHelperWithoutNativeToken(t *t
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://example.invalid"}}
-	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "fixture-model", domain.ProtocolAnthropic)
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["claude"] = qualifiedRoute("Claude", "gateway", "fixture-model", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	command := filepath.Join(t.TempDir(), "explicit-helper")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	binding := cfg.Clients[claude.ID]

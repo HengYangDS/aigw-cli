@@ -226,8 +226,8 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 	route := qualifiedRoute("GPT 5.6 Sol Codex", "dmx", "gpt-5.6-sol", domain.ProtocolOpenAIResponses)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMX", Endpoints: domain.Endpoints{OpenAIResponses: "https://example.test/v1"}}
-	cfg.Routes["gpt-5.6-sol"] = route
-	cfg.SetSelectedRoute(codex.ID, "gpt-5.6-sol", "")
+	cfg.Models["gpt-5.6-sol"] = route
+	cfg.SetSelectedModel(codex.ID, "gpt-5.6-sol", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -316,7 +316,7 @@ func TestDoctorHumanOutputTranslatesSuccessfulImplementationDetails(t *testing.T
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
-	cfg.SetSelectedRoute(claude.ID, "team", "")
+	cfg.SetSelectedModel(claude.ID, "team", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -354,8 +354,8 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 	route := qualifiedRoute("GPT", "team", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
-	cfg.Routes["gpt"] = route
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.Models["gpt"] = route
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

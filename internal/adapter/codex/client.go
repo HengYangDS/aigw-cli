@@ -72,8 +72,8 @@ func VerificationPlan(executable, configPath, outputPath string, runtime domain.
 	if strings.TrimSpace(configPath) == "" {
 		return process.Plan{}, fmt.Errorf("Codex configuration target is not configured")
 	}
-	if strings.TrimSpace(runtime.Model) == "" {
-		return process.Plan{}, fmt.Errorf("Route %q has no Codex model", runtime.RouteID)
+	if strings.TrimSpace(runtime.UpstreamModel) == "" {
+		return process.Plan{}, fmt.Errorf("Route %q has no Codex model", runtime.ModelID)
 	}
 	if strings.TrimSpace(outputPath) == "" {
 		return process.Plan{}, fmt.Errorf("Codex verification output path is not configured")
@@ -91,7 +91,7 @@ func VerificationPlan(executable, configPath, outputPath string, runtime domain.
 	if sessionID != "" {
 		args = append(args, "resume")
 	}
-	args = append(args, "--ignore-rules", "--skip-git-repo-check", "--strict-config", "--json", "--output-last-message", outputPath, "--model", runtime.Model)
+	args = append(args, "--ignore-rules", "--skip-git-repo-check", "--strict-config", "--json", "--output-last-message", outputPath, "--model", runtime.UpstreamModel)
 	if sessionID != "" {
 		args = append(args, sessionID)
 	}

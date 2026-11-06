@@ -130,12 +130,12 @@ func (candidate setupDiscovery) Discover() discovery.Result {
 func manifestSetupConfig() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1", Anthropic: "https://team.test"}}
-	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "team", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(codex.ID, "codex", "")
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
-	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Route: "codex"}}
-	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Route: "claude"}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "team", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedModel(codex.ID, "codex", "")
+	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "codex"}}
+	cfg.Recommendations[claude.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "claude"}}
 	cfg.SetClientActivation(codex.ID, true, "", nil)
 	cfg.SetClientActivation(claude.ID, true, "", nil)
 	return cfg
@@ -420,13 +420,13 @@ func TestConfiguredClientsForAccount(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["legacy"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://legacy.test/v1"}}
 	cfg.Accounts["other"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://other.test"}}
-	cfg.Routes["legacy"] = domain.Route{
-		Account: "legacy", Model: "model",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["legacy"] = domain.Model{
+		Account: "legacy", Family: "model",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.Routes["other"] = domain.Route{
-		Account: "other", Model: "model",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	cfg.Models["other"] = domain.Model{
+		Account: "other", Family: "model",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
 
 	clients := configuredClientsForAccount(cfg, "legacy")

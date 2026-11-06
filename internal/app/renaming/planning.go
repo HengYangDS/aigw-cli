@@ -23,13 +23,13 @@ func planAccount(cfg domain.Config, oldID, newID string) (Plan, error) {
 	delete(next.Accounts, oldID)
 	providerAccount.ID = newID
 	next.Accounts[newID] = providerAccount
-	references := make([]string, 0, len(next.Routes))
-	for routeID, route := range next.Routes {
+	references := make([]string, 0, len(next.Models))
+	for routeID, route := range next.Models {
 		if route.Account != oldID {
 			continue
 		}
 		route.Account = newID
-		next.Routes[routeID] = route
+		next.Models[routeID] = route
 		references = append(references, "routes."+routeID+".account")
 	}
 	sort.Strings(references)
@@ -59,37 +59,37 @@ func planRoute(cfg domain.Config, oldID, newID string) (Plan, error) {
 	if !domain.ValidIdentifier(newID) {
 		return Plan{}, fmt.Errorf("Invalid new route ID %q", newID)
 	}
-	route, ok := cfg.Routes[oldID]
+	route, ok := cfg.Models[oldID]
 	if !ok {
 		return Plan{}, fmt.Errorf("Unknown route %q", oldID)
 	}
-	if _, exists := cfg.Routes[newID]; exists {
+	if _, exists := cfg.Models[newID]; exists {
 		return Plan{}, fmt.Errorf("Route %q already exists", newID)
 	}
 
 	next := cfg.Clone()
-	delete(next.Routes, oldID)
-	next.Routes[newID] = route
+	delete(next.Models, oldID)
+	next.Models[newID] = route
 	references := make([]string, 0, len(next.Clients)+len(next.Recommendations))
 	for client, binding := range next.Clients {
-		if binding.Route == oldID {
-			binding.Route = newID
+		if binding.Model == oldID {
+			binding.Model = newID
 			next.Clients[client] = binding
 			references = append(references, "clients."+client+".route")
 		}
 	}
 	for client, recommendation := range next.Recommendations {
 		changed := false
-		if recommendation.Primary.Route == oldID {
-			recommendation.Primary.Route = newID
+		if recommendation.Primary.Model == oldID {
+			recommendation.Primary.Model = newID
 			references = append(references, "recommendations."+client+".primary.route")
 			changed = true
 		}
 		for index := range recommendation.Alternatives {
-			if recommendation.Alternatives[index].Route != oldID {
+			if recommendation.Alternatives[index].Model != oldID {
 				continue
 			}
-			recommendation.Alternatives[index].Route = newID
+			recommendation.Alternatives[index].Model = newID
 			references = append(references, fmt.Sprintf("recommendations.%s.alternatives.%d.route", client, index))
 			changed = true
 		}

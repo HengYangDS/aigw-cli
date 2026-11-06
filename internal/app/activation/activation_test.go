@@ -45,10 +45,10 @@ func TestAssessActivationChoosesOneCompatibleEnvironmentAccount(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["ucloud"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://ucloud.test"}}
 	cfg.Accounts["dmx"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://dmx.test"}}
-	cfg.Routes["ucloud-claude"] = domain.Route{Account: "ucloud", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Routes["dmx-claude"] = domain.Route{Account: "dmx", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetRecommendedRoute(claude.ID, "ucloud-claude")
-	cfg.SetSelectedRoute(claude.ID, "dmx-claude", "")
+	cfg.Models["ucloud-claude"] = domain.Model{Account: "ucloud", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["dmx-claude"] = domain.Model{Account: "dmx", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetRecommendedModel(claude.ID, "ucloud-claude")
+	cfg.SetSelectedModel(claude.ID, "dmx-claude", "")
 	store := secret.NewEnvironmentStore(func(string) string { return "" })
 	got := AssessActivation(cfg, store)
 	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != "set environment variable "+secret.EnvironmentKey("dmx") {
@@ -87,7 +87,7 @@ func TestAssessActivationSeparatesCapabilityAndSelectionPrerequisites(t *testing
 	}
 
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Routes["claude"] = domain.Route{Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["claude"] = domain.Model{Account: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	selection := AssessActivation(cfg, store)
 	if selection.CapabilityPrerequisite != "" || selection.SelectionPrerequisite != "aigw use --help" || selection.VerificationPrerequisite != "" || selection.NextActionFor(nil) != "aigw use --help" {
 		t.Fatalf("missing client selection = %+v", selection)
@@ -97,13 +97,13 @@ func TestAssessActivationSeparatesCapabilityAndSelectionPrerequisites(t *testing
 func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
-	cfg.Routes["codex"] = domain.Route{Account: "team", Model: "gpt", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["codex"] = domain.Model{Account: "team", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	selection := AssessActivation(cfg, nil)
 	if selection.State != domainreadiness.Deferred || selection.NextActionFor(nil) != "aigw use --help" {
 		t.Fatalf("missing Token backend blocked selection before any Account was chosen: %+v", selection)
 	}
 
-	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.SetSelectedModel(codex.ID, "codex", "")
 	for _, test := range []struct {
 		authentication domain.Authentication
 		provider       string
@@ -127,15 +127,15 @@ func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 func TestNextActionAfterAccountConnectionPreservesExplicitSelection(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Routes["claude"] = domain.Route{Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Routes["hermes"] = domain.Route{Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetRecommendedRoute(claude.ID, "claude")
-	cfg.SetRecommendedRoute(hermes.ID, "hermes")
-	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw use --for claude claude" || cfg.SelectedRoute(claude.ID) != "" {
+	cfg.Models["claude"] = domain.Model{Account: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["hermes"] = domain.Model{Account: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetRecommendedModel(claude.ID, "claude")
+	cfg.SetRecommendedModel(hermes.ID, "hermes")
+	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw use --for claude claude" || cfg.SelectedModel(claude.ID) != "" {
 		t.Fatalf("Account connection mutated or skipped selection: action=%q bindings=%#v", got, cfg.Clients)
 	}
 
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw use --for claude claude" {
 		t.Fatalf("unprojected selected client action = %q", got)
 	}
@@ -143,7 +143,7 @@ func TestNextActionAfterAccountConnectionPreservesExplicitSelection(t *testing.T
 	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw check" {
 		t.Fatalf("projected selected client action = %q", got)
 	}
-	cfg.SetSelectedRoute(claude.ID, "", "")
+	cfg.SetSelectedModel(claude.ID, "", "")
 	cfg.Recommendations = map[string]domain.ClientRecommendation{}
 	if got := NextActionAfterAccountConnection(cfg, "team"); got != "aigw use --help" {
 		t.Fatalf("Account without a recommendation action = %q", got)
@@ -155,11 +155,11 @@ func TestNextActionAfterAccountConnectionKeepsRequiredProtocolExplicit(t *testin
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{
 		Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1",
 	}}
-	cfg.Routes["multi"] = domain.Route{Account: "team", Model: "model", Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+	cfg.Models["multi"] = domain.Model{Account: "team", Family: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{
 		domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
 	}}
 	cfg.Recommendations[hermes.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{
-		Route: "multi", Protocol: domain.ProtocolOpenAIResponses,
+		Model: "multi", Protocol: domain.ProtocolOpenAIResponses,
 	}}
 	want := "aigw use --for hermes --protocol openai_responses multi"
 	if got := NextActionAfterAccountConnection(cfg, "team"); got != want {
@@ -171,11 +171,11 @@ func TestAssessActivationListsUnselectedCompatibleEnvironmentAccounts(t *testing
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["ucloud"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://ucloud.test"}}
 	cfg.Accounts["dmx"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://dmx.test"}}
-	cfg.Routes["ucloud-claude"] = domain.Route{Account: "ucloud", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Routes["dmx-claude"] = domain.Route{Account: "dmx", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetRecommendedRoute(claude.ID, "ucloud-claude")
+	cfg.Models["ucloud-claude"] = domain.Model{Account: "ucloud", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["dmx-claude"] = domain.Model{Account: "dmx", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetRecommendedModel(claude.ID, "ucloud-claude")
 	recommendation := cfg.Recommendations[claude.ID]
-	recommendation.Alternatives = []domain.ClientSelection{{Route: "dmx-claude"}}
+	recommendation.Alternatives = []domain.ClientSelection{{Model: "dmx-claude"}}
 	cfg.Recommendations[claude.ID] = recommendation
 
 	got := AssessActivation(cfg, secret.NewEnvironmentStore(func(string) string { return "" }))
@@ -188,14 +188,14 @@ func TestAssessActivationListsUnselectedCompatibleEnvironmentAccounts(t *testing
 func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Routes["claude"] = domain.Route{Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetRecommendedRoute(claude.ID, "claude")
+	cfg.Models["claude"] = domain.Model{Account: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetRecommendedModel(claude.ID, "claude")
 	got := AssessActivation(cfg, unobservedWritableStore{})
 	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != "Choose one compatible Account: aigw rotate team" || got.CredentialPrerequisite == "" {
 		t.Fatalf("native backend activation = %+v", got)
 	}
 
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	got = AssessActivation(cfg, selectedMetadataStore{})
 	if got.EnabledClients != 1 || got.State != "" || got.VerificationPrerequisite != "aigw check" {
@@ -206,8 +206,8 @@ func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T)
 func TestAssessActivationSelectedWritableAccountRequiresItsToken(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Routes["claude"] = domain.Route{Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["claude"] = domain.Model{Account: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	store := secret.NewMemoryStore()
 
 	got := AssessActivation(cfg, store)
@@ -226,8 +226,8 @@ func TestAssessActivationSelectedWritableAccountRequiresItsToken(t *testing.T) {
 func TestAssessActivationDoesNotRecommendNoOpSyncBeforeClientActivation(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Routes["claude"] = domain.Route{Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["claude"] = domain.Model{Account: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	store := secret.NewMemoryStore()
 	if err := store.Set("team", "token"); err != nil {
 		t.Fatal(err)
@@ -245,10 +245,10 @@ func TestAssessActivationDoesNotInstallAClientWhoseSelectedTokenIsMissing(t *tes
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["missing"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
 	cfg.Accounts["connected"] = domain.Account{Endpoints: domain.Endpoints{OpenAIResponses: "https://connected.test/v1"}}
-	cfg.Routes["claude"] = domain.Route{Account: "missing", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.Routes["codex"] = domain.Route{Account: "connected", Model: "gpt", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
-	cfg.SetRecommendedRoute(codex.ID, "codex")
+	cfg.Models["claude"] = domain.Model{Account: "missing", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Models["codex"] = domain.Model{Account: "connected", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.SetRecommendedModel(codex.ID, "codex")
 	store := secret.NewEnvironmentStore(func(key string) string {
 		if key == secret.EnvironmentKey("connected") {
 			return "available-token"
@@ -273,8 +273,8 @@ func TestAssessActivationDoesNotInstallAClientWhoseSelectedTokenIsMissing(t *tes
 func TestAssessActivationDoesNotVerifyWithoutCredentialMetadata(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Routes["claude"] = domain.Route{Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["claude"] = domain.Model{Account: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 
 	for _, test := range []struct {
@@ -296,8 +296,8 @@ func TestAssessActivationDoesNotVerifyWithoutCredentialMetadata(t *testing.T) {
 func TestAssessActivationDoesNotVerifyWithoutSelectedToken(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Routes["claude"] = domain.Route{Account: "team", Model: "fable", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["claude"] = domain.Model{Account: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 
 	got := AssessActivation(cfg, secret.NewMemoryStore())
@@ -309,8 +309,8 @@ func TestAssessActivationDoesNotVerifyWithoutSelectedToken(t *testing.T) {
 func TestAssessActivationSeparatesEnabledIntentFromDeferredProjection(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Routes["hermes"] = domain.Route{Account: "team", Model: "model", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(hermes.ID, "hermes", "")
+	cfg.Models["hermes"] = domain.Model{Account: "team", Family: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(hermes.ID, "hermes", "")
 	cfg.SetClientActivation(hermes.ID, true, "", nil)
 
 	got := AssessActivation(cfg, selectedMetadataStore{})
@@ -319,7 +319,7 @@ func TestAssessActivationSeparatesEnabledIntentFromDeferredProjection(t *testing
 		t.Fatalf("selected but unprojected client = %+v", got)
 	}
 
-	cfg.SetSelectedRoute(codex.ID, "hermes", "")
+	cfg.SetSelectedModel(codex.ID, "hermes", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{"/opt/codex/config.toml"})
 	got = AssessActivation(cfg, selectedMetadataStore{})
 	if got.EnabledClients != 2 || got.State != "" || got.NextActionFor(nil) != want || got.ProjectionPrerequisites[hermes.ID] != want {
@@ -330,8 +330,8 @@ func TestAssessActivationSeparatesEnabledIntentFromDeferredProjection(t *testing
 func TestAssessActivationSeparatesMissingTokenFromDeferredProjection(t *testing.T) {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = domain.Account{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Routes["hermes"] = domain.Route{Account: "team", Model: "model", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(hermes.ID, "hermes", "")
+	cfg.Models["hermes"] = domain.Model{Account: "team", Family: "model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(hermes.ID, "hermes", "")
 	cfg.SetClientActivation(hermes.ID, true, "", nil)
 
 	missing := secret.NewEnvironmentStore(func(string) string { return "" })

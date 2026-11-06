@@ -95,7 +95,7 @@ func runManifestSetup(ctx context.Context, runtime invocation.Context, request s
 			tokens[item.account] = item.token
 		}
 	}
-	cfg, err = cfg.SelectRoutesForConnectedAccounts(connectedAccounts)
+	cfg, err = cfg.SelectModelsForConnectedAccounts(connectedAccounts)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 			}
 		}
 	}
-	planned, err := cfg.SelectRoutesForConnectedAccounts(connecting)
+	planned, err := cfg.SelectModelsForConnectedAccounts(connecting)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 	}
 	result := manifestSetupResult{
 		DryRun:             true,
-		Imported:           manifestSetupImported{Accounts: append([]string(nil), accountNames...), Routes: planned.RouteIDs()},
+		Imported:           manifestSetupImported{Accounts: append([]string(nil), accountNames...), Routes: planned.ModelIDs()},
 		ConnectedAccounts:  []string{},
 		Selections:         map[string]string{},
 		ProjectedClients:   []string{},
@@ -163,8 +163,8 @@ func writeManifestPreview(runtime invocation.Context, request setupRequest, befo
 		Preview:            preview,
 	}
 	for client, binding := range planned.Clients {
-		if binding.Route != "" {
-			result.Selections[client] = binding.Route
+		if binding.Model != "" {
+			result.Selections[client] = binding.Model
 		}
 	}
 	result.NextAction, result.NextDetail = terminal.NextSteps(request.apply)
@@ -221,7 +221,7 @@ func buildManifestSetupResult(
 	result := manifestSetupResult{
 		Imported: manifestSetupImported{
 			Accounts: append([]string(nil), accountNames...),
-			Routes:   cfg.RouteIDs(),
+			Routes:   cfg.ModelIDs(),
 		},
 		ConnectedAccounts:  make([]string, 0, len(connected)),
 		Selections:         make(map[string]string, len(cfg.Clients)),
@@ -239,8 +239,8 @@ func buildManifestSetupResult(
 		}
 	}
 	for client, binding := range cfg.Clients {
-		if binding.Route != "" {
-			result.Selections[client] = binding.Route
+		if binding.Model != "" {
+			result.Selections[client] = binding.Model
 		}
 	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
@@ -250,7 +250,7 @@ func buildManifestSetupResult(
 	}
 	for _, spec := range runtime.Clients.Admission().Specs() {
 		binding, selected := cfg.Clients[spec.ID]
-		if !selected || binding.Route == "" || !binding.Enabled || slices.Contains(result.ProjectedClients, spec.ID) {
+		if !selected || binding.Model == "" || !binding.Enabled || slices.Contains(result.ProjectedClients, spec.ID) {
 			continue
 		}
 		if action := activation.ClientCredentialPrerequisites[spec.ID]; action != "" && !slices.Contains(result.DeferredActions, action) {
@@ -384,7 +384,7 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg domain.Conf
 
 func configuredClientsForAccount(cfg domain.Config, accountName string) []string {
 	seen := map[string]bool{}
-	for routeID, route := range cfg.Routes {
+	for routeID, route := range cfg.Models {
 		if route.Account != accountName {
 			continue
 		}
@@ -408,7 +408,7 @@ func configuredClientsForAccount(cfg domain.Config, accountName string) []string
 func accountHasRecommendedTokenSelection(cfg domain.Config, accountName string) bool {
 	for _, recommendation := range cfg.Recommendations {
 		for _, selection := range recommendation.Selections() {
-			route := cfg.Routes[selection.Route]
+			route := cfg.Models[selection.Model]
 			if route.Account == accountName && selection.Authentication != domain.AuthenticationClientNative {
 				return true
 			}

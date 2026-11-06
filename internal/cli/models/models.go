@@ -56,7 +56,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(cfg.Routes) == 0 {
+			if len(cfg.Models) == 0 {
 				return fmt.Errorf("not configured; run `aigw setup`")
 			}
 			rows := modelRows(cfg, app.DiscoverCatalog(cmd.Context(), runtime.Secrets, runtime.HTTP, cfg))
@@ -65,7 +65,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				for _, row := range rows {
 					document.Routes = append(document.Routes, routeModel{
 						Route: row.Route, Account: row.Account, Protocol: row.Protocol,
-						Model: cfg.Routes[row.Route].Model, UpstreamModel: row.Model, Catalog: row.State,
+						Model: cfg.Models[row.Route].Family, UpstreamModel: row.Model, Catalog: row.State,
 					})
 				}
 				return terminal.WriteDocument(runtime.Out, schemaVersion, true, document)
@@ -96,8 +96,8 @@ func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 		observations[observationKey(observation.Account, observation.Source.Protocol)] = observation
 	}
 	rows := []modelRow{}
-	for _, routeID := range cfg.CatalogRouteIDs() {
-		route := cfg.Routes[routeID]
+	for _, routeID := range cfg.CatalogModelIDs() {
+		route := cfg.Models[routeID]
 		protocols := route.AdmittedProtocols()
 		if len(protocols) == 0 {
 			rows = append(rows, modelRow{Route: routeID, Account: route.Account, Model: route.UpstreamModelID(), Catalog: "Catalog not observed", State: "not_observed"})
@@ -124,7 +124,7 @@ func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 		if result := domain.CompareProtocols(left.Protocol, right.Protocol); result != 0 {
 			return result
 		}
-		return cfg.CompareFamilies(cfg.Routes[left.Route].Model, cfg.Routes[right.Route].Model)
+		return cfg.CompareFamilies(cfg.Models[left.Route].Family, cfg.Models[right.Route].Family)
 	})
 	return rows
 }

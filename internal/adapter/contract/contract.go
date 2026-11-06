@@ -23,7 +23,7 @@ import (
 
 // Fixture is one adapter's projection scenario. Every file that the adapter may
 // write lives below Home. Before has no projection for the adapter, After
-// enables it, and Runtime is After's selected runtime; its RouteID, when set, is
+// enables it, and Runtime is After's selected runtime; its ModelID, when set, is
 // the explicit Route that one verification names.
 type Fixture struct {
 	Adapter      adapter.Adapter
@@ -170,8 +170,8 @@ func observeWithoutEffects(ctx context.Context, fixture Fixture, when string) er
 // explicitRoute is the Route that one verification names: the fixture's
 // selected Route, or a placeholder when the fixture selects none.
 func explicitRoute(fixture Fixture) string {
-	if fixture.Runtime.RouteID != "" {
-		return fixture.Runtime.RouteID
+	if fixture.Runtime.ModelID != "" {
+		return fixture.Runtime.ModelID
 	}
 	return "contract"
 }

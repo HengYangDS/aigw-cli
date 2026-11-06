@@ -69,7 +69,7 @@ type Plan struct {
 	ExternalTODOs      []string `json:"external_todos"`
 
 	Config               domain.Config  `json:"-"`
-	Route                domain.Route   `json:"-"`
+	Route                domain.Model   `json:"-"`
 	Account              domain.Account `json:"-"`
 	tokenCopy            tokenCopy      `json:"-"`
 	probeCopy            probeCopy      `json:"-"`

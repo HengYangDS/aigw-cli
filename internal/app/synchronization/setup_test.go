@@ -50,8 +50,8 @@ func (discover setupDiscovery) Discover() discovery.Result {
 func setupConfiguration() domain.Config {
 	cfg := domain.NewConfig(builtinclients.Admission())
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
-	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	return cfg
 }
 
@@ -127,7 +127,7 @@ func TestSetupRejectsInvalidConfigurationBeforeCredentialMutation(t *testing.T) 
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "aigw.toml"), builtinclients.Admission())
 	credentials := setupTokenStore(t, "original")
 	after := setupConfiguration()
-	after.SetSelectedRoute(claude.ID, "missing-route", "")
+	after.SetSelectedModel(claude.ID, "missing-route", "")
 	_, err := (Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials}).Setup(t.Context(), domain.NewConfig(builtinclients.Admission()), after, map[string]string{"team": "replacement"})
 	if err == nil {
 		t.Fatal("setup accepted an unresolved route")

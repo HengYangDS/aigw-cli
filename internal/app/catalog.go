@@ -49,7 +49,7 @@ type CatalogRoute struct {
 	Model         string                `json:"model"`
 	UpstreamModel string                `json:"upstream_model"`
 	Capabilities  []domain.Capability   `json:"capabilities"`
-	Lifecycle     domain.RouteLifecycle `json:"lifecycle"`
+	Lifecycle     domain.ModelLifecycle `json:"lifecycle"`
 	Evidence      CatalogEvidence       `json:"evidence"`
 }
 
@@ -174,16 +174,16 @@ func catalogDifference(cfg domain.Config, account string, protocol domain.Endpoi
 
 	routesByModel := make(map[string][]CatalogRoute)
 	missing := []CatalogRoute{}
-	for _, routeID := range cfg.CatalogRouteIDs() {
-		route := cfg.Routes[routeID]
-		capabilities, admitted := route.Interfaces[protocol]
+	for _, routeID := range cfg.CatalogModelIDs() {
+		route := cfg.Models[routeID]
+		capabilities, admitted := route.Protocols[protocol]
 		if route.Account != account || !admitted {
 			continue
 		}
 		capabilities = slices.Clone(capabilities)
 		slices.Sort(capabilities)
 		entry := CatalogRoute{
-			ID: routeID, Model: route.Model, UpstreamModel: route.UpstreamModelID(),
+			ID: routeID, Model: route.Family, UpstreamModel: route.UpstreamModelID(),
 			Capabilities: capabilities, Lifecycle: route.LifecycleState(), Evidence: CatalogObserved,
 		}
 		routesByModel[entry.UpstreamModel] = append(routesByModel[entry.UpstreamModel], entry)
@@ -198,7 +198,7 @@ func catalogDifference(cfg domain.Config, account string, protocol domain.Endpoi
 		routes := routesByModel[id]
 		state := CatalogCandidate
 		for _, route := range routes {
-			if route.Lifecycle == domain.RouteAdmitted {
+			if route.Lifecycle == domain.ModelAdmitted {
 				state = CatalogAdmitted
 				break
 			}

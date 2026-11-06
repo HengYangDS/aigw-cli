@@ -23,7 +23,7 @@ import (
 func catalogRuntime(t *testing.T, cfg domain.Config, secretValues map[string]string, client app.HTTPDoer) (invocation.Context, *bytes.Buffer) {
 	t.Helper()
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
-	if len(cfg.Routes) > 0 {
+	if len(cfg.Models) > 0 {
 		if err := configStore.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -49,15 +49,15 @@ func executeCatalogCommand(t *testing.T, command *cobra.Command, args ...string)
 func configuredCatalog() domain.Config {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1", Anthropic: "https://gateway.test"}}
-	cfg.Routes["codex"] = domain.Route{
-		Label: "Codex", Account: "gateway", Model: "gpt-codex",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["codex"] = domain.Model{
+		Label: "Codex", Account: "gateway", Family: "gpt-codex",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.Routes["claude"] = domain.Route{
-		Label: "Claude", Account: "gateway", Model: "gpt-claude",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	cfg.Models["claude"] = domain.Model{
+		Label: "Claude", Account: "gateway", Family: "gpt-claude",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.SetSelectedModel(codex.ID, "codex", "")
 	return cfg
 }
 
@@ -77,10 +77,10 @@ func TestCatalogCommandCoversJSONHumanAndAccountStates(t *testing.T) {
 	cfg.Accounts["missing"] = domain.Account{Label: "Missing", Endpoints: domain.Endpoints{OpenAIResponses: "https://missing.test/v1"}}
 	cfg.Accounts["denied"] = domain.Account{Label: "Denied", Endpoints: domain.Endpoints{OpenAIResponses: "https://denied.test/v1"}}
 	cfg.Accounts["broken"] = domain.Account{Label: "Broken", Endpoints: domain.Endpoints{OpenAIResponses: "https://broken.test/v1"}}
-	cfg.Routes["anthropic"] = domain.Route{Label: "Anthropic", Account: "anthropic", Model: "claude"}
-	cfg.Routes["missing"] = domain.Route{Label: "Missing", Account: "missing", Model: "missing"}
-	cfg.Routes["denied"] = domain.Route{Label: "Denied", Account: "denied", Model: "denied"}
-	cfg.Routes["broken"] = domain.Route{Label: "Broken", Account: "broken", Model: "broken"}
+	cfg.Models["anthropic"] = domain.Model{Label: "Anthropic", Account: "anthropic", Family: "claude"}
+	cfg.Models["missing"] = domain.Model{Label: "Missing", Account: "missing", Family: "missing"}
+	cfg.Models["denied"] = domain.Model{Label: "Denied", Account: "denied", Family: "denied"}
+	cfg.Models["broken"] = domain.Model{Label: "Broken", Account: "broken", Family: "broken"}
 	secretStore := &faultingSecrets{values: map[string]string{"gateway": "token", "denied": "token", "broken": "token"}, failAccount: "denied", getErr: errors.New("denied")}
 	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
 		if request.URL.Host == "broken.test" {

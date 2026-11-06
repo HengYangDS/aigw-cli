@@ -26,7 +26,7 @@ func (runner captureRunner) RunCaptureStreams(context.Context, process.Plan) ([]
 }
 
 func TestClaudeWarningsDoNotQualifyVerification(t *testing.T) {
-	selected := domain.Runtime{RouteID: "claude", Model: "claude-test", CredentialCommand: filepath.Join(t.TempDir(), "aigw")}
+	selected := domain.Runtime{ModelID: "claude", UpstreamModel: "claude-test", CredentialCommand: filepath.Join(t.TempDir(), "aigw")}
 	for _, diagnostic := range []string{"warning: native capability incomplete\n", "ERROR client could not initialize\n"} {
 		runner := captureRunner{output: []byte("AIGW_OK\n"), stderr: []byte(diagnostic)}
 		if err := verifyRuntime(t.Context(), runner, "claude", filepath.Join(t.TempDir(), "settings.json"), selected, "token", ""); err == nil {
@@ -41,10 +41,10 @@ func verificationConfig() domain.Config {
 		OpenAIResponses: "https://one.test/v1",
 		Anthropic:       "https://one.test",
 	}}
-	cfg.Routes["codex"] = domain.Route{Label: "Codex", Account: "one", Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "one", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(otherClient.ID, "codex", "")
-	cfg.SetSelectedRoute(ID, "claude", "")
+	cfg.Models["codex"] = domain.Model{Label: "Codex", Account: "one", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "one", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(otherClient.ID, "codex", "")
+	cfg.SetSelectedModel(ID, "claude", "")
 	return cfg
 }
 
@@ -56,10 +56,10 @@ func TestVerifyClaude(t *testing.T) {
 	}
 	settings := filepath.Join(t.TempDir(), "settings.json")
 	runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
-	if _, err := ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.Model); err != nil {
+	if _, err := ReconcileSettings(settings, false, runtime, runtime.CredentialCommand, runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
-	if err := verifyRuntime(t.Context(), nil, "claude", settings, domain.Runtime{RouteID: "one"}, "token", ""); err == nil || !strings.Contains(err.Error(), "no Claude model") {
+	if err := verifyRuntime(t.Context(), nil, "claude", settings, domain.Runtime{ModelID: "one"}, "token", ""); err == nil || !strings.Contains(err.Error(), "no Claude model") {
 		t.Fatalf("model error = %v", err)
 	}
 	if err := verifyRuntime(t.Context(), nil, "", settings, runtime, "token", ""); err == nil || !strings.Contains(err.Error(), "executable is not configured") {

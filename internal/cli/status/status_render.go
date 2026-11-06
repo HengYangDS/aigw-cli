@@ -14,7 +14,7 @@ import (
 
 func renderStatus(runtime invocation.Context, cfg domain.Config, result statusReport) {
 	r := invocation.Renderer(runtime)
-	if len(cfg.Routes) == 0 {
+	if len(cfg.Models) == 0 {
 		r.ProductTitle("Not configured")
 		r.Section("Get started")
 		r.Text("Run the guided setup once to add an Account, Token, and first Route.")

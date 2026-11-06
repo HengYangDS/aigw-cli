@@ -23,8 +23,8 @@ func (c *Config) Normalize() {
 	if c.Families == nil {
 		c.Families = map[string]Family{}
 	}
-	if c.Routes == nil {
-		c.Routes = map[string]Route{}
+	if c.Models == nil {
+		c.Models = map[string]Model{}
 	}
 	if c.Recommendations == nil {
 		c.Recommendations = map[string]ClientRecommendation{}
@@ -32,17 +32,17 @@ func (c *Config) Normalize() {
 	if c.Clients == nil {
 		c.Clients = map[string]ClientBinding{}
 	}
-	for _, id := range c.RouteIDs() {
-		route := c.Routes[id]
+	for _, id := range c.ModelIDs() {
+		route := c.Models[id]
 		if route.UpstreamModel == "" {
-			route.UpstreamModel = route.Model
+			route.UpstreamModel = route.Family
 		}
-		if route.Model != "" {
-			if _, exists := c.Families[route.Model]; !exists {
-				c.Families[route.Model] = Family{Label: route.Model}
+		if route.Family != "" {
+			if _, exists := c.Families[route.Family]; !exists {
+				c.Families[route.Family] = Family{Label: route.Family}
 			}
 		}
-		c.Routes[id] = route
+		c.Models[id] = route
 	}
 }
 
@@ -62,7 +62,7 @@ func (c *Config) validateCollections() error {
 	if c.Version != ConfigVersion {
 		return &UnsupportedConfigVersionError{Version: c.Version, ExpectedVersion: ConfigVersion}
 	}
-	if len(c.Routes) == 0 {
+	if len(c.Models) == 0 {
 		return errors.New("at least one route is required")
 	}
 	if len(c.Accounts) == 0 {
@@ -78,8 +78,8 @@ func (c *Config) validateCollections() error {
 			return err
 		}
 	}
-	for _, name := range c.RouteIDs() {
-		if err := c.Routes[name].validate(name, c.Accounts, c.Families); err != nil {
+	for _, name := range c.ModelIDs() {
+		if err := c.Models[name].validate(name, c.Accounts, c.Families); err != nil {
 			return err
 		}
 	}
@@ -92,15 +92,15 @@ func (c *Config) validateRecommendations() error {
 			return fmt.Errorf("unknown client recommendation %q; supported clients are %s", client, c.admission.Usage())
 		}
 		recommendation := c.Recommendations[client]
-		if recommendation.Primary.Route == "" {
+		if recommendation.Primary.Model == "" {
 			return fmt.Errorf("client recommendation %q has no primary route", client)
 		}
 		for index, selection := range append([]ClientSelection{recommendation.Primary}, recommendation.Alternatives...) {
 			if err := c.validateSelection(client, selection); err != nil {
 				return fmt.Errorf("client recommendation %q choice %d: %w", client, index+1, err)
 			}
-			if c.Routes[selection.Route].LifecycleState() == RouteDeprecated {
-				return fmt.Errorf("client recommendation %q choice %d references deprecated route %q", client, index+1, selection.Route)
+			if c.Models[selection.Model].LifecycleState() == ModelDeprecated {
+				return fmt.Errorf("client recommendation %q choice %d references deprecated route %q", client, index+1, selection.Model)
 			}
 		}
 	}
@@ -114,7 +114,7 @@ func (c *Config) validateClientBindings() error {
 			return fmt.Errorf("unknown client binding %q", client)
 		}
 		binding := c.clientBinding(client)
-		if binding.Route == "" {
+		if binding.Model == "" {
 			if binding.Enabled || binding.Protocol != "" || binding.ModelProvider != "" || binding.Authentication != "" || binding.ForwardingEndpoint != "" || binding.RetryPolicy != nil {
 				return fmt.Errorf("client binding %q must select a route before it can be enabled or define runtime options", client)
 			}
@@ -150,7 +150,7 @@ func (c *Config) validateForwarding(client string, binding ClientBinding) error 
 	if runtime.CredentialProjectionFingerprint(client) == binding.ForwardingUpstreamIdentity && runtime.Protocol == binding.ForwardingProtocol {
 		return nil
 	}
-	direct := "aigw use --for " + client + " " + binding.Route + " --direct"
+	direct := "aigw use --for " + client + " " + binding.Model + " --direct"
 	if binding.RetryPolicy != nil {
 		// The direct connection is a new connection, which a selected retry
 		// policy would otherwise refuse.
@@ -160,15 +160,15 @@ func (c *Config) validateForwarding(client string, binding ClientBinding) error 
 }
 
 func (c *Config) validateSelection(client string, selection ClientSelection) error {
-	route, ok := c.Routes[selection.Route]
+	route, ok := c.Models[selection.Model]
 	if !ok {
-		return fmt.Errorf("references unknown route %q", selection.Route)
+		return fmt.Errorf("references unknown route %q", selection.Model)
 	}
 	account := c.Accounts[route.Account]
 	account.ID = route.Account
 	spec, _ := c.admission.Spec(client)
-	if _, _, err := spec.resolveRouteEndpoint(account, route, selection.Protocol); err != nil {
-		return fmt.Errorf("route %q: %w", selection.Route, err)
+	if _, _, err := spec.resolveModelEndpoint(account, route, selection.Protocol); err != nil {
+		return fmt.Errorf("route %q: %w", selection.Model, err)
 	}
 	return selection.validate(spec, c.admission)
 }
@@ -267,7 +267,7 @@ func (model Family) validate(name string) error {
 	return nil
 }
 
-func (route Route) validate(name string, accounts map[string]Account, models map[string]Family) error {
+func (route Model) validate(name string, accounts map[string]Account, models map[string]Family) error {
 	if !ValidIdentifier(name) {
 		return fmt.Errorf("invalid route name %q; use letters, numbers, dot, dash, or underscore", name)
 	}
@@ -278,23 +278,23 @@ func (route Route) validate(name string, accounts map[string]Account, models map
 	if !ok {
 		return fmt.Errorf("route %q references unknown account %q", name, route.Account)
 	}
-	if strings.TrimSpace(route.Model) == "" {
+	if strings.TrimSpace(route.Family) == "" {
 		return fmt.Errorf("route %q must reference a model", name)
 	}
 	if len(models) > 0 {
-		if _, ok := models[route.Model]; !ok {
-			return fmt.Errorf("route %q references unknown model %q", name, route.Model)
+		if _, ok := models[route.Family]; !ok {
+			return fmt.Errorf("route %q references unknown model %q", name, route.Family)
 		}
 	}
 	if route.UpstreamModel != "" && strings.TrimSpace(route.UpstreamModel) == "" {
 		return fmt.Errorf("route %q has an empty upstream model", name)
 	}
 	switch route.LifecycleState() {
-	case RouteAdmitted, RouteDeprecated:
+	case ModelAdmitted, ModelDeprecated:
 	default:
 		return fmt.Errorf("route %q has invalid lifecycle %q", name, route.Lifecycle)
 	}
-	protocols := routeAdmittedProtocols(route)
+	protocols := modelAdmittedProtocols(route)
 	seen := make(map[EndpointProtocol]bool, len(protocols))
 	for _, protocol := range protocols {
 		switch protocol {
@@ -310,7 +310,7 @@ func (route Route) validate(name string, accounts map[string]Account, models map
 		}
 		seen[protocol] = true
 	}
-	for protocol, capabilities := range route.Interfaces {
+	for protocol, capabilities := range route.Protocols {
 		seenCapabilities := make(map[Capability]bool, len(capabilities))
 		for _, capability := range capabilities {
 			if !capability.Known() {

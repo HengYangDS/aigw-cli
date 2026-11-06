@@ -24,7 +24,7 @@ func TestFailedClaudeVerificationRetriesTheSameInvocation(t *testing.T) {
 			}
 			claudeRuntime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
 			settings := filepath.Join(t.TempDir(), "settings.json")
-			if _, err := ReconcileSettings(settings, false, claudeRuntime, claudeRuntime.CredentialCommand, claudeRuntime.Model); err != nil {
+			if _, err := ReconcileSettings(settings, false, claudeRuntime, claudeRuntime.CredentialCommand, claudeRuntime.UpstreamModel); err != nil {
 				t.Fatal(err)
 			}
 			want := "`aigw verify --for claude" + suffix + "`"

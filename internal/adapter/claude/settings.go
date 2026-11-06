@@ -206,10 +206,10 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 		return change, nil
 	}
 	if runtime.Endpoint == "" {
-		return settingsChange{}, fmt.Errorf("route %q has no Claude endpoint", runtime.RouteID)
+		return settingsChange{}, fmt.Errorf("route %q has no Claude endpoint", runtime.ModelID)
 	}
 	if runtime.AccountID == "" {
-		return settingsChange{}, fmt.Errorf("route %q has no account", runtime.RouteID)
+		return settingsChange{}, fmt.Errorf("route %q has no account", runtime.ModelID)
 	}
 	executable, err = validateExecutable(executable)
 	if err != nil {
@@ -228,7 +228,7 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 	projectedHash := managedSettingsHash(document)
 	scope := runtime.CredentialProjectionFingerprint(ID)
 	preserveModel := stateBefore.Exists && state.ManagedSHA256 != observedHash &&
-		previousModel == runtime.Model &&
+		previousModel == runtime.UpstreamModel &&
 		strings.HasSuffix(observedHelper, " credential claude "+scope)
 	if preserveModel {
 		// The sidecar retains the canonical Route hash, even when an owned
@@ -364,10 +364,10 @@ func projectSettings(document settingsDocument, runtime domain.Runtime, executab
 	}
 	environment["ANTHROPIC_BASE_URL"] = adapter.RawJSON(runtime.Endpoint)
 	document["env"], _ = json.Marshal(environment)
-	if runtime.Model == "" {
+	if runtime.UpstreamModel == "" {
 		delete(document, "model")
 	} else {
-		document["model"] = adapter.RawJSON(runtime.Model)
+		document["model"] = adapter.RawJSON(runtime.UpstreamModel)
 	}
 	document["apiKeyHelper"] = adapter.RawJSON(credentialHelper(executable, runtime.CredentialProjectionFingerprint(ID)))
 }

@@ -60,8 +60,8 @@ func TestMissingCandidateTokenPreservesRetainedProjection(t *testing.T) {
 	}
 	afterConfig := cfg.Clone()
 	afterConfig.Accounts["ready"] = domain.Account{Label: "Ready", Endpoints: domain.Endpoints{Anthropic: "https://ready.test"}}
-	afterConfig.Routes["claude"] = domain.Route{Label: "Claude", Account: "ready", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	afterConfig.SetSelectedRoute(claude.ID, "claude", "")
+	afterConfig.Models["claude"] = domain.Model{Label: "Claude", Account: "ready", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	afterConfig.SetSelectedModel(claude.ID, "claude", "")
 	afterConfig.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 
 	workerSource := filepath.Join(root, "candidate.go")
@@ -119,8 +119,8 @@ func TestMissingTokenDoesNotBlockIndependentNativeClientWhenReaderUnavailable(t 
 	codexBinding.ModelProvider = "amazon-bedrock"
 	cfg.Clients[codex.ID] = codexBinding
 	cfg.Accounts["missing"] = domain.Account{Label: "Missing", Endpoints: domain.Endpoints{Anthropic: "https://missing.test"}}
-	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "missing", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "missing", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	if err := cfg.Validate(); err != nil {
 		t.Fatal(err)

@@ -251,15 +251,15 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 			OpenAIResponses: "https://gateway.example.test/v1",
 		},
 	}
-	cfg.Routes["codex"] = domain.Route{
+	cfg.Models["codex"] = domain.Model{
 		Label:   "Codex",
 		Account: "gateway",
-		Model:   "gpt-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+		Family:  "gpt-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolOpenAIResponses: {},
 		},
 	}
-	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.SetSelectedModel(codex.ID, "codex", "")
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -274,12 +274,12 @@ func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Routes["claude"] = domain.Route{
+	cfg.Models["claude"] = domain.Model{
 		Label:   "Claude",
 		Purpose: "Team reviewer",
 		Account: "gateway",
-		Model:   "claude-next",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+		Family:  "claude-next",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolAnthropic: {},
 		},
 	}
@@ -298,7 +298,7 @@ func TestUseSelectsOnlyTheRoutesDeclaredClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SelectedRoute(claude.ID) != "claude" || got.SelectedRoute(codex.ID) != "codex" || len(got.Clients) != 2 {
+	if got.SelectedModel(claude.ID) != "claude" || got.SelectedModel(codex.ID) != "codex" || len(got.Clients) != 2 {
 		t.Fatalf("client bindings = %#v", got.Clients)
 	}
 	for _, want := range []string{"Route selected", "Claude", "Team reviewer", "Projection", "Install Claude if needed, then run `aigw sync`"} {
@@ -357,9 +357,9 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 			if err := store.Set("gateway", "token"); err != nil {
 				t.Fatal(err)
 			}
-			cfg.Routes["desktop"] = domain.Route{
-				Label: "Desktop", Account: "gateway", Model: "claude-test",
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+			cfg.Models["desktop"] = domain.Model{
+				Label: "Desktop", Account: "gateway", Family: "claude-test",
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 			}
 			var executable, library string
 			if test.installed {
@@ -374,7 +374,7 @@ func TestUseReportsClaudeDesktopActivationState(t *testing.T) {
 				}}
 			}
 			if test.preselected {
-				cfg.SetSelectedRoute(claudedesktop.ID, "desktop", "")
+				cfg.SetSelectedModel(claudedesktop.ID, "desktop", "")
 				cfg.SetClientActivation(claudedesktop.ID, true, executable, []string{library})
 			}
 			if err := runtime.Config.Save(cfg); err != nil {

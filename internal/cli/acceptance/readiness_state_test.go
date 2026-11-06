@@ -56,8 +56,8 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	app, out, _, runner, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://example.invalid"}}
-	cfg.Routes["claude"] = qualifiedRoute("Claude", "gateway", "fixture", domain.ProtocolAnthropic)
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["claude"] = qualifiedRoute("Claude", "gateway", "fixture", domain.ProtocolAnthropic)
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	command := filepath.Join(t.TempDir(), "credential adapter")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	binding := cfg.Clients[claude.ID]
@@ -139,7 +139,7 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 				claude.ID,
 				"claude-test",
 			)
-			cfg.SetSelectedRoute(claude.ID, "claude", "")
+			cfg.SetSelectedModel(claude.ID, "claude", "")
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
@@ -182,7 +182,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 				claude.ID,
 				"claude-test",
 			)
-			cfg.SetSelectedRoute(claude.ID, "claude", "")
+			cfg.SetSelectedModel(claude.ID, "claude", "")
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
@@ -218,7 +218,7 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 		claude.ID,
 		"claude-test",
 	)
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	synchronizeClaudeProjection(t, app, cfg)
 	if err := app.Config.Save(cfg); err != nil {
@@ -256,7 +256,7 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 				claude.ID,
 				"claude-test",
 			)
-			cfg.SetRecommendedRoute(claude.ID, "claude")
+			cfg.SetRecommendedModel(claude.ID, "claude")
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -296,7 +296,7 @@ func TestStatusAndDoctorObserveCredentialMetadataWithoutSideEffects(t *testing.T
 				Endpoints:    domain.Endpoints{Anthropic: "https://team.test"},
 				AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 			}
-			cfg.SetSelectedRoute(claude.ID, "claude", "")
+			cfg.SetSelectedModel(claude.ID, "claude", "")
 			cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 			synchronizeClaudeProjection(t, app, cfg)
 			if err := app.Config.Save(cfg); err != nil {
@@ -371,7 +371,7 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 		Endpoints:    domain.Endpoints{Anthropic: "https://team.test"},
 		AccountProbe: &domain.AccountProbe{Kind: "dmxapi", BaseURL: "https://diagnostics.test"},
 	}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -412,16 +412,16 @@ func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
 			OpenAIResponses: "https://codex.example.test/v1",
 		},
 	}
-	cfg.Routes["claude"] = domain.Route{
-		Label: "Claude", Account: "one", Model: "claude-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	cfg.Models["claude"] = domain.Model{
+		Label: "Claude", Account: "one", Family: "claude-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.Routes["codex"] = domain.Route{
-		Label: "Codex", Account: "one", Model: "gpt-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	cfg.Models["codex"] = domain.Model{
+		Label: "Codex", Account: "one", Family: "gpt-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
-	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.SetSelectedModel(claude.ID, "claude", "")
+	cfg.SetSelectedModel(codex.ID, "codex", "")
 	cfg.SetClientActivation(claude.ID, true, executableFixture(t, "claude"), nil)
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)

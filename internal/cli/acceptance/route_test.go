@@ -59,8 +59,8 @@ func TestRouteAddValidation(t *testing.T) {
 			t.Fatal(err)
 		}
 		cfg, _ := app.Config.Load()
-		if cfg.Routes["two"].Label != "two" {
-			t.Fatalf("route = %#v", cfg.Routes["two"])
+		if cfg.Models["two"].Label != "two" {
+			t.Fatalf("route = %#v", cfg.Models["two"])
 		}
 	})
 }
@@ -69,9 +69,9 @@ func TestRouteRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Routes["gpt-default"] = qualifiedRoute("GPT Default", "dmx", "gpt-default", domain.ProtocolOpenAIResponses)
-	cfg.Routes["gpt-unused"] = qualifiedRoute("GPT Unused", "dmx", "gpt-unused", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "gpt-default", "")
+	cfg.Models["gpt-default"] = qualifiedRoute("GPT Default", "dmx", "gpt-default", domain.ProtocolOpenAIResponses)
+	cfg.Models["gpt-unused"] = qualifiedRoute("GPT Unused", "dmx", "gpt-unused", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "gpt-default", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestRouteRemoveLeavesAccountAndTokenIntact(t *testing.T) {
 		t.Fatalf("account token changed: %q %v", got, err)
 	}
 	got, _ := app.Config.Load()
-	if _, ok := got.Routes["gpt-unused"]; ok || got.Accounts["dmx"].Label != "DMXAPI" {
+	if _, ok := got.Models["gpt-unused"]; ok || got.Accounts["dmx"].Label != "DMXAPI" {
 		t.Fatalf("remove config = %#v", got)
 	}
 }
@@ -92,7 +92,7 @@ func TestRouteAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "gpt", "dmx", "GPT", domain.Endpoints{OpenAIResponses: "https://dmx.test/v1", Anthropic: "https://dmx.test"}, codex.ID, "gpt-test")
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -107,11 +107,11 @@ func TestRouteAddReusesAccountTokenAndLeavesRouteUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	route := got.Routes["claude"]
-	if route.Account != "dmx" || route.Model != "claude-test" {
+	route := got.Models["claude"]
+	if route.Account != "dmx" || route.Family != "claude-test" {
 		t.Fatalf("added route = %#v", route)
 	}
-	if got.SelectedRoute(codex.ID) != "gpt" || !secretExists(t, secretStore, "dmx") || secretExists(t, secretStore, "claude") {
+	if got.SelectedModel(codex.ID) != "gpt" || !secretExists(t, secretStore, "dmx") || secretExists(t, secretStore, "claude") {
 		t.Fatalf("selection or token slots changed: clients=%#v dmx=%v claude=%v", got.Clients, secretExists(t, secretStore, "dmx"), secretExists(t, secretStore, "claude"))
 	}
 }
@@ -120,7 +120,7 @@ func TestRouteAddDoesNotConflateRouteCreationWithClientCompatibility(t *testing.
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "gpt", "openai-only", "OpenAI Only", domain.Endpoints{OpenAIResponses: "https://openai.test/v1"}, codex.ID, "gpt-test")
-	cfg.SetSelectedRoute(codex.ID, "gpt", "")
+	cfg.SetSelectedModel(codex.ID, "gpt", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -132,11 +132,11 @@ func TestRouteAddDoesNotConflateRouteCreationWithClientCompatibility(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	route, exists := got.Routes["claude"]
-	if !exists || route.Account != "openai-only" || route.Model != "claude-test" {
+	route, exists := got.Models["claude"]
+	if !exists || route.Account != "openai-only" || route.Family != "claude-test" {
 		t.Fatalf("created Route = %#v, exists=%v", route, exists)
 	}
-	if got.SelectedRoute(claude.ID) != "" {
+	if got.SelectedModel(claude.ID) != "" {
 		t.Fatalf("route creation selected a Claude binding: %#v", got.Clients)
 	}
 
@@ -171,16 +171,16 @@ func TestRouteReadsKeepClientAuthenticationInTheBinding(t *testing.T) {
 			OpenAIResponses: "https://native.test/v1",
 		},
 	}
-	cfg.Routes["native"] = domain.Route{
+	cfg.Models["native"] = domain.Model{
 		Label:   "Native",
 		Account: "native",
-		Model:   "native-model",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{
+		Family:  "native-model",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{
 			domain.ProtocolOpenAIResponses: {},
 		},
 	}
 	cfg.Clients[codex.ID] = domain.ClientBinding{
-		Route: "native", ModelProvider: "amazon-bedrock",
+		Model: "native", ModelProvider: "amazon-bedrock",
 		Authentication: domain.AuthenticationClientNative,
 	}
 	if err := app.Config.Save(cfg); err != nil {
@@ -229,13 +229,13 @@ func TestRouteListJSONIsStableAndClientIndependent(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["shared"] = domain.Account{Label: "Shared", Endpoints: domain.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
-	cfg.Routes["zeta"] = qualifiedRoute("Zeta", "shared", "claude-test", domain.ProtocolAnthropic)
-	cfg.Routes["alpha"] = qualifiedRoute("Alpha", "shared", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["zeta"] = qualifiedRoute("Zeta", "shared", "claude-test", domain.ProtocolAnthropic)
+	cfg.Models["alpha"] = qualifiedRoute("Alpha", "shared", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.Clients[codex.ID] = domain.ClientBinding{
-		Route: "alpha", ModelProvider: "amazon-bedrock",
+		Model: "alpha", ModelProvider: "amazon-bedrock",
 		Authentication: domain.AuthenticationClientNative,
 	}
-	cfg.SetSelectedRoute(claude.ID, "zeta", "")
+	cfg.SetSelectedModel(claude.ID, "zeta", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -275,11 +275,11 @@ func TestRouteShowRendersEverySecretFreeField(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["shared"] = domain.Account{Label: "Shared", Endpoints: domain.Endpoints{OpenAIResponses: "https://shared.test/v1", Anthropic: "https://shared.test"}}
-	cfg.Routes["codex"] = qualifiedRoute("Codex Model", "shared", "gpt-test", domain.ProtocolOpenAIResponses)
-	route := cfg.Routes["codex"]
+	cfg.Models["codex"] = qualifiedRoute("Codex Model", "shared", "gpt-test", domain.ProtocolOpenAIResponses)
+	route := cfg.Models["codex"]
 	route.Purpose = "Daily work"
-	cfg.Routes["codex"] = route
-	cfg.SetSelectedRoute(codex.ID, "codex", "")
+	cfg.Models["codex"] = route
+	cfg.SetSelectedModel(codex.ID, "codex", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -381,8 +381,8 @@ func TestAdvancedRouteReadEditAndRemoveErrors(t *testing.T) {
 		cfg := domain.NewConfig(clients.Admission())
 		addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1", Anthropic: "https://one.test"}, claude.ID, "m1")
 		addAccountRoute(&cfg, "two", "one", "Two", domain.Endpoints{}, codex.ID, "m2")
-		cfg.SetSelectedRoute(claude.ID, "one", "")
-		cfg.SetSelectedRoute(codex.ID, "two", "")
+		cfg.SetSelectedModel(claude.ID, "one", "")
+		cfg.SetSelectedModel(codex.ID, "two", "")
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
@@ -401,7 +401,7 @@ func TestRouteEditSynchronizesActiveCodexProjection(t *testing.T) {
 	}
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "one", "one", "One", domain.Endpoints{OpenAIResponses: "https://one.test/v1"}, codex.ID, "gpt")
-	cfg.SetSelectedRoute(codex.ID, "one", "")
+	cfg.SetSelectedModel(codex.ID, "one", "")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
@@ -423,7 +423,7 @@ func TestRouteRemoveRefusesActiveRoute(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	addAccountRoute(&cfg, "team", "team", "Team", domain.Endpoints{Anthropic: "https://team.test"}, claude.ID, "claude-test")
-	cfg.SetSelectedRoute(claude.ID, "team", "")
+	cfg.SetSelectedModel(claude.ID, "team", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}

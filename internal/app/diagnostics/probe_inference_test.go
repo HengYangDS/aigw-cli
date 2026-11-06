@@ -15,7 +15,7 @@ import (
 func inferenceRuntime() domain.Runtime {
 	selected := runtime()
 	selected.Protocol = domain.ProtocolOpenAIResponses
-	selected.Model = "gpt-6-sol"
+	selected.UpstreamModel = "gpt-6-sol"
 	return selected
 }
 
@@ -115,7 +115,7 @@ func TestInferenceScopeSuccessAndMissingModelHaveDistinctEvidence(t *testing.T) 
 	}
 
 	missing := inferenceRuntime()
-	missing.Model = ""
+	missing.UpstreamModel = ""
 	calls := 0
 	result = diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 		calls++
@@ -185,7 +185,7 @@ func TestInferenceScopeAcceptsTextOutputForEachProtocol(t *testing.T) {
 func TestExplicitModelUnavailableAtHTTP400(t *testing.T) {
 	selected := runtime()
 	selected.Protocol = domain.ProtocolAnthropic
-	selected.Model = "claude-fable-5-1"
+	selected.UpstreamModel = "claude-fable-5-1"
 	cases := []struct {
 		name, message string
 		kind          diagnostics.Kind

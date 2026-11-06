@@ -33,8 +33,8 @@ func TestInspectSettingsPreservesSidecarProvenNativeModelPreference(t *testing.T
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			selected := domain.Runtime{RouteID: "fable", AccountID: "ucloud", Endpoint: "https://ucloud.test", Model: "claude-fable-5-1"}
-			if _, err := ReconcileSettings(path, false, selected, testExecutable(), selected.Model); err != nil {
+			selected := domain.Runtime{ModelID: "fable", AccountID: "ucloud", Endpoint: "https://ucloud.test", UpstreamModel: "claude-fable-5-1"}
+			if _, err := ReconcileSettings(path, false, selected, testExecutable(), selected.UpstreamModel); err != nil {
 				t.Fatal(err)
 			}
 			document := readSettingsFile(t, path)
@@ -58,7 +58,7 @@ func TestInspectSettingsPreservesSidecarProvenNativeModelPreference(t *testing.T
 			if err := ValidateSettings(path, selected, testExecutable()); err != nil {
 				t.Fatalf("model-only native preference became invalid: %v", err)
 			}
-			plan, err := PlanSettings(path, false, selected, testExecutable(), selected.Model)
+			plan, err := PlanSettings(path, false, selected, testExecutable(), selected.UpstreamModel)
 			if err != nil || plan.Action != SettingsActionAlreadyConverged {
 				t.Fatalf("unchanged connection preview = %#v, %v", plan, err)
 			}
@@ -97,8 +97,8 @@ func TestInspectSettingsRejectsConnectionEditsAlongsideModelPreference(t *testin
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "settings.json")
-			selected := domain.Runtime{RouteID: "fable", AccountID: "ucloud", Endpoint: "https://ucloud.test", Model: "claude-fable-5-1"}
-			if _, err := ReconcileSettings(path, false, selected, testExecutable(), selected.Model); err != nil {
+			selected := domain.Runtime{ModelID: "fable", AccountID: "ucloud", Endpoint: "https://ucloud.test", UpstreamModel: "claude-fable-5-1"}
+			if _, err := ReconcileSettings(path, false, selected, testExecutable(), selected.UpstreamModel); err != nil {
 				t.Fatal(err)
 			}
 			document := readSettingsFile(t, path)

@@ -67,15 +67,15 @@ func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testi
 		t.Fatal(err)
 	}
 	for _, account := range []string{"dmxapi", "aihubmix", "ucloud"} {
-		route, exists := manifest.Routes[account+"-gpt-6.1-sol"]
-		if !exists || route.Account != account || route.Model != "gpt-6.1-sol" || route.UpstreamModelID() != "gpt-6.1-sol" {
+		route, exists := manifest.Models[account+"-gpt-6.1-sol"]
+		if !exists || route.Account != account || route.Family != "gpt-6.1-sol" || route.UpstreamModelID() != "gpt-6.1-sol" {
 			t.Fatalf("%s 6.1 Sol Route = %#v, present=%t", account, route, exists)
 		}
-		if len(route.Interfaces) != 1 {
-			t.Fatalf("%s 6.1 Sol protocols = %#v", account, route.Interfaces)
+		if len(route.Protocols) != 1 {
+			t.Fatalf("%s 6.1 Sol protocols = %#v", account, route.Protocols)
 		}
-		if _, ok := route.Interfaces[domain.ProtocolOpenAIResponses]; !ok {
-			t.Fatalf("%s 6.1 Sol lacks Responses: %#v", account, route.Interfaces)
+		if _, ok := route.Protocols[domain.ProtocolOpenAIResponses]; !ok {
+			t.Fatalf("%s 6.1 Sol lacks Responses: %#v", account, route.Protocols)
 		}
 	}
 	if got := manifest.Accounts["dmxapi"].Endpoints.OpenAIResponses; got != "https://www.dmxapi.cn/v1" {
@@ -90,8 +90,8 @@ func TestTeamManifestRecommendsDmxapiBeforeUcloudAndKeepsNativeEndpoint(t *testi
 			t.Fatalf("%s setup choices = %#v, want %q", client, selections, want)
 		}
 		for index, selection := range selections {
-			if selection.Route != want[index] {
-				t.Fatalf("%s setup choice %d = %q, want %q", client, index, selection.Route, want[index])
+			if selection.Model != want[index] {
+				t.Fatalf("%s setup choice %d = %q, want %q", client, index, selection.Model, want[index])
 			}
 		}
 	}
@@ -160,7 +160,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected, err = selected.SelectRoutesForConnectedAccounts([]string{account}, plan.clients...)
+	selected, err = selected.SelectModelsForConnectedAccounts([]string{account}, plan.clients...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,8 +181,8 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 		t.Fatal(err)
 	}
 	for _, client := range plan.clients {
-		route := selected.SelectedRoute(client)
-		if planned, got := preview.Selections[client], actual.SelectedRoute(client); planned != route || got != route {
+		route := selected.SelectedModel(client)
+		if planned, got := preview.Selections[client], actual.SelectedModel(client); planned != route || got != route {
 			t.Fatalf("late sync selected %s Route %q after preview %q, want %q", client, got, planned, route)
 		}
 		if _, isManual := manual[client]; isManual && actual.Clients[client].Enabled {
@@ -195,7 +195,7 @@ func (plan teamManifestJourney) runAccount(t *testing.T, account string, clientF
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := actual.SelectedRoute(client); got != choice.route {
+		if got := actual.SelectedModel(client); got != choice.route {
 			t.Fatalf("explicit use selected %s Route %q, want %q", client, got, choice.route)
 		}
 	}
@@ -208,7 +208,7 @@ func (plan teamManifestJourney) manualSelections(
 	t.Helper()
 	manual := make(map[string]manualRouteSelection)
 	for _, client := range plan.clients {
-		if selected.SelectedRoute(client) != "" {
+		if selected.SelectedModel(client) != "" {
 			continue
 		}
 		choice, ok := plan.manualRoute(account, client)
@@ -229,13 +229,13 @@ func (plan teamManifestJourney) manualRoute(account, client string) (manualRoute
 	if !found {
 		return manualRouteSelection{}, false
 	}
-	model := plan.manifest.Routes[recommendation.Primary.Route].Model
-	for _, routeID := range slices.Sorted(maps.Keys(plan.manifest.Routes)) {
-		route := plan.manifest.Routes[routeID]
-		if route.Account != account || route.Model != model {
+	model := plan.manifest.Models[recommendation.Primary.Model].Family
+	for _, routeID := range slices.Sorted(maps.Keys(plan.manifest.Models)) {
+		route := plan.manifest.Models[routeID]
+		if route.Account != account || route.Family != model {
 			continue
 		}
-		protocols := spec.CompatibleRouteProtocols(plan.manifest.Accounts[account], route)
+		protocols := spec.CompatibleModelProtocols(plan.manifest.Accounts[account], route)
 		if len(protocols) == 0 {
 			continue
 		}
@@ -279,7 +279,7 @@ func (plan teamManifestJourney) requireSelectedAccount(t *testing.T, journey *jo
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Accounts) != len(plan.manifest.Accounts) || len(cfg.Routes) != len(plan.manifest.Routes) {
+	if len(cfg.Accounts) != len(plan.manifest.Accounts) || len(cfg.Models) != len(plan.manifest.Models) {
 		t.Fatal("setup lost reviewed team capabilities")
 	}
 	for _, clientID := range plan.clients {
@@ -323,11 +323,11 @@ func (plan teamManifestJourney) requireHermesWireCatalog(t *testing.T, journey *
 		t.Fatal("Hermes client contract is absent")
 	}
 	expected := make(map[string][]string)
-	for _, route := range plan.manifest.Routes {
+	for _, route := range plan.manifest.Models {
 		if route.Account != account {
 			continue
 		}
-		for _, protocol := range spec.CompatibleRouteProtocols(cfg.Accounts[account], route) {
+		for _, protocol := range spec.CompatibleModelProtocols(cfg.Accounts[account], route) {
 			id := "aigw-" + account + "-" + strings.ReplaceAll(string(protocol), "_", "-")
 			expected[id] = append(expected[id], route.UpstreamModelID())
 		}

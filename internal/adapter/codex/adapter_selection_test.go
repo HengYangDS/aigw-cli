@@ -16,7 +16,7 @@ func TestAdoptCodexSelectionRecordsTheOneMatchingRoute(t *testing.T) {
 	if err != nil || routeID != "terra" {
 		t.Fatalf("adopted Route = %q, %v", routeID, err)
 	}
-	if runtime, err := cfg.ResolveRuntime(ID, ""); err != nil || runtime.RouteID != "terra" || runtime.Protocol != domain.ProtocolOpenAIResponses {
+	if runtime, err := cfg.ResolveRuntime(ID, ""); err != nil || runtime.ModelID != "terra" || runtime.Protocol != domain.ProtocolOpenAIResponses {
 		t.Fatalf("Codex binding = %#v, %v", cfg.Clients[ID], err)
 	}
 	if after, err := os.ReadFile(targets[0]); err != nil || string(after) != native {
@@ -36,7 +36,7 @@ func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg, targets := codexAdoptionFixture(t, 1)
 			if test.copy {
-				cfg.Routes["terra-copy"] = qualifiedRoute("Terra copy", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
+				cfg.Models["terra-copy"] = qualifiedRoute("Terra copy", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
 				cfg.Normalize()
 			}
 			chooseCodexModel(t, targets[0], test.model)
@@ -46,7 +46,7 @@ func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
 					t.Fatalf("adoption error = %v, want %s", err, want)
 				}
 			}
-			if cfg.SelectedRoute(ID) != "sol" {
+			if cfg.SelectedModel(ID) != "sol" {
 				t.Fatal("a refused adoption changed the Codex binding")
 			}
 		})
@@ -60,7 +60,7 @@ func TestAdoptCodexSelectionRefusesDisagreeingTargets(t *testing.T) {
 	if _, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg); err == nil || !strings.Contains(err.Error(), "aigw use --for codex") {
 		t.Fatalf("disagreeing targets were adopted: %v", err)
 	}
-	if cfg.SelectedRoute(ID) != "sol" {
+	if cfg.SelectedModel(ID) != "sol" {
 		t.Fatal("a refused adoption changed the Codex binding")
 	}
 }
@@ -87,7 +87,7 @@ func TestAdoptCodexSelectionLeavesUnchangedBindings(t *testing.T) {
 			prepare(&cfg, targets[0])
 			before := cfg.Clients[ID]
 			routeID, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg)
-			if err != nil || routeID != "" || cfg.Clients[ID].Route != before.Route {
+			if err != nil || routeID != "" || cfg.Clients[ID].Model != before.Model {
 				t.Fatalf("adoption = %q, %v; binding %#v", routeID, err, cfg.Clients[ID])
 			}
 		})
@@ -101,9 +101,9 @@ func codexAdoptionFixture(t *testing.T, count int) (domain.Config, []string) {
 	cfg := domain.NewConfig(testAdmission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	cfg.Accounts["other"] = domain.Account{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
-	cfg.Routes["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", domain.ProtocolOpenAIResponses)
-	cfg.Routes["terra"] = qualifiedRoute("Terra", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
-	cfg.Routes["other-terra"] = qualifiedRoute("Other terra", "other", "gpt-terra", domain.ProtocolOpenAIResponses)
+	cfg.Models["sol"] = qualifiedRoute("Sol", "gateway", "gpt-sol", domain.ProtocolOpenAIResponses)
+	cfg.Models["terra"] = qualifiedRoute("Terra", "gateway", "gpt-terra", domain.ProtocolOpenAIResponses)
+	cfg.Models["other-terra"] = qualifiedRoute("Other terra", "other", "gpt-terra", domain.ProtocolOpenAIResponses)
 	targets := make([]string, 0, count)
 	for range count {
 		target := filepath.Join(t.TempDir(), "config.toml")
@@ -112,7 +112,7 @@ func codexAdoptionFixture(t *testing.T, count int) (domain.Config, []string) {
 		}
 		targets = append(targets, target)
 	}
-	cfg.SetSelectedRoute(ID, "sol", "")
+	cfg.SetSelectedModel(ID, "sol", "")
 	cfg.SetClientActivation(ID, true, "/opt/codex", targets)
 	cfg.Normalize()
 	runtime, err := cfg.ResolveRuntime(ID, "")

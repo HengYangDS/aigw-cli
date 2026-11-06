@@ -57,15 +57,15 @@ type ConnectionChange struct {
 
 func (c *Config) retryPolicyFor(client string, selection ClientSelection, upstream string, protocol EndpointProtocol) *RetryPolicy {
 	binding := c.Clients[client]
-	bound, exists := c.Routes[binding.Route]
-	selected := c.Routes[selection.Route]
+	bound, exists := c.Models[binding.Model]
+	selected := c.Models[selection.Model]
 	spec, _ := c.admission.Spec(client)
 	if !exists || bound.Account != selected.Account || binding.RetryPolicy == nil ||
 		selectedModelProvider(spec, binding.selection()) != selectedModelProvider(spec, selection) ||
 		selectedAuthentication(binding.selection()) != selectedAuthentication(selection) {
 		return nil
 	}
-	endpoint, boundProtocol, err := spec.resolveRouteEndpoint(c.Accounts[bound.Account], bound, binding.Protocol)
+	endpoint, boundProtocol, err := spec.resolveModelEndpoint(c.Accounts[bound.Account], bound, binding.Protocol)
 	if err != nil || endpoint != upstream || boundProtocol != protocol {
 		return nil
 	}

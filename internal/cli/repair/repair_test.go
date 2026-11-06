@@ -100,7 +100,7 @@ func TestRunRepairReportsDiscoveryFailureWithoutMutatingConfiguration(t *testing
 	if err := runRepair(context.Background(), invocation.Context{Clients: clients.Registry(), Config: store}, false, false); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "discovery") {
 		t.Fatalf("runRepair() error = %v, want discovery failure", err)
 	}
-	if saved, err := store.Load(); err != nil || saved.SelectedRoute(codex.ID) != cfg.SelectedRoute(codex.ID) {
+	if saved, err := store.Load(); err != nil || saved.SelectedModel(codex.ID) != cfg.SelectedModel(codex.ID) {
 		t.Fatalf("configuration changed after discovery failure: cfg=%#v error=%v", saved, err)
 	}
 }
@@ -108,11 +108,11 @@ func TestRunRepairReportsDiscoveryFailureWithoutMutatingConfiguration(t *testing
 func TestRepairDesiredConfigPreservesExplicitCodexIntentWhenDiscoveryIsEmpty(t *testing.T) {
 	before := domain.NewConfig(clients.Admission())
 	before.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-	before.Routes["one"] = domain.Route{
-		Label: "One", Account: "one", Model: "gpt",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+	before.Models["one"] = domain.Model{
+		Label: "One", Account: "one", Family: "gpt",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	before.SetSelectedRoute(codex.ID, "one", "")
+	before.SetSelectedModel(codex.ID, "one", "")
 	before.SetClientActivation(codex.ID, true, "/old", nil)
 	runtime := invocation.Context{Clients: clients.Registry(), Discovery: staticDiscovery{result: discovery.Result{}}}
 	after, _, err := runtime.Synchronizer().DesiredClientConfiguration(before)
@@ -144,7 +144,7 @@ func TestRunRepairReturnsConfigurationCommitFailure(t *testing.T) {
 		t.Fatal("configuration commit failure was accepted")
 	}
 	got, err := store.Load()
-	if err != nil || got.SelectedRoute(codex.ID) != cfg.SelectedRoute(codex.ID) {
+	if err != nil || got.SelectedModel(codex.ID) != cfg.SelectedModel(codex.ID) {
 		t.Fatalf("configuration changed: %#v, %v", got, err)
 	}
 }
@@ -162,11 +162,11 @@ func TestRunRepairReturnsDryRunPlanAndConvergedProjectionFailures(t *testing.T) 
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
 			cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-			cfg.Routes["one"] = domain.Route{
-				Label: "One", Account: "one", Model: "gpt-test",
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+			cfg.Models["one"] = domain.Model{
+				Label: "One", Account: "one", Family: "gpt-test",
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
-			cfg.SetSelectedRoute(codex.ID, "one", "")
+			cfg.SetSelectedModel(codex.ID, "one", "")
 			missingTarget := filepath.Join(t.TempDir(), "missing", "configuration.toml")
 			cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{missingTarget})
 			if err := configStore.Save(cfg); err != nil {
@@ -208,7 +208,7 @@ func (clientAdapter reroutingAdapter) Converge(deps adapter.Dependencies, cfg *d
 	if err := clientAdapter.Adapter.Converge(deps, cfg, discovered); err != nil {
 		return err
 	}
-	cfg.SetSelectedRoute(codex.ID, clientAdapter.route, "")
+	cfg.SetSelectedModel(codex.ID, clientAdapter.route, "")
 	return nil
 }
 
@@ -219,9 +219,9 @@ func TestDryRunRefusesWhatRepairRefuses(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	for _, id := range []string{"one", "two"} {
 		cfg.Accounts[id] = domain.Account{Label: id, Endpoints: domain.Endpoints{OpenAIResponses: "https://" + id + ".test/v1"}}
-		cfg.Routes[id] = domain.Route{Label: id, Account: id, Model: "gpt-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+		cfg.Models[id] = domain.Model{Label: id, Account: id, Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	}
-	cfg.SetSelectedRoute(codex.ID, "one", "")
+	cfg.SetSelectedModel(codex.ID, "one", "")
 	zero := uint64(0)
 	binding := cfg.Clients[codex.ID]
 	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero}
@@ -261,11 +261,11 @@ func TestRunRepairReconcilesEveryEnabledAdapterWhenConfigurationIsConverged(t *t
 	executable := filepath.Join(t.TempDir(), "aigw")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{Anthropic: "https://one.test"}}
-	cfg.Routes["one"] = domain.Route{
-		Label: "One", Account: "one", Model: "claude-test",
-		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
+	cfg.Models["one"] = domain.Model{
+		Label: "One", Account: "one", Family: "claude-test",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}},
 	}
-	cfg.SetSelectedRoute(claude.ID, "one", "")
+	cfg.SetSelectedModel(claude.ID, "one", "")
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)

@@ -16,12 +16,12 @@ func codexRuntime(profileID, label, endpoint, model string) domain.Runtime {
 	}
 	return domain.Runtime{
 		CredentialCommand: executable,
-		RouteID:           profileID,
-		RouteLabel:        label,
+		ModelID:           profileID,
+		ModelLabel:        label,
 		AccountID:         "dmx",
 		Client:            codex.ID,
 		Endpoint:          endpoint,
-		Model:             model,
+		UpstreamModel:     model,
 	}
 }
 

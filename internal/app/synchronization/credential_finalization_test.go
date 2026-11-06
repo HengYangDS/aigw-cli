@@ -70,10 +70,10 @@ func TestExplicitTokenVerificationRefusesUnresolvedReaderFromNativeBinding(t *te
 	binding.ModelProvider = "amazon-bedrock"
 	cfg.Clients[codex.ID] = binding
 	cfg.Accounts["explicit"] = cfg.Accounts["gateway"]
-	cfg.Routes["explicit"] = cfg.Routes["gpt"]
-	route := cfg.Routes["explicit"]
+	cfg.Models["explicit"] = cfg.Models["gpt"]
+	route := cfg.Models["explicit"]
 	route.Account = "explicit"
-	cfg.Routes["explicit"] = route
+	cfg.Models["explicit"] = route
 	runtime, err := cfg.ResolveRuntime(codex.ID, "explicit")
 	if err != nil || !runtime.UsesAIGWCredentialStore() {
 		t.Fatalf("explicit account-token runtime = %+v, %v", runtime, err)
@@ -83,7 +83,7 @@ func TestExplicitTokenVerificationRefusesUnresolvedReaderFromNativeBinding(t *te
 	if _, err := syncer.Verify(t.Context(), cfg, codex.ID, runtime, "explicit"); !errors.Is(err, problem) {
 		t.Fatalf("explicit Token verification used the public fallback: %v", err)
 	}
-	if current := cfg.Clients[codex.ID]; current.Authentication != binding.Authentication || current.Route != binding.Route || current.ModelProvider != binding.ModelProvider {
+	if current := cfg.Clients[codex.ID]; current.Authentication != binding.Authentication || current.Model != binding.Model || current.ModelProvider != binding.ModelProvider {
 		t.Fatal("explicit verification changed the configured native binding")
 	}
 }
@@ -411,7 +411,7 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 func TestPrepareCredentialEntrypointRejectsInvalidBindingBeforeReading(t *testing.T) {
 	root := t.TempDir()
 	cfg := testConfig(filepath.Join(root, "codex.toml"))
-	delete(cfg.Routes, "gpt")
+	delete(cfg.Models, "gpt")
 	syncer := Synchronizer{Registry: builtinClients,
 		ResolveCredentialPath: readerAt(filepath.Join(root, "data", "credential", "aigw")),
 		ResolveProgram: func() (secret.Program, error) {

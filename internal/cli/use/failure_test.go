@@ -92,9 +92,9 @@ func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
 					}
 				}
 			}}
-			cfg.Routes["next"] = domain.Route{
-				Label: "Next", Account: "gateway", Model: "gpt-next",
-				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
+			cfg.Models["next"] = domain.Model{
+				Label: "Next", Account: "gateway", Family: "gpt-next",
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 			}
 			cfg.SetClientActivation(codex.ID, true, "", []string{filepath.Join(t.TempDir(), "missing.toml")})
 			if err := run.Config.Save(cfg); err != nil {
@@ -117,7 +117,7 @@ func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
 				t.Fatalf("credential after failed compensation = %q, %v", token, err)
 			}
 			current, err := run.Config.Load()
-			if err != nil || current.SelectedRoute(codex.ID) != "codex" {
+			if err != nil || current.SelectedModel(codex.ID) != "codex" {
 				t.Fatalf("failed selection changed binding: %#v, %v", current.Clients, err)
 			}
 		})

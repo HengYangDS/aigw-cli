@@ -55,7 +55,7 @@ func (claudeAdapter) Plan(deps adapter.Dependencies, before, after domain.Config
 	if err != nil {
 		return nil, err
 	}
-	plan, err := PlanSettings(settings, disabled, runtime, runtime.CredentialExecutable(deps.AIGWExecutable), previous.Model)
+	plan, err := PlanSettings(settings, disabled, runtime, runtime.CredentialExecutable(deps.AIGWExecutable), previous.UpstreamModel)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +75,7 @@ func (claudeAdapter) Apply(_ context.Context, deps adapter.Dependencies, before,
 	if err != nil {
 		return nil, err
 	}
-	return ReconcileSettings(settings, disabled, runtime, runtime.CredentialExecutable(deps.AIGWExecutable), previous.Model)
+	return ReconcileSettings(settings, disabled, runtime, runtime.CredentialExecutable(deps.AIGWExecutable), previous.UpstreamModel)
 }
 
 func (claudeAdapter) ProjectionChanged(before, after domain.Config) bool {
@@ -92,7 +92,7 @@ func (claudeAdapter) ProjectionChanged(before, after domain.Config) bool {
 	if beforeErr != nil || afterErr != nil {
 		return true
 	}
-	return !beforeRuntime.SameUpstream(afterRuntime) || beforeRuntime.Endpoint != afterRuntime.Endpoint || beforeRuntime.Model != afterRuntime.Model
+	return !beforeRuntime.SameUpstream(afterRuntime) || beforeRuntime.Endpoint != afterRuntime.Endpoint || beforeRuntime.UpstreamModel != afterRuntime.UpstreamModel
 }
 
 func (claudeAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime) adapter.Status {

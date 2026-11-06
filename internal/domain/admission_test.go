@@ -96,7 +96,7 @@ func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
 	admission := NewAdmission(plain, provider, native, other)
 	base := NewConfig(admission)
 	base.Accounts["gateway"] = Account{Label: "Gateway", Endpoints: Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	base.Routes["route"] = testRoute("Route", "gateway", "model", ProtocolOpenAIResponses)
+	base.Models["route"] = testModel("Route", "gateway", "model", ProtocolOpenAIResponses)
 
 	for name, test := range map[string]struct {
 		client  string
@@ -104,15 +104,15 @@ func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
 		want    string
 	}{
 		"model provider": {
-			client: "plain", binding: ClientBinding{Route: "route", ModelProvider: "explicit"},
+			client: "plain", binding: ClientBinding{Model: "route", ModelProvider: "explicit"},
 			want: "model_provider is only supported for provider, native, or other",
 		},
 		"client-native authentication": {
-			client: "provider", binding: ClientBinding{Route: "route", ModelProvider: "explicit", Authentication: AuthenticationClientNative},
+			client: "provider", binding: ClientBinding{Model: "route", ModelProvider: "explicit", Authentication: AuthenticationClientNative},
 			want: "client-native authentication is only supported for native or other",
 		},
 		"retry budgets": {
-			client: "provider", binding: ClientBinding{Route: "route", RetryPolicy: &RetryPolicy{RequestMaxRetries: new(uint64)}},
+			client: "provider", binding: ClientBinding{Model: "route", RetryPolicy: &RetryPolicy{RequestMaxRetries: new(uint64)}},
 			want: `client "provider" has no admitted native retry-budget capability`,
 		},
 	} {
@@ -126,8 +126,8 @@ func TestClientRulesFollowTheAdmittedCapabilities(t *testing.T) {
 	}
 
 	cfg := base.Clone()
-	cfg.Clients["plain"] = ClientBinding{Route: "route"}
-	cfg.Clients["native"] = ClientBinding{Route: "route", RetryPolicy: &RetryPolicy{RequestMaxRetries: new(uint64)}}
+	cfg.Clients["plain"] = ClientBinding{Model: "route"}
+	cfg.Clients["native"] = ClientBinding{Model: "route", RetryPolicy: &RetryPolicy{RequestMaxRetries: new(uint64)}}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("capable clients are refused: %v", err)
 	}

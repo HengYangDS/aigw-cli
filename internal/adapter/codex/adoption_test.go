@@ -64,7 +64,7 @@ func TestObserveSelectionNeedsTheRecordedProjection(t *testing.T) {
 		t.Fatalf("unprojected target = %q, %t, %v", model, changed, err)
 	}
 	legacy := filepath.Join(t.TempDir(), "config.toml")
-	writeLegacyCodexProjection(t, legacy, atomicTestRuntime().Model)
+	writeLegacyCodexProjection(t, legacy, atomicTestRuntime().UpstreamModel)
 	projected, err := os.ReadFile(legacy)
 	if err != nil {
 		t.Fatal(err)
@@ -104,7 +104,7 @@ func TestReconcileConfigsTransitionAcceptsTheModelBeingProjected(t *testing.T) {
 				t.Fatal(err)
 			}
 			next := previous
-			next.RouteID, next.RouteLabel, next.Model = "next", "Next", "gpt-next"
+			next.ModelID, next.ModelLabel, next.UpstreamModel = "next", "Next", "gpt-next"
 			target := HomeTarget(path)
 			_, err = ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, previous, next, false)
 			after, readErr := os.ReadFile(path)

@@ -33,7 +33,7 @@ func TestSetupFromConfigurationManifestImportsWithoutTokensOrClients(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Accounts) != 2 || len(cfg.Routes) != 3 {
+	if len(cfg.Accounts) != 2 || len(cfg.Models) != 3 {
 		t.Fatalf("imported catalog = %#v", cfg)
 	}
 	if secretExists(t, secretStore, "aihubmix") || secretExists(t, secretStore, "dmxapi") {
@@ -246,7 +246,7 @@ func TestSetupFromConfigurationManifestProjectsOnlyTheUsableClientIntersection(t
 			}
 			for _, client := range clients.Admission().IDs() {
 				_, installed := test.installed[client]
-				selected := cfg.SelectedRoute(client) != ""
+				selected := cfg.SelectedModel(client) != ""
 				if cfg.Clients[client].Enabled != selected {
 					t.Errorf("%s enabled intent = %v, want %v", client, cfg.Clients[client].Enabled, selected)
 				}
@@ -332,7 +332,7 @@ func TestSetupFromConfigurationManifestProjectsEveryCodexTarget(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if selected := cfg.SelectedRoute(codex.ID); selected != "dmxapi-gpt" {
+			if selected := cfg.SelectedModel(codex.ID); selected != "dmxapi-gpt" {
 				t.Fatalf("Codex selected Route = %q", selected)
 			}
 			projectedRuntime, err := cfg.ResolveRuntime(codex.ID, "")

@@ -389,8 +389,8 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 			workload.Prepare = append(slices.Clone(resetArgs), "--forwarding-endpoint", binding.Endpoint)
 		}
 		if workload.Name == "projection" && binding != (domain.Runtime{}) {
-			workload.Runtime.RouteID, workload.Runtime.RouteLabel = "performance-second", "Performance Second"
-			workload.Runtime.Model, workload.Runtime.FamilyID = "claude-second", "claude-second"
+			workload.Runtime.ModelID, workload.Runtime.ModelLabel = "performance-second", "Performance Second"
+			workload.Runtime.UpstreamModel, workload.Runtime.FamilyID = "claude-second", "claude-second"
 		}
 		cases = append(cases, workload)
 	}

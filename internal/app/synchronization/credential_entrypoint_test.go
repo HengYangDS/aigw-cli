@@ -92,14 +92,14 @@ func TestClaudeInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
-	cfg.Routes["claude"] = domain.Route{Label: "Claude", Account: "team", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	cfg.SetSelectedRoute(claude.ID, "claude", "")
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Account: "team", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.SetSelectedModel(claude.ID, "claude", "")
 	cfg.SetClientActivation(claude.ID, true, filepath.Join(root, "predecessor"), nil)
 	runtime, err := cfg.ResolveRuntime(claude.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := claude.ReconcileSettings(settings, false, runtime, retained, runtime.Model); err != nil {
+	if _, err := claude.ReconcileSettings(settings, false, runtime, retained, runtime.UpstreamModel); err != nil {
 		t.Fatal(err)
 	}
 	syncer := Synchronizer{Registry: builtinClients, Host: hostAt(root), AIGWExecutable: filepath.Join(root, "successor"), ResolveCredentialPath: readerAt(current)}
@@ -270,8 +270,8 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 	account := otherActive.Accounts["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	otherActive.Accounts["gateway"] = account
-	otherActive.Routes["claude"] = domain.Route{Account: "gateway", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	otherActive.SetSelectedRoute(claude.ID, "claude", "")
+	otherActive.Models["claude"] = domain.Model{Account: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	otherActive.SetSelectedModel(claude.ID, "claude", "")
 	otherActive.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	if action, err := syncer.CredentialEntrypointPlan(otherActive); err != nil || action != CredentialEntrypointUnchanged {
 		t.Fatalf("another default Token client plan = %q, %v; want retained helper", action, err)
@@ -293,7 +293,7 @@ func TestCredentialEntrypointPlanScopesDefaultTokenClients(t *testing.T) {
 		t.Fatalf("explicit client using the owned path plan = %q, %v; want retained helper", action, err)
 	}
 	invalid := cfg.Clone()
-	delete(invalid.Routes, "gpt")
+	delete(invalid.Models, "gpt")
 	if _, err := syncer.CredentialEntrypointPlan(invalid); err == nil {
 		t.Fatal("invalid selected Route was accepted for credential entrypoint planning")
 	}
@@ -393,8 +393,8 @@ func TestDisablingOneTokenClientRetainsEntrypointForAnother(t *testing.T) {
 	account := before.Accounts["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Accounts["gateway"] = account
-	before.Routes["claude"] = domain.Route{Account: "gateway", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	before.SetSelectedRoute(claude.ID, "claude", "")
+	before.Models["claude"] = domain.Model{Account: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	configStore := store.NewStore(filepath.Join(root, "config.toml"), clients.Admission())
 	if err := configStore.Save(before); err != nil {
@@ -429,8 +429,8 @@ func TestDisablingDefaultClientRetainsEntrypointForExplicitSelfReference(t *test
 	account := before.Accounts["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Accounts["gateway"] = account
-	before.Routes["claude"] = domain.Route{Account: "gateway", Model: "claude-test", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	before.SetSelectedRoute(claude.ID, "claude", "")
+	before.Models["claude"] = domain.Model{Account: "gateway", Family: "claude-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	binding := before.Clients[claude.ID]
 	binding.CredentialCommand = helper

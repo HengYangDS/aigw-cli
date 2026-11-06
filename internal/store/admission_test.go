@@ -25,7 +25,7 @@ func TestPublishedProfilesMigrateByTheAdmittedProfileProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if protocols := migrated.Routes["route"].AdmittedProtocols(); !reflect.DeepEqual(protocols, responses) {
+	if protocols := migrated.Models["route"].AdmittedProtocols(); !reflect.DeepEqual(protocols, responses) {
 		t.Fatalf("migrated Route protocols = %v", protocols)
 	}
 	published.Profiles["route"] = publishedProfile{Label: "Route", Account: "gateway", Client: "provider", Model: "model"}
@@ -43,9 +43,9 @@ func TestStoreAndManifestFollowTheInjectedAdmission(t *testing.T) {
 	admission := domain.NewAdmission(future)
 	cfg := domain.NewConfig(admission)
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Routes["route"] = testRoute("Route", "gateway", "model", domain.ProtocolOpenAIResponses)
-	cfg.Recommendations["future"] = domain.ClientRecommendation{Primary: domain.ClientSelection{Route: "route"}}
-	cfg.SetSelectedRoute("future", "route", "")
+	cfg.Models["route"] = testModel("Route", "gateway", "model", domain.ProtocolOpenAIResponses)
+	cfg.Recommendations["future"] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "route"}}
+	cfg.SetSelectedModel("future", "route", "")
 	cfg.SetClientActivation("future", true, "/opt/future", nil)
 	path := filepath.Join(t.TempDir(), "config.toml")
 	store := NewStore(path, admission)
@@ -59,7 +59,7 @@ func TestStoreAndManifestFollowTheInjectedAdmission(t *testing.T) {
 	if err := store.SaveVerifiedCheckpoint(t.Context(), loaded, []string{"future"}); err != nil {
 		t.Fatal(err)
 	}
-	if checkpoint, err := store.LoadVerifiedCheckpoint(); err != nil || checkpoint.Config.SelectedRoute("future") != "route" {
+	if checkpoint, err := store.LoadVerifiedCheckpoint(); err != nil || checkpoint.Config.SelectedModel("future") != "route" {
 		t.Fatalf("LoadVerifiedCheckpoint() = %#v, %v", checkpoint, err)
 	}
 	manifest, err := Export(loaded)
@@ -76,7 +76,7 @@ func TestStoreAndManifestFollowTheInjectedAdmission(t *testing.T) {
 	if _, err := Parse(manifest, testAdmission()); err == nil || !strings.Contains(err.Error(), `"future"`) {
 		t.Fatalf("an admission without the client parsed its recommendation: %v", err)
 	}
-	cfg.Clients[ClientCodex] = domain.ClientBinding{Route: "route"}
+	cfg.Clients[ClientCodex] = domain.ClientBinding{Model: "route"}
 	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), `unknown client binding "codex"`) {
 		t.Fatalf("a client outside the admission was accepted: %v", err)
 	}

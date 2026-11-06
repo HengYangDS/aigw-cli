@@ -28,10 +28,10 @@ func testClientSpecs() []ClientSpec {
 			ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses},
 			TargetFile: "config.toml", TargetsUsage: "repeat for multiple Codex homes", RetryBudgets: true,
 			DefaultModelProvider: "aigw", ClientNativeAuthentication: true,
-			PublishedProfileProtocol: ProtocolOpenAIResponses, Doctor: DoctorWording{AdapterStates: true, RouteBinding: true},
+			PublishedProfileProtocol: ProtocolOpenAIResponses, Doctor: DoctorWording{AdapterStates: true, ModelBinding: true},
 		},
 		{
-			ID: ClientHermes, Label: "Hermes", SessionsKeepRoute: true,
+			ID: ClientHermes, Label: "Hermes", SessionsKeepModel: true,
 			EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolAnthropic, ProtocolOpenAIChatCompletions},
 		},
 	}

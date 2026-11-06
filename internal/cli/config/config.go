@@ -106,8 +106,8 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 			KeepAccounts:    keeping,
 			ReplaceAccounts: selectorSet(replaceAccounts),
 			ReplaceFamilies: selectorSet(replaceModels),
-			ReplaceRoutes:   selectorSet(replaceRoutes),
-			RetireRoutes:    retiring,
+			ReplaceModels:   selectorSet(replaceRoutes),
+			RetireModels:    retiring,
 		})
 		if err != nil {
 			return err
@@ -115,7 +115,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		result := importResult{
 			DryRun:               dryRun,
 			ImportedAccounts:     len(domain.ManifestAccountNames(incoming)),
-			ImportedRoutes:       len(incoming.Routes),
+			ImportedRoutes:       len(incoming.Models),
 			KeptAccounts:         slices.Sorted(maps.Keys(keeping)),
 			RetiredRoutes:        slices.Sorted(maps.Keys(retiring)),
 			ProjectionCandidates: runtime.Clients.ChangedClients(before, cfg),

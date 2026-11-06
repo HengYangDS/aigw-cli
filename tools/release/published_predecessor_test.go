@@ -250,11 +250,11 @@ func (state *publishedNativeJourney) prepare(t *testing.T, manifest string) {
 		t.Fatal(err)
 	}
 	configured.Recommendations[hermes.ID] = domain.ClientRecommendation{
-		Primary: domain.ClientSelection{Route: "native-system-keyring-probe-claude", Protocol: domain.ProtocolAnthropic},
+		Primary: domain.ClientSelection{Model: "native-system-keyring-probe-claude", Protocol: domain.ProtocolAnthropic},
 	}
 	if slices.Contains(state.clients, claudedesktop.ID) {
 		configured.Recommendations[claudedesktop.ID] = domain.ClientRecommendation{
-			Primary: domain.ClientSelection{Route: "native-system-keyring-probe-claude"},
+			Primary: domain.ClientSelection{Model: "native-system-keyring-probe-claude"},
 		}
 	}
 	data, err := toml.Marshal(configured)

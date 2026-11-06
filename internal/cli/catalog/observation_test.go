@@ -15,7 +15,7 @@ func TestDeprecatedCatalogEntryDoesNotPresentAsAdmitted(t *testing.T) {
 		ID:    "legacy",
 		State: app.CatalogDeprecated,
 		Routes: []app.CatalogRoute{{
-			ID: "legacy-route", Lifecycle: domain.RouteDeprecated, Evidence: app.CatalogObserved,
+			ID: "legacy-route", Lifecycle: domain.ModelDeprecated, Evidence: app.CatalogObserved,
 		}},
 	})
 	if state == 0 || detail != "Deprecated Routes: legacy-route" {

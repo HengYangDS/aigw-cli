@@ -17,8 +17,8 @@ func TestRouteRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["dmx"] = domain.Account{Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"}}
-	cfg.Routes["gpt-old"] = qualifiedRoute("GPT Old", "dmx", "gpt-old", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "gpt-old", "")
+	cfg.Models["gpt-old"] = qualifiedRoute("GPT Old", "dmx", "gpt-old", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "gpt-old", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestRouteRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 		t.Fatalf("route rename created route-level secret slots")
 	}
 	got, _ := app.Config.Load()
-	if got.SelectedRoute(codex.ID) != "gpt-new" || got.Routes["gpt-new"].Account != "dmx" {
+	if got.SelectedModel(codex.ID) != "gpt-new" || got.Models["gpt-new"].Account != "dmx" {
 		t.Fatalf("rename config = %#v", got)
 	}
 }
@@ -41,8 +41,8 @@ func TestRouteRenameKeepsAccountTokenSlotUnchanged(t *testing.T) {
 func TestRouteRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := routeRenameConfig()
-	cfg.Routes["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha", domain.ProtocolOpenAIResponses)
-	cfg.SetSelectedRoute(codex.ID, "zeta-old", "")
+	cfg.Models["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha", domain.ProtocolOpenAIResponses)
+	cfg.SetSelectedModel(codex.ID, "zeta-old", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -64,14 +64,14 @@ func TestRouteRenameInteractiveZeroArgsSortsChoicesAndUpdatesRoutes(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SelectedRoute(codex.ID) != "zeta-new" {
+	if got.SelectedModel(codex.ID) != "zeta-new" {
 		t.Fatalf("bindings after rename = %#v", got.Clients)
 	}
-	route, ok := got.Routes["zeta-new"]
+	route, ok := got.Models["zeta-new"]
 	if !ok || route.Label != "Zeta" || route.Account != "gateway" {
 		t.Fatalf("renamed route = %#v, present = %v", route, ok)
 	}
-	if _, ok := got.Routes["zeta-old"]; ok {
+	if _, ok := got.Models["zeta-old"]; ok {
 		t.Fatal("old route remains after rename")
 	}
 	if token, err := secretStore.Get("gateway"); err != nil || token != "account-token" {
@@ -105,8 +105,8 @@ func TestRouteRenameInteractiveOneArgPromptsOnlyForTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := got.Routes["zeta-new"]; !ok {
-		t.Fatalf("renamed route missing: %#v", got.Routes)
+	if _, ok := got.Models["zeta-new"]; !ok {
+		t.Fatalf("renamed route missing: %#v", got.Models)
 	}
 }
 
@@ -143,7 +143,7 @@ func TestRouteRenameNonInteractiveRequiresBothIDs(t *testing.T) {
 func TestRouteRenameDryRunJSONIsSecretFreeAndDoesNotWrite(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	cfg := routeRenameConfig()
-	cfg.SetSelectedRoute(codex.ID, "zeta-old", "")
+	cfg.SetSelectedModel(codex.ID, "zeta-old", "")
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -212,7 +212,7 @@ func TestRouteRenameRefusesInvalidOrConflictingTargetWithoutMutation(t *testing.
 		t.Run(target, func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")
 			cfg := routeRenameConfig()
-			cfg.Routes["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha-model", domain.ProtocolOpenAIResponses)
+			cfg.Models["alpha"] = qualifiedRoute("Alpha", "gateway", "alpha-model", domain.ProtocolOpenAIResponses)
 			if err := app.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
@@ -240,7 +240,7 @@ func routeRenameConfig() domain.Config {
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
 	route := qualifiedRoute("Zeta", "gateway", "zeta-model", domain.ProtocolOpenAIResponses)
 	route.Purpose = "Keep this label and purpose"
-	cfg.Routes["zeta-old"] = route
-	cfg.SetSelectedRoute(codex.ID, "zeta-old", "")
+	cfg.Models["zeta-old"] = route
+	cfg.SetSelectedModel(codex.ID, "zeta-old", "")
 	return cfg
 }

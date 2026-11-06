@@ -332,7 +332,7 @@ func (c Workload) Review(selected *Identity) error {
 	switch c.Name {
 	case "projection":
 		if c.Mode == "forwarding" {
-			valid = slices.Equal(args, []string{"use", "--for", c.Runtime.Client, c.Runtime.RouteID, "--forwarding-endpoint", c.Runtime.Endpoint})
+			valid = slices.Equal(args, []string{"use", "--for", c.Runtime.Client, c.Runtime.ModelID, "--forwarding-endpoint", c.Runtime.Endpoint})
 		} else {
 			valid = len(args) == 4 && slices.Equal(args[:2], []string{"use", "--for"}) && args[2] != "" && args[3] != ""
 		}
@@ -364,7 +364,7 @@ func reviewRuntime(mode string, binding domain.Runtime) error {
 	if mode == "" && binding == (domain.Runtime{}) {
 		return nil
 	}
-	if binding.Client == "" || binding.RouteID == "" || binding.AccountID == "" || binding.Protocol == "" || binding.Endpoint == "" || binding.UpstreamEndpoint == "" {
+	if binding.Client == "" || binding.ModelID == "" || binding.AccountID == "" || binding.Protocol == "" || binding.Endpoint == "" || binding.UpstreamEndpoint == "" {
 		return errors.New("performance mode lacks its resolved native binding")
 	}
 	if (binding.Endpoint != binding.UpstreamEndpoint) != (mode == "forwarding") {
