@@ -466,9 +466,9 @@ terminal:
 		}
 		manifest.Accounts[name] = account
 	}
-	for id, model := range manifest.Models {
+	for id, model := range manifest.Families {
 		model.Order = 0
-		manifest.Models[id] = model
+		manifest.Families[id] = model
 	}
 	data, err := toml.Marshal(manifest)
 	if err != nil {

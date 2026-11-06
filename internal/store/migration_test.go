@@ -112,8 +112,8 @@ func appliedPublishedV010Store(t *testing.T) (Store, domain.Config, []byte) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(migrated.Models) != 2 || len(migrated.Routes) != 2 {
-		t.Fatalf("published predecessor identities were lost: models=%d routes=%d", len(migrated.Models), len(migrated.Routes))
+	if len(migrated.Families) != 2 || len(migrated.Routes) != 2 {
+		t.Fatalf("published predecessor identities were lost: models=%d routes=%d", len(migrated.Families), len(migrated.Routes))
 	}
 	for id, route := range migrated.Routes {
 		if route.UpstreamModel != route.Model || len(route.Interfaces) != 1 {

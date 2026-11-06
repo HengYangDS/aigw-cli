@@ -16,7 +16,7 @@ type Manifest struct {
 	Version         int                             `toml:"version"`
 	Recommendations map[string]ClientRecommendation `toml:"recommendations,omitempty"`
 	Accounts        map[string]Account              `toml:"accounts,omitempty"`
-	Models          map[string]Model                `toml:"models"`
+	Families        map[string]Family               `toml:"models"`
 	Routes          map[string]Route                `toml:"routes"`
 }
 
@@ -26,7 +26,7 @@ type Manifest struct {
 type MergeOptions struct {
 	KeepAccounts    map[string]bool
 	ReplaceAccounts map[string]bool
-	ReplaceModels   map[string]bool
+	ReplaceFamilies map[string]bool
 	ReplaceRoutes   map[string]bool
 	RetireRoutes    map[string]bool
 }
@@ -67,10 +67,10 @@ func (m Manifest) Admit(admission Admission) (Manifest, error) {
 	}
 	check := NewConfig(admission)
 	check.Accounts = m.Accounts
-	check.Models = m.Models
+	check.Families = m.Families
 	check.Routes = m.Routes
 	check.Normalize()
-	m.Models = check.Models
+	m.Families = check.Families
 	m.Routes = check.Routes
 	for client, recommendation := range m.Recommendations {
 		if !admission.Admits(client) {
@@ -100,13 +100,13 @@ func ExportManifest(cfg Config) (Manifest, error) {
 		return Manifest{}, err
 	}
 	for routeID, route := range cfg.Routes {
-		derived := routeLabel(Route{Account: route.Account, Model: route.Model}, cfg.Accounts[route.Account], cfg.Models[route.Model])
+		derived := routeLabel(Route{Account: route.Account, Model: route.Model}, cfg.Accounts[route.Account], cfg.Families[route.Model])
 		if route.Label == derived {
 			route.Label = ""
 			cfg.Routes[routeID] = route
 		}
 	}
-	return Manifest{Version: ManifestVersion, Recommendations: cfg.Recommendations, Accounts: cfg.Accounts, Models: cfg.Models, Routes: cfg.Routes}, nil
+	return Manifest{Version: ManifestVersion, Recommendations: cfg.Recommendations, Accounts: cfg.Accounts, Families: cfg.Families, Routes: cfg.Routes}, nil
 }
 
 // Merge combines a manifest with existing configuration while preserving conflicting owned entries.
@@ -142,20 +142,20 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 		}
 		merged.Accounts[name] = account
 	}
-	for name, model := range incoming.Models {
-		if existing, exists := merged.Models[name]; exists {
+	for name, model := range incoming.Families {
+		if existing, exists := merged.Families[name]; exists {
 			if existing == model {
 				continue
 			}
-			if !options.ReplaceModels[name] {
+			if !options.ReplaceFamilies[name] {
 				return Config{}, fmt.Errorf("model %q conflicts with local configuration; re-run with `aigw config import <toml> --replace-model %s` to explicitly replace it", name, name)
 			}
 		}
-		merged.Models[name] = model
+		merged.Families[name] = model
 	}
 	for name, route := range incoming.Routes {
 		if existing, exists := merged.Routes[name]; exists {
-			if equivalentRoute(existing, route) && routeLabel(existing, merged.Accounts[route.Account], merged.Models[route.Model]) == routeLabel(route, merged.Accounts[route.Account], merged.Models[route.Model]) {
+			if equivalentRoute(existing, route) && routeLabel(existing, merged.Accounts[route.Account], merged.Families[route.Model]) == routeLabel(route, merged.Accounts[route.Account], merged.Families[route.Model]) {
 				continue
 			}
 			if !options.ReplaceRoutes[name] {
@@ -164,10 +164,10 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 		}
 		merged.Routes[name] = route
 	}
-	maps.Copy(merged.Models, incoming.Models)
+	maps.Copy(merged.Families, incoming.Families)
 	maps.Copy(merged.Recommendations, incoming.Recommendations)
 	for model := range retiredModels {
-		if _, declared := incoming.Models[model]; declared {
+		if _, declared := incoming.Families[model]; declared {
 			continue
 		}
 		referenced := false
@@ -178,7 +178,7 @@ func MergeWithOptions(cfg Config, incoming Manifest, options MergeOptions) (Conf
 			}
 		}
 		if !referenced {
-			delete(merged.Models, model)
+			delete(merged.Families, model)
 		}
 	}
 	merged.Normalize()
@@ -208,8 +208,8 @@ func validateMergeSelectors(cfg Config, incoming Manifest, options MergeOptions)
 			return fmt.Errorf("--replace-account %q does not name an Account in the imported configuration manifest", name)
 		}
 	}
-	for name := range options.ReplaceModels {
-		if _, exists := incoming.Models[name]; !exists {
+	for name := range options.ReplaceFamilies {
+		if _, exists := incoming.Families[name]; !exists {
 			return fmt.Errorf("--replace-model %q does not name a Model in the imported configuration manifest", name)
 		}
 	}

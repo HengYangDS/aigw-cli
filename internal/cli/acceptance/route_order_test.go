@@ -18,8 +18,8 @@ func TestRouteListGroupsServicesAndPreservesStoredBindings(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	endpoints := domain.Endpoints{Anthropic: "https://team.test", OpenAIResponses: "https://team.test/v1", OpenAIChatCompletions: "https://team.test/v1"}
 	cfg.Accounts["team"] = domain.Account{Label: "Team", Order: 10, Endpoints: endpoints}
-	cfg.Models["strong"] = domain.Model{Label: "Strong", Order: 10}
-	cfg.Models["weak"] = domain.Model{Label: "Weak", Order: 20}
+	cfg.Families["strong"] = domain.Family{Label: "Strong", Order: 10}
+	cfg.Families["weak"] = domain.Family{Label: "Weak", Order: 20}
 	for _, row := range []struct {
 		id, model string
 		protocol  domain.EndpointProtocol

@@ -51,7 +51,7 @@ anthropic = []
 		t.Fatal(err)
 	}
 	cfg.Accounts["unranked"] = domain.Account{Label: "Unranked", Endpoints: domain.Endpoints{Anthropic: "https://unranked.test"}}
-	cfg.Models["unranked"] = domain.Model{Label: "Unranked"}
+	cfg.Families["unranked"] = domain.Family{Label: "Unranked"}
 	cfg.Routes["zulu-unranked"] = testRoute("Unranked", "zulu", "unranked", domain.ProtocolAnthropic)
 	cfg.Routes["unranked"] = testRoute("Unranked", "unranked", "first", domain.ProtocolAnthropic)
 	want := []string{"zulu-z", "zulu-a", "zulu-unranked", "alpha", "unranked"}
@@ -66,7 +66,7 @@ anthropic = []
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reparsed.Accounts["zulu"] != cfg.Accounts["zulu"] || reparsed.Models["first"] != cfg.Models["first"] {
+	if reparsed.Accounts["zulu"] != cfg.Accounts["zulu"] || reparsed.Families["first"] != cfg.Families["first"] {
 		t.Fatal("export lost declared presentation metadata")
 	}
 	store := NewStore(t.TempDir()+"/config.toml", testAdmission())
@@ -127,7 +127,7 @@ func TestCatalogOrderRejectsNegativeRanksWithoutChangingStoredBytes(t *testing.T
 	}
 }
 
-func TestCatalogRouteIDsGroupsServicesBeforeModels(t *testing.T) {
+func TestCatalogRouteIDsGroupsServicesBeforeFamilies(t *testing.T) {
 	for _, ranked := range []bool{true, false} {
 		name := "unranked"
 		if ranked {
@@ -142,8 +142,8 @@ func TestCatalogRouteIDsGroupsServicesBeforeModels(t *testing.T) {
 			}
 			cfg.Accounts["alpha"] = domain.Account{Label: "Alpha", Endpoints: endpoints, Order: 2 * rank}
 			cfg.Accounts["zulu"] = domain.Account{Label: "Zulu", Endpoints: endpoints, Order: rank}
-			cfg.Models["strong"] = domain.Model{Label: "Strong", Order: rank}
-			cfg.Models["weak"] = domain.Model{Label: "Weak", Order: 2 * rank}
+			cfg.Families["strong"] = domain.Family{Label: "Strong", Order: rank}
+			cfg.Families["weak"] = domain.Family{Label: "Weak", Order: 2 * rank}
 			for _, row := range []struct {
 				id, account, model string
 				protocol           domain.EndpointProtocol
@@ -189,9 +189,9 @@ func TestCatalogOrderSurvivesVerifiedBackupAndCompensation(t *testing.T) {
 	account.Order = 10
 	cfg.Accounts["current"] = account
 	cfg.Normalize()
-	model := cfg.Models["current-model"]
+	model := cfg.Families["current-model"]
 	model.Order = 20
-	cfg.Models["current-model"] = model
+	cfg.Families["current-model"] = model
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +203,7 @@ func TestCatalogOrderSurvivesVerifiedBackupAndCompensation(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkpoint, err := store.LoadVerifiedCheckpoint()
-	if err != nil || checkpoint.Config.Accounts["current"].Order != 30 || checkpoint.Config.Models["current-model"].Order != 40 {
+	if err != nil || checkpoint.Config.Accounts["current"].Order != 30 || checkpoint.Config.Families["current-model"].Order != 40 {
 		t.Fatalf("verified routing did not retain current presentation: %v", err)
 	}
 	state, err := store.CaptureVerifiedBackupState()
@@ -214,7 +214,7 @@ func TestCatalogOrderSurvivesVerifiedBackupAndCompensation(t *testing.T) {
 		t.Fatal(err)
 	}
 	backup, err := store.LoadBackup()
-	if err != nil || backup.Accounts["current"].Order != 30 || backup.Models["current-model"].Order != 40 {
+	if err != nil || backup.Accounts["current"].Order != 30 || backup.Families["current-model"].Order != 40 {
 		t.Fatalf("verified backup lost presentation: %v", err)
 	}
 	before, err := store.CaptureSnapshot()

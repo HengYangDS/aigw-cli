@@ -105,7 +105,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 		cfg, err = domain.MergeWithOptions(cfg, incoming, domain.MergeOptions{
 			KeepAccounts:    keeping,
 			ReplaceAccounts: selectorSet(replaceAccounts),
-			ReplaceModels:   selectorSet(replaceModels),
+			ReplaceFamilies: selectorSet(replaceModels),
 			ReplaceRoutes:   selectorSet(replaceRoutes),
 			RetireRoutes:    retiring,
 		})

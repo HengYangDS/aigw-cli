@@ -188,7 +188,7 @@ func TestHermesCatalogFollowsDeclaredAccountAndModelOrder(t *testing.T) {
 			Anthropic: "https://messages.test", OpenAIResponses: "https://responses.test/v1",
 		}}
 		for model, rank := range map[string]int{"first": 10, "second": 20} {
-			cfg.Models[model] = domain.Model{Label: model, Order: rank}
+			cfg.Families[model] = domain.Family{Label: model, Order: rank}
 			cfg.Routes[id+"-"+model] = domain.Route{Account: id, Model: model, UpstreamModel: map[string]string{"first": "wire-z", "second": "wire-a"}[model], Interfaces: map[domain.EndpointProtocol][]domain.Capability{
 				domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {},
 			}}

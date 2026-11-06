@@ -77,7 +77,7 @@ func TestClaudeDesktopCatalogDerivesUnlabeledAlternative(t *testing.T) {
 	route := fixture.cfg.Routes["alternate"]
 	route.Label = ""
 	fixture.cfg.Routes["alternate"] = route
-	fixture.cfg.Models["claude-opus-5"] = domain.Model{Label: "Claude Opus 5"}
+	fixture.cfg.Families["claude-opus-5"] = domain.Family{Label: "Claude Opus 5"}
 	models := claudeDesktopModels(fixture.cfg, fixture.runtime)
 	for _, model := range models {
 		if model.Name == "claude-opus-5" {

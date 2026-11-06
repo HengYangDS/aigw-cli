@@ -17,7 +17,7 @@ func TestManifestExportOmitsDerivedRouteLabelsAndPreservesWireCase(t *testing.T)
 	cfg.Accounts["dmxapi"] = domain.Account{
 		Label: "DMXAPI", Endpoints: domain.Endpoints{OpenAIResponses: "https://dmx.test/v1"},
 	}
-	cfg.Models["gpt-6-astra"] = domain.Model{Label: "GPT-6 Astra"}
+	cfg.Families["gpt-6-astra"] = domain.Family{Label: "GPT-6 Astra"}
 	cfg.Routes["dmxapi-gpt-6-astra"] = domain.Route{
 		Label: "DMXAPI · GPT-6 Astra", Account: "dmxapi", Model: "gpt-6-astra",
 		UpstreamModel: "GPT-6-Astra", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
@@ -54,14 +54,14 @@ func TestManifestExportOmitsDerivedRouteLabelsAndPreservesWireCase(t *testing.T)
 func TestManifestMergeTreatsOldPlainLabelAsDerivedButPreservesCustomOverride(t *testing.T) {
 	current := domain.NewConfig(testAdmission())
 	current.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
-	current.Models["gpt-6-sol"] = domain.Model{Label: "GPT-6 Sol"}
+	current.Families["gpt-6-sol"] = domain.Family{Label: "GPT-6 Sol"}
 	route := domain.Route{Label: "UCloud · GPT-6 Sol", Account: "ucloud", Model: "gpt-6-sol", UpstreamModel: "gpt-6-sol", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}}}
 	current.Routes["ucloud-gpt-6-sol"] = route
 	current.SetSelectedRoute(ClientCodex, "ucloud-gpt-6-sol", "")
 	incoming := domain.Manifest{
 		Version:  domain.ManifestVersion,
 		Accounts: map[string]domain.Account{"ucloud": current.Accounts["ucloud"]},
-		Models:   map[string]domain.Model{"gpt-6-sol": current.Models["gpt-6-sol"]},
+		Families: map[string]domain.Family{"gpt-6-sol": current.Families["gpt-6-sol"]},
 		Routes: map[string]domain.Route{"ucloud-gpt-6-sol": {
 			Account: route.Account, Model: route.Model, UpstreamModel: route.UpstreamModel, Interfaces: route.Interfaces,
 		}},
@@ -78,7 +78,7 @@ func TestManifestMergeTreatsOldPlainLabelAsDerivedButPreservesCustomOverride(t *
 	}
 }
 
-func TestManifestSeparatesCanonicalModelsFromQualifiedAccountRoutes(t *testing.T) {
+func TestManifestSeparatesFamiliesFromQualifiedAccountRoutes(t *testing.T) {
 	manifest, err := Parse([]byte(`version = 7
 [models.gpt-6-astra]
 label = "GPT-6 Astra"
@@ -101,7 +101,7 @@ route = "ucloud-gpt-6-astra"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := manifest.Models["gpt-6-astra"].Label; got != "GPT-6 Astra" {
+	if got := manifest.Families["gpt-6-astra"].Label; got != "GPT-6 Astra" {
 		t.Fatalf("canonical model label = %q", got)
 	}
 	route := manifest.Routes["ucloud-gpt-6-astra"]

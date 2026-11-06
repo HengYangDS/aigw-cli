@@ -214,7 +214,7 @@ func catalogDifference(cfg domain.Config, account string, protocol domain.Endpoi
 			return -1
 		}
 		if len(left.Routes) > 0 && len(right.Routes) > 0 {
-			if rank := cfg.CompareModels(left.Routes[0].Model, right.Routes[0].Model); rank != 0 {
+			if rank := cfg.CompareFamilies(left.Routes[0].Model, right.Routes[0].Model); rank != 0 {
 				return rank
 			}
 		}

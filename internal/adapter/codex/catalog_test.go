@@ -173,7 +173,7 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 			Endpoints: domain.Endpoints{OpenAIResponses: "https://api.example.test/v1"},
 		},
 	}
-	config.Models = map[string]domain.Model{
+	config.Families = map[string]domain.Family{
 		canonicalModel: {ID: canonicalModel, Label: "GPT-6.1 Sol"},
 	}
 	config.Routes = map[string]domain.Route{
@@ -203,8 +203,8 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 	if runtimeConfig.Model != upstreamModel {
 		t.Fatalf("resolved Codex upstream model = %q, want %q", runtimeConfig.Model, upstreamModel)
 	}
-	if runtimeConfig.CanonicalModelID != canonicalModel {
-		t.Fatalf("resolved Codex canonical model = %q, want %q", runtimeConfig.CanonicalModelID, canonicalModel)
+	if runtimeConfig.FamilyID != canonicalModel {
+		t.Fatalf("resolved Codex canonical model = %q, want %q", runtimeConfig.FamilyID, canonicalModel)
 	}
 	runtimeJSON, err := json.Marshal(runtimeConfig)
 	if err != nil {

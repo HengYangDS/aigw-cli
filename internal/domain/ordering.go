@@ -23,7 +23,7 @@ func (c *Config) CatalogRouteIDs() []string {
 		if result := slices.CompareFunc(protocols[left], protocols[right], CompareProtocols); result != 0 {
 			return result
 		}
-		if result := c.CompareModels(l.Model, r.Model); result != 0 {
+		if result := c.CompareFamilies(l.Model, r.Model); result != 0 {
 			return result
 		}
 		return strings.Compare(left, right)
@@ -49,9 +49,9 @@ func (c *Config) CatalogAccountIDs() []string {
 	return ids
 }
 
-// CompareModels orders canonical Models without interpreting provider wire IDs.
-func (c *Config) CompareModels(left, right string) int {
-	if result := compareOrder(c.Models[left].Order, c.Models[right].Order); result != 0 {
+// CompareFamilies orders canonical Models without interpreting provider wire IDs.
+func (c *Config) CompareFamilies(left, right string) int {
+	if result := compareOrder(c.Families[left].Order, c.Families[right].Order); result != 0 {
 		return result
 	}
 	return strings.Compare(left, right)

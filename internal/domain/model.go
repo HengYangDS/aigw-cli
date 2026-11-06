@@ -72,7 +72,7 @@ var modelProviderPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`
 type Config struct {
 	Version         int                             `json:"version"                   toml:"version"`
 	Accounts        map[string]Account              `json:"accounts,omitempty"        toml:"accounts,omitempty"`
-	Models          map[string]Model                `json:"models"                    toml:"models"`
+	Families        map[string]Family               `json:"models"                    toml:"models"`
 	Routes          map[string]Route                `json:"routes"                    toml:"routes"`
 	Recommendations map[string]ClientRecommendation `json:"recommendations,omitempty" toml:"recommendations,omitempty"`
 	Clients         map[string]ClientBinding        `json:"clients,omitempty"         toml:"clients,omitempty"`
@@ -90,9 +90,9 @@ type Account struct {
 	AccountProbe *AccountProbe `json:"account_probe,omitempty" toml:"account_probe,omitempty"`
 }
 
-// Model identifies one canonical upstream product independently of an Account,
+// Family identifies one canonical upstream product independently of an Account,
 // protocol, provider channel, recommendation, or client selection.
-type Model struct {
+type Family struct {
 	ID    string `json:"id,omitempty" toml:"-"`
 	Label string `json:"label"        toml:"label"`
 	Order int    `json:"order,omitempty" toml:"order,omitempty"`
@@ -154,7 +154,7 @@ type Runtime struct {
 	UpstreamEndpoint  string           `json:"upstream_endpoint"`
 	Protocol          EndpointProtocol `json:"protocol"`
 	Model             string           `json:"model,omitempty"`
-	CanonicalModelID  string           `json:"canonical_model_id,omitempty"`
+	FamilyID          string           `json:"canonical_model_id,omitempty"`
 	ModelProvider     string           `json:"model_provider"`
 	Authentication    Authentication   `json:"authentication"`
 	CredentialCommand string           `json:"-"`
@@ -215,7 +215,7 @@ func NewConfig(admission Admission) Config {
 	return Config{
 		Version:         ConfigVersion,
 		Accounts:        map[string]Account{},
-		Models:          map[string]Model{},
+		Families:        map[string]Family{},
 		Routes:          map[string]Route{},
 		Recommendations: map[string]ClientRecommendation{},
 		Clients:         map[string]ClientBinding{},
@@ -244,7 +244,7 @@ func (c *Config) Clone() Config {
 		}
 		out.Accounts[name] = account
 	}
-	maps.Copy(out.Models, c.Models)
+	maps.Copy(out.Families, c.Families)
 	for name, route := range c.Routes {
 		route.Interfaces = cloneInterfaces(route.Interfaces)
 		out.Routes[name] = route
@@ -309,7 +309,7 @@ func (c *Config) RouteLabel(routeID string) string {
 	if !ok {
 		return routeID
 	}
-	return routeLabel(route, c.Accounts[route.Account], c.Models[route.Model])
+	return routeLabel(route, c.Accounts[route.Account], c.Families[route.Model])
 }
 
 // RecommendedRoute returns the team recommendation for one client.
@@ -545,7 +545,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 	return Runtime{
 		RetryPolicy:       c.retryPolicyFor(client, selection, upstream, protocol),
 		RouteID:           name,
-		RouteLabel:        routeLabel(route, account, c.Models[route.Model]),
+		RouteLabel:        routeLabel(route, account, c.Families[route.Model]),
 		AccountID:         account.ID,
 		AccountLabel:      account.Label,
 		Client:            client,
@@ -553,7 +553,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 		UpstreamEndpoint:  upstream,
 		Protocol:          protocol,
 		Model:             route.UpstreamModelID(),
-		CanonicalModelID:  route.Model,
+		FamilyID:          route.Model,
 		ModelProvider:     selectedModelProvider(spec, selection),
 		Authentication:    selectedAuthentication(selection),
 		CredentialCommand: c.Clients[client].CredentialCommand,
@@ -571,7 +571,7 @@ func (c *Config) forwardingFor(client, accountID, upstream string, protocol Endp
 	return binding.ForwardingEndpoint
 }
 
-func routeLabel(route Route, account Account, model Model) string {
+func routeLabel(route Route, account Account, model Family) string {
 	if route.Label != "" {
 		return route.Label
 	}

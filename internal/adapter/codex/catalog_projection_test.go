@@ -181,7 +181,7 @@ func TestUnknownModelPinsCompleteBundledCatalogWithoutInventingMetadata(t *testi
 			target := HomeTarget(path)
 			target.Executable = filepath.Join(filepath.Dir(path), "codex")
 			runtimeConfig := catalogTestRuntime(test.wireModel)
-			runtimeConfig.CanonicalModelID = test.canonicalModelID
+			runtimeConfig.FamilyID = test.canonicalModelID
 
 			if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 				t.Fatal(err)

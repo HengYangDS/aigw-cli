@@ -49,8 +49,8 @@ func (s Synchronizer) PlanConnection(before domain.Config, name, client string, 
 		route.UpstreamModel = route.Model
 	}
 	after.Accounts[name] = account
-	if _, exists := after.Models[route.Model]; !exists {
-		after.Models[route.Model] = domain.Model{Label: route.Model}
+	if _, exists := after.Families[route.Model]; !exists {
+		after.Families[route.Model] = domain.Family{Label: route.Model}
 	}
 	after.Routes[name] = route
 	after, _, err := s.PrepareSelection(after, client, name, "", domain.ConnectionChange{})

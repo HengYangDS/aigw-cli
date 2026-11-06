@@ -253,7 +253,7 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	if provider != modelProviderAIGW {
 		catalogModel = ""
 	}
-	catalog := codexCatalogProjection(target.ref, catalogModel, runtime.CanonicalModelID, base, state, catalogSnapshot)
+	catalog := codexCatalogProjection(target.ref, catalogModel, runtime.FamilyID, base, state, catalogSnapshot)
 	projection, err := projectCodex(base, block, runtime.Model, catalog.path, provider)
 	if err != nil {
 		return codexPreparedTarget{}, err

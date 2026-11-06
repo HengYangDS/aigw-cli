@@ -9,7 +9,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-func TestRouteOwnsModelIdentityWithoutClientState(t *testing.T) {
+func TestRouteOwnsFamilyIdentityWithoutClientState(t *testing.T) {
 	route := Route{Model: "claude-test"}
 	if route.Model != "claude-test" {
 		t.Fatalf("route = %#v", route)

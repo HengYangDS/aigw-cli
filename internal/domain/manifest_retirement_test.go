@@ -55,7 +55,7 @@ func TestMergeFalseRetirementSelectorDoesNotRetireRoute(t *testing.T) {
 	if _, exists := got.Routes["old"]; !exists {
 		t.Fatal("false retirement selector removed its Route")
 	}
-	if _, exists := got.Models["gpt-old"]; !exists {
+	if _, exists := got.Families["gpt-old"]; !exists {
 		t.Fatal("false retirement selector removed its Model")
 	}
 }

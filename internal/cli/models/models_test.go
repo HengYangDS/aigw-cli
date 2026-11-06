@@ -57,8 +57,8 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 func TestModelRowsGroupAccountsThenProtocolsThenDeclaredModels(t *testing.T) {
 	cfg := configuredCatalog()
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Order: 10, Endpoints: cfg.Accounts["gateway"].Endpoints}
-	cfg.Models["first"] = domain.Model{Label: "First", Order: 10}
-	cfg.Models["second"] = domain.Model{Label: "Second", Order: 20}
+	cfg.Families["first"] = domain.Family{Label: "First", Order: 10}
+	cfg.Families["second"] = domain.Family{Label: "Second", Order: 20}
 	cfg.Routes = map[string]domain.Route{}
 	for _, model := range []string{"second", "first"} {
 		cfg.Routes[model] = domain.Route{Account: "gateway", Model: model, Interfaces: map[domain.EndpointProtocol][]domain.Capability{
@@ -120,7 +120,7 @@ func TestModelRowsWithoutObservations(t *testing.T) {
 func TestAmbiguousCatalogDoesNotReportRoutesAsNotListed(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["gateway"] = domain.Account{Label: "Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://responses.test/v1"}}
-	cfg.Models["shared"] = domain.Model{Label: "Shared"}
+	cfg.Families["shared"] = domain.Family{Label: "Shared"}
 	cfg.Routes["responses"] = domain.Route{
 		Label: "Responses", Account: "gateway", Model: "shared", UpstreamModel: "provider-shared",
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},

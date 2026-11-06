@@ -27,7 +27,7 @@ func TestRouteInventoryDerivesUnlabeledTeamRouteName(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://ucloud.test/v1"}}
-	cfg.Models["gpt-6-sol"] = domain.Model{Label: "GPT-6 Sol"}
+	cfg.Families["gpt-6-sol"] = domain.Family{Label: "GPT-6 Sol"}
 	cfg.Routes["ucloud-gpt-6-sol"] = domain.Route{
 		Account: "ucloud", Model: "gpt-6-sol", UpstreamModel: "GPT-6-Sol",
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText}},
@@ -316,7 +316,7 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 			configStore := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
 			cfg := domain.NewConfig(clients.Admission())
 			cfg.Accounts["ucloud"] = domain.Account{Label: "UCloud", Endpoints: domain.Endpoints{OpenAIResponses: "https://provider.test/v1"}}
-			cfg.Models["minimax-m3"] = domain.Model{Label: "MiniMax M3"}
+			cfg.Families["minimax-m3"] = domain.Family{Label: "MiniMax M3"}
 			cfg.Routes["ucloud-minimax-m3"] = domain.Route{
 				Account: "ucloud", Model: "minimax-m3", UpstreamModel: "MiniMax-M3",
 				Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
@@ -342,7 +342,7 @@ func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
 			if added.Model != "minimax-m3" || added.UpstreamModelID() != test.wantWire {
 				t.Fatalf("canonical/wire identity = %#v", added)
 			}
-			if len(got.Models) != 1 || got.Models["minimax-m3"].Label != "MiniMax M3" || len(got.Clients) != 0 || got.Routes["ucloud-minimax-m3"].UpstreamModelID() != "MiniMax-M3" {
+			if len(got.Families) != 1 || got.Families["minimax-m3"].Label != "MiniMax M3" || len(got.Clients) != 0 || got.Routes["ucloud-minimax-m3"].UpstreamModelID() != "MiniMax-M3" {
 				t.Fatalf("route addition changed existing identities or selections: %#v", got)
 			}
 		})

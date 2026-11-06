@@ -246,8 +246,8 @@ func migrateLegacyConfig(legacy legacyConfig, admission domain.Admission) (domai
 		if len(profile.Protocols) == 0 {
 			return domain.Config{}, fmt.Errorf("profile %q has no explicit protocol and cannot be migrated without guessing", id)
 		}
-		if _, exists := cfg.Models[profile.Model]; !exists {
-			cfg.Models[profile.Model] = domain.Model{Label: profile.Model}
+		if _, exists := cfg.Families[profile.Model]; !exists {
+			cfg.Families[profile.Model] = domain.Family{Label: profile.Model}
 		}
 		interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(profile.Protocols))
 		for _, protocol := range profile.Protocols {
@@ -292,8 +292,8 @@ func migratePublishedConfig(published publishedConfig, admission domain.Admissio
 		if strings.TrimSpace(profile.Model) == "" {
 			return domain.Config{}, fmt.Errorf("published profile %q has no model", id)
 		}
-		if _, exists := cfg.Models[profile.Model]; !exists {
-			cfg.Models[profile.Model] = domain.Model{Label: profile.Model}
+		if _, exists := cfg.Families[profile.Model]; !exists {
+			cfg.Families[profile.Model] = domain.Family{Label: profile.Model}
 		}
 		cfg.Routes[id] = domain.Route{
 			Label: profile.Label, Purpose: profile.Purpose, Account: profile.Account,

@@ -205,7 +205,7 @@ func TestImportPreviewReportsAffectedClientsWithoutReadingTokensOrWriting(t *tes
 		Label: "Old", Account: "local", Model: "gpt-old",
 		Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
 	}
-	cfg.Models["gpt-old"] = domain.Model{Label: "Old"}
+	cfg.Families["gpt-old"] = domain.Family{Label: "Old"}
 	cfg.SetSelectedRoute(hermes.ID, "local", "")
 	clientTarget := filepath.Join(t.TempDir(), "hermes.yaml")
 	cfg.SetClientActivation(hermes.ID, true, "/opt/hermes", []string{clientTarget})
@@ -317,9 +317,9 @@ func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 	addRoute("shared-old", "Shared Old", "gpt-shared")
 	addRoute("shared-current", "Shared Current", "gpt-shared")
 	addRoute("declared-old", "Declared Old", "gpt-declared")
-	cfg.Models["gpt-old"] = domain.Model{Label: "Old"}
-	cfg.Models["gpt-shared"] = domain.Model{Label: "Shared"}
-	cfg.Models["gpt-declared"] = domain.Model{Label: "Declared"}
+	cfg.Families["gpt-old"] = domain.Family{Label: "Old"}
+	cfg.Families["gpt-shared"] = domain.Family{Label: "Shared"}
+	cfg.Families["gpt-declared"] = domain.Family{Label: "Declared"}
 	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{
 		Primary:      domain.ClientSelection{Route: "old"},
 		Alternatives: []domain.ClientSelection{{Route: "shared-old"}},
@@ -344,10 +344,10 @@ func TestImportRetiresExplicitUnselectedRoutes(t *testing.T) {
 	if _, exists := got.Routes["declared-old"]; exists {
 		t.Fatal("third explicitly retired Route remains")
 	}
-	if _, exists := got.Models["gpt-old"]; exists {
+	if _, exists := got.Families["gpt-old"]; exists {
 		t.Fatal("Model orphaned by retired Route remains")
 	}
-	if got.Models["gpt-shared"].Label != "Shared" || got.Models["gpt-declared"].Label != "Declared" || got.SelectedRoute(codex.ID) != "local" || got.Routes["remote"].Account != "gateway" {
+	if got.Families["gpt-shared"].Label != "Shared" || got.Families["gpt-declared"].Label != "Declared" || got.SelectedRoute(codex.ID) != "local" || got.Routes["remote"].Account != "gateway" {
 		t.Fatalf("unrelated state or imported Route changed: %#v", got)
 	}
 	if recommendation := got.Recommendations[codex.ID]; recommendation.Primary.Route != "remote" || len(recommendation.Alternatives) != 0 {

@@ -14,22 +14,22 @@ import (
 // readers consume the unchanged canonical schema, never this component.
 type catalogOrder struct {
 	Accounts map[string]int `toml:"accounts,omitempty"`
-	Models   map[string]int `toml:"models,omitempty"`
+	Families map[string]int `toml:"models,omitempty"`
 }
 
 func encodeCatalogOrder(cfg domain.Config) ([]byte, error) {
-	order := catalogOrder{Accounts: map[string]int{}, Models: map[string]int{}}
+	order := catalogOrder{Accounts: map[string]int{}, Families: map[string]int{}}
 	for id, account := range cfg.Accounts {
 		if account.Order != 0 {
 			order.Accounts[id] = account.Order
 		}
 	}
-	for id, model := range cfg.Models {
+	for id, model := range cfg.Families {
 		if model.Order != 0 {
-			order.Models[id] = model.Order
+			order.Families[id] = model.Order
 		}
 	}
-	if len(order.Accounts)+len(order.Models) == 0 {
+	if len(order.Accounts)+len(order.Families) == 0 {
 		return nil, nil
 	}
 	data, err := toml.Marshal(order)
@@ -52,10 +52,10 @@ func decodeCatalogOrder(cfg domain.Config, snapshot platform.FileSnapshot) (doma
 			cfg.Accounts[id] = account
 		}
 	}
-	for id, rank := range order.Models {
-		if model, exists := cfg.Models[id]; exists {
+	for id, rank := range order.Families {
+		if model, exists := cfg.Families[id]; exists {
 			model.Order = rank
-			cfg.Models[id] = model
+			cfg.Families[id] = model
 		}
 	}
 	if err := cfg.Validate(); err != nil {

@@ -43,7 +43,7 @@ func TestTeamManifestKeepsOnlyQualifiedRefreshRoutes(t *testing.T) {
 		}
 	}
 	for _, retired := range []string{"deepseek-v4.1-flash", "kimi-k3", "minimax-m3", "muse-spark-1.3", "qwen3.8-max"} {
-		if _, present := manifest.Models[retired]; present {
+		if _, present := manifest.Families[retired]; present {
 			t.Errorf("superseded Model %q remains a logical Model", retired)
 		}
 	}

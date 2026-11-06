@@ -440,7 +440,7 @@ interfaces = { anthropic = [] }
 	}
 }
 
-func TestMergeRejectsConflictingModelOverrideWithOtherwiseIdenticalRoute(t *testing.T) {
+func TestMergeRejectsConflictingFamilyOverrideWithOtherwiseIdenticalRoute(t *testing.T) {
 	team, err := Parse([]byte(`version = 7
 [accounts.team]
 label = "Team Gateway"

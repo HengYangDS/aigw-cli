@@ -40,7 +40,7 @@ func TestRetryPolicySelectionPreservesOnlyTheSameConnection(t *testing.T) {
 	model := cfg.Routes["gpt"]
 	model.Model, model.UpstreamModel = "other-model", "other-model"
 	cfg.Routes["model-only"] = model
-	cfg.Models["other-model"] = domain.Model{Label: "Other model"}
+	cfg.Families["other-model"] = domain.Family{Label: "Other model"}
 	cfg.Normalize()
 	forwarding := "http://127.0.0.1:8792/v1"
 	for _, test := range []struct {
@@ -70,7 +70,7 @@ func retryTransitionFixture(t *testing.T) domain.Config {
 	t.Helper()
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Accounts["one"] = domain.Account{Label: "One", Endpoints: domain.Endpoints{OpenAIResponses: "https://one.test/v1"}}
-	cfg.Models["gpt"] = domain.Model{Label: "GPT"}
+	cfg.Families["gpt"] = domain.Family{Label: "GPT"}
 	cfg.Routes["one"] = domain.Route{Label: "One", Account: "one", Model: "gpt", Interfaces: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.SetSelectedRoute(codex.ID, "one", domain.ProtocolOpenAIResponses)
 	zero := uint64(0)

@@ -214,7 +214,7 @@ func TestValidateKeepsUnselectedBindingsWithinTheDeclarationContract(t *testing.
 		{"unselected client", func(c *domain.Config) { c.Clients[ClientCodex] = domain.ClientBinding{} }, ""},
 		{"relative reader without route", func(c *domain.Config) { c.Clients[ClientCodex] = domain.ClientBinding{CredentialCommand: "reader"} }, "one absolute executable path"},
 		{"empty recommendation", func(c *domain.Config) { c.Recommendations[ClientCodex] = domain.ClientRecommendation{} }, "has no primary route"},
-		{"invalid canonical model", func(c *domain.Config) { c.Models["bad model"] = domain.Model{Label: "Invalid"} }, "invalid model name"},
+		{"invalid canonical model", func(c *domain.Config) { c.Families["bad model"] = domain.Family{Label: "Invalid"} }, "invalid model name"},
 		{"unknown canonical model", func(c *domain.Config) {
 			route := c.Routes["default"]
 			route.Model = "unknown"

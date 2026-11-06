@@ -222,7 +222,7 @@ func selectionOf(selected domain.Runtime) useSelection {
 		RetryPolicy: selected.RetryPolicy, Route: selected.RouteID, RouteLabel: selected.RouteLabel,
 		Account: selected.AccountID, AccountLabel: selected.AccountLabel, Client: selected.Client,
 		Endpoint: selected.Endpoint, UpstreamEndpoint: selected.UpstreamEndpoint, Protocol: selected.Protocol,
-		Model: selected.CanonicalModelID, UpstreamModel: selected.Model, ModelProvider: selected.ModelProvider,
+		Model: selected.FamilyID, UpstreamModel: selected.Model, ModelProvider: selected.ModelProvider,
 		Authentication: selected.Authentication,
 	}
 }

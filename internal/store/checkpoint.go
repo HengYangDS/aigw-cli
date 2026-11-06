@@ -102,9 +102,9 @@ func publishedCheckpointConfig(current domain.Config) domain.Config {
 		account.Order = 0
 		cfg.Accounts[id] = account
 	}
-	for id, model := range cfg.Models {
+	for id, model := range cfg.Families {
 		model.Order = 0
-		cfg.Models[id] = model
+		cfg.Families[id] = model
 	}
 	keepPublishedCapabilities(cfg)
 	return cfg

@@ -124,7 +124,7 @@ func modelRows(cfg domain.Config, catalog app.CatalogReport) []modelRow {
 		if result := domain.CompareProtocols(left.Protocol, right.Protocol); result != 0 {
 			return result
 		}
-		return cfg.CompareModels(cfg.Routes[left.Route].Model, cfg.Routes[right.Route].Model)
+		return cfg.CompareFamilies(cfg.Routes[left.Route].Model, cfg.Routes[right.Route].Model)
 	})
 	return rows
 }

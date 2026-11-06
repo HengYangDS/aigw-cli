@@ -19,7 +19,7 @@ func TestInteractiveRouteChoiceDerivesUnlabeledRouteName(t *testing.T) {
 	route := cfg.Routes["codex"]
 	route.Label = ""
 	cfg.Routes["codex"] = route
-	cfg.Models["gpt-test"] = domain.Model{Label: "GPT Test"}
+	cfg.Families["gpt-test"] = domain.Family{Label: "GPT Test"}
 	choice := &promptStub{selected: "codex"}
 	runtime.Prompt = choice
 	selected, err := chooseRoute(runtime, cfg, codex.ID, "Select Route")

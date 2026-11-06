@@ -310,7 +310,7 @@ func TestValidateRequiresEachSelectedBindingsClientProtocol(t *testing.T) {
 		t.Run(client.ID, func(t *testing.T) {
 			cfg := validConfig()
 			cfg.Normalize()
-			cfg.Models["model"] = Model{Label: "Model"}
+			cfg.Families["model"] = Family{Label: "Model"}
 			cfg.Routes = map[string]Route{"selected-route": {
 				Label: "Selected Route", Account: "dmx", Model: "model",
 				Interfaces: map[EndpointProtocol][]Capability{client.EndpointProtocols[0]: {}},
@@ -345,7 +345,7 @@ func TestValidateRequiresEachSelectedBindingsClientProtocol(t *testing.T) {
 	}
 }
 
-func TestValidateRequiresAValidModel(t *testing.T) {
+func TestValidateRequiresAValidFamily(t *testing.T) {
 	for _, testCase := range []struct {
 		name string
 		edit func(*Route)
@@ -370,7 +370,7 @@ func TestValidateTreatsRouteIDAsTransparentConfiguration(t *testing.T) {
 	const routeID = "gpt-5.6-terra-cdx"
 	cfg := validConfig()
 	cfg.Normalize()
-	cfg.Models["upstream-model"] = Model{Label: "Upstream Model"}
+	cfg.Families["upstream-model"] = Family{Label: "Upstream Model"}
 	route := cfg.Routes["dmx"]
 	route.Model = "upstream-model"
 	route.Interfaces = map[EndpointProtocol][]Capability{ProtocolOpenAIResponses: {}}
@@ -447,7 +447,7 @@ func TestValidateRejectsEmptyLabelsAndUnnamedOrUnendpointedAccounts(t *testing.T
 		want string
 	}{
 		{"empty model label", func(c *Config) {
-			c.Models = map[string]Model{"claude-test": {Label: "  "}}
+			c.Families = map[string]Family{"claude-test": {Label: "  "}}
 		}, "empty label"},
 		{"invalid account name", func(c *Config) {
 			c.Accounts["bad name"] = c.Accounts["dmx"]

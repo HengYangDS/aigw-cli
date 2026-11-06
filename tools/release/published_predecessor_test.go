@@ -381,9 +381,9 @@ func (j *journeyFixture) importCatalogOrder() []byte {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	account, model := ranked.Accounts["native-system-keyring-probe"], ranked.Models["claude-test"]
+	account, model := ranked.Accounts["native-system-keyring-probe"], ranked.Families["claude-test"]
 	account.Order, model.Order = 10, 20
-	ranked.Accounts["native-system-keyring-probe"], ranked.Models["claude-test"] = account, model
+	ranked.Accounts["native-system-keyring-probe"], ranked.Families["claude-test"] = account, model
 	data, err := toml.Marshal(ranked)
 	if err != nil {
 		j.testing.Fatal(err)
@@ -398,7 +398,7 @@ func (j *journeyFixture) importCatalogOrder() []byte {
 	if err != nil {
 		j.testing.Fatal(err)
 	}
-	if selected.Accounts["native-system-keyring-probe"].Order != 10 || selected.Models["claude-test"].Order != 20 ||
+	if selected.Accounts["native-system-keyring-probe"].Order != 10 || selected.Families["claude-test"].Order != 20 ||
 		!updated.Catalog().Exists || !bytes.Equal(updated.Config.Data, before) {
 		j.testing.Fatal("catalog ranks were not isolated from published routing")
 	}

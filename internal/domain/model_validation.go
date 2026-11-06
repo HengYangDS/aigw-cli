@@ -20,8 +20,8 @@ func (c *Config) Normalize() {
 	if c.Accounts == nil {
 		c.Accounts = map[string]Account{}
 	}
-	if c.Models == nil {
-		c.Models = map[string]Model{}
+	if c.Families == nil {
+		c.Families = map[string]Family{}
 	}
 	if c.Routes == nil {
 		c.Routes = map[string]Route{}
@@ -38,8 +38,8 @@ func (c *Config) Normalize() {
 			route.UpstreamModel = route.Model
 		}
 		if route.Model != "" {
-			if _, exists := c.Models[route.Model]; !exists {
-				c.Models[route.Model] = Model{Label: route.Model}
+			if _, exists := c.Families[route.Model]; !exists {
+				c.Families[route.Model] = Family{Label: route.Model}
 			}
 		}
 		c.Routes[id] = route
@@ -73,13 +73,13 @@ func (c *Config) validateCollections() error {
 			return err
 		}
 	}
-	for _, name := range slices.Sorted(maps.Keys(c.Models)) {
-		if err := c.Models[name].validate(name); err != nil {
+	for _, name := range slices.Sorted(maps.Keys(c.Families)) {
+		if err := c.Families[name].validate(name); err != nil {
 			return err
 		}
 	}
 	for _, name := range c.RouteIDs() {
-		if err := c.Routes[name].validate(name, c.Accounts, c.Models); err != nil {
+		if err := c.Routes[name].validate(name, c.Accounts, c.Families); err != nil {
 			return err
 		}
 	}
@@ -254,7 +254,7 @@ func (account Account) validate(name string) error {
 	return nil
 }
 
-func (model Model) validate(name string) error {
+func (model Family) validate(name string) error {
 	if !ValidIdentifier(name) {
 		return fmt.Errorf("invalid model name %q; use letters, numbers, dot, dash, or underscore", name)
 	}
@@ -267,7 +267,7 @@ func (model Model) validate(name string) error {
 	return nil
 }
 
-func (route Route) validate(name string, accounts map[string]Account, models map[string]Model) error {
+func (route Route) validate(name string, accounts map[string]Account, models map[string]Family) error {
 	if !ValidIdentifier(name) {
 		return fmt.Errorf("invalid route name %q; use letters, numbers, dot, dash, or underscore", name)
 	}

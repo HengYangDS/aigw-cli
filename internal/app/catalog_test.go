@@ -167,8 +167,8 @@ func TestCatalogObservationSeparatesProtocolCapabilitiesAndDifferences(t *testin
 			OpenAIResponses:       "https://responses.test/v1",
 		},
 	}
-	cfg.Models["shared"] = domain.Model{Label: "Shared"}
-	cfg.Models["missing"] = domain.Model{Label: "Missing"}
+	cfg.Families["shared"] = domain.Family{Label: "Shared"}
+	cfg.Families["missing"] = domain.Family{Label: "Missing"}
 	cfg.Routes["chat"] = domain.Route{
 		Label:         "Chat",
 		Account:       "gateway",

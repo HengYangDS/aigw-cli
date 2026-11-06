@@ -390,7 +390,7 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 		}
 		if workload.Name == "projection" && binding != (domain.Runtime{}) {
 			workload.Runtime.RouteID, workload.Runtime.RouteLabel = "performance-second", "Performance Second"
-			workload.Runtime.Model, workload.Runtime.CanonicalModelID = "claude-second", "claude-second"
+			workload.Runtime.Model, workload.Runtime.FamilyID = "claude-second", "claude-second"
 		}
 		cases = append(cases, workload)
 	}
