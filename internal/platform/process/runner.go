@@ -72,20 +72,19 @@ const DiagnosticLimit = capturedProcessOutputLimit
 
 // Diagnostics is the standard error that RunDiagnosed replayed: its first
 // DiagnosticLimit bytes, whether more followed, and whether any of its lines
-// carries a DiagnosticFailure marker. A line longer than DiagnosticLimit is
-// examined in pieces of that size, so a marker across two pieces goes unseen;
-// Truncated is always set for such a line, because the head cannot hold it.
+// carries a DiagnosticFailure marker. A line longer than DiagnosticLimit cannot
+// be examined whole, so it counts as a failure.
 type Diagnostics struct {
 	Head      []byte
 	Truncated bool
 	Failure   bool
 }
 
-func (diagnostics *Diagnostics) observe(piece []byte) {
+func (diagnostics *Diagnostics) observe(piece []byte, whole bool) {
 	kept := min(len(piece), DiagnosticLimit-len(diagnostics.Head))
 	diagnostics.Head = append(diagnostics.Head, piece[:kept]...)
 	diagnostics.Truncated = diagnostics.Truncated || kept < len(piece)
-	diagnostics.Failure = diagnostics.Failure || DiagnosticFailure(piece)
+	diagnostics.Failure = diagnostics.Failure || !whole || DiagnosticFailure(piece)
 }
 
 // RunDiagnosed runs plan as RunStream does with standard error in a native
@@ -110,8 +109,9 @@ func (runner Runner) RunDiagnosed(ctx context.Context, plan Plan, stdout, stderr
 		if len(piece) > 0 {
 			_, writeErr = stderr.Write(piece)
 		}
-		diagnostics.observe(piece)
-		if errors.Is(readErr, bufio.ErrBufferFull) {
+		tooLong := errors.Is(readErr, bufio.ErrBufferFull)
+		diagnostics.observe(piece, !tooLong)
+		if tooLong {
 			readErr = nil
 		}
 		if readErr != nil || writeErr != nil {

@@ -199,8 +199,8 @@ func TestRunDiagnosedReplaysAndQualifiesTheCompleteDiagnostics(t *testing.T) {
 		{"progress", "\nprogress\n", 8, 0, false, false},
 		{"warning", "\nwarning: incomplete", 8, 0, false, true},
 		{"beyond the head", "\nwarning: late\n", DiagnosticLimit, 3, true, true},
-		{"one oversized line", "", 4 * DiagnosticLimit, 0, true, false},
-		{"a marker deep in one oversized line", " warning: late", 4*DiagnosticLimit + 1, 0, true, true},
+		{"a whole line at the limit", "\nprogress\n", DiagnosticLimit - 1, 0, true, false},
+		{"one oversized line", "", 4 * DiagnosticLimit, 0, true, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var stdout bytes.Buffer
