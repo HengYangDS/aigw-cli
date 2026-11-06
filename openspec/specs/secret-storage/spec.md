@@ -452,6 +452,15 @@ authorization.
 - **THEN** the parent terminates and reaps its subprocess through bounded cleanup
 - **AND** the helper reports the deadline rather than suggesting configuration sync.
 
+#### Scenario: A credential subprocess exits at once
+
+- **WHEN** a native credential subprocess, or a client credential command that
+  AIGW runs, exits as soon as it starts or starts its own children at once
+- **THEN** it SHALL already belong to the process group or Job that owns its
+  cleanup before it runs any code, and its start SHALL succeed
+- **AND** a subprocess that cannot be contained SHALL be stopped, with the
+  cause reported.
+
 ### Requirement: Native credential transport preserves secret boundaries
 
 Tokens SHALL enter the native credential subprocess only through bounded
