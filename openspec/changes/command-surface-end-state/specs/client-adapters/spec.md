@@ -113,6 +113,13 @@ Client-owned sessions, services, and model choices SHALL remain client-owned.
 - **AND** providers without a Token and models that Hermes cannot use SHALL
   remain absent.
 
+#### Scenario: Claude Desktop lists one entry per family
+
+- **WHEN** AIGW projects the Claude Desktop profile
+- **THEN** it SHALL list the selected model and, for each other family of the
+  selected provider and protocol, the first such model in configuration order
+- **AND** a model that is its own family SHALL count as one family.
+
 #### Scenario: Hermes provider IDs keep their spelling
 
 - **WHEN** AIGW projects Hermes provider entries for provider `dmxapi`
@@ -151,7 +158,7 @@ reject `tool_search` on any other protocol.
 - **WHEN** the selected model and every other model in the Desktop profile
   declare `tool_search` on `anthropic`
 - **THEN** synchronization SHALL write the profile with tool search enabled
-- **AND** inspection SHALL report that projection unchanged.
+- **AND** inspection SHALL report that client configuration file unchanged.
 
 #### Scenario: One listed model lacks tool search
 
@@ -163,8 +170,8 @@ reject `tool_search` on any other protocol.
 #### Scenario: A listed model's capability changes
 
 - **WHEN** a model in the Desktop profile gains or loses `tool_search`
-- **THEN** synchronization SHALL report a projection change and rewrite the
-  profile to match.
+- **THEN** synchronization SHALL report a change to that client configuration
+  file and rewrite the profile to match.
 
 #### Scenario: A model declares tool search on another protocol
 
@@ -178,8 +185,8 @@ reject `tool_search` on any other protocol.
 Codex and Claude Code SHALL be independent Adapters owning discovery,
 projection, authentication, rollback, verification, status, and withdrawal of
 AIGW state. Provider-Token credential commands MUST use an absolute qualified
-reader for the selected model, never store Tokens in client files, and never
-rely on a package-manager CLI link. Client-native authentication and
+reader, never store Tokens in client files, and never rely on a package-manager
+CLI link. Client-native authentication and
 preferences SHALL remain client-owned. A new client MUST add an Adapter without
 changing provider policy or other Adapters.
 
@@ -206,7 +213,7 @@ changing provider policy or other Adapters.
 - **WHEN** Codex's enabled selection names an explicit native provider identity
 - **THEN** its declared authentication mode SHALL determine credential ownership
 - **AND** provider-Token authentication SHALL invoke the selected qualified
-  reader for only Codex's selected model
+  reader with the fingerprint of Codex's selected provider and endpoint
 - **AND** client-native authentication SHALL project no AIGW Token helper
 - **AND** neither mode SHALL write a plaintext Token to public configuration
 
@@ -236,7 +243,8 @@ changing provider policy or other Adapters.
 #### Scenario: Credential retrieval is not admitted
 
 - **WHEN** a credential request names an unsupported client, a disabled
-  client, an unresolved model, or a provider without a Token
+  client, a fingerprint that matches no provider endpoint, or a provider
+  without a Token
 - **THEN** the request SHALL fail without writing credential bytes to standard
   output
 

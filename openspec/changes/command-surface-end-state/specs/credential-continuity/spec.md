@@ -5,11 +5,10 @@
 The credential reader SHALL decode from `aigw.toml` only each provider's ID and
 endpoints, the protocol keys of its models, and each client's enabled state and
 authentication. It SHALL ignore `version`, every other field and unknown
-protocol keys, refuse a client whose authentication kind it does not know, and
-match fingerprints exactly. A release that changes one of these fields SHALL
-store its configuration under a new file name.
+protocol keys, refuse a client whose authentication kind it does not know,
+match fingerprints exactly and check no client's selection.
 
-#### Scenario: A later release adds fields and a version
+#### Scenario: Unknown fields and a newer version are ignored
 
 - **GIVEN** `aigw.toml` holds fields this reader does not know and
   `version = 99`
@@ -26,7 +25,7 @@ store its configuration under a new file name.
 - **AND** a document that is not valid TOML SHALL fail at the parse stage, as
   "Credential configuration failures name the reader and stage" requires.
 
-#### Scenario: A later release adds a protocol
+#### Scenario: An unknown protocol key is ignored
 
 - **WHEN** a provider's endpoints or a model's protocols hold a protocol key
   this reader does not know
@@ -50,11 +49,13 @@ store its configuration under a new file name.
   matches the fingerprint
 - **THEN** the reader SHALL return no Token and SHALL read no credential.
 
-#### Scenario: A later release changes a field in the view
+#### Scenario: The reader checks no selection
 
-- **WHEN** a release changes the name, type or meaning of a field in the view
-- **THEN** it SHALL write its configuration under a new file name
-- **AND** it SHALL leave `aigw.toml` readable for readers in running sessions.
+- **GIVEN** a running session's credential command carries the fingerprint of
+  a provider endpoint that its client no longer selects
+- **WHEN** the session calls the reader while that provider and endpoint exist
+- **THEN** the reader SHALL return that provider's Token
+- **AND** once the provider or that endpoint is gone, it SHALL return no Token.
 
 ### Requirement: Upgrading imports a schema 6 configuration once
 
@@ -81,6 +82,22 @@ refuse and name `aigw sync`, except `aigw self`, shell completion and
   unchanged
 - **AND** a credential command that a running session loaded before the sync
   SHALL keep returning its Token from those files.
+
+#### Scenario: Routes that share a provider and model ID merge
+
+- **GIVEN** schema 6 Routes of one provider that share a model ID and a family
+- **WHEN** `aigw sync` imports them
+- **THEN** `aigw.toml` SHALL hold one model whose protocols are the union of
+  theirs, labelled by the first of those Routes in configuration order
+- **AND** a client selection or recommendation that named any of them SHALL
+  name that model
+- **AND** the result SHALL report each merge.
+
+#### Scenario: Routes to merge name different families
+
+- **WHEN** two schema 6 Routes that share a provider and model ID name
+  different families
+- **THEN** the import SHALL refuse, name both Routes, and write nothing.
 
 #### Scenario: An import is previewed
 
@@ -220,9 +237,6 @@ SHALL NOT substitute for existing-caller continuity.
 - **AND** each later captured versioned command SHALL remain callable through
   subsequent rollback and re-upgrade until explicitly retired after proving
   that no consumer can invoke it
-- **AND** a client session started before the 0.7.0 `aigw sync` and still
-  running after the 0.8.0 `aigw sync` SHALL get no Token from its reader and
-  must restart, because 0.8.0 deletes the files that reader reads
 - **AND** native credential denial outside the admitted macOS retained-item
   migration SHALL block production acceptance rather than trigger an alternate
   reader, ACL change or repeated authorization attempt.

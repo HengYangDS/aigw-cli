@@ -1,13 +1,13 @@
 ## ADDED Requirements
 
-### Requirement: Credential commands match the selected provider and endpoint
+### Requirement: Credential commands match a provider endpoint
 
 Every Codex provider that uses a provider Token SHALL authenticate through the
-absolute AIGW command. The command SHALL carry the fingerprint of its client,
-provider and endpoint and compare it with the client's selected model before
-reading a Token. AIGW SHALL neither invoke native login nor change client
-credentials. Client-native authentication SHALL get no AIGW Token command;
-naming and catalog selection SHALL NOT alter credential ownership.
+absolute AIGW command, whose fingerprint names its client, provider and
+endpoint. The command SHALL return the Token when that fingerprint matches an
+enabled client, a configured provider and an endpoint of one of that provider's
+models, and SHALL check no selection; `credential-continuity`'s frozen view owns
+this. AIGW SHALL neither invoke native login nor change client credentials.
 
 #### Scenario: A Codex provider uses a provider Token
 
@@ -25,10 +25,17 @@ naming and catalog selection SHALL NOT alter credential ownership.
 - **THEN** the old attributed provider table is removed transactionally
 - **AND** the declared authentication ownership is preserved.
 
-#### Scenario: A retained command no longer matches the selected model
+#### Scenario: A running session outlives its client's move
 
-- **WHEN** a credential command is invoked after its client, provider or
-  endpoint differs from the client's selected model
+- **GIVEN** a running session holds the credential command of one provider
+- **WHEN** its client selects a model of another provider, and the first
+  provider still has a model on that endpoint
+- **THEN** the command SHALL keep returning the first provider's Token.
+
+#### Scenario: A retained command matches no provider endpoint
+
+- **WHEN** a credential command's fingerprint matches no configured provider and
+  endpoint of one of that provider's models
 - **THEN** it returns a synchronization and reload instruction
 - **AND** reads no Token and writes no credential bytes to standard output.
 
@@ -37,7 +44,8 @@ naming and catalog selection SHALL NOT alter credential ownership.
 - **WHEN** only the selected model of the same provider and endpoint, or its
   label, changes
 - **THEN** the existing fingerprint still matches
-- **AND** the command reads the same provider's current Token.
+- **AND** the command reads the same provider's current Token
+- **AND** naming and catalog selection SHALL NOT alter credential ownership.
 
 #### Scenario: Multiple Codex homes use the same provider Token
 
@@ -93,8 +101,8 @@ would write, and its preview SHALL report the same changes without writing.
 
 ### Requirement: Codex model choices respect TOML scope and literal identity
 
-AIGW SHALL use the locked native TOML parser for Codex root model, provider,
-and catalog selections. Projection and withdrawal SHALL preserve unrelated
+AIGW SHALL read Codex root model, provider, and catalog selections by their TOML
+meaning. Projection and withdrawal SHALL preserve unrelated
 bytes, including quoted, multiline, dotted, and named-profile keys and arrays
 of tables. Replacement values SHALL be literal, never regex substitutions.
 Invalid or ambiguous selections SHALL fail before writes. Root ownership SHALL
@@ -150,8 +158,8 @@ comments alone do not grant authority.
 
 ### Requirement: Codex provider ownership follows TOML values
 
-AIGW SHALL identify provider and authentication tables through the locked TOML
-parser, never comment spans. One canonical rendering of complete owned values
+AIGW SHALL identify provider and authentication tables by their TOML values,
+never by comment spans. One canonical rendering of complete owned values
 SHALL define the projection hash; equivalent syntax SHALL preserve ownership,
 while invalid, missing, unknown, or changed owned values fail before writing.
 `requires_openai_auth` SHALL retain absent, true, or false identity until a
@@ -367,15 +375,95 @@ edit, or relax the guard.
 - **WHEN** the operator restores AIGW's values and runs `aigw sync`
 - **THEN** synchronization SHALL succeed and `check` SHALL report no drift.
 
+### Requirement: Codex scheduler edits follow native table boundaries
+
+AIGW SHALL identify scheduler tables and assignments by their TOML meaning.
+Header-like text in strings and same-named keys in other tables SHALL
+remain untouched. Quoted table and key names, comments, and supported integer
+spellings SHALL resolve to the same scheduler values. Withdrawal SHALL restore
+recorded scheduler values without removing ownership-like text elsewhere.
+
+#### Scenario: User instructions contain example scheduler settings
+
+- **WHEN** a multiline user string contains scheduler-looking tables and keys
+- **THEN** projection changes only the real scheduler tables
+- **AND** an independent native TOML decode observes the configured limits
+- **AND** withdrawal preserves the instruction string and neighboring profiles.
+
+#### Scenario: Equivalent table and integer spellings
+
+- **WHEN** the user quotes table or key names, annotates a table header, or uses
+  a supported signed, hexadecimal, or underscore-separated integer
+- **THEN** capture records the actual scheduler value
+- **AND** projection, validation, and withdrawal agree on that semantic scope.
+
+### Requirement: Transactional and inspectable projection
+
+AIGW SHALL atomically prepare and validate selected client targets, mutate only
+owned projections, compensate failures only while postimages remain
+transaction-owned, and expose credential-free, side-effect-free dry runs. For a
+Codex model whose family is in Codex's bundled table, it SHALL derive an alias
+of that family's entry bound to client version and digest, preserve the wire
+model ID, and update all three atomically. Foreign or user-authored catalogs
+MUST remain untouched.
+
+#### Scenario: Multi-target projection fails
+
+- **WHEN** any selected target cannot be prepared or committed
+- **THEN** AIGW SHALL report failure and restore only artifacts whose postimage
+  still belongs to the failing transaction
+
+#### Scenario: Inspect a dry run
+
+- **WHEN** an operator runs synchronization in dry-run JSON mode
+- **THEN** AIGW SHALL return the target and action plan without a credential or
+  client-lifecycle side effect
+
+#### Scenario: A provider prefixes a known Codex model
+
+- **WHEN** the client's own bundled model table holds the selected model's
+  family but not its ID
+- **THEN** AIGW SHALL project the complete bundled table plus an alias named
+  with the model's ID, whose metadata is the family's entry
+- **AND** AIGW SHALL NOT take metadata from a suffix or prefix of the model ID,
+  so a model whose family is not in the table SHALL get no alias
+- **AND** the provider SHALL continue receiving the original selected model ID.
+
+#### Scenario: Client identity or catalog ownership is not provable
+
+- **WHEN** the installed client changes, generation fails, the managed bytes
+  drift, or a foreign catalog occupies the managed path
+- **THEN** AIGW SHALL refuse unsafe reuse, adoption, overwrite, or deletion
+- **AND** SHALL preserve user-owned state.
+
+#### Scenario: A real client qualifies the projection
+
+- **WHEN** a contributor runs the tracked catalog verification command
+- **THEN** it SHALL use the client's public model-catalog command surface
+- **AND** SHALL record the exact client version and executable digest
+- **AND** SHALL prove the generated alias is present in the effective catalog
+- **AND** SHALL prove all alias metadata except `slug` equals the bundled base
+  metadata
+- **AND** SHALL prove the bundled catalog did not already contain that alias
+- **AND** SHALL prove an unrelated unknown entry remains absent
+- **AND** SHALL send no model request and alter no persistent Codex home.
+
+#### Scenario: The client no longer exposes a compatible catalog surface
+
+- **WHEN** the installed client rejects the command or returns an invalid catalog
+- **THEN** verification SHALL fail explicitly
+- **AND** SHALL NOT substitute prompt shape, item counts, private debug settings,
+  or a locally maintained model schema.
+
 ## REMOVED Requirements
 
 ### Requirement: Projection-matched Account Token delivery
 
-**Reason**: Its heading and scenarios name Accounts and Routes, which
-providers and models replace.
+**Reason**: Its heading and scenarios name Accounts and Routes, and it compares
+the fingerprint with a selection that the reader does not check.
 
-**Migration**: "Credential commands match the selected provider and endpoint"
-in this capability keeps every scenario under the new names.
+**Migration**: "Credential commands match a provider endpoint" in this
+capability, with the frozen view in `credential-continuity`.
 
 ### Requirement: Repair previews name each projection surface
 

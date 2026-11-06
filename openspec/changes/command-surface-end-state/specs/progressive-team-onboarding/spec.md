@@ -14,7 +14,7 @@ with `--json` or `--dry-run`, it SHALL refuse and name
 
 - **WHEN** `aigw setup` runs in a terminal without configuration
 - **THEN** it SHALL ask for a provider's ID, endpoints and Token and validate
-  the Token with one model-free request
+  the Token as `secret-storage` defines
 - **AND** it SHALL then ask for an installed client and a model from that
   provider's catalog, save them in one transaction and check that client.
 
@@ -74,10 +74,10 @@ with `--json` or `--dry-run`, it SHALL refuse and name
 `aigw setup --from <file>` SHALL apply a team file in one transaction. The
 models, families and recommendations that it names SHALL replace the local ones,
 and local-only entries SHALL stay unless `--prune` removes the unused ones. It
-SHALL add new providers and take the file's provider labels, but SHALL NOT
-change an existing provider's endpoints, balance probe or Token or replace a
-client's selection; a differing endpoint or balance probe SHALL stay local and
-be reported.
+SHALL add new providers, take the file's provider labels and fill in a missing
+balance probe, but SHALL NOT change an existing provider's endpoints or Token or
+replace a client's selection; a differing endpoint or balance probe SHALL stay
+local and be reported.
 
 #### Scenario: The file and the configuration define the same model
 
@@ -98,6 +98,12 @@ be reported.
   probe that differs from the local one
 - **THEN** the local value and the provider's Token SHALL stay
 - **AND** setup SHALL report both values.
+
+#### Scenario: The file gives a balance probe to a provider without one
+
+- **WHEN** the team file gives `ucloud` a balance probe and the local `ucloud`
+  has none
+- **THEN** the provider SHALL take the file's balance probe.
 
 #### Scenario: A client already has a selection
 
@@ -184,7 +190,7 @@ external service. It SHALL prompt for a missing Token only in a terminal, take
 one provider's Token from standard input when `--token-stdin` comes with
 `--provider <id>`, and otherwise defer that provider and name its fix. A
 deferred Token SHALL NOT fail setup. A Token that it stores SHALL first pass the
-validation of `aigw provider add`.
+validation that `secret-storage` defines.
 
 #### Scenario: No Token or client is present
 
@@ -199,13 +205,12 @@ validation of `aigw provider add`.
 
 - **WHEN** `aigw setup --from team.toml --provider dmxapi --token-stdin` runs
 - **THEN** only the `dmxapi` Token SHALL be read from standard input, validated
-  with one authenticated model-free request and stored
+  and stored
 - **AND** each other provider without a Token SHALL be deferred with its fix.
 
 #### Scenario: The provider does not accept a supplied Token
 
-- **WHEN** the validation request for a prompted or piped Token is rejected or
-  cannot complete
+- **WHEN** a prompted or piped Token fails that validation
 - **THEN** setup SHALL refuse, and neither that Token nor the team file's
   changes SHALL be stored.
 
@@ -230,7 +235,9 @@ validation of `aigw provider add`.
 - **WHEN** `aigw setup --from <file>` runs in a terminal without `--provider`,
   and a provider whose recommended model setup would select has no Token
 - **THEN** setup SHALL prompt for that Token, and for no other provider's,
-  without echoing it.
+  without echoing it
+- **AND** a `--json` or non-terminal run SHALL defer that provider, because
+  `command-line` lets neither prompt.
 
 #### Scenario: Tokens come from the environment
 
@@ -493,10 +500,10 @@ recommendations, in configuration order, without a `[clients]` section, and
 ### Requirement: Adding a provider is one guarded transaction
 
 `aigw provider add <provider>` SHALL create a provider with its label and
-endpoints in the same guarded transaction that stores its validated Token, and
-SHALL select no model for any client. An existing provider ID SHALL be refused
-before a Token is requested, and a failed save SHALL compensate the stored Token
-through the shared replacement owner.
+endpoints in the same guarded transaction that stores its Token, validated as
+`secret-storage` defines, and SHALL select no model for any client. An existing
+provider ID SHALL be refused before a Token is requested, and a failed save
+SHALL compensate the stored Token through the shared replacement owner.
 
 #### Scenario: A script adds a provider
 

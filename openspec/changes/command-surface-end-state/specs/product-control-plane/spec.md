@@ -29,8 +29,7 @@ gateway MUST NOT acquire AIGW state.
 - **THEN** AIGW SHALL write those endpoints by the same provider and model
   semantics used for direct HTTPS endpoints
 - **AND** runtime evidence SHALL verify each selected client path without
-  giving AIGW gateway lifecycle ownership or encoding a fixed product, path, or
-  port
+  gateway lifecycle ownership or a fixed product, path, or port
 
 #### Scenario: An external gateway is unavailable
 
@@ -42,25 +41,21 @@ gateway MUST NOT acquire AIGW state.
 
 A provider SHALL own an ID, a label, one endpoint per protocol and its Token.
 A model SHALL belong to one provider and be named `provider/model`, where the
-part after the first `/` is the provider's own model ID, byte for byte. A
-family SHALL group the models that serve one vendor model. Only a client's
-`[clients.<id>]` table SHALL own its selected model, protocol, authentication,
-`model_provider`, enabled intent and client-only options. Each capability
-requires separate proof.
+part after the first `/` is the provider's own model ID, byte for byte and
+unique within that provider. A family SHALL group the models of one vendor
+model. Only `[clients.<id>]` SHALL own a client's selected model, protocol,
+authentication, `model_provider`, enabled intent and client-only options. Each
+capability requires separate proof.
 
 #### Scenario: A model ID contains a slash
 
 - **WHEN** a command receives `aihubmix/openai/gpt-oss` as a model
 - **THEN** it SHALL resolve provider `aihubmix` and model ID `openai/gpt-oss`.
 
-#### Scenario: Two providers serve one family under different IDs
+#### Scenario: A provider repeats a model ID
 
-- **GIVEN** two providers serve the same vendor model under different model IDs
-  or channel variants
-- **WHEN** a team file or `--family` links both models to one family
-- **THEN** both SHALL name that family
-- **AND** neither model ID SHALL be inferred from the other by adding or
-  removing a suffix.
+- **WHEN** a team file or `aigw.toml` gives one provider the same model ID twice
+- **THEN** validation SHALL refuse it without changing any file.
 
 #### Scenario: One provider serves different protocols per model
 
@@ -77,8 +72,6 @@ requires separate proof.
 - **WHEN** its reasoning, tool, continuation, or compaction behavior has not
   been qualified for the selected client
 - **THEN** AIGW SHALL report only the proven text capability
-- **AND** reasoning, streaming, tool calls, structured output, continuation,
-  compaction, and multimodal input SHALL be qualified separately
 - **AND** SHALL NOT present the model as Codex-compatible or
   reasoning-qualified.
 
@@ -132,14 +125,6 @@ readiness or client configuration files.
 - **AND** SHALL NOT represent that configuration fact as endpoint or transport
   health.
 
-#### Scenario: A client uses client-native authentication
-
-- **WHEN** an enabled client's selection uses client-native authentication
-- **THEN** `status`, `check`, `model show` and `credential` SHALL NOT query
-  the provider Token store for it
-- **AND** read-only output SHALL identify client-owned authentication and name
-  `aigw check <client> --depth client` for live proof where applicable.
-
 ### Requirement: One configuration file holds providers, models and families
 
 AIGW SHALL keep its configuration in one credential-free `aigw.toml` with
@@ -154,9 +139,8 @@ without `[clients]`.
 
 - **WHEN** `aigw.toml` lists providers, and the models of one provider, in an
   order that is not alphabetical
-- **THEN** `aigw provider list` and `aigw model list` SHALL show them in that
-  order in human and JSON output
-- **AND** `aigw config export` SHALL keep that order.
+- **THEN** `aigw provider list`, `aigw model list`, their JSON output and
+  `aigw config export` SHALL keep that order.
 
 #### Scenario: A retired field is present
 
@@ -198,12 +182,6 @@ a model ID. Only `aigw model add`, `aigw model edit`, a team file and the
 one-time import SHALL set a capability, and changing a protocol's endpoint
 SHALL clear those on that protocol.
 
-#### Scenario: A provider has one endpoint
-
-- **WHEN** `aigw model add <provider/model>` runs without `--protocol` for a
-  provider whose only endpoint is `responses`
-- **THEN** the model SHALL declare `responses`.
-
 #### Scenario: A capability goes to each protocol that admits it
 
 - **WHEN** `aigw model edit <provider/model> --capability tool_search` runs for
@@ -228,22 +206,59 @@ SHALL clear those on that protocol.
   protocol, SHALL be cleared in the same transaction
 - **AND** the result and its `--dry-run` preview SHALL report each one.
 
-### Requirement: Models are added, edited and removed explicitly
+### Requirement: Adding a model applies the catalog check and selects nothing
 
-`aigw model add <provider/model>` SHALL add a model after the catalog check
-that `model-selection` defines and SHALL select it for no client.
-`aigw model edit` SHALL change only what it names and replace each repeatable
-set that it is given. An unknown `--family` SHALL create that family, labelled
-from the model. `aigw model remove` SHALL refuse a model that a client selects,
-enabled or disabled, and SHALL drop and report the recommendations that name
-it. Each SHALL write in one transaction.
+`aigw model add <provider/model>` SHALL apply the catalog check of `aigw use`,
+unless `--unlisted` is given, and SHALL select the model for no client. Its
+`--protocol` SHALL be optional only for a provider with one endpoint. Without
+`--family` it SHALL follow the family rule of `model-selection`, and an unknown
+`--family` SHALL create that family, labelled from the model.
 
 #### Scenario: Adding a model selects nothing
 
 - **WHEN** `aigw model add <provider/model>` adds a model
 - **THEN** no client's selection SHALL change
 - **AND** client configuration files that list that provider's models SHALL
-  change in the same transaction.
+  change in the same transaction
+- **AND** a model or protocol that `aigw use` adds SHALL update those files too,
+  as `model-selection` states.
+
+#### Scenario: The catalog check refuses the model
+
+- **WHEN** the provider's catalog does not list the model ID, cannot be read or
+  lists no model
+- **THEN** `aigw model add` SHALL refuse before any write, naming the closest
+  listed IDs when the catalog lists any
+- **AND** otherwise its Fix SHALL be the same command with `--unlisted`, which
+  reads no catalog.
+
+#### Scenario: Preview an addition
+
+- **WHEN** `aigw model add <provider/model> --dry-run` runs
+- **THEN** it SHALL read no catalog, report the model and say that the listing
+  was not checked.
+
+#### Scenario: The endpoints decide whether a protocol is needed
+
+- **WHEN** `aigw model add <provider/model>` runs without `--protocol`
+- **THEN** a provider whose only endpoint is `responses` SHALL give the model
+  `responses`
+- **AND** a provider with several endpoints SHALL refuse before any write,
+  naming `--protocol` and its protocols.
+
+#### Scenario: An unknown family is created
+
+- **WHEN** `aigw model add` or `aigw model edit` names a `--family` that does
+  not exist
+- **THEN** AIGW SHALL create that family in the same transaction, labelled from
+  the model.
+
+### Requirement: Models are edited and removed explicitly
+
+`aigw model edit` SHALL change only what it names and replace each repeatable
+set that it is given. `aigw model remove` SHALL refuse a model that a client
+selects, enabled or disabled, and SHALL drop and report the recommendations that
+name it. Each SHALL write in one transaction.
 
 #### Scenario: Edit replaces a model's protocols
 
@@ -259,13 +274,6 @@ it. Each SHALL write in one transaction.
 - **THEN** it SHALL refuse before any write
 - **AND** its Fix SHALL be `aigw use <client> <provider/model> --protocol <p>`,
   which moves the client, after which the edit can run.
-
-#### Scenario: An unknown family is created
-
-- **WHEN** `aigw model add` or `aigw model edit` names a `--family` that does
-  not exist
-- **THEN** AIGW SHALL create that family in the same transaction, labelled from
-  the model.
 
 #### Scenario: Remove a model that a client selects
 
@@ -358,7 +366,6 @@ as withdrawn, renamed or incompatible.
 - **WHEN** every protocol source of a provider is read and none lists an added
   model
 - **THEN** AIGW SHALL keep the model and every client's selection of it
-- **AND** `aigw model search` SHALL report it as `missing`
 - **AND** AIGW SHALL NOT infer a rename from a newly listed ID.
 
 ### Requirement: Providers are removed with their models and Tokens
@@ -510,13 +517,13 @@ failed probe SHALL NOT hide the others.
 
 ### Requirement: Token rotation is credential-scoped
 
-AIGW SHALL validate and replace only the selected provider's Token. Rotation
-MUST leave providers, models, families, client selections, client
-configuration files, ownership sidecars and client-owned credentials unchanged.
-`aigw provider add`, `aigw provider rotate`, `aigw use` and setup SHALL use the
-same Token replacement and compensation owner. Compensation SHALL inspect the
-written Token, preserve a different observed value, and report incomplete
-storage recovery.
+AIGW SHALL replace only the selected provider's Token, after `secret-storage`'s
+validation. Rotation MUST leave providers, models, families, client selections,
+client configuration files, ownership sidecars and client-owned credentials
+unchanged. `aigw provider add`, `aigw provider rotate`, `aigw use` and setup
+SHALL use the same Token replacement and compensation owner. Compensation SHALL
+inspect the written Token, preserve a different observed value, and report
+incomplete storage recovery.
 
 #### Scenario: The next helper invocation observes rotation
 
@@ -541,12 +548,13 @@ storage recovery.
 
 ### Requirement: Model use follows protocol and capability
 
-AIGW SHALL accept a model independently of client branding, using the
-protocols it declares and its verified capabilities. Provider-native APIs SHALL
-be preferred when sufficient. An independently selected compatibility service
-MAY supply a missing protocol without becoming part of AIGW's runtime.
-Displayed mappings SHALL preserve the identity of the requested and serving
-models. A successful text request SHALL establish only text connectivity.
+AIGW SHALL accept a model independently of client branding, using the protocols
+it declares and its verified capabilities. The client, `--protocol` or a team
+file SHALL choose among protocols; AIGW SHALL NOT prefer one. An independently
+selected compatibility service MAY supply a missing protocol without becoming
+part of AIGW's runtime. Displayed mappings SHALL preserve the identity of the
+requested and serving models. A successful text request SHALL establish only
+text connectivity.
 
 #### Scenario: A non-Anthropic model serves Claude
 
@@ -647,10 +655,11 @@ capability keeps every scenario under provider names.
 replace Accounts, Routes, canonical Models and Client Bindings.
 
 **Migration**: "Providers, models, families and clients have distinct
-authority" in this capability; one model for several clients, the protocol
-choice and advisory recommendations belong to `model-selection`, team-file
-recommendations to `progressive-team-onboarding`, and an unselected client to
-`client-adapters`.
+authority" in this capability; one model for several clients, the family rule,
+the protocol choice and advisory recommendations belong to `model-selection`,
+team-file recommendations to `progressive-team-onboarding`, an unselected client
+to `client-adapters`, and the import's merge of models that share an ID to
+`credential-continuity`.
 
 ### Requirement: Schema replacement is explicit and reversible
 
@@ -667,10 +676,11 @@ this capability.
 **Reason**: It mixed configuration compatibility with check, status, doctor
 and setup output that now have their own owners.
 
-**Migration**: "Every client selects a compatible model" in this capability;
-the depths, skips and missing or unused Tokens of `aigw check` in
-`cli-readiness`; `aigw use` in `model-selection`; team-file recommendations in
-`progressive-team-onboarding`; earlier schemas in `credential-continuity`.
+**Migration**: "Every client selects a compatible model" in this capability; the
+depths, skips, client-native authentication and missing or unused Tokens of
+`aigw check` in `cli-readiness`; `aigw use` in `model-selection`; team-file
+recommendations in `progressive-team-onboarding`; earlier schemas in
+`credential-continuity`.
 
 ### Requirement: Provider catalog evolution is observed before admission
 

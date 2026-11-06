@@ -46,15 +46,26 @@ client SHALL stop at its first failed depth while the other clients continue.
 
 ### Requirement: A depth that a client cannot run is skipped
 
-A depth that a checked client cannot run SHALL be skipped and reported with its
-reason, and a skip SHALL NOT count as a failure. `aigw check` SHALL exit 1 when
-a checked client failed, or when no client is named and none is enabled, and 0
-otherwise, so named clients' own results decide.
+A depth that a checked client cannot run, or a local check that does not
+apply, SHALL be skipped with its reason and SHALL NOT count as a failure.
+`aigw check` SHALL exit 1 when a checked client failed, or when no client is
+named and none is enabled, and 0 otherwise.
+
+#### Scenario: Named clients decide the exit status
+
+- **WHEN** `aigw check hermes` runs with no client enabled and Hermes passes
+- **THEN** the command SHALL exit 0
+- **AND** `aigw check` without a client argument SHALL exit 1 at any depth.
+
+#### Scenario: A one-time Token is supplied
+
+- **WHEN** `aigw check <client> --model <provider/model> --token-stdin`
+  supplies a one-time Token
+- **THEN** `local` SHALL skip its stored-Token check and give that reason.
 
 #### Scenario: A client authenticates natively
 
-- **WHEN** a checked client uses client-native or external-helper
-  authentication
+- **WHEN** a checked client uses client-native or external-helper authentication
 - **THEN** its `endpoint` and `model` depths SHALL be skipped with that reason
 - **AND** check SHALL validate its local configuration without reading AIGW
   Tokens or client-owned credentials, and its success SHALL remain local
@@ -114,6 +125,51 @@ snapshot and claim no completed client.
 - **THEN** it SHALL report that no client is enabled rather than an empty
   success, write no snapshot and exit 1.
 
+### Requirement: The verified snapshot stays bound to the current configuration
+
+The configuration store SHALL own the verified snapshot's admission, bounded
+locking, guarded writing and compensation, and live requests SHALL run outside
+the lock. `aigw check --depth client` SHALL write the snapshot only while its
+configuration remains current and SHALL NOT create or certify missing
+configuration. Reads SHALL consume one complete JSON document, and writing and
+reading SHALL share one nonempty set of distinct supported clients.
+
+#### Scenario: Invalid snapshot content or client scope
+
+- **WHEN** a stored verified snapshot holds an additional JSON value or
+  trailing malformed content, or its clients are none, repeated or unsupported
+- **THEN** reading SHALL fail rather than certify the valid prefix
+- **AND** a write with an invalid client scope SHALL preserve the
+  configuration, its backup and the previous snapshot.
+
+#### Scenario: Configuration changes before the check completes
+
+- **WHEN** a client-depth check completes after the configuration changed
+- **THEN** admission SHALL fail, naming `aigw check --depth client` to rerun
+- **AND** the configuration and any newer snapshot SHALL remain unchanged.
+
+#### Scenario: An external editor changes configuration during the snapshot write
+
+- **WHEN** the store sees a changed configuration after writing the snapshot
+- **THEN** it SHALL compensate only its unchanged snapshot postimage
+- **AND** it SHALL preserve an intervening snapshot replacement and report any
+  incomplete compensation.
+
+#### Scenario: Snapshot admission is cancelled
+
+- **WHEN** the command is cancelled while waiting for the mutation lock
+- **THEN** admission SHALL return the cancellation without a snapshot
+- **AND** the other mutation SHALL keep ownership of its lock.
+
+#### Scenario: A verified recovery snapshot is requested
+
+- **WHEN** a caller requests the configuration with its verified snapshot
+- **THEN** the configuration store SHALL establish that their saved meanings
+  match before returning verified recovery state
+- **AND** formatting-only differences SHALL preserve the exact captured bytes
+- **AND** a mismatch SHALL fail without changing the configuration, its backup
+  or the snapshot, without relying on a downstream caller to repeat the check.
+
 ### Requirement: Readiness commands share one state vocabulary
 
 `setup`, `use`, `sync`, `status` and `check` SHALL share the configured,
@@ -130,13 +186,11 @@ model, client, backend or endpoint and exactly one Fix.
   request
 - **THEN** `status` and `aigw check --depth local` SHALL report that client as
   configured
-- **AND** no provider that no client uses and no absent client SHALL change the
-  result.
+- **AND** no unused provider and no absent client SHALL change the result.
 
 #### Scenario: An authenticated probe refines readiness
 
-- **WHEN** check reaches a configured client's `endpoint` depth, including
-  with `--depth endpoint`
+- **WHEN** check reaches a configured client's `endpoint` depth
 - **THEN** its bounded authenticated request SHALL carry no model, and success
   SHALL report the `endpoint` depth, not client or inference readiness
 - **AND** a typed failure SHALL report degraded, invalid or unavailable without
@@ -182,7 +236,8 @@ model, client, backend or endpoint and exactly one Fix.
 - **AND** an environment-backed continuation SHALL name one compatible provider
   variable from availability metadata, without exposing its value or requiring
   every provider
-- **AND** an empty `sync` selection SHALL NOT recommend `aigw check`.
+- **AND** the `next_action` of `aigw sync` SHALL follow the activation state,
+  and SHALL NOT be `aigw check` while nothing is selected.
 
 #### Scenario: Optional balance credentials are unavailable
 
@@ -385,19 +440,6 @@ or invalid home directory SHALL leave the target's location unknown.
 
 ## MODIFIED Requirements
 
-### Requirement: Read-only commands remain non-interactive
-
-Read-only commands SHALL NOT prompt, mutate configuration, read secret values
-unless authenticating a declared probe, or rewrite a client configuration file.
-They SHALL NOT start a client, except `aigw check` at the `client` depth, which
-runs each client privately.
-
-#### Scenario: Credential metadata is inaccessible
-
-- **WHEN** a read-only command cannot observe credential metadata
-- **THEN** it reports the backend boundary and recovery action
-- **AND** does not open an operating-system credential prompt.
-
 ### Requirement: One-client checks do not observe unrelated clients
 
 `aigw check` SHALL examine every enabled client when no client is named, and
@@ -452,7 +494,8 @@ paths.
 
 `status` and `check` SHALL report a configuration that cannot be loaded with
 the stage that failed, read, parse or validate, and a parse failure's line and
-column, in human and JSON output, and SHALL exit 1.
+column, in human and JSON output, and SHALL exit 1. `status` SHALL exit 0
+whenever the configuration loads, whatever the clients' readiness.
 
 #### Scenario: The configuration cannot be parsed
 
@@ -461,7 +504,28 @@ column, in human and JSON output, and SHALL exit 1.
 - **THEN** each SHALL report `configuration_parse` with the line and column
 - **AND** each SHALL exit 1.
 
+#### Scenario: Status shows a client that is not ready
+
+- **WHEN** `aigw status` runs with a configuration that loads and a client
+  whose Token is missing
+- **THEN** it SHALL report that client as not ready and exit 0.
+
 ## REMOVED Requirements
+
+### Requirement: Read-only commands remain non-interactive
+
+**Reason**: Prompting rules are one command-line contract.
+
+**Migration**: Read it in `command-line` under the same heading, with every
+scenario.
+
+### Requirement: Verification checkpoints remain bound to current configuration
+
+**Reason**: `aigw verify` becomes the `client` depth of `aigw check`, and the
+checkpoint becomes the verified snapshot.
+
+**Migration**: Read "The verified snapshot stays bound to the current
+configuration" in this capability.
 
 ### Requirement: Endpoint observations preserve service independence
 

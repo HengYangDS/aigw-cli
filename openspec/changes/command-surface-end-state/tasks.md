@@ -1,10 +1,10 @@
 ## 1. Names in code
 
-- [ ] 1.1 Rename the Go identifiers of `internal/domain`, `internal/store` and
+- [x] 1.1 Rename the Go identifiers of `internal/domain`, `internal/store` and
       `internal/secret` from Account, Route and canonical Model to Provider,
       Model and Family; TOML and JSON tags, user-visible text and file bytes
       stay, and every acceptance script passes unchanged.
-- [ ] 1.2 Apply the same rename in `internal/app`, `internal/adapter`,
+- [x] 1.2 Apply the same rename in `internal/app`, `internal/adapter`,
       `internal/cli` and `tools`; the architecture gate and every acceptance
       script pass unchanged.
 
@@ -54,13 +54,15 @@
 
 - [ ] 4.1 Rework `aigw use <client> <provider/model>`: it prompts for missing
       arguments only in a terminal, adds an unadded model or protocol after the
-      catalog check, derives the family, reports a lost tool search, and clears
-      forwarding and retries only on a change of provider; `use.txtar` covers
-      each branch.
+      catalog check, derives the family, reports a lost tool search, clears
+      forwarding when the upstream endpoint changes and retries only on a change
+      of provider, and names other clients whose files change; `use.txtar`
+      covers each branch.
 - [ ] 4.2 Rework `aigw check [client...] --depth local|endpoint|model|client`:
       each row names the depth reached, a depth that a client cannot run is
-      skipped with its reason, and the command exits 1 only when a checked
-      client failed or no client is enabled; `check.txtar` covers each reason.
+      skipped with its reason, and the command exits 1 when a checked client
+      failed, or when no client is named and none is enabled; `check.txtar`
+      covers each reason and a named disabled client.
 - [ ] 4.3 Add `--verbose`, and `--model <provider/model>` with an optional
       `--token-stdin` at depths `endpoint` and `model`, to `aigw check`; the
       one-time Token is neither read from nor written to the store.
@@ -73,6 +75,9 @@
       without a terminal, bare `aigw setup` refuses naming `--from`;
       `setup.txtar` covers a differing endpoint kept and reported, `--prune`,
       `--provider <id> --token-stdin` and a deferred Token.
+- [ ] 4.6 Take Codex's bundled model metadata from the model's family and retire
+      the Codex model catalog's suffix-derived namespace mirror; tests cover a
+      variant linked by family and a model that is its own family.
 
 ## 5. Maintenance commands and the command tree
 

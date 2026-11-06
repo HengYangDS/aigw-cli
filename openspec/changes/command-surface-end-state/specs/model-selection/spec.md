@@ -4,16 +4,27 @@
 
 `aigw use <client> <provider/model>` SHALL make that model the client's
 selection and SHALL change only that client's selection and the client
-configuration files that AIGW owns for it. Several clients MAY use one model;
-each SHALL keep its own selection, and there SHALL be no global selection.
+configuration files that AIGW owns for it, except that a model or protocol that
+it adds SHALL also update the files of other clients that list that provider's
+models, and the result SHALL name them. Several clients MAY use one model; each
+SHALL keep its own selection, and there SHALL be no global selection.
 
 #### Scenario: Select a model for one client
 
-- **WHEN** the operator runs `aigw use codex dmxapi/gpt-6.1-sol`
+- **WHEN** the operator runs `aigw use codex dmxapi/gpt-6.1-sol` for a model
+  that already declares `responses`
 - **THEN** AIGW SHALL update only Codex's selection and the client
   configuration files that AIGW owns for Codex
 - **AND** SHALL preserve every other client's selection, files and credentials
 - **AND** its next action SHALL be `aigw check codex`.
+
+#### Scenario: An added model reaches the clients that list its provider
+
+- **WHEN** `aigw use codex dmxapi/gpt-6.2` adds that model while Hermes lists
+  the `responses` models of DMXAPI
+- **THEN** Hermes's client configuration file SHALL list the model in the same
+  transaction, and the result SHALL name Hermes
+- **AND** Hermes's selection SHALL stay unchanged.
 
 #### Scenario: One model serves several clients
 
@@ -26,8 +37,8 @@ each SHALL keep its own selection, and there SHALL be no global selection.
 
 `aigw use` with a missing argument SHALL prompt only in a terminal and without
 `--json`, through filterable lists that show recommended models first.
-Otherwise it SHALL refuse and name the missing argument before it takes the
-configuration lock, reads a Token or a catalog, or writes anything.
+Otherwise it SHALL refuse as `command-line` requires of every command, before
+it takes the configuration lock, reads a Token or a catalog, or writes anything.
 
 #### Scenario: A terminal prompts for what is missing
 
@@ -41,7 +52,7 @@ configuration lock, reads a Token or a catalog, or writes anything.
 #### Scenario: A script omits an argument
 
 - **WHEN** `aigw use codex` runs from a pipe, in CI or with `--json`
-- **THEN** it SHALL prompt for nothing and refuse, naming the missing
+- **THEN** it SHALL refuse as `command-line` requires, naming the missing
   `<provider/model>` argument
 - **AND** it SHALL read no Token and write no configuration or client file.
 
@@ -136,13 +147,6 @@ prompt or `--protocol`, and SHALL NOT infer one from a catalog or a name.
 - **AND** JSON SHALL carry that Fix as `next_detail`, because it asks for a
   choice.
 
-#### Scenario: A model is added to a provider with several endpoints
-
-- **WHEN** `aigw model add <provider/model>` runs without `--protocol` and the
-  provider has more than one endpoint
-- **THEN** it SHALL refuse before any write, naming `--protocol` and the
-  provider's protocols.
-
 ### Requirement: Selection fails closed instead of guessing
 
 AIGW SHALL NOT infer a client, model or capability, or choose among protocols
@@ -181,13 +185,12 @@ or a team file.
 - **AND** `aigw model edit dmxapi/gpt-6.1-sol-cdx --family gpt-6.1-sol`, or a
   team file, SHALL link it to `gpt-6.1-sol`.
 
-### Requirement: An added model declares only the capabilities it is given
+### Requirement: A model that selection adds declares no capability
 
 A model that `aigw use` adds SHALL declare no capability, and when that turns
 off Claude Desktop's tool search, the result SHALL say so and name the command
-that declares the capability. `aigw model add --capability` SHALL set each
-capability on every protocol of the model that supports it, and SHALL refuse a
-capability that none of them supports.
+that declares the capability. `aigw model add` and `aigw model edit` SHALL
+declare capabilities, and choose protocols, as `product-control-plane` defines.
 
 #### Scenario: Claude Desktop loses tool search
 
@@ -196,13 +199,6 @@ capability that none of them supports.
 - **THEN** the result SHALL say that Claude Desktop's tool search is off
 - **AND** SHALL name
   `aigw model edit ucloud/claude-sonnet-5-6 --capability tool_search`.
-
-#### Scenario: No protocol of the model supports the capability
-
-- **WHEN** `aigw model add <provider/model> --capability tool_search` names a
-  model none of whose protocols supports `tool_search`
-- **THEN** it SHALL refuse before any write, naming the capability and the
-  model's protocols.
 
 ### Requirement: A selection commits in one guarded transaction
 
@@ -231,7 +227,9 @@ the committed configuration or credentials.
   one authenticated request before storing it
 - **AND** without a terminal it SHALL refuse and name
   `aigw provider rotate <provider>`, or the environment variable to set when
-  Tokens come from the environment.
+  Tokens come from the environment
+- **AND** with `--dry-run` it SHALL neither prompt for nor validate a Token,
+  and SHALL report it as missing.
 
 #### Scenario: Re-select the active model
 
@@ -265,10 +263,11 @@ automatically, an explicit selection SHALL outrank every recommendation, and
 
 #### Scenario: A selected provider fails during a request
 
-- **WHEN** a client or an external endpoint reports a transient request failure
-- **THEN** AIGW SHALL NOT claim to have observed or retried that request
-- **AND** SHALL NOT silently change the selected model or replay the call
-- **AND** MAY present a checked compatible alternative for explicit switching.
+- **WHEN** a client's request to its selected provider fails, and the operator
+  then runs `aigw status` and `aigw sync` without editing a client file
+- **THEN** the client's selection SHALL be unchanged
+- **AND** neither command SHALL send that request again or select another
+  model.
 
 #### Scenario: An operator exports a team file
 
@@ -302,15 +301,14 @@ forwarding service or carry requests.
 - **AND** SHALL NOT copy a Token, require a new provider identity or rewrite
   conversation history.
 
-#### Scenario: Forwarding is accepted or rolled back
+#### Scenario: Forwarding is rolled back
 
-- **WHEN** the forwarding service is installed and exercised by the real
-  client
-- **THEN** fresh and cold-resumed child task, message and result loops SHALL
-  pass
-- **AND** rollback SHALL restore the exact prior client behavior and usable
-  credential reference
-- **AND** acceptance SHALL verify cleanup of the exact owned test resources.
+- **WHEN** `aigw config rollback` restores the configuration from before
+  `aigw client edit <client> --via <url>` ran
+- **THEN** that client's configuration files SHALL again name its provider's
+  endpoint
+- **AND** its credential command SHALL return the same Token as before
+  forwarding was set.
 
 ### Requirement: Forwarding follows the upstream endpoint and retry budgets follow the provider
 
@@ -433,6 +431,22 @@ or model.
 
 - **WHEN** a selection leaves the Hermes configuration file unchanged
 - **THEN** human output SHALL NOT add the statement.
+
+### Requirement: The client list shows each client's state
+
+`aigw client list` SHALL list every client that AIGW supports, each with its
+installed executable path or that it is not installed, whether it is enabled,
+and its selected `provider/model` or that it has none.
+
+#### Scenario: List the clients
+
+- **GIVEN** Codex is installed, enabled and selects `dmxapi/gpt-6.1-sol`, and
+  Hermes is not installed
+- **WHEN** `aigw client list` runs
+- **THEN** Codex's row SHALL show its executable path, that it is enabled and
+  `dmxapi/gpt-6.1-sol`
+- **AND** Hermes's row SHALL show that it is not installed, and Claude Code and
+  Claude Desktop SHALL have rows too.
 
 ### Requirement: Disabling a client withdraws only what AIGW wrote
 

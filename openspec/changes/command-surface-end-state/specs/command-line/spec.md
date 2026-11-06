@@ -29,7 +29,8 @@ SHALL stay unchanged.
 
 - **WHEN** `aigw` runs without arguments
 - **THEN** it SHALL write what `aigw status` writes
-- **AND** without configuration it SHALL name `aigw setup` and exit 0.
+- **AND** without configuration it SHALL name `aigw setup` and exit 0, and
+  while an import is pending it SHALL name `aigw sync`.
 
 #### Scenario: A client file calls the credential command
 
@@ -69,12 +70,6 @@ request, and a model argument without `/` SHALL list the models it could mean.
 - **THEN** it SHALL refuse, name `dmxapi` as the closest match and exit 1
 - **AND** it SHALL read no Token and send no request.
 
-#### Scenario: A model is used before it is added
-
-- **WHEN** `aigw use` or `aigw model add` names a model of a known provider
-  that has not been added
-- **THEN** it SHALL check that provider's catalog instead of refusing the name.
-
 ### Requirement: Flags share one vocabulary
 
 A flag name SHALL mean the same everywhere: `--provider` a provider ID,
@@ -113,38 +108,57 @@ be refused like any unknown flag, with no hidden spelling.
 - **WHEN** `aigw self install --path <file>` runs
 - **THEN** AIGW SHALL install the program at that file.
 
-### Requirement: Check covers the enabled clients unless clients are named
+### Requirement: Commands prompt only in a terminal and without JSON
 
-`aigw check` without a client argument SHALL cover the enabled clients at every
-depth, including `client`, and SHALL NOT require a client argument. Named
-clients SHALL be covered whether they are enabled or disabled. Without a client
-argument, `aigw check` SHALL exit 1 when no client is enabled; with named
-clients, their own results SHALL decide its exit status.
+With `--json`, or without a terminal, no command SHALL prompt, and a missing
+input SHALL be refused before any change, naming the flag, argument or command
+that supplies it. A `--dry-run` preview SHALL send no authenticated request, so
+it never validates a Token.
 
-#### Scenario: A disabled client has a selected model
+#### Scenario: A script omits a Token
 
-- **WHEN** `aigw check` runs without a client argument and a disabled client
-  has a selected model
-- **THEN** the command SHALL NOT check that client or contact its provider.
+- **WHEN** `aigw provider add dmxapi --endpoint responses=<url>` runs without a
+  terminal and without `--token-stdin`
+- **THEN** it SHALL refuse, naming `--token-stdin`, and write nothing.
 
-#### Scenario: A disabled client is named
+#### Scenario: JSON is requested in a terminal
 
-- **WHEN** `aigw check hermes --depth endpoint` runs while Hermes is disabled
-  and no client is enabled
-- **THEN** the command SHALL check Hermes's selected model at the `local` and
-  `endpoint` depths
-- **AND** it SHALL exit 0 when Hermes does not fail.
+- **WHEN** `aigw provider rotate dmxapi --json` runs in a terminal without
+  `--token-stdin`
+- **THEN** it SHALL refuse, naming `--token-stdin`, instead of prompting.
 
-#### Scenario: No client is enabled or named
+#### Scenario: A preview meets a missing Token
 
-- **WHEN** `aigw check` runs without a client argument and no client is enabled
-- **THEN** it SHALL exit 1 at any depth.
+- **WHEN** a `--dry-run` preview needs a Token that is missing
+- **THEN** it SHALL report the missing Token without prompting for it or
+  sending a request.
 
-#### Scenario: A client-depth check runs without a client argument
+### Requirement: Read-only commands remain non-interactive
 
-- **WHEN** `aigw check --depth client` runs without a client argument
-- **THEN** it SHALL run a session for each enabled client that can run one
-- **AND** it SHALL NOT refuse for a missing client.
+Read-only commands SHALL NOT prompt, mutate configuration, read secret values
+unless authenticating a declared probe, or rewrite a client configuration file.
+They SHALL NOT start a client, except `aigw check` at the `client` depth, which
+runs each client privately.
+
+#### Scenario: Credential metadata is inaccessible
+
+- **WHEN** a read-only command cannot observe credential metadata
+- **THEN** it reports the backend boundary and recovery action
+- **AND** does not open an operating-system credential prompt.
+
+### Requirement: Output speaks the product's vocabulary
+
+Help, human output and JSON keys SHALL use the words provider, model, family,
+client, protocol and Token, and SHALL NOT use Account, Route, projection,
+binding, adapter, admitted or candidate. Keychain item labels and
+environment-variable names SHALL keep their spelling, because credential
+storage does not change.
+
+#### Scenario: A retired word would appear
+
+- **WHEN** any command writes its help, human output or a JSON document
+- **THEN** no help or human output SHALL contain a retired word, and no JSON key
+  SHALL be one, except in a Keychain item label or an environment-variable name.
 
 ### Requirement: Arguments are checked before any change
 
@@ -163,8 +177,7 @@ missing argument or flag, or the command's help, never an unrelated command.
 #### Scenario: Setup receives invalid team file arguments
 
 - **WHEN** `aigw setup --from` receives a blank path, `--token-stdin` without
-  `--provider`, or a blank or invalid `--provider`, or `aigw setup --json` runs
-  without `--from`
+  `--provider`, or a blank or invalid `--provider`
 - **THEN** setup SHALL refuse before creating configuration storage, reading
   the team file or prompting.
 
@@ -197,10 +210,12 @@ missing argument or flag, or the command's help, never an unrelated command.
 
 ### Requirement: Every failure names one fix
 
-Every failure SHALL say what happened as its Problem and give one exact command
-to run as its Fix, in human output and in its JSON document. A Fix SHALL NOT be
-unrelated to the cause or a command that would fail the same way, and a failure
-SHALL NOT add generic impact text; impact that adds a specific fact MAY stay.
+Every failure SHALL say what happened as its Problem and give one Fix: an exact
+command, or, when the user must choose a value, a command with placeholders
+that JSON carries as `next_detail`, so `next_action` stays exact. A Fix SHALL
+NOT be unrelated to the cause or a command that would fail the same way, and a
+failure SHALL NOT add generic impact text; impact that adds a specific fact MAY
+stay.
 
 #### Scenario: A provider rejects the Token
 
@@ -208,6 +223,13 @@ SHALL NOT add generic impact text; impact that adds a specific fact MAY stay.
 - **THEN** Hermes's Problem SHALL say that the provider rejected the Token
 - **AND** its Fix SHALL be `aigw provider rotate ucloud`, with no generic
   impact text.
+
+#### Scenario: The Fix needs the user's choice
+
+- **WHEN** a client has no selected model and AIGW cannot choose one
+- **THEN** the Fix SHALL be `aigw use <client> <provider/model>` with the
+  client filled in and a placeholder for the model
+- **AND** JSON SHALL carry it as `next_detail`, with no `next_action`.
 
 #### Scenario: The configuration does not load
 
@@ -235,11 +257,12 @@ complete `aigw` command line for that leaf command.
 
 ### Requirement: Arguments complete from local configuration
 
-Shell completion SHALL complete every positional argument and filter flag from
-local configuration, without network or Token access: clients, provider IDs,
-`provider/model` names, families and capabilities. Protocols and depths SHALL
-complete from fixed lists. Completion SHALL return at once and print nothing
-but suggestions when the credential store is locked or fails.
+Shell completion SHALL complete every positional argument and filter flag that
+names something configured, from local configuration and without network or
+Token access: clients, provider IDs, `provider/model` names, families and
+capabilities, while protocols and depths complete from fixed lists. A new name,
+such as that of `aigw provider add <provider>`, and a free-text query SHALL get
+no completion.
 
 #### Scenario: Complete a model for a client
 
@@ -247,6 +270,12 @@ but suggestions when the credential store is locked or fails.
 - **THEN** it SHALL offer only the `provider/model` names that Codex can use
 - **AND** SHALL NOT offer a model whose provider has no endpoint for a
   protocol that Codex speaks.
+
+#### Scenario: A new name or a query gets no completion
+
+- **WHEN** the shell completes the argument of `aigw provider add` or the
+  query of `aigw model search`
+- **THEN** it SHALL offer nothing.
 
 #### Scenario: Complete a depth or a protocol
 
@@ -269,26 +298,11 @@ but suggestions when the credential store is locked or fails.
 ### Requirement: Every write has a preview that leaves nothing behind
 
 Every command that writes configuration, client configuration files or the
-program SHALL accept `--dry-run`, except guided `aigw setup`, the interactive
-first run, which offers no preview. A preview SHALL report its plan with
-`dry_run: true`, read only what the plan needs, send no authenticated request,
-download nothing, run no other program, and leave no file, credential or
-Keychain change behind.
-
-#### Scenario: Guided setup offers no preview
-
-- **WHEN** `aigw setup --dry-run` runs without `--from`
-- **THEN** it SHALL refuse before prompting, reading a Token or writing
-  anything.
-
-#### Scenario: Setup from a team file is previewed
-
-- **WHEN** `aigw setup --from <file> --dry-run` runs
-- **THEN** it SHALL report the providers, models, families, recommendations
-  and Tokens that setup would add, keep, report or defer
-- **AND** it SHALL NOT read, check or store a Token
-- **AND** the configuration, the credential store and client files SHALL be
-  unchanged.
+program SHALL accept `--dry-run`, except guided `aigw setup`, which offers no
+preview as `progressive-team-onboarding` defines. A preview SHALL report its
+plan with `dry_run: true`, read only what the plan needs, send no authenticated
+request, download nothing, run no other program, and leave no file, credential
+or Keychain change behind.
 
 #### Scenario: Removing a provider is previewed
 
@@ -307,10 +321,11 @@ Keychain change behind.
 ### Requirement: A command's exit status follows its outcome
 
 A command SHALL exit 0 when it succeeds and 1 when it fails or refuses, with or
-without `--json`. A command that completes and finds a problem, such as a
-client that is not ready or a blocked preview, SHALL write its own document
-with `ok: false` and exit 1, and a skipped depth SHALL NOT count as a problem.
-A command group without a subcommand SHALL print its help and exit 0.
+without `--json`. A blocked preview SHALL write its own document with
+`ok: false` and exit 1. `aigw check` and `aigw status` SHALL exit as
+`cli-readiness` defines, and `aigw setup` as `progressive-team-onboarding`
+defines, so a deferred Token never fails it. A command group without a
+subcommand SHALL print its help and exit 0.
 
 #### Scenario: A model search runs without configuration
 
@@ -323,12 +338,6 @@ A command group without a subcommand SHALL print its help and exit 0.
   that uses one of the provider's models
 - **THEN** the document SHALL have `ok: false` and the blocked status
 - **AND** the command SHALL exit 1.
-
-#### Scenario: A depth is skipped
-
-- **WHEN** `aigw check --depth client` skips Claude Desktop's `client` depth
-  and no checked client fails
-- **THEN** the command SHALL exit 0.
 
 #### Scenario: A command group runs without a subcommand
 
@@ -362,8 +371,9 @@ SHALL NOT own transaction commit or compensation.
 
 - **WHEN** `aigw sync --json` succeeds without `--dry-run`
 - **THEN** the planned changes to client configuration files SHALL be applied
-- **AND** output SHALL be one JSON document with `dry_run: false` and
-  `next_action: "aigw check"`
+- **AND** output SHALL be one JSON document with `dry_run: false`, whose
+  `next_action` follows the activation state and is `aigw check` only once a
+  client is selected
 - **AND** preview plans SHALL NOT be presented as observed per-file results.
 
 #### Scenario: Output fails after a successful recovery commit
@@ -604,8 +614,9 @@ spelling for a release.
 
 **Reason**: `aigw test` and `aigw verify` are removed, and `--for` goes.
 
-**Migration**: Read "Check covers the enabled clients unless clients are
-named" in this capability.
+**Migration**: `cli-readiness` owns the scope and exit status of `aigw check`:
+read "One-client checks do not observe unrelated clients" and "A depth that a
+client cannot run is skipped" there.
 
 ### Requirement: Every write can be previewed
 

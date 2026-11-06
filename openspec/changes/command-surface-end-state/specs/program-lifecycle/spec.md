@@ -119,7 +119,8 @@ retained client state.
 `--dry-run` SHALL report the program file, the version and the rollback copy
 that they would write or remove. `aigw self update --dry-run` SHALL read only
 public release metadata, and SHALL NOT download, verify or run an archive or
-change a Keychain item.
+change a Keychain item. `aigw self rollback --dry-run` SHALL report the retained
+program, its version and the configuration file that it would stage.
 
 #### Scenario: An update is previewed
 
@@ -137,8 +138,8 @@ change a Keychain item.
 #### Scenario: A program rollback is previewed
 
 - **WHEN** `aigw self rollback --dry-run` runs
-- **THEN** it SHALL refuse, because only running the retained program reveals
-  its version
+- **THEN** it SHALL report the retained program, its version and the
+  configuration file that it would stage, without running that program
 - **AND** no file or Keychain item SHALL change.
 
 #### Scenario: An uninstall meets a directory

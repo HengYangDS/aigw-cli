@@ -1,13 +1,12 @@
 ## ADDED Requirements
 
-### Requirement: Provider commands manage Tokens and balance credentials
+### Requirement: A Token is stored only after its provider accepts it
 
-`aigw provider add` SHALL store a provider's Token, and `aigw provider rotate`
-SHALL replace it, only after one authenticated model-free request to that
-provider accepts it. `aigw provider remove` SHALL delete the provider's Token
-and balance credential, or name the variable to unset when the backend is
-read-only. `aigw provider edit` SHALL store and delete the balance credential.
-Output SHALL NOT contain either value.
+Every command that stores a Token, including `aigw provider add`,
+`aigw provider rotate`, `aigw setup` and `aigw use`, SHALL store it only after
+one authenticated model-free request to that provider accepts it. When the
+provider rejects the Token or the request cannot complete, the command SHALL
+refuse and store nothing. Output SHALL NOT contain the Token.
 
 #### Scenario: A provider is added with its Token
 
@@ -20,8 +19,8 @@ Output SHALL NOT contain either value.
 
 #### Scenario: The provider does not accept a new Token
 
-- **WHEN** the provider rejects the Token that `aigw provider add` or
-  `aigw provider rotate` validates, or the request cannot complete
+- **WHEN** the provider rejects a Token that a command validates, or the
+  request cannot complete
 - **THEN** the command SHALL refuse and store nothing
 - **AND** `aigw provider add` SHALL leave the provider unconfigured, and
   `aigw provider rotate` SHALL keep the previous Token.
@@ -34,17 +33,21 @@ Output SHALL NOT contain either value.
   `--token-stdin`
 - **AND** it SHALL write nothing.
 
-#### Scenario: A provider is removed
+#### Scenario: The environment backend cannot replace a Token
 
-- **WHEN** `aigw provider remove <provider>` succeeds with a writable backend
-- **THEN** the provider's Token and balance credential SHALL be absent from it
-- **AND** with the read-only environment backend, the command SHALL instead
-  remove the provider from the configuration and name the environment variable
-  to unset
-- **AND** `--dry-run` SHALL name the items it would delete without reading or
-  deleting any
-- **AND** a removal refused because a client uses one of its models SHALL
-  delete no item.
+- **WHEN** the environment backend is selected and `aigw provider rotate`
+  would replace a Token
+- **THEN** the command SHALL refuse before reading input, naming the
+  environment variable that supplies the Token
+- **AND** no configuration or credential SHALL change.
+
+### Requirement: Provider commands manage balance credentials
+
+`aigw provider edit` SHALL store a provider's balance credential from
+`--balance-token-stdin` together with `--balance-user-id`, and delete it with
+`--no-balance-token`, without changing the provider's Token. Output SHALL NOT
+contain it. `aigw provider remove` deletes it as "Providers are removed with
+their models and Tokens" in `product-control-plane` specifies.
 
 #### Scenario: Balance credentials are stored and removed
 
@@ -55,16 +58,14 @@ Output SHALL NOT contain either value.
 - **AND** at a terminal, `--balance-token-stdin` SHALL prompt for the balance
   token as "Interactive Token input is never echoed" requires
 - **AND** `--no-balance-token` SHALL delete the balance credential and leave
-  the Token unchanged
-- **AND** either balance flag without the other SHALL refuse before reading
-  standard input.
+  the Token unchanged.
 
-#### Scenario: The environment backend cannot store a credential
+#### Scenario: The environment backend cannot store a balance credential
 
-- **WHEN** the environment backend is selected and `aigw provider rotate` or a
-  balance flag of `aigw provider edit` would write or delete a credential
+- **WHEN** the environment backend is selected and a balance flag of
+  `aigw provider edit` would store or delete the balance credential
 - **THEN** the command SHALL refuse before reading input, naming the
-  environment variables that supply that credential
+  environment variables that supply it
 - **AND** no configuration or credential SHALL change.
 
 ### Requirement: One backend owns Tokens and balance credentials
@@ -110,12 +111,12 @@ AIGW SHALL NOT read or write another backend as a compatibility fallback.
 
 ### Requirement: Token availability is scoped to active demand
 
-A provider's Token SHALL be required only for an explicit operation on a model
-that a client uses through that Token. Client-native authentication SHALL
-remain independent. `aigw check` SHALL pass a client's `local` depth before
-reading its Token or probing an endpoint. A client that fails `local` SHALL
-keep its human and JSON fix; an unobserved Token SHALL NOT be reported as
-absent.
+Readiness SHALL require a provider's Token only for models that clients use,
+and client-native authentication SHALL remain independent. `aigw check` SHALL
+pass a client's `local` depth before reading its Token or probing an endpoint,
+and an unobserved Token SHALL NOT be reported as absent. `aigw model search`,
+catalog checks and `aigw provider balance` SHALL read a selected provider's
+Token when present.
 
 #### Scenario: A client's configuration files are not ready
 
@@ -140,19 +141,28 @@ absent.
 - **THEN** their missing Tokens do not block setup, synchronization, status, or
   `aigw check` for the clients in use.
 
-## MODIFIED Requirements
+#### Scenario: A command reads a selected provider's Token
 
-### Requirement: One usable provider is sufficient
+- **WHEN** `aigw model search`, `aigw provider balance` or a catalog check
+  selects a provider, whether or not a client uses its models
+- **THEN** it SHALL read that provider's Token when present
+- **AND** a provider without a Token SHALL get its fix while the other selected
+  providers still print, and the command SHALL exit 1, as for an unreadable
+  catalog.
+
+### Requirement: One connected provider is sufficient
 
 Setup SHALL require a Token only for each provider it connects; other providers
 in a team file SHALL remain optional.
 
-#### Scenario: Team manifest has one available provider
+#### Scenario: A team file has one available provider
 
 - **WHEN** a team file declares several providers
 - **AND** `aigw setup --from` connects only one of them, whose Token is in the
   selected backend or arrives through `--provider <id> --token-stdin`
 - **THEN** setup completes without requesting Tokens for the other providers
+
+## MODIFIED Requirements
 
 ### Requirement: Credential availability is observable without disclosure
 
@@ -181,12 +191,12 @@ absent, and backend failure; it SHALL NOT report a backend failure as absence.
 
 ### Requirement: Explicit Token input is complete and scoped
 
-Every `--token-stdin` and `--balance-token-stdin` operation SHALL read one
-complete value through EOF within 64 KiB, preserving visible ASCII except one
-terminal LF or CRLF. Malformed, incomplete, multiline, or ambiguous input SHALL
-fail before credential, configuration, or network effects. A one-time check
-SHALL resolve one client and one model before consuming input and use the Token
-only for that check, as given, without decoding it.
+Input that `--token-stdin` or `--balance-token-stdin` reads without a terminal
+SHALL be one complete value through EOF within 64 KiB, preserving visible ASCII
+except one terminal LF or CRLF. Malformed, incomplete, multiline, or ambiguous
+input SHALL fail before credential, configuration, or network effects. Each
+operation SHALL resolve the one provider that receives the value before reading
+it and use it as given; a one-time Token SHALL never be stored.
 
 #### Scenario: Complete Token arrives in multiple pipe writes
 
@@ -203,18 +213,17 @@ only for that check, as given, without decoding it.
 
 #### Scenario: Endpoint test consumes an explicitly supplied Token
 
-- **WHEN** the operator runs `aigw check <client>` with
-  `--model <provider/model>` and `--token-stdin` at depth `endpoint` or
-  `model`, and supplies a valid Token
-- **THEN** only that provider's endpoint for the model receives the Token
-- **AND** configuration, credential stores and client files remain unchanged,
-  and the stored Token is not read.
+- **WHEN** `aigw check` receives a one-time Token through `--token-stdin`, as
+  "Checking a named model leaves every selection unchanged" in
+  `model-selection` admits it
+- **THEN** AIGW SHALL use that Token only for that check
+- **AND** it SHALL neither read the stored Token nor store the one-time Token.
 
 #### Scenario: Ephemeral input lacks an unambiguous credential owner
 
-- **WHEN** `aigw check --token-stdin` names no single client or no `--model`,
-  names an unknown provider or model, selects a client that uses its own
-  authentication, or asks for depth `local` or `client`
+- **WHEN** a `--token-stdin` operation does not resolve exactly one provider
+  whose Token AIGW would send, such as a check of a client that uses its own
+  authentication
 - **THEN** it fails before stdin consumption, credential access or HTTP.
 
 #### Scenario: A native broker returns macOS storage bytes
@@ -368,6 +377,14 @@ words, and OpenSpec renames a scenario only with its requirement.
 
 **Migration**: Read it as "Token availability is scoped to active demand" in
 this capability, with every scenario.
+
+### Requirement: One usable provider is sufficient
+
+**Reason**: Its scenario name says team manifest where the design says team
+file, and OpenSpec renames a scenario only with its requirement.
+
+**Migration**: Read it as "One connected provider is sufficient" in this
+capability, with every scenario.
 
 ## RENAMED Requirements
 
