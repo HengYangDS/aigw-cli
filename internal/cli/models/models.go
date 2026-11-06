@@ -39,7 +39,7 @@ type routeModel struct {
 	Route         string                  `json:"route"`
 	Account       string                  `json:"account"`
 	Protocol      domain.EndpointProtocol `json:"protocol,omitempty"`
-	Model         string                  `json:"model"`
+	Family        string                  `json:"model"`
 	UpstreamModel string                  `json:"upstream_model"`
 	Catalog       string                  `json:"catalog"`
 }
@@ -65,7 +65,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				for _, row := range rows {
 					document.Routes = append(document.Routes, routeModel{
 						Route: row.Route, Account: row.Account, Protocol: row.Protocol,
-						Model: cfg.Models[row.Route].Family, UpstreamModel: row.Model, Catalog: row.State,
+						Family: cfg.Models[row.Route].Family, UpstreamModel: row.Model, Catalog: row.State,
 					})
 				}
 				return terminal.WriteDocument(runtime.Out, schemaVersion, true, document)

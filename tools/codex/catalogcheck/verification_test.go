@@ -206,7 +206,7 @@ func TestVerifyCatalogObservesTheClientsEffectiveCatalog(t *testing.T) {
 	}
 }
 
-func TestVerifyCatalogUsesExactCanonicalModelForWireAlias(t *testing.T) {
+func TestVerifyCatalogUsesExactFamilyForWireAlias(t *testing.T) {
 	const (
 		canonical = "gpt-6.1-sol"
 		wire      = "gpt-6.1-sol-cdx"
@@ -228,7 +228,7 @@ func TestVerifyCatalogUsesExactCanonicalModelForWireAlias(t *testing.T) {
 	}
 }
 
-func TestVerifyCatalogRejectsMissingCanonicalModel(t *testing.T) {
+func TestVerifyCatalogRejectsMissingFamily(t *testing.T) {
 	_, err := verifyCatalog(fakeCodexClient(t, true), "gpt-6.1-sol-cdx", "gpt-6.1")
 	if err == nil || !strings.Contains(err.Error(), "canonical model") {
 		t.Fatalf("verifyCatalog() error = %v, want the absent exact canonical model", err)

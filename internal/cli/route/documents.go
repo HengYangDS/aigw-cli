@@ -23,7 +23,7 @@ type addDocument struct {
 	Account       string                  `json:"account"`
 	Label         string                  `json:"label"`
 	Purpose       string                  `json:"purpose,omitempty"`
-	Model         string                  `json:"model"`
+	Family        string                  `json:"model"`
 	UpstreamModel string                  `json:"upstream_model"`
 	Protocol      domain.EndpointProtocol `json:"protocol"`
 	invocation.Preview

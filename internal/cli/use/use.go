@@ -211,7 +211,7 @@ type useSelection struct {
 	Endpoint         string                  `json:"endpoint"`
 	UpstreamEndpoint string                  `json:"upstream_endpoint"`
 	Protocol         domain.EndpointProtocol `json:"protocol"`
-	Model            string                  `json:"model,omitempty"`
+	Family           string                  `json:"model,omitempty"`
 	UpstreamModel    string                  `json:"upstream_model,omitempty"`
 	ModelProvider    string                  `json:"model_provider"`
 	Authentication   domain.Authentication   `json:"authentication"`
@@ -222,7 +222,7 @@ func selectionOf(selected domain.Runtime) useSelection {
 		RetryPolicy: selected.RetryPolicy, Route: selected.ModelID, RouteLabel: selected.ModelLabel,
 		Account: selected.ProviderID, AccountLabel: selected.ProviderLabel, Client: selected.Client,
 		Endpoint: selected.Endpoint, UpstreamEndpoint: selected.UpstreamEndpoint, Protocol: selected.Protocol,
-		Model: selected.FamilyID, UpstreamModel: selected.UpstreamModel, ModelProvider: selected.ModelProvider,
+		Family: selected.FamilyID, UpstreamModel: selected.UpstreamModel, ModelProvider: selected.ModelProvider,
 		Authentication: selected.Authentication,
 	}
 }

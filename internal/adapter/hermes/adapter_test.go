@@ -181,7 +181,7 @@ func TestHermesCatalogUsesProviderWireModelIDs(t *testing.T) {
 	}
 }
 
-func TestHermesCatalogFollowsDeclaredAccountAndModelOrder(t *testing.T) {
+func TestHermesCatalogFollowsDeclaredAccountAndFamilyOrder(t *testing.T) {
 	cfg := domain.NewConfig(testAdmission())
 	for id, order := range map[string]int{"alpha": 20, "zulu": 10} {
 		cfg.Providers[id] = domain.Provider{Label: id, Order: order, Endpoints: domain.Endpoints{

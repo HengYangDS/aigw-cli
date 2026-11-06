@@ -83,7 +83,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 				added := cfg.Models[routeName]
 				document := addDocument{
 					DryRun: dryRun, Route: routeName, Account: accountName, Label: label, Purpose: added.Purpose,
-					Model: model, UpstreamModel: added.UpstreamModelID(), Protocol: protocol, Preview: preview,
+					Family: model, UpstreamModel: added.UpstreamModelID(), Protocol: protocol, Preview: preview,
 				}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)
 				return terminal.WriteDocument(runtime.Out, addSchemaVersion, true, document)
@@ -180,7 +180,7 @@ type routeListItem struct {
 	Account         string   `json:"account"`
 	ProtocolClients []string `json:"protocol_clients"`
 	SelectedClients []string `json:"selected_clients"`
-	Model           string   `json:"model"`
+	Family          string   `json:"model"`
 }
 
 func collectRouteListItem(runtime invocation.Context, cfg domain.Config, name string) (routeListItem, error) {
@@ -191,7 +191,7 @@ func collectRouteListItem(runtime invocation.Context, cfg domain.Config, name st
 	}
 	return routeListItem{
 		ID: name, Label: cfg.ModelLabel(name), Purpose: route.Purpose, Account: route.Provider,
-		ProtocolClients: compatible, SelectedClients: cfg.SelectedClientsForModel(name), Model: route.Family,
+		ProtocolClients: compatible, SelectedClients: cfg.SelectedClientsForModel(name), Family: route.Family,
 	}, nil
 }
 

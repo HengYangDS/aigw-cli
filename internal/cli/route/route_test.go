@@ -304,7 +304,7 @@ func blockedRouteRuntime(t *testing.T) invocation.Context {
 	}
 }
 
-func TestRouteAddSeparatesCanonicalModelFromExactProviderWireID(t *testing.T) {
+func TestRouteAddSeparatesFamilyFromExactProviderWireID(t *testing.T) {
 	for _, test := range []struct {
 		name, upstream, wantWire string
 	}{

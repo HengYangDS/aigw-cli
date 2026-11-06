@@ -175,7 +175,7 @@ interfaces = { anthropic = ["text"] }
 	assertManifestSetupLeavesNoConfig(t, app)
 }
 
-func TestSetupFromConfigurationManifestRejectsRouteWithoutModel(t *testing.T) {
+func TestSetupFromConfigurationManifestRejectsRouteWithoutFamily(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	manifestPath := writeConfigurationManifest(t, `version = 7
 [recommendations.claude.primary]

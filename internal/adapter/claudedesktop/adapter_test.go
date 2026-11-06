@@ -90,7 +90,7 @@ func TestClaudeDesktopCatalogDerivesUnlabeledAlternative(t *testing.T) {
 	t.Fatal("Claude Desktop alternative was omitted")
 }
 
-func TestClaudeDesktopCatalogDeduplicatesLogicalModelsButUsesWireNames(t *testing.T) {
+func TestClaudeDesktopCatalogDeduplicatesFamiliesButUsesWireNames(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
 	selected := fixture.cfg.Models["selected"]
 	selected.Label = "Sonnet 5.5 CC"
@@ -113,7 +113,7 @@ func TestClaudeDesktopCatalogDeduplicatesLogicalModelsButUsesWireNames(t *testin
 	}
 }
 
-func TestClaudeDesktopShippedChannelDoesNotDuplicateItsLogicalModel(t *testing.T) {
+func TestClaudeDesktopShippedChannelDoesNotDuplicateItsFamily(t *testing.T) {
 	team, err := os.ReadFile(filepath.Join("..", "..", "..", "manifests", "team.toml"))
 	if err != nil {
 		t.Fatal(err)

@@ -26,7 +26,7 @@ type addDocument struct {
 	Route         string `json:"route"`
 	Client        string `json:"client"`
 	Label         string `json:"label"`
-	Model         string `json:"model"`
+	Family        string `json:"model"`
 	UpstreamModel string `json:"upstream_model"`
 	TokenStored   bool   `json:"token_stored"`
 	invocation.Preview
@@ -92,7 +92,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if jsonMode {
 				document := addDocument{
 					DryRun: dryRun, Account: name, Route: name, Client: client, Label: label,
-					Model: route.Family, UpstreamModel: route.UpstreamModelID(), TokenStored: !dryRun, Preview: preview,
+					Family: route.Family, UpstreamModel: route.UpstreamModelID(), TokenStored: !dryRun, Preview: preview,
 				}
 				document.NextAction, document.NextDetail = terminal.NextSteps(next)
 				return terminal.WriteDocument(runtime.Out, schemaVersion, true, document)

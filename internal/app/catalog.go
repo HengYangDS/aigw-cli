@@ -46,7 +46,7 @@ type CatalogModel struct {
 // CatalogRoute is a Route as one catalog observation sees it.
 type CatalogRoute struct {
 	ID            string                `json:"id"`
-	Model         string                `json:"model"`
+	Family        string                `json:"model"`
 	UpstreamModel string                `json:"upstream_model"`
 	Capabilities  []domain.Capability   `json:"capabilities"`
 	Lifecycle     domain.ModelLifecycle `json:"lifecycle"`
@@ -183,7 +183,7 @@ func catalogDifference(cfg domain.Config, account string, protocol domain.Endpoi
 		capabilities = slices.Clone(capabilities)
 		slices.Sort(capabilities)
 		entry := CatalogRoute{
-			ID: routeID, Model: route.Family, UpstreamModel: route.UpstreamModelID(),
+			ID: routeID, Family: route.Family, UpstreamModel: route.UpstreamModelID(),
 			Capabilities: capabilities, Lifecycle: route.LifecycleState(), Evidence: CatalogObserved,
 		}
 		routesByModel[entry.UpstreamModel] = append(routesByModel[entry.UpstreamModel], entry)
@@ -214,7 +214,7 @@ func catalogDifference(cfg domain.Config, account string, protocol domain.Endpoi
 			return -1
 		}
 		if len(left.Routes) > 0 && len(right.Routes) > 0 {
-			if rank := cfg.CompareFamilies(left.Routes[0].Model, right.Routes[0].Model); rank != 0 {
+			if rank := cfg.CompareFamilies(left.Routes[0].Family, right.Routes[0].Family); rank != 0 {
 				return rank
 			}
 		}

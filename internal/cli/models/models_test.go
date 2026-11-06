@@ -54,7 +54,7 @@ func TestModelsCommandCoversConfigurationAndCatalogMembership(t *testing.T) {
 	}
 }
 
-func TestModelRowsGroupAccountsThenProtocolsThenDeclaredModels(t *testing.T) {
+func TestModelRowsGroupAccountsThenProtocolsThenDeclaredFamilies(t *testing.T) {
 	cfg := configuredCatalog()
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Order: 10, Endpoints: cfg.Providers["gateway"].Endpoints}
 	cfg.Families["first"] = domain.Family{Label: "First", Order: 10}

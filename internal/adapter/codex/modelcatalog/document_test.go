@@ -174,9 +174,9 @@ func TestDocumentProjectionWithholdsWhatItCannotProve(t *testing.T) {
 	}
 }
 
-// TestDocumentProjectionUsesDeclaredCanonicalModel adds only the exact declared
+// TestDocumentProjectionUsesDeclaredFamily adds only the exact declared
 // wire alias and copies the canonical entry without editing the client table.
-func TestDocumentProjectionUsesDeclaredCanonicalModel(t *testing.T) {
+func TestDocumentProjectionUsesDeclaredFamily(t *testing.T) {
 	const (
 		canonical = "gpt-6.1-sol"
 		wire      = "gpt-6.1-sol-cdx"

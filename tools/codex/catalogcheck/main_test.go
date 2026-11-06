@@ -94,7 +94,7 @@ func TestRunReportsSuccessfulVerification(t *testing.T) {
 	}
 }
 
-func TestRunPassesCanonicalModelToVerifier(t *testing.T) {
+func TestRunPassesFamilyToVerifier(t *testing.T) {
 	original := verifyModelCatalog
 	t.Cleanup(func() { verifyModelCatalog = original })
 	var gotModel, gotCanonical string
