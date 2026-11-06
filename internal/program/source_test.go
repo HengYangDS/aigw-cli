@@ -147,7 +147,7 @@ func TestValidateReleaseSourceRejectsGitLabOverPlainHTTPForRealHost(t *testing.T
 
 func TestValidateReleaseSourceAllowsPrivateGitLabOverPlainHTTP(t *testing.T) {
 	for _, origin := range []string{
-		"http://192.168.64.101:18086",
+		"http://172.16.5.10:8080",
 		"http://10.0.0.8",
 		"http://[fd00::8]:8080",
 	} {

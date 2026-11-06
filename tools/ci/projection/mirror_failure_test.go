@@ -44,7 +44,7 @@ func testGitLabUnixMiseMirrorFailure(t *testing.T, metadata bool) {
 	repository := filepath.Clean(filepath.Join("..", "..", ".."))
 	prepare, cleanup := unixMiseMirrorCommands(t)
 	project, selected := nativeMiseMirrorInputs(t, repository)
-	mirrorPath := "/api/v4/projects/456/" + lockedMiseMirrorPath(t, project)
+	mirrorPath := "/api/v4/projects/101/" + lockedMiseMirrorPath(t, project)
 	t.Setenv("AIGW_MISE_DATA_ROOT", t.TempDir())
 	assetID, err := strconv.ParseUint(path.Base(selected.URLAPI), 10, 64)
 	if err != nil {
@@ -78,7 +78,7 @@ func testGitLabUnixMiseMirrorFailure(t *testing.T, metadata bool) {
 		"MISE_GITHUB_CREDENTIAL_COMMAND=", "MISE_GITLAB_CREDENTIAL_COMMAND=",
 		"MISE_GITHUB_GH_CLI_TOKENS=false", "MISE_GITLAB_GLAB_CLI_TOKENS=false",
 		"MISE_HTTP_RETRIES=0", "MISE_HTTP_TIMEOUT=2s", "MISE_USE_VERSIONS_HOST=false",
-		"AIGW_TOOL_SOURCE=peer", "CI_API_V4_URL="+server.URL+"/api/v4", "CI_PROJECT_ID=456",
+		"AIGW_TOOL_SOURCE=peer", "CI_API_V4_URL="+server.URL+"/api/v4", "CI_PROJECT_ID=101",
 		"CI_SERVER_HOST="+strings.TrimPrefix(server.URL, "http://"), "CI_JOB_ID=123", "CI_JOB_TOKEN=fixture-only",
 		"HTTP_PROXY="+server.URL, "HTTPS_PROXY="+server.URL, "ALL_PROXY="+server.URL,
 		"NO_PROXY=127.0.0.1", "http_proxy="+server.URL, "https_proxy="+server.URL, "all_proxy="+server.URL, "no_proxy=127.0.0.1",

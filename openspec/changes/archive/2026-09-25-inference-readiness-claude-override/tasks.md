@@ -110,8 +110,8 @@
       `6588bb09`, [GitHub dev run 36104586192](https://github.com/HengYangDS/aigw-cli/actions/runs/36104586192)
       passed all three native jobs and quality; its Linux log shows both
       `secure_file_fallback_without_session_bus` and the isolated
-      `system_credential_store` subtest passing. GitLab [dev 8259](http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/pipelines/8259)
-      and [main 8260](http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/pipelines/8260)
+      `system_credential_store` subtest passing. GitLab dev 8259
+      and GitLab main 8260
       succeeded at the same SHA. All six commits in `v0.3.0..6588bb09`
       pass `git verify-commit` and the declared subject policy.
 

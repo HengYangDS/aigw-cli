@@ -19,6 +19,11 @@ import (
 	"go.yaml.in/yaml/v3"
 )
 
+var (
+	ipv4Literal        = regexp.MustCompile(`\b\d{1,3}(?:\.\d{1,3}){3}\b`)
+	numericProjectPath = regexp.MustCompile(`projects/[0-9]+`)
+)
+
 func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
@@ -71,10 +76,14 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 		if metadata < 0 || fallback <= metadata || !strings.Contains(prelude, "release-$1-$2-$3.json") {
 			t.Errorf("GitLab %s must resolve mirrored release metadata before the API fallback", name)
 		}
-		for _, forbidden := range []string{"192.168.64.101", "projects/456", "$HOME/.netrc"} {
-			if strings.Contains(prelude, forbidden) {
-				t.Errorf("GitLab %s mirror prelude hard-codes %q", name, forbidden)
+		// A prelude names its GitLab instance and project only through CI variables.
+		for _, literal := range []*regexp.Regexp{ipv4Literal, numericProjectPath} {
+			if found := literal.FindString(prelude); found != "" {
+				t.Errorf("GitLab %s mirror prelude hard-codes %q", name, found)
 			}
+		}
+		if strings.Contains(prelude, "$HOME/.netrc") {
+			t.Errorf("GitLab %s mirror prelude reads $HOME/.netrc", name)
 		}
 	}
 	for name, commands := range map[string][]string{
@@ -320,9 +329,9 @@ test "$(cat "$AIGW_MISE_DATA_ROOT/preserved")" = restored
 			"AIGW_MISE_DATA_ROOT=",
 			"CI_PROJECT_DIR=builds/runner/0/group/repo",
 			"CI_API_V4_URL=https://gitlab.example.invalid/api/v4",
-			"CI_PROJECT_ID=456",
+			"CI_PROJECT_ID=101",
 			"CI_SERVER_HOST=gitlab.example.invalid",
-			"CI_JOB_ID=456",
+			"CI_JOB_ID=202",
 			"CI_JOB_TOKEN=fixture-only",
 		)
 		probe := `test "$MISE_DATA_DIR" = "$mirror_dir/mise-data"
