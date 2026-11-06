@@ -164,11 +164,22 @@ func TestRunCaptureKeepsResultAndDiagnosticBudgetsSeparate(t *testing.T) {
 	}
 }
 
+// diagnosticWrites keeps what it receives and the size of its largest write.
+type diagnosticWrites struct {
+	bytes.Buffer
+	largest int
+}
+
+func (writes *diagnosticWrites) Write(data []byte) (int, error) {
+	writes.largest = max(writes.largest, len(data))
+	return writes.Buffer.Write(data)
+}
+
 func TestRunDiagnosedReplaysAndQualifiesTheCompleteDiagnostics(t *testing.T) {
 	if size := os.Getenv("AIGW_TEST_DIAGNOSED_SIZE"); size != "" {
 		count, _ := strconv.Atoi(size)
 		_, _ = os.Stdout.WriteString("result")
-		_, _ = os.Stderr.WriteString(strings.Repeat("x", count) + "\n" + os.Getenv("AIGW_TEST_DIAGNOSED_TAIL"))
+		_, _ = os.Stderr.WriteString(strings.Repeat("x", count) + os.Getenv("AIGW_TEST_DIAGNOSED_TAIL"))
 		code, _ := strconv.Atoi(os.Getenv("AIGW_TEST_DIAGNOSED_EXIT"))
 		os.Exit(code)
 	}
@@ -185,19 +196,22 @@ func TestRunDiagnosedReplaysAndQualifiesTheCompleteDiagnostics(t *testing.T) {
 		size, exit        int
 		truncated, failed bool
 	}{
-		{"progress", "progress\n", 8, 0, false, false},
-		{"warning", "warning: incomplete", 8, 0, false, true},
-		{"beyond the head", "warning: late\n", DiagnosticLimit, 3, true, true},
+		{"progress", "\nprogress\n", 8, 0, false, false},
+		{"warning", "\nwarning: incomplete", 8, 0, false, true},
+		{"beyond the head", "\nwarning: late\n", DiagnosticLimit, 3, true, true},
+		{"one oversized line", "", 4 * DiagnosticLimit, 0, true, false},
+		{"a marker deep in one oversized line", " warning: late", 4*DiagnosticLimit + 1, 0, true, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			var stdout, stderr bytes.Buffer
+			var stdout bytes.Buffer
+			var stderr diagnosticWrites
 			diagnostics, err := (Runner{}).RunDiagnosed(t.Context(), Plan{
 				Executable: executable,
 				Args:       []string{"-test.run=^TestRunDiagnosedReplaysAndQualifiesTheCompleteDiagnostics$"},
 				Env: append(os.Environ(), "AIGW_TEST_DIAGNOSED_SIZE="+strconv.Itoa(test.size),
 					"AIGW_TEST_DIAGNOSED_TAIL="+test.tail, "AIGW_TEST_DIAGNOSED_EXIT="+strconv.Itoa(test.exit)),
 			}, &stdout, &stderr)
-			want := strings.Repeat("x", test.size) + "\n" + test.tail
+			want := strings.Repeat("x", test.size) + test.tail
 			var exitError *exec.ExitError
 			if (test.exit == 0) != (err == nil) || test.exit != 0 && (!errors.As(err, &exitError) || exitError.ExitCode() != test.exit) {
 				t.Fatalf("exit %d: %v", test.exit, err)
@@ -205,6 +219,9 @@ func TestRunDiagnosedReplaysAndQualifiesTheCompleteDiagnostics(t *testing.T) {
 			if stdout.String() != "result" || stderr.String() != want || string(diagnostics.Head) != want[:min(len(want), DiagnosticLimit)] ||
 				diagnostics.Truncated != test.truncated || diagnostics.Failure != test.failed {
 				t.Fatalf("stdout=%q stderr=%d head=%d truncated=%t failure=%t", stdout.String(), stderr.Len(), len(diagnostics.Head), diagnostics.Truncated, diagnostics.Failure)
+			}
+			if stderr.largest > DiagnosticLimit {
+				t.Fatalf("the replay held %d bytes of one line at once, more than %d", stderr.largest, DiagnosticLimit)
 			}
 			if entries, readErr := os.ReadDir(root); readErr != nil || len(entries) != 0 {
 				t.Fatalf("diagnostic capture residue: %v error=%v", entries, readErr)

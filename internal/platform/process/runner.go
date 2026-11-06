@@ -65,30 +65,34 @@ func DiagnosticFailure(diagnostic []byte) bool {
 	return false
 }
 
-// DiagnosticLimit bounds the head of standard error that RunDiagnosed keeps,
-// the budget that a captured standard error has.
+// DiagnosticLimit bounds the head of standard error that RunDiagnosed keeps and
+// the part of a line that it holds at once, the budget that a captured standard
+// error has.
 const DiagnosticLimit = capturedProcessOutputLimit
 
 // Diagnostics is the standard error that RunDiagnosed replayed: its first
 // DiagnosticLimit bytes, whether more followed, and whether any of its lines
-// carries a DiagnosticFailure marker.
+// carries a DiagnosticFailure marker. A line longer than DiagnosticLimit is
+// examined in pieces of that size, so a marker across two pieces goes unseen;
+// Truncated is always set for such a line, because the head cannot hold it.
 type Diagnostics struct {
 	Head      []byte
 	Truncated bool
 	Failure   bool
 }
 
-func (diagnostics *Diagnostics) observe(line []byte) {
-	kept := min(len(line), DiagnosticLimit-len(diagnostics.Head))
-	diagnostics.Head = append(diagnostics.Head, line[:kept]...)
-	diagnostics.Truncated = diagnostics.Truncated || kept < len(line)
-	diagnostics.Failure = diagnostics.Failure || DiagnosticFailure(line)
+func (diagnostics *Diagnostics) observe(piece []byte) {
+	kept := min(len(piece), DiagnosticLimit-len(diagnostics.Head))
+	diagnostics.Head = append(diagnostics.Head, piece[:kept]...)
+	diagnostics.Truncated = diagnostics.Truncated || kept < len(piece)
+	diagnostics.Failure = diagnostics.Failure || DiagnosticFailure(piece)
 }
 
 // RunDiagnosed runs plan as RunStream does with standard error in a native
 // temporary file, which keeps what a child writes just before it exits. Once
-// the child has exited, it replays that file to stderr line by line and
-// reports what the file held; the file is removed before return.
+// the child has exited, it replays that file to stderr line by line, in pieces
+// where a line is too long to hold, and reports what the file held; the file is
+// removed before return.
 func (runner Runner) RunDiagnosed(ctx context.Context, plan Plan, stdout, stderr io.Writer) (diagnostics Diagnostics, err error) {
 	capture, err := os.CreateTemp("", "aigw-diagnostics-*")
 	if err != nil {
@@ -99,14 +103,17 @@ func (runner Runner) RunDiagnosed(ctx context.Context, plan Plan, stdout, stderr
 	if _, err := capture.Seek(0, io.SeekStart); err != nil {
 		return Diagnostics{}, errors.Join(runErr, err)
 	}
-	reader := bufio.NewReader(capture)
+	reader := bufio.NewReaderSize(capture, DiagnosticLimit)
 	for {
-		line, readErr := reader.ReadBytes('\n')
+		piece, readErr := reader.ReadSlice('\n')
 		var writeErr error
-		if len(line) > 0 {
-			_, writeErr = stderr.Write(line)
+		if len(piece) > 0 {
+			_, writeErr = stderr.Write(piece)
 		}
-		diagnostics.observe(line)
+		diagnostics.observe(piece)
+		if errors.Is(readErr, bufio.ErrBufferFull) {
+			readErr = nil
+		}
 		if readErr != nil || writeErr != nil {
 			if errors.Is(readErr, io.EOF) {
 				readErr = nil
