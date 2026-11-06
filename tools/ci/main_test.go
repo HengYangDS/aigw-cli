@@ -220,7 +220,7 @@ func TestRepositoryInventoryUsesTheRequestedCheckoutIndex(t *testing.T) {
 		t.Run(binding.name, func(t *testing.T) {
 			t.Setenv(binding.name, binding.value)
 			files, err := currentRepositoryFiles(root, "Markdown", "*.md")
-			if err != nil || !slices.Equal(files, []string{filepath.Join(root, "README.md"), owned}) {
+			if err != nil || !slices.Equal(files, []string{"README.md", "owned.md"}) {
 				t.Fatalf("requested checkout inventory = %v, %v", files, err)
 			}
 		})

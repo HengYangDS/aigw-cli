@@ -31,7 +31,8 @@ func currentRepositoryFiles(root, kind string, patterns ...string) ([]string, er
 }
 
 // repositoryFiles lists the current tracked and unignored files that match
-// patterns, which may be none.
+// patterns, which may be none, as sorted slash-separated paths relative to
+// root.
 func repositoryFiles(root, kind string, patterns ...string) ([]string, error) {
 	arguments := []string{
 		"-C", root, "--git-dir", ".git", "--work-tree", ".",
@@ -56,11 +57,10 @@ func repositoryFiles(root, kind string, patterns ...string) ([]string, error) {
 		if len(field) == 0 {
 			continue
 		}
-		filename := filepath.Join(root, string(field))
-		info, statErr := os.Stat(filename)
+		info, statErr := os.Stat(filepath.Join(root, string(field)))
 		switch {
 		case statErr == nil && !info.IsDir():
-			files = append(files, filename)
+			files = append(files, string(field))
 		case errors.Is(statErr, os.ErrNotExist):
 			continue
 		case statErr != nil:
@@ -69,6 +69,30 @@ func repositoryFiles(root, kind string, patterns ...string) ([]string, error) {
 	}
 	slices.Sort(files)
 	return files, nil
+}
+
+// inCheckout joins root to each slash-separated repository path, the form in
+// which a native tool receives and reports the files it checks.
+func inCheckout(root string, files []string) []string {
+	joined := make([]string, len(files))
+	for index, file := range files {
+		joined[index] = filepath.Join(root, file)
+	}
+	return joined
+}
+
+// scratchDirectory creates one check's private directory below the checkout's
+// ignored build/tmp and returns it with the function that removes it.
+func scratchDirectory(root, pattern string) (string, func() error, error) {
+	parent := filepath.Join(root, "build", "tmp")
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		return "", nil, err
+	}
+	directory, err := os.MkdirTemp(parent, pattern)
+	if err != nil {
+		return "", nil, err
+	}
+	return directory, func() error { return os.RemoveAll(directory) }, nil
 }
 
 func checkGo(root string, runner commandRunner) error {
@@ -87,10 +111,10 @@ func checkGo(root string, runner commandRunner) error {
 	}
 	packages := make(map[string]struct{})
 	for _, file := range files {
-		if !goToolSource(root, file) {
+		if !goToolSource(file) {
 			continue
 		}
-		packages[filepath.Dir(file)] = struct{}{}
+		packages[filepath.Dir(filepath.Join(root, file))] = struct{}{}
 	}
 	if len(packages) == 0 {
 		return errors.New("repository contains no current Go package source")
@@ -100,12 +124,8 @@ func checkGo(root string, runner commandRunner) error {
 	)})
 }
 
-func goToolSource(root, file string) bool {
-	relative, err := filepath.Rel(root, file)
-	if err != nil {
-		return false
-	}
-	for component := range strings.SplitSeq(filepath.ToSlash(relative), "/") {
+func goToolSource(file string) bool {
+	for component := range strings.SplitSeq(file, "/") {
 		if strings.HasPrefix(component, ".") || strings.HasPrefix(component, "_") {
 			return false
 		}
@@ -114,10 +134,11 @@ func goToolSource(root, file string) bool {
 }
 
 func checkLinks(root string, runner commandRunner) error {
-	files, err := currentRepositoryFiles(root, "Markdown", "*.md")
+	relative, err := currentRepositoryFiles(root, "Markdown", "*.md")
 	if err != nil {
 		return err
 	}
+	files := inCheckout(root, relative)
 	if err := requireTrackedLinkTargets(root, files); err != nil {
 		return err
 	}
@@ -193,11 +214,8 @@ func formatSource(root string, runner commandRunner, write bool) error {
 	if err != nil {
 		return err
 	}
-	for index, path := range files {
-		files[index], err = filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
+	for index, file := range files {
+		files[index] = filepath.FromSlash(file)
 	}
 	input, err := json.Marshal(files)
 	if err != nil {
@@ -219,7 +237,7 @@ func checkMarkdown(root string, runner commandRunner) error {
 	if err := markdown.CheckPolicy(root); err != nil {
 		return err
 	}
-	input, err := json.Marshal(files)
+	input, err := json.Marshal(inCheckout(root, files))
 	if err != nil {
 		return err
 	}
@@ -232,7 +250,7 @@ func checkMermaid(root string, runner commandRunner) error {
 	if err != nil {
 		return err
 	}
-	input, err := json.Marshal(files)
+	input, err := json.Marshal(inCheckout(root, files))
 	if err != nil {
 		return err
 	}
@@ -244,13 +262,6 @@ func checkSpelling(root string, runner commandRunner) error {
 	files, err := currentRepositoryFiles(root, "authored files")
 	if err != nil {
 		return err
-	}
-	for index, file := range files {
-		relative, err := filepath.Rel(root, file)
-		if err != nil {
-			return fmt.Errorf("resolve spelling input relative to checkout: %w", err)
-		}
-		files[index] = filepath.ToSlash(relative)
 	}
 	if err := runner(command{
 		Name:  "typos",
@@ -268,12 +279,8 @@ func checkTOML(root string, runner commandRunner) error {
 	if err != nil {
 		return err
 	}
-	for index, path := range files {
-		relative, err := filepath.Rel(root, path)
-		if err != nil {
-			return fmt.Errorf("resolve TOML input relative to checkout: %w", err)
-		}
-		files[index] = relative
+	for index, file := range files {
+		files[index] = filepath.FromSlash(file)
 	}
 	config := filepath.Join(root, ".config", "checks", "taplo", "taplo.toml")
 	for _, arguments := range [][]string{
@@ -297,20 +304,13 @@ func checkSecrets(root string, runner commandRunner) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, source.Close()) }()
-	parent := filepath.Join(root, "build", "tmp")
-	if err := os.MkdirAll(parent, 0o700); err != nil {
-		return err
-	}
-	projection, err := os.MkdirTemp(parent, ".secret-scan-")
+	projection, remove, err := scratchDirectory(root, ".secret-scan-")
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, os.RemoveAll(projection)) }()
+	defer func() { err = errors.Join(err, remove()) }()
 	for _, file := range files {
-		relative, err := filepath.Rel(root, file)
-		if err != nil {
-			return err
-		}
+		relative := filepath.FromSlash(file)
 		info, err := source.Lstat(relative)
 		if err != nil {
 			return err
@@ -337,10 +337,11 @@ func checkSecrets(root string, runner commandRunner) (err error) {
 }
 
 func checkWorkflows(root string, runner commandRunner) error {
-	files, err := currentRepositoryFiles(root, "GitHub workflows", ".github/workflows/*.yml", ".github/workflows/*.yaml")
+	relative, err := currentRepositoryFiles(root, "GitHub workflows", ".github/workflows/*.yml", ".github/workflows/*.yaml")
 	if err != nil {
 		return err
 	}
+	files := inCheckout(root, relative)
 	if err := runner(command{Name: "actionlint", Args: append([]string{"-shellcheck="}, files...), Dir: root}); err != nil {
 		return err
 	}

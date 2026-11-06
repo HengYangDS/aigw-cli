@@ -194,15 +194,11 @@ func checkRejectedSynonyms(root string, files []string, runner commandRunner) (r
 	if err != nil {
 		return err
 	}
-	scratch := filepath.Join(root, "build", "tmp")
-	if err := os.MkdirAll(scratch, 0o700); err != nil {
-		return fmt.Errorf("prepare synonym check: %w", err)
-	}
-	directory, err := os.MkdirTemp(scratch, ".synonyms-")
+	directory, remove, err := scratchDirectory(root, ".synonyms-")
 	if err != nil {
 		return fmt.Errorf("prepare synonym check: %w", err)
 	}
-	defer func() { result = errors.Join(result, os.RemoveAll(directory)) }()
+	defer func() { result = errors.Join(result, remove()) }()
 	configurationPath := filepath.Join(directory, "typos.toml")
 	if err := os.WriteFile(configurationPath, configuration, 0o600); err != nil {
 		return fmt.Errorf("write synonym policy: %w", err)

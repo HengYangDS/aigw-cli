@@ -46,22 +46,19 @@ func checkSourceSize(root string, runner commandRunner) (result error) {
 	if policy.MaxCodeLines <= 0 || policy.MaxSpecificationLines <= 0 {
 		return errors.New("max_code_lines and max_specification_lines must be positive")
 	}
+	files, specifications = inCheckout(root, files), inCheckout(root, specifications)
 	budgets := make(map[string]sizeBudget, len(files)+len(specifications))
 	for _, file := range files {
-		budgets[filepath.Clean(file)] = sizeBudget{maximum: policy.MaxCodeLines, unit: "code lines"}
+		budgets[file] = sizeBudget{maximum: policy.MaxCodeLines, unit: "code lines"}
 	}
 	for _, file := range specifications {
-		budgets[filepath.Clean(file)] = sizeBudget{maximum: policy.MaxSpecificationLines, unit: "non-blank lines"}
+		budgets[file] = sizeBudget{maximum: policy.MaxSpecificationLines, unit: "non-blank lines"}
 	}
-	parent := filepath.Join(root, "build", "tmp")
-	if err := os.MkdirAll(parent, 0o700); err != nil {
-		return err
-	}
-	workspace, err := os.MkdirTemp(parent, ".source-size-")
+	workspace, remove, err := scratchDirectory(root, ".source-size-")
 	if err != nil {
 		return err
 	}
-	defer func() { result = errors.Join(result, os.RemoveAll(workspace)) }()
+	defer func() { result = errors.Join(result, remove()) }()
 	output := filepath.Join(workspace, "sizes.json")
 	arguments := []string{
 		"--no-config", "--no-cocomo", "--no-complexity", "--no-gitignore", "--no-ignore",
@@ -95,25 +92,13 @@ func measuredSpecifications(root string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	relatives := make([]string, len(files))
-	for index, file := range files {
-		relative, err := filepath.Rel(root, file)
-		if err != nil {
-			return nil, fmt.Errorf("resolve specification relative to checkout: %w", err)
-		}
-		relatives[index] = filepath.ToSlash(relative)
-	}
-	transition, err := readOpenSpecTransition(root, relatives)
+	transition, err := readOpenSpecTransition(root, files)
 	if err != nil {
 		return nil, err
 	}
-	measured := make([]string, 0, len(files))
-	for index, file := range files {
-		if !strings.HasPrefix(relatives[index], "openspec/changes/archive/") && !transition.rewritten[relatives[index]] {
-			measured = append(measured, file)
-		}
-	}
-	return measured, nil
+	return slices.DeleteFunc(files, func(file string) bool {
+		return strings.HasPrefix(file, "openspec/changes/archive/") || transition.rewritten[file]
+	}), nil
 }
 
 func validateSourceSizes(raw []byte, budgets map[string]sizeBudget) error {
