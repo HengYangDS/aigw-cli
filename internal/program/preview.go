@@ -2,10 +2,8 @@ package program
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -120,13 +118,20 @@ func previewVersion(tag, currentVersion, source string) (Transition, error) {
 // A GitHub repository without a stable release offers its newest published
 // prerelease, as Update does.
 func (u Updater) publicLatestTag(ctx context.Context, source ReleaseSource) (string, error) {
+	// public decodes a document that the source serves without authentication.
+	public := func(address string, document any) error {
+		return u.releaseMetadata(ctx, releaseRequest{
+			provider: source.Provider, address: address, accept: "application/json",
+			create: "create public release metadata request", transfer: "query public release metadata", status: "query public release metadata",
+		}, 4<<20, "parse public release metadata", document)
+	}
 	switch source.Provider {
 	case ReleaseProviderGitHub:
 		var release githubRelease
-		err := u.publicReleaseMetadata(ctx, source.Provider, u.githubAPIURL(source, "releases/latest"), &release)
+		err := public(u.githubAPIURL(source, "releases/latest"), &release)
 		if isHTTPStatus(err, http.StatusNotFound) {
 			var releases []githubRelease
-			if listErr := u.publicReleaseMetadata(ctx, source.Provider, u.githubAPIURL(source, "releases?per_page=100"), &releases); listErr != nil {
+			if listErr := public(u.githubAPIURL(source, "releases?per_page=100"), &releases); listErr != nil {
 				return "", listErr
 			}
 			if tag := latestPublishedGitHubPrerelease(releases); tag != "" {
@@ -147,7 +152,7 @@ func (u Updater) publicLatestTag(ctx context.Context, source ReleaseSource) (str
 		var release struct {
 			TagName string `json:"tag_name"`
 		}
-		if err := u.publicReleaseMetadata(ctx, source.Provider, gitlab.gitLabAPIURL("releases/permalink/latest"), &release); err != nil {
+		if err := public(gitlab.gitLabAPIURL("releases/permalink/latest"), &release); err != nil {
 			return "", err
 		}
 		if release.TagName == "" {
@@ -157,26 +162,4 @@ func (u Updater) publicLatestTag(ctx context.Context, source ReleaseSource) (str
 	default:
 		return "", fmt.Errorf("unsupported release provider %q", source.Provider)
 	}
-}
-
-// publicReleaseMetadata decodes one release metadata document that a source
-// serves without authentication.
-func (u Updater) publicReleaseMetadata(ctx context.Context, provider ReleaseProvider, address string, document any) error {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
-	if err != nil {
-		return fmt.Errorf("create public release metadata request: %w", err)
-	}
-	request.Header.Set("Accept", "application/json")
-	response, err := u.releaseHTTPClient().Do(request)
-	if err != nil {
-		return unavailable(fmt.Errorf("query public release metadata: %w", err))
-	}
-	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return httpFailure(provider, "query public release metadata", response)
-	}
-	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(document); err != nil {
-		return fmt.Errorf("parse public release metadata: %w", err)
-	}
-	return nil
 }

@@ -5,8 +5,10 @@ package program
 import (
 	"aigw-cli/internal/program/artifact"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -95,6 +97,85 @@ func httpFailure(provider ReleaseProvider, operation string, response *http.Resp
 func isHTTPStatus(err error, statusCode int) bool {
 	var target releaseHTTPError
 	return errors.As(err, &target) && target.statusCode == statusCode
+}
+
+// releaseRequest is one GET that a release source serves: its address, the
+// media type that it accepts, how the caller authorizes it, and the words of
+// its failures. create begins the failure to create the request, transfer
+// begins a failed transfer when it is set, and status names the operation
+// that an unsuccessful status failed.
+type releaseRequest struct {
+	provider                 ReleaseProvider
+	address, accept          string
+	authorize                func(*http.Request) error
+	create, transfer, status string
+}
+
+// releaseResponse sends one release request and returns its successful
+// response, whose body the caller closes.
+func (u Updater) releaseResponse(ctx context.Context, release releaseRequest) (*http.Response, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, release.address, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", release.create, err)
+	}
+	if release.authorize != nil {
+		if err := release.authorize(request); err != nil {
+			return nil, err
+		}
+	}
+	if release.accept != "" {
+		request.Header.Set("Accept", release.accept)
+	}
+	response, err := u.releaseHTTPClient().Do(request)
+	if err != nil {
+		if release.transfer != "" {
+			err = fmt.Errorf("%s: %w", release.transfer, err)
+		}
+		return nil, unavailable(err)
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		_ = response.Body.Close()
+		return nil, httpFailure(release.provider, release.status, response)
+	}
+	return response, nil
+}
+
+// releaseMetadata decodes the JSON document that a release request returns,
+// reading at most limit bytes; parse begins the failure of a document that
+// does not decode.
+func (u Updater) releaseMetadata(ctx context.Context, release releaseRequest, limit int64, parse string, document any) error {
+	response, err := u.releaseResponse(ctx, release)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = response.Body.Close() }()
+	if err := json.NewDecoder(io.LimitReader(response.Body, limit)).Decode(document); err != nil {
+		return fmt.Errorf("%s: %w", parse, err)
+	}
+	return nil
+}
+
+// downloadAsset writes at most 1 GiB of the release asset that a request
+// returns to destination, created with mode 0600; asset names it in failures.
+func (u Updater) downloadAsset(ctx context.Context, release releaseRequest, destination, asset string) error {
+	response, err := u.releaseResponse(ctx, release)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = response.Body.Close() }()
+	file, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return fmt.Errorf("create downloaded %s: %w", asset, err)
+	}
+	_, copyErr := io.Copy(file, io.LimitReader(response.Body, 1<<30))
+	closeErr := file.Close()
+	if copyErr != nil {
+		return fmt.Errorf("write downloaded %s: %w", asset, copyErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close downloaded %s: %w", asset, closeErr)
+	}
+	return nil
 }
 
 type resolvedRelease struct {

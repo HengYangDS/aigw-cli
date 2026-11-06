@@ -4,8 +4,8 @@ import (
 	"aigw-cli/internal/platform/process"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -28,28 +28,19 @@ func (u Updater) latestPrereleaseTagFromGitHub(ctx context.Context, source Relea
 	if !isHTTPStatus(latestErr, http.StatusNotFound) {
 		return "", latestErr
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, u.githubAPIURL(source, "releases?per_page=100"), nil)
-	if err != nil {
-		return "", fmt.Errorf("create GitHub prerelease metadata request: %w", err)
-	}
-	if err := u.authorizeGitHubRequest(request); err != nil {
-		return "", err
-	}
-	request.Header.Set("Accept", "application/vnd.github+json")
-	response, err := u.releaseHTTPClient().Do(request)
-	if err != nil {
-		return "", unavailable(fmt.Errorf("query GitHub prerelease metadata: %w", err))
-	}
-	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		if response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= http.StatusInternalServerError {
-			return "", httpFailure(ReleaseProviderGitHub, "query prerelease metadata", response)
-		}
+	var releases []githubRelease
+	err := u.releaseMetadata(ctx, releaseRequest{
+		provider: ReleaseProviderGitHub, address: u.githubAPIURL(source, "releases?per_page=100"),
+		accept: "application/vnd.github+json", authorize: u.authorizeGitHubRequest,
+		create: "create GitHub prerelease metadata request", transfer: "query GitHub prerelease metadata", status: "query prerelease metadata",
+	}, 4<<20, "parse GitHub prerelease metadata", &releases)
+	// A status that leaves the source available, unlike a rate limit or a
+	// server failure, keeps the original 404.
+	if _, answered := errors.AsType[releaseHTTPError](err); answered && !isSourceUnavailable(err) {
 		return "", latestErr
 	}
-	var releases []githubRelease
-	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(&releases); err != nil {
-		return "", fmt.Errorf("parse GitHub prerelease metadata: %w", err)
+	if err != nil {
+		return "", err
 	}
 	latest := latestPublishedGitHubPrerelease(releases)
 	if latest == "" {
@@ -146,25 +137,13 @@ func (u Updater) latestGitHubReleaseWithCLI(ctx context.Context, source ReleaseS
 }
 
 func (u Updater) githubRelease(ctx context.Context, source ReleaseSource, path string) (githubRelease, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, u.githubAPIURL(source, path), nil)
-	if err != nil {
-		return githubRelease{}, fmt.Errorf("create GitHub release metadata request: %w", err)
-	}
-	if err := u.authorizeGitHubRequest(request); err != nil {
-		return githubRelease{}, err
-	}
-	request.Header.Set("Accept", "application/vnd.github+json")
-	response, err := u.releaseHTTPClient().Do(request)
-	if err != nil {
-		return githubRelease{}, unavailable(fmt.Errorf("query GitHub release metadata: %w", err))
-	}
-	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return githubRelease{}, httpFailure(ReleaseProviderGitHub, "query release metadata", response)
-	}
 	var release githubRelease
-	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(&release); err != nil {
-		return githubRelease{}, fmt.Errorf("parse GitHub release metadata: %w", err)
+	if err := u.releaseMetadata(ctx, releaseRequest{
+		provider: ReleaseProviderGitHub, address: u.githubAPIURL(source, path),
+		accept: "application/vnd.github+json", authorize: u.authorizeGitHubRequest,
+		create: "create GitHub release metadata request", transfer: "query GitHub release metadata", status: "query release metadata",
+	}, 4<<20, "parse GitHub release metadata", &release); err != nil {
+		return githubRelease{}, err
 	}
 	return release, nil
 }
@@ -184,7 +163,11 @@ func (u Updater) downloadGitHubReleaseAssets(ctx context.Context, release github
 		if assetURL == "" {
 			return fmt.Errorf("GitHub release metadata does not include %s", asset)
 		}
-		if err := u.downloadGitHubAsset(ctx, assetURL, filepath.Join(directory, asset)); err != nil {
+		request := releaseRequest{
+			provider: ReleaseProviderGitHub, address: assetURL, authorize: u.authorizeGitHubRequest,
+			create: "create GitHub asset request", status: "download release asset",
+		}
+		if err := u.downloadAsset(ctx, request, filepath.Join(directory, asset), "asset"); err != nil {
 			return fmt.Errorf("download GitHub release asset %s: %w", asset, err)
 		}
 	}
@@ -220,37 +203,6 @@ func (u Updater) downloadGitHubReleaseAssetsWithCLI(ctx context.Context, source 
 		if err != nil || info.IsDir() || info.Size() == 0 {
 			return fmt.Errorf("GitHub CLI did not write release asset %s", asset)
 		}
-	}
-	return nil
-}
-
-func (u Updater) downloadGitHubAsset(ctx context.Context, rawURL, destination string) error {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if err != nil {
-		return fmt.Errorf("create GitHub asset request: %w", err)
-	}
-	if err := u.authorizeGitHubRequest(request); err != nil {
-		return err
-	}
-	response, err := u.releaseHTTPClient().Do(request)
-	if err != nil {
-		return unavailable(err)
-	}
-	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return httpFailure(ReleaseProviderGitHub, "download release asset", response)
-	}
-	file, err := os.OpenFile(destination, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
-	if err != nil {
-		return fmt.Errorf("create downloaded asset: %w", err)
-	}
-	_, copyErr := io.Copy(file, io.LimitReader(response.Body, 1<<30))
-	closeErr := file.Close()
-	if copyErr != nil {
-		return fmt.Errorf("write downloaded asset: %w", copyErr)
-	}
-	if closeErr != nil {
-		return fmt.Errorf("close downloaded asset: %w", closeErr)
 	}
 	return nil
 }

@@ -337,7 +337,7 @@ func TestDownloadReleaseAssetsFromGitHubFallsBackToCLIOn404(t *testing.T) {
 
 func TestDownloadGitHubAssetRejectsMalformedURL(t *testing.T) {
 	u := Updater{}
-	if err := u.downloadGitHubAsset(context.Background(), "http://[::1]:invalid-port/a", filepath.Join(t.TempDir(), "a")); err == nil || !strings.Contains(err.Error(), "create GitHub asset request") {
+	if err := downloadListedAsset(t, u, "http://[::1]:invalid-port/a", filepath.Join(t.TempDir(), "a")); err == nil || !strings.Contains(err.Error(), "create GitHub asset request") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -347,14 +347,14 @@ func TestDownloadGitHubAssetPropagatesAuthorizationFailure(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 	t.Setenv("GH_TOKEN", "")
 	u := Updater{}
-	if err := u.downloadGitHubAsset(context.Background(), "https://example.test/a", filepath.Join(t.TempDir(), "a")); err == nil || !strings.Contains(err.Error(), "control character") {
+	if err := downloadListedAsset(t, u, "https://example.test/a", filepath.Join(t.TempDir(), "a")); err == nil || !strings.Contains(err.Error(), "control character") {
 		t.Fatalf("error = %v", err)
 	}
 }
 
 func TestDownloadGitHubAssetReportsUnavailableOnConnectionFailure(t *testing.T) {
 	u := Updater{HTTPClient: &http.Client{}}
-	if err := u.downloadGitHubAsset(context.Background(), closedListenerURL(t)+"/a", filepath.Join(t.TempDir(), "a")); err == nil || !isSourceUnavailable(err) {
+	if err := downloadListedAsset(t, u, closedListenerURL(t)+"/a", filepath.Join(t.TempDir(), "a")); err == nil || !isSourceUnavailable(err) {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -365,7 +365,7 @@ func TestDownloadGitHubAssetReportsUnavailableOnServerError(t *testing.T) {
 	}))
 	defer server.Close()
 	u := Updater{HTTPClient: server.Client()}
-	if err := u.downloadGitHubAsset(context.Background(), server.URL+"/a", filepath.Join(t.TempDir(), "a")); err == nil || !isSourceUnavailable(err) {
+	if err := downloadListedAsset(t, u, server.URL+"/a", filepath.Join(t.TempDir(), "a")); err == nil || !isSourceUnavailable(err) {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -376,7 +376,7 @@ func TestDownloadGitHubAssetRejectsNonSuccessStatus(t *testing.T) {
 	}))
 	defer server.Close()
 	u := Updater{HTTPClient: server.Client()}
-	if err := u.downloadGitHubAsset(context.Background(), server.URL+"/a", filepath.Join(t.TempDir(), "a")); err == nil || !strings.Contains(err.Error(), "403") {
+	if err := downloadListedAsset(t, u, server.URL+"/a", filepath.Join(t.TempDir(), "a")); err == nil || !strings.Contains(err.Error(), "403") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -388,7 +388,7 @@ func TestDownloadGitHubAssetRejectsUnwritableDestination(t *testing.T) {
 	defer server.Close()
 	u := Updater{HTTPClient: server.Client()}
 	missing := filepath.Join(t.TempDir(), "missing", "a")
-	if err := u.downloadGitHubAsset(context.Background(), server.URL+"/a", missing); err == nil || !strings.Contains(err.Error(), "create downloaded asset") {
+	if err := downloadListedAsset(t, u, server.URL+"/a", missing); err == nil || !strings.Contains(err.Error(), "create downloaded asset") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -400,7 +400,7 @@ func TestDownloadGitHubAssetWritesFileOnSuccess(t *testing.T) {
 	defer server.Close()
 	u := Updater{HTTPClient: server.Client()}
 	destination := filepath.Join(t.TempDir(), "a")
-	if err := u.downloadGitHubAsset(context.Background(), server.URL+"/a", destination); err != nil {
+	if err := downloadListedAsset(t, u, server.URL+"/a", destination); err != nil {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(destination)
@@ -485,7 +485,7 @@ func TestGitHubDownloadReportsResponseBodyFailure(t *testing.T) {
 	})}
 	destination := filepath.Join(t.TempDir(), "asset")
 	u := Updater{HTTPClient: client}
-	if err := u.downloadGitHubAsset(context.Background(), "https://example.test/asset", destination); err == nil || !strings.Contains(err.Error(), "write downloaded asset") {
+	if err := downloadListedAsset(t, u, "https://example.test/asset", destination); err == nil || !strings.Contains(err.Error(), "write downloaded asset") {
 		t.Fatalf("body failure = %v", err)
 	}
 }

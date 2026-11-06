@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -126,33 +125,10 @@ func (u Updater) downloadReleaseAssetFromGitLabAPI(ctx context.Context, tag, ass
 	if err != nil {
 		return err
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, u.gitLabReleaseDownloadURL(tag, asset), nil)
-	if err != nil {
-		return fmt.Errorf("create GitLab release-download request: %w", err)
-	}
-	request.Header.Set("Private-Token", token)
-	response, err := u.releaseHTTPClient().Do(request)
-	if err != nil {
-		return unavailable(fmt.Errorf("download release asset %s: %w", asset, err))
-	}
-	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return httpFailure(ReleaseProviderGitLab, "download release asset "+asset, response)
-	}
-	path := filepath.Join(directory, asset)
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
-	if err != nil {
-		return fmt.Errorf("create downloaded release asset %s: %w", asset, err)
-	}
-	_, copyErr := io.Copy(file, io.LimitReader(response.Body, 1<<30))
-	closeErr := file.Close()
-	if copyErr != nil {
-		return fmt.Errorf("write downloaded release asset %s: %w", asset, copyErr)
-	}
-	if closeErr != nil {
-		return fmt.Errorf("close downloaded release asset %s: %w", asset, closeErr)
-	}
-	return nil
+	return u.downloadAsset(ctx, releaseRequest{
+		provider: ReleaseProviderGitLab, address: u.gitLabReleaseDownloadURL(tag, asset), authorize: privateToken(token),
+		create: "create GitLab release-download request", transfer: "download release asset " + asset, status: "download release asset " + asset,
+	}, filepath.Join(directory, asset), "release asset "+asset)
 }
 
 func (u Updater) latestTag(ctx context.Context) (string, error) {
@@ -214,24 +190,14 @@ func (u Updater) latestTagFromGitLabAPI(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, u.gitLabAPIURL("releases/permalink/latest"), nil)
-	if err != nil {
-		return "", fmt.Errorf("create GitLab latest-release request: %w", err)
-	}
-	request.Header.Set("Private-Token", token)
-	response, err := u.releaseHTTPClient().Do(request)
-	if err != nil {
-		return "", unavailable(fmt.Errorf("query GitLab latest release: %w", err))
-	}
-	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return "", httpFailure(ReleaseProviderGitLab, "query latest release", response)
-	}
 	var release struct {
 		TagName string `json:"tag_name"`
 	}
-	if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&release); err != nil {
-		return "", fmt.Errorf("parse GitLab latest release: %w", err)
+	if err := u.releaseMetadata(ctx, releaseRequest{
+		provider: ReleaseProviderGitLab, address: u.gitLabAPIURL("releases/permalink/latest"), authorize: privateToken(token),
+		create: "create GitLab latest-release request", transfer: "query GitLab latest release", status: "query latest release",
+	}, 1<<20, "parse GitLab latest release", &release); err != nil {
+		return "", err
 	}
 	if release.TagName == "" {
 		return "", fmt.Errorf("no AIGW release is available")
@@ -279,6 +245,14 @@ func (u Updater) gitLabAPIURL(path string) string {
 
 func (u Updater) gitLabReleaseDownloadURL(tag, asset string) string {
 	return u.releaseHost() + "/" + u.releaseProject() + "/-/releases/" + url.PathEscape(tag) + "/downloads/" + url.PathEscape(asset)
+}
+
+// privateToken authorizes a GitLab request with token.
+func privateToken(token string) func(*http.Request) error {
+	return func(request *http.Request) error {
+		request.Header.Set("Private-Token", token)
+		return nil
+	}
 }
 
 func gitLabToken() (string, error) {
