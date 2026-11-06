@@ -1,13 +1,12 @@
 package main
 
 import (
-	nativeprocess "aigw-cli/internal/platform/process"
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -229,9 +228,12 @@ func physicalWorkdir() (string, error) {
 }
 
 // runAttached runs a command whose own steps qualify their diagnostics, with
-// its output attached to this process.
+// its output attached to this process. The child stays in this process's group:
+// in a group of its own, a signal here would kill dbus-run-session and the inner
+// tools/ci before they stop their gates, which would run on without their bus.
 func runAttached(call command) error {
-	return runOwned(call, func(ctx context.Context, plan nativeprocess.Plan) error {
-		return (nativeprocess.Runner{}).RunStream(ctx, plan, os.Stdout, os.Stderr)
-	})
+	process := exec.Command(call.Name, call.Args...)
+	process.Env = append(process.Environ(), call.Env...)
+	process.Stdout, process.Stderr = os.Stdout, os.Stderr
+	return process.Run()
 }
