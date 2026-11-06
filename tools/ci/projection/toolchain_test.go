@@ -13,7 +13,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -423,8 +422,7 @@ func TestForgeToolchainsIgnoreForeignMiseConfiguration(t *testing.T) {
 
 func assertMiseConfigurationBoundary(t *testing.T, root, directory string, environment []string) {
 	t.Helper()
-	// The bound stops a hang; a loaded runner is slower than an idle one.
-	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+	ctx, cancel := context.WithTimeout(t.Context(), miseChildHangBound)
 	defer cancel()
 	var diagnostics strings.Builder
 	command := exec.CommandContext(ctx, "mise", "env", "--json")

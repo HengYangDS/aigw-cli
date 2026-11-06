@@ -21,6 +21,11 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+// miseChildHangBound stops a mise child that hangs; it is not a speed check. A
+// CI host shared with other jobs runs a child several times slower than a
+// quiet one.
+const miseChildHangBound = 3 * time.Minute
+
 func TestGitLabUnixMiseMirrorFailureStaysOnSelectedPeer(t *testing.T) {
 	for _, test := range []struct {
 		name     string
@@ -90,7 +95,7 @@ func testGitLabUnixMiseMirrorFailure(t *testing.T, metadata bool) {
 			t.Errorf("owned mirror remains: %v", err)
 		}
 	})
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), miseChildHangBound)
 	defer cancel()
 	command := exec.CommandContext(ctx, "sh", "-eu", "-c", prepare+"\ntest \"$MISE_DATA_DIR\" = \"$mirror_dir/mise-data\"\nexec mise install --locked github:anchore/syft --jobs=1")
 	command.Dir, command.Env, command.WaitDelay = project, environment, time.Second
