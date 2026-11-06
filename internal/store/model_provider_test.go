@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestRouteModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
+func TestModelProviderDefaultsAndResolvesExplicitValue(t *testing.T) {
 	cfg := modelProviderConfig()
 	cfg.Models["native"] = domain.Model{
 		Label:    "Native",

@@ -30,7 +30,7 @@ func hostAt(home string) discovery.Host {
 	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
 }
 
-func qualifiedRoute(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
+func qualifiedModel(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
 	interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(protocols))
 	for _, protocol := range protocols {
 		interfaces[protocol] = []domain.Capability{}
@@ -43,7 +43,7 @@ func qualifiedRoute(label, account, model string, protocols ...domain.EndpointPr
 func codexConfiguration(target string) domain.Config {
 	cfg := domain.NewConfig(Admission())
 	cfg.Providers["gateway"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://gateway.test/v1"}}
-	cfg.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	cfg.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 	cfg.Clients[codex.ID] = domain.ClientBinding{Model: "codex", Enabled: true, Executable: "/opt/codex", Targets: []string{target}}
 	return cfg
 }
@@ -86,7 +86,7 @@ func TestChangedClientsRetainsAdmissionOrderAndIndependentResults(t *testing.T) 
 	account := before.Providers["gateway"]
 	account.Endpoints.Anthropic = "https://gateway.test"
 	before.Providers["gateway"] = account
-	before.Models["claude"] = qualifiedRoute("", "gateway", "claude-test", domain.ProtocolAnthropic)
+	before.Models["claude"] = qualifiedModel("", "gateway", "claude-test", domain.ProtocolAnthropic)
 	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 	after := before.Clone()
@@ -127,8 +127,8 @@ func TestRegistryPreparesEveryClientBeforeWriting(t *testing.T) {
 		Anthropic:       "https://gateway.test",
 		OpenAIResponses: "https://gateway.test/v1",
 	}}
-	before.Models["claude"] = qualifiedRoute("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
-	before.Models["codex"] = qualifiedRoute("Codex", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	before.Models["claude"] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
+	before.Models["codex"] = qualifiedModel("Codex", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetSelectedModel(codex.ID, "codex", "")
 	after := before.Clone()
@@ -195,8 +195,8 @@ func TestFutureClientAdmissionPreservesBuiltInClientsAndProviderState(t *testing
 			OpenAIResponses: "http://127.0.0.1:9876/v1",
 		},
 	}
-	before.Models["claude"] = qualifiedRoute("", "direct", "claude-test", domain.ProtocolAnthropic)
-	before.Models["codex"] = qualifiedRoute("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
+	before.Models["claude"] = qualifiedModel("", "direct", "claude-test", domain.ProtocolAnthropic)
+	before.Models["codex"] = qualifiedModel("", "gateway", "gpt-test", domain.ProtocolOpenAIResponses)
 	before.SetSelectedModel(claude.ID, "claude", "")
 	before.SetSelectedModel(codex.ID, "codex", "")
 	before.SetClientActivation(claude.ID, true, "/clients/claude", nil)
