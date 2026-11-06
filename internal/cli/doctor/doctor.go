@@ -188,15 +188,10 @@ func observeClients(result *commandResult, deps app.Dependencies) {
 		if !observed {
 			continue
 		}
-		switch client.State {
-		case domainreadiness.Configured, domainreadiness.Deferred, domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
+		if client.State == domainreadiness.Configured || client.State == domainreadiness.Deferred {
 			continue
-		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
-			result.OK = false
-		default:
-			result.OK = false
-			client.NextAction = "aigw doctor --json"
 		}
+		result.OK = false
 		if result.NextAction == "" {
 			result.NextAction = client.NextAction
 			if result.NextAction == "" {
@@ -258,12 +253,7 @@ func renderClients(renderer *terminal.Renderer, admission domain.Admission, clie
 			continue
 		}
 		state := terminal.Info
-		switch client.State {
-		case domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
-			state = terminal.OK
-		case domainreadiness.Configured, domainreadiness.Deferred:
-			state = terminal.Info
-		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
+		if client.State == domainreadiness.Invalid || client.State == domainreadiness.Unavailable {
 			state = terminal.Warn
 		}
 		message := client.State.Label()
