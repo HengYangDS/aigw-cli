@@ -21,7 +21,7 @@ func TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog(t *testing.T) {
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
 
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	catalogPath := codexCatalogPath(path)
@@ -59,7 +59,7 @@ func TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog(t *testing.T) {
 		t.Fatalf("ValidateConfig() error = %v", err)
 	}
 
-	plans, err := PlanReconciliation([]TargetRef{target}, []TargetRef{target}, runtimeConfig)
+	plans, err := planCodexReconciliationTransition([]TargetRef{target}, []TargetRef{target}, runtimeConfig, runtimeConfig, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog(t *testing.T) {
 		t.Fatalf("second projection is not converged: %+v", plans)
 	}
 
-	if _, err := ReconcileConfigs([]TargetRef{target}, nil, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs([]TargetRef{target}, nil, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(path)
@@ -91,7 +91,7 @@ func TestCodexCatalogReferenceAcceptsEquivalentTOMLButRejectsChangedTarget(t *te
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -114,7 +114,7 @@ func TestCodexCatalogReferenceAcceptsEquivalentTOMLButRejectsChangedTarget(t *te
 	if err := ValidateConfig(path, runtimeConfig); err != nil {
 		t.Fatalf("equivalent catalog reference was rejected: %v", err)
 	}
-	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatalf("equivalent catalog reference was not converged: %v", err)
 	}
 	if current, err := os.ReadFile(path); err != nil || string(current) != equivalent {
@@ -125,7 +125,7 @@ func TestCodexCatalogReferenceAcceptsEquivalentTOMLButRejectsChangedTarget(t *te
 	if err := os.WriteFile(path, []byte(changed), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig); err == nil || !strings.Contains(err.Error(), "model catalog selection") {
+	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err == nil || !strings.Contains(err.Error(), "model catalog selection") {
 		t.Fatalf("changed catalog target was not rejected: %v", err)
 	}
 	if current, err := os.ReadFile(path); err != nil || string(current) != changed {
@@ -142,7 +142,7 @@ func TestReconcileConfigsLeavesNativeProviderCatalogAlone(t *testing.T) {
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("gpt-5.6-sol")
 	runtimeConfig.ModelProvider = "openai"
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -183,7 +183,7 @@ func TestUnknownModelPinsCompleteBundledCatalogWithoutInventingMetadata(t *testi
 			runtimeConfig := catalogTestRuntime(test.wireModel)
 			runtimeConfig.CanonicalModelID = test.canonicalModelID
 
-			if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+			if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 				t.Fatal(err)
 			}
 			projected, err := os.ReadFile(path)
@@ -217,7 +217,7 @@ func TestReconcileConfigsRebuildsTheCatalogAfterAClientUpgrade(t *testing.T) {
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	first, err := os.ReadFile(codexCatalogPath(path))
@@ -226,7 +226,7 @@ func TestReconcileConfigsRebuildsTheCatalogAfterAClientUpgrade(t *testing.T) {
 	}
 
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "2.0.0", SHA256: "bbbb"}, "gpt-5.6-sol", "gpt-6")
-	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	second, err := os.ReadFile(codexCatalogPath(path))
@@ -250,7 +250,7 @@ func TestReconcileConfigsRebuildsTheCatalogAfterAClientUpgrade(t *testing.T) {
 	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
 		return ExecutableIdentity{Version: "3.0.0", SHA256: "cccc"}, nil, fmt.Errorf("dump failed")
 	}
-	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -282,7 +282,7 @@ func TestReconcileConfigsKeepsUserAuthoredCatalogSelections(t *testing.T) {
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -298,7 +298,7 @@ func TestReconcileConfigsKeepsUserAuthoredCatalogSelections(t *testing.T) {
 	if _, err := os.Stat(codexCatalogPath(path)); !os.IsNotExist(err) {
 		t.Fatalf("AIGW wrote a catalog beside a user-authored one: %v", err)
 	}
-	if _, err := ReconcileConfigs([]TargetRef{target}, nil, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs([]TargetRef{target}, nil, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(path)
@@ -324,7 +324,7 @@ func TestReconcileConfigsConvergesDriftedCatalogPermissions(t *testing.T) {
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	catalogPath := codexCatalogPath(path)
@@ -340,14 +340,14 @@ func TestReconcileConfigsConvergesDriftedCatalogPermissions(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "owner-only") {
 			t.Fatalf("ValidateConfig() at %v error = %v, want an owner-only report", drifted, err)
 		}
-		plans, err := PlanReconciliation([]TargetRef{target}, []TargetRef{target}, runtimeConfig)
+		plans, err := planCodexReconciliationTransition([]TargetRef{target}, []TargetRef{target}, runtimeConfig, runtimeConfig, false)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if len(plans) != 1 || plans[0].Action == ProjectionActionAlreadyConverged {
 			t.Fatalf("drift at %v reads as converged: %+v", drifted, plans)
 		}
-		if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+		if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 			t.Fatal(err)
 		}
 		info, err := os.Lstat(catalogPath)
@@ -387,7 +387,7 @@ func TestReconcileConfigsRefusesToAdoptAForeignCatalogFile(t *testing.T) {
 	if err := os.Chmod(catalogPath, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := ReconcileConfigs(nil, []TargetRef{target}, catalogTestRuntime("openai.gpt-5.6-sol"))
+	_, err := ReconcileConfigs(nil, []TargetRef{target}, catalogTestRuntime("openai.gpt-5.6-sol"), catalogTestRuntime("openai.gpt-5.6-sol"), false)
 	if err == nil || !strings.Contains(err.Error(), "refusing to overwrite") {
 		t.Fatalf("ReconcileConfigs() error = %v, want a catalog ownership conflict", err)
 	}
@@ -497,7 +497,7 @@ func TestReconcileConfigsRollsBackConfigStateAndCatalogTogether(t *testing.T) {
 		written = append(written, target)
 		return originalExactWrite(target, expected, data, mode)
 	}
-	_, err := ReconcileConfigs(nil, []TargetRef{target}, catalogTestRuntime("openai.gpt-5.6-sol"))
+	_, err := ReconcileConfigs(nil, []TargetRef{target}, catalogTestRuntime("openai.gpt-5.6-sol"), catalogTestRuntime("openai.gpt-5.6-sol"), false)
 	if err == nil || !strings.Contains(err.Error(), "rolled back") {
 		t.Fatalf("ReconcileConfigs() error = %v", err)
 	}

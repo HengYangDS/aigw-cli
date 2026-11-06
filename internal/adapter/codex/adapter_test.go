@@ -44,7 +44,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 			t.Fatal(err)
 		}
 		runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
-		if err := SyncConfig(target, runtime); err != nil {
+		if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(target)}, runtime, runtime, false); err != nil {
 			t.Fatal(err)
 		}
 		return cfg, runtime
@@ -271,7 +271,7 @@ func codexVerificationFixture(t *testing.T) (domain.Config, domain.Runtime) {
 		t.Fatal(err)
 	}
 	runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
-	if err := SyncConfig(target, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(target)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	return cfg, runtime

@@ -202,7 +202,7 @@ func configuredCodexVerification(t *testing.T, targets ...string) (domain.Config
 		if err := os.WriteFile(target, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := SyncConfig(target, runtime); err != nil {
+		if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(target)}, runtime, runtime, false); err != nil {
 			t.Fatal(err)
 		}
 	}

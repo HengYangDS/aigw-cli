@@ -16,7 +16,7 @@ import (
 func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testing.T) {
 	cfg, selected := codexVerificationFixture(t)
 	target := cfg.Clients[ID].Targets[0]
-	if err := DisableConfig(target); err != nil {
+	if _, err := ReconcileConfigs([]TargetRef{HomeTarget(target)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	base, err := os.ReadFile(target)
@@ -29,7 +29,7 @@ func TestCodexVerificationUsesAnIsolatedProjectionForAnUnselectedRoute(t *testin
 	if err := os.WriteFile(target, append([]byte(userCatalog+"\n"), base...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := SyncConfig(target, selected); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(target)}, selected, selected, false); err != nil {
 		t.Fatal(err)
 	}
 	before, err := os.ReadFile(target)

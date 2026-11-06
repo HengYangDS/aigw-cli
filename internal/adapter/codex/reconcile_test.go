@@ -30,7 +30,7 @@ func TestReconcileConfigsRestoresRemovedFullSelectionTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	target := codexHomeTarget(path)
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime()); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime(), atomicTestRuntime(), false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -41,7 +41,7 @@ func TestReconcileConfigsRestoresRemovedFullSelectionTarget(t *testing.T) {
 	if err := os.WriteFile(path, []byte(withUserEdit), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReconcileConfigs([]TargetRef{target}, nil, atomicTestRuntime()); err != nil {
+	if _, err := ReconcileConfigs([]TargetRef{target}, nil, atomicTestRuntime(), atomicTestRuntime(), false); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(path)
@@ -80,7 +80,7 @@ func TestReconcileConfigsCreatesAndRestoresAnAdmittedDefaultTarget(t *testing.T)
 			target := codexHomeTarget(path)
 			target.CreateIfAbsent = true
 
-			if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime()); err != nil {
+			if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime(), atomicTestRuntime(), false); err != nil {
 				t.Fatalf("create admitted default target: %v", err)
 			}
 			if test.userContent != "" {
@@ -93,7 +93,7 @@ func TestReconcileConfigsCreatesAndRestoresAnAdmittedDefaultTarget(t *testing.T)
 					t.Fatal(err)
 				}
 			}
-			if _, err := ReconcileConfigs([]TargetRef{target}, nil, atomicTestRuntime()); err != nil {
+			if _, err := ReconcileConfigs([]TargetRef{target}, nil, atomicTestRuntime(), atomicTestRuntime(), false); err != nil {
 				t.Fatalf("restore absent pre-state: %v", err)
 			}
 			if test.wantConfig {
@@ -127,7 +127,7 @@ func TestReconcileConfigsRollsBackMixedRestoreAndAdd(t *testing.T) {
 	}
 	before := []TargetRef{codexHomeTarget(restoredPath)}
 	after := []TargetRef{codexHomeTarget(addedPath)}
-	if _, err := ReconcileConfigs(nil, before, atomicTestRuntime()); err != nil {
+	if _, err := ReconcileConfigs(nil, before, atomicTestRuntime(), atomicTestRuntime(), false); err != nil {
 		t.Fatal(err)
 	}
 	paths := []string{
@@ -172,7 +172,7 @@ func TestReconcileConfigsRollsBackMixedRestoreAndAdd(t *testing.T) {
 		return originalRemove(path, expected)
 	}
 
-	_, err := ReconcileConfigs(before, after, atomicTestRuntime())
+	_, err := ReconcileConfigs(before, after, atomicTestRuntime(), atomicTestRuntime(), false)
 	if err == nil || !strings.Contains(err.Error(), "injected fourth artifact failure") {
 		t.Fatalf("ReconcileConfigs() error = %v", err)
 	}
@@ -217,7 +217,7 @@ func TestReconcileConfigsPreservesCommitAndCompensationFailures(t *testing.T) {
 		return rollbackFailure
 	}
 
-	_, err := ReconcileConfigs(nil, []TargetRef{codexHomeTarget(first), codexHomeTarget(second)}, atomicTestRuntime())
+	_, err := ReconcileConfigs(nil, []TargetRef{codexHomeTarget(first), codexHomeTarget(second)}, atomicTestRuntime(), atomicTestRuntime(), false)
 	if !errors.Is(err, commitFailure) || !errors.Is(err, rollbackFailure) {
 		t.Fatalf("ReconcileConfigs() error = %v", err)
 	}
@@ -232,7 +232,7 @@ func TestReconciliationReceiptPreservesForeignEditsAndRestoresOwnedFiles(t *test
 			t.Fatal(err)
 		}
 	}
-	receipt, err := ReconcileConfigs(nil, codexHomeTargets(paths), atomicTestRuntime())
+	receipt, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(paths[0]), HomeTarget(paths[1])}, atomicTestRuntime(), atomicTestRuntime(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +285,7 @@ func TestReconcileConfigsRejectsChangedPreimageWithoutOverwrite(t *testing.T) {
 		}
 		return originalWrite(path, expected, data, mode)
 	}
-	_, err := ReconcileConfigs(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime())
+	_, err := ReconcileConfigs(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime(), atomicTestRuntime(), false)
 	if err == nil || !strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("ReconcileConfigs() error = %v, want preimage changed", err)
 	}
@@ -329,7 +329,7 @@ func TestRollbackCodexArtifactsPreservesExternalEdit(t *testing.T) {
 }
 
 func TestPrepareCodexReconciliationRejectsInvalidTarget(t *testing.T) {
-	_, err := prepareCodexReconciliation([]TargetRef{{Path: ""}}, nil, domain.Runtime{})
+	_, err := prepareCodexReconciliationTransition([]TargetRef{{Path: ""}}, nil, domain.Runtime{}, domain.Runtime{}, false)
 	if err == nil {
 		t.Error("expected error for invalid target")
 	}
@@ -340,7 +340,7 @@ func TestPrepareCodexRestoreHandlesRestoredAndUnsupportedState(t *testing.T) {
 	configSnap := platform.FileSnapshot{Exists: true, Data: []byte("")}
 	stateSnap := platform.FileSnapshot{Exists: false}
 
-	plan, err := prepareCodexRestore(target, configSnap, stateSnap, platform.FileSnapshot{})
+	plan, err := prepareCodexRestoreTransition(target, configSnap, stateSnap, platform.FileSnapshot{}, domain.Runtime{}, false)
 	if err != nil || plan.plan.Action != ProjectionActionAlreadyRestored {
 		t.Errorf("expected already-restored, got %+v, err %v", plan, err)
 	}
@@ -348,7 +348,7 @@ func TestPrepareCodexRestoreHandlesRestoredAndUnsupportedState(t *testing.T) {
 	state := codexState{ProjectionMode: "invalid", WriterID: ProjectionWriterID, TransactionID: "t"}
 	data, _ := json.Marshal(state)
 	stateSnap = platform.FileSnapshot{Exists: true, Data: data}
-	_, err = prepareCodexRestore(target, configSnap, stateSnap, platform.FileSnapshot{})
+	_, err = prepareCodexRestoreTransition(target, configSnap, stateSnap, platform.FileSnapshot{}, domain.Runtime{}, false)
 	if err == nil || !strings.Contains(err.Error(), "unsupported") {
 		t.Errorf("expected unsupported error, got %v", err)
 	}
@@ -391,23 +391,23 @@ func attributedCodexStateFixture(block string) codexState {
 
 func TestCodexReconciliationPreflightErrors(t *testing.T) {
 	t.Run("invalid after target", func(t *testing.T) {
-		if _, err := PlanReconciliation(nil, []TargetRef{{}}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "requires surface_id") {
-			t.Fatalf("PlanReconciliation() error = %v", err)
+		if _, err := planCodexReconciliationTransition(nil, []TargetRef{{}}, atomicTestRuntime(), atomicTestRuntime(), false); err == nil || !strings.Contains(err.Error(), "requires surface_id") {
+			t.Fatalf("planCodexReconciliationTransition() error = %v", err)
 		}
 	})
 
 	t.Run("endpoint missing", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "configuration.toml")
 		writeCodexFixture(t, path, "external = true\n")
-		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, domain.Runtime{RouteID: "missing-endpoint"}); err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
-			t.Fatalf("PlanReconciliation() error = %v", err)
+		if _, err := planCodexReconciliationTransition(nil, []TargetRef{codexHomeTarget(path)}, domain.Runtime{RouteID: "missing-endpoint"}, domain.Runtime{RouteID: "missing-endpoint"}, false); err == nil || !strings.Contains(err.Error(), "no Codex endpoint") {
+			t.Fatalf("planCodexReconciliationTransition() error = %v", err)
 		}
 	})
 
 	t.Run("config missing", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "missing.toml")
-		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "config does not exist") || !strings.Contains(err.Error(), "prepare Codex target") {
-			t.Fatalf("PlanReconciliation() error = %v", err)
+		if _, err := planCodexReconciliationTransition(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime(), atomicTestRuntime(), false); err == nil || !strings.Contains(err.Error(), "config does not exist") || !strings.Contains(err.Error(), "prepare Codex target") {
+			t.Fatalf("planCodexReconciliationTransition() error = %v", err)
 		}
 	})
 
@@ -416,8 +416,8 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 		if err := os.Mkdir(path, 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "read") {
-			t.Fatalf("PlanReconciliation() error = %v", err)
+		if _, err := planCodexReconciliationTransition(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime(), atomicTestRuntime(), false); err == nil || !strings.Contains(err.Error(), "read") {
+			t.Fatalf("planCodexReconciliationTransition() error = %v", err)
 		}
 	})
 
@@ -427,8 +427,8 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 		if err := os.Mkdir(codexStatePath(path), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := PlanReconciliation(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "prepare Codex target") {
-			t.Fatalf("PlanReconciliation() error = %v", err)
+		if _, err := planCodexReconciliationTransition(nil, []TargetRef{codexHomeTarget(path)}, atomicTestRuntime(), atomicTestRuntime(), false); err == nil || !strings.Contains(err.Error(), "prepare Codex target") {
+			t.Fatalf("planCodexReconciliationTransition() error = %v", err)
 		}
 	})
 
@@ -437,8 +437,8 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 		writeCodexFixture(t, path, "external = true\n")
 		target := codexHomeTarget(path)
 		target.ProjectionMode = "unsupported"
-		if _, err := PlanReconciliation(nil, []TargetRef{target}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "cannot use authority") {
-			t.Fatalf("PlanReconciliation() error = %v", err)
+		if _, err := planCodexReconciliationTransition(nil, []TargetRef{target}, atomicTestRuntime(), atomicTestRuntime(), false); err == nil || !strings.Contains(err.Error(), "cannot use authority") {
+			t.Fatalf("planCodexReconciliationTransition() error = %v", err)
 		}
 	})
 
@@ -447,8 +447,8 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 		writeCodexFixture(t, path, "external = true\n")
 		target := codexHomeTarget(path)
 		target.Authority = "foreign"
-		if _, err := PlanReconciliation(nil, []TargetRef{target}, atomicTestRuntime()); err == nil || !strings.Contains(err.Error(), "cannot use authority") {
-			t.Fatalf("PlanReconciliation() error = %v", err)
+		if _, err := planCodexReconciliationTransition(nil, []TargetRef{target}, atomicTestRuntime(), atomicTestRuntime(), false); err == nil || !strings.Contains(err.Error(), "cannot use authority") {
+			t.Fatalf("planCodexReconciliationTransition() error = %v", err)
 		}
 	})
 

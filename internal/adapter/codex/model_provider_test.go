@@ -22,7 +22,7 @@ func TestCodexSyncProjectsExplicitProviderAndRestoresOriginal(t *testing.T) {
 	runtime.Authentication = domain.AuthenticationClientNative
 	runtime.CredentialCommand = credentialCommand
 
-	if err := codex.SyncConfig(path, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	first, err := os.ReadFile(path)
@@ -46,7 +46,7 @@ func TestCodexSyncProjectsExplicitProviderAndRestoresOriginal(t *testing.T) {
 			t.Fatalf("projection contains %q:\n%s", forbidden, text)
 		}
 	}
-	if err := codex.SyncConfig(path, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	second, err := os.ReadFile(path)
@@ -66,7 +66,7 @@ func TestCodexSyncProjectsExplicitProviderAndRestoresOriginal(t *testing.T) {
 	if !strings.Contains(string(state), `"projected_provider": "amazon-bedrock"`) {
 		t.Fatalf("sidecar lacks projected provider:\n%s", state)
 	}
-	if err := codex.DisableConfig(path); err != nil {
+	if _, err := codex.ReconcileConfigs([]codex.TargetRef{codex.HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(path)
@@ -87,7 +87,7 @@ func TestCodexProviderNameDoesNotSelectCredentialOwnership(t *testing.T) {
 	runtime.Authentication = domain.AuthenticationClientNative
 	for _, provider := range []string{"amazon-bedrock", "aigw"} {
 		runtime.ModelProvider = provider
-		if err := codex.SyncConfig(path, runtime); err != nil {
+		if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 			t.Fatal(err)
 		}
 		data, err := os.ReadFile(path)
@@ -99,7 +99,7 @@ func TestCodexProviderNameDoesNotSelectCredentialOwnership(t *testing.T) {
 		}
 	}
 	runtime.Authentication = domain.AuthenticationAccountToken
-	if err := codex.SyncConfig(path, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -130,7 +130,7 @@ func TestCodexSyncRejectsAccountTokenProviderWithoutCredentialCommand(t *testing
 	runtime.Authentication = domain.AuthenticationAccountToken
 	for _, command := range []string{"", "aigw"} {
 		runtime.CredentialCommand = command
-		if err := codex.SyncConfig(path, runtime); err == nil {
+		if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err == nil {
 			t.Fatalf("credential command %q was accepted", command)
 		}
 	}
@@ -144,7 +144,7 @@ func TestCodexSyncAcceptsClientNativeProviderWithoutCredentialCommand(t *testing
 	runtime := codexRuntime("native", "Native", "https://gateway.test/openai/v1", "wire-model")
 	runtime.ModelProvider = "amazon-bedrock"
 	runtime.Authentication = domain.AuthenticationClientNative
-	if err := codex.SyncConfig(path, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -162,7 +162,7 @@ func TestCodexValidateResolvesCurrentAIGWExecutable(t *testing.T) {
 	runtime.ModelProvider = "synthetic-provider"
 	runtime.Authentication = domain.AuthenticationAccountToken
 	runtime.CredentialCommand = executable
-	if err := codex.SyncConfig(path, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 

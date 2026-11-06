@@ -9,7 +9,6 @@ import (
 	"sort"
 
 	"aigw-cli/internal/adapter"
-	surfaceidentity "aigw-cli/internal/adapter/surface"
 	clientverification "aigw-cli/internal/adapter/verification"
 	"aigw-cli/internal/domain"
 
@@ -97,7 +96,7 @@ func isolateProjection(cfg domain.Config, runtime domain.Runtime, binding domain
 	if err := CopyProjection(selectedTargets[0], target); err != nil {
 		return domain.Config{}, workspace, fmt.Errorf("copy Codex verification input: %w", err)
 	}
-	before := TargetRef{SurfaceID: string(HomeDefault), Authority: string(surfaceidentity.AuthorityAIGW), ProjectionMode: ProjectionFullSelection, Path: target}
+	before := HomeTarget(target)
 	after := before
 	after.Executable = binding.Executable
 	after.CreateIfAbsent = true
@@ -108,7 +107,7 @@ func isolateProjection(cfg domain.Config, runtime domain.Runtime, binding domain
 	if selected.RequiresAccountToken() {
 		selected.CredentialCommand = selected.CredentialExecutable(runtime.CredentialCommand)
 	}
-	if _, err := ReconcileConfigsAuthorizedTransition([]TargetRef{before}, []TargetRef{after}, selected, runtime); err != nil {
+	if _, err := ReconcileConfigs([]TargetRef{before}, []TargetRef{after}, selected, runtime, true); err != nil {
 		return domain.Config{}, workspace, fmt.Errorf("prepare isolated Codex verification projection: %w", err)
 	}
 	isolated = cfg.Clone()

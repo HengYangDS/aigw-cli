@@ -16,7 +16,7 @@ func writeLegacyCodexProjection(t *testing.T, path string, runtimeModel string) 
 	}
 	runtime := atomicTestRuntime()
 	runtime.Model = runtimeModel
-	if _, err := ReconcileConfigs(nil, []TargetRef{codexHomeTarget(path)}, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{codexHomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	statePath := codexStatePath(path)
@@ -44,16 +44,16 @@ func assertCodexSyncRejectsDrift(t *testing.T, path, drifted, want string) {
 	if err := os.WriteFile(path, []byte(drifted), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err := SyncConfig(path, runtime)
+	_, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false)
 	if err == nil || !strings.Contains(err.Error(), want) {
-		t.Fatalf("SyncConfig() error = %v, want %q", err, want)
+		t.Fatalf("ReconcileConfigs() error = %v, want %q", err, want)
 	}
 	after, readErr := os.ReadFile(path)
 	if readErr != nil {
 		t.Fatal(readErr)
 	}
 	if string(after) != drifted {
-		t.Fatal("SyncConfig changed rejected semantic drift")
+		t.Fatal("ReconcileConfigs changed rejected semantic drift")
 	}
 }
 
@@ -72,7 +72,7 @@ func TestCodexResyncRejectsChangedUnmarkedRootModel(t *testing.T) {
 	if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := SyncConfig(path, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -103,7 +103,7 @@ func TestReconcileConfigsTransitionAttributesLegacyRootSelections(t *testing.T) 
 	next.Endpoint = "https://next.test/v1"
 	next.Model = "gpt-next"
 	target := codexHomeTarget(path)
-	if _, err := ReconcileConfigsTransition([]TargetRef{target}, []TargetRef{target}, previous, next); err != nil {
+	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, previous, next, false); err != nil {
 		t.Fatalf("legacy sidecar transition rejected unchanged root values: %v", err)
 	}
 	after, err := os.ReadFile(path)
@@ -131,7 +131,7 @@ func TestReconcileConfigsTransitionRejectsChangedLegacyRootModel(t *testing.T) {
 	next := previous
 	next.Model = "gpt-next"
 	target := codexHomeTarget(path)
-	_, err = ReconcileConfigsTransition([]TargetRef{target}, []TargetRef{target}, previous, next)
+	_, err = ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, previous, next, false)
 	if err == nil || !strings.Contains(err.Error(), "model selection changed") {
 		t.Fatalf("transition error = %v, want model selection conflict", err)
 	}
@@ -151,7 +151,7 @@ func TestReconcileConfigsAuthorizedTransitionReplacesChangedRootSelections(t *te
 		t.Fatal(err)
 	}
 	target := codexHomeTarget(path)
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, previous); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, previous, previous, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -169,7 +169,7 @@ func TestReconcileConfigsAuthorizedTransitionReplacesChangedRootSelections(t *te
 	next.RouteLabel = "Next"
 	next.Endpoint = "https://next.test/v1"
 	next.Model = "gpt-next"
-	if _, err := ReconcileConfigsAuthorizedTransition([]TargetRef{target}, []TargetRef{target}, previous, next); err != nil {
+	if _, err := ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, previous, next, true); err != nil {
 		t.Fatalf("authorized transition rejected root selection replacement: %v", err)
 	}
 	after, err := os.ReadFile(path)

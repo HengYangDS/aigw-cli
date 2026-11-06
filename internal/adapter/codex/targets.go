@@ -130,15 +130,13 @@ func validateDesiredCodexTarget(target TargetRef) error {
 	}
 }
 
-func codexHomeTargets(paths []string) []TargetRef {
-	targets := make([]TargetRef, 0, len(paths))
-	for _, path := range paths {
-		targets = append(targets, TargetRef{
-			SurfaceID:      string(HomeDefault),
-			Authority:      string(surface.AuthorityAIGW),
-			ProjectionMode: ProjectionFullSelection,
-			Path:           path,
-		})
+// HomeTarget names the existing configuration at path as the default Codex
+// Home.
+func HomeTarget(path string) TargetRef {
+	return TargetRef{
+		SurfaceID:      string(HomeDefault),
+		Authority:      string(surface.AuthorityAIGW),
+		ProjectionMode: ProjectionFullSelection,
+		Path:           path,
 	}
-	return targets
 }

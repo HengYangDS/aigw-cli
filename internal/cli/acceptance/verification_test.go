@@ -266,7 +266,7 @@ func TestVerifyCodexRunsTheConfiguredClientWithIsolatedContinuation(t *testing.T
 	for _, target := range targets {
 		writeFile(t, target, []byte("model_provider = \"native\"\n"), 0o600)
 		runtime.CredentialCommand = app.Executable
-		if err := codex.SyncConfig(target, runtime); err != nil {
+		if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, runtime, runtime, false); err != nil {
 			t.Fatal(err)
 		}
 		projections[target] = readFile(t, target)
@@ -416,7 +416,7 @@ func activateSynchronizedCodex(t *testing.T, app *cli.App, cfg domain.Config) st
 		t.Fatal(err)
 	}
 	runtime.CredentialCommand = app.Executable
-	if err := codex.SyncConfig(target, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	cfg.SetClientActivation(codex.ID, true, executableFixture(t, "codex"), []string{target})

@@ -13,7 +13,7 @@ func TestReconcileConfigsCreatesDefaultTargetOwnerOnly(t *testing.T) {
 	target := codexHomeTarget(path)
 	target.CreateIfAbsent = true
 
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime()); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime(), atomicTestRuntime(), false); err != nil {
 		t.Fatal(err)
 	}
 	info, err := os.Stat(path)

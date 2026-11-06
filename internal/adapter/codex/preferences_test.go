@@ -2,6 +2,7 @@ package codex_test
 
 import (
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/domain"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,7 +21,7 @@ func TestCodexSyncRetiresTheAgentsAliasWhenBindingMaxThreads(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -53,7 +54,7 @@ func TestCodexSyncRetiresTheAgentsAliasWhenBindingMaxThreads(t *testing.T) {
 		t.Fatalf("AIGW duplicated an existing Codex table:\n%s", text)
 	}
 	// A second sync must be a no-op rather than re-projecting over its own work.
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	repeated, err := os.ReadFile(path)
@@ -66,7 +67,7 @@ func TestCodexSyncRetiresTheAgentsAliasWhenBindingMaxThreads(t *testing.T) {
 	if err := codex.ValidateConfig(path, profile); err != nil {
 		t.Fatalf("validation rejected AIGW's own projection: %v", err)
 	}
-	if err := codex.DisableConfig(path); err != nil {
+	if _, err := codex.ReconcileConfigs([]codex.TargetRef{codex.HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(path)
@@ -89,7 +90,7 @@ func TestCodexSyncOwnsMaxThreadsWithoutOwningItsNeighbors(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -109,7 +110,7 @@ func TestCodexSyncOwnsMaxThreadsWithoutOwningItsNeighbors(t *testing.T) {
 	if !strings.Contains(text, "notify = true") {
 		t.Fatalf("AIGW changed an unrelated key in an owned table:\n%s", text)
 	}
-	if err := codex.DisableConfig(path); err != nil {
+	if _, err := codex.ReconcileConfigs([]codex.TargetRef{codex.HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(path)
@@ -127,7 +128,7 @@ func TestCodexSyncRejectsManagedSchedulerDrift(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -138,9 +139,9 @@ func TestCodexSyncRejectsManagedSchedulerDrift(t *testing.T) {
 	if err := os.WriteFile(path, []byte(drifted), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err = codex.SyncConfig(path, profile)
+	_, err = codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false)
 	if err == nil || !strings.Contains(err.Error(), "scheduler keys changed") {
-		t.Fatalf("SyncConfig() error = %v, want scheduler conflict", err)
+		t.Fatalf("ReconcileConfigs() error = %v, want scheduler conflict", err)
 	}
 	current, readErr := os.ReadFile(path)
 	if readErr != nil {
@@ -158,7 +159,7 @@ func TestSyncConfigProjectsModelWhenConfigured(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt-5.6", "GPT-5.6", "https://example.test/v1", "gpt-5.6")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)
@@ -174,7 +175,7 @@ func TestCodexSyncOwnsTopLevelModelAndRestoresOriginal(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt-5.6-sol", "GPT", "https://example.test/v1", "gpt-5.6-sol")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)
@@ -184,7 +185,7 @@ func TestCodexSyncOwnsTopLevelModelAndRestoresOriginal(t *testing.T) {
 	if strings.Contains(string(data), `[model_providers.aigw]\nmodel =`) {
 		t.Fatalf("provider block should not carry model selection:\n%s", data)
 	}
-	if err := codex.DisableConfig(path); err != nil {
+	if _, err := codex.ReconcileConfigs([]codex.TargetRef{codex.HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, _ := os.ReadFile(path)
@@ -200,10 +201,10 @@ func TestCodexDisableRemovesManagedModelWhenNoOriginalModelExisted(t *testing.T)
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt-5.6-sol", "GPT", "https://example.test/v1", "gpt-5.6-sol")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := codex.DisableConfig(path); err != nil {
+	if _, err := codex.ReconcileConfigs([]codex.TargetRef{codex.HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, _ := os.ReadFile(path)
@@ -219,14 +220,14 @@ func TestCodexResyncPreservesAnEmptyOriginalModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	first := codexRuntime("gpt-one", "GPT One", "https://example.test/v1", "gpt-one")
-	if err := codex.SyncConfig(path, first); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, first, first, false); err != nil {
 		t.Fatal(err)
 	}
 	second := codexRuntime("gpt-two", "GPT Two", "https://example.test/v1", "gpt-two")
-	if err := codex.SyncConfig(path, second); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, second, second, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := codex.DisableConfig(path); err != nil {
+	if _, err := codex.ReconcileConfigs([]codex.TargetRef{codex.HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(path)

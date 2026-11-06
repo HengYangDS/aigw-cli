@@ -138,26 +138,13 @@ var writeFileAtomicExactModeIfUnchanged = platform.WriteFileAtomicExactModeIfUnc
 var removeFileIfUnchanged = platform.RemoveFileIfUnchanged
 var restoreFileAtomicIfPostimage = platform.RestoreFileAtomicIfPostimage
 
-// PlanReconciliation prepares a before-to-after target transition
-// without writing configuration, sidecars, credentials, or sessions.
-func PlanReconciliation(before, after []TargetRef, runtime domain.Runtime) ([]ProjectionPlan, error) {
-	return PlanReconciliationTransition(before, after, runtime, runtime)
-}
-
-// PlanReconciliationTransition prepares a before-to-after Route transition.
-// The previous runtime attributes legacy sidecars that predate projected model
-// identity without weakening semantic drift checks.
-func PlanReconciliationTransition(before, after []TargetRef, previous, runtime domain.Runtime) ([]ProjectionPlan, error) {
-	return planCodexReconciliationTransition(before, after, previous, runtime, false)
-}
-
-// PlanReconciliationAuthorizedTransition prepares an explicit Route selection
-// that may replace root provider and model values after all other owned state
-// still matches its sidecar.
-func PlanReconciliationAuthorizedTransition(before, after []TargetRef, previous, runtime domain.Runtime) ([]ProjectionPlan, error) {
-	return planCodexReconciliationTransition(before, after, previous, runtime, true)
-}
-
+// planCodexReconciliationTransition prepares a before-to-after target
+// transition without writing configuration, sidecars, credentials, or
+// sessions. The previous runtime attributes legacy sidecars that predate
+// projected model identity without weakening semantic drift checks. An
+// explicit Route selection sets replaceRootSelections: it may replace root
+// provider and model values after all other owned state still matches its
+// sidecar.
 func planCodexReconciliationTransition(before, after []TargetRef, previous, runtime domain.Runtime, replaceRootSelections bool) ([]ProjectionPlan, error) {
 	prepared, err := prepareCodexReconciliationTransition(before, after, previous, runtime, replaceRootSelections)
 	if err != nil {
@@ -175,23 +162,10 @@ func planCodexReconciliationTransition(before, after []TargetRef, previous, runt
 // ReconcileConfigs applies a prepared before-to-after target transition.
 // It guards every write against its captured preimage and compensates prior
 // writes in reverse order only while their postimages remain unchanged.
-func ReconcileConfigs(before, after []TargetRef, runtime domain.Runtime) (ReconciliationReceipt, error) {
-	return ReconcileConfigsTransition(before, after, runtime, runtime)
-}
-
-// ReconcileConfigsTransition applies one before-to-after Route transition.
-func ReconcileConfigsTransition(before, after []TargetRef, previous, runtime domain.Runtime) (ReconciliationReceipt, error) {
-	return reconcileCodexConfigsTransition(before, after, previous, runtime, false)
-}
-
-// ReconcileConfigsAuthorizedTransition applies an explicit Route selection
-// after the sidecar, provider block, scheduler, and catalog establish the
-// existing projection's ownership.
-func ReconcileConfigsAuthorizedTransition(before, after []TargetRef, previous, runtime domain.Runtime) (ReconciliationReceipt, error) {
-	return reconcileCodexConfigsTransition(before, after, previous, runtime, true)
-}
-
-func reconcileCodexConfigsTransition(before, after []TargetRef, previous, runtime domain.Runtime, replaceRootSelections bool) (ReconciliationReceipt, error) {
+// previous is the runtime before the transition. An explicit Route selection
+// sets replaceRootSelections, and applies only after the sidecar, provider
+// block, scheduler, and catalog establish the existing projection's ownership.
+func ReconcileConfigs(before, after []TargetRef, previous, runtime domain.Runtime, replaceRootSelections bool) (ReconciliationReceipt, error) {
 	prepared, err := prepareCodexReconciliationTransition(before, after, previous, runtime, replaceRootSelections)
 	if err != nil {
 		return ReconciliationReceipt{}, err
@@ -211,10 +185,6 @@ func reconcileCodexConfigsTransition(before, after []TargetRef, previous, runtim
 		}
 	}
 	return ReconciliationReceipt{committed: committed}, nil
-}
-
-func prepareCodexReconciliation(before, after []TargetRef, runtime domain.Runtime) ([]codexPreparedTarget, error) {
-	return prepareCodexReconciliationTransition(before, after, runtime, runtime, false)
 }
 
 func prepareCodexReconciliationTransition(before, after []TargetRef, previous, runtime domain.Runtime, replaceRootSelections bool) ([]codexPreparedTarget, error) {
@@ -352,10 +322,6 @@ func sameCodexTOMLValues(current, projected []byte) bool {
 		}
 	}
 	return true
-}
-
-func prepareCodexRestore(target TargetRef, configSnapshot, stateSnapshot, catalogSnapshot platform.FileSnapshot) (codexPreparedTarget, error) {
-	return prepareCodexRestoreTransition(target, configSnapshot, stateSnapshot, catalogSnapshot, domain.Runtime{}, false)
 }
 
 func prepareCodexRestoreTransition(target TargetRef, configSnapshot, stateSnapshot, catalogSnapshot platform.FileSnapshot, previous domain.Runtime, replaceRootSelections bool) (codexPreparedTarget, error) {

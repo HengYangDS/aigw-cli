@@ -37,7 +37,7 @@ func TestCodexProviderOwnershipSurvivesNativeTableEditing(t *testing.T) {
 			if err := os.WriteFile(path, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := SyncConfig(path, runtime); err != nil {
+			if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 				t.Fatal(err)
 			}
 			data, err := os.ReadFile(path)
@@ -61,10 +61,10 @@ func TestCodexProviderOwnershipSurvivesNativeTableEditing(t *testing.T) {
 			if err := ValidateConfig(path, runtime); err != nil {
 				t.Fatalf("unchanged provider rejected after native table edit: %v", err)
 			}
-			if err := SyncConfig(path, runtime); err != nil {
+			if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 				t.Fatal(err)
 			}
-			if err := DisableConfig(path); err != nil {
+			if _, err := ReconcileConfigs([]TargetRef{HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 				t.Fatal(err)
 			}
 			restored, err := os.ReadFile(path)
@@ -88,7 +88,7 @@ func TestCodexProviderOwnershipRejectsChangedValuesBeforeWriting(t *testing.T) {
 			if err := os.WriteFile(path, nil, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := SyncConfig(path, runtime); err != nil {
+			if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 				t.Fatal(err)
 			}
 			original, err := os.ReadFile(path)
@@ -104,8 +104,14 @@ func TestCodexProviderOwnershipRejectsChangedValuesBeforeWriting(t *testing.T) {
 			}
 			for _, operation := range []func() error{
 				func() error { return ValidateConfig(path, runtime) },
-				func() error { return SyncConfig(path, runtime) },
-				func() error { return DisableConfig(path) },
+				func() error {
+					_, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false)
+					return err
+				},
+				func() error {
+					_, err := ReconcileConfigs([]TargetRef{HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false)
+					return err
+				},
 			} {
 				if err := operation(); err == nil {
 					t.Fatal("changed provider was admitted")
@@ -142,7 +148,7 @@ func TestReconcileConfigsRollsBackEveryTargetAndAbsentStateOnWriteFailure(t *tes
 		return originalWrite(path, expected, data, mode)
 	}
 
-	_, err := ReconcileConfigs(nil, codexHomeTargets([]string{first, second}), atomicTestRuntime())
+	_, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(first), HomeTarget(second)}, atomicTestRuntime(), atomicTestRuntime(), false)
 	if err == nil || !strings.Contains(err.Error(), "injected state-write failure") {
 		t.Fatalf("ReconcileConfigs() error = %v", err)
 	}
@@ -169,7 +175,7 @@ func TestReconcileConfigsPreflightRejectsLaterConflictWithoutChangingEarlierTarg
 		t.Fatal(err)
 	}
 	runtime := atomicTestRuntime()
-	if err := SyncConfig(second, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(second)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(second)
@@ -181,7 +187,7 @@ func TestReconcileConfigsPreflightRejectsLaterConflictWithoutChangingEarlierTarg
 		t.Fatal(err)
 	}
 
-	_, err = ReconcileConfigs(nil, codexHomeTargets([]string{first, second}), runtime)
+	_, err = ReconcileConfigs(nil, []TargetRef{HomeTarget(first), HomeTarget(second)}, runtime, runtime, false)
 	if err == nil || !strings.Contains(err.Error(), "provider block changed") {
 		t.Fatalf("ReconcileConfigs() error = %v, want later target conflict", err)
 	}
@@ -202,18 +208,18 @@ func TestPlanReconciliationClassifiesInitialConvergedAndReformattedProjection(t 
 		t.Fatal(err)
 	}
 	runtime := atomicTestRuntime()
-	targets := codexHomeTargets([]string{path})
-	plans, err := PlanReconciliation(nil, targets, runtime)
+	targets := []TargetRef{HomeTarget(path)}
+	plans, err := planCodexReconciliationTransition(nil, targets, runtime, runtime, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(plans) != 1 || plans[0].Action != ProjectionActionInitialProject {
 		t.Fatalf("initial plan = %#v", plans)
 	}
-	if _, err := ReconcileConfigs(nil, targets, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, targets, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
-	plans, err = PlanReconciliation(nil, targets, runtime)
+	plans, err = planCodexReconciliationTransition(nil, targets, runtime, runtime, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +234,7 @@ func TestPlanReconciliationClassifiesInitialConvergedAndReformattedProjection(t 
 	if err := os.WriteFile(path, []byte(truncated), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	plans, err = PlanReconciliation(nil, targets, runtime)
+	plans, err = planCodexReconciliationTransition(nil, targets, runtime, runtime, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,9 +245,9 @@ func TestPlanReconciliationClassifiesInitialConvergedAndReformattedProjection(t 
 
 func TestConvergedCodexReconciliationPreservesEveryOwnedFile(t *testing.T) {
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\nuser_setting = true\n")
-	targets := codexHomeTargets([]string{path})
+	targets := []TargetRef{HomeTarget(path)}
 	runtime := atomicTestRuntime()
-	if _, err := ReconcileConfigs(nil, targets, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, targets, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	before := map[string]platform.FileSnapshot{}
@@ -252,11 +258,11 @@ func TestConvergedCodexReconciliationPreservesEveryOwnedFile(t *testing.T) {
 		}
 		before[file] = snapshot
 	}
-	prepared, err := prepareCodexReconciliation(targets, targets, runtime)
+	prepared, err := prepareCodexReconciliationTransition(targets, targets, runtime, runtime, false)
 	if err != nil || len(prepared) != 1 || prepared[0].plan.Action != ProjectionActionAlreadyConverged || len(prepared[0].artifacts) != 0 {
 		t.Fatalf("converged preparation = %#v, %v", prepared, err)
 	}
-	if _, err := ReconcileConfigs(targets, targets, runtime); err != nil {
+	if _, err := ReconcileConfigs(targets, targets, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	for file, want := range before {
@@ -287,7 +293,7 @@ func TestReconcileConfigsRejectsUnattributedStateWithoutOriginalSelections(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ReconcileConfigs(nil, codexHomeTargets([]string{path}), runtime)
+	_, err = ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false)
 	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") {
 		t.Fatalf("ReconcileConfigs() error = %v, want incomplete attribution", err)
 	}
@@ -312,7 +318,7 @@ func TestReconcileConfigsRollsBackCatalogWhenConfigWriteFails(t *testing.T) {
 		}
 		return writeOriginal(target, expected, data, mode)
 	}
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, catalogTestRuntime("openai.gpt-5.6-sol")); err == nil || !strings.Contains(err.Error(), "injected config write failure") {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, catalogTestRuntime("openai.gpt-5.6-sol"), catalogTestRuntime("openai.gpt-5.6-sol"), false); err == nil || !strings.Contains(err.Error(), "injected config write failure") {
 		t.Fatalf("config failure was not reported: %v", err)
 	}
 	if current, err := os.ReadFile(path); err != nil || !bytes.Equal(current, original) {

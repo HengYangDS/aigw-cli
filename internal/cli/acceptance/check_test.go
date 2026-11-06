@@ -306,7 +306,7 @@ func TestCheckRejectsAnEnabledClientRouteWithoutItsAccountToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	clientRuntime.CredentialCommand = app.Executable
-	if err := codex.SyncConfig(target, clientRuntime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, clientRuntime, clientRuntime, false); err != nil {
 		t.Fatal(err)
 	}
 	synchronizeClaudeProjection(t, app, cfg)
@@ -359,7 +359,7 @@ func TestCheckProbesEveryEnabledClientRouteAndIgnoresUnselectedRoute(t *testing.
 		t.Fatal(err)
 	}
 	codexRuntime.CredentialCommand = app.Executable
-	if err := codex.SyncConfig(codexTarget, codexRuntime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(codexTarget)}, codexRuntime, codexRuntime, false); err != nil {
 		t.Fatal(err)
 	}
 	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, clients.Admission().IDs()); err != nil {

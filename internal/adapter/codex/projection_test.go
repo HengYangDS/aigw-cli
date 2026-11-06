@@ -21,7 +21,7 @@ func TestCodexProjectionRejectsUnrepresentableModelsBeforeWriting(t *testing.T) 
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := SyncConfig(path, catalogTestRuntime(model)); err == nil {
+		if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, catalogTestRuntime(model), catalogTestRuntime(model), false); err == nil {
 			t.Fatalf("projection admitted invalid model %q", model)
 		}
 		after, err := platform.CaptureFileSnapshot(path)
@@ -47,7 +47,7 @@ func TestCodexProjectionPreservesLiteralSelectionsAndNestedUserSettings(t *testi
 			const nested = "\n[profiles.user]\nmodel_provider = 'user-provider'\nmodel = 'user-model'\nmodel_catalog_json = 'user-catalog.json'\n"
 			path := writeCodexTestConfig(t, original+nested)
 			runtime := catalogTestRuntime(`model-$route-"quoted"-\path-中文`)
-			if err := SyncConfig(path, runtime); err != nil {
+			if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 				t.Fatal(err)
 			}
 			data, err := os.ReadFile(path)
@@ -67,7 +67,7 @@ func TestCodexProjectionPreservesLiteralSelectionsAndNestedUserSettings(t *testi
 			if err := ValidateConfig(path, runtime); err != nil {
 				t.Fatal(err)
 			}
-			if err := DisableConfig(path); err != nil {
+			if _, err := ReconcileConfigs([]TargetRef{HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 				t.Fatal(err)
 			}
 			if restored, err := os.ReadFile(path); err != nil || string(restored) != original+nested {
@@ -157,8 +157,8 @@ func TestRemoveCodexProjectionRejectsInvalidCapturedSchedulerState(t *testing.T)
 		OriginalScheduler:      map[string]*int{"invalid": nil},
 		ProjectedSchedulerHash: codexSchedulerHash(current),
 	}
-	if _, err := removeCodexProjection(current, state); err == nil || !strings.Contains(err.Error(), "invalid Codex scheduler state key") {
-		t.Fatalf("removeCodexProjection() error = %v", err)
+	if _, err := removeCodexProjectionTransition(current, state, domain.Runtime{}, "", false); err == nil || !strings.Contains(err.Error(), "invalid Codex scheduler state key") {
+		t.Fatalf("removeCodexProjectionTransition() error = %v", err)
 	}
 }
 
@@ -316,8 +316,8 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 func TestCodexUserConfigRejectsInvalidState(t *testing.T) {
 	config := platform.FileSnapshot{Exists: true, Data: []byte("external = true\n")}
 	state := platform.FileSnapshot{Exists: true, Data: []byte("{")}
-	if _, _, err := codexUserConfig(config, state); err == nil || !strings.Contains(err.Error(), "parse Codex adapter state") {
-		t.Fatalf("codexUserConfig() error = %v", err)
+	if _, _, err := codexUserConfigTransition(config, state, domain.Runtime{}, "", false); err == nil || !strings.Contains(err.Error(), "parse Codex adapter state") {
+		t.Fatalf("codexUserConfigTransition() error = %v", err)
 	}
 }
 
@@ -339,14 +339,14 @@ func TestCodexProjectionReconcilesOwnedNativeAuthenticationPreference(t *testing
 			}
 			changed := strings.Replace(projection, "requires_openai_auth = "+preference, "requires_openai_auth = "+map[string]string{"true": "false", "false": "true"}[preference], 1)
 			writeCodexFixture(t, path, changed)
-			if err := SyncConfig(path, runtime); err == nil {
+			if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err == nil {
 				t.Fatal("unowned authentication change was admitted")
 			}
 			if data, err := os.ReadFile(path); err != nil || string(data) != changed {
 				t.Fatalf("rejected authentication edit changed source: %v", err)
 			}
 			writeCodexFixture(t, path, projection)
-			if err := SyncConfig(path, runtime); err != nil {
+			if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 				t.Fatalf("owned native authentication preference blocked reconciliation: %v", err)
 			}
 			data, err := os.ReadFile(path)
@@ -356,7 +356,7 @@ func TestCodexProjectionReconcilesOwnedNativeAuthenticationPreference(t *testing
 			if err := ValidateConfig(path, runtime); err != nil {
 				t.Fatal(err)
 			}
-			if err := DisableConfig(path); err != nil {
+			if _, err := ReconcileConfigs([]TargetRef{HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -378,8 +378,8 @@ func TestCodexUserConfigRejectsInvalidCapturedSchedulerState(t *testing.T) {
 	}
 	config := platform.FileSnapshot{Exists: true, Data: []byte(projection)}
 	sidecar := platform.FileSnapshot{Exists: true, Data: stateData}
-	if _, _, err := codexUserConfig(config, sidecar); err == nil || !strings.Contains(err.Error(), "invalid Codex scheduler state key") {
-		t.Fatalf("codexUserConfig() error = %v", err)
+	if _, _, err := codexUserConfigTransition(config, sidecar, domain.Runtime{}, "", false); err == nil || !strings.Contains(err.Error(), "invalid Codex scheduler state key") {
+		t.Fatalf("codexUserConfigTransition() error = %v", err)
 	}
 }
 
@@ -393,7 +393,7 @@ func TestRemoveCodexProjectionRestoresAbsentProvider(t *testing.T) {
 	state := attributedCodexStateFixture(block)
 	state.OriginalModel = `model = "native-model"`
 
-	restored, err := removeCodexProjection(current, state)
+	restored, err := removeCodexProjectionTransition(current, state, domain.Runtime{}, "", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -419,8 +419,8 @@ func TestRemoveCodexProjectionRejectsIncompleteSchedulerState(t *testing.T) {
 		"features.multi_agent_v2.max_concurrent_threads_per_session": nil,
 	}
 
-	if _, err := removeCodexProjection(current, state); err == nil || !strings.Contains(err.Error(), "incomplete Codex scheduler state") {
-		t.Fatalf("removeCodexProjection() error = %v", err)
+	if _, err := removeCodexProjectionTransition(current, state, domain.Runtime{}, "", false); err == nil || !strings.Contains(err.Error(), "incomplete Codex scheduler state") {
+		t.Fatalf("removeCodexProjectionTransition() error = %v", err)
 	}
 }
 
@@ -434,7 +434,7 @@ func TestRemoveCodexProjectionRejectsChangedManagedBlock(t *testing.T) {
 	state := codexState{ManagedBlockHash: hashText(block)}
 	current = strings.Replace(current, runtime.Endpoint, "https://changed.example/v1", 1)
 
-	if _, err := removeCodexProjection(current, state); err == nil || !strings.Contains(err.Error(), "provider block changed") {
-		t.Fatalf("removeCodexProjection() error = %v", err)
+	if _, err := removeCodexProjectionTransition(current, state, domain.Runtime{}, "", false); err == nil || !strings.Contains(err.Error(), "provider block changed") {
+		t.Fatalf("removeCodexProjectionTransition() error = %v", err)
 	}
 }

@@ -14,7 +14,7 @@ func TestValidateConfigReportsCatalogDrift(t *testing.T) {
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("openai.gpt-5.6-sol")
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	catalogPath := codexCatalogPath(path)
@@ -60,7 +60,7 @@ func TestValidateConfigRejectsUnownedManagedCatalogLine(t *testing.T) {
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime("gpt-5.6-sol")
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	current, err := os.ReadFile(path)

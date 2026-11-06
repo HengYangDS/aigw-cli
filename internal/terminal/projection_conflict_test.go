@@ -22,7 +22,7 @@ func TestManagedProviderSchemaConflictIsNotTOMLSyntax(t *testing.T) {
 		AccountID: "test", Endpoint: "https://endpoint.test/v1", Model: "gpt-6.1-sol",
 		ModelProvider: "test-provider", Authentication: domain.AuthenticationClientNative,
 	}
-	if err := codex.SyncConfig(path, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)

@@ -89,12 +89,6 @@ func (plan ProjectionPlan) ChangesState() bool {
 		plan.Action == ProjectionActionRestoreExternal
 }
 
-// SyncConfig reconciles one Codex configuration target to the resolved runtime.
-func SyncConfig(path string, runtime domain.Runtime) error {
-	_, err := ReconcileConfigs(nil, codexHomeTargets([]string{path}), runtime)
-	return err
-}
-
 // ObservedCredentialCommand reads the projected command without treating it as
 // trusted. The caller must validate the intact reader and the complete owned
 // projection before executing it.
@@ -166,7 +160,7 @@ func ValidateConfig(path string, runtime domain.Runtime) error {
 	if err != nil {
 		return err
 	}
-	if !managedBlockHashMatches(state.ManagedBlockHash, actualBlock) {
+	if state.ManagedBlockHash != hashText(actualBlock) {
 		return newConflictError("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits", nil)
 	}
 	if err := validateCodexSchedulerOwnership(state, text); err != nil {
@@ -262,16 +256,6 @@ func validateCodexCatalogReference(path, text string, state codexState) error {
 		return newConflictError("Codex config model catalog selection does not match AIGW", nil)
 	}
 	return nil
-}
-
-// DisableConfig removes AIGW's owned projection from one Codex configuration target.
-func DisableConfig(path string) error {
-	_, err := ReconcileConfigs(codexHomeTargets([]string{path}), nil, domain.Runtime{})
-	return err
-}
-
-func codexUserConfig(configSnapshot, stateSnapshot platform.FileSnapshot) (string, codexState, error) {
-	return codexUserConfigTransition(configSnapshot, stateSnapshot, domain.Runtime{}, "", false)
 }
 
 // codexUserConfigTransition removes the recorded projection from a target
@@ -378,10 +362,6 @@ func codexManagedBlock(runtime domain.Runtime, endpoint string) string {
 	return projection.render(provider)
 }
 
-func removeCodexProjection(current string, state codexState) (string, error) {
-	return removeCodexProjectionTransition(current, state, domain.Runtime{}, "", false)
-}
-
 // removeCodexProjectionTransition refuses a changed root model unless it already
 // holds chosen, the model about to be projected, because writing that value
 // cannot lose an edit.
@@ -391,7 +371,7 @@ func removeCodexProjectionTransition(current string, state codexState, previous 
 	if err != nil {
 		return "", err
 	}
-	if !managedBlockHashMatches(state.ManagedBlockHash, block) {
+	if state.ManagedBlockHash != hashText(block) {
 		return "", newConflictError("Codex config conflict: AIGW-managed provider block changed; refusing to overwrite user edits", nil)
 	}
 	providerLine, err := codexSelectionLine(current, "model_provider")
@@ -509,15 +489,8 @@ func codexProviderTable(provider string) string {
 	return "[model_providers." + provider + "]"
 }
 
-func managedBlockHashMatches(stateHash, block string) bool {
-	return stateHash == hashText(block)
-}
-
 func restoreModelSelection(base, originalModel string) (string, error) {
-	if originalModel != "" {
-		return setCodexSelection(base, "model", originalModel)
-	}
-	return setCodexSelection(base, "model", "")
+	return setCodexSelection(base, "model", originalModel)
 }
 
 // removeManagedCodexLine drops the top-level assignment AIGW owns for one key.

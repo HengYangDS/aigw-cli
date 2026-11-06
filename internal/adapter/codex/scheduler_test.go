@@ -9,6 +9,7 @@ import (
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/surface"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 
 	"github.com/pelletier/go-toml/v2"
@@ -340,7 +341,7 @@ func TestCodexReconciliationRejectsManagedDrift(t *testing.T) {
 	if err := os.WriteFile(driftPath, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := SyncConfig(driftPath, driftRuntime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(driftPath)}, driftRuntime, driftRuntime, false); err != nil {
 		t.Fatal(err)
 	}
 	driftData, err := os.ReadFile(driftPath)
@@ -351,7 +352,7 @@ func TestCodexReconciliationRejectsManagedDrift(t *testing.T) {
 	if err := os.WriteFile(driftPath, []byte(driftText), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := SyncConfig(driftPath, driftRuntime); err == nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(driftPath)}, driftRuntime, driftRuntime, false); err == nil {
 		t.Fatal("sync unexpectedly repaired drift")
 	}
 	if after, err := os.ReadFile(driftPath); err != nil || string(after) != driftText {
@@ -401,7 +402,7 @@ func TestCodexRejectsAReappearingRetiredAliasAfterProjection(t *testing.T) {
 				t.Fatal(err)
 			}
 			runtime := atomicTestRuntime()
-			if err := SyncConfig(path, runtime); err != nil {
+			if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 				t.Fatal(err)
 			}
 			projected, err := os.ReadFile(path)
@@ -434,10 +435,10 @@ func TestCodexRejectsAReappearingRetiredAliasAfterProjection(t *testing.T) {
 			if codexSchedulerHashMatches(codexSchedulerHash(string(projected)), injected) {
 				t.Fatal("the ownership hash read the reappearing alias as AIGW's own projection")
 			}
-			if err := SyncConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "scheduler keys changed") {
+			if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err == nil || !strings.Contains(err.Error(), "scheduler keys changed") {
 				t.Fatalf("sync overwrote the drifted table instead of refusing: %v", err)
 			}
-			if err := DisableConfig(path); err == nil || !strings.Contains(err.Error(), "scheduler keys changed") {
+			if _, err := ReconcileConfigs([]TargetRef{HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err == nil || !strings.Contains(err.Error(), "scheduler keys changed") {
 				t.Fatalf("disable overwrote the drifted table instead of refusing: %v", err)
 			}
 			// Every path above must report the drift, never clean it: the alias may

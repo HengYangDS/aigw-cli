@@ -24,7 +24,7 @@ func TestObserveSelectionReportsOnlyAModelOnlyChange(t *testing.T) {
 			if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := SyncConfig(path, ownershipTestRuntime()); err != nil {
+			if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, ownershipTestRuntime(), ownershipTestRuntime(), false); err != nil {
 				t.Fatal(err)
 			}
 			projected, err := os.ReadFile(path)
@@ -92,7 +92,7 @@ func TestReconcileConfigsTransitionAcceptsTheModelBeingProjected(t *testing.T) {
 			if err := os.WriteFile(path, []byte("model = \"gpt-original\"\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := SyncConfig(path, previous); err != nil {
+			if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, previous, previous, false); err != nil {
 				t.Fatal(err)
 			}
 			projected, err := os.ReadFile(path)
@@ -106,7 +106,7 @@ func TestReconcileConfigsTransitionAcceptsTheModelBeingProjected(t *testing.T) {
 			next := previous
 			next.RouteID, next.RouteLabel, next.Model = "next", "Next", "gpt-next"
 			target := codexHomeTarget(path)
-			_, err = ReconcileConfigsTransition([]TargetRef{target}, []TargetRef{target}, previous, next)
+			_, err = ReconcileConfigs([]TargetRef{target}, []TargetRef{target}, previous, next, false)
 			after, readErr := os.ReadFile(path)
 			if readErr != nil {
 				t.Fatal(readErr)

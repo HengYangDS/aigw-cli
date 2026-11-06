@@ -45,7 +45,7 @@ func TestUseForwardingPreviewRefusesAnEditedOwnedTarget(t *testing.T) {
 	if err := os.WriteFile(target, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := codex.SyncConfig(target, selected); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, selected, selected, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(target)

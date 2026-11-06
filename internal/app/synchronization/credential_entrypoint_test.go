@@ -49,7 +49,7 @@ func TestCodexInspectionKeepsAnIntactRetainedVersionedReader(t *testing.T) {
 	}
 	projected := runtime
 	projected.CredentialCommand = retained
-	if err := codex.SyncConfig(target, projected); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, projected, projected, false); err != nil {
 		t.Fatal(err)
 	}
 	syncer := Synchronizer{Registry: builtinClients, Discovery: targetDiscovery(target), AIGWExecutable: sources[1], ResolveCredentialPath: readerAt(current)}

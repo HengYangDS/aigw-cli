@@ -15,7 +15,7 @@ func TestReconcileConfigsRejectsUnattributedSidecar(t *testing.T) {
 		t.Fatal(err)
 	}
 	target := codexHomeTarget(path)
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime()); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime(), atomicTestRuntime(), false); err != nil {
 		t.Fatal(err)
 	}
 	statePath := codexStatePath(path)
@@ -33,7 +33,7 @@ func TestReconcileConfigsRejectsUnattributedSidecar(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime())
+	_, err = ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime(), atomicTestRuntime(), false)
 	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") {
 		t.Fatalf("ReconcileConfigs() error = %v, want incomplete attribution", err)
 	}
@@ -67,7 +67,7 @@ func TestReconcileConfigsRejectsUnattributedSidecar(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime())
+		_, err = ReconcileConfigs(nil, []TargetRef{target}, atomicTestRuntime(), atomicTestRuntime(), false)
 		if err == nil {
 			t.Fatal("ReconcileConfigs() succeeded for invalid attribution")
 		}
@@ -119,7 +119,7 @@ func TestReconcileConfigsRejectsUnattributedSidecarBesideSymlinkTarget(t *testin
 		t.Fatal(err)
 	}
 
-	_, err = ReconcileConfigs(nil, []TargetRef{codexHomeTarget(aliasPath)}, runtime)
+	_, err = ReconcileConfigs(nil, []TargetRef{codexHomeTarget(aliasPath)}, runtime, runtime, false)
 	if err == nil || !strings.Contains(err.Error(), "attribution is incomplete") {
 		t.Fatalf("ReconcileConfigs() error = %v, want incomplete attribution", err)
 	}
@@ -152,7 +152,7 @@ func TestValidateConfigRejectsForeignSidecarAttribution(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := atomicTestRuntime()
-	if err := SyncConfig(path, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	stateData, err := os.ReadFile(codexStatePath(path))

@@ -89,7 +89,7 @@ func TestCheckReadsEachEnabledRouteCredentialOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	clientRuntime.CredentialCommand = runtime.Executable
-	if err := codex.SyncConfig(target, clientRuntime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, clientRuntime, clientRuntime, false); err != nil {
 		t.Fatal(err)
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
@@ -245,7 +245,7 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := codex.SyncConfig(target, clientRuntime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, clientRuntime, clientRuntime, false); err != nil {
 		t.Fatal(err)
 	}
 	if err := runtime.Config.Save(cfg); err != nil {

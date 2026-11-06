@@ -135,7 +135,7 @@ func TestKnownBaseModelUsesBundledCatalogForCustomProvider(t *testing.T) {
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtimeConfig := catalogTestRuntime(model)
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -227,7 +227,7 @@ func TestCodexCatalogProjectsChannelWireFromCanonicalRouteModel(t *testing.T) {
 	path := writeCodexTestConfig(t, "model_provider = \"native\"\n")
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(codexCatalogPath(path))
@@ -291,7 +291,7 @@ func TestCopyProjectionRebasesOwnedCatalogReference(t *testing.T) {
 	ref := codexHomeTarget(source)
 	ref.Executable = filepath.Join(filepath.Dir(source), "codex")
 	runtime := catalogTestRuntime("gpt-6.1-sol")
-	if _, err := ReconcileConfigs(nil, []TargetRef{ref}, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{ref}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	sourceBefore, err := os.ReadFile(source)
@@ -447,7 +447,7 @@ func TestCodexCatalogProjectionKeepsNamedProfilePolicy(t *testing.T) {
 	target := codexHomeTarget(path)
 	target.Executable = filepath.Join(filepath.Dir(path), "codex")
 	runtime := catalogTestRuntime("openai.gpt-5.6-sol")
-	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -470,7 +470,7 @@ func TestCodexCatalogProjectionKeepsNamedProfilePolicy(t *testing.T) {
 	if err := ValidateConfig(path, runtime); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReconcileConfigs([]TargetRef{target}, nil, runtime); err != nil {
+	if _, err := ReconcileConfigs([]TargetRef{target}, nil, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	if restored, err := os.ReadFile(path); err != nil || string(restored) != original {

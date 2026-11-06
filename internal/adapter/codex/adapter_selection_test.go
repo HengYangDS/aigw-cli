@@ -121,7 +121,7 @@ func codexAdoptionFixture(t *testing.T, count int) (domain.Config, []string) {
 	}
 	runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
 	for _, target := range targets {
-		if err := SyncConfig(target, runtime); err != nil {
+		if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(target)}, runtime, runtime, false); err != nil {
 			t.Fatal(err)
 		}
 	}

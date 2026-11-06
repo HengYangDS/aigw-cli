@@ -240,7 +240,7 @@ func TestDoctorDetectsCodexProjectionDrift(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.CredentialCommand = app.Executable
-	if err := codex.SyncConfig(target, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(target)

@@ -100,7 +100,7 @@ func TestCodexFixtureCompletesCurrentVerification(t *testing.T) {
 	if err := os.WriteFile(target, []byte("model_provider = 'native'\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := codex.SyncConfig(target, selected); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, selected, selected, false); err != nil {
 		t.Fatal(err)
 	}
 	cfg := domain.Config{}

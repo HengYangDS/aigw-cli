@@ -21,7 +21,7 @@ func TestCodexConnectionRetryProjectionIsExplicitAndGuarded(t *testing.T) {
 		AccountID: "test", Endpoint: "https://endpoint.test/v1", Model: "gpt-6.1-sol",
 		ModelProvider: "test-provider", Authentication: domain.AuthenticationClientNative,
 	}
-	if err := SyncConfig(path, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	defaults, err := os.ReadFile(path)
@@ -34,7 +34,7 @@ func TestCodexConnectionRetryProjectionIsExplicitAndGuarded(t *testing.T) {
 	if err := json.Unmarshal([]byte(`{"retry_policy":{"request_max_retries":0,"stream_max_retries":0}}`), &runtime); err != nil {
 		t.Fatal(err)
 	}
-	if err := SyncConfig(path, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -46,7 +46,7 @@ func TestCodexConnectionRetryProjectionIsExplicitAndGuarded(t *testing.T) {
 			t.Fatalf("native projection lacks %q", want)
 		}
 	}
-	if err := SyncConfig(path, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatalf("repeat sync refused its owned policy: %v", err)
 	}
 	again, err := os.ReadFile(path)
@@ -57,7 +57,7 @@ func TestCodexConnectionRetryProjectionIsExplicitAndGuarded(t *testing.T) {
 	if err := os.WriteFile(path, []byte(edited), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := SyncConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "Codex config conflict") {
+	if _, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(path)}, runtime, runtime, false); err == nil || !strings.Contains(err.Error(), "Codex config conflict") {
 		t.Fatalf("external policy edit was not a guarded conflict: %v", err)
 	}
 	retained, err := os.ReadFile(path)
@@ -67,7 +67,7 @@ func TestCodexConnectionRetryProjectionIsExplicitAndGuarded(t *testing.T) {
 	if err := os.WriteFile(path, projected, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := DisableConfig(path); err != nil {
+	if _, err := ReconcileConfigs([]TargetRef{HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(path)

@@ -165,7 +165,7 @@ func TestCommitRestoresTargetRemovedFromAdapter(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
-	if err := codex.SyncConfig(target, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	after := before.Clone()

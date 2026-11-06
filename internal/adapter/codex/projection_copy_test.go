@@ -40,7 +40,7 @@ command = "audit"
 	ref := codexHomeTarget(source)
 	ref.Executable = filepath.Join(filepath.Dir(source), "codex")
 	runtime := catalogTestRuntime("gpt-6.1-sol")
-	if _, err := ReconcileConfigs(nil, []TargetRef{ref}, runtime); err != nil {
+	if _, err := ReconcileConfigs(nil, []TargetRef{ref}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(source)
@@ -106,7 +106,7 @@ func TestCopyProjectionKeepsAUserCatalogReachable(t *testing.T) {
 			ref := codexHomeTarget(source)
 			ref.Executable = filepath.Join(filepath.Dir(source), "codex")
 			runtime := catalogTestRuntime("gpt-6.1-sol")
-			if _, err := ReconcileConfigs(nil, []TargetRef{ref}, runtime); err != nil {
+			if _, err := ReconcileConfigs(nil, []TargetRef{ref}, runtime, runtime, false); err != nil {
 				t.Fatal(err)
 			}
 			projected, err := os.ReadFile(source)

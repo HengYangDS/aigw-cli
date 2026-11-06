@@ -34,7 +34,7 @@ func TestCodexSyncProjectsOwnedProviderAndPreservesOtherSettings(t *testing.T) {
 	}
 	profile := codexRuntime("dmx", "DMXAPI", "https://example.test/v1", "gpt-test")
 	profile.CredentialCommand = filepath.Join(dir, "secret-token AIGW", "aigw")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)
@@ -47,7 +47,7 @@ func TestCodexSyncProjectsOwnedProviderAndPreservesOtherSettings(t *testing.T) {
 	if err := codex.ValidateConfig(path, profile); err != nil {
 		t.Fatal(err)
 	}
-	if err := codex.DisableConfig(path); err != nil {
+	if _, err := codex.ReconcileConfigs([]codex.TargetRef{codex.HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, _ := os.ReadFile(path)
@@ -62,7 +62,7 @@ func TestCodexManagedSelectionAcceptsEquivalentTOMLWithoutRewriting(t *testing.T
 		t.Fatal(err)
 	}
 	runtime := codexRuntime("team", "Team", "https://team.test/v1", "gpt-test")
-	if err := codex.SyncConfig(path, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -85,7 +85,7 @@ func TestCodexManagedSelectionAcceptsEquivalentTOMLWithoutRewriting(t *testing.T
 	if err := codex.ValidateConfig(path, runtime); err != nil {
 		t.Fatalf("equivalent TOML selection became invalid: %v", err)
 	}
-	if err := codex.SyncConfig(path, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatalf("equivalent TOML selection became a conflict: %v", err)
 	}
 	configAfter, err := os.ReadFile(path)
@@ -101,7 +101,7 @@ func TestCodexManagedSelectionAcceptsEquivalentTOMLWithoutRewriting(t *testing.T
 	if err := os.WriteFile(path, []byte(changed), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := codex.SyncConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "model selection changed") {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err == nil || !strings.Contains(err.Error(), "model selection changed") {
 		t.Fatalf("changed model was not rejected: %v", err)
 	}
 }
@@ -112,7 +112,7 @@ func TestCodexSyncRejectsUnattributedManagedCatalogSelection(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := codexRuntime("team", "Team", "https://team.test/v1", "gpt-test")
-	if err := codex.SyncConfig(path, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -128,7 +128,7 @@ func TestCodexSyncRejectsUnattributedManagedCatalogSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := codex.SyncConfig(path, runtime); err == nil || !strings.Contains(err.Error(), "model catalog") {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err == nil || !strings.Contains(err.Error(), "model catalog") {
 		t.Fatalf("unattributed managed catalog selection was not rejected: %v", err)
 	}
 	configAfter, err := os.ReadFile(path)
@@ -148,11 +148,11 @@ func TestCodexDisablePreservesEarlierProviderTableReference(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := codex.DisableConfig(path); err != nil {
+	if _, err := codex.ReconcileConfigs([]codex.TargetRef{codex.HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(path)
@@ -171,9 +171,9 @@ func TestCodexSyncRejectsMalformedTOMLWithoutChangingFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
-	err := codex.SyncConfig(path, profile)
+	_, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false)
 	if err == nil || !strings.Contains(err.Error(), "parse Codex config") {
-		t.Fatalf("SyncConfig() error = %v, want TOML parse failure", err)
+		t.Fatalf("ReconcileConfigs() error = %v, want TOML parse failure", err)
 	}
 	data, readErr := os.ReadFile(path)
 	if readErr != nil {
@@ -193,7 +193,7 @@ func TestCodexDisableStopsWhenManagedSelectionWasEdited(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := codexRuntime("dmx", "DMX", "https://example.test/v1", "")
-	if err := codex.SyncConfig(path, p); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, p, p, false); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)
@@ -201,7 +201,7 @@ func TestCodexDisableStopsWhenManagedSelectionWasEdited(t *testing.T) {
 	if err := os.WriteFile(path, []byte(edited), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err := codex.DisableConfig(path)
+	_, err := codex.ReconcileConfigs([]codex.TargetRef{codex.HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false)
 	if err == nil || !strings.Contains(err.Error(), "conflict") {
 		t.Fatalf("error = %v", err)
 	}
@@ -214,7 +214,7 @@ func TestCodexSyncAndDisablePreserveUnrelatedUserEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("dmx", "DMX", "https://one.test/v1", "gpt-one")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	data, _ := os.ReadFile(path)
@@ -223,14 +223,14 @@ func TestCodexSyncAndDisablePreserveUnrelatedUserEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile.Endpoint = "https://two.test/v1"
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatalf("unrelated user edit blocked sync: %v", err)
 	}
 	data, _ = os.ReadFile(path)
 	if !strings.Contains(string(data), `model = "gpt-one" # managed by AIGW`) || !strings.Contains(string(data), `base_url = "https://two.test/v1"`) {
 		t.Fatalf("sync lost managed model or endpoint update:\n%s", data)
 	}
-	if err := codex.DisableConfig(path); err != nil {
+	if _, err := codex.ReconcileConfigs([]codex.TargetRef{codex.HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	data, _ = os.ReadFile(path)
@@ -249,7 +249,7 @@ func TestCodexSyncRepairsOnlyAnExactTruncatedOwnedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt-5.6-terra", "GPT-5.6 Terra Codex", "https://example.test/v1", "gpt-5.6-terra")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -261,8 +261,8 @@ func TestCodexSyncRepairsOnlyAnExactTruncatedOwnedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := codex.SyncConfig(path, profile); err != nil {
-		t.Fatalf("SyncConfig() did not repair the exact owned truncation: %v", err)
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
+		t.Fatalf("ReconcileConfigs() did not repair the exact owned truncation: %v", err)
 	}
 	repaired, err := os.ReadFile(path)
 	if err != nil {
@@ -284,7 +284,7 @@ func TestCodexProjectionRejectsUnownedChanges(t *testing.T) {
 		if err := os.WriteFile(path, []byte("model_provider = \"native\"\nmodel = \"gpt-original\"\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := codex.SyncConfig(path, profile); err != nil {
+		if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 			t.Fatal(err)
 		}
 		data, err := os.ReadFile(path)
@@ -300,8 +300,8 @@ func TestCodexProjectionRejectsUnownedChanges(t *testing.T) {
 		if err := os.WriteFile(path, []byte(truncated), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := codex.SyncConfig(path, profile); err == nil || !strings.Contains(err.Error(), "provider block changed") {
-			t.Fatalf("SyncConfig() error = %v, want incomplete owned-projection conflict", err)
+		if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err == nil || !strings.Contains(err.Error(), "provider block changed") {
+			t.Fatalf("ReconcileConfigs() error = %v, want incomplete owned-projection conflict", err)
 		}
 	})
 
@@ -323,7 +323,7 @@ func TestCodexSyncRepairsExactTruncationBeforeUnrelatedConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt-5.6-terra", "GPT-5.6 Terra Codex", "https://example.test/v1", "gpt-5.6-terra")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -335,8 +335,8 @@ func TestCodexSyncRepairsExactTruncationBeforeUnrelatedConfig(t *testing.T) {
 	if err := os.WriteFile(path, []byte(truncated), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := codex.SyncConfig(path, profile); err != nil {
-		t.Fatalf("SyncConfig() did not repair an exact truncated table with preserved tail: %v", err)
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
+		t.Fatalf("ReconcileConfigs() did not repair an exact truncated table with preserved tail: %v", err)
 	}
 	repaired, err := os.ReadFile(path)
 	if err != nil {
@@ -357,7 +357,7 @@ func TestCodexSyncAcceptsFormatterPaddingOnManagedSelections(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt-5.6-sol", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -373,10 +373,10 @@ func TestCodexSyncAcceptsFormatterPaddingOnManagedSelections(t *testing.T) {
 		t.Fatalf("ValidateConfig() rejected formatter-only padding: %v", err)
 	}
 	profile.Endpoint = "https://updated.test/v1"
-	if err := codex.SyncConfig(path, profile); err != nil {
-		t.Fatalf("SyncConfig() rejected formatter-only padding: %v", err)
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
+		t.Fatalf("ReconcileConfigs() rejected formatter-only padding: %v", err)
 	}
-	if err := codex.DisableConfig(path); err != nil {
+	if _, err := codex.ReconcileConfigs([]codex.TargetRef{codex.HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(path)
@@ -394,7 +394,7 @@ func TestCodexSyncRejectsUnmarkedProjectionWhenProviderSemanticsDiffer(t *testin
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt-5.6-sol", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -410,7 +410,7 @@ func TestCodexSyncRejectsUnmarkedProjectionWhenProviderSemanticsDiffer(t *testin
 		t.Fatal(err)
 	}
 
-	err = codex.SyncConfig(path, profile)
+	_, err = codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false)
 	if err == nil || !strings.Contains(err.Error(), "conflict") {
 		t.Fatalf("error = %v, want semantic conflict", err)
 	}
@@ -419,7 +419,7 @@ func TestCodexSyncRejectsUnmarkedProjectionWhenProviderSemanticsDiffer(t *testin
 		t.Fatal(err)
 	}
 	if string(after) != stripped {
-		t.Fatal("SyncConfig changed an unmarked projection with different provider semantics")
+		t.Fatal("ReconcileConfigs changed an unmarked projection with different provider semantics")
 	}
 }
 
@@ -430,7 +430,7 @@ func TestCodexValidationAndDisablePreserveForeignFieldsBeforeProvider(t *testing
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt-5.6-sol", "GPT 5.6 Sol Codex", "https://example.test/v1", "gpt-5.6-sol")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -446,7 +446,7 @@ func TestCodexValidationAndDisablePreserveForeignFieldsBeforeProvider(t *testing
 	if err := codex.ValidateConfig(path, profile); err != nil {
 		t.Fatalf("ValidateConfig() = %v, want foreign fields to be ignored", err)
 	}
-	if err := codex.DisableConfig(path); err != nil {
+	if _, err := codex.ReconcileConfigs([]codex.TargetRef{codex.HomeTarget(path)}, nil, domain.Runtime{}, domain.Runtime{}, false); err != nil {
 		t.Fatal(err)
 	}
 	restored, err := os.ReadFile(path)
@@ -470,7 +470,7 @@ func TestCodexResyncAcceptsUnmarkedOwnedProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -482,7 +482,7 @@ func TestCodexResyncAcceptsUnmarkedOwnedProjection(t *testing.T) {
 	if err := os.WriteFile(path, []byte(unmarked), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := codex.SyncConfig(path, profile); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, profile, profile, false); err != nil {
 		t.Fatalf("unchanged provider without cosmetic markers rejected: %v", err)
 	}
 }
@@ -493,7 +493,7 @@ func TestCodexResyncRestoresCosmeticRootSelectionMarkers(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime := codexRuntime("gpt", "GPT", "https://example.test/v1", "gpt-test")
-	if err := codex.SyncConfig(path, runtime); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(path)
@@ -506,8 +506,8 @@ func TestCodexResyncRestoresCosmeticRootSelectionMarkers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := codex.SyncConfig(path, runtime); err != nil {
-		t.Fatalf("SyncConfig() rejected unchanged root values without cosmetic markers: %v", err)
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(path)}, runtime, runtime, false); err != nil {
+		t.Fatalf("ReconcileConfigs() rejected unchanged root values without cosmetic markers: %v", err)
 	}
 	repaired, err := os.ReadFile(path)
 	if err != nil {

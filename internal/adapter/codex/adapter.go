@@ -90,12 +90,7 @@ func (codexAdapter) Plan(deps adapter.Dependencies, before, after domain.Config)
 	if err != nil {
 		return nil, err
 	}
-	var plans []ProjectionPlan
-	if deps.AuthorizedSelectionClient == ID {
-		plans, err = PlanReconciliationAuthorizedTransition(beforeRefs, afterRefs, previous, runtime)
-	} else {
-		plans, err = PlanReconciliationTransition(beforeRefs, afterRefs, previous, runtime)
-	}
+	plans, err := planCodexReconciliationTransition(beforeRefs, afterRefs, previous, runtime, deps.AuthorizedSelectionClient == ID)
 	if err != nil {
 		return nil, err
 	}
@@ -111,10 +106,7 @@ func (codexAdapter) Apply(_ context.Context, deps adapter.Dependencies, before, 
 	if err != nil {
 		return nil, err
 	}
-	if deps.AuthorizedSelectionClient == ID {
-		return ReconcileConfigsAuthorizedTransition(beforeRefs, afterRefs, previous, runtime)
-	}
-	return ReconcileConfigsTransition(beforeRefs, afterRefs, previous, runtime)
+	return ReconcileConfigs(beforeRefs, afterRefs, previous, runtime, deps.AuthorizedSelectionClient == ID)
 }
 
 func (codexAdapter) ProjectionChanged(before, after domain.Config) bool {

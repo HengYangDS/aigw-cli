@@ -38,7 +38,7 @@ func configuredCodexScopedCheck(t *testing.T) (invocation.Context, *bytes.Buffer
 		t.Fatal(err)
 	}
 	selected.CredentialCommand = runtime.Executable
-	if err := codex.SyncConfig(target, selected); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, selected, selected, false); err != nil {
 		t.Fatal(err)
 	}
 	if err := runtime.Config.Save(cfg); err != nil {

@@ -120,7 +120,7 @@ func TestUsePreviewSharesExplicitCodexSelectionAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	selected.CredentialCommand = run.Executable
-	if err := codex.SyncConfig(target, selected); err != nil {
+	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, selected, selected, false); err != nil {
 		t.Fatal(err)
 	}
 	projected, err := os.ReadFile(target)
