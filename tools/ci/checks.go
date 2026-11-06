@@ -2,7 +2,6 @@ package main
 
 import (
 	nativeprocess "aigw-cli/internal/platform/process"
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -34,14 +33,30 @@ func currentRepositoryFiles(root, kind string, patterns ...string) ([]string, er
 // patterns, which may be none, as sorted slash-separated paths relative to
 // root.
 func repositoryFiles(root, kind string, patterns ...string) ([]string, error) {
-	arguments := []string{
-		"-C", root, "--git-dir", ".git", "--work-tree", ".",
-		"ls-files", "-z", "--cached", "--others",
-		"--exclude-standard", "--deduplicate", "--",
+	listed, err := gitListFiles(root, append([]string{"--cached", "--others", "--exclude-standard", "--deduplicate", "--"}, patterns...)...)
+	if err != nil {
+		return nil, fmt.Errorf("list repository %s: %w", kind, err)
 	}
-	process := exec.Command(
-		"git", append(arguments, patterns...)...,
-	)
+	files := make([]string, 0, len(listed))
+	for _, file := range listed {
+		info, statErr := os.Stat(filepath.Join(root, file))
+		switch {
+		case statErr == nil && !info.IsDir():
+			files = append(files, file)
+		case errors.Is(statErr, os.ErrNotExist):
+			continue
+		case statErr != nil:
+			return nil, fmt.Errorf("inspect repository %s %s: %w", kind, file, statErr)
+		}
+	}
+	slices.Sort(files)
+	return files, nil
+}
+
+// gitListFiles runs git ls-files with arguments in root's own checkout and
+// returns the slash-separated paths that it lists.
+func gitListFiles(root string, arguments ...string) ([]string, error) {
+	process := exec.Command("git", append([]string{"-C", root, "--git-dir", ".git", "--work-tree", ".", "ls-files", "-z"}, arguments...)...)
 	// The explicit checkout, not an inherited alternate index, owns this scope.
 	process.Env = slices.DeleteFunc(process.Environ(), func(entry string) bool {
 		name, _, _ := strings.Cut(entry, "=")
@@ -49,26 +64,9 @@ func repositoryFiles(root, kind string, patterns ...string) ([]string, error) {
 	})
 	output, err := process.Output()
 	if err != nil {
-		return nil, fmt.Errorf("list repository %s: %w", kind, err)
+		return nil, err
 	}
-	fields := bytes.Split(bytes.TrimSuffix(output, []byte{0}), []byte{0})
-	files := make([]string, 0, len(fields))
-	for _, field := range fields {
-		if len(field) == 0 {
-			continue
-		}
-		info, statErr := os.Stat(filepath.Join(root, string(field)))
-		switch {
-		case statErr == nil && !info.IsDir():
-			files = append(files, string(field))
-		case errors.Is(statErr, os.ErrNotExist):
-			continue
-		case statErr != nil:
-			return nil, fmt.Errorf("inspect repository %s %s: %w", kind, field, statErr)
-		}
-	}
-	slices.Sort(files)
-	return files, nil
+	return strings.FieldsFunc(string(output), func(separator rune) bool { return separator == 0 }), nil
 }
 
 // inCheckout joins root to each slash-separated repository path, the form in
@@ -152,25 +150,18 @@ func requireTrackedLinkTargets(root string, files []string) error {
 	if err != nil {
 		return err
 	}
-	process := exec.Command("git", "-C", root, "--git-dir", ".git", "--work-tree", ".", "ls-files", "--cached", "-z")
-	process.Env = slices.DeleteFunc(process.Environ(), func(entry string) bool {
-		name, _, _ := strings.Cut(entry, "=")
-		return strings.EqualFold(name, "GIT_INDEX_FILE")
-	})
-	index, err := process.Output()
+	// The index alone: a link to an untracked file is not repository content.
+	index, err := gitListFiles(root, "--cached")
 	if err != nil {
 		return fmt.Errorf("read link target index: %w", err)
 	}
 	tracked := map[string]bool{".": true}
-	for file := range strings.SplitSeq(string(index), "\x00") {
-		if file == "" {
-			continue
-		}
+	for _, file := range index {
 		for name := filepath.FromSlash(file); name != "."; name = filepath.Dir(name) {
 			tracked[name] = true
 		}
 	}
-	process = exec.Command("lychee", "--dump", "--offline", "--no-progress", "--scheme", "file", "--files-from", "-")
+	process := exec.Command("lychee", "--dump", "--offline", "--no-progress", "--scheme", "file", "--files-from", "-")
 	process.Dir = root
 	process.Stdin = strings.NewReader(strings.Join(files, "\n") + "\n")
 	links, err := process.Output()
