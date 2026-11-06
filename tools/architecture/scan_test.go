@@ -2,10 +2,9 @@ package main
 
 import (
 	"bytes"
-	"errors"
-	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -72,38 +71,32 @@ func TestIgnorePolicyScopeAndAllocation(t *testing.T) {
 
 func TestRelativePolicyFromRoot(t *testing.T) {
 	root := t.TempDir()
-	cfgDir := filepath.Join(root, ".config", "checks", "architecture")
-	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(cfgDir, "policy.toml"), []byte(validPolicy), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	writeRepository(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
 	trackFixture(t, root)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", defaultPolicyPath}, &stdout, &stderr)
+	code := run([]string{"-root", root}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
 	}
 	report := decodeReport(t, stdout.String())
-	if report.Policy != defaultPolicyPath {
+	if report.Policy != policyPath {
 		t.Fatalf("policy=%q", report.Policy)
 	}
 }
 
 func TestCollectIgnoresNonGoFiles(t *testing.T) {
 	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
+	writeRepository(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "note.txt"), "x")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
 	trackFixture(t, root)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
+	code := run([]string{"-root", root}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code=%d stdout=%s", code, stdout.String())
 	}
@@ -113,28 +106,9 @@ func TestCollectIgnoresNonGoFiles(t *testing.T) {
 	}
 }
 
-func TestAbsolutePolicyOutsideRoot(t *testing.T) {
-	root := t.TempDir()
-	other := t.TempDir()
-	policyPath := writePolicy(t, other, validPolicy)
-	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
-	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
-	trackFixture(t, root)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("code=%d stderr=%q", code, stderr.String())
-	}
-	report := decodeReport(t, stdout.String())
-	if report.Policy == "" {
-		t.Fatal("empty policy")
-	}
-}
-
 func mustPolicy(t *testing.T) policy {
 	t.Helper()
-	path := writePolicy(t, t.TempDir(), validPolicy)
+	path := writeRepository(t, t.TempDir(), validPolicy)
 	p, err := loadPolicy(path)
 	if err != nil {
 		t.Fatal(err)
@@ -144,10 +118,11 @@ func mustPolicy(t *testing.T) policy {
 
 func TestAnalyzeRepositoryDirect(t *testing.T) {
 	root := t.TempDir()
+	writeRepository(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
 	trackFixture(t, root)
-	report, err := analyzeRepository(root, mustPolicy(t), "policy.toml")
+	report, err := analyzeRepository(root, mustPolicy(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,31 +132,35 @@ func TestAnalyzeRepositoryDirect(t *testing.T) {
 }
 
 func TestAnalyzeRepositoryPropagatesSemanticStageFailures(t *testing.T) {
-	original := repositoryAnalysis
-	t.Cleanup(func() { repositoryAnalysis = original })
-	want := errors.New("stage failed")
-	for name, configure := range map[string]func(){
-		"decision records": func() {
-			repositoryAnalysis.decisionRecords = func(string, *Report) error { return want }
+	for name, test := range map[string]struct {
+		fixture func(t *testing.T, root string)
+		policy  policy
+		want    string
+	}{
+		"decision records": {
+			fixture: func(t *testing.T, root string) {
+				writeFile(t, filepath.Join(root, "docs", "decisions", decisionNavigationFile, "entry.md"), "")
+			},
+			want: "read Decision Record navigation",
 		},
-		"package children": func() {
-			repositoryAnalysis.packageChildren = func(string, policy, *Report) error { return want }
-		},
-		"Go files": func() {
-			repositoryAnalysis.goFiles = func(string, policy) ([]goFileInfo, error) { return nil, want }
-		},
-		"layers": func() {
-			repositoryAnalysis.layers = func(string, []goFileInfo, policy, *Report) error { return want }
+		"package children": {policy: policy{PackageChildren: map[string][]string{"tools": {"release"}}}, want: "stat package root tools"},
+		"Go files":         {policy: policy{GoRoots: []string{"internal"}}, want: "stat go root internal"},
+		"layers": {
+			fixture: func(t *testing.T, root string) {
+				writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
+			},
+			policy: policy{GoRoots: []string{"internal"}, Layers: [][]string{{"internal"}}},
+			want:   "read go.mod",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			repositoryAnalysis = original
-			configure()
 			root := t.TempDir()
+			if test.fixture != nil {
+				test.fixture(t, root)
+			}
 			trackFixture(t, root)
-			p := policy{CheckDecisionRecords: name == "decision records"}
-			if _, err := analyzeRepository(root, p, "policy.toml"); !errors.Is(err, want) {
-				t.Fatalf("error = %v, want %v", err, want)
+			if _, err := analyzeRepository(root, test.policy); err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want %q", err, test.want)
 			}
 		})
 	}
@@ -192,7 +171,7 @@ func TestAnalyzeRepositoryRejectsBrokenRepositoryMetadata(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(root, ".git"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := analyzeRepository(root, policy{}, "policy.toml"); err == nil || !strings.Contains(err.Error(), "list tracked files") {
+	if _, err := analyzeRepository(root, policy{}); err == nil || !strings.Contains(err.Error(), "list tracked files") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -203,38 +182,24 @@ func TestCollectGoFilesRejectsInvalidRoot(t *testing.T) {
 	}
 }
 
-func TestCollectGoFilesPropagatesWalkAndRelativeFailures(t *testing.T) {
+func TestCollectGoFilesPropagatesWalkFailures(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root lists a directory without read permission")
+	}
 	root := t.TempDir()
-	goRoot := filepath.Join(root, "internal")
-	writeFile(t, filepath.Join(goRoot, "owner.go"), "package internal\n")
-	walkFailure := errors.New("walk failed")
-	if _, err := collectGoFilesWith(root, policy{GoRoots: []string{"internal"}}, func(string, fs.WalkDirFunc) error {
-		return walkFailure
-	}, filepath.Rel); !errors.Is(err, walkFailure) {
+	closed := filepath.Join(root, "internal", "closed")
+	writeFile(t, filepath.Join(closed, "owner.go"), "package closed\n")
+	if err := os.Chmod(closed, 0o300); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(closed, 0o700) })
+	if _, err := collectGoFiles(root, policy{GoRoots: []string{"internal"}}); err == nil || !strings.Contains(err.Error(), "walk go root internal") {
 		t.Fatalf("walk error = %v", err)
 	}
-	relativeFailure := errors.New("relative path failed")
-	if _, err := collectGoFilesWith(root, policy{GoRoots: []string{"internal"}}, filepath.WalkDir, func(string, string) (string, error) {
-		return "", relativeFailure
-	}); !errors.Is(err, relativeFailure) {
-		t.Fatalf("relative error = %v", err)
-	}
-	if _, err := collectGoFilesWith(root, policy{GoRoots: []string{"internal"}}, func(path string, visit fs.WalkDirFunc) error {
-		entry, statErr := os.Stat(path)
-		if statErr != nil {
-			return statErr
-		}
-		return visit(path, fileInfoDirEntry{entry}, walkFailure)
-	}, filepath.Rel); !errors.Is(err, walkFailure) {
-		t.Fatalf("visit error = %v", err)
-	}
 }
-
-type fileInfoDirEntry struct{ os.FileInfo }
-
-func (entry fileInfoDirEntry) Type() os.FileMode { return entry.Mode().Type() }
-
-func (entry fileInfoDirEntry) Info() (os.FileInfo, error) { return entry.FileInfo, nil }
 
 func TestCollectGoFilesIgnoresConfiguredFilePath(t *testing.T) {
 	root := t.TempDir()
@@ -258,11 +223,11 @@ func TestMainCoversEntry(t *testing.T) {
 	var code int
 	exitFunc = func(c int) { code = c }
 	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
+	writeRepository(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
 	trackFixture(t, root)
-	os.Args = []string{"architecture", "-root", root, "-policy", policyPath}
+	os.Args = []string{"architecture", "-root", root}
 	main()
 	if code != 0 {
 		t.Fatalf("main exit=%d", code)
@@ -270,18 +235,12 @@ func TestMainCoversEntry(t *testing.T) {
 }
 
 func TestRunReportsAnalysisFailure(t *testing.T) {
-	original := repositoryAnalysis
-	t.Cleanup(func() { repositoryAnalysis = original })
-	repositoryAnalysis.layers = func(string, []goFileInfo, policy, *Report) error {
-		return errors.New("stage failed")
-	}
-
 	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
+	writeRepository(t, root, validPolicy+"layers = [[\"internal\"]]\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
 	trackFixture(t, root)
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), "analyze repository: stage failed") {
-		t.Fatalf("code=%d stderr=%q", code, stderr.String())
+	if code := run([]string{"-root", root}, &stdout, &stderr); code != 1 || !strings.Contains(stderr.String(), "analyze repository: read go.mod") || stdout.Len() != 0 {
+		t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
 	}
 }

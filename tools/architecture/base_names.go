@@ -11,10 +11,7 @@ import (
 // checkPackageBaseNames refuses two production packages that share a base
 // name, so that an import path's last element names one owner. A directory
 // that holds only test files is a fixture, as in the layer table.
-func checkPackageBaseNames(files []goFileInfo, p policy, report *Report) {
-	if !p.UniquePackageBaseNames {
-		return
-	}
+func checkPackageBaseNames(files []goFileInfo, report *Report) {
 	owners := map[string][]string{}
 	for _, file := range files {
 		base := path.Base(file.dir)

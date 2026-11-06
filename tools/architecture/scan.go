@@ -11,18 +11,6 @@ import (
 	"strings"
 )
 
-var repositoryAnalysis = struct {
-	decisionRecords func(string, *Report) error
-	packageChildren func(string, policy, *Report) error
-	goFiles         func(string, policy) ([]goFileInfo, error)
-	layers          func(string, []goFileInfo, policy, *Report) error
-}{
-	decisionRecords: checkDecisionRecords,
-	packageChildren: checkPackageChildren,
-	goFiles:         collectGoFiles,
-	layers:          checkLayers,
-}
-
 type goFileInfo struct {
 	relPath string
 	name    string
@@ -30,35 +18,31 @@ type goFileInfo struct {
 	isTest  bool
 }
 
-func analyzeRepository(root string, p policy, policyPath string) (Report, error) {
+func analyzeRepository(root string, p policy) (Report, error) {
 	absRoot := filepath.Clean(root)
 	report := newReport(policyPath, absRoot)
-	if p.CheckDecisionRecords {
-		if err := repositoryAnalysis.decisionRecords(absRoot, &report); err != nil {
-			return Report{}, err
-		}
+	if err := checkDecisionRecords(absRoot, &report); err != nil {
+		return Report{}, err
 	}
 	tracked, err := trackedFiles(absRoot)
 	if err != nil {
 		return Report{}, err
 	}
-	if p.CheckSemanticNames {
-		checkSemanticNames(tracked, &report)
-	}
+	checkSemanticNames(tracked, &report)
 	checkTrackedCarrierClasses(tracked, p, &report)
-	if err := repositoryAnalysis.packageChildren(absRoot, p, &report); err != nil {
+	if err := checkPackageChildren(absRoot, p, &report); err != nil {
 		return Report{}, err
 	}
-	goFiles, err := repositoryAnalysis.goFiles(absRoot, p)
+	goFiles, err := collectGoFiles(absRoot, p)
 	if err != nil {
 		return Report{}, err
 	}
 	checkCompositionRoots(goFiles, p, &report)
-	checkPackageBaseNames(goFiles, p, &report)
+	checkPackageBaseNames(goFiles, &report)
 	if err := checkClientConfinement(absRoot, goFiles, p.ClientConfinement, &report); err != nil {
 		return Report{}, err
 	}
-	if err := repositoryAnalysis.layers(absRoot, goFiles, p, &report); err != nil {
+	if err := checkLayers(absRoot, goFiles, p, &report); err != nil {
 		return Report{}, err
 	}
 	if err := checkStandardLibraryOnly(absRoot, goFiles, p, &report); err != nil {
@@ -124,15 +108,6 @@ func pathContains(parent, file string) bool {
 }
 
 func checkPackageChildren(root string, p policy, report *Report) error {
-	return checkPackageChildrenWithReadDir(root, p, report, os.ReadDir)
-}
-
-func checkPackageChildrenWithReadDir(
-	root string,
-	p policy,
-	report *Report,
-	readDir func(string) ([]fs.DirEntry, error),
-) error {
 	for packageRoot, allowedChildren := range p.PackageChildren {
 		packageRootPath := filepath.Join(root, filepath.FromSlash(packageRoot))
 		info, err := os.Stat(packageRootPath)
@@ -142,7 +117,7 @@ func checkPackageChildrenWithReadDir(
 		if !info.IsDir() {
 			return fmt.Errorf("package root %s is not a directory", packageRoot)
 		}
-		entries, err := readDir(packageRootPath)
+		entries, err := os.ReadDir(packageRootPath)
 		if err != nil {
 			return fmt.Errorf("read package root %s: %w", packageRoot, err)
 		}
@@ -190,15 +165,6 @@ func checkCompositionRoots(files []goFileInfo, p policy, report *Report) {
 }
 
 func collectGoFiles(root string, p policy) ([]goFileInfo, error) {
-	return collectGoFilesWith(root, p, filepath.WalkDir, filepath.Rel)
-}
-
-func collectGoFilesWith(
-	root string,
-	p policy,
-	walkDir func(string, fs.WalkDirFunc) error,
-	relative func(string, string) (string, error),
-) ([]goFileInfo, error) {
 	var files []goFileInfo
 
 	for _, goRoot := range p.GoRoots {
@@ -210,12 +176,12 @@ func collectGoFilesWith(
 		if !info.IsDir() {
 			return nil, fmt.Errorf("go root %s is not a directory", goRoot)
 		}
-		err = walkDir(abs, func(path string, d fs.DirEntry, walkErr error) error {
+		err = filepath.WalkDir(abs, func(path string, d fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
 			name := d.Name()
-			rel, err := relative(root, path)
+			rel, err := filepath.Rel(root, path)
 			if err != nil {
 				return err
 			}

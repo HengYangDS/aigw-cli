@@ -12,12 +12,12 @@ import (
 // other package uses fails the gate.
 func TestRunEnforcesUsedExportsOnly(t *testing.T) {
 	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy+"used_exports_only = [\"internal/model\"]\n")
+	writeRepository(t, root, validPolicy+"used_exports_only = [\"internal/model\"]\n")
 	writeFile(t, filepath.Join(root, "go.mod"), "module fixture\n")
 	writeFile(t, filepath.Join(root, "internal", "model", "model.go"), "// Package model owns the fixture model.\npackage model\n\n// Unused is exported for no caller.\nfunc Unused() {}\n")
 	trackFixture(t, root)
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 1 {
+	if code := run([]string{"-root", root}, &stdout, &stderr); code != 1 {
 		t.Fatalf("code=%d want 1 stderr=%q stdout=%s", code, stderr.String(), stdout.String())
 	}
 	if report := decodeReport(t, stdout.String()); !hasRule(report, "unused_export") {
@@ -30,14 +30,14 @@ func TestRunEnforcesUsedExportsOnly(t *testing.T) {
 func TestRunWithUsedExportsOnlyLeavesGoSyntaxToGoToolchain(t *testing.T) {
 	root := t.TempDir()
 	body := strings.Replace(validPolicy, "  scripts = {", "  module = { responsibility = \"module fixture\", exact_paths = [\"go.mod\"] },\n  scripts = {", 1)
-	policyPath := writePolicy(t, root, body+"used_exports_only = [\"internal/model\"]\n")
+	writeRepository(t, root, body+"used_exports_only = [\"internal/model\"]\n")
 	writeFile(t, filepath.Join(root, "go.mod"), "module fixture\n")
 	writeFile(t, filepath.Join(root, "internal", "model", "model.go"), "// Package model owns the fixture model.\npackage model\n\n// Used has a caller.\nfunc Used() {}\n")
 	writeFile(t, filepath.Join(root, "internal", "user", "user.go"), "// Package user calls the model.\npackage user\n\nimport \"fixture/internal/model\"\n\nvar _ = model.Used\n")
 	writeFile(t, filepath.Join(root, "internal", "bad", "bad.go"), "package bad\nfunc (\n")
 	trackFixture(t, root)
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr); code != 0 {
+	if code := run([]string{"-root", root}, &stdout, &stderr); code != 0 {
 		t.Fatalf("code=%d want 0 stderr=%q stdout=%s", code, stderr.String(), stdout.String())
 	}
 }

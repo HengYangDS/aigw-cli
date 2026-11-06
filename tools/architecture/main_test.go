@@ -28,7 +28,7 @@ tracked_carrier_classes = {
   go = { responsibility = "Go source", prefixes = ["cmd", "tools"], suffixes = [".go"] },
   internal = { responsibility = "product fixture", prefixes = ["internal"] },
   configuration = { responsibility = "configuration fixture", prefixes = [".config"] },
-  policy = { responsibility = "policy fixture", exact_paths = ["policy.toml"] },
+  documentation = { responsibility = "documentation fixture", prefixes = ["docs"] },
   scripts = { responsibility = "script fixture", prefixes = ["scripts"] },
 }
 composition_root_files = { "internal/cli" = ["app.go"], "tools/release" = ["commands.go", "main.go"] }
@@ -42,12 +42,14 @@ func (rejectingWriter) Write([]byte) (int, error) {
 	return 0, errors.New("write rejected")
 }
 
-func writePolicy(t *testing.T, dir, body string) string {
+// writeRepository writes the files that every scanned checkout holds below
+// root: body as its architecture policy and an empty Decision Record
+// navigation. It returns the policy's path.
+func writeRepository(t *testing.T, root, body string) string {
 	t.Helper()
-	path := filepath.Join(dir, "policy.toml")
-	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	path := filepath.Join(root, filepath.FromSlash(policyPath))
+	writeFile(t, path, body)
+	writeFile(t, filepath.Join(root, "docs", "decisions", decisionNavigationFile), "# Decisions\n")
 	return path
 }
 
@@ -90,7 +92,7 @@ func hasRule(report Report, rule string) bool {
 func TestRunCleanFixture(t *testing.T) {
 	root := t.TempDir()
 	body := strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = ["cmd", "internal", "tools"]`, 1)
-	policyPath := writePolicy(t, root, body)
+	writeRepository(t, root, body)
 	writeFile(t, filepath.Join(root, "scripts", "check", "ok.sh"), "#!/bin/sh\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "// Package pkg owns the fixture behavior.\npackage pkg\n\nfunc Hello() string { return \"ok\" }\n")
 	writeFile(t, filepath.Join(root, "cmd", "tool", "main.go"), "// Command tool runs the fixture.\npackage main\n\nfunc main() {}\n")
@@ -99,7 +101,7 @@ func TestRunCleanFixture(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
+	code := run([]string{"-root", root}, &stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
 	}
@@ -114,7 +116,7 @@ func TestRunDetectsCoreViolations(t *testing.T) {
 	body := strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = ["internal", "tools"]`, 1) +
 		"layers = [[\"tools\"], [\"internal/cli\"], [\"internal/shims\"]]\n" +
 		"layer_seams = { \"internal/cli\" = [\"internal/cli/invocation\"] }\n"
-	policyPath := writePolicy(t, root, body)
+	writeRepository(t, root, body)
 	writeFile(t, filepath.Join(root, "go.mod"), "module fixture\n")
 
 	// forbidden directory name
@@ -131,7 +133,7 @@ func TestRunDetectsCoreViolations(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
+	code := run([]string{"-root", root}, &stdout, &stderr)
 	if code != 1 {
 		t.Fatalf("code=%d want 1 stderr=%q", code, stderr.String())
 	}
@@ -154,13 +156,13 @@ func TestRunDetectsCoreViolations(t *testing.T) {
 
 func TestArchitectureLeavesGoSyntaxToGoToolchain(t *testing.T) {
 	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
+	writeRepository(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "internal", "bad", "bad.go"), "package bad\nfunc (\n")
 	trackFixture(t, root)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
+	code := run([]string{"-root", root}, &stdout, &stderr)
 	report := decodeReport(t, stdout.String())
 	if hasRule(report, "go_parse_error") {
 		t.Fatalf("architecture duplicated Go syntax validation: %v", findingRules(report))
@@ -181,7 +183,7 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 	}{
 		{name: "unknown flag", args: []string{"-unknown"}, want: "flag provided but not defined", code: 2},
 		{name: "positional", args: []string{"extra"}, want: "does not accept positional", code: 2},
-		{name: "missing policy", args: []string{"-root", root, "-policy", filepath.Join(root, "missing.toml")}, want: "load architecture policy", code: 1},
+		{name: "missing policy", args: []string{"-root", root}, want: "load architecture policy", code: 1},
 		{name: "unknown field", body: validPolicy + "extra = 1\n", want: "load architecture policy", code: 1},
 		{name: "empty owner", body: strings.Replace(validPolicy, "product-toolchain", "", 1), want: "owner must be non-empty", code: 1},
 		{name: "empty go roots", body: strings.Replace(validPolicy, `go_roots = ["internal"]`, `go_roots = []`, 1), want: "go_roots", code: 1},
@@ -198,7 +200,9 @@ func TestPolicyValidationAndCLI(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			args := test.args
 			if test.body != "" {
-				args = []string{"-root", root, "-policy", writePolicy(t, t.TempDir(), test.body)}
+				checkout := t.TempDir()
+				writeRepository(t, checkout, test.body)
+				args = []string{"-root", checkout}
 			}
 			var stdout bytes.Buffer
 			var stderr bytes.Buffer
@@ -226,35 +230,17 @@ func TestRunRejectsInvalidRootPath(t *testing.T) {
 
 func TestWriteReportFailure(t *testing.T) {
 	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
+	writeRepository(t, root, validPolicy)
 	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
 	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
 	trackFixture(t, root)
 	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, rejectingWriter{}, &stderr)
+	code := run([]string{"-root", root}, rejectingWriter{}, &stderr)
 	if code != 1 {
 		t.Fatalf("code=%d want 1", code)
 	}
 	if !strings.Contains(stderr.String(), "write report") {
 		t.Fatalf("stderr=%q", stderr.String())
-	}
-}
-
-func TestAbsolutePolicyPath(t *testing.T) {
-	root := t.TempDir()
-	policyPath := writePolicy(t, root, validPolicy)
-	writeFile(t, filepath.Join(root, "scripts", "check", "a.sh"), "ok\n")
-	writeFile(t, filepath.Join(root, "internal", "pkg", "core.go"), "package pkg\n")
-	trackFixture(t, root)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
-	if code != 0 {
-		t.Fatalf("code=%d stderr=%q", code, stderr.String())
-	}
-	report := decodeReport(t, stdout.String())
-	if report.Policy == "" {
-		t.Fatal("empty policy path in report")
 	}
 }
 
@@ -284,22 +270,8 @@ func TestTrackedFilesRejectsBrokenRepositoryMetadata(t *testing.T) {
 	}
 }
 
-func TestStartsWithDotDotAcceptsBothPortableSeparators(t *testing.T) {
-	for _, value := range []string{"..", "../x", `..\x`} {
-		if !startsWithDotDot(value) {
-			t.Fatalf("%q was not recognized", value)
-		}
-	}
-	for _, value := range []string{".", "pkg", ".../x"} {
-		if startsWithDotDot(value) {
-			t.Fatalf("%q was recognized", value)
-		}
-	}
-}
-
 func TestLoadPolicyRetainsDeclaredRoots(t *testing.T) {
-	dir := t.TempDir()
-	path := writePolicy(t, dir, validPolicy)
+	path := writeRepository(t, t.TempDir(), validPolicy)
 	p, err := loadPolicy(path)
 	if err != nil {
 		t.Fatal(err)
@@ -313,14 +285,14 @@ func TestDeclaredGoRootsMustBeDirectories(t *testing.T) {
 	for _, state := range []string{"missing", "file"} {
 		t.Run(state, func(t *testing.T) {
 			root := t.TempDir()
-			policyPath := writePolicy(t, root, validPolicy)
+			writeRepository(t, root, validPolicy)
 			if state == "file" {
 				writeFile(t, filepath.Join(root, "internal"), "not-a-directory")
 			}
 			trackFixture(t, root)
 			var stdout bytes.Buffer
 			var stderr bytes.Buffer
-			code := run([]string{"-root", root, "-policy", policyPath}, &stdout, &stderr)
+			code := run([]string{"-root", root}, &stdout, &stderr)
 			if code != 1 || !strings.Contains(stderr.String(), "go root internal") {
 				t.Fatalf("code=%d stderr=%q stdout=%s", code, stderr.String(), stdout.String())
 			}

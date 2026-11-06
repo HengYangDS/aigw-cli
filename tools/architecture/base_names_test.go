@@ -17,7 +17,7 @@ func TestPackageBaseNamesRefuseARepeatedProductionName(t *testing.T) {
 		{relPath: "internal/domain/model.go", dir: "internal/domain"},
 	}
 	report := newReport("policy", t.TempDir())
-	checkPackageBaseNames(files, policy{UniquePackageBaseNames: true}, &report)
+	checkPackageBaseNames(files, &report)
 	var got [][]string
 	for _, finding := range report.Findings {
 		if finding.Rule != "package_base_name" {
@@ -34,17 +34,5 @@ func TestPackageBaseNamesRefuseARepeatedProductionName(t *testing.T) {
 	}
 	if report.Findings[0].Message != `packages internal/cli/client, internal/client share the base name "client"; name each after what it owns` {
 		t.Fatalf("message = %q", report.Findings[0].Message)
-	}
-}
-
-func TestPackageBaseNamesFollowThePolicy(t *testing.T) {
-	files := []goFileInfo{
-		{relPath: "internal/a/client/x.go", dir: "internal/a/client"},
-		{relPath: "internal/b/client/x.go", dir: "internal/b/client"},
-	}
-	report := newReport("policy", t.TempDir())
-	checkPackageBaseNames(files, policy{}, &report)
-	if len(report.Findings) != 0 {
-		t.Fatalf("a policy without the rule refused repeated names: %+v", report.Findings)
 	}
 }

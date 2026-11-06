@@ -20,7 +20,6 @@ func main() {
 func run(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("architecture", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	policyPath := flags.String("policy", defaultPolicyPath, "architecture policy TOML")
 	root := flags.String("root", ".", "repository root to scan")
 	if err := flags.Parse(args); err != nil {
 		return 2
@@ -31,27 +30,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	absRoot, _ := filepath.Abs(*root)
-	resolvedPolicy := *policyPath
-	if !filepath.IsAbs(resolvedPolicy) {
-		resolvedPolicy = filepath.Join(absRoot, resolvedPolicy)
-	}
-	pol, err := loadPolicy(resolvedPolicy)
+	pol, err := loadPolicy(filepath.Join(absRoot, filepath.FromSlash(policyPath)))
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "load architecture policy: %v\n", err)
 		return 1
 	}
 
-	// Emit policy-relative path as declared when under root; keep stable POSIX form.
-	reportPolicyPath := toPOSIX(*policyPath)
-	if filepath.IsAbs(*policyPath) {
-		if rel, relErr := filepath.Rel(absRoot, resolvedPolicy); relErr == nil && !filepath.IsAbs(rel) && !startsWithDotDot(rel) {
-			reportPolicyPath = toPOSIX(rel)
-		} else {
-			reportPolicyPath = toPOSIX(resolvedPolicy)
-		}
-	}
-
-	report, err := analyzeRepository(absRoot, pol, reportPolicyPath)
+	report, err := analyzeRepository(absRoot, pol)
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "analyze repository: %v\n", err)
 		return 1
@@ -64,8 +49,4 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
-}
-
-func startsWithDotDot(rel string) bool {
-	return rel == ".." || len(rel) >= 3 && (rel[:3] == "../" || rel[:3] == `..\`)
 }

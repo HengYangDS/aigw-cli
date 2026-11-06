@@ -17,14 +17,6 @@ const decisionNavigationFile = "README.md"
 // sequenced name and appears exactly once in the README navigation. The shared
 // ETHOS paradigm owns each record's identity, disposition and rationale sections.
 func checkDecisionRecords(root string, report *Report) error {
-	return checkDecisionRecordsWithReadDir(root, report, os.ReadDir)
-}
-
-func checkDecisionRecordsWithReadDir(
-	root string,
-	report *Report,
-	readDir func(string) ([]os.DirEntry, error),
-) error {
 	directory := filepath.Join(root, "docs", "decisions")
 	navigationPath := filepath.Join(directory, decisionNavigationFile)
 	navigation, err := os.ReadFile(navigationPath)
@@ -35,7 +27,7 @@ func checkDecisionRecordsWithReadDir(
 		}
 		return fmt.Errorf("read Decision Record navigation: %w", err)
 	}
-	entries, err := readDir(directory)
+	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return fmt.Errorf("read Decision Records: %w", err)
 	}

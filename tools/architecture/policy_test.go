@@ -2,9 +2,9 @@ package main
 
 import (
 	"errors"
-	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -214,16 +214,21 @@ func TestPackageChildrenRequireDeclaredRoots(t *testing.T) {
 }
 
 func TestPackageChildrenReportsUnreadableManagedRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root lists a directory without read permission")
+	}
 	root := t.TempDir()
-	if err := os.Mkdir(filepath.Join(root, "tools"), 0o700); err != nil {
+	managed := filepath.Join(root, "tools")
+	if err := os.Mkdir(managed, 0o300); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = os.Chmod(managed, 0o700) })
 	report := newReport("policy", root)
 	p := policy{PackageChildren: map[string][]string{"tools": {"release"}}}
-	readFailure := errors.New("deterministic read failure")
-	if err := checkPackageChildrenWithReadDir(root, p, &report, func(string) ([]fs.DirEntry, error) {
-		return nil, readFailure
-	}); !errors.Is(err, readFailure) {
+	if err := checkPackageChildren(root, p, &report); !errors.Is(err, os.ErrPermission) || !strings.Contains(err.Error(), "read package root tools") {
 		t.Fatalf("directory read error = %v", err)
 	}
 }
