@@ -85,16 +85,22 @@ func (plan SettingsPlan) Effects() []string {
 // SettingsReceipt records the settings projection that was actually applied.
 type SettingsReceipt struct {
 	SettingsPlan
-	rollback func() error
+	restore func() platform.Restoration
 }
 
 // Rollback restores the captured preimages only while this projection's
 // postimages remain unchanged. A receipt for a no-op never changes files.
 func (receipt SettingsReceipt) Rollback() error {
-	if receipt.rollback == nil {
+	return receipt.Restore().Err()
+}
+
+// Restore rolls the projection back as Rollback does and reports each file
+// that it wrote.
+func (receipt SettingsReceipt) Restore() platform.Restoration {
+	if receipt.restore == nil {
 		return nil
 	}
-	return receipt.rollback()
+	return receipt.restore()
 }
 
 type settingsDocument map[string]json.RawMessage
@@ -306,17 +312,14 @@ func (change settingsChange) apply() (SettingsReceipt, error) {
 		stateAfter, err = writeGuarded(change.statePath, change.stateBefore, change.stateData, 0o600)
 	}
 	if err != nil {
-		rollbackErr := restoreGuarded(change.path, change.settingsBefore, settingsAfter)
-		if rollbackErr != nil {
-			return SettingsReceipt{}, platform.CompensationFailed(fmt.Errorf("%s Claude settings state: %w", stateAction, err), rollbackErr)
-		}
-		return SettingsReceipt{}, fmt.Errorf("%s Claude settings state: %w", stateAction, err)
+		restored := platform.Restoration{{Path: change.path, Err: restoreGuarded(change.path, change.settingsBefore, settingsAfter)}}
+		return SettingsReceipt{}, platform.FailedWrite(fmt.Errorf("%s Claude settings state: %w", stateAction, err), restored)
 	}
-	return SettingsReceipt{SettingsPlan: change.plan, rollback: func() error {
-		return errors.Join(
-			restoreGuarded(change.path, change.settingsBefore, settingsAfter),
-			restoreGuarded(change.statePath, change.stateBefore, stateAfter),
-		)
+	return SettingsReceipt{SettingsPlan: change.plan, restore: func() platform.Restoration {
+		return platform.Restoration{
+			{Path: change.path, Err: restoreGuarded(change.path, change.settingsBefore, settingsAfter)},
+			{Path: change.statePath, Err: restoreGuarded(change.statePath, change.stateBefore, stateAfter)},
+		}
 	}}, nil
 }
 

@@ -266,7 +266,7 @@ func (plan Plan) Apply() (Receipt, error) {
 			post, err = platform.RemoveFileIfUnchanged(change.path, change.before)
 		}
 		if err != nil {
-			return Receipt{}, platform.CompensationFailed(err, receipt.Rollback())
+			return Receipt{}, platform.FailedWrite(err, receipt.Restore())
 		}
 		receipt.changes = append(receipt.changes, appliedChange{path: change.path, pre: change.before, post: post})
 	}
@@ -275,11 +275,17 @@ func (plan Plan) Apply() (Receipt, error) {
 
 // Rollback restores the exact preimages while every written postimage remains unchanged.
 func (receipt Receipt) Rollback() error {
-	var result error
+	return receipt.Restore().Err()
+}
+
+// Restore rolls the projection back as Rollback does and reports each file
+// that it wrote.
+func (receipt Receipt) Restore() platform.Restoration {
+	restored := make(platform.Restoration, 0, len(receipt.changes))
 	for _, change := range slices.Backward(receipt.changes) {
-		result = errors.Join(result, platform.RestoreFileAtomicIfPostimage(change.path, change.pre, change.post))
+		restored = append(restored, platform.Restore(change.path, change.pre, change.post))
 	}
-	return result
+	return restored
 }
 
 type snapshots struct {

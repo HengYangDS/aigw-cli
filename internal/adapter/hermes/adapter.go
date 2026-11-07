@@ -314,7 +314,7 @@ func (hermesAdapter) Apply(_ context.Context, deps adapter.Dependencies, before,
 	for _, plan := range plans {
 		receipt, err := plan.Apply()
 		if err != nil {
-			return nil, platform.CompensationFailed(err, receipts.Rollback())
+			return nil, platform.FailedWrite(err, receipts.Restore())
 		}
 		receipts = append(receipts, receipt)
 	}

@@ -165,7 +165,7 @@ func TestRenderProjectionFailureReportsConfigurationRecoveryWithoutPrivatePath(t
 				renderer := NewRenderer(&out, false)
 				RenderError(renderer, err, jsonMode)
 				if renderer.Err() != nil || !strings.Contains(out.String(), tc.want) ||
-					!strings.Contains(out.String(), "aigw doctor") || strings.Contains(out.String(), privatePath) {
+					!strings.Contains(out.String(), "aigw check") || strings.Contains(out.String(), privatePath) {
 					t.Fatalf("projection recovery result = %q, render error = %v", out.String(), renderer.Err())
 				}
 			})

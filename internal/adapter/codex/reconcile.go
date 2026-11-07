@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -88,7 +87,12 @@ func CopyProjection(source, target string) error {
 // Rollback restores the exact preimages captured by this reconciliation while
 // each artifact still equals the postimage written by this transaction.
 func (r ReconciliationReceipt) Rollback() error {
-	return rollbackCodexArtifacts(r.committed)
+	return r.Restore().Err()
+}
+
+// Restore rolls the reconciliation back and reports each file that it wrote.
+func (r ReconciliationReceipt) Restore() platform.Restoration {
+	return restoreCodexArtifacts(r.committed)
 }
 
 type codexReconciliationTarget struct {
@@ -174,11 +178,11 @@ func ReconcileConfigs(before, after []TargetRef, previous, runtime domain.Runtim
 		for _, artifact := range target.artifacts {
 			post, commitErr := commitCodexArtifact(artifact)
 			if commitErr != nil {
-				rollbackErr := rollbackCodexArtifacts(committed)
-				if rollbackErr != nil {
-					return ReconciliationReceipt{}, platform.CompensationFailed(fmt.Errorf("commit Codex reconciliation %s: %w", artifact.path, commitErr), rollbackErr)
+				restored := restoreCodexArtifacts(committed)
+				if restored.Err() != nil {
+					return ReconciliationReceipt{}, platform.FailedWrite(fmt.Errorf("commit Codex reconciliation %s: %w", artifact.path, commitErr), restored)
 				}
-				return ReconciliationReceipt{}, fmt.Errorf("commit Codex reconciliation %s: %w; all artifacts rolled back", artifact.path, commitErr)
+				return ReconciliationReceipt{}, platform.FailedWrite(fmt.Errorf("commit Codex reconciliation %s: %w; all artifacts rolled back", artifact.path, commitErr), restored)
 			}
 			committed = append(committed, committedCodexArtifact{prepared: artifact, post: post})
 		}
@@ -415,14 +419,17 @@ func commitCodexArtifact(artifact codexPreparedArtifact) (platform.FileSnapshot,
 	return removeFileIfUnchanged(artifact.path, artifact.before)
 }
 
-func rollbackCodexArtifacts(committed []committedCodexArtifact) error {
-	var failures []error
+// restoreCodexArtifacts restores the committed artifacts in reverse order and
+// reports each.
+func restoreCodexArtifacts(committed []committedCodexArtifact) platform.Restoration {
+	restored := make(platform.Restoration, 0, len(committed))
 	for _, artifact := range slices.Backward(committed) {
-		if err := restoreFileAtomicIfPostimage(artifact.prepared.path, artifact.prepared.before, artifact.post); err != nil {
-			failures = append(failures, fmt.Errorf("restore %s: %w", artifact.prepared.path, err))
-		}
+		restored = append(restored, platform.FileOutcome{
+			Path: artifact.prepared.path,
+			Err:  restoreFileAtomicIfPostimage(artifact.prepared.path, artifact.prepared.before, artifact.post),
+		})
 	}
-	return errors.Join(failures...)
+	return restored
 }
 
 func codexStateForTarget(snapshot platform.FileSnapshot) (codexState, error) {

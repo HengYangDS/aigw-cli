@@ -467,9 +467,10 @@ The import reports public changes without guessing Token or client readiness;
 run `aigw status` for the selected Route's next step. Use `aigw setup --from`
 when guided team onboarding is wanted instead.
 
-If native client projection fails after a configuration write, AIGW reports
-whether it restored its configuration, not whether every client file was
-restored. Run `aigw doctor` before retrying.
+If writing a client file fails after a configuration write, AIGW names the
+file and its operating-system error, says which client files it restored and
+whether it restored its configuration, and names the fix: making the file and
+its folder writable after a permission error, and `aigw check` otherwise.
 
 | Collision                               | Default behavior     | Explicit action                                           |
 | --------------------------------------- | -------------------- | --------------------------------------------------------- |

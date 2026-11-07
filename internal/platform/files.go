@@ -102,13 +102,13 @@ func writeFileAtomicIfUnchanged(
 ) (FileSnapshot, error) {
 	current, err := CaptureFileSnapshot(path)
 	if err != nil {
-		return FileSnapshot{}, err
+		return FileSnapshot{}, fileError(path, false, err)
 	}
 	if !current.Equal(expected) {
-		return FileSnapshot{}, fmt.Errorf("preimage changed for %s; refusing to overwrite newer state", path)
+		return FileSnapshot{}, fileError(path, true, fmt.Errorf("preimage changed for %s; refusing to overwrite newer state", path))
 	}
 	if err := write(path, data, defaultMode); err != nil {
-		return FileSnapshot{}, err
+		return FileSnapshot{}, fileError(path, false, err)
 	}
 	mode := defaultMode
 	if preserveExistingMode && expected.Exists {
@@ -176,16 +176,16 @@ func RemoveFileIfUnchanged(path string, expected FileSnapshot) (FileSnapshot, er
 func removeFileIfUnchanged(path string, expected FileSnapshot, remove func(string) error) (FileSnapshot, error) {
 	current, err := CaptureFileSnapshot(path)
 	if err != nil {
-		return FileSnapshot{}, err
+		return FileSnapshot{}, fileError(path, false, err)
 	}
 	if !current.Equal(expected) {
-		return FileSnapshot{}, fmt.Errorf("preimage changed for %s; refusing to overwrite newer state", path)
+		return FileSnapshot{}, fileError(path, true, fmt.Errorf("preimage changed for %s; refusing to overwrite newer state", path))
 	}
 	if !current.Exists {
 		return FileSnapshot{}, nil
 	}
 	if err := remove(path); err != nil {
-		return FileSnapshot{}, fmt.Errorf("remove %s: %w", path, err)
+		return FileSnapshot{}, fileError(path, false, fmt.Errorf("remove %s: %w", path, err))
 	}
 	return FileSnapshot{}, nil
 }
@@ -200,19 +200,19 @@ func RestoreFileAtomicIfPostimage(path string, preimage, postimage FileSnapshot)
 func restoreFileAtomicIfPostimage(path string, preimage, postimage FileSnapshot, remove func(string) error) error {
 	current, err := CaptureFileSnapshot(path)
 	if err != nil {
-		return err
+		return fileError(path, false, err)
 	}
 	if !current.Equal(postimage) {
-		return fmt.Errorf("postimage changed for %s; refusing to overwrite newer state", path)
+		return fileError(path, true, fmt.Errorf("postimage changed for %s; refusing to overwrite newer state", path))
 	}
 	if preimage.Exists {
-		return WriteFileAtomicExactMode(path, preimage.Data, preimage.Mode)
+		return fileError(path, false, WriteFileAtomicExactMode(path, preimage.Data, preimage.Mode))
 	}
 	if !current.Exists {
 		return nil
 	}
 	if err := remove(path); err != nil {
-		return fmt.Errorf("remove %s: %w", path, err)
+		return fileError(path, false, fmt.Errorf("remove %s: %w", path, err))
 	}
 	return nil
 }

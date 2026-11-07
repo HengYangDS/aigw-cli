@@ -285,9 +285,9 @@ func TestReconcileConfigsRejectsChangedPreimageWithoutOverwrite(t *testing.T) {
 	}
 }
 
-func TestRollbackCodexArtifactsPreservesExternalEdit(t *testing.T) {
-	if err := rollbackCodexArtifacts(nil); err != nil {
-		t.Fatalf("rollbackCodexArtifacts(nil) error = %v", err)
+func TestRestoreCodexArtifactsPreservesExternalEdit(t *testing.T) {
+	if restored := restoreCodexArtifacts(nil); len(restored) != 0 || restored.Err() != nil {
+		t.Fatalf("restoreCodexArtifacts(nil) = %v", restored)
 	}
 
 	path := filepath.Join(t.TempDir(), "configuration.toml")
@@ -306,8 +306,9 @@ func TestRollbackCodexArtifactsPreservesExternalEdit(t *testing.T) {
 		prepared: codexPreparedArtifact{path: path, before: before},
 		post:     post,
 	}}
-	if err := rollbackCodexArtifacts(committed); err == nil || !strings.Contains(err.Error(), "postimage changed") {
-		t.Fatalf("rollbackCodexArtifacts() error = %v", err)
+	restored := restoreCodexArtifacts(committed)
+	if err := restored.Err(); len(restored) != 1 || restored[0].Path != path || err == nil || !strings.Contains(err.Error(), "postimage changed") {
+		t.Fatalf("restoreCodexArtifacts() = %v, %v", restored, err)
 	}
 	current, err := os.ReadFile(path)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"syscall"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
@@ -246,27 +247,26 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 // it was raised, or a product-owned message for any other error, which states
 // no impact of its own.
 func ProblemFor(err error) Problem {
-	var problem Problem
-	if user, ok := errors.AsType[*userError](err); ok {
-		problem = user.problem
-	} else if errors.Is(err, secret.ErrNativeReaderUnverified) {
-		problem = Problem{
+	user, structured := errors.AsType[*userError](err)
+	failure, atFile := errors.AsType[*adapter.ApplyError](err)
+	impact, recovered := ConfigurationRecoveryImpact(err)
+	switch {
+	case structured:
+		return user.problem
+	case errors.Is(err, secret.ErrNativeReaderUnverified):
+		return Problem{
 			Title:    "Cannot verify native Account Token access for this AIGW version",
 			Evidence: "Noninteractive native-store preflight could not establish reader access.",
 			Impact:   "No new client projection was applied; no Account Token was returned.",
 			Fix:      "Run `aigw doctor` to inspect the selected backend; explicitly restage or authorize the Account Token for this AIGW version, then run `aigw sync`.",
 		}
-	} else if impact, ok := ConfigurationRecoveryImpact(err); ok {
-		problem = Problem{
-			Title:  "Client projection failed",
-			Impact: impact,
-			Fix:    "Run `aigw doctor` before retrying.",
-		}
-	} else {
-		message := localizedErrorMessage(err)
-		problem = Problem{Title: message, Fix: errorFix(err, message)}
+	case atFile:
+		return clientFileProblem(failure, err)
+	case recovered:
+		return Problem{Title: "Updating the client files failed", Impact: impact, Fix: "aigw check"}
 	}
-	return problem
+	message := localizedErrorMessage(err)
+	return Problem{Title: message, Fix: errorFix(err, message)}
 }
 
 func localizedErrorMessage(err error) string {

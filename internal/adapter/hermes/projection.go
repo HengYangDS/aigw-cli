@@ -338,19 +338,26 @@ func (plan *Plan) Apply() (Receipt, error) {
 		receipt.stateAfter, err = platform.WriteFileAtomicIfUnchanged(plan.path+adapter.StateSuffix, plan.stateBefore, plan.stateAfter, 0o600)
 	}
 	if err != nil {
-		return Receipt{}, platform.CompensationFailed(err, platform.RestoreFileAtomicIfPostimage(plan.path, plan.configBefore, receipt.configAfter))
+		return Receipt{}, platform.FailedWrite(err, platform.Restoration{platform.Restore(plan.path, plan.configBefore, receipt.configAfter)})
 	}
 	return receipt, nil
 }
 
 // Rollback restores only the receipt's unchanged postimages.
 func (receipt Receipt) Rollback() error {
+	return receipt.Restore().Err()
+}
+
+// Restore rolls the projection back as Rollback does and reports each file
+// that it restored. It retains the ownership state when restoring the
+// configuration is unsafe.
+func (receipt Receipt) Restore() platform.Restoration {
 	if !receipt.changed {
 		return nil
 	}
-	// Retain ownership if configuration compensation is unsafe.
-	if err := platform.RestoreFileAtomicIfPostimage(receipt.path, receipt.configBefore, receipt.configAfter); err != nil {
-		return err
+	config := platform.Restore(receipt.path, receipt.configBefore, receipt.configAfter)
+	if config.Err != nil {
+		return platform.Restoration{config}
 	}
-	return platform.RestoreFileAtomicIfPostimage(receipt.path+adapter.StateSuffix, receipt.stateBefore, receipt.stateAfter)
+	return platform.Restoration{config, platform.Restore(receipt.path+adapter.StateSuffix, receipt.stateBefore, receipt.stateAfter)}
 }

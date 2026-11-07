@@ -225,26 +225,30 @@ func (registry Registry) Apply(ctx context.Context, deps Dependencies, before, a
 		return ProjectionReceipts{}, false, ctx.Err()
 	}
 	receipts := make(ProjectionReceipts, 0, len(adapters))
+	var failing ClientLabel
 	defer func() {
 		if resultErr == nil {
 			return
 		}
-		if rollbackErr := receipts.Rollback(); rollbackErr != nil {
+		failure := resultErr
+		restored := receipts.Restore()
+		switch rollbackErr := restored.Err(); {
+		case rollbackErr != nil:
 			resultErr = fmt.Errorf("%w: client projection failed: %w; rollback also failed: %w", ErrProjectionRollbackFailed, resultErr, rollbackErr)
-			return
-		}
-		if errors.Is(resultErr, platform.ErrCompensationIncomplete) {
+		case errors.Is(resultErr, platform.ErrCompensationIncomplete):
 			// The failing adapter could not undo its own writes, which may still
 			// reference the projected credential reader.
 			resultErr = fmt.Errorf("%w: %w", ErrProjectionRollbackFailed, resultErr)
-			return
+		default:
+			resultErr = fmt.Errorf("client projection failed and prior adapters were rolled back: %w", resultErr)
 		}
-		resultErr = fmt.Errorf("client projection failed and prior adapters were rolled back: %w", resultErr)
+		resultErr = applyFailure(failing, deps.Host.Home, failure, resultErr, restored)
 	}()
 	for _, adapter := range adapters {
 		if err := ctx.Err(); err != nil {
 			return nil, false, err
 		}
+		failing = ClientLabel(adapter.Spec().Label)
 		receipt, err := adapter.Apply(ctx, deps, before, after)
 		if err != nil {
 			return nil, false, err
@@ -259,16 +263,7 @@ type ProjectionReceipts []ProjectionReceipt
 
 // Rollback compensates every receipt in reverse order and joins their failures.
 func (receipts ProjectionReceipts) Rollback() error {
-	var failures []error
-	for _, receipt := range slices.Backward(receipts) {
-		if receipt == nil {
-			continue
-		}
-		if err := receipt.Rollback(); err != nil {
-			failures = append(failures, err)
-		}
-	}
-	return errors.Join(failures...)
+	return receipts.Restore().Err()
 }
 
 // ChangedClients returns clients whose persistent projection changes, in admission order.
