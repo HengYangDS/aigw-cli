@@ -49,6 +49,10 @@
       `--target`, `--via`, `--direct` and the retry flags, while
       `client enable` keeps `--executable` and `--target`; `client.txtar`
       covers each.
+- [ ] 3.6 Accept a configuration with providers and no model: `provider add`
+      works from an empty home, `model remove` and `provider remove` may take
+      the last model, and clients left without one report it; tests cover
+      each.
 
 ## 4. Use, check and setup
 
@@ -63,8 +67,9 @@
 - [ ] 4.2 Rework `aigw check [client...] --depth local|endpoint|model|client`:
       each row names the depth reached, a depth that a client cannot run is
       skipped with its reason, and the command exits 1 when a checked client
-      failed, or when no client is named and none is enabled; `check.txtar`
-      covers each reason and a named disabled client.
+      failed, or when no client is named and none is enabled, and it lists
+      stored Tokens that no provider uses; `check.txtar` covers each reason
+      and a named disabled client.
 - [ ] 4.3 Add `--verbose`, and `--model <provider/model>` with an optional
       `--token-stdin` at depths `endpoint` and `model`, to `aigw check`; the
       one-time Token is neither read from nor written to the store.
@@ -80,6 +85,8 @@
 - [ ] 4.6 Take Codex's bundled model metadata from the model's family and retire
       the Codex model catalog's suffix-derived namespace mirror; tests cover a
       variant linked by family and a model that is its own family.
+- [ ] 4.7 Run the `client_acceptance` journeys from v0.6.1 once 4.1 lands,
+      each program speaking its own commands; they pass on macOS.
 
 ## 5. Maintenance commands and the command tree
 
@@ -94,7 +101,8 @@
       configuration, name `aigw setup`.
 - [ ] 5.4 Remove every superseded command, flag and package, with
       `internal/app/renaming`; every script and acceptance test uses only the
-      new tree, root help groups it as design.md does, and the command-tree
+      new tree, except that a cross-version journey's 0.6.1 baseline keeps its
+      own commands, root help groups it as design.md does, and the command-tree
       test lists exactly its 12 top-level commands and 32 leaves.
 - [ ] 5.5 Give every leaf command one to three help examples, and add tests
       that fail a leaf without examples, a positional argument or filter flag
@@ -110,16 +118,16 @@
       refuse an environment that sets a GitLab release source, and update
       `docs/architecture/repository-tooling.md`; tests show the refusal and
       that `aigw self update` still reads a GitLab peer named at run time.
+- [ ] 5.8 Add a testscript command that reruns a failure's `next_action` and
+      fails when the same problem recurs, and use it in each script that
+      covers a failure.
 
 ## 6. One configuration file
 
 - [ ] 6.1 Keep configuration only in a schema 8 `aigw.toml`, with its backup
       and verified snapshot, and use the short protocol names internally;
       component files, `order` handling and the schema 3 and 5 migrations are
-      gone; a configuration with providers and no model is valid, so
-      `provider add` then `use` works from an empty home and `model remove`
-      and `provider remove` may take the last model; round-trip and
-      strict-decode tests pass.
+      gone, and round-trip and strict-decode tests pass.
 - [ ] 6.2 Add the one-time import of a schema 6 `config.toml` and its four
       component files; golden tests cover an owner-shaped configuration of 3
       providers and 51 models with forwarding and capabilities, and the shipped
@@ -137,11 +145,15 @@
       retry-policy refusal of the Homebrew rollback; tests cover each.
 - [ ] 6.6 Keep Hermes provider IDs in today's spelling through an adapter-owned
       map; a test pins the IDs for all three protocols.
+- [ ] 6.7 Run the `client_acceptance` journeys from v0.6.1 again after group 6,
+      through the import, the frozen reader view and the rollback staging.
 
 ## 7. Documents
 
 - [ ] 7.1 Rewrite `manifests/team.toml` as a schema 8 team file, which
-      `aigw setup --from` applies in a test.
+      `aigw setup --from` applies in a test; it keeps the 2026-11-07 model
+      refresh that lands on dev first, and adds plain-DMXAPI `gpt-6.1-terra`
+      and `claude-haiku-5-5` only after a resumed tool turn qualifies them.
 - [ ] 7.2 Rewrite the README, guides, concepts, terminal experience, the cask
       caveats and every other document that names a removed command or word;
       the Markdown, link and spelling checks pass.
@@ -162,12 +174,17 @@
 - [ ] 8.3 Confirm the hosted three-platform graph on the proposal.
 - [ ] 8.4 Run the real-client journeys from v0.6.1, including the upgrade
       through `aigw sync` and a rollback.
+- [ ] 8.5 Retire the `public-inputs` carrier route of the hosted journeys in
+      `verify.yml` and `docs/operations/forge-operations.md`, or gate a new
+      carrier on a deep identity scan; no carrier bundles a pre-0.7.0
+      archive.
 
 ## 9. Publication and acceptance
 
 - [ ] 9.1 Tag v0.7.0, notarize its macOS archives, and publish its Releases on
-      both peers and its Homebrew Cask; a byte scan of the six archives finds
-      no GitLab origin or project path.
+      both peers and its Homebrew Cask, after task 5.7; a deep scan of every
+      0.7.0 asset, nested archives included, finds no form of the private
+      peer's identity.
 - [ ] 9.2 Install 0.7.0 through Homebrew on this Mac and accept it:
       `aigw check --depth client` passes with the real clients, a Codex session
       started before the upgrade keeps its credential, a rollback to 0.6.1 and

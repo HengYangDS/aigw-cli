@@ -301,7 +301,8 @@ its models SHALL be dropped and reported.
 - **AND** each recommendation that named a `ucloud` model SHALL be dropped and
   reported
 - **AND** client configuration files that list `ucloud` models SHALL change in
-  the same transaction.
+  the same transaction
+- **AND** a configuration left with no model SHALL stay valid.
 
 #### Scenario: A client selects one of its models
 
