@@ -246,6 +246,52 @@ func TestUseSelectsOnlyItsClient(t *testing.T) {
 	}
 }
 
+// A selection enables its client, and the result says so when the client was
+// disabled, in a preview and once applied, in JSON and for a person; a client
+// that is enabled already is not reported.
+func TestUseSaysThatItEnablesADisabledClient(t *testing.T) {
+	runtime, cfg, out := configuredRuntime(t)
+	credentials := secret.NewMemoryStore()
+	if err := credentials.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	runtime.Secrets = credentials
+	cfg.SetClientActivation(codex.ID, false, "", nil)
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if preview := useDocument(t, runtime, codex.ID, "gateway/gpt-test", "--dry-run"); !preview.WasDisabled {
+		t.Fatalf("a preview that enables its client = %#v", preview)
+	}
+	if err := execute(runtime, codex.ID, "gateway/gpt-test", "--dry-run"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Was disabled; this selection enables it") {
+		t.Fatalf("human preview does not say that the selection enables Codex:\n%s", out)
+	}
+	if result := useDocument(t, runtime, codex.ID, "gateway/gpt-test"); !result.WasDisabled || !result.Changed {
+		t.Fatalf("a selection that enables its client = %#v", result)
+	}
+	if again := useDocument(t, runtime, codex.ID, "gateway/gpt-test"); again.WasDisabled || again.Changed {
+		t.Fatalf("a selection of an enabled client = %#v", again)
+	}
+	stored, err := runtime.Config.Load()
+	if err != nil || !stored.Clients[codex.ID].Enabled {
+		t.Fatalf("the selected client is not enabled: %#v, %v", stored.Clients[codex.ID], err)
+	}
+	stored.SetClientActivation(codex.ID, false, "", nil)
+	if err := runtime.Config.Save(stored); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if err := execute(runtime, codex.ID, "gateway/gpt-test"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Was disabled; now enabled") {
+		t.Fatalf("human result does not say that the selection enabled Codex:\n%s", out)
+	}
+}
+
 func TestUseRenderingDoesNotReinspectCredentialMetadata(t *testing.T) {
 	run, _, out := configuredRuntime(t)
 	reads, renderingReads := 0, 0

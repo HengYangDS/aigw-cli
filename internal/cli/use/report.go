@@ -40,6 +40,7 @@ type document struct {
 	Changed           bool                          `json:"changed"`
 	Client            string                        `json:"client"`
 	Model             string                        `json:"model"`
+	WasDisabled       bool                          `json:"was_disabled,omitempty"`
 	Added             bool                          `json:"added,omitempty"`
 	GainedProtocol    string                        `json:"gained_protocol,omitempty"`
 	CatalogChecked    *bool                         `json:"catalog_checked,omitempty"`
@@ -55,7 +56,7 @@ type document struct {
 	TokenMissing      bool                          `json:"token_missing,omitempty"`
 	TokenStored       bool                          `json:"token_stored,omitempty"`
 	ClientFiles       []invocation.ClientFile       `json:"client_files"`
-	OtherClients      []string                      `json:"other_clients,omitempty"`
+	OtherClients      []otherClientItem             `json:"other_clients,omitempty"`
 	ToolSearchOff     []toolSearchItem              `json:"tool_search_off,omitempty"`
 	CredentialReader  *app.CredentialEntrypointPlan `json:"credential_reader,omitempty"`
 	FilesDeferred     bool                          `json:"files_deferred,omitempty"`
@@ -68,6 +69,14 @@ type document struct {
 type retriesItem struct {
 	Request *uint64 `json:"request,omitempty"`
 	Stream  *uint64 `json:"stream,omitempty"`
+}
+
+// otherClientItem is another client whose files the selection changes, such
+// as one that lists a model that the selection adds, and whether it reads
+// them only when it starts.
+type otherClientItem struct {
+	Client          string `json:"client"`
+	RestartRequired bool   `json:"restart_required,omitempty"`
 }
 
 // toolSearchItem is a client whose host tool search the selection turns off,
@@ -132,6 +141,8 @@ func (o selectionOutcome) describe(runtime invocation.Context, dryRun bool) docu
 		DryRun: dryRun, Changed: o.changed, Client: client.ID, Model: o.choice.ref.String(), Label: o.selected.ModelLabel,
 		Provider: o.selected.ProviderID, Family: o.selected.FamilyID, Protocol: o.selected.Protocol.Name(),
 		Endpoint: o.selected.Endpoint, ProviderEndpoint: o.selected.UpstreamEndpoint,
+		// A selection enables its client, which the result says.
+		WasDisabled:       !previous.Enabled,
 		ForwardingCleared: previous.ForwardingEndpoint != "" && current.ForwardingEndpoint == "",
 		RetriesCleared:    previous.RetryPolicy != nil && current.RetryPolicy == nil,
 		TokenMissing:      dryRun && o.tokenMissing, TokenStored: o.tokenStored,
@@ -141,9 +152,11 @@ func (o selectionOutcome) describe(runtime invocation.Context, dryRun bool) docu
 		doc.Retries = &retriesItem{Request: policy.RequestMaxRetries, Stream: policy.StreamMaxRetries}
 	}
 	for _, plan := range o.preview.Plans() {
-		if plan.Client != client.ID && plan.ChangesState && !slices.Contains(doc.OtherClients, plan.Client) {
-			doc.OtherClients = append(doc.OtherClients, plan.Client)
+		if plan.Client == client.ID || !plan.ChangesState || slices.ContainsFunc(doc.OtherClients, func(item otherClientItem) bool { return item.Client == plan.Client }) {
+			continue
 		}
+		spec, _ := o.before.Admission().Spec(plan.Client)
+		doc.OtherClients = append(doc.OtherClients, otherClientItem{Client: plan.Client, RestartRequired: spec.RestartAfterProjection})
 	}
 	if o.choice.adds || o.choice.gains {
 		checked := o.catalogChecked
@@ -195,11 +208,26 @@ func (o selectionOutcome) next(doc document) string {
 		return line
 	case doc.FilesDeferred:
 		return clientactivation.ProjectionPrerequisites(o.after)[client.ID]
-	case doc.RestartRequired:
-		return fmt.Sprintf("Restart %s, then run `aigw check %s`", client.Label, client.ID)
-	default:
-		return "aigw check " + client.ID
 	}
+	if restart := o.restarts(doc); len(restart) > 0 {
+		return fmt.Sprintf("Restart %s, then run `aigw check %s`", o.labels(restart), client.ID)
+	}
+	return "aigw check " + client.ID
+}
+
+// restarts names, the selected client first, the clients whose changed files
+// take effect only once they start again.
+func (o selectionOutcome) restarts(doc document) []string {
+	var restart []string
+	if doc.RestartRequired {
+		restart = append(restart, doc.Client)
+	}
+	for _, other := range doc.OtherClients {
+		if other.RestartRequired {
+			restart = append(restart, other.Client)
+		}
+	}
+	return restart
 }
 
 // report writes the outcome as JSON or for a person.
@@ -250,6 +278,12 @@ func (o selectionOutcome) rows(doc document) []terminal.Field {
 		{Label: "Client", Value: client.Label},
 		{Label: "Model", Value: doc.Model},
 	}
+	switch {
+	case doc.WasDisabled && doc.DryRun:
+		rows = append(rows, terminal.Field{State: terminal.Info, Label: "Enabled", Value: "Was disabled; this selection enables it"})
+	case doc.WasDisabled:
+		rows = append(rows, terminal.Field{State: terminal.OK, Label: "Enabled", Value: "Was disabled; now enabled"})
+	}
 	if doc.Added {
 		rows = append(rows, terminal.Field{State: terminal.OK, Label: "Added", Value: "To provider " + doc.Provider + ", in family " + doc.Family + ", declaring no capability"})
 	}
@@ -290,8 +324,27 @@ func (o selectionOutcome) rows(doc document) []terminal.Field {
 	if client.SessionsKeepModel && o.filesChange(client.ID) {
 		rows = append(rows, terminal.Field{Label: "Existing sessions", Value: "Keep the model they started with; new sessions use this selection"})
 	}
+	return append(rows, o.otherClientRows(doc)...)
+}
+
+// otherClientRows name the other clients whose files the selection changes,
+// with the ones that need a restart to apply them, and each client whose host
+// tool search it turns off, with the models that turn it off.
+func (o selectionOutcome) otherClientRows(doc document) []terminal.Field {
+	var rows []terminal.Field
 	if len(doc.OtherClients) > 0 {
-		rows = append(rows, terminal.Field{Label: "Other clients", Value: o.labels(doc.OtherClients) + ": their files change too"})
+		var others, restart []string
+		for _, other := range doc.OtherClients {
+			others = append(others, other.Client)
+			if other.RestartRequired {
+				restart = append(restart, other.Client)
+			}
+		}
+		value := o.labels(others) + ": their files change too"
+		if len(restart) > 0 {
+			value += "; restart " + o.labels(restart) + " to apply them"
+		}
+		rows = append(rows, terminal.Field{Label: "Other clients", Value: value})
 	}
 	for _, item := range doc.ToolSearchOff {
 		models := make([]string, 0, len(item.Models))

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	goruntime "runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -228,20 +229,24 @@ func TestUseReadsTheCatalogWithTheTokenThatItAskedFor(t *testing.T) {
 	}
 }
 
-// desktopRuntime is an adding runtime in which Claude Desktop is installed and
-// uses gateway/claude-test, which declares tool_search, so that Desktop's tool
-// search is on.
+// desktopRuntime is an adding runtime in which Claude Code and Claude Desktop
+// are installed, and Desktop uses gateway/claude-test, which declares
+// tool_search, so that Desktop's tool search is on.
 func desktopRuntime(t *testing.T) (invocation.Context, domain.Config) {
 	t.Helper()
 	runtime, cfg := addingRuntime(t)
 	runtime.Executable = filepath.Join(t.TempDir(), "aigw")
-	executable := filepath.Join(t.TempDir(), "Claude")
-	if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
-		t.Fatal(err)
+	executables := map[string]string{claude.ID: filepath.Join(t.TempDir(), "claude"), claudedesktop.ID: filepath.Join(t.TempDir(), "Claude")}
+	for _, executable := range executables {
+		if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
+			t.Fatal(err)
+		}
 	}
+	home := t.TempDir()
+	runtime.Host = discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
 	library := filepath.Join(t.TempDir(), "Claude-3p", "configLibrary")
 	runtime.Discovery = staticDiscovery{result: discovery.Result{
-		Executables: map[string]string{claudedesktop.ID: executable},
+		Executables: executables,
 		Surfaces:    []discovery.Surface{{ID: "claude-desktop-config-library", ConfigPath: library, Present: true, AutoManaged: true}},
 	}}
 	cfg.Models["desktop"] = domain.Model{Label: "Desktop", Provider: "gateway", Family: "claude-test",
@@ -262,13 +267,15 @@ func desktopRuntime(t *testing.T) (invocation.Context, domain.Config) {
 // A model that use adds for Claude Code is listed in Claude Desktop's profile
 // too, so Desktop's file changes and its tool search, which every listed
 // model declared, is off; the result names both, with the command that
-// declares the capability.
+// declares the capability, and restarting Desktop, which reads its files only
+// when it starts, as the next step.
 func TestUseReportsOtherClientsAndALostToolSearch(t *testing.T) {
 	runtime, _ := desktopRuntime(t)
 	runtime.HTTP = catalogServer(t, nil, "claude-test", "claude-fresh")
 	result := useDocument(t, runtime, claude.ID, "gateway/claude-fresh")
 	want := []toolSearchItem{{Client: claudedesktop.ID, Models: []toolSearchModel{{Model: "gateway/claude-fresh", Fix: "aigw model edit gateway/claude-fresh --capability tool_search"}}}}
-	if !slices.Equal(result.OtherClients, []string{claudedesktop.ID}) || !reflect.DeepEqual(result.ToolSearchOff, want) {
+	if !reflect.DeepEqual(result.OtherClients, []otherClientItem{{Client: claudedesktop.ID, RestartRequired: true}}) || !reflect.DeepEqual(result.ToolSearchOff, want) ||
+		result.RestartRequired || result.NextDetail != "Restart Claude Desktop, then run `aigw check claude`" {
 		t.Fatalf("other clients and tool search = %#v", result)
 	}
 	out := &bytes.Buffer{}
@@ -277,10 +284,15 @@ func TestUseReportsOtherClientsAndALostToolSearch(t *testing.T) {
 	if err := execute(runtime, claude.ID, "gateway/claude-third"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Other clients", "Claude Desktop: their files change too"} {
+	for _, want := range []string{"Other clients", "Claude Desktop: their files change too; restart Claude Desktop to apply them",
+		"Restart Claude Desktop, then run `aigw check claude`"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("human result lacks %q:\n%s", want, out.String())
 		}
+	}
+	// A selection that changes no other client's files names no restart.
+	if again := useDocument(t, runtime, claude.ID, "gateway/claude-third"); again.OtherClients != nil || again.NextAction != "aigw check claude" {
+		t.Fatalf("an unchanged selection = %#v", again)
 	}
 }
 
@@ -342,7 +354,8 @@ func TestUseNamesEachListedModelThatTurnsToolSearchOff(t *testing.T) {
 		t.Fatalf("tool search off = %#v, want %#v", result.ToolSearchOff, want)
 	}
 	runtime.HTTP = catalogServer(t, nil, "first-model", "second-model", "third-model")
-	if already := useDocument(t, runtime, claude.ID, "other/third-model"); already.ToolSearchOff != nil || !slices.Equal(already.OtherClients, []string{claudedesktop.ID}) {
+	if already := useDocument(t, runtime, claude.ID, "other/third-model"); already.ToolSearchOff != nil ||
+		!reflect.DeepEqual(already.OtherClients, []otherClientItem{{Client: claudedesktop.ID, RestartRequired: true}}) {
 		t.Fatalf("a tool search that was already off was reported: %#v", already)
 	}
 }
