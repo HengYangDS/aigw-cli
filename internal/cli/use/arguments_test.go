@@ -10,8 +10,9 @@ import (
 
 // Without a terminal, or with --json, a missing argument is refused and
 // named, never asked for; an unknown client, a model argument without a
-// provider and an unknown provider are refused with what they could mean,
-// before any Token is read.
+// provider, a lone argument that names a model ID and no client, and an
+// unknown provider are refused with what they could mean, before any Token is
+// read.
 func TestUseRefusesArgumentsBeforeAnyChange(t *testing.T) {
 	runtime, _, _ := configuredRuntime(t)
 	runtime.Secrets = credentialFreeStore{}
@@ -31,6 +32,9 @@ func TestUseRefusesArgumentsBeforeAnyChange(t *testing.T) {
 		{"a malformed model", true, []string{codex.ID, "/gpt-test"}, "has an empty provider or model ID", "aigw use --help"},
 		{"a model without a provider", false, []string{codex.ID, "gpt-test"}, `"gpt-test" names no provider; it could mean gateway/gpt-test`, "aigw model list gpt-test"},
 		{"an unknown provider", false, []string{codex.ID, "gatewy/gpt-test"}, `unknown provider "gatewy"; did you mean gateway?`, "aigw provider list"},
+		{"a lone model ID", false, []string{"gpt-test"}, `"gpt-test" names no client or provider; it could mean gateway/gpt-test`, "aigw model list gpt-test"},
+		{"a lone misspelled model ID", true, []string{"gpt-tset", "--json"}, `"gpt-tset" names no client or provider; it could mean gateway/gpt-test`, "aigw model list gpt-test"},
+		{"a lone unknown client", true, []string{"codx"}, `unknown client "codx"; did you mean codex?`, "aigw client list"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime.Interactive = test.interactive

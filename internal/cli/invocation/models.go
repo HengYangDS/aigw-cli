@@ -183,6 +183,40 @@ func ResolveClient(admission domain.Admission, id string) (domain.ClientSpec, er
 	return domain.ClientSpec{}, refusal{message: message, fix: "aigw client list"}
 }
 
+// ResolveClientOrModel returns the admitted client with id, an argument
+// without a slash that a command taking a client or a model may have been
+// given for a model. One that names no client but is close to the model IDs
+// of added models is refused with their provider/model names, closest first,
+// and with the list of those models as its fix; any other unknown one is
+// refused as a client, as ResolveClient refuses it.
+func ResolveClientOrModel(cfg domain.Config, admission domain.Admission, id string) (domain.ClientSpec, error) {
+	if spec, admitted := admission.Spec(id); admitted {
+		return spec, nil
+	}
+	keys := cfg.CatalogModelIDs()
+	ids := make([]string, 0, len(keys))
+	for _, key := range keys {
+		ids = append(ids, cfg.Models[key].UpstreamModelID())
+	}
+	closest := closestMatches(id, slices.Compact(slices.Sorted(slices.Values(ids))))
+	if len(closest) == 0 {
+		return ResolveClient(admission, id)
+	}
+	var names []string
+	for _, near := range closest {
+		for _, key := range keys {
+			if name := cfg.Models[key].Ref().String(); cfg.Models[key].UpstreamModelID() == near && !slices.Contains(names, name) {
+				names = append(names, name)
+			}
+		}
+	}
+	fix := "aigw model list"
+	if len(closest) == 1 && plain(closest[0]) {
+		fix += " " + closest[0]
+	}
+	return domain.ClientSpec{}, refusal{message: fmt.Sprintf("%q names no client or provider; it could mean %s", id, strings.Join(names, ", ")), fix: fix}
+}
+
 // closestText is the refusal text that names the closest of candidates to
 // typed, each with prefix, or nothing when none is close.
 func closestText(typed string, candidates []string, prefix string) string {

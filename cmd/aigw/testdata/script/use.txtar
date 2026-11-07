@@ -5,9 +5,9 @@
 # it loses both, and the result says so. A model on several protocols that a
 # client speaks needs --protocol without a terminal, and a provider without a
 # Token is previewed as missing and refused without a terminal, naming the
-# step that stores it from standard input. A missing
-# argument, an unknown client or model, a model without a provider and an old
-# protocol spelling are refused before anything is read.
+# step that stores it from standard input. A missing argument, an unknown
+# client or model, a model without a provider, a lone model ID and an old
+# protocol spelling are refused before any Token is read.
 exec aigw use --help
 cmp stdout help.txt
 
@@ -116,6 +116,8 @@ exitcode 1 aigw use claud team/team-model --json
 cmp stdout unknown-client.json
 exitcode 1 aigw use claude team-model --json
 cmp stdout no-provider.json
+exitcode 1 aigw use team-model --json
+cmp stdout no-client.json
 exitcode 1 aigw use claude team/missing-model --json
 cmp stdout unknown-model.json
 exitcode 1 aigw use claude team/team-model --protocol openai_responses
@@ -339,6 +341,13 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "\"team-model\" names no provider; it could mean other/team-model, team/team-model",
+  "next_action": "aigw model list team-model"
+}
+-- no-client.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "\"team-model\" names no client or provider; it could mean other/team-model, team/team-model",
   "next_action": "aigw model list team-model"
 }
 -- unknown-model.json --
