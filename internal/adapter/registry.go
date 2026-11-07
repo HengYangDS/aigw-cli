@@ -125,9 +125,18 @@ type HostValidator interface {
 
 // ToolSearcher is implemented by an adapter whose client enables a host tool
 // search only while every model that its configuration lists declares the
-// capability: it reports whether cfg enables it.
+// capability: it reports whether cfg enables it, and the keys of the listed
+// models that do not declare it.
 type ToolSearcher interface {
-	ToolSearch(cfg domain.Config) bool
+	ToolSearch(cfg domain.Config) (enabled bool, lacking []string)
+}
+
+// ToolSearchLoss is a client whose host tool search a change turns off, and
+// the keys of the models that the client lists afterwards without the
+// capability, in its list's order.
+type ToolSearchLoss struct {
+	Client string
+	Models []string
 }
 
 // Registry is the sole ordered operational registry for admitted clients.
@@ -368,13 +377,21 @@ func (registry Registry) ValidateHost(host discovery.Host) error {
 	return nil
 }
 
-// ToolSearchLost returns, in admission order, the clients whose host tool
-// search before enables and after does not.
-func (registry Registry) ToolSearchLost(before, after domain.Config) []string {
-	var lost []string
+// ToolSearchLost returns, in admission order, each client whose host tool
+// search before enables and after does not, with the models that turn it off.
+// A search that before already leaves off is not lost by the change.
+func (registry Registry) ToolSearchLost(before, after domain.Config) []ToolSearchLoss {
+	var lost []ToolSearchLoss
 	for _, id := range registry.ids {
-		if searcher, searches := registry.byID[id].(ToolSearcher); searches && searcher.ToolSearch(before) && !searcher.ToolSearch(after) {
-			lost = append(lost, id)
+		searcher, searches := registry.byID[id].(ToolSearcher)
+		if !searches {
+			continue
+		}
+		if enabled, _ := searcher.ToolSearch(before); !enabled {
+			continue
+		}
+		if enabled, lacking := searcher.ToolSearch(after); !enabled {
+			lost = append(lost, ToolSearchLoss{Client: id, Models: lacking})
 		}
 	}
 	return lost

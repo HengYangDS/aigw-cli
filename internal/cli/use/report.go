@@ -53,8 +53,7 @@ type document struct {
 	TokenStored       bool                          `json:"token_stored,omitempty"`
 	ClientFiles       []invocation.ClientFile       `json:"client_files"`
 	OtherClients      []string                      `json:"other_clients,omitempty"`
-	ToolSearchOff     []string                      `json:"tool_search_off,omitempty"`
-	ToolSearchFix     string                        `json:"tool_search_fix,omitempty"`
+	ToolSearchOff     []toolSearchItem              `json:"tool_search_off,omitempty"`
 	CredentialReader  *app.CredentialEntrypointPlan `json:"credential_reader,omitempty"`
 	FilesDeferred     bool                          `json:"files_deferred,omitempty"`
 	RestartRequired   bool                          `json:"restart_required,omitempty"`
@@ -66,6 +65,60 @@ type document struct {
 type retriesItem struct {
 	Request *uint64 `json:"request,omitempty"`
 	Stream  *uint64 `json:"stream,omitempty"`
+}
+
+// toolSearchItem is a client whose host tool search the selection turns off,
+// with each model that the client then lists without tool_search.
+type toolSearchItem struct {
+	Client string            `json:"client"`
+	Models []toolSearchModel `json:"models"`
+}
+
+// toolSearchModel is a listed model without tool_search, and the command
+// that declares it once the model is qualified, keeping the capabilities that
+// the model already declares.
+type toolSearchModel struct {
+	Model string `json:"model"`
+	Fix   string `json:"fix"`
+}
+
+// toolSearchItems names, for each client whose host tool search the
+// selection turns off, the models that it lists without tool_search after
+// the selection. A search that was off before is readiness's to report.
+func (o selectionOutcome) toolSearchItems(runtime invocation.Context) []toolSearchItem {
+	var items []toolSearchItem
+	for _, loss := range runtime.Clients.ToolSearchLost(o.before, o.after) {
+		item := toolSearchItem{Client: loss.Client, Models: make([]toolSearchModel, 0, len(loss.Models))}
+		for _, key := range loss.Models {
+			item.Models = append(item.Models, toolSearchModel{Model: o.after.Models[key].Ref().String(), Fix: toolSearchFix(o.after.Models[key])})
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
+// toolSearchFix is the command that declares tool_search on model. The
+// capabilities that it gives replace the model's, so it repeats every
+// capability that the model declares on any protocol, and each protocol keeps
+// what it declares. A model name that would need quoting makes it prose.
+func toolSearchFix(model domain.Model) string {
+	declared := map[domain.Capability]bool{domain.CapabilityToolSearch: true}
+	for _, capabilities := range model.Protocols {
+		for _, capability := range capabilities {
+			declared[capability] = true
+		}
+	}
+	var flags []string
+	for _, capability := range domain.Capabilities() {
+		if declared[capability] {
+			flags = append(flags, "--capability", string(capability))
+		}
+	}
+	name := model.Ref().String()
+	if line := invocation.Command("model", "edit", name); line != "" {
+		return line + " " + strings.Join(flags, " ")
+	}
+	return "Run aigw model edit for " + name + " with " + strings.Join(flags, " ") + "."
 }
 
 // describe reports the outcome as the document does.
@@ -95,13 +148,11 @@ func (o selectionOutcome) describe(runtime invocation.Context, dryRun bool) docu
 		if o.choice.gains {
 			doc.GainedProtocol = o.choice.protocol.Name()
 		}
-		// What the selection adds declares no capability, which turns off a
-		// host tool search that needs every listed model to declare it.
-		if lost := runtime.Clients.ToolSearchLost(o.before, o.after); len(lost) > 0 {
-			doc.ToolSearchOff = lost
-			doc.ToolSearchFix = "aigw model edit " + doc.Model + " --capability tool_search"
-		}
 	}
+	// A model that the selection adds, gives a protocol or selects can declare
+	// no tool_search, which turns off a host tool search that needs every
+	// listed model to declare it.
+	doc.ToolSearchOff = o.toolSearchItems(runtime)
 	if clientactivation.ProjectionPrerequisites(o.after)[client.ID] != "" {
 		doc.FilesDeferred = true
 	} else {
@@ -157,6 +208,7 @@ func (o selectionOutcome) report(runtime invocation.Context, options options) er
 	r.ProductTitle(o.title(doc))
 	r.Rows(o.rows(doc)...)
 	invocation.RenderClientFiles(r, runtime, doc.ClientFiles)
+	renderToolSearchFixes(r, doc.ToolSearchOff)
 	if reader := doc.CredentialReader; reader != nil {
 		r.Section("Credential reader")
 		r.Text("Install " + reader.Path)
@@ -234,11 +286,41 @@ func (o selectionOutcome) rows(doc document) []terminal.Field {
 	if len(doc.OtherClients) > 0 {
 		rows = append(rows, terminal.Field{Label: "Other clients", Value: o.labels(doc.OtherClients) + ": their files change too"})
 	}
-	if len(doc.ToolSearchOff) > 0 {
-		rows = append(rows, terminal.Field{State: terminal.Warn, Label: "Tool search", Value: "Off in " + o.labels(doc.ToolSearchOff) + ", because " + doc.Model +
-			" declares no tool_search; once it is qualified, `" + doc.ToolSearchFix + "` declares it"})
+	for _, item := range doc.ToolSearchOff {
+		models := make([]string, 0, len(item.Models))
+		for _, model := range item.Models {
+			models = append(models, model.Model)
+		}
+		verb := " declares"
+		if len(models) > 1 {
+			verb = " declare"
+		}
+		rows = append(rows, terminal.Field{State: terminal.Warn, Label: "Tool search", Value: "Off in " + o.labels([]string{item.Client}) + ", because " +
+			prose(models) + verb + " no tool_search"})
 	}
 	return rows
+}
+
+// renderToolSearchFixes names the command that declares tool_search on each
+// model that turns a host tool search off, once a model is qualified, and
+// says that it keeps the model's other capabilities.
+func renderToolSearchFixes(r *terminal.Renderer, items []toolSearchItem) {
+	var fixes []string
+	for _, item := range items {
+		for _, model := range item.Models {
+			if !slices.Contains(fixes, model.Fix) {
+				fixes = append(fixes, model.Fix)
+			}
+		}
+	}
+	if len(fixes) == 0 {
+		return
+	}
+	r.Section("Tool search")
+	r.Text("Once a model is qualified, its command declares tool_search and keeps its other capabilities:")
+	for _, fix := range fixes {
+		r.Command(fix)
+	}
 }
 
 // catalogRow says whether the provider's catalog lists a model that the
@@ -260,11 +342,18 @@ func (o selectionOutcome) labels(clients []string) string {
 	for _, client := range clients {
 		labels = append(labels, o.before.Admission().Label(client))
 	}
-	switch len(labels) {
+	return prose(labels)
+}
+
+// prose joins items into a list for a sentence: "a", "a and b", "a, b and c".
+func prose(items []string) string {
+	switch len(items) {
+	case 0:
+		return ""
 	case 1:
-		return labels[0]
+		return items[0]
 	default:
-		return strings.Join(labels[:len(labels)-1], ", ") + " and " + labels[len(labels)-1]
+		return strings.Join(items[:len(items)-1], ", ") + " and " + items[len(items)-1]
 	}
 }
 

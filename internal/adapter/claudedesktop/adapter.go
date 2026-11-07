@@ -270,24 +270,36 @@ func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {
 
 // ToolSearch reports whether cfg enables Claude Desktop's host tool search:
 // Desktop is enabled with a selection, and every model that its profile lists
-// declares tool_search on the selected protocol.
-func (claudeDesktopAdapter) ToolSearch(cfg domain.Config) bool {
+// declares tool_search on the selected protocol. It names the listed models
+// that do not; a disabled Desktop, or one without a selection, lists none.
+func (claudeDesktopAdapter) ToolSearch(cfg domain.Config) (bool, []string) {
 	if !cfg.Clients[ID].Enabled {
-		return false
+		return false, nil
 	}
 	selected, err := cfg.ResolveRuntime(ID, "")
-	return err == nil && claudeDesktopToolSearch(cfg, selected)
+	if err != nil {
+		return false, nil
+	}
+	lacking := claudeDesktopLackingToolSearch(cfg, selected)
+	return len(lacking) == 0, lacking
 }
 
 // claudeDesktopToolSearch enables Desktop's profile-wide host tool search only
 // when every exposed Route qualified it on the selected protocol.
 func claudeDesktopToolSearch(cfg domain.Config, selected domain.Runtime) bool {
+	return len(claudeDesktopLackingToolSearch(cfg, selected)) == 0
+}
+
+// claudeDesktopLackingToolSearch returns, in the profile's order, the exposed
+// Routes that did not qualify tool search on the selected protocol.
+func claudeDesktopLackingToolSearch(cfg domain.Config, selected domain.Runtime) []string {
+	var lacking []string
 	for _, routeID := range claudeDesktopModelIDs(cfg, selected) {
 		if !cfg.Models[routeID].Declares(selected.Protocol, domain.CapabilityToolSearch) {
-			return false
+			lacking = append(lacking, routeID)
 		}
 	}
-	return true
+	return lacking
 }
 
 func claudeDesktopTarget(current []string, discovered discovery.Result) string {

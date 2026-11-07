@@ -2,6 +2,7 @@ package claudedesktop
 
 import (
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -51,7 +52,8 @@ func applyProjection(t *testing.T, paths Paths, desired Desired) {
 // Desktop's tool search is on while every model that its profile lists
 // declares it, and a model of the selected provider and protocol that
 // declares nothing, as aigw use adds one, turns it off, which the registry
-// reports as lost; a disabled Desktop has none to lose.
+// reports as lost with that model; a search that was already off, and a
+// disabled Desktop, have none to lose.
 func TestRegistryReportsALostToolSearch(t *testing.T) {
 	fixture := newClaudeDesktopFixture(t)
 	declareToolSearch(fixture.cfg, "selected", "alternate", "manual")
@@ -59,22 +61,33 @@ func TestRegistryReportsALostToolSearch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !(claudeDesktopAdapter{}).ToolSearch(fixture.cfg) {
-		t.Fatal("tool search is off although every listed model declares it")
+	if enabled, lacking := (claudeDesktopAdapter{}).ToolSearch(fixture.cfg); !enabled || len(lacking) != 0 {
+		t.Fatalf("tool search = %t, lacking %q, although every listed model declares it", enabled, lacking)
 	}
 	added := fixture.cfg.Clone()
 	added.Families["fresh"] = domain.Family{Label: "fresh"}
 	added.Models["fresh"] = domain.Model{Provider: added.Models["selected"].Provider, Family: "fresh", UpstreamModel: "fresh",
 		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
-	if lost := registry.ToolSearchLost(fixture.cfg, added); !slices.Equal(lost, []string{ID}) {
-		t.Fatalf("lost tool search = %q", lost)
+	want := []adapter.ToolSearchLoss{{Client: ID, Models: []string{"fresh"}}}
+	if lost := registry.ToolSearchLost(fixture.cfg, added); !reflect.DeepEqual(lost, want) {
+		t.Fatalf("lost tool search = %#v, want %#v", lost, want)
 	}
 	if lost := registry.ToolSearchLost(added, fixture.cfg); len(lost) != 0 {
-		t.Fatalf("a regained tool search was reported lost: %q", lost)
+		t.Fatalf("a regained tool search was reported lost: %#v", lost)
+	}
+	twice := added.Clone()
+	twice.Families["second"] = domain.Family{Label: "second"}
+	twice.Models["second"] = domain.Model{Provider: added.Models["selected"].Provider, Family: "second", UpstreamModel: "second",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	if lost := registry.ToolSearchLost(added, twice); len(lost) != 0 {
+		t.Fatalf("a tool search that was already off was reported lost: %#v", lost)
+	}
+	if enabled, lacking := (claudeDesktopAdapter{}).ToolSearch(twice); enabled || !slices.Equal(lacking, []string{"fresh", "second"}) {
+		t.Fatalf("tool search = %t, lacking %q, want off for fresh and second", enabled, lacking)
 	}
 	disabled := fixture.cfg.Clone()
 	disabled.SetClientActivation(ID, false, "", nil)
-	if (claudeDesktopAdapter{}).ToolSearch(disabled) {
-		t.Fatal("a disabled Desktop reported tool search")
+	if enabled, lacking := (claudeDesktopAdapter{}).ToolSearch(disabled); enabled || len(lacking) != 0 {
+		t.Fatalf("a disabled Desktop reported tool search %t, lacking %q", enabled, lacking)
 	}
 }

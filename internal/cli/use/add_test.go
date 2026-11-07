@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -206,11 +207,11 @@ func TestUseReadsTheCatalogWithTheTokenThatItAskedFor(t *testing.T) {
 	}
 }
 
-// A model that use adds for Claude Code is listed in Claude Desktop's profile
-// too, so Desktop's file changes and its tool search, which every listed
-// model declared, is off; the result names both, with the command that
-// declares the capability.
-func TestUseReportsOtherClientsAndALostToolSearch(t *testing.T) {
+// desktopRuntime is an adding runtime in which Claude Desktop is installed and
+// uses gateway/claude-test, which declares tool_search, so that Desktop's tool
+// search is on.
+func desktopRuntime(t *testing.T) (invocation.Context, domain.Config) {
+	t.Helper()
 	runtime, cfg := addingRuntime(t)
 	runtime.Executable = filepath.Join(t.TempDir(), "aigw")
 	executable := filepath.Join(t.TempDir(), "Claude")
@@ -230,10 +231,23 @@ func TestUseReportsOtherClientsAndALostToolSearch(t *testing.T) {
 	if err := execute(runtime, claudedesktop.ID, "gateway/claude-test"); err != nil {
 		t.Fatal(err)
 	}
+	cfg, err := runtime.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return runtime, cfg
+}
+
+// A model that use adds for Claude Code is listed in Claude Desktop's profile
+// too, so Desktop's file changes and its tool search, which every listed
+// model declared, is off; the result names both, with the command that
+// declares the capability.
+func TestUseReportsOtherClientsAndALostToolSearch(t *testing.T) {
+	runtime, _ := desktopRuntime(t)
 	runtime.HTTP = catalogServer(t, nil, "claude-test", "claude-fresh")
 	result := useDocument(t, runtime, claude.ID, "gateway/claude-fresh")
-	if !slices.Equal(result.OtherClients, []string{claudedesktop.ID}) || !slices.Equal(result.ToolSearchOff, []string{claudedesktop.ID}) ||
-		result.ToolSearchFix != "aigw model edit gateway/claude-fresh --capability tool_search" {
+	want := []toolSearchItem{{Client: claudedesktop.ID, Models: []toolSearchModel{{Model: "gateway/claude-fresh", Fix: "aigw model edit gateway/claude-fresh --capability tool_search"}}}}
+	if !slices.Equal(result.OtherClients, []string{claudedesktop.ID}) || !reflect.DeepEqual(result.ToolSearchOff, want) {
 		t.Fatalf("other clients and tool search = %#v", result)
 	}
 	out := &bytes.Buffer{}
@@ -246,5 +260,68 @@ func TestUseReportsOtherClientsAndALostToolSearch(t *testing.T) {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("human result lacks %q:\n%s", want, out.String())
 		}
+	}
+}
+
+// The command that declares tool_search repeats every capability that the
+// model declares, because the capabilities that model edit gives replace the
+// model's: a model that declares text and tools on OpenAI Responses and gains
+// Anthropic Messages keeps both, and the result says so.
+func TestUseNamesAToolSearchFixThatKeepsTheModelsCapabilities(t *testing.T) {
+	runtime, cfg := desktopRuntime(t)
+	cfg.Models["minimax"] = domain.Model{Provider: "gateway", Family: "minimax-m3", UpstreamModel: "MiniMax-M3",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {domain.CapabilityText, domain.CapabilityTools}}}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	runtime.HTTP = catalogServer(t, nil, "claude-test", "MiniMax-M3")
+	fix := "aigw model edit gateway/MiniMax-M3 --capability text --capability tools --capability tool_search"
+	out := &bytes.Buffer{}
+	runtime.Out = out
+	if err := execute(runtime, claude.ID, "gateway/MiniMax-M3", "--dry-run"); err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{"Off in Claude Desktop, because gateway/MiniMax-M3 declares no tool_search", "keeps its other capabilities", fix} {
+		if !strings.Contains(out.String(), line) {
+			t.Fatalf("human preview lacks %q:\n%s", line, out.String())
+		}
+	}
+	result := useDocument(t, runtime, claude.ID, "gateway/MiniMax-M3")
+	want := []toolSearchItem{{Client: claudedesktop.ID, Models: []toolSearchModel{{Model: "gateway/MiniMax-M3", Fix: fix}}}}
+	if result.GainedProtocol != "anthropic" || !reflect.DeepEqual(result.ToolSearchOff, want) {
+		t.Fatalf("a gained protocol that turns tool search off = %#v", result)
+	}
+}
+
+// Selecting a model for Claude Desktop whose provider's models declare no
+// tool_search turns Desktop's tool search off, and the result names each
+// model that Desktop then lists, each with its own command. A selection that
+// changes nothing that Desktop lists reports no loss, and neither does one
+// while Desktop's tool search is already off.
+func TestUseNamesEachListedModelThatTurnsToolSearchOff(t *testing.T) {
+	runtime, cfg := desktopRuntime(t)
+	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{Anthropic: "https://other.example.test"}}
+	cfg.Models["first"] = domain.Model{Provider: "other", Family: "first-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {domain.CapabilityTools}}}
+	cfg.Models["second"] = domain.Model{Provider: "other", Family: "second-model", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := runtime.Secrets.Set("other", "token"); err != nil {
+		t.Fatal(err)
+	}
+	if unchanged := useDocument(t, runtime, codex.ID, "gateway/gpt-test"); unchanged.ToolSearchOff != nil {
+		t.Fatalf("a selection that Desktop does not list turned its tool search off: %#v", unchanged.ToolSearchOff)
+	}
+	result := useDocument(t, runtime, claudedesktop.ID, "other/first-model")
+	want := []toolSearchItem{{Client: claudedesktop.ID, Models: []toolSearchModel{
+		{Model: "other/first-model", Fix: "aigw model edit other/first-model --capability tools --capability tool_search"},
+		{Model: "other/second-model", Fix: "aigw model edit other/second-model --capability tool_search"},
+	}}}
+	if !reflect.DeepEqual(result.ToolSearchOff, want) {
+		t.Fatalf("tool search off = %#v, want %#v", result.ToolSearchOff, want)
+	}
+	runtime.HTTP = catalogServer(t, nil, "first-model", "second-model", "third-model")
+	if already := useDocument(t, runtime, claude.ID, "other/third-model"); already.ToolSearchOff != nil || !slices.Equal(already.OtherClients, []string{claudedesktop.ID}) {
+		t.Fatalf("a tool search that was already off was reported: %#v", already)
 	}
 }
