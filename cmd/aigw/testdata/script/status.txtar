@@ -23,6 +23,16 @@ cmp stdout connected.json
 exec aigw status
 cmp stdout connected.txt
 
+# A disabled client keeps its selection but names no step of its own, so the
+# status names the step that the enabled client needs, also after a sync,
+# which skips a disabled client.
+exec aigw client disable codex
+exec aigw status --json
+cmp stdout disabled.json
+exec aigw sync
+exec aigw status
+cmp stdout disabled.txt
+
 [darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/config.toml
 [!darwin] cp broken.toml $HOME/aigw/config.toml
 exitcode 1 aigw status
@@ -191,6 +201,86 @@ Optional diagnostics
 
 Next
   Install Codex if needed, then run `aigw sync`
+-- disabled.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "clients": {
+    "claude": {
+      "state": "configured",
+      "model": "team/team-model",
+      "provider": "team",
+      "authentication": "account-token",
+      "endpoint_configured": true,
+      "transport": "external_loopback",
+      "client_files_ready": true
+    },
+    "claude-desktop": {
+      "state": "deferred",
+      "detail": "No model is selected",
+      "authentication": "",
+      "endpoint_configured": false,
+      "client_files_ready": false,
+      "qualified_modes": [
+        "chat",
+        "cowork",
+        "code"
+      ],
+      "qualified_platforms": [
+        "macos"
+      ]
+    },
+    "codex": {
+      "state": "deferred",
+      "model": "team/team-model",
+      "provider": "team",
+      "detail": "The client is not installed or enabled",
+      "authentication": "account-token",
+      "endpoint_configured": true,
+      "transport": "external_loopback",
+      "client_files_ready": false
+    },
+    "hermes": {
+      "state": "deferred",
+      "detail": "No model is selected",
+      "authentication": "",
+      "endpoint_configured": false,
+      "client_files_ready": false
+    }
+  },
+  "models": 1,
+  "enabled_clients": 1,
+  "next_action": "aigw check"
+}
+-- disabled.txt --
+AIGW  Configuration status
+────────────────────────────────────────
+  Each client's model and readiness, and the smallest next action.
+
+Clients
+  · Claude             team/team-model · Configured
+  · Claude Desktop     No model selected · Qualified: Chat, Cowork, Code · macOS
+  · Codex              team/team-model · Deferred · The client is not installed or enabled
+  · Hermes             No model selected
+
+Transport
+  · Claude             Loopback endpoint
+  · Codex              Loopback endpoint
+    Endpoint runtime identity and availability are not inferred from the address
+    AIGW does not start, stop, or configure the endpoint runtime
+
+Optional diagnostics
+  · team               Provider does not expose a balance probe
+
+Next
+  aigw check
 -- refusal.txt --
 AIGW  Action required
 ────────────────────────────────────────

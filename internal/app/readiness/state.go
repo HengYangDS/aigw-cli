@@ -125,12 +125,12 @@ func ClassifyClient(facts ClientFacts) Client {
 			state.NextAction = "aigw sync"
 		}
 	case !facts.ProjectionEnabled:
+		// A disabled client names no step of its own, so it cannot change
+		// the step that the enabled clients need: sync skips it, and only
+		// an explicit selection turns it on again, which activation names
+		// when no client is enabled.
 		state.State = Deferred
 		state.Detail = "The client is not installed or enabled"
-		state.NextAction = facts.ProjectionAction
-		if state.NextAction == "" {
-			state.NextAction = "aigw sync"
-		}
 	default:
 		state.State = Configured
 	}

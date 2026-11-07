@@ -238,7 +238,6 @@ func TestStatusReportsModelTransport(t *testing.T) {
 				"model":               json.RawMessage(`"team/model-test"`),
 				"provider":            json.RawMessage(`"team"`),
 				"detail":              json.RawMessage(`"The client is not installed or enabled"`),
-				"next_action":         json.RawMessage(`"aigw use --for codex team"`),
 				"authentication":      json.RawMessage(`"account-token"`),
 				"endpoint_configured": json.RawMessage(`true`),
 				"client_files_ready":  json.RawMessage(`false`),

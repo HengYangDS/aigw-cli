@@ -39,27 +39,25 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			wantAction: CredentialBackendRecovery,
 		},
 		{
-			name: "client is intentionally absent",
+			name: "a disabled client names no step of its own",
 			facts: ClientFacts{
 				Model:               "claude",
 				Provider:            "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
 			},
-			wantState:  Deferred,
-			wantAction: "aigw sync",
+			wantState: Deferred,
 		},
 		{
-			name: "selected inactive client retains its activation prerequisite",
+			name: "a disabled client leaves its activation step to activation",
 			facts: ClientFacts{
 				Model:               "codex",
 				Provider:            "team",
 				CredentialRequired:  true,
 				CredentialAvailable: true,
-				ProjectionAction:    "Install Codex if needed, then run `aigw sync`",
+				ProjectionAction:    "aigw sync",
 			},
-			wantState:  Deferred,
-			wantAction: "Install Codex if needed, then run `aigw sync`",
+			wantState: Deferred,
 		},
 		{
 			name: "selected client projection is deferred",

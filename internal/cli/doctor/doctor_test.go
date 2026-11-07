@@ -306,7 +306,8 @@ func TestClaudeExecutableReadFailuresAreDiagnostic(t *testing.T) {
 }
 
 // Claude Code is enabled with its projection in place and Codex is selected
-// but not enabled, so doctor passes and names the Codex step that remains.
+// but not enabled, so doctor passes: a disabled client names no step of its
+// own, which sync could not take anyway.
 func TestCommandHumanAndJSONPaths(t *testing.T) {
 	cfg := validDoctorConfig()
 	cfg.SetClientActivation(claude.ID, true, filepath.Join(t.TempDir(), "claude"), nil)
@@ -316,11 +317,11 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	result := executeJSON(t, NewCommand(deps), out)
-	if !result.OK || !allOK(result.Checks) || result.NextAction != "aigw sync" {
+	if !result.OK || !allOK(result.Checks) || result.NextAction != "" {
 		t.Fatalf("result = %#v", result)
 	}
 	if result.Clients[claude.ID].State != domainreadiness.Configured || result.Clients[claude.ID].Model != "claude" || result.Clients[claude.ID].Provider != "team" ||
-		result.Clients[codex.ID].State != domainreadiness.Deferred || result.Clients[codex.ID].NextAction != "aigw sync" {
+		result.Clients[codex.ID].State != domainreadiness.Deferred || result.Clients[codex.ID].NextAction != "" {
 		t.Fatalf("canonical clients = %#v", result.Clients)
 	}
 
@@ -329,7 +330,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	if err := executeDoctorCommand(cmd); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Selected client work remains") || !strings.Contains(out.String(), "Local diagnostics passed") {
+	if !strings.Contains(out.String(), "No problems found") || strings.Contains(out.String(), "Next") {
 		t.Fatalf("human output = %s", out.String())
 	}
 
@@ -348,7 +349,7 @@ func TestCommandHumanAndJSONPaths(t *testing.T) {
 	if err := executeDoctorCommand(NewCommand(deps)); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Selected client work remains") ||
+	if !strings.Contains(out.String(), "No problems found") ||
 		!strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Configured") ||
 		!strings.Contains(out.String(), "Codex") || !strings.Contains(out.String(), "Deferred") {
 		t.Fatalf("out=%q", out.String())
