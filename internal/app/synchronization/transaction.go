@@ -7,6 +7,7 @@ import (
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
@@ -97,7 +98,7 @@ func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, s
 		projectionErr := receipt.Rollback()
 		configErr := s.Config.RestoreSnapshot(configBefore, configAfter)
 		if projectionErr != nil {
-			projectionErr = fmt.Errorf("%w: %w", adapter.ErrProjectionRollbackFailed, projectionErr)
+			projectionErr = platform.FailedUndo("restoring the client files", fmt.Errorf("%w: %w", adapter.ErrProjectionRollbackFailed, projectionErr))
 		}
 		var entrypointErr error
 		if projectionErr == nil && configErr == nil {
@@ -162,9 +163,12 @@ func (e projectionError) Error() string               { return e.cause.Error() }
 func (e projectionError) Unwrap() error               { return e.cause }
 func (e projectionError) ConfigurationRestored() bool { return e.restored }
 
+// undoCreatedEntrypoint removes the credential reader that the transaction
+// installed, and reports a removal that failed as a failed undo, which a
+// failure that joins it keeps recognizable.
 func undoCreatedEntrypoint(undo func() error) error {
 	if undo == nil {
 		return nil
 	}
-	return undo()
+	return platform.FailedUndo("removing the credential reader that this command installed", undo())
 }

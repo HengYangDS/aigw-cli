@@ -10,6 +10,7 @@ import (
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
@@ -175,18 +176,27 @@ func localFileAccessMessage(operation string, err error) string {
 // fileErrorReason names an operating-system file error from a closed set, so
 // no path or caller-supplied text reaches a diagnostic.
 func fileErrorReason(err error) string {
+	if reason, known := knownFileErrorReason(err); known {
+		return reason
+	}
+	return "unexpected error"
+}
+
+// knownFileErrorReason names an operating-system file error from the closed
+// set, and reports whether err is one.
+func knownFileErrorReason(err error) (string, bool) {
 	if number, ok := errors.AsType[syscall.Errno](err); ok {
-		return number.Error()
+		return number.Error(), true
 	}
 	switch {
 	case errors.Is(err, fs.ErrPermission):
-		return "permission denied"
+		return "permission denied", true
 	case errors.Is(err, fs.ErrNotExist):
-		return "no such file or directory"
+		return "no such file or directory", true
 	case errors.Is(err, fs.ErrExist):
-		return "file exists"
+		return "file exists", true
 	default:
-		return "unexpected error"
+		return "", false
 	}
 }
 
@@ -244,9 +254,60 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 }
 
 // ProblemFor is the actionable problem that err presents: a typed problem as
-// it was raised, or a product-owned message for any other error, which states
-// no impact of its own.
+// it was raised, or a product-owned message for any other error, whose
+// impact states each undo that err reports as failed, with its cause, after
+// any impact of its own. A typed problem states what its raiser reported.
 func ProblemFor(err error) Problem {
+	problem := problemFor(err)
+	if _, structured := errors.AsType[*userError](err); structured {
+		return problem
+	}
+	for _, failure := range failedUndos(err) {
+		problem.Impact = strings.TrimSpace(problem.Impact + " " + capitalized(failure.Undo) + " failed: " + undoReason(failure.Err) + ".")
+	}
+	return problem
+}
+
+// failedUndos returns each failed undo that err reports, in the order in
+// which its tree wraps them; [errors.Join] keeps them all.
+func failedUndos(err error) []*platform.RestoreError {
+	//nolint:errorlint // The walk visits every error that err joins, where errors.As stops at the first.
+	switch typed := err.(type) {
+	case *platform.RestoreError:
+		return []*platform.RestoreError{typed}
+	case interface{ Unwrap() []error }:
+		var failures []*platform.RestoreError
+		for _, inner := range typed.Unwrap() {
+			failures = append(failures, failedUndos(inner)...)
+		}
+		return failures
+	case interface{ Unwrap() error }:
+		return failedUndos(typed.Unwrap())
+	}
+	return nil
+}
+
+// undoReason says why an undo failed: the operating-system error of a file,
+// that the file changed after AIGW wrote it, or else the failure's own text.
+func undoReason(err error) string {
+	if failed, atFile := errors.AsType[*platform.FileError](err); atFile && failed.Changed {
+		return "it changed after AIGW wrote it"
+	}
+	if reason, known := knownFileErrorReason(err); known {
+		return reason
+	}
+	return err.Error()
+}
+
+// capitalized makes the first letter of a clause upper case.
+func capitalized(clause string) string {
+	if clause == "" {
+		return ""
+	}
+	return strings.ToUpper(clause[:1]) + clause[1:]
+}
+
+func problemFor(err error) Problem {
 	user, structured := errors.AsType[*userError](err)
 	failure, atFile := errors.AsType[*adapter.ApplyError](err)
 	impact, recovered := ConfigurationRecoveryImpact(err)

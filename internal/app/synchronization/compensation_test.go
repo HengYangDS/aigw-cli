@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
@@ -56,5 +57,37 @@ func TestFailedSelfCompensationPreservesTheReaderItProjected(t *testing.T) {
 	}
 	if data, readErr := os.ReadFile(target); readErr != nil || string(data) != "reader="+reader {
 		t.Fatalf("client configuration = %q, %v", data, readErr)
+	}
+}
+
+// undoRefusingStore stores Tokens but refuses to delete one, as a credential
+// store that locked after a Token was written does.
+type undoRefusingStore struct{ secret.Store }
+
+func (undoRefusingStore) Delete(string) error { return errors.New("the credential store is locked") }
+
+// A selection whose configuration write fails, and whose Token then cannot be
+// removed, keeps that failed undo recognizable beside its failure, and so
+// does a credential reader that a failed transaction could not remove, so
+// that a report can state each one.
+func TestFailedUndosStayRecognizable(t *testing.T) {
+	before := setupConfiguration()
+	delete(before.Clients, claude.ID)
+	failure := errors.New("configuration write failed")
+	store := &configStoreStub{commitErr: failure}
+	store.bindConfiguration(t, before)
+	syncer := Synchronizer{Registry: builtinClients, Config: store, Secrets: undoRefusingStore{secret.NewMemoryStore()}, Discovery: setupDiscovery(nil)}
+	_, _, _, err := syncer.SelectModel(t.Context(), before, claude.ID, "claude", "", domain.ConnectionChange{}, "new-token")
+	undo, recognized := errors.AsType[*platform.RestoreError](err)
+	if !errors.Is(err, failure) || !recognized || undo.Undo != "removing the Token that this command stored for provider team" {
+		t.Fatalf("selection error = %v", err)
+	}
+	if err := undoCreatedEntrypoint(func() error { return os.ErrPermission }); !errors.Is(err, os.ErrPermission) {
+		t.Fatalf("a failed reader removal = %v", err)
+	} else if undo, recognized := errors.AsType[*platform.RestoreError](err); !recognized || undo.Undo != "removing the credential reader that this command installed" {
+		t.Fatalf("a failed reader removal = %v", err)
+	}
+	if err := undoCreatedEntrypoint(func() error { return nil }); err != nil {
+		t.Fatalf("a reader removal that succeeded = %v", err)
 	}
 }

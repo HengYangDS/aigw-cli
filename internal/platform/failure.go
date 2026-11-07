@@ -63,6 +63,31 @@ func Restore(path string, preimage, postimage FileSnapshot) FileOutcome {
 	return FileOutcome{Path: path, Err: RestoreFileAtomicIfPostimage(path, preimage, postimage)}
 }
 
+// RestoreError is the failure of one undo of a failed attempt beyond the
+// client files that a write reports, such as removing the credential reader
+// that the attempt installed or restoring a Token that it stored: the undo,
+// as a report names it, and why it failed. The undone effect stays.
+type RestoreError struct {
+	Undo string
+	Err  error
+}
+
+// Error names the undo and its failure.
+func (e *RestoreError) Error() string { return e.Undo + " failed: " + e.Err.Error() }
+
+// Unwrap returns the undo's failure.
+func (e *RestoreError) Unwrap() error { return e.Err }
+
+// FailedUndo reports err, the failure of undo, as a RestoreError, and nil
+// for an undo that succeeded, so that a failure that joins it keeps it
+// recognizable.
+func FailedUndo(undo string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &RestoreError{Undo: undo, Err: err}
+}
+
 // WriteError is a failed attempt to write several files that undid the
 // files it had written: its failure, as its owner reports it, and what the
 // undo did to each file. A restore that failed makes the compensation

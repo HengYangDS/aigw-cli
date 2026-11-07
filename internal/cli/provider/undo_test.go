@@ -2,9 +2,11 @@ package provider
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 
 	"github.com/spf13/cobra"
@@ -207,5 +209,17 @@ func TestChangeBalanceRemovesWhatItCannotRead(t *testing.T) {
 	changes, err := changeBalance(f.runtime, "team", editOptions{noBalanceToken: true}, secret.DiagnosticCredential{})
 	if err != nil || len(changes) != 1 || changes[0].undo != nil {
 		t.Fatalf("a removal of unreadable balance credentials = %+v, %v", changes, err)
+	}
+}
+
+// A save that failed after its own undo failed, such as the removal of the
+// credential reader that it installed, states that failed undo with its
+// cause beside the credential changes that stay.
+func TestAKeptFailureStatesTheFailedUndoOfItsCause(t *testing.T) {
+	cause := errors.Join(errors.New("save failed"), platform.FailedUndo("removing the credential reader that this command installed", os.ErrPermission))
+	outcome := undoOutcome{kept: []string{"the Token stays deleted"}, reasons: []string{"The credential store is locked."}}
+	p := problem(keptFailure("Saving the configuration failed.", cause, outcome, "provider team was not removed", "aigw provider remove team"))
+	if p.Evidence != "Saving the configuration failed. Removing the credential reader that this command installed failed: permission denied. The credential store is locked." {
+		t.Fatalf("a kept failure = %+v", p)
 	}
 }

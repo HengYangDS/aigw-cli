@@ -63,15 +63,16 @@ func saveFailure(err error, changes []credentialChange, title, fix string) error
 
 // keptFailure is the problem of a write that failed with err, as failed says,
 // and whose undo left the kept changes in place: its title is title and what
-// stays, its evidence says what failed and why each undo failed, its impact
-// what was put back, and its fix the command that converges. Every undo error
-// stays inspectable with err.
+// stays, its evidence says what failed, what err's own undo did and why each
+// undo failed, its impact what was put back, and its fix the command that
+// converges. Every undo error stays inspectable with err.
 func keptFailure(failed string, err error, outcome undoOutcome, title, fix string) error {
 	impact := ""
 	if len(outcome.undone) > 0 {
 		impact = sentence(strings.Join(outcome.undone, " and ")) + "."
 	}
-	evidence := failed + " " + strings.Join(outcome.reasons, " ")
+	evidence := strings.Join(slices.DeleteFunc([]string{failed, terminal.ProblemFor(err).Impact, strings.Join(outcome.reasons, " ")},
+		func(part string) bool { return part == "" }), " ")
 	return terminal.ProblemError(title+", and "+strings.Join(outcome.kept, " and "), evidence, impact, fix, errors.Join(append([]error{err}, outcome.errs...)...))
 }
 

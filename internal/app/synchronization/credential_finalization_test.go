@@ -368,9 +368,10 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 		projectionErr error
 		want          string
 		restored      bool
+		undo          string
 	}{
-		{"configuration", cause, nil, "Configuration restoration was incomplete", false},
-		{"projection", nil, cause, "Configuration was restored", true},
+		{"configuration", cause, nil, "Configuration restoration was incomplete", false, ""},
+		{"projection", nil, cause, "Configuration was restored", true, "Restoring the client files failed: permission denied."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -400,7 +401,8 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 				var out bytes.Buffer
 				renderer := terminal.NewRenderer(&out, false)
 				terminal.RenderError(renderer, fmt.Errorf("sync: %w", err), jsonMode)
-				if renderer.Err() != nil || !strings.Contains(out.String(), tc.want) || !strings.Contains(out.String(), "aigw status") || strings.Contains(out.String(), privatePath) {
+				if renderer.Err() != nil || !strings.Contains(out.String(), tc.want) || !strings.Contains(out.String(), "aigw status") || strings.Contains(out.String(), privatePath) ||
+					!strings.Contains(out.String(), tc.undo) {
 					t.Fatalf("json=%t finalization diagnostic=%q error=%v", jsonMode, out.String(), renderer.Err())
 				}
 			}

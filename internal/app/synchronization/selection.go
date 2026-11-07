@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 )
 
@@ -145,7 +146,7 @@ func (s Synchronizer) selectModel(ctx context.Context, before, after domain.Conf
 	}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, rollback())
+			resultErr = errors.Join(resultErr, platform.FailedUndo("removing the Token that this command stored for provider "+selected.ProviderID, rollback()))
 		}
 	}()
 	after, _, err = s.DesiredClientConfiguration(after, client)
