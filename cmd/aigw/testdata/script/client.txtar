@@ -127,14 +127,25 @@ stdout 'Codex +team/team-model · Enabled · Not installed'
 
 # Codex moves to a configuration file in its own folder, which is then
 # deleted, file and record together, leaving nothing to withdraw. AIGW does
-# not create a Codex home outside the default one, so sync refuses and names
-# the move, which succeeds and reports the deleted file as absent. Disabling
-# Codex then withdraws only the new file.
+# not create a Codex home outside the default one, so status, doctor, check
+# and sync all name the move, which succeeds and reports the deleted file as
+# absent; none names sync, which would refuse. Disabling Codex then withdraws
+# only the new file.
 mkdir $WORK/a $WORK/b
 cp $WORK/codex-config.toml $WORK/a/config.toml
 cp $WORK/codex-config.toml $WORK/b/config.toml
 exec aigw client edit codex --target $WORK/a/config.toml
+exec aigw sync
 rm $WORK/a
+exec aigw status --json
+stdout '"next_detail": "aigw client edit codex --target \\u003cfile\\u003e"'
+! stdout '"next_action": "aigw sync"'
+exitcode 1 aigw doctor --json
+stdout '"next_detail": "aigw client edit codex --target \\u003cfile\\u003e"'
+! stdout '"next_action": "aigw sync"'
+exitcode 1 aigw check --for codex --json
+stdout '"next_detail": "aigw client edit codex --target \\u003cfile\\u003e"'
+! stdout '"next_action"'
 exitcode 1 aigw sync --json
 stdout '"error": ".*Codex config does not exist, and AIGW does not create a Codex home"'
 stdout '"next_detail": "aigw client edit codex --target \\u003cfile\\u003e"'

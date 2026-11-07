@@ -5,6 +5,7 @@ import (
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
+	"aigw-cli/internal/secret"
 	"context"
 	"errors"
 	"os"
@@ -83,6 +84,31 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		}
 		if strings.Contains(status.Issue, clientAdapter.Targets[0]) || strings.Contains(status.Checks[0].Detail, clientAdapter.Targets[0]) {
 			t.Fatalf("Codex inspection exposed a private target path: %#v", status)
+		}
+	})
+
+	// A configured file that was deleted with its folder, while the credential
+	// reader of the real flow is configured, is found missing before the
+	// reader is read through it. Outside Codex's default home, sync does not
+	// create it, so the step moves Codex to another file.
+	t.Run("deleted file with the credential reader", func(t *testing.T) {
+		cfg, runtime := newFixture(t, modelProviderAIGW)
+		if err := os.RemoveAll(filepath.Dir(cfg.Clients[ID].Targets[0])); err != nil {
+			t.Fatal(err)
+		}
+		source := filepath.Join(t.TempDir(), "aigw")
+		if err := os.WriteFile(source, []byte("AIGW fixture"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		reader, err := secret.VersionedEntrypointPath(filepath.Join(t.TempDir(), "data"), source, "aigw")
+		if err != nil {
+			t.Fatal(err)
+		}
+		deps := adapter.Dependencies{AIGWExecutable: reader, Discovery: fixedDiscoverer{}}
+		status := (codexAdapter{}).Inspect(context.Background(), deps, cfg, runtime)
+		if status.Ready || len(status.Checks) != 1 || status.Checks[0].Detail != "Codex configuration target is unavailable" ||
+			status.RepairAction != "aigw client edit codex --target <file>" {
+			t.Fatalf("status = %#v", status)
 		}
 	})
 

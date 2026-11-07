@@ -147,20 +147,7 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 	status := adapter.Status{Ready: true, Checks: make([]adapter.Check, 0, len(binding.Targets))}
 	for index, target := range binding.Targets {
 		check := adapter.Check{ID: fmt.Sprintf("codex:target-%d", index+1), Ready: true, Detail: "route " + runtime.ModelID, Target: target}
-		observed, readerErr := retainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
-		issue, detail, repair := "Codex configuration projection drift: ", "", "aigw sync"
-		if readerErr != nil {
-			detail = "Codex credential reader cannot be inspected"
-		} else if err := ValidateConfig(target, observed); err != nil {
-			detail = "Codex configuration target does not match selected binding"
-			if conflict, ok := errors.AsType[*ConflictError](err); ok {
-				// Synchronization refuses an outside edit, so advising it alone
-				// would send the operator back to the same refusal.
-				issue, detail, repair = "Codex configuration conflict: ", "AIGW-managed Codex settings were changed outside AIGW", conflict.NextAction()
-			} else if errors.Is(err, os.ErrNotExist) {
-				detail, repair = "Codex configuration target is unavailable", missingTargetRepair(deps, target)
-			}
-		}
+		issue, detail, repair := inspectTarget(deps, cfg, runtime, target)
 		if detail != "" {
 			check.Ready = false
 			check.Detail = detail
@@ -173,6 +160,35 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 	}
 
 	return status
+}
+
+// inspectTarget inspects one configured Codex file: what does not match the
+// selection, with its issue and repair, or no detail when it matches.
+func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, target string) (issue, detail, repair string) {
+	issue, repair = "Codex configuration projection drift: ", "aigw sync"
+	// A missing file is found before the credential reader that it names is
+	// read through it, which would only fail.
+	if _, err := os.Stat(target); errors.Is(err, os.ErrNotExist) {
+		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, target)
+	}
+	observed, err := retainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
+	if err != nil {
+		return issue, "Codex credential reader cannot be inspected", repair
+	}
+	err = ValidateConfig(target, observed)
+	if conflict, ok := errors.AsType[*ConflictError](err); ok {
+		// Synchronization refuses an outside edit, so advising it alone would
+		// send the operator back to the same refusal.
+		return "Codex configuration conflict: ", "AIGW-managed Codex settings were changed outside AIGW", conflict.NextAction()
+	}
+	switch {
+	case err == nil:
+		return issue, "", repair
+	case errors.Is(err, os.ErrNotExist):
+		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, target)
+	default:
+		return issue, "Codex configuration target does not match selected binding", repair
+	}
 }
 
 // missingTargetRepair is the step for a configured Codex file that does not
