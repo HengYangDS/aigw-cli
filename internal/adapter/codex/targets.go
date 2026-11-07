@@ -56,8 +56,13 @@ func normalizeCodexTargets(values []TargetRef) ([]TargetRef, error) {
 			return nil, fmt.Errorf("Codex config target %s is duplicated", path)
 		}
 		seen[path] = struct{}{}
+		folder, err := canonicalCodexTargetPath(filepath.Dir(sourcePath))
+		if err != nil {
+			return nil, err
+		}
 		target.Path = path
 		target.statePath = preferredCodexStatePath(sourcePath, path)
+		target.configured, target.configuredFolder = sourcePath, folder
 		normalized = append(normalized, target)
 	}
 	sort.Slice(normalized, func(left, right int) bool { return normalized[left].Path < normalized[right].Path })

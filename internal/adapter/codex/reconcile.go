@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,12 +32,34 @@ const (
 // Executable is the client this target's configuration is read by. It is the
 // only source of client-specific facts, such as the bundled model catalog, so a
 // target without one is projected without them rather than against a guess.
+// Normalization resolves Path's symbolic links and keeps the path as
+// configured, and the resolved folder that holds it, for reports.
 type TargetRef struct {
-	SurfaceID      string
-	Path           string
-	Executable     string
-	CreateIfAbsent bool
-	statePath      string
+	SurfaceID        string
+	Path             string
+	Executable       string
+	CreateIfAbsent   bool
+	statePath        string
+	configured       string
+	configuredFolder string
+}
+
+// reportName names path, the target's file or a file beside it, as the
+// operator configured the target: the configured file itself, and a file in
+// the folder that the configured path resolves to by that folder's
+// configured path and the file's own name. Any other path, such as one beside
+// a configured file that is itself a link, stays resolved.
+func (target TargetRef) reportName(path string) string {
+	switch {
+	case target.configured == "":
+		return path
+	case path == target.Path:
+		return target.configured
+	case filepath.Dir(path) == target.configuredFolder:
+		return filepath.Join(filepath.Dir(target.configured), filepath.Base(path))
+	default:
+		return path
+	}
 }
 
 // ReconciliationReceipt owns compensation for an applied client projection.
@@ -107,6 +130,25 @@ type codexPreparedArtifact struct {
 	// exactMode writes the desired mode instead of inheriting the one already on
 	// disk. It is set for artifacts whose permissions AIGW owns.
 	exactMode bool
+	// name is path as a report names it, as the operator configured it.
+	name string
+}
+
+// reported is the artifact's name in reports, its path without one.
+func (artifact codexPreparedArtifact) reported() string {
+	if artifact.name != "" {
+		return artifact.name
+	}
+	return artifact.path
+}
+
+// namedFailure names the artifact's file in err, a failure of its write or
+// removal that this commit created, as the operator configured it.
+func (artifact codexPreparedArtifact) namedFailure(err error) error {
+	if failed, atFile := errors.AsType[*platform.FileError](err); atFile && failed.Path == artifact.path {
+		failed.Path = artifact.reported()
+	}
+	return err
 }
 
 type codexPreparedTarget struct {
@@ -178,11 +220,12 @@ func ReconcileConfigs(before, after []TargetRef, previous, runtime domain.Runtim
 		for _, artifact := range target.artifacts {
 			post, commitErr := commitCodexArtifact(artifact)
 			if commitErr != nil {
+				commitErr = artifact.namedFailure(commitErr)
 				restored := restoreCodexArtifacts(committed)
 				if restored.Err() != nil {
-					return ReconciliationReceipt{}, platform.FailedWrite(fmt.Errorf("commit Codex reconciliation %s: %w", artifact.path, commitErr), restored)
+					return ReconciliationReceipt{}, platform.FailedWrite(fmt.Errorf("commit Codex reconciliation %s: %w", artifact.reported(), commitErr), restored)
 				}
-				return ReconciliationReceipt{}, platform.FailedWrite(fmt.Errorf("commit Codex reconciliation %s: %w; all artifacts rolled back", artifact.path, commitErr), restored)
+				return ReconciliationReceipt{}, platform.FailedWrite(fmt.Errorf("commit Codex reconciliation %s: %w; all artifacts rolled back", artifact.reported(), commitErr), restored)
 			}
 			committed = append(committed, committedCodexArtifact{prepared: artifact, post: post})
 		}
@@ -379,7 +422,7 @@ func prepareCodexRestoreTransition(target TargetRef, configSnapshot, stateSnapsh
 // deletes the file only after nothing refers to it.
 func codexArtifactsForDesiredState(target TargetRef, configBefore platform.FileSnapshot, configData []byte, stateBefore platform.FileSnapshot, stateData []byte, catalogBefore, catalogDesired platform.FileSnapshot) []codexPreparedArtifact {
 	artifacts := make([]codexPreparedArtifact, 0, 3)
-	catalog := codexPreparedArtifact{path: codexCatalogPath(target.Path), before: catalogBefore, desired: catalogDesired, exactMode: true}
+	catalog := codexPreparedArtifact{path: codexCatalogPath(target.Path), before: catalogBefore, desired: catalogDesired, exactMode: true, name: target.reportName(codexCatalogPath(target.Path))}
 	catalogChanged := !catalogBefore.Equal(catalogDesired)
 	if catalogChanged && catalogDesired.Exists {
 		artifacts = append(artifacts, catalog)
@@ -390,7 +433,7 @@ func codexArtifactsForDesiredState(target TargetRef, configBefore platform.FileS
 	}
 	configDesired := platform.NewFileSnapshot(configData, configMode)
 	if !configBefore.Equal(configDesired) {
-		artifacts = append(artifacts, codexPreparedArtifact{path: target.Path, before: configBefore, desired: configDesired})
+		artifacts = append(artifacts, codexPreparedArtifact{path: target.Path, before: configBefore, desired: configDesired, name: target.reportName(target.Path)})
 	}
 	stateDesired := platform.FileSnapshot{}
 	if stateData != nil {
@@ -401,7 +444,8 @@ func codexArtifactsForDesiredState(target TargetRef, configBefore platform.FileS
 		stateDesired = platform.NewFileSnapshot(stateData, stateMode)
 	}
 	if !stateBefore.Equal(stateDesired) {
-		artifacts = append(artifacts, codexPreparedArtifact{path: targetCodexStatePath(target), before: stateBefore, desired: stateDesired})
+		statePath := targetCodexStatePath(target)
+		artifacts = append(artifacts, codexPreparedArtifact{path: statePath, before: stateBefore, desired: stateDesired, name: target.reportName(statePath)})
 	}
 	if catalogChanged && !catalogDesired.Exists {
 		artifacts = append(artifacts, catalog)
@@ -425,7 +469,7 @@ func restoreCodexArtifacts(committed []committedCodexArtifact) platform.Restorat
 	restored := make(platform.Restoration, 0, len(committed))
 	for _, artifact := range slices.Backward(committed) {
 		restored = append(restored, platform.FileOutcome{
-			Path: artifact.prepared.path,
+			Path: artifact.prepared.reported(),
 			Err:  restoreFileAtomicIfPostimage(artifact.prepared.path, artifact.prepared.before, artifact.post),
 		})
 	}

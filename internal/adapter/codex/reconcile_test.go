@@ -443,3 +443,60 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 		}
 	})
 }
+
+// A target configured through a linked folder, as macOS's /tmp is one, is
+// written at its resolved path, and a failure names its files as the operator
+// configured them: the configuration by its configured path, and a file
+// beside it, such as the state file, by the configured folder and its own
+// name, in the failure and in what the rollback restored.
+func TestReconcileConfigsNamesFailedFilesAsConfigured(t *testing.T) {
+	dir := t.TempDir()
+	folder := filepath.Join(dir, "real")
+	if err := os.Mkdir(folder, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(folder, link); err != nil {
+		t.Skipf("symbolic links are unavailable: %v", err)
+	}
+	configured := filepath.Join(link, "config.toml")
+	if err := os.WriteFile(configured, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := filepath.EvalSymlinks(configured)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalWrite := writeFileAtomicIfUnchanged
+	t.Cleanup(func() { writeFileAtomicIfUnchanged = originalWrite })
+	for _, test := range []struct {
+		name, fail, failed string
+		restored           []string
+	}{
+		{name: "configuration", fail: resolved, failed: configured},
+		{name: "state", fail: codexStatePath(resolved), failed: codexStatePath(configured), restored: []string{configured}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			writeFileAtomicIfUnchanged = func(path string, expected platform.FileSnapshot, data []byte, mode os.FileMode) (platform.FileSnapshot, error) {
+				if path == test.fail {
+					return platform.FileSnapshot{}, &platform.FileError{Path: path, Err: errors.New("injected write failure")}
+				}
+				return originalWrite(path, expected, data, mode)
+			}
+			_, err := ReconcileConfigs(nil, []TargetRef{HomeTarget(configured)}, atomicTestRuntime(), atomicTestRuntime(), false)
+			failed, atFile := errors.AsType[*platform.FileError](err)
+			if !atFile || failed.Path != test.failed {
+				t.Fatalf("failure = %v, file %#v, want %s", err, failed, test.failed)
+			}
+			var restored []string
+			if written, ok := errors.AsType[*platform.WriteError](err); ok {
+				for _, outcome := range written.Restored {
+					restored = append(restored, outcome.Path)
+				}
+			}
+			if !reflect.DeepEqual(restored, test.restored) {
+				t.Fatalf("restored %q, want %q", restored, test.restored)
+			}
+		})
+	}
+}
