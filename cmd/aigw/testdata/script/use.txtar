@@ -112,8 +112,9 @@ exec aigw model edit team/team-model --protocol anthropic
 # tool search needs each of them to declare tool_search. A model to which
 # Claude's selection gives Anthropic Messages joins Desktop's list declaring
 # nothing: Desktop's files change, Desktop needs a restart, and its tool
-# search is off. The result names the command that declares tool_search and
-# keeps the model's capabilities, which, run as named, keeps chat's.
+# search is off. After its own line, the result names the command that
+# declares tool_search and keeps the model's capabilities, and says what it
+# also declares on Anthropic Messages; run as named, it keeps chat's.
 stdin desk-token.txt
 exec aigw provider add desk --endpoint anthropic=$UPSTREAM/desk --endpoint chat=$UPSTREAM/desk/v1 --token-stdin
 exec aigw model add desk/team-model --protocol anthropic --capability tool_search
@@ -125,10 +126,12 @@ exec aigw client edit claude-desktop --executable $WORK/Claude --target $WORK/li
 exec aigw use claude desk/spare-model --dry-run
 stdout '! Tool search +Off in Claude Desktop, because desk/spare-model declares no tool_search'
 stdout 'Other clients +Claude Desktop: their files change too; restart Claude Desktop to apply them'
+stdout 'unchanged\n\nTool search\n'
 stdout '^  aigw model edit desk/spare-model --capability text --capability tools --capability tool_search$'
+stdout '^  This also declares text and tools on Anthropic Messages: each capability goes to every protocol that admits it\.$'
 exec aigw use claude desk/spare-model --json
 stdout '"other_clients": \[\n\s+\{\n\s+"client": "claude-desktop",\n\s+"restart_required": true'
-stdout '"fix": "aigw model edit desk/spare-model --capability text --capability tools --capability tool_search"'
+stdout '"fix": "aigw model edit desk/spare-model --capability text --capability tools --capability tool_search",\n\s+"also_declares": \[\n\s+\{\n\s+"protocol": "anthropic",\n\s+"capabilities": \[\n\s+"text",\n\s+"tools"'
 stdout '"next_detail": "Restart Claude Desktop, then run `aigw check claude`"'
 exec aigw model edit desk/spare-model --capability text --capability tools --capability tool_search
 exec aigw model show desk/spare-model --json

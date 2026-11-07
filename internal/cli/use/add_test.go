@@ -299,7 +299,9 @@ func TestUseReportsOtherClientsAndALostToolSearch(t *testing.T) {
 // The command that declares tool_search repeats every capability that the
 // model declares, because the capabilities that model edit gives replace the
 // model's: a model that declares text and tools on OpenAI Responses and gains
-// Anthropic Messages keeps both, and the result says so.
+// Anthropic Messages keeps both, and the result says so, and that the command
+// also declares them on Anthropic Messages. A person reads the commands after
+// the result's own line.
 func TestUseNamesAToolSearchFixThatKeepsTheModelsCapabilities(t *testing.T) {
 	runtime, cfg := desktopRuntime(t)
 	cfg.Models["minimax"] = domain.Model{Provider: "gateway", Family: "minimax-m3", UpstreamModel: "MiniMax-M3",
@@ -314,13 +316,19 @@ func TestUseNamesAToolSearchFixThatKeepsTheModelsCapabilities(t *testing.T) {
 	if err := execute(runtime, claude.ID, "gateway/MiniMax-M3", "--dry-run"); err != nil {
 		t.Fatal(err)
 	}
-	for _, line := range []string{"Off in Claude Desktop, because gateway/MiniMax-M3 declares no tool_search", "keeps its other capabilities", fix} {
+	for _, line := range []string{"Off in Claude Desktop, because gateway/MiniMax-M3 declares no tool_search", "keeps its other capabilities", fix,
+		"This also declares text and tools on Anthropic Messages: each capability goes to every protocol that admits it."} {
 		if !strings.Contains(out.String(), line) {
 			t.Fatalf("human preview lacks %q:\n%s", line, out.String())
 		}
 	}
+	if written, section := strings.Index(out.String(), "Nothing was written"), strings.Index(out.String(), "\nTool search\n"); written < 0 || section < written {
+		t.Fatalf("the tool search section comes before the result's own line:\n%s", out.String())
+	}
 	result := useDocument(t, runtime, claude.ID, "gateway/MiniMax-M3")
-	want := []toolSearchItem{{Client: claudedesktop.ID, Models: []toolSearchModel{{Model: "gateway/MiniMax-M3", Fix: fix}}}}
+	// The document carries the protocol's name; its label is for a person.
+	also := []protocolDeclare{{Protocol: "anthropic", Capabilities: []string{"text", "tools"}}}
+	want := []toolSearchItem{{Client: claudedesktop.ID, Models: []toolSearchModel{{Model: "gateway/MiniMax-M3", Fix: fix, AlsoDeclares: also}}}}
 	if result.GainedProtocol != "anthropic" || !reflect.DeepEqual(result.ToolSearchOff, want) {
 		t.Fatalf("a gained protocol that turns tool search off = %#v", result)
 	}

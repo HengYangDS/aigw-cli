@@ -89,10 +89,20 @@ type toolSearchItem struct {
 
 // toolSearchModel is a listed model without tool_search, and the command
 // that declares it once the model is qualified, keeping the capabilities that
-// the model already declares.
+// the model already declares. AlsoDeclares is what the command declares
+// beyond them, on a protocol that did not declare it.
 type toolSearchModel struct {
-	Model string `json:"model"`
-	Fix   string `json:"fix"`
+	Model        string            `json:"model"`
+	Fix          string            `json:"fix"`
+	AlsoDeclares []protocolDeclare `json:"also_declares,omitempty"`
+}
+
+// protocolDeclare is capabilities that a command declares on one protocol,
+// and the protocol's label for a person.
+type protocolDeclare struct {
+	Protocol     string   `json:"protocol"`
+	Capabilities []string `json:"capabilities"`
+	label        string
 }
 
 // toolSearchItems names, for each client whose host tool search the
@@ -103,35 +113,62 @@ func (o selectionOutcome) toolSearchItems(runtime invocation.Context) []toolSear
 	for _, loss := range runtime.Clients.ToolSearchLost(o.before, o.after) {
 		item := toolSearchItem{Client: loss.Client, Models: make([]toolSearchModel, 0, len(loss.Models))}
 		for _, key := range loss.Models {
-			item.Models = append(item.Models, toolSearchModel{Model: o.after.Models[key].Ref().String(), Fix: toolSearchFix(o.after.Models[key])})
+			model := o.after.Models[key]
+			capabilities := toolSearchCapabilities(model)
+			item.Models = append(item.Models, toolSearchModel{Model: model.Ref().String(), Fix: toolSearchFix(model, capabilities), AlsoDeclares: alsoDeclared(model, capabilities)})
 		}
 		items = append(items, item)
 	}
 	return items
 }
 
-// toolSearchFix is the command that declares tool_search on model. The
-// capabilities that it gives replace the model's, so it repeats every
-// capability that the model declares on any protocol, and each protocol keeps
-// what it declares. A model name that would need quoting makes it prose.
-func toolSearchFix(model domain.Model) string {
+// toolSearchCapabilities are the capabilities that the command declaring
+// tool_search on model gives, in AIGW's order: they replace the model's, so
+// they repeat every capability that the model declares on any protocol.
+func toolSearchCapabilities(model domain.Model) []domain.Capability {
 	declared := map[domain.Capability]bool{domain.CapabilityToolSearch: true}
 	for _, capabilities := range model.Protocols {
 		for _, capability := range capabilities {
 			declared[capability] = true
 		}
 	}
+	return slices.DeleteFunc(domain.Capabilities(), func(capability domain.Capability) bool { return !declared[capability] })
+}
+
+// toolSearchFix is the command that gives model capabilities, each protocol
+// keeping what it declares. A model name that would need quoting makes it
+// prose.
+func toolSearchFix(model domain.Model, capabilities []domain.Capability) string {
 	var flags []string
-	for _, capability := range domain.Capabilities() {
-		if declared[capability] {
-			flags = append(flags, "--capability", string(capability))
-		}
+	for _, capability := range capabilities {
+		flags = append(flags, "--capability", string(capability))
 	}
 	name := model.Ref().String()
 	if line := invocation.Command("model", "edit", name); line != "" {
 		return line + " " + strings.Join(flags, " ")
 	}
 	return "Run aigw model edit for " + name + " with " + strings.Join(flags, " ") + "."
+}
+
+// alsoDeclared is what giving model capabilities declares beyond tool_search
+// on a protocol that did not declare it: each capability goes to every
+// protocol of the model that admits it.
+func alsoDeclared(model domain.Model, capabilities []domain.Capability) []protocolDeclare {
+	protocols := model.AdmittedProtocols()
+	slices.SortFunc(protocols, domain.CompareProtocols)
+	var also []protocolDeclare
+	for _, protocol := range protocols {
+		var added []string
+		for _, capability := range capabilities {
+			if capability != domain.CapabilityToolSearch && protocol.Admits(capability) && !model.Declares(protocol, capability) {
+				added = append(added, string(capability))
+			}
+		}
+		if len(added) > 0 {
+			also = append(also, protocolDeclare{Protocol: protocol.Name(), Capabilities: added, label: domain.ProtocolLabel(protocol)})
+		}
+	}
+	return also
 }
 
 // describe reports the outcome as the document does.
@@ -245,7 +282,6 @@ func (o selectionOutcome) report(runtime invocation.Context, options options) er
 	r.ProductTitle(o.title(doc))
 	r.Rows(o.rows(doc)...)
 	invocation.RenderClientFiles(r, runtime, doc.ClientFiles)
-	renderToolSearchFixes(r, doc.ToolSearchOff)
 	if reader := doc.CredentialReader; reader != nil {
 		r.Section("Credential reader")
 		r.Text("Install " + reader.Path)
@@ -257,6 +293,7 @@ func (o selectionOutcome) report(runtime invocation.Context, options options) er
 	} else {
 		r.Success(o.choice.client.Label + " already uses " + doc.Model)
 	}
+	renderToolSearchFixes(r, doc.ToolSearchOff)
 	r.Next(o.next(doc))
 	return r.Err()
 }
@@ -370,24 +407,28 @@ func (o selectionOutcome) otherClientRows(doc document) []terminal.Field {
 }
 
 // renderToolSearchFixes names the command that declares tool_search on each
-// model that turns a host tool search off, once a model is qualified, and
-// says that it keeps the model's other capabilities.
+// model that turns a host tool search off, once a model is qualified, says
+// that it keeps the model's other capabilities, and says what a command also
+// declares on another protocol.
 func renderToolSearchFixes(r *terminal.Renderer, items []toolSearchItem) {
-	var fixes []string
+	var models []toolSearchModel
 	for _, item := range items {
 		for _, model := range item.Models {
-			if !slices.Contains(fixes, model.Fix) {
-				fixes = append(fixes, model.Fix)
+			if !slices.ContainsFunc(models, func(listed toolSearchModel) bool { return listed.Fix == model.Fix }) {
+				models = append(models, model)
 			}
 		}
 	}
-	if len(fixes) == 0 {
+	if len(models) == 0 {
 		return
 	}
 	r.Section("Tool search")
 	r.Text("Once a model is qualified, its command declares tool_search and keeps its other capabilities:")
-	for _, fix := range fixes {
-		r.Command(fix)
+	for _, model := range models {
+		r.Command(model.Fix)
+		for _, also := range model.AlsoDeclares {
+			r.Text("This also declares " + prose(also.Capabilities) + " on " + also.label + ": each capability goes to every protocol that admits it.")
+		}
 	}
 }
 
