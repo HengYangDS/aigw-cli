@@ -10,6 +10,7 @@ import (
 
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 )
@@ -156,5 +157,37 @@ func TestRemovingTheLastModelLeavesClientsThatSelectNothing(t *testing.T) {
 	out.Reset()
 	if err := cli.Execute(app, []string{"status"}); err != nil || !strings.Contains(out.String(), "Not configured") || !strings.Contains(out.String(), "aigw setup") {
 		t.Fatalf("status after removing everything = %v\n%s", err, out)
+	}
+}
+
+// Setup refuses an installation whose provider has no models, rather than
+// replacing the provider's label, endpoint, balance probe and Token.
+func TestSetupRefusesAProviderWithoutModels(t *testing.T) {
+	app, out, secretStore, _, _ := testApp(t, "sk-replacement-0001\n")
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Providers["team"] = domain.Provider{
+		Label: "Team Gateway", Endpoints: domain.Endpoints{Anthropic: "https://team.test"},
+		BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://balance.test"},
+	}
+	if err := app.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := secretStore.Set("team", "sk-team-token-0001"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(app.Config.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = cli.Execute(app, []string{"setup", "--account", "team", "--route", "r", "--for", "claude",
+		"--anthropic-url", "https://other.test", "--upstream-model", "m", "--token-stdin"})
+	if err == nil || !strings.Contains(out.String(), "AIGW is already configured") || !strings.Contains(out.String(), "Fix\n  aigw status\n") {
+		t.Fatalf("setup over a provider without models = %v\n%s", err, out)
+	}
+	if after, err := os.ReadFile(app.Config.Path()); err != nil || string(after) != string(before) {
+		t.Fatalf("a refused setup changed the configuration: %v", err)
+	}
+	if token, err := secretStore.Get("team"); err != nil || token != "sk-team-token-0001" {
+		t.Fatalf("a refused setup changed the Token: %q, %v", token, err)
 	}
 }

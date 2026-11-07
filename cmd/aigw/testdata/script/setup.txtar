@@ -277,8 +277,8 @@ Next
 {
   "schema_version": 3,
   "ok": false,
-  "error": "AIGW is already configured; run `aigw add` to add an account, `aigw route add` to add a model route, or `aigw config import` to merge a reviewed manifest",
-  "next_detail": "aigw add"
+  "error": "AIGW is already configured, and setup does not change an existing provider; run `aigw status` for each client's next step, or `aigw provider add` to add a provider",
+  "next_action": "aigw status"
 }
 -- flags.json --
 {

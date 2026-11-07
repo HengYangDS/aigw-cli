@@ -9,11 +9,14 @@ import (
 	"aigw-cli/internal/secret"
 )
 
-// AdmitSetup requires an installation without Routes before first-time setup.
-// Existing installations use configuration import, selection or Token rotation.
+// AdmitSetup requires an installation without providers before first-time
+// setup, which would otherwise replace an existing provider's label,
+// endpoints, balance probe and Token. A configuration may hold providers
+// without models, so providers, not models, mark an installation as
+// configured. Its fix is the status, which names each client's next step.
 func (Synchronizer) AdmitSetup(before domain.Config) error {
-	if len(before.Models) > 0 {
-		return fmt.Errorf("AIGW is already configured; run `aigw add` to add an account, `aigw route add` to add a model route, or `aigw config import` to merge a reviewed manifest")
+	if len(before.Providers) > 0 || len(before.Models) > 0 {
+		return fmt.Errorf("AIGW is already configured, and setup does not change an existing provider; run `aigw status` for each client's next step, or `aigw provider add` to add a provider")
 	}
 	return nil
 }

@@ -334,7 +334,7 @@ func TestProbeReportsIncompletePaginationInsteadOfTokenAbsence(t *testing.T) {
 	})
 	cfg := domain.Provider{BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://diagnostic.test"}}
 	_, err := dmxapi.Probe(t.Context(), probe.Sender{Client: client}, cfg, "sk-abcd-middle-wxyz", diagnostic.Credential{})
-	if err == nil || !strings.Contains(err.Error(), "incomplete") || tokenCalls != 100 {
+	if err == nil || !strings.Contains(err.Error(), "incomplete") || !errors.Is(err, diagnostic.ErrSearchIncomplete) || tokenCalls != 100 {
 		t.Fatalf("bounded pagination error = %v, token calls = %d", err, tokenCalls)
 	}
 }

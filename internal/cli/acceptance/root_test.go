@@ -290,7 +290,7 @@ func TestFailureSuggestionUsesCommandNamedInEnglishGuidance(t *testing.T) {
 		t.Fatal(err)
 	}
 	err := cli.Execute(app, []string{"setup", "--route", "new-route"})
-	if err == nil || !strings.Contains(out.String(), "AIGW is already configured") || !strings.Contains(out.String(), "aigw add") {
+	if err == nil || !strings.Contains(out.String(), "AIGW is already configured") || !strings.Contains(out.String(), "Fix\n  aigw status\n") {
 		t.Fatalf("err=%v output=%s", err, out.String())
 	}
 }

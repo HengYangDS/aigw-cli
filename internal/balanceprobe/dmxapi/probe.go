@@ -104,7 +104,7 @@ func fetchTokens(ctx context.Context, sender diagnostic.Sender, base string, aut
 			return items, nil
 		}
 	}
-	return nil, fmt.Errorf("DMXAPI token search is incomplete after %d pages; token presence is unverified", tokenPageLimit)
+	return nil, fmt.Errorf("DMXAPI token search is incomplete after %d pages; %w", tokenPageLimit, diagnostic.ErrSearchIncomplete)
 }
 
 func getJSON(ctx context.Context, sender diagnostic.Sender, endpoint string, auth diagnostic.Credential, target any) (resultErr error) {

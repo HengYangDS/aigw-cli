@@ -88,11 +88,12 @@ func checkEdit(cmd *cobra.Command, options editOptions) error {
 
 // requireBalanceInput refuses --balance-token-stdin with --json at a
 // terminal, where the balance token would come from a prompt, which --json
-// never shows; piped in, the balance token is read from standard input. The
-// fix says so in prose, because the same command at the same terminal fails
-// the same way.
+// never shows; piped in, the balance token is read from standard input. A
+// preview reads no balance token, so it needs no input, as add's preview
+// needs no Token. The fix says so in prose, because the same command at the
+// same terminal fails the same way.
 func requireBalanceInput(cmd *cobra.Command, runtime invocation.Context, options editOptions) error {
-	if !options.balanceTokenStdin || !options.jsonMode || !runtime.Interactive {
+	if !options.balanceTokenStdin || !options.jsonMode || !runtime.Interactive || options.dryRun {
 		return nil
 	}
 	fix := "Pipe the balance token to the same command."

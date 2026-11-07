@@ -40,3 +40,8 @@ func (e *RefusedError) Error() string { return e.Text }
 // ErrTokenNotListed reports that the provider's account lists no Token that
 // matches the one that AIGW holds for the provider.
 var ErrTokenNotListed = errors.New("current API Token was not found")
+
+// ErrSearchIncomplete reports a search of the account's Tokens that ended at
+// the probe's page limit with every page full, so it cannot tell whether the
+// account lists the Token.
+var ErrSearchIncomplete = errors.New("token presence is unverified")

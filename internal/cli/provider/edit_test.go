@@ -300,3 +300,21 @@ func TestEditReportsEachNameOnce(t *testing.T) {
 		t.Fatalf("cleared capabilities = %+v", document.ClearedCapabilities)
 	}
 }
+
+// A preview reads no balance token, so --json with --balance-token-stdin at a
+// terminal previews, as add previews --json without --token-stdin.
+func TestEditPreviewsABalanceChangeWithJSONAtATerminal(t *testing.T) {
+	f := newFixture(t)
+	f.runtime.Interactive = true
+	f.runtime.Prompt = &prompter{}
+	before := f.configuration(t)
+	if err := f.run("", "edit", "team", "--balance-token-stdin", "--balance-user-id", "7", "--json", "--dry-run"); err != nil {
+		t.Fatal(err)
+	}
+	var document changeDocument
+	f.decode(t, &document)
+	credential, _ := f.runtime.Providers.Get("team")
+	if !document.DryRun || document.BalanceCredential != "stored" || f.configuration(t) != before || credential.SystemToken != "system-token" {
+		t.Fatalf("a balance preview = %+v", document)
+	}
+}
