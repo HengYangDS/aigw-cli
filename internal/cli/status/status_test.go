@@ -53,7 +53,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := buffer.String(); !strings.Contains(got, "aigw account diagnostics enable one") {
+	if got := strings.Join(strings.Fields(buffer.String()), " "); !strings.Contains(got, "aigw provider edit one --balance-token-stdin --balance-user-id <user-id>") {
 		t.Fatalf("missing diagnostic credential status = %q", got)
 	}
 	if err := runtime.Providers.Set("one", secret.DiagnosticCredential{SystemToken: "system", UserID: "user"}); err != nil {
@@ -63,7 +63,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := buffer.String(); !strings.Contains(got, "Diagnostic credential present · content not verified") {
+	if got := buffer.String(); !strings.Contains(got, "Balance credentials stored · not verified") {
 		t.Fatalf("enabled diagnostic status = %q", got)
 	}
 
@@ -161,7 +161,7 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 		{name: "no probe", want: "Provider does not expose a balance probe"},
 		{name: "unsupported probe", probe: &domain.BalanceProbe{Kind: "future", BaseURL: "https://probe.test"}, want: "Provider diagnostics unavailable in this version"},
 		{name: "missing probe credential", probe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, want: "Precise balance not ready"},
-		{name: "available probe credential", probe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Diagnostic credential present · content not verified"},
+		{name: "available probe credential", probe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, credential: true, want: "Balance credentials stored · not verified"},
 		{name: "incomplete environment pair", probe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://probe.test"}, environment: true, want: secret.DiagnosticUserIDEnvironmentKey("one")},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -197,7 +197,7 @@ func TestRunStatusDescribesTransportAndOptionalProviderDiagnostics(t *testing.T)
 			if !strings.Contains(output, test.want) || !strings.Contains(output, "Loopback endpoint") {
 				t.Fatalf("output = %q", output)
 			}
-			if test.environment && (strings.Contains(output, "aigw account diagnostics enable") || strings.Contains(output, "private-fixture")) {
+			if test.environment && (strings.Contains(output, "aigw provider edit") || strings.Contains(output, "private-fixture")) {
 				t.Fatalf("environment status recommended a write or disclosed a value: %s", output)
 			}
 		})
@@ -270,7 +270,7 @@ func TestRunStatusJSONNotConfiguredAndLoadErrors(t *testing.T) {
 	if err := RunStatus(emptyRuntime, true); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(emptyOut.String(), `"routes": 0`) {
+	if !strings.Contains(emptyOut.String(), `"models": 0`) || !strings.Contains(emptyOut.String(), `"schema_version": 3`) {
 		t.Fatalf("json status = %q", emptyOut.String())
 	}
 
@@ -362,15 +362,14 @@ func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["one"] = domain.Provider{Label: "One"}
 	cfg.Models["available"] = domain.Model{Label: "Available", Provider: "one"}
-	clients := map[string]app.ClientStatus{}
+	clients := map[string]clientState{}
 	for _, client := range []string{claude.ID, codex.ID} {
-		state := domainreadiness.Client{State: domainreadiness.Invalid}
-		clients[client] = app.ClientStatus{Client: state}
+		clients[client] = clientState{State: domainreadiness.Invalid}
 	}
 
 	renderStatus(runtime, cfg, statusReport{Clients: clients, NextAction: "aigw repair"})
 	got := out.String()
-	if !strings.Contains(got, "aigw repair") || !strings.Contains(got, "No selected account") {
+	if !strings.Contains(got, "aigw repair") || !strings.Contains(got, "No client selects a provider") {
 		t.Fatalf("status fallback = %q", got)
 	}
 }
@@ -386,9 +385,7 @@ func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 		out := &bytes.Buffer{}
 		runtime := invocation.Context{Clients: clients.Registry(), Out: out, Width: 120}
 		renderClientStatus(invocation.Renderer(runtime), runtime.Clients.Admission(), statusReport{
-			Clients: map[string]app.ClientStatus{claude.ID: {
-				Client: domainreadiness.Client{State: state, Model: "route"},
-			}},
+			Clients: map[string]clientState{claude.ID: {State: state, Model: "one/route"}},
 		}, []string{claude.ID})
 		if !strings.Contains(out.String(), state.Label()) {
 			t.Fatalf("state %s rendering = %q", state, out)
@@ -442,7 +439,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	if store.existsCalls != 1 || store.getCalls != 0 {
 		t.Fatalf("status credential observations = exists %d, get %d; want only the Claude Account-Token lookup", store.existsCalls, store.getCalls)
 	}
-	for _, want := range []string{"Client-owned authentication", "Selected client projection is deferred", "aigw verify --for codex"} {
+	for _, want := range []string{"the client's own authentication", "The client's files wait until it is installed", "aigw verify --for codex"} {
 		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
 			t.Fatalf("client-native status = %q, want %q", human, want)
 		}
@@ -501,7 +498,7 @@ func TestStatusReportsProjectionReadinessWithoutClaimingAuthentication(t *testin
 	}
 	var result struct {
 		Clients map[string]struct {
-			ProjectionReady bool   `json:"projection_ready"`
+			ProjectionReady bool   `json:"client_files_ready"`
 			Authentication  string `json:"authentication"`
 		} `json:"clients"`
 	}

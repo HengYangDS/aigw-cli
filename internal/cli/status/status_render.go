@@ -1,15 +1,15 @@
 package status
 
 import (
+	"strings"
+
+	"aigw-cli/internal/app"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/balanceprobe"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
-	"strings"
-
-	"aigw-cli/internal/app"
 )
 
 func renderStatus(runtime invocation.Context, cfg domain.Config, result statusReport) {
@@ -19,12 +19,12 @@ func renderStatus(runtime invocation.Context, cfg domain.Config, result statusRe
 	if len(cfg.Providers) == 0 {
 		r.ProductTitle("Not configured")
 		r.Section("Get started")
-		r.Text("Run the guided setup once to add an Account, Token, and first Route.")
+		r.Text("Run the guided setup once to add a provider, its Token and a first model.")
 		r.Next("aigw setup")
 		return
 	}
 	r.ProductTitle("Configuration status")
-	r.Text("The selected Routes, client readiness, and the smallest next action.")
+	r.Text("Each client's model and readiness, and the smallest next action.")
 	clientIDs := runtime.Synchronizer().ClientIDs()
 	admission := runtime.Clients.Admission()
 	renderClientStatus(r, admission, result, clientIDs)
@@ -32,11 +32,11 @@ func renderStatus(runtime invocation.Context, cfg domain.Config, result statusRe
 		r.Section("Activation")
 		message := "No client is enabled"
 		if result.EnabledClients != 0 {
-			message = "Selected client projection is deferred"
+			message = "The enabled clients' files wait until the clients are installed"
 		}
 		r.Rows(terminal.Field{
 			State: terminal.Info, Label: "Client activation", Value: message,
-			Details: []string{"The catalog is available, but no client endpoint or model has been checked"},
+			Details: []string{"Models are added, but no client's endpoint or model has been checked"},
 		})
 	}
 	renderTransportStatus(r, admission, result, clientIDs)
@@ -93,34 +93,35 @@ func renderTransportStatus(r *terminal.Renderer, admission domain.Admission, res
 
 func renderDiagnosticStatus(runtime invocation.Context, r *terminal.Renderer, cfg domain.Config) {
 	r.Section("Optional diagnostics")
-	accountIDs := cfg.SelectedProviderIDs()
-	if len(accountIDs) == 0 {
-		r.Rows(terminal.Field{State: terminal.Info, Label: "Precise balance", Value: "No selected account"})
+	providerIDs := cfg.SelectedProviderIDs()
+	if len(providerIDs) == 0 {
+		r.Rows(terminal.Field{State: terminal.Info, Label: "Precise balance", Value: "No client selects a provider"})
 		return
 	}
-	rows := make([]terminal.Field, 0, len(accountIDs))
-	for _, accountName := range accountIDs {
-		account := cfg.Providers[accountName]
-		if account.BalanceProbe == nil {
-			rows = append(rows, terminal.Field{State: terminal.Info, Label: accountName, Value: "Provider does not expose a balance probe"})
+	rows := make([]terminal.Field, 0, len(providerIDs))
+	for _, id := range providerIDs {
+		provider := cfg.Providers[id]
+		if provider.BalanceProbe == nil {
+			rows = append(rows, terminal.Field{State: terminal.Info, Label: id, Value: "Provider does not expose a balance probe"})
 			continue
 		}
-		if !balanceprobe.Supports(account.BalanceProbe.Kind) {
-			rows = append(rows, terminal.Field{State: terminal.Info, Label: accountName, Value: "Provider diagnostics unavailable in this version"})
+		if !balanceprobe.Supports(provider.BalanceProbe.Kind) {
+			rows = append(rows, terminal.Field{State: terminal.Info, Label: id, Value: "Provider diagnostics unavailable in this version"})
 			continue
 		}
-		available, err := runtime.Providers.Exists(accountName)
+		available, err := runtime.Providers.Exists(id)
 		switch {
 		case err != nil:
-			rows = append(rows, terminal.Field{State: terminal.Warn, Label: accountName, Value: "Credential metadata unavailable · aigw doctor"})
+			// provider show reports the credential backend that could not tell.
+			rows = append(rows, terminal.Field{State: terminal.Warn, Label: id, Value: "Balance credentials unknown · aigw provider show " + id})
 		case available:
-			rows = append(rows, terminal.Field{State: terminal.Info, Label: accountName, Value: "Diagnostic credential present · content not verified"})
+			rows = append(rows, terminal.Field{State: terminal.Info, Label: id, Value: "Balance credentials stored · not verified"})
 		default:
-			action := "aigw account diagnostics enable " + accountName
+			action := "aigw provider edit " + id + " --balance-token-stdin --balance-user-id <user-id>"
 			if secret.IsReadOnly(runtime.Secrets) {
-				action = "set `" + secret.DiagnosticSystemTokenEnvironmentKey(accountName) + "` and `" + secret.DiagnosticUserIDEnvironmentKey(accountName) + "`"
+				action = "set `" + secret.DiagnosticSystemTokenEnvironmentKey(id) + "` and `" + secret.DiagnosticUserIDEnvironmentKey(id) + "`"
 			}
-			rows = append(rows, terminal.Field{State: terminal.Warn, Label: accountName, Value: "Precise balance not ready · " + action})
+			rows = append(rows, terminal.Field{State: terminal.Warn, Label: id, Value: "Precise balance not ready · " + action})
 		}
 	}
 	r.Rows(rows...)

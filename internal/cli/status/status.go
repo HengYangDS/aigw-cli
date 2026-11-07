@@ -1,5 +1,5 @@
-// Package status implements `aigw status`, which shows each client's selected
-// Route and local readiness without reading Token values.
+// Package status implements `aigw status`, which shows each client's model,
+// named provider/model, and its local readiness without reading Token values.
 package status
 
 import (
@@ -11,18 +11,19 @@ import (
 )
 
 // schemaVersion is the version of `aigw status`'s JSON document.
-const schemaVersion = 2
+const schemaVersion = 3
 
 // NewCommand constructs the read-only configuration and client readiness command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
-	cmd := &cobra.Command{Use: "status", Short: "Show each client's selected route and local readiness", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "status", Short: "Show each client's model and local readiness", Args: cobra.NoArgs}
 	cmd.RunE = func(_ *cobra.Command, _ []string) error { return RunStatus(runtime, jsonMode) }
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
 	return cmd
 }
 
-// RunStatus observes client bindings and projections without reading secret values or mutating state.
+// RunStatus observes each client's model and readiness without reading
+// secret values or changing state.
 func RunStatus(runtime invocation.Context, jsonMode bool) error {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
@@ -30,7 +31,7 @@ func RunStatus(runtime invocation.Context, jsonMode bool) error {
 	}
 	result := collectStatus(runtime.Dependencies, cfg)
 	if jsonMode {
-		result.Clients = invocation.DocumentClients(result.Clients)
+		result.Clients = clientStates(cfg, invocation.DocumentClients(result.observed))
 		result.NextAction, result.NextDetail = terminal.NextSteps(result.NextAction)
 		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
 	}

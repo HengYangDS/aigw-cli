@@ -152,21 +152,23 @@ upstream wire model. Status and doctor make no inference request.
 
 The JSON vocabulary follows that evidence boundary:
 
-| Field or state          | Exact meaning                                               |
-| ----------------------- | ----------------------------------------------------------- |
-| `endpoint_configured`   | The selected Route resolves an endpoint address.            |
-| `projection_ready`      | The local client projection passes inspection.              |
-| `native_model_override` | Claude has a sidecar-proven native model preference.        |
-| `diagnostic_scope`      | `endpoint` or `inference`, whichever request was performed. |
-| `check_passed`          | The binding passed the checks applicable to its scope.      |
-| `configured`            | Local prerequisites pass; no successful endpoint evidence.  |
-| `endpoint_checked`      | A model-free authenticated endpoint request succeeded.      |
-| `inference_checked`     | One exact Route-model inference request succeeded.          |
-| `ok`                    | The command's stated check scope passed.                    |
-| `ok_scope`              | Doctor's `local_diagnostics` scope, not client usability.   |
-| `enabled_clients`       | Number of enabled Client Bindings examined.                 |
-| `next_action`           | A next command that a script can run as it stands.          |
-| `next_detail`           | A step for a person: a placeholder, prose or a prompt.      |
+| Field or state            | Exact meaning                                               |
+| ------------------------- | ----------------------------------------------------------- |
+| `endpoint_configured`     | The selected Route resolves an endpoint address.            |
+| `projection_ready`        | The local client projection passes inspection.              |
+| `client_files_ready`      | Status's name for `projection_ready`.                       |
+| `native_model_override`   | Claude has a sidecar-proven native model preference.        |
+| `native_model_preference` | Status's name for `native_model_override`.                  |
+| `diagnostic_scope`        | `endpoint` or `inference`, whichever request was performed. |
+| `check_passed`            | The binding passed the checks applicable to its scope.      |
+| `configured`              | Local prerequisites pass; no successful endpoint evidence.  |
+| `endpoint_checked`        | A model-free authenticated endpoint request succeeded.      |
+| `inference_checked`       | One exact Route-model inference request succeeded.          |
+| `ok`                      | The command's stated check scope passed.                    |
+| `ok_scope`                | Doctor's `local_diagnostics` scope, not client usability.   |
+| `enabled_clients`         | Number of enabled Client Bindings examined.                 |
+| `next_action`             | A next command that a script can run as it stands.          |
+| `next_detail`             | A step for a person: a placeholder, prose or a prompt.      |
 
 Neither `ok` nor `inference_checked` proves real-client execution, future
 availability, or the provider's retention policy. `endpoint_checked` does not

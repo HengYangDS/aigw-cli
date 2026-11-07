@@ -14,7 +14,6 @@ import (
 
 	claudeclient "aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
-	"aigw-cli/internal/app"
 	"aigw-cli/internal/app/diagnostics"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
@@ -337,13 +336,17 @@ func assertClaudeNativeOverrideOutput(t *testing.T, runtime invocation.Context, 
 		t.Fatal(err)
 	}
 	var status struct {
-		Clients map[string]app.ClientStatus `json:"clients"`
+		Clients map[string]struct {
+			State       domainreadiness.State `json:"state"`
+			NativeModel bool                  `json:"native_model_preference"`
+			NextAction  string                `json:"next_action"`
+		} `json:"clients"`
 	}
 	if err := json.Unmarshal(output.Bytes(), &status); err != nil {
 		t.Fatal(err)
 	}
 	local := status.Clients[claudeclient.ID]
-	if local.State != domainreadiness.Configured || !local.NativeModelOverride ||
+	if local.State != domainreadiness.Configured || !local.NativeModel ||
 		local.NextAction != "aigw verify --for claude" {
 		t.Fatalf("local Claude state = %+v", local)
 	}

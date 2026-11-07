@@ -395,7 +395,7 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 	if len(observed.getCalls) != 0 {
 		t.Fatalf("status read diagnostic credential values %q", observed.getCalls)
 	}
-	if !strings.Contains(out.String(), "Credential metadata unavailable") || strings.Count(out.String(), "aigw doctor") != 1 || strings.Contains(out.String(), "aigw check") {
+	if !strings.Contains(out.String(), "Balance credentials unknown") || strings.Count(out.String(), "aigw provider show team") != 1 || strings.Contains(out.String(), "aigw doctor") || strings.Contains(out.String(), "aigw check") {
 		t.Fatalf("status did not present one safe metadata recovery action:\n%s", out.String())
 	}
 }
@@ -444,7 +444,7 @@ func TestClaudeReadinessFollowsSettingsConvergence(t *testing.T) {
 		}
 		var status struct {
 			Clients map[string]struct {
-				ProjectionReady bool `json:"projection_ready"`
+				ProjectionReady bool `json:"client_files_ready"`
 			} `json:"clients"`
 		}
 		if err := json.Unmarshal(out.Bytes(), &status); err != nil {

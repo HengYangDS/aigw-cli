@@ -1,13 +1,23 @@
-# status reports each client's readiness before and after an Account
-# connects, in text and as JSON, and refuses an unreadable configuration.
+# status reports each client's model, named provider/model, and its local
+# readiness, in text and as JSON: none in an empty home, then a configured
+# client, a deferred one and clients that select no model. It refuses an
+# unreadable configuration.
 exec aigw status --help
 cmp stdout help.txt
 
 exec aigw status --json
 cmp stdout empty.json
+exec aigw status
+cmp stdout empty.txt
 
+# Claude Code is configured. Codex selects the same model on team's new
+# Responses endpoint, but it is not installed, so its files wait. Claude
+# Desktop and Hermes select no model.
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
+exec aigw provider edit team --endpoint responses=$UPSTREAM/v1
+exec aigw model edit team/team-model --protocol anthropic --protocol responses
+exec aigw use --for codex team
 exec aigw status --json
 cmp stdout connected.json
 exec aigw status
@@ -28,7 +38,7 @@ version = 7
 -- help.txt --
 AIGW  aigw status
 ────────────────────────────────────────
-  Show each client's selected route and local readiness
+  Show each client's model and local readiness
 
 Usage
   aigw status [flags]
@@ -36,9 +46,18 @@ Usage
 Options
   -h, --help   help for status
       --json   Write machine-readable JSON
+-- empty.txt --
+AIGW  Not configured
+────────────────────────────────────────
+
+Get started
+  Run the guided setup once to add a provider, its Token and a first model.
+
+Next
+  aigw setup
 -- empty.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -53,14 +72,14 @@ Options
       "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
-      "projection_ready": false
+      "client_files_ready": false
     },
     "claude-desktop": {
       "state": "deferred",
       "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
-      "projection_ready": false,
+      "client_files_ready": false,
       "qualified_modes": [
         "chat",
         "cowork",
@@ -75,24 +94,24 @@ Options
       "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
-      "projection_ready": false
+      "client_files_ready": false
     },
     "hermes": {
       "state": "deferred",
       "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
-      "projection_ready": false
+      "client_files_ready": false
     }
   },
-  "routes": 0,
+  "models": 0,
   "enabled_clients": 0,
   "state": "deferred",
   "next_detail": "aigw setup"
 }
 -- connected.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "credential_backend": {
     "kind": "file",
@@ -104,19 +123,19 @@ Options
   "clients": {
     "claude": {
       "state": "configured",
-      "route": "team",
-      "account": "team",
+      "model": "team/team-model",
+      "provider": "team",
       "authentication": "account-token",
       "endpoint_configured": true,
       "transport": "external_loopback",
-      "projection_ready": true
+      "client_files_ready": true
     },
     "claude-desktop": {
       "state": "deferred",
       "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
-      "projection_ready": false,
+      "client_files_ready": false,
       "qualified_modes": [
         "chat",
         "cowork",
@@ -128,36 +147,42 @@ Options
     },
     "codex": {
       "state": "deferred",
-      "detail": "No model is selected",
-      "authentication": "",
-      "endpoint_configured": false,
-      "projection_ready": false
+      "model": "team/team-model",
+      "provider": "team",
+      "detail": "The client's files wait until it is installed",
+      "next_detail": "Install Codex if needed, then run `aigw sync`",
+      "client_files_deferred": true,
+      "authentication": "account-token",
+      "endpoint_configured": true,
+      "transport": "external_loopback",
+      "client_files_ready": false
     },
     "hermes": {
       "state": "deferred",
       "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
-      "projection_ready": false
+      "client_files_ready": false
     }
   },
-  "routes": 1,
-  "enabled_clients": 1,
-  "next_action": "aigw check"
+  "models": 1,
+  "enabled_clients": 2,
+  "next_detail": "Install Codex if needed, then run `aigw sync`"
 }
 -- connected.txt --
 AIGW  Configuration status
 ────────────────────────────────────────
-  The selected Routes, client readiness, and the smallest next action.
+  Each client's model and readiness, and the smallest next action.
 
 Clients
-  · Claude             team · Configured
+  · Claude             team/team-model · Configured
   · Claude Desktop     No model selected · Qualified: Chat, Cowork, Code · macOS
-  · Codex              No model selected
+  · Codex              team/team-model · Deferred · The client's files wait until it is installed
   · Hermes             No model selected
 
 Transport
   · Claude             Loopback endpoint
+  · Codex              Loopback endpoint
     Endpoint runtime identity and availability are not inferred from the address
     AIGW does not start, stop, or configure the endpoint runtime
 
@@ -165,7 +190,7 @@ Optional diagnostics
   · team               Provider does not expose a balance probe
 
 Next
-  aigw check
+  Install Codex if needed, then run `aigw sync`
 -- refusal.txt --
 AIGW  Action required
 ────────────────────────────────────────

@@ -90,9 +90,9 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 		}
 		if adapterStatus.Ready && !clientRuntime.UsesAIGWCredentialStore() {
 			client.State = domainreadiness.Configured
-			client.Detail = "Projection ready; client-owned authentication is not proven"
+			client.Detail = "Client files ready; the client's own authentication is not proven"
 			if clientRuntime.CredentialCommand != "" {
-				client.Detail = "Projection ready; external credential helper is not verified"
+				client.Detail = "Client files ready; the external credential helper is not verified"
 			}
 			client.NextAction = "aigw verify --for " + clientID
 		}

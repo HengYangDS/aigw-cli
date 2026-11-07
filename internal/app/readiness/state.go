@@ -112,14 +112,14 @@ func ClassifyClient(facts ClientFacts) Client {
 		state.NextAction = CredentialBackendRecovery
 	case facts.CredentialRequired && !facts.CredentialAvailable:
 		state.State = Deferred
-		state.Detail = "The selected Account has no available Token"
+		state.Detail = "The selected provider has no Token"
 		state.NextAction = facts.CredentialAction
 		if state.NextAction == "" {
 			state.NextAction = "aigw rotate " + facts.Provider
 		}
 	case facts.ProjectionDeferred:
 		state.State = Deferred
-		state.Detail = "Selected client projection is deferred"
+		state.Detail = "The client's files wait until it is installed"
 		state.NextAction = facts.ProjectionAction
 		if state.NextAction == "" {
 			state.NextAction = "aigw sync"

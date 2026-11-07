@@ -148,7 +148,9 @@ func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 						t.Fatalf("client status = %+v", state)
 					}
 				}
-				if !strings.Contains(strings.ToLower(problemDetail), "projection") || problemAction != "Install "+clients.Admission().Label(client)+" if needed, then run `aigw sync`" {
+				// The document gives the client's own detail; human output, check's problem.
+				detail := strings.ToLower(problemDetail)
+				if !strings.Contains(detail, "projection") && !strings.Contains(detail, "files wait") || problemAction != "Install "+clients.Admission().Label(client)+" if needed, then run `aigw sync`" {
 					t.Fatalf("projection recovery was lost: detail=%q action=%q", problemDetail, problemAction)
 				}
 			})
@@ -294,7 +296,7 @@ func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 		"state":               json.RawMessage(`"configured"`),
 		"route":               json.RawMessage(`"codex"`),
 		"account":             json.RawMessage(`"one"`),
-		"detail":              json.RawMessage(`"Projection ready; client-owned authentication is not proven"`),
+		"detail":              json.RawMessage(`"Client files ready; the client's own authentication is not proven"`),
 		"authentication":      json.RawMessage(`"client-native"`),
 		"endpoint_configured": json.RawMessage(`true`),
 		"projection_ready":    json.RawMessage(`true`),

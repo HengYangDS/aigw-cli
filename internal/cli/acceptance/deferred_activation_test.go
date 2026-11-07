@@ -34,6 +34,8 @@ type deferredActivationDocument struct {
 		NextAction         string `json:"next_action"`
 		NextDetail         string `json:"next_detail"`
 		ProjectionDeferred bool   `json:"projection_deferred"`
+		// FilesDeferred is how status reports ProjectionDeferred.
+		FilesDeferred bool `json:"client_files_deferred"`
 	} `json:"clients"`
 }
 
@@ -478,7 +480,7 @@ func assertTokenRemovedJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer
 		return
 	}
 	selected := result.Clients[codex.ID]
-	if selected.State != "deferred" || !wantNext(selected.NextAction, selected.NextDetail, wantAction) || !selected.ProjectionDeferred {
+	if selected.State != "deferred" || !wantNext(selected.NextAction, selected.NextDetail, wantAction) || !selected.ProjectionDeferred && !selected.FilesDeferred {
 		t.Fatalf("%s selected Codex = %+v", command, selected)
 	}
 }
@@ -494,8 +496,10 @@ func assertTokenRemovedHumanCommand(t *testing.T, app *cli.App, out *bytes.Buffe
 	if (err != nil) != (command == "check" || command == "doctor") {
 		t.Fatalf("human %s error = %v\n%s", command, err, out)
 	}
+	// Status and check say that the client's files wait; sync and doctor
+	// still call them its projection.
 	human := strings.ToLower(out.String())
-	if !strings.Contains(human, "aigw rotate ucloud") || !strings.Contains(human, "projection") {
+	if !strings.Contains(human, "aigw rotate ucloud") || !strings.Contains(human, "projection") && !strings.Contains(human, "files wait") {
 		t.Fatalf("human %s hid a prerequisite:\n%s", command, out)
 	}
 }

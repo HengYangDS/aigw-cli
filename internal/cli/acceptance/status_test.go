@@ -28,9 +28,9 @@ func TestStatusSuggestsProviderSpecificDiagnostics(t *testing.T) {
 	if err := cli.Execute(app, []string{"status"}); err != nil {
 		t.Fatal(err)
 	}
-	text := out.String()
-	if !strings.Contains(text, "aigw account diagnostics enable dmx") {
-		t.Fatalf("status should suggest account-specific diagnostics:\n%s", text)
+	text := strings.Join(strings.Fields(out.String()), " ")
+	if !strings.Contains(text, "aigw provider edit dmx --balance-token-stdin --balance-user-id <user-id>") {
+		t.Fatalf("status should name the provider's balance credentials:\n%s", out)
 	}
 }
 
@@ -235,13 +235,13 @@ func TestStatusReportsModelTransport(t *testing.T) {
 			}
 			want := map[string]json.RawMessage{
 				"state":               json.RawMessage(`"deferred"`),
-				"route":               json.RawMessage(`"team"`),
-				"account":             json.RawMessage(`"team"`),
+				"model":               json.RawMessage(`"team/model-test"`),
+				"provider":            json.RawMessage(`"team"`),
 				"detail":              json.RawMessage(`"The client is not installed or enabled"`),
 				"next_action":         json.RawMessage(`"aigw use --for codex team"`),
 				"authentication":      json.RawMessage(`"account-token"`),
 				"endpoint_configured": json.RawMessage(`true`),
-				"projection_ready":    json.RawMessage(`false`),
+				"client_files_ready":  json.RawMessage(`false`),
 			}
 			if tc.transport != "" {
 				want["transport"] = json.RawMessage(tc.transport)

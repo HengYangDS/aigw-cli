@@ -31,7 +31,7 @@ Connect
 Use every day
   check                Check enabled clients; selected-model probes may use quota
   rotate               Update one Account Token
-  status               Show each client's selected route and local readiness
+  status               Show each client's model and local readiness
   use                  Select a Route for one client
 
 Recover
