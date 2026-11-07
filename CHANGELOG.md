@@ -3,16 +3,13 @@
 All notable, user-relevant changes are recorded here. This chronicle follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic
 Versioning](https://semver.org/). The first versioned section may be the single
-pending release named by `VERSION`. Prepared links show changes on `main`, not
-a published edition. Older headings require published tags; local-only tags
-are not release history, and their changes belong in the next release.
-Version headings stay local. Explicit history links identify the peer they
-open. A heading or link is not publication proof; artifact publication,
-platform acceptance, signing, and GA status remain separate evidence.
+pending release named by `VERSION`. Older headings require published tags;
+local-only tags are not release history, and their changes belong in the next
+release. Version headings stay local, and this file names no publication peer. A
+heading is not publication proof; artifact publication, platform acceptance,
+signing, and GA status remain separate evidence.
 
 ## [Unreleased]
-
-History: [GitHub][Unreleased-github]
 
 ### Fixed
 
@@ -38,8 +35,6 @@ History: [GitHub][Unreleased-github]
 
 ## [0.6.1] - 2026-11-05
 
-History: [GitHub][0.6.1-github]
-
 ### Security
 
 - A Token typed at an interactive terminal is no longer echoed when `NO_COLOR`
@@ -49,8 +44,6 @@ History: [GitHub][0.6.1-github]
   before.
 
 ## [0.6.0] - 2026-11-01
-
-History: [GitHub][0.6.0-github]
 
 ### Changed
 
@@ -71,8 +64,6 @@ History: [GitHub][0.6.0-github]
   that named the replacement goes with them.
 
 ## [0.5.0] - 2026-11-01
-
-History: [GitHub][0.5.0-github]
 
 ### Added
 
@@ -159,8 +150,6 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
 
 ## [0.4.18] - 2026-10-27
 
-History: [GitHub][0.4.18-github]
-
 ### Changed
 
 - The team catalogue moves to newer vendor models whose every listed Route
@@ -193,8 +182,6 @@ History: [GitHub][0.4.18-github]
 
 ## [0.4.17] - 2026-10-26
 
-History: [GitHub][0.4.17-github]
-
 ### Added
 
 - `aigw use --for codex <route>` declares Codex's native retry budgets for
@@ -226,8 +213,6 @@ History: [GitHub][0.4.17-github]
 
 ## [0.4.16] - 2026-10-25
 
-History: [GitHub][0.4.16-github]
-
 ### Changed
 
 - **Breaking:** `aigw config export` writes the declared recommendations as
@@ -255,8 +240,6 @@ History: [GitHub][0.4.16-github]
 
 ## [0.4.15] - 2026-10-24
 
-History: [GitHub][0.4.15-github]
-
 ### Added
 
 - `aigw use --for hermes` and its preview say that existing Hermes sessions
@@ -272,8 +255,6 @@ History: [GitHub][0.4.15-github]
   the home; a process that outlives the wait keeps the home, named in the error.
 
 ## [0.4.14] - 2026-10-24
-
-History: [GitHub][0.4.14-github]
 
 ### Fixed
 
@@ -306,8 +287,6 @@ History: [GitHub][0.4.14-github]
 
 ## [0.4.13] - 2026-10-23
 
-History: [GitHub][0.4.13-github]
-
 ### Fixed
 
 - Human output aligns each group of rows on one value column set by its
@@ -326,8 +305,6 @@ History: [GitHub][0.4.13-github]
 
 ## [0.4.12] - 2026-10-22
 
-History: [GitHub][0.4.12-github]
-
 ### Fixed
 
 - `aigw account list` and `aigw account list --json` list Accounts in their
@@ -336,8 +313,6 @@ History: [GitHub][0.4.12-github]
   follow their identity order.
 
 ## [0.4.11] - 2026-10-22
-
-History: [GitHub][0.4.11-github]
 
 ### Fixed
 
@@ -349,8 +324,6 @@ History: [GitHub][0.4.11-github]
 
 ## [0.4.10] - 2026-10-21
 
-History: [GitHub][0.4.10-github]
-
 ### Security
 
 - Build AIGW with Go 1.27.3, which fixes GO-2026-6809: `crypto/x509` now
@@ -358,8 +331,6 @@ History: [GitHub][0.4.10-github]
   AIGW programs built with Go 1.27.2, including 0.4.9, still trust them.
 
 ## [0.4.9] - 2026-10-21
-
-History: [GitHub][0.4.9-github]
 
 ### Fixed
 
@@ -373,8 +344,6 @@ History: [GitHub][0.4.9-github]
 
 ## [0.4.8] - 2026-10-20
 
-History: [GitHub][0.4.8-github]
-
 ### Changed
 
 - Name where a local failure stopped: a file error names its operation and
@@ -384,8 +353,6 @@ History: [GitHub][0.4.8-github]
   error. Paths and configuration content stay out of the message.
 
 ## [0.4.7] - 2026-10-20
-
-History: [GitHub][0.4.7-github]
 
 ### Changed
 
@@ -397,8 +364,6 @@ History: [GitHub][0.4.7-github]
   provider still refuses.
 
 ## [0.4.6] - 2026-10-20
-
-History: [GitHub][0.4.6-github]
 
 ### Fixed
 
@@ -416,8 +381,6 @@ History: [GitHub][0.4.6-github]
 
 ## [0.4.5] - 2026-10-19
 
-History: [GitHub][0.4.5-github]
-
 ### Changed
 
 - Turn on Claude Desktop's host tool search on UCloud: the team manifest now
@@ -430,8 +393,6 @@ History: [GitHub][0.4.5-github]
 
 ## [0.4.4] - 2026-10-18
 
-History: [GitHub][0.4.4-github]
-
 ### Added
 
 - Turn on Claude Desktop's host tool search, which loads MCP tool schemas on
@@ -441,8 +402,6 @@ History: [GitHub][0.4.4-github]
   overwrite a profile where it was turned on by hand.
 
 ## [0.4.3] - 2026-10-16
-
-History: [GitHub][0.4.3-github]
 
 ### Changed
 
@@ -465,8 +424,6 @@ History: [GitHub][0.4.3-github]
 
 ## [0.4.2] - 2026-10-15
 
-History: [GitHub][0.4.2-github]
-
 ### Changed
 
 - Read the running program once per setup, sync or Route change with bounded
@@ -487,8 +444,6 @@ History: [GitHub][0.4.2-github]
   category stays one list.
 
 ## [0.4.1] - 2026-10-14
-
-History: [GitHub][0.4.1-github]
 
 ### Security
 
@@ -661,8 +616,6 @@ History: [GitHub][0.4.1-github]
 
 ## [0.3.5] - 2026-10-12
 
-History: [GitHub][0.3.5-github]
-
 ### Fixed
 
 - Reuse the official Hermes launcher's committed dependencies and physical
@@ -676,8 +629,6 @@ History: [GitHub][0.3.5-github]
 
 ## [0.3.4] - 2026-10-10
 
-History: [GitHub][0.3.4-github]
-
 ### Fixed
 
 - Preserve benchmark command diagnostics outside timed samples, with bounded
@@ -688,8 +639,6 @@ History: [GitHub][0.3.4-github]
   failed coverage evidence instead of masking incomplete acceptance.
 
 ## [0.3.3] - 2026-10-09
-
-History: [GitHub][0.3.3-github]
 
 ### Added
 
@@ -707,8 +656,6 @@ History: [GitHub][0.3.3-github]
 
 ## [0.3.1] - 2026-09-25
 
-History: [GitHub][0.3.1-github]
-
 ### Fixed
 
 - Preserve a sidecar-proven Claude Code native model preference when the
@@ -718,8 +665,6 @@ History: [GitHub][0.3.1-github]
   including nested error fields.
 
 ## [0.3.0] - 2026-09-25
-
-History: [GitHub][0.3.0-github]
 
 ### Added
 
@@ -749,8 +694,6 @@ History: [GitHub][0.3.0-github]
 
 ## [0.2.0] - 2026-09-24
 
-History: [GitHub][0.2.0-github]
-
 ### Added
 
 - Configure Hermes and Claude Desktop through independent Client Bindings,
@@ -777,8 +720,6 @@ History: [GitHub][0.2.0-github]
 
 ## [0.2.0-rc.3] - 2026-09-24
 
-History: [GitHub][0.2.0-rc.3-github]
-
 ### Fixed
 
 - Migrate the published 0.1.0 configuration schema explicitly, preserving
@@ -791,16 +732,12 @@ History: [GitHub][0.2.0-rc.3-github]
 
 ## [0.2.0-rc.2] - 2026-09-23
 
-History: [GitHub][0.2.0-rc.2-github]
-
 ### Fixed
 
 - Isolate release-policy command tests from ambient Forge tag variables so the
   same source gate passes for accepted branches and signed release tags.
 
 ## [0.2.0-rc.1] - 2026-09-23
-
-History: [GitHub][0.2.0-rc.1-github]
 
 ### Changed
 
@@ -843,8 +780,6 @@ History: [GitHub][0.2.0-rc.1-github]
 
 ## [0.1.0] - 2026-09-19
 
-History: [GitHub][0.1.0-github]
-
 ### Added
 
 - Prepare macOS distribution with Developer ID signing, resumable native
@@ -867,8 +802,6 @@ History: [GitHub][0.1.0-github]
 
 ## [0.1.0-rc.118] - 2026-09-19
 
-History: [GitHub][0.1.0-rc.118-github]
-
 ### Changed
 
 - Refresh the locked Go, npm, mise, release, and dependency-automation toolchain
@@ -877,8 +810,6 @@ History: [GitHub][0.1.0-rc.118-github]
   reproducible native artifacts without a redundant timestamp rewrite.
 
 ## [0.1.0-rc.117] - 2026-09-18
-
-History: [GitHub][0.1.0-rc.117-github]
 
 ### Changed
 
@@ -896,8 +827,6 @@ History: [GitHub][0.1.0-rc.117-github]
 
 ## [0.1.0-rc.116] - 2026-09-17
 
-History: [GitHub][0.1.0-rc.116-github]
-
 ### Fixed
 
 - Preserve explicit host credential executables through synchronization, program
@@ -907,8 +836,6 @@ History: [GitHub][0.1.0-rc.116-github]
   diagnostics and reject incompatible program-only rollback before replacement.
 
 ## [0.1.0-rc.115] - 2026-09-15
-
-History: [GitHub][0.1.0-rc.115-github]
 
 ### Fixed
 
@@ -920,8 +847,6 @@ History: [GitHub][0.1.0-rc.115-github]
 
 ## [0.1.0-rc.114] - 2026-09-14
 
-History: [GitHub][0.1.0-rc.114-github]
-
 ### Fixed
 
 - Explain credential-helper failures on stderr while keeping stdout exclusively
@@ -932,8 +857,6 @@ History: [GitHub][0.1.0-rc.114-github]
   reject local link targets that exist only in an author's working environment.
 
 ## [0.1.0-rc.113] - 2026-09-14
-
-History: [GitHub][0.1.0-rc.113-github]
 
 ### Added
 
@@ -950,8 +873,6 @@ History: [GitHub][0.1.0-rc.113-github]
   verification in connectivity-test output.
 
 ## [0.1.0-rc.112] - 2026-09-14
-
-History: [GitHub][0.1.0-rc.112-github]
 
 ### Added
 
@@ -1004,8 +925,6 @@ History: [GitHub][0.1.0-rc.112-github]
 
 ## [0.1.0-rc.110] - 2026-09-01
 
-History: [GitHub][0.1.0-rc.110-github]
-
 ### Added
 
 - Verify a selected Codex route through the configured Codex executable and
@@ -1022,16 +941,12 @@ History: [GitHub][0.1.0-rc.110-github]
 
 ## [0.1.0-rc.109] - 2026-09-01
 
-History: [GitHub][0.1.0-rc.109-github]
-
 ### Fixed
 
 - Report credential availability without exposing secret values or treating
   an unavailable credential backend as an absent Account.
 
 ## [0.1.0-rc.108] - 2026-08-31
-
-History: [GitHub][0.1.0-rc.108-github]
 
 ### Fixed
 
@@ -1042,16 +957,12 @@ History: [GitHub][0.1.0-rc.108-github]
 
 ## [0.1.0-rc.107] - 2026-08-31
 
-History: [GitHub][0.1.0-rc.107-github]
-
 ### Fixed
 
 - Expose machine-readable readiness checks for configured client routes.
 - Keep readiness failures structured and actionable for automation.
 
 ## [0.1.0-rc.106] - 2026-08-31
-
-History: [GitHub][0.1.0-rc.106-github]
 
 ### Fixed
 
@@ -1061,8 +972,6 @@ History: [GitHub][0.1.0-rc.106-github]
   clients installed after initial setup.
 
 ## [0.1.0-rc.105] - 2026-08-31
-
-History: [GitHub][0.1.0-rc.105-github]
 
 ### Changed
 
@@ -1076,8 +985,6 @@ History: [GitHub][0.1.0-rc.105-github]
 
 ## [0.1.0-rc.104] - 2026-08-30
 
-History: [GitHub][0.1.0-rc.104-github]
-
 ### Changed
 
 - Make each client Route the sole Profile-selection authority; connectivity
@@ -1089,8 +996,6 @@ History: [GitHub][0.1.0-rc.104-github]
 
 ## [0.1.0-rc.103] - 2026-08-30
 
-History: [GitHub][0.1.0-rc.103-github]
-
 ### Fixed
 
 - Derive each Route health request from its client protocol, including the
@@ -1098,8 +1003,6 @@ History: [GitHub][0.1.0-rc.103-github]
   and Codex.
 
 ## [0.1.0-rc.102] - 2026-08-30
-
-History: [GitHub][0.1.0-rc.102-github]
 
 ### Changed
 
@@ -1121,8 +1024,6 @@ History: [GitHub][0.1.0-rc.102-github]
 
 ## [0.1.0-rc.101] - 2026-08-30
 
-History: [GitHub][0.1.0-rc.101-github]
-
 ### Fixed
 
 - Make the projected Codex native-provider authentication command resolve the
@@ -1131,16 +1032,12 @@ History: [GitHub][0.1.0-rc.101-github]
 
 ## [0.1.0-rc.100] - 2026-08-30
 
-History: [GitHub][0.1.0-rc.100-github]
-
 ### Fixed
 
 - Make `aigw check` validate the selected Account Token for every enabled
   admitted-client Route before reporting the client or overall system ready.
 
 ## [0.1.0-rc.99] - 2026-08-29
-
-History: [GitHub][0.1.0-rc.99-github]
 
 ### Changed
 
@@ -1156,8 +1053,6 @@ History: [GitHub][0.1.0-rc.99-github]
 
 ## [0.1.0-rc.98] - 2026-08-29
 
-History: [GitHub][0.1.0-rc.98-github]
-
 ### Changed
 
 - Refresh the locked stable Node, GoReleaser, Syft, editorconfig-checker,
@@ -1166,8 +1061,6 @@ History: [GitHub][0.1.0-rc.98-github]
   dependency closure.
 
 ## [0.1.0-rc.97] - 2026-08-29
-
-History: [GitHub][0.1.0-rc.97-github]
 
 ### Changed
 
@@ -1184,8 +1077,6 @@ History: [GitHub][0.1.0-rc.97-github]
   fallback on macOS, Linux, and Windows.
 
 ## [0.1.0-rc.96] - 2026-08-27
-
-History: [GitHub][0.1.0-rc.96-github]
 
 ### Added
 
@@ -1207,8 +1098,6 @@ History: [GitHub][0.1.0-rc.96-github]
 
 ## [0.1.0-rc.95] - 2026-08-25
 
-History: [GitHub][0.1.0-rc.95-github]
-
 ### Added
 
 - Preview every configured Claude Code and Codex projection in
@@ -1228,8 +1117,6 @@ History: [GitHub][0.1.0-rc.95-github]
 
 ## [0.1.0-rc.94] - 2026-08-24
 
-History: [GitHub][0.1.0-rc.94-github]
-
 ### Added
 
 - Allow a Codex-scoped Profile to select one explicit native
@@ -1247,16 +1134,12 @@ History: [GitHub][0.1.0-rc.94-github]
 
 ## [0.1.0-rc.93] - 2026-08-23
 
-History: [GitHub][0.1.0-rc.93-github]
-
 ### Fixed
 
 - Diagnose credentials only for Accounts selected by active client Routes, so
   optional providers in the reviewed team catalogue can remain unconnected.
 
 ## [0.1.0-rc.92] - 2026-08-23
-
-History: [GitHub][0.1.0-rc.92-github]
 
 ### Fixed
 
@@ -1268,8 +1151,6 @@ History: [GitHub][0.1.0-rc.92-github]
   from host state, hooks, and signing configuration.
 
 ## [0.1.0-rc.91] - 2026-08-22
-
-History: [GitHub][0.1.0-rc.91-github]
 
 ### Added
 
@@ -1293,8 +1174,6 @@ History: [GitHub][0.1.0-rc.91-github]
 
 ## [0.1.0-rc.90] - 2026-08-21
 
-History: [GitHub][0.1.0-rc.90-github]
-
 ### Fixed
 
 - Use Claude Code's non-experimental compatibility mode for every AIGW-owned
@@ -1302,8 +1181,6 @@ History: [GitHub][0.1.0-rc.90-github]
   optional beta support while keeping the setting process-local.
 
 ## [0.1.0-rc.89] - 2026-08-19
-
-History: [GitHub][0.1.0-rc.89-github]
 
 ### Added
 
@@ -1331,16 +1208,12 @@ History: [GitHub][0.1.0-rc.89-github]
 
 ## [0.1.0-rc.88] - 2026-08-18
 
-History: [GitHub][0.1.0-rc.88-github]
-
 ### Fixed
 
 - Isolate Forge test repositories from host Git signing and hook configuration
   so native macOS acceptance cannot wait on workstation Keychain state.
 
 ## [0.1.0-rc.87] - 2026-08-18
-
-History: [GitHub][0.1.0-rc.87-github]
 
 ### Fixed
 
@@ -1350,16 +1223,12 @@ History: [GitHub][0.1.0-rc.87-github]
 
 ## [0.1.0-rc.86] - 2026-08-17
 
-History: [GitHub][0.1.0-rc.86-github]
-
 ### Changed
 
 - Refresh the locked Go module graph to the current stable releases and rerun
   the complete cross-platform source, coverage, and release proof.
 
 ## [0.1.0-rc.85] - 2026-08-17
-
-History: [GitHub][0.1.0-rc.85-github]
 
 ### Changed
 
@@ -1369,8 +1238,6 @@ History: [GitHub][0.1.0-rc.85-github]
 
 ## [0.1.0-rc.84] - 2026-08-16
 
-History: [GitHub][0.1.0-rc.84-github]
-
 ### Fixed
 
 - Normalize archive ownership metadata so independent GitLab and GitHub
@@ -1378,8 +1245,6 @@ History: [GitHub][0.1.0-rc.84-github]
   tree, epoch, toolchain, and release inputs.
 
 ## [0.1.0-rc.83] - 2026-08-16
-
-History: [GitHub][0.1.0-rc.83-github]
 
 ### Fixed
 
@@ -1389,8 +1254,6 @@ History: [GitHub][0.1.0-rc.83-github]
   selections fail before network access.
 
 ## [0.1.0-rc.82] - 2026-08-15
-
-History: [GitHub][0.1.0-rc.82-github]
 
 ### Changed
 
@@ -1450,8 +1313,6 @@ History: [GitHub][0.1.0-rc.82-github]
 
 ## [0.1.0-rc.77] - 2026-07-30
 
-History: [GitHub][0.1.0-rc.77-github]
-
 ### Changed
 
 - Route every Codex Account in the deployment manifest through its own
@@ -1465,8 +1326,6 @@ History: [GitHub][0.1.0-rc.77-github]
 
 ## [0.1.0-rc.76] - 2026-07-30
 
-History: [GitHub][0.1.0-rc.76-github]
-
 ### Fixed
 
 - Let an Account declare that Codex Responses items require upstream storage,
@@ -1474,8 +1333,6 @@ History: [GitHub][0.1.0-rc.76-github]
   `rs_...` and tool-call items valid with Codex 0.146.
 
 ## [0.1.0-rc.75] - 2026-07-30
-
-History: [GitHub][0.1.0-rc.75-github]
 
 ### Added
 
@@ -1496,8 +1353,6 @@ History: [GitHub][0.1.0-rc.75-github]
   GitLab and GitHub SSH signing keys.
 
 ## [0.1.0-rc.74] - 2026-07-29
-
-History: [GitHub][0.1.0-rc.74-github]
 
 ### Added
 
@@ -1533,8 +1388,6 @@ History: [GitHub][0.1.0-rc.74-github]
 
 ## [0.1.0-rc.71] - 2026-07-27
 
-History: [GitHub][0.1.0-rc.71-github]
-
 ### Added
 
 - Add first-time `aigw setup --from <team-profiles.toml>` for token-free team
@@ -1556,8 +1409,6 @@ History: [GitHub][0.1.0-rc.71-github]
 
 ## [0.1.0-rc.70] - 2026-07-24
 
-History: [GitHub][0.1.0-rc.70-github]
-
 ### Added
 
 - Add `aigw profile rename [old] [new]` and `aigw account rename [old] [new]` commands with support for interactive selection, scripting-friendly arguments, and a safe two-phase account credential migration.
@@ -1567,8 +1418,6 @@ History: [GitHub][0.1.0-rc.70-github]
 - Remove runtime and static exclusions for specific `gpt-5.6-*-cdx` profile and model IDs; model identity is now constrained only by general format, references, and client protocol capabilities.
 
 ## [0.1.0-rc.69] - 2026-07-21
-
-History: [GitHub][0.1.0-rc.69-github]
 
 ### Fixed
 
@@ -1607,8 +1456,6 @@ History: [GitHub][0.1.0-rc.69-github]
 
 ## [0.1.0-rc.68] - 2026-07-19
 
-History: [GitHub][0.1.0-rc.68-github]
-
 ### Fixed
 
 - Preserve the exact provider/model order in Air host-mirror fingerprints and
@@ -1639,8 +1486,6 @@ History: [GitHub][0.1.0-rc.68-github]
 
 ## [0.1.0-rc.67] - 2026-07-19
 
-History: [GitHub][0.1.0-rc.67-github]
-
 ### Fixed
 
 - Distinguish a reference-proven JetBrains-owned Air host mirror from a true
@@ -1654,8 +1499,6 @@ History: [GitHub][0.1.0-rc.67-github]
 
 ## [0.1.0-rc.66] - 2026-07-18
 
-History: [GitHub][0.1.0-rc.66-github]
-
 ### Fixed
 
 - Keep `aigw route recover air --dry-run --json` idempotent and path-free when
@@ -1666,8 +1509,6 @@ History: [GitHub][0.1.0-rc.66-github]
 
 ## [0.1.0-rc.65] - 2026-07-18
 
-History: [GitHub][0.1.0-rc.65-github]
-
 ### Fixed
 
 - Recover JetBrains Air only from a verified stale AIGW full-selection and
@@ -1675,8 +1516,6 @@ History: [GitHub][0.1.0-rc.65-github]
   membership without fabricating a JetBrains selection or touching sessions.
 
 ## [0.1.0-rc.64] - 2026-07-17
-
-History: [GitHub][0.1.0-rc.64-github]
 
 ### Fixed
 
@@ -1688,8 +1527,6 @@ History: [GitHub][0.1.0-rc.64-github]
   anonymous 404. No GitHub token is read, exported, or persisted by AIGW.
 
 ## [0.1.0-rc.63] - 2026-07-17
-
-History: [GitHub][0.1.0-rc.63-github]
 
 ### Fixed
 
@@ -1721,8 +1558,6 @@ History: [GitHub][0.1.0-rc.63-github]
 
 ## [0.1.0-rc.62] - 2026-07-17
 
-History: [GitHub][0.1.0-rc.62-github]
-
 ### Fixed
 
 - Treat the Changelog release date as source-controlled metadata, rather than
@@ -1741,8 +1576,6 @@ History: [GitHub][0.1.0-rc.62-github]
   tag is created.
 
 ## [0.1.0-rc.58] - 2026-07-17
-
-History: [GitHub][0.1.0-rc.58-github]
 
 ### Added
 
@@ -1848,87 +1681,3 @@ History: [GitHub][0.1.0-rc.58-github]
 ### Security
 
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
-
-[Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.6.1...main
-[0.6.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.6.0...v0.6.1
-[0.6.0-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.5.0...v0.6.0
-[0.5.0-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.18...v0.5.0
-[0.4.18-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.17...v0.4.18
-[0.4.17-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.16...v0.4.17
-[0.4.16-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.15...v0.4.16
-[0.4.15-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.14...v0.4.15
-[0.4.14-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.13...v0.4.14
-[0.4.13-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.12...v0.4.13
-[0.4.12-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.11...v0.4.12
-[0.4.11-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.10...v0.4.11
-[0.4.10-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.9...v0.4.10
-[0.4.9-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.8...v0.4.9
-[0.4.8-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.7...v0.4.8
-[0.4.7-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.6...v0.4.7
-[0.4.6-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.5...v0.4.6
-[0.4.5-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.4...v0.4.5
-[0.4.4-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.3...v0.4.4
-[0.4.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.2...v0.4.3
-[0.4.2-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.1...v0.4.2
-[0.4.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.5...v0.4.1
-[0.3.5-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.4...v0.3.5
-[0.3.4-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.3...v0.3.4
-[0.3.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.1...v0.3.3
-[0.3.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.0...v0.3.1
-[0.3.0-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.2.0...v0.3.0
-[0.2.0-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.2.0-rc.3...v0.2.0
-[0.2.0-rc.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.2.0-rc.2...v0.2.0-rc.3
-[0.2.0-rc.2-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.2.0-rc.1...v0.2.0-rc.2
-[0.2.0-rc.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0...v0.2.0-rc.1
-[0.1.0-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.118...v0.1.0
-[0.1.0-rc.118-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.117...v0.1.0-rc.118
-[0.1.0-rc.117-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.116...v0.1.0-rc.117
-[0.1.0-rc.116-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.115...v0.1.0-rc.116
-[0.1.0-rc.115-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.114...v0.1.0-rc.115
-[0.1.0-rc.114-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.113...v0.1.0-rc.114
-[0.1.0-rc.113-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.112...v0.1.0-rc.113
-[0.1.0-rc.112-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.110...v0.1.0-rc.112
-[0.1.0-rc.110-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.109...v0.1.0-rc.110
-[0.1.0-rc.109-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.108...v0.1.0-rc.109
-[0.1.0-rc.108-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.107...v0.1.0-rc.108
-[0.1.0-rc.107-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.106...v0.1.0-rc.107
-[0.1.0-rc.106-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.105...v0.1.0-rc.106
-[0.1.0-rc.105-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.104...v0.1.0-rc.105
-[0.1.0-rc.104-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.103...v0.1.0-rc.104
-[0.1.0-rc.103-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.102...v0.1.0-rc.103
-[0.1.0-rc.102-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.101...v0.1.0-rc.102
-[0.1.0-rc.101-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.100...v0.1.0-rc.101
-[0.1.0-rc.100-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.99...v0.1.0-rc.100
-[0.1.0-rc.99-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.98...v0.1.0-rc.99
-[0.1.0-rc.98-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.97...v0.1.0-rc.98
-[0.1.0-rc.97-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.96...v0.1.0-rc.97
-[0.1.0-rc.96-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.95...v0.1.0-rc.96
-[0.1.0-rc.95-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.94...v0.1.0-rc.95
-[0.1.0-rc.94-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.93...v0.1.0-rc.94
-[0.1.0-rc.93-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.92...v0.1.0-rc.93
-[0.1.0-rc.92-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.91...v0.1.0-rc.92
-[0.1.0-rc.91-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.90...v0.1.0-rc.91
-[0.1.0-rc.90-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.89...v0.1.0-rc.90
-[0.1.0-rc.89-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.88...v0.1.0-rc.89
-[0.1.0-rc.88-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.87...v0.1.0-rc.88
-[0.1.0-rc.87-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.86...v0.1.0-rc.87
-[0.1.0-rc.86-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.85...v0.1.0-rc.86
-[0.1.0-rc.85-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.84...v0.1.0-rc.85
-[0.1.0-rc.84-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.83...v0.1.0-rc.84
-[0.1.0-rc.83-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.82...v0.1.0-rc.83
-[0.1.0-rc.82-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.77...v0.1.0-rc.82
-[0.1.0-rc.77-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.76...v0.1.0-rc.77
-[0.1.0-rc.76-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.75...v0.1.0-rc.76
-[0.1.0-rc.75-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.74...v0.1.0-rc.75
-[0.1.0-rc.74-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.71...v0.1.0-rc.74
-[0.1.0-rc.71-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.70...v0.1.0-rc.71
-[0.1.0-rc.70-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.69...v0.1.0-rc.70
-[0.1.0-rc.69-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.68...v0.1.0-rc.69
-[0.1.0-rc.68-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.67...v0.1.0-rc.68
-[0.1.0-rc.67-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.66...v0.1.0-rc.67
-[0.1.0-rc.66-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.65...v0.1.0-rc.66
-[0.1.0-rc.65-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.64...v0.1.0-rc.65
-[0.1.0-rc.64-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.63...v0.1.0-rc.64
-[0.1.0-rc.63-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.62...v0.1.0-rc.63
-[0.1.0-rc.62-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.58...v0.1.0-rc.62
-[0.1.0-rc.58-github]: https://github.com/HengYangDS/aigw-cli/commits/v0.1.0-rc.58
