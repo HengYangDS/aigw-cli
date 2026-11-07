@@ -118,7 +118,22 @@ func TestAChangeNamesTheClientFilesThatItWrites(t *testing.T) {
 	if files := f.document(t).ClientFiles; len(files) != 1 || files[0].Client != "hermes" || files[0].File != "~/.hermes/config.yaml" {
 		t.Fatalf("client files = %+v", files)
 	}
+	// The credential reader that the change would install appears in both
+	// outputs or in neither.
+	planned := f.document(t).CredentialReader
+	if planned == nil || planned.Path != reader {
+		t.Fatalf("credential reader = %+v", planned)
+	}
+	if err := f.run("add", "mixed/spare", "--protocol", "chat", "--unlisted", "--dry-run"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(f.text(), "Credential reader Install "+reader) {
+		t.Fatalf("human output does not name the credential reader:\n%s", f.out)
+	}
 	if _, err := os.Stat(target); !os.IsNotExist(err) {
 		t.Fatalf("a preview wrote Hermes's file: %v", err)
+	}
+	if _, err := os.Stat(reader); !os.IsNotExist(err) {
+		t.Fatalf("a preview installed the credential reader: %v", err)
 	}
 }

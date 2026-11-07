@@ -52,11 +52,13 @@ func checkCatalog(ctx context.Context, runtime invocation.Context, cmd *cobra.Co
 		problem := fmt.Sprintf("the %s catalog %s, so AIGW cannot check that it serves %s", ref.Provider(), reason, ref)
 		return terminal.ProblemError(problem, unreadSources(report), "", unlisted, nil)
 	}
-	// The fix adds the closest listed model, whose ID the user most likely
-	// meant; only a catalog without one leaves --unlisted, which adds the ID as
-	// typed.
+	// The fix adds the closest listed model that is not added yet, whose ID
+	// the user most likely meant; only a catalog without one leaves
+	// --unlisted, which adds the ID as typed.
 	problem := fmt.Sprintf("the %s catalog does not list %s", ref.Provider(), ref.ID())
-	closest := closestListed(ref.ID(), listed)
+	closest := closestListed(ref.ID(), slices.DeleteFunc(listed, func(id string) bool {
+		return len(cfg.ResolveModelRef(domain.NewModelRef(ref.Provider(), id))) > 0
+	}))
 	if len(closest) == 0 {
 		return terminal.ProblemError(problem, unreadSources(report), "", unlisted, nil)
 	}

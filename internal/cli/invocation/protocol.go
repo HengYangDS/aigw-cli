@@ -14,15 +14,22 @@ import (
 // name. pflag quotes the refused value and its flag before it.
 var errProtocolName = errors.New("expected " + domain.ProtocolUsage())
 
+// errProtocolRepeated refuses a second protocol for a flag that takes one.
+var errProtocolRepeated = errors.New("this flag takes one protocol")
+
 // protocolFlag is the value of a `--protocol` flag: one protocol as the
-// command line names it. Any other spelling is refused while the flags are
-// parsed, so the refusal names the command's help as every flag error does.
+// command line names it. Any other spelling, and a second protocol, is
+// refused while the flags are parsed, so the refusal names the command's help
+// as every flag error does.
 type protocolFlag struct{ protocol *domain.EndpointProtocol }
 
 func (flag protocolFlag) Set(name string) error {
 	protocol, named := domain.ProtocolNamed(name)
 	if !named {
 		return errProtocolName
+	}
+	if *flag.protocol != "" {
+		return errProtocolRepeated
 	}
 	*flag.protocol = protocol
 	return nil

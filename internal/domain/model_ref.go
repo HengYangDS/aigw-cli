@@ -43,22 +43,29 @@ func (ref ModelRef) ID() string { return ref.id }
 // String returns the reference as `provider/model`.
 func (ref ModelRef) String() string { return ref.provider + "/" + ref.id }
 
+// NewModelRef names the model with the provider's own model ID id, such as an
+// ID that the provider's catalog lists.
+func NewModelRef(provider, id string) ModelRef { return ModelRef{provider: provider, id: id} }
+
 // Ref names model as `provider/model`.
 func (model Model) Ref() ModelRef {
 	return ModelRef{provider: model.Provider, id: model.UpstreamModelID()}
 }
 
-// ResolveModelRef returns the key of the configured model that ref names: the
-// one model of ref's provider whose provider model ID equals ref's. It is
-// the one lookup from a reference to a stored model, so the store key can
-// change without its callers.
-func (c *Config) ResolveModelRef(ref ModelRef) (string, bool) {
+// ResolveModelRef returns the keys of the configured models that ref names:
+// the models of ref's provider whose provider model ID equals ref's, in key
+// order. Today's configuration can hold several such Routes, one per
+// protocol, which task 6.1's import merges into one model. It is the one
+// lookup from a reference to stored models, so the store key can change
+// without its callers.
+func (c *Config) ResolveModelRef(ref ModelRef) []string {
+	var keys []string
 	for _, key := range c.ModelIDs() {
 		if model := c.Models[key]; model.Provider == ref.provider && model.UpstreamModelID() == ref.id {
-			return key, true
+			keys = append(keys, key)
 		}
 	}
-	return "", false
+	return keys
 }
 
 // ModelKey derives the key under which a model that ref names is stored. It

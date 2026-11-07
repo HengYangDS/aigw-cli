@@ -16,15 +16,16 @@ func TestAddChecksTheCatalogAndStoresAKeyThatOutputNeverShows(t *testing.T) {
 		t.Fatal(err)
 	}
 	document := f.document(t)
-	if document.Model != "team/spare-model" || document.CatalogChecked == nil || !*document.CatalogChecked || document.Label != "Spare" || f.catalog.requests != 1 {
+	if document.ID != "team/spare-model" || document.CatalogChecked == nil || !*document.CatalogChecked || document.Label != "Spare" || f.catalog.requests != 1 {
 		t.Fatalf("added model = %v after %d requests", document, f.catalog.requests)
 	}
 	cfg := f.load(t)
 	ref, _ := domain.ParseModelRef("team/spare-model")
-	key, found := cfg.ResolveModelRef(ref)
-	if !found || key != domain.ModelKey(ref) || strings.Contains(f.out.String(), key) {
-		t.Fatalf("stored key %q, found %t, in output %t", key, found, strings.Contains(f.out.String(), key))
+	keys := cfg.ResolveModelRef(ref)
+	if len(keys) != 1 || keys[0] != domain.ModelKey(ref) || strings.Contains(f.out.String(), keys[0]) {
+		t.Fatalf("stored keys %q, in output %t", keys, len(keys) > 0 && strings.Contains(f.out.String(), keys[0]))
 	}
+	key := keys[0]
 	if model := cfg.Models[key]; model.Family != "spare-model" || model.UpstreamModelID() != "spare-model" || len(model.Protocols[domain.ProtocolAnthropic]) != 0 {
 		t.Fatalf("added model = %#v", model)
 	}
@@ -100,7 +101,8 @@ func TestAddPreviewReadsNoCatalogAndWritesNothing(t *testing.T) {
 			t.Fatalf("add preview lacks %q:\n%s", want, f.out)
 		}
 	}
-	if err := f.run("add", "team/spare-model", "--dry-run", "--json"); err != nil || !f.document(t).DryRun || f.document(t).CatalogChecked != nil {
+	// A preview reads no catalog, and says so.
+	if err := f.run("add", "team/spare-model", "--dry-run", "--json"); err != nil || !f.document(t).DryRun || f.document(t).CatalogChecked == nil || *f.document(t).CatalogChecked {
 		t.Fatalf("add preview document = %v:\n%s", err, f.out)
 	}
 	after, err := os.ReadFile(f.runtime.Config.Path())
@@ -121,7 +123,7 @@ func TestAddTakesTheProtocolFromTheProvidersEndpoints(t *testing.T) {
 	}
 	p = problem(f.run("add", "team/new", "--protocol", "responses", "--unlisted"))
 	if p.Title != "team/new cannot declare OpenAI Responses: provider team has no OpenAI Responses endpoint" ||
-		p.Evidence != "Provider team serves Anthropic Messages." || p.Fix != "Run the command with --protocol anthropic." {
+		p.Evidence != "Provider team serves Anthropic Messages." || p.Fix != "model add team/new --unlisted --protocol anthropic" {
 		t.Fatalf("a protocol that the provider lacks = %+v", p)
 	}
 	if err := f.run("add", "mixed/new", "--protocol", "chat", "--unlisted", "--json"); err != nil {

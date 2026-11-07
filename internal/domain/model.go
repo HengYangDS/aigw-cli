@@ -508,6 +508,13 @@ func (c *Config) ResolveModelProtocol(client, routeID string, protocol EndpointP
 	})
 }
 
+// ResolveSelection resolves one recommendation choice of client, as
+// validation does, to the protocol that it reaches.
+func (c *Config) ResolveSelection(client string, selection ClientSelection) (EndpointProtocol, error) {
+	runtime, err := c.resolveSelection(client, selection)
+	return runtime.Protocol, err
+}
+
 func modelAdmitsProtocol(route Model, protocol EndpointProtocol) bool {
 	_, admitted := route.Protocols[protocol]
 	return admitted

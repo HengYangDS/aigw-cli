@@ -17,7 +17,7 @@ func TestListFiltersByQueryProviderClientAndProtocol(t *testing.T) {
 		}
 		var names []string
 		for _, item := range f.list(t).Models {
-			names = append(names, item.Model)
+			names = append(names, item.ID)
 		}
 		return names
 	}
@@ -101,7 +101,7 @@ func TestShowReportsOneModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	document := f.document(t)
-	if document.Model != "mixed/Chat-Only" || document.Family != "chat-only" || document.Label != "Chat Only" {
+	if document.ID != "mixed/Chat-Only" || document.Family != "chat-only" || document.Label != "Chat Only" {
 		t.Fatalf("model show = %+v", document)
 	}
 	if endpoints := document.Endpoints; len(endpoints) != 1 || endpoints[0] != (endpointDetail{Protocol: "chat", URL: "https://mixed.test/v1"}) {

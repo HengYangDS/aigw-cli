@@ -49,8 +49,8 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 			document := listDocument{Models: []modelItem{}}
-			for _, key := range cfg.CatalogModelIDs() {
-				if item := describe(cfg, key); filters.admit(cfg.Models[key], item, args) {
+			for _, keys := range modelsByName(cfg) {
+				if item := describe(cfg, keys...); filters.admit(item, args) {
 					document.Models = append(document.Models, item)
 				}
 			}
@@ -69,18 +69,36 @@ func newListCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
+// modelsByName groups the keys of the added models by name, in display order:
+// each name once, at the position of its first model.
+func modelsByName(cfg domain.Config) [][]string {
+	var groups [][]string
+	index := map[string]int{}
+	for _, key := range cfg.CatalogModelIDs() {
+		name := cfg.Models[key].Ref().String()
+		if position, seen := index[name]; seen {
+			groups[position] = append(groups[position], key)
+			continue
+		}
+		index[name] = len(groups)
+		groups = append(groups, []string{key})
+	}
+	return groups
+}
+
 // admit reports whether a model passes every filter and every query word.
-func (filters listFilters) admit(model domain.Model, item modelItem, words []string) bool {
-	if len(filters.providers) > 0 && !slices.Contains(filters.providers, model.Provider) {
+func (filters listFilters) admit(item modelItem, words []string) bool {
+	if len(filters.providers) > 0 && !slices.Contains(filters.providers, item.Provider) {
 		return false
 	}
 	if len(filters.clients) > 0 && !slices.ContainsFunc(filters.clients, func(client string) bool { return slices.Contains(item.ProtocolClients, client) }) {
 		return false
 	}
-	if _, declared := model.Protocols[filters.protocol]; filters.protocol != "" && !declared {
+	if filters.protocol != "" && !slices.ContainsFunc(item.Protocols, func(protocol protocolItem) bool { return protocol.Protocol == filters.protocol.Name() }) {
 		return false
 	}
-	text := strings.ToLower(model.UpstreamModelID() + "\x00" + item.Label)
+	_, id, _ := strings.Cut(item.ID, "/")
+	text := strings.ToLower(id + "\x00" + item.Label)
 	for _, word := range words {
 		for part := range strings.FieldsSeq(strings.ToLower(word)) {
 			if !strings.Contains(text, part) {
@@ -120,7 +138,10 @@ func renderList(runtime invocation.Context, cfg domain.Config, document listDocu
 			state = terminal.Warn
 			detail = append(detail, "deprecated")
 		}
-		r.Rows(terminal.Field{State: state, Label: item.Model, Value: strings.Join(detail, " · ")})
+		if item.Duplicate {
+			detail = append(detail, "one model per protocol")
+		}
+		r.Rows(terminal.Field{State: state, Label: item.ID, Value: strings.Join(detail, " · ")})
 	}
 	r.Next("aigw use <client> <provider/model>")
 	return r.Err()
@@ -128,20 +149,21 @@ func renderList(runtime invocation.Context, cfg domain.Config, document listDocu
 
 func newShowCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode bool
+	var protocol domain.EndpointProtocol
 	cmd := &cobra.Command{
 		Use:               "show <provider/model>",
 		Short:             "Show one model: its protocols, capabilities and the clients that use it",
 		Example:           "aigw model show dmxapi/gpt-6.1-sol\naigw model show ucloud/minimax-m3 --json",
 		Args:              modelArgument,
-		ValidArgsFunction: invocation.CompleteModels(runtime, noClient),
-		RunE: func(_ *cobra.Command, args []string) error {
-			cfg, key, model, err := loadModel(runtime, args[0])
+		ValidArgsFunction: invocation.CompleteModels(runtime),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, key, model, err := loadModel(cmd, runtime, protocol, args[0])
 			if err != nil {
 				return err
 			}
 			item := describe(cfg, key)
 			provider := cfg.Providers[model.Provider]
-			for _, protocol := range model.AdmittedProtocols() {
+			for _, protocol := range displayProtocols(model) {
 				item.Endpoints = append(item.Endpoints, endpointDetail{Protocol: protocol.Name(), URL: provider.Endpoints.For(protocol)})
 			}
 			if jsonMode {
@@ -161,9 +183,7 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			return r.Err()
 		},
 	}
+	invocation.BindProtocol(cmd, &protocol, "The model that declares this protocol, when one name names several")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the model as JSON")
 	return cmd
 }
-
-// noClient completes every added model, for a command that names no client.
-func noClient() string { return "" }

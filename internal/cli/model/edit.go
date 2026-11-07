@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 
@@ -47,7 +46,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			_, err := parseCapabilities(cmd, options.capabilities)
 			return err
 		},
-		ValidArgsFunction: invocation.CompleteModels(runtime, noClient),
+		ValidArgsFunction: invocation.CompleteModels(runtime),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runEdit(cmd, runtime, args, options)
 		},
@@ -60,30 +59,35 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().BoolVar(&options.jsonMode, "json", false, "Write the edited model as JSON")
 	invocation.CompleteFlag(cmd, "family", invocation.CompleteFamilies(runtime))
 	invocation.CompleteFlag(cmd, "capability", invocation.CompleteCapabilities)
+	invocation.CompleteFlag(cmd, "label", cobra.NoFileCompletions)
 	return cmd
 }
 
 func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, options editOptions) error {
-	cfg, key, model, err := loadModel(runtime, args[0])
+	// --protocol replaces the protocols, so it cannot also select among the
+	// models of one name; such a name gives the Route of each.
+	cfg, key, model, err := loadModel(cmd, runtime, "", args[0])
 	if err != nil {
 		return err
 	}
 	before := cfg.Clone()
 	ref := model.Ref()
-	var recommendations []string
+	var pinned []string
 	if cmd.Flags().Changed("protocol") {
 		provider := cfg.Providers[model.Provider]
 		provider.ID = model.Provider
 		for _, protocol := range options.protocols {
 			if provider.Endpoints.For(protocol) == "" {
-				return missingEndpoint(ref, provider, protocol)
+				return missingEndpoint(cmd, ref, provider, protocol, servedNames(provider, options.protocols)...)
 			}
 		}
 		if err := keepSelectedProtocols(cfg, key, ref, options.protocols); err != nil {
 			return err
 		}
+		if pinned, err = pinRecommendations(&cfg, key, ref, options.protocols); err != nil {
+			return err
+		}
 		pinSelections(&cfg, key)
-		recommendations = dropRecommendedProtocols(&cfg, key, options.protocols)
 		model.Protocols = replaceProtocols(model.Protocols, options.protocols)
 	}
 	if cmd.Flags().Changed("capability") {
@@ -109,13 +113,13 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, opti
 	if created != "" {
 		rows = append(rows, terminal.Field{Label: "New family", Value: created})
 	}
-	if len(recommendations) > 0 {
-		rows = append(rows, terminal.Field{Label: "Recommendations", Value: "Dropped the removed protocols for " + clientLabels(runtime.Clients.Admission(), recommendations)})
+	if len(pinned) > 0 {
+		rows = append(rows, terminal.Field{Label: "Recommendations", Value: "Kept on their current protocols for " + clientLabels(runtime.Clients.Admission(), pinned)})
 	}
 	return change{
 		before: before, after: cfg, subject: "model edit", version: editSchemaVersion, title: "Model edited", rows: rows,
 		next:     "aigw model show " + ref.String(),
-		document: changeDocument{modelItem: item, FamilyCreated: created, Recommendations: recommendations},
+		document: changeDocument{modelItem: item, FamilyCreated: created, PinnedRecommendations: pinned},
 	}.apply(cmd, runtime, args, options.dryRun, options.jsonMode)
 }
 
@@ -150,6 +154,18 @@ func keepSelectedProtocols(cfg domain.Config, key string, ref domain.ModelRef, p
 	return nil
 }
 
+// servedNames returns the names of the protocols among given that provider
+// serves.
+func servedNames(provider domain.Provider, given []domain.EndpointProtocol) []string {
+	var names []string
+	for _, protocol := range given {
+		if provider.Endpoints.For(protocol) != "" {
+			names = append(names, protocol.Name())
+		}
+	}
+	return names
+}
+
 // replaceProtocols gives a model exactly protocols: a protocol that it keeps
 // keeps the capabilities qualified on it, and a new one declares none.
 func replaceProtocols(current map[domain.EndpointProtocol][]domain.Capability, protocols []domain.EndpointProtocol) map[domain.EndpointProtocol][]domain.Capability {
@@ -174,39 +190,6 @@ func pinSelections(cfg *domain.Config, key string) {
 			cfg.Clients[client] = binding
 		}
 	}
-}
-
-// dropRecommendedProtocols drops the recommendation choices of the model whose
-// protocol the model no longer declares, or whose protocol the new protocols
-// would make ambiguous, and returns the clients whose recommendation changed.
-func dropRecommendedProtocols(cfg *domain.Config, key string, protocols []domain.EndpointProtocol) []string {
-	changed := []string{}
-	for _, client := range slices.Sorted(maps.Keys(cfg.Recommendations)) {
-		recommendation := cfg.Recommendations[client]
-		keep := func(selection domain.ClientSelection) bool {
-			if selection.Model != key {
-				return true
-			}
-			if selection.Protocol != "" {
-				return slices.Contains(protocols, selection.Protocol)
-			}
-			spec, _ := cfg.Admission().Spec(client)
-			return len(slices.DeleteFunc(slices.Clone(protocols), func(protocol domain.EndpointProtocol) bool {
-				return !slices.Contains(spec.EndpointProtocols, protocol)
-			})) == 1
-		}
-		choices := slices.DeleteFunc(recommendation.Selections(), func(selection domain.ClientSelection) bool { return !keep(selection) })
-		if len(choices) == len(recommendation.Selections()) {
-			continue
-		}
-		changed = append(changed, client)
-		if len(choices) == 0 {
-			delete(cfg.Recommendations, client)
-			continue
-		}
-		cfg.Recommendations[client] = domain.ClientRecommendation{Primary: choices[0], Alternatives: choices[1:]}
-	}
-	return changed
 }
 
 // declare maps each protocol to the capabilities that it admits, refusing a

@@ -48,39 +48,61 @@ func CompleteProviders(runtime Context) cobra.CompletionFunc {
 	}
 }
 
-// CompleteModels completes the one `provider/model` argument from the added
-// models, and nothing once it is given. When client returns a client ID, it
-// offers only the models that the client can use: those whose provider serves
-// a protocol that the client speaks, which `aigw use` gives a model that
-// lacks it.
-func CompleteModels(runtime Context, client func() string) cobra.CompletionFunc {
+// CompleteModels completes the one `provider/model` argument of a command that
+// names no client, from the added models, each name once, and nothing once it
+// is given.
+func CompleteModels(runtime Context) cobra.CompletionFunc {
 	return func(_ *cobra.Command, args []string, _ string) ([]cobra.Completion, cobra.ShellCompDirective) {
 		if len(args) > 0 {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		}
-		cfg, err := runtime.Config.Load()
-		if err != nil {
-			return nil, cobra.ShellCompDirectiveNoFileComp
-		}
-		completions := []cobra.Completion{}
-		for _, key := range modelsForClient(cfg, client()) {
-			completions = append(completions, cobra.CompletionWithDesc(cfg.Models[key].Ref().String(), cfg.ModelLabel(key)))
-		}
-		return completions, cobra.ShellCompDirectiveNoFileComp
+		return modelCompletions(runtime, "")
 	}
 }
 
-// modelsForClient returns the keys of the added models in display order, and
-// only those whose provider serves a protocol of client when client names one.
-func modelsForClient(cfg domain.Config, client string) []string {
-	keys := cfg.CatalogModelIDs()
-	spec, admitted := cfg.Admission().Spec(client)
-	if !admitted {
-		return keys
+// completeClientModels completes `<client> <provider/model>`, the arguments
+// of `aigw use`: a client ID first, and then only the models that the client
+// can use, those whose provider serves a protocol that the client speaks,
+// which `aigw use` gives a model that lacks it. It offers nothing for an
+// unknown client or once both are given. Task 4.1, which gives `aigw use`
+// these arguments, binds it.
+func completeClientModels(runtime Context) cobra.CompletionFunc {
+	clients := CompleteClients(runtime)
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+		switch len(args) {
+		case 0:
+			return clients(cmd, args, toComplete)
+		case 1:
+			if !runtime.Clients.Admission().Admits(args[0]) {
+				return nil, cobra.ShellCompDirectiveNoFileComp
+			}
+			return modelCompletions(runtime, args[0])
+		default:
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
 	}
-	return slices.DeleteFunc(keys, func(key string) bool {
-		return len(spec.CompatibleProtocols(cfg.Providers[cfg.Models[key].Provider])) == 0
-	})
+}
+
+// modelCompletions offers each added model's name once, with its label, in
+// display order, and only those that client can use when client names one.
+func modelCompletions(runtime Context, client string) ([]cobra.Completion, cobra.ShellCompDirective) {
+	cfg, err := runtime.Config.Load()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	spec, admitted := cfg.Admission().Spec(client)
+	completions := []cobra.Completion{}
+	offered := map[string]bool{}
+	for _, key := range cfg.CatalogModelIDs() {
+		model := cfg.Models[key]
+		name := model.Ref().String()
+		if offered[name] || admitted && len(spec.CompatibleProtocols(cfg.Providers[model.Provider])) == 0 {
+			continue
+		}
+		offered[name] = true
+		completions = append(completions, cobra.CompletionWithDesc(name, cfg.ModelLabel(key)))
+	}
+	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
 // CompleteFamilies completes a family ID from the configuration's families.

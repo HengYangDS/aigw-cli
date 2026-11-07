@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -51,8 +52,8 @@ func TestResolveModelRefFindsTheProvidersModel(t *testing.T) {
 	cfg.Models["ucloud-sol"] = Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: responses}
 	for text, want := range map[string]string{"ucloud/MiniMax-M3": "ucloud-minimax", "dmxapi/gpt-6.1-sol": "dmxapi-sol", "ucloud/gpt-6.1-sol": "ucloud-sol"} {
 		ref, _ := ParseModelRef(text)
-		if key, found := cfg.ResolveModelRef(ref); !found || key != want {
-			t.Fatalf("ResolveModelRef(%s) = %q, %t; want %q", text, key, found, want)
+		if keys := cfg.ResolveModelRef(ref); !slices.Equal(keys, []string{want}) {
+			t.Fatalf("ResolveModelRef(%s) = %q; want %q", text, keys, want)
 		}
 		if got := cfg.Models[want].Ref(); got != ref {
 			t.Fatalf("%s.Ref() = %s, want %s", want, got, ref)
@@ -60,8 +61,16 @@ func TestResolveModelRefFindsTheProvidersModel(t *testing.T) {
 	}
 	for _, text := range []string{"ucloud/minimax-m3", "dmxapi/MiniMax-M3", "ucloud/unknown", "other/gpt-6.1-sol"} {
 		ref, _ := ParseModelRef(text)
-		if key, found := cfg.ResolveModelRef(ref); found {
-			t.Fatalf("ResolveModelRef(%s) = %q, want no model", text, key)
+		if keys := cfg.ResolveModelRef(ref); len(keys) != 0 {
+			t.Fatalf("ResolveModelRef(%s) = %q, want no model", text, keys)
 		}
+	}
+	// Today's configuration can give one name a Route per protocol; the
+	// lookup returns each, in key order.
+	cfg.Providers["ucloud"] = Provider{Label: "UCloud", Endpoints: Endpoints{OpenAIResponses: "https://ucloud.test/v1", OpenAIChatCompletions: "https://ucloud.test/v1"}}
+	cfg.Models["ucloud-sol-chat"] = Model{Provider: "ucloud", Family: "gpt-6.1-sol", Protocols: map[EndpointProtocol][]Capability{ProtocolOpenAIChatCompletions: {}}}
+	ref, _ := ParseModelRef("ucloud/gpt-6.1-sol")
+	if keys := cfg.ResolveModelRef(ref); !slices.Equal(keys, []string{"ucloud-sol", "ucloud-sol-chat"}) {
+		t.Fatalf("ResolveModelRef of a name with two Routes = %q", keys)
 	}
 }

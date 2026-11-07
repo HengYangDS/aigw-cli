@@ -48,13 +48,33 @@ func ParseModelArgument(cfg domain.Config, text string) (domain.ModelRef, error)
 // ResolveModel returns the configured model that ref names and its key, which
 // only the configuration and its transactions use. An unknown model is
 // refused with the provider's closest model IDs, or with the closest
-// providers when its provider is unknown.
-func ResolveModel(cfg domain.Config, ref domain.ModelRef) (string, domain.Model, error) {
+// providers when its provider is unknown. Today's configuration can hold one
+// model of a name per protocol: protocol, when given, selects the one that
+// declares it, and a name that still names several is refused, naming each
+// protocol, with the command that selects one, rerun.
+func ResolveModel(cfg domain.Config, ref domain.ModelRef, protocol domain.EndpointProtocol, rerun func(protocol string) string) (string, domain.Model, error) {
 	if _, err := ResolveProvider(cfg, ref.Provider()); err != nil {
 		return "", domain.Model{}, err
 	}
-	if key, found := cfg.ResolveModelRef(ref); found {
-		return key, cfg.Models[key], nil
+	keys := cfg.ResolveModelRef(ref)
+	if protocol != "" && len(keys) > 1 {
+		keys = slices.DeleteFunc(keys, func(key string) bool {
+			_, declared := cfg.Models[key].Protocols[protocol]
+			return !declared
+		})
+	}
+	switch len(keys) {
+	case 1:
+		return keys[0], cfg.Models[keys[0]], nil
+	case 0:
+		if len(cfg.ResolveModelRef(ref)) > 0 {
+			return "", domain.Model{}, refusal{
+				message: fmt.Sprintf("%s declares no %s", ref, domain.ProtocolLabel(protocol)),
+				fix:     "aigw model show " + ref.String(),
+			}
+		}
+	default:
+		return "", domain.Model{}, ambiguousModel(cfg, ref, keys, rerun)
 	}
 	var ids []string
 	for _, key := range cfg.CatalogModelIDs() {
@@ -66,6 +86,30 @@ func ResolveModel(cfg domain.Config, ref domain.ModelRef) (string, domain.Model,
 		message: "unknown model " + ref.String() + closestText(ref.ID(), ids, ref.Provider()+"/"),
 		fix:     "aigw model list --provider " + ref.Provider(),
 	}
+}
+
+// ambiguousModel refuses a name that several configured models carry, one
+// per protocol, naming each protocol. Its fix is the command rerun with the
+// protocol that selects one, or the Route that each is until task 6.1 merges
+// them.
+func ambiguousModel(cfg domain.Config, ref domain.ModelRef, keys []string, rerun func(protocol string) string) error {
+	var protocols []string
+	for _, key := range keys {
+		for _, protocol := range cfg.Models[key].AdmittedProtocols() {
+			protocols = append(protocols, protocol.Name())
+		}
+	}
+	slices.Sort(protocols)
+	protocols = slices.Compact(protocols)
+	message := fmt.Sprintf("%s names %d models, one for each of the protocols %s", ref, len(keys), strings.Join(protocols, ", "))
+	fix := ""
+	if rerun != nil {
+		fix = rerun("<" + strings.Join(protocols, "|") + ">")
+	}
+	if fix == "" {
+		fix = "aigw route show " + keys[0]
+	}
+	return refusal{message: message, fix: fix}
 }
 
 // ResolveProvider returns the configured provider with id. An unknown one is

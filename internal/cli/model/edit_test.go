@@ -12,6 +12,13 @@ import (
 
 func TestEditReplacesEachSetItIsGiven(t *testing.T) {
 	f := newFixture(t)
+	// Without Hermes's recommendation of the model on chat, the edit may take
+	// chat away.
+	cfg := f.load(t)
+	delete(cfg.Recommendations, "hermes")
+	if err := f.runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
 	// The given capabilities go to each protocol that admits them.
 	if err := f.run("edit", "mixed/Chat-Only", "--protocol", "chat", "--protocol", "anthropic", "--protocol", "chat", "--capability", "tool_search", "--capability", "text"); err != nil {
 		t.Fatal(err)
@@ -62,42 +69,6 @@ func TestEditReplacesEachSetItIsGiven(t *testing.T) {
 	}
 }
 
-// TestEditDropsTheRecommendationsOfARemovedProtocol removes the protocol that
-// Hermes's recommendation names, and adds one that would leave a
-// recommendation without a protocol ambiguous: the edit drops both choices and
-// reports them.
-func TestEditDropsTheRecommendationsOfARemovedProtocol(t *testing.T) {
-	f := newFixture(t)
-	if err := f.run("edit", "mixed/Chat-Only", "--protocol", "anthropic", "--dry-run", "--json"); err != nil {
-		t.Fatal(err)
-	}
-	if got := f.document(t).Recommendations; !slices.Equal(got, []string{"hermes"}) || len(f.load(t).Recommendations) != 1 {
-		t.Fatalf("preview recommendations = %q", got)
-	}
-	if err := f.run("edit", "mixed/Chat-Only", "--protocol", "anthropic"); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(f.text(), "Recommendations Dropped the removed protocols for Hermes") || len(f.load(t).Recommendations) != 0 {
-		t.Fatalf("edit report:\n%s", f.out)
-	}
-	cfg := f.load(t)
-	cfg.Recommendations["hermes"] = domain.ClientRecommendation{
-		Primary:      domain.ClientSelection{Model: "team"},
-		Alternatives: []domain.ClientSelection{{Model: "mixed-chat"}},
-	}
-	if err := f.runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	// Hermes speaks anthropic and chat, so the implicit choice of the mixed
-	// model would become ambiguous; the team model's choice stays.
-	if err := f.run("edit", "mixed/Chat-Only", "--protocol", "anthropic", "--protocol", "chat", "--json"); err != nil {
-		t.Fatal(err)
-	}
-	if got := f.load(t).Recommendations["hermes"]; got.Primary.Model != "team" || len(got.Alternatives) != 0 {
-		t.Fatalf("recommendation after an ambiguous protocol = %#v", got)
-	}
-}
-
 // TestEditPinsTheProtocolOfAnImplicitSelection gives a model that Claude
 // selects without an explicit protocol a second protocol that Claude does not
 // speak: the selection keeps its protocol and stays valid.
@@ -134,7 +105,7 @@ func TestEditRefusesWhatWouldBreakItsModel(t *testing.T) {
 	for args, want := range map[string]struct{ title, fix string }{
 		"edit team/team-model --protocol chat": {
 			"team/team-model cannot declare OpenAI Chat Completions: provider team has no OpenAI Chat Completions endpoint",
-			"Run the command with --protocol anthropic.",
+			"Run the same command with --protocol anthropic.",
 		},
 		// The fix keeps the model's own protocols beside the one that admits
 		// tool search.

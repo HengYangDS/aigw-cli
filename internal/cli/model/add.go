@@ -61,6 +61,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().BoolVar(&options.jsonMode, "json", false, "Write the added model as JSON")
 	invocation.CompleteFlag(cmd, "family", invocation.CompleteFamilies(runtime))
 	invocation.CompleteFlag(cmd, "capability", invocation.CompleteCapabilities)
+	invocation.CompleteFlag(cmd, "label", cobra.NoFileCompletions)
 	return cmd
 }
 
@@ -77,7 +78,7 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 	if err != nil {
 		return err
 	}
-	if _, exists := cfg.ResolveModelRef(ref); exists {
+	if len(cfg.ResolveModelRef(ref)) > 0 {
 		return terminal.ProblemError(ref.String()+" is already added; `aigw model edit` changes it", "", "", "aigw model edit "+ref.String()+" --help", nil)
 	}
 	protocol, err := addProtocol(cmd, ref, provider, options.protocol)
@@ -94,12 +95,12 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 	family, created := familyFor(&cfg, ref, options.family)
 	model.Family = family
 	cfg.Models[domain.ModelKey(ref)] = model
-	var checked *bool
-	if !options.dryRun && !options.unlisted {
+	// A preview and --unlisted read no catalog.
+	checked := !options.dryRun && !options.unlisted
+	if checked {
 		if err := checkCatalog(cmd.Context(), runtime, cmd, before, ref); err != nil {
 			return err
 		}
-		checked = new(true)
 	}
 	item := describe(cfg, domain.ModelKey(ref))
 	rows := append(modelFields(runtime, item), catalogField(options))
@@ -109,7 +110,7 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 	next := "aigw use <client> " + ref.String()
 	return change{
 		before: before, after: cfg, subject: "model add", version: addSchemaVersion, title: "Model added", rows: rows, next: next,
-		document: changeDocument{modelItem: item, FamilyCreated: created, CatalogChecked: checked},
+		document: changeDocument{modelItem: item, FamilyCreated: created, CatalogChecked: &checked},
 	}.apply(cmd, runtime, args, options.dryRun, options.jsonMode)
 }
 
@@ -132,7 +133,7 @@ func addProtocol(cmd *cobra.Command, ref domain.ModelRef, provider domain.Provid
 	served := providerProtocols(provider)
 	if requested != "" {
 		if !slices.Contains(served, requested) {
-			return "", missingEndpoint(ref, provider, requested)
+			return "", missingEndpoint(cmd, ref, provider, requested, protocolChoice(served))
 		}
 		return requested, nil
 	}
@@ -148,7 +149,7 @@ func addProtocol(cmd *cobra.Command, ref domain.ModelRef, provider domain.Provid
 }
 
 // protocolChoice is a protocol to type: the one name, or a placeholder of the
-// choice among several.
+// choice among several, which makes the fix a next_detail.
 func protocolChoice(protocols []domain.EndpointProtocol) string {
 	names := make([]string, 0, len(protocols))
 	for _, protocol := range protocols {
@@ -173,15 +174,22 @@ func providerProtocols(provider domain.Provider) []domain.EndpointProtocol {
 }
 
 // missingEndpoint refuses a protocol for which the provider has no endpoint,
-// naming the model, the provider and the missing protocol. The fix names the
-// protocols that the provider serves, which only the command line can choose
-// among.
-func missingEndpoint(ref domain.ModelRef, provider domain.Provider, protocol domain.EndpointProtocol) error {
+// naming the model, the provider and the missing protocol. Its fix is the
+// command rerun with the protocols that would do: one that the provider
+// serves for add, and the given ones that it serves for edit.
+func missingEndpoint(cmd *cobra.Command, ref domain.ModelRef, provider domain.Provider, protocol domain.EndpointProtocol, protocols ...string) error {
 	served := providerProtocols(provider)
+	words := make([]string, 0, 2*len(protocols))
+	for _, choice := range protocols {
+		words = append(words, "--protocol", choice)
+	}
+	fix := invocation.Rerun(cmd, cmd.Flags().Args(), []string{"protocol"}, words...)
+	if fix == "" || len(protocols) == 0 {
+		fix = "Run the same command with --protocol " + protocolChoice(served) + "."
+	}
 	return terminal.ProblemError(
 		fmt.Sprintf("%s cannot declare %s: provider %s has no %s endpoint", ref, domain.ProtocolLabel(protocol), provider.ID, domain.ProtocolLabel(protocol)),
-		"Provider "+provider.ID+" serves "+protocolLabels(served)+".", "",
-		"Run the command with --protocol "+protocolChoice(served)+".", nil)
+		"Provider "+provider.ID+" serves "+protocolLabels(served)+".", "", fix, nil)
 }
 
 // familyFor is the family of a model that add creates: an explicit family,

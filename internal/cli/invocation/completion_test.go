@@ -1,6 +1,7 @@
 package invocation
 
 import (
+	"bytes"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -65,6 +66,9 @@ func completionRuntime(t *testing.T) Context {
 	// responses, which `aigw use` gives it for Codex.
 	cfg.Providers["both"] = domain.Provider{Label: "Both", Endpoints: domain.Endpoints{Anthropic: "https://both.test", OpenAIResponses: "https://both.test/v1"}}
 	cfg.Models["both-opus"] = domain.Model{Provider: "both", Family: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	// A second Route of the same name, on responses, which completion offers
+	// once.
+	cfg.Models["both-opus-responses"] = domain.Model{Provider: "both", Family: "opus", UpstreamModel: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -90,12 +94,16 @@ func TestCompletionReadsOnlyTheLocalConfiguration(t *testing.T) {
 	}{
 		{"clients", CompleteClients(runtime), nil, []string{"claude", "claude-desktop", "codex", "hermes"}},
 		{"providers", CompleteProviders(runtime), nil, []string{"both", "messages", "responses"}},
-		{"every model", CompleteModels(runtime, func() string { return "" }), nil, []string{"both/opus", "messages/opus", "responses/openai/gpt-sol"}},
-		// Codex speaks only responses, so the Messages-only provider's model is
-		// not offered.
-		{"Codex's models", CompleteModels(runtime, func() string { return codex.ID }), nil, []string{"both/opus", "responses/openai/gpt-sol"}},
-		{"Claude's models", CompleteModels(runtime, func() string { return claude.ID }), nil, []string{"both/opus", "messages/opus"}},
-		{"a given model", CompleteModels(runtime, func() string { return "" }), []string{"messages/opus"}, []string{}},
+		{"every model", CompleteModels(runtime), nil, []string{"both/opus", "messages/opus", "responses/openai/gpt-sol"}},
+		{"a given model", CompleteModels(runtime), []string{"messages/opus"}, []string{}},
+		// `use <TAB>` completes the client, and `use <client> <TAB>` the models
+		// that the client can use: Codex speaks only responses, so the
+		// Messages-only provider's model is not offered.
+		{"use's client", completeClientModels(runtime), nil, []string{"claude", "claude-desktop", "codex", "hermes"}},
+		{"Codex's models", completeClientModels(runtime), []string{codex.ID}, []string{"both/opus", "responses/openai/gpt-sol"}},
+		{"Claude's models", completeClientModels(runtime), []string{claude.ID}, []string{"both/opus", "messages/opus"}},
+		{"an unknown client's models", completeClientModels(runtime), []string{"codx"}, []string{}},
+		{"use's third argument", completeClientModels(runtime), []string{codex.ID, "both/opus"}, []string{}},
 		{"families", CompleteFamilies(runtime), nil, []string{"opus", "sol"}},
 		{"protocols", completeProtocols, nil, []string{"anthropic", "responses", "chat"}},
 		{"depths", completeDepths, nil, []string{"local", "endpoint", "model", "client"}},
@@ -111,7 +119,7 @@ func TestCompletionReadsOnlyTheLocalConfiguration(t *testing.T) {
 		})
 	}
 	// Each model completes with its label as the description.
-	if completions, _ := CompleteModels(runtime, func() string { return claude.ID })(&cobra.Command{}, nil, ""); !slices.Equal(completions, []cobra.Completion{"both/opus\tBoth · Opus", "messages/opus\tMessages · Opus"}) {
+	if completions, _ := completeClientModels(runtime)(&cobra.Command{}, []string{claude.ID}, ""); !slices.Equal(completions, []cobra.Completion{"both/opus\tBoth · Opus", "messages/opus\tMessages · Opus"}) {
 		t.Fatalf("model completion = %q", completions)
 	}
 }
@@ -124,11 +132,37 @@ func TestCompletionOffersNothingWithoutALoadableConfiguration(t *testing.T) {
 	runtime := Context{Clients: clients.Registry(), Config: configStore, Secrets: forbiddenStore{t}, HTTP: forbiddenHTTP{t}}
 	for name, complete := range map[string]cobra.CompletionFunc{
 		"providers": CompleteProviders(runtime),
-		"models":    CompleteModels(runtime, func() string { return "" }),
+		"models":    CompleteModels(runtime),
 		"families":  CompleteFamilies(runtime),
 	} {
 		if completions, directive := complete(&cobra.Command{}, nil, ""); len(completions) != 0 || directive != cobra.ShellCompDirectiveNoFileComp {
 			t.Fatalf("%s completion of a broken configuration = %q, %v", name, completions, directive)
+		}
+	}
+}
+
+// TestClientModelCompletionReadsTheClientArgument completes `demo <client>
+// <TAB>` through Cobra, as a shell does for `aigw use`: the client given as
+// the first argument narrows the models offered, and each name appears once.
+func TestClientModelCompletionReadsTheClientArgument(t *testing.T) {
+	runtime := completionRuntime(t)
+	for client, want := range map[string]string{
+		codex.ID:  "both/opus\nresponses/openai/gpt-sol\n:4\n",
+		claude.ID: "both/opus\nmessages/opus\n:4\n",
+	} {
+		root := &cobra.Command{Use: "aigw", SilenceErrors: true, SilenceUsage: true}
+		demo := &cobra.Command{Use: "demo <client> <provider/model>", RunE: func(*cobra.Command, []string) error { return nil }}
+		demo.ValidArgsFunction = completeClientModels(runtime)
+		root.AddCommand(demo)
+		var out, errOut bytes.Buffer
+		root.SetOut(&out)
+		root.SetErr(&errOut)
+		root.SetArgs([]string{cobra.ShellCompNoDescRequestCmd, "demo", client, ""})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if out.String() != want {
+			t.Fatalf("demo %s <TAB> = %q, want %q", client, out.String(), want)
 		}
 	}
 }

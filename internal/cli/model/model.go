@@ -27,8 +27,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 // configuration access. An argument without a slash is left to the command,
 // which lists the models that it could mean.
 func modelArgument(cmd *cobra.Command, args []string) error {
-	if err := cobra.ExactArgs(1)(cmd, args); err != nil {
-		return err
+	switch len(args) {
+	case 0:
+		return fmt.Errorf("%s needs a <provider/model> argument; run `%s --help`", cmd.CommandPath(), cmd.CommandPath())
+	case 1:
+	default:
+		return fmt.Errorf("%s takes one <provider/model> argument, not %d; run `%s --help`", cmd.CommandPath(), len(args), cmd.CommandPath())
 	}
 	if _, err := domain.ParseModelRef(args[0]); err != nil && !errors.Is(err, domain.ErrModelRefWithoutProvider) {
 		return fmt.Errorf("%w; run `%s --help`", err, cmd.CommandPath())
@@ -37,8 +41,10 @@ func modelArgument(cmd *cobra.Command, args []string) error {
 }
 
 // loadModel loads the configuration and resolves the command's model
-// argument to the configured model and its key.
-func loadModel(runtime invocation.Context, text string) (domain.Config, string, domain.Model, error) {
+// argument to the configured model and its key. The protocol that cmd's
+// --protocol filter names selects among the models of one name; a command
+// without that filter names the model's Route when the name is ambiguous.
+func loadModel(cmd *cobra.Command, runtime invocation.Context, protocol domain.EndpointProtocol, text string) (domain.Config, string, domain.Model, error) {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
 		return domain.Config{}, "", domain.Model{}, err
@@ -47,31 +53,69 @@ func loadModel(runtime invocation.Context, text string) (domain.Config, string, 
 	if err != nil {
 		return domain.Config{}, "", domain.Model{}, err
 	}
-	key, model, err := invocation.ResolveModel(cfg, ref)
+	var rerun func(string) string
+	if filter := cmd.Flags().Lookup("protocol"); filter != nil && filter.Value.Type() == "string" {
+		rerun = func(choice string) string {
+			return invocation.Rerun(cmd, cmd.Flags().Args(), []string{"protocol"}, "--protocol", choice)
+		}
+	}
+	key, model, err := invocation.ResolveModel(cfg, ref, protocol, rerun)
 	return cfg, key, model, err
 }
 
 // describe reports one added model as list and show do: its name, label,
 // family, protocols with their capabilities, the clients that can use it and
-// the clients that select it.
-func describe(cfg domain.Config, key string) modelItem {
-	model := cfg.Models[key]
-	// A loaded configuration is valid, so every model has its provider.
-	clients, _ := cfg.ProtocolClientIDs(key)
-	protocols := slices.SortedFunc(slices.Values(model.AdmittedProtocols()), domain.CompareProtocols)
-	items := make([]protocolItem, 0, len(protocols))
-	for _, protocol := range protocols {
-		capabilities := make([]string, 0, len(model.Protocols[protocol]))
-		for _, capability := range model.Protocols[protocol] {
-			capabilities = append(capabilities, string(capability))
+// the clients that select it. Several keys are the models of one name, one per
+// protocol, which it reports as one model with their protocols merged; the
+// first supplies the label and family.
+func describe(cfg domain.Config, keys ...string) modelItem {
+	first := cfg.Models[keys[0]]
+	item := modelItem{
+		ID: first.Ref().String(), Provider: first.Provider, Label: cfg.ModelLabel(keys[0]), Family: first.Family,
+		Protocols: []protocolItem{}, ProtocolClients: []string{}, SelectedBy: []string{}, Duplicate: len(keys) > 1,
+	}
+	protocols := map[domain.EndpointProtocol][]domain.Capability{}
+	for _, key := range keys {
+		model := cfg.Models[key]
+		for protocol, capabilities := range model.Protocols {
+			protocols[protocol] = append(protocols[protocol], capabilities...)
 		}
-		items = append(items, protocolItem{Protocol: protocol.Name(), Capabilities: capabilities})
+		// A loaded configuration is valid, so every model has its provider.
+		clients, _ := cfg.ProtocolClientIDs(key)
+		item.ProtocolClients = append(item.ProtocolClients, clients...)
+		item.SelectedBy = append(item.SelectedBy, cfg.SelectedClientsForModel(key)...)
+		item.Deprecated = item.Deprecated || model.LifecycleState() == domain.ModelDeprecated
 	}
-	return modelItem{
-		Model: model.Ref().String(), Provider: model.Provider, Label: cfg.ModelLabel(key), Family: model.Family,
-		Protocols: items, ProtocolClients: clients, SelectedBy: cfg.SelectedClientsForModel(key),
-		Deprecated: model.LifecycleState() == domain.ModelDeprecated,
+	item.ProtocolClients = inAdmissionOrder(cfg.Admission(), item.ProtocolClients)
+	item.SelectedBy = inAdmissionOrder(cfg.Admission(), item.SelectedBy)
+	for _, protocol := range displayProtocols(domain.Model{Protocols: protocols}) {
+		capabilities := []string{}
+		for _, capability := range domain.Capabilities() {
+			if slices.Contains(protocols[protocol], capability) {
+				capabilities = append(capabilities, string(capability))
+			}
+		}
+		item.Protocols = append(item.Protocols, protocolItem{Protocol: protocol.Name(), Capabilities: capabilities})
 	}
+	return item
+}
+
+// inAdmissionOrder returns the clients among ids, each once, in admission
+// order.
+func inAdmissionOrder(admission domain.Admission, ids []string) []string {
+	ordered := []string{}
+	for _, id := range admission.IDs() {
+		if slices.Contains(ids, id) {
+			ordered = append(ordered, id)
+		}
+	}
+	return ordered
+}
+
+// displayProtocols returns a model's protocols in display order: anthropic,
+// responses, chat.
+func displayProtocols(model domain.Model) []domain.EndpointProtocol {
+	return slices.SortedFunc(slices.Values(model.AdmittedProtocols()), domain.CompareProtocols)
 }
 
 // protocolLabels names protocols by their labels, in a list for prose.
@@ -117,7 +161,7 @@ func modelFields(runtime invocation.Context, item modelItem) []terminal.Field {
 		protocols = append(protocols, text)
 	}
 	fields := []terminal.Field{
-		{Label: "Model", Value: item.Model},
+		{Label: "Model", Value: item.ID},
 		{Label: "Label", Value: item.Label},
 		{Label: "Family", Value: item.Family},
 		{Label: "Protocols", Value: strings.Join(protocols, ", ")},

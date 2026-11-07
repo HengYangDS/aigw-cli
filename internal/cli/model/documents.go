@@ -23,19 +23,24 @@ type listDocument struct {
 	Models []modelItem `json:"models"`
 }
 
-// modelItem is one added model as list and show report it.
+// modelItem is one added model as list and show report it, identified by its
+// name, `provider/model`.
 type modelItem struct {
-	Model     string         `json:"model"`
+	ID        string         `json:"id"`
 	Provider  string         `json:"provider"`
 	Label     string         `json:"label"`
 	Family    string         `json:"family"`
 	Protocols []protocolItem `json:"protocols"`
 	// ProtocolClients are the clients that speak one of the model's
 	// protocols; protocol overlap permits selection and qualifies nothing.
-	ProtocolClients []string         `json:"protocol_clients"`
-	SelectedBy      []string         `json:"selected_by"`
-	Deprecated      bool             `json:"deprecated,omitempty"`
-	Endpoints       []endpointDetail `json:"endpoints,omitempty"`
+	ProtocolClients []string `json:"protocol_clients"`
+	SelectedBy      []string `json:"selected_by"`
+	Deprecated      bool     `json:"deprecated,omitempty"`
+	// Duplicate marks a name that several configured models carry, one per
+	// protocol, which the list shows as one model; task 6.1's import merges
+	// them.
+	Duplicate bool             `json:"duplicate,omitempty"`
+	Endpoints []endpointDetail `json:"endpoints,omitempty"`
 }
 
 // protocolItem is one protocol that a model declares, with the capabilities
@@ -59,16 +64,21 @@ type changeDocument struct {
 	modelItem
 	// FamilyCreated names a family that the change creates.
 	FamilyCreated string `json:"family_created,omitempty"`
-	// CatalogChecked says whether the provider's catalog listed the model; a
-	// preview and --unlisted read no catalog.
+	// CatalogChecked says whether add read the provider's catalog and found
+	// the model there; a preview and --unlisted read no catalog. Only add
+	// reports it.
 	CatalogChecked *bool `json:"catalog_checked,omitempty"`
 	// Recommendations names the clients whose recommendation the change drops
 	// the model from.
-	Recommendations  []string                      `json:"recommendations,omitempty"`
-	ClientFiles      []clientFile                  `json:"client_files"`
-	CredentialReader *app.CredentialEntrypointPlan `json:"credential_reader,omitempty"`
-	NextAction       string                        `json:"next_action,omitempty"`
-	NextDetail       string                        `json:"next_detail,omitempty"`
+	Recommendations []string `json:"recommendations,omitempty"`
+	// PinnedRecommendations names the clients whose recommendation of the
+	// model now records the protocol that it reached, which a change of the
+	// model's protocols would otherwise make ambiguous.
+	PinnedRecommendations []string                      `json:"pinned_recommendations,omitempty"`
+	ClientFiles           []clientFile                  `json:"client_files"`
+	CredentialReader      *app.CredentialEntrypointPlan `json:"credential_reader,omitempty"`
+	NextAction            string                        `json:"next_action,omitempty"`
+	NextDetail            string                        `json:"next_detail,omitempty"`
 }
 
 // clientFile is one client file that a change writes or would write.
