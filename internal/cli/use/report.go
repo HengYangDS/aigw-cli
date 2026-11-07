@@ -40,6 +40,7 @@ type document struct {
 	Changed           bool                          `json:"changed"`
 	Client            string                        `json:"client"`
 	Model             string                        `json:"model"`
+	Enabled           bool                          `json:"enabled,omitempty"`
 	WasDisabled       bool                          `json:"was_disabled,omitempty"`
 	Added             bool                          `json:"added,omitempty"`
 	GainedProtocol    string                        `json:"gained_protocol,omitempty"`
@@ -136,13 +137,16 @@ func toolSearchFix(model domain.Model) string {
 // describe reports the outcome as the document does.
 func (o selectionOutcome) describe(runtime invocation.Context, dryRun bool) document {
 	client := o.choice.client
-	previous, current := o.before.Clients[client.ID], o.after.Clients[client.ID]
+	previous, bound := o.before.Clients[client.ID]
+	current := o.after.Clients[client.ID]
 	doc := document{
 		DryRun: dryRun, Changed: o.changed, Client: client.ID, Model: o.choice.ref.String(), Label: o.selected.ModelLabel,
 		Provider: o.selected.ProviderID, Family: o.selected.FamilyID, Protocol: o.selected.Protocol.Name(),
 		Endpoint: o.selected.Endpoint, ProviderEndpoint: o.selected.UpstreamEndpoint,
-		// A selection enables its client, which the result says.
-		WasDisabled:       !previous.Enabled,
+		// A selection enables its client, which the result says, and that
+		// the client was disabled when it had a binding.
+		Enabled:           !previous.Enabled,
+		WasDisabled:       bound && !previous.Enabled,
 		ForwardingCleared: previous.ForwardingEndpoint != "" && current.ForwardingEndpoint == "",
 		RetriesCleared:    previous.RetryPolicy != nil && current.RetryPolicy == nil,
 		TokenMissing:      dryRun && o.tokenMissing, TokenStored: o.tokenStored,
@@ -283,6 +287,10 @@ func (o selectionOutcome) rows(doc document) []terminal.Field {
 		rows = append(rows, terminal.Field{State: terminal.Info, Label: "Enabled", Value: "Was disabled; this selection enables it"})
 	case doc.WasDisabled:
 		rows = append(rows, terminal.Field{State: terminal.OK, Label: "Enabled", Value: "Was disabled; now enabled"})
+	case doc.Enabled && doc.DryRun:
+		rows = append(rows, terminal.Field{State: terminal.Info, Label: "Enabled", Value: "This selection enables it"})
+	case doc.Enabled:
+		rows = append(rows, terminal.Field{State: terminal.OK, Label: "Enabled", Value: "Now enabled"})
 	}
 	if doc.Added {
 		rows = append(rows, terminal.Field{State: terminal.OK, Label: "Added", Value: "To provider " + doc.Provider + ", in family " + doc.Family + ", declaring no capability"})

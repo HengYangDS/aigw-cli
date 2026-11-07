@@ -266,7 +266,7 @@ AIGW  Model selected
 ────────────────────────────────────────
   Client               Claude
   Model                team/team-model
-  ✓ Enabled            Was disabled; now enabled
+  ✓ Enabled            Now enabled
   Protocol             Anthropic Messages
   Endpoint             $UPSTREAM
 

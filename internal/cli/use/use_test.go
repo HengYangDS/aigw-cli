@@ -246,9 +246,10 @@ func TestUseSelectsOnlyItsClient(t *testing.T) {
 	}
 }
 
-// A selection enables its client, and the result says so when the client was
-// disabled, in a preview and once applied, in JSON and for a person; a client
-// that is enabled already is not reported.
+// A selection enables its client, and the result says so, in a preview and
+// once applied, in JSON and for a person: that a client with a binding was
+// disabled, and that one without was not yet enabled. A client that is
+// enabled already is not reported.
 func TestUseSaysThatItEnablesADisabledClient(t *testing.T) {
 	runtime, cfg, out := configuredRuntime(t)
 	credentials := secret.NewMemoryStore()
@@ -256,11 +257,22 @@ func TestUseSaysThatItEnablesADisabledClient(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtime.Secrets = credentials
+	cfg.Models["claude"] = domain.Model{Label: "Claude", Provider: "gateway", Family: "claude-next", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetClientActivation(codex.ID, false, "", nil)
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if preview := useDocument(t, runtime, codex.ID, "gateway/gpt-test", "--dry-run"); !preview.WasDisabled {
+	if first := useDocument(t, runtime, claude.ID, "gateway/claude-next", "--dry-run"); !first.Enabled || first.WasDisabled {
+		t.Fatalf("a preview of a first selection = %#v", first)
+	}
+	if err := execute(runtime, claude.ID, "gateway/claude-next"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Now enabled") || strings.Contains(out.String(), "Was disabled") {
+		t.Fatalf("human result of a first selection:\n%s", out)
+	}
+	out.Reset()
+	if preview := useDocument(t, runtime, codex.ID, "gateway/gpt-test", "--dry-run"); !preview.Enabled || !preview.WasDisabled {
 		t.Fatalf("a preview that enables its client = %#v", preview)
 	}
 	if err := execute(runtime, codex.ID, "gateway/gpt-test", "--dry-run"); err != nil {
@@ -269,10 +281,10 @@ func TestUseSaysThatItEnablesADisabledClient(t *testing.T) {
 	if !strings.Contains(out.String(), "Was disabled; this selection enables it") {
 		t.Fatalf("human preview does not say that the selection enables Codex:\n%s", out)
 	}
-	if result := useDocument(t, runtime, codex.ID, "gateway/gpt-test"); !result.WasDisabled || !result.Changed {
+	if result := useDocument(t, runtime, codex.ID, "gateway/gpt-test"); !result.Enabled || !result.WasDisabled || !result.Changed {
 		t.Fatalf("a selection that enables its client = %#v", result)
 	}
-	if again := useDocument(t, runtime, codex.ID, "gateway/gpt-test"); again.WasDisabled || again.Changed {
+	if again := useDocument(t, runtime, codex.ID, "gateway/gpt-test"); again.Enabled || again.WasDisabled || again.Changed {
 		t.Fatalf("a selection of an enabled client = %#v", again)
 	}
 	stored, err := runtime.Config.Load()
