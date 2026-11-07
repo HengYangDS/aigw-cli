@@ -12,6 +12,6 @@ type registeredDiscoverer struct {
 	source   DiscoverySource
 }
 
-func (discoverer registeredDiscoverer) Discover() discovery.Result {
-	return discoverer.registry.Discover(discoverer.source)
+func (discoverer registeredDiscoverer) Discover(clients ...string) discovery.Result {
+	return discoverer.registry.Discover(discoverer.source, clients...)
 }

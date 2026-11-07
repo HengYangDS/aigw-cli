@@ -24,8 +24,13 @@ type Result struct {
 // a new field or switch when an adapter is admitted.
 func (r Result) Executable(client string) string { return r.Executables[client] }
 
-// Discoverer resolves currently available client executables and configuration surfaces.
-type Discoverer interface{ Discover() Result }
+// Discoverer resolves currently available client executables and
+// configuration surfaces: those of the named clients, or of every admitted
+// client when none is named, so that an operation on one client observes no
+// other client's executable or files.
+type Discoverer interface {
+	Discover(clients ...string) Result
+}
 
 // Host is the platform that one AIGW process observes: its operating system,
 // the user's home directory and the environment. Adapters derive their native

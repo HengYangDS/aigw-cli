@@ -278,7 +278,7 @@ func checkTargets(cmd *cobra.Command, runtime invocation.Context, id string, tar
 	if len(targets) == 0 || !runtime.Clients.ValidatesTargets(id) {
 		return nil
 	}
-	discovered, err := runtime.Discover()
+	discovered, err := runtime.Discover(id)
 	if err != nil {
 		return err
 	}

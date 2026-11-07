@@ -120,7 +120,7 @@ type setupDiscovery struct {
 	onDiscover func()
 }
 
-func (candidate setupDiscovery) Discover() discovery.Result {
+func (candidate setupDiscovery) Discover(...string) discovery.Result {
 	if candidate.onDiscover != nil {
 		candidate.onDiscover()
 	}

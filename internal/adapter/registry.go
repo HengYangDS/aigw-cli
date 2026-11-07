@@ -159,10 +159,14 @@ func NewRegistry(adapters ...Adapter) (Registry, error) {
 // the client set that every configuration of this program admits.
 func (registry Registry) Admission() domain.Admission { return registry.admission }
 
-// Discover observes every admitted client through its adapter.
-func (registry Registry) Discover(source DiscoverySource) discovery.Result {
+// Discover observes the named clients through their adapters, or every
+// admitted client when none is named. An unknown client is observed as absent.
+func (registry Registry) Discover(source DiscoverySource, clients ...string) discovery.Result {
 	result := discovery.Result{Executables: make(map[string]string)}
 	for _, id := range registry.ids {
+		if len(clients) > 0 && !slices.Contains(clients, id) {
+			continue
+		}
 		adapter := registry.byID[id]
 		observed := adapter.Discover(source)
 		maps.Copy(result.Executables, observed.Executables)

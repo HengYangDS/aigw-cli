@@ -25,7 +25,7 @@ import (
 
 type syncDiscovery struct{ result discovery.Result }
 
-func (candidate syncDiscovery) Discover() discovery.Result { return candidate.result }
+func (candidate syncDiscovery) Discover(...string) discovery.Result { return candidate.result }
 
 func TestDryRunPreservesUnusedChangedCredentialEntrypointWithoutWriting(t *testing.T) {
 	for _, command := range []string{"sync", "repair"} {

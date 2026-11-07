@@ -30,7 +30,7 @@ import (
 // surfaceDiscovery is a host whose discovery finds the given result.
 type surfaceDiscovery struct{ result discovery.Result }
 
-func (d surfaceDiscovery) Discover() discovery.Result { return d.result }
+func (d surfaceDiscovery) Discover(...string) discovery.Result { return d.result }
 
 func hostAt(home string) discovery.Host {
 	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}

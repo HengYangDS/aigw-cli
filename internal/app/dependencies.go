@@ -67,12 +67,13 @@ func (d Dependencies) InspectClient(ctx context.Context, cfg domain.Config, clie
 	return d.Synchronizer().Inspect(ctx, cfg, clientID, runtime)
 }
 
-// Discover reads client discovery through the invocation's discoverer.
-func (d Dependencies) Discover() (discovery.Result, error) {
+// Discover reads client discovery through the invocation's discoverer: of
+// the named clients, or of every admitted client when none is named.
+func (d Dependencies) Discover(clients ...string) (discovery.Result, error) {
 	if d.Discovery == nil {
 		return discovery.Result{}, fmt.Errorf("client discovery is unavailable")
 	}
-	return d.Discovery.Discover(), nil
+	return d.Discovery.Discover(clients...), nil
 }
 
 // Synchronizer assembles the synchronization domain from these capabilities.

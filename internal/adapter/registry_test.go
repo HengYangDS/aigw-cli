@@ -167,6 +167,14 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 	if discovered := registry.Discover(nil); discovered.Executable("future") != "/future" {
 		t.Fatalf("discovered = %#v", discovered)
 	}
+	// Discovery of named clients observes only those clients.
+	if discovered := registry.Discover(nil, "future"); discovered.Executable("future") != "/future" {
+		t.Fatalf("discovered future = %#v", discovered)
+	}
+	discoveries := len(adapter.calls)
+	if discovered := registry.Discover(nil, "other"); discovered.Executable("future") != "" || len(adapter.calls) != discoveries {
+		t.Fatalf("discovery of another client observed future: %#v, calls %q", discovered, adapter.calls)
+	}
 	if _, err := registry.Converge(Dependencies{}, cfg, discovery.Result{}, "future"); err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +199,7 @@ func TestRegistryCarriesOneAdapterThroughItsCompleteLifecycle(t *testing.T) {
 	if _, ok := cfg.Clients["future"]; ok {
 		t.Fatal("withdraw retained the adapter configuration")
 	}
-	want := []string{"discovery", "converge", "plan", "plan", "apply", "projection-change", "status", "verify", "withdraw"}
+	want := []string{"discovery", "discovery", "converge", "plan", "plan", "apply", "projection-change", "status", "verify", "withdraw"}
 	if !reflect.DeepEqual(adapter.calls, want) {
 		t.Fatalf("adapter calls = %#v, want %#v", adapter.calls, want)
 	}

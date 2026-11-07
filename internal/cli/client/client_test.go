@@ -43,7 +43,7 @@ func claudeSettingsPath(t testing.TB, host discovery.Host) string {
 	return path
 }
 
-func (d adapterDiscovery) Discover() discovery.Result { return d.result }
+func (d adapterDiscovery) Discover(...string) discovery.Result { return d.result }
 
 type adapterRunner struct {
 	plans []process.Plan

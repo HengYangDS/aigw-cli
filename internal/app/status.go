@@ -1,7 +1,6 @@
 package app
 
 import (
-	"aigw-cli/internal/adapter/discovery"
 	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/app/diagnostics"
 	domainreadiness "aigw-cli/internal/app/readiness"
@@ -43,13 +42,10 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 		assessed := clientactivation.AssessActivation(cfg, runtime.Secrets)
 		activation = &assessed
 	}
-	discovered, observed := discovery.Result{}, false
+	// Discovery observes only the client whose files wait, so a status of one
+	// client looks for no other client; a host without discovery finds none.
 	installed := func(clientID string) bool {
-		if !observed {
-			// A host without discovery finds no client.
-			discovered, _ = runtime.Discover()
-			observed = true
-		}
+		discovered, _ := runtime.Discover(clientID)
 		return discovered.Executable(clientID) != ""
 	}
 	clientIDs := runtime.Synchronizer().ClientIDs()

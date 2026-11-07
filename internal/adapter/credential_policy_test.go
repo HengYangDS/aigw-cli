@@ -24,7 +24,7 @@ import (
 
 type fixedDiscovery struct{ result discovery.Result }
 
-func (source fixedDiscovery) Discover() discovery.Result { return source.result }
+func (source fixedDiscovery) Discover(...string) discovery.Result { return source.result }
 
 func configuredClient(t *testing.T, id string) (domain.Config, adapter.Dependencies, discovery.Result) {
 	t.Helper()

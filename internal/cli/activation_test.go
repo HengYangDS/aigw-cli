@@ -20,7 +20,7 @@ import (
 
 type noClientDiscovery struct{}
 
-func (noClientDiscovery) Discover() discovery.Result {
+func (noClientDiscovery) Discover(...string) discovery.Result {
 	return discovery.Result{Executables: map[string]string{}}
 }
 

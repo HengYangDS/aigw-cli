@@ -176,7 +176,7 @@ func admitEnablement(runtime invocation.Context, cfg domain.Config, client strin
 	if !runtime.Clients.ValidatesTargets(client) {
 		return nil
 	}
-	discovered, err := runtime.Discover()
+	discovered, err := runtime.Discover(client)
 	if err != nil {
 		return err
 	}

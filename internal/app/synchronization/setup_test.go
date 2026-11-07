@@ -40,7 +40,7 @@ func setupTokenStore(t *testing.T, token string) *setupCredentials {
 
 type setupDiscovery func()
 
-func (discover setupDiscovery) Discover() discovery.Result {
+func (discover setupDiscovery) Discover(...string) discovery.Result {
 	if discover != nil {
 		discover()
 	}

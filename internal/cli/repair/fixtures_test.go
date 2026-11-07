@@ -19,7 +19,7 @@ func hostAt(home string) discovery.Host {
 	return discovery.Host{GOOS: goruntime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
 }
 
-func (candidate staticDiscovery) Discover() discovery.Result { return candidate.result }
+func (candidate staticDiscovery) Discover(...string) discovery.Result { return candidate.result }
 
 func configuredRepairStore(t *testing.T) (store.Store, domain.Config) {
 	t.Helper()

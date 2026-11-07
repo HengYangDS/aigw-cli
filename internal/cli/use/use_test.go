@@ -206,7 +206,7 @@ type staticDiscovery struct {
 	onDiscover func()
 }
 
-func (source staticDiscovery) Discover() discovery.Result {
+func (source staticDiscovery) Discover(...string) discovery.Result {
 	if source.onDiscover != nil {
 		source.onDiscover()
 	}

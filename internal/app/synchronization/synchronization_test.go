@@ -26,7 +26,7 @@ type staticDiscovery struct {
 	onDiscover func()
 }
 
-func (d staticDiscovery) Discover() discovery.Result {
+func (d staticDiscovery) Discover(...string) discovery.Result {
 	if d.onDiscover != nil {
 		d.onDiscover()
 	}

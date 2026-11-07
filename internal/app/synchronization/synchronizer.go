@@ -149,7 +149,7 @@ type Synchronizer struct {
 // configuration that can be activated now. An empty list means every admitted
 // client; unrequested adapters remain unchanged.
 func (s Synchronizer) DesiredClientConfiguration(before domain.Config, clientIDs ...string) (domain.Config, discovery.Result, error) {
-	discovered, err := s.discoveredResult()
+	discovered, err := s.discoveredResult(clientIDs...)
 	if err != nil {
 		return domain.Config{}, discovery.Result{}, err
 	}
@@ -376,9 +376,11 @@ func (s Synchronizer) CredentialEntrypointPlan(cfg domain.Config, clientIDs ...s
 	return CredentialEntrypointUnchanged, nil
 }
 
-func (s Synchronizer) discoveredResult() (discovery.Result, error) {
+// discoveredResult observes the named clients, or every client when none is
+// named.
+func (s Synchronizer) discoveredResult(clientIDs ...string) (discovery.Result, error) {
 	if s.Discovery == nil {
 		return discovery.Result{}, fmt.Errorf("client discovery is unavailable")
 	}
-	return s.Discovery.Discover(), nil
+	return s.Discovery.Discover(clientIDs...), nil
 }

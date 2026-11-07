@@ -66,8 +66,8 @@ func (fakeRunner) RunCaptureStreams(context.Context, process.Plan) ([]byte, []by
 
 type fakeDiscoverer struct{}
 
-func (fakeDiscoverer) Discover() discovery.Result { return discovery.Result{} }
+func (fakeDiscoverer) Discover(...string) discovery.Result { return discovery.Result{} }
 
 type fixedDiscoverer struct{ result discovery.Result }
 
-func (d fixedDiscoverer) Discover() discovery.Result { return d.result }
+func (d fixedDiscoverer) Discover(...string) discovery.Result { return d.result }

@@ -22,7 +22,7 @@ import (
 
 type fixedDiscoverer struct{ result discovery.Result }
 
-func (discoverer fixedDiscoverer) Discover() discovery.Result { return discoverer.result }
+func (discoverer fixedDiscoverer) Discover(...string) discovery.Result { return discoverer.result }
 
 // hostAt observes home as the user's home directory, so Claude Code's settings
 // file is home/.claude/settings.json.

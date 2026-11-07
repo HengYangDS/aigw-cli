@@ -200,7 +200,7 @@ func TestChangedClientsFollowPersistentCodexSemantics(t *testing.T) {
 
 type fixedDiscoverer struct{ result discovery.Result }
 
-func (discoverer fixedDiscoverer) Discover() discovery.Result { return discoverer.result }
+func (discoverer fixedDiscoverer) Discover(...string) discovery.Result { return discoverer.result }
 
 func qualifiedModel(label, account, model string, protocols ...domain.EndpointProtocol) domain.Model {
 	interfaces := make(map[domain.EndpointProtocol][]domain.Capability, len(protocols))

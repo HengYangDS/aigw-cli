@@ -254,7 +254,7 @@ func discover(deps adapter.Dependencies) (discovery.Result, error) {
 	if deps.Discovery == nil {
 		return discovery.Result{}, fmt.Errorf("codex surface discovery is unavailable")
 	}
-	return deps.Discovery.Discover(), nil
+	return deps.Discovery.Discover(ID), nil
 }
 
 func bindingExecutable(discovered discovery.Result, binding domain.ClientBinding) string {

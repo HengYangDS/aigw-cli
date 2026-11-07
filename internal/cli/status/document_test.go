@@ -14,7 +14,7 @@ import (
 // foundExecutables is a host on which discovery finds the given executables.
 type foundExecutables map[string]string
 
-func (found foundExecutables) Discover() discovery.Result {
+func (found foundExecutables) Discover(...string) discovery.Result {
 	return discovery.Result{Executables: found}
 }
 

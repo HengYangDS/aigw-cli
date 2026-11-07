@@ -453,7 +453,7 @@ func writeConfigurationManifest(t *testing.T, body string) string {
 
 type fakeDiscovery struct{ result discovery.Result }
 
-func (d fakeDiscovery) Discover() discovery.Result { return d.result }
+func (d fakeDiscovery) Discover(...string) discovery.Result { return d.result }
 
 func readyVerificationApp(t *testing.T) (*cli.App, *fakeRunner) {
 	t.Helper()
