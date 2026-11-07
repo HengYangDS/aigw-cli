@@ -95,9 +95,15 @@ snapshot $HOME edit-after.txt
 cmp edit-after.txt edit-before.txt
 
 # Forwarding and the budgets that an edit names change; the other budget,
-# the provider, the model and the Token stay.
+# the provider, the model and the Token stay. AIGW writes no Codex file
+# while Codex is not installed, so each edit names the step that writes
+# them.
+exec aigw client edit codex --request-retries 4
+cmp stdout edit-deferred.txt
 exec aigw client edit codex --via http://127.0.0.1:8792/v1 --request-retries 0 --stream-retries 2 --json
 cmp stdout edit-forwarded.json
+exec aigw client edit codex --direct --dry-run
+cmp stdout edit-direct-preview.txt
 exec aigw client edit codex --direct --stream-retries 3 --json
 cmp stdout edit-direct.json
 exec aigw client edit codex --direct --json
@@ -105,8 +111,10 @@ cmp stdout edit-unchanged.json
 # An edit that changes nothing says so and names no next step.
 exec aigw client edit codex --direct
 cmp stdout edit-unchanged.txt
-exec aigw client edit codex --native-retries
-cmp stdout edit-native.txt
+exec aigw client edit codex --native-retries --dry-run
+cmp stdout edit-native-preview.txt
+exec aigw client edit codex --native-retries --json
+cmp stdout edit-native.json
 
 # Naming Codex's configuration file writes AIGW's settings there.
 exec aigw client edit codex --target $HOME/.codex/config.toml --executable $WORK/codex --json
@@ -346,7 +354,7 @@ Next
     "stream": 2
   },
   "client_files": [],
-  "next_action": "aigw check"
+  "next_detail": "Install Codex if needed, then run `aigw sync`"
 }
 -- edit-direct.json --
 {
@@ -362,7 +370,7 @@ Next
     "stream": 3
   },
   "client_files": [],
-  "next_action": "aigw check"
+  "next_detail": "Install Codex if needed, then run `aigw sync`"
 }
 -- edit-unchanged.json --
 {
@@ -379,18 +387,6 @@ Next
   },
   "client_files": []
 }
--- edit-native.txt --
-AIGW  Client edited
-────────────────────────────────────────
-  Client               Codex
-  Model                team/team-model
-  State                Enabled
-  Forwarding           None; the client reaches its provider's endpoint
-  Retries              The client's own defaults
-  ✓ Saved; the provider, its Token and the other clients are unchanged
-
-Next
-  aigw check
 -- edit-nothing.json --
 {
   "schema_version": 3,
@@ -452,3 +448,52 @@ AIGW  Client unchanged
   Request retries      0
   Stream retries       3
   ✓ Nothing to change: Codex already has these settings
+-- edit-deferred.txt --
+AIGW  Client edited
+────────────────────────────────────────
+  Client               Codex
+  Model                team/team-model
+  State                Enabled
+  Forwarding           None; the client reaches its provider's endpoint
+  Request retries      4
+  ✓ Saved; the provider, its Token and the other clients are unchanged
+
+Next
+  Install Codex if needed, then run `aigw sync`
+-- edit-direct-preview.txt --
+AIGW  Client edited (preview)
+────────────────────────────────────────
+  Client               Codex
+  Model                team/team-model
+  State                Enabled
+  Forwarding           None; the client reaches its provider's endpoint
+  Request retries      0
+  Stream retries       2
+  ✓ Nothing was written: configuration, credentials and client files are unchanged
+
+Next
+  aigw client edit codex --direct
+-- edit-native-preview.txt --
+AIGW  Client edited (preview)
+────────────────────────────────────────
+  Client               Codex
+  Model                team/team-model
+  State                Enabled
+  Forwarding           None; the client reaches its provider's endpoint
+  Retries              The client's own defaults
+  ✓ Nothing was written: configuration, credentials and client files are unchanged
+
+Next
+  aigw client edit codex --native-retries
+-- edit-native.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "client": "codex",
+  "changed": true,
+  "enabled": true,
+  "model": "team/team-model",
+  "targets": [],
+  "client_files": [],
+  "next_detail": "Install Codex if needed, then run `aigw sync`"
+}

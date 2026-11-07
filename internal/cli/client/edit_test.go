@@ -477,3 +477,36 @@ func TestEditKeepsTheConfigurationFilesWhileTheTokenIsMissing(t *testing.T) {
 		t.Fatalf("a refused move changed the configuration or the file: %v", err)
 	}
 }
+
+// An edit of an enabled client whose files AIGW has not written names the step
+// that writes them, as status does: installing the client first, aigw sync
+// once it is installed, and storing its provider's Token when that is missing.
+func TestEditOfAClientWithoutFilesNamesTheStepThatWritesThem(t *testing.T) {
+	cfg := adapterConfig()
+	cfg.SetClientActivation(codex.ID, true, "", nil)
+	runtime, out, secretStore, _ := adapterRuntime(t, cfg)
+	if err := secretStore.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		budget       string
+		found        map[string]string
+		removeToken  bool
+		action, step string
+	}{
+		{budget: "1", step: "Install Codex if needed, then run `aigw sync`"},
+		{budget: "2", found: map[string]string{codex.ID: "/opt/codex"}, action: "aigw sync"},
+		{budget: "3", found: map[string]string{codex.ID: "/opt/codex"}, removeToken: true, step: "run `aigw provider rotate gateway`"},
+	} {
+		runtime.Discovery = adapterDiscovery{result: discovery.Result{Executables: test.found}}
+		if test.removeToken {
+			if err := secretStore.Delete("gateway"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		document := edited(t, runtime, out, codex.ID, "--request-retries", test.budget)
+		if !document.Changed || len(document.ClientFiles) != 0 || document.NextAction != test.action || document.NextDetail != test.step {
+			t.Fatalf("edit with budget %s = %#v", test.budget, document)
+		}
+	}
+}

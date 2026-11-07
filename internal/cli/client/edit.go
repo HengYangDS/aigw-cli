@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -230,7 +231,17 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 			return targetFailure(spec.ID, targets, err)
 		}
 	}
-	return writeEdit(cmd, runtime, spec, document, options)
+	return writeEdit(cmd, runtime, spec, document, options, pendingStep(runtime, cfg, document))
+}
+
+// pendingStep is the step that an enabled client needs when the edit wrote
+// none of its files, as status names it: aigw sync for an installed client,
+// installing it first otherwise, or storing its provider's Token.
+func pendingStep(runtime invocation.Context, cfg domain.Config, document editDocument) string {
+	if !document.Enabled || len(document.ClientFiles) > 0 {
+		return ""
+	}
+	return app.InspectStatusClients(runtime.Dependencies, cfg, nil, document.Client)[document.Client].NextAction
 }
 
 // targetFailure gives a failure to plan or write the client's files that
@@ -360,8 +371,9 @@ func describeEdit(cfg domain.Config, id string) editDocument {
 }
 
 // writeEdit reports an edit as JSON or for a person, after it was applied or
-// as the preview that --dry-run asks for.
-func writeEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientSpec, document editDocument, options editOptions) error {
+// as the preview that --dry-run asks for. pending is the step that writes the
+// client's files when the edit wrote none of an enabled client's files.
+func writeEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientSpec, document editDocument, options editOptions, pending string) error {
 	document.DryRun = options.dryRun
 	title, success, next := "Client unchanged", "Nothing to change: "+spec.Label+" already has these settings", ""
 	switch {
@@ -370,9 +382,12 @@ func writeEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.Clien
 		title, success, next = "Client edited (preview)", "Nothing was written: configuration, credentials and client files are unchanged", invocation.ApplyCommand(cmd, cmd.Flags().Args())
 	default:
 		title, success = "Client edited", "Saved; the provider, its Token and the other clients are unchanged"
-		if document.RestartRequired {
+		switch {
+		case document.RestartRequired:
 			next = enabledNext(spec)
-		} else if document.Enabled {
+		case pending != "":
+			next = pending
+		case document.Enabled:
 			next = "aigw check"
 		}
 	}
