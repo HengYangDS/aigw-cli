@@ -32,24 +32,24 @@
       catalog unless `--unlisted`, and an unreadable or empty catalog refuses
       naming `--unlisted`; remove refuses a model in use and drops its
       recommendations; `model.txtar` covers each.
-- [ ] 3.2 Add `aigw model search [query] [--provider]`, one row per model with
+- [x] 3.2 Add `aigw model search [query] [--provider]`, one row per model with
       state `added`, `available`, `missing` or `deprecated`, merging the
       per-protocol reads within the existing bound; an unreadable catalog
       prints its fix while the others print, and the command exits 1.
-- [ ] 3.3 Add `aigw provider list|show|add|edit|rotate|balance|remove`: add
+- [x] 3.3 Add `aigw provider list|show|add|edit|rotate|balance|remove`: add
       validates its Token with one model-free request; edit takes `--label`,
       `--endpoint` and the balance credentials; balance reports every provider
       by default; remove deletes the provider's models and Token items unless a
       client uses one; without a terminal, add and rotate never prompt and
       refuse naming `--token-stdin`; `provider.txtar` covers each.
-- [ ] 3.5 Show each client's model as `provider/model`, with the new words, in
-      `aigw status` and its document; `status.txtar` covers a configured, a
-      deferred and an unselected client.
 - [ ] 3.4 Add `aigw client list` and `aigw client edit` with `--executable`,
       `--target`, `--via`, `--direct` and the retry flags, while
       `client enable` keeps `--executable` and `--target`; `client.txtar`
       covers each.
-- [ ] 3.6 Accept a configuration with providers and no model: `provider add`
+- [ ] 3.5 Show each client's model as `provider/model`, with the new words, in
+      `aigw status` and its document; `status.txtar` covers a configured, a
+      deferred and an unselected client.
+- [x] 3.6 Accept a configuration with providers and no model: `provider add`
       works from an empty home, `model remove` and `provider remove` may take
       the last model, and clients left without one report it; tests cover
       each.
