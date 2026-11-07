@@ -54,7 +54,7 @@ func (s Synchronizer) Setup(ctx context.Context, before, after domain.Config, to
 			return domain.Config{}, err
 		}
 	}
-	if _, err := s.commit(ctx, before, after, "setup", len(clients) > 0, domain.ConnectionChange{}, clients...); err != nil {
+	if _, err := s.commit(ctx, before, after, "setup", len(clients) > 0, clients...); err != nil {
 		return domain.Config{}, err
 	}
 	return after, nil
@@ -88,9 +88,6 @@ func (s Synchronizer) admitSetupTransition(before, after domain.Config, tokens m
 		after.Clients[client] = binding
 	}
 	if err := after.Validate(); err != nil {
-		return domain.Config{}, err
-	}
-	if err := s.validateRetryTransition(before, after, domain.ConnectionChange{}); err != nil {
 		return domain.Config{}, err
 	}
 	return after, nil

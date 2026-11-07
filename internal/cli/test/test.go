@@ -200,7 +200,7 @@ func noSelectedEndpoint(cfg domain.Config) error {
 			return terminal.ProblemError("No enabled client has a selected Route", "Only disabled clients have a selected Route.", "Without --for, test probes only the enabled clients.", "aigw test --for <client>", fmt.Errorf("no enabled Client Binding selected"))
 		}
 	}
-	return terminal.ProblemError("No Client Binding is selected", "Routes exist, but no client has a selected Route.", "There is no selected endpoint to test.", "aigw use --for <client> <route>", fmt.Errorf("no Client Binding selected"))
+	return terminal.ProblemError("No Client Binding is selected", "Routes exist, but no client has a selected Route.", "There is no selected endpoint to test.", "aigw use <client> <provider/model>", fmt.Errorf("no Client Binding selected"))
 }
 
 // validateEndpointTestSelection refuses an incomplete or inconsistent endpoint

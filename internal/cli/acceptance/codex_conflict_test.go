@@ -45,7 +45,7 @@ func TestCodexOutsideRetryEditRecoveryDoesNotLoop(t *testing.T) {
 	refused := ownedFileSnapshot(t, filepath.Dir(target), app.Config.Path())
 
 	for _, command := range [][]string{
-		{"use", "--for", "codex", "--dry-run", "--json", "sol"},
+		{"use", "codex", "gateway/gpt-sol", "--dry-run", "--json"},
 		{"sync", "--dry-run", "--json"},
 		{"sync", "--json"},
 		{"check", "--json"},

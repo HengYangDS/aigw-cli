@@ -91,7 +91,7 @@ func (p nativeClientJourneyPlan) runCodexGeneralModels(t *testing.T) {
 	}
 	journey.setEnvironment(secret.EnvironmentKey(account), token)
 	journey.run("setup", "--from", journey.manifest)
-	journey.run("use", "--for", codex.ID, routeIDs[0])
+	journey.run("use", codex.ID, journey.modelName(routeIDs[0]))
 	journey.enableNativeClient(codex.ID, executable)
 	selected := readFile(t, journey.config)
 	for _, routeID := range routeIDs {
@@ -185,7 +185,7 @@ func (p nativeClientJourneyPlan) runCodexToolLoop(t *testing.T) {
 	}
 	journey.setEnvironment(secret.EnvironmentKey(account), token)
 	journey.run("setup", "--from", journey.manifest)
-	journey.run("use", "--for", codex.ID, routeID)
+	journey.run("use", codex.ID, journey.modelName(routeID))
 	journey.enableNativeClient(codex.ID, executable)
 	// Public verification must not turn this client's missing metadata into a
 	// completed checkpoint. The direct tool loop below proves its narrower use.

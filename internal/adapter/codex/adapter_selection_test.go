@@ -30,8 +30,8 @@ func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
 		copy        bool
 		want        []string
 	}{
-		{name: "none", model: "gpt-luna", want: []string{"`aigw use --for codex <route>`"}},
-		{name: "several", model: "gpt-terra", copy: true, want: []string{"`aigw use --for codex terra`", "`aigw use --for codex terra-copy`"}},
+		{name: "none", model: "gpt-luna", want: []string{"which provider \"gateway\" has not added", "`aigw use codex <provider/model>`"}},
+		{name: "several", model: "gpt-terra", copy: true, want: []string{"which 2 models of provider \"gateway\" carry", "`aigw config path`"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cfg, targets := codexAdoptionFixture(t, 1)
@@ -57,7 +57,7 @@ func TestAdoptCodexSelectionRefusesDisagreeingTargets(t *testing.T) {
 	cfg, targets := codexAdoptionFixture(t, 2)
 	chooseCodexModel(t, targets[0], "gpt-terra")
 	chooseCodexModel(t, targets[1], "gpt-luna")
-	if _, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg); err == nil || !strings.Contains(err.Error(), "aigw use --for codex") {
+	if _, err := (codexAdapter{}).AdoptSelection(adapter.Dependencies{}, &cfg); err == nil || !strings.Contains(err.Error(), "aigw use codex <provider/model>") {
 		t.Fatalf("disagreeing targets were adopted: %v", err)
 	}
 	if cfg.SelectedModel(ID) != "sol" {

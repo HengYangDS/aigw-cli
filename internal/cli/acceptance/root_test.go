@@ -151,7 +151,7 @@ func TestCommonCommandFailuresUseEnglishGuidance(t *testing.T) {
 		want string
 		fix  string
 	}{
-		{args: []string{"use", "--for", "other", "one"}, want: "--for must be claude, claude-desktop, codex, or hermes", fix: "aigw use --help"},
+		{args: []string{"use", "other", "one/claude-test"}, want: `unknown client "other"; clients are claude, claude-desktop, codex, or hermes`, fix: "aigw client list"},
 	} {
 		out.Reset()
 		err := cli.Execute(app, tc.args)

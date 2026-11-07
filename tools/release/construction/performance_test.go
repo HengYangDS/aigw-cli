@@ -23,14 +23,10 @@ func TestNativeForwardingPerformanceOwnsItsCandidateOnlyScope(t *testing.T) {
 	summary.Blocks = slices.DeleteFunc(summary.Blocks, func(row performance.Measurement) bool {
 		return row.Variant != "candidate" || !slices.Contains([]string{"credential", "projection", "sync", "status", "export"}, row.Case)
 	})
-	binding := domain.Runtime{Client: claude.ID, ModelID: "selected-route", ProviderID: "account",
+	binding := domain.Runtime{Client: claude.ID, ModelID: "selected-route", ProviderID: "account", UpstreamModel: "claude-selected",
 		Protocol: domain.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "http://127.0.0.1:18792/v1"}
 	for index := range summary.Blocks {
 		row := &summary.Blocks[index]
-		if row.Case == "projection" {
-			row.Command = append(row.Command, "--forwarding-endpoint", binding.Endpoint)
-			row.Samples.Command = performance.Argv(row.Command...)
-		}
 		row.Mode, row.Runtime = "forwarding", binding
 		writeHyperfineSamples(t, filepath.Join(output, row.Raw), row.Samples)
 	}
@@ -426,7 +422,7 @@ func writeQualifiedPerformanceSummary(t *testing.T, output string) performance.S
 				case "credential":
 					row.Command = []string{selected.Path, "-c", "projected credential helper"}
 				case "projection":
-					row.Command = []string{selected.Path, "use", "--for", "claude", "selected-route"}
+					row.Command = []string{selected.Path, "use", "claude", "account/claude-selected"}
 				case "setup":
 					row.Command = []string{selected.Path, "setup", "--from", "team.toml", "--account", "account"}
 				case "version", "help":

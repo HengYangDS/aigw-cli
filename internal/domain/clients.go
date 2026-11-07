@@ -338,14 +338,20 @@ func (runtime Runtime) UsesAIGWCredentialStore() bool {
 	return runtime.RequiresProviderToken() && runtime.CredentialCommand == ""
 }
 
-// SetSelectedModel changes one client's Route and endpoint protocol while
+// SetSelectedModel changes one client's model and endpoint protocol while
 // preserving enabled intent and native options. An empty protocol retains
-// compatible selection or infers the Route's only admitted protocol.
+// compatible selection or infers the model's only admitted protocol.
+// Forwarding follows the upstream endpoint, so a change of provider, protocol
+// or endpoint drops it; retry budgets belong to the provider, so only a change
+// of provider drops them.
 func (c *Config) SetSelectedModel(client, routeID string, protocol EndpointProtocol) {
 	if c.Clients == nil {
 		c.Clients = map[string]ClientBinding{}
 	}
 	binding := c.Clients[client]
+	if bound, selected := c.Models[binding.Model]; !selected || bound.Provider != c.Models[routeID].Provider {
+		binding.RetryPolicy = nil
+	}
 	previous, previousErr := c.ResolveRuntime(client, "")
 	if binding.Model == "" {
 		binding = binding.withSelection(c.recommendedSelectionFor(client, routeID))

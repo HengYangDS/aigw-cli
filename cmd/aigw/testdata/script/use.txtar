@@ -1,162 +1,256 @@
-# use selects another Route for a client, as JSON and in text, and refuses
-# an unknown Route and a protocol's old spelling.
+# use points one client at a model named provider/model, as JSON and in text.
+# A preview reads no Token value and writes nothing. Within a provider a
+# client keeps its forwarding and retry budgets; on another provider's model
+# it loses both, and the result says so. A model on several protocols that a
+# client speaks needs --protocol without a terminal, and a provider without a
+# Token is refused without a terminal and previewed as missing. A missing
+# argument, an unknown client or model, a model without a provider and an old
+# protocol spelling are refused before anything is read.
 exec aigw use --help
 cmp stdout help.txt
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
-exec aigw route add spare --account team --model spare-model --upstream-model spare-wire --protocol anthropic
+exec aigw provider add team --label 'Team Gateway' --endpoint anthropic=$UPSTREAM --endpoint responses=$UPSTREAM/v1 --token-stdin
+exec aigw model add team/team-model --protocol anthropic
+exec aigw model add team/spare-model --protocol anthropic
 
-snapshot $HOME before.txt
-exec aigw use --for claude spare --dry-run --json
-normalize stdout preview.out
-[!windows] cmp preview.out preview.json
-[windows] cmp preview.out preview-windows.json
-snapshot $HOME after.txt
-cmp after.txt before.txt
-
-exec aigw use --for claude spare --json
-normalize stdout spare.out
-cmp spare.out spare.json
-exec aigw use --for claude team
+exec aigw use claude team/team-model
 normalize stdout team.out
 cmp team.out team.txt
+snapshot $HOME before.txt
+exec aigw use claude team/spare-model --dry-run --json
+normalize stdout preview.out
+cmp preview.out preview.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
+exec aigw use claude team/spare-model --json
+normalize stdout spare.out
+cmp spare.out spare.json
+exec aigw use claude team/spare-model
+normalize stdout again.out
+cmp again.out again.txt
 
-exitcode 1 aigw use --for claude missing
-cmp stdout refusal.txt
-exitcode 1 aigw use --for claude missing --json
-cmp stdout refusal.json
+# Codex keeps its forwarding and retry budgets on another model of its
+# provider, and loses both, with a report, on another provider's model.
+exec aigw model edit team/team-model --protocol anthropic --protocol responses
+exec aigw model edit team/spare-model --protocol anthropic --protocol responses
+exec aigw use codex team/team-model
+exec aigw client edit codex --via http://127.0.0.1:8792/v1 --request-retries 2 --stream-retries 1
+exec aigw use codex team/spare-model --json
+stdout '"endpoint": "http://127.0.0.1:8792/v1"'
+stdout '"retries": \{\n\s+"request": 2,\n\s+"stream": 1\n\s+\}'
+! stdout '_cleared'
+stdin other-token.txt
+exec aigw provider add other --endpoint responses=$UPSTREAM/other/v1 --token-stdin
+exec aigw model add other/team-model
+exec aigw use codex other/team-model
+normalize stdout moved.out
+cmp moved.out moved.txt
 
-# A protocol takes its command-line name: an old spelling is refused with the
-# valid names, before any configuration is read.
-exitcode 1 aigw use --for claude spare --protocol openai_responses
+# Hermes speaks both of team-model's protocols, so without a terminal it
+# needs --protocol, which the refusal names with the choice.
+exitcode 1 aigw use hermes team/team-model --json
+cmp stdout hermes-protocol.json
+exec aigw use hermes team/team-model --protocol responses --dry-run --json
+stdout '"protocol": "responses"'
+
+# The mixed provider has no Token: without a terminal the selection is
+# refused, naming the rotation, and a preview reports the Token as missing.
+envsubst mixed.in mixed.toml
+exec aigw config import mixed.toml
+exitcode 1 aigw use claude mixed/twin --json
+cmp stdout no-token.json
+exec aigw use claude mixed/twin --dry-run --json
+stdout '"token_missing": true'
+stdout '"next_detail": "Run `aigw use claude mixed/twin` in a terminal, which asks for the provider''s Token."'
+
+# Refusals name what is missing or wrong before anything is read.
+exitcode 1 aigw use claude --json
+cmp stdout missing-model.json
+exitcode 1 aigw use team/team-model
+cmp stdout missing-client.txt
+exitcode 1 aigw use claud team/team-model --json
+cmp stdout unknown-client.json
+exitcode 1 aigw use claude team-model --json
+cmp stdout no-provider.json
+exitcode 1 aigw use claude team/missing-model --json
+cmp stdout unknown-model.json
+exitcode 1 aigw use claude team/team-model --protocol openai_responses
 cmp stdout protocol-refusal.txt
 
--- preview.json --
-{
-  "schema_version": 2,
-  "ok": true,
-  "dry_run": true,
-  "changed": false,
-  "projection_changed": false,
-  "route": "spare",
-  "route_label": "spare",
-  "account": "team",
-  "account_label": "Team Gateway",
-  "client": "claude",
-  "endpoint": "$UPSTREAM",
-  "upstream_endpoint": "$UPSTREAM",
-  "protocol": "anthropic",
-  "model": "spare-model",
-  "upstream_model": "spare-wire",
-  "model_provider": "",
-  "authentication": "account-token",
-  "projections": [
-    {
-      "client": "claude",
-      "surface": "claude-settings",
-      "target": "~/.claude/settings.json",
-      "action": "project"
-    }
-  ]
-}
--- preview-windows.json --
-{
-  "schema_version": 2,
-  "ok": true,
-  "dry_run": true,
-  "changed": false,
-  "projection_changed": false,
-  "route": "spare",
-  "route_label": "spare",
-  "account": "team",
-  "account_label": "Team Gateway",
-  "client": "claude",
-  "endpoint": "$UPSTREAM",
-  "upstream_endpoint": "$UPSTREAM",
-  "protocol": "anthropic",
-  "model": "spare-model",
-  "upstream_model": "spare-wire",
-  "model_provider": "",
-  "authentication": "account-token",
-  "projections": [
-    {
-      "client": "claude",
-      "surface": "claude-settings",
-      "target": "~/.claude/settings.json",
-      "action": "project"
-    }
-  ]
-}
 -- token.txt --
 sk-team-token-0001
+-- other-token.txt --
+sk-other-token-0001
+-- mixed.in --
+version = 7
+[accounts.mixed]
+label = "Mixed"
+[accounts.mixed.endpoints]
+anthropic = "$UPSTREAM/mixed"
+[models.twin]
+label = "Twin"
+[routes.mixed-twin]
+account = "mixed"
+model = "twin"
+upstream_model = "twin"
+interfaces = { anthropic = [] }
 -- help.txt --
 AIGW  aigw use
 ────────────────────────────────────────
-  Select a Route for one client
+  Point a client at a model, named provider/model; <client> is claude, claude-desktop, codex, or hermes.
+  In a terminal, a missing client or model is asked for, recommended models first.
 
 Usage
-  aigw use <route> [flags]
+  aigw use <client> <provider/model> [flags]
+
+Examples
+  aigw use codex dmxapi/gpt-6.1-sol
+  aigw use hermes ucloud/gpt-6.1-sol --protocol responses
+  aigw use claude ucloud/minimax-m3 --dry-run
 
 Options
-      --direct                       Connect this client directly to its Account upstream
-      --dry-run                      Preview the selection without reading credentials or writing files
-      --for string                   Client: claude, claude-desktop, codex, or hermes
-      --forwarding-endpoint string   Explicit client destination; the Account upstream remains unchanged
-  -h, --help                         help for use
-      --json                         Write the selection preview or result as JSON
-      --native-retries               Remove this connection's retry policy and use client native defaults
-      --protocol string              Endpoint protocol for a multi-protocol Route: anthropic, responses, or chat
-      --request-max-retries uint     Explicit native request retry budget for this Codex connection; zero disables client request retries
-      --stream-max-retries uint      Explicit native stream retry budget for this Codex connection; zero disables client stream retries
+      --dry-run           Show the selection without reading a Token, sending a request or writing anything
+  -h, --help              help for use
+      --json              Write the selection as JSON
+      --protocol string   The protocol on which the client uses the model, for a client that speaks several: anthropic, responses, or chat
+-- preview.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "dry_run": true,
+  "changed": true,
+  "client": "claude",
+  "model": "team/spare-model",
+  "label": "Team Gateway · spare-model",
+  "provider": "team",
+  "family": "spare-model",
+  "protocol": "anthropic",
+  "endpoint": "$UPSTREAM",
+  "provider_endpoint": "$UPSTREAM",
+  "client_files": [
+    {
+      "client": "claude",
+      "file": "~/.claude/settings.json",
+      "action": "project"
+    }
+  ],
+  "next_action": "aigw use claude team/spare-model"
+}
 -- spare.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "changed": true,
-  "projection_changed": true,
-  "next_action": "aigw check",
-  "route": "spare",
-  "route_label": "spare",
-  "account": "team",
-  "account_label": "Team Gateway",
   "client": "claude",
-  "endpoint": "$UPSTREAM",
-  "upstream_endpoint": "$UPSTREAM",
+  "model": "team/spare-model",
+  "label": "Team Gateway · spare-model",
+  "provider": "team",
+  "family": "spare-model",
   "protocol": "anthropic",
-  "model": "spare-model",
-  "upstream_model": "spare-wire",
-  "model_provider": "",
-  "authentication": "account-token"
+  "endpoint": "$UPSTREAM",
+  "provider_endpoint": "$UPSTREAM",
+  "client_files": [
+    {
+      "client": "claude",
+      "file": "~/.claude/settings.json",
+      "action": "project"
+    }
+  ],
+  "next_action": "aigw check claude"
 }
 -- team.txt --
-AIGW  Route selected
+AIGW  Model selected
 ────────────────────────────────────────
-
-Current selection
-  Route                Team Gateway
   Client               Claude
+  Model                team/team-model
   Protocol             Anthropic Messages
   Endpoint             $UPSTREAM
-  ✓ Client configuration synchronized
+
+Client files
+  Claude ~/.claude/settings.json  project
+  ✓ Saved; the other clients' selections are unchanged
 
 Next
-  aigw check
--- refusal.txt --
+  aigw check claude
+-- again.txt --
+AIGW  Model already selected
+────────────────────────────────────────
+  Client               Claude
+  Model                team/spare-model
+  Protocol             Anthropic Messages
+  Endpoint             $UPSTREAM
+
+Client files
+  Claude ~/.claude/settings.json  already_converged
+  ✓ Claude already uses team/spare-model
+
+Next
+  aigw check claude
+-- moved.txt --
+AIGW  Model selected
+────────────────────────────────────────
+  Client               Codex
+  Model                other/team-model
+  Protocol             OpenAI Responses
+  Endpoint             $UPSTREAM/other/v1
+  ! Forwarding         Cleared, because the client's upstream endpoint changed
+  ! Retries            Cleared, because they belonged to the previous provider; Codex uses its own defaults
+  Client files         Written once Codex is installed
+  ✓ Saved; the other clients' selections are unchanged
+
+Next
+  Install Codex if needed, then run `aigw sync`
+-- hermes-protocol.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Hermes can use team/team-model on OpenAI Responses and Anthropic Messages, so the protocol must be chosen",
+  "next_detail": "aigw use hermes team/team-model --protocol \u003cresponses|anthropic\u003e"
+}
+-- no-token.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "provider mixed has no Token, and aigw use asks for one only in a terminal",
+  "next_detail": "aigw provider rotate mixed"
+}
+-- missing-model.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "aigw use with --json needs a \u003cprovider/model\u003e argument after the client; run `aigw use --help`",
+  "next_action": "aigw use --help"
+}
+-- missing-client.txt --
 AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  unknown route "missing"; run `aigw route list`
+  aigw use without a terminal needs a <client> argument before the model; run `aigw use --help`
 
 Fix
-  aigw route list
--- refusal.json --
+  aigw use --help
+-- unknown-client.json --
 {
   "schema_version": 3,
   "ok": false,
-  "error": "unknown route \"missing\"; run `aigw route list`",
-  "next_action": "aigw route list"
+  "error": "unknown client \"claud\"; did you mean claude, claude-desktop? Clients are claude, claude-desktop, codex, or hermes",
+  "next_action": "aigw client list"
+}
+-- no-provider.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "\"team-model\" names no provider; it could mean other/team-model, team/team-model",
+  "next_action": "aigw model list team-model"
+}
+-- unknown-model.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown model team/missing-model",
+  "next_action": "aigw model list --provider team"
 }
 -- protocol-refusal.txt --
 AIGW  Action required

@@ -56,8 +56,8 @@ func Home(deps app.Dependencies) string {
 	return terminal.HomeDirectory(deps.Env)
 }
 
-// Projections names projection plans as documents do, relative to Home.
-func Projections(runtime Context, plans []adapter.ProjectionPlan) []Projection {
+// projections names projection plans as documents do, relative to Home.
+func projections(runtime Context, plans []adapter.ProjectionPlan) []Projection {
 	home := Home(runtime.Dependencies)
 	projections := make([]Projection, 0, len(plans))
 	for _, plan := range plans {
@@ -79,7 +79,7 @@ type ClientFile struct {
 // ClientFiles names the client files of a preview as change documents do.
 func ClientFiles(runtime Context, preview Preview) []ClientFile {
 	files := make([]ClientFile, 0, len(preview.plans))
-	for _, projection := range Projections(runtime, preview.plans) {
+	for _, projection := range projections(runtime, preview.plans) {
 		files = append(files, ClientFile{Client: projection.Client, File: projection.Target, Action: projection.Action})
 	}
 	return files
@@ -123,13 +123,20 @@ func PreviewProjection(runtime Context, before, after domain.Config, clientIDs .
 	return WithEntrypoint(runtime, after, projection)
 }
 
+// Planned is a projection's client files alone, without the credential
+// reader: what a commit, which prepares the reader itself, writes.
+func Planned(runtime Context, projection synchronization.Projection) Preview {
+	preview := Preview{plans: projection.Targets}
+	if len(projection.Targets) > 0 {
+		preview.Projections = projections(runtime, projection.Targets)
+	}
+	return preview
+}
+
 // WithEntrypoint completes a projection with the credential reader that a
 // commit would prepare for its clients, without checking any Token.
 func WithEntrypoint(runtime Context, after domain.Config, projection synchronization.Projection) (Preview, error) {
-	preview := Preview{plans: projection.Targets}
-	if len(projection.Targets) > 0 {
-		preview.Projections = Projections(runtime, projection.Targets)
-	}
+	preview := Planned(runtime, projection)
 	if len(projection.Clients) == 0 {
 		return preview, nil
 	}

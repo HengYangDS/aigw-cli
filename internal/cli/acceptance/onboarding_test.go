@@ -94,7 +94,7 @@ func TestUseCreatesCodexProjectionWhenClientIsInstalledAfterManifestSetup(t *tes
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"use", "--for", "codex", "dmxapi-gpt"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "codex", "dmxapi/gpt-test"}); err != nil {
 		t.Fatalf("select Codex after installation without an existing config file: %v", err)
 	}
 	if len(runner.plans) != 0 {

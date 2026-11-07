@@ -77,7 +77,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 	}
 	store := &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: errors.New("native metadata must not select external credentials")}
 	app.Secrets = store
-	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"doctor", "--json"}, {"doctor"}, {"route", "list"}, {"route", "show", "claude"}, {"use", "--for", "claude", "claude"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[claude.ID].Executable}} {
+	for _, args := range [][]string{{"sync"}, {"check", "--json"}, {"status", "--json"}, {"doctor", "--json"}, {"doctor"}, {"route", "list"}, {"route", "show", "claude"}, {"use", "claude", "gateway/fixture"}, {"client", "disable", "claude"}, {"client", "enable", "claude", "--executable", cfg.Clients[claude.ID].Executable}} {
 		out.Reset()
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v required a native Token: %v", args, err)
@@ -272,7 +272,7 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 			}
 			client := document.Clients[claude.ID]
 			state, action := client.State, client.NextAction
-			if state != "deferred" || action != "aigw use --for claude claude" {
+			if state != "deferred" || action != "aigw use claude team/claude-test" {
 				t.Fatalf("%s state = %q, next_action = %q; want deferred and an explicit Claude selection\n%s", command, state, action, out.String())
 			}
 		})

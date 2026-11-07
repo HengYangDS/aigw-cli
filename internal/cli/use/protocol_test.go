@@ -3,6 +3,7 @@ package use
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"slices"
@@ -31,10 +32,10 @@ func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 	command := NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", hermes.ID, "--dry-run", "--json", "shared"})
+	command.SetArgs([]string{hermes.ID, "gateway/shared-model", "--dry-run", "--json"})
 	err := command.Execute()
-	if err == nil || !strings.Contains(err.Error(), "--protocol") {
-		t.Fatalf("ambiguous Hermes Route preview error = %v, want explicit protocol guidance", err)
+	if err == nil || !strings.Contains(err.Error(), "the protocol must be chosen") {
+		t.Fatalf("ambiguous Hermes preview error = %v, want explicit protocol guidance", err)
 	}
 	var out bytes.Buffer
 	renderer := terminal.NewRenderer(&out, false)
@@ -47,7 +48,7 @@ func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 	if decodeErr := json.Unmarshal(out.Bytes(), &rendered); decodeErr != nil || renderer.Err() != nil {
 		t.Fatalf("JSON error = %q, %v, %v", out.String(), decodeErr, renderer.Err())
 	}
-	if want := "aigw use --for hermes --protocol <responses|anthropic> shared"; rendered.NextAction != "" || rendered.NextDetail != want {
+	if want := "aigw use hermes gateway/shared-model --protocol <responses|anthropic>"; rendered.NextAction != "" || rendered.NextDetail != want {
 		t.Fatalf("next step = %q, %q; want %q", rendered.NextAction, rendered.NextDetail, want)
 	}
 }
@@ -69,19 +70,20 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	selector := &promptStub{selected: "shared"}
+	selector := &promptStub{selected: "gateway/shared-model"}
 	runtime.Prompt = selector
-	if _, err := chooseModel(runtime, cfg, hermes.ID, "Select Route"); err != nil ||
-		!slices.ContainsFunc(selector.choices, func(choice terminal.Choice) bool { return choice.Value == "shared" }) {
-		t.Fatalf("Hermes Route choice = %#v, %v", selector.choices, err)
+	hermesSpec, _ := runtime.Clients.Admission().Spec(hermes.ID)
+	if _, err := chooseModel(runtime, cfg, hermesSpec); err != nil ||
+		!slices.ContainsFunc(selector.choices, func(choice terminal.Choice) bool { return choice.Value == "gateway/shared-model" }) {
+		t.Fatalf("Hermes model choice = %#v, %v", selector.choices, err)
 	}
 
 	command := NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", hermes.ID, "shared"})
-	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "--protocol") {
-		t.Fatalf("ambiguous Hermes Route error = %v, want explicit protocol guidance", err)
+	command.SetArgs([]string{hermes.ID, "gateway/shared-model"})
+	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "the protocol must be chosen") {
+		t.Fatalf("ambiguous Hermes error = %v, want explicit protocol guidance", err)
 	}
 	unchanged, err := runtime.Config.Load()
 	if err != nil || unchanged.SelectedModel(hermes.ID) != "" {
@@ -92,8 +94,8 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	command = NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", hermes.ID, "--protocol", "anthropic", "shared"})
-	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "--protocol anthropic") {
+	command.SetArgs([]string{hermes.ID, "gateway/shared-model", "--protocol", "anthropic"})
+	if err := command.Execute(); err == nil || !strings.Contains(terminal.ProblemFor(err).Fix, "--protocol anthropic") {
 		t.Fatalf("missing Token recovery lost the protocol choice: %v", err)
 	}
 	runtime.Secrets = store
@@ -102,7 +104,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	command = NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", hermes.ID, "--protocol", "anthropic", "shared"})
+	command.SetArgs([]string{hermes.ID, "gateway/shared-model", "--protocol", "anthropic"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -116,11 +118,18 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 		t.Fatalf("deferred Hermes selection = %q", output)
 	}
 
+	// In a terminal, a prompt chooses, and a later selection keeps the
+	// client's current protocol without asking.
 	runtime.Interactive = true
-	runtime.Prompt = &promptStub{selected: string(domain.ProtocolOpenAIResponses)}
-	interactive, err := resolveUseRuntime(runtime, cfg, hermes.ID, "shared", "", domain.ConnectionChange{})
-	if err != nil || interactive.Protocol != domain.ProtocolOpenAIResponses {
+	runtime.Prompt = &promptStub{selected: "responses"}
+	interactive, err := chooseProtocol(runtime, cfg, hermesSpec, domain.NewModelRef("gateway", "shared-model"), "")
+	if err != nil || interactive.protocol != domain.ProtocolOpenAIResponses || !interactive.chosen {
 		t.Fatalf("interactive Hermes protocol = %#v, %v", interactive, err)
+	}
+	runtime.Prompt = &promptStub{err: errors.New("the current protocol was asked for")}
+	current, err := chooseProtocol(runtime, selected, hermesSpec, domain.NewModelRef("gateway", "shared-model"), "")
+	if err != nil || current.protocol != domain.ProtocolAnthropic {
+		t.Fatalf("Hermes's current protocol = %#v, %v", current, err)
 	}
 }
 
@@ -149,7 +158,7 @@ func TestUseValidatesSelectedProtocolWhenAcquiringToken(t *testing.T) {
 	command := NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", hermes.ID, "--protocol", "anthropic", "shared"})
+	command.SetArgs([]string{hermes.ID, "gateway/shared-model", "--protocol", "anthropic"})
 	if err := command.Execute(); err != nil || requests != 1 {
 		t.Fatalf("selected-protocol Token validation: requests=%d error=%v", requests, err)
 	}

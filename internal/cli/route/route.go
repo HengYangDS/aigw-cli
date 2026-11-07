@@ -63,7 +63,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
 			}
 			var preview invocation.Preview
-			next := "aigw use --for <client> " + routeName
+			next := "aigw use <client> " + cfg.Models[routeName].Ref().String()
 			if dryRun {
 				if preview, err = invocation.PreviewChange(runtime, before, cfg); err != nil {
 					return err
@@ -340,7 +340,7 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 			}
 			for client, binding := range cfg.Clients {
 				if binding.Model == name {
-					return fmt.Errorf("Route %q is selected for %s; first run `aigw use --for %s <other-route>`", name, client, client)
+					return fmt.Errorf("Route %q is selected for %s; first run `aigw use %s <provider/model>`", name, client, client)
 				}
 			}
 			delete(cfg.Models, name)

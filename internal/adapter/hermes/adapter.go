@@ -265,7 +265,7 @@ func hermesModelFor(cfg domain.Config, native Selection) (string, domain.Endpoin
 	}
 	index := slices.IndexFunc(catalog, func(item hermesCatalogProvider) bool { return item.ID == native.Provider })
 	if index < 0 {
-		return "", "", fmt.Errorf("Hermes selects provider %q, which AIGW no longer projects; run `aigw use --for hermes <route>`", native.Provider)
+		return "", "", fmt.Errorf("Hermes selects provider %q, which AIGW no longer projects; run `aigw use hermes <provider/model>`", native.Provider)
 	}
 	provider := catalog[index]
 	spec := hermesAdapter{}.Spec()
@@ -283,13 +283,11 @@ func hermesModelFor(cfg domain.Config, native Selection) (string, domain.Endpoin
 	case 1:
 		return matches[0], provider.Protocol, nil
 	case 0:
-		return "", "", fmt.Errorf("Hermes selects model %q, which no AIGW Route provides; run `aigw use --for hermes <route>`", native.Model)
+		return "", "", fmt.Errorf("Hermes selects model %q, which provider %q has not added; run `aigw use hermes <provider/model>`", native.Model, provider.Provider)
 	default:
-		commands := make([]string, 0, len(matches))
-		for _, routeID := range matches {
-			commands = append(commands, fmt.Sprintf("`aigw use --for hermes --protocol %s %s`", provider.Protocol.Name(), routeID))
-		}
-		return "", "", fmt.Errorf("Hermes selects model %q, which several AIGW Routes provide; run one of %s", native.Model, strings.Join(commands, ", "))
+		// Only a configuration from before models were unique per provider
+		// can hold several, which no selection tells apart.
+		return "", "", fmt.Errorf("Hermes selects model %q, which %d models of provider %q carry; correct the configuration, whose file `aigw config path` names", native.Model, len(matches), provider.Provider)
 	}
 }
 

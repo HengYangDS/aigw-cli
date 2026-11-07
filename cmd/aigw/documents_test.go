@@ -61,7 +61,7 @@ func TestDocumentProblemsNameEachGap(t *testing.T) {
 		{"null list", `{"schema_version": 2, "ok": true, "projected_clients": null}`, []string{"has null at projected_clients"}},
 		{"null rollback", `{"schema_version": 1, "ok": true, "rollback": null}`, nil},
 		{"prose next", `{"schema_version": 2, "ok": false, "next_action": "Restart Codex"}`, []string{"has a next_action that is not a runnable aigw command: Restart Codex"}},
-		{"placeholder next", `{"schema_version": 2, "ok": false, "checks": [{"next_action": "aigw use --for codex <route>"}]}`, []string{"has a next_action that is not a runnable aigw command: aigw use --for codex <route>"}},
+		{"placeholder next", `{"schema_version": 2, "ok": false, "checks": [{"next_action": "aigw use codex <provider/model>"}]}`, []string{"has a next_action that is not a runnable aigw command: aigw use codex <provider/model>"}},
 		{"prompting next", `{"schema_version": 2, "ok": false, "next_action": "aigw setup"}`, []string{"has a next_action that is not a runnable aigw command: aigw setup"}},
 		{"token prompt next", `{"schema_version": 2, "ok": false, "next_action": "aigw rotate team"}`, []string{"has a next_action that is not a runnable aigw command: aigw rotate team"}},
 		{"token input next", `{"schema_version": 2, "ok": false, "next_action": "aigw rotate team --token-stdin"}`, nil},

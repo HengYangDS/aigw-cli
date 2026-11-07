@@ -89,7 +89,7 @@ func TestNativePerformance(t *testing.T) {
 				if !t.Run(fmt.Sprintf("block-%d/%s/%s", block+1, program.Variant, backend), func(t *testing.T) {
 					journey := nativePerformanceJourney(t, program.Path, programs[1].Path, backend, server.URL)
 					if forwarding && program.Variant == "candidate" {
-						journey.run("use", "--for", "claude", "native-system-keyring-probe-claude", "--forwarding-endpoint", forwardingEndpoint)
+						journey.run("client", "edit", "claude", "--via", forwardingEndpoint)
 					}
 					rows, observations := journey.measurePerformanceBlock(hyperfine, output, program.Variant, backend, block+1, attribution)
 					measurements = append(measurements, rows...)
@@ -358,8 +358,8 @@ func (j *journeyFixture) measureSelectedPerformance(hyperfine, output, variant, 
 }
 
 func (j *journeyFixture) performanceCases(helper []string, preparer string, binding domain.Runtime) []performance.Workload {
-	selectArgs := []string{j.binary, "use", "--for", "claude", "performance-second"}
-	resetArgs := []string{j.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
+	selectArgs := []string{j.binary, "use", "claude", "native-system-keyring-probe/claude-second"}
+	resetArgs := []string{j.binary, "use", "claude", "native-system-keyring-probe/claude-test"}
 	commands := map[string]performance.Workload{
 		"credential": {Command: helper},
 		"projection": {Command: selectArgs, Prepare: resetArgs},
@@ -382,11 +382,9 @@ func (j *journeyFixture) performanceCases(helper []string, preparer string, bind
 			workload.Mode = "direct"
 		}
 		if scope == "forwarding-performance" {
+			// Forwarding is the client's own, set before the measurement, and
+			// a model of the same provider keeps it.
 			workload.Mode = "forwarding"
-			if workload.Name == "projection" {
-				workload.Command = append(slices.Clone(workload.Command), "--forwarding-endpoint", binding.Endpoint)
-			}
-			workload.Prepare = append(slices.Clone(resetArgs), "--forwarding-endpoint", binding.Endpoint)
 		}
 		if workload.Name == "projection" && binding != (domain.Runtime{}) {
 			workload.Runtime.ModelID, workload.Runtime.ModelLabel = "performance-second", "Performance Second"
@@ -452,11 +450,11 @@ func (j *journeyFixture) measureNativeCommand(hyperfine, output string, row perf
 // Hyperfine shell=none uses shell_words on every OS, including Windows.
 func TestNativePerformanceCases(t *testing.T) {
 	journey := &journeyFixture{root: "owned root", binary: "installed program", config: filepath.Join("owned config directory", "config.toml"), settings: filepath.Join("owned settings directory", "settings.json"), manifest: "team manifest"}
-	reset := []string{journey.binary, "use", "--for", "claude", "native-system-keyring-probe-claude"}
+	reset := []string{journey.binary, "use", "claude", "native-system-keyring-probe/claude-test"}
 	cases := journey.performanceCases([]string{"projected helper"}, "test preparer", domain.Runtime{})
 	want := []performance.Workload{
 		{Name: "credential", Command: []string{"projected helper"}, Budget: 0.1},
-		{Name: "projection", Command: []string{journey.binary, "use", "--for", "claude", "performance-second"}, Prepare: reset, Budget: 0.25},
+		{Name: "projection", Command: []string{journey.binary, "use", "claude", "native-system-keyring-probe/claude-second"}, Prepare: reset, Budget: 0.25},
 		{Name: "setup", Command: []string{journey.binary, "setup", "--from", journey.manifest, "--account", "native-system-keyring-probe"}, Prepare: []string{"test preparer", "prepare-performance-setup", "owned config directory", "owned settings directory", journey.config, journey.settings}, Budget: 0.25},
 		{Name: "sync", Command: []string{journey.binary, "sync"}, Prepare: reset, Budget: 0.25},
 	}

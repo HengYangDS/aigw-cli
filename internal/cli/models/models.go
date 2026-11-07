@@ -61,7 +61,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			}
 			rows := modelRows(cfg, app.DiscoverCatalog(cmd.Context(), runtime.Secrets, runtime.HTTP, cfg))
 			if jsonMode {
-				document := modelsDocument{Models: make([]routeModel, 0, len(rows)), NextDetail: "aigw use --for <client> <route>"}
+				document := modelsDocument{Models: make([]routeModel, 0, len(rows)), NextDetail: "aigw use <client> <provider/model>"}
 				for _, row := range rows {
 					document.Models = append(document.Models, routeModel{
 						Model: row.Model, Provider: row.Provider, Protocol: row.Protocol,

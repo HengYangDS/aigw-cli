@@ -140,8 +140,8 @@ func TestModelAddDoesNotConflateModelCreationWithClientCompatibility(t *testing.
 		t.Fatalf("route creation selected a Claude binding: %#v", got.Clients)
 	}
 
-	err = cli.Execute(app, []string{"use", "--for", "claude", "claude"})
-	if err == nil || !strings.Contains(err.Error(), `does not admit endpoint protocol "anthropic"`) {
+	err = cli.Execute(app, []string{"use", "claude", "openai-only/claude-test"})
+	if err == nil || !strings.Contains(err.Error(), "provider openai-only has no endpoint for any of them") {
 		t.Fatalf("client selection error = %v", err)
 	}
 }

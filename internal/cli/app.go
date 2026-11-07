@@ -465,7 +465,7 @@ func appVersion(app *App) string {
 func startPath(root string) []terminal.Field {
 	return []terminal.Field{
 		{Label: root + " setup", Value: "Connect the first account", Command: true},
-		{Label: root + " use --for <client> <route>", Value: "Select one Route for one client", Command: true},
+		{Label: root + " use <client> <provider/model>", Value: "Point a client at a model", Command: true},
 		{Label: root + " check", Value: "Check enabled clients (may use quota)", Command: true},
 	}
 }

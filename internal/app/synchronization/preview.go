@@ -22,7 +22,7 @@ type Projection struct {
 // It validates the transition as Commit does and plans the clients whose
 // configuration changes, but it writes nothing.
 func (s Synchronizer) Preview(before, after domain.Config) (Projection, error) {
-	if err := s.validateTransition(before, after, domain.ConnectionChange{}); err != nil {
+	if err := validateTransition(after); err != nil {
 		return Projection{}, err
 	}
 	clients := s.registry().ChangedClients(before, after)
@@ -35,7 +35,7 @@ func (s Synchronizer) Preview(before, after domain.Config) (Projection, error) {
 // PreviewProjection reports what CommitProjection would project for the named
 // clients, or for every client when none is named, and writes nothing.
 func (s Synchronizer) PreviewProjection(before, after domain.Config, clientIDs ...string) (Projection, error) {
-	if err := s.validateTransition(before, after, domain.ConnectionChange{}); err != nil {
+	if err := validateTransition(after); err != nil {
 		return Projection{}, err
 	}
 	return project(s, before, after, clientIDs...)
@@ -55,7 +55,7 @@ func (s Synchronizer) PreviewSetup(before, after domain.Config, accounts []strin
 	if after, _, err = planner.DesiredClientConfiguration(after, clients...); err != nil {
 		return domain.Config{}, Projection{}, err
 	}
-	if err := planner.validateTransition(before, after, domain.ConnectionChange{}); err != nil {
+	if err := validateTransition(after); err != nil {
 		return domain.Config{}, Projection{}, err
 	}
 	projection, err := project(planner, before, after, clients...)
@@ -87,10 +87,35 @@ func (s Synchronizer) PreviewConnection(before domain.Config, name, client strin
 	if after, _, err = selector.DesiredClientConfiguration(after, client); err != nil {
 		return domain.Config{}, Projection{}, err
 	}
-	if err := s.validateTransition(before, after, domain.ConnectionChange{}); err != nil {
+	if err := validateTransition(after); err != nil {
 		return domain.Config{}, Projection{}, err
 	}
 	projection, err := project(selector, before, after, client)
+	return after, projection, err
+}
+
+// PreviewSelection reports what SelectModel would write for after, which
+// PrepareSelection made from before: the configuration with the client
+// enabled and its desired configuration, and the files of the client and of
+// every other client whose files change. The presumed providers' Tokens
+// count as stored, as for a Token that the selection would store. It reads,
+// checks and stores no Token and writes nothing.
+func (s Synchronizer) PreviewSelection(before, after domain.Config, client string, presumed ...string) (domain.Config, Projection, error) {
+	after = after.Clone()
+	binding := after.Clients[client]
+	binding.Enabled = true
+	after.Clients[client] = binding
+	selector := s
+	selector.Secrets = presumedTokens{providers: presumed, store: s.Secrets}
+	selector.AuthorizedSelectionClient = client
+	after, _, err := selector.DesiredClientConfiguration(after, client)
+	if err != nil {
+		return domain.Config{}, Projection{}, err
+	}
+	if err := validateTransition(after); err != nil {
+		return domain.Config{}, Projection{}, err
+	}
+	projection, err := project(selector, before, after, selector.selectionClients(before, after, client)...)
 	return after, projection, err
 }
 

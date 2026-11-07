@@ -1,412 +1,197 @@
-// Package use implements `aigw use`, which selects a Route for one client.
+// Package use implements `aigw use <client> <provider/model>`, which points
+// one client at a model.
 package use
 
 import (
-	"context"
+	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 
-	"aigw-cli/internal/adapter"
-	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
-	"aigw-cli/internal/secret/probe"
-	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
 )
 
 // schemaVersion is the version of `aigw use`'s JSON document.
-const schemaVersion = 2
+const schemaVersion = 3
 
-// NewCommand constructs the daily client Route selection command.
+// options are the flags of `aigw use`.
+type options struct {
+	protocol domain.EndpointProtocol
+	dryRun   bool
+	jsonMode bool
+}
+
+// NewCommand constructs the command that points a client at a model.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	var client string
-	var protocol domain.EndpointProtocol
-	var forwardingEndpoint string
-	var retries retryOptions
-	var direct, dryRun, jsonMode bool
+	var options options
+	admission := runtime.Clients.Admission()
 	cmd := &cobra.Command{
-		Use:   "use <route>",
-		Short: "Select a Route for one client",
-		Args: cobra.MatchAll(cobra.MaximumNArgs(1), func(_ *cobra.Command, args []string) error {
-			// A JSON caller reads one document, so use never prompts for it.
-			interactive := runtime.Interactive && !jsonMode
-			if len(args) == 0 && !interactive {
-				return fmt.Errorf("non-interactive use requires a Route; run `aigw use --for <client> <route>`")
+		Use:   "use <client> <provider/model>",
+		Short: "Point a client at a model",
+		Long: "Point a client at a model, named provider/model; <client> is " + admission.Usage() + ".\n" +
+			"In a terminal, a missing client or model is asked for, recommended models first.",
+		Example: examples(admission),
+		Args: func(_ *cobra.Command, args []string) error {
+			given, err := parseArguments(admission, args)
+			if err != nil {
+				return err
 			}
-			if len(args) == 1 && client == "" && !interactive {
-				return fmt.Errorf("non-interactive use requires --for; run `aigw use --for <client> <route>`")
-			}
-			if client != "" && !runtime.Clients.Admission().Admits(client) {
-				return fmt.Errorf("--for must be %s; run `aigw use --help`", runtime.Clients.Admission().Usage())
-			}
-			return nil
-		}),
+			return requireArguments(given, runtime.Interactive, options.jsonMode)
+		},
+		ValidArgsFunction: invocation.CompleteClientModels(runtime),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := cmd.Context().Err(); err != nil {
-				return err
-			}
-			forwarding, err := forwardingChoice(forwardingEndpoint, cmd.Flags().Changed("forwarding-endpoint"), direct)
-			if err != nil {
-				return err
-			}
-			connection, err := retries.connection(cmd, forwarding)
-			if err != nil {
-				return err
-			}
-			cfg, err := runtime.Config.Load()
-			if err != nil {
-				return err
-			}
-			operation := runtime
-			operation.Interactive = runtime.Interactive && !jsonMode
-			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
-			client, name, err := resolveUseSelection(operation, cfg, client, args)
-			if err != nil {
-				return err
-			}
-			selected, err := resolveUseRuntime(operation, cfg, client, name, protocol, connection)
-			if err != nil {
-				return err
-			}
-			if dryRun {
-				return previewUse(operation, cfg, selected, connection, jsonMode)
-			}
-			token, err := selectionToken(cmd.Context(), operation, cfg, selected)
-			if err != nil {
-				return err
-			}
-			synchronizer := operation.Synchronizer()
-			configurationChanged, projectionChanged, binding, err := synchronizer.SelectModel(cmd.Context(), cfg, client, name, selected.Protocol, connection, token)
-			if err != nil {
-				return err
-			}
-			updated := cfg.Clone()
-			updated.Clients[client] = binding
-			return renderUse(runtime, updated, selected, configurationChanged, projectionChanged, token != "", jsonMode)
+			return run(cmd, runtime, args, options)
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Client: "+runtime.Clients.Admission().Usage())
-	invocation.BindProtocol(cmd, &protocol, "Endpoint protocol for a multi-protocol Route")
-	cmd.Flags().StringVar(&forwardingEndpoint, "forwarding-endpoint", "", "Explicit client destination; the Account upstream remains unchanged")
-	cmd.Flags().BoolVar(&direct, "direct", false, "Connect this client directly to its Account upstream")
-	retries.bind(cmd, runtime.Clients.Admission())
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Preview the selection without reading credentials or writing files")
-	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the selection preview or result as JSON")
+	invocation.BindProtocol(cmd, &options.protocol, "The protocol on which the client uses the model, for a client that speaks several")
+	cmd.Flags().BoolVar(&options.dryRun, "dry-run", false, "Show the selection without reading a Token, sending a request or writing anything")
+	cmd.Flags().BoolVar(&options.jsonMode, "json", false, "Write the selection as JSON")
 	return cmd
 }
 
-func forwardingChoice(endpoint string, specified, direct bool) (*string, error) {
-	if specified {
-		// --direct with any endpoint, even an empty one, is the conflict to name.
-		if direct {
-			return nil, fmt.Errorf("--direct and --forwarding-endpoint are mutually exclusive")
+// examples shows a selection for a client that speaks one protocol, one that
+// names the protocol for a client that speaks several, and a preview, each
+// with a client of the admission.
+func examples(admission domain.Admission) string {
+	var lines []string
+	for _, example := range []struct {
+		fits func(domain.ClientSpec) bool
+		line string
+	}{
+		{func(spec domain.ClientSpec) bool {
+			return slices.Equal(spec.EndpointProtocols, []domain.EndpointProtocol{domain.ProtocolOpenAIResponses})
+		}, " dmxapi/gpt-6.1-sol"},
+		{func(spec domain.ClientSpec) bool { return len(spec.EndpointProtocols) > 1 }, " ucloud/gpt-6.1-sol --protocol responses"},
+		{func(spec domain.ClientSpec) bool {
+			return slices.Equal(spec.EndpointProtocols, []domain.EndpointProtocol{domain.ProtocolAnthropic})
+		}, " ucloud/minimax-m3 --dry-run"},
+	} {
+		if index := slices.IndexFunc(admission.Specs(), example.fits); index >= 0 {
+			lines = append(lines, "aigw use "+admission.Specs()[index].ID+example.line)
 		}
-		if endpoint == "" {
-			return nil, fmt.Errorf("--forwarding-endpoint requires an endpoint; use --direct to remove forwarding")
-		}
-		return &endpoint, nil
 	}
-	if direct {
-		return new(string), nil
-	}
-	return nil, nil
+	return strings.Join(lines, "\n")
 }
 
-func renderUse(runtime invocation.Context, cfg domain.Config, selected domain.Runtime, changed, projectionChanged, tokenStored, jsonMode bool) error {
-	title, detail := "Route already selected", "Selected client configuration synchronized; binding unchanged"
+// arguments are the client and the model that the command line names. One
+// argument is the model when it has a slash, as every model name has, and the
+// client otherwise.
+type arguments struct{ client, model string }
+
+// parseArguments checks the arguments' number and shapes before any
+// configuration access: a client must be admitted, and a model must be a
+// provider/model name; one without a slash is left to the command, which
+// lists the models that it could mean.
+func parseArguments(admission domain.Admission, args []string) (arguments, error) {
+	var given arguments
+	switch len(args) {
+	case 0:
+	case 1:
+		if strings.Contains(args[0], "/") {
+			given.model = args[0]
+		} else {
+			given.client = args[0]
+		}
+	case 2:
+		given.client, given.model = args[0], args[1]
+	default:
+		return arguments{}, fmt.Errorf("aigw use takes <client> and <provider/model>, not %d arguments; run `aigw use --help`", len(args))
+	}
+	if given.client != "" {
+		if _, err := invocation.ResolveClient(admission, given.client); err != nil {
+			return arguments{}, err
+		}
+	}
+	if given.model != "" {
+		if _, err := domain.ParseModelRef(given.model); err != nil && !errors.Is(err, domain.ErrModelRefWithoutProvider) {
+			return arguments{}, fmt.Errorf("%w; run `aigw use --help`", err)
+		}
+	}
+	return given, nil
+}
+
+// requireArguments refuses a missing argument where no prompt may ask for
+// it: without a terminal, and with --json, whose caller reads one document.
+func requireArguments(given arguments, interactive, jsonMode bool) error {
+	if interactive && !jsonMode {
+		return nil
+	}
+	why := "without a terminal"
+	if jsonMode {
+		why = "with --json"
+	}
 	switch {
-	case changed && tokenStored:
-		title, detail = "Route selected", "Account token stored; client configuration synchronized"
-	case changed:
-		title, detail = "Route selected", "Client configuration synchronized"
-	case tokenStored:
-		title, detail = "Token stored", "Account token stored; selected client configuration synchronized"
+	case given.client == "" && given.model == "":
+		return fmt.Errorf("aigw use %s needs a <client> and a <provider/model> argument; run `aigw use --help`", why)
+	case given.client == "":
+		return fmt.Errorf("aigw use %s needs a <client> argument before the model; run `aigw use --help`", why)
+	case given.model == "":
+		return fmt.Errorf("aigw use %s needs a <provider/model> argument after the client; run `aigw use --help`", why)
 	}
-	spec, _ := runtime.Clients.Admission().Spec(selected.Client)
-	result := useResult{Changed: changed, ProjectionChanged: projectionChanged, useSelection: selectionOf(selected)}
-	next := "aigw check"
-	if action := clientactivation.ProjectionPrerequisites(cfg)[selected.Client]; action != "" {
-		result.ProjectionDeferred = true
-		next = action
-	} else if spec.RestartAfterProjection && projectionChanged {
-		result.RestartRequired = true
-		next = fmt.Sprintf("Restart %s, then run `aigw check`", spec.Label)
-	}
-	result.NextAction, result.NextDetail = terminal.NextSteps(next)
-	if jsonMode {
-		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
-	}
-	r := invocation.Renderer(runtime)
-	r.ProductTitle(title)
-	r.Section("Current selection")
-	rows := []terminal.Field{{Label: "Route", Value: selected.ModelLabel}}
-	if purpose := strings.TrimSpace(cfg.Models[selected.ModelID].Purpose); purpose != "" {
-		rows = append(rows, terminal.Field{Label: "Purpose", Value: purpose})
-	}
-	rows = append(rows,
-		terminal.Field{Label: "Client", Value: spec.Label},
-		terminal.Field{Label: "Protocol", Value: domain.ProtocolLabel(selected.Protocol)},
-		terminal.Field{Label: "Endpoint", Value: selected.Endpoint},
-	)
-	if selected.Endpoint != selected.UpstreamEndpoint {
-		rows = append(rows, terminal.Field{Label: "Account upstream", Value: selected.UpstreamEndpoint})
-	}
-	if spec.RetryBudgets {
-		rows = append(rows, retryFields(selected.RetryPolicy)...)
-	}
-	if result.ProjectionDeferred {
-		if tokenStored {
-			rows = append(rows, terminal.Field{Label: "Account Token", Value: "Validated and stored"})
-		}
-		rows = append(rows, terminal.Field{Label: "Projection", Value: "Deferred; native client projection is unavailable"})
-		r.Rows(rows...)
-		r.Next(next)
-		return r.Err()
-	}
-	if result.RestartRequired {
-		rows = append(rows, terminal.Field{Label: "Activation", Value: "Restart required"})
-	}
-	if spec.SessionsKeepModel && projectionChanged {
-		rows = append(rows, existingSessionsField)
-	}
-	r.Rows(rows...)
-	r.Success(detail)
-	r.Next(next)
-	return r.Err()
+	return nil
 }
 
-// existingSessionsField tells users of a client whose sessions keep the route
-// they were created with that a projection change reaches new sessions only.
-var existingSessionsField = terminal.Field{Label: "Existing sessions", Value: "Keep the route they started with; new sessions use this selection"}
-
-// useResult is `aigw use`'s JSON document: whether the selection and the
-// client's projection changed, the selection itself, and in a preview the
-// client files that selecting would write.
-type useResult struct {
-	DryRun             bool   `json:"dry_run,omitempty"`
-	Changed            bool   `json:"changed"`
-	ProjectionChanged  bool   `json:"projection_changed"`
-	ProjectionDeferred bool   `json:"projection_deferred,omitempty"`
-	RestartRequired    bool   `json:"restart_required,omitempty"`
-	NextAction         string `json:"next_action,omitempty"`
-	NextDetail         string `json:"next_detail,omitempty"`
-	useSelection
-	Projections []invocation.Projection `json:"projections,omitempty"`
-}
-
-// useSelection is the selection that `aigw use` reports: each reference named
-// after its type, and the model's family beside the ID that the endpoint
-// serves.
-type useSelection struct {
-	RetryPolicy      *domain.RetryPolicy     `json:"retry_policy,omitempty"`
-	Model            string                  `json:"route"`
-	ModelLabel       string                  `json:"route_label"`
-	Provider         string                  `json:"account"`
-	ProviderLabel    string                  `json:"account_label"`
-	Client           string                  `json:"client"`
-	Endpoint         string                  `json:"endpoint"`
-	UpstreamEndpoint string                  `json:"upstream_endpoint"`
-	Protocol         domain.EndpointProtocol `json:"protocol"`
-	Family           string                  `json:"model,omitempty"`
-	UpstreamModel    string                  `json:"upstream_model,omitempty"`
-	ModelProvider    string                  `json:"model_provider"`
-	Authentication   domain.Authentication   `json:"authentication"`
-}
-
-func selectionOf(selected domain.Runtime) useSelection {
-	return useSelection{
-		RetryPolicy: selected.RetryPolicy, Model: selected.ModelID, ModelLabel: selected.ModelLabel,
-		Provider: selected.ProviderID, ProviderLabel: selected.ProviderLabel, Client: selected.Client,
-		Endpoint: selected.Endpoint, UpstreamEndpoint: selected.UpstreamEndpoint, Protocol: selected.Protocol,
-		Family: selected.FamilyID, UpstreamModel: selected.UpstreamModel, ModelProvider: selected.ModelProvider,
-		Authentication: selected.Authentication,
+// run resolves the selection, previews it, and unless --dry-run asks for it,
+// obtains a missing Token and commits the selection with every client file
+// that it changes.
+func run(cmd *cobra.Command, runtime invocation.Context, args []string, options options) error {
+	if err := cmd.Context().Err(); err != nil {
+		return err
 	}
-}
-
-func previewUse(runtime invocation.Context, cfg domain.Config, selected domain.Runtime, connection domain.ConnectionChange, jsonMode bool) error {
-	synchronizer := runtime.Synchronizer()
-	synchronizer.AuthorizedSelectionClient = selected.Client
-	proposed, _, err := synchronizer.PrepareSelection(cfg, selected.Client, selected.ModelID, selected.Protocol, connection)
+	// Args checked the arguments, so they parse.
+	given, _ := parseArguments(runtime.Clients.Admission(), args)
+	cfg, err := runtime.Config.Load()
 	if err != nil {
 		return err
 	}
-	binding := proposed.Clients[selected.Client]
-	binding.Enabled = true
-	proposed.Clients[selected.Client] = binding
-	proposed, _, err = synchronizer.DesiredClientConfiguration(proposed, selected.Client)
+	operation := runtime
+	operation.Interactive = runtime.Interactive && !options.jsonMode
+	operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
+	chosen, err := resolve(operation, cfg, given, options.protocol)
 	if err != nil {
 		return err
 	}
-	plans, err := synchronizer.Plan(cfg, proposed, selected.Client)
+	synchronizer := operation.Synchronizer()
+	after, selected, err := synchronizer.PrepareSelection(cfg, chosen.client.ID, chosen.key, chosen.protocol)
 	if err != nil {
 		return err
 	}
-	result := useResult{DryRun: true, useSelection: selectionOf(selected), Projections: invocation.Projections(runtime, plans)}
-	if jsonMode {
-		return terminal.WriteDocument(runtime.Out, schemaVersion, true, result)
-	}
-	r := invocation.Renderer(runtime)
-	r.ProductTitle("Selection preview")
-	r.Section("Selection")
-	rows := []terminal.Field{
-		{Label: "Client", Value: runtime.Clients.Admission().Label(selected.Client)},
-		{Label: "Route", Value: selected.ModelLabel},
-		{Label: "Endpoint", Value: selected.Endpoint},
-		{Label: "Account upstream", Value: selected.UpstreamEndpoint},
-	}
-	spec, _ := runtime.Clients.Admission().Spec(selected.Client)
-	if spec.RetryBudgets {
-		rows = append(rows, retryFields(selected.RetryPolicy)...)
-	}
-	if spec.SessionsKeepModel &&
-		slices.ContainsFunc(plans, func(plan adapter.ProjectionPlan) bool { return plan.ChangesState }) {
-		rows = append(rows, existingSessionsField)
-	}
-	r.Rows(rows...)
-	if len(plans) > 0 {
-		r.Section("Projection targets")
-		targets := make([]terminal.Field, 0, len(plans))
-		for _, plan := range plans {
-			targets = append(targets, terminal.Field{Label: plan.Target, Value: plan.Action})
-		}
-		r.Rows(targets...)
-	}
-	r.Success("Credentials, configuration and client files were unchanged")
-	return r.Err()
-}
-
-func resolveUseRuntime(runtime invocation.Context, cfg domain.Config, client, routeID string, requested domain.EndpointProtocol, connection domain.ConnectionChange) (domain.Runtime, error) {
-	_, selected, err := runtime.Synchronizer().PrepareSelection(cfg, client, routeID, requested, connection)
-	if err == nil || requested != "" {
-		return selected, err
-	}
-	route := cfg.Models[routeID]
-	spec, _ := runtime.Clients.Admission().Spec(client)
-	compatible := spec.CompatibleModelProtocols(cfg.Providers[route.Provider], route)
-	if len(compatible) < 2 {
-		return domain.Runtime{}, err
-	}
-	choices := make([]terminal.Choice, 0, len(compatible))
-	names := make([]string, 0, len(compatible))
-	for _, candidate := range compatible {
-		name := candidate.Name()
-		choices = append(choices, terminal.Choice{Value: string(candidate), Label: name})
-		names = append(names, name)
-	}
-	if !runtime.Interactive {
-		choice := strings.Join(names, "|")
-		refusal := fmt.Errorf("Route %q has multiple compatible protocols for %s; pass --protocol <%s>", routeID, client, choice)
-		return domain.Runtime{}, terminal.ProblemError(refusal.Error(), "", "No Client Binding changed.",
-			fmt.Sprintf("aigw use --for %s --protocol <%s> %s", client, choice, routeID), refusal)
-	}
-	choice, err := runtime.Prompt.Select("Select the endpoint protocol: ", choices)
+	missing, err := tokenMissing(operation, selected)
 	if err != nil {
-		return domain.Runtime{}, err
+		return err
 	}
-	_, selected, err = runtime.Synchronizer().PrepareSelection(cfg, client, routeID, domain.EndpointProtocol(choice), connection)
-	return selected, err
-}
-
-func resolveUseSelection(runtime invocation.Context, cfg domain.Config, client string, args []string) (string, string, error) {
-	if len(args) == 0 {
-		if client == "" {
-			var err error
-			client, err = chooseClient(runtime, runtime.Clients.Admission().Specs())
-			if err != nil {
-				return "", "", err
-			}
-		}
-		route, err := chooseModel(runtime, cfg, client, "Select the Route to use: ")
-		return client, route, err
+	var presumed []string
+	if missing {
+		presumed = append(presumed, selected.ProviderID)
 	}
-
-	route := args[0]
-	if _, ok := cfg.Models[route]; !ok {
-		return "", "", fmt.Errorf("unknown route %q; run `aigw route list`", route)
-	}
-	if client != "" {
-		return client, route, nil
-	}
-	compatible, err := cfg.ProtocolClientIDs(route)
+	desired, projection, err := synchronizer.PreviewSelection(cfg, after, chosen.client.ID, presumed...)
 	if err != nil {
-		return "", "", err
+		return err
 	}
-	client, err = chooseClientIDs(runtime, compatible)
-	return client, route, err
-}
-
-func chooseClient(runtime invocation.Context, specs []domain.ClientSpec) (string, error) {
-	choices := make([]terminal.Choice, 0, len(specs))
-	for _, spec := range specs {
-		choices = append(choices, terminal.Choice{Value: spec.ID, Label: spec.Label})
-	}
-	return runtime.Prompt.Select("Select the client to configure: ", choices)
-}
-
-func chooseClientIDs(runtime invocation.Context, clients []string) (string, error) {
-	specs := make([]domain.ClientSpec, 0, len(clients))
-	for _, client := range clients {
-		spec, _ := runtime.Clients.Admission().Spec(client)
-		specs = append(specs, spec)
-	}
-	return chooseClient(runtime, specs)
-}
-
-func selectionToken(ctx context.Context, runtime invocation.Context, cfg domain.Config, selected domain.Runtime) (string, error) {
-	if !selected.UsesAIGWCredentialStore() {
-		return "", nil
-	}
-	available, err := runtime.Secrets.Exists(selected.ProviderID)
-	if err != nil {
-		return "", fmt.Errorf("cannot inspect Account %q credential: %w", selected.ProviderID, err)
-	}
-	if available {
-		return "", nil
-	}
-	instruction, writable := secret.TokenRecovery(runtime.Secrets, selected.ProviderID)
-	if !writable {
-		retry := fmt.Sprintf("aigw use --for %s %s", selected.Client, selected.ModelID)
-		spec, _ := runtime.Clients.Admission().Spec(selected.Client)
-		if len(spec.CompatibleModelProtocols(cfg.Providers[selected.ProviderID], cfg.Models[selected.ModelID])) > 1 {
-			retry = fmt.Sprintf("aigw use --for %s --protocol %s %s", selected.Client, selected.Protocol.Name(), selected.ModelID)
+	outcome := selectionOutcome{before: cfg, after: desired, selected: selected, choice: chosen, preview: invocation.Planned(operation, projection), tokenMissing: missing}
+	if options.dryRun {
+		// Only a preview names the credential reader; a commit prepares it.
+		if outcome.preview, err = invocation.WithEntrypoint(operation, desired, projection); err != nil {
+			return err
 		}
-		return "", fmt.Errorf("account %q is missing a token; %s; then run `%s`", selected.ProviderID, instruction, retry)
+		outcome.changed = !reflect.DeepEqual(cfg, desired)
+		return outcome.report(runtime, options)
 	}
-	if !runtime.Interactive {
-		return "", fmt.Errorf("account %q is missing a token; %s", selected.ProviderID, instruction)
-	}
-	account := cfg.Providers[selected.ProviderID]
-	token, err := runtime.Prompt.Secret("Paste " + account.Label + " token: ")
-	if err != nil {
-		return "", err
-	}
-	if err := probe.ValidateRuntime(ctx, runtime.HTTP, runtime.Clients.Admission(), selected, token); err != nil {
-		return "", fmt.Errorf("token validation failed: %w", err)
-	}
-	return token, nil
-}
-
-func chooseModel(runtime invocation.Context, cfg domain.Config, client, label string) (string, error) {
-	choices := make([]terminal.Choice, 0, len(cfg.Models))
-	for _, id := range cfg.CatalogModelIDs() {
-		compatible, err := cfg.ProtocolClientIDs(id)
-		if err != nil || !slices.Contains(compatible, client) {
-			continue
+	token := ""
+	if missing {
+		if token, err = acquireToken(cmd, operation, cfg, chosen, selected); err != nil {
+			return err
 		}
-		choices = append(choices, terminal.Choice{Value: id, Label: modelChoiceLabel(cfg, id)})
 	}
-	return runtime.Prompt.Select(label, choices)
-}
-
-func modelChoiceLabel(cfg domain.Config, routeID string) string {
-	label := cfg.ModelLabel(routeID)
-	route := cfg.Models[routeID]
-	if purpose := strings.TrimSpace(route.Purpose); purpose != "" {
-		return label + " · " + purpose
+	changed, _, _, err := synchronizer.SelectModel(cmd.Context(), cfg, after, chosen.client.ID, token)
+	if err != nil {
+		return err
 	}
-	return label
+	outcome.changed, outcome.tokenStored = changed, token != ""
+	return outcome.report(runtime, options)
 }

@@ -62,7 +62,7 @@ func TestAssessActivationChoosesOneCompatibleEnvironmentProvider(t *testing.T) {
 		return ""
 	})
 	got = AssessActivation(cfg, store)
-	if got.NextActionFor(nil) != "aigw use --for claude dmx-claude" {
+	if got.NextActionFor(nil) != "aigw use claude dmx/fable" {
 		t.Fatalf("connected Account activation = %+v", got)
 	}
 
@@ -122,7 +122,7 @@ func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 		cfg.Clients[codex.ID] = binding
 		for _, store := range []secret.Store{nil, unobservedWritableStore{}} {
 			decision := AssessActivation(cfg, store)
-			if decision.State != domainreadiness.Deferred || decision.NextActionFor(nil) != "aigw use --for codex codex" || len(decision.ClientCredentialPrerequisites) != 0 {
+			if decision.State != domainreadiness.Deferred || decision.NextActionFor(nil) != "aigw use codex team/gpt" || len(decision.ClientCredentialPrerequisites) != 0 {
 				t.Fatalf("independent credential selection required an unused AIGW Token backend: %+v", decision)
 			}
 		}
@@ -136,12 +136,12 @@ func TestNextActionAfterProviderConnectionPreservesExplicitSelection(t *testing.
 	cfg.Models["hermes"] = domain.Model{Provider: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetRecommendedModel(claude.ID, "claude")
 	cfg.SetRecommendedModel(hermes.ID, "hermes")
-	if got := NextActionAfterProviderConnection(cfg, "team"); got != "aigw use --for claude claude" || cfg.SelectedModel(claude.ID) != "" {
+	if got := NextActionAfterProviderConnection(cfg, "team"); got != "aigw use claude team/fable" || cfg.SelectedModel(claude.ID) != "" {
 		t.Fatalf("Account connection mutated or skipped selection: action=%q bindings=%#v", got, cfg.Clients)
 	}
 
 	cfg.SetSelectedModel(claude.ID, "claude", "")
-	if got := NextActionAfterProviderConnection(cfg, "team"); got != "aigw use --for claude claude" {
+	if got := NextActionAfterProviderConnection(cfg, "team"); got != "aigw use claude team/fable" {
 		t.Fatalf("unprojected selected client action = %q", got)
 	}
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
@@ -166,7 +166,7 @@ func TestNextActionAfterProviderConnectionKeepsRequiredProtocolExplicit(t *testi
 	cfg.Recommendations[hermes.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{
 		Model: "multi", Protocol: domain.ProtocolOpenAIResponses,
 	}}
-	want := "aigw use --for hermes --protocol responses multi"
+	want := "aigw use hermes team/model --protocol responses"
 	if got := NextActionAfterProviderConnection(cfg, "team"); got != want {
 		t.Fatalf("multi-protocol action = %q, want %q", got, want)
 	}
@@ -223,7 +223,7 @@ func TestAssessActivationSelectedWritableProviderRequiresItsToken(t *testing.T) 
 		t.Fatal(err)
 	}
 	got = AssessActivation(cfg, store)
-	if got.NextActionFor(nil) != "aigw use --for claude claude" || got.CredentialPrerequisite != "" {
+	if got.NextActionFor(nil) != "aigw use claude team/fable" || got.CredentialPrerequisite != "" {
 		t.Fatalf("selected Account with Token = %+v", got)
 	}
 }
@@ -240,7 +240,7 @@ func TestAssessActivationDoesNotRecommendNoOpSyncBeforeClientActivation(t *testi
 
 	decision := AssessActivation(cfg, store)
 	got := decision.NextActionFor(nil)
-	want := "aigw use --for claude claude"
+	want := "aigw use claude team/fable"
 	if got != want {
 		t.Fatalf("next action before client activation = %q, want %q", got, want)
 	}
@@ -268,7 +268,7 @@ func TestAssessActivationDoesNotInstallAClientWhoseSelectedTokenIsMissing(t *tes
 	}
 	clients := []domainreadiness.Client{
 		{State: domainreadiness.Deferred, NextAction: "set environment variable " + secret.EnvironmentKey("missing")},
-		{State: domainreadiness.Deferred, NextAction: "aigw use --for codex codex"},
+		{State: domainreadiness.Deferred, NextAction: "aigw use codex team/gpt"},
 	}
 	if action := got.NextActionFor(clients); action != want {
 		t.Fatalf("client inspection displaced the usable continuation: %q, want %q", action, want)
@@ -375,8 +375,8 @@ func TestNextActionForUsesOneOrderedReadinessDecision(t *testing.T) {
 		{
 			name:       "specific route before generic synchronization",
 			activation: Activation{EnabledClients: 1, State: domainreadiness.Deferred, ProjectionPrerequisites: map[string]string{claude.ID: "aigw sync"}, admission: builtinclients.Admission()},
-			clients:    []domainreadiness.Client{{State: domainreadiness.Deferred, NextAction: "aigw use --for claude selected-route"}},
-			want:       "aigw use --for claude selected-route",
+			clients:    []domainreadiness.Client{{State: domainreadiness.Deferred, NextAction: "aigw use claude team/selected"}},
+			want:       "aigw use claude team/selected",
 		},
 		{
 			name:       "configured verification before deferred projection",
@@ -398,7 +398,7 @@ func TestNextActionForUsesOneOrderedReadinessDecision(t *testing.T) {
 			activation: Activation{EnabledClients: 1},
 			clients: []domainreadiness.Client{
 				{State: domainreadiness.Invalid},
-				{State: domainreadiness.Deferred, NextAction: "aigw use --for codex suggested-route"},
+				{State: domainreadiness.Deferred, NextAction: "aigw use codex team/suggested"},
 			},
 			want: "aigw repair",
 		},

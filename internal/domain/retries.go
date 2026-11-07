@@ -47,14 +47,6 @@ func (policy *RetryPolicy) validate(client string, spec ClientSpec) error {
 	return nil
 }
 
-// ConnectionChange records explicit destination and retry intent for selection.
-// Nil values retain the selected connection; NativeRetries removes its policy.
-type ConnectionChange struct {
-	ForwardingEndpoint *string
-	RetryPolicy        *RetryPolicy
-	NativeRetries      bool
-}
-
 func (c *Config) retryPolicyFor(client string, selection ClientSelection, upstream string, protocol EndpointProtocol) *RetryPolicy {
 	binding := c.Clients[client]
 	bound, exists := c.Models[binding.Model]

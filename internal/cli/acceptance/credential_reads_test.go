@@ -52,7 +52,7 @@ func TestReaderCommandsReadEachAIGWExecutableOnce(t *testing.T) {
 		{args: []string{"setup", "--account", "gateway", "--route", "claude-team", "--label", "Gateway",
 			"--anthropic-url", "https://gateway.test", "--for", "claude", "--upstream-model", "claude-team", "--token-stdin"}, stdin: "fixture-token\n", programReads: 2},
 		{args: []string{"sync"}, programReads: 1},
-		{args: []string{"use", "--for", "claude", "claude-next"}, prepare: addNextClaudeModel, programReads: 1},
+		{args: []string{"use", "claude", "gateway/claude-next"}, prepare: addNextClaudeModel, programReads: 1},
 	} {
 		t.Run(step.args[0], func(t *testing.T) {
 			if step.prepare != nil {

@@ -153,7 +153,7 @@ func TestResultClassifiesObservedClientStates(t *testing.T) {
 		next         string
 	}{
 		{state: domainreadiness.Configured, enabled: true, inspection: adapter.Status{Ready: true}, ok: true},
-		{state: domainreadiness.Deferred, ok: true, next: "aigw use --for claude claude"},
+		{state: domainreadiness.Deferred, ok: true, next: "aigw use claude team/claude-test"},
 		{state: domainreadiness.Invalid, enabled: true, inspection: notSynchronized, next: "aigw sync"},
 		{state: domainreadiness.Unavailable, unobservable: true, next: "aigw doctor"},
 	} {

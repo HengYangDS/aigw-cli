@@ -17,7 +17,7 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestUseForwardingPreviewDoesNotAcquireConfigurationLock(t *testing.T) {
+func TestUsePreviewDoesNotAcquireConfigurationLock(t *testing.T) {
 	app := configuredApp(t)
 	var output bytes.Buffer
 	app.Out, app.Err, app.Secrets = &output, &output, secret.NewMemoryStore()
@@ -29,7 +29,7 @@ func TestUseForwardingPreviewDoesNotAcquireConfigurationLock(t *testing.T) {
 	if err := os.Mkdir(app.Config.Path()+".lock", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := Execute(app, []string{"use", "one", "--for", "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"}); err != nil {
+	if err := Execute(app, []string{"use", "codex", "one/gpt", "--dry-run", "--json"}); err != nil {
 		t.Fatal(err)
 	}
 	after, err := app.Config.CaptureSnapshot()
@@ -47,8 +47,9 @@ func TestInvalidMutationArgumentsLeaveConfigurationStorageAbsent(t *testing.T) {
 		want string
 		next string
 	}{
-		{[]string{"use"}, "requires a Route", "aigw use --for <client> <route>"},
-		{[]string{"use", "route"}, "requires --for", "aigw use --for <client> <route>"},
+		{[]string{"use"}, "aigw use without a terminal needs a <client> and a <provider/model> argument", "aigw use --help"},
+		{[]string{"use", "codex"}, "aigw use without a terminal needs a <provider/model> argument after the client", "aigw use --help"},
+		{[]string{"use", "codx", "one/gpt"}, `unknown client "codx"; did you mean codex?`, "aigw client list"},
 		{[]string{"setup", "--from", "missing-manifest.toml", "--token-stdin"}, "--token-stdin requires --account", "aigw setup --help"},
 		{[]string{"account", "rename", "old", "--finalize"}, "requires explicit <old> <new>", "aigw account rename --help"},
 		{[]string{"account", "rename"}, "requires <old> <new>", "aigw account rename --help"},

@@ -14,101 +14,96 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestInteractiveModelChoiceDerivesUnlabeledModelName(t *testing.T) {
+// interactiveRuntime is a terminal session whose gateway provider has a Token.
+func interactiveRuntime(t *testing.T, selector *promptStub) (invocation.Context, domain.Config) {
+	t.Helper()
 	runtime, cfg, _ := configuredRuntime(t)
-	route := cfg.Models["codex"]
-	route.Label = ""
-	cfg.Models["codex"] = route
+	credentials := secret.NewMemoryStore()
+	if err := credentials.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	runtime.Secrets, runtime.Prompt, runtime.Interactive = credentials, selector, true
+	return runtime, cfg
+}
+
+// The model prompt offers each added model that the client can use once, by
+// its name and label, the client's recommended models first and marked; a
+// model whose provider serves none of the client's protocols is not offered.
+func TestUsePromptsForTheModelRecommendedFirst(t *testing.T) {
+	selector := &promptStub{answers: []string{"gateway/gpt-second"}}
+	runtime, cfg := interactiveRuntime(t, selector)
+	unlabeled := cfg.Models["codex"]
+	unlabeled.Label = ""
+	cfg.Models["codex"] = unlabeled
 	cfg.Families["gpt-test"] = domain.Family{Label: "GPT Test"}
-	choice := &promptStub{selected: "codex"}
-	runtime.Prompt = choice
-	selected, err := chooseModel(runtime, cfg, codex.ID, "Select Route")
-	if err != nil || selected != "codex" || len(choice.choices) != 1 || choice.choices[0].Label != "Gateway · GPT Test" {
-		t.Fatalf("derived interactive Route choice = %q, %+v, %v", selected, choice.choices, err)
+	cfg.Families["gpt-second"] = domain.Family{Label: "GPT Second"}
+	cfg.Models["second"] = domain.Model{Label: "Second", Provider: "gateway", Family: "gpt-second", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	cfg.Providers["messages"] = domain.Provider{Label: "Messages", Endpoints: domain.Endpoints{Anthropic: "https://messages.example.test"}}
+	cfg.Models["opus"] = domain.Model{Label: "Opus", Provider: "messages", Family: "opus", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	cfg.Recommendations[codex.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{Model: "second", Protocol: domain.ProtocolOpenAIResponses}}
+	if err := runtime.Config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := execute(runtime, codex.ID); err != nil {
+		t.Fatal(err)
+	}
+	var labels []string
+	for _, choice := range selector.choices {
+		labels = append(labels, choice.Value+" = "+choice.Label)
+	}
+	if want := "gateway/gpt-second = gateway/gpt-second · Second · recommended|gateway/gpt-test = gateway/gpt-test · Gateway · GPT Test"; strings.Join(labels, "|") != want {
+		t.Fatalf("model choices = %q, want %q", labels, want)
+	}
+	if stored, err := runtime.Config.Load(); err != nil || stored.SelectedModel(codex.ID) != "second" {
+		t.Fatalf("interactive model selection = %#v, %v", stored.Clients, err)
 	}
 }
 
-func TestUsePromptsForACompatibleClientOnASharedModel(t *testing.T) {
-	runtime, cfg, _ := configuredRuntime(t)
+// A model without a client asks for a client that speaks a protocol that its
+// provider serves, and no arguments ask for the client and then the model.
+func TestUsePromptsForAClientAndThenAModel(t *testing.T) {
+	selector := &promptStub{answers: []string{claude.ID}}
+	runtime, cfg := interactiveRuntime(t, selector)
 	cfg.Models["shared"] = domain.Model{
 		Label: "Shared", Provider: "gateway", Family: "shared-model",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{
-			domain.ProtocolAnthropic:       {},
-			domain.ProtocolOpenAIResponses: {},
-		},
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {}},
 	}
 	if err := runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	store := secret.NewMemoryStore()
-	if err := store.Set("gateway", "synthetic-token"); err != nil {
+	if err := execute(runtime, "gateway/shared-model"); err != nil {
 		t.Fatal(err)
 	}
-	selector := &promptStub{selected: claude.ID}
-	runtime.Secrets = store
-	runtime.Prompt = selector
-	runtime.Interactive = true
-	command := NewCommand(runtime)
-	command.SilenceErrors = true
-	command.SilenceUsage = true
-	command.SetArgs([]string{"shared"})
-	if err := command.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	choices := map[string]bool{}
+	clientChoices := map[string]bool{}
 	for _, choice := range selector.choices {
-		choices[choice.Value] = true
+		clientChoices[choice.Value] = true
 	}
-	if !choices[claude.ID] || !choices[codex.ID] {
-		t.Fatalf("shared Route client choices = %#v", selector.choices)
+	if !clientChoices[claude.ID] || !clientChoices[codex.ID] {
+		t.Fatalf("client choices = %#v", selector.choices)
+	}
+	selector.answers = []string{codex.ID, "gateway/shared-model"}
+	if err := execute(runtime); err != nil {
+		t.Fatal(err)
 	}
 	stored, err := runtime.Config.Load()
-	if err != nil || stored.Clients[claude.ID].Model != "shared" {
-		t.Fatalf("interactive client selection = %#v, %v", stored.Clients, err)
+	if err != nil || stored.SelectedModel(claude.ID) != "shared" || stored.SelectedModel(codex.ID) != "shared" {
+		t.Fatalf("interactive selections = %#v, %v", stored.Clients, err)
 	}
 }
 
-func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
-	runtime, cfg, _ := configuredRuntime(t)
-	secretStore := secret.NewMemoryStore()
-	runtime.Secrets = secretStore
-	selector := &promptStub{selected: "codex"}
-	runtime.Prompt = selector
-	runtime.Interactive = true
-	if err := secretStore.Set("gateway", "token"); err != nil {
-		t.Fatal(err)
-	}
-	cfg.Models["purpose"] = domain.Model{
-		Label: "Purpose", Purpose: "Research", Provider: "gateway", Family: "claude-research",
-		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
-	}
-	if err := runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	command := NewCommand(runtime)
-	command.SilenceErrors = true
-	command.SilenceUsage = true
-	command.SetArgs(nil)
-	if err := command.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	labels := map[string]string{}
-	for _, choice := range selector.choices {
-		labels[choice.Value] = choice.Label
-	}
-	if len(selector.choices) != 2 || labels["codex"] != "Codex" || labels["purpose"] != "Purpose · Research" {
-		t.Fatalf("choices = %#v", selector.choices)
-	}
-
+func TestUseInteractiveFailures(t *testing.T) {
+	selector := &promptStub{selected: codex.ID}
+	runtime, _ := interactiveRuntime(t, selector)
 	for _, test := range []struct {
 		name    string
 		args    []string
 		runtime func(invocation.Context) invocation.Context
 		want    string
 	}{
-		{name: "route required", runtime: func(value invocation.Context) invocation.Context { value.Interactive = false; return value }, want: "requires a Route"},
-		{name: "unknown route", args: []string{"missing"}, want: "unknown route"},
-		{name: "load", args: []string{"codex"}, runtime: func(value invocation.Context) invocation.Context {
+		{name: "arguments required", runtime: func(value invocation.Context) invocation.Context { value.Interactive = false; return value },
+			want: "aigw use without a terminal needs a <client> and a <provider/model> argument"},
+		{name: "unknown model", args: []string{codex.ID, "gateway/missing"}, want: "unknown model gateway/missing"},
+		{name: "load", args: []string{codex.ID, "gateway/gpt-test"}, runtime: func(value invocation.Context) invocation.Context {
 			value.Config = store.NewStore(t.TempDir(), clients.Admission())
 			return value
 		}, want: "read"},
@@ -122,12 +117,7 @@ func TestUseInteractiveSelectionAndValidationFailures(t *testing.T) {
 			if test.runtime != nil {
 				value = test.runtime(value)
 			}
-			command := NewCommand(value)
-			command.SilenceErrors = true
-			command.SilenceUsage = true
-			command.SetArgs(test.args)
-			err := command.Execute()
-			if err == nil || !strings.Contains(err.Error(), test.want) {
+			if err := execute(value, test.args...); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
 		})

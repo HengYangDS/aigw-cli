@@ -63,7 +63,7 @@ Next
       "catalog": "listed"
     }
   ],
-  "next_detail": "aigw use --for \u003cclient\u003e \u003croute\u003e"
+  "next_detail": "aigw use \u003cclient\u003e \u003cprovider/model\u003e"
 }
 -- json-refusal.json --
 {

@@ -229,7 +229,7 @@ func TestDryRunRefusesWhatRepairRefuses(t *testing.T) {
 	if err := configStore.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	registry, err := adapter.NewRegistry(claude.New(), claudedesktop.New(), reroutingAdapter{Adapter: codex.New(), model: "two"}, hermes.New())
+	registry, err := adapter.NewRegistry(claude.New(), claudedesktop.New(), reroutingAdapter{Adapter: codex.New(), model: "missing"}, hermes.New())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,8 +240,8 @@ func TestDryRunRefusesWhatRepairRefuses(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: registry, Config: configStore, Discovery: staticDiscovery{}, Out: out}
 	refused := runRepair(t.Context(), runtime, false, false)
-	if refused == nil || !strings.Contains(refused.Error(), "connection changed with a selected retry policy") {
-		t.Fatalf("repair error = %v, want the retry policy refusal", refused)
+	if refused == nil || !strings.Contains(refused.Error(), "refuse invalid config") {
+		t.Fatalf("repair error = %v, want the refusal of an invalid configuration", refused)
 	}
 	for _, jsonMode := range []bool{false, true} {
 		out.Reset()

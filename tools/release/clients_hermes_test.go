@@ -73,7 +73,7 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 	if err := json.Unmarshal(j.run("sync", "--dry-run", "--json"), &adoption); err != nil || adoption.AdoptedSelections[hermes.ID] != alternative.ModelID {
 		j.testing.Fatalf("synchronization preview did not adopt the native selection: %v, %v", adoption.AdoptedSelections, err)
 	}
-	args := []string{"use", "--for", hermes.ID, "--protocol", alternative.Protocol.Name(), alternative.ModelID}
+	args := []string{"use", hermes.ID, j.modelName(alternative.ModelID), "--protocol", alternative.Protocol.Name()}
 	j.run(append(slices.Clone(args), "--dry-run", "--json")...)
 	if !bytes.Equal(readFile(j.testing, target), nativeBefore) || !bytes.Equal(readFile(j.testing, target+".aigw-state.json"), stateBefore) {
 		j.testing.Fatal("selection preview changed the native preimages")
@@ -106,7 +106,7 @@ func (j *journeyFixture) verifyNativeHermesSelection(executable string) {
 			j.testing.Fatalf("native selection did not converge: %s", projection.Action)
 		}
 	}
-	j.run("use", "--for", hermes.ID, "--protocol", selected.Protocol.Name(), selected.ModelID)
+	j.run("use", hermes.ID, j.modelName(selected.ModelID), "--protocol", selected.Protocol.Name())
 	j.run("check")
 	j.requireNativePreferences(hermes.ID)
 }

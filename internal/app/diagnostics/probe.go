@@ -93,7 +93,7 @@ func unreachableEndpointFix(client string) string {
 	if client == "" {
 		return "Check the configured endpoint and network, then try again"
 	}
-	return "Check the configured endpoint and network, or select another compatible Route with `aigw use --for " + client + " <route>`"
+	return "Check the configured endpoint and network, or select another model with `aigw use " + client + " <provider/model>`"
 }
 
 // Probe performs one authenticated diagnostic request using the caller's context.

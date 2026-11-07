@@ -80,7 +80,7 @@ func TestRunStatusCoversSelectionDiagnosticsAndReadyNextActions(t *testing.T) {
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := buffer.String(); !strings.Contains(got, "aigw use --for codex codex-only") {
+	if got := buffer.String(); !strings.Contains(got, "aigw use codex one/gpt-test") {
 		t.Fatalf("route selection status = %q", got)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 )
 
 func tokenAcquisitionRuntime(t *testing.T) (invocation.Context, domain.Config, secret.Store, *bytes.Buffer) {
@@ -30,16 +31,14 @@ func tokenAcquisitionRuntime(t *testing.T) (invocation.Context, domain.Config, s
 func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		runtime, _, store, buffer := tokenAcquisitionRuntime(t)
-		command := NewCommand(runtime)
-		command.SetArgs([]string{"--for", codex.ID, "codex"})
-		if err := command.Execute(); err != nil {
+		if err := execute(runtime, codex.ID, "gateway/gpt-test"); err != nil {
 			t.Fatal(err)
 		}
 		if token, err := store.Get("gateway"); err != nil || token != "new-token" {
 			t.Fatalf("token = %q, %v", token, err)
 		}
 		out := buffer.String()
-		for _, want := range []string{"Route selected", "Account Token", "Validated and stored", "Install Codex if needed, then run `aigw sync`"} {
+		for _, want := range []string{"Model selected", "Token", "Validated and stored", "Install Codex if needed, then run `aigw sync`"} {
 			if !strings.Contains(out, want) {
 				t.Fatalf("credential acquisition output lacks %q: %q", want, out)
 			}
@@ -54,7 +53,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 		{name: "noninteractive", prepare: func(value invocation.Context, _ domain.Config) invocation.Context {
 			value.Interactive = false
 			return value
-		}, want: "missing a token"},
+		}, want: "has no Token, and aigw use asks for one only in a terminal"},
 		{name: "prompt", prepare: func(value invocation.Context, _ domain.Config) invocation.Context {
 			value.Prompt = &promptStub{err: errors.New("cancelled")}
 			return value
@@ -64,22 +63,26 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusUnauthorized, Body: http.NoBody}, nil
 			})
 			return value
-		}, want: "token validation failed"},
+		}, want: "Token validation failed"},
 		{name: "client convergence", prepare: func(value invocation.Context, _ domain.Config) invocation.Context {
 			value.Discovery = nil
 			return value
 		}, want: "client discovery is unavailable"},
-		{name: "commit", prepare: func(value invocation.Context, cfg domain.Config) invocation.Context {
-			cfg.Models["next"] = domain.Model{
-				Label: "Next", Provider: "gateway", Family: "gpt-next",
-				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
-			}
-			cfg.SetClientActivation(codex.ID, true, "", []string{filepath.Join(t.TempDir(), "missing-configuration.toml")})
+		{name: "planning", prepare: func(value invocation.Context, cfg domain.Config) invocation.Context {
+			cfg.SetClientActivation(codex.ID, true, "", []string{filepath.Join(t.TempDir(), "missing", "configuration.toml")})
+			binding := cfg.Clients[codex.ID]
+			binding.CredentialCommand = filepath.Join(t.TempDir(), "codex-reader")
+			cfg.Clients[codex.ID] = binding
 			if err := value.Config.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
+			value.Prompt = &promptStub{err: errors.New("a selection that cannot be planned asked for a Token")}
 			return value
-		}, want: "synchronization preflight failed"},
+		}, want: "Codex config does not exist"},
+		{name: "commit", prepare: func(value invocation.Context, cfg domain.Config) invocation.Context {
+			value.Discovery = changedDuringDiscovery(t, value, cfg, nil)
+			return value
+		}, want: "preimage changed"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, store, _ := tokenAcquisitionRuntime(t)
@@ -87,11 +90,7 @@ func TestUseAcquiresMissingTokenAndCompensatesFailures(t *testing.T) {
 			command := NewCommand(runtime)
 			command.SilenceErrors = true
 			command.SilenceUsage = true
-			args := []string{"--for", codex.ID, "codex"}
-			if test.name == "commit" {
-				args = []string{"--for", codex.ID, "next"}
-			}
-			command.SetArgs(args)
+			command.SetArgs([]string{codex.ID, "gateway/gpt-test"})
 			err := command.Execute()
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
@@ -109,13 +108,12 @@ func TestUseNamesMissingEnvironmentTokenWithoutPrompting(t *testing.T) {
 	runtime.Interactive = true
 	runtime.Prompt = &promptStub{err: errors.New("prompt must not run")}
 
-	command := NewCommand(runtime)
-	command.SetArgs([]string{"--for", codex.ID, "codex"})
-	err := command.Execute()
-	if err == nil || !strings.Contains(err.Error(), secret.EnvironmentKey("gateway")) || !strings.Contains(err.Error(), "aigw use --for codex codex") {
-		t.Fatalf("error = %v", err)
+	err := execute(runtime, codex.ID, "gateway/gpt-test")
+	problem := terminal.ProblemFor(err)
+	if err == nil || problem.Fix != "Set "+secret.EnvironmentKey("gateway")+", then run `aigw use codex gateway/gpt-test`." {
+		t.Fatalf("error = %v, fix %q", err, problem.Fix)
 	}
-	if strings.Contains(err.Error(), "rotate") || strings.Contains(err.Error(), "prompt must not run") {
+	if strings.Contains(problem.Fix, "rotate") || strings.Contains(err.Error(), "prompt must not run") {
 		t.Fatalf("read-only environment backend followed a writable remediation path: %v", err)
 	}
 }

@@ -251,7 +251,7 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneProviderChoice(t *testin
 	if err := cli.Execute(app, []string{"rotate", "dmxapi", "--token-stdin"}); err != nil {
 		t.Fatalf("connect one deferred Account: %v\n%s", err, out)
 	}
-	want := "aigw use --for claude dmxapi-claude-opus-5-5"
+	want := "aigw use claude dmxapi/claude-opus-5-5"
 	if !strings.Contains(out.String(), want) || strings.Contains(out.String(), "Next\n  aigw check") {
 		t.Fatalf("rotation did not name its next executable selection: %s", out)
 	}
@@ -267,8 +267,8 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneProviderChoice(t *testin
 		t.Fatalf("sync after rotation claimed that synchronization activates a writable Account: %s", out)
 	}
 	out.Reset()
-	if err := cli.Execute(app, []string{"use", "--for", "claude", "dmxapi-claude-opus-5-5"}); err != nil {
-		t.Fatalf("suggested Route selection failed: %v\n%s", err, out)
+	if err := cli.Execute(app, []string{"use", "claude", "dmxapi/claude-opus-5-5"}); err != nil {
+		t.Fatalf("suggested model selection failed: %v\n%s", err, out)
 	}
 	selected, err := app.Config.Load()
 	if err != nil || selected.SelectedModel(claude.ID) != "dmxapi-claude-opus-5-5" {

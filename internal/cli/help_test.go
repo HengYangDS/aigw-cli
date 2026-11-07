@@ -45,7 +45,7 @@ func TestRootHelpKeepsStartCommandsWhole(t *testing.T) {
 		app := &App{Clients: clients.Registry(), Out: &out, Err: &out, Env: []string{"COLUMNS=" + strconv.Itoa(width)}}
 		renderCommandHelp(app, NewRoot(app))
 		lines := strings.Split(out.String(), "\n")
-		for _, command := range []string{"aigw setup", "aigw use --for <client> <route>", "aigw check"} {
+		for _, command := range []string{"aigw setup", "aigw use <client> <provider/model>", "aigw check"} {
 			whole := false
 			for _, line := range lines {
 				whole = whole || line == "  "+command || strings.HasPrefix(line, "  "+command+"  ")

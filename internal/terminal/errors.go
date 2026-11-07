@@ -489,7 +489,7 @@ func statedFix(err error, message string) (string, bool) {
 // that does not load, and a TOML document that does not decode.
 func typedErrorFix(err error) (string, bool) {
 	if unselected, ok := errors.AsType[*domain.RuntimeBindingUnselectedError](err); ok {
-		return fmt.Sprintf("aigw use --for %s <route>", unselected.Client), true
+		return fmt.Sprintf("aigw use %s <provider/model>", unselected.Client), true
 	}
 	if failure, ok := errors.AsType[*store.LoadError](err); ok {
 		return configurationLoadFix(failure.Phase), true

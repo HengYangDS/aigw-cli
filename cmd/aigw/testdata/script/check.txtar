@@ -151,7 +151,7 @@ Impact
   No endpoint or model was checked.
 
 Fix
-  aigw use --for codex <route>
+  aigw use codex <provider/model>
 -- broken.toml --
 version = 7
 [accounts.team

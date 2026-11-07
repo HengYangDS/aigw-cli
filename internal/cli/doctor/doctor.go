@@ -331,7 +331,7 @@ func adapterChecks(ctx context.Context, deps app.Dependencies, cfg domain.Config
 		}
 		runtime, err := cfg.ResolveRuntime(clientID, "")
 		if err != nil {
-			checks = append(checks, checkResult{Name: "projection:" + clientID, Detail: "selected client route cannot be resolved", Fix: "run `aigw use --for " + clientID + " <route>`"})
+			checks = append(checks, checkResult{Name: "projection:" + clientID, Detail: "selected client route cannot be resolved", Fix: "run `aigw use " + clientID + " <provider/model>`"})
 			continue
 		}
 		if projectionPrerequisites[clientID] != "" {

@@ -23,7 +23,7 @@ func TestUseSurfacesCredentialObservationFailure(t *testing.T) {
 	want := errors.New("credential observation failed")
 	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: want}
 
-	if err := cli.Execute(app, []string{"use", "--for", "claude", "one"}); !errors.Is(err, want) {
+	if err := cli.Execute(app, []string{"use", "claude", "one/claude-test"}); !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}
 }
@@ -62,7 +62,7 @@ func TestUseSelectsClientNativeModelWithoutAccessingProviderTokens(t *testing.T)
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"use", "--for", "codex", "bedrock"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "codex", "aws/openai.gpt-5.6-sol"}); err != nil {
 		t.Fatalf("select client-native route: %v", err)
 	}
 	if len(credentials.getCalls)+len(credentials.existsCalls)+len(credentials.setCalls)+len(credentials.deleteCalls) != 0 {
@@ -125,7 +125,7 @@ func TestUseForClaudeLeavesUnselectedCodexDriftUntouched(t *testing.T) {
 		t.Fatalf("read initial Codex state: %v", err)
 	}
 
-	if err := cli.Execute(app, []string{"use", "--for", "claude", "claude-sonnet"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "claude", "gateway/claude-sonnet"}); err != nil {
 		t.Fatalf("Claude-only route change touched Codex target: %v", err)
 	}
 	got, err := app.Config.Load()
@@ -179,7 +179,7 @@ func TestUseForCodexLeavesUnselectedClaudeDriftUntouched(t *testing.T) {
 	if err := os.WriteFile(claudeSettingsPath(t, app.Host), foreign, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := cli.Execute(app, []string{"use", "--for", "codex", "two"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "codex", "two/model-two"}); err != nil {
 		t.Fatalf("Codex selection was blocked by an unselected Claude projection: %v", err)
 	}
 	after, err := app.Config.Load()
@@ -222,7 +222,7 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 		}
 	}
 
-	if err := cli.Execute(app, []string{"use", "--for", "claude", "claude"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "claude", "claude-gateway/claude-test"}); err != nil {
 		t.Fatalf("select Claude route: %v", err)
 	}
 	claudeProjection, err := os.ReadFile(claudeSettingsPath(t, app.Host))
@@ -234,7 +234,7 @@ func TestIndependentUseCommandsMakeBothClientsReadyWithoutBulkSelection(t *testi
 		t.Fatalf("read Claude projection state: %v", err)
 	}
 
-	if err := cli.Execute(app, []string{"use", "--for", "codex", "codex"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "codex", "codex-gateway/gpt-test"}); err != nil {
 		t.Fatalf("select Codex route: %v", err)
 	}
 	claudeAfterCodex, err := os.ReadFile(claudeSettingsPath(t, app.Host))
@@ -288,7 +288,7 @@ func TestRepeatedUseOfActiveModelDoesNotRewriteOwnedState(t *testing.T) {
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := cli.Execute(app, []string{"use", "--for", "claude", "claude"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "claude", "gateway/claude-test"}); err != nil {
 		t.Fatalf("initial selection: %v", err)
 	}
 	selected, err := app.Config.Load()
@@ -328,10 +328,10 @@ func TestRepeatedUseOfActiveModelDoesNotRewriteOwnedState(t *testing.T) {
 	plansBefore := len(runner.plans)
 	out.Reset()
 
-	if err := cli.Execute(app, []string{"use", "--for", "claude", "claude"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "claude", "gateway/claude-test"}); err != nil {
 		t.Fatalf("repeat active selection: %v", err)
 	}
-	if text := out.String(); !strings.Contains(text, "Route already selected") || strings.Contains(text, "Route selected") {
+	if text := out.String(); !strings.Contains(text, "Model already selected") || strings.Contains(text, "Model selected") {
 		t.Fatalf("repeated use did not report its no-op semantics:\n%s", text)
 	}
 
@@ -376,7 +376,7 @@ func TestUseActivatesClaudeInstalledAfterManifestSetup(t *testing.T) {
 	}
 	out.Reset()
 
-	if err := cli.Execute(app, []string{"use", "--for", "claude", "dmxapi-claude"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "claude", "dmxapi/claude-test"}); err != nil {
 		t.Fatalf("use after installing Claude: %v", err)
 	}
 	after, err := app.Config.Load()
@@ -422,8 +422,10 @@ func TestUseRollsBackModelWhenAdapterSyncFails(t *testing.T) {
 	_ = secretStore.Set("one", "old-secret")
 	_ = secretStore.Set("two", "new-secret")
 	app.Executable = "relative-helper"
-	err := cli.Execute(app, []string{"use", "--for", "codex", "two"})
-	if err == nil || !strings.Contains(err.Error(), "preflight failed") || strings.Contains(err.Error(), "was rolled back") {
+	// The selection's preview plans Codex's file, so the adapter's refusal
+	// comes before anything is written, and nothing claims a rollback.
+	err := cli.Execute(app, []string{"use", "codex", "two/gpt-two"})
+	if err == nil || !strings.Contains(err.Error(), "credential command must be absolute") || strings.Contains(err.Error(), "was rolled back") {
 		t.Fatalf("error = %v", err)
 	}
 	got, _ := app.Config.Load()
@@ -451,7 +453,7 @@ func TestUseCodexModelOnSameProviderDoesNotRebindCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"use", "--for", "codex", "terra"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "codex", "dmx/gpt-5.6-terra"}); err != nil {
 		t.Fatal(err)
 	}
 	if len(runner.plans) != 0 {
@@ -469,7 +471,7 @@ func TestUseCodexModelOnSameProviderDoesNotRebindCredentials(t *testing.T) {
 func TestUseSurfacesConfigLoadFailure(t *testing.T) {
 	app, _, _, _, _ := testApp(t, "")
 	app.Config = store.NewStore(t.TempDir(), clients.Admission())
-	err := cli.Execute(app, []string{"use", "--for", "claude", "one"})
+	err := cli.Execute(app, []string{"use", "claude", "one/claude-test"})
 	if err == nil {
 		t.Fatal("expected a config load failure")
 	}
@@ -484,8 +486,8 @@ func TestUseRejectsUnknownModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("one", "one-secret")
-	err := cli.Execute(app, []string{"use", "--for", "claude", "does-not-exist"})
-	if err == nil || !strings.Contains(err.Error(), "unknown route") {
+	err := cli.Execute(app, []string{"use", "claude", "one/does-not-exist"})
+	if err == nil || !strings.Contains(err.Error(), "unknown model one/does-not-exist") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -511,7 +513,9 @@ func TestUseSurfacesUnknownProviderReference(t *testing.T) {
 	if err := os.WriteFile(app.Config.Path(), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err = cli.Execute(app, []string{"use", "--for", "claude", "broken"})
+	// Loading the configuration refuses the model that names a provider the
+	// file does not hold, before any Token is read.
+	err = cli.Execute(app, []string{"use", "claude", "ghost/claude-broken"})
 	if err == nil || !strings.Contains(err.Error(), "references unknown account") {
 		t.Fatalf("error = %v", err)
 	}

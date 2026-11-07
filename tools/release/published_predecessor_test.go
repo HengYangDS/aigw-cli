@@ -125,7 +125,7 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	configStore := store.NewStore(journey.config, builtinclients.Admission())
 	before := capturePublishedSnapshot(t, configStore)
 	endpoint := forwarding.URL + "/selected/v1"
-	args := []string{"use", "native-codex", "--for", codex.ID, "--forwarding-endpoint", endpoint}
+	args := []string{"client", "edit", codex.ID, "--via", endpoint}
 	preview := journey.run(append(slices.Clone(args), "--dry-run", "--json")...)
 	if bytes.Contains(preview, []byte("native-journey-token")) || !bytes.Contains(preview, []byte(endpoint)) {
 		t.Fatal("forwarding preview lost its destination or exposed credentials")
@@ -207,7 +207,7 @@ func (state *publishedNativeJourney) rollbackForwarding(t *testing.T, endpoint s
 	for _, client := range state.clients {
 		journey.requireCredential(journey.retainedCredential(client), "native-journey-token")
 	}
-	journey.run("use", "native-codex", "--for", codex.ID, "--direct")
+	journey.run("client", "edit", codex.ID, "--direct")
 }
 
 func nativeCurrentSchemaManifest(endpoint string) string {

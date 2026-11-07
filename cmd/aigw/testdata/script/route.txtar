@@ -108,8 +108,8 @@ Next
 {
   "schema_version": 3,
   "ok": false,
-  "error": "Route \"team\" is selected for claude; first run `aigw use --for claude \u003cother-route\u003e`",
-  "next_detail": "aigw use --for claude \u003cother-route\u003e"
+  "error": "Route \"team\" is selected for claude; first run `aigw use claude \u003cprovider/model\u003e`",
+  "next_detail": "aigw use claude \u003cprovider/model\u003e"
 }
 -- token.txt --
 sk-team-token-0001
@@ -140,7 +140,7 @@ AIGW  Model route added
   ✓ Reused the existing Account; no client selection was changed
 
 Next
-  aigw use --for <client> spare
+  aigw use <client> team/spare-model
 -- routes.json --
 {
   "schema_version": 1,
@@ -198,10 +198,10 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  Route "team" is selected for claude; first run `aigw use --for claude <other-route>`
+  Route "team" is selected for claude; first run `aigw use claude <provider/model>`
 
 Fix
-  aigw use --for claude <other-route>
+  aigw use claude <provider/model>
 -- missing.json --
 {
   "schema_version": 3,
@@ -220,7 +220,7 @@ Fix
   "model": "third-model",
   "upstream_model": "third-wire",
   "protocol": "anthropic",
-  "next_detail": "aigw use --for \u003cclient\u003e third"
+  "next_detail": "aigw use \u003cclient\u003e team/third-wire"
 }
 -- exists.json --
 {
@@ -256,8 +256,8 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "Route \"team\" is selected for claude; first run `aigw use --for claude \u003cother-route\u003e`",
-  "next_detail": "aigw use --for claude \u003cother-route\u003e"
+  "error": "Route \"team\" is selected for claude; first run `aigw use claude \u003cprovider/model\u003e`",
+  "next_detail": "aigw use claude \u003cprovider/model\u003e"
 }
 -- list-refusal.json --
 {

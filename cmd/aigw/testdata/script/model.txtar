@@ -95,7 +95,7 @@ exitcode 1 aigw model edit mixed/spare-chat --protocol anthropic --json
 cmp stdout edit-recommended.json
 stdin mixed-token.txt
 exec aigw rotate mixed --token-stdin
-exec aigw use --for hermes mixed-chat
+exec aigw use hermes mixed/chat-only
 exitcode 1 aigw model edit mixed/chat-only --protocol anthropic --json
 cmp stdout edit-selected.json
 

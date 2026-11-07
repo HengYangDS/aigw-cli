@@ -217,7 +217,7 @@ func TestEndpointTestRequiresASelectedClientBindingByDefault(t *testing.T) {
 	if err == nil || !strings.Contains(errors.Unwrap(err).Error(), "no Client Binding selected") {
 		t.Fatalf("error = %v", err)
 	}
-	if problem := terminal.ProblemFor(err); problem != (terminal.Problem{Title: "No Client Binding is selected", Evidence: "Routes exist, but no client has a selected Route.", Impact: "There is no selected endpoint to test.", Fix: "aigw use --for <client> <route>"}) {
+	if problem := terminal.ProblemFor(err); problem != (terminal.Problem{Title: "No Client Binding is selected", Evidence: "Routes exist, but no client has a selected Route.", Impact: "There is no selected endpoint to test.", Fix: "aigw use <client> <provider/model>"}) {
 		t.Fatalf("problem = %+v", problem)
 	}
 }

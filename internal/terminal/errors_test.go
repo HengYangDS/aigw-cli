@@ -289,7 +289,7 @@ func TestRenderErrorAndFixBranches(t *testing.T) {
 		{Usage("aigw add", errors.New("unknown flag: --model; run `aigw add --help`")), "aigw add --help"},
 		// A usage error that names its own fix keeps it.
 		{Usage("aigw use", errors.New("unknown route \"missing\"; run `aigw route list`")), "aigw route list"},
-		{fmt.Errorf("resolve: %w", &domain.RuntimeBindingUnselectedError{Client: codex.ID}), "aigw use --for codex <route>"},
+		{fmt.Errorf("resolve: %w", &domain.RuntimeBindingUnselectedError{Client: codex.ID}), "aigw use codex <provider/model>"},
 		{fmt.Errorf("parse manifest: %w", decodeErr), "Correct the value at the reported document location and rerun the command."},
 		// Any other failure names the diagnostic, never a command's help.
 		{unknownRoot, "aigw check"},

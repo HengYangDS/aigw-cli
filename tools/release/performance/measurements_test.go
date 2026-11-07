@@ -34,15 +34,15 @@ func TestWorkloadAcceptsItsResolvedForwardingProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	binding := domain.Runtime{Client: claude.ID, ModelID: "selected-route", ProviderID: "account",
+	binding := domain.Runtime{Client: claude.ID, ModelID: "selected-route", ProviderID: "account", UpstreamModel: "claude-selected",
 		Protocol: domain.ProtocolAnthropic, UpstreamEndpoint: "https://upstream.example/v1", Endpoint: "http://127.0.0.1:18792/v1"}
-	workload := Workload{Name: "projection", Command: []string{program, "use", "--for", "claude", "selected-route", "--forwarding-endpoint", binding.Endpoint}, Mode: "forwarding", Runtime: binding}
+	workload := Workload{Name: "projection", Command: []string{program, "use", "claude", "account/claude-selected"}, Mode: "forwarding", Runtime: binding}
 	if err := workload.Review(&selected); err != nil {
 		t.Fatalf("the declared native forwarding projection was refused: %v", err)
 	}
-	workload.Command[len(workload.Command)-1] = "http://127.0.0.1:18793/v1"
+	workload.Command[len(workload.Command)-1] = "account/another-model"
 	if err := workload.Review(&selected); err == nil {
-		t.Fatal("a forwarding command detached from its resolved binding qualified")
+		t.Fatal("a forwarding command for another model than its binding qualified")
 	}
 }
 

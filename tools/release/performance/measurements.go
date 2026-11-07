@@ -332,9 +332,11 @@ func (c Workload) Review(selected *Identity) error {
 	switch c.Name {
 	case "projection":
 		if c.Mode == "forwarding" {
-			valid = slices.Equal(args, []string{"use", "--for", c.Runtime.Client, c.Runtime.ModelID, "--forwarding-endpoint", c.Runtime.Endpoint})
+			// The forwarded client selects the measured model; forwarding
+			// itself is the client's setting, not the command's.
+			valid = slices.Equal(args, []string{"use", c.Runtime.Client, c.Runtime.ProviderID + "/" + c.Runtime.UpstreamModel})
 		} else {
-			valid = len(args) == 4 && slices.Equal(args[:2], []string{"use", "--for"}) && args[2] != "" && args[3] != ""
+			valid = len(args) == 3 && args[0] == "use" && args[1] != "" && strings.Contains(args[2], "/")
 		}
 	case "setup":
 		valid = len(args) == 5 && slices.Equal(args[:2], []string{"setup", "--from"}) && args[2] != "" && args[3] == "--account" && args[4] != ""

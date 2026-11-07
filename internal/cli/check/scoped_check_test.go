@@ -127,7 +127,7 @@ func TestCheckForRejectsUnknownOrDisabledClientBeforeObservingCredentials(t *tes
 		t.Fatal("disabled client was checked")
 	}
 	var result checkDocument
-	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.OK || !strings.Contains(result.Problem, "not enabled") || result.NextDetail != "aigw use --for claude <route>" || result.NextAction != "" {
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.OK || !strings.Contains(result.Problem, "not enabled") || result.NextDetail != "aigw use claude <provider/model>" || result.NextAction != "" {
 		t.Fatalf("disabled client result = %+v, %v", result, err)
 	}
 	if store.getCalls != 0 || store.existsCalls != 0 {

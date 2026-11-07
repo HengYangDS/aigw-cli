@@ -16,33 +16,33 @@ import (
 // projections. Failures compensate owned writes without changing native credentials.
 func (s Synchronizer) Commit(ctx context.Context, before, after domain.Config, subject string) error {
 	clients := s.registry().ChangedClients(before, after)
-	_, err := s.commit(ctx, before, after, subject, len(clients) > 0, domain.ConnectionChange{}, clients...)
+	_, err := s.commit(ctx, before, after, subject, len(clients) > 0, clients...)
 	return err
 }
 
 // CommitProjection persists configuration and reconciles every client projection,
 // including missing or out-of-date projections of unchanged configuration.
 func (s Synchronizer) CommitProjection(ctx context.Context, before, after domain.Config, subject string, clientIDs ...string) error {
-	_, err := s.commit(ctx, before, after, subject, true, domain.ConnectionChange{}, clientIDs...)
+	_, err := s.commit(ctx, before, after, subject, true, clientIDs...)
 	return err
 }
 
 // validateTransition refuses a configuration that cannot be saved before the
 // guards that assume a valid one, and before anything is written.
-func (s Synchronizer) validateTransition(before, after domain.Config, connection domain.ConnectionChange) error {
+func validateTransition(after domain.Config) error {
 	candidate := after.Clone()
 	candidate.Normalize()
 	if err := candidate.Validate(); err != nil {
 		return fmt.Errorf("refuse invalid config: %w", err)
 	}
-	return s.validateRetryTransition(before, after, connection)
+	return nil
 }
 
-func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, subject string, reconcileProjection bool, connection domain.ConnectionChange, clientIDs ...string) (bool, error) {
+func (s Synchronizer) commit(ctx context.Context, before, after domain.Config, subject string, reconcileProjection bool, clientIDs ...string) (bool, error) {
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
-	if err := s.validateTransition(before, after, connection); err != nil {
+	if err := validateTransition(after); err != nil {
 		return false, err
 	}
 	configBefore, err := s.Config.CaptureSnapshot()

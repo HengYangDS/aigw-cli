@@ -60,13 +60,12 @@ func CompleteModels(runtime Context) cobra.CompletionFunc {
 	}
 }
 
-// completeClientModels completes `<client> <provider/model>`, the arguments
+// CompleteClientModels completes `<client> <provider/model>`, the arguments
 // of `aigw use`: a client ID first, and then only the models that the client
 // can use, those whose provider serves a protocol that the client speaks,
 // which `aigw use` gives a model that lacks it. It offers nothing for an
-// unknown client or once both are given. Task 4.1, which gives `aigw use`
-// these arguments, binds it.
-func completeClientModels(runtime Context) cobra.CompletionFunc {
+// unknown client or once both are given.
+func CompleteClientModels(runtime Context) cobra.CompletionFunc {
 	clients := CompleteClients(runtime)
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
 		switch len(args) {

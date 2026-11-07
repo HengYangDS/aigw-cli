@@ -425,7 +425,7 @@ func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 			statuses:   []int{0},
 			networkErr: errors.New("dial tcp: connection refused"),
 			wantError:  true,
-			wantText:   []string{"Cannot reach the endpoint", "AIGW owns this configuration, not the endpoint", "aigw use --for claude <route>"},
+			wantText:   []string{"Cannot reach the endpoint", "AIGW owns this configuration, not the endpoint", "aigw use claude <provider/model>"},
 			rejectText: []string{"rotate"},
 		},
 	}

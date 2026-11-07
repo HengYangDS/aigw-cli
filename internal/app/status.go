@@ -142,10 +142,10 @@ func unresolvedClientStatus(cfg *domain.Config, clientID string, resolveErr erro
 	if route := cfg.SelectedModel(clientID); route != "" {
 		facts.Model = route
 		facts.BindingIssue = resolveErr.Error()
-		facts.BindingAction = "aigw use --for " + clientID + " <route>"
+		facts.BindingAction = "aigw use " + clientID + " <provider/model>"
 	} else if suggested := cfg.RecommendedModel(clientID); suggested != "" {
 		facts.SuggestedModel = suggested
-		facts.BindingAction = "aigw use --for " + clientID + " " + suggested
+		facts.BindingAction = "aigw use " + clientID + " " + cfg.Models[suggested].Ref().String()
 	} else if len(cfg.Models) == 0 && len(cfg.Providers) > 0 {
 		// Providers left without models leave every client with nothing
 		// selected and nothing recommended: the user chooses a model, which

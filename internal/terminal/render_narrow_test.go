@@ -78,7 +78,7 @@ func TestExplanatoryElementsBoundLongAndMultilineContent(t *testing.T) {
 // terminal: the terminal soft-wraps it, and a copy keeps the command. Its
 // description is explanatory and still wraps within the width.
 func TestCommandLabelsStayWholeInNarrowGroups(t *testing.T) {
-	commands := []string{"aigw setup", "aigw use --for <client> <route>"}
+	commands := []string{"aigw setup", "aigw use <client> <provider/model>"}
 	for _, width := range []int{8, 24, 32} {
 		for _, color := range []bool{false, true} {
 			var out bytes.Buffer

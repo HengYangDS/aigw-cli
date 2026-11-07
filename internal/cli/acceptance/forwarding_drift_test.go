@@ -11,10 +11,10 @@ import (
 	"aigw-cli/internal/domain"
 )
 
-// A forwarded client reaches the upstream it was selected with. An Account edit
-// that would move that upstream is refused before any write, and the advised
-// direct connection, which keeps the client's retry budgets, lets the edit
-// succeed.
+// A forwarded client reaches the upstream that its forwarding records. An
+// Account edit that would move that upstream is refused before any write, and
+// the advised direct connection, which keeps the client's retry budgets, lets
+// the edit succeed.
 func TestProviderEditRefusesToMoveAForwardedUpstream(t *testing.T) {
 	for _, test := range []struct {
 		name      string
@@ -22,7 +22,7 @@ func TestProviderEditRefusesToMoveAForwardedUpstream(t *testing.T) {
 		advice    string
 	}{
 		{"native retries", nil, "aigw client edit codex --direct"},
-		{"retry policy", []string{"--request-max-retries", "2"}, "aigw client edit codex --direct"},
+		{"retry policy", []string{"--request-retries", "2"}, "aigw client edit codex --direct"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, output, secretStore, _, _ := testApp(t, "")
@@ -39,9 +39,9 @@ func TestProviderEditRefusesToMoveAForwardedUpstream(t *testing.T) {
 			if err := secretStore.Set("gateway", "fixture-token"); err != nil {
 				t.Fatal(err)
 			}
-			selection := append([]string{"use", "--for", "codex", "sol", "--forwarding-endpoint", "http://127.0.0.1:8792/v1"}, test.selection...)
-			if err := cli.Execute(app, selection); err != nil {
-				t.Fatalf("forward the Codex Route: %v\n%s", err, output)
+			forwarding := append([]string{"client", "edit", "codex", "--via", "http://127.0.0.1:8792/v1"}, test.selection...)
+			if err := cli.Execute(app, forwarding); err != nil {
+				t.Fatalf("forward Codex: %v\n%s", err, output)
 			}
 			forwarded := ownedFileSnapshot(t, filepath.Dir(target), app.Config.Path())
 

@@ -99,11 +99,11 @@ func TestCompletionReadsOnlyTheLocalConfiguration(t *testing.T) {
 		// `use <TAB>` completes the client, and `use <client> <TAB>` the models
 		// that the client can use: Codex speaks only responses, so the
 		// Messages-only provider's model is not offered.
-		{"use's client", completeClientModels(runtime), nil, []string{"claude", "claude-desktop", "codex", "hermes"}},
-		{"Codex's models", completeClientModels(runtime), []string{codex.ID}, []string{"both/opus", "responses/openai/gpt-sol"}},
-		{"Claude's models", completeClientModels(runtime), []string{claude.ID}, []string{"both/opus", "messages/opus"}},
-		{"an unknown client's models", completeClientModels(runtime), []string{"codx"}, []string{}},
-		{"use's third argument", completeClientModels(runtime), []string{codex.ID, "both/opus"}, []string{}},
+		{"use's client", CompleteClientModels(runtime), nil, []string{"claude", "claude-desktop", "codex", "hermes"}},
+		{"Codex's models", CompleteClientModels(runtime), []string{codex.ID}, []string{"both/opus", "responses/openai/gpt-sol"}},
+		{"Claude's models", CompleteClientModels(runtime), []string{claude.ID}, []string{"both/opus", "messages/opus"}},
+		{"an unknown client's models", CompleteClientModels(runtime), []string{"codx"}, []string{}},
+		{"use's third argument", CompleteClientModels(runtime), []string{codex.ID, "both/opus"}, []string{}},
 		{"families", CompleteFamilies(runtime), nil, []string{"opus", "sol"}},
 		{"protocols", completeProtocols, nil, []string{"anthropic", "responses", "chat"}},
 		{"depths", completeDepths, nil, []string{"local", "endpoint", "model", "client"}},
@@ -119,7 +119,7 @@ func TestCompletionReadsOnlyTheLocalConfiguration(t *testing.T) {
 		})
 	}
 	// Each model completes with its label as the description.
-	if completions, _ := completeClientModels(runtime)(&cobra.Command{}, []string{claude.ID}, ""); !slices.Equal(completions, []cobra.Completion{"both/opus\tBoth · Opus", "messages/opus\tMessages · Opus"}) {
+	if completions, _ := CompleteClientModels(runtime)(&cobra.Command{}, []string{claude.ID}, ""); !slices.Equal(completions, []cobra.Completion{"both/opus\tBoth · Opus", "messages/opus\tMessages · Opus"}) {
 		t.Fatalf("model completion = %q", completions)
 	}
 }
@@ -152,7 +152,7 @@ func TestClientModelCompletionReadsTheClientArgument(t *testing.T) {
 	} {
 		root := &cobra.Command{Use: "aigw", SilenceErrors: true, SilenceUsage: true}
 		demo := &cobra.Command{Use: "demo <client> <provider/model>", RunE: func(*cobra.Command, []string) error { return nil }}
-		demo.ValidArgsFunction = completeClientModels(runtime)
+		demo.ValidArgsFunction = CompleteClientModels(runtime)
 		root.AddCommand(demo)
 		var out, errOut bytes.Buffer
 		root.SetOut(&out)

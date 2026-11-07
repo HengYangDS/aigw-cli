@@ -24,8 +24,8 @@ func TestClaudeNativeModelPreferenceThroughPublicCommands(t *testing.T) {
 	}{
 		{"sync", []string{"sync"}, "", true},
 		{"repair", []string{"repair"}, "", true},
-		{"use", []string{"use", "--for", "claude", "next"}, `"claude-next"`, false},
-		{"repeat-use", []string{"use", "--for", "claude", "one"}, "", false},
+		{"use", []string{"use", "claude", "one/claude-next"}, `"claude-next"`, false},
+		{"repeat-use", []string{"use", "claude", "one/claude-test"}, "", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, credentials, runner, _ := testApp(t, "")

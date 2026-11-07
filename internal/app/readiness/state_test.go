@@ -15,9 +15,9 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 	}{
 		{
 			name:       "route is available but not selected",
-			facts:      ClientFacts{SuggestedModel: "claude", BindingAction: "aigw use --for claude claude"},
+			facts:      ClientFacts{SuggestedModel: "claude", BindingAction: "aigw use claude team/claude"},
 			wantState:  Deferred,
-			wantAction: "aigw use --for claude claude",
+			wantAction: "aigw use claude team/claude",
 		},
 		{name: "nothing is selected, and the caller names the selection", facts: ClientFacts{BindingAction: "aigw use claude <provider/model>"}, wantState: Deferred, wantAction: "aigw use claude <provider/model>"},
 		{name: "nothing is selected, and the caller names no step", facts: ClientFacts{}, wantState: Deferred},

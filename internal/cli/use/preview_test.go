@@ -23,11 +23,11 @@ func (credentialFreeStore) Get(string) (string, error) {
 	return "", errors.New("preview read a credential")
 }
 
-// A forwarding preview refuses a projected Codex target whose managed settings
+// A selection preview refuses a projected Codex target whose managed settings
 // were edited outside AIGW, with the typed Codex conflict, and leaves the
 // configuration, its recovery inputs and every file beside the target as they
 // were.
-func TestUseForwardingPreviewRefusesAnEditedOwnedTarget(t *testing.T) {
+func TestUsePreviewRefusesAnEditedOwnedTarget(t *testing.T) {
 	run, cfg, out := configuredRuntime(t)
 	target := filepath.Join(t.TempDir(), "config.toml")
 	binding := cfg.Clients[codex.ID]
@@ -66,7 +66,7 @@ func TestUseForwardingPreviewRefusesAnEditedOwnedTarget(t *testing.T) {
 	run.Secrets = credentialFreeStore{secret.NewMemoryStore()}
 	command := NewCommand(run)
 	command.SilenceErrors, command.SilenceUsage = true, true
-	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
+	command.SetArgs([]string{codex.ID, "gateway/gpt-test", "--dry-run", "--json"})
 	err = command.Execute()
 	if _, conflict := errors.AsType[*codex.ConflictError](err); !conflict {
 		t.Fatalf("preview did not refuse the edited target as a Codex conflict: %v, %s", err, out.String())
@@ -80,10 +80,10 @@ func TestUseForwardingPreviewRefusesAnEditedOwnedTarget(t *testing.T) {
 	}
 }
 
-// A forwarding preview plans a newly discovered Codex target without creating
+// A selection preview plans a newly discovered Codex target without creating
 // it or reading a credential, and the selection then writes the file that the
 // preview planned.
-func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
+func TestUsePreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 	run, cfg, out := configuredRuntime(t)
 	run.Host.Home = t.TempDir()
 	target := filepath.Join(run.Host.Home, "work", "config.toml")
@@ -106,19 +106,19 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 	run.Secrets = credentialFreeStore{secret.NewMemoryStore()}
 	command := NewCommand(run)
 	command.SilenceErrors, command.SilenceUsage = true, true
-	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1", "--dry-run", "--json"})
+	command.SetArgs([]string{codex.ID, "gateway/gpt-test", "--dry-run", "--json"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	var preview struct {
-		Projections []invocation.Projection `json:"projections"`
+		ClientFiles []invocation.ClientFile `json:"client_files"`
 	}
 	if err := json.Unmarshal(out.Bytes(), &preview); err != nil {
 		t.Fatal(err)
 	}
-	// The document names the target relative to the home directory.
-	if len(preview.Projections) != 1 || preview.Projections[0].Target != "~/work/config.toml" ||
-		preview.Projections[0].Client != codex.ID || preview.Projections[0].Action != "initial_project" {
+	// The document names the file relative to the home directory.
+	if len(preview.ClientFiles) != 1 || preview.ClientFiles[0].File != "~/work/config.toml" ||
+		preview.ClientFiles[0].Client != codex.ID || preview.ClientFiles[0].Action != "initial_project" {
 		t.Fatalf("preview did not plan the newly discovered target: %s", out.Bytes())
 	}
 	if _, err := os.Stat(target); !errors.Is(err, os.ErrNotExist) {
@@ -131,7 +131,7 @@ func TestUseForwardingPreviewPlansANewlyDiscoveredTarget(t *testing.T) {
 	run.Secrets = credentials
 	command = NewCommand(run)
 	command.SilenceErrors, command.SilenceUsage = true, true
-	command.SetArgs([]string{"--for", codex.ID, "codex", "--forwarding-endpoint", "http://127.0.0.1:8792/v1"})
+	command.SetArgs([]string{codex.ID, "gateway/gpt-test"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}

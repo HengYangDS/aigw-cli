@@ -26,7 +26,7 @@ func TestModelSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	}
 	credentials := setupTokenStore(t, "existing-token")
 	syncer := Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials, Discovery: setupDiscovery(nil)}
-	changed, _, _, err := syncer.SelectModel(t.Context(), before, claude.ID, "next", "", domain.ConnectionChange{}, "")
+	changed, _, _, err := selectModel(t.Context(), syncer, before, claude.ID, "next", "")
 	if err != nil || !changed {
 		t.Fatalf("selection = %t, %v; want committed change", changed, err)
 	}
@@ -38,7 +38,7 @@ func TestModelSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changed, _, _, err = syncer.SelectModel(t.Context(), current, claude.ID, "next", "", domain.ConnectionChange{}, "")
+	changed, _, _, err = selectModel(t.Context(), syncer, current, claude.ID, "next", "")
 	if err != nil || changed || credentials.writes != 0 {
 		t.Fatalf("repeated selection = %t, %v; credential writes=%d", changed, err, credentials.writes)
 	}
@@ -49,14 +49,11 @@ func TestModelSelectionOwnsPersistenceAndRepeatedSelection(t *testing.T) {
 }
 
 func TestModelSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
-	direct := ""
 	for _, test := range []struct {
 		name, route, wantEndpoint string
 		protocol                  domain.EndpointProtocol
-		forwarding                *string
 	}{
 		{name: "same upstream", route: "dual", protocol: domain.ProtocolOpenAIChatCompletions, wantEndpoint: "http://127.0.0.1:8792/selected/v1"},
-		{name: "explicit direct", route: "dual", protocol: domain.ProtocolOpenAIChatCompletions, forwarding: &direct, wantEndpoint: "https://team.test/v1"},
 		{name: "new protocol", route: "dual", protocol: domain.ProtocolOpenAIResponses, wantEndpoint: "https://team.test/responses/v1"},
 		{name: "new Account", route: "other", protocol: domain.ProtocolOpenAIChatCompletions, wantEndpoint: "https://other.test/v1"},
 	} {
@@ -77,7 +74,7 @@ func TestModelSelectionResolvesProtocolBeforeForwardingIdentity(t *testing.T) {
 			if err := cfg.Validate(); err != nil {
 				t.Fatal(err)
 			}
-			proposed, selected, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, hermes.ID, test.route, test.protocol, domain.ConnectionChange{ForwardingEndpoint: test.forwarding})
+			proposed, selected, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, hermes.ID, test.route, test.protocol)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -111,7 +108,7 @@ func TestModelSelectionCompensatesCredentialsBeforeCommit(t *testing.T) {
 				syncer.Discovery = setupDiscovery(cancel)
 				failure = context.Canceled
 			}
-			_, _, _, err := syncer.SelectModel(ctx, before, claude.ID, "claude", "", domain.ConnectionChange{}, "new-token")
+			_, _, _, err := selectModel(ctx, syncer, before, claude.ID, "claude", "new-token")
 			if !errors.Is(err, failure) {
 				t.Fatalf("selection error = %v, want %v", err, failure)
 			}
@@ -140,7 +137,7 @@ func TestModelSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 			if route == "native" {
 				client = codex.ID
 			}
-			_, _, _, err := (Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials}).SelectModel(t.Context(), cfg, client, route, "", domain.ConnectionChange{}, "token")
+			_, _, _, err := selectModel(t.Context(), Synchronizer{Registry: builtinClients, Config: configStore, Secrets: credentials}, cfg, client, route, "token")
 			if err == nil || credentials.writes != 0 {
 				t.Fatalf("invalid selection reached credential mutation: writes=%d, error=%v", credentials.writes, err)
 			}
@@ -149,4 +146,14 @@ func TestModelSelectionValidatesOwnershipBeforeTokenWrites(t *testing.T) {
 			}
 		})
 	}
+}
+
+// selectModel prepares client's selection of the model with key and commits
+// it, as aigw use does.
+func selectModel(ctx context.Context, syncer Synchronizer, before domain.Config, client, key, token string) (bool, bool, domain.ClientBinding, error) {
+	after, _, err := syncer.PrepareSelection(before, client, key, "")
+	if err != nil {
+		return false, false, domain.ClientBinding{}, err
+	}
+	return syncer.SelectModel(ctx, before, after, client, token)
 }

@@ -3,7 +3,6 @@ package codex
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
@@ -29,7 +28,7 @@ func (codexAdapter) AdoptSelection(_ adapter.Dependencies, cfg *domain.Config) (
 			return "", err
 		}
 		if changed && chosen != "" && model != chosen {
-			return "", fmt.Errorf("Codex targets select different models %q and %q; run `aigw use --for codex <route>`", chosen, model)
+			return "", fmt.Errorf("Codex targets select different models %q and %q; run `aigw use codex <provider/model>`", chosen, model)
 		}
 		if changed {
 			chosen = model
@@ -64,12 +63,10 @@ func modelFor(cfg domain.Config, selected domain.Runtime, model string) (string,
 	case 1:
 		return matches[0], nil
 	case 0:
-		return "", fmt.Errorf("Codex selects model %q, which no Route of Account %q provides; run `aigw use --for codex <route>`", model, selected.ProviderID)
+		return "", fmt.Errorf("Codex selects model %q, which provider %q has not added; run `aigw use codex <provider/model>`", model, selected.ProviderID)
 	default:
-		commands := make([]string, 0, len(matches))
-		for _, routeID := range matches {
-			commands = append(commands, fmt.Sprintf("`aigw use --for codex %s`", routeID))
-		}
-		return "", fmt.Errorf("Codex selects model %q, which several Routes provide; run one of %s", model, strings.Join(commands, ", "))
+		// Only a configuration from before models were unique per provider
+		// can hold several, which no selection tells apart.
+		return "", fmt.Errorf("Codex selects model %q, which %d models of provider %q carry; correct the configuration, whose file `aigw config path` names", model, len(matches), selected.ProviderID)
 	}
 }

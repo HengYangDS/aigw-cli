@@ -440,3 +440,49 @@ func TestSelectedModelCopiesRecommendedOptionsOnlyForItsProvider(t *testing.T) {
 		t.Fatalf("the recommended Route lost its native options: %#v", binding)
 	}
 }
+
+// Retry budgets belong to the client's provider: selecting another model or
+// another protocol of the provider keeps them, and selecting another
+// provider's model clears them. Forwarding follows the upstream endpoint,
+// which a change of protocol or provider moves.
+func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
+	spec := ClientSpec{ID: "native", Label: "Native", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions}, RetryBudgets: true}
+	base := NewConfig(NewAdmission(spec))
+	base.Providers["one"] = Provider{Label: "One", Endpoints: Endpoints{OpenAIResponses: "https://one.test/v1", OpenAIChatCompletions: "https://one.test/chat/v1"}}
+	base.Providers["two"] = Provider{Label: "Two", Endpoints: Endpoints{OpenAIResponses: "https://two.test/v1"}}
+	base.Models["first"] = testModel("First", "one", "first", ProtocolOpenAIResponses, ProtocolOpenAIChatCompletions)
+	base.Models["second"] = testModel("Second", "one", "second", ProtocolOpenAIResponses)
+	base.Models["other"] = testModel("Other", "two", "other", ProtocolOpenAIResponses)
+	base.SetSelectedModel("native", "first", ProtocolOpenAIResponses)
+	three := uint64(3)
+	binding := base.Clients["native"]
+	binding.RetryPolicy = &RetryPolicy{RequestMaxRetries: &three}
+	base.Clients["native"] = binding
+	if err := base.SetForwardingEndpoint("native", "http://127.0.0.1:8792/v1"); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name, model         string
+		protocol            EndpointProtocol
+		budgets, forwarding bool
+	}{
+		{"another model on the same protocol", "second", ProtocolOpenAIResponses, true, true},
+		{"the same provider on another protocol", "first", ProtocolOpenAIChatCompletions, true, false},
+		{"another provider", "other", ProtocolOpenAIResponses, false, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := base.Clone()
+			cfg.SetSelectedModel("native", test.model, test.protocol)
+			selected := cfg.Clients["native"]
+			if budgets := selected.RetryPolicy != nil; budgets != test.budgets {
+				t.Fatalf("retry budgets = %#v, want them kept: %t", selected.RetryPolicy, test.budgets)
+			}
+			if forwarding := selected.ForwardingEndpoint != ""; forwarding != test.forwarding {
+				t.Fatalf("forwarding = %q, want it kept: %t", selected.ForwardingEndpoint, test.forwarding)
+			}
+			if err := cfg.Validate(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}

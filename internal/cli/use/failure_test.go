@@ -10,8 +10,10 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/terminal"
 )
 
 func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
@@ -25,7 +27,7 @@ func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 	command := NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", codex.ID, "codex"})
+	command.SetArgs([]string{codex.ID, "gateway/gpt-test"})
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "store failed") {
 		t.Fatalf("store error = %v", err)
 	}
@@ -40,7 +42,7 @@ func TestUseSurfacesTokenStoreAndOutputFailures(t *testing.T) {
 	command = NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", codex.ID, "codex"})
+	command.SetArgs([]string{codex.ID, "gateway/gpt-test"})
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "write failed") {
 		t.Fatalf("output error = %v", err)
 	}
@@ -70,6 +72,25 @@ type failingWriter struct{ err error }
 
 func (writer failingWriter) Write([]byte) (int, error) { return 0, writer.err }
 
+// changedDuringDiscovery is a discovery that saves a newer configuration, as
+// another command would while this one runs, so that the selection's commit
+// fails after it stored its Token.
+func changedDuringDiscovery(t *testing.T, run invocation.Context, cfg domain.Config, also func()) staticDiscovery {
+	t.Helper()
+	newer := cfg.Clone()
+	provider := newer.Providers["gateway"]
+	provider.Label = "Gateway (renamed elsewhere)"
+	newer.Providers["gateway"] = provider
+	return staticDiscovery{onDiscover: func() {
+		if also != nil {
+			also()
+		}
+		if err := run.Config.Save(newer); err != nil {
+			t.Fatal(err)
+		}
+	}}
+}
+
 func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
 	deletionError := errors.New("credential store refused deletion")
 	for _, test := range []struct {
@@ -85,27 +106,19 @@ func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			run, cfg, store, _ := tokenAcquisitionRuntime(t)
 			run.Secrets = failingSecretStore{Store: store, deleteErr: test.deleteErr}
-			run.Discovery = staticDiscovery{onDiscover: func() {
+			run.Discovery = changedDuringDiscovery(t, run, cfg, func() {
 				if test.newer != "" {
 					if err := store.Set("gateway", test.newer); err != nil {
 						t.Fatal(err)
 					}
 				}
-			}}
-			cfg.Models["next"] = domain.Model{
-				Label: "Next", Provider: "gateway", Family: "gpt-next",
-				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}},
-			}
-			cfg.SetClientActivation(codex.ID, true, "", []string{filepath.Join(t.TempDir(), "missing.toml")})
-			if err := run.Config.Save(cfg); err != nil {
+			})
+			// The Token is missing when the selection starts.
+			if err := store.Delete("gateway"); err != nil && !errors.Is(err, secret.ErrNotFound) {
 				t.Fatal(err)
 			}
-			command := NewCommand(run)
-			command.SilenceErrors = true
-			command.SilenceUsage = true
-			command.SetArgs([]string{"--for", codex.ID, "next"})
-			err := command.ExecuteContext(t.Context())
-			for _, want := range []string{"synchronization preflight failed", "credential rollback also failed", test.want} {
+			err := execute(run, codex.ID, "gateway/gpt-test")
+			for _, want := range []string{"preimage changed", "credential rollback also failed", test.want} {
 				if err == nil || !strings.Contains(err.Error(), want) {
 					t.Fatalf("selection error = %v, want %q", err, want)
 				}
@@ -113,12 +126,12 @@ func TestUsePreservesCredentialsWhenCompensationCannotComplete(t *testing.T) {
 			if test.deleteErr != nil && !errors.Is(err, test.deleteErr) {
 				t.Fatalf("selection error lost credential store error: %v", err)
 			}
+			// The failed undo is stated with its cause.
+			if impact := terminal.ProblemFor(err).Impact; !strings.Contains(impact, "Removing the Token that this command stored for provider gateway failed") {
+				t.Fatalf("failure impact = %q", impact)
+			}
 			if token, err := store.Get("gateway"); err != nil || token != test.retained {
 				t.Fatalf("credential after failed compensation = %q, %v", token, err)
-			}
-			current, err := run.Config.Load()
-			if err != nil || current.SelectedModel(codex.ID) != "codex" {
-				t.Fatalf("failed selection changed binding: %#v, %v", current.Clients, err)
 			}
 		})
 	}
@@ -135,12 +148,16 @@ func TestUseRollsBackAutomaticBackendSelection(t *testing.T) {
 		t.Fatal(err)
 	}
 	run.Secrets = store
-	run.Discovery = nil
+	cfg, err := run.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	run.Discovery = changedDuringDiscovery(t, run, cfg, nil)
 	command := NewCommand(run)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", codex.ID, "codex"})
-	if err := command.ExecuteContext(t.Context()); err == nil || !strings.Contains(err.Error(), "client discovery is unavailable") {
+	command.SetArgs([]string{codex.ID, "gateway/gpt-test"})
+	if err := command.ExecuteContext(t.Context()); err == nil || !strings.Contains(err.Error(), "preimage changed") {
 		t.Fatalf("selection error = %v", err)
 	}
 	if secretExists(t, store, "gateway") {
@@ -158,7 +175,7 @@ func TestUseKeepsCommittedTokenWhenRenderingFails(t *testing.T) {
 	command := NewCommand(run)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", codex.ID, "codex"})
+	command.SetArgs([]string{codex.ID, "gateway/gpt-test"})
 	if err := command.ExecuteContext(t.Context()); !errors.Is(err, outputError) {
 		t.Fatalf("output error = %v", err)
 	}

@@ -74,7 +74,7 @@ func TestCheckReportsUnresolvedBindingsBeforeCredentialOrNetworkAccess(t *testin
 	if err == nil || !errors.Is(err, result.resolveErr) || command != "" || unchecked {
 		t.Fatalf("unresolved binding was reported as checked: %q, %t, %v", command, unchecked, err)
 	}
-	if problem := terminal.ProblemFor(err); problem.Title != "Codex binding cannot be resolved" || problem.Fix != "aigw use --for codex <route>" {
+	if problem := terminal.ProblemFor(err); problem.Title != "Codex binding cannot be resolved" || problem.Fix != "aigw use codex <provider/model>" {
 		t.Fatalf("binding failure omitted its actionable scope: %q, %q", problem.Title, problem.Fix)
 	}
 	if store.getCalls != 0 || store.existsCalls != 0 {

@@ -143,6 +143,21 @@ func TestEditWithoutTheTokenNamesTheToken(t *testing.T) {
 	}
 }
 
+// Forwarding and one budget in the same edit keep the other budget: retry
+// budgets belong to the provider, which forwarding does not change. aigw use
+// once dropped the other budget for this edit, which it no longer makes.
+func TestEditForwardingWithOneBudgetKeepsTheOther(t *testing.T) {
+	runtime, out, target, _ := enabledCodex(t)
+	document := edited(t, runtime, out, codex.ID, "--via", forwardingEndpoint, "--request-retries", "5")
+	if document.Forwarding != forwardingEndpoint || document.Retries == nil || document.Retries.Request == nil || *document.Retries.Request != 5 ||
+		document.Retries.Stream == nil || *document.Retries.Stream != 1 {
+		t.Fatalf("forwarding with one budget = %#v", document)
+	}
+	if projected := readTarget(t, target); !strings.Contains(projected, "request_max_retries = 5") || !strings.Contains(projected, "stream_max_retries = 1") {
+		t.Fatalf("Codex's file lost a budget:\n%s", projected)
+	}
+}
+
 // Budgets that an edit names replace those budgets, the others stay, and
 // --native-retries removes both; Codex's file follows each change.
 func TestEditDeclaresAndRemovesRetryBudgets(t *testing.T) {

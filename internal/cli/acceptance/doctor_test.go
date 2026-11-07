@@ -476,8 +476,8 @@ func TestDoctorFormatsPreserveTheDiagnosticOutcome(t *testing.T) {
 		// Setup asks a person for an Account and a Route.
 		{name: "unconfigured text", nextDetail: "aigw setup", continuations: 1},
 		{name: "unconfigured JSON", jsonMode: true, nextDetail: "aigw setup"},
-		{name: "configured text", configured: true, nextAction: "aigw use --for claude one", continuations: 1},
-		{name: "configured JSON", configured: true, jsonMode: true, nextAction: "aigw use --for claude one"},
+		{name: "configured text", configured: true, nextAction: "aigw use claude one/claude-test", continuations: 1},
+		{name: "configured JSON", configured: true, jsonMode: true, nextAction: "aigw use claude one/claude-test"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, secretStore, _, _ := testApp(t, "")

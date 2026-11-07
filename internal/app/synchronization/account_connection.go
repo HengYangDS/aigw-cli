@@ -28,7 +28,7 @@ func (s Synchronizer) ConnectProvider(ctx context.Context, before domain.Config,
 	if strings.TrimSpace(token) == "" {
 		return fmt.Errorf("Account connection requires a non-empty Token")
 	}
-	_, _, _, err = s.selectModel(ctx, before, after, client, domain.ConnectionChange{}, token)
+	_, _, _, err = s.selectModel(ctx, before, after, client, token)
 	return err
 }
 
@@ -53,6 +53,6 @@ func (s Synchronizer) PlanConnection(before domain.Config, name, client string, 
 		after.Families[route.Family] = domain.Family{Label: route.Family}
 	}
 	after.Models[name] = route
-	after, _, err := s.PrepareSelection(after, client, name, "", domain.ConnectionChange{})
+	after, _, err := s.PrepareSelection(after, client, name, "")
 	return after, err
 }

@@ -13,7 +13,7 @@ import (
 )
 
 func TestUseTellsHermesUsersThatExistingSessionsKeepTheirModel(t *testing.T) {
-	const note = "Keep the route they started with; new sessions use this selection"
+	const note = "Keep the model they started with; new sessions use this selection"
 	runtime, cfg, out := configuredRuntime(t)
 	store := secret.NewMemoryStore()
 	if err := store.Set("gateway", "token"); err != nil {
@@ -45,7 +45,7 @@ func TestUseTellsHermesUsersThatExistingSessionsKeepTheirModel(t *testing.T) {
 		command := NewCommand(runtime)
 		command.SilenceErrors = true
 		command.SilenceUsage = true
-		command.SetArgs(append([]string{"--for", hermes.ID}, args...))
+		command.SetArgs(append([]string{hermes.ID}, args...))
 		if err := command.Execute(); err != nil {
 			t.Fatal(err)
 		}
@@ -56,11 +56,11 @@ func TestUseTellsHermesUsersThatExistingSessionsKeepTheirModel(t *testing.T) {
 		args []string
 		want bool
 	}{
-		{"first selection", []string{"first"}, true},
-		{"unchanged selection", []string{"first"}, false},
-		{"preview of another Route", []string{"--dry-run", "second"}, true},
-		{"preview of the selected Route", []string{"--dry-run", "first"}, false},
-		{"another Route as JSON", []string{"--json", "second"}, false},
+		{"first selection", []string{"gateway/first-model"}, true},
+		{"unchanged selection", []string{"gateway/first-model"}, false},
+		{"preview of another model", []string{"gateway/second-model", "--dry-run"}, true},
+		{"preview of the selected model", []string{"gateway/first-model", "--dry-run"}, false},
+		{"another model as JSON", []string{"gateway/second-model", "--json"}, false},
 	} {
 		output := use(step.args...)
 		if strings.Contains(output, "Existing sessions") != step.want || strings.Contains(output, note) != step.want {

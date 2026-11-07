@@ -110,10 +110,10 @@ func TestUseWithoutNameSelectsModelAndCollectsMissingToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("one", "one-token")
-	prompt := &scriptedPrompt{selections: []string{"two"}, secrets: []string{"two-token"}}
+	prompt := &scriptedPrompt{selections: []string{"two/model-two"}, secrets: []string{"two-token"}}
 	app.Interactive = true
 	app.Prompt = prompt
-	if err := cli.Execute(app, []string{"use", "--for", "claude"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "claude"}); err != nil {
 		t.Fatal(err)
 	}
 	cfg, _ := app.Config.Load()
@@ -131,8 +131,8 @@ func TestUseWithoutModelRequiresInteractiveTerminal(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("one", "one-secret")
-	err := cli.Execute(app, []string{"use", "--for", "claude"})
-	if err == nil || !strings.Contains(err.Error(), "non-interactive use requires a Route") {
+	err := cli.Execute(app, []string{"use", "claude"})
+	if err == nil || !strings.Contains(err.Error(), "aigw use without a terminal needs a <provider/model> argument after the client") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -149,8 +149,8 @@ func TestUseWithoutModelPromptsInteractively(t *testing.T) {
 	_ = secretStore.Set("one", "one-secret")
 	_ = secretStore.Set("two", "two-secret")
 	app.Interactive = true
-	app.Prompt = &scriptedPrompt{selections: []string{"two"}}
-	if err := cli.Execute(app, []string{"use", "--for", "claude"}); err != nil {
+	app.Prompt = &scriptedPrompt{selections: []string{"two/claude-two"}}
+	if err := cli.Execute(app, []string{"use", "claude"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
@@ -189,8 +189,8 @@ func TestUseWithMissingTokenRequiresInteractiveTerminal(t *testing.T) {
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	err := cli.Execute(app, []string{"use", "--for", "claude", "two"})
-	if err == nil || !strings.Contains(err.Error(), "is missing a token") {
+	err := cli.Execute(app, []string{"use", "claude", "two/claude-two"})
+	if err == nil || !strings.Contains(err.Error(), "has no Token, and aigw use asks for one only in a terminal") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -206,7 +206,7 @@ func TestUseWithMissingTokenSurfacesPromptFailure(t *testing.T) {
 	}
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{}
-	err := cli.Execute(app, []string{"use", "--for", "claude", "two"})
+	err := cli.Execute(app, []string{"use", "claude", "two/claude-two"})
 	if err == nil || !strings.Contains(err.Error(), "no secret") {
 		t.Fatalf("error = %v", err)
 	}
@@ -225,8 +225,8 @@ func TestUseWithMissingTokenRejectsFailedVerification(t *testing.T) {
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{secrets: []string{"new-token"}}
 	httpClient.status = 401
-	err := cli.Execute(app, []string{"use", "--for", "claude", "two"})
-	if err == nil || !strings.Contains(err.Error(), "token validation failed") {
+	err := cli.Execute(app, []string{"use", "claude", "two/claude-two"})
+	if err == nil || !strings.Contains(err.Error(), "Token validation failed") {
 		t.Fatalf("error = %v", err)
 	}
 	if secretExists(t, secretStore, "two") {
@@ -247,7 +247,7 @@ func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 	app.Prompt = &scriptedPrompt{secrets: []string{"new-token"}}
 	want := errors.New("keychain locked")
 	app.Secrets = &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), setErr: want}
-	err := cli.Execute(app, []string{"use", "--for", "claude", "two"})
+	err := cli.Execute(app, []string{"use", "claude", "two/claude-two"})
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v, want %v", err, want)
 	}

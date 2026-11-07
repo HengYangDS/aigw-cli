@@ -80,7 +80,7 @@ cmp still-disabled.txt disabled.txt
 # configuration alone until its configuration file is named.
 exec aigw provider edit team --endpoint responses=$UPSTREAM/v1
 exec aigw model edit team/team-model --protocol anthropic --protocol responses
-exec aigw use --for codex team
+exec aigw use codex team/team-model
 
 # Previews write nothing below the private home.
 snapshot $HOME edit-before.txt

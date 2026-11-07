@@ -5,124 +5,51 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 )
 
-// PrepareSelection resolves one proposed binding without changing the caller's
-// configuration. The same result is used for credential admission and commit.
-func (Synchronizer) PrepareSelection(cfg domain.Config, client, routeID string, protocol domain.EndpointProtocol, connection domain.ConnectionChange) (domain.Config, domain.Runtime, error) {
-	if connection.NativeRetries && connection.RetryPolicy != nil {
-		return domain.Config{}, domain.Runtime{}, fmt.Errorf("native retries and explicit retry budgets are mutually exclusive")
-	}
+// PrepareSelection returns cfg with client's selection of the model with key
+// on protocol, or on the protocol that the configuration resolves when it is
+// empty, and the runtime that it resolves to, without changing cfg. Setting
+// the selection drops forwarding when the upstream endpoint changes and retry
+// budgets when the provider changes. The same result is used for credential
+// admission and commit.
+func (Synchronizer) PrepareSelection(cfg domain.Config, client, key string, protocol domain.EndpointProtocol) (domain.Config, domain.Runtime, error) {
 	if protocol == "" {
-		resolved, err := cfg.ResolveRuntime(client, routeID)
+		resolved, err := cfg.ResolveRuntime(client, key)
 		if err != nil {
 			return domain.Config{}, domain.Runtime{}, err
 		}
 		protocol = resolved.Protocol
 	}
 	selected := cfg.Clone()
-	previous, previousErr := cfg.ResolveRuntime(client, "")
-	selected.SetSelectedModel(client, routeID, protocol)
-	if connection.ForwardingEndpoint != nil {
-		if err := selected.SetForwardingEndpoint(client, *connection.ForwardingEndpoint); err != nil {
-			return domain.Config{}, domain.Runtime{}, err
-		}
-	}
-	binding := selected.Clients[client]
-	runtime, err := selected.ResolveRuntime(client, "")
-	if err != nil {
-		return domain.Config{}, domain.Runtime{}, err
-	}
-	sameConnection := previousErr == nil && previous.ConnectionFingerprint() == runtime.ConnectionFingerprint()
-	if err := validateRetryConnectionChange(cfg, selected, client, connection); err != nil {
-		return domain.Config{}, domain.Runtime{}, err
-	}
-	if connection.RetryPolicy != nil {
-		policy := binding.RetryPolicy.Clone()
-		if policy == nil || !sameConnection {
-			policy = &domain.RetryPolicy{}
-		}
-		declared := connection.RetryPolicy.Clone()
-		if declared.RequestMaxRetries != nil {
-			policy.RequestMaxRetries = declared.RequestMaxRetries
-		}
-		if declared.StreamMaxRetries != nil {
-			policy.StreamMaxRetries = declared.StreamMaxRetries
-		}
-		binding.RetryPolicy = policy
-	}
-	if connection.NativeRetries {
-		binding.RetryPolicy = nil
-	}
-	selected.Clients[client] = binding
+	selected.SetSelectedModel(client, key, protocol)
 	if err := selected.Validate(); err != nil {
 		return domain.Config{}, domain.Runtime{}, err
 	}
-	runtime, err = selected.ResolveRuntime(client, "")
+	runtime, err := selected.ResolveRuntime(client, "")
 	if err != nil {
 		return domain.Config{}, domain.Runtime{}, err
 	}
 	return selected, runtime, nil
 }
 
-// validateRetryConnectionChange keeps a client's retry budgets while it
-// reaches the same provider on the same protocol, and refuses another
-// connection that declares no retry intent.
-func validateRetryConnectionChange(before, after domain.Config, client string, connection domain.ConnectionChange) error {
-	if before.Clients[client].RetryPolicy == nil || after.Clients[client].Model == "" || connection.NativeRetries || connection.RetryPolicy != nil {
-		return nil
-	}
-	previous, previousErr := before.ResolveRuntime(client, "")
-	current, currentErr := after.ResolveRuntime(client, "")
-	if previousErr == nil && currentErr == nil && sameProviderConnection(previous, current) {
-		return nil
-	}
-	return fmt.Errorf("client %q connection changed with a selected retry policy; run `aigw client edit %s --native-retries` first, then make the change again", client, client)
-}
-
-// sameProviderConnection reports whether two runtimes of a client reach the
-// same provider on the same protocol, with the same native provider and
-// authentication, wherever the endpoint is: a new model, an endpoint that the
-// provider moved, and forwarding that starts or stops keep the connection.
-// Retry budgets belong to the provider, so such a change keeps them. Forwarding
-// that reached a moved endpoint does not stay, and the forwarding check
-// refuses it.
-func sameProviderConnection(previous, current domain.Runtime) bool {
-	return previous.ProviderID == current.ProviderID && previous.Protocol == current.Protocol &&
-		previous.ModelProvider == current.ModelProvider && previous.Authentication == current.Authentication
-}
-
-func (s Synchronizer) validateRetryTransition(before, after domain.Config, connection domain.ConnectionChange) error {
-	for _, client := range s.ClientIDs() {
-		intent := domain.ConnectionChange{}
-		if client == s.AuthorizedSelectionClient {
-			intent = connection
-		}
-		if err := validateRetryConnectionChange(before, after, client, intent); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// SelectModel commits one client's Route selection and projection, optionally storing
-// its validated Account Token. Failure compensates owned credential writes;
+// SelectModel commits after, which PrepareSelection made from before and may
+// extend with what the selection adds, and the files of the client and of
+// every other client whose files change, optionally storing the client's
+// validated provider Token. Failure compensates owned credential writes;
 // success leaves no rollback obligation with the caller. The result reports
-// configuration and native projection changes separately, not Token acquisition
-// or live inference.
-func (s Synchronizer) SelectModel(ctx context.Context, before domain.Config, client, routeID string, protocol domain.EndpointProtocol, connection domain.ConnectionChange, token string) (changed, projectionChanged bool, binding domain.ClientBinding, resultErr error) {
-	after, _, err := s.PrepareSelection(before, client, routeID, protocol, connection)
-	if err != nil {
-		return false, false, domain.ClientBinding{}, err
-	}
-	return s.selectModel(ctx, before, after, client, connection, token)
+// configuration and client file changes separately, not Token acquisition or
+// live inference.
+func (s Synchronizer) SelectModel(ctx context.Context, before, after domain.Config, client, token string) (changed, projectionChanged bool, binding domain.ClientBinding, resultErr error) {
+	return s.selectModel(ctx, before, after, client, token)
 }
 
-func (s Synchronizer) selectModel(ctx context.Context, before, after domain.Config, client string, connection domain.ConnectionChange, token string) (changed, projectionChanged bool, binding domain.ClientBinding, resultErr error) {
+func (s Synchronizer) selectModel(ctx context.Context, before, after domain.Config, client, token string) (changed, projectionChanged bool, binding domain.ClientBinding, resultErr error) {
 	if err := ctx.Err(); err != nil {
 		return false, false, domain.ClientBinding{}, err
 	}
@@ -159,9 +86,23 @@ func (s Synchronizer) selectModel(ctx context.Context, before, after domain.Conf
 	binding = after.Clients[client]
 	selector := s
 	selector.AuthorizedSelectionClient = client
-	projectionChanged, err = selector.commit(ctx, before, after, "client selection", true, connection, client)
+	projectionChanged, err = selector.commit(ctx, before, after, "client selection", true, selector.selectionClients(before, after, client)...)
 	if err != nil {
 		return false, false, domain.ClientBinding{}, err
 	}
 	return !reflect.DeepEqual(before, after), projectionChanged, binding, nil
+}
+
+// selectionClients returns the clients whose files a selection for client
+// reconciles, in admission order: client itself, and every other client whose
+// files change, such as one that lists a model that the selection adds.
+func (s Synchronizer) selectionClients(before, after domain.Config, client string) []string {
+	changed := s.registry().ChangedClients(before, after)
+	clients := make([]string, 0, len(changed)+1)
+	for _, id := range s.ClientIDs() {
+		if id == client || slices.Contains(changed, id) {
+			clients = append(clients, id)
+		}
+	}
+	return clients
 }

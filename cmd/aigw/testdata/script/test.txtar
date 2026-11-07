@@ -96,7 +96,7 @@ Problem
   no Route selected for client "codex"
 
 Fix
-  aigw use --for codex <route>
+  aigw use codex <provider/model>
 -- tested.json --
 {
   "schema_version": 1,

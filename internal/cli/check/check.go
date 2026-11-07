@@ -146,9 +146,9 @@ func checkConfigurationFor(cfg domain.Config, client string) (domain.Config, str
 	}
 	if !cfg.Clients[client].Enabled {
 		// Selecting a Route enables its binding; enablement alone needs an executable.
-		action := "aigw use --for " + client + " <route>"
-		if route := cfg.SelectedModel(client); route != "" {
-			action = "aigw use --for " + client + " " + route
+		action := "aigw use " + client + " <provider/model>"
+		if model, selected := cfg.Models[cfg.SelectedModel(client)]; selected {
+			action = "aigw use " + client + " " + model.Ref().String()
 		}
 		return cfg, action, fmt.Errorf("%s is not enabled", cfg.Admission().Label(client))
 	}
@@ -468,7 +468,7 @@ func checkedClientField(runtime invocation.Context, result evaluatedClient, over
 		return fallback
 	}
 	if result.resolveErr != nil {
-		return terminal.Field{}, "", false, terminal.ProblemError(runtime.Clients.Admission().Label(client)+" binding cannot be resolved", result.resolveErr.Error(), runtime.Clients.Admission().Label(client)+" cannot determine which Route to use.", recommendedAction("aigw use --for "+client+" <route>"), result.resolveErr)
+		return terminal.Field{}, "", false, terminal.ProblemError(runtime.Clients.Admission().Label(client)+" binding cannot be resolved", result.resolveErr.Error(), runtime.Clients.Admission().Label(client)+" cannot determine which Route to use.", recommendedAction("aigw use "+client+" <provider/model>"), result.resolveErr)
 	}
 	if result.credentialErr != nil {
 		evidence := "Account " + result.runtime.ProviderID + " has no available Token."

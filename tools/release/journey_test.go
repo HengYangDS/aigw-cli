@@ -4,9 +4,11 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/claudedesktop"
 	clientverification "aigw-cli/internal/adapter/verification"
+	builtinclients "aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
+	"aigw-cli/internal/store"
 	"aigw-cli/tools/release/identity"
 	"bytes"
 	"context"
@@ -180,6 +182,21 @@ func TestNativeJourneyCleanupSurvivesTestCancellation(t *testing.T) {
 		journey := newNativeJourney(t, program, "https://unused.example.test", false)
 		t.Cleanup(journey.uninstallAndRequireInstallationRemoved)
 	})
+}
+
+// modelName is the provider/model name of the configured model with key, as
+// aigw use takes it.
+func (j *journeyFixture) modelName(key string) string {
+	j.testing.Helper()
+	cfg, err := store.NewStore(j.config, builtinclients.Admission()).Load()
+	if err != nil {
+		j.testing.Fatal(err)
+	}
+	model, found := cfg.Models[key]
+	if !found {
+		j.testing.Fatalf("no configured model %q", key)
+	}
+	return model.Ref().String()
 }
 
 func newNativeJourney(t *testing.T, source, endpoint string, installClient bool) *journeyFixture {

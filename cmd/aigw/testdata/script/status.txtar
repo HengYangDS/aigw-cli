@@ -17,7 +17,7 @@ stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 exec aigw provider edit team --endpoint responses=$UPSTREAM/v1
 exec aigw model edit team/team-model --protocol anthropic --protocol responses
-exec aigw use --for codex team
+exec aigw use codex team/team-model
 exec aigw status --json
 cmp stdout connected.json
 exec aigw status

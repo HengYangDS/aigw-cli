@@ -33,17 +33,19 @@ func TestModelPurposeIsOptionalHumanGuidance(t *testing.T) {
 	if err := secretStore.Set("team", "team-token"); err != nil {
 		t.Fatal(err)
 	}
-	selector := &scriptedPrompt{selections: []string{"claude-fable-5"}}
+	// The model prompt names each model and its label; the purpose stays in
+	// the route commands.
+	selector := &scriptedPrompt{selections: []string{"team/claude-fable-5"}}
 	app.Interactive = true
 	app.Prompt = selector
-	if err := cli.Execute(app, []string{"use", "--for", "claude"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "claude"}); err != nil {
 		t.Fatal(err)
 	}
 	labels := map[string]string{}
 	for _, choice := range selector.choices {
 		labels[choice.Value] = choice.Label
 	}
-	if len(selector.choices) != 2 || labels["claude-fable-5"] != "Claude Fable 5 · Default agent" || labels["current"] != "Team Gateway" {
+	if len(selector.choices) != 2 || labels["team/claude-fable-5"] != "team/claude-fable-5 · Claude Fable 5" || labels["team/claude-current"] != "team/claude-current · Team Gateway" {
 		t.Fatalf("interactive choices = %#v", selector.choices)
 	}
 

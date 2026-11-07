@@ -138,7 +138,9 @@ func projectionAction(spec domain.ClientSpec) string {
 
 // enableAction resumes a disabled Client Binding that keeps its selected Route;
 // synchronization skips it, while selecting that Route again enables it.
-func enableAction(client, route string) string { return "aigw use --for " + client + " " + route }
+func enableAction(client string, model domain.Model) string {
+	return "aigw use " + client + " " + model.Ref().String()
+}
 
 // ProjectionPrerequisites derives pending native-client work from selected
 // bindings without reading credential metadata or claiming projection health.
@@ -212,7 +214,7 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 	assessment.result.ProjectionPrerequisites[client] = projectionAction(spec)
 	if selected {
 		// Every binding is disabled here; synchronization skips a disabled selection.
-		assessment.result.ProjectionPrerequisites[client] = enableAction(client, route)
+		assessment.result.ProjectionPrerequisites[client] = enableAction(client, assessment.cfg.Models[route])
 	}
 	if !candidate.UsesAIGWCredentialStore() {
 		delete(assessment.result.ClientCredentialPrerequisites, client)
@@ -316,7 +318,7 @@ func NextActionAfterProviderConnection(cfg domain.Config, accountID string) stri
 		binding := cfg.Clients[spec.ID]
 		switch {
 		case !binding.Enabled:
-			return enableAction(spec.ID, runtime.ModelID)
+			return enableAction(spec.ID, cfg.Models[runtime.ModelID])
 		case binding.Executable == "":
 			return projectionAction(spec)
 		}
@@ -335,11 +337,11 @@ func NextActionAfterProviderConnection(cfg domain.Config, accountID string) stri
 		if binding.Model == "" || route.Provider != accountID {
 			continue
 		}
-		action := "aigw use --for " + spec.ID
+		action := "aigw use " + spec.ID + " " + route.Ref().String()
 		if len(route.Protocols) > 1 {
 			action += " --protocol " + binding.Protocol.Name()
 		}
-		return action + " " + binding.Model
+		return action
 	}
 	return "aigw use --help"
 }

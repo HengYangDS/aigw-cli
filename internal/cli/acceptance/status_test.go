@@ -118,7 +118,7 @@ func TestStatusPrioritizesSelectedActivationWhileRetainingModelGuidance(t *testi
 	if strings.Contains(text, "Claude             ·") || strings.Contains(text, "aigw repair") {
 		t.Fatalf("status should not show blank Claude route or misleading repair:\n%s", text)
 	}
-	for _, want := range []string{"Claude", "No model selected", "aigw use --for codex gpt-5.6-sol"} {
+	for _, want := range []string{"Claude", "No model selected", "aigw use codex dmx/gpt-5.6-sol"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("status lacks %q:\n%s", want, text)
 		}
@@ -133,7 +133,7 @@ func TestStatusPrioritizesSelectedActivationWhileRetainingModelGuidance(t *testi
 			NextAction string `json:"next_action"`
 		} `json:"clients"`
 	}
-	if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.NextAction != "aigw use --for codex gpt-5.6-sol" || result.Clients[claude.ID].NextAction != "aigw use --for claude claude-fable-5" {
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.NextAction != "aigw use codex dmx/gpt-5.6-sol" || result.Clients[claude.ID].NextAction != "aigw use claude dmx/claude-fable-5" {
 		t.Fatalf("JSON status action = %+v, error = %v", result, err)
 	}
 }

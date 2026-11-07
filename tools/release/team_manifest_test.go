@@ -190,7 +190,7 @@ func (plan teamManifestJourney) runProvider(t *testing.T, account string, client
 		}
 	}
 	for client, choice := range manual {
-		journey.run("use", "--for", client, "--protocol", choice.protocol.Name(), choice.model)
+		journey.run("use", client, journey.modelName(choice.model), "--protocol", choice.protocol.Name())
 		actual, err = store.NewStore(journey.config, builtinclients.Admission()).Load()
 		if err != nil {
 			t.Fatal(err)

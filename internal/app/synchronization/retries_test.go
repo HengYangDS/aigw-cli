@@ -1,10 +1,8 @@
 package synchronization
 
 import (
-	"fmt"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
 	"aigw-cli/internal/adapter/codex"
@@ -13,51 +11,44 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestRetryPolicyRequiresExplicitConnectionChange(t *testing.T) {
-	cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
-	zero := uint64(0)
-	binding := cfg.Clients[codex.ID]
-	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero, StreamMaxRetries: &zero}
-	cfg.Clients[codex.ID] = binding
-	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
-	cfg.Models["other"] = domain.Model{Label: "Other", Provider: "other", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	cfg.Normalize()
-	_, _, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, codex.ID, "other", "", domain.ConnectionChange{})
-	if err == nil || !strings.Contains(err.Error(), "retry") {
-		t.Fatalf("a different connection silently inherited policy: %v", err)
-	}
-	if cfg.Clients[codex.ID].Model != binding.Model {
-		t.Fatal("refused selection changed its input")
-	}
-}
-
-func TestRetryPolicySelectionPreservesOnlyTheSameConnection(t *testing.T) {
+// Retry budgets belong to the client's provider: selecting another model of
+// the provider keeps them and its forwarding, and selecting another
+// provider's model clears both, without a refusal.
+func TestSelectionKeepsRetryBudgetsWithinTheProvider(t *testing.T) {
 	cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
 	zero, two := uint64(0), uint64(2)
 	binding := cfg.Clients[codex.ID]
 	binding.RetryPolicy = &domain.RetryPolicy{RequestMaxRetries: &zero, StreamMaxRetries: &two}
 	cfg.Clients[codex.ID] = binding
+	if err := cfg.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/v1"); err != nil {
+		t.Fatal(err)
+	}
 	model := cfg.Models["gpt"]
 	model.Family, model.UpstreamModel = "other-model", "other-model"
 	cfg.Models["model-only"] = model
 	cfg.Families["other-model"] = domain.Family{Label: "Other model"}
+	cfg.Providers["other"] = domain.Provider{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
+	cfg.Models["other"] = domain.Model{Label: "Other", Provider: "other", Family: "gpt-test", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	cfg.Normalize()
-	forwarding := "http://127.0.0.1:8792/v1"
 	for _, test := range []struct {
 		name, route string
-		change      domain.ConnectionChange
-		want        *domain.RetryPolicy
+		kept        bool
 	}{
-		{"model preserves", "model-only", domain.ConnectionChange{}, binding.RetryPolicy},
-		{"partial merges", "gpt", domain.ConnectionChange{RetryPolicy: &domain.RetryPolicy{RequestMaxRetries: &two}}, &domain.RetryPolicy{RequestMaxRetries: &two, StreamMaxRetries: &two}},
-		{"native removes", "gpt", domain.ConnectionChange{NativeRetries: true}, nil},
-		{"changed resets omitted", "gpt", domain.ConnectionChange{ForwardingEndpoint: &forwarding, RetryPolicy: &domain.RetryPolicy{RequestMaxRetries: &zero}}, &domain.RetryPolicy{RequestMaxRetries: &zero}},
+		{"another model of the provider", "model-only", true},
+		{"another provider", "other", false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			before := cfg.Clone()
-			after, runtime, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, codex.ID, test.route, "", test.change)
-			if err != nil || !reflect.DeepEqual(runtime.RetryPolicy, test.want) || !reflect.DeepEqual(after.Clients[codex.ID].RetryPolicy, test.want) {
-				t.Fatalf("selection policy = %#v, want %#v: %v", runtime.RetryPolicy, test.want, err)
+			after, runtime, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, codex.ID, test.route, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			selected := after.Clients[codex.ID]
+			if kept := selected.RetryPolicy != nil && reflect.DeepEqual(runtime.RetryPolicy, binding.RetryPolicy); kept != test.kept {
+				t.Fatalf("retry budgets = %#v, want them kept: %t", selected.RetryPolicy, test.kept)
+			}
+			if forwarded := selected.ForwardingEndpoint != ""; forwarded != test.kept {
+				t.Fatalf("forwarding = %q, want it kept: %t", selected.ForwardingEndpoint, test.kept)
 			}
 			if !reflect.DeepEqual(cfg, before) {
 				t.Fatal("selection mutated its input")
@@ -118,71 +109,14 @@ func TestRetryConnectionTransitionGenericProviderCommit(t *testing.T) {
 	}
 }
 
-// A move to another provider is a new connection, which a retry policy still
-// refuses without explicit intent, even when it keeps the protocol.
-func TestRetryConnectionTransitionRefusesAnotherProvider(t *testing.T) {
+// A provider that setup connects for a client with retry budgets is another
+// provider, so the client's selection of it clears the budgets.
+func TestConnectingAnotherProviderClearsRetryBudgets(t *testing.T) {
 	cfg := retryTransitionFixture(t)
-	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
-	cfg.Models["two"] = domain.Model{Label: "Two", Provider: "two", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	after := cfg.Clone()
-	binding := after.Clients[codex.ID]
-	binding.Model = "two"
-	after.Clients[codex.ID] = binding
-	if err := validateRetryConnectionChange(cfg, after, codex.ID, domain.ConnectionChange{}); err == nil || !strings.Contains(err.Error(), "retry") {
-		t.Fatalf("a move to another provider kept its budgets: %v", err)
-	}
-}
-
-// Forwarding that starts or stops keeps the client on its provider and
-// protocol, so it keeps the retry budgets, which belong to the provider. The
-// refusal of another connection names the command that removes them.
-func TestRetryConnectionTransitionKeepsBudgetsThroughForwarding(t *testing.T) {
-	cfg := retryTransitionFixture(t)
-	forwarded := cfg.Clone()
-	if err := forwarded.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/v1"); err != nil {
-		t.Fatal(err)
-	}
-	if err := validateRetryConnectionChange(cfg, forwarded, codex.ID, domain.ConnectionChange{}); err != nil {
-		t.Fatalf("forwarding refused the retry budgets: %v", err)
-	}
-	direct := forwarded.Clone()
-	if err := direct.SetForwardingEndpoint(codex.ID, ""); err != nil {
-		t.Fatal(err)
-	}
-	if err := validateRetryConnectionChange(forwarded, direct, codex.ID, domain.ConnectionChange{}); err != nil {
-		t.Fatalf("the direct connection refused the retry budgets: %v", err)
-	}
-	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
-	cfg.Models["two"] = domain.Model{Label: "Two", Provider: "two", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	moved := cfg.Clone()
-	binding := moved.Clients[codex.ID]
-	binding.Model = "two"
-	moved.Clients[codex.ID] = binding
-	if err := validateRetryConnectionChange(cfg, moved, codex.ID, domain.ConnectionChange{}); err == nil || !strings.Contains(err.Error(), "`aigw client edit codex --native-retries`") {
-		t.Fatalf("the refusal of another provider = %v", err)
-	}
-}
-
-func TestRetryConnectionTransitionProviderAddAdmission(t *testing.T) {
-	cfg := retryTransitionFixture(t)
-	acquired := false
 	account := domain.Provider{Label: "Other", Endpoints: domain.Endpoints{OpenAIResponses: "https://other.test/v1"}}
 	route := domain.Model{Label: "Other", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
-	err := (Synchronizer{Registry: builtinClients}).ConnectProvider(t.Context(), cfg, "other", codex.ID, account, route, func() (string, error) { acquired = true; return "", fmt.Errorf("diagnostic token source reached") })
-	if err == nil || acquired || !strings.Contains(err.Error(), "retry") {
-		t.Fatalf("new connection admission err=%v acquired=%v", err, acquired)
-	}
-}
-
-func TestPrepareSelectionRefusesNativeAndExplicitRetriesTogether(t *testing.T) {
-	cfg := testConfig(filepath.Join(t.TempDir(), "config.toml"))
-	before := cfg.Clone()
-	zero := uint64(0)
-	change := domain.ConnectionChange{NativeRetries: true, RetryPolicy: &domain.RetryPolicy{RequestMaxRetries: &zero}}
-	if _, _, err := (Synchronizer{Registry: builtinClients}).PrepareSelection(cfg, codex.ID, "gpt", "", change); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
-		t.Fatalf("contradictory retry intent = %v", err)
-	}
-	if !reflect.DeepEqual(cfg, before) {
-		t.Fatal("refused selection mutated its input")
+	after, err := (Synchronizer{Registry: builtinClients}).PlanConnection(cfg, "other", codex.ID, account, route)
+	if err != nil || after.Clients[codex.ID].RetryPolicy != nil || after.SelectedModel(codex.ID) != "other" {
+		t.Fatalf("connection = %#v, %v", after.Clients[codex.ID], err)
 	}
 }

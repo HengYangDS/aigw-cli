@@ -52,7 +52,7 @@ func TestHermesModelForAdoptsOnlyOneExactModel(t *testing.T) {
 	if _, _, err := hermesModelFor(cfg, Selection{Provider: "aigw-gateway-anthropic", Model: "gpt-6.1-sol"}); err == nil {
 		t.Fatal("a model of another protocol was adopted")
 	}
-	if _, _, err := hermesModelFor(cfg, Selection{Provider: "aigw-other-anthropic", Model: "claude-opus-5-5"}); err == nil || !strings.Contains(err.Error(), "aigw use --for hermes") {
+	if _, _, err := hermesModelFor(cfg, Selection{Provider: "aigw-other-anthropic", Model: "claude-opus-5-5"}); err == nil || !strings.Contains(err.Error(), "aigw use hermes <provider/model>") {
 		t.Fatalf("an unprojected provider was not refused with a selection command: %v", err)
 	}
 
@@ -62,17 +62,15 @@ func TestHermesModelForAdoptsOnlyOneExactModel(t *testing.T) {
 	if err == nil {
 		t.Fatal("an ambiguous native choice was adopted")
 	}
-	for _, want := range []string{"`aigw use --for hermes --protocol anthropic opus`", "`aigw use --for hermes --protocol anthropic opus-copy`"} {
+	for _, want := range []string{"which 2 models of provider \"gateway\" carry", "`aigw config path`"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("ambiguity refusal %q does not name %s", err, want)
 		}
 	}
-	// The command that resolves the ambiguity names the protocol as the
-	// command line does.
-	cfg.Models["sol-copy"] = qualifiedModel("Sol copy", "gateway", "gpt-6.1-sol", domain.ProtocolOpenAIResponses)
-	cfg.Normalize()
-	_, _, err = hermesModelFor(cfg, Selection{Provider: "aigw-gateway-openai-responses", Model: "gpt-6.1-sol"})
-	if err == nil || !strings.Contains(err.Error(), "`aigw use --for hermes --protocol responses sol`") {
-		t.Fatalf("ambiguity refusal %v does not name the responses protocol", err)
+	// A choice that no added model carries names the selection with a
+	// placeholder for the model.
+	_, _, err = hermesModelFor(cfg, Selection{Provider: "aigw-gateway-openai-responses", Model: "gpt-unadded"})
+	if err == nil || !strings.Contains(err.Error(), "which provider \"gateway\" has not added; run `aigw use hermes <provider/model>`") {
+		t.Fatalf("an unadded choice = %v", err)
 	}
 }

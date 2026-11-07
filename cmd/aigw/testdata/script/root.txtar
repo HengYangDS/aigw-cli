@@ -17,9 +17,9 @@ AIGW  Command help
   Local AI provider configuration, routing, and diagnostics
 
 Start with one path
-  aigw setup                       Connect the first account
-  aigw use --for <client> <route>  Select one Route for one client
-  aigw check                       Check enabled clients (may use quota)
+  aigw setup                          Connect the first account
+  aigw use <client> <provider/model>  Point a client at a model
+  aigw check                          Check enabled clients (may use quota)
 
 Usage
   aigw [flags]
@@ -32,7 +32,7 @@ Use every day
   check                Check enabled clients; selected-model probes may use quota
   rotate               Update one Account Token
   status               Show each client's model and local readiness
-  use                  Select a Route for one client
+  use                  Point a client at a model
 
 Recover
   doctor               Show detailed diagnostics for configuration, secrets, and adapters

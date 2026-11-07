@@ -227,7 +227,7 @@ func TestRootHelpPresentsTheOrderedUserJourney(t *testing.T) {
 	for _, want := range []string{
 		"Start with one path",
 		"aigw setup", "Connect the first account",
-		"aigw use --for <client> <route>", "Select one Route for one client",
+		"aigw use <client> <provider/model>", "Point a client at a model",
 		"aigw check", "Check enabled clients (may use quota)",
 		"Usage", "aigw [command]",
 		"Connect", "setup",
@@ -272,7 +272,7 @@ func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
 		column := -1
 		for _, row := range [][2]string{
 			{command.Name() + " setup", "Connect the first account"},
-			{command.Name() + " use --for <client> <route>", "Select one Route for one client"},
+			{command.Name() + " use <client> <provider/model>", "Point a client at a model"},
 			{command.Name() + " check", "Check enabled clients (may use quota)"},
 		} {
 			if !strings.Contains(semanticHelp, row[0]) || !strings.Contains(semanticHelp, row[1]) {
@@ -288,7 +288,7 @@ func TestRootHelpSeparatesCommandsFromDescriptions(t *testing.T) {
 				}
 			}
 		}
-		if longest := terminal.DisplayWidth(command.Name() + " use --for <client> <route>"); test.width >= 80 && column < 2+longest+2 {
+		if longest := terminal.DisplayWidth(command.Name() + " use <client> <provider/model>"); test.width >= 80 && column < 2+longest+2 {
 			t.Fatalf("width=%d descriptions start at column %d, less than two cells after the longest command:\n%s", test.width, column, help)
 		}
 		if strings.Contains(help, "#") {
