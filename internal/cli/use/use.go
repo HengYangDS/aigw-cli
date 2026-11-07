@@ -161,6 +161,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	if err != nil {
 		return err
 	}
+	chosen.unlisted = options.unlisted && (chosen.adds || chosen.gains)
 	synchronizer := operation.Synchronizer()
 	after, selected, err := synchronizer.PrepareSelection(withAddition(cfg, chosen), chosen.client.ID, chosen.key, chosen.protocol)
 	if err != nil {
@@ -180,7 +181,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	}
 	outcome := selectionOutcome{
 		before: cfg, after: desired, selected: selected, choice: chosen, preview: invocation.Planned(operation, projection),
-		tokenMissing: missing, unlisted: options.unlisted,
+		tokenMissing: missing, readOnly: secret.IsReadOnly(operation.Secrets), unlisted: options.unlisted,
 	}
 	if options.dryRun {
 		// Only a preview names the credential reader; a commit prepares it.
@@ -192,7 +193,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	}
 	token := ""
 	if missing {
-		if token, err = acquireToken(cmd, operation, cfg, chosen, selected); err != nil {
+		if token, err = acquireToken(cmd, operation, cfg, chosen, selected, options.jsonMode); err != nil {
 			return err
 		}
 	}

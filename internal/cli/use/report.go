@@ -10,13 +10,15 @@ import (
 	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 )
 
 // selectionOutcome is what a selection did, or in a preview would do: the
 // configuration before and after it, the runtime that it selects, the
 // resolved choice, the client files that it writes, and what became of the
-// provider's Token.
+// provider's Token. readOnly marks the read-only environment backend, whose
+// variable supplies a missing Token.
 type selectionOutcome struct {
 	before, after domain.Config
 	selected      domain.Runtime
@@ -25,6 +27,7 @@ type selectionOutcome struct {
 	changed       bool
 	tokenMissing  bool
 	tokenStored   bool
+	readOnly      bool
 	// unlisted and catalogChecked say whether the catalog check of a model
 	// that the selection adds or gives a protocol was skipped or passed.
 	unlisted       bool
@@ -172,15 +175,17 @@ func (o selectionOutcome) filesChange(client string) bool {
 }
 
 // next is the step after the selection: the same selection without --dry-run
-// after a preview; the step that writes the files of a client whose files
-// wait; restarting a client that reads its files at start; and otherwise a
-// check of the client.
+// after a preview, with the Token step first when the Token is missing; the
+// step that writes the files of a client whose files wait; restarting a
+// client that reads its files at start; and otherwise a check of the client.
 func (o selectionOutcome) next(doc document) string {
 	client := o.choice.client
 	switch {
 	case doc.DryRun:
 		line := o.choice.command()
 		switch {
+		case doc.TokenMissing && o.readOnly:
+			return setTokenVariable(o.selected.ProviderID, line, "the same command without --dry-run")
 		case line == "":
 			return "Run the same command without --dry-run to apply this selection."
 		case doc.TokenMissing:
@@ -269,6 +274,8 @@ func (o selectionOutcome) rows(doc document) []terminal.Field {
 		rows = append(rows, retryRows(doc.Retries)...)
 	}
 	switch {
+	case doc.TokenMissing && o.readOnly:
+		rows = append(rows, terminal.Field{State: terminal.Info, Label: "Token", Value: "Missing; set " + secret.EnvironmentKey(doc.Provider) + " to supply it"})
 	case doc.TokenMissing:
 		rows = append(rows, terminal.Field{State: terminal.Info, Label: "Token", Value: "Missing; aigw use asks for it in a terminal and validates it"})
 	case doc.TokenStored:

@@ -15,7 +15,8 @@ import (
 // chosen marks a protocol that --protocol or a prompt chose among several,
 // which a command line that repeats the selection names. adds marks a model
 // that the selection adds, and gains an added model to which it gives the
-// protocol.
+// protocol. unlisted marks a selection that adds without the catalog check,
+// which a command line that repeats it names too.
 type choice struct {
 	client   domain.ClientSpec
 	ref      domain.ModelRef
@@ -24,16 +25,24 @@ type choice struct {
 	chosen   bool
 	adds     bool
 	gains    bool
+	unlisted bool
 }
 
-// command is the aigw use command line that makes this selection, or "" when
-// a word would need quoting. A protocol name never does.
+// command is the aigw use command line that makes this selection with each
+// flag that changes its effect, or "" when a word would need quoting. A
+// protocol name never does.
 func (c choice) command() string {
 	line := invocation.Command("use", c.client.ID, c.ref.String())
-	if line == "" || !c.chosen {
-		return line
+	if line == "" {
+		return ""
 	}
-	return line + " --protocol " + c.protocol.Name()
+	if c.chosen {
+		line += " --protocol " + c.protocol.Name()
+	}
+	if c.unlisted {
+		line += " --unlisted"
+	}
+	return line
 }
 
 // resolve resolves the client and the model that the arguments name, asking

@@ -18,6 +18,7 @@ import (
 	"aigw-cli/internal/adapter/claudedesktop"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -149,6 +150,26 @@ func TestUseAddsAnUnlistedModelAndPreviewsAnAddition(t *testing.T) {
 	result := useDocument(t, runtime, codex.ID, "gateway/gpt-private", "--unlisted")
 	if !result.Added || result.CatalogChecked == nil || *result.CatalogChecked {
 		t.Fatalf("an unlisted addition = %#v", result)
+	}
+}
+
+// A preview's next action carries every flag that changes the selection:
+// --protocol and --unlisted. Run as printed, it makes the previewed selection
+// without reading the catalog.
+func TestUsePreviewNextActionKeepsTheFlagsThatChangeTheSelection(t *testing.T) {
+	runtime, _ := addingRuntime(t)
+	runtime.HTTP = doerFunc(func(request *http.Request) (*http.Response, error) {
+		t.Errorf("an unlisted addition or its preview sent %s", request.URL)
+		return nil, errors.New("unexpected request")
+	})
+	preview := useDocument(t, runtime, hermes.ID, "gateway/gpt-private", "--protocol", "responses", "--unlisted", "--dry-run")
+	if preview.NextAction != "aigw use hermes gateway/gpt-private --protocol responses --unlisted" {
+		t.Fatalf("preview next action = %q", preview.NextAction)
+	}
+	words := strings.Fields(preview.NextAction)
+	result := useDocument(t, runtime, words[2:]...)
+	if !result.Added || result.Protocol != "responses" || result.CatalogChecked == nil || *result.CatalogChecked {
+		t.Fatalf("the preview's next action = %#v", result)
 	}
 }
 

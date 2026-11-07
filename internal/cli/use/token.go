@@ -26,20 +26,21 @@ func tokenMissing(runtime invocation.Context, selected domain.Runtime) (bool, er
 
 // acquireToken asks for the provider's missing Token in a terminal and
 // validates it with one request to the selected protocol's endpoint, before
-// anything is stored. Without a terminal it refuses, naming the command that
-// stores the Token, and with the read-only environment backend the variable
-// that holds it.
-func acquireToken(cmd *cobra.Command, runtime invocation.Context, cfg domain.Config, chosen choice, selected domain.Runtime) (string, error) {
+// anything is stored. With the read-only environment backend it refuses,
+// naming the variable that holds the Token. Without a terminal, and with
+// --json, which never prompts, it refuses with the step that stores the
+// Token from standard input. Each refusal then names the same selection.
+func acquireToken(cmd *cobra.Command, runtime invocation.Context, cfg domain.Config, chosen choice, selected domain.Runtime, jsonMode bool) (string, error) {
 	id := selected.ProviderID
 	if secret.IsReadOnly(runtime.Secrets) {
-		fix := "Set " + secret.EnvironmentKey(id) + ", then run the same command again."
-		if line := chosen.command(); line != "" {
-			fix = "Set " + secret.EnvironmentKey(id) + ", then run `" + line + "`."
-		}
-		return "", terminal.ProblemError("provider "+id+" has no Token", "", "", fix, nil)
+		return "", terminal.ProblemError("provider "+id+" has no Token", "", "", setTokenVariable(id, chosen.command(), "the same command again"), nil)
 	}
 	if !runtime.Interactive {
-		return "", terminal.ProblemError("provider "+id+" has no Token, and aigw use asks for one only in a terminal", "", "", "aigw provider rotate "+id, nil)
+		why := "aigw use asks for one only in a terminal"
+		if jsonMode {
+			why = "aigw use --json never prompts for one"
+		}
+		return "", terminal.ProblemError("provider "+id+" has no Token, and "+why, "", "", pipeToken(id, chosen.command()), nil)
 	}
 	token, err := runtime.Prompt.Secret("Paste the " + cfg.Providers[id].Label + " Token: ")
 	if err != nil {
@@ -52,6 +53,28 @@ func acquireToken(cmd *cobra.Command, runtime invocation.Context, cfg domain.Con
 		return "", invocation.TokenValidationProblem(cmd, []string{chosen.client.ID, chosen.ref.String()}, runtime.Secrets, id, endpointFix, err)
 	}
 	return token, nil
+}
+
+// setTokenVariable is the step that supplies provider's missing Token from
+// the read-only environment backend: setting its variable, and then the
+// selection's command line, or else, as prose, rerun.
+func setTokenVariable(provider, line, rerun string) string {
+	step := "Set " + secret.EnvironmentKey(provider) + ", then run "
+	if line == "" {
+		return step + rerun + "."
+	}
+	return step + "`" + line + "`."
+}
+
+// pipeToken is the step that stores provider's missing Token without a
+// prompt: piping it into provider rotate, which validates it first, and then
+// the selection's command line, or else the same command again.
+func pipeToken(provider, line string) string {
+	step := "Pipe the Token into `aigw provider rotate " + provider + " --token-stdin`, then run "
+	if line == "" {
+		return step + "the same command again."
+	}
+	return step + "`" + line + "`."
 }
 
 // obtainedToken is the credential store with the Token of one provider that

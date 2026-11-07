@@ -4,7 +4,8 @@
 # client keeps its forwarding and retry budgets; on another provider's model
 # it loses both, and the result says so. A model on several protocols that a
 # client speaks needs --protocol without a terminal, and a provider without a
-# Token is refused without a terminal and previewed as missing. A missing
+# Token is previewed as missing and refused without a terminal, naming the
+# step that stores it from standard input. A missing
 # argument, an unknown client or model, a model without a provider and an old
 # protocol spelling are refused before anything is read.
 exec aigw use --help
@@ -67,6 +68,8 @@ cmp stdout fresh-unlisted.json
 exec aigw use claude fresh/fresh-model
 normalize stdout fresh.out
 cmp fresh.out fresh.txt
+exec aigw use claude fresh/private-model --unlisted --dry-run --json
+stdout '"next_action": "aigw use claude fresh/private-model --unlisted"'
 exec aigw use claude fresh/private-model --unlisted --json
 stdout '"added": true'
 stdout '"catalog_checked": false'
@@ -84,15 +87,25 @@ cmp stdout hermes-protocol.json
 exec aigw use hermes team/team-model --protocol responses --dry-run --json
 stdout '"protocol": "responses"'
 
-# The mixed provider has no Token: without a terminal the selection is
-# refused, naming the rotation, and a preview reports the Token as missing.
+# The mixed provider has no Token. A preview reports it as missing, and with
+# the read-only environment backend names its variable. Without a terminal
+# the selection is refused with the step that stores the Token from standard
+# input, which, run as named, lets the selection succeed.
 envsubst mixed.in mixed.toml
 exec aigw config import mixed.toml
-exitcode 1 aigw use claude mixed/twin --json
-cmp stdout no-token.json
 exec aigw use claude mixed/twin --dry-run --json
 stdout '"token_missing": true'
 stdout '"next_detail": "Run `aigw use claude mixed/twin` in a terminal, which asks for the provider''s Token."'
+env AIGW_SECRET_BACKEND=env
+exec aigw use claude mixed/twin --dry-run --json
+stdout '"next_detail": "Set AIGW_TOKEN_MIXED, then run `aigw use claude mixed/twin`."'
+env AIGW_SECRET_BACKEND=file
+exitcode 1 aigw use claude mixed/twin --json
+cmp stdout no-token.json
+stdin mixed-token.txt
+exec aigw provider rotate mixed --token-stdin
+exec aigw use claude mixed/twin
+stdout 'Model selected'
 
 # Refusals name what is missing or wrong before anything is read.
 exitcode 1 aigw use claude --json
@@ -114,6 +127,8 @@ sk-team-token-0001
 sk-other-token-0001
 -- fresh-token.txt --
 sk-fresh-token-0001
+-- mixed-token.txt --
+sk-mixed-token-0001
 -- mixed.in --
 version = 7
 [accounts.mixed]
@@ -292,8 +307,8 @@ Next
 {
   "schema_version": 3,
   "ok": false,
-  "error": "provider mixed has no Token, and aigw use asks for one only in a terminal",
-  "next_detail": "aigw provider rotate mixed"
+  "error": "provider mixed has no Token, and aigw use --json never prompts for one",
+  "next_detail": "Pipe the Token into `aigw provider rotate mixed --token-stdin`, then run `aigw use claude mixed/twin`."
 }
 -- missing-model.json --
 {
