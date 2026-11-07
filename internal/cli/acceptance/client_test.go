@@ -105,10 +105,10 @@ func TestAdapterValidationBranches(t *testing.T) {
 		args []string
 		want string
 	}{
-		{name: "enable invalid", args: []string{"client", "enable", "other", "--executable", "/x"}, want: "invalid argument"},
+		{name: "enable invalid", args: []string{"client", "enable", "other", "--executable", "/x"}, want: `unknown client "other"`},
 		{name: "enable missing executable", args: []string{"client", "enable", "claude"}, want: "--executable is required"},
 		{name: "enable missing target", args: []string{"client", "enable", "codex", "--executable", "/x"}, want: "requires at least one"},
-		{name: "disable invalid", args: []string{"client", "disable", "other"}, want: "invalid argument"},
+		{name: "disable invalid", args: []string{"client", "disable", "other"}, want: `unknown client "other"`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, _, _, _, _ := testApp(t, "")

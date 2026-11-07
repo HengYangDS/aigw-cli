@@ -133,6 +133,36 @@ func TestRetryConnectionTransitionRefusesAnotherProvider(t *testing.T) {
 	}
 }
 
+// Forwarding that starts or stops keeps the client on its provider and
+// protocol, so it keeps the retry budgets, which belong to the provider. The
+// refusal of another connection names the command that removes them.
+func TestRetryConnectionTransitionKeepsBudgetsThroughForwarding(t *testing.T) {
+	cfg := retryTransitionFixture(t)
+	forwarded := cfg.Clone()
+	if err := forwarded.SetForwardingEndpoint(codex.ID, "http://127.0.0.1:8792/v1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateRetryConnectionChange(cfg, forwarded, codex.ID, domain.ConnectionChange{}); err != nil {
+		t.Fatalf("forwarding refused the retry budgets: %v", err)
+	}
+	direct := forwarded.Clone()
+	if err := direct.SetForwardingEndpoint(codex.ID, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateRetryConnectionChange(forwarded, direct, codex.ID, domain.ConnectionChange{}); err != nil {
+		t.Fatalf("the direct connection refused the retry budgets: %v", err)
+	}
+	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
+	cfg.Models["two"] = domain.Model{Label: "Two", Provider: "two", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	moved := cfg.Clone()
+	binding := moved.Clients[codex.ID]
+	binding.Model = "two"
+	moved.Clients[codex.ID] = binding
+	if err := validateRetryConnectionChange(cfg, moved, codex.ID, domain.ConnectionChange{}); err == nil || !strings.Contains(err.Error(), "`aigw client edit codex --native-retries`") {
+		t.Fatalf("the refusal of another provider = %v", err)
+	}
+}
+
 func TestRetryConnectionTransitionProviderAddAdmission(t *testing.T) {
 	cfg := retryTransitionFixture(t)
 	acquired := false

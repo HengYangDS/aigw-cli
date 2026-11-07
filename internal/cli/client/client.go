@@ -1,5 +1,5 @@
-// Package client implements `aigw client`, which lists the clients, enables
-// and disables them, and discovers their executables.
+// Package client implements `aigw client`, which lists the clients, enables,
+// disables and edits them, and discovers their executables.
 package client
 
 import (
@@ -16,9 +16,35 @@ import (
 
 // NewCommand constructs the client lifecycle command tree.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	root := &cobra.Command{Use: "client", Short: "List, enable and disable clients"}
-	root.AddCommand(newListCommand(runtime), newDiscoverCommand(runtime), newEnableCommand(runtime), newDisableCommand(runtime))
+	root := &cobra.Command{Use: "client", Short: "List, enable, disable and edit clients"}
+	root.AddCommand(newListCommand(runtime), newDiscoverCommand(runtime), newEnableCommand(runtime), newDisableCommand(runtime), newEditCommand(runtime))
 	return root
+}
+
+// clientArgument checks that a command has its one <client> argument and
+// returns the client that it names. An unknown one is refused with the
+// closest client IDs.
+func clientArgument(cmd *cobra.Command, admission domain.Admission, args []string) (domain.ClientSpec, error) {
+	switch len(args) {
+	case 0:
+		return domain.ClientSpec{}, fmt.Errorf("%s needs a <client> argument: %s; run `%s --help`", cmd.CommandPath(), admission.Usage(), cmd.CommandPath())
+	case 1:
+		return invocation.ResolveClient(admission, args[0])
+	default:
+		return domain.ClientSpec{}, fmt.Errorf("%s takes one <client> argument, not %d; run `%s --help`", cmd.CommandPath(), len(args), cmd.CommandPath())
+	}
+}
+
+// completeClient completes the one <client> argument of a command, and
+// nothing once it is given.
+func completeClient(runtime invocation.Context) cobra.CompletionFunc {
+	clients := invocation.CompleteClients(runtime)
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+		if len(args) > 0 {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		}
+		return clients(cmd, args, toComplete)
+	}
 }
 
 func newDiscoverCommand(runtime invocation.Context) *cobra.Command {
@@ -61,11 +87,15 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	var executable string
 	var targets []string
 	var jsonMode, dryRun bool
-	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client projection", ValidArgs: runtime.Clients.Admission().IDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument(runtime.Clients.Admission()), func(_ *cobra.Command, args []string) error {
+	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client projection", ValidArgsFunction: completeClient(runtime), Args: func(cmd *cobra.Command, args []string) error {
+		spec, err := clientArgument(cmd, runtime.Clients.Admission(), args)
+		if err != nil {
+			return err
+		}
 		if strings.TrimSpace(executable) == "" {
 			return fmt.Errorf("--executable is required; run `aigw client list`, which shows where each client is installed")
 		}
-		if spec, _ := runtime.Clients.Admission().Spec(args[0]); spec.TargetFile != "" && len(targets) == 0 {
+		if spec.TargetFile != "" && len(targets) == 0 {
 			return fmt.Errorf("%s projection requires at least one --target %s; run `aigw client enable --help`", spec.Label, spec.TargetFile)
 		}
 		for _, target := range targets {
@@ -74,7 +104,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 			}
 		}
 		return nil
-	}), RunE: func(cmd *cobra.Command, args []string) error {
+	}, RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
 		spec, _ := runtime.Clients.Admission().Spec(client)
 		cfg, err := runtime.Config.Load()
@@ -84,7 +114,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		before := cfg.Clone()
 		current := before.Clients[client]
 		if current.Enabled && (current.Executable != "" || len(current.Targets) > 0) {
-			return fmt.Errorf("%s client projection is already enabled; disable it before changing the executable or config targets", spec.Label)
+			return terminal.ProblemError(spec.Label+" is already enabled, so its executable and configuration files change through client edit", "", "", editInstead(client, executable, targets), nil)
 		}
 		if err := admitEnablement(runtime, cfg, client, targets); err != nil {
 			return err
@@ -162,7 +192,10 @@ func targetHelp(admission domain.Admission) string {
 
 func newDisableCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode, dryRun bool
-	cmd := &cobra.Command{Use: "disable <client>", Short: "Disable a client and remove AIGW-owned projections", ValidArgs: runtime.Clients.Admission().IDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument(runtime.Clients.Admission())), RunE: func(cmd *cobra.Command, args []string) error {
+	cmd := &cobra.Command{Use: "disable <client>", Short: "Disable a client and remove AIGW-owned projections", ValidArgsFunction: completeClient(runtime), Args: func(cmd *cobra.Command, args []string) error {
+		_, err := clientArgument(cmd, runtime.Clients.Admission(), args)
+		return err
+	}, RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
 		spec, _ := runtime.Clients.Admission().Spec(client)
 		cfg, err := runtime.Config.Load()
@@ -273,12 +306,17 @@ func renderDisabled(r *terminal.Renderer, spec domain.ClientSpec) {
 	}
 }
 
-// validateClientArgument refuses a client argument that admission does not name.
-func validateClientArgument(admission domain.Admission) cobra.PositionalArgs {
-	return func(command *cobra.Command, args []string) error {
-		if err := cobra.OnlyValidArgs(command, args); err != nil {
-			return fmt.Errorf("Client must be %s; run `%s --help`: %w", admission.Usage(), command.CommandPath(), err)
-		}
-		return nil
+// editInstead is the edit that sets an enabled client's executable and
+// configuration files, as enabling it again would have: the exact command, or
+// one with a placeholder when a path would need quoting.
+func editInstead(client, executable string, targets []string) string {
+	// Command accepts the values only when each runs as written.
+	if invocation.Command(append([]string{"client", "edit", client, executable}, targets...)...) == "" {
+		return "aigw client edit " + client + " --executable <path>"
 	}
+	words := []string{"aigw client edit " + client, "--executable", executable}
+	for _, target := range targets {
+		words = append(words, "--target", target)
+	}
+	return strings.Join(words, " ")
 }

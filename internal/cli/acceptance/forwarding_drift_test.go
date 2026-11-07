@@ -13,15 +13,16 @@ import (
 
 // A forwarded client reaches the upstream it was selected with. An Account edit
 // that would move that upstream is refused before any write, and the advised
-// direct selection, which passes its own guards, lets the edit succeed.
+// direct connection, which keeps the client's retry budgets, lets the edit
+// succeed.
 func TestProviderEditRefusesToMoveAForwardedUpstream(t *testing.T) {
 	for _, test := range []struct {
 		name      string
 		selection []string
 		advice    string
 	}{
-		{"native retries", nil, "aigw use --for codex sol --direct"},
-		{"retry policy", []string{"--request-max-retries", "2"}, "aigw use --for codex sol --direct --native-retries"},
+		{"native retries", nil, "aigw client edit codex --direct"},
+		{"retry policy", []string{"--request-max-retries", "2"}, "aigw client edit codex --direct"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, output, secretStore, _, _ := testApp(t, "")
@@ -58,14 +59,21 @@ func TestProviderEditRefusesToMoveAForwardedUpstream(t *testing.T) {
 
 			output.Reset()
 			if err := cli.Execute(app, strings.Fields(test.advice)[1:]); err != nil {
-				t.Fatalf("the advised direct selection failed: %v\n%s", err, output)
+				t.Fatalf("the advised direct connection failed: %v\n%s", err, output)
 			}
 			output.Reset()
 			if err := cli.Execute(app, edit); err != nil {
-				t.Fatalf("the Account edit after the direct selection: %v\n%s", err, output)
+				t.Fatalf("the Account edit after the direct connection: %v\n%s", err, output)
 			}
 			if projected := string(readFile(t, target)); !strings.Contains(projected, `base_url = "https://moved.test/v1"`) {
 				t.Fatalf("the direct connection does not reach the edited Account:\n%s", projected)
+			}
+			saved, err := app.Config.Load()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if policy := saved.Clients[codex.ID].RetryPolicy; test.selection != nil && (policy == nil || policy.RequestMaxRetries == nil || *policy.RequestMaxRetries != 2) {
+				t.Fatalf("the direct connection and the Account edit dropped the retry budget: %#v", policy)
 			}
 		})
 	}

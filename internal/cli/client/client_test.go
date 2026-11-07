@@ -21,6 +21,7 @@ import (
 	"aigw-cli/internal/store"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/spf13/cobra"
 )
 
 type adapterDiscovery struct{ result discovery.Result }
@@ -94,13 +95,13 @@ func adapterRuntime(t *testing.T, cfg domain.Config) (invocation.Context, *bytes
 	}, out, secretStore, runner
 }
 
+// executeAdapter runs `aigw client <args>`.
 func executeAdapter(t *testing.T, runtime invocation.Context, args ...string) error {
 	t.Helper()
-	command := NewCommand(runtime)
-	command.SilenceErrors = true
-	command.SilenceUsage = true
-	command.SetArgs(args)
-	return command.Execute()
+	root := &cobra.Command{Use: "aigw", SilenceErrors: true, SilenceUsage: true}
+	root.AddCommand(NewCommand(runtime))
+	root.SetArgs(append([]string{"client"}, args...))
+	return root.Execute()
 }
 
 func TestDiscoverReportsFoundAndMissingExecutables(t *testing.T) {
@@ -140,7 +141,7 @@ func TestEnableRejectsInvalidInputsBeforeMutation(t *testing.T) {
 		args []string
 		want string
 	}{
-		{name: "unknown client", args: []string{"enable", "future", "--executable", "/opt/future"}, want: "invalid argument"},
+		{name: "unknown client", args: []string{"enable", "future", "--executable", "/opt/future"}, want: `unknown client "future"`},
 		{name: "missing executable", args: []string{"enable", claude.ID}, want: "--executable is required"},
 		{name: "codex target required", args: []string{"enable", codex.ID, "--executable", "/opt/codex"}, want: "requires at least one --target"},
 	} {
@@ -338,7 +339,7 @@ func (unavailableAdapterSecretStore) Exists(string) (bool, error) {
 func TestDisableHandlesUnknownAndAlreadyDisabledClients(t *testing.T) {
 	runtime, out, _, _ := adapterRuntime(t, adapterConfig())
 	err := executeAdapter(t, runtime, "disable", "future")
-	if err == nil || !strings.Contains(err.Error(), "invalid argument") {
+	if err == nil || !strings.Contains(err.Error(), `unknown client "future"`) {
 		t.Fatalf("unknown client error = %v", err)
 	}
 	if err := executeAdapter(t, runtime, "disable", codex.ID); err != nil {
@@ -468,7 +469,7 @@ func TestCommandsPropagateConfigurationLoadErrors(t *testing.T) {
 	}{
 		{name: "list", args: []string{"list"}},
 		{name: "enable", args: []string{"enable", claude.ID, "--executable", "/opt/claude"}},
-		{name: "auth", args: []string{"auth", codex.ID}},
+		{name: "edit", args: []string{"edit", codex.ID, "--direct"}},
 		{name: "disable", args: []string{"disable", codex.ID}},
 	} {
 		t.Run(test.name, func(t *testing.T) {

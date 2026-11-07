@@ -149,13 +149,9 @@ func (c *Config) validateForwarding(client string, binding ClientBinding) error 
 	if runtime.CredentialProjectionFingerprint(client) == binding.ForwardingUpstreamIdentity && runtime.Protocol == binding.ForwardingProtocol {
 		return nil
 	}
-	direct := "aigw use --for " + client + " " + binding.Model + " --direct"
-	if binding.RetryPolicy != nil {
-		// The direct connection is a new connection, which a selected retry
-		// policy would otherwise refuse.
-		direct += " --native-retries"
-	}
-	return fmt.Errorf("client %q forwards to the upstream it was selected with, and this change would move that upstream; run `%s` first", client, direct)
+	// The direct connection reaches the same provider, so it keeps the
+	// client's retry budgets.
+	return fmt.Errorf("client %q forwards to the upstream it was selected with, and this change would move that upstream; run `aigw client edit %s --direct` first", client, client)
 }
 
 func (c *Config) validateSelection(client string, selection ClientSelection) error {

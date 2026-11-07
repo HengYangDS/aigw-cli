@@ -50,7 +50,7 @@ func TestForwardingRefusesAChangeThatMovesItsUpstream(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			cfg := forwardedConfig(t)
 			move(&cfg)
-			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "`aigw use --for codex backup --direct`") {
+			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "`aigw client edit codex --direct`") {
 				t.Fatalf("a moved forwarded upstream was accepted or not explained: %v", err)
 			}
 			if runtime, err := cfg.ResolveRuntime(ClientCodex, ""); err != nil || runtime.Endpoint == forwardingTestEndpoint {
@@ -75,12 +75,12 @@ func TestForwardingRefusesAProtocolChange(t *testing.T) {
 	binding := cfg.Clients[ClientHermes]
 	binding.Protocol = domain.ProtocolOpenAIChatCompletions
 	cfg.Clients[ClientHermes] = binding
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "`aigw use --for hermes multi --direct`") {
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "`aigw client edit hermes --direct`") {
 		t.Fatalf("a forwarded protocol change was accepted or not explained: %v", err)
 	}
 }
 
-func TestForwardingRefusalResetsASelectedRetryPolicy(t *testing.T) {
+func TestForwardingRefusalKeepsASelectedRetryPolicy(t *testing.T) {
 	cfg := forwardedConfig(t)
 	retries := uint64(2)
 	binding := cfg.Clients[ClientCodex]
@@ -89,8 +89,8 @@ func TestForwardingRefusalResetsASelectedRetryPolicy(t *testing.T) {
 	account := cfg.Providers["backup"]
 	account.Endpoints.OpenAIResponses = "https://moved.test/v1"
 	cfg.Providers["backup"] = account
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "`aigw use --for codex backup --direct --native-retries`") {
-		t.Fatalf("the advised command would refuse its own connection change: %v", err)
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "`aigw client edit codex --direct`") {
+		t.Fatalf("the advised direct connection is not named, or names the retry budgets that it keeps: %v", err)
 	}
 }
 

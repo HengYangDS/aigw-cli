@@ -1,6 +1,7 @@
 # client lists every client with its model, whether it is enabled and where
 # it is installed, discovers the scripted Claude Code, disables and re-enables
-# its projection, and refuses an unknown client, in text and as JSON.
+# its projection, edits a client's connection, and refuses an unknown client,
+# in text and as JSON.
 exec aigw client --help
 cmp stdout help.txt
 
@@ -70,6 +71,59 @@ normalize stdout enable-preview.out
 snapshot $HOME still-disabled.txt
 cmp still-disabled.txt disabled.txt
 
+# client edit owns a client's connection: its executable, its configuration
+# files, forwarding and retry budgets. Codex selects team's model on a new
+# Responses endpoint; it is not installed, so its edits change the
+# configuration alone until its configuration file is named.
+exec aigw provider edit team --endpoint responses=$UPSTREAM/v1
+exec aigw model edit team/team-model --protocol anthropic --protocol responses
+exec aigw use --for codex team
+
+# Previews write nothing below the private home.
+snapshot $HOME edit-before.txt
+exec aigw client edit codex --via http://127.0.0.1:8792/v1 --dry-run --json
+cmp stdout edit-via-preview.json
+exec aigw client edit codex --request-retries 0 --stream-retries 2 --dry-run
+cmp stdout edit-retries-preview.txt
+exec aigw client edit codex --target $HOME/.codex/config.toml --executable $WORK/codex --dry-run --json
+stdout '"dry_run": true'
+stdout '"file": "~/.codex/config.toml",\n\s+"action": "initial_project"'
+snapshot $HOME edit-after.txt
+cmp edit-after.txt edit-before.txt
+
+# Forwarding and the budgets that an edit names change; the other budget,
+# the provider, the model and the Token stay.
+exec aigw client edit codex --via http://127.0.0.1:8792/v1 --request-retries 0 --stream-retries 2 --json
+cmp stdout edit-forwarded.json
+exec aigw client edit codex --direct --stream-retries 3 --json
+cmp stdout edit-direct.json
+exec aigw client edit codex --direct --json
+cmp stdout edit-unchanged.json
+exec aigw client edit codex --native-retries
+cmp stdout edit-native.txt
+
+# Naming Codex's configuration file writes AIGW's settings there.
+exec aigw client edit codex --target $HOME/.codex/config.toml --executable $WORK/codex --json
+stdout '"changed": true'
+stdout '"targets": \[\n\s+"[^"]+config\.toml"\n\s+\]'
+stdout '"file": "~/.codex/config.toml",\n\s+"action": "initial_project"'
+grep 'AIGW managed provider' $HOME/.codex/config.toml
+exec aigw client list
+stdout 'Codex +team/team-model · Enabled · Not installed'
+
+# Refusals name what is wrong before anything is read or written.
+exitcode 1 aigw client edit codex --json
+cmp stdout edit-nothing.json
+exitcode 1 aigw client edit claude --request-retries 1
+cmp stdout edit-no-budgets.txt
+exitcode 1 aigw client edit codx --direct --json
+cmp stdout edit-unknown.json
+exitcode 1 aigw client edit hermes --via http://127.0.0.1:8792/v1 --json
+cmp stdout edit-no-model.json
+exitcode 1 aigw client edit codex --via http://proxy.test/v1 --json
+cmp stdout edit-plain-http.json
+exitcode 1 aigw client edit codex --via http://127.0.0.1:8792/v1 --direct --json
+cmp stdout edit-both.json
 -- disable-preview.json --
 {
   "schema_version": 1,
@@ -135,7 +189,7 @@ sk-team-token-0001
 -- help.txt --
 AIGW  aigw client
 ────────────────────────────────────────
-  List, enable and disable clients
+  List, enable, disable and edit clients
 
 Usage
   aigw client [command]
@@ -143,6 +197,7 @@ Usage
 Commands
   disable              Disable a client and remove AIGW-owned projections
   discover             Discover installed client executables
+  edit                 Change a client's executable, configuration files, forwarding or retry budgets
   enable               Enable a client projection
   list                 List every client with its model, whether it is enabled and where it is installed
 
@@ -166,10 +221,10 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  Client must be claude, claude-desktop, codex, or hermes; run `aigw client enable --help`: invalid argument "unknown" for "aigw client enable"
+  unknown client "unknown"; clients are claude, claude-desktop, codex, or hermes
 
 Fix
-  aigw client enable --help
+  aigw client list
 -- disabled.json --
 {
   "schema_version": 1,
@@ -199,15 +254,15 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "Client must be claude, claude-desktop, codex, or hermes; run `aigw client enable --help`: invalid argument \"unknown\" for \"aigw client enable\"",
-  "next_action": "aigw client enable --help"
+  "error": "unknown client \"unknown\"; clients are claude, claude-desktop, codex, or hermes",
+  "next_action": "aigw client list"
 }
 -- disable-refusal.json --
 {
   "schema_version": 3,
   "ok": false,
-  "error": "Client must be claude, claude-desktop, codex, or hermes; run `aigw client disable --help`: invalid argument \"unknown\" for \"aigw client disable\"",
-  "next_action": "aigw client disable --help"
+  "error": "unknown client \"unknown\"; clients are claude, claude-desktop, codex, or hermes",
+  "next_action": "aigw client list"
 }
 -- list.txt --
 AIGW  Clients
@@ -242,4 +297,135 @@ Next
   "ok": false,
   "error": "unknown command \"extra\"",
   "next_action": "aigw client discover --help"
+}
+-- edit-via-preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "client": "codex",
+  "changed": true,
+  "enabled": true,
+  "model": "team/team-model",
+  "targets": [],
+  "forwarding": "http://127.0.0.1:8792/v1",
+  "client_files": [],
+  "next_action": "aigw client edit codex --via http://127.0.0.1:8792/v1"
+}
+-- edit-retries-preview.txt --
+AIGW  Client edited (preview)
+────────────────────────────────────────
+  Client               Codex
+  Model                team/team-model
+  State                Enabled
+  Forwarding           None; the client reaches its provider's endpoint
+  Request retries      0
+  Stream retries       2
+  ✓ Nothing was written: configuration, credentials and client files are unchanged
+
+Next
+  aigw client edit codex --request-retries 0 --stream-retries 2
+-- edit-forwarded.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "client": "codex",
+  "changed": true,
+  "enabled": true,
+  "model": "team/team-model",
+  "targets": [],
+  "forwarding": "http://127.0.0.1:8792/v1",
+  "retries": {
+    "request": 0,
+    "stream": 2
+  },
+  "client_files": [],
+  "next_action": "aigw check"
+}
+-- edit-direct.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "client": "codex",
+  "changed": true,
+  "enabled": true,
+  "model": "team/team-model",
+  "targets": [],
+  "retries": {
+    "request": 0,
+    "stream": 3
+  },
+  "client_files": [],
+  "next_action": "aigw check"
+}
+-- edit-unchanged.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "client": "codex",
+  "changed": false,
+  "enabled": true,
+  "model": "team/team-model",
+  "targets": [],
+  "retries": {
+    "request": 0,
+    "stream": 3
+  },
+  "client_files": []
+}
+-- edit-native.txt --
+AIGW  Client edited
+────────────────────────────────────────
+  Client               Codex
+  Model                team/team-model
+  State                Enabled
+  Forwarding           None; the client reaches its provider's endpoint
+  Retries              The client's own defaults
+  ✓ Saved; the provider, its Token and the other clients are unchanged
+
+Next
+  aigw check
+-- edit-nothing.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "client edit needs --executable, --target, --via, --direct, --request-retries, --stream-retries or --native-retries; run `aigw client edit --help`",
+  "next_action": "aigw client edit --help"
+}
+-- edit-no-budgets.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Claude has no native retry budgets; --request-retries, --stream-retries and --native-retries are for Codex; run `aigw client edit --help`
+
+Fix
+  aigw client edit --help
+-- edit-unknown.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown client \"codx\"; did you mean codex? Clients are claude, claude-desktop, codex, or hermes",
+  "next_action": "aigw client list"
+}
+-- edit-no-model.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Hermes selects no model, so it has no provider connection to forward or to give retry budgets",
+  "next_detail": "aigw use hermes \u003cprovider/model\u003e"
+}
+-- edit-plain-http.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "--via: plain HTTP is allowed only for a loopback endpoint; run `aigw client edit --help`",
+  "next_action": "aigw client edit --help"
+}
+-- edit-both.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "--via and --direct are mutually exclusive; run `aigw client edit --help`",
+  "next_action": "aigw client edit --help"
 }

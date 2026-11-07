@@ -263,7 +263,7 @@ func TestCoreValidationFailuresUseEnglishGuidance(t *testing.T) {
 		{args: []string{"setup", "--route", "new-route", "--for", "other"}, want: "--for must be claude, claude-desktop, codex, or hermes"},
 		{args: []string{"route", "add", "new-route"}, want: "--account, --model, and --protocol are required"},
 		{args: []string{"adapter"}, want: "unknown command \"adapter\""},
-		{args: []string{"client", "enable", "other"}, want: "Client must be claude, claude-desktop, codex, or hermes"},
+		{args: []string{"client", "enable", "other"}, want: "clients are claude, claude-desktop, codex, or hermes"},
 	} {
 		out.Reset()
 		err := cli.Execute(app, tc.args)

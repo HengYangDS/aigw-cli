@@ -68,27 +68,31 @@ func (Synchronizer) PrepareSelection(cfg domain.Config, client, routeID string, 
 	return selected, runtime, nil
 }
 
+// validateRetryConnectionChange keeps a client's retry budgets while it
+// reaches the same provider on the same protocol, and refuses another
+// connection that declares no retry intent.
 func validateRetryConnectionChange(before, after domain.Config, client string, connection domain.ConnectionChange) error {
 	if before.Clients[client].RetryPolicy == nil || after.Clients[client].Model == "" || connection.NativeRetries || connection.RetryPolicy != nil {
 		return nil
 	}
 	previous, previousErr := before.ResolveRuntime(client, "")
 	current, currentErr := after.ResolveRuntime(client, "")
-	if previousErr == nil && currentErr == nil && (previous.ConnectionFingerprint() == current.ConnectionFingerprint() || movedEndpoint(previous, current)) {
+	if previousErr == nil && currentErr == nil && sameProviderConnection(previous, current) {
 		return nil
 	}
-	return fmt.Errorf("client %q connection changed with a selected retry policy; declare budgets with `aigw use --for %s`, or select --native-retries on the current connection first", client, client)
+	return fmt.Errorf("client %q connection changed with a selected retry policy; run `aigw client edit %s --native-retries` first, then make the change again", client, client)
 }
 
-// movedEndpoint reports whether a client's connection changed only because its
-// provider moved the endpoint of the client's protocol: the same provider,
-// protocol, native provider and authentication reach a new upstream. Retry
-// budgets belong to the provider, so such a move keeps them; forwarding that
-// reached the old endpoint does not stay, and the forwarding check refuses it.
-func movedEndpoint(previous, current domain.Runtime) bool {
+// sameProviderConnection reports whether two runtimes of a client reach the
+// same provider on the same protocol, with the same native provider and
+// authentication, wherever the endpoint is: a new model, an endpoint that the
+// provider moved, and forwarding that starts or stops keep the connection.
+// Retry budgets belong to the provider, so such a change keeps them. Forwarding
+// that reached a moved endpoint does not stay, and the forwarding check
+// refuses it.
+func sameProviderConnection(previous, current domain.Runtime) bool {
 	return previous.ProviderID == current.ProviderID && previous.Protocol == current.Protocol &&
-		previous.ModelProvider == current.ModelProvider && previous.Authentication == current.Authentication &&
-		previous.CredentialProjectionFingerprint(previous.Client) != current.CredentialProjectionFingerprint(current.Client)
+		previous.ModelProvider == current.ModelProvider && previous.Authentication == current.Authentication
 }
 
 func (s Synchronizer) validateRetryTransition(before, after domain.Config, connection domain.ConnectionChange) error {
