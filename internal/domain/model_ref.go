@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 )
 
@@ -74,6 +76,24 @@ func (c *Config) ResolveModelRef(ref ModelRef) []string {
 // IDs that read alike still get distinct keys within the identifier rule.
 func ModelKey(ref ModelRef) string {
 	return identifierFor(ref.provider+"-"+ref.id, ref.String())
+}
+
+// AddedModelFamily is the family of a model with the provider model ID id
+// that is added without a family: an existing family whose ID equals id,
+// ignoring case, or else the model's own family, which it creates labelled
+// with id when it does not exist. It never derives a family from a prefix or
+// another part of id, because a family's metadata then describes the model.
+func (c *Config) AddedModelFamily(id string) string {
+	for _, family := range slices.Sorted(maps.Keys(c.Families)) {
+		if strings.EqualFold(family, id) {
+			return family
+		}
+	}
+	family := FamilyID(id)
+	if _, exists := c.Families[family]; !exists {
+		c.Families[family] = Family{Label: id}
+	}
+	return family
 }
 
 // FamilyID derives the ID of the family that a model forms by itself: its

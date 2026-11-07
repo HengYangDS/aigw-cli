@@ -2,7 +2,9 @@ package use
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 
 	"aigw-cli/internal/app"
 	clientactivation "aigw-cli/internal/app/activation"
@@ -23,6 +25,10 @@ type selectionOutcome struct {
 	changed       bool
 	tokenMissing  bool
 	tokenStored   bool
+	// unlisted and catalogChecked say whether the catalog check of a model
+	// that the selection adds or gives a protocol was skipped or passed.
+	unlisted       bool
+	catalogChecked bool
 }
 
 // document is `aigw use`'s JSON document.
@@ -31,6 +37,9 @@ type document struct {
 	Changed           bool                          `json:"changed"`
 	Client            string                        `json:"client"`
 	Model             string                        `json:"model"`
+	Added             bool                          `json:"added,omitempty"`
+	GainedProtocol    string                        `json:"gained_protocol,omitempty"`
+	CatalogChecked    *bool                         `json:"catalog_checked,omitempty"`
 	Label             string                        `json:"label"`
 	Provider          string                        `json:"provider"`
 	Family            string                        `json:"family"`
@@ -43,6 +52,9 @@ type document struct {
 	TokenMissing      bool                          `json:"token_missing,omitempty"`
 	TokenStored       bool                          `json:"token_stored,omitempty"`
 	ClientFiles       []invocation.ClientFile       `json:"client_files"`
+	OtherClients      []string                      `json:"other_clients,omitempty"`
+	ToolSearchOff     []string                      `json:"tool_search_off,omitempty"`
+	ToolSearchFix     string                        `json:"tool_search_fix,omitempty"`
 	CredentialReader  *app.CredentialEntrypointPlan `json:"credential_reader,omitempty"`
 	FilesDeferred     bool                          `json:"files_deferred,omitempty"`
 	RestartRequired   bool                          `json:"restart_required,omitempty"`
@@ -71,6 +83,24 @@ func (o selectionOutcome) describe(runtime invocation.Context, dryRun bool) docu
 	}
 	if policy := current.RetryPolicy; policy != nil {
 		doc.Retries = &retriesItem{Request: policy.RequestMaxRetries, Stream: policy.StreamMaxRetries}
+	}
+	for _, plan := range o.preview.Plans() {
+		if plan.Client != client.ID && plan.ChangesState && !slices.Contains(doc.OtherClients, plan.Client) {
+			doc.OtherClients = append(doc.OtherClients, plan.Client)
+		}
+	}
+	if o.choice.adds || o.choice.gains {
+		checked := o.catalogChecked
+		doc.Added, doc.CatalogChecked = o.choice.adds, &checked
+		if o.choice.gains {
+			doc.GainedProtocol = o.choice.protocol.Name()
+		}
+		// What the selection adds declares no capability, which turns off a
+		// host tool search that needs every listed model to declare it.
+		if lost := runtime.Clients.ToolSearchLost(o.before, o.after); len(lost) > 0 {
+			doc.ToolSearchOff = lost
+			doc.ToolSearchFix = "aigw model edit " + doc.Model + " --capability tool_search"
+		}
 	}
 	if clientactivation.ProjectionPrerequisites(o.after)[client.ID] != "" {
 		doc.FilesDeferred = true
@@ -162,8 +192,17 @@ func (o selectionOutcome) rows(doc document) []terminal.Field {
 	rows := []terminal.Field{
 		{Label: "Client", Value: client.Label},
 		{Label: "Model", Value: doc.Model},
-		{Label: "Protocol", Value: domain.ProtocolLabel(o.selected.Protocol)},
-		{Label: "Endpoint", Value: doc.Endpoint},
+	}
+	if doc.Added {
+		rows = append(rows, terminal.Field{State: terminal.OK, Label: "Added", Value: "To provider " + doc.Provider + ", in family " + doc.Family + ", declaring no capability"})
+	}
+	protocol := domain.ProtocolLabel(o.selected.Protocol)
+	if doc.GainedProtocol != "" {
+		protocol += ", which the model gains, declaring no capability"
+	}
+	rows = append(rows, terminal.Field{Label: "Protocol", Value: protocol}, terminal.Field{Label: "Endpoint", Value: doc.Endpoint})
+	if doc.CatalogChecked != nil {
+		rows = append(rows, o.catalogRow(doc))
 	}
 	if doc.Endpoint != doc.ProviderEndpoint {
 		rows = append(rows, terminal.Field{Label: "Provider endpoint", Value: doc.ProviderEndpoint})
@@ -192,7 +231,41 @@ func (o selectionOutcome) rows(doc document) []terminal.Field {
 	if client.SessionsKeepModel && o.filesChange(client.ID) {
 		rows = append(rows, terminal.Field{Label: "Existing sessions", Value: "Keep the model they started with; new sessions use this selection"})
 	}
+	if len(doc.OtherClients) > 0 {
+		rows = append(rows, terminal.Field{Label: "Other clients", Value: o.labels(doc.OtherClients) + ": their files change too"})
+	}
+	if len(doc.ToolSearchOff) > 0 {
+		rows = append(rows, terminal.Field{State: terminal.Warn, Label: "Tool search", Value: "Off in " + o.labels(doc.ToolSearchOff) + ", because " + doc.Model +
+			" declares no tool_search; once it is qualified, `" + doc.ToolSearchFix + "` declares it"})
+	}
 	return rows
+}
+
+// catalogRow says whether the provider's catalog lists a model that the
+// selection adds or gives a protocol.
+func (o selectionOutcome) catalogRow(doc document) terminal.Field {
+	switch {
+	case doc.DryRun:
+		return terminal.Field{State: terminal.Info, Label: "Catalog", Value: "Not checked in a preview"}
+	case o.unlisted:
+		return terminal.Field{State: terminal.Warn, Label: "Catalog", Value: "Not checked: --unlisted"}
+	default:
+		return terminal.Field{State: terminal.OK, Label: "Catalog", Value: "Listed by the provider"}
+	}
+}
+
+// labels names clients by their labels, in a list for prose.
+func (o selectionOutcome) labels(clients []string) string {
+	labels := make([]string, 0, len(clients))
+	for _, client := range clients {
+		labels = append(labels, o.before.Admission().Label(client))
+	}
+	switch len(labels) {
+	case 1:
+		return labels[0]
+	default:
+		return strings.Join(labels[:len(labels)-1], ", ") + " and " + labels[len(labels)-1]
+	}
 }
 
 // retryRows show a client's retry budgets, or that it uses its own defaults.

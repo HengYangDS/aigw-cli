@@ -13,13 +13,17 @@ import (
 // choice is the selection that the arguments, prompts and --protocol
 // resolve: the client, the model's name and its key, and the protocol.
 // chosen marks a protocol that --protocol or a prompt chose among several,
-// which a command line that repeats the selection names.
+// which a command line that repeats the selection names. adds marks a model
+// that the selection adds, and gains an added model to which it gives the
+// protocol.
 type choice struct {
 	client   domain.ClientSpec
 	ref      domain.ModelRef
 	key      string
 	protocol domain.EndpointProtocol
 	chosen   bool
+	adds     bool
+	gains    bool
 }
 
 // command is the aigw use command line that makes this selection, or "" when
@@ -129,8 +133,10 @@ type option struct {
 // client speaks and the provider serves, or among several the client's
 // current protocol, the one that its recommendation of this model names, or
 // one that a prompt asks for. Without a prompt, several protocols are refused
-// with the choice to make. No protocol is inferred from the model's ID or
-// another client.
+// with the choice to make. A model that is not added, or that declares none
+// of those protocols, or not the one that --protocol names, gets one of the
+// protocols that the client speaks and the provider serves, chosen the same
+// way. No protocol is inferred from the model's ID or another client.
 func chooseProtocol(runtime invocation.Context, cfg domain.Config, spec domain.ClientSpec, ref domain.ModelRef, requested domain.EndpointProtocol) (choice, error) {
 	provider, _ := invocation.ResolveProvider(cfg, ref.Provider())
 	served := spec.CompatibleProtocols(provider)
@@ -138,10 +144,6 @@ func chooseProtocol(runtime invocation.Context, cfg domain.Config, spec domain.C
 		return choice{}, err
 	}
 	keys := cfg.ResolveModelRef(ref)
-	if len(keys) == 0 {
-		_, _, err := invocation.ResolveModel(cfg, ref, "", nil)
-		return choice{}, err
-	}
 	var options []option
 	for _, protocol := range served {
 		for _, key := range keys {
@@ -151,14 +153,25 @@ func chooseProtocol(runtime invocation.Context, cfg domain.Config, spec domain.C
 		}
 	}
 	selected := choice{client: spec, ref: ref, chosen: requested != ""}
-	switch {
-	case len(options) == 0:
-		protocol := requested
-		if protocol == "" {
-			protocol = served[0]
+	if len(options) == 0 {
+		if len(keys) > 1 {
+			// Only a configuration from before models were unique per
+			// provider holds several, which a protocol may not tell apart.
+			_, _, err := invocation.ResolveModel(cfg, ref, requested, nil)
+			return choice{}, err
 		}
-		_, _, err := invocation.ResolveModel(cfg, ref, protocol, nil)
-		return choice{}, err
+		key := domain.ModelKey(ref)
+		selected.adds = len(keys) == 0
+		if !selected.adds {
+			key, selected.gains = keys[0], true
+		}
+		for _, protocol := range served {
+			if requested == "" || protocol == requested {
+				options = append(options, option{key: key, protocol: protocol})
+			}
+		}
+	}
+	switch {
 	case len(options) == 1:
 		selected.key, selected.protocol = options[0].key, options[0].protocol
 		return selected, nil

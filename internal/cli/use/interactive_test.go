@@ -102,7 +102,10 @@ func TestUseInteractiveFailures(t *testing.T) {
 	}{
 		{name: "arguments required", runtime: func(value invocation.Context) invocation.Context { value.Interactive = false; return value },
 			want: "aigw use without a terminal needs a <client> and a <provider/model> argument"},
-		{name: "unknown model", args: []string{codex.ID, "gateway/missing"}, want: "unknown model gateway/missing"},
+		{name: "a model that the catalog does not list", args: []string{codex.ID, "gateway/missing"}, runtime: func(value invocation.Context) invocation.Context {
+			value.HTTP = catalogServer(t, nil, "gpt-test")
+			return value
+		}, want: "the gateway catalog does not list missing"},
 		{name: "load", args: []string{codex.ID, "gateway/gpt-test"}, runtime: func(value invocation.Context) invocation.Context {
 			value.Config = store.NewStore(t.TempDir(), clients.Admission())
 			return value

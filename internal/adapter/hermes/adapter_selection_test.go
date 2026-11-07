@@ -70,7 +70,7 @@ func TestHermesModelForAdoptsOnlyOneExactModel(t *testing.T) {
 	// A choice that no added model carries names the selection with a
 	// placeholder for the model.
 	_, _, err = hermesModelFor(cfg, Selection{Provider: "aigw-gateway-openai-responses", Model: "gpt-unadded"})
-	if err == nil || !strings.Contains(err.Error(), "which provider \"gateway\" has not added; run `aigw use hermes <provider/model>`") {
+	if err == nil || !strings.Contains(err.Error(), "which provider \"gateway\" has not added; run `aigw use hermes gateway/gpt-unadded --protocol responses`") {
 		t.Fatalf("an unadded choice = %v", err)
 	}
 }

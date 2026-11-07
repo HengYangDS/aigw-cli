@@ -63,7 +63,7 @@ func modelFor(cfg domain.Config, selected domain.Runtime, model string) (string,
 	case 1:
 		return matches[0], nil
 	case 0:
-		return "", fmt.Errorf("Codex selects model %q, which provider %q has not added; run `aigw use codex <provider/model>`", model, selected.ProviderID)
+		return "", fmt.Errorf("Codex selects model %q, which provider %q has not added; run `aigw use codex %s/%s`", model, selected.ProviderID, selected.ProviderID, model)
 	default:
 		// Only a configuration from before models were unique per provider
 		// can hold several, which no selection tells apart.

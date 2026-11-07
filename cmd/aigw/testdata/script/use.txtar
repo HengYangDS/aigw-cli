@@ -1,5 +1,6 @@
-# use points one client at a model named provider/model, as JSON and in text.
-# A preview reads no Token value and writes nothing. Within a provider a
+# use points one client at a model named provider/model, as JSON and in text,
+# and adds a model that the provider's catalog lists. A preview reads no Token
+# value or catalog and writes nothing. Within a provider a
 # client keeps its forwarding and retry budgets; on another provider's model
 # it loses both, and the result says so. A model on several protocols that a
 # client speaks needs --protocol without a terminal, and a provider without a
@@ -47,6 +48,35 @@ exec aigw use codex other/team-model
 normalize stdout moved.out
 cmp moved.out moved.txt
 
+# A model that the provider's catalog lists is added and selected in one
+# step, as its own family declaring no capability. A preview reads no catalog
+# and writes nothing; an ID that the catalog does not list names the closest
+# listed one, and --unlisted adds an ID without reading the catalog. A
+# provider without an endpoint for the client's protocol is refused, and an
+# added model gains the client's protocol once the provider serves it.
+stdin fresh-token.txt
+exec aigw provider add fresh --endpoint anthropic=$UPSTREAM/fresh --token-stdin
+snapshot $HOME fresh-before.txt
+exec aigw use claude fresh/fresh-model --dry-run
+normalize stdout fresh-preview.out
+cmp fresh-preview.out fresh-preview.txt
+snapshot $HOME fresh-after.txt
+cmp fresh-after.txt fresh-before.txt
+exitcode 1 aigw use claude fresh/fresh-models --json
+cmp stdout fresh-unlisted.json
+exec aigw use claude fresh/fresh-model
+normalize stdout fresh.out
+cmp fresh.out fresh.txt
+exec aigw use claude fresh/private-model --unlisted --json
+stdout '"added": true'
+stdout '"catalog_checked": false'
+exitcode 1 aigw use codex fresh/fresh-model --json
+cmp stdout no-endpoint.json
+exec aigw provider edit fresh --endpoint responses=$UPSTREAM/fresh/v1
+exec aigw use codex fresh/fresh-model --json
+stdout '"gained_protocol": "responses"'
+stdout '"catalog_checked": true'
+
 # Hermes speaks both of team-model's protocols, so without a terminal it
 # needs --protocol, which the refusal names with the choice.
 exitcode 1 aigw use hermes team/team-model --json
@@ -82,6 +112,8 @@ cmp stdout protocol-refusal.txt
 sk-team-token-0001
 -- other-token.txt --
 sk-other-token-0001
+-- fresh-token.txt --
+sk-fresh-token-0001
 -- mixed.in --
 version = 7
 [accounts.mixed]
@@ -99,6 +131,7 @@ interfaces = { anthropic = [] }
 AIGW  aigw use
 ────────────────────────────────────────
   Point a client at a model, named provider/model; <client> is claude, claude-desktop, codex, or hermes.
+  A model that is not added yet is added first, once the provider's catalog lists it; --unlisted skips that check.
   In a terminal, a missing client or model is asked for, recommended models first.
 
 Usage
@@ -110,10 +143,11 @@ Examples
   aigw use claude ucloud/minimax-m3 --dry-run
 
 Options
-      --dry-run           Show the selection without reading a Token, sending a request or writing anything
+      --dry-run           Show the selection without reading a Token or a catalog, sending a request or writing anything
   -h, --help              help for use
       --json              Write the selection as JSON
       --protocol string   The protocol on which the client uses the model, for a client that speaks several: anthropic, responses, or chat
+      --unlisted          Add a model that the provider's catalog does not list, without reading the catalog
 -- preview.json --
 {
   "schema_version": 3,
@@ -201,6 +235,52 @@ AIGW  Model selected
 
 Next
   Install Codex if needed, then run `aigw sync`
+-- fresh-preview.txt --
+AIGW  Model selected (preview)
+────────────────────────────────────────
+  Client               Claude
+  Model                fresh/fresh-model
+  ✓ Added              To provider fresh, in family fresh-model, declaring no capability
+  Protocol             Anthropic Messages
+  Endpoint             $UPSTREAM/fresh
+  · Catalog            Not checked in a preview
+
+Client files
+  Claude ~/.claude/settings.json  project
+  ✓ Nothing was written: configuration, credentials and client files are unchanged
+
+Next
+  aigw use claude fresh/fresh-model
+-- fresh-unlisted.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "the fresh catalog does not list fresh-models; did you mean fresh/fresh-model?",
+  "next_action": "aigw use claude fresh/fresh-model"
+}
+-- fresh.txt --
+AIGW  Model selected
+────────────────────────────────────────
+  Client               Claude
+  Model                fresh/fresh-model
+  ✓ Added              To provider fresh, in family fresh-model, declaring no capability
+  Protocol             Anthropic Messages
+  Endpoint             $UPSTREAM/fresh
+  ✓ Catalog            Listed by the provider
+
+Client files
+  Claude ~/.claude/settings.json  project
+  ✓ Saved; the other clients' selections are unchanged
+
+Next
+  aigw check claude
+-- no-endpoint.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Codex cannot use fresh/fresh-model: it speaks OpenAI Responses, and provider fresh has no endpoint for any of them",
+  "next_detail": "aigw provider edit fresh --endpoint responses=\u003curl\u003e"
+}
 -- hermes-protocol.json --
 {
   "schema_version": 3,
@@ -249,8 +329,8 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "unknown model team/missing-model",
-  "next_action": "aigw model list --provider team"
+  "error": "the team catalog does not list missing-model",
+  "next_detail": "If the provider serves this exact model ID, run `aigw use claude team/missing-model --unlisted`."
 }
 -- protocol-refusal.txt --
 AIGW  Action required

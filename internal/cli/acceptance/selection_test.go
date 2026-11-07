@@ -9,6 +9,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 	"bytes"
 	"errors"
 	"os"
@@ -486,9 +487,20 @@ func TestUseRejectsUnknownModel(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = secretStore.Set("one", "one-secret")
-	err := cli.Execute(app, []string{"use", "claude", "one/does-not-exist"})
-	if err == nil || !strings.Contains(err.Error(), "unknown model one/does-not-exist") {
-		t.Fatalf("error = %v", err)
+	// A model that is not added is added once the provider's catalog lists
+	// it; a catalog that cannot be read refuses it before any write, naming
+	// --unlisted, which adds an ID that the provider serves unlisted.
+	before, err := app.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = cli.Execute(app, []string{"use", "claude", "one/does-not-exist"})
+	if problem := terminal.ProblemFor(err); err == nil || !strings.Contains(err.Error(), "the one catalog cannot be read") ||
+		problem.Fix != "aigw use claude one/does-not-exist --unlisted" {
+		t.Fatalf("error = %v, fix %q", err, problem.Fix)
+	}
+	if after, err := app.Config.CaptureSnapshot(); err != nil || !after.Config.Equal(before.Config) {
+		t.Fatalf("a refused addition wrote the configuration: %v", err)
 	}
 }
 

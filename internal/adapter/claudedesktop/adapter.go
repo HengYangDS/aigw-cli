@@ -268,6 +268,17 @@ func claudeDesktopModels(cfg domain.Config, selected domain.Runtime) []Model {
 	return models
 }
 
+// ToolSearch reports whether cfg enables Claude Desktop's host tool search:
+// Desktop is enabled with a selection, and every model that its profile lists
+// declares tool_search on the selected protocol.
+func (claudeDesktopAdapter) ToolSearch(cfg domain.Config) bool {
+	if !cfg.Clients[ID].Enabled {
+		return false
+	}
+	selected, err := cfg.ResolveRuntime(ID, "")
+	return err == nil && claudeDesktopToolSearch(cfg, selected)
+}
+
 // claudeDesktopToolSearch enables Desktop's profile-wide host tool search only
 // when every exposed Route qualified it on the selected protocol.
 func claudeDesktopToolSearch(cfg domain.Config, selected domain.Runtime) bool {

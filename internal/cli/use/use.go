@@ -5,6 +5,7 @@ package use
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -22,6 +23,7 @@ const schemaVersion = 3
 // options are the flags of `aigw use`.
 type options struct {
 	protocol domain.EndpointProtocol
+	unlisted bool
 	dryRun   bool
 	jsonMode bool
 }
@@ -34,6 +36,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Use:   "use <client> <provider/model>",
 		Short: "Point a client at a model",
 		Long: "Point a client at a model, named provider/model; <client> is " + admission.Usage() + ".\n" +
+			"A model that is not added yet is added first, once the provider's catalog lists it; --unlisted skips that check.\n" +
 			"In a terminal, a missing client or model is asked for, recommended models first.",
 		Example: examples(admission),
 		Args: func(_ *cobra.Command, args []string) error {
@@ -49,7 +52,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	invocation.BindProtocol(cmd, &options.protocol, "The protocol on which the client uses the model, for a client that speaks several")
-	cmd.Flags().BoolVar(&options.dryRun, "dry-run", false, "Show the selection without reading a Token, sending a request or writing anything")
+	cmd.Flags().BoolVar(&options.unlisted, "unlisted", false, "Add a model that the provider's catalog does not list, without reading the catalog")
+	cmd.Flags().BoolVar(&options.dryRun, "dry-run", false, "Show the selection without reading a Token or a catalog, sending a request or writing anything")
 	cmd.Flags().BoolVar(&options.jsonMode, "json", false, "Write the selection as JSON")
 	return cmd
 }
@@ -137,8 +141,9 @@ func requireArguments(given arguments, interactive, jsonMode bool) error {
 }
 
 // run resolves the selection, previews it, and unless --dry-run asks for it,
-// obtains a missing Token and commits the selection with every client file
-// that it changes.
+// obtains a missing Token, checks that the provider's catalog lists a model
+// that the selection adds or gives a protocol, and commits the selection
+// with every client file that it changes.
 func run(cmd *cobra.Command, runtime invocation.Context, args []string, options options) error {
 	if err := cmd.Context().Err(); err != nil {
 		return err
@@ -157,7 +162,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 		return err
 	}
 	synchronizer := operation.Synchronizer()
-	after, selected, err := synchronizer.PrepareSelection(cfg, chosen.client.ID, chosen.key, chosen.protocol)
+	after, selected, err := synchronizer.PrepareSelection(withAddition(cfg, chosen), chosen.client.ID, chosen.key, chosen.protocol)
 	if err != nil {
 		return err
 	}
@@ -173,7 +178,10 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	if err != nil {
 		return err
 	}
-	outcome := selectionOutcome{before: cfg, after: desired, selected: selected, choice: chosen, preview: invocation.Planned(operation, projection), tokenMissing: missing}
+	outcome := selectionOutcome{
+		before: cfg, after: desired, selected: selected, choice: chosen, preview: invocation.Planned(operation, projection),
+		tokenMissing: missing, unlisted: options.unlisted,
+	}
 	if options.dryRun {
 		// Only a preview names the credential reader; a commit prepares it.
 		if outcome.preview, err = invocation.WithEntrypoint(operation, desired, projection); err != nil {
@@ -188,10 +196,56 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 			return err
 		}
 	}
+	if (chosen.adds || chosen.gains) && !options.unlisted {
+		if err := checkCatalog(cmd, operation, cfg, chosen, token); err != nil {
+			return err
+		}
+		outcome.catalogChecked = true
+	}
 	changed, _, _, err := synchronizer.SelectModel(cmd.Context(), cfg, after, chosen.client.ID, token)
 	if err != nil {
 		return err
 	}
 	outcome.changed, outcome.tokenStored = changed, token != ""
 	return outcome.report(runtime, options)
+}
+
+// withAddition returns cfg with the model that the selection adds, or with
+// the protocol that it gives an added model, declaring no capability on it.
+// A model that the selection adds takes the family that the model ID names,
+// ignoring case, or is its own family.
+func withAddition(cfg domain.Config, chosen choice) domain.Config {
+	if !chosen.adds && !chosen.gains {
+		return cfg
+	}
+	working := cfg.Clone()
+	model := working.Models[chosen.key]
+	if chosen.adds {
+		model = domain.Model{Provider: chosen.ref.Provider(), UpstreamModel: chosen.ref.ID(), Family: working.AddedModelFamily(chosen.ref.ID())}
+	}
+	protocols := maps.Clone(model.Protocols)
+	if protocols == nil {
+		protocols = map[domain.EndpointProtocol][]domain.Capability{}
+	}
+	protocols[chosen.protocol] = []domain.Capability{}
+	model.Protocols = protocols
+	working.Models[chosen.key] = model
+	return working
+}
+
+// checkCatalog applies the catalog check that `aigw model add` applies, with
+// the Token that the selection obtained when the store held none. Its fixes
+// rerun the selection, with another model ID or with --unlisted, or select a
+// model that is already added.
+func checkCatalog(cmd *cobra.Command, runtime invocation.Context, cfg domain.Config, chosen choice, token string) error {
+	reader := runtime
+	if token != "" {
+		reader.Secrets = obtainedToken{Store: runtime.Secrets, provider: chosen.ref.Provider(), token: token}
+	}
+	return invocation.CheckCatalog(cmd.Context(), reader, cfg, chosen.ref, invocation.CatalogCommands{
+		Rerun: func(model string, added ...string) string {
+			return invocation.Rerun(cmd, []string{chosen.client.ID, model}, nil, added...)
+		},
+		Added: func(model string) string { return invocation.Command("use", chosen.client.ID, model) },
+	})
 }

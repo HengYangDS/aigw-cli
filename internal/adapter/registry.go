@@ -123,6 +123,13 @@ type HostValidator interface {
 	ValidateHost(host discovery.Host) error
 }
 
+// ToolSearcher is implemented by an adapter whose client enables a host tool
+// search only while every model that its configuration lists declares the
+// capability: it reports whether cfg enables it.
+type ToolSearcher interface {
+	ToolSearch(cfg domain.Config) bool
+}
+
 // Registry is the sole ordered operational registry for admitted clients.
 type Registry struct {
 	byID      map[string]Adapter
@@ -359,6 +366,18 @@ func (registry Registry) ValidateHost(host discovery.Host) error {
 		}
 	}
 	return nil
+}
+
+// ToolSearchLost returns, in admission order, the clients whose host tool
+// search before enables and after does not.
+func (registry Registry) ToolSearchLost(before, after domain.Config) []string {
+	var lost []string
+	for _, id := range registry.ids {
+		if searcher, searches := registry.byID[id].(ToolSearcher); searches && searcher.ToolSearch(before) && !searcher.ToolSearch(after) {
+			lost = append(lost, id)
+		}
+	}
+	return lost
 }
 
 // IDs returns admitted clients in the registry's stable order.

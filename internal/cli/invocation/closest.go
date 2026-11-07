@@ -9,11 +9,11 @@ import (
 // maximumSuggestions bounds the closest matches that one refusal names.
 const maximumSuggestions = 3
 
-// ClosestMatches returns up to three candidates that look like what the user
+// closestMatches returns up to three candidates that look like what the user
 // typed, closest first: those that differ from it by at most a third of its
 // length in single-character edits, ignoring case, and those that contain it or
 // that it contains. Equal distances keep the candidates' order.
-func ClosestMatches(typed string, candidates []string) []string {
+func closestMatches(typed string, candidates []string) []string {
 	typed = strings.ToLower(typed)
 	threshold := max(1, len([]rune(typed))/3)
 	type match struct {

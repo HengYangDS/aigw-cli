@@ -2,8 +2,12 @@ package claudedesktop
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/domain"
 )
 
 func TestProjectionOwnsTheToolSearchSetting(t *testing.T) {
@@ -41,5 +45,36 @@ func applyProjection(t *testing.T, paths Paths, desired Desired) {
 	}
 	if _, err := plan.Apply(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Desktop's tool search is on while every model that its profile lists
+// declares it, and a model of the selected provider and protocol that
+// declares nothing, as aigw use adds one, turns it off, which the registry
+// reports as lost; a disabled Desktop has none to lose.
+func TestRegistryReportsALostToolSearch(t *testing.T) {
+	fixture := newClaudeDesktopFixture(t)
+	declareToolSearch(fixture.cfg, "selected", "alternate", "manual")
+	registry, err := adapter.NewRegistry(New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !(claudeDesktopAdapter{}).ToolSearch(fixture.cfg) {
+		t.Fatal("tool search is off although every listed model declares it")
+	}
+	added := fixture.cfg.Clone()
+	added.Families["fresh"] = domain.Family{Label: "fresh"}
+	added.Models["fresh"] = domain.Model{Provider: added.Models["selected"].Provider, Family: "fresh", UpstreamModel: "fresh",
+		Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+	if lost := registry.ToolSearchLost(fixture.cfg, added); !slices.Equal(lost, []string{ID}) {
+		t.Fatalf("lost tool search = %q", lost)
+	}
+	if lost := registry.ToolSearchLost(added, fixture.cfg); len(lost) != 0 {
+		t.Fatalf("a regained tool search was reported lost: %q", lost)
+	}
+	disabled := fixture.cfg.Clone()
+	disabled.SetClientActivation(ID, false, "", nil)
+	if (claudeDesktopAdapter{}).ToolSearch(disabled) {
+		t.Fatal("a disabled Desktop reported tool search")
 	}
 }

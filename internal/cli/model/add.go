@@ -2,7 +2,6 @@ package model
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 
@@ -102,7 +101,13 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 	// A preview and --unlisted read no catalog.
 	checked := !options.dryRun && !options.unlisted
 	if checked {
-		if err := checkCatalog(cmd.Context(), runtime, cmd, before, ref); err != nil {
+		commands := invocation.CatalogCommands{
+			Rerun: func(model string, added ...string) string {
+				return invocation.Rerun(cmd, append([]string{model}, cmd.Flags().Args()[1:]...), nil, added...)
+			},
+			Added: func(model string) string { return invocation.Command("model", "show", model) },
+		}
+		if err := invocation.CheckCatalog(cmd.Context(), runtime, before, ref, commands); err != nil {
 			return err
 		}
 	}
@@ -197,25 +202,16 @@ func missingEndpoint(cmd *cobra.Command, ref domain.ModelRef, provider domain.Pr
 }
 
 // familyFor is the family of a model that add creates: an explicit family,
-// created labelled from the model when it does not exist, or else an existing
-// family whose ID equals the model ID ignoring case, or else the model's own
-// family. It returns the family that it creates, if any.
+// created labelled from the model when it does not exist, or else the family
+// that domain.Config.AddedModelFamily gives a model without one. It returns
+// the explicit family that it creates, if any.
 func familyFor(cfg *domain.Config, ref domain.ModelRef, explicit string) (family, created string) {
-	if explicit != "" {
-		if _, exists := cfg.Families[explicit]; !exists {
-			cfg.Families[explicit] = domain.Family{Label: ref.ID()}
-			return explicit, explicit
-		}
-		return explicit, ""
+	if explicit == "" {
+		return cfg.AddedModelFamily(ref.ID()), ""
 	}
-	for _, id := range slices.Sorted(maps.Keys(cfg.Families)) {
-		if strings.EqualFold(id, ref.ID()) {
-			return id, ""
-		}
+	if _, exists := cfg.Families[explicit]; !exists {
+		cfg.Families[explicit] = domain.Family{Label: ref.ID()}
+		return explicit, explicit
 	}
-	family = domain.FamilyID(ref.ID())
-	if _, exists := cfg.Families[family]; !exists {
-		cfg.Families[family] = domain.Family{Label: ref.ID()}
-	}
-	return family, ""
+	return explicit, ""
 }

@@ -53,3 +53,27 @@ func acquireToken(cmd *cobra.Command, runtime invocation.Context, cfg domain.Con
 	}
 	return token, nil
 }
+
+// obtainedToken is the credential store with the Token of one provider that
+// the selection obtained and has not stored yet, which only the catalog check
+// reads; every other provider's Token comes from the store.
+type obtainedToken struct {
+	secret.Store
+	provider, token string
+}
+
+// Exists reports the obtained Token, or the store's.
+func (s obtainedToken) Exists(provider string) (bool, error) {
+	if provider == s.provider {
+		return true, nil
+	}
+	return s.Store.Exists(provider)
+}
+
+// Get returns the obtained Token, or the store's.
+func (s obtainedToken) Get(provider string) (string, error) {
+	if provider == s.provider {
+		return s.token, nil
+	}
+	return s.Store.Get(provider)
+}

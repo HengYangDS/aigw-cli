@@ -22,12 +22,12 @@ func TestClosestMatchesNamesWhatLooksLikeTheInput(t *testing.T) {
 		{"hub", []string{"aihubmix"}},
 		{"zzz", []string{}},
 	} {
-		if got := ClosestMatches(test.typed, providers); !slices.Equal(got, test.want) {
-			t.Errorf("ClosestMatches(%q) = %q, want %q", test.typed, got, test.want)
+		if got := closestMatches(test.typed, providers); !slices.Equal(got, test.want) {
+			t.Errorf("closestMatches(%q) = %q, want %q", test.typed, got, test.want)
 		}
 	}
 	// The closest come first and at most three are named.
-	got := ClosestMatches("gpt-6", []string{"gpt-6.1-sol", "gpt-5", "gpt-6", "gpt-6-mini", "gpt-6.2"})
+	got := closestMatches("gpt-6", []string{"gpt-6.1-sol", "gpt-5", "gpt-6", "gpt-6-mini", "gpt-6.2"})
 	if !slices.Equal(got, []string{"gpt-6", "gpt-5", "gpt-6.2"}) {
 		t.Fatalf("ranked matches = %q", got)
 	}

@@ -30,7 +30,7 @@ func TestAdoptCodexSelectionNamesSelectionCommands(t *testing.T) {
 		copy        bool
 		want        []string
 	}{
-		{name: "none", model: "gpt-luna", want: []string{"which provider \"gateway\" has not added", "`aigw use codex <provider/model>`"}},
+		{name: "none", model: "gpt-luna", want: []string{"which provider \"gateway\" has not added", "`aigw use codex gateway/gpt-luna`"}},
 		{name: "several", model: "gpt-terra", copy: true, want: []string{"which 2 models of provider \"gateway\" carry", "`aigw config path`"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {

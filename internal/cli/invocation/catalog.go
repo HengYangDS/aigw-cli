@@ -1,4 +1,4 @@
-package model
+package invocation
 
 import (
 	"context"
@@ -7,21 +7,27 @@ import (
 	"strings"
 
 	"aigw-cli/internal/app"
-	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/terminal"
-
-	"github.com/spf13/cobra"
 )
 
-// checkCatalog applies the catalog check of `aigw model add`: it reads the
-// provider's authenticated catalog through the observation that `aigw model
-// search` shares, on each of the provider's protocols, and admits the model
-// only when a catalog lists its ID. A catalog that cannot be read on any
-// protocol, or that lists no model, is refused with the same command and
-// --unlisted, and a catalog that does not list the model with its closest
-// listed IDs.
-func checkCatalog(ctx context.Context, runtime invocation.Context, cmd *cobra.Command, cfg domain.Config, ref domain.ModelRef) error {
+// CatalogCommands are the commands that a catalog refusal names as its fix,
+// each "" when a word would need quoting: Rerun, the command again for the
+// model named model with the added words after it, and Added, the command
+// for a model that is already added.
+type CatalogCommands struct {
+	Rerun func(model string, added ...string) string
+	Added func(model string) string
+}
+
+// CheckCatalog applies the catalog check of adding a model, which `aigw model
+// add` and `aigw use` share: it reads the provider's authenticated catalog
+// through the observation that `aigw model search` shares, on each of the
+// provider's protocols, with runtime's Tokens, and admits the model only
+// when a catalog lists its ID. A catalog that cannot be read on any protocol,
+// or that lists no model, is refused with the command rerun with --unlisted,
+// and a catalog that does not list the model with its closest listed IDs.
+func CheckCatalog(ctx context.Context, runtime Context, cfg domain.Config, ref domain.ModelRef, commands CatalogCommands) error {
 	scoped := cfg.Clone()
 	for id := range scoped.Providers {
 		if id != ref.Provider() {
@@ -43,7 +49,7 @@ func checkCatalog(ctx context.Context, runtime invocation.Context, cmd *cobra.Co
 	if slices.Contains(listed, ref.ID()) {
 		return nil
 	}
-	unlisted := unlistedCommand(cmd)
+	unlisted := unlistedCommand(ref, commands)
 	if !read || len(listed) == 0 {
 		reason := "cannot be read"
 		if read {
@@ -52,7 +58,7 @@ func checkCatalog(ctx context.Context, runtime invocation.Context, cmd *cobra.Co
 		problem := fmt.Sprintf("the %s catalog %s, so AIGW cannot check that it serves %s", ref.Provider(), reason, ref)
 		return terminal.ProblemError(problem, unreadSources(report), "", unlisted, nil)
 	}
-	return unlistedModel(cmd, cfg, ref, listed, unreadSources(report))
+	return unlistedModel(cfg, ref, listed, unreadSources(report), commands)
 }
 
 // unlistedModel refuses a model ID that the catalog does not list. The
@@ -61,25 +67,24 @@ func checkCatalog(ctx context.Context, runtime invocation.Context, cmd *cobra.Co
 // catalog without a close ID leaves --unlisted, which adds the ID as typed; it
 // is never the exact fix for what is likely a typo of an added model, and it
 // asks the user to confirm the ID first.
-func unlistedModel(cmd *cobra.Command, cfg domain.Config, ref domain.ModelRef, listed []string, evidence string) error {
+func unlistedModel(cfg domain.Config, ref domain.ModelRef, listed []string, evidence string, commands CatalogCommands) error {
 	problem := fmt.Sprintf("the %s catalog does not list %s", ref.Provider(), ref.ID())
 	closest := closestListed(ref.ID(), listed)
 	if len(closest) == 0 {
-		return terminal.ProblemError(problem, evidence, "", confirmUnlisted(cmd), nil)
+		return terminal.ProblemError(problem, evidence, "", confirmUnlisted(ref, commands), nil)
 	}
 	nearest := domain.NewModelRef(ref.Provider(), closest[0])
 	if len(cfg.ResolveModelRef(nearest)) > 0 {
-		fix := invocation.Command("model", "show", nearest.String())
+		fix := commands.Added(nearest.String())
 		if fix == "" {
 			fix = "Run `aigw model show` for " + nearest.String() + "."
 		}
 		return terminal.ProblemError(problem+"; "+nearest.String()+" is already added", evidence, "", fix, nil)
 	}
 	problem += "; did you mean " + ref.Provider() + "/" + strings.Join(closest, ", "+ref.Provider()+"/") + "?"
-	args := append([]string{nearest.String()}, cmd.Flags().Args()[1:]...)
-	fix := invocation.Rerun(cmd, args, nil)
+	fix := commands.Rerun(nearest.String())
 	if fix == "" {
-		fix = confirmUnlisted(cmd)
+		fix = confirmUnlisted(ref, commands)
 	}
 	return terminal.ProblemError(problem, evidence, "", fix, nil)
 }
@@ -87,8 +92,8 @@ func unlistedModel(cmd *cobra.Command, cfg domain.Config, ref domain.ModelRef, l
 // confirmUnlisted is the fix that adds a model ID that the catalog does not
 // list, after the user confirms it: prose, so that JSON carries it as
 // next_detail and no script adds a typo.
-func confirmUnlisted(cmd *cobra.Command) string {
-	if line := invocation.Rerun(cmd, cmd.Flags().Args(), nil, "--unlisted"); line != "" {
+func confirmUnlisted(ref domain.ModelRef, commands CatalogCommands) string {
+	if line := commands.Rerun(ref.String(), "--unlisted"); line != "" {
 		return "If the provider serves this exact model ID, run `" + line + "`."
 	}
 	return "If the provider serves this exact model ID, run the same command with --unlisted."
@@ -113,13 +118,13 @@ func unreadSources(report app.CatalogReport) string {
 
 // closestListed returns the listed IDs closest to id.
 func closestListed(id string, listed []string) []string {
-	return invocation.ClosestMatches(id, slices.Compact(slices.Sorted(slices.Values(listed))))
+	return closestMatches(id, slices.Compact(slices.Sorted(slices.Values(listed))))
 }
 
 // unlistedCommand is the command that adds the model without the catalog
 // check: this command line with --unlisted.
-func unlistedCommand(cmd *cobra.Command) string {
-	if line := invocation.Rerun(cmd, cmd.Flags().Args(), nil, "--unlisted"); line != "" {
+func unlistedCommand(ref domain.ModelRef, commands CatalogCommands) string {
+	if line := commands.Rerun(ref.String(), "--unlisted"); line != "" {
 		return line
 	}
 	return "Run the same command with --unlisted."

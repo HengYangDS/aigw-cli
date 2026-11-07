@@ -177,7 +177,7 @@ func ResolveClient(admission domain.Admission, id string) (domain.ClientSpec, er
 		return spec, nil
 	}
 	message := fmt.Sprintf("unknown client %q; clients are %s", id, admission.Usage())
-	if closest := ClosestMatches(id, admission.IDs()); len(closest) > 0 {
+	if closest := closestMatches(id, admission.IDs()); len(closest) > 0 {
 		message = fmt.Sprintf("unknown client %q; did you mean %s? Clients are %s", id, strings.Join(closest, ", "), admission.Usage())
 	}
 	return domain.ClientSpec{}, refusal{message: message, fix: "aigw client list"}
@@ -186,7 +186,7 @@ func ResolveClient(admission domain.Admission, id string) (domain.ClientSpec, er
 // closestText is the refusal text that names the closest of candidates to
 // typed, each with prefix, or nothing when none is close.
 func closestText(typed string, candidates []string, prefix string) string {
-	closest := ClosestMatches(typed, slices.Compact(slices.Sorted(slices.Values(candidates))))
+	closest := closestMatches(typed, slices.Compact(slices.Sorted(slices.Values(candidates))))
 	if len(closest) == 0 {
 		return ""
 	}

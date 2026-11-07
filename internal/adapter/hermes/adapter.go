@@ -283,7 +283,8 @@ func hermesModelFor(cfg domain.Config, native Selection) (string, domain.Endpoin
 	case 1:
 		return matches[0], provider.Protocol, nil
 	case 0:
-		return "", "", fmt.Errorf("Hermes selects model %q, which provider %q has not added; run `aigw use hermes <provider/model>`", native.Model, provider.Provider)
+		return "", "", fmt.Errorf("Hermes selects model %q, which provider %q has not added; run `aigw use hermes %s/%s --protocol %s`",
+			native.Model, provider.Provider, provider.Provider, native.Model, provider.Protocol.Name())
 	default:
 		// Only a configuration from before models were unique per provider
 		// can hold several, which no selection tells apart.

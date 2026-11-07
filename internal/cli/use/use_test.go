@@ -23,14 +23,17 @@ import (
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
+
+	"github.com/spf13/cobra"
 )
 
-// execute runs `aigw use` with args and returns its error.
+// execute runs `aigw use` with args, below the aigw root as the program runs
+// it, and returns its error.
 func execute(runtime invocation.Context, args ...string) error {
-	command := NewCommand(runtime)
-	command.SilenceErrors, command.SilenceUsage = true, true
-	command.SetArgs(args)
-	return command.Execute()
+	root := &cobra.Command{Use: "aigw", SilenceErrors: true, SilenceUsage: true}
+	root.AddCommand(NewCommand(runtime))
+	root.SetArgs(append([]string{"use"}, args...))
+	return root.Execute()
 }
 
 // A preview reads no Token value, sends no request and writes nothing; it
