@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
@@ -24,9 +25,11 @@ import (
 
 // catalogServer answers each provider's catalog request with the model IDs
 // listed, and records the Token of each request in tokens when it is given.
-// Any other request fails the test.
+// The catalog check reads its protocols concurrently, so the record is
+// locked. Any other request fails the test.
 func catalogServer(t *testing.T, tokens *[]string, listed ...string) doerFunc {
 	t.Helper()
+	var recorded sync.Mutex
 	return func(request *http.Request) (*http.Response, error) {
 		if request.Method != http.MethodGet || !strings.HasSuffix(request.URL.Path, "/models") {
 			t.Errorf("a selection sent %s %s", request.Method, request.URL)
@@ -37,7 +40,9 @@ func catalogServer(t *testing.T, tokens *[]string, listed ...string) doerFunc {
 			if token == "" {
 				token = strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
 			}
+			recorded.Lock()
 			*tokens = append(*tokens, token)
+			recorded.Unlock()
 		}
 		data := make([]map[string]string, 0, len(listed))
 		for _, id := range listed {
