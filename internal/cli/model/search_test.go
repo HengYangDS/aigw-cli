@@ -315,7 +315,7 @@ func TestSearchNamesTheFixOfAMissingToken(t *testing.T) {
 
 func TestSearchRefusesBeforeReadingAnyCatalog(t *testing.T) {
 	f := newSearchFixture(t)
-	if p := problem(f.run("search", "--provider", "ful")); p.Title != `unknown provider "ful"; did you mean full?` || p.Fix != "aigw provider list" {
+	if p := problem(f.run("search", "--provider", "fulx")); p.Title != `unknown provider "fulx"; did you mean full?` || p.Fix != "aigw provider list" {
 		t.Fatalf("unknown provider = %+v", p)
 	}
 	f.runtime.Config = store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())
