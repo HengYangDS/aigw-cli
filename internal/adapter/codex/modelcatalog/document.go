@@ -1,5 +1,5 @@
-// Package modelcatalog preserves Codex-owned model metadata while adding aliases
-// whose base identity is uniquely established by the installed client's table.
+// Package modelcatalog preserves Codex-owned model metadata while adding an
+// alias for a model whose family the installed client's table holds.
 package modelcatalog
 
 import (
@@ -62,42 +62,25 @@ func (d Document) Model(slug string) map[string]json.RawMessage {
 	return entry
 }
 
-// Project adapts a uniquely proven namespace or aliases one exact canonical model.
-// It returns nil when the selected id is already native or its base is unproved.
-func (d Document) Project(model, canonicalModelID string) ([]byte, string) {
-	if model == "" {
+// Project returns the client's complete table with an alias named model whose
+// metadata is family's entry, and family as the alias's base. Metadata comes
+// only from the model's family, never from a prefix or suffix of the model ID:
+// a model that the table already holds, a model without a family, and a model
+// whose family the table does not hold get nothing, so the client keeps its
+// own behavior for them.
+func (d Document) Project(model, family string) ([]byte, string) {
+	if model == "" || family == "" {
 		return nil, ""
 	}
 	if _, present := d.slugs[model]; present {
 		return nil, ""
 	}
-	namespace, namespaced := d.namespace(model)
-	if namespaced {
-		base := model[len(namespace)+1:]
-		if canonicalModelID != "" && canonicalModelID != base {
-			return nil, ""
-		}
-		models := slices.Clone(d.models)
-		for _, slug := range slices.Sorted(maps.Keys(d.slugs)) {
-			alias := namespace + "." + slug
-			if _, present := d.slugs[alias]; present {
-				continue
-			}
-			entry := maps.Clone(d.models[d.slugs[slug]])
-			entry["slug"], _ = json.Marshal(alias)
-			models = append(models, entry)
-		}
-		return d.withModels(models), base
-	}
-	if canonicalModelID == "" {
-		return nil, ""
-	}
-	entry := d.Model(canonicalModelID)
+	entry := d.Model(family)
 	if entry == nil {
 		return nil, ""
 	}
 	entry["slug"], _ = json.Marshal(model)
-	return d.withModels(append(slices.Clone(d.models), entry)), canonicalModelID
+	return d.withModels(append(slices.Clone(d.models), entry)), family
 }
 
 // withModels serializes the original document with its model table replaced.
@@ -108,22 +91,4 @@ func (d Document) withModels(models []map[string]json.RawMessage) []byte {
 	fields["models"], _ = json.Marshal(models)
 	data, _ := json.Marshal(fields)
 	return append(data, '\n')
-}
-
-func (d Document) namespace(model string) (string, bool) {
-	if _, present := d.slugs[model]; present {
-		return "", false
-	}
-	namespace := ""
-	matches := 0
-	for index := range len(model) {
-		if model[index] != '.' || index == 0 {
-			continue
-		}
-		if _, present := d.slugs[model[index+1:]]; present {
-			namespace = model[:index]
-			matches++
-		}
-	}
-	return namespace, matches == 1
 }

@@ -25,8 +25,8 @@ type modelProbe struct {
 }
 
 // verificationResult separates four claims: the installed client knows
-// the base slug, does not already know the provider-prefixed alias, loads the
-// generated catalog, and leaves an unrelated unknown id absent.
+// the model's family, does not already know the model, loads the generated
+// catalog, and leaves an unrelated unknown id absent.
 type verificationResult struct {
 	ClientVersion string     `json:"client_version"`
 	ClientSHA256  string     `json:"client_sha256"`
@@ -66,7 +66,7 @@ var removeVerificationDirectory = robustio.RemoveAll
 // Every invocation gets a throwaway CODEX_HOME, and the configured probe names
 // the generated catalog explicitly, so the user's configuration is neither
 // read nor changed and no model request is sent.
-func verifyCatalog(executable, model, canonicalModelID string) (verification verificationResult, result error) {
+func verifyCatalog(executable, model, family string) (verification verificationResult, result error) {
 	client, bundled, err := codex.ReadBundledCatalog(executable)
 	if err != nil {
 		return verificationResult{}, err
@@ -80,12 +80,9 @@ func verifyCatalog(executable, model, canonicalModelID string) (verification ver
 	if err != nil {
 		return verification, err
 	}
-	projected, base := bundledDocument.Project(model, canonicalModelID)
+	projected, base := bundledDocument.Project(model, family)
 	if projected == nil {
-		if canonicalModelID != "" {
-			return verification, fmt.Errorf("canonical model %q does not prove a Codex catalog entry for %q", canonicalModelID, model)
-		}
-		return verification, fmt.Errorf("no unique Codex model matches %q, so AIGW projects no catalog for it", model)
+		return verification, fmt.Errorf("family %q does not prove a Codex catalog entry for %q, so AIGW projects no alias for it", family, model)
 	}
 	verification.BaseSlug = base
 	directory, err := os.MkdirTemp("", "aigw-codex-catalog-verify-")

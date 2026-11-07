@@ -285,6 +285,25 @@ func TestCodexCatalogProjectionKeepsAnExistingNativeWireModel(t *testing.T) {
 	}
 }
 
+// TestCodexCatalogGivesAModelThatIsItsOwnFamilyNoAlias pins the retired
+// guess: a provider-prefixed ID that is its own family, as a model that `aigw
+// use` adds is, gets no metadata from the table entry that its suffix names.
+// The table is still pinned, unchanged.
+func TestCodexCatalogGivesAModelThatIsItsOwnFamilyNoAlias(t *testing.T) {
+	const model = "openai.gpt-5.6-sol"
+	bundled := projectionCatalog("gpt-5.6-sol", "gpt-5.5")
+	original := codexBundledCatalog
+	t.Cleanup(func() { codexBundledCatalog = original })
+	codexBundledCatalog = func(string) (ExecutableIdentity, []byte, error) {
+		return ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, bundled, nil
+	}
+	target := TargetRef{Path: filepath.Join(t.TempDir(), "config.toml"), Executable: "codex"}
+	plan := codexCatalogProjection(target, model, model, "", codexState{}, platform.FileSnapshot{})
+	if plan.state != catalogStateProjected || string(plan.data) != string(bundled) {
+		t.Fatalf("a model that is its own family got table metadata: plan = %+v", plan)
+	}
+}
+
 func TestCopyProjectionRebasesOwnedCatalogReference(t *testing.T) {
 	stubCodexBundledCatalog(t, ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}, "gpt-6.1-sol")
 	source := writeCodexTestConfig(t, "user_setting = true\n")
@@ -395,11 +414,13 @@ func TestCodexCatalogDesiredSnapshotFailsClosedOnForeignFile(t *testing.T) {
 	}
 }
 
-// catalogTestRuntime selects a provider-prefixed id, which is the reproduction
-// this work exists for.
+// catalogTestRuntime selects model as a variant of the family gpt-5.6-sol, as
+// a provider-prefixed ID such as openai.gpt-5.6-sol is: its family, never its
+// suffix, links it to the table's entry.
 func catalogTestRuntime(model string) domain.Runtime {
 	runtime := atomicTestRuntime()
 	runtime.UpstreamModel = model
+	runtime.FamilyID = "gpt-5.6-sol"
 	return runtime
 }
 

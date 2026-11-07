@@ -45,8 +45,8 @@ func TestReconcileConfigsProjectsAndWithdrawsTheModelCatalog(t *testing.T) {
 	if !strings.Contains(string(projected), `model = "openai.gpt-5.6-sol" # managed by AIGW`) {
 		t.Fatalf("config does not keep the prefixed model id:\n%s", projected)
 	}
-	if slugs := catalogSlugList(t, catalog); len(slugs) != 4 {
-		t.Fatalf("catalog slugs = %v", slugs)
+	if slugs := catalogSlugList(t, catalog); strings.Join(slugs, ",") != "gpt-5.6-sol,gpt-5.5,openai.gpt-5.6-sol" {
+		t.Fatalf("catalog slugs = %v, want the table and the family's alias", slugs)
 	}
 	state := readCodexSidecar(t, path)
 	if state.CatalogState != catalogStateProjected || state.CatalogHash != platform.SHA256(catalog) {
@@ -166,12 +166,12 @@ func TestReconcileConfigsLeavesNativeProviderCatalogAlone(t *testing.T) {
 
 func TestUnknownModelPinsCompleteBundledCatalogWithoutInventingMetadata(t *testing.T) {
 	for _, test := range []struct {
-		name             string
-		wireModel        string
-		canonicalModelID string
+		name      string
+		wireModel string
+		family    string
 	}{
-		{name: "minimax-cc", wireModel: "cc-minimax-m3", canonicalModelID: "minimax-m3"},
-		{name: "muse-spark-1.3", wireModel: "muse-spark-1.3", canonicalModelID: "muse-spark-1.3"},
+		{name: "minimax-cc", wireModel: "cc-minimax-m3", family: "minimax-m3"},
+		{name: "muse-spark-1.3", wireModel: "muse-spark-1.3", family: "muse-spark-1.3"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			client := ExecutableIdentity{Version: "1.0.0", SHA256: "aaaa"}
@@ -181,7 +181,7 @@ func TestUnknownModelPinsCompleteBundledCatalogWithoutInventingMetadata(t *testi
 			target := HomeTarget(path)
 			target.Executable = filepath.Join(filepath.Dir(path), "codex")
 			runtimeConfig := catalogTestRuntime(test.wireModel)
-			runtimeConfig.FamilyID = test.canonicalModelID
+			runtimeConfig.FamilyID = test.family
 
 			if _, err := ReconcileConfigs(nil, []TargetRef{target}, runtimeConfig, runtimeConfig, false); err != nil {
 				t.Fatal(err)
@@ -198,7 +198,7 @@ func TestUnknownModelPinsCompleteBundledCatalogWithoutInventingMetadata(t *testi
 			if err != nil || string(data) != string(bundled) {
 				t.Fatalf("unknown model catalog = %q, want the complete native catalog: %v", data, err)
 			}
-			if strings.Contains(string(data), test.canonicalModelID) || strings.Contains(string(data), test.wireModel) {
+			if strings.Contains(string(data), test.family) || strings.Contains(string(data), test.wireModel) {
 				t.Fatalf("native catalog contains invented metadata for route %+v: %s", test, data)
 			}
 			if err := ValidateConfig(path, runtimeConfig); err != nil {
@@ -236,7 +236,7 @@ func TestReconcileConfigsRebuildsTheCatalogAfterAClientUpgrade(t *testing.T) {
 	if string(second) == string(first) {
 		t.Fatal("catalog was not rebuilt for the upgraded client")
 	}
-	if !strings.Contains(string(second), "openai.gpt-6") {
+	if !strings.Contains(string(second), `"gpt-6"`) {
 		t.Fatalf("rebuilt catalog lacks the new model:\n%s", second)
 	}
 	if state := readCodexSidecar(t, path); state.CatalogClientVersion != "2.0.0" || state.CatalogHash != platform.SHA256(second) {

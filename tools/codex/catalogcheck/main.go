@@ -1,15 +1,15 @@
 // Command catalogcheck verifies, against a real installed Codex client, that a
-// selected model is present with metadata copied from an exact bundled base.
-// Provider-prefixed ids require a unique bundled suffix; non-native wire ids
-// require the route's explicit canonical model.
+// selected model is present with metadata copied from its family's bundled
+// entry. A model takes metadata only from its family, never from a prefix or
+// suffix of its ID, so -family is required.
 //
 // It exists because that claim cannot be proven against a fake client: the
 // package tests pin the catalog's content and every decision around it, but only
 // the client itself can show that it loaded the projected catalog. Run it when
 // changing the catalog projection or when qualifying a new client build:
 //
-//	go run ./tools/codex/catalogcheck -model openai.gpt-6.1-sol
-//	go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -canonical-model gpt-6.1-sol
+//	go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -family gpt-6.1-sol
+//	go run ./tools/codex/catalogcheck -model openai.gpt-6.1-sol -family gpt-6.1-sol
 //
 // The client renders its effective model catalog through a throwaway client
 // home, so the run makes no model request. Nothing outside a temporary directory
@@ -54,7 +54,7 @@ func run(args []string, out io.Writer) (int, error) {
 	flags := flag.NewFlagSet("codex-catalog", flag.ContinueOnError)
 	flags.SetOutput(out)
 	model := flags.String("model", "", "exact Codex model id to verify")
-	canonicalModelID := flags.String("canonical-model", "", "exact canonical AIGW model id for a route-specific wire id")
+	family := flags.String("family", "", "the model's family: the Codex model whose bundled metadata it takes")
 	executable := flags.String("codex", "", "path to the Codex executable (default: codex from PATH)")
 	asJSON := flags.Bool("json", false, "print the measurements as JSON")
 	if err := flags.Parse(args); err != nil {
@@ -63,11 +63,14 @@ func run(args []string, out io.Writer) (int, error) {
 	if *model == "" {
 		return exitPrerequisiteMissing, errors.New("-model is required")
 	}
+	if *family == "" {
+		return exitPrerequisiteMissing, errors.New("-family is required: a model takes Codex metadata only from its family")
+	}
 	resolved, err := resolveExecutable(*executable)
 	if err != nil {
 		return exitPrerequisiteMissing, err
 	}
-	verification, err := verifyModelCatalog(resolved, *model, *canonicalModelID)
+	verification, err := verifyModelCatalog(resolved, *model, *family)
 	if err != nil {
 		return exitPrerequisiteMissing, err
 	}
@@ -115,9 +118,9 @@ func report(out io.Writer, verification verificationResult, asJSON bool) error {
 		label string
 		probe modelProbe
 	}{
-		{"base slug, client's own table", verification.Reference},
-		{"prefixed, no catalog", verification.Unadapted},
-		{"prefixed, generated catalog", verification.Adapted},
+		{"family, client's own table", verification.Reference},
+		{"model, no catalog", verification.Unadapted},
+		{"model, generated catalog", verification.Adapted},
 		{"unknown model, generated catalog", verification.Unknown},
 	} {
 		state := "absent"

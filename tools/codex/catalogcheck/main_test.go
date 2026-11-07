@@ -49,7 +49,7 @@ func TestRunRejectsUnknownFlags(t *testing.T) {
 func TestRunSeparatesAMissingClientFromAFailedCheck(t *testing.T) {
 	out := &bytes.Buffer{}
 	absent := filepath.Join(t.TempDir(), "absent")
-	code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-codex", absent}, out)
+	code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-codex", absent}, out)
 	if code != exitPrerequisiteMissing {
 		t.Fatalf("run() = %d, want %d", code, exitPrerequisiteMissing)
 	}
@@ -88,8 +88,8 @@ func TestResolveExecutableReportsMissingPATHClient(t *testing.T) {
 func TestRunReportsSuccessfulVerification(t *testing.T) {
 	stubVerifier(t, sampleVerification(), nil)
 	out := &bytes.Buffer{}
-	code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-codex", writeExecutableForTest(t)}, out)
-	if code != 0 || err != nil || !strings.Contains(out.String(), "prefixed, generated catalog") {
+	code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-codex", writeExecutableForTest(t)}, out)
+	if code != 0 || err != nil || !strings.Contains(out.String(), "model, generated catalog") {
 		t.Fatalf("run() = %d, %v\n%s", code, err, out)
 	}
 }
@@ -97,21 +97,30 @@ func TestRunReportsSuccessfulVerification(t *testing.T) {
 func TestRunPassesFamilyToVerifier(t *testing.T) {
 	original := verifyModelCatalog
 	t.Cleanup(func() { verifyModelCatalog = original })
-	var gotModel, gotCanonical string
-	verifyModelCatalog = func(_, model, canonical string) (verificationResult, error) {
-		gotModel, gotCanonical = model, canonical
+	var gotModel, gotFamily string
+	verifyModelCatalog = func(_, model, family string) (verificationResult, error) {
+		gotModel, gotFamily = model, family
 		return sampleVerification(), nil
 	}
 	code, err := run([]string{
 		"-model", "gpt-6.1-sol-cdx",
-		"-canonical-model", "gpt-6.1-sol",
+		"-family", "gpt-6.1-sol",
 		"-codex", writeExecutableForTest(t),
 	}, io.Discard)
 	if code != 0 || err != nil {
 		t.Fatalf("run() = %d, %v", code, err)
 	}
-	if gotModel != "gpt-6.1-sol-cdx" || gotCanonical != "gpt-6.1-sol" {
-		t.Fatalf("verifier models = %q / %q, want exact route pair", gotModel, gotCanonical)
+	if gotModel != "gpt-6.1-sol-cdx" || gotFamily != "gpt-6.1-sol" {
+		t.Fatalf("verifier models = %q / %q, want the model and its family", gotModel, gotFamily)
+	}
+}
+
+// TestRunRequiresAFamily refuses a model without its family before it looks
+// for a client: no part of the model ID stands in for it.
+func TestRunRequiresAFamily(t *testing.T) {
+	code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-codex", filepath.Join(t.TempDir(), "absent")}, io.Discard)
+	if code != exitPrerequisiteMissing || err == nil || !strings.Contains(err.Error(), "-family is required") {
+		t.Fatalf("run() = %d, %v", code, err)
 	}
 }
 
@@ -141,7 +150,7 @@ func TestRunSeparatesMeasurementAndVerdictFailures(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			stubVerifier(t, testCase.verification, testCase.verifyError)
-			code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-codex", client}, io.Discard)
+			code, err := run([]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-codex", client}, io.Discard)
 			if code == 0 || err == nil || !strings.Contains(err.Error(), testCase.wantError) {
 				t.Fatalf("run() = %d, %v", code, err)
 			}
@@ -157,7 +166,7 @@ func TestRunReportsPresentationFailures(t *testing.T) {
 	}
 	t.Cleanup(func() { writeReport = original })
 	code, err := run(
-		[]string{"-model", "openai.gpt-5.6-sol", "-codex", writeExecutableForTest(t)},
+		[]string{"-model", "openai.gpt-5.6-sol", "-family", "gpt-5.6-sol", "-codex", writeExecutableForTest(t)},
 		io.Discard,
 	)
 	if code != exitVerificationFailed || err == nil || !strings.Contains(err.Error(), "render failed") {
@@ -211,9 +220,9 @@ func TestReportRendersEveryMeasuredSelection(t *testing.T) {
 		"codex-cli 0.146.0",
 		"openai.gpt-5.6-sol",
 		"gpt-5.6-sol",
-		"base slug, client's own table",
-		"prefixed, no catalog",
-		"prefixed, generated catalog",
+		"family, client's own table",
+		"model, no catalog",
+		"model, generated catalog",
 		"unknown model, generated catalog",
 		"present",
 		"134063e133f0b4244fa3b251acf973d4fe4b4aeeacbdc135211bf480f59f1477",

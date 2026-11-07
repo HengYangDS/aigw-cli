@@ -52,37 +52,22 @@ func mustParseCatalog(t *testing.T, data []byte) Document {
 	return document
 }
 
-// TestDocumentProjectionAdaptsEveryProviderPrefix pins the general adaptation: a
-// prefix is learned from the selected id and then applied to the whole table, so
-// no model name is hard-coded and no model the account can select is left behind.
-func TestDocumentProjectionAdaptsEveryProviderPrefix(t *testing.T) {
-	bundled := testBundledCatalog("gpt-5.6-sol", "gpt-5.5", "codex-auto-review")
-	cases := []struct {
-		model     string
-		namespace string
-	}{
-		{model: "openai.gpt-5.6-sol", namespace: "openai"},
-		{model: "openai.gpt-5.5", namespace: "openai"},
-		{model: "anthropic.codex-auto-review", namespace: "anthropic"},
-		{model: "us.openai.gpt-5.5", namespace: "us.openai"},
-		{model: "eu.anthropic.gpt-5.6-sol", namespace: "eu.anthropic"},
+// TestDocumentProjectionTakesNoMetadataFromAPrefix pins the retired guess: a
+// model ID that ends in a slug of the client's table is not that model. A
+// prefixed ID gets an alias only through its family, and one that is its own
+// family, as a model that `aigw use` adds is, gets none.
+func TestDocumentProjectionTakesNoMetadataFromAPrefix(t *testing.T) {
+	document := mustParseCatalog(t, testBundledCatalog("gpt-5.6-sol", "gpt-5.5", "codex-auto-review"))
+	for _, model := range []string{"openai.gpt-5.6-sol", "us.openai.gpt-5.5", "anthropic.codex-auto-review"} {
+		for _, family := range []string{"", model} {
+			if projected, base := document.Project(model, family); projected != nil || base != "" {
+				t.Fatalf("Project(%q, %q) = %q / %q, want no alias", model, family, projected, base)
+			}
+		}
 	}
-	for _, c := range cases {
-		data, _ := mustParseCatalog(t, bundled).Project(c.model, "")
-		if data == nil {
-			t.Fatalf("Document.Project(%q) generated no catalog", c.model)
-		}
-		got := catalogSlugList(t, data)
-		want := []string{
-			"gpt-5.6-sol", "gpt-5.5", "codex-auto-review",
-			c.namespace + ".codex-auto-review", c.namespace + ".gpt-5.5", c.namespace + ".gpt-5.6-sol",
-		}
-		if strings.Join(got, ",") != strings.Join(want, ",") {
-			t.Fatalf("Document.Project(%q) slugs = %v, want %v", c.model, got, want)
-		}
-		if !strings.Contains(string(data), c.model) {
-			t.Fatalf("Document.Project(%q) does not resolve the selected id", c.model)
-		}
+	projected, base := document.Project("openai.gpt-5.6-sol", "gpt-5.6-sol")
+	if base != "gpt-5.6-sol" || strings.Join(catalogSlugList(t, projected), ",") != "gpt-5.6-sol,gpt-5.5,codex-auto-review,openai.gpt-5.6-sol" {
+		t.Fatalf("Project() through the family = %q / %q, want one alias", projected, base)
 	}
 }
 
@@ -91,7 +76,7 @@ func TestDocumentProjectionAdaptsEveryProviderPrefix(t *testing.T) {
 // only the alias would push every other model onto fallback metadata.
 func TestDocumentProjectionKeepsTheCompleteBundledTable(t *testing.T) {
 	bundled := testBundledCatalog("gpt-5.6-sol", "gpt-5.5")
-	data, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "")
+	data, _ := mustParseCatalog(t, bundled).Project("gpt-5.6-sol-cdx", "gpt-5.6-sol")
 	if data == nil {
 		t.Fatal("Document.Project() returned no catalog")
 	}
@@ -102,35 +87,13 @@ func TestDocumentProjectionKeepsTheCompleteBundledTable(t *testing.T) {
 	if err := json.Unmarshal(data, &generated); err != nil {
 		t.Fatal(err)
 	}
-	if len(generated.Models) != len(source.Models)*2 {
+	if len(generated.Models) != len(source.Models)+1 {
 		t.Fatalf("generated %d entries from %d bundled entries", len(generated.Models), len(source.Models))
 	}
-	aliases := make(map[string]map[string]json.RawMessage, len(source.Models))
-	for _, entry := range generated.Models[len(source.Models):] {
-		var slug string
-		if err := json.Unmarshal(entry["slug"], &slug); err != nil {
-			t.Fatal(err)
-		}
-		aliases[slug] = entry
-	}
-	for _, entry := range source.Models {
-		var slug string
-		if err := json.Unmarshal(entry["slug"], &slug); err != nil {
-			t.Fatal(err)
-		}
-		alias, present := aliases["openai."+slug]
-		if !present {
-			t.Fatalf("no alias generated for %q", slug)
-		}
-		if len(alias) != len(entry) {
-			t.Fatalf("alias %q has %d fields, source has %d", slug, len(alias), len(entry))
-		}
+	for index, entry := range source.Models {
 		for key, value := range entry {
-			if key == "slug" {
-				continue
-			}
-			if string(alias[key]) != string(value) {
-				t.Fatalf("alias %q field %q = %s, want %s", slug, key, alias[key], value)
+			if string(generated.Models[index][key]) != string(value) {
+				t.Fatalf("bundled entry %d field %q = %s, want %s", index, key, generated.Models[index][key], value)
 			}
 		}
 	}
@@ -138,7 +101,7 @@ func TestDocumentProjectionKeepsTheCompleteBundledTable(t *testing.T) {
 
 func TestDocumentProjectionPreservesDocumentMetadata(t *testing.T) {
 	bundled := []byte(`{"revision":"client-owned","capabilities":{"schema":2,"features":["tools","images"]},"models":[{"slug":"base","instructions":"retain"}]}`)
-	data, _ := mustParseCatalog(t, bundled).Project("provider.base", "")
+	data, _ := mustParseCatalog(t, bundled).Project("provider.base", "base")
 	var source, generated map[string]json.RawMessage
 	if err := json.Unmarshal(bundled, &source); err != nil {
 		t.Fatal(err)
@@ -154,8 +117,9 @@ func TestDocumentProjectionPreservesDocumentMetadata(t *testing.T) {
 }
 
 // TestDocumentProjectionWithholdsWhatItCannotProve is the anti-silencing guard:
-// an id the client already knows needs nothing, and an id whose base slug does
-// not exist keeps the client's own fallback and its warning.
+// an id the client already knows needs nothing, and an id without a family, or
+// whose family is not in the table, keeps the client's own fallback and its
+// warning.
 func TestDocumentProjectionWithholdsWhatItCannotProve(t *testing.T) {
 	bundled := testBundledCatalog("gpt-5.6-sol", "gpt-5.5")
 	for _, model := range []string{
@@ -167,36 +131,38 @@ func TestDocumentProjectionWithholdsWhatItCannotProve(t *testing.T) {
 		".gpt-5.6-sol",
 		"",
 	} {
-		data, _ := mustParseCatalog(t, bundled).Project(model, "")
-		if data != nil {
-			t.Fatalf("Document.Project(%q) generated a catalog for an id it cannot prove", model)
+		for _, family := range []string{"", model, "no-such-model"} {
+			if data, _ := mustParseCatalog(t, bundled).Project(model, family); data != nil {
+				t.Fatalf("Document.Project(%q, %q) generated a catalog for an id it cannot prove", model, family)
+			}
 		}
 	}
 }
 
-// TestDocumentProjectionUsesDeclaredFamily adds only the exact declared
-// wire alias and copies the canonical entry without editing the client table.
+// TestDocumentProjectionUsesDeclaredFamily links a variant by its family: it
+// adds only the exact model ID as an alias and copies the family's entry
+// without editing the client table.
 func TestDocumentProjectionUsesDeclaredFamily(t *testing.T) {
 	const (
-		canonical = "gpt-6.1-sol"
-		wire      = "gpt-6.1-sol-cdx"
+		family = "gpt-6.1-sol"
+		wire   = "gpt-6.1-sol-cdx"
 	)
-	document := mustParseCatalog(t, testBundledCatalog(canonical, "gpt-6-luna"))
-	projected, base := document.Project(wire, canonical)
-	if projected == nil || base != canonical {
-		t.Fatalf("Project(%q, %q) = %q / %q, want an explicit alias", wire, canonical, projected, base)
+	document := mustParseCatalog(t, testBundledCatalog(family, "gpt-6-luna"))
+	projected, base := document.Project(wire, family)
+	if projected == nil || base != family {
+		t.Fatalf("Project(%q, %q) = %q / %q, want an explicit alias", wire, family, projected, base)
 	}
-	if got, want := strings.Join(catalogSlugList(t, projected), ","), canonical+",gpt-6-luna,"+wire; got != want {
+	if got, want := strings.Join(catalogSlugList(t, projected), ","), family+",gpt-6-luna,"+wire; got != want {
 		t.Fatalf("projected slugs = %q, want %q", got, want)
 	}
-	baseEntry := document.Model(canonical)
+	baseEntry := document.Model(family)
 	aliasEntry := mustParseCatalog(t, projected).Model(wire)
 	if len(aliasEntry) != len(baseEntry) {
-		t.Fatalf("alias fields = %v, canonical fields = %v", aliasEntry, baseEntry)
+		t.Fatalf("alias fields = %v, family fields = %v", aliasEntry, baseEntry)
 	}
 	for field, value := range baseEntry {
 		if field != "slug" && !bytes.Equal(aliasEntry[field], value) {
-			t.Errorf("alias metadata %q = %s, want canonical value %s", field, aliasEntry[field], value)
+			t.Errorf("alias metadata %q = %s, want the family's value %s", field, aliasEntry[field], value)
 		}
 	}
 	if document.Model(wire) != nil {
@@ -204,15 +170,16 @@ func TestDocumentProjectionUsesDeclaredFamily(t *testing.T) {
 	}
 }
 
-// TestDocumentProjectionRejectsUnprovedCanonicalAlias forbids suffix guessing,
-// even when a similar native model exists.
-func TestDocumentProjectionRejectsUnprovedCanonicalAlias(t *testing.T) {
+// TestDocumentProjectionRejectsUnprovedFamily forbids guessing from a part of
+// the ID, even when a similar native model exists: a model that is its own
+// family gets no alias.
+func TestDocumentProjectionRejectsUnprovedFamily(t *testing.T) {
 	const wire = "gpt-6.1-sol-cdx"
 	document := mustParseCatalog(t, testBundledCatalog("gpt-6.1-sol", "gpt-6-luna"))
-	for _, canonical := range []string{"", "gpt-6.1", "missing-model"} {
-		projected, base := document.Project(wire, canonical)
+	for _, family := range []string{"", "gpt-6.1", "missing-model", wire} {
+		projected, base := document.Project(wire, family)
 		if projected != nil || base != "" {
-			t.Fatalf("Project(%q, %q) = %q / %q, want no projection", wire, canonical, projected, base)
+			t.Fatalf("Project(%q, %q) = %q / %q, want no projection", wire, family, projected, base)
 		}
 	}
 	nativeWire := mustParseCatalog(t, testBundledCatalog(wire, "gpt-6.1-sol"))
@@ -221,41 +188,16 @@ func TestDocumentProjectionRejectsUnprovedCanonicalAlias(t *testing.T) {
 	}
 }
 
-// TestDocumentNamespaceRequiresAUniqueMatch pins the prefix split against a
-// first-dot shortcut: every dot-separated suffix is matched exactly, and an
-// ambiguous id is refused rather than mapped to a guess.
-func TestDocumentNamespaceRequiresAUniqueMatch(t *testing.T) {
-	// A slug that itself contains dots can make two different splits of the same
-	// id look valid. Both are refused, because either one may be the wrong model.
-	ambiguous := mustParseCatalog(t, testBundledCatalog("b.c", "c"))
-	if namespace, ok := ambiguous.namespace("a.b.c"); ok {
-		t.Fatalf("ambiguous id produced namespace %q", namespace)
-	}
-	slugs := mustParseCatalog(t, testBundledCatalog("gpt-5.6-sol", "plain"))
-	namespace, ok := slugs.namespace("openai.plain")
-	if !ok || namespace != "openai" {
-		t.Fatalf("codexCatalogNamespace() = %q, %v", namespace, ok)
-	}
-	// A dotted slug is matched whole rather than cut at the first dot.
-	namespace, ok = slugs.namespace("us.openai.gpt-5.6-sol")
-	if !ok || namespace != "us.openai" {
-		t.Fatalf("multi-level namespace = %q, %v", namespace, ok)
-	}
-	if _, ok = slugs.namespace("openai.gpt-5"); ok {
-		t.Fatal("a partial slug produced a namespace")
-	}
-}
-
 func TestDocumentProjectionIsDeterministicAndIdempotent(t *testing.T) {
 	bundled := testBundledCatalog("gpt-5.5", "gpt-5.6-sol", "codex-auto-review")
-	first, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "")
-	second, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "")
+	first, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "gpt-5.6-sol")
+	second, _ := mustParseCatalog(t, bundled).Project("openai.gpt-5.6-sol", "gpt-5.6-sol")
 	if string(first) != string(second) {
 		t.Fatal("Document.Project() is not byte-deterministic")
 	}
-	// Re-running against a table that already carries the aliases must add
+	// Re-running against a table that already carries the alias must add
 	// nothing, so a converged target keeps producing the same bytes.
-	again, _ := mustParseCatalog(t, first).Project("openai.gpt-5.6-sol", "")
+	again, _ := mustParseCatalog(t, first).Project("openai.gpt-5.6-sol", "gpt-5.6-sol")
 	if again != nil {
 		t.Fatalf("Document.Project() duplicated existing aliases:\n%s", again)
 	}
@@ -285,14 +227,14 @@ func TestParseRejectsUnusableBundledTables(t *testing.T) {
 
 func TestDocumentModelObservationCannotChangeProjection(t *testing.T) {
 	document := mustParseCatalog(t, []byte(`{"models":[{"slug":"base","instructions":"original"}]}`))
-	before, base := document.Project("provider.base", "")
+	before, base := document.Project("provider.base", "base")
 	if base != "base" {
 		t.Fatalf("Project() base = %q", base)
 	}
 	model := document.Model("base")
 	model["instructions"][1] = 'X'
 	delete(model, "slug")
-	after, _ := document.Project("provider.base", "")
+	after, _ := document.Project("provider.base", "base")
 	if !bytes.Equal(before, after) {
 		t.Fatalf("model observation changed projection: %s", after)
 	}

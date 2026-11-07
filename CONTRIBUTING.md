@@ -125,15 +125,15 @@ Only Codex can establish that its projected model catalog actually loaded.
 After a catalog or client-version change, use the tracked verifier:
 
 ```bash
-mise exec --locked -- go run ./tools/codex/catalogcheck -model openai.gpt-6.1-sol
-mise exec --locked -- go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -canonical-model gpt-6.1-sol
+mise exec --locked -- go run ./tools/codex/catalogcheck -model gpt-6.1-sol-cdx -family gpt-6.1-sol
 ```
 
-The optional `-canonical-model` must be the exact manifest Model ID for a
-route-specific wire ID. The verifier uses an isolated client home, makes no
-inference request, and compares the selected entry with the bundled canonical
-metadata apart from `slug`. Retain client version, executable checksum and
-entry digests. Exit 2 means a missing client or unproved input, not acceptance.
+The required `-family` must be the model's family, the Codex model whose
+bundled metadata it takes; no part of the model ID stands in for it. The
+verifier uses an isolated client home, makes no inference request, and
+compares the selected entry with the family's bundled metadata apart from
+`slug`. Retain client version, executable checksum and entry digests. Exit 2
+means a missing client or unproved input, not acceptance.
 
 Live-client Route qualification instead uses `aigw verify --for codex` or
 `aigw verify --for claude`; catalog inspection and direct HTTP probes cannot

@@ -140,9 +140,10 @@ func validateCodexCatalogPreflight(target codexReconciliationTarget, config, sta
 // codexCatalogProjection decides what AIGW owns for one target without writing
 // anything. An AIGW custom provider pins the installed client's complete table
 // even for a known base model: otherwise Codex may try to decode the provider's
-// standard /models response as its private metadata format. An unrecognized
-// model still keeps the client's fallback rather than a guessed entry.
-func codexCatalogProjection(target TargetRef, model, canonicalModelID, base string, state codexState, before platform.FileSnapshot) codexCatalogPlan {
+// standard /models response as its private metadata format. A model whose
+// family the table holds gets an alias of the family's entry; any other model
+// keeps the client's fallback rather than a guessed entry.
+func codexCatalogProjection(target TargetRef, model, family, base string, state codexState, before platform.FileSnapshot) codexCatalogPlan {
 	// A user-authored model_catalog_json is the user's own client policy. AIGW
 	// replaces the bundled table wholesale, so adopting that key here would
 	// silently drop models the user added.
@@ -153,10 +154,11 @@ func codexCatalogProjection(target TargetRef, model, canonicalModelID, base stri
 	live, bundled, err := codexBundledCatalog(target.Executable)
 	document, parseErr := modelcatalog.Parse(bundled)
 	if err == nil && parseErr == nil {
-		data, _ := document.Project(model, canonicalModelID)
+		data, _ := document.Project(model, family)
 		if data == nil {
-			// Preserve Codex's native table for unknown provider models. Never
-			// invent metadata or leave Codex to query provider-specific /models.
+			// Preserve Codex's native table for a model that the table holds or
+			// whose family it does not hold. Never invent metadata or leave
+			// Codex to query provider-specific /models.
 			data = bundled
 		}
 		return codexCatalogPlan{path: codexCatalogPath(target.Path), data: data, client: live, state: catalogStateProjected}
