@@ -218,7 +218,7 @@ Projection targets
   ✓ Preview did not write configuration, credentials or client files
 
 Next
-  aigw client enable claude --executable $BIN/claude.exe
+  aigw client enable claude --executable $BIN\claude.exe
 -- token.txt --
 sk-team-token-0001
 -- help.txt --
