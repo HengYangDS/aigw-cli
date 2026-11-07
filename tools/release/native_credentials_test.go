@@ -210,7 +210,9 @@ func finishNativeCredentialJourney(
 	journey.runWith(journey.source, "install", journey.pathFlag(journey.source, "install"), journey.binary)
 	journey.run("sync")
 	journey.requireNoClaudeProjection()
-	journey.run("use", claude.ID, "native-system-keyring-probe/claude-test")
+	// The finalized rename moved the route to the target provider; its model ID
+	// stays the manifest's upstream_model.
+	journey.run("use", claude.ID, targetAccount+"/claude-test")
 	journey.requireCredentialBackend(replacement, backend)
 	journey.requireClaudeCredential(replacement)
 	journey.uninstallAndRequireInstallationRemoved()
