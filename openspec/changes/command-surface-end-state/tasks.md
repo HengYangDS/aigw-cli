@@ -116,7 +116,10 @@
 - [ ] 6.1 Keep configuration only in a schema 8 `aigw.toml`, with its backup
       and verified snapshot, and use the short protocol names internally;
       component files, `order` handling and the schema 3 and 5 migrations are
-      gone, and round-trip and strict-decode tests pass.
+      gone; a configuration with providers and no model is valid, so
+      `provider add` then `use` works from an empty home and `model remove`
+      and `provider remove` may take the last model; round-trip and
+      strict-decode tests pass.
 - [ ] 6.2 Add the one-time import of a schema 6 `config.toml` and its four
       component files; golden tests cover an owner-shaped configuration of 3
       providers and 51 models with forwarding and capabilities, and the shipped
