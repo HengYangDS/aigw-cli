@@ -64,5 +64,41 @@ func TestProtocolFlagAcceptsOnlyProtocolNames(t *testing.T) {
 			t.Fatalf("a second completion of one flag = %v, want a panic", recovered)
 		}
 	}()
-	completeFlag(command, "protocol", completeProtocols)
+	CompleteFlag(command, "protocol", completeProtocols)
+}
+
+// TestProtocolsFlagKeepsEachNamedProtocolOnce parses a repeatable
+// `--protocol` as `aigw model edit` does: the names give their protocols in
+// the order given, each once, a preview rebuilds them, and any other spelling
+// fails flag parsing.
+func TestProtocolsFlagKeepsEachNamedProtocolOnce(t *testing.T) {
+	var protocols []domain.EndpointProtocol
+	command := &cobra.Command{Use: "demo"}
+	BindProtocols(command, &protocols, "Protocols")
+	flag := command.Flags().Lookup("protocol")
+	if flag.Usage != "Protocols: anthropic, responses, or chat" || flag.Value.String() != "" || flag.Value.Type() != "protocols" {
+		t.Fatalf("protocols flag = %q, value %q, type %q", flag.Usage, flag.Value.String(), flag.Value.Type())
+	}
+	if err := command.ParseFlags([]string{"--protocol", "chat", "--protocol", "anthropic", "--protocol", "chat"}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(protocols, []domain.EndpointProtocol{domain.ProtocolOpenAIChatCompletions, domain.ProtocolAnthropic}) || flag.Value.String() != "chat,anthropic" {
+		t.Fatalf("parsed protocols = %q, value %q", protocols, flag.Value.String())
+	}
+	if line, _ := commandLine(command, nil); line != "demo --protocol chat --protocol anthropic" {
+		t.Fatalf("rebuilt command line = %q", line)
+	}
+	slice, ok := flag.Value.(pflag.SliceValue)
+	if !ok {
+		t.Fatal("the protocols flag is not a slice value")
+	}
+	if err := slice.Replace([]string{"responses"}); err != nil || !slices.Equal(protocols, []domain.EndpointProtocol{domain.ProtocolOpenAIResponses}) {
+		t.Fatalf("replaced protocols = %q, %v", protocols, err)
+	}
+	if err := slice.Replace([]string{"openai_responses"}); !errors.Is(err, errProtocolName) {
+		t.Fatalf("replacing with an old spelling = %v", err)
+	}
+	if err := command.ParseFlags([]string{"--protocol", "messages"}); err == nil || !strings.Contains(err.Error(), "expected anthropic, responses, or chat") {
+		t.Fatalf("an unknown protocol = %v", err)
+	}
 }

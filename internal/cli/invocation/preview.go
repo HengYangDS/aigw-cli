@@ -134,6 +134,17 @@ func ApplyCommand(cmd *cobra.Command, args []string) string {
 	return line
 }
 
+// Rerun returns cmd's command line as it was given, without --json and the
+// replaced flags, and with the added words after it, for a fix that sets
+// flags of the command. It returns "" when a given word would need quoting.
+func Rerun(cmd *cobra.Command, args, replaced []string, added ...string) string {
+	line, isPlain := commandLine(cmd, args, append([]string{"json"}, replaced...)...)
+	if !isPlain {
+		return ""
+	}
+	return strings.Join(append([]string{line}, added...), " ")
+}
+
 // commandLine rebuilds cmd's command line from its arguments and the flags
 // that it was given, except omitted ones, and reports whether every word
 // runs as written in the platform's shells.

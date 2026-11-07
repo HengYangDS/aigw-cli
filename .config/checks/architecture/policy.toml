@@ -92,6 +92,7 @@ used_exports_only = [
   "internal/cli/install",
   "internal/cli/installation",
   "internal/cli/invocation",
+  "internal/cli/model",
   "internal/cli/models",
   "internal/cli/repair",
   "internal/cli/rollback",

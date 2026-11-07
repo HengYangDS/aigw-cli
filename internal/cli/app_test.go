@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -344,8 +345,9 @@ func TestPublicCommandTreeCarriesOneCoherentMetadataContract(t *testing.T) {
 }
 
 func TestPublicCommandHelpFitsDeclaredTerminalWidths(t *testing.T) {
-	// Start-path commands keep their logical line instead; the terminal
-	// soft-wraps them (see TestRootHelpKeepsStartCommandsWhole).
+	// Start-path commands and examples keep their logical line instead; the
+	// terminal soft-wraps them (see TestRootHelpKeepsStartCommandsWhole and
+	// TestCommandHelpIncludesNativeFlagMetadataAndExamples).
 	copyable := map[string]bool{}
 	for _, field := range startPath("aigw") {
 		copyable[field.Label] = true
@@ -366,7 +368,9 @@ func TestPublicCommandHelpFitsDeclaredTerminalWidths(t *testing.T) {
 					t.Fatalf("%s width=%d color=%t changed help content", command.CommandPath(), width, color)
 				}
 				for line := range strings.SplitSeq(out.String(), "\n") {
-					if got := terminal.DisplayWidth(line); got > width && !copyable[strings.TrimSpace(ansi.Strip(line))] {
+					text := strings.TrimSpace(ansi.Strip(line))
+					example := command.Example != "" && slices.Contains(strings.Split(command.Example, "\n"), text)
+					if got := terminal.DisplayWidth(line); got > width && !copyable[text] && !example {
 						t.Fatalf("%s width=%d color=%t overflow=%d: %q", command.CommandPath(), width, color, got, line)
 					}
 				}

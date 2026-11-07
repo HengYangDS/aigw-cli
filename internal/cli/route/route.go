@@ -3,7 +3,6 @@ package route
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
@@ -345,7 +344,7 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 			delete(cfg.Models, name)
-			recommendations := removeRecommendations(&cfg, name)
+			recommendations := cfg.RemoveRecommendedModel(name)
 			var preview invocation.Preview
 			if dryRun {
 				if preview, err = invocation.PreviewChange(runtime, before, cfg); err != nil {
@@ -385,35 +384,6 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what removing the Route would change without writing it")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the removed Route as JSON")
 	return cmd
-}
-
-// removeRecommendations drops a removed Route from every client's
-// recommendation, promoting the first remaining alternative to primary, and
-// returns the clients whose recommendation changed.
-func removeRecommendations(cfg *domain.Config, name string) []string {
-	changed := []string{}
-	for client, recommendation := range cfg.Recommendations {
-		before := len(recommendation.Alternatives)
-		recommendation.Alternatives = slices.DeleteFunc(recommendation.Alternatives, func(selection domain.ClientSelection) bool {
-			return selection.Model == name
-		})
-		switch {
-		case recommendation.Primary.Model != name:
-			if len(recommendation.Alternatives) == before {
-				continue
-			}
-			cfg.Recommendations[client] = recommendation
-		case len(recommendation.Alternatives) == 0:
-			delete(cfg.Recommendations, client)
-		default:
-			recommendation.Primary = recommendation.Alternatives[0]
-			recommendation.Alternatives = recommendation.Alternatives[1:]
-			cfg.Recommendations[client] = recommendation
-		}
-		changed = append(changed, client)
-	}
-	slices.Sort(changed)
-	return changed
 }
 
 func choiceLabel(route domain.Model) string {

@@ -52,6 +52,7 @@ Advanced
   completion           Generate shell completion
   config               Import and export configuration
   installation         Inspect the current portable program and retained predecessor
+  model                List, show, add, edit and remove models
   models               Compare configured model IDs with provider catalogs; does not test inference
   route                Manage Routes
   test                 Probe selected endpoints without model inference

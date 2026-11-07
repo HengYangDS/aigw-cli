@@ -1,0 +1,653 @@
+# model lists, shows, adds, edits and removes the models that the
+# configuration holds, each named provider/model. Each subcommand writes JSON,
+# each write previews without writing anything, and the refusals name their
+# own fix: the catalog check names --unlisted, a protocol that the provider
+# does not serve is refused, and a model that a client uses is not removed.
+exec aigw model --help
+cmp stdout help.txt
+exec aigw model add --help
+cmp stdout add-help.txt
+
+# The team provider serves Anthropic Messages from the scripted upstream, which
+# lists team-model and spare-model. The mixed provider has two endpoints, no
+# Token, so its catalog cannot be read, and a recommendation for Hermes.
+stdin token.txt
+exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
+envsubst mixed.in mixed.toml
+exec aigw config import mixed.toml
+
+exec aigw model list
+cmp stdout list.txt
+exec aigw model list --json
+cmp stdout list.json
+exec aigw model list gateway --provider team --client claude --protocol anthropic --json
+cmp stdout list-filtered.json
+exitcode 1 aigw model list --client codx --json
+cmp stdout list-client-refusal.json
+
+exec aigw model show team/team-model --json
+normalize stdout show.out
+cmp show.out show.json
+exitcode 1 aigw model show team-model
+cmp stdout show-bare.txt
+exitcode 1 aigw model show tem/team-model --json
+cmp stdout show-provider.json
+exitcode 1 aigw model show team/team-mdl --json
+cmp stdout show-model.json
+
+# Previews read no catalog and write nothing below the private home.
+snapshot $HOME before.txt
+exec aigw model add team/spare-model --dry-run
+cmp stdout add-preview.txt
+exec aigw model add team/spare-model --dry-run --json
+cmp stdout add-preview.json
+exec aigw model edit team/team-model --label 'Team Model' --dry-run --json
+cmp stdout edit-preview.json
+exec aigw model remove mixed/chat-only --dry-run --json
+cmp stdout remove-preview.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
+
+# The catalog lists spare-model, so it is added; it does not list
+# missing-model, and the mixed provider's catalog cannot be read.
+exec aigw model add team/spare-model --capability tool_search --json
+cmp stdout added.json
+exitcode 1 aigw model add team/spare-mdl
+cmp stdout add-unlisted.txt
+exitcode 1 aigw model add mixed/new-model --protocol chat --json
+cmp stdout add-unreadable.json
+exec aigw model add mixed/new-model --protocol chat --unlisted --family new-family --json
+cmp stdout add-forced.json
+
+# A provider with several endpoints needs --protocol, a protocol must be one
+# that the provider serves and that the command line names, and an existing
+# model is refused.
+exitcode 1 aigw model add mixed/other-model --unlisted
+cmp stdout add-protocol.txt
+exitcode 1 aigw model add team/other-model --protocol responses --unlisted --json
+cmp stdout add-endpoint.json
+exitcode 1 aigw model add team/other-model --protocol openai_responses --unlisted
+cmp stdout add-spelling.txt
+exitcode 1 aigw model add team/team-model --unlisted --json
+cmp stdout add-exists.json
+
+# An edit replaces each set that it is given and keeps the protocol that a
+# client uses.
+exec aigw model edit mixed/new-model --protocol chat --protocol anthropic --capability tool_search --json
+cmp stdout edited.json
+exec aigw model edit mixed/new-model --capability '' --label '' --json
+cmp stdout cleared.json
+exitcode 1 aigw model edit team/team-model --json
+cmp stdout edit-nothing.json
+exitcode 1 aigw model edit team/team-model --json --protocol openai_chat_completions
+cmp stdout edit-spelling.json
+exitcode 1 aigw model edit mixed/chat-only --capability tool_search
+cmp stdout edit-capability.txt
+stdin mixed-token.txt
+exec aigw rotate mixed --token-stdin
+exec aigw use --for hermes mixed-chat
+exitcode 1 aigw model edit mixed/chat-only --protocol anthropic --json
+cmp stdout edit-selected.json
+
+# A model that any client uses is not removed, even by a disabled client;
+# another one is, and the recommendation that names it drops it.
+exitcode 1 aigw model remove team/team-model --json
+cmp stdout remove-selected.json
+exec aigw client disable hermes
+exitcode 1 aigw model remove mixed/chat-only
+cmp stdout remove-disabled.txt
+exec aigw model remove mixed/spare-chat --json
+cmp stdout removed.json
+exec aigw model list --provider mixed
+cmp stdout list-mixed.txt
+
+-- token.txt --
+sk-team-token-0001
+-- mixed-token.txt --
+sk-mixed-token-0001
+-- mixed.in --
+version = 7
+[recommendations.hermes.primary]
+route = "mixed-spare"
+protocol = "openai_chat_completions"
+[[recommendations.hermes.alternatives]]
+route = "mixed-chat"
+protocol = "openai_chat_completions"
+[accounts.mixed]
+label = "Mixed"
+[accounts.mixed.endpoints]
+anthropic = "$UPSTREAM/mixed"
+openai_chat_completions = "$UPSTREAM/mixed/v1"
+[models.chat-only]
+label = "Chat Only"
+[models.spare-chat]
+label = "Spare Chat"
+[routes.mixed-chat]
+account = "mixed"
+model = "chat-only"
+upstream_model = "chat-only"
+interfaces = { openai_chat_completions = [] }
+[routes.mixed-spare]
+account = "mixed"
+model = "spare-chat"
+upstream_model = "spare-chat"
+interfaces = { openai_chat_completions = [] }
+-- help.txt --
+AIGW  aigw model
+────────────────────────────────────────
+  List, show, add, edit and remove models
+
+Usage
+  aigw model [command]
+
+Commands
+  add                  Add a model that a provider serves; selects it for no client
+  edit                 Change a model's protocols, family, capabilities or label
+  list                 List the models you have added; reads no Token and sends no request
+  remove               Remove a model that no client uses; its provider and Token stay
+  show                 Show one model: its protocols, capabilities and the clients that use it
+
+Options
+  -h, --help   help for model
+-- add-help.txt --
+AIGW  aigw model add
+────────────────────────────────────────
+  Add a model that a provider serves; selects it for no client.
+  AIGW first reads the provider's catalog and adds only a model that it lists; --unlisted skips that check.
+
+Usage
+  aigw model add <provider/model> [flags]
+
+Examples
+  aigw model add dmxapi/gpt-6.2
+  aigw model add ucloud/minimax-m3 --protocol anthropic --capability tool_search
+  aigw model add dmxapi/gpt-6.1-sol-cdx --family gpt-6.1-sol --dry-run
+
+Options
+      --capability capability   A qualified capability; repeatable: text, reasoning, streaming, tools, structured_output, continuation, compaction, multimodal_input, tool_search
+      --dry-run                 Show the addition without reading the catalog or writing anything
+      --family string           The model's family; an unknown family is created
+  -h, --help                    help for add
+      --json                    Write the added model as JSON
+      --label string            Display name
+      --protocol string         The protocol on which AIGW may use the model; optional when the provider has one endpoint: anthropic, responses, or chat
+      --unlisted                Add the model without reading the provider's catalog
+-- list.txt --
+AIGW  Models
+────────────────────────────────────────
+
+Mixed
+  · mixed/chat-only    Mixed · Chat Only · OpenAI Chat Completions
+  · mixed/spare-chat   Mixed · Spare Chat · OpenAI Chat Completions
+
+Team Gateway
+  ✓ team/team-model    Team Gateway · Anthropic Messages · used by Claude
+
+Next
+  aigw use <client> <provider/model>
+-- list.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "models": [
+    {
+      "model": "mixed/chat-only",
+      "provider": "mixed",
+      "label": "Mixed · Chat Only",
+      "family": "chat-only",
+      "protocols": [
+        {
+          "protocol": "chat",
+          "capabilities": []
+        }
+      ],
+      "protocol_clients": [
+        "hermes"
+      ],
+      "selected_by": []
+    },
+    {
+      "model": "mixed/spare-chat",
+      "provider": "mixed",
+      "label": "Mixed · Spare Chat",
+      "family": "spare-chat",
+      "protocols": [
+        {
+          "protocol": "chat",
+          "capabilities": []
+        }
+      ],
+      "protocol_clients": [
+        "hermes"
+      ],
+      "selected_by": []
+    },
+    {
+      "model": "team/team-model",
+      "provider": "team",
+      "label": "Team Gateway",
+      "family": "team-model",
+      "protocols": [
+        {
+          "protocol": "anthropic",
+          "capabilities": []
+        }
+      ],
+      "protocol_clients": [
+        "claude",
+        "claude-desktop",
+        "hermes"
+      ],
+      "selected_by": [
+        "claude"
+      ]
+    }
+  ]
+}
+-- list-filtered.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "models": [
+    {
+      "model": "team/team-model",
+      "provider": "team",
+      "label": "Team Gateway",
+      "family": "team-model",
+      "protocols": [
+        {
+          "protocol": "anthropic",
+          "capabilities": []
+        }
+      ],
+      "protocol_clients": [
+        "claude",
+        "claude-desktop",
+        "hermes"
+      ],
+      "selected_by": [
+        "claude"
+      ]
+    }
+  ]
+}
+-- list-client-refusal.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown client \"codx\"; did you mean codex? Clients are claude, claude-desktop, codex, or hermes",
+  "next_action": "aigw status"
+}
+-- show.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "model": "team/team-model",
+  "provider": "team",
+  "label": "Team Gateway",
+  "family": "team-model",
+  "protocols": [
+    {
+      "protocol": "anthropic",
+      "capabilities": []
+    }
+  ],
+  "protocol_clients": [
+    "claude",
+    "claude-desktop",
+    "hermes"
+  ],
+  "selected_by": [
+    "claude"
+  ],
+  "endpoints": [
+    {
+      "protocol": "anthropic",
+      "url": "$UPSTREAM"
+    }
+  ]
+}
+-- show-bare.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  "team-model" names no provider; it could mean team/team-model
+
+Fix
+  aigw model list team-model
+-- show-provider.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown provider \"tem\"; did you mean team?",
+  "next_action": "aigw model list"
+}
+-- show-model.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown model team/team-mdl; did you mean team/team-model?",
+  "next_action": "aigw model list --provider team"
+}
+-- add-preview.txt --
+AIGW  Model added (preview)
+────────────────────────────────────────
+  Model                team/spare-model
+  Label                Team Gateway · spare-model
+  Family               spare-model
+  Protocols            Anthropic Messages
+  · Catalog            Not checked in a preview
+  ✓ Nothing was written: configuration, credentials and client files are unchanged
+
+Next
+  aigw model add team/spare-model
+-- add-preview.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "dry_run": true,
+  "model": "team/spare-model",
+  "provider": "team",
+  "label": "Team Gateway · spare-model",
+  "family": "spare-model",
+  "protocols": [
+    {
+      "protocol": "anthropic",
+      "capabilities": []
+    }
+  ],
+  "protocol_clients": [
+    "claude",
+    "claude-desktop",
+    "hermes"
+  ],
+  "selected_by": [],
+  "client_files": [],
+  "next_action": "aigw model add team/spare-model"
+}
+-- edit-preview.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "dry_run": true,
+  "model": "team/team-model",
+  "provider": "team",
+  "label": "Team Model",
+  "family": "team-model",
+  "protocols": [
+    {
+      "protocol": "anthropic",
+      "capabilities": []
+    }
+  ],
+  "protocol_clients": [
+    "claude",
+    "claude-desktop",
+    "hermes"
+  ],
+  "selected_by": [
+    "claude"
+  ],
+  "client_files": [],
+  "next_detail": "Run the same command without --dry-run to apply this plan"
+}
+-- remove-preview.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "dry_run": true,
+  "model": "mixed/chat-only",
+  "provider": "mixed",
+  "label": "Mixed · Chat Only",
+  "family": "chat-only",
+  "protocols": [
+    {
+      "protocol": "chat",
+      "capabilities": []
+    }
+  ],
+  "protocol_clients": [
+    "hermes"
+  ],
+  "selected_by": [],
+  "recommendations": [
+    "hermes"
+  ],
+  "client_files": [],
+  "next_action": "aigw model remove mixed/chat-only"
+}
+-- added.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "model": "team/spare-model",
+  "provider": "team",
+  "label": "Team Gateway · spare-model",
+  "family": "spare-model",
+  "protocols": [
+    {
+      "protocol": "anthropic",
+      "capabilities": [
+        "tool_search"
+      ]
+    }
+  ],
+  "protocol_clients": [
+    "claude",
+    "claude-desktop",
+    "hermes"
+  ],
+  "selected_by": [],
+  "catalog_checked": true,
+  "client_files": [],
+  "next_detail": "aigw use \u003cclient\u003e team/spare-model"
+}
+-- add-unlisted.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  the team catalog does not list spare-mdl; did you mean team/spare-model?
+
+Fix
+  aigw model add team/spare-model
+-- add-unreadable.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "the mixed catalog cannot be read, so AIGW cannot check that it serves mixed/new-model",
+  "evidence": "Anthropic Messages: Token unavailable; OpenAI Chat Completions: Token unavailable",
+  "next_action": "aigw model add mixed/new-model --protocol chat --unlisted"
+}
+-- add-forced.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "model": "mixed/new-model",
+  "provider": "mixed",
+  "label": "Mixed · new-model",
+  "family": "new-family",
+  "protocols": [
+    {
+      "protocol": "chat",
+      "capabilities": []
+    }
+  ],
+  "protocol_clients": [
+    "hermes"
+  ],
+  "selected_by": [],
+  "family_created": "new-family",
+  "client_files": [],
+  "next_detail": "aigw use \u003cclient\u003e mixed/new-model"
+}
+-- add-protocol.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  provider mixed serves Anthropic Messages and OpenAI Chat Completions, so mixed/other-model needs --protocol
+
+Fix
+  aigw model add mixed/other-model --unlisted --protocol <anthropic|chat>
+-- add-endpoint.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "team/other-model cannot declare OpenAI Responses: provider team has no OpenAI Responses endpoint",
+  "evidence": "Provider team serves Anthropic Messages.",
+  "next_detail": "Run the command with --protocol anthropic."
+}
+-- add-spelling.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  invalid argument "openai_responses" for "--protocol" flag: expected anthropic, responses, or chat; run `aigw model add --help`
+
+Fix
+  aigw model add --help
+-- add-exists.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "team/team-model is already added; `aigw model edit` changes it",
+  "next_action": "aigw model edit team/team-model --help"
+}
+-- edited.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "model": "mixed/new-model",
+  "provider": "mixed",
+  "label": "Mixed · new-model",
+  "family": "new-family",
+  "protocols": [
+    {
+      "protocol": "anthropic",
+      "capabilities": [
+        "tool_search"
+      ]
+    },
+    {
+      "protocol": "chat",
+      "capabilities": []
+    }
+  ],
+  "protocol_clients": [
+    "claude",
+    "claude-desktop",
+    "hermes"
+  ],
+  "selected_by": [],
+  "client_files": [],
+  "next_action": "aigw model show mixed/new-model"
+}
+-- cleared.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "model": "mixed/new-model",
+  "provider": "mixed",
+  "label": "Mixed · new-model",
+  "family": "new-family",
+  "protocols": [
+    {
+      "protocol": "anthropic",
+      "capabilities": []
+    },
+    {
+      "protocol": "chat",
+      "capabilities": []
+    }
+  ],
+  "protocol_clients": [
+    "claude",
+    "claude-desktop",
+    "hermes"
+  ],
+  "selected_by": [],
+  "client_files": [],
+  "next_action": "aigw model show mixed/new-model"
+}
+-- edit-nothing.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "model edit needs --protocol, --family, --capability or --label; run `aigw model edit --help`",
+  "next_action": "aigw model edit --help"
+}
+-- edit-capability.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  no protocol of mixed/chat-only admits tool_search; it declares OpenAI Chat Completions
+
+Fix
+  aigw model edit mixed/chat-only --capability tool_search --protocol chat --protocol anthropic
+-- edit-selected.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Hermes uses mixed/chat-only on OpenAI Chat Completions, which this edit would remove",
+  "next_action": "aigw use hermes mixed/chat-only --protocol anthropic"
+}
+-- remove-selected.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Claude uses team/team-model, so it cannot be removed",
+  "next_detail": "aigw use claude \u003cprovider/model\u003e"
+}
+-- remove-disabled.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Hermes uses mixed/chat-only, so it cannot be removed
+
+Fix
+  aigw use hermes <provider/model>
+-- removed.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "model": "mixed/spare-chat",
+  "provider": "mixed",
+  "label": "Mixed · Spare Chat",
+  "family": "spare-chat",
+  "protocols": [
+    {
+      "protocol": "chat",
+      "capabilities": []
+    }
+  ],
+  "protocol_clients": [
+    "hermes"
+  ],
+  "selected_by": [],
+  "recommendations": [
+    "hermes"
+  ],
+  "client_files": [],
+  "next_action": "aigw model list"
+}
+-- list-mixed.txt --
+AIGW  Models
+────────────────────────────────────────
+
+Mixed
+  · mixed/new-model    Mixed · new-model · Anthropic Messages, OpenAI Chat Completions
+  ✓ mixed/chat-only    Mixed · Chat Only · OpenAI Chat Completions · used by Hermes
+
+Next
+  aigw use <client> <provider/model>
+-- edit-spelling.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "invalid argument \"openai_chat_completions\" for \"--protocol\" flag: expected anthropic, responses, or chat; run `aigw model edit --help`",
+  "next_action": "aigw model edit --help"
+}

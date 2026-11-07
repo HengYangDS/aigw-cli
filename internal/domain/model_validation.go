@@ -319,7 +319,7 @@ func (model Model) validate(name string, providers map[string]Provider, families
 			if seenCapabilities[capability] {
 				return fmt.Errorf("route %q interface %q repeats capability %q", name, protocol, capability)
 			}
-			if capability == CapabilityToolSearch && protocol != ProtocolAnthropic {
+			if !protocol.Admits(capability) {
 				return fmt.Errorf("route %q interface %q declares %q, which only the %s interface admits", name, protocol, capability, ProtocolAnthropic)
 			}
 			seenCapabilities[capability] = true
@@ -328,16 +328,24 @@ func (model Model) validate(name string, providers map[string]Provider, families
 	return nil
 }
 
+// capabilities are the capabilities that AIGW defines, in display order.
+var capabilities = []Capability{
+	CapabilityText, CapabilityReasoning, CapabilityStreaming, CapabilityTools,
+	CapabilityStructuredOutput, CapabilityContinuation, CapabilityCompaction,
+	CapabilityMultimodalInput, CapabilityToolSearch,
+}
+
+// Capabilities returns the capabilities that AIGW defines, in display order.
+func Capabilities() []Capability { return slices.Clone(capabilities) }
+
 // Known reports whether AIGW defines this capability.
-func (capability Capability) Known() bool {
-	switch capability {
-	case CapabilityText, CapabilityReasoning, CapabilityStreaming, CapabilityTools,
-		CapabilityStructuredOutput, CapabilityContinuation, CapabilityCompaction,
-		CapabilityMultimodalInput, CapabilityToolSearch:
-		return true
-	default:
-		return false
-	}
+func (capability Capability) Known() bool { return slices.Contains(capabilities, capability) }
+
+// Admits reports whether protocol admits capability: tool search is an
+// Anthropic Messages shape, and every other capability may be qualified on any
+// protocol.
+func (protocol EndpointProtocol) Admits(capability Capability) bool {
+	return capability != CapabilityToolSearch || protocol == ProtocolAnthropic
 }
 
 func validateEndpoint(raw string) error {
