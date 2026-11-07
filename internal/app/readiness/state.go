@@ -102,13 +102,9 @@ func ClassifyClient(facts ClientFacts) Client {
 		state.State = Deferred
 		state.Detail = "No model is selected"
 		state.NextAction = facts.BindingAction
-	case facts.ProjectionEnabled && !facts.ProjectionReady && !facts.ProjectionDeferred:
-		state.State = Invalid
-		state.Detail = facts.ProjectionIssue
-		state.NextAction = facts.ProjectionAction
-		if state.NextAction == "" {
-			state.NextAction = "aigw repair"
-		}
+	// The Token comes before the client's files: without it, a sync writes
+	// no file of the client, and with a credential store that it cannot
+	// observe, a sync fails the same way, so neither fixes the files.
 	case facts.CredentialRequired && facts.CredentialObservationIssue != "":
 		state.State = Unavailable
 		state.Detail = facts.CredentialObservationIssue
@@ -119,6 +115,13 @@ func ClassifyClient(facts ClientFacts) Client {
 		state.NextAction = facts.CredentialAction
 		if state.NextAction == "" {
 			state.NextAction = "aigw provider rotate " + facts.Provider
+		}
+	case facts.ProjectionEnabled && !facts.ProjectionReady && !facts.ProjectionDeferred:
+		state.State = Invalid
+		state.Detail = facts.ProjectionIssue
+		state.NextAction = facts.ProjectionAction
+		if state.NextAction == "" {
+			state.NextAction = "aigw repair"
 		}
 	case facts.ProjectionDeferred && facts.ClientInstalled:
 		state.State = Deferred

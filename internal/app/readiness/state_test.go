@@ -158,16 +158,28 @@ func TestClassifyClientIncludesModelFailures(t *testing.T) {
 	}
 }
 
-func TestClassifyClientPrioritizesObservedProjectionFailure(t *testing.T) {
-	for _, metadataIssue := range []string{"", "Credential metadata is unavailable"} {
-		got := ClassifyClient(ClientFacts{
-			Model: "codex", Provider: "team", CredentialRequired: true,
-			CredentialObservationIssue: metadataIssue,
-			ProjectionEnabled:          true, ProjectionIssue: "projection drift", ProjectionAction: "aigw sync",
-		})
-		if got.State != Invalid || got.Detail != "projection drift" || got.NextAction != "aigw sync" {
-			t.Fatalf("projection failure lost to credential state: %+v", got)
-		}
+// TestClassifyClientPutsTheTokenBeforeTheClientFiles names the Token's step
+// before the files': without the Token a sync writes no file of the client,
+// and with a credential store that it cannot observe a sync fails the same
+// way. With the Token, the files' own step comes first.
+func TestClassifyClientPutsTheTokenBeforeTheClientFiles(t *testing.T) {
+	drifted := ClientFacts{
+		Model: "codex", Provider: "team", CredentialRequired: true,
+		ProjectionEnabled: true, ProjectionIssue: "projection drift", ProjectionAction: "aigw sync",
+	}
+	missing := ClassifyClient(drifted)
+	if missing.State != Deferred || missing.Detail != "The selected provider has no Token" || missing.NextAction != "aigw provider rotate team" {
+		t.Fatalf("a missing Token lost to the files: %+v", missing)
+	}
+	unobservable := drifted
+	unobservable.CredentialObservationIssue = "Credential metadata is unavailable"
+	if got := ClassifyClient(unobservable); got.State != Unavailable || got.NextAction != CredentialBackendRecovery {
+		t.Fatalf("an unobservable credential store lost to the files: %+v", got)
+	}
+	present := drifted
+	present.CredentialAvailable = true
+	if got := ClassifyClient(present); got.State != Invalid || got.Detail != "projection drift" || got.NextAction != "aigw sync" {
+		t.Fatalf("the files' step lost with the Token present: %+v", got)
 	}
 }
 

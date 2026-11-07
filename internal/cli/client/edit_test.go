@@ -117,6 +117,32 @@ func TestEditForwardsAClientAndKeepsItsRetryBudgets(t *testing.T) {
 	}
 }
 
+// missingTokenStore holds no Token, as after the provider's Token was removed.
+type missingTokenStore struct{ countingSecretStore }
+
+func (*missingTokenStore) Exists(string) (bool, error) { return false, nil }
+
+// An edit of an installed, synchronized Codex whose provider lost its Token
+// writes no Codex file, and names storing the Token first: a sync would
+// write nothing without it.
+func TestEditWithoutTheTokenNamesTheToken(t *testing.T) {
+	runtime, out, target, _ := enabledCodex(t)
+	before := readTarget(t, target)
+	runtime.Secrets = &missingTokenStore{}
+	// Codex reads its provider's Token through AIGW's credential reader.
+	reader := filepath.Join(t.TempDir(), "credential", "aigw")
+	runtime.ResolveCredentialPath = func() (string, error) { return reader, nil }
+	document := edited(t, runtime, out, codex.ID, "--request-retries", "4")
+	// Rotation reads the Token at a prompt, so a script gets it as detail.
+	if !document.Changed || len(document.ClientFiles) != 0 || document.NextAction != "" ||
+		!strings.Contains(document.NextDetail, "`aigw provider rotate gateway`") {
+		t.Fatalf("edit without the Token = %#v", document)
+	}
+	if readTarget(t, target) != before {
+		t.Fatal("an edit without the Token wrote Codex's file")
+	}
+}
+
 // Budgets that an edit names replace those budgets, the others stay, and
 // --native-retries removes both; Codex's file follows each change.
 func TestEditDeclaresAndRemovesRetryBudgets(t *testing.T) {
