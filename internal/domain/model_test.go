@@ -426,17 +426,25 @@ func TestValidateAdmitsClientAdapterTargets(t *testing.T) {
 	}
 }
 
-func TestValidateRequiresAtLeastOneModelAndProvider(t *testing.T) {
+// TestValidateAcceptsAConfigurationWithoutModels shows that providers without
+// models, and a configuration without anything, are valid, while a model
+// still needs its provider.
+func TestValidateAcceptsAConfigurationWithoutModels(t *testing.T) {
 	cfg := validConfig()
 	cfg.Models = map[string]Model{}
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "at least one route") {
-		t.Fatalf("empty routes error = %v", err)
+	cfg.Clients = map[string]ClientBinding{}
+	cfg.Recommendations = map[string]ClientRecommendation{}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("providers without models: %v", err)
 	}
-
+	empty := NewConfig(testAdmission())
+	if err := empty.Validate(); err != nil {
+		t.Fatalf("an empty configuration: %v", err)
+	}
 	cfg = validConfig()
 	cfg.Providers = map[string]Provider{}
-	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "at least one account") {
-		t.Fatalf("empty accounts error = %v", err)
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "references unknown account") {
+		t.Fatalf("models without their provider: %v", err)
 	}
 }
 

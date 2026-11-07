@@ -139,11 +139,17 @@ func TestExportSurfacesLoadAndOutputFailures(t *testing.T) {
 	})
 }
 
-func TestExportSurfacesManifestValidationFailure(t *testing.T) {
+// A configuration without models, here the empty one of a new home, exports
+// a manifest that the import accepts.
+func TestExportWritesAManifestForAConfigurationWithoutModels(t *testing.T) {
 	configStore := store.NewStore(filepath.Join(t.TempDir(), "missing.toml"), clients.Admission())
-	command := newExportCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Out: io.Discard})
-	if err := executeManifestCommand(command); err == nil || !strings.Contains(err.Error(), "at least one route") {
-		t.Fatalf("error = %v", err)
+	out := &bytes.Buffer{}
+	command := newExportCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Out: out})
+	if err := executeManifestCommand(command); err != nil {
+		t.Fatal(err)
+	}
+	if manifest, err := store.Parse(out.Bytes(), clients.Admission()); err != nil || len(manifest.Models) != 0 {
+		t.Fatalf("exported manifest %q = %+v, %v", out, manifest, err)
 	}
 }
 

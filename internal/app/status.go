@@ -138,12 +138,15 @@ func unresolvedClientStatus(cfg *domain.Config, clientID string, resolveErr erro
 	} else if suggested := cfg.RecommendedModel(clientID); suggested != "" {
 		facts.SuggestedModel = suggested
 		facts.BindingAction = "aigw use --for " + clientID + " " + suggested
+	} else if len(cfg.Models) == 0 && len(cfg.Providers) > 0 {
+		// Providers left without models leave every client with nothing
+		// selected and nothing recommended: the user chooses a model, which
+		// the placeholder leaves to them. With models, an unselected client
+		// names no step of its own, so the status's step stays the one that
+		// the selected clients need; without providers, setup comes first.
+		facts.BindingAction = "aigw use " + clientID + " <provider/model>"
 	}
-	state := domainreadiness.ClassifyClient(facts)
-	if facts.Model == "" && facts.SuggestedModel == "" {
-		state.NextAction = ""
-	}
-	return ClientStatus{Client: state}
+	return ClientStatus{Client: domainreadiness.ClassifyClient(facts)}
 }
 
 // EndpointTransport classifies how a client reaches endpoint.

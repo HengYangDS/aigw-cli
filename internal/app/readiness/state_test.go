@@ -19,12 +19,8 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			wantState:  Deferred,
 			wantAction: "aigw use --for claude claude",
 		},
-		{
-			name:       "no compatible route exists",
-			facts:      ClientFacts{},
-			wantState:  Deferred,
-			wantAction: "aigw route add",
-		},
+		{name: "nothing is selected, and the caller names the selection", facts: ClientFacts{BindingAction: "aigw use claude <provider/model>"}, wantState: Deferred, wantAction: "aigw use claude <provider/model>"},
+		{name: "nothing is selected, and the caller names no step", facts: ClientFacts{}, wantState: Deferred},
 		{
 			name:       "selected account is not connected",
 			facts:      ClientFacts{Model: "claude", Provider: "team", CredentialRequired: true},

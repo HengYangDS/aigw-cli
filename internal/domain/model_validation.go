@@ -58,15 +58,14 @@ func (c *Config) Validate() error {
 	return c.validateClientBindings()
 }
 
+// validateCollections checks the version and each provider, family and
+// model. A configuration may hold providers without models, or nothing at
+// all: `aigw provider add` starts from an empty home, and removing the last
+// model or provider leaves a valid configuration whose clients select
+// nothing.
 func (c *Config) validateCollections() error {
 	if c.Version != ConfigVersion {
 		return &UnsupportedConfigVersionError{Version: c.Version, ExpectedVersion: ConfigVersion}
-	}
-	if len(c.Models) == 0 {
-		return errors.New("at least one route is required")
-	}
-	if len(c.Providers) == 0 {
-		return errors.New("at least one account is required")
 	}
 	for _, name := range slices.Sorted(maps.Keys(c.Providers)) {
 		if err := c.Providers[name].validate(name); err != nil {

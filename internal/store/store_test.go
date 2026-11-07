@@ -345,8 +345,10 @@ func TestSaveRefusesInvalidConfigWithoutReplacingExistingFile(t *testing.T) {
 	account := incompatible.Providers["dmx"]
 	account.Endpoints.Anthropic = ""
 	incompatible.Providers["dmx"] = account
+	orphaned := validConfig()
+	orphaned.Providers = map[string]domain.Provider{}
 	for name, cfg := range map[string]domain.Config{
-		"empty":                       admitted(domain.Config{Version: domain.ConfigVersion}),
+		"model without its provider":  orphaned,
 		"incompatible legacy Profile": incompatible,
 	} {
 		t.Run(name, func(t *testing.T) {

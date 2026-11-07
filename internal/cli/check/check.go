@@ -76,7 +76,7 @@ func writeCheckDocument(runtime invocation.Context, result checkJSON) error {
 	return terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result)
 }
 
-func activationCheckIssue(activation clientactivation.Activation) (problem, evidence, jsonError string, cause error) {
+func activationCheckIssue(activation clientactivation.Activation, hasModels bool) (problem, evidence, jsonError string, cause error) {
 	switch {
 	case activation.State == domainreadiness.Unavailable:
 		return "Credential metadata is unavailable",
@@ -92,6 +92,11 @@ func activationCheckIssue(activation clientactivation.Activation) (problem, evid
 		}
 		return "Client projection is deferred", evidence, jsonError,
 			fmt.Errorf("client projection is deferred")
+	case !hasModels:
+		return "No client is enabled",
+			"No model is added yet, so no client can select one.",
+			"No client is enabled; no endpoint or model was checked",
+			fmt.Errorf("no enabled Client Bindings")
 	default:
 		return "No client is enabled",
 			"The imported Routes are available, but no Client Binding is active.",
@@ -253,7 +258,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 		// which names the stage, as status and sync do.
 		return err
 	}
-	if len(cfg.Models) == 0 {
+	if len(cfg.Providers) == 0 {
 		return writeJSONFailure(runtime, domainreadiness.Deferred, "not configured", "aigw setup", fmt.Errorf("not configured"))
 	}
 	selected := selectedCheckClient(cmd)
@@ -263,7 +268,7 @@ func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
-		_, _, issue, cause := activationCheckIssue(activation)
+		_, _, issue, cause := activationCheckIssue(activation, len(cfg.Models) > 0)
 		result := checkJSON{
 			Clients:        app.InspectStatusClients(runtime.Dependencies, cfg, &activation, selected),
 			EnabledClients: activation.EnabledClients,
@@ -379,7 +384,7 @@ func runCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	if err != nil {
 		return err
 	}
-	if len(cfg.Models) == 0 {
+	if len(cfg.Providers) == 0 {
 		return terminal.ProblemError("Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
 	}
 	selected := selectedCheckClient(cmd)
@@ -389,7 +394,7 @@ func runCheck(cmd *cobra.Command, runtime invocation.Context) error {
 	}
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
-		problem, evidence, _, cause := activationCheckIssue(activation)
+		problem, evidence, _, cause := activationCheckIssue(activation, len(cfg.Models) > 0)
 		return terminal.ProblemError(problem, evidence, "No endpoint or model was checked.", activation.NextActionFor(nil), cause)
 	}
 	evaluation := evaluateCheck(cmd, runtime, cfg)

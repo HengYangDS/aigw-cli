@@ -363,15 +363,18 @@ func TestParseRejectsMalformedTOML(t *testing.T) {
 	}
 }
 
-func TestParseRejectsManifestWithoutAnyModel(t *testing.T) {
+// A team manifest may declare providers without Routes, as a configuration
+// may hold providers without models.
+func TestParseAcceptsAManifestWithProvidersOnly(t *testing.T) {
 	raw := []byte(`version = 7
 [accounts.team]
 label = "Team"
 [accounts.team.endpoints]
 anthropic = "https://team.test"
 `)
-	if _, err := Parse(raw, testAdmission()); err == nil || !strings.Contains(err.Error(), "at least one route") {
-		t.Fatalf("no-route error = %v", err)
+	manifest, err := Parse(raw, testAdmission())
+	if err != nil || len(manifest.Providers) != 1 || len(manifest.Models) != 0 {
+		t.Fatalf("a manifest with providers only = %+v, %v", manifest, err)
 	}
 }
 

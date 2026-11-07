@@ -106,19 +106,19 @@ Next
   "clients": {
     "claude": {
       "state": "deferred",
-      "detail": "No route is selected for this client"
+      "detail": "No model is selected"
     },
     "claude-desktop": {
       "state": "deferred",
-      "detail": "No route is selected for this client"
+      "detail": "No model is selected"
     },
     "codex": {
       "state": "deferred",
-      "detail": "No route is selected for this client"
+      "detail": "No model is selected"
     },
     "hermes": {
       "state": "deferred",
-      "detail": "No route is selected for this client"
+      "detail": "No model is selected"
     }
   },
   "ok_scope": "local_diagnostics",
@@ -182,15 +182,15 @@ Next
     },
     "claude-desktop": {
       "state": "deferred",
-      "detail": "No route is selected for this client"
+      "detail": "No model is selected"
     },
     "codex": {
       "state": "deferred",
-      "detail": "No route is selected for this client"
+      "detail": "No model is selected"
     },
     "hermes": {
       "state": "deferred",
-      "detail": "No route is selected for this client"
+      "detail": "No model is selected"
     }
   },
   "ok_scope": "local_diagnostics",

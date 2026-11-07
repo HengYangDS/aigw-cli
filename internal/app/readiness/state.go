@@ -97,12 +97,8 @@ func ClassifyClient(facts ClientFacts) Client {
 		state.NextAction = facts.BindingAction
 	case facts.Model == "":
 		state.State = Deferred
-		state.Detail = "No route is selected for this client"
-		if facts.BindingAction != "" {
-			state.NextAction = facts.BindingAction
-		} else {
-			state.NextAction = "aigw route add"
-		}
+		state.Detail = "No model is selected"
+		state.NextAction = facts.BindingAction
 	case facts.ProjectionEnabled && !facts.ProjectionReady && !facts.ProjectionDeferred:
 		state.State = Invalid
 		state.Detail = facts.ProjectionIssue

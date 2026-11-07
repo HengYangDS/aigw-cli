@@ -86,10 +86,15 @@ func TestAssessActivationSeparatesCapabilityAndSelectionPrerequisites(t *testing
 		t.Fatalf("missing capability = %+v", capability)
 	}
 
+	// A provider without models needs a model selected, not setup.
 	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{Anthropic: "https://team.test"}}
+	const choose = "aigw use <client> <provider/model>"
+	if selection := AssessActivation(cfg, store); selection.CapabilityPrerequisite != "" || selection.NextActionFor(nil) != choose {
+		t.Fatalf("a provider without models = %+v", selection)
+	}
 	cfg.Models["claude"] = domain.Model{Provider: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	selection := AssessActivation(cfg, store)
-	if selection.CapabilityPrerequisite != "" || selection.SelectionPrerequisite != "aigw use --help" || selection.VerificationPrerequisite != "" || selection.NextActionFor(nil) != "aigw use --help" {
+	if selection.CapabilityPrerequisite != "" || selection.SelectionPrerequisite != choose || selection.VerificationPrerequisite != "" || selection.NextActionFor(nil) != choose {
 		t.Fatalf("missing client selection = %+v", selection)
 	}
 }
@@ -99,7 +104,7 @@ func TestAssessActivationDoesNotRequireTokenBackendBeforeItsUse(t *testing.T) {
 	cfg.Providers["team"] = domain.Provider{Endpoints: domain.Endpoints{OpenAIResponses: "https://team.test/v1"}}
 	cfg.Models["codex"] = domain.Model{Provider: "team", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
 	selection := AssessActivation(cfg, nil)
-	if selection.State != domainreadiness.Deferred || selection.NextActionFor(nil) != "aigw use --help" {
+	if selection.State != domainreadiness.Deferred || selection.NextActionFor(nil) != "aigw use <client> <provider/model>" {
 		t.Fatalf("missing Token backend blocked selection before any Account was chosen: %+v", selection)
 	}
 

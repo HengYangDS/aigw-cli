@@ -26,16 +26,12 @@ func newRemoveCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			ref := model.Ref()
-			// A client that selects the model keeps it, enabled or not, and the
-			// configuration keeps at least one model.
+			// A client that selects the model keeps it, enabled or not. The
+			// last model may go: a configuration without models is valid.
 			if clients := cfg.SelectedClientsForModel(key); len(clients) > 0 {
 				return terminal.ProblemError(
 					fmt.Sprintf("%s %s %s, so it cannot be removed", clientLabels(runtime.Clients.Admission(), clients), uses(len(clients)), ref), "", "",
 					fmt.Sprintf("aigw use %s <provider/model>", clients[0]), nil)
-			}
-			if len(cfg.Models) == 1 {
-				return terminal.ProblemError(fmt.Sprintf("%s is the only model, and aigw needs at least one", ref), "", "",
-					"aigw model add <provider/model>", nil)
 			}
 			before := cfg.Clone()
 			item := describe(cfg, key)

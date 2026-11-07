@@ -136,6 +136,25 @@ exitcode 1 aigw provider add other --endpoint responses=$UPSTREAM/other/v1 --jso
 normalize stdout environment-rejected.out
 cmp environment-rejected.out environment-rejected.json
 
+# A configuration without models is valid: in an empty home, add needs no
+# model, the clients then select nothing and name how to select one, and
+# the last model and the last provider may go.
+mkdir $WORK/fresh
+env HOME=$WORK/fresh USERPROFILE=$WORK/fresh XDG_CONFIG_HOME=$WORK/fresh XDG_DATA_HOME=$WORK/fresh APPDATA=$WORK/fresh LOCALAPPDATA=$WORK/fresh
+env AIGW_SECRET_BACKEND=file
+stdin first-token.txt
+exec aigw provider add first --endpoint anthropic=$UPSTREAM --token-stdin
+exec aigw status --json
+cmp stdout fresh-status.json
+exec aigw model add first/team-model
+exec aigw model remove first/team-model
+exec aigw provider remove first --json
+cmp stdout fresh-removed.json
+exec aigw status
+cmp stdout fresh-empty.txt
+
+-- first-token.txt --
+sk-first-token-0001
 -- token.txt --
 sk-team-token-0001
 -- spare-token.txt --
@@ -698,3 +717,84 @@ AIGW  Providers
 
 Next
   aigw provider show <provider>
+-- fresh-status.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "clients": {
+    "claude": {
+      "state": "deferred",
+      "detail": "No model is selected",
+      "next_detail": "aigw use claude \u003cprovider/model\u003e",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false
+    },
+    "claude-desktop": {
+      "state": "deferred",
+      "detail": "No model is selected",
+      "next_detail": "aigw use claude-desktop \u003cprovider/model\u003e",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false,
+      "qualified_modes": [
+        "chat",
+        "cowork",
+        "code"
+      ],
+      "qualified_platforms": [
+        "macos"
+      ]
+    },
+    "codex": {
+      "state": "deferred",
+      "detail": "No model is selected",
+      "next_detail": "aigw use codex \u003cprovider/model\u003e",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false
+    },
+    "hermes": {
+      "state": "deferred",
+      "detail": "No model is selected",
+      "next_detail": "aigw use hermes \u003cprovider/model\u003e",
+      "authentication": "",
+      "endpoint_configured": false,
+      "projection_ready": false
+    }
+  },
+  "routes": 0,
+  "enabled_clients": 0,
+  "state": "deferred",
+  "next_detail": "aigw use \u003cclient\u003e \u003cprovider/model\u003e"
+}
+-- fresh-removed.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "status": "removed",
+  "id": "first",
+  "label": "first",
+  "models": [],
+  "token": "present",
+  "balance_credential": "absent",
+  "recommendations": [],
+  "client_files": [],
+  "next_action": "aigw provider list"
+}
+-- fresh-empty.txt --
+AIGW  Not configured
+────────────────────────────────────────
+
+Get started
+  Run the guided setup once to add an Account, Token, and first Route.
+
+Next
+  aigw setup

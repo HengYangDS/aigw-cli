@@ -97,27 +97,32 @@ func TestRemoveRefusesAProviderWhoseModelAClientSelects(t *testing.T) {
 	}
 }
 
-func TestRemoveKeepsAModelForTheConfiguration(t *testing.T) {
+// The last model and the last provider may go: what remains is a valid
+// configuration whose clients select nothing.
+func TestRemoveTakesTheLastModelAndTheLastProvider(t *testing.T) {
 	f := newFixture(t)
 	cfg := f.load(t)
 	cfg.Clients = nil
 	cfg.Recommendations = nil
 	delete(cfg.Models, "mixed-chat")
-	delete(cfg.Providers, "mixed")
 	if err := f.runtime.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	p := problem(f.run("", "remove", "team"))
-	if p.Title != "every model belongs to provider team, and aigw needs at least one model" || p.Fix != "aigw provider add <provider> --endpoint <protocol>=<url>" {
-		t.Fatalf("the only provider = %+v", p)
-	}
-	cfg = f.load(t)
-	cfg.Providers["spare"] = cfg.Providers["team"]
-	if err := f.runtime.Config.Save(cfg); err != nil {
+	// team holds every model.
+	if err := f.run("", "remove", "team", "--json"); err != nil {
 		t.Fatal(err)
 	}
-	if p := problem(f.run("", "remove", "team")); p.Fix != "aigw model add <provider/model>" {
-		t.Fatalf("a provider that holds every model = %+v", p)
+	if cfg := f.load(t); len(cfg.Models) != 0 || len(cfg.Providers) != 1 || f.token("team") != "" {
+		t.Fatalf("after the last model = %+v", cfg)
+	}
+	if err := f.run("", "remove", "mixed"); err != nil {
+		t.Fatal(err)
+	}
+	if cfg := f.load(t); len(cfg.Providers) != 0 || len(cfg.Models) != 0 {
+		t.Fatalf("after the last provider = %+v", cfg)
+	}
+	if err := f.run("", "list"); err != nil || !strings.Contains(f.text(), "No provider is configured.") {
+		t.Fatalf("list after the last provider = %v %s", err, f.text())
 	}
 }
 

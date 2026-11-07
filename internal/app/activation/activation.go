@@ -268,7 +268,9 @@ func (assessment *inactiveClientAssessment) finish() Activation {
 		assessment.result.State = domainreadiness.Unavailable
 		assessment.result.CredentialPrerequisite = "aigw doctor"
 	default:
-		assessment.result.SelectionPrerequisite = "aigw use --help"
+		// No client selects a model, and no recommendation offers one: the
+		// user chooses both, which the placeholders leave to them.
+		assessment.result.SelectionPrerequisite = "aigw use <client> <provider/model>"
 	}
 	return assessment.result
 }
@@ -351,7 +353,9 @@ func AssessActivation(cfg domain.Config, store secret.Store) Activation {
 		return assessEnabledProjection(cfg, store, result)
 	}
 	result.State = domainreadiness.Deferred
-	if len(cfg.Models) == 0 {
+	// Only a configuration without providers needs setup; one whose
+	// providers have no model needs a model selected.
+	if len(cfg.Providers) == 0 {
 		result.CapabilityPrerequisite = "aigw setup"
 		return result
 	}

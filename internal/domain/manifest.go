@@ -53,17 +53,16 @@ func ManifestProviderIDs(incoming Manifest) []string {
 }
 
 // Admit validates a decoded team manifest for the admitted clients and returns
-// its normalized form: it declares at least one Route, recommends Routes only
-// for admitted clients and declared Routes, and validates as a configuration.
+// its normalized form: it recommends Routes only for admitted clients and
+// declared Routes, and validates as a configuration. Like a configuration, it
+// may declare providers without Routes, which is what `aigw config export`
+// writes for a configuration without models.
 func (m Manifest) Admit(admission Admission) (Manifest, error) {
 	if m.Providers == nil {
 		m.Providers = map[string]Provider{}
 	}
 	if m.Recommendations == nil {
 		m.Recommendations = map[string]ClientRecommendation{}
-	}
-	if len(m.Models) == 0 {
-		return Manifest{}, fmt.Errorf("configuration manifest must define at least one route")
 	}
 	check := NewConfig(admission)
 	check.Providers = m.Providers

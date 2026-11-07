@@ -90,7 +90,7 @@ Fix
     },
     "claude-desktop": {
       "state": "deferred",
-      "detail": "No route is selected for this client",
+      "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
       "projection_ready": false,
@@ -105,14 +105,14 @@ Fix
     },
     "codex": {
       "state": "deferred",
-      "detail": "No route is selected for this client",
+      "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
       "projection_ready": false
     },
     "hermes": {
       "state": "deferred",
-      "detail": "No route is selected for this client",
+      "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
       "projection_ready": false

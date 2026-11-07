@@ -77,8 +77,9 @@ func runRemove(cmd *cobra.Command, runtime invocation.Context, args []string, dr
 }
 
 // removalRefusal refuses a removal that would leave a client without its
-// model, enabled or disabled, or the configuration without any model, which
-// it needs: the fix moves the client, or adds a model of another provider.
+// model, enabled or disabled: the fix moves the client. The last provider and
+// the last model may go, which leaves a valid configuration whose clients
+// select nothing.
 func removalRefusal(runtime invocation.Context, cfg domain.Config, id string) error {
 	if clients := selectingClients(cfg, id); len(clients) > 0 {
 		models := []string{}
@@ -94,16 +95,7 @@ func removalRefusal(runtime invocation.Context, cfg domain.Config, id string) er
 		return terminal.ProblemError(fmt.Sprintf("%s %s %s, so provider %s cannot be removed",
 			clientLabels(runtime.Clients.Admission(), clients), verb, strings.Join(models, ", "), id), "", "", "aigw use "+clients[0]+" <provider/model>", nil)
 	}
-	for _, model := range cfg.Models {
-		if model.Provider != id {
-			return nil
-		}
-	}
-	fix := "aigw model add <provider/model>"
-	if len(cfg.Providers) == 1 {
-		fix = "aigw provider add <provider> --endpoint <protocol>=<url>"
-	}
-	return terminal.ProblemError("every model belongs to provider "+id+", and aigw needs at least one model", "", "", fix, nil)
+	return nil
 }
 
 // blockedRemoval reports a refused removal. A JSON preview writes its own

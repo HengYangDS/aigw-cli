@@ -77,9 +77,6 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 	if err := admitEnvironmentToken(cmd, runtime, args, options, id); err != nil {
 		return err
 	}
-	if len(cfg.Models) == 0 {
-		return terminal.ProblemError("AIGW is not set up yet; setup connects the first provider together with a model", "", "", "aigw setup", nil)
-	}
 	provider := domain.Provider{Label: strings.TrimSpace(options.label)}
 	if provider.Label == "" {
 		provider.Label = id

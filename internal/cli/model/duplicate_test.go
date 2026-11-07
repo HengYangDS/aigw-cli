@@ -82,7 +82,9 @@ func TestShowEditAndRemoveRefuseANameWithSeveralModels(t *testing.T) {
 	}
 }
 
-func TestRemoveRefusesTheLastModel(t *testing.T) {
+// The last model may go: its provider stays, without models, and no client
+// selects anything.
+func TestRemoveTakesTheLastModel(t *testing.T) {
 	f := newFixture(t)
 	cfg := f.load(t)
 	delete(cfg.Models, "mixed-chat")
@@ -95,14 +97,17 @@ func TestRemoveRefusesTheLastModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"remove", "team/team-model"}, {"remove", "team/team-model", "--dry-run", "--json"}} {
-		p := problem(f.run(args...))
-		if p.Title != "team/team-model is the only model, and aigw needs at least one" || p.Fix != "aigw model add <provider/model>" {
-			t.Fatalf("model %q = %q, fix %q", args, p.Title, p.Fix)
-		}
+	if err := f.run("remove", "team/team-model", "--dry-run", "--json"); err != nil {
+		t.Fatal(err)
 	}
 	if after, err := os.ReadFile(f.runtime.Config.Path()); err != nil || !bytes.Equal(after, before) {
-		t.Fatalf("a refused removal changed the configuration: %v", err)
+		t.Fatalf("a preview changed the configuration: %v", err)
+	}
+	if err := f.run("remove", "team/team-model"); err != nil {
+		t.Fatal(err)
+	}
+	if cfg := f.load(t); len(cfg.Models) != 0 || len(cfg.Providers) != 2 {
+		t.Fatalf("after the last model = %+v", cfg)
 	}
 }
 

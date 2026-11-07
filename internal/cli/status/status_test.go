@@ -360,7 +360,8 @@ func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 	out := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Out: out, Width: 120}
 	cfg := domain.NewConfig(clients.Admission())
-	cfg.Models["available"] = domain.Model{Label: "Available"}
+	cfg.Providers["one"] = domain.Provider{Label: "One"}
+	cfg.Models["available"] = domain.Model{Label: "Available", Provider: "one"}
 	clients := map[string]app.ClientStatus{}
 	for _, client := range []string{claude.ID, codex.ID} {
 		state := domainreadiness.Client{State: domainreadiness.Invalid}

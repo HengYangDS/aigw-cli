@@ -146,18 +146,33 @@ func TestAddRefusesBeforeReadingConfigurationOrInput(t *testing.T) {
 	}
 }
 
-func TestAddRefusesAnExistingProviderAndAnEmptyConfiguration(t *testing.T) {
+func TestAddRefusesAnExistingProvider(t *testing.T) {
 	f := newFixture(t)
 	p := problem(f.run("sk-x-0001\n", "add", "team", "--endpoint", "anthropic=https://x.test", "--token-stdin"))
 	if p.Title != "provider team already exists; `aigw provider edit` changes it and `aigw provider rotate` replaces its Token" || p.Fix != "aigw provider show team" {
 		t.Fatalf("an existing provider = %+v", p)
 	}
-	f.runtime.Config = emptyStore(t)
-	if p := problem(f.run("sk-x-0001\n", "add", "fresh", "--endpoint", "anthropic=https://x.test", "--token-stdin")); p.Fix != "aigw setup" {
-		t.Fatalf("an empty configuration = %+v", p)
-	}
 	if len(f.http.sent()) != 0 {
 		t.Fatal("a refusal sent a request")
+	}
+}
+
+// add starts from an empty home: the first provider needs no model, and its
+// configuration holds the provider alone.
+func TestAddWorksFromAnEmptyHome(t *testing.T) {
+	f := newFixture(t)
+	f.runtime.Config = emptyStore(t)
+	if err := f.run("", "add", "fresh", "--endpoint", "anthropic=https://x.test", "--dry-run"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.run("sk-fresh-0001\n", "add", "fresh", "--endpoint", "anthropic=https://x.test", "--token-stdin", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	var document changeDocument
+	f.decode(t, &document)
+	cfg := f.load(t)
+	if !*document.TokenStored || document.NextAction != "aigw model search --provider fresh" || len(cfg.Providers) != 1 || len(cfg.Models) != 0 || f.token("fresh") != "sk-fresh-0001" {
+		t.Fatalf("an addition to an empty home = %+v, %+v", document, cfg)
 	}
 }
 

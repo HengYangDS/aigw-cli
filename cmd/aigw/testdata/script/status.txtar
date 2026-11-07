@@ -50,14 +50,14 @@ Options
   "clients": {
     "claude": {
       "state": "deferred",
-      "detail": "No route is selected for this client",
+      "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
       "projection_ready": false
     },
     "claude-desktop": {
       "state": "deferred",
-      "detail": "No route is selected for this client",
+      "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
       "projection_ready": false,
@@ -72,14 +72,14 @@ Options
     },
     "codex": {
       "state": "deferred",
-      "detail": "No route is selected for this client",
+      "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
       "projection_ready": false
     },
     "hermes": {
       "state": "deferred",
-      "detail": "No route is selected for this client",
+      "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
       "projection_ready": false
@@ -113,7 +113,7 @@ Options
     },
     "claude-desktop": {
       "state": "deferred",
-      "detail": "No route is selected for this client",
+      "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
       "projection_ready": false,
@@ -128,14 +128,14 @@ Options
     },
     "codex": {
       "state": "deferred",
-      "detail": "No route is selected for this client",
+      "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
       "projection_ready": false
     },
     "hermes": {
       "state": "deferred",
-      "detail": "No route is selected for this client",
+      "detail": "No model is selected",
       "authentication": "",
       "endpoint_configured": false,
       "projection_ready": false
@@ -152,9 +152,9 @@ AIGW  Configuration status
 
 Clients
   · Claude             team · Configured
-  · Claude Desktop     No Claude Desktop route selected · Qualified: Chat, Cowork, Code · macOS
-  · Codex              No Codex route selected
-  · Hermes             No Hermes route selected
+  · Claude Desktop     No model selected · Qualified: Chat, Cowork, Code · macOS
+  · Codex              No model selected
+  · Hermes             No model selected
 
 Transport
   · Claude             Loopback endpoint

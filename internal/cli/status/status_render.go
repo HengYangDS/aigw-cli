@@ -14,7 +14,9 @@ import (
 
 func renderStatus(runtime invocation.Context, cfg domain.Config, result statusReport) {
 	r := invocation.Renderer(runtime)
-	if len(cfg.Models) == 0 {
+	// Providers without models are a configuration whose clients select
+	// nothing, which the client rows show.
+	if len(cfg.Providers) == 0 {
 		r.ProductTitle("Not configured")
 		r.Section("Get started")
 		r.Text("Run the guided setup once to add an Account, Token, and first Route.")
@@ -57,7 +59,7 @@ func renderClientStatus(r *terminal.Renderer, admission domain.Admission, result
 			state = terminal.Info
 		case domainreadiness.Deferred:
 			if clientStatus.Model == "" {
-				message = "No " + spec.Label + " route selected"
+				message = "No model selected"
 			}
 		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
 			state = terminal.Warn
