@@ -198,9 +198,10 @@ func checkTargetsRead(cmd *cobra.Command, admission domain.Admission, spec domai
 		spec.Label, clientsWith(admission, domain.ClientSpec.ReadsTargets), cmd.CommandPath())
 }
 
-// targetHelp explains the target option with each client's repeated-target usage.
+// targetHelp explains the target option in one sentence: the clients that
+// read a configuration file, and each client's repeated-target usage.
 func targetHelp(admission domain.Admission) string {
-	help := []string{"Client configuration path"}
+	help := []string{"The client's configuration `file`, for " + clientsWith(admission, domain.ClientSpec.ReadsTargets)}
 	for _, spec := range admission.Specs() {
 		if spec.TargetsUsage != "" {
 			help = append(help, spec.TargetsUsage)

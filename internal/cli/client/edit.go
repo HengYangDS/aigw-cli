@@ -59,8 +59,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	invocation.BindText(cmd, &options.executable, "executable", "Path to the client's executable")
-	cmd.Flags().StringArrayVar(&options.targets, "target", nil, "The client's configuration `file`, for "+
-		clientsWith(admission, domain.ClientSpec.ReadsTargets)+"; the files given replace the current ones; "+targetHelp(admission))
+	cmd.Flags().StringArrayVar(&options.targets, "target", nil, targetHelp(admission)+"; the files given replace the current ones")
 	invocation.BindText(cmd, &options.via, "via", "Send the client to the endpoint `url` instead of its provider's")
 	cmd.Flags().BoolVar(&options.direct, "direct", false, "Remove forwarding, so the client reaches its provider's endpoint again")
 	retries := clientsWith(admission, func(spec domain.ClientSpec) bool { return spec.RetryBudgets })
