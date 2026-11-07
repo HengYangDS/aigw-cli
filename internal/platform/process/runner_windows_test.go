@@ -5,6 +5,7 @@ package process
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -61,6 +62,31 @@ func TestStartCapturedProcessReportsMissingExecutable(t *testing.T) {
 	cleanup, err := startCapturedProcess(exec.Command("aigw-definitely-not-a-real-binary"))
 	if err == nil || cleanup != nil {
 		t.Fatalf("cleanup_present=%t error=%v", cleanup != nil, err)
+	}
+}
+
+func TestRunStreamReportsTheCancellationThatEndsItsStart(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	native := nativeWindowsProcessAPI
+	t.Cleanup(func() { nativeWindowsProcessAPI = native })
+	nativeWindowsProcessAPI.resumeProcess = func(pid uint32) error {
+		child, err := windows.OpenProcess(windows.SYNCHRONIZE, false, pid)
+		if err != nil {
+			t.Errorf("observe the suspended child: %v", err)
+			return err
+		}
+		defer func() { _ = windows.CloseHandle(child) }()
+		// os/exec terminates the suspended child once its context ends.
+		cancel()
+		if event, err := windows.WaitForSingleObject(child, 10_000); err != nil || event != windows.WAIT_OBJECT_0 {
+			t.Errorf("the cancelled child still runs: event=%d error=%v", event, err)
+		}
+		return native.resumeProcess(pid)
+	}
+	err := (Runner{}).RunStream(ctx, Plan{Executable: "cmd.exe", Args: []string{"/c", "exit", "0"}}, io.Discard, io.Discard)
+	if !errors.Is(err, context.Canceled) || !strings.Contains(err.Error(), "start cmd.exe") {
+		t.Fatalf("RunStream() error = %v; want the failed start with the cancellation that ended it", err)
 	}
 }
 

@@ -11,6 +11,20 @@ signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
+### Changed
+
+- The team file `manifests/team.toml` takes each vendor's strongest model that
+  its Accounts serve:
+  - Tencent HY4 replaces HY4 Preview, through DMXAPI (Responses) and
+    AIHubMix (Chat);
+  - LongCat 2.5 replaces LongCat 2.5 Preview on DMXAPI;
+  - DMXAPI serves Doubao Seed 2.1 Pro 260915, and the other Accounts keep
+    260628;
+  - GPT-6.1 Terra adds UCloud.
+
+  Every new route passed a native Hermes tool turn and a resumed recall.
+  Claude stays at 5.5 and GPT at 6.1.
+
 ### Fixed
 
 - `aigw verify --for hermes` no longer starts the operator's Hermes MCP

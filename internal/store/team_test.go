@@ -142,9 +142,9 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 	want := []string{
 		"claude-haiku-5-5", "claude-opus-5-5", "claude-sonnet-5-5",
 		"cohere-command-a",
-		"deepseek-v4.1-flash-1017", "doubao-seed-2-1-pro-260628", "ernie-5.1", "gemini-4-argon", "glm-5.3",
+		"deepseek-v4.1-flash-1017", "doubao-seed-2-1-pro-260628", "doubao-seed-2-1-pro-260915", "ernie-5.1", "gemini-4-argon", "glm-5.3",
 		"gpt-6.1-sol", "gpt-6.1-terra", "grok-4.7",
-		"hy4-preview", "kimi-k3.1-pro", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.5-preview", "mercury-2.5", "mimo-v2.6-pro",
+		"hy4", "kimi-k3.1-pro", "laguna-s-2.1", "ling-3.0-flash", "longcat-2.5", "mercury-2.5", "mimo-v2.6-pro",
 		"minimax-m3.1-flash", "mistral-large-3", "muse-wonder", "nemotron-3-ultra-550b-a55b",
 		"qwen3.8-max-0902", "solar-pro4", "step-5-preview",
 	}
@@ -172,7 +172,12 @@ func TestTeamManifestUsesRequestedLogicalModels(t *testing.T) {
 				t.Errorf("verified Route %q = %+v, want exact Account, Model, and wire identity", id, route)
 			}
 		}
-		for _, model := range []string{"deepseek-v4.1-flash-1017", "doubao-seed-2-1-pro-260628"} {
+		// DMXAPI serves the Seed 2.1 Pro 260915 refresh; the other Accounts list only 260628.
+		doubao := "doubao-seed-2-1-pro-260628"
+		if account == "dmxapi" {
+			doubao = "doubao-seed-2-1-pro-260915"
+		}
+		for _, model := range []string{"deepseek-v4.1-flash-1017", doubao} {
 			id := account + "-" + model
 			route, ok := manifest.Routes[id]
 			if !ok || route.Account != account || route.Model != model || route.UpstreamModelID() != model {
@@ -186,8 +191,9 @@ func TestTeamManifestGPTAccountRoutesFollowInferenceEvidence(t *testing.T) {
 	_, manifest := loadTeamManifest(t)
 	want := map[string][]string{
 		"gpt-6.1-sol": {"aihubmix", "dmxapi", "ucloud"},
-		// DMXAPI lists Terra only on its CDX channel, a separate wire identity.
-		"gpt-6.1-terra": {"aihubmix"},
+		// DMXAPI's plain Terra waits for a resumed tool-turn qualification; its CDX
+		// channel is a separate wire identity.
+		"gpt-6.1-terra": {"aihubmix", "ucloud"},
 	}
 	for model, accounts := range want {
 		for _, account := range accounts {
@@ -278,12 +284,13 @@ func TestTeamManifestFrontierRefreshUsesQualifiedAccountProtocols(t *testing.T) 
 		wire     string
 		protocol domain.EndpointProtocol
 	}{
-		"aihubmix-gemini-4-argon":    {"gemini-4-argon", "gemini-4-argon", domain.ProtocolOpenAIResponses},
-		"dmxapi-gemini-4-argon":      {"gemini-4-argon", "gemini-4-argon", domain.ProtocolOpenAIResponses},
-		"ucloud-gemini-4-argon":      {"gemini-4-argon", "gemini-4-argon", domain.ProtocolOpenAIChatCompletions},
-		"dmxapi-hy4-preview":         {"hy4-preview", "hy4-preview", domain.ProtocolOpenAIResponses},
-		"dmxapi-longcat-2.5-preview": {"longcat-2.5-preview", "LongCat-2.5-Preview", domain.ProtocolOpenAIResponses},
-		"dmxapi-step-5-preview":      {"step-5-preview", "step-5-preview", domain.ProtocolOpenAIResponses},
+		"aihubmix-gemini-4-argon": {"gemini-4-argon", "gemini-4-argon", domain.ProtocolOpenAIResponses},
+		"dmxapi-gemini-4-argon":   {"gemini-4-argon", "gemini-4-argon", domain.ProtocolOpenAIResponses},
+		"ucloud-gemini-4-argon":   {"gemini-4-argon", "gemini-4-argon", domain.ProtocolOpenAIChatCompletions},
+		"dmxapi-hy4":              {"hy4", "hy4", domain.ProtocolOpenAIResponses},
+		"aihubmix-hy4":            {"hy4", "hy4", domain.ProtocolOpenAIChatCompletions},
+		"dmxapi-longcat-2.5":      {"longcat-2.5", "LongCat-2.5", domain.ProtocolOpenAIResponses},
+		"dmxapi-step-5-preview":   {"step-5-preview", "step-5-preview", domain.ProtocolOpenAIResponses},
 	}
 	for id, expected := range want {
 		route, ok := manifest.Routes[id]
@@ -292,7 +299,8 @@ func TestTeamManifestFrontierRefreshUsesQualifiedAccountProtocols(t *testing.T) 
 			t.Errorf("qualified frontier Route %q = %+v, want %+v", id, route, expected)
 		}
 	}
-	for _, superseded := range []string{"aihubmix-gemini-3.8-flash", "dmxapi-gemini-3.8-flash", "ucloud-gemini-3.8-flash"} {
+	for _, superseded := range []string{"aihubmix-gemini-3.8-flash", "dmxapi-gemini-3.8-flash", "ucloud-gemini-3.8-flash",
+		"dmxapi-hy4-preview", "dmxapi-longcat-2.5-preview", "dmxapi-doubao-seed-2-1-pro-260628"} {
 		if _, retained := manifest.Routes[superseded]; retained {
 			t.Errorf("superseded Route %q remains in the shipped manifest", superseded)
 		}

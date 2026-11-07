@@ -280,7 +280,8 @@ func (Runner) RunStream(ctx context.Context, plan Plan, stdout, stderr io.Writer
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	cleanup, err := startCapturedProcess(cmd)
 	if err != nil {
-		return fmt.Errorf("start %s: %w", plan.Executable, err)
+		// A context that ends during the start stops the child before it runs.
+		return fmt.Errorf("start %s: %w", plan.Executable, errors.Join(err, ctx.Err()))
 	}
 	defer func() { err = errors.Join(err, cleanup()) }()
 	if plan.OnStart != nil {
