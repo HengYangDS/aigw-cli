@@ -49,7 +49,7 @@ func TestListFiltersByQueryProviderClientAndProtocol(t *testing.T) {
 func TestListRefusesUnknownNamesWithTheirFix(t *testing.T) {
 	f := newFixture(t)
 	err := f.run("list", "--client", "codx")
-	if p := problem(err); !strings.Contains(p.Title, "did you mean codex?") || p.Fix != "aigw status" {
+	if p := problem(err); !strings.Contains(p.Title, "did you mean codex?") || p.Fix != "aigw client list" {
 		t.Fatalf("an unknown client = %q, fix %q", p.Title, p.Fix)
 	}
 	err = f.run("list", "--provider", "teem")

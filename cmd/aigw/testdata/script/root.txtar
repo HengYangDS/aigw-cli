@@ -48,7 +48,7 @@ Advanced
   add                  Add and connect one Account with its first Route
   balance              Show account balance and token quota
   catalog              Discover authenticated model catalogs for each account (compact summary by default)
-  client               Manage client projections
+  client               List, enable and disable clients
   completion           Generate shell completion
   config               Import and export configuration
   installation         Inspect the current portable program and retained predecessor

@@ -414,7 +414,7 @@ Next
   "schema_version": 3,
   "ok": false,
   "error": "unknown client \"codx\"; did you mean codex? Clients are claude, claude-desktop, codex, or hermes",
-  "next_action": "aigw status"
+  "next_action": "aigw client list"
 }
 -- show.json --
 {

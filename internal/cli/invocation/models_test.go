@@ -213,7 +213,7 @@ func TestResolveClientNamesTheClosestClients(t *testing.T) {
 		t.Fatalf("a known client = %#v, %v", spec, err)
 	}
 	_, err := ResolveClient(admission, "codx")
-	if problem := terminal.ProblemFor(err); problem.Title != `unknown client "codx"; did you mean codex? Clients are claude, claude-desktop, codex, or hermes` || problem.Fix != "aigw status" {
+	if problem := terminal.ProblemFor(err); problem.Title != `unknown client "codx"; did you mean codex? Clients are claude, claude-desktop, codex, or hermes` || problem.Fix != "aigw client list" {
 		t.Fatalf("an unknown client = %q, fix %q", problem.Title, problem.Fix)
 	}
 	_, err = ResolveClient(admission, "zzzzzz")

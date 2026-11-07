@@ -170,7 +170,8 @@ func ResolveProvider(cfg domain.Config, id string) (domain.Provider, error) {
 }
 
 // ResolveClient returns the admitted client with id. An unknown one is refused
-// with the closest client IDs and every client that the admission names.
+// with the closest client IDs and every client that the admission names; its
+// fix lists the clients.
 func ResolveClient(admission domain.Admission, id string) (domain.ClientSpec, error) {
 	if spec, admitted := admission.Spec(id); admitted {
 		return spec, nil
@@ -179,7 +180,7 @@ func ResolveClient(admission domain.Admission, id string) (domain.ClientSpec, er
 	if closest := ClosestMatches(id, admission.IDs()); len(closest) > 0 {
 		message = fmt.Sprintf("unknown client %q; did you mean %s? Clients are %s", id, strings.Join(closest, ", "), admission.Usage())
 	}
-	return domain.ClientSpec{}, refusal{message: message, fix: "aigw status"}
+	return domain.ClientSpec{}, refusal{message: message, fix: "aigw client list"}
 }
 
 // closestText is the refusal text that names the closest of candidates to

@@ -6,12 +6,31 @@ import (
 )
 
 // discoverSchemaVersion and the other constants are the versions of the client
-// subcommands' JSON documents.
+// subcommands' JSON documents. list replaces discover's document, so it
+// continues from discover's schema_version plus one.
 const (
 	discoverSchemaVersion = 1
+	listSchemaVersion     = 2
 	enableSchemaVersion   = 1
 	disableSchemaVersion  = 1
 )
+
+// listDocument is `aigw client list`'s JSON document: every client in
+// admission order.
+type listDocument struct {
+	Clients []clientItem `json:"clients"`
+}
+
+// clientItem is one client as list reports it: whether it is installed and
+// where, whether it is enabled, and its model as provider/model, absent when
+// it selects none.
+type clientItem struct {
+	ID         string `json:"id"`
+	Installed  bool   `json:"installed"`
+	Executable string `json:"executable,omitempty"`
+	Enabled    bool   `json:"enabled"`
+	Model      string `json:"model,omitempty"`
+}
 
 // discoverDocument is `aigw client discover`'s JSON document.
 type discoverDocument struct {

@@ -1,4 +1,5 @@
-// Package client owns explicit client discovery and projection lifecycle commands.
+// Package client implements `aigw client`, which lists the clients, enables
+// and disables them, and discovers their executables.
 package client
 
 import (
@@ -15,8 +16,8 @@ import (
 
 // NewCommand constructs the client lifecycle command tree.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	root := &cobra.Command{Use: "client", Short: "Manage client projections"}
-	root.AddCommand(newDiscoverCommand(runtime), newEnableCommand(runtime), newDisableCommand(runtime))
+	root := &cobra.Command{Use: "client", Short: "List, enable and disable clients"}
+	root.AddCommand(newListCommand(runtime), newDiscoverCommand(runtime), newEnableCommand(runtime), newDisableCommand(runtime))
 	return root
 }
 
@@ -62,7 +63,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode, dryRun bool
 	cmd := &cobra.Command{Use: "enable <client>", Short: "Enable a client projection", ValidArgs: runtime.Clients.Admission().IDs(), Args: cobra.MatchAll(cobra.ExactArgs(1), validateClientArgument(runtime.Clients.Admission()), func(_ *cobra.Command, args []string) error {
 		if strings.TrimSpace(executable) == "" {
-			return fmt.Errorf("--executable is required; run `aigw client discover`")
+			return fmt.Errorf("--executable is required; run `aigw client list`, which shows where each client is installed")
 		}
 		if spec, _ := runtime.Clients.Admission().Spec(args[0]); spec.TargetFile != "" && len(targets) == 0 {
 			return fmt.Errorf("%s projection requires at least one --target %s; run `aigw client enable --help`", spec.Label, spec.TargetFile)

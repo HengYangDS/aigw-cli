@@ -1,10 +1,28 @@
-# client discovers the scripted Claude Code, disables and re-enables its
-# projection, and refuses an unknown client, in text and as JSON.
+# client lists every client with its model, whether it is enabled and where
+# it is installed, discovers the scripted Claude Code, disables and re-enables
+# its projection, and refuses an unknown client, in text and as JSON.
 exec aigw client --help
 cmp stdout help.txt
 
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
+
+# Claude Desktop's row depends on the host's applications, so it is matched
+# by its stable part.
+exec aigw client list
+stdout 'Claude Desktop +No model selected · Disabled · '
+normalize stdout list.out 'Claude Desktop .*'
+[!windows] cmp list.out list.txt
+[windows] cmp list.out list-windows.txt
+exec aigw client list --json
+stdout '"schema_version": 2'
+stdout '"id": "claude",\n\s+"installed": true,\n\s+"executable": "[^"]+",\n\s+"enabled": true,\n\s+"model": "team/team-model"\n'
+stdout '"id": "claude-desktop",\n\s+"installed": (?:false|true,\n\s+"executable": "[^"]+"),\n\s+"enabled": false\n'
+stdout '"id": "codex",\n\s+"installed": false,\n\s+"enabled": false\n'
+stdout '"id": "hermes",\n\s+"installed": false,\n\s+"enabled": false\n'
+exitcode 1 aigw client list extra --json
+cmp stdout list-refusal.json
+
 exec aigw client discover
 stdout 'Claude +.*claude'
 exec aigw client disable claude
@@ -117,7 +135,7 @@ sk-team-token-0001
 -- help.txt --
 AIGW  aigw client
 ────────────────────────────────────────
-  Manage client projections
+  List, enable and disable clients
 
 Usage
   aigw client [command]
@@ -126,6 +144,7 @@ Commands
   disable              Disable a client and remove AIGW-owned projections
   discover             Discover installed client executables
   enable               Enable a client projection
+  list                 List every client with its model, whether it is enabled and where it is installed
 
 Options
   -h, --help   help for client
@@ -189,6 +208,33 @@ Fix
   "ok": false,
   "error": "Client must be claude, claude-desktop, codex, or hermes; run `aigw client disable --help`: invalid argument \"unknown\" for \"aigw client disable\"",
   "next_action": "aigw client disable --help"
+}
+-- list.txt --
+AIGW  Clients
+────────────────────────────────────────
+  ✓ Claude             team/team-model · Enabled · $BIN/claude
+  · <varies>
+  · Codex              No model selected · Disabled · Not installed
+  · Hermes             No model selected · Disabled · Not installed
+
+Next
+  aigw use <client> <provider/model>
+-- list-windows.txt --
+AIGW  Clients
+────────────────────────────────────────
+  ✓ Claude             team/team-model · Enabled · $BIN\claude.exe
+  · <varies>
+  · Codex              No model selected · Disabled · Not installed
+  · Hermes             No model selected · Disabled · Not installed
+
+Next
+  aigw use <client> <provider/model>
+-- list-refusal.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "next_action": "aigw client list --help"
 }
 -- discover-refusal.json --
 {
