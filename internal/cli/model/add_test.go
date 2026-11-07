@@ -41,11 +41,14 @@ func TestAddRefusesWhatTheCatalogDoesNotList(t *testing.T) {
 	if p := problem(err); p.Title != "the team catalog does not list spare-mdl; did you mean team/spare-model?" || p.Fix != "model add team/spare-model" {
 		t.Fatalf("an unlisted model = %q, fix %q", p.Title, p.Fix)
 	}
-	if p := problem(f.run("add", "team/zzz")); p.Title != "the team catalog does not list zzz" || p.Fix != "model add team/zzz --unlisted" {
+	// Without a close listed ID, --unlisted adds the ID as typed, after the
+	// user confirms it, so the fix is prose that JSON carries as next_detail.
+	if p := problem(f.run("add", "team/zzz")); p.Title != "the team catalog does not list zzz" ||
+		p.Fix != "If the provider serves this exact model ID, run `model add team/zzz --unlisted`." {
 		t.Fatalf("an unlisted model without a close match = %q, fix %q", p.Title, p.Fix)
 	}
 	// A word that would need quoting leaves the fix in prose.
-	if p := problem(f.run("add", "team/spare-mdl", "--label", "two words")); p.Fix != "Run the same command with --unlisted." {
+	if p := problem(f.run("add", "team/spare-mdl", "--label", "two words")); p.Fix != "If the provider serves this exact model ID, run the same command with --unlisted." {
 		t.Fatalf("a close-match fix that would need quoting = %q", p.Fix)
 	}
 	f.catalog.ids = nil

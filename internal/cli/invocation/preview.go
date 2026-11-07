@@ -123,6 +123,15 @@ func plain(word string) bool {
 	return plainWord.MatchString(word) && !shellTilde.MatchString(word)
 }
 
+// Command returns the aigw command line of words, or "" when a word would
+// need quoting in the platform's shells.
+func Command(words ...string) string {
+	if !slices.ContainsFunc(words, func(word string) bool { return !plain(word) }) {
+		return strings.Join(append([]string{"aigw"}, words...), " ")
+	}
+	return ""
+}
+
 // ApplyCommand returns the continuation of a preview: the same command line
 // without --dry-run and --json, or prose when a word would need quoting,
 // because no one quoting runs in every shell of a platform.

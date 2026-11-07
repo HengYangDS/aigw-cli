@@ -65,8 +65,8 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 
 func runEdit(cmd *cobra.Command, runtime invocation.Context, args []string, options editOptions) error {
 	// --protocol replaces the protocols, so it cannot also select among the
-	// models of one name; such a name gives the Route of each.
-	cfg, key, model, err := loadModel(cmd, runtime, "", args[0])
+	// models of one name; such a name is refused with `aigw model show`.
+	cfg, key, model, err := loadModel(runtime, args[0], modelSelector{})
 	if err != nil {
 		return err
 	}
@@ -155,13 +155,19 @@ func keepSelectedProtocols(cfg domain.Config, key string, ref domain.ModelRef, p
 }
 
 // servedNames returns the names of the protocols among given that provider
-// serves.
+// serves, or the choice of the protocols that it serves when it serves none of
+// them.
 func servedNames(provider domain.Provider, given []domain.EndpointProtocol) []string {
 	var names []string
 	for _, protocol := range given {
 		if provider.Endpoints.For(protocol) != "" {
 			names = append(names, protocol.Name())
 		}
+	}
+	if len(names) == 0 {
+		// None of the given protocols is served: the fix gives one that is,
+		// as add's does.
+		return []string{protocolChoice(providerProtocols(provider))}
 	}
 	return names
 }

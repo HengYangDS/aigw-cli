@@ -52,23 +52,46 @@ func checkCatalog(ctx context.Context, runtime invocation.Context, cmd *cobra.Co
 		problem := fmt.Sprintf("the %s catalog %s, so AIGW cannot check that it serves %s", ref.Provider(), reason, ref)
 		return terminal.ProblemError(problem, unreadSources(report), "", unlisted, nil)
 	}
-	// The fix adds the closest listed model that is not added yet, whose ID
-	// the user most likely meant; only a catalog without one leaves
-	// --unlisted, which adds the ID as typed.
+	return unlistedModel(cmd, cfg, ref, listed, unreadSources(report))
+}
+
+// unlistedModel refuses a model ID that the catalog does not list. The
+// closest listed ID is most likely what the user meant: an added one is named
+// as added, with `aigw model show`, and another one is added instead. Only a
+// catalog without a close ID leaves --unlisted, which adds the ID as typed; it
+// is never the exact fix for what is likely a typo of an added model, and it
+// asks the user to confirm the ID first.
+func unlistedModel(cmd *cobra.Command, cfg domain.Config, ref domain.ModelRef, listed []string, evidence string) error {
 	problem := fmt.Sprintf("the %s catalog does not list %s", ref.Provider(), ref.ID())
-	closest := closestListed(ref.ID(), slices.DeleteFunc(listed, func(id string) bool {
-		return len(cfg.ResolveModelRef(domain.NewModelRef(ref.Provider(), id))) > 0
-	}))
+	closest := closestListed(ref.ID(), listed)
 	if len(closest) == 0 {
-		return terminal.ProblemError(problem, unreadSources(report), "", unlisted, nil)
+		return terminal.ProblemError(problem, evidence, "", confirmUnlisted(cmd), nil)
+	}
+	nearest := domain.NewModelRef(ref.Provider(), closest[0])
+	if len(cfg.ResolveModelRef(nearest)) > 0 {
+		fix := invocation.Command("model", "show", nearest.String())
+		if fix == "" {
+			fix = "Run `aigw model show` for " + nearest.String() + "."
+		}
+		return terminal.ProblemError(problem+"; "+nearest.String()+" is already added", evidence, "", fix, nil)
 	}
 	problem += "; did you mean " + ref.Provider() + "/" + strings.Join(closest, ", "+ref.Provider()+"/") + "?"
-	args := append([]string{ref.Provider() + "/" + closest[0]}, cmd.Flags().Args()[1:]...)
+	args := append([]string{nearest.String()}, cmd.Flags().Args()[1:]...)
 	fix := invocation.Rerun(cmd, args, nil)
 	if fix == "" {
-		fix = unlisted
+		fix = confirmUnlisted(cmd)
 	}
-	return terminal.ProblemError(problem, unreadSources(report), "", fix, nil)
+	return terminal.ProblemError(problem, evidence, "", fix, nil)
+}
+
+// confirmUnlisted is the fix that adds a model ID that the catalog does not
+// list, after the user confirms it: prose, so that JSON carries it as
+// next_detail and no script adds a typo.
+func confirmUnlisted(cmd *cobra.Command) string {
+	if line := invocation.Rerun(cmd, cmd.Flags().Args(), nil, "--unlisted"); line != "" {
+		return "If the provider serves this exact model ID, run `" + line + "`."
+	}
+	return "If the provider serves this exact model ID, run the same command with --unlisted."
 }
 
 // unreadSources names each of the provider's catalog sources that could not

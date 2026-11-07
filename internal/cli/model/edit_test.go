@@ -105,7 +105,7 @@ func TestEditRefusesWhatWouldBreakItsModel(t *testing.T) {
 	for args, want := range map[string]struct{ title, fix string }{
 		"edit team/team-model --protocol chat": {
 			"team/team-model cannot declare OpenAI Chat Completions: provider team has no OpenAI Chat Completions endpoint",
-			"Run the same command with --protocol anthropic.",
+			"model edit team/team-model --protocol anthropic",
 		},
 		// The fix keeps the model's own protocols beside the one that admits
 		// tool search.
@@ -131,6 +131,17 @@ func TestEditRefusesWhatWouldBreakItsModel(t *testing.T) {
 	}
 	if p := problem(f.run("edit", "mixed/Chat-Only", "--capability", "tool_search")); p.Fix != "model edit --help" {
 		t.Fatalf("a capability that the provider cannot serve = %q", p.Fix)
+	}
+	// Of the given protocols, the served ones stay in the rerun; when none
+	// is served, the rerun gives the one that the provider serves, as add's
+	// does.
+	p := problem(f.run("edit", "mixed/Chat-Only", "--protocol", "anthropic", "--protocol", "chat"))
+	if p.Fix != "model edit mixed/Chat-Only --protocol chat" {
+		t.Fatalf("a mixed protocol set = %q", p.Fix)
+	}
+	p = problem(f.run("edit", "mixed/Chat-Only", "--protocol", "responses", "--protocol", "anthropic"))
+	if p.Fix != "model edit mixed/Chat-Only --protocol chat" {
+		t.Fatalf("a set of unserved protocols = %q", p.Fix)
 	}
 }
 

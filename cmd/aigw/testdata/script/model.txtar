@@ -58,6 +58,9 @@ exitcode 1 aigw model add team/spare-mdl
 cmp stdout add-unlisted.txt
 exec aigw model add team/spare-model --capability tool_search --json
 cmp stdout added.json
+# A typo of an added model names that model; it is never added as typed.
+exitcode 1 aigw model add team/team-modl --json
+cmp stdout add-added-typo.json
 exitcode 1 aigw model add mixed/new-model --protocol chat --json
 cmp stdout add-unreadable.json
 exec aigw model add mixed/new-model --protocol chat --unlisted --family new-family --json
@@ -109,6 +112,9 @@ cmp stdout list-twin.txt
 # another one is, and the recommendation that names it drops it.
 exitcode 1 aigw model remove team/team-model --json
 cmp stdout remove-selected.json
+# --protocol selects only a model that declares it.
+exitcode 1 aigw model remove mixed/chat-only --protocol anthropic --json
+cmp stdout remove-protocol.json
 exec aigw client disable hermes
 exitcode 1 aigw model remove mixed/chat-only
 cmp stdout remove-disabled.txt
@@ -718,7 +724,7 @@ Next
 {
   "schema_version": 3,
   "ok": false,
-  "error": "mixed/twin names 2 models, one for each of the protocols anthropic, chat",
+  "error": "mixed/twin names 2 models; each of the protocols anthropic, chat selects one",
   "next_detail": "aigw model show mixed/twin --protocol \u003canthropic|chat\u003e"
 }
 -- show-twin-anthropic.json --
@@ -757,3 +763,17 @@ Mixed
 
 Next
   aigw use <client> <provider/model>
+-- add-added-typo.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "the team catalog does not list team-modl; team/team-model is already added",
+  "next_action": "aigw model show team/team-model"
+}
+-- remove-protocol.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "mixed/chat-only declares no Anthropic Messages",
+  "next_action": "aigw model show mixed/chat-only"
+}

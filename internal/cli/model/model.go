@@ -41,10 +41,8 @@ func modelArgument(cmd *cobra.Command, args []string) error {
 }
 
 // loadModel loads the configuration and resolves the command's model
-// argument to the configured model and its key. The protocol that cmd's
-// --protocol filter names selects among the models of one name; a command
-// without that filter names the model's Route when the name is ambiguous.
-func loadModel(cmd *cobra.Command, runtime invocation.Context, protocol domain.EndpointProtocol, text string) (domain.Config, string, domain.Model, error) {
+// argument to the configured model and its key.
+func loadModel(runtime invocation.Context, text string, selector modelSelector) (domain.Config, string, domain.Model, error) {
 	cfg, err := runtime.Config.Load()
 	if err != nil {
 		return domain.Config{}, "", domain.Model{}, err
@@ -53,14 +51,24 @@ func loadModel(cmd *cobra.Command, runtime invocation.Context, protocol domain.E
 	if err != nil {
 		return domain.Config{}, "", domain.Model{}, err
 	}
-	var rerun func(string) string
-	if filter := cmd.Flags().Lookup("protocol"); filter != nil && filter.Value.Type() == "string" {
-		rerun = func(choice string) string {
-			return invocation.Rerun(cmd, cmd.Flags().Args(), []string{"protocol"}, "--protocol", choice)
-		}
-	}
-	key, model, err := invocation.ResolveModel(cfg, ref, protocol, rerun)
+	key, model, err := invocation.ResolveModel(cfg, ref, selector.protocol, selector.rerun)
 	return cfg, key, model, err
+}
+
+// modelSelector is how a command selects among the models of one name: the
+// protocol of its --protocol filter, which a model must declare, and the
+// command rerun with another one. A command whose --protocol means something
+// else selects nothing.
+type modelSelector struct {
+	protocol domain.EndpointProtocol
+	rerun    func(choice string) string
+}
+
+// protocolSelector selects by cmd's --protocol filter, protocol.
+func protocolSelector(cmd *cobra.Command, protocol domain.EndpointProtocol) modelSelector {
+	return modelSelector{protocol: protocol, rerun: func(choice string) string {
+		return invocation.Rerun(cmd, cmd.Flags().Args(), []string{"protocol"}, "--protocol", choice)
+	}}
 }
 
 // describe reports one added model as list and show do: its name, label,

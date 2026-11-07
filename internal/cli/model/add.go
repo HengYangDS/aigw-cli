@@ -184,7 +184,7 @@ func missingEndpoint(cmd *cobra.Command, ref domain.ModelRef, provider domain.Pr
 		words = append(words, "--protocol", choice)
 	}
 	fix := invocation.Rerun(cmd, cmd.Flags().Args(), []string{"protocol"}, words...)
-	if fix == "" || len(protocols) == 0 {
+	if fix == "" {
 		fix = "Run the same command with --protocol " + protocolChoice(served) + "."
 	}
 	return terminal.ProblemError(
