@@ -1,13 +1,15 @@
 # use points one client at a model named provider/model, as JSON and in text,
 # and adds a model that the provider's catalog lists. A preview reads no Token
-# value or catalog and writes nothing. Within a provider a
-# client keeps its forwarding and retry budgets; on another provider's model
-# it loses both, and the result says so. A model on several protocols that a
-# client speaks needs --protocol without a terminal, and a provider without a
-# Token is previewed as missing and refused without a terminal, naming the
-# step that stores it from standard input. A missing argument, an unknown
-# client or model, a model without a provider, a lone model ID and an old
-# protocol spelling are refused before any Token is read.
+# value or catalog and writes nothing. Within a provider a client keeps its
+# forwarding and retry budgets; on another provider's model it loses both, and
+# the result says so. A model on several protocols that a client speaks needs
+# --protocol without a terminal, and the selection that a model edit names
+# runs as named. A selection that changes Claude Desktop's list names Desktop,
+# its restart and its lost tool search, with the command that declares it. A
+# provider without a Token is previewed as missing and refused without a
+# terminal, naming the step that stores it from standard input. A missing
+# argument, an unknown client or model, a model without a provider, a lone
+# model ID and an old protocol spelling are refused before any Token is read.
 exec aigw use --help
 cmp stdout help.txt
 
@@ -87,6 +89,42 @@ cmp stdout hermes-protocol.json
 exec aigw use hermes team/team-model --protocol responses --dry-run --json
 stdout '"protocol": "responses"'
 
+# A model edit that would remove the protocol on which Hermes uses the model
+# names the selection that moves Hermes first; run as named, it lets the edit
+# succeed.
+exec aigw use hermes team/team-model --protocol responses
+exitcode 1 aigw model edit team/team-model --protocol anthropic --json
+stdout '"next_action": "aigw use hermes team/team-model --protocol anthropic"'
+exec aigw use hermes team/team-model --protocol anthropic
+stdout 'Model selected'
+exec aigw model edit team/team-model --protocol anthropic
+
+# Claude Desktop lists every model of its provider that it can use, and its
+# tool search needs each of them to declare tool_search. A model to which
+# Claude's selection gives Anthropic Messages joins Desktop's list declaring
+# nothing: Desktop's files change, Desktop needs a restart, and its tool
+# search is off. The result names the command that declares tool_search and
+# keeps the model's capabilities, which, run as named, keeps chat's.
+stdin desk-token.txt
+exec aigw provider add desk --endpoint anthropic=$UPSTREAM/desk --endpoint chat=$UPSTREAM/desk/v1 --token-stdin
+exec aigw model add desk/team-model --protocol anthropic --capability tool_search
+exec aigw model add desk/spare-model --protocol chat --capability text --capability tools
+mkdir $WORK/library
+chmod 0755 Claude
+exec aigw use claude-desktop desk/team-model
+exec aigw client edit claude-desktop --executable $WORK/Claude --target $WORK/library
+exec aigw use claude desk/spare-model --dry-run
+stdout '! Tool search +Off in Claude Desktop, because desk/spare-model declares no tool_search'
+stdout 'Other clients +Claude Desktop: their files change too; restart Claude Desktop to apply them'
+stdout '^  aigw model edit desk/spare-model --capability text --capability tools --capability tool_search$'
+exec aigw use claude desk/spare-model --json
+stdout '"other_clients": \[\n\s+\{\n\s+"client": "claude-desktop",\n\s+"restart_required": true'
+stdout '"fix": "aigw model edit desk/spare-model --capability text --capability tools --capability tool_search"'
+stdout '"next_detail": "Restart Claude Desktop, then run `aigw check claude`"'
+exec aigw model edit desk/spare-model --capability text --capability tools --capability tool_search
+exec aigw model show desk/spare-model --json
+stdout '"protocol": "chat",\n\s+"capabilities": \[\n\s+"text",\n\s+"tools"\n\s+\]'
+
 # The mixed provider has no Token. A preview reports it as missing, and with
 # the read-only environment backend names its variable. Without a terminal
 # the selection is refused with the step that stores the Token from standard
@@ -131,6 +169,10 @@ sk-other-token-0001
 sk-fresh-token-0001
 -- mixed-token.txt --
 sk-mixed-token-0001
+-- desk-token.txt --
+sk-desk-token-0001
+-- Claude --
+#!/bin/sh
 -- mixed.in --
 version = 7
 [accounts.mixed]
@@ -340,14 +382,14 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "\"team-model\" names no provider; it could mean other/team-model, team/team-model",
+  "error": "\"team-model\" names no provider; it could mean desk/team-model, other/team-model, team/team-model",
   "next_action": "aigw model list team-model"
 }
 -- no-client.json --
 {
   "schema_version": 3,
   "ok": false,
-  "error": "\"team-model\" names no client or provider; it could mean other/team-model, team/team-model",
+  "error": "\"team-model\" names no client or provider; it could mean desk/team-model, other/team-model, team/team-model",
   "next_action": "aigw model list team-model"
 }
 -- unknown-model.json --
