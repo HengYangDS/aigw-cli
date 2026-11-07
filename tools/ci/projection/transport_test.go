@@ -24,6 +24,20 @@ var (
 	numericProjectPath = regexp.MustCompile(`projects/[0-9]+`)
 )
 
+// assertPreludeNamesNoInstance fails when a mirror prelude names its GitLab
+// instance or project other than through CI variables, or reads $HOME/.netrc.
+func assertPreludeNamesNoInstance(t *testing.T, name, prelude string) {
+	t.Helper()
+	for _, literal := range []*regexp.Regexp{ipv4Literal, numericProjectPath} {
+		if found := literal.FindString(prelude); found != "" {
+			t.Errorf("GitLab %s mirror prelude hard-codes %q", name, found)
+		}
+	}
+	if strings.Contains(prelude, "$HOME/.netrc") {
+		t.Errorf("GitLab %s mirror prelude reads $HOME/.netrc", name)
+	}
+}
+
 func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing.T) {
 	root := filepath.Clean(filepath.Join("..", "..", ".."))
 	projections, err := renderProjections(root)
@@ -76,15 +90,7 @@ func TestGitLabUnixLockedToolsUseJobScopedMirrorWithoutChangingGitHub(t *testing
 		if metadata < 0 || fallback <= metadata || !strings.Contains(prelude, "release-$1-$2-$3.json") {
 			t.Errorf("GitLab %s must resolve mirrored release metadata before the API fallback", name)
 		}
-		// A prelude names its GitLab instance and project only through CI variables.
-		for _, literal := range []*regexp.Regexp{ipv4Literal, numericProjectPath} {
-			if found := literal.FindString(prelude); found != "" {
-				t.Errorf("GitLab %s mirror prelude hard-codes %q", name, found)
-			}
-		}
-		if strings.Contains(prelude, "$HOME/.netrc") {
-			t.Errorf("GitLab %s mirror prelude reads $HOME/.netrc", name)
-		}
+		assertPreludeNamesNoInstance(t, name, prelude)
 	}
 	for name, commands := range map[string][]string{
 		"Linux": gitlab.LinuxToolchain.AfterScript,
