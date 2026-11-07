@@ -1,16 +1,17 @@
-// Package provider contains explicitly bundled, provider-native diagnostics.
-// It is intentionally outside AIGW's Account/Model/Route/Adapter core: an
-// Account may declare a diagnostic provider that is not present in a given
-// build while all ordinary routing and health checks continue to work.
-package provider
+// Package balanceprobe contains the explicitly bundled balance probes: the
+// provider-native diagnostics that report a provider's balance and Token
+// quota. It stays outside AIGW's provider, model and client core: a provider
+// may declare a balance probe that a given build does not include, while every
+// ordinary command and check keeps working.
+package balanceprobe
 
 import (
 	"context"
 	"fmt"
 
+	"aigw-cli/internal/balanceprobe/diagnostic"
+	"aigw-cli/internal/balanceprobe/dmxapi"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/provider/diagnostic"
-	"aigw-cli/internal/provider/dmxapi"
 )
 
 type probeFunc func(context.Context, diagnostic.Sender, domain.Provider, string, diagnostic.Credential) (diagnostic.Report, error)

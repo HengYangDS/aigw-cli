@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	"aigw-cli/internal/balanceprobe"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/provider"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
@@ -133,7 +133,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if providerAccount.BalanceProbe == nil {
 			return fmt.Errorf("Account %q does not support precise account diagnostics", accountName)
 		}
-		if !provider.Supports(providerAccount.BalanceProbe.Kind) {
+		if !balanceprobe.Supports(providerAccount.BalanceProbe.Kind) {
 			return fmt.Errorf("This AIGW version does not include precise diagnostics for provider %q", providerAccount.BalanceProbe.Kind)
 		}
 		var systemToken string

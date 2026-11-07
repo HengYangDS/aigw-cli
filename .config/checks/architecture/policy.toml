@@ -18,12 +18,12 @@ package_children."cmd" = ["aigw"]
 package_children."internal" = [
   "adapter",
   "app",
+  "balanceprobe",
   "cli",
   "clients",
   "domain",
   "platform",
   "program",
-  "provider",
   "secret",
   "store",
   "terminal",
@@ -136,7 +136,7 @@ layers = [
   ["internal/app/readiness"],
   ["internal/app/diagnostics"],
   ["internal/adapter", "internal/program"],
-  ["internal/provider", "internal/secret", "internal/store"],
+  ["internal/balanceprobe", "internal/secret", "internal/store"],
   ["internal/domain", "internal/platform"],
 ]
 
@@ -153,7 +153,7 @@ layer_seams."internal/adapter" = [
   "internal/adapter/surface",
   "internal/adapter/verification",
 ]
-layer_seams."internal/provider" = ["internal/provider/diagnostic"]
+layer_seams."internal/balanceprobe" = ["internal/balanceprobe/diagnostic"]
 layer_seams."tools/release" = [
   "tools/release/identity",
   "tools/release/performance",

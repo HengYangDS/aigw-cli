@@ -2,9 +2,9 @@ package status
 
 import (
 	domainreadiness "aigw-cli/internal/app/readiness"
+	"aigw-cli/internal/balanceprobe"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/provider"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 	"strings"
@@ -103,7 +103,7 @@ func renderDiagnosticStatus(runtime invocation.Context, r *terminal.Renderer, cf
 			rows = append(rows, terminal.Field{State: terminal.Info, Label: accountName, Value: "Provider does not expose a balance probe"})
 			continue
 		}
-		if !provider.Supports(account.BalanceProbe.Kind) {
+		if !balanceprobe.Supports(account.BalanceProbe.Kind) {
 			rows = append(rows, terminal.Field{State: terminal.Info, Label: accountName, Value: "Provider diagnostics unavailable in this version"})
 			continue
 		}

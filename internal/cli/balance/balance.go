@@ -3,9 +3,9 @@
 package balance
 
 import (
+	"aigw-cli/internal/balanceprobe"
+	"aigw-cli/internal/balanceprobe/diagnostic"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/provider"
-	"aigw-cli/internal/provider/diagnostic"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
 	"aigw-cli/internal/terminal"
@@ -87,7 +87,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		if providerAccount.BalanceProbe == nil {
 			return fmt.Errorf("%s does not support precise balance queries", providerAccount.Label)
 		}
-		if !provider.Supports(providerAccount.BalanceProbe.Kind) {
+		if !balanceprobe.Supports(providerAccount.BalanceProbe.Kind) {
 			return fmt.Errorf("Precise diagnostics provider %q is not included in this AIGW version; continue using `aigw check` for general diagnostics", providerAccount.BalanceProbe.Kind)
 		}
 		credential, err := runtime.Providers.Get(accountName)
@@ -101,7 +101,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		ctx, cancel := context.WithTimeout(cmd.Context(), 15*time.Second)
 		defer cancel()
 		providerAccount.ID = accountName
-		report, err := provider.Probe(ctx, probe.Sender{Client: runtime.HTTP}, providerAccount, apiToken, diagnostic.Credential(credential))
+		report, err := balanceprobe.Probe(ctx, probe.Sender{Client: runtime.HTTP}, providerAccount, apiToken, diagnostic.Credential(credential))
 		if err != nil {
 			return err
 		}

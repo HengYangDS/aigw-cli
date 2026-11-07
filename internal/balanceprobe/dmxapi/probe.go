@@ -12,8 +12,8 @@ import (
 	"net/url"
 	"strings"
 
+	"aigw-cli/internal/balanceprobe/diagnostic"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/provider/diagnostic"
 )
 
 // Kind is the stable manifest identifier for the bundled DMXAPI diagnostic.

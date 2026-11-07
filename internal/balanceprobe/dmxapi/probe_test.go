@@ -11,9 +11,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"aigw-cli/internal/balanceprobe/diagnostic"
+	"aigw-cli/internal/balanceprobe/dmxapi"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/provider/diagnostic"
-	"aigw-cli/internal/provider/dmxapi"
 	"aigw-cli/internal/secret/probe"
 )
 
