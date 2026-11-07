@@ -173,7 +173,7 @@ func TestCheckExplainsBothMissingTokenAndDeferredProjection(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result.NextDetail != "run `aigw rotate one`" || result.NextAction != "" || !strings.Contains(result.Problem, "Token") || !strings.Contains(result.Problem, "projection") {
+	if result.NextDetail != "run `aigw provider rotate one`" || result.NextAction != "" || !strings.Contains(result.Problem, "Token") || !strings.Contains(result.Problem, "projection") {
 		t.Fatalf("missing prerequisites were not explained together: %+v", result)
 	}
 }

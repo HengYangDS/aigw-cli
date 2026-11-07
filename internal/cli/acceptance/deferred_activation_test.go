@@ -229,7 +229,7 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneProviderChoice(t *testin
 	if len(setup.SelectedBindings) != 0 || len(setup.DeferredActions) != 1 || !wantNext(setup.NextAction, setup.NextDetail, setup.DeferredActions[0]) {
 		t.Fatalf("setup activation = %+v", setup)
 	}
-	wantAction := "Choose one compatible Account: aigw rotate dmxapi or aigw rotate ucloud"
+	wantAction := "Choose one compatible Account: aigw provider rotate dmxapi or aigw provider rotate ucloud"
 	if !wantNext(setup.NextAction, setup.NextDetail, wantAction) {
 		t.Fatalf("setup Account choices = %q, want %q", (setup.NextAction + setup.NextDetail), wantAction)
 	}
@@ -357,7 +357,7 @@ func TestShippedTeamManifestTokenRemovedBeforeClientInstallation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantAction := "run `aigw rotate ucloud`"
+	wantAction := "run `aigw provider rotate ucloud`"
 	for _, command := range []string{"sync", "status", "check", "doctor"} {
 		assertTokenRemovedJSONCommand(t, app, out, command, wantAction)
 		assertTokenRemovedHumanCommand(t, app, out, command)
@@ -471,7 +471,7 @@ func assertTokenRemovedJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer
 	}
 	wantCommandAction := wantAction
 	if command == "doctor" {
-		wantCommandAction = "aigw rotate ucloud"
+		wantCommandAction = "aigw provider rotate ucloud"
 	}
 	if result.State != "deferred" || !wantNext(result.NextAction, result.NextDetail, wantCommandAction) {
 		t.Fatalf("%s continuation = %+v\n%s", command, result, out)
@@ -499,7 +499,7 @@ func assertTokenRemovedHumanCommand(t *testing.T, app *cli.App, out *bytes.Buffe
 	// Status and check say that the client's files wait; sync and doctor
 	// still call them its projection.
 	human := strings.ToLower(out.String())
-	if !strings.Contains(human, "aigw rotate ucloud") || !strings.Contains(human, "projection") && !strings.Contains(human, "files wait") {
+	if !strings.Contains(human, "aigw provider rotate ucloud") || !strings.Contains(human, "projection") && !strings.Contains(human, "files wait") {
 		t.Fatalf("human %s hid a prerequisite:\n%s", command, out)
 	}
 }

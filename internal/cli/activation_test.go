@@ -43,7 +43,7 @@ func TestActivationNextActionIsConsistentAcrossPublicReadOnlyCommands(t *testing
 		token string
 		want  string
 	}{
-		{name: "missing Token", want: "run `aigw rotate team`"},
+		{name: "missing Token", want: "run `aigw provider rotate team`"},
 		// The fixture selects Claude without enabling it; sync skips that binding.
 		{name: "connected Account with a disabled selection", token: "token", want: "aigw use --for claude claude"},
 	} {

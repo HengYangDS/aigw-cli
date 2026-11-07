@@ -210,6 +210,17 @@ func TestRotateNamesTheFixOfItsValidationFailure(t *testing.T) {
 	}
 }
 
+// Without a terminal, rotate refuses a Token prompt, and its fix pipes the
+// Token to provider rotate, which outlives rotate.
+func TestRotateWithoutATerminalNamesProviderRotate(t *testing.T) {
+	app, out, _, _, httpClient := testApp(t, "")
+	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
+	if err := cli.Execute(app, []string{"rotate", "one"}); err == nil || httpClient.calls != 0 ||
+		!strings.Contains(out.String(), "Fix\n  aigw provider rotate one --token-stdin\n") {
+		t.Fatalf("rotate without a terminal = %v, %d requests\n%s", err, httpClient.calls, out.String())
+	}
+}
+
 func TestRotateLeavesClientConfigurationOutsideItsScope(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "new-token\n")
 	cfg := domain.NewConfig(clients.Admission())

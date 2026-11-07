@@ -115,7 +115,7 @@ func TestUseNamesMissingEnvironmentTokenWithoutPrompting(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), secret.EnvironmentKey("gateway")) || !strings.Contains(err.Error(), "aigw use --for codex codex") {
 		t.Fatalf("error = %v", err)
 	}
-	if strings.Contains(err.Error(), "aigw rotate") || strings.Contains(err.Error(), "prompt must not run") {
+	if strings.Contains(err.Error(), "rotate") || strings.Contains(err.Error(), "prompt must not run") {
 		t.Fatalf("read-only environment backend followed a writable remediation path: %v", err)
 	}
 }

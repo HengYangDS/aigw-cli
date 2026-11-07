@@ -207,7 +207,7 @@ func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg domain.C
 		}
 		result.credentialState = domainreadiness.Deferred
 		result.issue = "account token is unavailable"
-		result.fix = "aigw rotate " + clientRuntime.ProviderID
+		result.fix = "aigw provider rotate " + clientRuntime.ProviderID
 		if instruction, writable := secret.TokenRecovery(runtime.Secrets, clientRuntime.ProviderID); !writable {
 			result.fix = instruction
 		}

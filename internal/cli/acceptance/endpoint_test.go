@@ -412,13 +412,13 @@ func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 			name:       "healthy first observation",
 			statuses:   []int{http.StatusOK},
 			wantText:   []string{"Claude", "Endpoint checked", "All enabled client checks passed"},
-			rejectText: []string{"transient response", "aigw rotate"},
+			rejectText: []string{"transient response", "rotate"},
 		},
 		{
 			name:      "invalid token",
 			statuses:  []int{http.StatusUnauthorized},
 			wantError: true,
-			wantText:  []string{"Account Token is invalid or does not belong to the configured endpoint", "aigw rotate dmx"},
+			wantText:  []string{"Account Token is invalid or does not belong to the configured endpoint", "aigw provider rotate dmx"},
 		},
 		{
 			name:       "unreachable endpoint",
@@ -426,7 +426,7 @@ func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 			networkErr: errors.New("dial tcp: connection refused"),
 			wantError:  true,
 			wantText:   []string{"Cannot reach the endpoint", "AIGW owns this configuration, not the endpoint", "aigw use --for claude <route>"},
-			rejectText: []string{"aigw rotate"},
+			rejectText: []string{"rotate"},
 		},
 	}
 

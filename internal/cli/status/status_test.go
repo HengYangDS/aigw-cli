@@ -444,7 +444,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 			t.Fatalf("client-native status = %q, want %q", human, want)
 		}
 	}
-	for _, unwanted := range []string{"Token", "aigw rotate", "aigw client auth"} {
+	for _, unwanted := range []string{"Token", "rotate", "aigw client auth"} {
 		if strings.Contains(human, unwanted) {
 			t.Fatalf("client-native status = %q, contains %q", human, unwanted)
 		}

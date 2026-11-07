@@ -43,7 +43,7 @@ func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
 			t.Fatalf("check output lacks %q: %s", text, out.String())
 		}
 	}
-	for _, forbidden := range []string{"aigw rotate", "private credential detail", "fixture-token"} {
+	for _, forbidden := range []string{"rotate", "private credential detail", "fixture-token"} {
 		if strings.Contains(out.String(), forbidden) {
 			t.Fatalf("check output contains %q: %s", forbidden, out.String())
 		}
@@ -78,7 +78,7 @@ func TestCheckNamesTheEnvironmentTokenForARejectedToken(t *testing.T) {
 	for _, args := range [][]string{{"check", "--endpoint-only"}, {"check", "--endpoint-only", "--json"}} {
 		out.Reset()
 		_ = cli.Execute(app, args)
-		if !strings.Contains(out.String(), variable) || strings.Contains(out.String(), "aigw rotate") || strings.Contains(out.String(), "rejected-fixture-token") {
+		if !strings.Contains(out.String(), variable) || strings.Contains(out.String(), "rotate") || strings.Contains(out.String(), "rejected-fixture-token") {
 			t.Fatalf("%v recovery does not follow the environment backend:\n%s", args, out.String())
 		}
 	}

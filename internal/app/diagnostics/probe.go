@@ -141,7 +141,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 		result = classifySuccessfulResponse(result, runtime.Protocol, body)
 	case resp.StatusCode == http.StatusUnauthorized:
 		result.Kind, result.Summary = InvalidToken, "Account Token is invalid or does not belong to the configured endpoint"
-		result.Fix = invalidTokenFix("run `aigw rotate " + runtime.ProviderID + "`")
+		result.Fix = invalidTokenFix("run `aigw provider rotate " + runtime.ProviderID + "`")
 	case isHardQuotaFailure(resp.StatusCode, lower):
 		result.Kind, result.Summary = QuotaExhausted, "Token quota is exhausted"
 		result.Fix = "Increase the Token quota for Account " + runtime.ProviderID + " in the provider console"

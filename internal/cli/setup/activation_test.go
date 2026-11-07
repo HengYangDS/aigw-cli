@@ -26,7 +26,7 @@ func TestManifestSetupOffersEqualCompatibleProvidersWithoutTokens(t *testing.T) 
 	output := &bytes.Buffer{}
 	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore(), Out: output}
 	result := buildManifestSetupResult(runtime, cfg, []string{"ucloud", "dmx"}, "", nil, nil)
-	want := "Choose one compatible Account: aigw rotate dmx or aigw rotate ucloud"
+	want := "Choose one compatible Account: aigw provider rotate dmx or aigw provider rotate ucloud"
 	if result.NextAction != want || len(result.DeferredActions) != 1 || result.DeferredActions[0] != want {
 		t.Fatalf("zero-Token setup decision = %+v, want %q", result, want)
 	}
@@ -55,7 +55,7 @@ func TestManifestSetupReportsSelectedCredentialBeforeDeferredProjection(t *testi
 	cfg := manifestSetupConfig()
 	runtime := invocation.Context{Clients: clients.Registry(), Secrets: secret.NewMemoryStore()}
 	result := buildManifestSetupResult(runtime, cfg, []string{"team"}, "", nil, nil)
-	want := "run `aigw rotate team`"
+	want := "run `aigw provider rotate team`"
 	if result.NextAction != want || len(result.DeferredActions) == 0 || result.DeferredActions[0] != want {
 		t.Fatalf("selected credential prerequisite is missing or out of order: %+v", result)
 	}

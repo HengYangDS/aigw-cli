@@ -25,7 +25,7 @@ func TestCheckJSONClassifiesCredentialReadFailures(t *testing.T) {
 	}{
 		{"unreadable", "account token could not be read", domainreadiness.CredentialBackendRecovery, "", fmt.Errorf("private credential detail: %w", native.ErrUnavailable), domainreadiness.Unavailable},
 		// Rotation asks a person for the Token, so it is a step for that person.
-		{"disappeared", "account token is unavailable", "", "aigw rotate one", secret.ErrNotFound, domainreadiness.Deferred},
+		{"disappeared", "account token is unavailable", "", "aigw provider rotate one", secret.ErrNotFound, domainreadiness.Deferred},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, output := configuredReadinessRuntime(t)

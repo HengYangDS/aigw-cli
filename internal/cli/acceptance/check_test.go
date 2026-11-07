@@ -184,7 +184,7 @@ func TestCheckJSONMakesMissingActiveCredentialActionable(t *testing.T) {
 	}
 	client := result.Clients[claude.ID]
 	// Rotation asks a person for the Token, so it is a step for that person.
-	if result.OK || client.CheckPassed || client.Account != "claude-account" || client.Detail != "account token is unavailable" || client.NextAction != "" || client.NextDetail != "aigw rotate claude-account" {
+	if result.OK || client.CheckPassed || client.Account != "claude-account" || client.Detail != "account token is unavailable" || client.NextAction != "" || client.NextDetail != "aigw provider rotate claude-account" {
 		t.Fatalf("JSON missing-token result = %#v", result)
 	}
 }
@@ -321,7 +321,7 @@ func TestCheckRejectsAnEnabledClientModelWithoutItsProviderToken(t *testing.T) {
 	if err == nil {
 		t.Fatal("check accepted an enabled Codex route without its account token")
 	}
-	for _, want := range []string{"Codex account token is unavailable", "codex-account", "aigw rotate codex-account"} {
+	for _, want := range []string{"Codex account token is unavailable", "codex-account", "aigw provider rotate codex-account"} {
 		if !strings.Contains(out.String(), want) && !strings.Contains(err.Error(), want) {
 			t.Fatalf("check output lacks %q:\n%s\nerror: %v", want, out.String(), err)
 		}

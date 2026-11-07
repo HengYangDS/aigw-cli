@@ -196,7 +196,7 @@ func TestAssessActivationDoesNotObserveUnselectedNativeCredentials(t *testing.T)
 	cfg.Models["claude"] = domain.Model{Provider: "team", Family: "fable", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
 	cfg.SetRecommendedModel(claude.ID, "claude")
 	got := AssessActivation(cfg, unobservedWritableStore{})
-	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != "Choose one compatible Account: aigw rotate team" || got.CredentialPrerequisite == "" {
+	if got.EnabledClients != 0 || got.State != domainreadiness.Deferred || got.NextActionFor(nil) != "Choose one compatible Account: aigw provider rotate team" || got.CredentialPrerequisite == "" {
 		t.Fatalf("native backend activation = %+v", got)
 	}
 
@@ -216,7 +216,7 @@ func TestAssessActivationSelectedWritableProviderRequiresItsToken(t *testing.T) 
 	store := secret.NewMemoryStore()
 
 	got := AssessActivation(cfg, store)
-	if got.NextActionFor(nil) != "run `aigw rotate team`" || got.CredentialPrerequisite == "" {
+	if got.NextActionFor(nil) != "run `aigw provider rotate team`" || got.CredentialPrerequisite == "" {
 		t.Fatalf("selected Account without Token = %+v", got)
 	}
 	if err := store.Set("team", "token"); err != nil {
@@ -306,7 +306,7 @@ func TestAssessActivationDoesNotVerifyWithoutSelectedToken(t *testing.T) {
 	cfg.SetClientActivation(claude.ID, true, "/opt/claude", nil)
 
 	got := AssessActivation(cfg, secret.NewMemoryStore())
-	if got.State != "" || got.NextActionFor(nil) != "run `aigw rotate team`" || got.VerificationPrerequisite != "" {
+	if got.State != "" || got.NextActionFor(nil) != "run `aigw provider rotate team`" || got.VerificationPrerequisite != "" {
 		t.Fatalf("missing selected Token admitted verification: %+v", got)
 	}
 }
@@ -420,7 +420,7 @@ func TestNextActionForUsesOneOrderedReadinessDecision(t *testing.T) {
 func TestNextActionForWithoutClientInspectionHonorsKnownPrerequisites(t *testing.T) {
 	installClaude := "Install Claude, then sync"
 	installCodex := "Install Codex, then sync"
-	rotateClaude := "aigw rotate team"
+	rotateClaude := "aigw provider rotate team"
 	for _, test := range []struct {
 		name       string
 		activation Activation

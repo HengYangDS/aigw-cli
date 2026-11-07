@@ -25,7 +25,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			name:       "selected account is not connected",
 			facts:      ClientFacts{Model: "claude", Provider: "team", CredentialRequired: true},
 			wantState:  Deferred,
-			wantAction: "aigw rotate team",
+			wantAction: "aigw provider rotate team",
 		},
 		{
 			name: "credential metadata is unavailable",

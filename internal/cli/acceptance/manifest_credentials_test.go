@@ -39,7 +39,7 @@ func TestSetupFromConfigurationManifestNamesEnvironmentTokensInsteadOfRotate(t *
 			t.Errorf("output missing %q:\n%s", want, text)
 		}
 	}
-	for _, forbidden := range []string{"listed environment variables", "aigw check", "aigw rotate"} {
+	for _, forbidden := range []string{"listed environment variables", "aigw check", "rotate"} {
 		if strings.Contains(text, forbidden) {
 			t.Fatalf("read-only environment backend received misleading guidance %q:\n%s", forbidden, text)
 		}

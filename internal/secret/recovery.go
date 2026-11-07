@@ -6,5 +6,5 @@ func TokenRecovery(store Store, account string) (instruction string, writable bo
 	if IsReadOnly(store) {
 		return "set environment variable " + EnvironmentKey(account), false
 	}
-	return "run `aigw rotate " + account + "`", true
+	return "run `aigw provider rotate " + account + "`", true
 }

@@ -5,7 +5,7 @@ import "testing"
 func TestTokenRemediationMatchesCredentialAuthority(t *testing.T) {
 	t.Parallel()
 
-	if got, writable := TokenRecovery(NewMemoryStore(), "team-gateway"); got != "run `aigw rotate team-gateway`" || !writable {
+	if got, writable := TokenRecovery(NewMemoryStore(), "team-gateway"); got != "run `aigw provider rotate team-gateway`" || !writable {
 		t.Fatalf("writable recovery = %q, %t", got, writable)
 	}
 	store := NewEnvironmentStore(func(string) string { return "" })

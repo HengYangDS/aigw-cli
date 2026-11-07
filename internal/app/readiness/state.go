@@ -115,7 +115,7 @@ func ClassifyClient(facts ClientFacts) Client {
 		state.Detail = "The selected provider has no Token"
 		state.NextAction = facts.CredentialAction
 		if state.NextAction == "" {
-			state.NextAction = "aigw rotate " + facts.Provider
+			state.NextAction = "aigw provider rotate " + facts.Provider
 		}
 	case facts.ProjectionDeferred:
 		state.State = Deferred

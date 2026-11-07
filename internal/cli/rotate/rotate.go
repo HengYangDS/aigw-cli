@@ -69,7 +69,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			} else if runtime.Interactive {
 				token, err = runtime.Prompt.Secret("Paste " + account.Label + " token: ")
 			} else {
-				return fmt.Errorf("Token input requires an interactive terminal; pipe one token line to `aigw rotate %s --token-stdin`", accountName)
+				return fmt.Errorf("Token input requires an interactive terminal; pipe one token line to `aigw provider rotate %s --token-stdin`", accountName)
 			}
 			if err != nil {
 				return err

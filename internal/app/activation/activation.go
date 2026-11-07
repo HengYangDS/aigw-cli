@@ -226,7 +226,7 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 	if !selected && !assessment.readOnly {
 		assessment.result.ClientCredentialPrerequisites[client], _ = secret.TokenRecovery(assessment.store, candidate.ProviderID)
 		if !assessment.seen[candidate.ProviderID] {
-			assessment.alternatives = append(assessment.alternatives, "aigw rotate "+candidate.ProviderID)
+			assessment.alternatives = append(assessment.alternatives, "aigw provider rotate "+candidate.ProviderID)
 			assessment.seen[candidate.ProviderID] = true
 		}
 		return false
