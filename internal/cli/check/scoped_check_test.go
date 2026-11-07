@@ -209,9 +209,11 @@ func TestMixedInvalidAndDeferredClientsShareOneRecoveryAction(t *testing.T) {
 	if err == nil {
 		t.Fatal("human check accepted invalid Codex projection")
 	}
+	// The document carries the one step as next_action, or as next_detail when
+	// it holds a placeholder.
 	humanAction := terminal.ProblemFor(err).Fix
-	if humanAction != result.NextAction {
-		t.Fatalf("human recovery %q differs from JSON action %q", humanAction, result.NextAction)
+	if humanAction != result.NextAction+result.NextDetail {
+		t.Fatalf("human recovery %q differs from JSON step %q", humanAction, result.NextAction+result.NextDetail)
 	}
 }
 

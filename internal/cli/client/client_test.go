@@ -19,6 +19,7 @@ import (
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/spf13/cobra"
@@ -494,23 +495,39 @@ func TestEnablePropagatesRuntimeResolutionError(t *testing.T) {
 	}
 }
 
-func TestDisableCodexReturnsProjectionFailure(t *testing.T) {
+// A configured Codex file that does not exist, and of which AIGW keeps no
+// record, holds nothing to withdraw, so disabling Codex succeeds and reports
+// the file as absent. One whose record AIGW keeps is refused, naming the
+// record, and the configuration is unchanged.
+func TestDisableCodexWithAMissingConfigurationFile(t *testing.T) {
 	cfg := adapterConfig()
 	target := filepath.Join(t.TempDir(), "missing", "configuration.toml")
 	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{target})
-	runtime, _, _, _ := adapterRuntime(t, cfg)
-	runtime.Discovery = adapterDiscovery{}
+	runtime, out, _, _ := adapterRuntime(t, cfg)
+	if err := executeAdapter(t, runtime, "disable", codex.ID, "--json"); err != nil {
+		t.Fatalf("disable of a Codex whose file is gone = %v", err)
+	}
+	if !strings.Contains(out.String(), `"state": "disabled"`) {
+		t.Fatalf("disable document = %s", out)
+	}
+	got, err := runtime.Config.Load()
+	if err != nil || got.Clients[codex.ID].Enabled {
+		t.Fatalf("Codex stays enabled: %v", err)
+	}
 
-	err := executeAdapter(t, runtime, "disable", codex.ID)
-	if err == nil || !strings.Contains(err.Error(), "does not exist") {
-		t.Fatalf("disable error = %v", err)
+	recorded := filepath.Join(t.TempDir(), "configuration.toml")
+	if err := os.WriteFile(recorded+".aigw-state.json", []byte(`{"managed_block_hash":"x"}`), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	got, loadErr := runtime.Config.Load()
-	if loadErr != nil {
-		t.Fatal(loadErr)
+	cfg.SetClientActivation(codex.ID, true, "/opt/codex", []string{recorded})
+	runtime, _, _, _ = adapterRuntime(t, cfg)
+	err = executeAdapter(t, runtime, "disable", codex.ID)
+	if problem := terminal.ProblemFor(err); !strings.Contains(problem.Title, "AIGW's record of it, configuration.toml.aigw-state.json, remains") ||
+		!strings.Contains(problem.Fix, "delete configuration.toml.aigw-state.json in its folder") {
+		t.Fatalf("disable with a remaining record = %q, fix %q", problem.Title, problem.Fix)
 	}
-	if !got.Clients[codex.ID].Enabled {
-		t.Fatal("configuration was not rolled back")
+	if got, err := runtime.Config.Load(); err != nil || !got.Clients[codex.ID].Enabled {
+		t.Fatalf("a refused disable changed the configuration: %v", err)
 	}
 }
 

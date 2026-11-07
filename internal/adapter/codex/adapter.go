@@ -158,7 +158,7 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 				// would send the operator back to the same refusal.
 				issue, detail, repair = "Codex configuration conflict: ", "AIGW-managed Codex settings were changed outside AIGW", conflict.NextAction()
 			} else if errors.Is(err, os.ErrNotExist) {
-				detail = "Codex configuration target is unavailable"
+				detail, repair = "Codex configuration target is unavailable", missingTargetRepair(deps, target)
 			}
 		}
 		if detail != "" {
@@ -173,6 +173,18 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 	}
 
 	return status
+}
+
+// missingTargetRepair is the step for a configured Codex file that does not
+// exist: sync creates it again in Codex's default home, and anywhere else
+// Codex moves to another file, because sync does not create a Codex home.
+func missingTargetRepair(deps adapter.Dependencies, path string) string {
+	if discovered, err := discover(deps); err == nil {
+		if surface, ok := discovered.SurfaceForConfigPath(path); ok && surface.AutoManaged {
+			return "aigw sync"
+		}
+	}
+	return missingTargetError{}.NextAction()
 }
 
 func (codexAdapter) Withdraw(cfg *domain.Config) {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -508,5 +509,32 @@ func TestEditOfAClientWithoutFilesNamesTheStepThatWritesThem(t *testing.T) {
 		if !document.Changed || len(document.ClientFiles) != 0 || document.NextAction != test.action || document.NextDetail != test.step {
 			t.Fatalf("edit with budget %s = %#v", test.budget, document)
 		}
+	}
+}
+
+// The review's reproduction: Codex's configuration file is deleted with its
+// folder, record and all. Moving Codex to another file succeeds and reports
+// the old file as absent, disable then succeeds, and sync, while Codex keeps
+// a file that is gone, refuses with the move as its fix.
+func TestEditMovesCodexAwayFromADeletedConfigurationFile(t *testing.T) {
+	runtime, out, target, _ := enabledCodex(t)
+	if err := os.RemoveAll(filepath.Dir(target)); err != nil {
+		t.Fatal(err)
+	}
+	moved := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(moved, []byte("model = \"other\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	document := edited(t, runtime, out, codex.ID, "--target", moved)
+	actions := map[string]string{}
+	for _, file := range document.ClientFiles {
+		actions[filepath.Base(filepath.Dir(file.File))+"/"+filepath.Base(file.File)] = file.Action
+	}
+	if !document.Changed || len(document.Targets) != 1 || document.Targets[0] != moved || len(document.ClientFiles) != 2 ||
+		!strings.Contains(fmt.Sprint(document.ClientFiles), "absent") || !strings.Contains(readTarget(t, moved), "AIGW managed provider") {
+		t.Fatalf("the move from a deleted file = %#v, actions %v", document, actions)
+	}
+	if err := executeAdapter(t, runtime, "disable", codex.ID); err != nil {
+		t.Fatalf("disable after the move = %v", err)
 	}
 }

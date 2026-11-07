@@ -27,6 +27,11 @@ import (
 
 // hostAt observes home as the user's home directory, so Claude Code's settings
 // file is home/.claude/settings.json.
+// surfaceDiscovery is a host whose discovery finds the given result.
+type surfaceDiscovery struct{ result discovery.Result }
+
+func (d surfaceDiscovery) Discover() discovery.Result { return d.result }
+
 func hostAt(home string) discovery.Host {
 	return discovery.Host{GOOS: runtime.GOOS, Home: home, Env: map[string]string{"HOME": home, "USERPROFILE": home}}
 }
@@ -272,13 +277,22 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 		t.Fatalf("native Claude model preference check = %#v", check)
 	}
 
+	// Sync creates Codex's default home again; it does not create another
+	// file, so Codex moves to one that exists.
 	home := t.TempDir()
-	cfg.SetClientActivation(codex.ID, true, "codex", []string{filepath.Join(home, ".codex", "config.toml")})
+	defaultHome := filepath.Join(home, ".codex", "config.toml")
+	cfg.SetClientActivation(codex.ID, true, "codex", []string{defaultHome})
 	deps, _, _ = doctorDependencies(t, cfg)
 	deps.Env = []string{"HOME=" + home}
+	deps.Discovery = surfaceDiscovery{discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: defaultHome, AutoManaged: true}}}}
 	check := findCheck(t, collectChecks(context.Background(), deps.Dependencies), "codex:target-1")
 	if check.OK || check.Detail != "Codex configuration target is unavailable" || check.Fix != "run `aigw sync`" || check.Target != "~/.codex/config.toml" {
 		t.Fatalf("projection check = %#v", check)
+	}
+	deps.Discovery = surfaceDiscovery{}
+	check = findCheck(t, collectChecks(context.Background(), deps.Dependencies), "codex:target-1")
+	if check.OK || check.Fix != "run `aigw client edit codex --target <file>`" {
+		t.Fatalf("projection check of another file = %#v", check)
 	}
 
 	cfg.SetClientActivation(codex.ID, true, "codex", []string{"unused"})

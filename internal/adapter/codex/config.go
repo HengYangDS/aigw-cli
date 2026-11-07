@@ -65,6 +65,9 @@ const (
 	ProjectionActionAlreadyRestored ProjectionAction = "already-restored"
 	// ProjectionActionRestoreExternal restores the target's pre-AIGW state.
 	ProjectionActionRestoreExternal ProjectionAction = "restore-external"
+	// ProjectionActionAbsent reports a dropped target that no longer exists
+	// and of which AIGW keeps no record, so there is nothing to withdraw.
+	ProjectionActionAbsent ProjectionAction = "absent"
 )
 
 // ProjectionPlan is a non-secret, read-only rendering of one target's

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -209,7 +210,7 @@ func prepareCodexReconciliationTransition(before, after []TargetRef, previous, r
 	for _, target := range targets {
 		candidate, err := prepareCodexReconciliationTarget(target, previous, runtime, endpoint, transactionID, replaceRootSelections)
 		if err != nil {
-			return nil, fmt.Errorf("prepare Codex target %s: %w", target.ref.Path, err)
+			return nil, &adapter.TargetError{Desired: target.desired, Err: fmt.Errorf("prepare Codex target %s: %w", target.ref.Path, err)}
 		}
 		prepared = append(prepared, candidate)
 	}
@@ -221,13 +222,13 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	if !configSnapshot.Exists && (!target.desired || !target.ref.CreateIfAbsent) {
-		return codexPreparedTarget{}, fmt.Errorf("Codex config does not exist")
-	}
 	statePath := targetCodexStatePath(target.ref)
 	stateSnapshot, err := platform.CaptureFileSnapshot(statePath)
 	if err != nil {
 		return codexPreparedTarget{}, err
+	}
+	if !configSnapshot.Exists && (!target.desired || !target.ref.CreateIfAbsent) {
+		return missingCodexTarget(target, stateSnapshot.Exists, filepath.Base(statePath))
 	}
 	catalogSnapshot, err := platform.CaptureFileSnapshot(codexCatalogPath(target.ref.Path))
 	if err != nil {
@@ -298,6 +299,20 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 		plan:      ProjectionPlan{Target: target.ref.Path, Action: action, SurfaceID: target.ref.SurfaceID},
 		artifacts: codexArtifactsForDesiredState(target.ref, configSnapshot, projected, stateSnapshot, stateData, catalogSnapshot, catalogDesired),
 	}, nil
+}
+
+// missingCodexTarget plans a configured Codex file that does not exist. A file
+// that the configuration keeps is refused, because AIGW does not create a
+// Codex home. A file that the change drops is absent, with nothing to
+// withdraw, unless AIGW's record of it remains, which is inspected first.
+func missingCodexTarget(target codexReconciliationTarget, recorded bool, record string) (codexPreparedTarget, error) {
+	switch {
+	case target.desired:
+		return codexPreparedTarget{}, missingTargetError{}
+	case recorded:
+		return codexPreparedTarget{}, recordedMissingTargetError{record: record}
+	}
+	return codexPreparedTarget{plan: ProjectionPlan{Target: target.ref.Path, Action: ProjectionActionAbsent, SurfaceID: target.ref.SurfaceID}}, nil
 }
 
 func sameCodexTOMLValues(current, projected []byte) bool {

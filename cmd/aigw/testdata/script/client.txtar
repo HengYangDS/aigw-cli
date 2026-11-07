@@ -125,6 +125,27 @@ grep 'AIGW managed provider' $HOME/.codex/config.toml
 exec aigw client list
 stdout 'Codex +team/team-model · Enabled · Not installed'
 
+# Codex moves to a configuration file in its own folder, which is then
+# deleted, file and record together, leaving nothing to withdraw. AIGW does
+# not create a Codex home outside the default one, so sync refuses and names
+# the move, which succeeds and reports the deleted file as absent. Disabling
+# Codex then withdraws only the new file.
+mkdir $WORK/a $WORK/b
+cp $WORK/codex-config.toml $WORK/a/config.toml
+cp $WORK/codex-config.toml $WORK/b/config.toml
+exec aigw client edit codex --target $WORK/a/config.toml
+rm $WORK/a
+exitcode 1 aigw sync --json
+stdout '"error": ".*Codex config does not exist, and AIGW does not create a Codex home"'
+stdout '"next_detail": "aigw client edit codex --target \\u003cfile\\u003e"'
+exec aigw client edit codex --target $WORK/b/config.toml --json
+stdout '"changed": true'
+stdout '"action": "absent"'
+stdout '"action": "initial_project"'
+grep 'AIGW managed provider' $WORK/b/config.toml
+exec aigw client disable codex
+cmp $WORK/b/config.toml $WORK/codex-config.toml
+
 # Refusals name what is wrong before anything is read or written.
 exitcode 1 aigw client edit codex --json
 cmp stdout edit-nothing.json
@@ -497,3 +518,5 @@ Next
   "client_files": [],
   "next_detail": "Install Codex if needed, then run `aigw sync`"
 }
+-- codex-config.toml --
+model = "other"

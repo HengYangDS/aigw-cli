@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/app"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
@@ -244,12 +245,14 @@ func pendingStep(runtime invocation.Context, cfg domain.Config, document editDoc
 	return app.InspectStatusClients(runtime.Dependencies, cfg, nil, document.Client)[document.Client].NextAction
 }
 
-// targetFailure gives a failure to plan or write the client's files that
-// states no fix of its own, when the edit named configuration files, the edit
-// that names others: a file that it named may not exist or not be writable.
-// The failure keeps what it says about the configuration's restoration.
+// targetFailure gives a failure to plan the client's files that states no fix
+// of its own the edit that names other files, when the failing file is one
+// that this edit names: it may not exist or not be usable. A failure of a file
+// that the edit drops, or of no file, keeps its own fix, as does a failure
+// that says what the transaction restored.
 func targetFailure(client string, targets []string, err error) error {
-	if len(targets) == 0 || terminal.StatesFix(err) {
+	failed, named := errors.AsType[*adapter.TargetError](err)
+	if len(targets) == 0 || !named || !failed.Desired || terminal.StatesFix(err) {
 		return err
 	}
 	problem := terminal.ProblemFor(err)
