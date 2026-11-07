@@ -400,7 +400,7 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 				var out bytes.Buffer
 				renderer := terminal.NewRenderer(&out, false)
 				terminal.RenderError(renderer, fmt.Errorf("sync: %w", err), jsonMode)
-				if renderer.Err() != nil || !strings.Contains(out.String(), tc.want) || !strings.Contains(out.String(), "aigw check") || strings.Contains(out.String(), privatePath) {
+				if renderer.Err() != nil || !strings.Contains(out.String(), tc.want) || !strings.Contains(out.String(), "aigw status") || strings.Contains(out.String(), privatePath) {
 					t.Fatalf("json=%t finalization diagnostic=%q error=%v", jsonMode, out.String(), renderer.Err())
 				}
 			}

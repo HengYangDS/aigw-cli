@@ -13,12 +13,13 @@ import (
 // failed at one file: the client, the file and why, what undoing the
 // application did to each file that it had written, whether the
 // configuration was restored, and the fix. A file is named relative to the
-// home directory, and a file elsewhere is not named.
+// home directory, and a file elsewhere by its full path, which the operator
+// chose.
 func clientFileProblem(failure *adapter.ApplyError, err error) Problem {
 	failed := fileName(failure.Failed.Path, failure.Home)
 	problem := Problem{
 		Title: failure.Client + " could not write " + failed + ": " + writeReason(failure.Failed),
-		Fix:   "aigw check",
+		Fix:   fileFix(failure.Failed, failed),
 	}
 	evidence := make([]string, 0, len(failure.Restored)+1)
 	for _, outcome := range failure.Restored {
@@ -36,10 +37,23 @@ func clientFileProblem(failure *adapter.ApplyError, err error) Problem {
 			problem.Impact = "Restoring the configuration failed too, so it may still hold the change."
 		}
 	}
-	if errors.Is(failure.Failed, fs.ErrPermission) {
-		problem.Fix = "Make " + failed + " and its folder writable, then run the same command again."
-	}
 	return problem
+}
+
+// fileFix is the fix of a file that could not be written, which name names: a
+// writable file and folder for a permission error, the same command again for
+// a file that changed while AIGW wrote it, which the command then reads as it
+// is, and any other operating-system error resolved first. It never names a
+// check, whose probes may use quota and fix nothing here.
+func fileFix(failed *platform.FileError, name string) string {
+	switch {
+	case errors.Is(failed, fs.ErrPermission):
+		return "Make " + name + " and its folder writable, then run the same command again."
+	case failed.Changed:
+		return "Run the same command again; it reads " + name + " as it is now."
+	default:
+		return "Resolve " + fileErrorReason(failed) + " on " + name + ", then run the same command again."
+	}
 }
 
 // restoreOutcome says what undoing a failed application did to one file that
@@ -69,15 +83,15 @@ func writeReason(failed *platform.FileError) string {
 	return fileErrorReason(failed)
 }
 
-// fileName names a file relative to the home directory, or says that it lies
-// outside it, without naming it.
+// fileName names a file relative to the home directory, or else by its full
+// path, as the operator configured it.
 func fileName(path, home string) string {
-	target, outside := HomeTarget(path, home)
+	target, _ := HomeTarget(path, home)
 	switch {
 	case target != "":
 		return target
-	case outside:
-		return "a file outside the home directory"
+	case path != "":
+		return path
 	default:
 		return "a client file"
 	}

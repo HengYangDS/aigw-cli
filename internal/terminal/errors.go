@@ -263,7 +263,9 @@ func ProblemFor(err error) Problem {
 	case atFile:
 		return clientFileProblem(failure, err)
 	case recovered:
-		return Problem{Title: "Updating the client files failed", Impact: impact, Fix: "aigw check"}
+		// Without a file to name, status shows what each client needs, and it
+		// sends no probe.
+		return Problem{Title: "Updating the client files failed", Impact: impact, Fix: "aigw status"}
 	}
 	message := localizedErrorMessage(err)
 	return Problem{Title: message, Fix: errorFix(err, message)}

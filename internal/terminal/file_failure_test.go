@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"aigw-cli/internal/adapter"
@@ -17,8 +18,9 @@ import (
 // directory and its operating-system error, says what became of each file
 // that the attempt had written and whether the configuration was restored,
 // and in JSON says the same. A permission error asks for a writable file and
-// folder; any other failure names aigw check. A file outside the home
-// directory is not named.
+// folder, a file that changed is read again by the same command, and any
+// other error is resolved first; none names aigw check. A file outside the
+// home directory is named by its full path, which the operator chose.
 func TestAClientFileFailureNamesEachFile(t *testing.T) {
 	// Two directories of one test lie side by side, so the second is outside
 	// the first on every platform.
@@ -41,7 +43,7 @@ func TestAClientFileFailureNamesEachFile(t *testing.T) {
 	want := Problem{
 		Title: "Codex could not write ~/b/config.toml: permission denied",
 		Evidence: "~/a/config.toml.aigw-state.json was restored. ~/a/config.toml was restored. " +
-			"~/c/config.toml could not be restored: permission denied. A file outside the home directory was restored. ~/b/config.toml is unchanged.",
+			"~/c/config.toml could not be restored: permission denied. " + filepath.Join(elsewhere, "config.toml") + " was restored. ~/b/config.toml is unchanged.",
 		Impact: "The configuration was restored.",
 		Fix:    "Make ~/b/config.toml and its folder writable, then run the same command again.",
 	}
@@ -56,21 +58,38 @@ func TestAClientFileFailureNamesEachFile(t *testing.T) {
 		t.Fatalf("failure document = %s", out.String())
 	}
 
-	failure.Failed = &platform.FileError{Path: filepath.Join(elsewhere, "b.toml"), Changed: true, Err: errors.New("preimage changed")}
+	outside := filepath.Join(elsewhere, "b.toml")
+	failure.Failed = &platform.FileError{Path: outside, Changed: true, Err: errors.New("preimage changed")}
 	failure.Restored = nil
 	problem = ProblemFor(presentationProjectionError{restored: false, cause: failure})
-	if problem.Title != "Codex could not write a file outside the home directory: it changed after AIGW read it" ||
-		problem.Evidence != "A file outside the home directory keeps the change made outside AIGW." ||
-		problem.Impact != "Restoring the configuration failed too, so it may still hold the change." || problem.Fix != "aigw check" {
+	if problem.Title != "Codex could not write "+outside+": it changed after AIGW read it" ||
+		problem.Evidence != outside+" keeps the change made outside AIGW." ||
+		problem.Impact != "Restoring the configuration failed too, so it may still hold the change." ||
+		problem.Fix != "Run the same command again; it reads "+outside+" as it is now." {
 		t.Fatalf("a changed file outside home = %#v", problem)
+	}
+
+	// Another operating-system error is resolved first, on the file that it
+	// names, outside the home directory too.
+	for _, path := range []string{failed, outside} {
+		failure.Failed = &platform.FileError{Path: path, Err: &os.PathError{Op: "write", Path: path, Err: syscall.ENOSPC}}
+		name := fileName(path, home)
+		problem = ProblemFor(presentationProjectionError{restored: true, cause: failure})
+		if want := "Resolve " + syscall.ENOSPC.Error() + " on " + name + ", then run the same command again."; problem.Fix != want {
+			t.Fatalf("a full disk at %s = %#v, want the fix %q", path, problem, want)
+		}
+	}
+	failure.Failed = &platform.FileError{Path: outside, Err: &os.PathError{Op: "createtemp", Path: outside, Err: os.ErrPermission}}
+	if problem = ProblemFor(failure); problem.Fix != "Make "+outside+" and its folder writable, then run the same command again." {
+		t.Fatalf("a permission error outside home = %#v", problem)
 	}
 }
 
-// A failure that names no file keeps the generic report, whose fix is now
-// aigw check.
-func TestAClientFilesFailureWithoutAFileNamesCheck(t *testing.T) {
+// A failure that names no file keeps the generic report, whose fix is aigw
+// status, which sends no probe.
+func TestAClientFilesFailureWithoutAFileNamesStatus(t *testing.T) {
 	problem := ProblemFor(presentationProjectionError{restored: true, cause: errors.New("entrypoint finalization failed")})
-	if problem.Title != "Updating the client files failed" || problem.Fix != "aigw check" || problem.Impact == "" {
+	if problem.Title != "Updating the client files failed" || problem.Fix != "aigw status" || problem.Impact == "" {
 		t.Fatalf("ProblemFor() = %#v", problem)
 	}
 	home := t.TempDir()
@@ -82,7 +101,10 @@ func TestAClientFilesFailureWithoutAFileNamesCheck(t *testing.T) {
 	if outcome := restoreOutcome(platform.FileOutcome{Err: errors.New("rollback failed")}, home); outcome != "Another client file could not be restored: unexpected error." {
 		t.Fatalf("a restore without a file = %q", outcome)
 	}
-	if name := fileName("relative", ""); name != "a client file" {
+	if name := fileName("", home); name != "a client file" {
+		t.Fatalf("a file without a path = %q", name)
+	}
+	if name := fileName("relative", ""); name != "relative" {
 		t.Fatalf("a file whose place is unknown = %q", name)
 	}
 }
