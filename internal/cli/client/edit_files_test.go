@@ -165,3 +165,34 @@ func TestAFailedWriteNamesTheFileAndWhatWasRestored(t *testing.T) {
 		t.Fatalf("the failed edit left AIGW's record beside ~/a/config.toml: %v", err)
 	}
 }
+
+// existsCounter is a credential store that counts how often a command asks
+// whether a provider's Token is stored.
+type existsCounter struct {
+	secret.Store
+	asked int
+}
+
+func (store *existsCounter) Exists(provider string) (bool, error) {
+	store.asked++
+	return store.Store.Exists(provider)
+}
+
+// A preview and an edit that changes nothing name no step that writes a
+// client's files, so neither asks about the provider's Token to find one; an
+// applied edit of a client whose files wait does.
+func TestOnlyAnAppliedEditObservesTheStepThatWritesTheFiles(t *testing.T) {
+	cfg := adapterConfig()
+	cfg.SetClientActivation(codex.ID, true, "", nil)
+	runtime, out, secretStore, _ := adapterRuntime(t, cfg)
+	counter := &existsCounter{Store: secretStore}
+	runtime.Secrets = counter
+	for _, args := range [][]string{{codex.ID, "--request-retries", "1", "--dry-run"}, {codex.ID, "--direct"}} {
+		if edited(t, runtime, out, args...); counter.asked != 0 {
+			t.Fatalf("%q asked about the Token %d times", args, counter.asked)
+		}
+	}
+	if document := edited(t, runtime, out, codex.ID, "--request-retries", "1"); counter.asked == 0 || document.NextDetail == "" {
+		t.Fatalf("an applied edit = %#v, asked %d times", document, counter.asked)
+	}
+}

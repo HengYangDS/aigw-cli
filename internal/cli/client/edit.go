@@ -232,7 +232,11 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 			return targetFailure(spec.ID, targets, err)
 		}
 	}
-	return writeEdit(cmd, runtime, spec, document, options, pendingStep(runtime, cfg, document))
+	pending := ""
+	if document.Changed && !options.dryRun {
+		pending = pendingStep(runtime, cfg, document)
+	}
+	return writeEdit(cmd, runtime, spec, document, options, pending)
 }
 
 // pendingStep is the step that an enabled client needs when the edit wrote
@@ -245,11 +249,11 @@ func pendingStep(runtime invocation.Context, cfg domain.Config, document editDoc
 	return app.InspectStatusClients(runtime.Dependencies, cfg, nil, document.Client)[document.Client].NextAction
 }
 
-// targetFailure gives a failure to plan the client's files that states no fix
-// of its own the edit that names other files, when the failing file is one
-// that this edit names: it may not exist or not be usable. A failure of a file
-// that the edit drops, or of no file, keeps its own fix, as does a failure
-// that says what the transaction restored.
+// targetFailure gives a failure to plan the client's files, when the failing
+// file is one that this edit names and the failure names no fix of its own,
+// the fix of an edit that names another file: the named file may not exist or
+// not be usable. A failure of a file that the edit drops, or of no file,
+// keeps its own fix.
 func targetFailure(client string, targets []string, err error) error {
 	failed, named := errors.AsType[*adapter.TargetError](err)
 	if len(targets) == 0 || !named || !failed.Desired || terminal.StatesFix(err) {
