@@ -445,6 +445,14 @@ active non-interactive work and restore prior behavior.
 - **AND** returning from the invocation SHALL restore the previous host signal
   behavior rather than retaining a handler during later interactive input.
 
+#### Scenario: A tool's deadline ends while it starts
+
+- **WHEN** a release tool's deadline or cancellation ends after its process is
+  created but before the process runs
+- **THEN** the caller SHALL receive that deadline or cancellation with the
+  start failure
+- **AND** the stopped process SHALL be reaped through bounded cleanup.
+
 ### Requirement: Peer ancestry observation preserves local reference state
 
 Publication ancestry checks SHALL consume the exact observed peer commit and
