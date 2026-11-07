@@ -13,6 +13,15 @@
 exec aigw use --help
 cmp stdout help.txt
 
+# A client typo is refused from the arguments alone, naming the closest
+# clients and the model list that it may have meant: in a fresh home it
+# writes nothing.
+snapshot $HOME fresh-home.txt
+exitcode 1 aigw use claud --json
+cmp stdout typo.json
+snapshot $HOME typo-home.txt
+cmp typo-home.txt fresh-home.txt
+
 stdin token.txt
 exec aigw provider add team --label 'Team Gateway' --endpoint anthropic=$UPSTREAM --endpoint responses=$UPSTREAM/v1 --token-stdin
 exec aigw model add team/team-model --protocol anthropic
@@ -389,8 +398,15 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "\"team-model\" names no client or provider; it could mean desk/team-model, other/team-model, team/team-model",
-  "next_action": "aigw model list team-model"
+  "error": "unknown client \"team-model\"; clients are claude, claude-desktop, codex, or hermes; if you meant a model, run `aigw model list team-model`",
+  "next_action": "aigw client list"
+}
+-- typo.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown client \"claud\"; did you mean claude, claude-desktop? Clients are claude, claude-desktop, codex, or hermes; if you meant a model, run `aigw model list claud`",
+  "next_action": "aigw client list"
 }
 -- unknown-model.json --
 {

@@ -183,38 +183,24 @@ func ResolveClient(admission domain.Admission, id string) (domain.ClientSpec, er
 	return domain.ClientSpec{}, refusal{message: message, fix: "aigw client list"}
 }
 
-// ResolveClientOrModel returns the admitted client with id, an argument
-// without a slash that a command taking a client or a model may have been
-// given for a model. One that names no client but is close to the model IDs
-// of added models is refused with their provider/model names, closest first,
-// and with the list of those models as its fix; any other unknown one is
-// refused as a client, as ResolveClient refuses it.
-func ResolveClientOrModel(cfg domain.Config, admission domain.Admission, id string) (domain.ClientSpec, error) {
-	if spec, admitted := admission.Spec(id); admitted {
-		return spec, nil
+// ResolveLoneClient returns the admitted client with id, a lone argument
+// without a slash that a command taking a client or a model was given. An
+// unknown one is refused as ResolveClient refuses it, from the admission
+// alone and before any configuration access, and the refusal names the model
+// list that the argument may have meant; only that command reads the
+// configuration.
+func ResolveLoneClient(admission domain.Admission, id string) (domain.ClientSpec, error) {
+	spec, err := ResolveClient(admission, id)
+	failed, refused := errors.AsType[refusal](err)
+	if !refused {
+		return spec, err
 	}
-	keys := cfg.CatalogModelIDs()
-	ids := make([]string, 0, len(keys))
-	for _, key := range keys {
-		ids = append(ids, cfg.Models[key].UpstreamModelID())
+	list := Command("model", "list", id)
+	if list == "" {
+		list = "aigw model list"
 	}
-	closest := closestMatches(id, slices.Compact(slices.Sorted(slices.Values(ids))))
-	if len(closest) == 0 {
-		return ResolveClient(admission, id)
-	}
-	var names []string
-	for _, near := range closest {
-		for _, key := range keys {
-			if name := cfg.Models[key].Ref().String(); cfg.Models[key].UpstreamModelID() == near && !slices.Contains(names, name) {
-				names = append(names, name)
-			}
-		}
-	}
-	fix := "aigw model list"
-	if len(closest) == 1 && plain(closest[0]) {
-		fix += " " + closest[0]
-	}
-	return domain.ClientSpec{}, refusal{message: fmt.Sprintf("%q names no client or provider; it could mean %s", id, strings.Join(names, ", ")), fix: fix}
+	failed.message += "; if you meant a model, run `" + list + "`"
+	return domain.ClientSpec{}, failed
 }
 
 // closestText is the refusal text that names the closest of candidates to

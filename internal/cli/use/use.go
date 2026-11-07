@@ -41,7 +41,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Example: examples(admission),
 		Args: func(_ *cobra.Command, args []string) error {
 			given, err := parseArguments(admission, args)
-			if err != nil || given.unknown {
+			if err != nil {
 				return err
 			}
 			return requireArguments(given, runtime.Interactive, options.jsonMode)
@@ -84,19 +84,14 @@ func examples(admission domain.Admission) string {
 
 // arguments are the client and the model that the command line names. One
 // argument is the model when it has a slash, as every model name has, and the
-// client otherwise; unknown marks a lone argument that names no client,
-// which may name a model.
-type arguments struct {
-	client, model string
-	unknown       bool
-}
+// client otherwise.
+type arguments struct{ client, model string }
 
 // parseArguments checks the arguments' number and shapes before any
 // configuration access: a client must be admitted, and a model must be a
 // provider/model name; one without a slash is left to the command, which
 // lists the models that it could mean. A lone argument that names no client
-// is left to the command too, which lists the models that it could mean
-// before it refuses it as a client.
+// is refused as a client, naming the model list that it may have meant.
 func parseArguments(admission domain.Admission, args []string) (arguments, error) {
 	var given arguments
 	switch len(args) {
@@ -113,11 +108,12 @@ func parseArguments(admission domain.Admission, args []string) (arguments, error
 		return arguments{}, fmt.Errorf("aigw use takes <client> and <provider/model>, not %d arguments; run `aigw use --help`", len(args))
 	}
 	if given.client != "" {
-		if _, err := invocation.ResolveClient(admission, given.client); err != nil {
-			if len(args) > 1 {
-				return arguments{}, err
-			}
-			given.unknown = true
+		resolveClient := invocation.ResolveClient
+		if len(args) == 1 {
+			resolveClient = invocation.ResolveLoneClient
+		}
+		if _, err := resolveClient(admission, given.client); err != nil {
+			return arguments{}, err
 		}
 	}
 	if given.model != "" {
@@ -161,10 +157,6 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	given, _ := parseArguments(runtime.Clients.Admission(), args)
 	cfg, err := runtime.Config.Load()
 	if err != nil {
-		return err
-	}
-	if given.unknown {
-		_, err := invocation.ResolveClientOrModel(cfg, runtime.Clients.Admission(), given.client)
 		return err
 	}
 	operation := runtime

@@ -1,18 +1,25 @@
 package use
 
 import (
+	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/clients"
+	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
 )
 
 // Without a terminal, or with --json, a missing argument is refused and
 // named, never asked for; an unknown client, a model argument without a
-// provider, a lone argument that names a model ID and no client, and an
-// unknown provider are refused with what they could mean, before any Token is
-// read.
+// provider and an unknown provider are refused with what they could mean, and
+// a lone argument that names no client also with the model list that it may
+// have meant, before any Token is read.
 func TestUseRefusesArgumentsBeforeAnyChange(t *testing.T) {
 	runtime, _, _ := configuredRuntime(t)
 	runtime.Secrets = credentialFreeStore{}
@@ -32,9 +39,10 @@ func TestUseRefusesArgumentsBeforeAnyChange(t *testing.T) {
 		{"a malformed model", true, []string{codex.ID, "/gpt-test"}, "has an empty provider or model ID", "aigw use --help"},
 		{"a model without a provider", false, []string{codex.ID, "gpt-test"}, `"gpt-test" names no provider; it could mean gateway/gpt-test`, "aigw model list gpt-test"},
 		{"an unknown provider", false, []string{codex.ID, "gatewy/gpt-test"}, `unknown provider "gatewy"; did you mean gateway?`, "aigw provider list"},
-		{"a lone model ID", false, []string{"gpt-test"}, `"gpt-test" names no client or provider; it could mean gateway/gpt-test`, "aigw model list gpt-test"},
-		{"a lone misspelled model ID", true, []string{"gpt-tset", "--json"}, `"gpt-tset" names no client or provider; it could mean gateway/gpt-test`, "aigw model list gpt-test"},
-		{"a lone unknown client", true, []string{"codx"}, `unknown client "codx"; did you mean codex?`, "aigw client list"},
+		{"a lone model ID", false, []string{"gpt-test"}, `unknown client "gpt-test"; clients are claude, claude-desktop, codex, or hermes; if you meant a model, run ` +
+			"`aigw model list gpt-test`", "aigw client list"},
+		{"a lone unknown client", true, []string{"codx", "--json"}, `unknown client "codx"; did you mean codex? Clients are claude, claude-desktop, codex, or hermes; ` +
+			"if you meant a model, run `aigw model list codx`", "aigw client list"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime.Interactive = test.interactive
@@ -47,4 +55,45 @@ func TestUseRefusesArgumentsBeforeAnyChange(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A lone argument that names no client is refused from the arguments alone:
+// in a fresh home it writes nothing, a configuration that does not parse is
+// not read, and the closest clients lead the refusal even when an added model
+// looks like the argument too.
+func TestUseRefusesALoneClientTypoWithoutTheConfiguration(t *testing.T) {
+	want := `unknown client "claud"; did you mean claude, claude-desktop? Clients are claude, claude-desktop, codex, or hermes; ` +
+		"if you meant a model, run `aigw model list claud`"
+	t.Run("fresh home", func(t *testing.T) {
+		home := t.TempDir()
+		runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(home, "aigw", "config.toml"), clients.Admission()), Out: &bytes.Buffer{}}
+		if problem := terminal.ProblemFor(execute(runtime, "claud", "--json")); problem.Title != want || problem.Fix != "aigw client list" {
+			t.Fatalf("a client typo in a fresh home = %#v", problem)
+		}
+		if entries, err := os.ReadDir(home); err != nil || len(entries) != 0 {
+			t.Fatalf("a client typo wrote %v, %v", entries, err)
+		}
+	})
+	t.Run("unparsable configuration", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "config.toml")
+		if err := os.WriteFile(path, []byte("version = [\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(path, clients.Admission()), Out: &bytes.Buffer{}}
+		if problem := terminal.ProblemFor(execute(runtime, "claud")); problem.Title != want {
+			t.Fatalf("a client typo with an unparsable configuration = %#v", problem)
+		}
+	})
+	t.Run("a model like it", func(t *testing.T) {
+		runtime, cfg, _ := configuredRuntime(t)
+		cfg.Providers["ucloud"] = domain.Provider{Label: "UCloud", Endpoints: domain.Endpoints{Anthropic: "https://ucloud.example.test"}}
+		cfg.Models["sonnet"] = domain.Model{Provider: "ucloud", Family: "claude-sonnet-5-6", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}}}
+		if err := runtime.Config.Save(cfg); err != nil {
+			t.Fatal(err)
+		}
+		problem := terminal.ProblemFor(execute(runtime, "claud"))
+		if problem.Title != want || strings.Contains(problem.Title, "ucloud/") {
+			t.Fatalf("a client typo beside a claude model = %#v", problem)
+		}
+	})
 }
