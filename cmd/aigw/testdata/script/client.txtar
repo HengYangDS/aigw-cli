@@ -102,6 +102,9 @@ exec aigw client edit codex --direct --stream-retries 3 --json
 cmp stdout edit-direct.json
 exec aigw client edit codex --direct --json
 cmp stdout edit-unchanged.json
+# An edit that changes nothing says so and names no next step.
+exec aigw client edit codex --direct
+cmp stdout edit-unchanged.txt
 exec aigw client edit codex --native-retries
 cmp stdout edit-native.txt
 
@@ -439,3 +442,13 @@ Fix
   "error": "Claude has no configuration file to name; --target is for Claude Desktop, Codex and Hermes; run `aigw client enable --help`",
   "next_action": "aigw client enable --help"
 }
+-- edit-unchanged.txt --
+AIGW  Client unchanged
+────────────────────────────────────────
+  Client               Codex
+  Model                team/team-model
+  State                Enabled
+  Forwarding           None; the client reaches its provider's endpoint
+  Request retries      0
+  Stream retries       3
+  ✓ Nothing to change: Codex already has these settings

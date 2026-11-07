@@ -363,3 +363,18 @@ func TestWriteJSONPreservesEncodingAndOutputFailures(t *testing.T) {
 		t.Fatalf("output failure=%v, want %v", err, cause)
 	}
 }
+
+// A result without a next step has no Next section.
+func TestNextWithoutAStepWritesNothing(t *testing.T) {
+	var out bytes.Buffer
+	r := terminal.NewRenderer(&out, false)
+	r.Success("Nothing to change")
+	r.Next("")
+	if got := out.String(); got != "  ✓ Nothing to change\n" {
+		t.Fatalf("output without a next step = %q", got)
+	}
+	r.Next("aigw check")
+	if got := out.String(); !strings.HasSuffix(got, "Next\n  aigw check\n") {
+		t.Fatalf("output with a next step = %q", got)
+	}
+}

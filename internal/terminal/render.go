@@ -269,8 +269,12 @@ func (r *Renderer) Success(value string) {
 	r.hasContent = true
 }
 
-// Next renders the single recommended follow-up command.
+// Next renders the single recommended follow-up command, and nothing when
+// there is none.
 func (r *Renderer) Next(command string) {
+	if command == "" {
+		return
+	}
 	r.Section("Next")
 	r.Command(command)
 }
