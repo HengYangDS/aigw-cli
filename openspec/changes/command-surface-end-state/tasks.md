@@ -10,23 +10,23 @@
 
 ## 2. Shared grammar and output
 
-- [ ] 2.1 Add `provider/model` references, split at the first `/` and resolved
+- [x] 2.1 Add `provider/model` references, split at the first `/` and resolved
       to a configured model, with closest-match refusals for unknown providers,
       clients and models; tests cover a model ID that contains `/` and an
       argument without one.
-- [ ] 2.2 Accept `anthropic`, `responses` and `chat` as protocol names at the
+- [x] 2.2 Accept `anthropic`, `responses` and `chat` as protocol names at the
       command line and refuse any other spelling with the valid list.
 - [x] 2.3 Render every failure as Problem and one exact Fix, without the
       generic Impact text or an unrelated fix; existing scripts show the new
       failure blocks.
-- [ ] 2.4 Add completion functions for clients, providers, `provider/model`,
+- [x] 2.4 Add completion functions for clients, providers, `provider/model`,
       protocols, depths, families and capabilities that read only local
       configuration; a test whose secret store and HTTP client fail on any use
       shows that they read no Token and send no request.
 
 ## 3. Model, provider and client commands
 
-- [ ] 3.1 Add `aigw model list|show|add|edit|remove`: list filters by query,
+- [x] 3.1 Add `aigw model list|show|add|edit|remove`: list filters by query,
       `--provider`, `--client` and `--protocol`; add and edit take `--protocol`,
       `--family`, `--capability` and `--label`; add checks the provider's
       catalog unless `--unlisted`, and an unreadable or empty catalog refuses
@@ -56,8 +56,10 @@
       arguments only in a terminal, adds an unadded model or protocol after the
       catalog check, derives the family, reports a lost tool search, clears
       forwarding when the upstream endpoint changes and retries only on a change
-      of provider, and names other clients whose files change; `use.txtar`
-      covers each branch.
+      of provider, and names other clients whose files change; it binds the
+      `provider/model` completion of `use <client> <TAB>`; `use.txtar` covers
+      each branch and runs the `aigw use …` fixes that the model commands
+      already name.
 - [ ] 4.2 Rework `aigw check [client...] --depth local|endpoint|model|client`:
       each row names the depth reached, a depth that a client cannot run is
       skipped with its reason, and the command exits 1 when a checked client
