@@ -218,3 +218,18 @@ func TestBalanceNamesAnIncompleteEnvironmentPairAndAFailedBackend(t *testing.T) 
 		t.Fatalf("a failed backend = %+v", item)
 	}
 }
+
+func TestBalanceAndRemoveReportAnOutputThatFails(t *testing.T) {
+	f := newFixture(t)
+	f.runtime.Out = failingOutput{}
+	for _, args := range [][]string{{"balance"}, {"balance", "--json"}, {"remove", "team", "--dry-run", "--json"}} {
+		if err := f.run("", args...); err == nil || !strings.Contains(err.Error(), "output refused") {
+			t.Fatalf("%q with a failing output = %v", args, err)
+		}
+	}
+}
+
+// failingOutput refuses every write.
+type failingOutput struct{}
+
+func (failingOutput) Write([]byte) (int, error) { return 0, errors.New("output refused") }

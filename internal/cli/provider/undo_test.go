@@ -149,3 +149,63 @@ func (store *onceDiagnostics) Set(id string, credential secret.DiagnosticCredent
 	}
 	return store.DiagnosticCredentialStore.Set(id, credential)
 }
+
+// A removal whose save fails puts back what it can and names what stays:
+// here the Token comes back and the balance credentials stay deleted.
+func TestRemoveReportsAPartlyUndoneRemoval(t *testing.T) {
+	f := newFixture(t)
+	f.credentialMixed(t)
+	f.runtime.Providers = &unrestorableDiagnostics{credential: secret.DiagnosticCredential{SystemToken: "mixed-system", UserID: "9"}}
+	cfg := f.load(t)
+	after := cfg.Clone()
+	removeProvider(&after, "mixed")
+	stale := cfg.Clone()
+	provider := stale.Providers["mixed"]
+	provider.Label = "Stale"
+	stale.Providers["mixed"] = provider
+	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
+	p := problem(commitRemoval(cmd, f.runtime, stale, after, "mixed", removeDocument{Token: credentialPresent, BalanceCredential: credentialPresent}))
+	if p.Title != "provider mixed was not removed, and the balance credentials stay deleted" || p.Impact != "The Token was put back." || f.token("mixed") != "sk-mixed-token-0001" {
+		t.Fatalf("a partly undone removal = %+v", p)
+	}
+	if sentence("") != "" || sentence("the Token") != "The Token" || clauses("; ", nil) != "" {
+		t.Fatal("the clause helpers changed")
+	}
+}
+
+// unrestorableDiagnostics holds one balance credential, deletes it, and
+// refuses to store any.
+type unrestorableDiagnostics struct {
+	credential secret.DiagnosticCredential
+	deleted    bool
+}
+
+func (store *unrestorableDiagnostics) Get(string) (secret.DiagnosticCredential, error) {
+	if store.deleted {
+		return secret.DiagnosticCredential{}, secret.ErrNotFound
+	}
+	return store.credential, nil
+}
+
+func (*unrestorableDiagnostics) Set(string, secret.DiagnosticCredential) error {
+	return errors.New("backend failed")
+}
+
+func (store *unrestorableDiagnostics) Delete(string) error {
+	store.deleted = true
+	return nil
+}
+
+func (store *unrestorableDiagnostics) Exists(string) (bool, error) { return !store.deleted, nil }
+
+// Removing balance credentials that cannot be read deletes them without an
+// undo, and one that is already gone when it is deleted is no failure.
+func TestChangeBalanceRemovesWhatItCannotRead(t *testing.T) {
+	f := newFixture(t)
+	f.runtime.Providers = &stubDiagnostics{getErr: errors.New("unreadable"), deleteErr: secret.ErrNotFound}
+	changes, err := changeBalance(f.runtime, "team", editOptions{noBalanceToken: true}, secret.DiagnosticCredential{})
+	if err != nil || len(changes) != 1 || changes[0].undo != nil {
+		t.Fatalf("a removal of unreadable balance credentials = %+v, %v", changes, err)
+	}
+}
