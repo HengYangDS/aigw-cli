@@ -12,7 +12,7 @@ platform acceptance, signing, and GA status remain separate evidence.
 
 ## [Unreleased]
 
-History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
+History: [GitHub][Unreleased-github]
 
 ### Fixed
 
@@ -38,7 +38,7 @@ History: [GitLab][Unreleased-gitlab] · [GitHub][Unreleased-github]
 
 ## [0.6.1] - 2026-11-05
 
-History: [GitLab][0.6.1-gitlab] · [GitHub][0.6.1-github]
+History: [GitHub][0.6.1-github]
 
 ### Security
 
@@ -50,7 +50,7 @@ History: [GitLab][0.6.1-gitlab] · [GitHub][0.6.1-github]
 
 ## [0.6.0] - 2026-11-01
 
-History: [GitLab][0.6.0-gitlab] · [GitHub][0.6.0-github]
+History: [GitHub][0.6.0-github]
 
 ### Changed
 
@@ -72,7 +72,7 @@ History: [GitLab][0.6.0-gitlab] · [GitHub][0.6.0-github]
 
 ## [0.5.0] - 2026-11-01
 
-History: [GitLab][0.5.0-gitlab] · [GitHub][0.5.0-github]
+History: [GitHub][0.5.0-github]
 
 ### Added
 
@@ -159,7 +159,7 @@ move to `schema_version` 2: `status`, `check`, `doctor`, `use`, `sync`,
 
 ## [0.4.18] - 2026-10-27
 
-History: [GitLab][0.4.18-gitlab] · [GitHub][0.4.18-github]
+History: [GitHub][0.4.18-github]
 
 ### Changed
 
@@ -193,7 +193,7 @@ History: [GitLab][0.4.18-gitlab] · [GitHub][0.4.18-github]
 
 ## [0.4.17] - 2026-10-26
 
-History: [GitLab][0.4.17-gitlab] · [GitHub][0.4.17-github]
+History: [GitHub][0.4.17-github]
 
 ### Added
 
@@ -226,7 +226,7 @@ History: [GitLab][0.4.17-gitlab] · [GitHub][0.4.17-github]
 
 ## [0.4.16] - 2026-10-25
 
-History: [GitLab][0.4.16-gitlab] · [GitHub][0.4.16-github]
+History: [GitHub][0.4.16-github]
 
 ### Changed
 
@@ -255,7 +255,7 @@ History: [GitLab][0.4.16-gitlab] · [GitHub][0.4.16-github]
 
 ## [0.4.15] - 2026-10-24
 
-History: [GitLab][0.4.15-gitlab] · [GitHub][0.4.15-github]
+History: [GitHub][0.4.15-github]
 
 ### Added
 
@@ -273,7 +273,7 @@ History: [GitLab][0.4.15-gitlab] · [GitHub][0.4.15-github]
 
 ## [0.4.14] - 2026-10-24
 
-History: [GitLab][0.4.14-gitlab] · [GitHub][0.4.14-github]
+History: [GitHub][0.4.14-github]
 
 ### Fixed
 
@@ -306,7 +306,7 @@ History: [GitLab][0.4.14-gitlab] · [GitHub][0.4.14-github]
 
 ## [0.4.13] - 2026-10-23
 
-History: [GitLab][0.4.13-gitlab] · [GitHub][0.4.13-github]
+History: [GitHub][0.4.13-github]
 
 ### Fixed
 
@@ -326,7 +326,7 @@ History: [GitLab][0.4.13-gitlab] · [GitHub][0.4.13-github]
 
 ## [0.4.12] - 2026-10-22
 
-History: [GitLab][0.4.12-gitlab] · [GitHub][0.4.12-github]
+History: [GitHub][0.4.12-github]
 
 ### Fixed
 
@@ -337,7 +337,7 @@ History: [GitLab][0.4.12-gitlab] · [GitHub][0.4.12-github]
 
 ## [0.4.11] - 2026-10-22
 
-History: [GitLab][0.4.11-gitlab] · [GitHub][0.4.11-github]
+History: [GitHub][0.4.11-github]
 
 ### Fixed
 
@@ -349,7 +349,7 @@ History: [GitLab][0.4.11-gitlab] · [GitHub][0.4.11-github]
 
 ## [0.4.10] - 2026-10-21
 
-History: [GitLab][0.4.10-gitlab] · [GitHub][0.4.10-github]
+History: [GitHub][0.4.10-github]
 
 ### Security
 
@@ -359,7 +359,7 @@ History: [GitLab][0.4.10-gitlab] · [GitHub][0.4.10-github]
 
 ## [0.4.9] - 2026-10-21
 
-History: [GitLab][0.4.9-gitlab] · [GitHub][0.4.9-github]
+History: [GitHub][0.4.9-github]
 
 ### Fixed
 
@@ -373,7 +373,7 @@ History: [GitLab][0.4.9-gitlab] · [GitHub][0.4.9-github]
 
 ## [0.4.8] - 2026-10-20
 
-History: [GitLab][0.4.8-gitlab] · [GitHub][0.4.8-github]
+History: [GitHub][0.4.8-github]
 
 ### Changed
 
@@ -385,7 +385,7 @@ History: [GitLab][0.4.8-gitlab] · [GitHub][0.4.8-github]
 
 ## [0.4.7] - 2026-10-20
 
-History: [GitLab][0.4.7-gitlab] · [GitHub][0.4.7-github]
+History: [GitHub][0.4.7-github]
 
 ### Changed
 
@@ -398,7 +398,7 @@ History: [GitLab][0.4.7-gitlab] · [GitHub][0.4.7-github]
 
 ## [0.4.6] - 2026-10-20
 
-History: [GitLab][0.4.6-gitlab] · [GitHub][0.4.6-github]
+History: [GitHub][0.4.6-github]
 
 ### Fixed
 
@@ -416,7 +416,7 @@ History: [GitLab][0.4.6-gitlab] · [GitHub][0.4.6-github]
 
 ## [0.4.5] - 2026-10-19
 
-History: [GitLab][0.4.5-gitlab] · [GitHub][0.4.5-github]
+History: [GitHub][0.4.5-github]
 
 ### Changed
 
@@ -430,7 +430,7 @@ History: [GitLab][0.4.5-gitlab] · [GitHub][0.4.5-github]
 
 ## [0.4.4] - 2026-10-18
 
-History: [GitLab][0.4.4-gitlab] · [GitHub][0.4.4-github]
+History: [GitHub][0.4.4-github]
 
 ### Added
 
@@ -442,7 +442,7 @@ History: [GitLab][0.4.4-gitlab] · [GitHub][0.4.4-github]
 
 ## [0.4.3] - 2026-10-16
 
-History: [GitLab][0.4.3-gitlab] · [GitHub][0.4.3-github]
+History: [GitHub][0.4.3-github]
 
 ### Changed
 
@@ -465,7 +465,7 @@ History: [GitLab][0.4.3-gitlab] · [GitHub][0.4.3-github]
 
 ## [0.4.2] - 2026-10-15
 
-History: [GitLab][0.4.2-gitlab] · [GitHub][0.4.2-github]
+History: [GitHub][0.4.2-github]
 
 ### Changed
 
@@ -488,7 +488,7 @@ History: [GitLab][0.4.2-gitlab] · [GitHub][0.4.2-github]
 
 ## [0.4.1] - 2026-10-14
 
-History: [GitLab][0.4.1-gitlab] · [GitHub][0.4.1-github]
+History: [GitHub][0.4.1-github]
 
 ### Security
 
@@ -661,7 +661,7 @@ History: [GitLab][0.4.1-gitlab] · [GitHub][0.4.1-github]
 
 ## [0.3.5] - 2026-10-12
 
-History: [GitLab][0.3.5-gitlab] · [GitHub][0.3.5-github]
+History: [GitHub][0.3.5-github]
 
 ### Fixed
 
@@ -676,7 +676,7 @@ History: [GitLab][0.3.5-gitlab] · [GitHub][0.3.5-github]
 
 ## [0.3.4] - 2026-10-10
 
-History: [GitLab][0.3.4-gitlab] · [GitHub][0.3.4-github]
+History: [GitHub][0.3.4-github]
 
 ### Fixed
 
@@ -689,7 +689,7 @@ History: [GitLab][0.3.4-gitlab] · [GitHub][0.3.4-github]
 
 ## [0.3.3] - 2026-10-09
 
-History: [GitLab][0.3.3-gitlab] · [GitHub][0.3.3-github]
+History: [GitHub][0.3.3-github]
 
 ### Added
 
@@ -707,7 +707,7 @@ History: [GitLab][0.3.3-gitlab] · [GitHub][0.3.3-github]
 
 ## [0.3.1] - 2026-09-25
 
-History: [GitLab][0.3.1-gitlab] · [GitHub][0.3.1-github]
+History: [GitHub][0.3.1-github]
 
 ### Fixed
 
@@ -719,7 +719,7 @@ History: [GitLab][0.3.1-gitlab] · [GitHub][0.3.1-github]
 
 ## [0.3.0] - 2026-09-25
 
-History: [GitLab][0.3.0-gitlab] · [GitHub][0.3.0-github]
+History: [GitHub][0.3.0-github]
 
 ### Added
 
@@ -749,7 +749,7 @@ History: [GitLab][0.3.0-gitlab] · [GitHub][0.3.0-github]
 
 ## [0.2.0] - 2026-09-24
 
-History: [GitLab][0.2.0-gitlab] · [GitHub][0.2.0-github]
+History: [GitHub][0.2.0-github]
 
 ### Added
 
@@ -777,7 +777,7 @@ History: [GitLab][0.2.0-gitlab] · [GitHub][0.2.0-github]
 
 ## [0.2.0-rc.3] - 2026-09-24
 
-History: [GitLab][0.2.0-rc.3-gitlab] · [GitHub][0.2.0-rc.3-github]
+History: [GitHub][0.2.0-rc.3-github]
 
 ### Fixed
 
@@ -791,7 +791,7 @@ History: [GitLab][0.2.0-rc.3-gitlab] · [GitHub][0.2.0-rc.3-github]
 
 ## [0.2.0-rc.2] - 2026-09-23
 
-History: [GitLab][0.2.0-rc.2-gitlab] · [GitHub][0.2.0-rc.2-github]
+History: [GitHub][0.2.0-rc.2-github]
 
 ### Fixed
 
@@ -800,7 +800,7 @@ History: [GitLab][0.2.0-rc.2-gitlab] · [GitHub][0.2.0-rc.2-github]
 
 ## [0.2.0-rc.1] - 2026-09-23
 
-History: [GitLab][0.2.0-rc.1-gitlab] · [GitHub][0.2.0-rc.1-github]
+History: [GitHub][0.2.0-rc.1-github]
 
 ### Changed
 
@@ -843,7 +843,7 @@ History: [GitLab][0.2.0-rc.1-gitlab] · [GitHub][0.2.0-rc.1-github]
 
 ## [0.1.0] - 2026-09-19
 
-History: [GitLab][0.1.0-gitlab] · [GitHub][0.1.0-github]
+History: [GitHub][0.1.0-github]
 
 ### Added
 
@@ -867,7 +867,7 @@ History: [GitLab][0.1.0-gitlab] · [GitHub][0.1.0-github]
 
 ## [0.1.0-rc.118] - 2026-09-19
 
-History: [GitLab][0.1.0-rc.118-gitlab] · [GitHub][0.1.0-rc.118-github]
+History: [GitHub][0.1.0-rc.118-github]
 
 ### Changed
 
@@ -878,7 +878,7 @@ History: [GitLab][0.1.0-rc.118-gitlab] · [GitHub][0.1.0-rc.118-github]
 
 ## [0.1.0-rc.117] - 2026-09-18
 
-History: [GitLab][0.1.0-rc.117-gitlab] · [GitHub][0.1.0-rc.117-github]
+History: [GitHub][0.1.0-rc.117-github]
 
 ### Changed
 
@@ -896,7 +896,7 @@ History: [GitLab][0.1.0-rc.117-gitlab] · [GitHub][0.1.0-rc.117-github]
 
 ## [0.1.0-rc.116] - 2026-09-17
 
-History: [GitLab][0.1.0-rc.116-gitlab] · [GitHub][0.1.0-rc.116-github]
+History: [GitHub][0.1.0-rc.116-github]
 
 ### Fixed
 
@@ -908,7 +908,7 @@ History: [GitLab][0.1.0-rc.116-gitlab] · [GitHub][0.1.0-rc.116-github]
 
 ## [0.1.0-rc.115] - 2026-09-15
 
-History: [GitLab][0.1.0-rc.115-gitlab] · [GitHub][0.1.0-rc.115-github]
+History: [GitHub][0.1.0-rc.115-github]
 
 ### Fixed
 
@@ -920,7 +920,7 @@ History: [GitLab][0.1.0-rc.115-gitlab] · [GitHub][0.1.0-rc.115-github]
 
 ## [0.1.0-rc.114] - 2026-09-14
 
-History: [GitLab][0.1.0-rc.114-gitlab] · [GitHub][0.1.0-rc.114-github]
+History: [GitHub][0.1.0-rc.114-github]
 
 ### Fixed
 
@@ -933,7 +933,7 @@ History: [GitLab][0.1.0-rc.114-gitlab] · [GitHub][0.1.0-rc.114-github]
 
 ## [0.1.0-rc.113] - 2026-09-14
 
-History: [GitLab][0.1.0-rc.113-gitlab] · [GitHub][0.1.0-rc.113-github]
+History: [GitHub][0.1.0-rc.113-github]
 
 ### Added
 
@@ -951,7 +951,7 @@ History: [GitLab][0.1.0-rc.113-gitlab] · [GitHub][0.1.0-rc.113-github]
 
 ## [0.1.0-rc.112] - 2026-09-14
 
-History: [GitLab][0.1.0-rc.112-gitlab] · [GitHub][0.1.0-rc.112-github]
+History: [GitHub][0.1.0-rc.112-github]
 
 ### Added
 
@@ -1004,7 +1004,7 @@ History: [GitLab][0.1.0-rc.112-gitlab] · [GitHub][0.1.0-rc.112-github]
 
 ## [0.1.0-rc.110] - 2026-09-01
 
-History: [GitLab][0.1.0-rc.110-gitlab] · [GitHub][0.1.0-rc.110-github]
+History: [GitHub][0.1.0-rc.110-github]
 
 ### Added
 
@@ -1022,7 +1022,7 @@ History: [GitLab][0.1.0-rc.110-gitlab] · [GitHub][0.1.0-rc.110-github]
 
 ## [0.1.0-rc.109] - 2026-09-01
 
-History: [GitLab][0.1.0-rc.109-gitlab] · [GitHub][0.1.0-rc.109-github]
+History: [GitHub][0.1.0-rc.109-github]
 
 ### Fixed
 
@@ -1031,7 +1031,7 @@ History: [GitLab][0.1.0-rc.109-gitlab] · [GitHub][0.1.0-rc.109-github]
 
 ## [0.1.0-rc.108] - 2026-08-31
 
-History: [GitLab][0.1.0-rc.108-gitlab] · [GitHub][0.1.0-rc.108-github]
+History: [GitHub][0.1.0-rc.108-github]
 
 ### Fixed
 
@@ -1042,7 +1042,7 @@ History: [GitLab][0.1.0-rc.108-gitlab] · [GitHub][0.1.0-rc.108-github]
 
 ## [0.1.0-rc.107] - 2026-08-31
 
-History: [GitLab][0.1.0-rc.107-gitlab] · [GitHub][0.1.0-rc.107-github]
+History: [GitHub][0.1.0-rc.107-github]
 
 ### Fixed
 
@@ -1051,7 +1051,7 @@ History: [GitLab][0.1.0-rc.107-gitlab] · [GitHub][0.1.0-rc.107-github]
 
 ## [0.1.0-rc.106] - 2026-08-31
 
-History: [GitLab][0.1.0-rc.106-gitlab] · [GitHub][0.1.0-rc.106-github]
+History: [GitHub][0.1.0-rc.106-github]
 
 ### Fixed
 
@@ -1062,7 +1062,7 @@ History: [GitLab][0.1.0-rc.106-gitlab] · [GitHub][0.1.0-rc.106-github]
 
 ## [0.1.0-rc.105] - 2026-08-31
 
-History: [GitLab][0.1.0-rc.105-gitlab] · [GitHub][0.1.0-rc.105-github]
+History: [GitHub][0.1.0-rc.105-github]
 
 ### Changed
 
@@ -1076,7 +1076,7 @@ History: [GitLab][0.1.0-rc.105-gitlab] · [GitHub][0.1.0-rc.105-github]
 
 ## [0.1.0-rc.104] - 2026-08-30
 
-History: [GitLab][0.1.0-rc.104-gitlab] · [GitHub][0.1.0-rc.104-github]
+History: [GitHub][0.1.0-rc.104-github]
 
 ### Changed
 
@@ -1089,7 +1089,7 @@ History: [GitLab][0.1.0-rc.104-gitlab] · [GitHub][0.1.0-rc.104-github]
 
 ## [0.1.0-rc.103] - 2026-08-30
 
-History: [GitLab][0.1.0-rc.103-gitlab] · [GitHub][0.1.0-rc.103-github]
+History: [GitHub][0.1.0-rc.103-github]
 
 ### Fixed
 
@@ -1099,7 +1099,7 @@ History: [GitLab][0.1.0-rc.103-gitlab] · [GitHub][0.1.0-rc.103-github]
 
 ## [0.1.0-rc.102] - 2026-08-30
 
-History: [GitLab][0.1.0-rc.102-gitlab] · [GitHub][0.1.0-rc.102-github]
+History: [GitHub][0.1.0-rc.102-github]
 
 ### Changed
 
@@ -1121,7 +1121,7 @@ History: [GitLab][0.1.0-rc.102-gitlab] · [GitHub][0.1.0-rc.102-github]
 
 ## [0.1.0-rc.101] - 2026-08-30
 
-History: [GitLab][0.1.0-rc.101-gitlab] · [GitHub][0.1.0-rc.101-github]
+History: [GitHub][0.1.0-rc.101-github]
 
 ### Fixed
 
@@ -1131,7 +1131,7 @@ History: [GitLab][0.1.0-rc.101-gitlab] · [GitHub][0.1.0-rc.101-github]
 
 ## [0.1.0-rc.100] - 2026-08-30
 
-History: [GitLab][0.1.0-rc.100-gitlab] · [GitHub][0.1.0-rc.100-github]
+History: [GitHub][0.1.0-rc.100-github]
 
 ### Fixed
 
@@ -1140,7 +1140,7 @@ History: [GitLab][0.1.0-rc.100-gitlab] · [GitHub][0.1.0-rc.100-github]
 
 ## [0.1.0-rc.99] - 2026-08-29
 
-History: [GitLab][0.1.0-rc.99-gitlab] · [GitHub][0.1.0-rc.99-github]
+History: [GitHub][0.1.0-rc.99-github]
 
 ### Changed
 
@@ -1156,7 +1156,7 @@ History: [GitLab][0.1.0-rc.99-gitlab] · [GitHub][0.1.0-rc.99-github]
 
 ## [0.1.0-rc.98] - 2026-08-29
 
-History: [GitLab][0.1.0-rc.98-gitlab] · [GitHub][0.1.0-rc.98-github]
+History: [GitHub][0.1.0-rc.98-github]
 
 ### Changed
 
@@ -1167,7 +1167,7 @@ History: [GitLab][0.1.0-rc.98-gitlab] · [GitHub][0.1.0-rc.98-github]
 
 ## [0.1.0-rc.97] - 2026-08-29
 
-History: [GitLab][0.1.0-rc.97-gitlab] · [GitHub][0.1.0-rc.97-github]
+History: [GitHub][0.1.0-rc.97-github]
 
 ### Changed
 
@@ -1185,7 +1185,7 @@ History: [GitLab][0.1.0-rc.97-gitlab] · [GitHub][0.1.0-rc.97-github]
 
 ## [0.1.0-rc.96] - 2026-08-27
 
-History: [GitLab][0.1.0-rc.96-gitlab] · [GitHub][0.1.0-rc.96-github]
+History: [GitHub][0.1.0-rc.96-github]
 
 ### Added
 
@@ -1207,7 +1207,7 @@ History: [GitLab][0.1.0-rc.96-gitlab] · [GitHub][0.1.0-rc.96-github]
 
 ## [0.1.0-rc.95] - 2026-08-25
 
-History: [GitLab][0.1.0-rc.95-gitlab] · [GitHub][0.1.0-rc.95-github]
+History: [GitHub][0.1.0-rc.95-github]
 
 ### Added
 
@@ -1228,7 +1228,7 @@ History: [GitLab][0.1.0-rc.95-gitlab] · [GitHub][0.1.0-rc.95-github]
 
 ## [0.1.0-rc.94] - 2026-08-24
 
-History: [GitLab][0.1.0-rc.94-gitlab] · [GitHub][0.1.0-rc.94-github]
+History: [GitHub][0.1.0-rc.94-github]
 
 ### Added
 
@@ -1247,7 +1247,7 @@ History: [GitLab][0.1.0-rc.94-gitlab] · [GitHub][0.1.0-rc.94-github]
 
 ## [0.1.0-rc.93] - 2026-08-23
 
-History: [GitLab][0.1.0-rc.93-gitlab] · [GitHub][0.1.0-rc.93-github]
+History: [GitHub][0.1.0-rc.93-github]
 
 ### Fixed
 
@@ -1256,7 +1256,7 @@ History: [GitLab][0.1.0-rc.93-gitlab] · [GitHub][0.1.0-rc.93-github]
 
 ## [0.1.0-rc.92] - 2026-08-23
 
-History: [GitLab][0.1.0-rc.92-gitlab] · [GitHub][0.1.0-rc.92-github]
+History: [GitHub][0.1.0-rc.92-github]
 
 ### Fixed
 
@@ -1269,7 +1269,7 @@ History: [GitLab][0.1.0-rc.92-gitlab] · [GitHub][0.1.0-rc.92-github]
 
 ## [0.1.0-rc.91] - 2026-08-22
 
-History: [GitLab][0.1.0-rc.91-gitlab] · [GitHub][0.1.0-rc.91-github]
+History: [GitHub][0.1.0-rc.91-github]
 
 ### Added
 
@@ -1293,7 +1293,7 @@ History: [GitLab][0.1.0-rc.91-gitlab] · [GitHub][0.1.0-rc.91-github]
 
 ## [0.1.0-rc.90] - 2026-08-21
 
-History: [GitLab][0.1.0-rc.90-gitlab] · [GitHub][0.1.0-rc.90-github]
+History: [GitHub][0.1.0-rc.90-github]
 
 ### Fixed
 
@@ -1303,7 +1303,7 @@ History: [GitLab][0.1.0-rc.90-gitlab] · [GitHub][0.1.0-rc.90-github]
 
 ## [0.1.0-rc.89] - 2026-08-19
 
-History: [GitLab][0.1.0-rc.89-gitlab] · [GitHub][0.1.0-rc.89-github]
+History: [GitHub][0.1.0-rc.89-github]
 
 ### Added
 
@@ -1331,7 +1331,7 @@ History: [GitLab][0.1.0-rc.89-gitlab] · [GitHub][0.1.0-rc.89-github]
 
 ## [0.1.0-rc.88] - 2026-08-18
 
-History: [GitLab][0.1.0-rc.88-gitlab] · [GitHub][0.1.0-rc.88-github]
+History: [GitHub][0.1.0-rc.88-github]
 
 ### Fixed
 
@@ -1340,7 +1340,7 @@ History: [GitLab][0.1.0-rc.88-gitlab] · [GitHub][0.1.0-rc.88-github]
 
 ## [0.1.0-rc.87] - 2026-08-18
 
-History: [GitLab][0.1.0-rc.87-gitlab] · [GitHub][0.1.0-rc.87-github]
+History: [GitHub][0.1.0-rc.87-github]
 
 ### Fixed
 
@@ -1350,7 +1350,7 @@ History: [GitLab][0.1.0-rc.87-gitlab] · [GitHub][0.1.0-rc.87-github]
 
 ## [0.1.0-rc.86] - 2026-08-17
 
-History: [GitLab][0.1.0-rc.86-gitlab] · [GitHub][0.1.0-rc.86-github]
+History: [GitHub][0.1.0-rc.86-github]
 
 ### Changed
 
@@ -1359,7 +1359,7 @@ History: [GitLab][0.1.0-rc.86-gitlab] · [GitHub][0.1.0-rc.86-github]
 
 ## [0.1.0-rc.85] - 2026-08-17
 
-History: [GitLab][0.1.0-rc.85-gitlab] · [GitHub][0.1.0-rc.85-github]
+History: [GitHub][0.1.0-rc.85-github]
 
 ### Changed
 
@@ -1369,7 +1369,7 @@ History: [GitLab][0.1.0-rc.85-gitlab] · [GitHub][0.1.0-rc.85-github]
 
 ## [0.1.0-rc.84] - 2026-08-16
 
-History: [GitLab][0.1.0-rc.84-gitlab] · [GitHub][0.1.0-rc.84-github]
+History: [GitHub][0.1.0-rc.84-github]
 
 ### Fixed
 
@@ -1379,7 +1379,7 @@ History: [GitLab][0.1.0-rc.84-gitlab] · [GitHub][0.1.0-rc.84-github]
 
 ## [0.1.0-rc.83] - 2026-08-16
 
-History: [GitLab][0.1.0-rc.83-gitlab] · [GitHub][0.1.0-rc.83-github]
+History: [GitHub][0.1.0-rc.83-github]
 
 ### Fixed
 
@@ -1390,7 +1390,7 @@ History: [GitLab][0.1.0-rc.83-gitlab] · [GitHub][0.1.0-rc.83-github]
 
 ## [0.1.0-rc.82] - 2026-08-15
 
-History: [GitLab][0.1.0-rc.82-gitlab] · [GitHub][0.1.0-rc.82-github]
+History: [GitHub][0.1.0-rc.82-github]
 
 ### Changed
 
@@ -1450,7 +1450,7 @@ History: [GitLab][0.1.0-rc.82-gitlab] · [GitHub][0.1.0-rc.82-github]
 
 ## [0.1.0-rc.77] - 2026-07-30
 
-History: [GitLab][0.1.0-rc.77-gitlab] · [GitHub][0.1.0-rc.77-github]
+History: [GitHub][0.1.0-rc.77-github]
 
 ### Changed
 
@@ -1465,7 +1465,7 @@ History: [GitLab][0.1.0-rc.77-gitlab] · [GitHub][0.1.0-rc.77-github]
 
 ## [0.1.0-rc.76] - 2026-07-30
 
-History: [GitLab][0.1.0-rc.76-gitlab] · [GitHub][0.1.0-rc.76-github]
+History: [GitHub][0.1.0-rc.76-github]
 
 ### Fixed
 
@@ -1475,7 +1475,7 @@ History: [GitLab][0.1.0-rc.76-gitlab] · [GitHub][0.1.0-rc.76-github]
 
 ## [0.1.0-rc.75] - 2026-07-30
 
-History: [GitLab][0.1.0-rc.75-gitlab] · [GitHub][0.1.0-rc.75-github]
+History: [GitHub][0.1.0-rc.75-github]
 
 ### Added
 
@@ -1497,7 +1497,7 @@ History: [GitLab][0.1.0-rc.75-gitlab] · [GitHub][0.1.0-rc.75-github]
 
 ## [0.1.0-rc.74] - 2026-07-29
 
-History: [GitLab][0.1.0-rc.74-gitlab] · [GitHub][0.1.0-rc.74-github]
+History: [GitHub][0.1.0-rc.74-github]
 
 ### Added
 
@@ -1533,7 +1533,7 @@ History: [GitLab][0.1.0-rc.74-gitlab] · [GitHub][0.1.0-rc.74-github]
 
 ## [0.1.0-rc.71] - 2026-07-27
 
-History: [GitLab][0.1.0-rc.71-gitlab] · [GitHub][0.1.0-rc.71-github]
+History: [GitHub][0.1.0-rc.71-github]
 
 ### Added
 
@@ -1556,7 +1556,7 @@ History: [GitLab][0.1.0-rc.71-gitlab] · [GitHub][0.1.0-rc.71-github]
 
 ## [0.1.0-rc.70] - 2026-07-24
 
-History: [GitLab][0.1.0-rc.70-gitlab] · [GitHub][0.1.0-rc.70-github]
+History: [GitHub][0.1.0-rc.70-github]
 
 ### Added
 
@@ -1568,7 +1568,7 @@ History: [GitLab][0.1.0-rc.70-gitlab] · [GitHub][0.1.0-rc.70-github]
 
 ## [0.1.0-rc.69] - 2026-07-21
 
-History: [GitLab][0.1.0-rc.69-gitlab] · [GitHub][0.1.0-rc.69-github]
+History: [GitHub][0.1.0-rc.69-github]
 
 ### Fixed
 
@@ -1607,7 +1607,7 @@ History: [GitLab][0.1.0-rc.69-gitlab] · [GitHub][0.1.0-rc.69-github]
 
 ## [0.1.0-rc.68] - 2026-07-19
 
-History: [GitLab][0.1.0-rc.68-gitlab] · [GitHub][0.1.0-rc.68-github]
+History: [GitHub][0.1.0-rc.68-github]
 
 ### Fixed
 
@@ -1639,7 +1639,7 @@ History: [GitLab][0.1.0-rc.68-gitlab] · [GitHub][0.1.0-rc.68-github]
 
 ## [0.1.0-rc.67] - 2026-07-19
 
-History: [GitLab][0.1.0-rc.67-gitlab] · [GitHub][0.1.0-rc.67-github]
+History: [GitHub][0.1.0-rc.67-github]
 
 ### Fixed
 
@@ -1654,7 +1654,7 @@ History: [GitLab][0.1.0-rc.67-gitlab] · [GitHub][0.1.0-rc.67-github]
 
 ## [0.1.0-rc.66] - 2026-07-18
 
-History: [GitLab][0.1.0-rc.66-gitlab] · [GitHub][0.1.0-rc.66-github]
+History: [GitHub][0.1.0-rc.66-github]
 
 ### Fixed
 
@@ -1666,7 +1666,7 @@ History: [GitLab][0.1.0-rc.66-gitlab] · [GitHub][0.1.0-rc.66-github]
 
 ## [0.1.0-rc.65] - 2026-07-18
 
-History: [GitLab][0.1.0-rc.65-gitlab] · [GitHub][0.1.0-rc.65-github]
+History: [GitHub][0.1.0-rc.65-github]
 
 ### Fixed
 
@@ -1676,7 +1676,7 @@ History: [GitLab][0.1.0-rc.65-gitlab] · [GitHub][0.1.0-rc.65-github]
 
 ## [0.1.0-rc.64] - 2026-07-17
 
-History: [GitLab][0.1.0-rc.64-gitlab] · [GitHub][0.1.0-rc.64-github]
+History: [GitHub][0.1.0-rc.64-github]
 
 ### Fixed
 
@@ -1689,7 +1689,7 @@ History: [GitLab][0.1.0-rc.64-gitlab] · [GitHub][0.1.0-rc.64-github]
 
 ## [0.1.0-rc.63] - 2026-07-17
 
-History: [GitLab][0.1.0-rc.63-gitlab] · [GitHub][0.1.0-rc.63-github]
+History: [GitHub][0.1.0-rc.63-github]
 
 ### Fixed
 
@@ -1721,7 +1721,7 @@ History: [GitLab][0.1.0-rc.63-gitlab] · [GitHub][0.1.0-rc.63-github]
 
 ## [0.1.0-rc.62] - 2026-07-17
 
-History: [GitLab][0.1.0-rc.62-gitlab] · [GitHub][0.1.0-rc.62-github]
+History: [GitHub][0.1.0-rc.62-github]
 
 ### Fixed
 
@@ -1742,7 +1742,7 @@ History: [GitLab][0.1.0-rc.62-gitlab] · [GitHub][0.1.0-rc.62-github]
 
 ## [0.1.0-rc.58] - 2026-07-17
 
-History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
+History: [GitHub][0.1.0-rc.58-github]
 
 ### Added
 
@@ -1849,169 +1849,86 @@ History: [GitLab][0.1.0-rc.58-gitlab] · [GitHub][0.1.0-rc.58-github]
 
 - Require every tag pipeline to verify that its exact annotated release tag carries an SSH signature trusted by the repository-owned signer anchor before packaging, publication, or GitLab Release creation. An unsigned or untrusted tag now fails closed.
 
-[Unreleased-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.6.1...main
 [Unreleased-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.6.1...main
-[0.6.1-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.6.0...v0.6.1
 [0.6.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.6.0...v0.6.1
-[0.6.0-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.5.0...v0.6.0
 [0.6.0-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.5.0...v0.6.0
-[0.5.0-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.18...v0.5.0
 [0.5.0-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.18...v0.5.0
-[0.4.18-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.17...v0.4.18
 [0.4.18-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.17...v0.4.18
-[0.4.17-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.16...v0.4.17
 [0.4.17-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.16...v0.4.17
-[0.4.16-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.15...v0.4.16
 [0.4.16-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.15...v0.4.16
-[0.4.15-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.14...v0.4.15
 [0.4.15-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.14...v0.4.15
-[0.4.14-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.13...v0.4.14
 [0.4.14-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.13...v0.4.14
-[0.4.13-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.12...v0.4.13
 [0.4.13-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.12...v0.4.13
-[0.4.12-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.11...v0.4.12
 [0.4.12-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.11...v0.4.12
-[0.4.11-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.10...v0.4.11
 [0.4.11-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.10...v0.4.11
-[0.4.10-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.9...v0.4.10
 [0.4.10-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.9...v0.4.10
-[0.4.9-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.8...v0.4.9
 [0.4.9-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.8...v0.4.9
-[0.4.8-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.7...v0.4.8
 [0.4.8-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.7...v0.4.8
-[0.4.7-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.6...v0.4.7
 [0.4.7-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.6...v0.4.7
-[0.4.6-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.5...v0.4.6
 [0.4.6-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.5...v0.4.6
-[0.4.5-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.4...v0.4.5
 [0.4.5-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.4...v0.4.5
-[0.4.4-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.3...v0.4.4
 [0.4.4-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.3...v0.4.4
-[0.4.3-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.2...v0.4.3
 [0.4.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.2...v0.4.3
-[0.4.2-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.4.1...v0.4.2
 [0.4.2-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.4.1...v0.4.2
-[0.4.1-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.5...v0.4.1
 [0.4.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.5...v0.4.1
-[0.3.5-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.4...v0.3.5
 [0.3.5-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.4...v0.3.5
-[0.3.4-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.3...v0.3.4
 [0.3.4-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.3...v0.3.4
-[0.3.3-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.1...v0.3.3
 [0.3.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.1...v0.3.3
-[0.3.1-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.3.0...v0.3.1
 [0.3.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.3.0...v0.3.1
-[0.3.0-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.2.0...v0.3.0
 [0.3.0-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.2.0...v0.3.0
-[0.2.0-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.2.0-rc.3...v0.2.0
 [0.2.0-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.2.0-rc.3...v0.2.0
-[0.2.0-rc.3-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.2.0-rc.2...v0.2.0-rc.3
 [0.2.0-rc.3-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.2.0-rc.2...v0.2.0-rc.3
-[0.2.0-rc.2-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.2.0-rc.1...v0.2.0-rc.2
 [0.2.0-rc.2-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.2.0-rc.1...v0.2.0-rc.2
-[0.2.0-rc.1-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0...v0.2.0-rc.1
 [0.2.0-rc.1-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0...v0.2.0-rc.1
-[0.1.0-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.118...v0.1.0
 [0.1.0-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.118...v0.1.0
-[0.1.0-rc.118-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.117...v0.1.0-rc.118
 [0.1.0-rc.118-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.117...v0.1.0-rc.118
-[0.1.0-rc.117-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.116...v0.1.0-rc.117
 [0.1.0-rc.117-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.116...v0.1.0-rc.117
-[0.1.0-rc.116-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.115...v0.1.0-rc.116
 [0.1.0-rc.116-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.115...v0.1.0-rc.116
-[0.1.0-rc.115-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.114...v0.1.0-rc.115
 [0.1.0-rc.115-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.114...v0.1.0-rc.115
-[0.1.0-rc.114-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.113...v0.1.0-rc.114
 [0.1.0-rc.114-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.113...v0.1.0-rc.114
-[0.1.0-rc.113-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.112...v0.1.0-rc.113
 [0.1.0-rc.113-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.112...v0.1.0-rc.113
-[0.1.0-rc.112-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.110...v0.1.0-rc.112
 [0.1.0-rc.112-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.110...v0.1.0-rc.112
-[0.1.0-rc.110-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.109...v0.1.0-rc.110
 [0.1.0-rc.110-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.109...v0.1.0-rc.110
-[0.1.0-rc.109-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.108...v0.1.0-rc.109
 [0.1.0-rc.109-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.108...v0.1.0-rc.109
-[0.1.0-rc.108-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.107...v0.1.0-rc.108
 [0.1.0-rc.108-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.107...v0.1.0-rc.108
-[0.1.0-rc.107-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.106...v0.1.0-rc.107
 [0.1.0-rc.107-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.106...v0.1.0-rc.107
-[0.1.0-rc.106-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.105...v0.1.0-rc.106
 [0.1.0-rc.106-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.105...v0.1.0-rc.106
-[0.1.0-rc.105-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.104...v0.1.0-rc.105
 [0.1.0-rc.105-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.104...v0.1.0-rc.105
-[0.1.0-rc.104-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.103...v0.1.0-rc.104
 [0.1.0-rc.104-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.103...v0.1.0-rc.104
-[0.1.0-rc.103-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.102...v0.1.0-rc.103
 [0.1.0-rc.103-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.102...v0.1.0-rc.103
-[0.1.0-rc.102-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.101...v0.1.0-rc.102
 [0.1.0-rc.102-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.101...v0.1.0-rc.102
-[0.1.0-rc.101-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.100...v0.1.0-rc.101
 [0.1.0-rc.101-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.100...v0.1.0-rc.101
-[0.1.0-rc.100-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.99...v0.1.0-rc.100
 [0.1.0-rc.100-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.99...v0.1.0-rc.100
-[0.1.0-rc.99-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.98...v0.1.0-rc.99
 [0.1.0-rc.99-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.98...v0.1.0-rc.99
-[0.1.0-rc.98-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.97...v0.1.0-rc.98
 [0.1.0-rc.98-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.97...v0.1.0-rc.98
-[0.1.0-rc.97-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.96...v0.1.0-rc.97
 [0.1.0-rc.97-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.96...v0.1.0-rc.97
-[0.1.0-rc.96-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.95...v0.1.0-rc.96
 [0.1.0-rc.96-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.95...v0.1.0-rc.96
-[0.1.0-rc.95-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.94...v0.1.0-rc.95
 [0.1.0-rc.95-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.94...v0.1.0-rc.95
-[0.1.0-rc.94-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.93...v0.1.0-rc.94
 [0.1.0-rc.94-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.93...v0.1.0-rc.94
-[0.1.0-rc.93-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.92...v0.1.0-rc.93
 [0.1.0-rc.93-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.92...v0.1.0-rc.93
-[0.1.0-rc.92-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.91...v0.1.0-rc.92
 [0.1.0-rc.92-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.91...v0.1.0-rc.92
-[0.1.0-rc.91-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.90...v0.1.0-rc.91
 [0.1.0-rc.91-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.90...v0.1.0-rc.91
-[0.1.0-rc.90-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.89...v0.1.0-rc.90
 [0.1.0-rc.90-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.89...v0.1.0-rc.90
-[0.1.0-rc.89-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.88...v0.1.0-rc.89
 [0.1.0-rc.89-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.88...v0.1.0-rc.89
-[0.1.0-rc.88-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.87...v0.1.0-rc.88
 [0.1.0-rc.88-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.87...v0.1.0-rc.88
-[0.1.0-rc.87-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.86...v0.1.0-rc.87
 [0.1.0-rc.87-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.86...v0.1.0-rc.87
-[0.1.0-rc.86-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.85...v0.1.0-rc.86
 [0.1.0-rc.86-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.85...v0.1.0-rc.86
-[0.1.0-rc.85-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.84...v0.1.0-rc.85
 [0.1.0-rc.85-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.84...v0.1.0-rc.85
-[0.1.0-rc.84-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.83...v0.1.0-rc.84
 [0.1.0-rc.84-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.83...v0.1.0-rc.84
-[0.1.0-rc.83-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.82...v0.1.0-rc.83
 [0.1.0-rc.83-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.82...v0.1.0-rc.83
-[0.1.0-rc.82-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.77...v0.1.0-rc.82
 [0.1.0-rc.82-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.77...v0.1.0-rc.82
-[0.1.0-rc.77-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.76...v0.1.0-rc.77
 [0.1.0-rc.77-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.76...v0.1.0-rc.77
-[0.1.0-rc.76-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.75...v0.1.0-rc.76
 [0.1.0-rc.76-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.75...v0.1.0-rc.76
-[0.1.0-rc.75-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.74...v0.1.0-rc.75
 [0.1.0-rc.75-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.74...v0.1.0-rc.75
-[0.1.0-rc.74-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.71...v0.1.0-rc.74
 [0.1.0-rc.74-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.71...v0.1.0-rc.74
-[0.1.0-rc.71-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.70...v0.1.0-rc.71
 [0.1.0-rc.71-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.70...v0.1.0-rc.71
-[0.1.0-rc.70-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.69...v0.1.0-rc.70
 [0.1.0-rc.70-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.69...v0.1.0-rc.70
-[0.1.0-rc.69-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.68...v0.1.0-rc.69
 [0.1.0-rc.69-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.68...v0.1.0-rc.69
-[0.1.0-rc.68-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.67...v0.1.0-rc.68
 [0.1.0-rc.68-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.67...v0.1.0-rc.68
-[0.1.0-rc.67-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.66...v0.1.0-rc.67
 [0.1.0-rc.67-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.66...v0.1.0-rc.67
-[0.1.0-rc.66-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.65...v0.1.0-rc.66
 [0.1.0-rc.66-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.65...v0.1.0-rc.66
-[0.1.0-rc.65-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.64...v0.1.0-rc.65
 [0.1.0-rc.65-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.64...v0.1.0-rc.65
-[0.1.0-rc.64-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.63...v0.1.0-rc.64
 [0.1.0-rc.64-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.63...v0.1.0-rc.64
-[0.1.0-rc.63-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.62...v0.1.0-rc.63
 [0.1.0-rc.63-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.62...v0.1.0-rc.63
-[0.1.0-rc.62-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/compare/v0.1.0-rc.58...v0.1.0-rc.62
 [0.1.0-rc.62-github]: https://github.com/HengYangDS/aigw-cli/compare/v0.1.0-rc.58...v0.1.0-rc.62
-[0.1.0-rc.58-gitlab]: http://192.168.64.101:18086/dig/misc/tools/llm-third-party-api/aigw-cli/-/tags/v0.1.0-rc.58
 [0.1.0-rc.58-github]: https://github.com/HengYangDS/aigw-cli/commits/v0.1.0-rc.58
