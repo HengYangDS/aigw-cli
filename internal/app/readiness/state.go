@@ -84,6 +84,9 @@ type ClientFacts struct {
 	ProjectionIssue            string
 	ProjectionAction           string
 	SuggestedModel             string
+	// ClientInstalled marks a client whose files wait while discovery finds
+	// its executable, so that a sync writes them.
+	ClientInstalled bool
 }
 
 // ClassifyClient classifies local readiness facts without performing probes or
@@ -117,9 +120,13 @@ func ClassifyClient(facts ClientFacts) Client {
 		if state.NextAction == "" {
 			state.NextAction = "aigw provider rotate " + facts.Provider
 		}
+	case facts.ProjectionDeferred && facts.ClientInstalled:
+		state.State = Deferred
+		state.Detail = "The client is installed, but AIGW has not written its files yet"
+		state.NextAction = "aigw sync"
 	case facts.ProjectionDeferred:
 		state.State = Deferred
-		state.Detail = "The client's files wait until it is installed"
+		state.Detail = "The client is not installed"
 		state.NextAction = facts.ProjectionAction
 		if state.NextAction == "" {
 			state.NextAction = "aigw sync"

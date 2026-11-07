@@ -40,6 +40,25 @@ cmp stdout refusal.txt
 exitcode 1 aigw status --json
 cmp stdout refusal.json
 
+# Claude Code installed after its model was selected: without claude on the
+# search path, add selects the model and writes no Claude Code file, and
+# status says that Claude Code is not installed. With claude on the search
+# path, status names aigw sync, which writes its files.
+env HOME=$WORK/later USERPROFILE=$WORK/later XDG_CONFIG_HOME=$WORK/later XDG_DATA_HOME=$WORK/later APPDATA=$WORK/later LOCALAPPDATA=$WORK/later
+env PATH=$WORK/nothing
+stdin token.txt
+exec $BIN/aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
+exec $BIN/aigw status
+cmp stdout absent.txt
+env PATH=$BIN
+exec aigw status --json
+cmp stdout installed.json
+exec aigw status
+cmp stdout installed.txt
+exec aigw sync
+exec aigw status
+stdout 'Claude +team/team-model · Configured'
+
 -- token.txt --
 sk-team-token-0001
 -- broken.toml --
@@ -159,7 +178,7 @@ Next
       "state": "deferred",
       "model": "team/team-model",
       "provider": "team",
-      "detail": "The client's files wait until it is installed",
+      "detail": "The client is not installed",
       "next_detail": "Install Codex if needed, then run `aigw sync`",
       "client_files_deferred": true,
       "authentication": "account-token",
@@ -187,7 +206,7 @@ AIGW  Configuration status
 Clients
   · Claude             team/team-model · Configured
   · Claude Desktop     No model selected · Qualified: Chat, Cowork, Code · macOS
-  · Codex              team/team-model · Deferred · The client's files wait until it is installed
+  · Codex              team/team-model · Deferred · The client is not installed
   · Hermes             No model selected
 
 Transport
@@ -304,3 +323,112 @@ Fix
   "line": 2,
   "column": 15
 }
+-- absent.txt --
+AIGW  Configuration status
+────────────────────────────────────────
+  Each client's model and readiness, and the smallest next action.
+
+Clients
+  · Claude             team/team-model · Deferred · The client is not installed
+  · Claude Desktop     No model selected · Qualified: Chat, Cowork, Code · macOS
+  · Codex              No model selected
+  · Hermes             No model selected
+
+Activation
+  · Client activation  AIGW has not written the enabled clients' files yet
+                       Models are added, but no client's endpoint or model has been checked
+
+Transport
+  · Claude             Loopback endpoint
+    Endpoint runtime identity and availability are not inferred from the address
+    AIGW does not start, stop, or configure the endpoint runtime
+
+Optional diagnostics
+  · team               Provider does not expose a balance probe
+
+Next
+  Install Claude if needed, then run `aigw sync`
+-- installed.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "clients": {
+    "claude": {
+      "state": "deferred",
+      "model": "team/team-model",
+      "provider": "team",
+      "detail": "The client is installed, but AIGW has not written its files yet",
+      "next_action": "aigw sync",
+      "client_files_deferred": true,
+      "authentication": "account-token",
+      "endpoint_configured": true,
+      "transport": "external_loopback",
+      "client_files_ready": false
+    },
+    "claude-desktop": {
+      "state": "deferred",
+      "detail": "No model is selected",
+      "authentication": "",
+      "endpoint_configured": false,
+      "client_files_ready": false,
+      "qualified_modes": [
+        "chat",
+        "cowork",
+        "code"
+      ],
+      "qualified_platforms": [
+        "macos"
+      ]
+    },
+    "codex": {
+      "state": "deferred",
+      "detail": "No model is selected",
+      "authentication": "",
+      "endpoint_configured": false,
+      "client_files_ready": false
+    },
+    "hermes": {
+      "state": "deferred",
+      "detail": "No model is selected",
+      "authentication": "",
+      "endpoint_configured": false,
+      "client_files_ready": false
+    }
+  },
+  "models": 1,
+  "enabled_clients": 1,
+  "state": "deferred",
+  "next_action": "aigw sync"
+}
+-- installed.txt --
+AIGW  Configuration status
+────────────────────────────────────────
+  Each client's model and readiness, and the smallest next action.
+
+Clients
+  · Claude             team/team-model · Deferred · The client is installed, but AIGW has not written its files yet
+  · Claude Desktop     No model selected · Qualified: Chat, Cowork, Code · macOS
+  · Codex              No model selected
+  · Hermes             No model selected
+
+Activation
+  · Client activation  AIGW has not written the enabled clients' files yet
+                       Models are added, but no client's endpoint or model has been checked
+
+Transport
+  · Claude             Loopback endpoint
+    Endpoint runtime identity and availability are not inferred from the address
+    AIGW does not start, stop, or configure the endpoint runtime
+
+Optional diagnostics
+  · team               Provider does not expose a balance probe
+
+Next
+  aigw sync

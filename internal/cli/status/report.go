@@ -34,9 +34,9 @@ type clientState struct {
 	Detail     string                `json:"detail,omitempty"`
 	NextAction string                `json:"next_action,omitempty"`
 	NextDetail string                `json:"next_detail,omitempty"`
-	// FilesDeferred marks an enabled client whose files wait until it is
-	// installed, and NativeModel a Claude Code that keeps its own model
-	// preference.
+	// FilesDeferred marks an enabled client whose files AIGW has not written,
+	// because the client was not installed when it was enabled, and
+	// NativeModel a Claude Code that keeps its own model preference.
 	FilesDeferred      bool                      `json:"client_files_deferred,omitempty"`
 	NativeModel        bool                      `json:"native_model_preference,omitempty"`
 	Authentication     domain.Authentication     `json:"authentication"`

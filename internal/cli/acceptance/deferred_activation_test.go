@@ -496,10 +496,10 @@ func assertTokenRemovedHumanCommand(t *testing.T, app *cli.App, out *bytes.Buffe
 	if (err != nil) != (command == "check" || command == "doctor") {
 		t.Fatalf("human %s error = %v\n%s", command, err, out)
 	}
-	// Status and check say that the client's files wait; sync and doctor
-	// still call them its projection.
+	// Status says that AIGW has not written the clients' files; sync, check
+	// and doctor still call them their projections.
 	human := strings.ToLower(out.String())
-	if !strings.Contains(human, "aigw provider rotate ucloud") || !strings.Contains(human, "projection") && !strings.Contains(human, "files wait") {
+	if !strings.Contains(human, "aigw provider rotate ucloud") || !strings.Contains(human, "projection") && !strings.Contains(human, "has not written") {
 		t.Fatalf("human %s hid a prerequisite:\n%s", command, out)
 	}
 }

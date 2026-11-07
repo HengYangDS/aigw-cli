@@ -60,18 +60,6 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 			wantState: Deferred,
 		},
 		{
-			name: "selected client projection is deferred",
-			facts: ClientFacts{
-				Model:              "hermes-route",
-				Provider:           "team",
-				ProjectionEnabled:  true,
-				ProjectionDeferred: true,
-				ProjectionAction:   "Install Hermes if needed, then run `aigw sync`",
-			},
-			wantState:  Deferred,
-			wantAction: "Install Hermes if needed, then run `aigw sync`",
-		},
-		{
 			name: "enabled projection is invalid",
 			facts: ClientFacts{
 				Model:               "codex",
@@ -119,6 +107,22 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 				t.Fatalf("ClassifyClient() = %#v, want state %q and action %q", got, test.wantState, test.wantAction)
 			}
 		})
+	}
+}
+
+// An enabled client whose files AIGW has not written names installing it,
+// unless discovery finds it installed: then a sync writes them.
+func TestClassifyClientTellsAnInstalledClientFromOneThatIsNot(t *testing.T) {
+	facts := ClientFacts{
+		Model: "hermes-route", Provider: "team", ProjectionEnabled: true, ProjectionDeferred: true,
+		ProjectionAction: "Install Hermes if needed, then run `aigw sync`",
+	}
+	if got := ClassifyClient(facts); got.State != Deferred || got.Detail != "The client is not installed" || got.NextAction != facts.ProjectionAction {
+		t.Fatalf("a client that is not installed = %#v", got)
+	}
+	facts.ClientInstalled = true
+	if got := ClassifyClient(facts); got.State != Deferred || got.Detail != "The client is installed, but AIGW has not written its files yet" || got.NextAction != "aigw sync" {
+		t.Fatalf("an installed client = %#v", got)
 	}
 }
 

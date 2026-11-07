@@ -439,7 +439,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	if store.existsCalls != 1 || store.getCalls != 0 {
 		t.Fatalf("status credential observations = exists %d, get %d; want only the Claude Account-Token lookup", store.existsCalls, store.getCalls)
 	}
-	for _, want := range []string{"the client's own authentication", "The client's files wait until it is installed", "aigw verify --for codex"} {
+	for _, want := range []string{"the client's own authentication", "The client is not installed", "aigw verify --for codex"} {
 		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
 			t.Fatalf("client-native status = %q, want %q", human, want)
 		}

@@ -32,7 +32,7 @@ func renderStatus(runtime invocation.Context, cfg domain.Config, result statusRe
 		r.Section("Activation")
 		message := "No client is enabled"
 		if result.EnabledClients != 0 {
-			message = "The enabled clients' files wait until the clients are installed"
+			message = "AIGW has not written the enabled clients' files yet"
 		}
 		r.Rows(terminal.Field{
 			State: terminal.Info, Label: "Client activation", Value: message,

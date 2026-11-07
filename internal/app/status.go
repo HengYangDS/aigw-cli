@@ -1,6 +1,7 @@
 package app
 
 import (
+	"aigw-cli/internal/adapter/discovery"
 	clientactivation "aigw-cli/internal/app/activation"
 	"aigw-cli/internal/app/diagnostics"
 	domainreadiness "aigw-cli/internal/app/readiness"
@@ -35,11 +36,21 @@ type EndpointTransportKind string
 const EndpointTransportExternalLoopback EndpointTransportKind = "external_loopback"
 
 // InspectStatusClients observes every admitted client without authenticating
-// an endpoint or reading Token values.
+// an endpoint or reading Token values. For an enabled client whose files wait,
+// discovery tells whether it is installed, so that a sync writes them.
 func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *clientactivation.Activation, selected string) map[string]ClientStatus {
 	if activation == nil {
 		assessed := clientactivation.AssessActivation(cfg, runtime.Secrets)
 		activation = &assessed
+	}
+	discovered, observed := discovery.Result{}, false
+	installed := func(clientID string) bool {
+		if !observed {
+			// A host without discovery finds no client.
+			discovered, _ = runtime.Discover()
+			observed = true
+		}
+		return discovered.Executable(clientID) != ""
 	}
 	clientIDs := runtime.Synchronizer().ClientIDs()
 	clients := make(map[string]ClientStatus, len(clientIDs))
@@ -72,6 +83,7 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 			ProjectionIssue:    adapterStatus.Issue,
 			ProjectionAction:   projectionAction,
 		}
+		facts.ClientInstalled = facts.ProjectionDeferred && installed(clientID)
 		applyCredentialFacts(&facts, activation, runtime.Secrets, clientID, clientRuntime.ProviderID)
 		state := domainreadiness.ClassifyClient(facts)
 		if adapterStatus.NativeModelOverride && state.State == domainreadiness.Configured {

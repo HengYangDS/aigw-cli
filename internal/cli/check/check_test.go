@@ -150,7 +150,7 @@ func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
 				}
 				// The document gives the client's own detail; human output, check's problem.
 				detail := strings.ToLower(problemDetail)
-				if !strings.Contains(detail, "projection") && !strings.Contains(detail, "files wait") || problemAction != "Install "+clients.Admission().Label(client)+" if needed, then run `aigw sync`" {
+				if !strings.Contains(detail, "projection") && detail != "the client is not installed" || problemAction != "Install "+clients.Admission().Label(client)+" if needed, then run `aigw sync`" {
 					t.Fatalf("projection recovery was lost: detail=%q action=%q", problemDetail, problemAction)
 				}
 			})
