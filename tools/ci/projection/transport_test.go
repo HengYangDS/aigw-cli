@@ -361,7 +361,7 @@ done`
 		if output, err := command.CombinedOutput(); err != nil {
 			t.Fatalf("relative mirror cleanup: %v\n%s", err, output)
 		}
-		mirror := filepath.Join(project, "build", "tmp", ".aigw-mise-mirror-456")
+		mirror := filepath.Join(project, "build", "tmp", ".aigw-mise-mirror-202")
 		if _, err := os.Stat(mirror); !os.IsNotExist(err) {
 			t.Fatalf("relative mirror remains after cleanup: %v", err)
 		}
