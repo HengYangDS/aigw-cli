@@ -1,6 +1,6 @@
 // Package model implements `aigw model`, which lists, shows, adds, edits and
 // removes the models that the configuration holds, each named
-// `provider/model`.
+// `provider/model`, and searches the models that providers' catalogs list.
 package model
 
 import (
@@ -18,8 +18,8 @@ import (
 
 // NewCommand constructs the model command group.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	root := &cobra.Command{Use: "model", Short: "List, show, add, edit and remove models"}
-	root.AddCommand(newListCommand(runtime), newShowCommand(runtime), newAddCommand(runtime), newEditCommand(runtime), newRemoveCommand(runtime))
+	root := &cobra.Command{Use: "model", Short: "List, search, show, add, edit and remove models"}
+	root.AddCommand(newListCommand(runtime), newSearchCommand(runtime), newShowCommand(runtime), newAddCommand(runtime), newEditCommand(runtime), newRemoveCommand(runtime))
 	return root
 }
 

@@ -60,6 +60,18 @@ func authenticate(request *http.Request, protocol EndpointProtocol, token string
 	}
 }
 
+// CatalogRequestKey identifies the request that ModelCatalogRequest builds
+// for one endpoint and protocol, apart from its Token: its URL and the
+// authentication scheme that authenticate gives it. Two protocols with one
+// key read one catalog, such as Responses and Chat Completions on one URL.
+func CatalogRequestKey(endpoint string, protocol EndpointProtocol) string {
+	scheme := "bearer"
+	if protocol == ProtocolAnthropic {
+		scheme = "x-api-key"
+	}
+	return scheme + " " + modelsEndpoint(endpoint, protocol)
+}
+
 func modelsEndpoint(endpoint string, protocol EndpointProtocol) string {
 	endpoint = strings.TrimRight(endpoint, "/")
 	if strings.HasSuffix(endpoint, "/models") {

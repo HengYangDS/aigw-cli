@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
@@ -180,7 +181,10 @@ func assertSameExistingPath(t *testing.T, got, want string) {
 	}
 }
 
+// fakeHTTP answers requests, which catalog reads send at once, through its
+// handler or with its status and body, and records them.
 type fakeHTTP struct {
+	mu      sync.Mutex
 	calls   int
 	status  int
 	headers http.Header
@@ -199,6 +203,8 @@ func (body failingReadCloser) Read([]byte) (int, error) { return 0, body.err }
 func (body failingReadCloser) Close() error { return nil }
 
 func (f *fakeHTTP) Do(req *http.Request) (*http.Response, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.calls++
 	f.headers = req.Header.Clone()
 	if f.handler != nil {

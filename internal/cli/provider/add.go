@@ -93,7 +93,7 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 		return err
 	}
 	validated, stored := false, false
-	next := "aigw model add " + id + "/<model>"
+	next := "aigw model search --provider " + id
 	if options.dryRun {
 		next = invocation.ApplyCommand(cmd, args)
 	} else {

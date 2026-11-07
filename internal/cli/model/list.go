@@ -98,15 +98,7 @@ func (filters listFilters) admit(item modelItem, words []string) bool {
 		return false
 	}
 	_, id, _ := strings.Cut(item.ID, "/")
-	text := strings.ToLower(id + "\x00" + item.Label)
-	for _, word := range words {
-		for part := range strings.FieldsSeq(strings.ToLower(word)) {
-			if !strings.Contains(text, part) {
-				return false
-			}
-		}
-	}
-	return true
+	return matches(words, id, item.Label)
 }
 
 func renderList(runtime invocation.Context, cfg domain.Config, document listDocument) error {

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"aigw-cli/internal/cli/invocation"
@@ -18,14 +19,17 @@ import (
 )
 
 // catalogServer answers a catalog request with the listed IDs, counting the
-// requests that it receives.
+// requests that it receives, which may arrive at once.
 type catalogServer struct {
+	mu       sync.Mutex
 	ids      []string
 	status   int
 	requests int
 }
 
 func (server *catalogServer) Do(request *http.Request) (*http.Response, error) {
+	server.mu.Lock()
+	defer server.mu.Unlock()
 	server.requests++
 	status := server.status
 	if status == 0 {

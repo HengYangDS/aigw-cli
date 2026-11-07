@@ -19,7 +19,7 @@ const rejectedToken = "sk-rejected-token"
 // diagnostics and the GitHub release metadata of repository team/aigw. It
 // refuses rejectedToken with HTTP 401, answers every request below
 // /unavailable/ with HTTP 503, and an inference request that asks for AIGW_OK
-// receives it.
+// receives it. A catalog below /fresh/ lists team-model and fresh-model.
 func upstream() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("X-Api-Key") == rejectedToken || r.Header.Get("Authorization") == "Bearer "+rejectedToken {
@@ -38,6 +38,8 @@ func upstream() http.Handler {
 		var body string
 		path := r.URL.Path
 		switch {
+		case r.Method == http.MethodGet && strings.HasPrefix(path, "/fresh/") && strings.HasSuffix(path, "/models"):
+			body = `{"data":[{"id":"team-model"},{"id":"fresh-model"}]}`
 		case r.Method == http.MethodGet && strings.HasSuffix(path, "/models"):
 			body = `{"data":[{"id":"team-model"},{"id":"spare-model"}]}`
 		case r.Method == http.MethodPost && strings.HasSuffix(path, "/messages"):

@@ -1,11 +1,12 @@
 # model lists, shows, adds, edits and removes the models that the
-# configuration holds, each named provider/model. Each subcommand writes JSON,
-# each write previews without writing anything, and the refusals name their
-# own fix: the catalog check names --unlisted or the closest listed ID, a
-# protocol that the provider does not serve is refused, an edit keeps the
-# protocols that a client or a recommendation uses, a name with a model per
-# protocol is selected with --protocol, and a model that a client uses is not
-# removed.
+# configuration holds, each named provider/model, and searches the providers'
+# catalogs. Each subcommand writes JSON, each write previews without writing
+# anything, and the refusals name their own fix: the catalog check names
+# --unlisted or the closest listed ID, a protocol that the provider does not
+# serve is refused, an edit keeps the protocols that a client or a
+# recommendation uses, a name with a model per protocol is selected with
+# --protocol, a model that a client uses is not removed, and search names the
+# fix of each catalog that it could not read while the others print.
 exec aigw model --help
 cmp stdout help.txt
 exec aigw model add --help
@@ -123,10 +124,88 @@ cmp stdout removed.json
 exec aigw model list --provider mixed
 cmp stdout list-mixed.txt
 
+# search reads the catalogs: team's lists both of its models, and mixed's,
+# read on both of its protocols, lists none of its own, which are missing,
+# and two that it could add.
+envsubst search.in search.toml
+exec aigw config import search.toml
+stdin fresh-token.txt
+exec aigw provider rotate fresh --token-stdin
+exec aigw model search --help
+cmp stdout search-help.txt
+exec aigw model search --provider team --provider mixed --json
+normalize stdout search.out
+cmp search.out search.json
+exec aigw model search spare --provider team
+cmp stdout search-query.txt
+# bare has no Token, and fresh is read on Anthropic Messages but not on Chat
+# Completions: it shows what it got, reports no model missing and names the
+# failed source, while the other providers still print.
+exitcode 1 aigw model search
+normalize stdout search-failed.out
+cmp search-failed.out search-failed.txt
+exitcode 1 aigw model search --provider fresh --json
+normalize stdout search-partial.out
+cmp search-partial.out search-partial.json
+exitcode 1 aigw model search --provider tem --json
+cmp stdout search-unknown.json
+# The environment backend supplies broken's Token, and its catalog fails.
+env AIGW_SECRET_BACKEND=env
+env AIGW_TOKEN_BROKEN=sk-broken-token-0001
+exitcode 1 aigw model search --provider broken --json
+normalize stdout search-unreadable.out
+cmp search-unreadable.out search-unreadable.json
+
 -- token.txt --
 sk-team-token-0001
 -- mixed-token.txt --
 sk-mixed-token-0001
+-- fresh-token.txt --
+sk-fresh-token-0001
+-- search.in --
+version = 7
+[accounts.fresh]
+label = "Fresh"
+[accounts.fresh.endpoints]
+anthropic = "$UPSTREAM/fresh"
+openai_chat_completions = "$UPSTREAM/unavailable/v1"
+[accounts.bare]
+label = "Bare"
+[accounts.bare.endpoints]
+anthropic = "$UPSTREAM/bare"
+[accounts.broken]
+label = "Broken"
+[accounts.broken.endpoints]
+openai_responses = "$UPSTREAM/unavailable/v1"
+[models.fresh-old]
+label = "Fresh Old"
+[models.gone-model]
+label = "Gone Model"
+[models.bare-model]
+label = "Bare Model"
+[models.broken-model]
+label = "Broken Model"
+[routes.fresh-old]
+account = "fresh"
+model = "fresh-old"
+upstream_model = "team-model"
+lifecycle = "deprecated"
+interfaces = { anthropic = [] }
+[routes.fresh-gone]
+account = "fresh"
+model = "gone-model"
+upstream_model = "gone-model"
+interfaces = { anthropic = [] }
+[routes.bare-route]
+account = "bare"
+model = "bare-model"
+upstream_model = "bare-model"
+interfaces = { anthropic = [] }
+[routes.broken-route]
+account = "broken"
+model = "broken-model"
+upstream_model = "broken-model"
+interfaces = { openai_responses = [] }
 -- mixed.in --
 version = 7
 [recommendations.hermes.primary]
@@ -169,7 +248,7 @@ interfaces = { anthropic = [] }
 -- help.txt --
 AIGW  aigw model
 ────────────────────────────────────────
-  List, show, add, edit and remove models
+  List, search, show, add, edit and remove models
 
 Usage
   aigw model [command]
@@ -179,6 +258,7 @@ Commands
   edit                 Change a model's protocols, family, capabilities or label
   list                 List the models you have added; reads no Token and sends no request
   remove               Remove a model that no client uses; its provider and Token stay
+  search               Search what providers offer, from their authenticated catalogs
   show                 Show one model: its protocols, capabilities and the clients that use it
 
 Options
@@ -776,4 +856,227 @@ Next
   "ok": false,
   "error": "mixed/chat-only declares no Anthropic Messages",
   "next_action": "aigw model show mixed/chat-only"
+}
+-- search-help.txt --
+AIGW  aigw model search
+────────────────────────────────────────
+  Search what providers offer, from their authenticated catalogs.
+  Each model is added, available, missing (added, but no longer listed) or deprecated. A catalog does not say which client can use a model.
+
+Usage
+  aigw model search [query] [flags]
+
+Examples
+  aigw model search
+  aigw model search sonnet --provider dmxapi --provider ucloud
+  aigw model search gpt 6.1 --json
+
+Options
+  -h, --help               help for search
+      --json               Write the models as JSON
+      --provider strings   Only this provider's catalog; repeatable
+-- search.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "providers": [
+    {
+      "id": "mixed",
+      "label": "Mixed",
+      "sources": [
+        {
+          "protocol": "anthropic",
+          "endpoint": "$UPSTREAM/mixed",
+          "status": "ok"
+        },
+        {
+          "protocol": "chat",
+          "endpoint": "$UPSTREAM/mixed/v1",
+          "status": "ok"
+        }
+      ],
+      "models": [
+        {
+          "id": "mixed/twin",
+          "state": "missing",
+          "label": "Mixed · Twin",
+          "listed_by": []
+        },
+        {
+          "id": "mixed/new-model",
+          "state": "missing",
+          "label": "Mixed · new-model",
+          "listed_by": []
+        },
+        {
+          "id": "mixed/chat-only",
+          "state": "missing",
+          "label": "Mixed · Chat Only",
+          "listed_by": []
+        },
+        {
+          "id": "mixed/spare-model",
+          "state": "available",
+          "listed_by": [
+            "anthropic",
+            "chat"
+          ]
+        },
+        {
+          "id": "mixed/team-model",
+          "state": "available",
+          "listed_by": [
+            "anthropic",
+            "chat"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "team",
+      "label": "Team Gateway",
+      "sources": [
+        {
+          "protocol": "anthropic",
+          "endpoint": "$UPSTREAM",
+          "status": "ok"
+        }
+      ],
+      "models": [
+        {
+          "id": "team/spare-model",
+          "state": "added",
+          "label": "Team Gateway · spare-model",
+          "listed_by": [
+            "anthropic"
+          ]
+        },
+        {
+          "id": "team/team-model",
+          "state": "added",
+          "label": "Team Gateway",
+          "listed_by": [
+            "anthropic"
+          ]
+        }
+      ]
+    }
+  ],
+  "next_detail": "aigw model add \u003cprovider/model\u003e"
+}
+-- search-query.txt --
+AIGW  Model search
+────────────────────────────────────────
+
+Team Gateway
+  ✓ team/spare-model   added · Team Gateway · spare-model
+
+1 model from 1 provider
+
+Next
+  aigw model add <provider/model>
+-- search-failed.txt --
+AIGW  Model search
+────────────────────────────────────────
+
+Bare
+  ✗ Not read           Anthropic Messages: no Token is stored
+                       Fix: aigw provider rotate bare
+
+Broken
+  ✗ Not read           OpenAI Responses: no Token is stored
+                       Fix: aigw provider rotate broken
+
+Fresh
+  ! fresh/team-model   deprecated · Fresh · Fresh Old
+  · fresh/fresh-model  available
+  ✗ Not read           OpenAI Chat Completions: HTTP 503
+                       Fix: aigw model search
+
+Mixed
+  ! mixed/twin         missing · Mixed · Twin
+  ! mixed/new-model    missing · Mixed · new-model
+  ! mixed/chat-only    missing · Mixed · Chat Only
+  · mixed/spare-model  available
+  · mixed/team-model   available
+
+Team Gateway
+  ✓ team/spare-model   added · Team Gateway · spare-model
+  ✓ team/team-model    added · Team Gateway
+
+9 models from 3 providers
+
+Next
+  aigw provider rotate bare
+-- search-partial.json --
+{
+  "schema_version": 2,
+  "ok": false,
+  "providers": [
+    {
+      "id": "fresh",
+      "label": "Fresh",
+      "sources": [
+        {
+          "protocol": "anthropic",
+          "endpoint": "$UPSTREAM/fresh",
+          "status": "ok"
+        },
+        {
+          "protocol": "chat",
+          "endpoint": "$UPSTREAM/unavailable/v1",
+          "status": "request_failed"
+        }
+      ],
+      "models": [
+        {
+          "id": "fresh/team-model",
+          "state": "deprecated",
+          "label": "Fresh · Fresh Old",
+          "listed_by": [
+            "anthropic"
+          ]
+        },
+        {
+          "id": "fresh/fresh-model",
+          "state": "available",
+          "listed_by": [
+            "anthropic"
+          ]
+        }
+      ],
+      "problem": "OpenAI Chat Completions: HTTP 503",
+      "next_action": "aigw model search --json --provider fresh"
+    }
+  ],
+  "next_action": "aigw model search --json --provider fresh"
+}
+-- search-unknown.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown provider \"tem\"; did you mean team?",
+  "next_action": "aigw provider list"
+}
+-- search-unreadable.json --
+{
+  "schema_version": 2,
+  "ok": false,
+  "providers": [
+    {
+      "id": "broken",
+      "label": "Broken",
+      "sources": [
+        {
+          "protocol": "responses",
+          "endpoint": "$UPSTREAM/unavailable/v1",
+          "status": "request_failed"
+        }
+      ],
+      "models": [],
+      "problem": "OpenAI Responses: HTTP 503",
+      "next_action": "aigw model search --json --provider broken"
+    }
+  ],
+  "next_action": "aigw model search --json --provider broken"
 }

@@ -17,7 +17,7 @@ func TestAddValidatesTheTokenWithOneRequestThenStoresAndSaves(t *testing.T) {
 	var document changeDocument
 	f.decode(t, &document)
 	if document.ID != "fresh" || document.Label != "Fresh" || len(document.Endpoints) != 2 || document.Endpoints[0].URL != "https://fresh.test/v1" ||
-		len(document.Models) != 0 || !*document.TokenValidated || !*document.TokenStored || document.NextDetail != "aigw model add fresh/<model>" {
+		len(document.Models) != 0 || !*document.TokenValidated || !*document.TokenStored || document.NextAction != "aigw model search --provider fresh" {
 		t.Fatalf("added provider = %+v", document)
 	}
 	if requests := f.http.sent(); len(requests) != 1 || requests[0] != "GET https://fresh.test/v1/models" {
@@ -38,7 +38,7 @@ func TestAddValidatesTheTokenWithOneRequestThenStoresAndSaves(t *testing.T) {
 		t.Fatal(err)
 	}
 	if text := f.text(); len(ask.asked) != 1 || ask.asked[0] != "Paste the other Token: " || !strings.Contains(text, "AIGW Provider added") ||
-		!strings.Contains(text, "✓ Token Accepted by the provider and stored") || !strings.Contains(text, "Next aigw model add other/<model>") {
+		!strings.Contains(text, "✓ Token Accepted by the provider and stored") || !strings.Contains(text, "Next aigw model search --provider other") {
 		t.Fatalf("prompted %q, output %s", ask.asked, text)
 	}
 }

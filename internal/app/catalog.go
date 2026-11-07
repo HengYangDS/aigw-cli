@@ -14,6 +14,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -69,7 +70,24 @@ type CatalogObservation struct {
 	Status          CatalogStatus     `json:"status"`
 	Models          []CatalogModel    `json:"models"`
 	MissingModels   []ConfiguredModel `json:"missing_routes"`
+	// Failure is why the catalog could not be read: the credential backend's
+	// failure or the request's, such as a CatalogStatusError. Documents do
+	// not carry it.
+	Failure error `json:"-"`
 }
+
+// CatalogStatusError is a catalog request that its endpoint answered with a
+// status other than success.
+type CatalogStatusError struct{ Status int }
+
+// Error names the status.
+func (e *CatalogStatusError) Error() string {
+	return fmt.Sprintf("model catalog endpoint returned HTTP %d", e.Status)
+}
+
+// ErrCatalogFormat marks a successful response that is not one complete,
+// unambiguous model list, which the same request would not change.
+var ErrCatalogFormat = errors.New("the response is not a model catalog")
 
 // CatalogStatus is the outcome of one catalog observation.
 type CatalogStatus string
@@ -102,50 +120,88 @@ type CatalogReport struct {
 	Observations []CatalogObservation `json:"observations"`
 }
 
-// DiscoverCatalog reads each configured Account's catalog for each protocol
-// it serves, without changing configuration.
+// DiscoverCatalog reads each configured provider's catalog for each protocol
+// it serves, without changing configuration. It reads the providers' Tokens
+// one provider at a time, and then sends every distinct catalog request at
+// once: protocols whose requests are the same share one read, and each read
+// keeps its own 15-second bound, so the whole discovery takes one bound.
 func DiscoverCatalog(ctx context.Context, secrets secret.Store, client HTTPDoer, cfg domain.Config) CatalogReport {
 	result := CatalogReport{Observations: []CatalogObservation{}}
-	for _, accountName := range cfg.CatalogProviderIDs() {
-		account := cfg.Providers[accountName]
-		sources := catalogSources(account)
+	var reads []*catalogRead
+	pending := map[string]*catalogRead{}
+	for _, providerID := range cfg.CatalogProviderIDs() {
+		provider := cfg.Providers[providerID]
+		sources := catalogSources(provider)
 		if len(sources) == 0 {
 			result.Observations = append(result.Observations, CatalogObservation{
-				Provider: accountName, Label: account.Label, Status: CatalogEndpointUnavailable,
+				Provider: providerID, Label: provider.Label, Status: CatalogEndpointUnavailable,
 				Models: []CatalogModel{}, MissingModels: []ConfiguredModel{},
 			})
 			continue
 		}
-		secretAvailable, observationErr := secrets.Exists(accountName)
+		secretAvailable, observationErr := secrets.Exists(providerID)
 		var token string
 		if observationErr == nil && secretAvailable {
-			token, observationErr = secrets.Get(accountName)
+			token, observationErr = secrets.Get(providerID)
 		}
 		for _, source := range sources {
 			entry := CatalogObservation{
-				Provider: accountName, Label: account.Label, Source: source,
+				Provider: providerID, Label: provider.Label, Source: source,
 				SecretAvailable: secretAvailable, Models: []CatalogModel{}, MissingModels: []ConfiguredModel{},
 			}
 			switch {
 			case observationErr != nil:
-				entry.Status = CatalogCredentialUnavailable
-			case !entry.SecretAvailable:
+				entry.Status, entry.Failure = CatalogCredentialUnavailable, observationErr
+			case !secretAvailable:
 				entry.Status = CatalogTokenUnavailable
 			default:
-				ids, endpoint, err := fetchIDs(ctx, client, source.Endpoint, source.Protocol, token)
-				if err != nil {
-					entry.Status = CatalogRequestFailed
-					break
+				key := providerID + "\x00" + domain.CatalogRequestKey(source.Endpoint, source.Protocol)
+				if pending[key] == nil {
+					pending[key] = &catalogRead{source: source, token: token}
+					reads = append(reads, pending[key])
 				}
-				entry.Status = CatalogOK
-				entry.Source.Endpoint = endpoint
-				entry.Models, entry.MissingModels = catalogDifference(cfg, accountName, source.Protocol, ids)
-				entry.ObservationID = catalogObservationID(accountName, source.Protocol, endpoint, ids)
+				pending[key].observations = append(pending[key].observations, len(result.Observations))
 			}
 			result.Observations = append(result.Observations, entry)
 		}
 	}
+	var wait sync.WaitGroup
+	for _, read := range reads {
+		wait.Go(func() {
+			read.ids, read.endpoint, read.err = fetchIDs(ctx, client, read.source.Endpoint, read.source.Protocol, read.token)
+		})
+	}
+	wait.Wait()
+	for _, read := range reads {
+		for _, index := range read.observations {
+			read.record(cfg, &result.Observations[index])
+		}
+	}
 	return result
+}
+
+// catalogRead is one distinct catalog request, the observations that it
+// answers, and its outcome.
+type catalogRead struct {
+	source       CatalogSource
+	token        string
+	observations []int
+	ids          []string
+	endpoint     string
+	err          error
+}
+
+// record completes an observation that the read answers: a failure, or the
+// models that the catalog lists and the configured models that it does not.
+func (read *catalogRead) record(cfg domain.Config, entry *CatalogObservation) {
+	if read.err != nil {
+		entry.Status, entry.Failure = CatalogRequestFailed, read.err
+		return
+	}
+	entry.Status = CatalogOK
+	entry.Source.Endpoint = read.endpoint
+	entry.Models, entry.MissingModels = catalogDifference(cfg, entry.Provider, entry.Source.Protocol, read.ids)
+	entry.ObservationID = catalogObservationID(entry.Provider, entry.Source.Protocol, read.endpoint, read.ids)
 }
 
 func catalogSources(account domain.Provider) []CatalogSource {
@@ -244,7 +300,7 @@ func fetchIDs(parent context.Context, client HTTPDoer, endpoint string, protocol
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, request.URL.String(), fmt.Errorf("model catalog endpoint returned HTTP %d", response.StatusCode)
+		return nil, request.URL.String(), &CatalogStatusError{Status: response.StatusCode}
 	}
 	const maximumCatalogBytes = 4 << 20
 	body, err := io.ReadAll(io.LimitReader(response.Body, maximumCatalogBytes+1))
@@ -252,10 +308,13 @@ func fetchIDs(parent context.Context, client HTTPDoer, endpoint string, protocol
 		return nil, request.URL.String(), fmt.Errorf("model catalog response could not be read completely")
 	}
 	if len(body) > maximumCatalogBytes {
-		return nil, request.URL.String(), fmt.Errorf("model catalog response exceeds the %d-byte limit", maximumCatalogBytes)
+		return nil, request.URL.String(), fmt.Errorf("%w: it exceeds the %d-byte limit", ErrCatalogFormat, maximumCatalogBytes)
 	}
 	ids, err := parseIDs(body)
-	return ids, request.URL.String(), err
+	if err != nil {
+		return nil, request.URL.String(), fmt.Errorf("%w: %w", ErrCatalogFormat, err)
+	}
+	return ids, request.URL.String(), nil
 }
 
 // parseIDs accepts unambiguous common model item shapes and preserves exact IDs.

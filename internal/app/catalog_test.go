@@ -11,8 +11,10 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"testing/iotest"
+	"time"
 )
 
 func TestModelCatalogHelpersAndResponseParsing(t *testing.T) {
@@ -358,4 +360,84 @@ func catalogSecrets(t *testing.T, values map[string]string) secret.Store {
 		}
 	}
 	return store
+}
+
+// concurrentCatalogs answers each catalog request only once every expected
+// request has arrived, so a discovery that reads one source at a time never
+// finishes; it records the requests.
+type concurrentCatalogs struct {
+	mu       sync.Mutex
+	expected int
+	arrived  chan struct{}
+	requests []string
+}
+
+func (catalogs *concurrentCatalogs) Do(request *http.Request) (*http.Response, error) {
+	catalogs.mu.Lock()
+	catalogs.requests = append(catalogs.requests, request.Header.Get("X-Api-Key")+request.Header.Get("Authorization")+" "+request.URL.String())
+	if len(catalogs.requests) == catalogs.expected {
+		close(catalogs.arrived)
+	}
+	catalogs.mu.Unlock()
+	select {
+	case <-catalogs.arrived:
+	case <-request.Context().Done():
+		return nil, request.Context().Err()
+	}
+	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"data":["shared"]}`)), Request: request}, nil
+}
+
+// TestDiscoverCatalogReadsEachDistinctSourceOnceAndConcurrently shows that
+// two protocols on one URL with one authentication share one read, that each
+// distinct read runs at once, and that both observations get its result.
+func TestDiscoverCatalogReadsEachDistinctSourceOnceAndConcurrently(t *testing.T) {
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Providers["one"] = domain.Provider{Label: "One", Endpoints: domain.Endpoints{
+		Anthropic: "https://one.test", OpenAIResponses: "https://one.test/v1", OpenAIChatCompletions: "https://one.test/v1",
+	}}
+	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
+	catalogs := &concurrentCatalogs{expected: 3, arrived: make(chan struct{})}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	report := DiscoverCatalog(ctx, catalogSecrets(t, map[string]string{"one": "one-token", "two": "two-token"}), catalogs, cfg)
+	if len(catalogs.requests) != 3 {
+		t.Fatalf("requests = %q", catalogs.requests)
+	}
+	if len(report.Observations) != 4 {
+		t.Fatalf("observations = %+v", report.Observations)
+	}
+	for _, observation := range report.Observations {
+		if observation.Status != CatalogOK || len(observation.Models) != 1 || observation.Models[0].ID != "shared" {
+			t.Fatalf("observation = %+v", observation)
+		}
+	}
+}
+
+// TestCatalogFailuresKeepTheirCause shows that a status, a response that is
+// not a catalog and a failed credential backend keep a cause that a caller
+// can classify.
+func TestCatalogFailuresKeepTheirCause(t *testing.T) {
+	cfg := domain.NewConfig(clients.Admission())
+	cfg.Providers["status"] = domain.Provider{Label: "Status", Endpoints: domain.Endpoints{OpenAIResponses: "https://status.test/v1"}}
+	cfg.Providers["format"] = domain.Provider{Label: "Format", Endpoints: domain.Endpoints{OpenAIResponses: "https://format.test/v1"}}
+	client := catalogHTTPClient(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Host == "status.test" {
+			return &http.Response{StatusCode: http.StatusTeapot, Body: io.NopCloser(strings.NewReader("{}")), Request: request}, nil
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("[]")), Request: request}, nil
+	})
+	report := DiscoverCatalog(context.Background(), catalogSecrets(t, map[string]string{"status": "token", "format": "token"}), client, cfg)
+	for _, observation := range report.Observations {
+		status, answered := errors.AsType[*CatalogStatusError](observation.Failure)
+		switch observation.Provider {
+		case "status":
+			if !answered || status.Status != http.StatusTeapot || status.Error() != "model catalog endpoint returned HTTP 418" {
+				t.Fatalf("a status failure = %v", observation.Failure)
+			}
+		case "format":
+			if !errors.Is(observation.Failure, ErrCatalogFormat) {
+				t.Fatalf("a format failure = %v", observation.Failure)
+			}
+		}
+	}
 }

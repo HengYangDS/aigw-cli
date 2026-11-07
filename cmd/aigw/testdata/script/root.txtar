@@ -52,7 +52,7 @@ Advanced
   completion           Generate shell completion
   config               Import and export configuration
   installation         Inspect the current portable program and retained predecessor
-  model                List, show, add, edit and remove models
+  model                List, search, show, add, edit and remove models
   models               Compare configured model IDs with provider catalogs; does not test inference
   provider             List, show, add, edit and remove providers; rotate Tokens; report balances
   route                Manage Routes

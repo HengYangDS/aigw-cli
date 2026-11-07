@@ -397,7 +397,7 @@ Fix
   "token_validated": true,
   "token_stored": true,
   "client_files": [],
-  "next_detail": "aigw model add spare/\u003cmodel\u003e"
+  "next_action": "aigw model search --provider spare"
 }
 -- add-exists.txt --
 AIGW  Action required

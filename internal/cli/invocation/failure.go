@@ -101,7 +101,7 @@ func TokenValidationProblem(cmd *cobra.Command, args []string, secrets secret.St
 	_, rejected := errors.AsType[*probe.TokenRejectedError](err)
 	_, unreachable := errors.AsType[*probe.UnreachableError](err)
 	switch {
-	case answered && !transientStatus(status.Status):
+	case answered && !TransientStatus(status.Status):
 		fix = endpointFix(status.Protocol)
 	case answered, rejected, unreachable:
 		fix = Retry(cmd, args)
@@ -109,8 +109,8 @@ func TokenValidationProblem(cmd *cobra.Command, args []string, secrets secret.St
 	return terminal.ProblemError("Token validation failed: "+err.Error(), "", impact, fix, err)
 }
 
-// transientStatus reports a status that a later request may not repeat: a
-// timeout, a rate limit or a server error.
-func transientStatus(status int) bool {
+// TransientStatus reports a status that a later request may not repeat: a
+// timeout, a rate limit or a server error. The same command is its fix.
+func TransientStatus(status int) bool {
 	return status == http.StatusRequestTimeout || status == http.StatusTooManyRequests || status >= http.StatusInternalServerError
 }

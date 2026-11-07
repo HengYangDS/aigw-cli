@@ -84,3 +84,23 @@ func TestModelsEndpointKeepsAnExplicitModelsPath(t *testing.T) {
 		t.Fatalf("models endpoint = %q", got)
 	}
 }
+
+// TestCatalogRequestKeyNamesOneRequest shows that Responses and Chat
+// Completions on one URL send one catalog request, which an Anthropic
+// endpoint on that URL does not share, because it authenticates otherwise.
+func TestCatalogRequestKeyNamesOneRequest(t *testing.T) {
+	t.Parallel()
+
+	responses := CatalogRequestKey("https://gateway.test/v1/", ProtocolOpenAIResponses)
+	if chat := CatalogRequestKey("https://gateway.test/v1", ProtocolOpenAIChatCompletions); chat != responses {
+		t.Fatalf("one URL gives two keys: %q, %q", responses, chat)
+	}
+	for _, other := range []string{
+		CatalogRequestKey("https://gateway.test/v1", ProtocolAnthropic),
+		CatalogRequestKey("https://other.test/v1", ProtocolOpenAIResponses),
+	} {
+		if other == responses {
+			t.Fatalf("%q names the Responses request", other)
+		}
+	}
+}

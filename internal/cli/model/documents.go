@@ -6,16 +6,61 @@ import (
 )
 
 // The JSON documents of the model subcommands. list and show replace those of
-// `aigw route list` and `aigw route show`, and add, edit and remove replace
-// those of the route writes, so each continues from its predecessor's
-// schema_version 1.
+// `aigw route list` and `aigw route show`, add, edit and remove replace those
+// of the route writes, and search replaces those of `aigw catalog` and
+// `aigw models`, so each continues from its predecessors' schema_version 1.
 const (
 	listSchemaVersion   = 2
 	showSchemaVersion   = 2
 	addSchemaVersion    = 2
 	editSchemaVersion   = 2
 	removeSchemaVersion = 2
+	searchSchemaVersion = 2
 )
+
+// searchDocument is `aigw model search`'s JSON document: each selected
+// provider once, in configuration order, with the models of its catalog that
+// match the query, and the first failure's fix.
+type searchDocument struct {
+	Providers  []searchProvider `json:"providers"`
+	NextAction string           `json:"next_action,omitempty"`
+	NextDetail string           `json:"next_detail,omitempty"`
+}
+
+// searchProvider is one provider's search result: its protocol sources as
+// they were read, the models that match, and, when a source could not be
+// read, why and the fix.
+type searchProvider struct {
+	ID         string         `json:"id"`
+	Label      string         `json:"label"`
+	Sources    []searchSource `json:"sources"`
+	Models     []searchModel  `json:"models"`
+	Problem    string         `json:"problem,omitempty"`
+	NextAction string         `json:"next_action,omitempty"`
+	NextDetail string         `json:"next_detail,omitempty"`
+	// fix is the step that human output names for the problem.
+	fix string
+	// read says that at least one source was read.
+	read bool
+}
+
+// searchSource is one of the provider's protocol sources: its protocol, the
+// provider's endpoint for it, and how reading its catalog went.
+type searchSource struct {
+	Protocol string `json:"protocol"`
+	Endpoint string `json:"endpoint"`
+	Status   string `json:"status"`
+}
+
+// searchModel is one model that a catalog lists, or an added model that a
+// complete read no longer finds: its name, its state, an added model's label,
+// and the protocol sources that listed it.
+type searchModel struct {
+	ID       string   `json:"id"`
+	State    string   `json:"state"`
+	Label    string   `json:"label,omitempty"`
+	ListedBy []string `json:"listed_by"`
+}
 
 // listDocument is `aigw model list`'s JSON document: the added models in
 // configuration order.
