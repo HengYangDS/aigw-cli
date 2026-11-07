@@ -114,7 +114,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		before := cfg.Clone()
 		current := before.Clients[client]
 		if current.Enabled && (current.Executable != "" || len(current.Targets) > 0) {
-			return terminal.ProblemError(spec.Label+" is already enabled, so its executable and configuration files change through client edit", "", "", editInstead(client, executable, targets), nil)
+			return terminal.ProblemError(spec.Label+" is already enabled, so its executable and configuration files change through client edit", "", "", editInstead(spec, executable, targets), nil)
 		}
 		if err := admitEnablement(runtime, cfg, client, targets); err != nil {
 			return err
@@ -306,15 +306,19 @@ func renderDisabled(r *terminal.Renderer, spec domain.ClientSpec) {
 	}
 }
 
-// editInstead is the edit that sets an enabled client's executable and
-// configuration files, as enabling it again would have: the exact command, or
-// one with a placeholder when a path would need quoting.
-func editInstead(client, executable string, targets []string) string {
-	// Command accepts the values only when each runs as written.
-	if invocation.Command(append([]string{"client", "edit", client, executable}, targets...)...) == "" {
-		return "aigw client edit " + client + " --executable <path>"
+// editInstead is the edit that sets an enabled client's executable and, for a
+// client that has them, its configuration files, as enabling it again would
+// have: the exact command, or one with a placeholder when a path would need
+// quoting.
+func editInstead(spec domain.ClientSpec, executable string, targets []string) string {
+	if spec.TargetFile == "" {
+		targets = nil
 	}
-	words := []string{"aigw client edit " + client, "--executable", executable}
+	// Command accepts the values only when each runs as written.
+	if invocation.Command(append([]string{"client", "edit", spec.ID, executable}, targets...)...) == "" {
+		return "aigw client edit " + spec.ID + " --executable <path>"
+	}
+	words := []string{"aigw client edit " + spec.ID, "--executable", executable}
 	for _, target := range targets {
 		words = append(words, "--target", target)
 	}

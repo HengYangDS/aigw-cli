@@ -360,8 +360,15 @@ func TestEnableOfAnEnabledClientNamesTheEdit(t *testing.T) {
 		problem.Fix != "aigw client edit "+codex.ID+" --executable /opt/codex-next --target "+target {
 		t.Fatalf("enable of an enabled client = %q, fix %q", problem.Title, problem.Fix)
 	}
-	if fix := editInstead(codex.ID, "/opt/codex next", nil); fix != "aigw client edit "+codex.ID+" --executable <path>" {
+	codexSpec, _ := clients.Admission().Spec(codex.ID)
+	if fix := editInstead(codexSpec, "/opt/codex next", nil); fix != "aigw client edit "+codex.ID+" --executable <path>" {
 		t.Fatalf("a path with a space = %q", fix)
+	}
+	// Claude Code has no configuration files to name, so the edit names none,
+	// which it would refuse.
+	claudeSpec, _ := clients.Admission().Spec(claude.ID)
+	if fix := editInstead(claudeSpec, "/opt/claude", []string{"settings.json"}); fix != "aigw client edit "+claude.ID+" --executable /opt/claude" {
+		t.Fatalf("Claude Code's edit = %q", fix)
 	}
 }
 
@@ -381,5 +388,38 @@ func TestEditWithTheEnvironmentBackend(t *testing.T) {
 	}
 	if projected := readTarget(t, target); !strings.Contains(projected, `base_url = "`+forwardingEndpoint+`"`) {
 		t.Fatalf("Codex's file does not forward:\n%s", projected)
+	}
+}
+
+// An enabled client's configuration files do not move while its provider's
+// Token is missing, because the files that the edit drops would keep AIGW's
+// settings; the fix stores the Token, or sets the environment backend's
+// variable.
+func TestEditKeepsTheConfigurationFilesWhileTheTokenIsMissing(t *testing.T) {
+	runtime, _, target, _ := enabledCodex(t)
+	moved := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(moved, []byte("model = \"other\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before, err := runtime.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		store secret.Store
+		fix   string
+	}{
+		{secret.NewMemoryStore(), "aigw provider rotate gateway"},
+		{secret.NewEnvironmentStore(func(string) string { return "" }), "Set " + secret.EnvironmentKey("gateway") + ", then run the same command again."},
+		{unavailableAdapterSecretStore{}, "aigw provider show gateway"},
+	} {
+		runtime.Secrets = test.store
+		err := executeAdapter(t, runtime, "edit", codex.ID, "--target", moved)
+		if problem := terminal.ProblemFor(err); !strings.Contains(problem.Title, "Codex's configuration files cannot change") || problem.Impact != "Nothing changed." || problem.Fix != test.fix {
+			t.Fatalf("%T: %q, impact %q, fix %q", test.store, problem.Title, problem.Impact, problem.Fix)
+		}
+	}
+	if after, err := runtime.Config.CaptureSnapshot(); err != nil || !reflect.DeepEqual(before, after) || !strings.Contains(readTarget(t, target), "AIGW managed provider") {
+		t.Fatalf("a refused move changed the configuration or the file: %v", err)
 	}
 }

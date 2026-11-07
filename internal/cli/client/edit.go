@@ -11,6 +11,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -207,6 +208,9 @@ func runEdit(cmd *cobra.Command, runtime invocation.Context, spec domain.ClientS
 	if err := checkTargets(cmd, runtime, spec.ID, targets); err != nil {
 		return err
 	}
+	if err := admitTargets(runtime, cfg, spec, targets); err != nil {
+		return err
+	}
 	before := cfg.Clone()
 	if err := editClient(&cfg, spec.ID, options, targets); err != nil {
 		return err
@@ -267,6 +271,33 @@ func checkTargets(cmd *cobra.Command, runtime invocation.Context, id string, tar
 		}
 	}
 	return nil
+}
+
+// admitTargets refuses to change an enabled client's configuration files
+// while its provider's Token is missing or cannot be observed: the transaction
+// then writes no client file, and AIGW's settings would stay behind in the
+// files that the edit drops, which no later synchronization visits.
+func admitTargets(runtime invocation.Context, cfg domain.Config, spec domain.ClientSpec, targets []string) error {
+	if len(targets) == 0 || !cfg.Clients[spec.ID].Enabled {
+		return nil
+	}
+	selected, err := cfg.ResolveRuntime(spec.ID, "")
+	if err != nil || !selected.UsesAIGWCredentialStore() {
+		return nil
+	}
+	available, err := runtime.Secrets.Exists(selected.ProviderID)
+	if err == nil && available {
+		return nil
+	}
+	title := fmt.Sprintf("%s's configuration files cannot change while provider %s has no Token", spec.Label, selected.ProviderID)
+	fix := "aigw provider rotate " + selected.ProviderID
+	switch {
+	case err != nil:
+		title, fix = fmt.Sprintf("%s's configuration files cannot change while the Token of provider %s cannot be observed", spec.Label, selected.ProviderID), "aigw provider show "+selected.ProviderID
+	case secret.IsReadOnly(runtime.Secrets):
+		fix = "Set " + secret.EnvironmentKey(selected.ProviderID) + ", then run the same command again."
+	}
+	return terminal.ProblemError(title, "Without the Token, AIGW writes no client file, and its settings would stay in the files that the edit drops.", "Nothing changed.", fix, err)
 }
 
 // editClient applies an edit to the client's settings in cfg. Forwarding comes
