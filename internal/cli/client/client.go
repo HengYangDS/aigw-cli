@@ -151,7 +151,7 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 	}}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show the client files that enabling would change without writing them")
 	cmd.Flags().StringVar(&executable, "executable", "", "Path to the real client executable")
-	cmd.Flags().StringSliceVar(&targets, "target", nil, targetHelp(runtime.Clients.Admission()))
+	cmd.Flags().StringArrayVar(&targets, "target", nil, targetHelp(runtime.Clients.Admission()))
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the enabled projection as JSON")
 	return cmd
 }
@@ -189,13 +189,19 @@ func admitEnablement(runtime invocation.Context, cfg domain.Config, client strin
 }
 
 // checkTargetsRead refuses --target for a client whose adapter reads no
-// configuration target, naming the clients that read one.
+// configuration target, naming the clients that read one, and a second
+// --target for a client that reads one configuration file.
 func checkTargetsRead(cmd *cobra.Command, admission domain.Admission, spec domain.ClientSpec, targets []string) error {
-	if len(targets) == 0 || spec.ReadsTargets() {
+	switch {
+	case len(targets) == 0:
 		return nil
+	case !spec.ReadsTargets():
+		return fmt.Errorf("%s has no configuration file to name; --target is for %s; run `%s --help`",
+			spec.Label, clientsWith(admission, domain.ClientSpec.ReadsTargets), cmd.CommandPath())
+	case len(targets) > 1 && spec.ReadsOneTarget():
+		return fmt.Errorf("%s reads one configuration file, so it takes one --target, not %d; run `%s --help`", spec.Label, len(targets), cmd.CommandPath())
 	}
-	return fmt.Errorf("%s has no configuration file to name; --target is for %s; run `%s --help`",
-		spec.Label, clientsWith(admission, domain.ClientSpec.ReadsTargets), cmd.CommandPath())
+	return nil
 }
 
 // targetHelp explains the target option in one sentence: the clients that

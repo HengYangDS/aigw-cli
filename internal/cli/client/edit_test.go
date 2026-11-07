@@ -315,6 +315,8 @@ func TestEditRefusesItsArgumentsBeforeReadingTheConfiguration(t *testing.T) {
 		{[]string{codex.ID, "--target", " "}, "--target requires a non-empty path", "aigw client edit --help"},
 		{[]string{codex.ID, "--target", "a.toml", "--target", "./a.toml"}, "twice", "aigw client edit --help"},
 		{[]string{claude.ID, "--target", "settings.json"}, "Claude has no configuration file to name; --target is for Claude Desktop, Codex and Hermes", "aigw client edit --help"},
+		{[]string{hermes.ID, "--target", "a.yaml", "--target", "b.yaml"}, "Hermes reads one configuration file, so it takes one --target, not 2", "aigw client edit --help"},
+		{[]string{claudedesktop.ID, "--target", "a", "--target", "b"}, "Claude Desktop reads one configuration file, so it takes one --target, not 2", "aigw client edit --help"},
 		{[]string{codex.ID, "--via", forwardingEndpoint, "--direct"}, "--via and --direct are mutually exclusive", "aigw client edit --help"},
 		{[]string{codex.ID, "--via", ""}, "--via requires an endpoint URL", "aigw client edit --help"},
 		{[]string{codex.ID, "--via", "https://user:secret@proxy.test/v1"}, "--via: URL userinfo is forbidden", "aigw client edit --help"},
@@ -407,6 +409,19 @@ func TestEnableStoresAbsolutePathsAndRefusesTargetsThatMeanNothing(t *testing.T)
 	}
 	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", "/opt/codex", "--target", "a.toml", "--target", "./a.toml"); err == nil || !strings.Contains(err.Error(), "twice") {
 		t.Fatalf("a file named twice = %v", err)
+	}
+	for _, client := range []string{hermes.ID, claudedesktop.ID} {
+		spec, _ := clients.Admission().Spec(client)
+		err := executeAdapter(t, runtime, "enable", client, "--executable", "/opt/"+client, "--target", "a", "--target", "b")
+		if problem := terminal.ProblemFor(err); problem.Title != spec.Label+" reads one configuration file, so it takes one --target, not 2; run `aigw client enable --help`" ||
+			problem.Fix != "aigw client enable --help" {
+			t.Fatalf("enable of %s with two targets = %q, fix %q", client, problem.Title, problem.Fix)
+		}
+	}
+	// A comma belongs to the path: --target names one file.
+	if err := executeAdapter(t, runtime, "enable", hermes.ID, "--executable", "/opt/hermes", "--target", "a,b.yaml", "--dry-run"); err != nil &&
+		strings.Contains(err.Error(), "takes one --target") {
+		t.Fatalf("a path with a comma was split: %v", err)
 	}
 	if after, err := runtime.Config.CaptureSnapshot(); err != nil || !reflect.DeepEqual(before, after) {
 		t.Fatalf("a refused enable wrote the configuration: %v", err)

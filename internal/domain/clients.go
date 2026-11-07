@@ -136,6 +136,11 @@ func naturalChoices(choices []string) string {
 // targets, so a command refuses one for it.
 func (s ClientSpec) ReadsTargets() bool { return s.TargetFile != "" || s.OptionalTarget != "" }
 
+// ReadsOneTarget reports whether the client reads one configuration file,
+// which discovery finds when no target names it, so a second target would
+// name a file that the client never reads.
+func (s ClientSpec) ReadsOneTarget() bool { return s.OptionalTarget != "" }
+
 // ResolveEndpoint selects an explicitly requested protocol or the sole available
 // supported endpoint. Multiple choices require a Route-level selection.
 func (s ClientSpec) ResolveEndpoint(account Provider, requested EndpointProtocol) (string, EndpointProtocol, error) {
