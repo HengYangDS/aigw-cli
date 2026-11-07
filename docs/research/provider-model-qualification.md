@@ -45,6 +45,27 @@ Stable tool admission does not make inference models GA. Qualified general-agent
 Previews may remain explicitly named, non-default Routes; unqualified ones remain
 discovery-only. Preserve this distinction and explicit local selections.
 
+## November 7 model refresh
+
+The owner's rule: Claude 5.5 or later, GPT 6.1 or later, and each other vendor's strongest generally
+available model, judged by the vendor's own notes. `aigw catalog --json` read all eight authenticated
+surfaces; each candidate passed an isolated `read_file` turn and a tool-free resumed recall on the stock
+Hermes v0.22.7 (`b200f5bc60e3`) that CI pins. Raw results are in the canonical checkout's
+`build/evidence/team-model-refresh-20261107/`.
+
+| Model                      | Admitted Account / protocol                  | Vendor basis                                             |
+| -------------------------- | -------------------------------------------- | -------------------------------------------------------- |
+| HY4                        | DMXAPI / Responses; AIHubMix / Chat          | Tencent's November 4 release, no longer a Preview        |
+| LongCat 2.5                | DMXAPI / Responses, exact wire `LongCat-2.5` | Meituan's November 2 release; its docs list only this ID |
+| Doubao Seed 2.1 Pro 260915 | DMXAPI / Responses                           | Volcengine's recommended build; others list only 260628  |
+| GPT-6.1 Terra              | UCloud / Responses                           | now listed by UCloud                                     |
+
+AIHubMix's Responses endpoint returned HTTP 404 for HY4, and UCloud's HY4 gateway start missed its
+deadline twice after a connection failure, so HY4 skips UCloud. Mistral Large 4 and Command A+ still
+return HTTP 400 on AIHubMix; Large 3 is deprecated, so Large 4 is re-probed next time. Plain DMXAPI
+`gpt-6.1-terra` and `claude-haiku-5-5` passed but wait for a resumed tool turn, because related routes
+failed tool continuations before. DeepSeek kept V4 Pro serving, but V4.1 Flash 1017 still outranks it.
+
 ## October 27 model refresh
 
 `aigw catalog --json` read all eight authenticated surfaces at 11:46 +08:00
@@ -139,8 +160,8 @@ The following direct channels completed text inference, an actual Hermes
 The three Preview labels remain explicit, non-default choices; vendor claims are
 not independent benchmarks. UCloud Gemini 3.8 Responses returned `convert_request_failed`
 (its Chat Route passed), AIHubMix HY4 exceeded the bounded completion deadline, and
-Command A+ returned `no_available_channel`. DeepSeek [phased out V4 Pro](https://www.deepseek.com/en/news/deepseek-v4-1-flash/)
-in favor of V4.1 Flash, so the older Pro name was not restored.
+Command A+ returned `no_available_channel`. DeepSeek announced phasing out V4 Pro in favor of V4.1
+Flash, and V4.1 Flash still outranks it.
 
 The isolated Hermes was 0.21.5, upstream `af90026a`, local `75e983671a840a1adcf249ab524d3c7847105489`,
 with OpenAI SDK 2.24.0; this proves that client's direct journey only. DMXAPI's
