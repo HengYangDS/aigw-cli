@@ -67,4 +67,12 @@ func TestHermesModelForAdoptsOnlyOneExactModel(t *testing.T) {
 			t.Fatalf("ambiguity refusal %q does not name %s", err, want)
 		}
 	}
+	// The command that resolves the ambiguity names the protocol as the
+	// command line does.
+	cfg.Models["sol-copy"] = qualifiedModel("Sol copy", "gateway", "gpt-6.1-sol", domain.ProtocolOpenAIResponses)
+	cfg.Normalize()
+	_, _, err = hermesModelFor(cfg, Selection{Provider: "aigw-gateway-openai-responses", Model: "gpt-6.1-sol"})
+	if err == nil || !strings.Contains(err.Error(), "`aigw use --for hermes --protocol responses sol`") {
+		t.Fatalf("ambiguity refusal %v does not name the responses protocol", err)
+	}
 }

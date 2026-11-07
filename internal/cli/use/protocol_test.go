@@ -47,7 +47,7 @@ func TestNoninteractiveProtocolChoiceNamesItsRetry(t *testing.T) {
 	if decodeErr := json.Unmarshal(out.Bytes(), &rendered); decodeErr != nil || renderer.Err() != nil {
 		t.Fatalf("JSON error = %q, %v, %v", out.String(), decodeErr, renderer.Err())
 	}
-	if want := "aigw use --for hermes --protocol <openai_responses|anthropic> shared"; rendered.NextAction != "" || rendered.NextDetail != want {
+	if want := "aigw use --for hermes --protocol <responses|anthropic> shared"; rendered.NextAction != "" || rendered.NextDetail != want {
 		t.Fatalf("next step = %q, %q; want %q", rendered.NextAction, rendered.NextDetail, want)
 	}
 }
@@ -92,7 +92,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	command = NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", hermes.ID, "--protocol", string(domain.ProtocolAnthropic), "shared"})
+	command.SetArgs([]string{"--for", hermes.ID, "--protocol", "anthropic", "shared"})
 	if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "--protocol anthropic") {
 		t.Fatalf("missing Token recovery lost the protocol choice: %v", err)
 	}
@@ -102,7 +102,7 @@ func TestUseSelectsExplicitHermesProtocol(t *testing.T) {
 	command = NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", hermes.ID, "--protocol", string(domain.ProtocolAnthropic), "shared"})
+	command.SetArgs([]string{"--for", hermes.ID, "--protocol", "anthropic", "shared"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestUseValidatesSelectedProtocolWhenAcquiringToken(t *testing.T) {
 	command := NewCommand(runtime)
 	command.SilenceErrors = true
 	command.SilenceUsage = true
-	command.SetArgs([]string{"--for", hermes.ID, "--protocol", string(domain.ProtocolAnthropic), "shared"})
+	command.SetArgs([]string{"--for", hermes.ID, "--protocol", "anthropic", "shared"})
 	if err := command.Execute(); err != nil || requests != 1 {
 		t.Fatalf("selected-protocol Token validation: requests=%d error=%v", requests, err)
 	}

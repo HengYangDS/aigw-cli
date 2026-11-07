@@ -161,7 +161,7 @@ func TestNextActionAfterProviderConnectionKeepsRequiredProtocolExplicit(t *testi
 	cfg.Recommendations[hermes.ID] = domain.ClientRecommendation{Primary: domain.ClientSelection{
 		Model: "multi", Protocol: domain.ProtocolOpenAIResponses,
 	}}
-	want := "aigw use --for hermes --protocol openai_responses multi"
+	want := "aigw use --for hermes --protocol responses multi"
 	if got := NextActionAfterProviderConnection(cfg, "team"); got != want {
 		t.Fatalf("multi-protocol action = %q, want %q", got, want)
 	}

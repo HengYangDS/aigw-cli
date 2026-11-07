@@ -219,7 +219,7 @@ Options
       --json                    Write the setup result as JSON
       --label string            Provider display name
       --openai-url string       OpenAI Responses base URL
-      --protocol string         Endpoint protocol when more than one URL is configured
+      --protocol string         Endpoint protocol when more than one URL is configured: anthropic, responses, or chat
       --route string            First route ID
       --token-stdin             Read one token line from standard input
       --upstream-model string   Exact provider model ID for --for

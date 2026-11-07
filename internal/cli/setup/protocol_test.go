@@ -38,7 +38,7 @@ func TestSetupValidatesSelectedHermesProtocol(t *testing.T) {
 	request := setupRequest{
 		Provider: "team", Model: "shared", Client: hermes.ID, UpstreamModel: "shared-model",
 		OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
-		Protocol: string(domain.ProtocolAnthropic),
+		Protocol: domain.ProtocolAnthropic,
 	}
 	if err := runSetup(context.Background(), runtime, request); err != nil || requests != 1 {
 		t.Fatalf("selected-protocol setup validation: requests=%d error=%v", requests, err)

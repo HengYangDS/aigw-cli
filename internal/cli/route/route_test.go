@@ -116,7 +116,7 @@ func TestModelMutationsReturnConfigurationTransactionFailures(t *testing.T) {
 			command: func(runtime invocation.Context) commandExecutor {
 				return newAddCommand(runtime)
 			},
-			args: []string{"new", "--account", "current", "--model", "gpt-new", "--protocol", "openai_responses"},
+			args: []string{"new", "--account", "current", "--model", "gpt-new", "--protocol", "responses"},
 		},
 		{
 			name: "edit",
@@ -326,7 +326,7 @@ func TestModelAddSeparatesFamilyFromExactProviderWireID(t *testing.T) {
 			}
 			out := &bytes.Buffer{}
 			command := newAddCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Secrets: secret.NewMemoryStore(), Out: out})
-			args := []string{"ucloud-minimax-new", "--account", "ucloud", "--model", "minimax-m3", "--protocol", "openai_responses"}
+			args := []string{"ucloud-minimax-new", "--account", "ucloud", "--model", "minimax-m3", "--protocol", "responses"}
 			if test.upstream != "" {
 				args = append(args, "--upstream-model", test.upstream)
 			}
@@ -357,7 +357,7 @@ func TestModelAddRejectsEmptyExplicitUpstreamBeforeConfigurationAccess(t *testin
 			t.Fatal(err)
 		}
 		command := newAddCommand(invocation.Context{Clients: clients.Registry(), Config: configStore, Out: &bytes.Buffer{}})
-		command.SetArgs([]string{"ucloud-minimax-new", "--account", "ucloud", "--model", "minimax-m3", "--protocol", "openai_responses", "--upstream-model", upstream})
+		command.SetArgs([]string{"ucloud-minimax-new", "--account", "ucloud", "--model", "minimax-m3", "--protocol", "responses", "--upstream-model", upstream})
 		if err := command.Execute(); err == nil || !strings.Contains(err.Error(), "--upstream-model requires a non-empty value") {
 			t.Fatalf("empty upstream was not rejected before loading configuration: %v", err)
 		}

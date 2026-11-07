@@ -18,6 +18,52 @@ const (
 	ProtocolOpenAIChatCompletions EndpointProtocol = "openai_chat_completions"
 )
 
+// protocolNames are the names that the command line and its output give the
+// protocols, in display order. The configuration keeps the protocols' own
+// values.
+var protocolNames = []struct {
+	name     string
+	protocol EndpointProtocol
+}{
+	{"anthropic", ProtocolAnthropic},
+	{"responses", ProtocolOpenAIResponses},
+	{"chat", ProtocolOpenAIChatCompletions},
+}
+
+// ProtocolNames returns the command-line protocol names in display order.
+func ProtocolNames() []string {
+	names := make([]string, 0, len(protocolNames))
+	for _, entry := range protocolNames {
+		names = append(names, entry.name)
+	}
+	return names
+}
+
+// ProtocolUsage renders the protocol names for help and refusals.
+func ProtocolUsage() string { return naturalChoices(ProtocolNames()) }
+
+// ProtocolNamed returns the protocol that a command-line name names. Any other
+// spelling, including a protocol's configuration value, names none.
+func ProtocolNamed(name string) (EndpointProtocol, bool) {
+	for _, entry := range protocolNames {
+		if entry.name == name {
+			return entry.protocol, true
+		}
+	}
+	return "", false
+}
+
+// Name returns the command-line name of protocol, or its value when it has no
+// name.
+func (protocol EndpointProtocol) Name() string {
+	for _, entry := range protocolNames {
+		if entry.protocol == protocol {
+			return entry.name
+		}
+	}
+	return string(protocol)
+}
+
 // ClientSpec is the canonical admission record for an implemented client
 // adapter. A provider or model alone never admits a client. Every adapter must
 // prove its own configuration, credential, protocol, activation, verification,

@@ -125,7 +125,7 @@ func TestModelAddDoesNotConflateModelCreationWithClientCompatibility(t *testing.
 		t.Fatal(err)
 	}
 
-	if err := cli.Execute(app, []string{"route", "add", "claude", "--account", "openai-only", "--model", "claude-test", "--protocol", "openai_responses"}); err != nil {
+	if err := cli.Execute(app, []string{"route", "add", "claude", "--account", "openai-only", "--model", "claude-test", "--protocol", "responses"}); err != nil {
 		t.Fatalf("route creation should remain client-independent: %v", err)
 	}
 	got, err := app.Config.Load()

@@ -286,7 +286,7 @@ func hermesModelFor(cfg domain.Config, native Selection) (string, domain.Endpoin
 	default:
 		commands := make([]string, 0, len(matches))
 		for _, routeID := range matches {
-			commands = append(commands, fmt.Sprintf("`aigw use --for hermes --protocol %s %s`", provider.Protocol, routeID))
+			commands = append(commands, fmt.Sprintf("`aigw use --for hermes --protocol %s %s`", provider.Protocol.Name(), routeID))
 		}
 		return "", "", fmt.Errorf("Hermes selects model %q, which several AIGW Routes provide; run one of %s", native.Model, strings.Join(commands, ", "))
 	}

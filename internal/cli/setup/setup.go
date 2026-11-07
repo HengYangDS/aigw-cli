@@ -23,7 +23,8 @@ import (
 type setupRequest struct {
 	From, Provider, Model, Label     string
 	OpenAIURL, AnthropicURL, ChatURL string
-	Client, UpstreamModel, Protocol  string
+	Client, UpstreamModel            string
+	Protocol                         domain.EndpointProtocol
 	TokenStdin                       bool
 	PromptToken                      bool
 	JSON                             bool
@@ -93,7 +94,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&request.ChatURL, "chat-url", "", "OpenAI Chat Completions base URL")
 	cmd.Flags().StringVar(&request.Client, "for", "", "Client for the first route: "+runtime.Clients.Admission().Usage())
 	cmd.Flags().StringVar(&request.UpstreamModel, "upstream-model", "", "Exact provider model ID for --for")
-	cmd.Flags().StringVar(&request.Protocol, "protocol", "", "Endpoint protocol when more than one URL is configured")
+	invocation.BindProtocol(cmd, &request.Protocol, "Endpoint protocol when more than one URL is configured")
 	cmd.Flags().BoolVar(&request.TokenStdin, "token-stdin", false, "Read one token line from standard input")
 	cmd.Flags().BoolVar(&request.JSON, "json", false, "Write the setup result as JSON")
 	cmd.Flags().BoolVar(&request.DryRun, "dry-run", false, "Show the Accounts, Routes and Client Bindings that setup would create without reading a Token or writing anything")
@@ -197,21 +198,21 @@ func planSetup(cfg domain.Config, request setupRequest) (setupPlan, error) {
 	if compatible := spec.CompatibleProtocols(account); plan.request.Protocol == "" && len(compatible) > 1 {
 		names := make([]string, 0, len(compatible))
 		for _, candidate := range compatible {
-			names = append(names, string(candidate))
+			names = append(names, candidate.Name())
 		}
 		refusal := fmt.Errorf("--for %s has multiple compatible endpoints; specify --protocol", plan.request.Client)
 		return setupPlan{}, terminal.ProblemError(refusal.Error(), "Compatible protocols: "+strings.Join(names, ", ")+".",
 			"No Account, Route or Client Binding was changed.",
 			"Rerun the same aigw setup command with --protocol <"+strings.Join(names, "|")+">", refusal)
 	}
-	_, protocol, err := spec.ResolveEndpoint(account, domain.EndpointProtocol(plan.request.Protocol))
+	_, protocol, err := spec.ResolveEndpoint(account, plan.request.Protocol)
 	if err != nil {
 		if _, ok := errors.AsType[*domain.RuntimeMissingEndpointError](err); !ok {
 			return setupPlan{}, err
 		}
 		required := spec.EndpointProtocols[0]
 		if plan.request.Protocol != "" {
-			required = domain.EndpointProtocol(plan.request.Protocol)
+			required = plan.request.Protocol
 		}
 		return setupPlan{}, fmt.Errorf("--for %s requires %s", plan.request.Client, setupEndpointFlag(required))
 	}
@@ -411,7 +412,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	if len(spec.EndpointProtocols) > 1 {
 		protocolChoices := make([]terminal.Choice, 0, len(spec.EndpointProtocols))
 		for _, candidate := range spec.EndpointProtocols {
-			protocolChoices = append(protocolChoices, terminal.Choice{Value: string(candidate), Label: string(candidate)})
+			protocolChoices = append(protocolChoices, terminal.Choice{Value: string(candidate), Label: candidate.Name()})
 		}
 		selected, selectErr := runtime.Prompt.Select("Endpoint protocol: ", protocolChoices)
 		if selectErr != nil {
@@ -422,7 +423,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 			return fmt.Errorf("unsupported %s endpoint protocol %q", spec.Label, selected)
 		}
 	}
-	request := setupRequest{Provider: account, Label: label, Client: client, Protocol: string(protocol), PromptToken: true}
+	request := setupRequest{Provider: account, Label: label, Client: client, Protocol: protocol, PromptToken: true}
 	var endpointLabel string
 	var endpointURL *string
 	switch protocol {

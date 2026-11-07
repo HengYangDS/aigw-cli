@@ -445,13 +445,13 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 	}
 	var rendered bytes.Buffer
 	terminal.RenderError(terminal.NewRenderer(&rendered, false), err, false)
-	if want := "Rerun the same aigw setup command with --protocol <openai_responses|anthropic>"; !strings.Contains(rendered.String(), want) ||
+	if want := "Rerun the same aigw setup command with --protocol <responses|anthropic>"; !strings.Contains(rendered.String(), want) ||
 		strings.Contains(rendered.String(), "aigw check") {
 		t.Fatalf("ambiguous Hermes setup recommendation = %q, want %q", rendered.String(), want)
 	}
 	_, err = planSetup(domain.NewConfig(clients.Admission()), setupRequest{
 		Model: "chat", Client: hermes.ID, UpstreamModel: "chat-model",
-		Protocol: string(domain.ProtocolOpenAIChatCompletions),
+		Protocol: domain.ProtocolOpenAIChatCompletions,
 	})
 	if err == nil || !strings.Contains(err.Error(), "--chat-url") {
 		t.Fatalf("missing Chat endpoint error = %v, want exact URL guidance", err)
@@ -467,7 +467,7 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 			request: setupRequest{
 				Model: "shared", Client: hermes.ID, UpstreamModel: "shared-model",
 				OpenAIURL: "https://responses.test/v1", AnthropicURL: "https://messages.test",
-				Protocol: string(domain.ProtocolAnthropic),
+				Protocol: domain.ProtocolAnthropic,
 			},
 			protocol: domain.ProtocolAnthropic,
 		},
@@ -475,7 +475,7 @@ func TestSetupNamesExplicitProtocolChoice(t *testing.T) {
 			name: "Chat Completions",
 			request: setupRequest{
 				Model: "chat", Client: hermes.ID, UpstreamModel: "chat-model",
-				ChatURL: "https://chat.test/v1", Protocol: string(domain.ProtocolOpenAIChatCompletions),
+				ChatURL: "https://chat.test/v1", Protocol: domain.ProtocolOpenAIChatCompletions,
 			},
 			protocol: domain.ProtocolOpenAIChatCompletions,
 		},

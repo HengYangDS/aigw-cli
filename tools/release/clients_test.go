@@ -281,7 +281,7 @@ func (j *journeyFixture) requireNativeForwarding(client, token string, upstream 
 	}))
 	defer forwarding.Close()
 	endpoint := forwarding.URL + strings.TrimPrefix(direct.Endpoint, upstream.URL)
-	args := []string{"use", "--for", client, direct.ModelID, "--protocol", string(direct.Protocol), "--forwarding-endpoint", endpoint}
+	args := []string{"use", "--for", client, direct.ModelID, "--protocol", direct.Protocol.Name(), "--forwarding-endpoint", endpoint}
 	before := capturePublishedSnapshot(j.testing, configStore)
 	preview := j.run(append(slices.Clone(args), "--dry-run", "--json")...)
 	if !bytes.Contains(preview, []byte(endpoint)) || bytes.Contains(preview, []byte(token)) || !reflect.DeepEqual(before, capturePublishedSnapshot(j.testing, configStore)) {

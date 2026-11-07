@@ -364,7 +364,7 @@ func TestCatalogContinuationUsesTheActualModelAddContract(t *testing.T) {
 	if len(args) == 0 || args[0] != "aigw" {
 		t.Fatalf("catalog continuation is not a product command: %q", next)
 	}
-	values := map[string]string{"<route>": "gateway-candidate", "<account>": "gateway", "<model>": "candidate-model", "<protocol>": "openai_responses"}
+	values := map[string]string{"<route>": "gateway-candidate", "<account>": "gateway", "<model>": "candidate-model", "<protocol>": "responses"}
 	for index, argument := range args {
 		if value, found := values[argument]; found {
 			args[index] = value

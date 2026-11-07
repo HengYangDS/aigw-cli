@@ -1,5 +1,5 @@
 # use selects another Route for a client, as JSON and in text, and refuses
-# an unknown Route.
+# an unknown Route and a protocol's old spelling.
 exec aigw use --help
 cmp stdout help.txt
 
@@ -26,6 +26,11 @@ exitcode 1 aigw use --for claude missing
 cmp stdout refusal.txt
 exitcode 1 aigw use --for claude missing --json
 cmp stdout refusal.json
+
+# A protocol takes its command-line name: an old spelling is refused with the
+# valid names, before any configuration is read.
+exitcode 1 aigw use --for claude spare --protocol openai_responses
+cmp stdout protocol-refusal.txt
 
 -- preview.json --
 {
@@ -101,7 +106,7 @@ Options
   -h, --help                         help for use
       --json                         Write the selection preview or result as JSON
       --native-retries               Remove this connection's retry policy and use client native defaults
-      --protocol string              Endpoint protocol for a multi-protocol Route
+      --protocol string              Endpoint protocol for a multi-protocol Route: anthropic, responses, or chat
       --request-max-retries uint     Explicit native request retry budget for this Codex connection; zero disables client request retries
       --stream-max-retries uint      Explicit native stream retry budget for this Codex connection; zero disables client stream retries
 -- spare.json --
@@ -153,3 +158,12 @@ Fix
   "error": "unknown route \"missing\"; run `aigw route list`",
   "next_action": "aigw route list"
 }
+-- protocol-refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  invalid argument "openai_responses" for "--protocol" flag: expected anthropic, responses, or chat; run `aigw use --help`
+
+Fix
+  aigw use --help

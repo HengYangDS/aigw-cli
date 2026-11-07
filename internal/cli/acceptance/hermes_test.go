@@ -118,7 +118,7 @@ func TestHermesUseProjectsShippedChannelWireID(t *testing.T) {
 		t.Fatalf("shipped setup: %v\n%s", err, output.String())
 	}
 	output.Reset()
-	if err := cli.Execute(app, []string{"use", "--for", "hermes", "--protocol", "openai_responses", "dmxapi-gpt-6.1-sol-cdx"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "--for", "hermes", "--protocol", "responses", "dmxapi-gpt-6.1-sol-cdx"}); err != nil {
 		t.Fatalf("select shipped channel: %v\n%s", err, output.String())
 	}
 	var projected struct {
@@ -154,7 +154,7 @@ func TestHermesExplicitSelectionAdoptsNativeSwitchThenSyncs(t *testing.T) {
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
-	for _, args := range [][]string{{"setup", "--from", manifest}, {"use", "--for", "hermes", "--protocol", "openai_responses", "ucloud-gpt-6.1-sol"}} {
+	for _, args := range [][]string{{"setup", "--from", manifest}, {"use", "--for", "hermes", "--protocol", "responses", "ucloud-gpt-6.1-sol"}} {
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v: %v", args, err)
 		}
@@ -189,7 +189,7 @@ func TestHermesExplicitSelectionAdoptsNativeSwitchThenSyncs(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Explicit selection still adopts a proved native switch.
-	args := []string{"use", "--for", "hermes", "--protocol", "openai_responses", "dmxapi-gpt-6.1-sol"}
+	args := []string{"use", "--for", "hermes", "--protocol", "responses", "dmxapi-gpt-6.1-sol"}
 	if err := cli.Execute(app, append(slices.Clone(args), "--dry-run", "--json")); err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func shippedHermesAppWith(t *testing.T, reader bool) (*cli.App, *bytes.Buffer, *
 		Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: target}},
 	}}
 	manifest := filepath.Join("..", "..", "..", "manifests", "team.toml")
-	for _, args := range [][]string{{"setup", "--from", manifest}, {"use", "--for", "hermes", "--protocol", "openai_responses", "dmxapi-gpt-6.1-sol"}} {
+	for _, args := range [][]string{{"setup", "--from", manifest}, {"use", "--for", "hermes", "--protocol", "responses", "dmxapi-gpt-6.1-sol"}} {
 		if err := cli.Execute(app, args); err != nil {
 			t.Fatalf("%v: %v\n%s", args, err, output)
 		}
@@ -462,7 +462,7 @@ func TestHermesSyncRefusesChangedManagedProvider(t *testing.T) {
 func TestHermesExplicitSelectionOverridesNativeModelChoice(t *testing.T) {
 	app, output, _, target := shippedHermesApp(t)
 	hermesNativeSelection(t, target, "aigw-dmxapi-anthropic", "claude-opus-5-5", nil)
-	if err := cli.Execute(app, []string{"use", "--for", "hermes", "--protocol", "openai_responses", "ucloud-gpt-6.1-sol"}); err != nil {
+	if err := cli.Execute(app, []string{"use", "--for", "hermes", "--protocol", "responses", "ucloud-gpt-6.1-sol"}); err != nil {
 		t.Fatalf("explicit selection after a native choice: %v\n%s", err, output)
 	}
 	if err := cli.Execute(app, []string{"sync"}); err != nil {

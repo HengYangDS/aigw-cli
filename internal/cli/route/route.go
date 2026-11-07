@@ -23,7 +23,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 
 func newAddCommand(runtime invocation.Context) *cobra.Command {
 	var jsonMode, dryRun bool
-	var accountName, model, upstreamModel, label, purpose, protocolName string
+	var accountName, model, upstreamModel, label, purpose string
+	var protocol domain.EndpointProtocol
 	cmd := &cobra.Command{
 		Use: "add <route>", Short: "Add a model route to an existing account",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(cmd *cobra.Command, args []string) error {
@@ -33,19 +34,13 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			if accountName != "" && !domain.ValidIdentifier(accountName) {
 				return fmt.Errorf("Invalid account ID %q; run `%s --help`", accountName, cmd.CommandPath())
 			}
-			if strings.TrimSpace(accountName) == "" || strings.TrimSpace(model) == "" || strings.TrimSpace(protocolName) == "" {
+			if strings.TrimSpace(accountName) == "" || strings.TrimSpace(model) == "" || protocol == "" {
 				return fmt.Errorf("--account, --model, and --protocol are required; run `%s --help`", cmd.CommandPath())
 			}
 			if cmd.Flags().Changed("upstream-model") && strings.TrimSpace(upstreamModel) == "" {
 				return fmt.Errorf("--upstream-model requires a non-empty value; run `%s --help`", cmd.CommandPath())
 			}
-			protocol := domain.EndpointProtocol(protocolName)
-			switch protocol {
-			case domain.ProtocolAnthropic, domain.ProtocolOpenAIResponses, domain.ProtocolOpenAIChatCompletions:
-				return nil
-			default:
-				return fmt.Errorf("Unsupported protocol %q; run `%s --help`", protocolName, cmd.CommandPath())
-			}
+			return nil
 		}),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			routeName := args[0]
@@ -64,7 +59,6 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 				label = routeName
 			}
 			before := cfg.Clone()
-			protocol := domain.EndpointProtocol(protocolName)
 			cfg.Models[routeName] = domain.Model{
 				Label: label, Purpose: strings.TrimSpace(purpose), Provider: accountName, Family: model, UpstreamModel: upstreamModel,
 				Protocols: map[domain.EndpointProtocol][]domain.Capability{protocol: {}},
@@ -119,7 +113,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&accountName, "account", "", "Existing account ID")
 	cmd.Flags().StringVar(&model, "model", "", "Canonical Model ID; also used upstream unless --upstream-model is set")
 	cmd.Flags().StringVar(&upstreamModel, "upstream-model", "", "Exact provider model ID, including case or channel; defaults to --model")
-	cmd.Flags().StringVar(&protocolName, "protocol", "", "Wire protocol: anthropic, openai_responses, or openai_chat_completions")
+	invocation.BindProtocol(cmd, &protocol, "Wire protocol")
 	cmd.Flags().StringVar(&label, "label", "", "Display name")
 	cmd.Flags().StringVar(&purpose, "purpose", "", "Purpose note (display only)")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the added Route as JSON")

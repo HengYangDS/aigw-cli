@@ -24,7 +24,7 @@ const schemaVersion = 2
 // NewCommand constructs the daily client Route selection command.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var client string
-	var protocol string
+	var protocol domain.EndpointProtocol
 	var forwardingEndpoint string
 	var retries retryOptions
 	var direct, dryRun, jsonMode bool
@@ -68,7 +68,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			selected, err := resolveUseRuntime(operation, cfg, client, name, domain.EndpointProtocol(protocol), connection)
+			selected, err := resolveUseRuntime(operation, cfg, client, name, protocol, connection)
 			if err != nil {
 				return err
 			}
@@ -90,7 +90,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&client, "for", "", "Client: "+runtime.Clients.Admission().Usage())
-	cmd.Flags().StringVar(&protocol, "protocol", "", "Endpoint protocol for a multi-protocol Route")
+	invocation.BindProtocol(cmd, &protocol, "Endpoint protocol for a multi-protocol Route")
 	cmd.Flags().StringVar(&forwardingEndpoint, "forwarding-endpoint", "", "Explicit client destination; the Account upstream remains unchanged")
 	cmd.Flags().BoolVar(&direct, "direct", false, "Connect this client directly to its Account upstream")
 	retries.bind(cmd, runtime.Clients.Admission())
@@ -293,8 +293,8 @@ func resolveUseRuntime(runtime invocation.Context, cfg domain.Config, client, ro
 	choices := make([]terminal.Choice, 0, len(compatible))
 	names := make([]string, 0, len(compatible))
 	for _, candidate := range compatible {
-		name := string(candidate)
-		choices = append(choices, terminal.Choice{Value: name, Label: name})
+		name := candidate.Name()
+		choices = append(choices, terminal.Choice{Value: string(candidate), Label: name})
 		names = append(names, name)
 	}
 	if !runtime.Interactive {
@@ -372,7 +372,7 @@ func selectionToken(ctx context.Context, runtime invocation.Context, cfg domain.
 		retry := fmt.Sprintf("aigw use --for %s %s", selected.Client, selected.ModelID)
 		spec, _ := runtime.Clients.Admission().Spec(selected.Client)
 		if len(spec.CompatibleModelProtocols(cfg.Providers[selected.ProviderID], cfg.Models[selected.ModelID])) > 1 {
-			retry = fmt.Sprintf("aigw use --for %s --protocol %s %s", selected.Client, selected.Protocol, selected.ModelID)
+			retry = fmt.Sprintf("aigw use --for %s --protocol %s %s", selected.Client, selected.Protocol.Name(), selected.ModelID)
 		}
 		return "", fmt.Errorf("account %q is missing a token; %s; then run `%s`", selected.ProviderID, instruction, retry)
 	}

@@ -335,7 +335,7 @@ func NextActionAfterProviderConnection(cfg domain.Config, accountID string) stri
 		}
 		action := "aigw use --for " + spec.ID
 		if len(route.Protocols) > 1 {
-			action += " --protocol " + string(binding.Protocol)
+			action += " --protocol " + binding.Protocol.Name()
 		}
 		return action + " " + binding.Model
 	}
