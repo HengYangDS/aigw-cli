@@ -2,7 +2,6 @@ package provider
 
 import (
 	"errors"
-	"slices"
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/secret"
@@ -10,62 +9,66 @@ import (
 )
 
 // deleteCredentials deletes the provider's Token and balance credentials from
-// a writable backend, reading each one first, and returns the restore that
-// puts back every one that it deleted. It deletes nothing that it cannot read
-// back: a credential that cannot be read refuses the removal before anything
-// is written, and a deletion that fails restores the ones before it.
-func deleteCredentials(runtime invocation.Context, id string, document removeDocument) (func() error, error) {
-	var restores []func() error
-	restore := func() error {
-		var failure error
-		for _, undo := range slices.Backward(restores) {
-			failure = errors.Join(failure, undo())
-		}
-		return failure
-	}
+// a writable backend, reading each one first so that it can be put back if
+// the configuration is not saved. A slot that holds nothing needs nothing. A
+// credential that cannot be read is still deleted, because the removal means
+// to delete it, but nothing can put it back. A deletion that fails undoes the
+// ones before it and refuses the removal.
+func deleteCredentials(runtime invocation.Context, id string, document removeDocument) ([]credentialChange, error) {
+	var changes []credentialChange
 	if document.Token != credentialAbsent {
-		undo, err := deleteSlot(runtime.Secrets.Get, runtime.Secrets.Set, runtime.Secrets.Delete, id)
+		change, deleted, err := deleteSlot(runtime.Secrets.Get, runtime.Secrets.Set, runtime.Secrets.Delete, id,
+			"the Token was put back", "the Token stays deleted")
 		if err != nil {
-			return nil, credentialProblem("the "+id+" Token", "aigw check", err, nil)
+			return nil, deletionFailure(id, "the Token", err, changes)
 		}
-		restores = append(restores, undo)
+		if deleted {
+			changes = append(changes, change)
+		}
 	}
 	if document.BalanceCredential != credentialAbsent {
-		undo, err := deleteSlot(runtime.Providers.Get, runtime.Providers.Set, runtime.Providers.Delete, id)
+		change, deleted, err := deleteSlot(runtime.Providers.Get, runtime.Providers.Set, runtime.Providers.Delete, id,
+			"the balance credentials were put back", "the balance credentials stay deleted")
 		if err != nil {
-			return nil, credentialProblem("the "+id+" balance credentials", "aigw provider edit "+id+" --no-balance-token", err, restore)
+			return nil, deletionFailure(id, "the balance credentials", err, changes)
 		}
-		restores = append(restores, undo)
+		if deleted {
+			changes = append(changes, change)
+		}
 	}
-	return restore, nil
+	return changes, nil
 }
 
-// deleteSlot reads one credential slot, deletes it and returns the restore
-// that writes the value back. An empty slot needs no restore.
-func deleteSlot[T any](get func(string) (T, error), set func(string, T) error, remove func(string) error, id string) (func() error, error) {
-	value, err := get(id)
-	if errors.Is(err, secret.ErrNotFound) {
-		return func() error { return nil }, nil
-	}
-	if err != nil {
-		return nil, err
+// deleteSlot reads one credential slot and deletes it, and returns the change
+// that puts the value back, without an undo when the value could not be read.
+// It reports whether it deleted anything: a slot that holds nothing is left
+// alone.
+func deleteSlot[T any](get func(string) (T, error), set func(string, T) error, remove func(string) error, id, undone, kept string) (credentialChange, bool, error) {
+	value, readErr := get(id)
+	if errors.Is(readErr, secret.ErrNotFound) {
+		return credentialChange{}, false, nil
 	}
 	if err := remove(id); err != nil && !errors.Is(err, secret.ErrNotFound) {
-		return nil, err
+		return credentialChange{}, false, err
 	}
-	return func() error { return set(id, value) }, nil
+	change := credentialChange{undone: undone, kept: kept}
+	if readErr == nil {
+		change.undo = func() error { return set(id, value) }
+	}
+	return change, true, nil
 }
 
-// credentialProblem explains a credential that a removal could not read or
-// delete, after restoring the credentials that it deleted before, so that the
-// removal changed nothing; fix clears the credential or diagnoses the backend.
-func credentialProblem(subject, fix string, err error, restore func() error) error {
-	impact := "Nothing was removed."
-	if restore != nil {
-		if restoreErr := restore(); restoreErr != nil {
-			impact = "The provider was not removed, and a credential that it deleted first could not be restored."
-			err = errors.Join(err, restoreErr)
-		}
+// deletionFailure refuses a removal whose deletion of subject failed with err,
+// after undoing the deletions before it. When every one is undone nothing was
+// removed, and the fix shows the provider's credentials as the backend reports
+// them, which tells whether it answers again. When an earlier deletion stays,
+// the problem names it, and rerunning the removal converges.
+func deletionFailure(id, subject string, err error, changes []credentialChange) error {
+	outcome := undoChanges(changes)
+	if len(outcome.kept) == 0 {
+		return terminal.ProblemError("provider "+id+" was not removed: "+subject+" could not be deleted", "",
+			"Nothing was removed"+clauses("; ", outcome.undone)+".", "aigw provider show "+id, err)
 	}
-	return terminal.ProblemError(subject+" could not be read and deleted, so the provider was not removed", "", impact, fix, err)
+	return keptFailure(sentence(subject)+" could not be deleted: "+terminal.ProblemFor(err).Title+".", err, outcome,
+		"provider "+id+" was not removed", "aigw provider remove "+id)
 }

@@ -55,9 +55,19 @@ type endpointItem struct {
 // it has a balance probe, of its balance credentials.
 type showDocument struct {
 	providerItem
-	SelectedBy        []string `json:"selected_by"`
-	Token             string   `json:"token"`
-	BalanceCredential string   `json:"balance_credential,omitempty"`
+	SelectedBy        []string          `json:"selected_by"`
+	Token             string            `json:"token"`
+	BalanceCredential string            `json:"balance_credential,omitempty"`
+	CredentialBackend credentialBackend `json:"credential_backend"`
+}
+
+// credentialBackend is the credential backend that this invocation selected,
+// as it reports itself without a credential being read: its kind, whether it
+// answers, and whether it stores credentials or only reads them.
+type credentialBackend struct {
+	Kind         string `json:"kind"`
+	Availability string `json:"availability"`
+	Mutability   string `json:"mutability"`
 }
 
 // changeDocument is the JSON document of `aigw provider add` and `edit`: the
@@ -72,9 +82,12 @@ type changeDocument struct {
 	TokenValidated *bool `json:"token_validated,omitempty"`
 	TokenStored    *bool `json:"token_stored,omitempty"`
 	// ClearedCapabilities and ClearedForwarding report what an edit of an
-	// endpoint clears, because it was qualified or set up for the old one.
+	// endpoint clears, because it was qualified or set up for the old one,
+	// and KeptRetryBudgets the clients whose retry budgets stay, because they
+	// belong to the provider.
 	ClearedCapabilities []clearedCapability `json:"cleared_capabilities,omitempty"`
 	ClearedForwarding   []string            `json:"cleared_forwarding,omitempty"`
+	KeptRetryBudgets    []string            `json:"kept_retry_budgets,omitempty"`
 	// BalanceCredential is stored or removed when an edit changes it.
 	BalanceCredential string                        `json:"balance_credential,omitempty"`
 	ClientFiles       []invocation.ClientFile       `json:"client_files"`
@@ -145,7 +158,8 @@ type removeDocument struct {
 	Models []string `json:"models"`
 	// Token and BalanceCredential are the states of the provider's credential
 	// slots before the removal, which deletes a present one. With the
-	// read-only environment backend, Unset names the variables to remove.
+	// read-only environment backend, Unset names each of the provider's
+	// variables that is still set, which the user removes.
 	Token             string                        `json:"token"`
 	BalanceCredential string                        `json:"balance_credential"`
 	Unset             []string                      `json:"unset,omitempty"`

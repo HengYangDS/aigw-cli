@@ -653,7 +653,7 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "team/team-model is already added; `aigw model edit` changes it",
-  "next_action": "aigw model edit team/team-model --help"
+  "next_action": "aigw model show team/team-model"
 }
 -- edited.json --
 {

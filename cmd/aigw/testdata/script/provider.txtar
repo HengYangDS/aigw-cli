@@ -125,6 +125,16 @@ env AIGW_SECRET_BACKEND=env
 env AIGW_TOKEN_SPARE=sk-spare-token-0001
 exec aigw provider remove spare
 cmp stdout removed-environment.txt
+# The environment backend cannot store a Token from standard input, in a
+# preview as in the write, and a Token in a variable that the provider
+# rejects needs the variable changed before the same command runs again.
+exitcode 1 aigw provider add other --endpoint responses=$UPSTREAM/other/v1 --dry-run --token-stdin
+normalize stdout environment-stdin.out
+cmp environment-stdin.out environment-stdin.txt
+env AIGW_TOKEN_OTHER=sk-rejected-token
+exitcode 1 aigw provider add other --endpoint responses=$UPSTREAM/other/v1 --json
+normalize stdout environment-rejected.out
+cmp environment-rejected.out environment-rejected.json
 
 -- token.txt --
 sk-team-token-0001
@@ -290,7 +300,12 @@ Next
   ],
   "selected_by": [],
   "token": "present",
-  "balance_credential": "absent"
+  "balance_credential": "absent",
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write"
+  }
 }
 -- show-unknown.json --
 {
@@ -407,7 +422,7 @@ Problem
   provider spare already exists; `aigw provider edit` changes it and `aigw provider rotate` replaces its Token
 
 Fix
-  aigw provider edit spare --help
+  aigw provider show spare
 -- add-unavailable.txt --
 AIGW  Action required
 ────────────────────────────────────────
@@ -535,7 +550,7 @@ Next
       "id": "mixed",
       "label": "Mixed",
       "state": "failed",
-      "problem": "the balance credentials cannot be read: none is stored",
+      "problem": "no balance credentials are stored",
       "next_detail": "aigw provider edit mixed --balance-token-stdin --balance-user-id \u003cuser-id\u003e"
     },
     {
@@ -652,12 +667,29 @@ AIGW  Provider removed
   Provider             spare
   Label                Spare
   Models               None
-  ! Token              Supplied by the environment; unset AIGW_TOKEN_SPARE
+  ! Token              Still set in the environment; unset AIGW_TOKEN_SPARE
   Balance token        None stored
   ✓ Removed; no other provider changed
 
 Next
   aigw provider list
+-- environment-stdin.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  the environment backend reads the other Token from AIGW_TOKEN_OTHER and cannot store it
+
+Fix
+  Set AIGW_TOKEN_OTHER in aigw's environment, then run `aigw provider add other --dry-run --endpoint responses=$UPSTREAM/other/v1`.
+-- environment-rejected.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Token validation failed: Codex authentication was rejected (HTTP 401)",
+  "impact": "Nothing changed.",
+  "next_detail": "Set AIGW_TOKEN_OTHER to a Token that the provider accepts, then run `aigw provider add other --endpoint responses=$UPSTREAM/other/v1 --json`."
+}
 -- list-after.txt --
 AIGW  Providers
 ────────────────────────────────────────

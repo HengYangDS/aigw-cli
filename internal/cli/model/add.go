@@ -53,9 +53,9 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	invocation.BindProtocol(cmd, &options.protocol, "The protocol on which AIGW may use the model; optional when the provider has one endpoint")
-	cmd.Flags().StringVar(&options.family, "family", "", "The model's family; an unknown family is created")
+	invocation.BindText(cmd, &options.family, "family", "The model's family; an unknown family is created")
 	cmd.Flags().StringArrayVar(&options.capabilities, "capability", nil, "A qualified `capability`; repeatable: "+capabilityUsage())
-	cmd.Flags().StringVar(&options.label, "label", "", "Display name")
+	invocation.BindText(cmd, &options.label, "label", "Display name")
 	cmd.Flags().BoolVar(&options.unlisted, "unlisted", false, "Add the model without reading the provider's catalog")
 	cmd.Flags().BoolVar(&options.dryRun, "dry-run", false, "Show the addition without reading the catalog or writing anything")
 	cmd.Flags().BoolVar(&options.jsonMode, "json", false, "Write the added model as JSON")
@@ -79,7 +79,11 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 		return err
 	}
 	if len(cfg.ResolveModelRef(ref)) > 0 {
-		return terminal.ProblemError(ref.String()+" is already added; `aigw model edit` changes it", "", "", "aigw model edit "+ref.String()+" --help", nil)
+		fix := invocation.Command("model", "show", ref.String())
+		if fix == "" {
+			fix = "Run `aigw model show` for " + ref.String() + "."
+		}
+		return terminal.ProblemError(ref.String()+" is already added; `aigw model edit` changes it", "", "", fix, nil)
 	}
 	protocol, err := addProtocol(cmd, ref, provider, options.protocol)
 	if err != nil {

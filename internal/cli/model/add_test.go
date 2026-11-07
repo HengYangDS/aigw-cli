@@ -205,7 +205,7 @@ func TestAddRefusesBadArgumentsBeforeConfigurationAccess(t *testing.T) {
 
 func TestAddRefusesAnExistingModelOrAnUnknownProvider(t *testing.T) {
 	f := newFixture(t)
-	if p := problem(f.run("add", "team/team-model", "--unlisted")); p.Title != "team/team-model is already added; `aigw model edit` changes it" || p.Fix != "aigw model edit team/team-model --help" {
+	if p := problem(f.run("add", "team/team-model", "--unlisted")); p.Title != "team/team-model is already added; `aigw model edit` changes it" || p.Fix != "aigw model show team/team-model" {
 		t.Fatalf("an existing model = %q, fix %q", p.Title, p.Fix)
 	}
 	if p := problem(f.run("add", "temm/x", "--unlisted")); p.Title != `unknown provider "temm"; did you mean team?` {

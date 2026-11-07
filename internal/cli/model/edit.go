@@ -52,9 +52,9 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	invocation.BindProtocols(cmd, &options.protocols, "Replace the model's protocols; repeatable")
-	cmd.Flags().StringVar(&options.family, "family", "", "The model's family; an unknown family is created")
+	invocation.BindText(cmd, &options.family, "family", "The model's family; an unknown family is created")
 	cmd.Flags().StringArrayVar(&options.capabilities, "capability", nil, "Replace the model's capabilities with this `capability`; repeatable, \"\" clears them: "+capabilityUsage())
-	cmd.Flags().StringVar(&options.label, "label", "", "Display name; \"\" clears it")
+	invocation.BindText(cmd, &options.label, "label", "Display name; \"\" clears it")
 	cmd.Flags().BoolVar(&options.dryRun, "dry-run", false, "Show the edit without writing anything")
 	cmd.Flags().BoolVar(&options.jsonMode, "json", false, "Write the edited model as JSON")
 	invocation.CompleteFlag(cmd, "family", invocation.CompleteFamilies(runtime))

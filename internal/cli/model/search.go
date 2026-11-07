@@ -182,27 +182,31 @@ func sourceLabel(protocol domain.EndpointProtocol) string {
 }
 
 // sourceProblem says why a protocol source could not be read, and what fixes
-// it: a missing Token is stored or set, a failed credential backend is a
-// matter for `aigw check`, a rejected Token is replaced, a status that a later
-// request may not repeat and a request that did not complete need the same
-// command again, and any other status or a response that is not a catalog
-// points at the endpoint.
+// it: a missing Token is stored or set; a credential backend that failed is
+// shown by the provider's credential report; a rejected Token is replaced, or
+// its variable changed before the same command runs again; a status that a
+// later request may not repeat and a request that did not complete need the
+// same command again; and any other status or a response that is not a
+// catalog points at the endpoint.
 func sourceProblem(cmd *cobra.Command, runtime invocation.Context, id string, observation app.CatalogObservation) (string, string) {
 	key, readOnly := secret.EnvironmentKey(id), secret.IsReadOnly(runtime.Secrets)
+	retry := invocation.Retry(cmd, cmd.Flags().Args())
 	rotate := "aigw provider rotate " + id
 	if readOnly {
-		rotate = "Set " + key + " to a Token that the provider accepts in aigw's environment."
+		rotate = "Set " + key + " to a Token that the provider accepts, then run the same command again."
+		if line := invocation.Rerun(cmd, cmd.Flags().Args(), nil); line != "" {
+			rotate = "Set " + key + " to a Token that the provider accepts, then run `" + line + "`."
+		}
 	}
 	edit := "aigw provider edit " + id + " --endpoint " + cmp.Or(observation.Source.Protocol.Name(), "<protocol>") + "=<url>"
-	retry := invocation.Retry(cmd, cmd.Flags().Args())
 	status, answered := errors.AsType[*app.CatalogStatusError](observation.Failure)
 	switch {
 	case observation.Status == app.CatalogTokenUnavailable && readOnly:
 		return "no Token: " + key + " is not set", "Set " + key + " in aigw's environment."
 	case observation.Status == app.CatalogTokenUnavailable:
-		return "no Token is stored", rotate
+		return "no Token is stored", "aigw provider rotate " + id
 	case observation.Status == app.CatalogCredentialUnavailable:
-		return "the credential backend failed, which does not mean that no Token is stored", "aigw check"
+		return "the credential backend could not tell whether a Token is stored", "aigw provider show " + id
 	case observation.Status != app.CatalogRequestFailed:
 		return "no endpoint", edit
 	case answered && (status.Status == http.StatusUnauthorized || status.Status == http.StatusForbidden):

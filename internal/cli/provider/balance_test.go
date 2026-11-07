@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -64,7 +65,7 @@ func TestBalanceFailureHidesNoOtherProviderAndExitsWithItsFix(t *testing.T) {
 	var document balanceDocument
 	f.decode(t, &document)
 	mixed := document.Providers[0]
-	if mixed.State != balanceFailed || mixed.Problem != "the balance credentials cannot be read: none is stored" ||
+	if mixed.State != balanceFailed || mixed.Problem != "no balance credentials are stored" ||
 		mixed.NextDetail != "aigw provider edit mixed --balance-token-stdin --balance-user-id <user-id>" ||
 		document.Providers[1].State != balanceReported || document.NextDetail != mixed.NextDetail {
 		t.Fatalf("balances = %+v", document)
@@ -72,7 +73,7 @@ func TestBalanceFailureHidesNoOtherProviderAndExitsWithItsFix(t *testing.T) {
 	if !strings.Contains(f.out.String(), `"ok": false`) {
 		t.Fatalf("a failed probe's document = %s", f.out)
 	}
-	if err := f.run("", "balance"); err == nil || !strings.Contains(f.text(), "✗ Balance the balance credentials cannot be read: none is stored Fix: aigw provider edit mixed") {
+	if err := f.run("", "balance"); err == nil || !strings.Contains(f.text(), "✗ Balance no balance credentials are stored Fix: aigw provider edit mixed") {
 		t.Fatalf("human failure = %v %s", err, f.text())
 	}
 }
@@ -86,7 +87,7 @@ func TestBalanceNamesTheFixOfEachFailure(t *testing.T) {
 	_ = f.run("", "balance", "mixed", "--json")
 	var document balanceDocument
 	f.decode(t, &document)
-	if item := document.Providers[0]; item.Problem != "the Token cannot be read: none is stored" || item.NextDetail != "aigw provider rotate mixed" {
+	if item := document.Providers[0]; item.Problem != "no Token is stored" || item.NextDetail != "aigw provider rotate mixed" {
 		t.Fatalf("a provider without a Token = %+v", item)
 	}
 	f.http.status["balance.test"] = http.StatusInternalServerError
@@ -98,7 +99,7 @@ func TestBalanceNamesTheFixOfEachFailure(t *testing.T) {
 	f.runtime.Secrets = failingStore{}
 	_ = f.run("", "balance", "team", "--json")
 	f.decode(t, &document)
-	if item := document.Providers[0]; item.Problem != "the Token cannot be read: the credential backend failed, which does not mean that none is stored" || item.NextAction != "aigw check" {
+	if item := document.Providers[0]; item.Problem != "the credential backend could not read the Token" || item.NextAction != "aigw provider show team" {
 		t.Fatalf("a failed backend = %+v", item)
 	}
 	f.probeMixed(t, "future")
@@ -139,5 +140,81 @@ func TestBalanceRefusesUnknownProvidersAndAnEmptyConfiguration(t *testing.T) {
 	}
 	if len(f.http.sent()) != 0 {
 		t.Fatal("a refusal sent a request")
+	}
+}
+
+// TestBalanceRerunsOnlyWhatALaterRequestMayNotRepeat shows the fix of each
+// kind of probe failure: the same probe after no response or HTTP 408, 429 or
+// 5xx; new balance credentials after HTTP 401 or 403 or a refused query; a
+// new Token after the account lists none that matches; and the probe's
+// settings after anything else. The environment backend's fixes set its
+// variables before the probe runs again.
+func TestBalanceRerunsOnlyWhatALaterRequestMayNotRepeat(t *testing.T) {
+	edit := "aigw provider edit team --balance-token-stdin --balance-user-id <user-id>"
+	settings := "Correct the balance probe of provider team in the configuration file; `aigw config path` prints its location."
+	unlisted := `{"success":true,"data":{"page_size":100,"items":[{"name":"other","key":"xxxx**********0002","status":1}]}}`
+	for _, test := range []struct {
+		name, user, tokens string
+		status             int
+		failure            error
+		fix, environment   string
+	}{
+		{name: "no response", failure: errors.New("offline"), fix: "aigw provider balance team", environment: "aigw provider balance team"},
+		{name: "rate limit", status: http.StatusTooManyRequests, fix: "aigw provider balance team", environment: "aigw provider balance team"},
+		{name: "server error", status: http.StatusBadGateway, fix: "aigw provider balance team", environment: "aigw provider balance team"},
+		{name: "rejected", status: http.StatusUnauthorized, fix: edit,
+			environment: "Set AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM and AIGW_DIAGNOSTIC_USER_ID_TEAM to balance credentials that the provider accepts, then run `aigw provider balance team`."},
+		{name: "forbidden", status: http.StatusForbidden, fix: edit},
+		{name: "refused query", user: `{"success":false,"message":"no access"}`, fix: edit},
+		{name: "unlisted Token", tokens: unlisted, fix: "aigw provider rotate team",
+			environment: "Set AIGW_TOKEN_TEAM to the Token that the provider's account lists, then run `aigw provider balance team`."},
+		{name: "wrong base URL", status: http.StatusNotFound, fix: settings, environment: settings},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			for _, readOnly := range []bool{false, true} {
+				want := test.fix
+				f := newFixture(t)
+				if readOnly {
+					if test.environment == "" {
+						continue
+					}
+					want = test.environment
+					f.withEnvironment(map[string]string{"AIGW_TOKEN_TEAM": teamToken, "AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM": "system-token", "AIGW_DIAGNOSTIC_USER_ID_TEAM": "42"})
+				}
+				f.http.user, f.http.tokens = test.user, test.tokens
+				if test.failure != nil {
+					f.http.failures["balance.test"] = test.failure
+				} else if test.status != 0 {
+					f.http.status["balance.test"] = test.status
+				}
+				if err := f.run("", "balance", "team", "--json"); err == nil {
+					t.Fatal("a failed probe succeeded")
+				}
+				var document balanceDocument
+				f.decode(t, &document)
+				if item := document.Providers[0]; item.State != balanceFailed || item.NextAction+item.NextDetail != want {
+					t.Fatalf("environment %t: %+v", readOnly, item)
+				}
+			}
+		})
+	}
+}
+
+func TestBalanceNamesAnIncompleteEnvironmentPairAndAFailedBackend(t *testing.T) {
+	f := newFixture(t)
+	f.withEnvironment(map[string]string{"AIGW_TOKEN_TEAM": teamToken, "AIGW_DIAGNOSTIC_SYSTEM_TOKEN_TEAM": "system-token"})
+	_ = f.run("", "balance", "team", "--json")
+	var document balanceDocument
+	f.decode(t, &document)
+	if item := document.Providers[0]; item.Problem != "the balance credentials are incomplete: AIGW_DIAGNOSTIC_USER_ID_TEAM is not set, and the other balance variable alone supplies nothing" ||
+		item.NextDetail != "Set AIGW_DIAGNOSTIC_USER_ID_TEAM in aigw's environment." {
+		t.Fatalf("half of the pair = %+v", item)
+	}
+	f = newFixture(t)
+	f.runtime.Providers = &stubDiagnostics{getErr: errors.New("backend failed")}
+	_ = f.run("", "balance", "team", "--json")
+	f.decode(t, &document)
+	if item := document.Providers[0]; item.Problem != "the credential backend could not read the balance credentials" || item.NextAction != "aigw provider show team" {
+		t.Fatalf("a failed backend = %+v", item)
 	}
 }

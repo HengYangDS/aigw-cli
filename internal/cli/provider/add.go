@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -56,7 +55,7 @@ func newAddCommand(runtime invocation.Context) *cobra.Command {
 			return runAdd(cmd, runtime, args, options)
 		},
 	}
-	cmd.Flags().StringVar(&options.label, "label", "", "Display name; the provider ID by default")
+	invocation.BindText(cmd, &options.label, "label", "Display name; the provider ID by default")
 	bindEndpoints(cmd, &options.endpoints, "An endpoint of the provider")
 	cmd.Flags().BoolVar(&options.tokenStdin, "token-stdin", false, "Read the Token from standard input")
 	cmd.Flags().BoolVar(&options.dryRun, "dry-run", false, "Show the provider without reading a Token, sending a request or writing anything")
@@ -73,7 +72,10 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 	id := args[0]
 	if _, exists := cfg.Providers[id]; exists {
 		return terminal.ProblemError("provider "+id+" already exists; `aigw provider edit` changes it and `aigw provider rotate` replaces its Token", "", "",
-			"aigw provider edit "+id+" --help", nil)
+			"aigw provider show "+id, nil)
+	}
+	if err := admitEnvironmentToken(cmd, runtime, args, options, id); err != nil {
+		return err
 	}
 	if len(cfg.Models) == 0 {
 		return terminal.ProblemError("AIGW is not set up yet; setup connects the first provider together with a model", "", "", "aigw setup", nil)
@@ -115,11 +117,13 @@ func runAdd(cmd *cobra.Command, runtime invocation.Context, args []string, optio
 
 // connect validates the provider's Token with one authenticated request that
 // names no model, and once the provider accepts it stores it and saves the
-// provider: a save that fails restores the previous Token, so a refusal stores
-// nothing. The read-only environment backend supplies the Token, which connect
-// validates and leaves where it is.
+// provider. A save that fails takes the Token back out, or puts back the one
+// before it, so a refusal stores nothing; when that fails too, the failure
+// says that the Token stays stored, and the same command converges. The
+// read-only environment backend supplies the Token, which connect validates
+// and leaves where it is.
 func connect(cmd *cobra.Command, runtime invocation.Context, args []string, options addOptions, before, after domain.Config, id string) (bool, error) {
-	token, err := addToken(cmd, runtime, args, options, after.Providers[id].Label, id)
+	token, err := addToken(runtime, options, after.Providers[id].Label, id)
 	if err != nil {
 		return false, err
 	}
@@ -136,36 +140,51 @@ func connect(cmd *cobra.Command, runtime invocation.Context, args []string, opti
 	if secret.IsReadOnly(runtime.Secrets) {
 		return false, runtime.Synchronizer().Commit(cmd.Context(), before, after, "provider add")
 	}
+	previous, _ := runtime.Secrets.Exists(id)
 	restore, err := secret.Replace(runtime.Secrets, map[string]string{id: token})
 	if err != nil {
 		return false, err
 	}
+	change := credentialChange{undone: "the Token was deleted again", kept: "the Token stays stored", undo: restore}
+	if previous {
+		change.undone = "the previous Token was put back"
+	}
 	if err := runtime.Synchronizer().Commit(cmd.Context(), before, after, "provider add"); err != nil {
-		return false, errors.Join(err, restore())
+		return false, saveFailure(err, []credentialChange{change}, "provider "+id+" was not added", invocation.Retry(cmd, args))
 	}
 	return true, nil
 }
 
-// addToken is the Token that add validates: one read from standard input or a
-// prompt, or with the read-only environment backend the one that its variable
-// supplies, which --token-stdin cannot replace.
-func addToken(cmd *cobra.Command, runtime invocation.Context, args []string, options addOptions, label, id string) (string, error) {
+// admitEnvironmentToken refuses, before a preview or a write, a Token that
+// the read-only environment backend cannot supply: one from --token-stdin,
+// which it cannot store, and a variable that is not set. A preview reads only
+// whether the variable is set, never its value.
+func admitEnvironmentToken(cmd *cobra.Command, runtime invocation.Context, args []string, options addOptions, id string) error {
 	if !secret.IsReadOnly(runtime.Secrets) {
-		return readToken(runtime, "Paste the "+label+" Token: ", options.tokenStdin)
+		return nil
 	}
 	if options.tokenStdin {
-		return "", readOnlyToken(id, "store", invocation.Rerun(cmd, args, []string{"token-stdin"}))
+		return readOnlyToken(id, "store", invocation.Rerun(cmd, args, []string{"token-stdin"}))
 	}
-	token, err := runtime.Secrets.Get(id)
-	if errors.Is(err, secret.ErrNotFound) {
-		key := secret.EnvironmentKey(id)
-		fix := "Set " + key + " in aigw's environment, then run the same command again."
-		if line := invocation.Rerun(cmd, args, nil); line != "" {
-			fix = "Set " + key + " in aigw's environment, then run `" + line + "`."
-		}
-		return "", terminal.ProblemError("the environment backend has no "+id+" Token: "+key+" is not set", "", "", fix, nil)
+	if present, err := runtime.Secrets.Exists(id); err != nil || present {
+		return err
 	}
-	return token, err
+	key := secret.EnvironmentKey(id)
+	fix := "Set " + key + " in aigw's environment, then run the same command again."
+	if line := invocation.Rerun(cmd, args, nil); line != "" {
+		fix = "Set " + key + " in aigw's environment, then run `" + line + "`."
+	}
+	return terminal.ProblemError("the environment backend has no "+id+" Token: "+key+" is not set", "", "", fix, nil)
+}
+
+// addToken is the Token that add validates: one read from standard input or a
+// prompt, or with the read-only environment backend the one that its variable
+// supplies, which admitEnvironmentToken found set.
+func addToken(runtime invocation.Context, options addOptions, label, id string) (string, error) {
+	if secret.IsReadOnly(runtime.Secrets) {
+		return runtime.Secrets.Get(id)
+	}
+	return readToken(runtime, "Paste the "+label+" Token: ", options.tokenStdin)
 }
 
 // correctEndpoint is the fix for an endpoint that neither accepted nor

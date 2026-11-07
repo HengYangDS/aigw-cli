@@ -302,13 +302,13 @@ func TestSearchNamesTheFixOfAMissingToken(t *testing.T) {
 	f.runtime.Secrets = secret.NewEnvironmentStore(func(string) string { return "unreadable-token" })
 	f.catalogs.status["bearer https://unreadable.test/v1/models"] = http.StatusForbidden
 	document, _ = f.search(t, "--provider", "unreadable")
-	if unreadable := document.provider(t, "unreadable"); unreadable.NextDetail != "Set AIGW_TOKEN_UNREADABLE to a Token that the provider accepts in aigw's environment." {
+	if unreadable := document.provider(t, "unreadable"); unreadable.NextDetail != "Set AIGW_TOKEN_UNREADABLE to a Token that the provider accepts, then run `aigw model search --provider unreadable`." {
 		t.Fatalf("an environment Token that is rejected = %+v", unreadable)
 	}
 	f.runtime.Secrets = failingSecrets{}
 	document, _ = f.search(t, "--provider", "notoken")
-	if notoken := document.provider(t, "notoken"); notoken.Problem != "Anthropic Messages: the credential backend failed, which does not mean that no Token is stored" ||
-		notoken.NextAction != "aigw check" {
+	if notoken := document.provider(t, "notoken"); notoken.Problem != "Anthropic Messages: the credential backend could not tell whether a Token is stored" ||
+		notoken.NextAction != "aigw provider show notoken" {
 		t.Fatalf("a failed backend = %+v", notoken)
 	}
 }

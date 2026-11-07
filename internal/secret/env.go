@@ -30,6 +30,26 @@ func DiagnosticUserIDEnvironmentKey(account string) string {
 	return "AIGW_DIAGNOSTIC_USER_ID_" + environmentProviderID(account)
 }
 
+// EnvironmentVariables names the variables of an Account's credentials that
+// the read-only environment backend sees set, each checked on its own and in
+// a fixed order: the Token's, the diagnostic system token's and the
+// diagnostic user ID's. A diagnostic credential needs both of its variables,
+// so one of them alone is listed although the credential is unavailable.
+// Every other backend has none.
+func EnvironmentVariables(store Store, account string) []string {
+	environment, ok := backendStore(store).(environmentStore)
+	if !ok {
+		return nil
+	}
+	set := []string{}
+	for _, key := range []string{EnvironmentKey(account), DiagnosticSystemTokenEnvironmentKey(account), DiagnosticUserIDEnvironmentKey(account)} {
+		if environment.getenv(key) != "" {
+			set = append(set, key)
+		}
+	}
+	return set
+}
+
 func environmentProviderID(account string) string {
 	var encoded strings.Builder
 	for _, character := range strings.ToUpper(account) {

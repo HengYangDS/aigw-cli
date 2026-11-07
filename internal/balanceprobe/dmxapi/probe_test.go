@@ -338,3 +338,58 @@ func TestProbeReportsIncompletePaginationInsteadOfTokenAbsence(t *testing.T) {
 		t.Fatalf("bounded pagination error = %v, token calls = %d", err, tokenCalls)
 	}
 }
+
+// TestProbeFailuresKeepTheirKind shows that a caller can tell a status, a
+// request without a response, a refused query and an unlisted Token apart.
+func TestProbeFailuresKeepTheirKind(t *testing.T) {
+	user := `{"success":true,"data":{"quota":0}}`
+	for _, test := range []struct {
+		name   string
+		answer func(*http.Request) (*http.Response, error)
+		check  func(error) bool
+	}{
+		{"status", func(*http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusForbidden, Body: io.NopCloser(strings.NewReader("denied"))}, nil
+		}, func(err error) bool {
+			status, ok := errors.AsType[*diagnostic.StatusError](err)
+			return ok && status.Status == http.StatusForbidden && strings.Contains(err.Error(), "HTTP 403: denied")
+		}},
+		{"no response", func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") }, func(err error) bool {
+			_, ok := errors.AsType[*diagnostic.UnreachableError](err)
+			return ok && errors.Unwrap(err).Error() == "offline"
+		}},
+		{"refused account query", func(*http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"success":false,"message":"no"}`))}, nil
+		}, func(err error) bool {
+			refused, ok := errors.AsType[*diagnostic.RefusedError](err)
+			return ok && refused.Error() == "DMXAPI account query failed: no"
+		}},
+		{"refused token query", func(request *http.Request) (*http.Response, error) {
+			body := user
+			if request.URL.Path == "/api/token/search" {
+				body = `{"success":false,"message":"no"}`
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
+		}, func(err error) bool {
+			_, ok := errors.AsType[*diagnostic.RefusedError](err)
+			return ok
+		}},
+		{"unlisted Token", func(request *http.Request) (*http.Response, error) {
+			body := user
+			if request.URL.Path == "/api/token/search" {
+				body = `{"success":true,"data":{"items":[]}}`
+			}
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
+		}, func(err error) bool {
+			return errors.Is(err, diagnostic.ErrTokenNotListed) && err.Error() == "current API Token was not found in the DMXAPI account"
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			providerAccount := domain.Provider{BalanceProbe: &domain.BalanceProbe{Kind: "dmxapi", BaseURL: "https://example.com"}}
+			_, err := dmxapi.Probe(t.Context(), probe.Sender{Client: roundTrip(test.answer)}, providerAccount, "sk-abcd-middle-wxyz", diagnostic.Credential{})
+			if err == nil || !test.check(err) {
+				t.Fatalf("error = %v (%T)", err, err)
+			}
+		})
+	}
+}

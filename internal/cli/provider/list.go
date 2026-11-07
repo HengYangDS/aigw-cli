@@ -78,9 +78,11 @@ func newShowCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			backend, _ := secret.Inspect(runtime.Secrets)
 			document := showDocument{
 				providerItem: describe(cfg, provider.ID), SelectedBy: selectingClients(cfg, provider.ID),
-				Token: credentialState(runtime.Secrets.Exists, provider.ID),
+				Token:             credentialState(runtime.Secrets.Exists, provider.ID),
+				CredentialBackend: credentialBackend{Kind: backend.Kind, Availability: backend.Availability, Mutability: backend.Mutability},
 			}
 			if provider.BalanceProbe != nil {
 				document.BalanceCredential = credentialState(runtime.Providers.Exists, provider.ID)
@@ -112,6 +114,7 @@ func renderShow(runtime invocation.Context, document showDocument) error {
 		fields = append(fields, terminal.Field{Label: "Balance probe", Value: document.BalanceProbe},
 			credentialField("Balance token", document.BalanceCredential, balanceVariables(runtime.Secrets, document.ID)))
 	}
+	fields = append(fields, backendField(document.CredentialBackend))
 	r.Rows(fields...)
 	next := "aigw model list --provider " + document.ID
 	if document.Token == credentialAbsent && !secret.IsReadOnly(runtime.Secrets) {
@@ -119,6 +122,20 @@ func renderShow(runtime invocation.Context, document showDocument) error {
 	}
 	r.Next(next)
 	return r.Err()
+}
+
+// backendField is the row of the credential backend: its kind, whether it
+// only reads credentials, and whether it answers, which tells a backend that
+// failed from a credential that is missing.
+func backendField(backend credentialBackend) terminal.Field {
+	value := backend.Kind + " backend"
+	if backend.Mutability == "read_only" {
+		value += ", read-only"
+	}
+	if backend.Availability != "available" {
+		return terminal.Field{State: terminal.Warn, Label: "Credential backend", Value: value + ", " + strings.ReplaceAll(backend.Availability, "_", " ")}
+	}
+	return terminal.Field{State: terminal.OK, Label: "Credential backend", Value: value + ", available"}
 }
 
 // credentialState observes whether a credential slot holds a value, without

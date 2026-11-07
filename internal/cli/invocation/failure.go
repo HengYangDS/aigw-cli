@@ -86,14 +86,18 @@ func (e retryable) NextAction() string { return e.retry }
 
 // TokenValidationProblem explains a Token that a command did not store,
 // because its provider rejected it or the request that validates it did not
-// complete. A rejected Token, an endpoint that did not answer and a status that
-// a later request may not repeat need the same command again; any other status
-// points at the endpoint, which endpointFix corrects for the protocol that
-// answered. The impact names the provider's previous Token only when secrets
-// holds one.
+// complete. A rejected Token needs the same command again, which reads a new
+// Token, except from the read-only environment backend, whose variable must
+// change first. An endpoint that did not answer and a status that a later
+// request may not repeat need the same command again; any other status points
+// at the endpoint, which endpointFix corrects for the protocol that answered.
+// The impact names the provider's previous Token only when secrets holds one.
 func TokenValidationProblem(cmd *cobra.Command, args []string, secrets secret.Store, provider string, endpointFix func(domain.EndpointProtocol) string, err error) error {
+	readOnly := secret.IsReadOnly(secrets)
 	impact := "No Token was stored."
-	if previous, existsErr := secrets.Exists(provider); existsErr == nil && previous {
+	if previous, existsErr := secrets.Exists(provider); readOnly {
+		impact = "Nothing changed."
+	} else if existsErr == nil && previous {
 		impact = "No Token was stored; the previous Token is unchanged."
 	}
 	fix := "aigw check"
@@ -103,6 +107,11 @@ func TokenValidationProblem(cmd *cobra.Command, args []string, secrets secret.St
 	switch {
 	case answered && !TransientStatus(status.Status):
 		fix = endpointFix(status.Protocol)
+	case rejected && readOnly:
+		fix = "Set " + secret.EnvironmentKey(provider) + " to a Token that the provider accepts, then run the same command again."
+		if line, isPlain := commandLine(cmd, args); isPlain {
+			fix = "Set " + secret.EnvironmentKey(provider) + " to a Token that the provider accepts, then run `" + line + "`."
+		}
 	case answered, rejected, unreachable:
 		fix = Retry(cmd, args)
 	}

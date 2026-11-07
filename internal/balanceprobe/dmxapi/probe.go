@@ -42,7 +42,7 @@ func Probe(ctx context.Context, sender diagnostic.Sender, providerAccount domain
 		return diagnostic.Report{}, err
 	}
 	if !user.Success {
-		return diagnostic.Report{}, fmt.Errorf("DMXAPI account query failed: %s", domain.Redact(user.Message, auth.SystemToken, auth.UserID))
+		return diagnostic.Report{}, &diagnostic.RefusedError{Text: "DMXAPI account query failed: " + domain.Redact(user.Message, auth.SystemToken, auth.UserID)}
 	}
 	items, err := fetchTokens(ctx, sender, base, auth)
 	if err != nil {
@@ -67,7 +67,7 @@ func Probe(ctx context.Context, sender diagnostic.Sender, providerAccount domain
 			TokenUnlimitedCount: token.UnlimitedCount,
 		}, nil
 	}
-	return diagnostic.Report{AccountBalance: float64(user.Data.Quota) / 500000}, fmt.Errorf("current API Token was not found in the DMXAPI account")
+	return diagnostic.Report{AccountBalance: float64(user.Data.Quota) / 500000}, fmt.Errorf("%w in the DMXAPI account", diagnostic.ErrTokenNotListed)
 }
 
 type token struct {
@@ -97,7 +97,7 @@ func fetchTokens(ctx context.Context, sender diagnostic.Sender, base string, aut
 			return nil, err
 		}
 		if !payload.Success {
-			return nil, fmt.Errorf("DMXAPI token query failed: %s", domain.Redact(payload.Message, auth.SystemToken, auth.UserID))
+			return nil, &diagnostic.RefusedError{Text: "DMXAPI token query failed: " + domain.Redact(payload.Message, auth.SystemToken, auth.UserID)}
 		}
 		items = append(items, payload.Data.Items...)
 		if len(payload.Data.Items) < tokenPageSize {
@@ -118,12 +118,13 @@ func getJSON(ctx context.Context, sender diagnostic.Sender, endpoint string, aut
 	req.Header.Set("Dmx-Api-User", auth.UserID)
 	resp, err := sender.Send(req)
 	if err != nil {
-		return err
+		return &diagnostic.UnreachableError{Err: err}
 	}
 	defer func() { resultErr = errors.Join(resultErr, resp.Body.Close()) }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return errors.Join(fmt.Errorf("DMXAPI platform API returned HTTP %d: %s", resp.StatusCode, domain.Redact(strings.TrimSpace(string(body)), auth.SystemToken, auth.UserID)), readErr)
+		status := &diagnostic.StatusError{Status: resp.StatusCode}
+		return errors.Join(fmt.Errorf("DMXAPI platform API returned %w: %s", status, domain.Redact(strings.TrimSpace(string(body)), auth.SystemToken, auth.UserID)), readErr)
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, responseLimit+1))
 	if err != nil {

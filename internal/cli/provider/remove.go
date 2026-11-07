@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -52,7 +51,7 @@ func runRemove(cmd *cobra.Command, runtime invocation.Context, args []string, dr
 		Recommendations: []string{}, ClientFiles: []invocation.ClientFile{},
 	}
 	if secret.IsReadOnly(runtime.Secrets) {
-		document.Unset = environmentToUnset(document, id)
+		document.Unset = secret.EnvironmentVariables(runtime.Secrets, id)
 	}
 	if refusal := removalRefusal(runtime, cfg, id); refusal != nil {
 		return blockedRemoval(runtime, document, refusal, jsonMode)
@@ -143,33 +142,21 @@ func removeProvider(cfg *domain.Config, id string) []string {
 	return changed
 }
 
-// environmentToUnset names the read-only environment backend's variables that
-// still supply the provider's credentials, which a removal cannot delete.
-func environmentToUnset(document removeDocument, id string) []string {
-	variables := []string{}
-	if document.Token != credentialAbsent {
-		variables = append(variables, secret.EnvironmentKey(id))
-	}
-	if document.BalanceCredential != credentialAbsent {
-		variables = append(variables, secret.DiagnosticSystemTokenEnvironmentKey(id), secret.DiagnosticUserIDEnvironmentKey(id))
-	}
-	return variables
-}
-
 // commitRemoval deletes the provider's credentials and saves the configuration
-// without it, as one transaction: a save that fails restores the credentials.
-// The read-only environment backend keeps its variables, which the result
-// names.
+// without it, as one transaction: a save that fails puts the credentials back,
+// and when one cannot be put back the failure names it, with the removal
+// again as the fix, which converges. The read-only environment backend keeps
+// its variables, which the result names.
 func commitRemoval(cmd *cobra.Command, runtime invocation.Context, before, after domain.Config, id string, document removeDocument) error {
-	restore := func() error { return nil }
+	var changes []credentialChange
 	if !secret.IsReadOnly(runtime.Secrets) {
 		var err error
-		if restore, err = deleteCredentials(runtime, id, document); err != nil {
+		if changes, err = deleteCredentials(runtime, id, document); err != nil {
 			return err
 		}
 	}
 	if err := runtime.Synchronizer().Commit(cmd.Context(), before, after, "provider remove"); err != nil {
-		return errors.Join(err, restore())
+		return saveFailure(err, changes, "provider "+id+" was not removed", "aigw provider remove "+id)
 	}
 	return nil
 }
@@ -186,7 +173,9 @@ func renderRemoval(runtime invocation.Context, document removeDocument, next str
 		models = "None"
 	}
 	rows := []terminal.Field{{Label: "Provider", Value: document.ID}, {Label: "Label", Value: document.Label}, {Label: "Models", Value: models}}
-	rows = append(rows, removedCredential("Token", document.Token, document.Unset), removedCredential("Balance token", document.BalanceCredential, document.Unset))
+	tokenVariable := slices.DeleteFunc(slices.Clone(document.Unset), func(key string) bool { return key != secret.EnvironmentKey(document.ID) })
+	balanceVariables := slices.DeleteFunc(slices.Clone(document.Unset), func(key string) bool { return key == secret.EnvironmentKey(document.ID) })
+	rows = append(rows, removedCredential("Token", document.Token, tokenVariable), removedCredential("Balance token", document.BalanceCredential, balanceVariables))
 	if len(document.Recommendations) > 0 {
 		rows = append(rows, terminal.Field{Label: "Recommendations", Value: "Dropped for " + clientLabels(runtime.Clients.Admission(), document.Recommendations)})
 	}
@@ -202,12 +191,13 @@ func renderRemoval(runtime invocation.Context, document removeDocument, next str
 }
 
 // removedCredential is the row of a credential that a removal deletes: one
-// that is stored, none, one that the backend could not observe, or one that
-// the read-only environment backend supplies, whose variables stay.
-func removedCredential(label, state string, unset []string) terminal.Field {
+// that is stored, none, one that the backend could not observe, or one whose
+// variables the read-only environment backend still sees set, each checked
+// on its own, which stay until they are unset.
+func removedCredential(label, state string, variables []string) terminal.Field {
 	switch {
-	case unset != nil && state != credentialAbsent:
-		return terminal.Field{State: terminal.Warn, Label: label, Value: "Supplied by the environment; unset " + strings.Join(unset, ", ")}
+	case len(variables) > 0:
+		return terminal.Field{State: terminal.Warn, Label: label, Value: "Still set in the environment; unset " + strings.Join(variables, " and ")}
 	case state == credentialPresent:
 		return terminal.Field{State: terminal.OK, Label: label, Value: "Deleted with the provider"}
 	case state == credentialUnobserved:

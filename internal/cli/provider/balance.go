@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"time"
 
@@ -125,20 +126,22 @@ func probeBalance(ctx context.Context, runtime invocation.Context, cfg domain.Co
 	item.State = balanceFailed
 	credential, err := runtime.Providers.Get(id)
 	if err != nil {
-		item.Problem = "the balance credentials cannot be read: " + credentialReason(err)
-		return item, balanceCredentialFix(runtime.Secrets, id)
+		problem, fix := balanceCredentialProblem(runtime.Secrets, id, err)
+		item.Problem = problem
+		return item, fix
 	}
 	token, err := runtime.Secrets.Get(id)
 	if err != nil {
-		item.Problem = "the Token cannot be read: " + credentialReason(err)
-		return item, tokenFix(runtime.Secrets, id, err)
+		problem, fix := tokenProblem(runtime.Secrets, id, err)
+		item.Problem = problem
+		return item, fix
 	}
 	ctx, cancel := context.WithTimeout(ctx, balanceTimeout)
 	defer cancel()
 	report, err := balanceprobe.Probe(ctx, probe.Sender{Client: runtime.HTTP}, provider, token, diagnostic.Credential(credential))
 	if err != nil {
 		item.Problem = err.Error()
-		return item, "aigw provider balance " + id
+		return item, probeFix(runtime.Secrets, id, err)
 	}
 	item.State, item.Balance = balanceReported, &report.AccountBalance
 	item.Token = &balanceToken{
@@ -148,35 +151,69 @@ func probeBalance(ctx context.Context, runtime invocation.Context, cfg domain.Co
 	return item, ""
 }
 
-// credentialReason says why a credential cannot be read, without the
-// backend's own message: it is missing, or the backend failed, which does not
-// mean that it is missing.
-func credentialReason(err error) string {
-	if errors.Is(err, secret.ErrNotFound) {
-		return "none is stored"
-	}
-	return "the credential backend failed, which does not mean that none is stored"
-}
-
-// balanceCredentialFix stores the balance credentials again, or with the
-// read-only environment backend sets the variables that supply them.
-func balanceCredentialFix(store secret.Store, id string) string {
+// balanceCredentialProblem says why the balance credentials cannot be read,
+// and what fixes it. None stored: store them, or with the read-only
+// environment backend set the variables that are not set, which it checks one
+// by one, since one of the two alone supplies nothing. Any other failure is
+// the backend's, which the provider's credential report shows.
+func balanceCredentialProblem(store secret.Store, id string, err error) (string, string) {
 	if variables := balanceVariables(store, id); len(variables) > 0 {
-		return "Set " + variables[0] + " and " + variables[1] + " in aigw's environment."
+		set := secret.EnvironmentVariables(store, id)
+		missing := slices.DeleteFunc(slices.Clone(variables), func(key string) bool { return slices.Contains(set, key) })
+		if len(missing) == 1 {
+			return "the balance credentials are incomplete: " + missing[0] + " is not set, and the other balance variable alone supplies nothing",
+				"Set " + missing[0] + " in aigw's environment."
+		}
+		return "no balance credentials: " + variables[0] + " and " + variables[1] + " are not set", "Set " + variables[0] + " and " + variables[1] + " in aigw's environment."
 	}
-	return "aigw provider edit " + id + " --balance-token-stdin --balance-user-id <user-id>"
+	if errors.Is(err, secret.ErrNotFound) {
+		return "no balance credentials are stored", "aigw provider edit " + id + " --balance-token-stdin --balance-user-id <user-id>"
+	}
+	return "the credential backend could not read the balance credentials", "aigw provider show " + id
 }
 
-// tokenFix stores a missing Token, or sets the variable that supplies it; a
-// backend that failed is a matter for `aigw check`.
-func tokenFix(store secret.Store, id string, err error) string {
+// tokenProblem says why the provider's Token cannot be read, and what fixes
+// it: store a missing Token, or set the variable that supplies it; a backend
+// that failed is shown by the provider's credential report.
+func tokenProblem(store secret.Store, id string, err error) (string, string) {
 	switch {
 	case !errors.Is(err, secret.ErrNotFound):
-		return "aigw check"
+		return "the credential backend could not read the Token", "aigw provider show " + id
 	case secret.IsReadOnly(store):
-		return "Set " + secret.EnvironmentKey(id) + " in aigw's environment."
+		return "no Token: " + secret.EnvironmentKey(id) + " is not set", "Set " + secret.EnvironmentKey(id) + " in aigw's environment."
 	default:
+		return "no Token is stored", "aigw provider rotate " + id
+	}
+}
+
+// probeFix is the fix of a balance probe that failed. A request without a
+// response and a status that a later request may not repeat need the same
+// probe again. A refusal of the balance credentials, as HTTP 401 or 403 or a
+// refused query, needs new ones; an account that lists no matching Token
+// needs the provider's Token replaced. Any other failure, such as another
+// status or a response that is not the platform's, points at the probe's
+// settings in the configuration file. With the read-only environment backend
+// the fix sets the variables and then runs the probe.
+func probeFix(store secret.Store, id string, err error) string {
+	status, answered := errors.AsType[*diagnostic.StatusError](err)
+	_, unreachable := errors.AsType[*diagnostic.UnreachableError](err)
+	_, refused := errors.AsType[*diagnostic.RefusedError](err)
+	rerun := "aigw provider balance " + id
+	readOnly := secret.IsReadOnly(store)
+	switch {
+	case unreachable, answered && invocation.TransientStatus(status.Status):
+		return rerun
+	case refused, answered && (status.Status == http.StatusUnauthorized || status.Status == http.StatusForbidden):
+		if variables := balanceVariables(store, id); readOnly {
+			return "Set " + variables[0] + " and " + variables[1] + " to balance credentials that the provider accepts, then run `" + rerun + "`."
+		}
+		return "aigw provider edit " + id + " --balance-token-stdin --balance-user-id <user-id>"
+	case errors.Is(err, diagnostic.ErrTokenNotListed) && readOnly:
+		return "Set " + secret.EnvironmentKey(id) + " to the Token that the provider's account lists, then run `" + rerun + "`."
+	case errors.Is(err, diagnostic.ErrTokenNotListed):
 		return "aigw provider rotate " + id
+	default:
+		return "Correct the balance probe of provider " + id + " in the configuration file; `aigw config path` prints its location."
 	}
 }
 

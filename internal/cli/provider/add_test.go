@@ -149,7 +149,7 @@ func TestAddRefusesBeforeReadingConfigurationOrInput(t *testing.T) {
 func TestAddRefusesAnExistingProviderAndAnEmptyConfiguration(t *testing.T) {
 	f := newFixture(t)
 	p := problem(f.run("sk-x-0001\n", "add", "team", "--endpoint", "anthropic=https://x.test", "--token-stdin"))
-	if p.Title != "provider team already exists; `aigw provider edit` changes it and `aigw provider rotate` replaces its Token" || p.Fix != "aigw provider edit team --help" {
+	if p.Title != "provider team already exists; `aigw provider edit` changes it and `aigw provider rotate` replaces its Token" || p.Fix != "aigw provider show team" {
 		t.Fatalf("an existing provider = %+v", p)
 	}
 	f.runtime.Config = emptyStore(t)
@@ -186,8 +186,18 @@ func TestAddValidatesTheEnvironmentsTokenAndStoresNothing(t *testing.T) {
 		p.Fix != "Set AIGW_TOKEN_OTHER in aigw's environment, then run `aigw provider add other --endpoint anthropic=https://fresh.test`." {
 		t.Fatalf("--token-stdin with the environment = %+v", p)
 	}
-	if err := f.run("", "add", "other", "--endpoint", "anthropic=https://fresh.test", "--dry-run"); err != nil || !strings.Contains(f.text(), "Not read in a preview") {
-		t.Fatalf("an environment preview = %v %s", err, f.text())
+	// A preview refuses what the write refuses: a Token from standard input,
+	// and a variable that is not set.
+	for _, args := range [][]string{
+		{"add", "other", "--endpoint", "anthropic=https://fresh.test", "--dry-run", "--token-stdin"},
+		{"add", "other", "--endpoint", "anthropic=https://fresh.test", "--dry-run"},
+	} {
+		if err := f.run("sk-other-0001\n", args...); err == nil || !strings.Contains(err.Error(), "AIGW_TOKEN_OTHER") {
+			t.Fatalf("an environment preview %q = %v", args, err)
+		}
+	}
+	if err := f.run("", "add", "fresh-two", "--endpoint", "anthropic=https://fresh.test", "--dry-run"); err == nil {
+		t.Fatal("a preview without the variable succeeded")
 	}
 	f.withEnvironment(map[string]string{"AIGW_TOKEN_THIRD": "sk-third-0001"})
 	if err := f.run("", "add", "third", "--endpoint", "anthropic=https://fresh.test"); err != nil || !strings.Contains(f.text(), "Accepted by the provider; AIGW_TOKEN_THIRD supplies it") {
@@ -216,5 +226,21 @@ func TestAddRestoresTheTokenWhenTheSaveFails(t *testing.T) {
 	}
 	if _, added := f.load(t).Providers["fresh"]; added {
 		t.Fatal("a failed save added the provider")
+	}
+}
+
+// A Token from the read-only environment backend that the provider rejects
+// needs its variable changed: the same command alone would fail the same way.
+func TestAddNamesTheVariableOfARejectedEnvironmentToken(t *testing.T) {
+	f := newFixture(t)
+	f.withEnvironment(map[string]string{"AIGW_TOKEN_FRESH": "sk-rejected"})
+	f.http.status["fresh.test"] = http.StatusUnauthorized
+	p := problem(f.run("", "add", "fresh", "--endpoint", "anthropic=https://fresh.test", "--json"))
+	if p.Fix != "Set AIGW_TOKEN_FRESH to a Token that the provider accepts, then run `aigw provider add fresh --endpoint anthropic=https://fresh.test --json`." ||
+		p.Impact != "Nothing changed." {
+		t.Fatalf("a rejected environment Token = %+v", p)
+	}
+	if _, added := f.load(t).Providers["fresh"]; added {
+		t.Fatal("a rejected Token added the provider")
 	}
 }

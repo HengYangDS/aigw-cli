@@ -127,7 +127,7 @@ func TestRemoveWithTheEnvironmentNamesTheVariablesToUnset(t *testing.T) {
 	if err := f.run("", "remove", "mixed"); err != nil {
 		t.Fatal(err)
 	}
-	if text := f.text(); !strings.Contains(text, "! Token Supplied by the environment; unset AIGW_TOKEN_MIXED") || !strings.Contains(text, "Balance token None stored") {
+	if text := f.text(); !strings.Contains(text, "! Token Still set in the environment; unset AIGW_TOKEN_MIXED") || !strings.Contains(text, "Balance token None stored") {
 		t.Fatalf("environment removal = %s", text)
 	}
 	if _, kept := f.load(t).Providers["mixed"]; kept {
@@ -143,7 +143,7 @@ func TestRemoveDeletesNothingThatItCannotRestore(t *testing.T) {
 	if f.configuration(t) != before {
 		t.Fatal("a refused removal changed the configuration")
 	}
-	if p.Title != "the mixed Token could not be read and deleted, so the provider was not removed" || p.Impact != "Nothing was removed." || p.Fix != "aigw check" {
+	if p.Title != "provider mixed was not removed: the Token could not be deleted" || p.Impact != "Nothing was removed." || p.Fix != "aigw provider show mixed" {
 		t.Fatalf("an unreadable Token = %+v", p)
 	}
 	if err := f.run("", "remove", "mixed", "--dry-run"); err != nil || !strings.Contains(f.text(), "Unknown: the credential backend could not tell") {
@@ -153,8 +153,8 @@ func TestRemoveDeletesNothingThatItCannotRestore(t *testing.T) {
 	f.credentialMixed(t)
 	f.runtime.Providers = failingDiagnostics{}
 	p = problem(f.run("", "remove", "mixed"))
-	if p.Title != "the mixed balance credentials could not be read and deleted, so the provider was not removed" ||
-		p.Impact != "Nothing was removed." || p.Fix != "aigw provider edit mixed --no-balance-token" {
+	if p.Title != "provider mixed was not removed: the balance credentials could not be deleted" ||
+		p.Impact != "Nothing was removed; the Token was put back." || p.Fix != "aigw provider show mixed" {
 		t.Fatalf("unreadable balance credentials = %+v", p)
 	}
 	if _, kept := f.load(t).Providers["mixed"]; !kept || f.token("mixed") != "sk-mixed-token-0001" {

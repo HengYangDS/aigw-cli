@@ -159,22 +159,23 @@ func TestEditRefusals(t *testing.T) {
 	}
 }
 
-func TestEditReportsBalanceCredentialsThatFailAfterTheSave(t *testing.T) {
+// The balance credentials change before the configuration is saved, so a
+// balance write that fails changes nothing.
+func TestEditChangesNothingWhenTheBalanceWriteFails(t *testing.T) {
 	f := newFixture(t)
 	f.runtime.Providers = failingDiagnostics{}
 	p := problem(f.run("system\n", "edit", "team", "--label", "Renamed", "--balance-token-stdin", "--balance-user-id", "7"))
-	if p.Title != "the balance credentials could not be changed" || p.Impact != "Every other change was saved." ||
-		p.Fix != "aigw provider edit team --balance-token-stdin --balance-user-id 7 --label Renamed" {
+	if p.Title != "the balance credentials of provider team could not be stored" || p.Impact != "Nothing changed." || p.Fix != "aigw provider show team" {
 		t.Fatalf("a failed balance write = %+v", p)
 	}
-	if f.load(t).Providers["team"].Label != "Renamed" {
-		t.Fatal("the label was not saved")
+	if f.load(t).Providers["team"].Label != "Team" {
+		t.Fatal("the label was saved")
 	}
 	if err := f.run("", "edit", "team", "--no-balance-token"); err == nil {
 		t.Fatal("a failed balance removal succeeded")
 	}
 	// A balance token that is not one visible value stores nothing.
-	if err := f.run("two words\n", "edit", "team", "--label", "Again", "--balance-token-stdin", "--balance-user-id", "7"); err == nil || f.load(t).Providers["team"].Label != "Renamed" {
+	if err := f.run("two words\n", "edit", "team", "--label", "Again", "--balance-token-stdin", "--balance-user-id", "7"); err == nil || f.load(t).Providers["team"].Label != "Team" {
 		t.Fatalf("malformed balance input = %v", err)
 	}
 }
@@ -213,3 +214,69 @@ func (failingDiagnostics) Set(string, secret.DiagnosticCredential) error {
 }
 func (failingDiagnostics) Delete(string) error         { return errors.New("backend failed") }
 func (failingDiagnostics) Exists(string) (bool, error) { return false, errors.New("backend failed") }
+
+// An endpoint change keeps the retry budgets of the clients that reach it,
+// because they belong to the provider, and says so.
+func TestEditReportsTheRetryBudgetsThatAnEndpointChangeKeeps(t *testing.T) {
+	f := newFixture(t)
+	if err := f.run("", "edit", "team", "--endpoint", "responses=https://new.test/v1", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	var document changeDocument
+	f.decode(t, &document)
+	if strings.Join(document.KeptRetryBudgets, ",") != "codex" || strings.Join(document.ClearedForwarding, ",") != "codex" {
+		t.Fatalf("edit = %+v", document)
+	}
+	if err := f.run("", "edit", "team", "--endpoint", "responses=https://newer.test/v1"); err != nil || !strings.Contains(f.text(), "· Retry budgets kept Codex") {
+		t.Fatalf("human edit = %v %s", err, f.text())
+	}
+	// Another protocol's endpoint keeps no client's budgets.
+	if err := f.run("", "edit", "team", "--endpoint", "anthropic=https://new.test", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	document = changeDocument{}
+	f.decode(t, &document)
+	if len(document.KeptRetryBudgets) != 0 {
+		t.Fatalf("an Anthropic edit kept budgets for %q", document.KeptRetryBudgets)
+	}
+}
+
+// At a terminal, --balance-token-stdin prompts, which --json never does, so
+// the pair is refused, with a fix that pipes the balance token.
+func TestEditRefusesABalancePromptWithJSON(t *testing.T) {
+	f := newFixture(t)
+	f.runtime.Interactive = true
+	p := problem(f.run("", "edit", "team", "--balance-token-stdin", "--balance-user-id", "7", "--json"))
+	if p.Title != "--balance-token-stdin prompts for the balance token at a terminal, and --json never prompts" ||
+		p.Fix != "Pipe the balance token to `aigw provider edit team --balance-token-stdin --balance-user-id 7 --json`." {
+		t.Fatalf("a balance prompt with JSON = %+v", p)
+	}
+	if p := problem(f.run("", "edit", "team", "--balance-token-stdin", "--balance-user-id", "two words", "--json")); p.Fix != "Pipe the balance token to the same command." {
+		t.Fatalf("a fix that would need quoting = %+v", p)
+	}
+	// Piped in, with or without JSON, the balance token is read from standard
+	// input.
+	f.runtime.Interactive = false
+	if err := f.run("piped-system\n", "edit", "team", "--balance-token-stdin", "--balance-user-id", "7", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	if credential, _ := f.runtime.Providers.Get("team"); credential.SystemToken != "piped-system" {
+		t.Fatalf("piped balance token = %+v", credential)
+	}
+}
+
+func TestProviderFlagsThatTakeOneValueRefuseASecond(t *testing.T) {
+	f := newFixture(t)
+	for _, args := range [][]string{
+		{"add", "fresh", "--label", "One", "--label", "Two", "--endpoint", "chat=https://x.test", "--dry-run"},
+		{"edit", "team", "--label", "One", "--label", "Two"},
+		{"edit", "team", "--balance-token-stdin", "--balance-user-id", "7", "--balance-user-id", "8"},
+	} {
+		if err := f.run("system\n", args...); err == nil || !strings.Contains(err.Error(), "this flag takes one value") {
+			t.Fatalf("%q = %v", args, err)
+		}
+	}
+	if f.load(t).Providers["team"].Label != "Team" {
+		t.Fatal("a refused flag changed the provider")
+	}
+}

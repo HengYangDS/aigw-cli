@@ -34,8 +34,10 @@ type fakeHTTP struct {
 	requests []string
 	status   map[string]int
 	failures map[string]error
-	// tokens replaces the balance probe's list of Tokens when set.
+	// tokens and user replace the balance probe's list of Tokens and its
+	// account query's answer when set.
 	tokens string
+	user   string
 }
 
 func (f *fakeHTTP) Do(request *http.Request) (*http.Response, error) {
@@ -53,6 +55,9 @@ func (f *fakeHTTP) Do(request *http.Request) (*http.Response, error) {
 	switch request.URL.Path {
 	case "/api/user/self":
 		body = `{"success":true,"data":{"quota":5000000}}`
+		if f.user != "" {
+			body = f.user
+		}
 	case "/api/token/search":
 		body = `{"success":true,"data":{"page_size":100,"items":[{"name":"team","key":"team**********0001","status":1,"used_quota":500000,"remain_quota":2500000,"remain_count":42}]}}`
 		if f.tokens != "" {

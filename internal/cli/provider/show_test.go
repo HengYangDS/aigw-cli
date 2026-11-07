@@ -83,29 +83,52 @@ func TestRemovalCompensationReportsWhatItCouldNotRestore(t *testing.T) {
 	stub := &stubSecrets{value: "sk-mixed-token-0001", setErr: errors.New("backend failed")}
 	f.runtime.Secrets, f.runtime.Providers = stub, failingDiagnostics{}
 	p := problem(f.run("", "remove", "mixed"))
-	if p.Impact != "The provider was not removed, and a credential that it deleted first could not be restored." || !stub.deleted {
+	if p.Title != "provider mixed was not removed, and the Token stays deleted" || p.Fix != "aigw provider remove mixed" ||
+		p.Evidence != "The balance credentials could not be deleted: backend failed. The Token stays deleted: backend failed." || !stub.deleted {
 		t.Fatalf("an unrestored Token = %+v", p)
 	}
-	// A slot that is gone when it is read needs no restore, and a deletion
-	// that fails deletes nothing.
-	for _, stub := range []*stubSecrets{{getErr: secret.ErrNotFound}, {value: "sk-mixed-token-0001", deleteErr: errors.New("backend failed")}} {
-		restore, err := deleteSlot(stub.Get, stub.Set, stub.Delete, "mixed")
-		switch {
-		case stub.getErr != nil && (err != nil || restore() != nil):
-			t.Fatalf("an absent slot = %v", err)
-		case stub.deleteErr != nil && err == nil:
-			t.Fatal("a failed deletion returned a restore")
+	// A slot that holds nothing is left alone, a deletion that fails deletes
+	// nothing, and a value that cannot be read is deleted without an undo.
+	for _, test := range []struct {
+		stub    *stubSecrets
+		deleted bool
+		fails   bool
+		undo    bool
+	}{
+		{&stubSecrets{getErr: secret.ErrNotFound}, false, false, false},
+		{&stubSecrets{value: "sk-mixed-token-0001", deleteErr: errors.New("backend failed")}, false, true, false},
+		{&stubSecrets{value: "sk-mixed-token-0001"}, true, false, true},
+		{&stubSecrets{value: "sk-mixed-token-0001", getErr: errors.New("unreadable")}, true, false, false},
+	} {
+		change, deleted, err := deleteSlot(test.stub.Get, test.stub.Set, test.stub.Delete, "mixed", "the Token was put back", "the Token stays deleted")
+		if deleted != test.deleted || (err != nil) != test.fails || (change.undo != nil) != test.undo {
+			t.Fatalf("deleteSlot(%+v) = %+v, %t, %v", test.stub, change, deleted, err)
 		}
 	}
-	f = newFixture(t)
-	f.withEnvironment(map[string]string{"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED": "system", "AIGW_DIAGNOSTIC_USER_ID_MIXED": "9"})
-	if err := f.run("", "remove", "mixed", "--json"); err != nil {
-		t.Fatal(err)
-	}
-	var document removeDocument
-	f.decode(t, &document)
-	if strings.Join(document.Unset, ",") != "AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED,AIGW_DIAGNOSTIC_USER_ID_MIXED" {
-		t.Fatalf("variables to unset = %q", document.Unset)
+	// The environment backend's variables are each checked on their own.
+	for _, test := range []struct {
+		variables map[string]string
+		unset     string
+		row       string
+	}{
+		{map[string]string{"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED": "system", "AIGW_DIAGNOSTIC_USER_ID_MIXED": "9"},
+			"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED,AIGW_DIAGNOSTIC_USER_ID_MIXED", "Balance token Still set in the environment; unset AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED and AIGW_DIAGNOSTIC_USER_ID_MIXED"},
+		{map[string]string{"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED": "system"},
+			"AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED", "Balance token Still set in the environment; unset AIGW_DIAGNOSTIC_SYSTEM_TOKEN_MIXED"},
+	} {
+		f = newFixture(t)
+		f.withEnvironment(test.variables)
+		if err := f.run("", "remove", "mixed", "--dry-run", "--json"); err != nil {
+			t.Fatal(err)
+		}
+		var document removeDocument
+		f.decode(t, &document)
+		if err := f.run("", "remove", "mixed", "--dry-run"); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Join(document.Unset, ",") != test.unset || !strings.Contains(f.text(), test.row) || !strings.Contains(f.text(), "Token None stored") {
+			t.Fatalf("variables to unset = %q, output %s", document.Unset, f.text())
+		}
 	}
 }
 
@@ -139,10 +162,14 @@ func (s *stubSecrets) Delete(string) error {
 
 func (s *stubSecrets) Exists(string) (bool, error) { return s.value != "" && !s.deleted, s.getErr }
 
-// stubDiagnostics is a balance credential backend that fails as configured.
-type stubDiagnostics struct{ deleteErr error }
+// stubDiagnostics is a balance credential backend that fails as configured,
+// and holds nothing otherwise.
+type stubDiagnostics struct{ getErr, deleteErr error }
 
-func (*stubDiagnostics) Get(string) (secret.DiagnosticCredential, error) {
+func (s *stubDiagnostics) Get(string) (secret.DiagnosticCredential, error) {
+	if s.getErr != nil {
+		return secret.DiagnosticCredential{}, s.getErr
+	}
 	return secret.DiagnosticCredential{}, secret.ErrNotFound
 }
 func (*stubDiagnostics) Set(string, secret.DiagnosticCredential) error { return nil }

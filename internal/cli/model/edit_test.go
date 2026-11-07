@@ -292,3 +292,21 @@ func TestRemoveRecommendedModelPromotesTheFirstAlternative(t *testing.T) {
 		t.Fatalf("d = %#v", d)
 	}
 }
+
+func TestModelFlagsThatTakeOneValueRefuseASecond(t *testing.T) {
+	f := newFixture(t)
+	for _, args := range [][]string{
+		{"add", "team/spare-model", "--label", "One", "--label", "Two", "--dry-run"},
+		{"add", "team/spare-model", "--family", "one", "--family", "two", "--dry-run"},
+		{"edit", "team/team-model", "--label", "", "--label", "Two"},
+		{"edit", "team/team-model", "--family", "one", "--family", "two"},
+	} {
+		if err := f.run(args...); err == nil || !strings.Contains(err.Error(), "this flag takes one value") {
+			t.Fatalf("%q = %v", args, err)
+		}
+	}
+	// One empty --label still clears the label.
+	if err := f.run("edit", "team/team-model", "--label", "", "--json"); err != nil {
+		t.Fatal(err)
+	}
+}

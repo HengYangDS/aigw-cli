@@ -2,8 +2,11 @@ package provider
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/terminal"
 )
 
 func TestListShowsEveryProviderInConfigurationOrderWithoutReadingATokenOrSending(t *testing.T) {
@@ -146,3 +149,43 @@ func (failingStore) Get(string) (string, error)  { return "", errors.New("backen
 func (failingStore) Set(string, string) error    { return errors.New("backend failed") }
 func (failingStore) Delete(string) error         { return errors.New("backend failed") }
 func (failingStore) Exists(string) (bool, error) { return false, errors.New("backend failed") }
+
+// show names the credential backend, which tells a backend that failed from
+// a credential that is missing.
+func TestShowNamesTheCredentialBackend(t *testing.T) {
+	f := newFixture(t)
+	if err := f.run("", "show", "team", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	var document showDocument
+	f.decode(t, &document)
+	if document.CredentialBackend != (credentialBackend{Kind: "memory", Availability: "available", Mutability: "read_write"}) {
+		t.Fatalf("backend = %+v", document.CredentialBackend)
+	}
+	if err := f.run("", "show", "team"); err != nil || !strings.Contains(f.text(), "✓ Credential backend memory backend, available") {
+		t.Fatalf("show = %v %s", err, f.text())
+	}
+	f.withEnvironment(map[string]string{})
+	if err := f.run("", "show", "team"); err != nil || !strings.Contains(f.text(), "✓ Credential backend env backend, read-only, available") {
+		t.Fatalf("environment show = %v %s", err, f.text())
+	}
+	if field := backendField(credentialBackend{Kind: "keyring", Availability: "unavailable", Mutability: "read_write"}); field.State != terminal.Warn || field.Value != "keyring backend, unavailable" {
+		t.Fatalf("an unavailable backend = %+v", field)
+	}
+}
+
+// A configuration that a newer AIGW wrote is refused, and the fix names the
+// installed AIGW and the configuration's location.
+func TestProviderCommandsRefuseAConfigurationFromANewerSchema(t *testing.T) {
+	f := newFixture(t)
+	data := strings.Replace(f.configuration(t), "version = 6", "version = 99", 1)
+	if err := os.WriteFile(f.path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"list"}, {"show", "team"}, {"balance"}} {
+		p := problem(f.run("", args...))
+		if !strings.Contains(p.Title, "unsupported configuration version: found 99") || !strings.Contains(p.Fix, "`aigw config path`") {
+			t.Fatalf("%q = %+v", args, p)
+		}
+	}
+}
