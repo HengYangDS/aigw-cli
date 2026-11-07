@@ -1,6 +1,7 @@
 package use
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -8,6 +9,8 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/terminal"
+
+	"github.com/spf13/cobra"
 )
 
 // choice is the selection that the arguments, prompts and --protocol
@@ -91,7 +94,11 @@ func chooseClient(runtime invocation.Context, cfg domain.Config, ref domain.Mode
 	if len(choices) == 0 {
 		return "", terminal.ProblemError(fmt.Sprintf("no client speaks a protocol that provider %s serves", ref.Provider()), "", "", "aigw provider show "+ref.Provider(), nil)
 	}
-	return runtime.Prompt.Select("Select the client: ", choices)
+	client, err := runtime.Prompt.Select("Select the client: ", choices)
+	if err != nil {
+		return "", promptError{prompt: "The client prompt", err: err}
+	}
+	return client, nil
 }
 
 // chooseModel asks for one of the added models that the client can use, those
@@ -125,7 +132,7 @@ func chooseModel(runtime invocation.Context, cfg domain.Config, spec domain.Clie
 	}
 	selected, err := runtime.Prompt.Select("Select the model for "+spec.Label+": ", choices)
 	if err != nil {
-		return domain.ModelRef{}, err
+		return domain.ModelRef{}, promptError{prompt: "The model prompt for " + spec.Label, err: err}
 	}
 	return domain.ParseModelRef(selected)
 }
@@ -254,7 +261,7 @@ func askProtocol(runtime invocation.Context, spec domain.ClientSpec, ref domain.
 	}
 	picked, err := runtime.Prompt.Select("Select the protocol for "+ref.String()+": ", choices)
 	if err != nil {
-		return option{}, err
+		return option{}, promptError{prompt: "The protocol prompt for " + ref.String(), err: err}
 	}
 	index := slices.IndexFunc(options, func(candidate option) bool { return candidate.protocol.Name() == picked })
 	if index < 0 {
@@ -290,4 +297,26 @@ func protocolChoice(protocols []domain.EndpointProtocol) string {
 		return names[0]
 	}
 	return "<" + strings.Join(names, "|") + ">"
+}
+
+// promptError is a failed prompt of the selection, with the prompt's name.
+type promptError struct {
+	prompt string
+	err    error
+}
+
+func (e promptError) Error() string { return e.err.Error() }
+
+func (e promptError) Unwrap() error { return e.err }
+
+// cancelledPrompt explains a prompt of the selection that ended without an
+// answer: it names the prompt, says that nothing changed, and names the same
+// command again, which asks again, as its fix. Every other error, a prompt
+// that could not be shown or read included, returns unchanged.
+func cancelledPrompt(cmd *cobra.Command, args []string, err error) error {
+	failed, prompted := errors.AsType[promptError](err)
+	if !prompted || !errors.Is(err, terminal.ErrInputCancelled) {
+		return err
+	}
+	return terminal.ProblemError(failed.prompt+" was cancelled", "", "Nothing changed.", invocation.Retry(cmd, args), err)
 }

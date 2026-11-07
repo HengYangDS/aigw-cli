@@ -3,6 +3,7 @@ package invocation
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -116,6 +117,14 @@ func TokenValidationProblem(cmd *cobra.Command, args []string, secrets secret.St
 		fix = Retry(cmd, args)
 	}
 	return terminal.ProblemError("Token validation failed: "+err.Error(), "", impact, fix, err)
+}
+
+// WithImpact is err's own problem with impact added after the impact that it
+// states, if any, such as what became of a Token that the failed command had
+// obtained.
+func WithImpact(err error, impact string) error {
+	problem := terminal.ProblemFor(err)
+	return terminal.ProblemError(problem.Title, problem.Evidence, strings.TrimSpace(problem.Impact+" "+impact), problem.Fix, err)
 }
 
 // TransientStatus reports a status that a later request may not repeat: a

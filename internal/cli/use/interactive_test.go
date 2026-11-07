@@ -2,6 +2,7 @@ package use
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
+	"aigw-cli/internal/terminal"
 )
 
 // interactiveRuntime is a terminal session whose gateway provider has a Token.
@@ -122,6 +124,34 @@ func TestUseInteractiveFailures(t *testing.T) {
 			}
 			if err := execute(value, test.args...); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+// A cancelled client or model prompt names that prompt, says that nothing
+// changed, and runs the same command again, which asks again.
+func TestUseNamesACancelledSelectionPrompt(t *testing.T) {
+	cancelled := fmt.Errorf("%w: user aborted", terminal.ErrInputCancelled)
+	for _, test := range []struct {
+		args       []string
+		title, fix string
+	}{
+		{title: "The client prompt was cancelled", fix: "aigw use"},
+		{args: []string{codex.ID}, title: "The model prompt for Codex was cancelled", fix: "aigw use codex"},
+	} {
+		t.Run(test.title, func(t *testing.T) {
+			runtime, _ := interactiveRuntime(t, &promptStub{err: cancelled})
+			before, err := runtime.Config.CaptureSnapshot()
+			if err != nil {
+				t.Fatal(err)
+			}
+			problem := terminal.ProblemFor(execute(runtime, test.args...))
+			if problem.Title != test.title || problem.Impact != "Nothing changed." || problem.Fix != test.fix {
+				t.Fatalf("a cancelled prompt = %#v", problem)
+			}
+			if after, err := runtime.Config.CaptureSnapshot(); err != nil || !after.Config.Equal(before.Config) {
+				t.Fatalf("a cancelled prompt wrote the configuration: %v", err)
 			}
 		})
 	}

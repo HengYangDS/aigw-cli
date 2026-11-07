@@ -64,7 +64,7 @@ func TestTerminalPromptTextNonAccessibleCancelReturnsError(t *testing.T) {
 	out := &bytes.Buffer{}
 	p := Prompt{in: strings.NewReader("\x03"), out: out, accessible: false}
 	_, err := runPrompt(t, func() (string, error) { return p.Text("Name: ") })
-	if err == nil || !strings.Contains(err.Error(), "input cancelled") {
+	if !errors.Is(err, ErrInputCancelled) || !strings.Contains(err.Error(), "input cancelled") {
 		t.Fatalf("Text() error = %v, want input cancelled", err)
 	}
 }
@@ -152,7 +152,7 @@ func TestTerminalPromptAccessibleTextReadsPlainLine(t *testing.T) {
 func TestTerminalPromptAccessibleTextRejectsEmptyInput(t *testing.T) {
 	p := Prompt{in: strings.NewReader("\n"), out: &bytes.Buffer{}, accessible: true}
 	_, err := p.Text("Name: ")
-	if err == nil || !strings.Contains(err.Error(), "no input received") {
+	if !errors.Is(err, ErrInputCancelled) || err.Error() != "input cancelled: no input received" {
 		t.Fatalf("Text() error = %v", err)
 	}
 }
@@ -179,13 +179,18 @@ func TestTerminalPromptAccessibleSecretRefusesEmptyOrFailedTerminalInput(t *test
 		input passwordInput
 		want  string
 	}{
-		{name: "empty", input: scriptedPasswordInput(nil, "  "), want: "no input received"},
+		{name: "empty", input: scriptedPasswordInput(nil, "  "), want: "input cancelled: no input received"},
 		{name: "read", input: scriptedPasswordInput(errors.New("read failed")), want: "read hidden input"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			p := Prompt{in: strings.NewReader(""), out: &bytes.Buffer{}, accessible: true, hidden: test.input}
-			if _, err := p.Secret("Token: "); err == nil || !strings.Contains(err.Error(), test.want) {
+			_, err := p.Secret("Token: ")
+			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("Secret() error = %v, want %q", err, test.want)
+			}
+			// Only an empty answer is a cancellation; a failed read is not.
+			if cancelled := errors.Is(err, ErrInputCancelled); cancelled != (test.name == "empty") {
+				t.Fatalf("Secret() error %v is a cancellation: %t", err, cancelled)
 			}
 		})
 	}

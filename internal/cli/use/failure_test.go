@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/discovery"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -182,4 +184,44 @@ func TestUseKeepsCommittedTokenWhenRenderingFails(t *testing.T) {
 	if token, err := store.Get("gateway"); err != nil || token != "new-token" {
 		t.Fatalf("committed token after output failure = %q, %v", token, err)
 	}
+}
+
+// A selection whose commit fails after it stored the Token that a terminal
+// gave removes the Token again, and the failure says so after what it says of
+// the configuration: a configuration that changed meanwhile, and a client
+// file that cannot be written.
+func TestUseSaysThatAnEnteredTokenWasNotKept(t *testing.T) {
+	t.Run("configuration", func(t *testing.T) {
+		run, cfg, store, _ := tokenAcquisitionRuntime(t)
+		run.Discovery = changedDuringDiscovery(t, run, cfg, nil)
+		problem := terminal.ProblemFor(execute(run, codex.ID, "gateway/gpt-test"))
+		if !strings.Contains(problem.Title, "preimage changed") || problem.Impact != "The Token that you entered was not kept." || secretExists(t, store, "gateway") {
+			t.Fatalf("a failed commit after the Token prompt = %#v", problem)
+		}
+	})
+	t.Run("client file", func(t *testing.T) {
+		if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+			t.Skip("a read-only folder refuses a new file only to an unprivileged POSIX user")
+		}
+		run, _, store, _ := tokenAcquisitionRuntime(t)
+		run.Executable = filepath.Join(t.TempDir(), "aigw")
+		executable := filepath.Join(t.TempDir(), "hermes")
+		if err := os.WriteFile(executable, []byte("fixture"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		folder := filepath.Join(t.TempDir(), ".hermes")
+		if err := os.Mkdir(folder, 0o500); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(folder, 0o700) })
+		run.Discovery = staticDiscovery{result: discovery.Result{
+			Executables: map[string]string{hermes.ID: executable},
+			Surfaces:    []discovery.Surface{{ID: "hermes-home-default", ConfigPath: filepath.Join(folder, "config.yaml")}},
+		}}
+		problem := terminal.ProblemFor(execute(run, hermes.ID, "gateway/gpt-test"))
+		if !strings.Contains(problem.Title, "permission denied") || problem.Impact != "The configuration was restored. The Token that you entered was not kept." ||
+			secretExists(t, store, "gateway") {
+			t.Fatalf("a client file failure after the Token prompt = %#v", problem)
+		}
+	})
 }

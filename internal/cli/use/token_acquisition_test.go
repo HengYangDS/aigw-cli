@@ -3,6 +3,7 @@ package use
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -165,5 +166,44 @@ func TestUseNamesTheTokenStepThatNeedsNoPrompt(t *testing.T) {
 				t.Fatal("a refused selection stored a Token")
 			}
 		})
+	}
+}
+
+// A cancelled Token prompt names that prompt and says that nothing changed,
+// and its fix runs the same command again, which asks again.
+func TestUseNamesACancelledTokenPrompt(t *testing.T) {
+	runtime, _, store, _ := tokenAcquisitionRuntime(t)
+	runtime.Prompt = &promptStub{err: fmt.Errorf("%w: no input received", terminal.ErrInputCancelled)}
+	before, err := runtime.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	problem := terminal.ProblemFor(execute(runtime, codex.ID, "gateway/gpt-test"))
+	if problem.Title != "The Token prompt for provider gateway was cancelled" || problem.Impact != "Nothing changed." || problem.Fix != "aigw use codex gateway/gpt-test" {
+		t.Fatalf("a cancelled Token prompt = %#v", problem)
+	}
+	if after, err := runtime.Config.CaptureSnapshot(); err != nil || !after.Config.Equal(before.Config) || secretExists(t, store, "gateway") {
+		t.Fatalf("a cancelled Token prompt changed the configuration or stored a Token: %v", err)
+	}
+}
+
+// A Token that a terminal gave is stored only with the selection: when the
+// catalog then refuses the model that the selection adds, the refusal says
+// that no Token was stored, as one that the provider rejects does.
+func TestUseSaysThatACatalogRefusalStoredNoToken(t *testing.T) {
+	runtime, _, store, _ := tokenAcquisitionRuntime(t)
+	catalog := catalogServer(t, nil, "gpt-test", "gpt-other")
+	runtime.HTTP = doerFunc(func(request *http.Request) (*http.Response, error) {
+		if request.Method == http.MethodPost {
+			return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody, Request: request}, nil
+		}
+		return catalog(request)
+	})
+	problem := terminal.ProblemFor(execute(runtime, codex.ID, "gateway/gpt-fresh"))
+	if !strings.HasPrefix(problem.Title, "the gateway catalog does not list gpt-fresh") || problem.Impact != "No Token was stored." {
+		t.Fatalf("a catalog refusal after the Token prompt = %#v", problem)
+	}
+	if secretExists(t, store, "gateway") {
+		t.Fatal("a catalog refusal stored the Token")
 	}
 }

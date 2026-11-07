@@ -2,6 +2,7 @@ package terminal
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -9,6 +10,10 @@ import (
 
 	"charm.land/huh/v2"
 )
+
+// ErrInputCancelled marks a prompt that ended without an answer: the person
+// cancelled it, or entered nothing where an answer is required.
+var ErrInputCancelled = errors.New("input cancelled")
 
 // Choice is one stable value and human label offered by a bounded selection prompt.
 type Choice struct {
@@ -114,7 +119,7 @@ func (p Prompt) run(fields ...huh.Field) error {
 		WithAccessible(p.accessible).
 		WithShowHelp(false)
 	if err := form.Run(); err != nil {
-		return fmt.Errorf("input cancelled: %w", err)
+		return fmt.Errorf("%w: %w", ErrInputCancelled, err)
 	}
 	return nil
 }
@@ -138,7 +143,7 @@ func (p Prompt) hiddenInput(label string) (string, error) {
 		return "", err
 	}
 	if value == "" {
-		return "", fmt.Errorf("setup cancelled: no input received")
+		return "", fmt.Errorf("%w: no input received", ErrInputCancelled)
 	}
 	return value, nil
 }
@@ -153,7 +158,7 @@ func (p Prompt) plainInput(label string, allowEmpty bool) (string, error) {
 	}
 	value := strings.TrimSpace(line)
 	if value == "" && !allowEmpty {
-		return "", fmt.Errorf("setup cancelled: no input received")
+		return "", fmt.Errorf("%w: no input received", ErrInputCancelled)
 	}
 	return value, nil
 }

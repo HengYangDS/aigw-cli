@@ -159,7 +159,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 	chosen, err := resolve(operation, cfg, given, options.protocol)
 	if err != nil {
-		return err
+		return cancelledPrompt(cmd, args, err)
 	}
 	chosen.unlisted = options.unlisted && (chosen.adds || chosen.gains)
 	synchronizer := operation.Synchronizer()
@@ -194,18 +194,23 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	token := ""
 	if missing {
 		if token, err = acquireToken(cmd, operation, cfg, chosen, selected, options.jsonMode); err != nil {
-			return err
+			return cancelledPrompt(cmd, args, err)
 		}
 	}
 	if (chosen.adds || chosen.gains) && !options.unlisted {
 		if err := checkCatalog(cmd, operation, cfg, chosen, token); err != nil {
+			if token != "" {
+				// The Token is stored only with the selection, as a Token
+				// that the provider rejects is not stored.
+				err = invocation.WithImpact(err, "No Token was stored.")
+			}
 			return err
 		}
 		outcome.catalogChecked = true
 	}
 	changed, _, _, err := synchronizer.SelectModel(cmd.Context(), cfg, after, chosen.client.ID, token)
 	if err != nil {
-		return err
+		return tokenNotKept(operation, selected.ProviderID, token, err)
 	}
 	outcome.changed, outcome.tokenStored = changed, token != ""
 	return outcome.report(runtime, options)

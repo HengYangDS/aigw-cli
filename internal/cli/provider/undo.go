@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/terminal"
 )
 
@@ -56,7 +57,7 @@ func undoChanges(changes []credentialChange) undoOutcome {
 func saveFailure(err error, changes []credentialChange, title, fix string) error {
 	outcome := undoChanges(changes)
 	if len(outcome.kept) == 0 {
-		return withImpact(err, "Nothing was saved"+clauses("; ", outcome.undone)+".")
+		return invocation.WithImpact(err, "Nothing was saved"+clauses("; ", outcome.undone)+".")
 	}
 	return keptFailure("Saving the configuration failed: "+terminal.ProblemFor(err).Title+".", err, outcome, title, fix)
 }
@@ -74,13 +75,6 @@ func keptFailure(failed string, err error, outcome undoOutcome, title, fix strin
 	evidence := strings.Join(slices.DeleteFunc([]string{failed, terminal.ProblemFor(err).Impact, strings.Join(outcome.reasons, " ")},
 		func(part string) bool { return part == "" }), " ")
 	return terminal.ProblemError(title+", and "+strings.Join(outcome.kept, " and "), evidence, impact, fix, errors.Join(append([]error{err}, outcome.errs...)...))
-}
-
-// withImpact is err's own problem with impact added to the impact that it
-// states, if any.
-func withImpact(err error, impact string) error {
-	problem := terminal.ProblemFor(err)
-	return terminal.ProblemError(problem.Title, problem.Evidence, strings.TrimSpace(problem.Impact+" "+impact), problem.Fix, err)
 }
 
 // clauses joins clauses after prefix, or is empty without any.

@@ -44,7 +44,7 @@ func acquireToken(cmd *cobra.Command, runtime invocation.Context, cfg domain.Con
 	}
 	token, err := runtime.Prompt.Secret("Paste the " + cfg.Providers[id].Label + " Token: ")
 	if err != nil {
-		return "", err
+		return "", promptError{prompt: "The Token prompt for provider " + id, err: err}
 	}
 	if err := probe.ValidateRuntime(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), selected, token); err != nil {
 		endpointFix := func(protocol domain.EndpointProtocol) string {
@@ -75,6 +75,22 @@ func pipeToken(provider, line string) string {
 		return step + "the same command again."
 	}
 	return step + "`" + line + "`."
+}
+
+// tokenNotKept adds to a failed commit of a selection that obtained a Token
+// that the Token was not kept: the commit stores it with the selection and
+// removes it again, and the credential store, which nothing else wrote,
+// confirms that it holds no Token for the provider. A removal that failed is
+// the failure's own report, and a store that cannot be read leaves the
+// failure as it is.
+func tokenNotKept(runtime invocation.Context, provider, token string, err error) error {
+	if token == "" {
+		return err
+	}
+	if kept, observeErr := runtime.Secrets.Exists(provider); observeErr != nil || kept {
+		return err
+	}
+	return invocation.WithImpact(err, "The Token that you entered was not kept.")
 }
 
 // obtainedToken is the credential store with the Token of one provider that
