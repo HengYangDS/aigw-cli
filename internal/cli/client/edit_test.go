@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"aigw-cli/internal/adapter/claude"
+	"aigw-cli/internal/adapter/claudedesktop"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/adapter/hermes"
@@ -260,7 +261,8 @@ func TestEditShowsTheClientsSettings(t *testing.T) {
 	if err := executeAdapter(t, runtime, "edit", codex.ID, "--stream-retries", "2"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Client edited", "Codex", "gateway/codex-test", "Enabled", "/opt/codex", target,
+	executable, _ := filepath.Abs("/opt/codex")
+	for _, want := range []string{"Client edited", "Codex", "gateway/codex-test", "Enabled", executable, target,
 		"None; the client reaches its provider's endpoint", "Request retries", "Stream retries", "Client files", "aigw check"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("edit output lacks %q:\n%s", want, out)
@@ -283,7 +285,7 @@ func TestEditExamplesAndHelpNameTheClientsThatAcceptEachFlag(t *testing.T) {
 	if examples := strings.Split(command.Example, "\n"); len(examples) != 3 || !strings.HasPrefix(examples[0], "aigw client edit "+codex.ID+" ") {
 		t.Fatalf("examples = %q", examples)
 	}
-	if usage := command.Flags().Lookup("target").Usage; !strings.Contains(usage, "for Codex;") {
+	if usage := command.Flags().Lookup("target").Usage; !strings.Contains(usage, "for Claude Desktop, Codex and Hermes;") || !strings.Contains(usage, "repeat for multiple Codex homes") {
 		t.Fatalf("--target help = %q", usage)
 	}
 	if got := clientsWith(runtime.Clients.Admission(), func(domain.ClientSpec) bool { return false }); got != "no client" {
@@ -312,7 +314,7 @@ func TestEditRefusesItsArgumentsBeforeReadingTheConfiguration(t *testing.T) {
 		{[]string{codex.ID, "--executable", ""}, "--executable requires a non-empty path", "aigw client edit --help"},
 		{[]string{codex.ID, "--target", " "}, "--target requires a non-empty path", "aigw client edit --help"},
 		{[]string{codex.ID, "--target", "a.toml", "--target", "./a.toml"}, "twice", "aigw client edit --help"},
-		{[]string{claude.ID, "--target", "settings.json"}, "Claude has no configuration file to name; --target is for Codex", "aigw client edit --help"},
+		{[]string{claude.ID, "--target", "settings.json"}, "Claude has no configuration file to name; --target is for Claude Desktop, Codex and Hermes", "aigw client edit --help"},
 		{[]string{codex.ID, "--via", forwardingEndpoint, "--direct"}, "--via and --direct are mutually exclusive", "aigw client edit --help"},
 		{[]string{codex.ID, "--via", ""}, "--via requires an endpoint URL", "aigw client edit --help"},
 		{[]string{codex.ID, "--via", "https://user:secret@proxy.test/v1"}, "--via: URL userinfo is forbidden", "aigw client edit --help"},
@@ -355,20 +357,72 @@ func TestClientCommandsCompleteOneClient(t *testing.T) {
 // configuration files, exactly when every word runs as written.
 func TestEnableOfAnEnabledClientNamesTheEdit(t *testing.T) {
 	runtime, _, target, _ := enabledCodex(t)
-	err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", "/opt/codex-next", "--target", target)
+	next := filepath.Join(t.TempDir(), "codex-next")
+	err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", next, "--target", target)
 	if problem := terminal.ProblemFor(err); problem.Title != "Codex is already enabled, so its executable and configuration files change through client edit" ||
-		problem.Fix != "aigw client edit "+codex.ID+" --executable /opt/codex-next --target "+target {
+		problem.Fix != "aigw client edit "+codex.ID+" --executable "+next+" --target "+target {
 		t.Fatalf("enable of an enabled client = %q, fix %q", problem.Title, problem.Fix)
 	}
 	codexSpec, _ := clients.Admission().Spec(codex.ID)
 	if fix := editInstead(codexSpec, "/opt/codex next", nil); fix != "aigw client edit "+codex.ID+" --executable <path>" {
 		t.Fatalf("a path with a space = %q", fix)
 	}
-	// Claude Code has no configuration files to name, so the edit names none,
-	// which it would refuse.
-	claudeSpec, _ := clients.Admission().Spec(claude.ID)
-	if fix := editInstead(claudeSpec, "/opt/claude", []string{"settings.json"}); fix != "aigw client edit "+claude.ID+" --executable /opt/claude" {
-		t.Fatalf("Claude Code's edit = %q", fix)
+}
+
+// Enable stores the executable and configuration files as absolute paths, so
+// they name the same files from any directory, and refuses a configuration
+// file for a client that reads none, as edit does; Claude Desktop and Hermes
+// read one.
+func TestEnableStoresAbsolutePathsAndRefusesTargetsThatMeanNothing(t *testing.T) {
+	runtime, _, secretStore, _ := adapterRuntime(t, adapterConfig())
+	if err := secretStore.Set("gateway", "token"); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(t.TempDir(), "config.toml")
+	if err := os.WriteFile(target, []byte("model = \"original\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runtime.Discovery = adapterDiscovery{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: target, Present: true}}}}
+	t.Chdir(filepath.Dir(target))
+	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", filepath.Join("bin", "codex"), "--target", "config.toml"); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := runtime.Config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	executable, _ := filepath.Abs(filepath.Join("bin", "codex"))
+	if binding := saved.Clients[codex.ID]; binding.Executable != executable || len(binding.Targets) != 1 || !filepath.IsAbs(binding.Targets[0]) ||
+		filepath.Base(binding.Targets[0]) != "config.toml" {
+		t.Fatalf("saved Codex = %#v, want %s and an absolute config.toml", binding, executable)
+	}
+	before, err := runtime.Config.CaptureSnapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = executeAdapter(t, runtime, "enable", claude.ID, "--executable", "/opt/claude", "--target", "settings.json")
+	if problem := terminal.ProblemFor(err); problem.Title != "Claude has no configuration file to name; --target is for Claude Desktop, Codex and Hermes; run `aigw client enable --help`" ||
+		problem.Fix != "aigw client enable --help" {
+		t.Fatalf("enable of Claude Code with a target = %q, fix %q", problem.Title, problem.Fix)
+	}
+	if err := executeAdapter(t, runtime, "enable", codex.ID, "--executable", "/opt/codex", "--target", "a.toml", "--target", "./a.toml"); err == nil || !strings.Contains(err.Error(), "twice") {
+		t.Fatalf("a file named twice = %v", err)
+	}
+	if after, err := runtime.Config.CaptureSnapshot(); err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatalf("a refused enable wrote the configuration: %v", err)
+	}
+}
+
+// Claude Desktop reads its configuration library and Hermes its configuration
+// file from a target, so edit sets one for them.
+func TestEditSetsTheTargetOfClaudeDesktopAndHermes(t *testing.T) {
+	runtime, out, _, _ := adapterRuntime(t, adapterConfig())
+	for _, client := range []string{claudedesktop.ID, hermes.ID} {
+		target := filepath.Join(t.TempDir(), client)
+		document := edited(t, runtime, out, client, "--target", target)
+		if !document.Changed || len(document.Targets) != 1 || document.Targets[0] != target {
+			t.Fatalf("%s edit = %#v", client, document)
+		}
 	}
 }
 

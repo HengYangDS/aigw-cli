@@ -185,7 +185,8 @@ func TestEnableClaudePersistsOnlyTheRealExecutable(t *testing.T) {
 	if err := secretStore.Set("gateway", "token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", `C:\Program Files\Claude\claude.exe`); err != nil {
+	executable := filepath.Join(t.TempDir(), "Program Files", "Claude", "claude.exe")
+	if err := executeAdapter(t, runtime, "enable", claude.ID, "--executable", executable); err != nil {
 		t.Fatal(err)
 	}
 	got, err := runtime.Config.Load()
@@ -193,7 +194,7 @@ func TestEnableClaudePersistsOnlyTheRealExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	adapter := got.Clients[claude.ID]
-	if !adapter.Enabled || adapter.Executable != `C:\Program Files\Claude\claude.exe` {
+	if !adapter.Enabled || adapter.Executable != executable {
 		t.Fatalf("saved adapter = %#v", adapter)
 	}
 	if !strings.Contains(out.String(), "Client enabled") {
@@ -230,7 +231,7 @@ func TestEnableCodexValidatesTargetsAndPersistsProjection(t *testing.T) {
 		t.Fatal(err)
 	}
 	adapter := got.Clients[codex.ID]
-	if !adapter.Enabled || adapter.Executable != "/opt/codex" || len(adapter.Targets) != 1 || adapter.Targets[0] != target {
+	if want, _ := filepath.Abs("/opt/codex"); !adapter.Enabled || adapter.Executable != want || len(adapter.Targets) != 1 || adapter.Targets[0] != target {
 		t.Fatalf("saved adapter = %#v", adapter)
 	}
 	if len(runner.plans) != 0 {

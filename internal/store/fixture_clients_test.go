@@ -26,6 +26,7 @@ func testClientSpecs() []domain.ClientSpec {
 		{
 			ID: ClientClaudeDesktop, Label: "Claude Desktop", EndpointProtocols: []domain.EndpointProtocol{anthropic},
 			RestartAfterProjection: true, QualifiedModes: []string{"Chat", "Cowork", "Code"}, QualifiedPlatforms: []string{"macOS"},
+			OptionalTarget: "configLibrary",
 		},
 		{
 			ID: ClientCodex, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{responses},
@@ -34,7 +35,7 @@ func testClientSpecs() []domain.ClientSpec {
 			PublishedProfileProtocol: responses, Doctor: domain.DoctorWording{AdapterStates: true, ModelBinding: true},
 		},
 		{
-			ID: ClientHermes, Label: "Hermes", SessionsKeepModel: true,
+			ID: ClientHermes, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml",
 			EndpointProtocols: []domain.EndpointProtocol{responses, anthropic, domain.ProtocolOpenAIChatCompletions},
 		},
 	}

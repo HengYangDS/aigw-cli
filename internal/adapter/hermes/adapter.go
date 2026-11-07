@@ -39,6 +39,7 @@ func (hermesAdapter) Spec() domain.ClientSpec {
 			domain.ProtocolOpenAIResponses, domain.ProtocolAnthropic, domain.ProtocolOpenAIChatCompletions,
 		},
 		SessionsKeepModel: true,
+		OptionalTarget:    "config.yaml",
 	}
 }
 

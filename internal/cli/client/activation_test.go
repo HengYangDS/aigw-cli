@@ -75,7 +75,7 @@ func TestEnableMaterializesDeferredClientIntent(t *testing.T) {
 		t.Fatal(err)
 	}
 	binding := got.Clients[claude.ID]
-	if !binding.Enabled || binding.Executable != "/opt/claude" {
+	if want, _ := filepath.Abs("/opt/claude"); !binding.Enabled || binding.Executable != want {
 		t.Fatalf("materialized client = %#v", binding)
 	}
 	if strings.Contains(out.String(), "Restart required") {
@@ -104,7 +104,7 @@ func TestEnablePreservesExistingHermesTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 	binding := got.Clients[hermes.ID]
-	if !binding.Enabled || binding.Executable != "/opt/hermes" || !slices.Equal(binding.Targets, []string{target}) {
+	if want, _ := filepath.Abs("/opt/hermes"); !binding.Enabled || binding.Executable != want || !slices.Equal(binding.Targets, []string{target}) {
 		t.Fatalf("re-enabled client = %#v", binding)
 	}
 	if err := executeAdapter(t, runtime, "disable", hermes.ID); err != nil {

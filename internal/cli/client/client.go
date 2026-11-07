@@ -4,6 +4,7 @@ package client
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
@@ -103,10 +104,18 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 				return fmt.Errorf("--target requires a non-empty path; run `aigw client enable --help`")
 			}
 		}
-		return nil
+		if err := checkTargetsRead(cmd, runtime.Clients.Admission(), spec, targets); err != nil {
+			return err
+		}
+		_, err = absoluteTargets(cmd, targets)
+		return err
 	}, RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
 		spec, _ := runtime.Clients.Admission().Spec(client)
+		// Args checked both paths, so neither fails here. The configuration
+		// names them absolute, so that they mean the same from any directory.
+		targets, _ = absoluteTargets(cmd, targets)
+		executable, _ = filepath.Abs(executable)
 		cfg, err := runtime.Config.Load()
 		if err != nil {
 			return err
@@ -177,6 +186,16 @@ func admitEnablement(runtime invocation.Context, cfg domain.Config, client strin
 		}
 	}
 	return nil
+}
+
+// checkTargetsRead refuses --target for a client whose adapter reads no
+// configuration target, naming the clients that read one.
+func checkTargetsRead(cmd *cobra.Command, admission domain.Admission, spec domain.ClientSpec, targets []string) error {
+	if len(targets) == 0 || spec.ReadsTargets() {
+		return nil
+	}
+	return fmt.Errorf("%s has no configuration file to name; --target is for %s; run `%s --help`",
+		spec.Label, clientsWith(admission, domain.ClientSpec.ReadsTargets), cmd.CommandPath())
 }
 
 // targetHelp explains the target option with each client's repeated-target usage.
@@ -306,14 +325,11 @@ func renderDisabled(r *terminal.Renderer, spec domain.ClientSpec) {
 	}
 }
 
-// editInstead is the edit that sets an enabled client's executable and, for a
-// client that has them, its configuration files, as enabling it again would
-// have: the exact command, or one with a placeholder when a path would need
-// quoting.
+// editInstead is the edit that sets an enabled client's executable and
+// configuration files, as enabling it again would have: the exact command, or
+// one with a placeholder when a path would need quoting. Enable refuses
+// targets for a client that reads none, so the edit names none for it.
 func editInstead(spec domain.ClientSpec, executable string, targets []string) string {
-	if spec.TargetFile == "" {
-		targets = nil
-	}
 	// Command accepts the values only when each runs as written.
 	if invocation.Command(append([]string{"client", "edit", spec.ID, executable}, targets...)...) == "" {
 		return "aigw client edit " + spec.ID + " --executable <path>"

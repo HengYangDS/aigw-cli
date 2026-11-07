@@ -33,6 +33,7 @@ func (claudeDesktopAdapter) Spec() domain.ClientSpec {
 		RestartAfterProjection: true,
 		QualifiedModes:         []string{"Chat", "Cowork", "Code"},
 		QualifiedPlatforms:     []string{"macOS"},
+		OptionalTarget:         "configLibrary",
 	}
 }
 

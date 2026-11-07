@@ -47,6 +47,9 @@ exitcode 1 aigw client disable unknown --json
 cmp stdout disable-refusal.json
 exitcode 1 aigw client discover extra --json
 cmp stdout discover-refusal.json
+# Claude Code reads no configuration file that a target could name.
+exitcode 1 aigw client enable claude --executable $BIN/claude$exe --target settings.json --json
+cmp stdout enable-target-refusal.json
 # Claude Desktop's discovery also reads the host's applications, so the
 # document is matched by its stable parts.
 exec aigw client discover --json
@@ -428,4 +431,11 @@ Fix
   "ok": false,
   "error": "--via and --direct are mutually exclusive; run `aigw client edit --help`",
   "next_action": "aigw client edit --help"
+}
+-- enable-target-refusal.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Claude has no configuration file to name; --target is for Claude Desktop, Codex and Hermes; run `aigw client enable --help`",
+  "next_action": "aigw client enable --help"
 }

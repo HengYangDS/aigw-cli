@@ -85,6 +85,10 @@ type ClientSpec struct {
 	TargetFile string
 	// TargetsUsage explains repeated targets in the target option's help.
 	TargetsUsage string
+	// OptionalTarget names what an explicit target names for a client that
+	// reads one but finds it through discovery when none is given, such as
+	// Hermes's configuration file.
+	OptionalTarget string
 	// RetryBudgets marks a client that honors per-connection retry budgets.
 	RetryBudgets bool
 	// DefaultModelProvider is the model provider that a selection uses when it
@@ -126,6 +130,11 @@ func naturalChoices(choices []string) string {
 		return strings.Join(choices[:len(choices)-1], ", ") + ", or " + choices[len(choices)-1]
 	}
 }
+
+// ReadsTargets reports whether the client's adapter reads the native
+// configuration that an explicit target names. Another client ignores
+// targets, so a command refuses one for it.
+func (s ClientSpec) ReadsTargets() bool { return s.TargetFile != "" || s.OptionalTarget != "" }
 
 // ResolveEndpoint selects an explicitly requested protocol or the sole available
 // supported endpoint. Multiple choices require a Route-level selection.

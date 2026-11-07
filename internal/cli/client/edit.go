@@ -58,7 +58,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 	}
 	invocation.BindText(cmd, &options.executable, "executable", "Path to the client's executable")
 	cmd.Flags().StringArrayVar(&options.targets, "target", nil, "The client's configuration `file`, for "+
-		clientsWith(admission, func(spec domain.ClientSpec) bool { return spec.TargetFile != "" })+"; repeatable, and the files given replace the current ones")
+		clientsWith(admission, domain.ClientSpec.ReadsTargets)+"; the files given replace the current ones; "+targetHelp(admission))
 	invocation.BindText(cmd, &options.via, "via", "Send the client to the endpoint `url` instead of its provider's")
 	cmd.Flags().BoolVar(&options.direct, "direct", false, "Remove forwarding, so the client reaches its provider's endpoint again")
 	retries := clientsWith(admission, func(spec domain.ClientSpec) bool { return spec.RetryBudgets })
@@ -151,9 +151,6 @@ func checkEdit(cmd *cobra.Command, admission domain.Admission, spec domain.Clien
 		return fmt.Errorf("--executable requires a non-empty path; run `%s --help`", path)
 	case slices.ContainsFunc(options.targets, func(target string) bool { return strings.TrimSpace(target) == "" }):
 		return fmt.Errorf("--target requires a non-empty path; run `%s --help`", path)
-	case len(options.targets) > 0 && spec.TargetFile == "":
-		return fmt.Errorf("%s has no configuration file to name; --target is for %s; run `%s --help`",
-			spec.Label, clientsWith(admission, func(spec domain.ClientSpec) bool { return spec.TargetFile != "" }), path)
 	case changed("via") && options.direct:
 		return fmt.Errorf("--via and --direct are mutually exclusive; run `%s --help`", path)
 	case changed("via") && strings.TrimSpace(options.via) == "":
@@ -169,6 +166,9 @@ func checkEdit(cmd *cobra.Command, admission domain.Admission, spec domain.Clien
 		if err := domain.ValidateEndpoint(options.via); err != nil {
 			return fmt.Errorf("--via: %w; run `%s --help`", err, path)
 		}
+	}
+	if err := checkTargetsRead(cmd, admission, spec, options.targets); err != nil {
+		return err
 	}
 	_, err := absoluteTargets(cmd, options.targets)
 	return err

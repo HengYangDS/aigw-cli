@@ -61,6 +61,7 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 		{
 			ID: claudedesktop.ID, Label: "Claude Desktop", EndpointProtocols: []domain.EndpointProtocol{anthropic},
 			RestartAfterProjection: true, QualifiedModes: []string{"Chat", "Cowork", "Code"}, QualifiedPlatforms: []string{"macOS"},
+			OptionalTarget: "configLibrary",
 		},
 		{
 			ID: codex.ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{responses},
@@ -69,7 +70,7 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 			PublishedProfileProtocol: responses, Doctor: domain.DoctorWording{AdapterStates: true, ModelBinding: true},
 		},
 		{
-			ID: hermes.ID, Label: "Hermes", SessionsKeepModel: true,
+			ID: hermes.ID, Label: "Hermes", SessionsKeepModel: true, OptionalTarget: "config.yaml",
 			EndpointProtocols: []domain.EndpointProtocol{responses, anthropic, domain.ProtocolOpenAIChatCompletions},
 		},
 	}
