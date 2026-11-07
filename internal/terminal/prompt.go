@@ -1,10 +1,10 @@
 package terminal
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -51,7 +51,7 @@ func (p Prompt) Secret(label string) (string, error) {
 		CharLimit(4096).
 		Validate(requiredValue).
 		Value(&value)
-	if err := p.run(field); err != nil {
+	if err := run(p.form(false, field)); err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(value), nil
@@ -64,13 +64,16 @@ func (p Prompt) Text(label string) (string, error) {
 	}
 	var value string
 	field := huh.NewInput().Title(label).CharLimit(256).Validate(requiredValue).Value(&value)
-	if err := p.run(field); err != nil {
+	if err := run(p.form(false, field)); err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(value), nil
 }
 
-// Select reads one choice, accepting either its stable value or displayed ordinal.
+// Select reads one choice. The list filters what the person types after "/",
+// which its visible keys say. In accessible mode it asks first for an
+// optional filter, numbers the choices that match, and reads the number of
+// one, the first by default.
 func (p Prompt) Select(label string, choices []Choice) (string, error) {
 	if len(choices) == 0 {
 		return "", fmt.Errorf("no options are available")
@@ -78,22 +81,47 @@ func (p Prompt) Select(label string, choices []Choice) (string, error) {
 	if len(choices) == 1 {
 		return choices[0].Value, nil
 	}
-	if !p.accessible {
-		options := make([]huh.Option[string], 0, len(choices))
-		for _, choice := range choices {
-			options = append(options, huh.NewOption(choice.Label, choice.Value))
-		}
-		selected := choices[0].Value
-		field := huh.NewSelect[string]().Title(label).Options(options...).Value(&selected)
-		if err := p.run(field); err != nil {
-			return "", err
-		}
-		return selected, nil
+	if p.accessible {
+		return p.accessibleSelect(label, choices)
 	}
+	selected := choices[0].Value
+	if err := run(p.selectForm(label, choices, &selected)); err != nil {
+		return "", err
+	}
+	return selected, nil
+}
+
+// selectForm is the list that Select shows, which filters what the person
+// types after "/", with the keys that it takes.
+func (p Prompt) selectForm(label string, choices []Choice, selected *string) *huh.Form {
+	options := make([]huh.Option[string], 0, len(choices))
+	for _, choice := range choices {
+		options = append(options, huh.NewOption(choice.Label, choice.Value))
+	}
+	return p.form(true, huh.NewSelect[string]().Title(label).Options(options...).Value(selected))
+}
+
+// accessibleSelect reads one choice as plain lines: an optional filter, asked
+// again while it matches no choice, and then the number of a matching
+// choice.
+func (p Prompt) accessibleSelect(label string, choices []Choice) (string, error) {
 	if _, err := fmt.Fprintln(p.out, label); err != nil {
 		return "", fmt.Errorf("render selection prompt: %w", err)
 	}
-	for index, choice := range choices {
+	var matches []Choice
+	for {
+		filter, err := p.plainInput(fmt.Sprintf("Filter the %d choices, or press Enter for all: ", len(choices)), true)
+		if err != nil {
+			return "", err
+		}
+		if matches = matching(choices, filter); len(matches) > 0 {
+			break
+		}
+		if _, err := fmt.Fprintf(p.out, "No choice matches %q.\n", filter); err != nil {
+			return "", fmt.Errorf("render selection prompt: %w", err)
+		}
+	}
+	for index, choice := range matches {
 		if _, err := fmt.Fprintf(p.out, "  %d. %s\n", index+1, choice.Label); err != nil {
 			return "", fmt.Errorf("render selection option: %w", err)
 		}
@@ -103,21 +131,41 @@ func (p Prompt) Select(label string, choices []Choice) (string, error) {
 		return "", err
 	}
 	if value == "" {
-		return choices[0].Value, nil
+		return matches[0].Value, nil
 	}
 	selected, err := strconv.Atoi(value)
-	if err != nil || selected < 1 || selected > len(choices) {
+	if err != nil || selected < 1 || selected > len(matches) {
 		return "", fmt.Errorf("invalid selection %q", value)
 	}
-	return choices[selected-1].Value, nil
+	return matches[selected-1].Value, nil
 }
 
-func (p Prompt) run(fields ...huh.Field) error {
-	form := huh.NewForm(huh.NewGroup(fields...)).
+// matching returns the choices whose label or value contains every word of
+// filter, ignoring case, and every choice for an empty filter.
+func matching(choices []Choice, filter string) []Choice {
+	words := strings.Fields(strings.ToLower(filter))
+	var matches []Choice
+	for _, choice := range choices {
+		text := strings.ToLower(choice.Label + " " + choice.Value)
+		if !slices.ContainsFunc(words, func(word string) bool { return !strings.Contains(text, word) }) {
+			matches = append(matches, choice)
+		}
+	}
+	return matches
+}
+
+// form is one form of fields on the prompt's input and output, which shows
+// the keys that they take when help is set.
+func (p Prompt) form(help bool, fields ...huh.Field) *huh.Form {
+	return huh.NewForm(huh.NewGroup(fields...)).
 		WithInput(p.in).
 		WithOutput(p.out).
 		WithAccessible(p.accessible).
-		WithShowHelp(false)
+		WithShowHelp(help)
+}
+
+// run runs form; a form that ends without an answer was cancelled.
+func run(form *huh.Form) error {
 	if err := form.Run(); err != nil {
 		return fmt.Errorf("%w: %w", ErrInputCancelled, err)
 	}
@@ -152,8 +200,8 @@ func (p Prompt) plainInput(label string, allowEmpty bool) (string, error) {
 	if _, err := fmt.Fprint(p.out, label); err != nil {
 		return "", fmt.Errorf("render input prompt: %w", err)
 	}
-	line, err := bufio.NewReader(p.in).ReadString('\n')
-	if err != nil && err != io.EOF {
+	line, err := readLine(p.in)
+	if err != nil && !errors.Is(err, io.EOF) {
 		return "", fmt.Errorf("read input: %w", err)
 	}
 	value := strings.TrimSpace(line)
@@ -161,4 +209,23 @@ func (p Prompt) plainInput(label string, allowEmpty bool) (string, error) {
 		return "", fmt.Errorf("%w: no input received", ErrInputCancelled)
 	}
 	return value, nil
+}
+
+// readLine reads one line from in a byte at a time, so that the next prompt
+// reads the next line: a buffered reader would keep what it read ahead.
+func readLine(in io.Reader) (string, error) {
+	var line []byte
+	next := make([]byte, 1)
+	for {
+		read, err := in.Read(next)
+		if read > 0 {
+			if next[0] == '\n' {
+				return string(line), nil
+			}
+			line = append(line, next[0])
+		}
+		if err != nil {
+			return string(line), err
+		}
+	}
 }

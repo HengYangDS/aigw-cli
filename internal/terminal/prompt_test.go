@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"charm.land/huh/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // runPrompt executes a prompt call on a goroutine and fails the test if it
@@ -98,6 +101,23 @@ func TestTerminalPromptSelectNonAccessibleReturnsChosenValue(t *testing.T) {
 	}
 	if value != "a" {
 		t.Fatalf("Select() = %q, want the first option by default", value)
+	}
+}
+
+// The list shows its keys, the "/" that filters it among them, while the
+// Token and text inputs show none.
+func TestTerminalPromptSelectNonAccessibleShowsItsFilterKey(t *testing.T) {
+	p := Prompt{in: strings.NewReader(""), out: &bytes.Buffer{}, accessible: false}
+	selected := "a"
+	form := p.selectForm("Pick: ", []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}, &selected)
+	form.Init()
+	if view := ansi.Strip(form.View()); !strings.Contains(view, "/ filter") {
+		t.Fatalf("the list does not show its filter key:\n%s", view)
+	}
+	input := p.form(false, huh.NewInput().Title("Token: "))
+	input.Init()
+	if view := ansi.Strip(input.View()); !strings.Contains(view, "Token:") || strings.Contains(view, "submit") {
+		t.Fatalf("an input shows keys:\n%s", view)
 	}
 }
 
@@ -241,7 +261,7 @@ func TestTerminalPromptAccessibleSelectDefaultsToFirstChoiceOnEmptyInput(t *test
 }
 
 func TestTerminalPromptAccessibleSelectAcceptsChosenNumber(t *testing.T) {
-	p := Prompt{in: strings.NewReader("2\n"), out: &bytes.Buffer{}, accessible: true}
+	p := Prompt{in: strings.NewReader("\n2\n"), out: &bytes.Buffer{}, accessible: true}
 	choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
 	value, err := p.Select("Pick: ", choices)
 	if err != nil {
@@ -252,10 +272,49 @@ func TestTerminalPromptAccessibleSelectAcceptsChosenNumber(t *testing.T) {
 	}
 }
 
+// In accessible mode the prompt asks first for an optional filter: the
+// choices whose label or value contains each word of it, ignoring case, are
+// numbered, a filter that matches none is asked again, and the number picks
+// among the matches.
+func TestTerminalPromptAccessibleSelectFiltersTheChoices(t *testing.T) {
+	choices := []Choice{{Value: "team/team-model", Label: "Team model"}, {Value: "team/MiniMax-M3", Label: "MiniMax M3"}, {Value: "team/minimal", Label: "Minimal"}}
+	for _, test := range []struct {
+		name, input, want string
+		listed, unlisted  []string
+	}{
+		{name: "filter", input: "mini\n2\n", want: "team/minimal", listed: []string{"1. MiniMax M3", "2. Minimal"}, unlisted: []string{"Team model"}},
+		{name: "words", input: "MINI m3\n\n", want: "team/MiniMax-M3", listed: []string{"1. MiniMax M3"}, unlisted: []string{"Minimal", "Team model"}},
+		{name: "every choice", input: "\n3\n", want: "team/minimal", listed: []string{"1. Team model", "2. MiniMax M3", "3. Minimal"}},
+		{name: "no match", input: "opus\nteam\n\n", want: "team/team-model", listed: []string{`No choice matches "opus".`, "1. Team model"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			out := &bytes.Buffer{}
+			p := Prompt{in: strings.NewReader(test.input), out: out, accessible: true}
+			value, err := p.Select("Pick: ", choices)
+			if err != nil || value != test.want {
+				t.Fatalf("Select() = %q, %v, want %q", value, err, test.want)
+			}
+			if !strings.Contains(out.String(), "Filter the 3 choices, or press Enter for all: ") {
+				t.Fatalf("Select() did not ask for a filter: %q", out.String())
+			}
+			for _, line := range test.listed {
+				if !strings.Contains(out.String(), line) {
+					t.Fatalf("Select() output lacks %q: %q", line, out.String())
+				}
+			}
+			for _, label := range test.unlisted {
+				if strings.Contains(out.String(), label) {
+					t.Fatalf("Select() listed %q, which the filter excludes: %q", label, out.String())
+				}
+			}
+		})
+	}
+}
+
 func TestTerminalPromptAccessibleSelectRequiresAnOfferedNumber(t *testing.T) {
 	for _, input := range []string{"nope", "9"} {
 		t.Run(input, func(t *testing.T) {
-			p := Prompt{in: strings.NewReader(input + "\n"), out: &bytes.Buffer{}, accessible: true}
+			p := Prompt{in: strings.NewReader("\n" + input + "\n"), out: &bytes.Buffer{}, accessible: true}
 			choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
 			if _, err := p.Select("Pick: ", choices); err == nil || !strings.Contains(err.Error(), "invalid selection") {
 				t.Fatalf("Select() error = %v", err)
@@ -273,14 +332,15 @@ func TestTerminalPromptAccessibleSelectSurfacesLabelWriteFailure(t *testing.T) {
 	}
 }
 
+// failAfterWriter accepts allowed writes and fails every later one.
 type failAfterWriter struct {
-	writes int
-	err    error
+	writes, allowed int
+	err             error
 }
 
 func (writer *failAfterWriter) Write(data []byte) (int, error) {
 	writer.writes++
-	if writer.writes > 1 {
+	if writer.writes > writer.allowed {
 		return 0, writer.err
 	}
 	return len(data), nil
@@ -288,9 +348,16 @@ func (writer *failAfterWriter) Write(data []byte) (int, error) {
 
 func TestTerminalPromptAccessibleSelectSurfacesOptionAndInputFailures(t *testing.T) {
 	choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
+	t.Run("filter output", func(t *testing.T) {
+		writer := &failAfterWriter{allowed: 1, err: errors.New("closed pipe")}
+		prompt := Prompt{in: strings.NewReader("\n1\n"), out: writer, accessible: true}
+		if _, err := prompt.Select("Pick: ", choices); err == nil || !strings.Contains(err.Error(), "render input prompt") {
+			t.Fatalf("Select() error = %v", err)
+		}
+	})
 	t.Run("option output", func(t *testing.T) {
-		writer := &failAfterWriter{err: errors.New("closed pipe")}
-		prompt := Prompt{in: strings.NewReader("1\n"), out: writer, accessible: true}
+		writer := &failAfterWriter{allowed: 2, err: errors.New("closed pipe")}
+		prompt := Prompt{in: strings.NewReader("\n1\n"), out: writer, accessible: true}
 		if _, err := prompt.Select("Pick: ", choices); err == nil || !strings.Contains(err.Error(), "render selection option") {
 			t.Fatalf("Select() error = %v", err)
 		}
