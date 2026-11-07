@@ -35,7 +35,7 @@ func (c change) apply(cmd *cobra.Command, runtime invocation.Context, args []str
 		return err
 	}
 	c.document.DryRun = dryRun
-	c.document.ClientFiles = clientFiles(runtime, preview)
+	c.document.ClientFiles = invocation.ClientFiles(runtime, preview)
 	c.document.CredentialReader = preview.CredentialEntrypoint
 	if jsonMode {
 		c.document.NextAction, c.document.NextDetail = terminal.NextSteps(c.next)
@@ -48,7 +48,7 @@ func (c change) apply(cmd *cobra.Command, runtime invocation.Context, args []str
 	}
 	r.ProductTitle(title)
 	r.Rows(c.rows...)
-	renderClientFiles(r, runtime, c.document.ClientFiles)
+	invocation.RenderClientFiles(r, runtime, c.document.ClientFiles)
 	if reader := c.document.CredentialReader; reader != nil {
 		r.Section("Credential reader")
 		r.Text("Install " + reader.Path)
@@ -60,21 +60,4 @@ func (c change) apply(cmd *cobra.Command, runtime invocation.Context, args []str
 	}
 	r.Next(c.next)
 	return r.Err()
-}
-
-// renderClientFiles names the client files that a change writes.
-func renderClientFiles(r *terminal.Renderer, runtime invocation.Context, files []clientFile) {
-	if len(files) == 0 {
-		return
-	}
-	r.Section("Client files")
-	rows := make([]terminal.Field, 0, len(files))
-	for _, file := range files {
-		label := runtime.Clients.Admission().Label(file.Client)
-		if file.File != "" {
-			label += " " + file.File
-		}
-		rows = append(rows, terminal.Field{Label: label, Value: file.Action})
-	}
-	r.Rows(rows...)
 }

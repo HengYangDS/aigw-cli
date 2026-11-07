@@ -1,0 +1,668 @@
+# provider lists, shows, adds, edits and removes providers, rotates their
+# Tokens and reports their balances. Each subcommand writes JSON, each write
+# previews without writing anything, add and rotate store only a Token that the
+# provider accepts and never prompt without a terminal, an endpoint edit clears
+# the capabilities qualified on the old endpoint, a failed balance probe hides
+# no other provider, and a provider whose model a client uses is not removed.
+exec aigw provider --help
+cmp stdout help.txt
+exec aigw provider add --help
+cmp stdout add-help.txt
+
+# team serves Anthropic Messages from the scripted upstream, which lists
+# team-model and spare-model and answers the DMXAPI balance probe. mixed has an
+# Anthropic and a Chat Completions endpoint, a balance probe and no Token, and
+# Hermes's recommendation names its model.
+envsubst manifest.in manifest.toml
+exec aigw config import manifest.toml
+stdin token.txt
+exec aigw provider rotate team --token-stdin
+cmp stdout rotated.txt
+
+exec aigw provider list
+cmp stdout list.txt
+exec aigw provider list --json
+normalize stdout list.out
+cmp list.out list.json
+exitcode 1 aigw provider list stray --json
+cmp stdout list-refusal.json
+exec aigw provider show team --json
+normalize stdout show.out
+cmp show.out show.json
+exitcode 1 aigw provider show tem --json
+cmp stdout show-unknown.json
+exitcode 1 aigw provider show
+cmp stdout show-missing.txt
+
+# Previews read no Token, send no request and write nothing below the home.
+snapshot $HOME before.txt
+exec aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --dry-run --json
+normalize stdout add-preview.out
+cmp add-preview.out add-preview.json
+exec aigw provider edit team --endpoint anthropic=$UPSTREAM/v2 --dry-run
+normalize stdout edit-preview.out
+cmp edit-preview.out edit-preview.txt
+exec aigw provider remove mixed --dry-run --json
+cmp stdout remove-preview.json
+snapshot $HOME after.txt
+cmp after.txt before.txt
+
+# Without a terminal, and with JSON, a Token comes only from --token-stdin.
+exitcode 1 aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1
+normalize stdout add-no-terminal.out
+cmp add-no-terminal.out add-no-terminal.txt
+exitcode 1 aigw provider rotate team --json
+cmp stdout rotate-no-terminal.json
+
+# A Token that the provider rejects, or whose check cannot complete, is not
+# stored, and the previous one stays.
+stdin rejected.txt
+exitcode 1 aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --token-stdin --json
+normalize stdout add-rejected.out
+cmp add-rejected.out add-rejected.json
+stdin spare-token.txt
+exitcode 1 aigw provider add spare --endpoint responses=$UPSTREAM/unavailable/v1 --token-stdin
+normalize stdout add-unavailable.out
+cmp add-unavailable.out add-unavailable.txt
+stdin spare-token.txt
+exec aigw provider add spare --label Spare --endpoint responses=$UPSTREAM/spare/v1 --token-stdin --json
+normalize stdout added.out
+cmp added.out added.json
+exitcode 1 aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --token-stdin
+cmp stdout add-exists.txt
+stdin rejected.txt
+exitcode 1 aigw provider rotate spare --token-stdin
+cmp stdout rotate-rejected.txt
+stdin spare-token.txt
+exec aigw provider rotate spare --token-stdin --json
+cmp stdout rotated.json
+
+# Replacing team's Anthropic endpoint clears the tool search that was
+# qualified on the old one.
+exec aigw provider edit team --endpoint anthropic=$UPSTREAM/v2 --json
+normalize stdout edited.out
+cmp edited.out edited.json
+exitcode 1 aigw provider edit team --json
+cmp stdout edit-nothing.json
+exitcode 1 aigw provider edit team --balance-token-stdin
+cmp stdout edit-pair.txt
+exitcode 1 aigw provider edit spare --balance-token-stdin --balance-user-id 42
+cmp stdout edit-no-probe.txt
+stdin system.txt
+exec aigw provider edit team --balance-token-stdin --balance-user-id 42
+normalize stdout edit-balance.out
+cmp edit-balance.out edit-balance.txt
+
+# A provider without a probe does not fail, and mixed's probe, which has no
+# balance credentials, hides no other provider.
+exec aigw provider balance team spare
+cmp stdout balance.txt
+exec aigw provider balance spare --json
+cmp stdout balance-spare.json
+exitcode 1 aigw provider balance --json
+cmp stdout balance.json
+exitcode 1 aigw provider balance tem --json
+cmp stdout balance-unknown.json
+
+# A model that a client selects keeps its provider, even in a preview, and an
+# unused provider goes with its models and drops Hermes's recommendation.
+exec aigw use --for claude team-route
+exitcode 1 aigw provider remove team --json
+cmp stdout remove-selected.json
+exitcode 1 aigw provider remove team --dry-run --json
+cmp stdout remove-blocked.json
+exec aigw provider remove mixed --json
+cmp stdout removed.json
+exec aigw provider list
+cmp stdout list-after.txt
+exec aigw provider edit team --no-balance-token --json
+normalize stdout unbalanced.out
+cmp unbalanced.out unbalanced.json
+
+# The read-only environment backend keeps its variables, which the removal
+# names.
+env AIGW_SECRET_BACKEND=env
+env AIGW_TOKEN_SPARE=sk-spare-token-0001
+exec aigw provider remove spare
+cmp stdout removed-environment.txt
+
+-- token.txt --
+sk-team-token-0001
+-- spare-token.txt --
+sk-spare-token-0001
+-- rejected.txt --
+sk-rejected-token
+-- system.txt --
+dmx-system-token
+-- manifest.in --
+version = 7
+[recommendations.hermes.primary]
+route = "mixed-chat"
+protocol = "openai_chat_completions"
+[accounts.team]
+label = "Team Gateway"
+[accounts.team.endpoints]
+anthropic = "$UPSTREAM"
+[accounts.team.account_probe]
+kind = "dmxapi"
+base_url = "$UPSTREAM"
+[accounts.mixed]
+label = "Mixed"
+[accounts.mixed.endpoints]
+anthropic = "$UPSTREAM/mixed"
+openai_chat_completions = "$UPSTREAM/mixed/v1"
+[accounts.mixed.account_probe]
+kind = "dmxapi"
+base_url = "$UPSTREAM"
+[models.team-model]
+label = "Team Model"
+[models.chat-only]
+label = "Chat Only"
+[routes.team-route]
+account = "team"
+model = "team-model"
+upstream_model = "team-model"
+interfaces = { anthropic = ["tool_search"] }
+[routes.mixed-chat]
+account = "mixed"
+model = "chat-only"
+upstream_model = "chat-only"
+interfaces = { openai_chat_completions = [] }
+-- help.txt --
+AIGW  aigw provider
+────────────────────────────────────────
+  List, show, add, edit and remove providers; rotate Tokens; report balances
+
+Usage
+  aigw provider [command]
+
+Commands
+  add                  Add a provider with its endpoints and a Token that it accepts
+  balance              Report the balance and Token quota of every provider, or of those named
+  edit                 Change a provider's label, endpoints or balance credentials; its Token stays
+  list                 List the providers; reads no Token and sends no request
+  remove               Remove a provider with its models, Token and balance credentials
+  rotate               Replace a provider's Token with one that the provider accepts
+  show                 Show one provider: its endpoints, its models and whether its Token is stored
+
+Options
+  -h, --help   help for provider
+-- add-help.txt --
+AIGW  aigw provider add
+────────────────────────────────────────
+  Add a provider with its endpoints and a Token that it accepts.
+  AIGW sends one authenticated request that names no model, and stores the Token only when the provider accepts it.
+
+Usage
+  aigw provider add <provider> [flags]
+
+Examples
+  aigw provider add dmxapi --endpoint responses=https://www.dmxapi.cn/v1 --token-stdin
+  aigw provider add ucloud --label UCloud --endpoint anthropic=https://api.modelverse.cn
+  aigw provider add dmxapi --endpoint responses=https://www.dmxapi.cn/v1 --dry-run
+
+Options
+      --dry-run                     Show the provider without reading a Token, sending a request or writing anything
+      --endpoint <protocol>=<url>   An endpoint of the provider as <protocol>=<url>; repeatable: anthropic, responses, or chat
+  -h, --help                        help for add
+      --json                        Write the added provider as JSON
+      --label string                Display name; the provider ID by default
+      --token-stdin                 Read the Token from standard input
+-- rotated.txt --
+AIGW  Token replaced
+────────────────────────────────────────
+  Provider             team
+  Label                Team Gateway
+  ✓ Token              Accepted by the provider and stored
+  ✓ Clients read the new Token the next time they ask for one; a running client decides when that is
+
+Next
+  aigw check
+-- list.txt --
+AIGW  Providers
+────────────────────────────────────────
+  mixed                Mixed · Anthropic Messages, OpenAI Chat Completions · 1 model
+  team                 Team Gateway · Anthropic Messages · 1 model
+
+Next
+  aigw provider show <provider>
+-- list.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "providers": [
+    {
+      "id": "mixed",
+      "label": "Mixed",
+      "endpoints": [
+        {
+          "protocol": "anthropic",
+          "url": "$UPSTREAM/mixed"
+        },
+        {
+          "protocol": "chat",
+          "url": "$UPSTREAM/mixed/v1"
+        }
+      ],
+      "balance_probe": "dmxapi",
+      "models": [
+        "mixed/chat-only"
+      ]
+    },
+    {
+      "id": "team",
+      "label": "Team Gateway",
+      "endpoints": [
+        {
+          "protocol": "anthropic",
+          "url": "$UPSTREAM"
+        }
+      ],
+      "balance_probe": "dmxapi",
+      "models": [
+        "team/team-model"
+      ]
+    }
+  ]
+}
+-- list-refusal.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown command \"stray\"",
+  "next_action": "aigw provider list --help"
+}
+-- show.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "id": "team",
+  "label": "Team Gateway",
+  "endpoints": [
+    {
+      "protocol": "anthropic",
+      "url": "$UPSTREAM"
+    }
+  ],
+  "balance_probe": "dmxapi",
+  "models": [
+    "team/team-model"
+  ],
+  "selected_by": [],
+  "token": "present",
+  "balance_credential": "absent"
+}
+-- show-unknown.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown provider \"tem\"; did you mean team?",
+  "next_action": "aigw provider list"
+}
+-- show-missing.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  aigw provider show needs a <provider> argument; run `aigw provider show --help`
+
+Fix
+  aigw provider show --help
+-- add-preview.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "dry_run": true,
+  "id": "spare",
+  "label": "spare",
+  "endpoints": [
+    {
+      "protocol": "responses",
+      "url": "$UPSTREAM/spare/v1"
+    }
+  ],
+  "models": [],
+  "token_validated": false,
+  "token_stored": false,
+  "client_files": [],
+  "next_detail": "aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1"
+}
+-- edit-preview.txt --
+AIGW  Provider edited (preview)
+────────────────────────────────────────
+  Provider                team
+  Label                   Team Gateway
+  Anthropic Messages      $UPSTREAM/v2
+  ! Capabilities cleared  team/team-model on Anthropic Messages: tool_search
+  ✓ Nothing was written: configuration, credentials and client files are unchanged
+
+Next
+  aigw provider edit team --endpoint anthropic=$UPSTREAM/v2
+-- remove-preview.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "dry_run": true,
+  "status": "planned",
+  "id": "mixed",
+  "label": "Mixed",
+  "models": [
+    "mixed/chat-only"
+  ],
+  "token": "absent",
+  "balance_credential": "absent",
+  "recommendations": [
+    "hermes"
+  ],
+  "client_files": [],
+  "next_action": "aigw provider remove mixed"
+}
+-- add-no-terminal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  a Token is read from --token-stdin without a terminal or with --json; pipe the Token to `aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --token-stdin`
+
+Fix
+  aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --token-stdin
+-- rotate-no-terminal.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "a Token is read from --token-stdin without a terminal or with --json; pipe the Token to `aigw provider rotate team --token-stdin`",
+  "next_action": "aigw provider rotate team --token-stdin"
+}
+-- add-rejected.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Token validation failed: Codex authentication was rejected (HTTP 401)",
+  "impact": "No Token was stored.",
+  "next_action": "aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --json --token-stdin"
+}
+-- added.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "id": "spare",
+  "label": "Spare",
+  "endpoints": [
+    {
+      "protocol": "responses",
+      "url": "$UPSTREAM/spare/v1"
+    }
+  ],
+  "models": [],
+  "token_validated": true,
+  "token_stored": true,
+  "client_files": [],
+  "next_detail": "aigw model add spare/\u003cmodel\u003e"
+}
+-- add-exists.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  provider spare already exists; `aigw provider edit` changes it and `aigw provider rotate` replaces its Token
+
+Fix
+  aigw provider edit spare --help
+-- add-unavailable.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Token validation failed: Codex endpoint returned HTTP 503
+
+Impact
+  No Token was stored.
+
+Fix
+  aigw provider add spare --endpoint responses=$UPSTREAM/unavailable/v1 --token-stdin
+-- rotate-rejected.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Token validation failed: Codex authentication was rejected (HTTP 401)
+
+Impact
+  No Token was stored; the previous Token is unchanged.
+
+Fix
+  aigw provider rotate spare --token-stdin
+-- rotated.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "id": "spare",
+  "label": "Spare",
+  "token_validated": true,
+  "token_stored": true,
+  "next_action": "aigw check"
+}
+-- edited.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "id": "team",
+  "label": "Team Gateway",
+  "endpoints": [
+    {
+      "protocol": "anthropic",
+      "url": "$UPSTREAM/v2"
+    }
+  ],
+  "balance_probe": "dmxapi",
+  "models": [
+    "team/team-model"
+  ],
+  "cleared_capabilities": [
+    {
+      "model": "team/team-model",
+      "protocol": "anthropic",
+      "capabilities": [
+        "tool_search"
+      ]
+    }
+  ],
+  "client_files": [],
+  "next_action": "aigw check"
+}
+-- edit-nothing.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "provider edit needs --label, --endpoint, --balance-token-stdin with --balance-user-id, or --no-balance-token; run `aigw provider edit --help`",
+  "next_action": "aigw provider edit --help"
+}
+-- edit-pair.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  --balance-token-stdin and --balance-user-id go together; run `aigw provider edit --help`
+
+Fix
+  aigw provider edit --help
+-- edit-no-probe.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  provider spare has no balance probe, so a balance token has no use
+
+Evidence
+  A team file sets a provider's balance probe; `aigw setup --from <file>` applies it.
+
+Fix
+  aigw config export
+-- edit-balance.txt --
+AIGW  Provider edited
+────────────────────────────────────────
+  Provider             team
+  Label                Team Gateway
+  Anthropic Messages   $UPSTREAM/v2
+  ✓ Balance token      Stored
+  ✓ Saved; the provider's Token is unchanged
+
+Next
+  aigw provider balance team
+-- balance.txt --
+AIGW  Balances
+────────────────────────────────────────
+
+Team Gateway
+  Balance              $10.0000
+  Token                team
+  ✓ Token status       Enabled
+  Quota used           $1.0000
+  Remaining quota      $5.0000
+  Remaining requests   42 requests
+
+Spare
+  · Balance            No balance probe
+
+Next
+  aigw check
+-- balance.json --
+{
+  "schema_version": 2,
+  "ok": false,
+  "providers": [
+    {
+      "id": "mixed",
+      "label": "Mixed",
+      "state": "failed",
+      "problem": "the balance credentials cannot be read: none is stored",
+      "next_detail": "aigw provider edit mixed --balance-token-stdin --balance-user-id \u003cuser-id\u003e"
+    },
+    {
+      "id": "spare",
+      "label": "Spare",
+      "state": "no_probe",
+      "detail": "No balance probe"
+    },
+    {
+      "id": "team",
+      "label": "Team Gateway",
+      "state": "reported",
+      "balance": 10,
+      "token": {
+        "name": "team",
+        "state": "enabled",
+        "used": 1,
+        "remaining": 5,
+        "unlimited_quota": false,
+        "remaining_requests": 42,
+        "unlimited_requests": false
+      }
+    }
+  ],
+  "next_detail": "aigw provider edit mixed --balance-token-stdin --balance-user-id \u003cuser-id\u003e"
+}
+-- balance-spare.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "providers": [
+    {
+      "id": "spare",
+      "label": "Spare",
+      "state": "no_probe",
+      "detail": "No balance probe"
+    }
+  ],
+  "next_action": "aigw check"
+}
+-- balance-unknown.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown provider \"tem\"; did you mean team?",
+  "next_action": "aigw provider list"
+}
+-- remove-selected.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "Claude uses team/team-model, so provider team cannot be removed",
+  "next_detail": "aigw use claude \u003cprovider/model\u003e"
+}
+-- remove-blocked.json --
+{
+  "schema_version": 1,
+  "ok": false,
+  "dry_run": true,
+  "status": "blocked",
+  "id": "team",
+  "label": "Team Gateway",
+  "models": [
+    "team/team-model"
+  ],
+  "token": "present",
+  "balance_credential": "present",
+  "recommendations": [],
+  "client_files": [],
+  "problem": "Claude uses team/team-model, so provider team cannot be removed",
+  "next_detail": "aigw use claude \u003cprovider/model\u003e"
+}
+-- removed.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "status": "removed",
+  "id": "mixed",
+  "label": "Mixed",
+  "models": [
+    "mixed/chat-only"
+  ],
+  "token": "absent",
+  "balance_credential": "absent",
+  "recommendations": [
+    "hermes"
+  ],
+  "client_files": [],
+  "next_action": "aigw provider list"
+}
+-- unbalanced.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "id": "team",
+  "label": "Team Gateway",
+  "endpoints": [
+    {
+      "protocol": "anthropic",
+      "url": "$UPSTREAM/v2"
+    }
+  ],
+  "balance_probe": "dmxapi",
+  "models": [
+    "team/team-model"
+  ],
+  "balance_credential": "removed",
+  "client_files": [],
+  "next_action": "aigw provider show team"
+}
+-- removed-environment.txt --
+AIGW  Provider removed
+────────────────────────────────────────
+  Provider             spare
+  Label                Spare
+  Models               None
+  ! Token              Supplied by the environment; unset AIGW_TOKEN_SPARE
+  Balance token        None stored
+  ✓ Removed; no other provider changed
+
+Next
+  aigw provider list
+-- list-after.txt --
+AIGW  Providers
+────────────────────────────────────────
+  spare                Spare · OpenAI Responses · 0 models
+  team                 Team Gateway · Anthropic Messages · 1 model
+
+Next
+  aigw provider show <provider>

@@ -33,7 +33,7 @@ func TestEndpointHTTPAdmissionUsesLoopbackIdentity(t *testing.T) {
 		{"[::ffff:192.168.1.1]", false},
 	} {
 		t.Run(test.host, func(t *testing.T) {
-			if err := validateEndpoint("http://" + test.host + ":4567/v1"); (err == nil) != test.allowed {
+			if err := ValidateEndpoint("http://" + test.host + ":4567/v1"); (err == nil) != test.allowed {
 				t.Errorf("endpoint admission: error=%v, allowed=%t", err, test.allowed)
 			}
 		})

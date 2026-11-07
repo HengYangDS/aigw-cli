@@ -54,6 +54,7 @@ Advanced
   installation         Inspect the current portable program and retained predecessor
   model                List, show, add, edit and remove models
   models               Compare configured model IDs with provider catalogs; does not test inference
+  provider             List, show, add, edit and remove providers; rotate Tokens; report balances
   route                Manage Routes
   test                 Probe selected endpoints without model inference
   verify               Verify a Route through a real native client (may use quota)

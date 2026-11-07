@@ -544,7 +544,7 @@ func (c *Config) resolveSelection(client string, selection ClientSelection) (Run
 	}
 	upstream := endpoint
 	if forwarding := c.forwardingFor(client, account.ID, upstream, protocol); forwarding != "" {
-		if err := validateEndpoint(forwarding); err != nil {
+		if err := ValidateEndpoint(forwarding); err != nil {
 			return Runtime{}, fmt.Errorf("client %q forwarding endpoint: %w", client, err)
 		}
 		endpoint = strings.TrimRight(forwarding, "/")

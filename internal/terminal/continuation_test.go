@@ -27,6 +27,10 @@ func TestNextStepsSeparatesRunnableCommands(t *testing.T) {
 		{"aigw add --help", "aigw add --help", ""},
 		{"aigw rotate --help", "aigw rotate --help", ""},
 		{"aigw add", "", "aigw add"},
+		{"aigw provider rotate team", "", "aigw provider rotate team"},
+		{"aigw provider rotate team --token-stdin", "aigw provider rotate team --token-stdin", ""},
+		{"aigw provider add team --endpoint responses=https://api.example.test/v1", "", "aigw provider add team --endpoint responses=https://api.example.test/v1"},
+		{"aigw provider show team", "aigw provider show team", ""},
 	} {
 		if action, detail := NextSteps(test.next); action != test.action || detail != test.detail {
 			t.Errorf("NextSteps(%q) = %q, %q; want %q, %q", test.next, action, detail, test.action, test.detail)

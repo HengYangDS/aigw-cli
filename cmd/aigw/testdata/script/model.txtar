@@ -379,7 +379,7 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "unknown provider \"tem\"; did you mean team?",
-  "next_action": "aigw model list"
+  "next_action": "aigw provider list"
 }
 -- show-model.json --
 {

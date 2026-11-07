@@ -75,24 +75,8 @@ type changeDocument struct {
 	// model now records the protocol that it reached, which a change of the
 	// model's protocols would otherwise make ambiguous.
 	PinnedRecommendations []string                      `json:"pinned_recommendations,omitempty"`
-	ClientFiles           []clientFile                  `json:"client_files"`
+	ClientFiles           []invocation.ClientFile       `json:"client_files"`
 	CredentialReader      *app.CredentialEntrypointPlan `json:"credential_reader,omitempty"`
 	NextAction            string                        `json:"next_action,omitempty"`
 	NextDetail            string                        `json:"next_detail,omitempty"`
-}
-
-// clientFile is one client file that a change writes or would write.
-type clientFile struct {
-	Client string `json:"client"`
-	File   string `json:"file,omitempty"`
-	Action string `json:"action"`
-}
-
-// clientFiles names the client files of a preview as documents do.
-func clientFiles(runtime invocation.Context, preview invocation.Preview) []clientFile {
-	files := make([]clientFile, 0, len(preview.Projections))
-	for _, projection := range invocation.Projections(runtime, preview.Plans()) {
-		files = append(files, clientFile{Client: projection.Client, File: projection.Target, Action: projection.Action})
-	}
-	return files
 }

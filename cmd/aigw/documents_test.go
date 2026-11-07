@@ -65,6 +65,8 @@ func TestDocumentProblemsNameEachGap(t *testing.T) {
 		{"prompting next", `{"schema_version": 2, "ok": false, "next_action": "aigw setup"}`, []string{"has a next_action that is not a runnable aigw command: aigw setup"}},
 		{"token prompt next", `{"schema_version": 2, "ok": false, "next_action": "aigw rotate team"}`, []string{"has a next_action that is not a runnable aigw command: aigw rotate team"}},
 		{"token input next", `{"schema_version": 2, "ok": false, "next_action": "aigw rotate team --token-stdin"}`, nil},
+		{"provider token prompt next", `{"schema_version": 2, "ok": false, "next_action": "aigw provider rotate team"}`, []string{"has a next_action that is not a runnable aigw command: aigw provider rotate team"}},
+		{"provider token input next", `{"schema_version": 2, "ok": false, "next_action": "aigw provider add team --endpoint responses=https://api.test/v1 --token-stdin"}`, nil},
 		{"defaulted account next", `{"schema_version": 2, "ok": false, "next_action": "aigw setup --route team --for claude"}`, []string{"has a next_action that is not a runnable aigw command: aigw setup --route team --for claude"}},
 		{"bare diagnostics next", `{"schema_version": 2, "ok": false, "next_action": "aigw account diagnostics enable"}`, []string{"has a next_action that is not a runnable aigw command: aigw account diagnostics enable"}},
 		{"import next", `{"schema_version": 2, "ok": true, "next_action": "aigw setup --from team.toml"}`, nil},
@@ -238,8 +240,9 @@ func documentValueProblems(path, key string, value any) []string {
 // runnable reports whether a script can run command as it stands: an aigw
 // command without a placeholder or prose that asks no person for a value.
 // Setup asks for an Account's Token unless it only imports a manifest, and
-// add, rotate and account diagnostics enable ask for their secret unless
-// their standard-input flag supplies it; help asks for nothing.
+// add, rotate, provider add, provider rotate and account diagnostics enable
+// ask for their secret unless their standard-input flag supplies it; help
+// asks for nothing.
 func runnable(command string) bool {
 	words := strings.Fields(command)
 	if len(words) < 2 || words[0] != "aigw" || strings.ContainsAny(command, "<>`;,") {
@@ -252,6 +255,8 @@ func runnable(command string) bool {
 	case words[1] == "setup":
 		return has("--token-stdin") || has("--from") && !has("--account")
 	case words[1] == "add" || words[1] == "rotate":
+		return has("--token-stdin")
+	case len(words) >= 3 && words[1] == "provider" && (words[2] == "add" || words[2] == "rotate"):
 		return has("--token-stdin")
 	case len(words) >= 4 && words[1] == "account" && words[2] == "diagnostics" && words[3] == "enable":
 		return has("--system-token-stdin")

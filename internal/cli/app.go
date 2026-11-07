@@ -33,6 +33,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	modelcli "aigw-cli/internal/cli/model"
 	"aigw-cli/internal/cli/models"
+	providercli "aigw-cli/internal/cli/provider"
 	"aigw-cli/internal/cli/repair"
 	"aigw-cli/internal/cli/rollback"
 	"aigw-cli/internal/cli/rotate"
@@ -221,10 +222,11 @@ func requiresConfigurationLock(app *App, command *cobra.Command) bool {
 	}
 	path := strings.TrimPrefix(command.CommandPath(), command.Root().Name()+" ")
 	switch path {
-	case "rotate", "account diagnostics enable", "account diagnostics disable":
+	case "rotate", "provider rotate", "account diagnostics enable", "account diagnostics disable":
 		return true
 	case "setup", "add", "rollback", "uninstall", "update", "account edit",
 		"route add", "route edit", "route remove", "model add", "model edit", "model remove", "client enable", "client disable",
+		"provider add", "provider edit", "provider remove",
 		"use", "sync", "repair", "account rename", "route rename", "config import", "config migrate":
 		dryRun, err := command.Flags().GetBool("dry-run")
 		return err != nil || !dryRun
@@ -397,7 +399,7 @@ func NewRoot(app *App) *cobra.Command {
 	advanced := []*cobra.Command{
 		installation.NewCommand(runtime),
 		add.NewCommand(runtime), accountcli.NewCommand(runtime),
-		modelcli.NewCommand(runtime), route.NewCommand(runtime),
+		modelcli.NewCommand(runtime), providercli.NewCommand(runtime), route.NewCommand(runtime),
 		clientcli.NewCommand(runtime),
 		config.NewCommand(runtime), testcli.NewCommand(runtime),
 		verify.NewCommand(runtime), models.NewCommand(runtime),

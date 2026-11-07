@@ -74,10 +74,21 @@ func validateRetryConnectionChange(before, after domain.Config, client string, c
 	}
 	previous, previousErr := before.ResolveRuntime(client, "")
 	current, currentErr := after.ResolveRuntime(client, "")
-	if previousErr == nil && currentErr == nil && previous.ConnectionFingerprint() == current.ConnectionFingerprint() {
+	if previousErr == nil && currentErr == nil && (previous.ConnectionFingerprint() == current.ConnectionFingerprint() || movedEndpoint(previous, current)) {
 		return nil
 	}
 	return fmt.Errorf("client %q connection changed with a selected retry policy; declare budgets with `aigw use --for %s`, or select --native-retries on the current connection first", client, client)
+}
+
+// movedEndpoint reports whether a client's connection changed only because its
+// provider moved the endpoint of the client's protocol: the same provider,
+// protocol, native provider and authentication reach a new upstream. Retry
+// budgets belong to the provider, so such a move keeps them; forwarding that
+// reached the old endpoint does not stay, and the forwarding check refuses it.
+func movedEndpoint(previous, current domain.Runtime) bool {
+	return previous.ProviderID == current.ProviderID && previous.Protocol == current.Protocol &&
+		previous.ModelProvider == current.ModelProvider && previous.Authentication == current.Authentication &&
+		previous.CredentialProjectionFingerprint(previous.Client) != current.CredentialProjectionFingerprint(current.Client)
 }
 
 func (s Synchronizer) validateRetryTransition(before, after domain.Config, connection domain.ConnectionChange) error {

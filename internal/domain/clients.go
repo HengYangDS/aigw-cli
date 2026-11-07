@@ -272,7 +272,7 @@ func (binding ClientBinding) withoutForwarding() ClientBinding {
 func (c *Config) SetForwardingEndpoint(client, endpoint string) error {
 	binding := c.Clients[client].withoutForwarding()
 	if endpoint != "" {
-		if err := validateEndpoint(endpoint); err != nil {
+		if err := ValidateEndpoint(endpoint); err != nil {
 			return fmt.Errorf("client %q forwarding endpoint: %w", client, err)
 		}
 		// The recorded identity names the Account upstream, which forwarding

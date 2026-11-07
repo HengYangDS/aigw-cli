@@ -200,7 +200,7 @@ func (binding ClientBinding) validate(client string, spec ClientSpec) error {
 		return err
 	}
 	if binding.ForwardingEndpoint != "" {
-		if err := validateEndpoint(binding.ForwardingEndpoint); err != nil {
+		if err := ValidateEndpoint(binding.ForwardingEndpoint); err != nil {
 			return fmt.Errorf("client binding %q forwarding endpoint: %w", client, err)
 		}
 	}
@@ -238,7 +238,7 @@ func (provider Provider) validate(name string) error {
 		if endpoint.url == "" {
 			continue
 		}
-		if err := validateEndpoint(endpoint.url); err != nil {
+		if err := ValidateEndpoint(endpoint.url); err != nil {
 			return fmt.Errorf("account %q endpoint %s: %w", name, endpoint.protocol, err)
 		}
 	}
@@ -248,7 +248,7 @@ func (provider Provider) validate(name string) error {
 	if !ValidIdentifier(provider.BalanceProbe.Kind) {
 		return fmt.Errorf("account %q has invalid account probe provider %q", name, provider.BalanceProbe.Kind)
 	}
-	if err := validateEndpoint(provider.BalanceProbe.BaseURL); err != nil {
+	if err := ValidateEndpoint(provider.BalanceProbe.BaseURL); err != nil {
 		return fmt.Errorf("account %q account probe: %w", name, err)
 	}
 	return nil
@@ -348,7 +348,11 @@ func (protocol EndpointProtocol) Admits(capability Capability) bool {
 	return capability != CapabilityToolSearch || protocol == ProtocolAnthropic
 }
 
-func validateEndpoint(raw string) error {
+// ValidateEndpoint checks a URL that a provider endpoint, a balance probe or a
+// forwarding destination may use: HTTPS, or plain HTTP to a loopback host,
+// without userinfo or a credential-like query parameter. Its errors name at
+// most a query parameter, never a value from the URL.
+func ValidateEndpoint(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
 		return errors.New("URL must use http or https and include a host")

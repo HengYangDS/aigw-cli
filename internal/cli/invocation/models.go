@@ -157,8 +157,7 @@ func selectingProtocols(cfg domain.Config, keys []string) ([]domain.EndpointProt
 }
 
 // ResolveProvider returns the configured provider with id. An unknown one is
-// refused with the closest provider IDs; its fix lists the added models, whose
-// names begin with their providers.
+// refused with the closest provider IDs; its fix lists the providers.
 func ResolveProvider(cfg domain.Config, id string) (domain.Provider, error) {
 	if provider, found := cfg.Providers[id]; found {
 		provider.ID = id
@@ -166,7 +165,7 @@ func ResolveProvider(cfg domain.Config, id string) (domain.Provider, error) {
 	}
 	return domain.Provider{}, refusal{
 		message: fmt.Sprintf("unknown provider %q", id) + closestText(id, cfg.CatalogProviderIDs(), ""),
-		fix:     "aigw model list",
+		fix:     "aigw provider list",
 	}
 }
 

@@ -53,7 +53,7 @@ func TestListRefusesUnknownNamesWithTheirFix(t *testing.T) {
 		t.Fatalf("an unknown client = %q, fix %q", p.Title, p.Fix)
 	}
 	err = f.run("list", "--provider", "teem")
-	if p := problem(err); p.Title != `unknown provider "teem"; did you mean team?` || p.Fix != "aigw model list" {
+	if p := problem(err); p.Title != `unknown provider "teem"; did you mean team?` || p.Fix != "aigw provider list" {
 		t.Fatalf("an unknown provider = %q, fix %q", p.Title, p.Fix)
 	}
 }
@@ -123,7 +123,7 @@ func TestShowRefusesAMalformedOrUnknownModel(t *testing.T) {
 		"show chat-only":         {`"chat-only" names no provider; it could mean mixed/Chat-Only`, "aigw model list chat-only"},
 		"show team/missing":      {"unknown model team/missing", "aigw model list --provider team"},
 		"show team/team-modl":    {"unknown model team/team-modl; did you mean team/team-model?", "aigw model list --provider team"},
-		"show nobody/team-model": {`unknown provider "nobody"`, "aigw model list"},
+		"show nobody/team-model": {`unknown provider "nobody"`, "aigw provider list"},
 	} {
 		if p := problem(f.run(strings.Fields(args)...)); p.Title != want.title || p.Fix != want.fix {
 			t.Errorf("model %s = %q, fix %q; want %q, fix %q", args, p.Title, p.Fix, want.title, want.fix)

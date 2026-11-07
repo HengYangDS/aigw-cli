@@ -31,6 +31,8 @@ func asksPerson(words []string) bool {
 		return !importOnly && !has("--token-stdin")
 	case words[0] == "add", words[0] == "rotate":
 		return !has("--token-stdin")
+	case len(words) >= 2 && words[0] == "provider" && (words[1] == "add" || words[1] == "rotate"):
+		return !has("--token-stdin")
 	case len(words) >= 3 && words[0] == "account" && words[1] == "diagnostics" && words[2] == "enable":
 		return !has("--system-token-stdin")
 	}

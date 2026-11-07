@@ -24,9 +24,10 @@ type HTTPDoer interface {
 }
 
 // Validate proves that token is accepted by each requested client protocol;
-// admission resolves the clients. When clients is empty, the account's OpenAI
-// Responses endpoint, or else its Anthropic endpoint, selects the probe, and
-// the first admitted client that speaks only that protocol names it.
+// admission resolves the clients. When clients is empty, the provider's OpenAI
+// Responses endpoint, or else its Anthropic endpoint, or else its Chat
+// Completions endpoint selects the probe, and the first admitted client that
+// speaks only that protocol, or else the first that speaks it, names it.
 func Validate(ctx context.Context, httpClient HTTPDoer, admission domain.Admission, account domain.Provider, token string, clients ...string) error {
 	if len(clients) == 0 {
 		client, err := defaultValidationClient(admission, account)
@@ -56,17 +57,30 @@ func Validate(ctx context.Context, httpClient HTTPDoer, admission domain.Admissi
 	return nil
 }
 
-// defaultValidationClient names the client whose protocol probes an Account
-// Token when the caller requests none.
+// defaultValidationClient names the client whose protocol probes a provider's
+// Token when the caller requests none. A client that speaks only that
+// protocol is preferred; one that speaks several resolves the provider's only
+// endpoint among them, because a provider without the preferred endpoints has
+// just the Chat Completions one.
 func defaultValidationClient(admission domain.Admission, account domain.Provider) (string, error) {
 	protocol := domain.ProtocolAnthropic
-	if account.Endpoints.OpenAIResponses != "" {
+	switch {
+	case account.Endpoints.OpenAIResponses != "":
 		protocol = domain.ProtocolOpenAIResponses
+	case account.Endpoints.Anthropic == "" && account.Endpoints.OpenAIChatCompletions != "":
+		protocol = domain.ProtocolOpenAIChatCompletions
 	}
+	speaker := ""
 	for _, spec := range admission.Specs() {
 		if slices.Equal(spec.EndpointProtocols, []domain.EndpointProtocol{protocol}) {
 			return spec.ID, nil
 		}
+		if speaker == "" && slices.Contains(spec.EndpointProtocols, protocol) {
+			speaker = spec.ID
+		}
+	}
+	if speaker != "" {
+		return speaker, nil
 	}
 	return "", fmt.Errorf("no admitted client probes an Account Token over %s", domain.ProtocolLabel(protocol))
 }

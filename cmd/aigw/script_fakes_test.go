@@ -17,12 +17,17 @@ const rejectedToken = "sk-rejected-token"
 // upstream answers the requests AIGW and the scripted clients send: model
 // catalogs, one capped inference request per protocol, the DMXAPI account
 // diagnostics and the GitHub release metadata of repository team/aigw. It
-// refuses rejectedToken with HTTP 401, and an inference request that asks
-// for AIGW_OK receives it.
+// refuses rejectedToken with HTTP 401, answers every request below
+// /unavailable/ with HTTP 503, and an inference request that asks for AIGW_OK
+// receives it.
 func upstream() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("X-Api-Key") == rejectedToken || r.Header.Get("Authorization") == "Bearer "+rejectedToken {
 			http.Error(w, `{"error":{"message":"invalid token"}}`, http.StatusUnauthorized)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/unavailable/") {
+			http.Error(w, `{"error":{"message":"unavailable"}}`, http.StatusServiceUnavailable)
 			return
 		}
 		request, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))

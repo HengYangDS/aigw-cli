@@ -2,7 +2,10 @@ package invocation
 
 import (
 	"errors"
+	"net/http"
 
+	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
 	"aigw-cli/internal/terminal"
 
@@ -80,3 +83,34 @@ func (e retryable) Unwrap() error { return e.error }
 
 // NextAction is the retry of the failed command.
 func (e retryable) NextAction() string { return e.retry }
+
+// TokenValidationProblem explains a Token that a command did not store,
+// because its provider rejected it or the request that validates it did not
+// complete. A rejected Token, an endpoint that did not answer and a status that
+// a later request may not repeat need the same command again; any other status
+// points at the endpoint, which endpointFix corrects for the protocol that
+// answered. The impact names the provider's previous Token only when secrets
+// holds one.
+func TokenValidationProblem(cmd *cobra.Command, args []string, secrets secret.Store, provider string, endpointFix func(domain.EndpointProtocol) string, err error) error {
+	impact := "No Token was stored."
+	if previous, existsErr := secrets.Exists(provider); existsErr == nil && previous {
+		impact = "No Token was stored; the previous Token is unchanged."
+	}
+	fix := "aigw check"
+	status, answered := errors.AsType[*probe.EndpointStatusError](err)
+	_, rejected := errors.AsType[*probe.TokenRejectedError](err)
+	_, unreachable := errors.AsType[*probe.UnreachableError](err)
+	switch {
+	case answered && !transientStatus(status.Status):
+		fix = endpointFix(status.Protocol)
+	case answered, rejected, unreachable:
+		fix = Retry(cmd, args)
+	}
+	return terminal.ProblemError("Token validation failed: "+err.Error(), "", impact, fix, err)
+}
+
+// transientStatus reports a status that a later request may not repeat: a
+// timeout, a rate limit or a server error.
+func transientStatus(status int) bool {
+	return status == http.StatusRequestTimeout || status == http.StatusTooManyRequests || status >= http.StatusInternalServerError
+}

@@ -67,6 +67,43 @@ func Projections(runtime Context, plans []adapter.ProjectionPlan) []Projection {
 	return projections
 }
 
+// ClientFile is one client file that a change writes or would write, as a
+// command's change document names it: the client, the file relative to the
+// home directory, absent outside it, and the snake_case action.
+type ClientFile struct {
+	Client string `json:"client"`
+	File   string `json:"file,omitempty"`
+	Action string `json:"action"`
+}
+
+// ClientFiles names the client files of a preview as change documents do.
+func ClientFiles(runtime Context, preview Preview) []ClientFile {
+	files := make([]ClientFile, 0, len(preview.plans))
+	for _, projection := range Projections(runtime, preview.plans) {
+		files = append(files, ClientFile{Client: projection.Client, File: projection.Target, Action: projection.Action})
+	}
+	return files
+}
+
+// RenderClientFiles names the client files that a change writes, each by its
+// client's label and the file, under one section; it writes nothing without
+// any.
+func RenderClientFiles(r *terminal.Renderer, runtime Context, files []ClientFile) {
+	if len(files) == 0 {
+		return
+	}
+	r.Section("Client files")
+	rows := make([]terminal.Field, 0, len(files))
+	for _, file := range files {
+		label := runtime.Clients.Admission().Label(file.Client)
+		if file.File != "" {
+			label += " " + file.File
+		}
+		rows = append(rows, terminal.Field{Label: label, Value: file.Action})
+	}
+	r.Rows(rows...)
+}
+
 // PreviewChange previews a configuration transition as Commit would apply it.
 func PreviewChange(runtime Context, before, after domain.Config) (Preview, error) {
 	projection, err := runtime.Synchronizer().Preview(before, after)

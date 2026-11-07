@@ -93,8 +93,9 @@ func TestValidateProtocolsAndDefaultSelection(t *testing.T) {
 }
 
 // TestValidateNamesTheDefaultProbeClient shows that a default probe's error
-// names the first admitted client that speaks only the account's protocol, and
-// that an admission without one refuses instead of probing.
+// names the first admitted client that speaks only the provider's protocol, or
+// else the first that speaks it, and that an admission without one refuses
+// instead of probing.
 func TestValidateNamesTheDefaultProbeClient(t *testing.T) {
 	t.Parallel()
 
@@ -108,6 +109,12 @@ func TestValidateNamesTheDefaultProbeClient(t *testing.T) {
 		"OpenAI Responses": {
 			endpoints: domain.Endpoints{Anthropic: anthropic.Anthropic, OpenAIResponses: "https://responses.test/v1"},
 			admission: clients.Admission(), want: "Codex authentication was rejected (HTTP 401)",
+		},
+		// No admitted client speaks only Chat Completions; Hermes speaks it
+		// among others and reaches the provider's only endpoint.
+		"OpenAI Chat Completions": {
+			endpoints: domain.Endpoints{OpenAIChatCompletions: "https://chat.test/v1"},
+			admission: clients.Admission(), want: "Hermes authentication was rejected (HTTP 401)",
 		},
 		"no probing client": {endpoints: anthropic, admission: domain.NewAdmission(), want: "no admitted client probes an Account Token over Anthropic Messages"},
 	} {

@@ -66,7 +66,7 @@ func TestResolveModelNamesTheClosestMatches(t *testing.T) {
 		"ucloud/minimax-m3": {"unknown model ucloud/minimax-m3; did you mean ucloud/MiniMax-M3?", "aigw model list --provider ucloud"},
 		"ucloud/gpt-6.1-sl": {"unknown model ucloud/gpt-6.1-sl; did you mean ucloud/gpt-6.1-sol?", "aigw model list --provider ucloud"},
 		"ucloud/zzz":        {"unknown model ucloud/zzz", "aigw model list --provider ucloud"},
-		"dmxap/gpt-6.1-sol": {`unknown provider "dmxap"; did you mean dmxapi?`, "aigw model list"},
+		"dmxap/gpt-6.1-sol": {`unknown provider "dmxap"; did you mean dmxapi?`, "aigw provider list"},
 	} {
 		_, _, err := ResolveModel(cfg, parse(text), "", nil)
 		if problem := terminal.ProblemFor(err); problem.Title != want.problem || problem.Fix != want.fix {

@@ -94,6 +94,7 @@ used_exports_only = [
   "internal/cli/invocation",
   "internal/cli/model",
   "internal/cli/models",
+  "internal/cli/provider",
   "internal/cli/repair",
   "internal/cli/rollback",
   "internal/cli/rotate",

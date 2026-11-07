@@ -81,6 +81,9 @@ func retryTransitionFixture(t *testing.T) domain.Config {
 	return cfg
 }
 
+// A provider edit keeps a client's retry budgets: a new label changes no
+// connection, and a new endpoint for the client's protocol moves the
+// provider's upstream, to which the budgets belong.
 func TestRetryConnectionTransitionGenericProviderCommit(t *testing.T) {
 	for _, change := range []string{"label", "endpoint"} {
 		t.Run(change, func(t *testing.T) {
@@ -93,10 +96,6 @@ func TestRetryConnectionTransitionGenericProviderCommit(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			snapshot, err := configStore.CaptureSnapshot()
-			if err != nil {
-				t.Fatal(err)
-			}
 			after := before.Clone()
 			account := after.Providers["one"]
 			if change == "label" {
@@ -105,28 +104,32 @@ func TestRetryConnectionTransitionGenericProviderCommit(t *testing.T) {
 				account.Endpoints.OpenAIResponses = "https://replacement.test/v1"
 			}
 			after.Providers["one"] = account
-			err = (Synchronizer{Registry: builtinClients, Config: configStore}).Commit(t.Context(), before, after, "account edit")
-			if change == "label" {
-				if err != nil {
-					t.Fatal(err)
-				}
-				return
+			if err := (Synchronizer{Registry: builtinClients, Config: configStore}).Commit(t.Context(), before, after, "provider edit"); err != nil {
+				t.Fatal(err)
 			}
-			observed, loadErr := configStore.Load()
-			if loadErr != nil {
-				t.Fatal(loadErr)
+			observed, err := configStore.Load()
+			if err != nil {
+				t.Fatal(err)
 			}
-			oldRuntime, _ := before.ResolveRuntime(codex.ID, "")
-			newRuntime, _ := observed.ResolveRuntime(codex.ID, "")
-			t.Logf("commit_error=%v endpoint=%s changed_connection=%v retained_budget=%v", err, newRuntime.Endpoint, oldRuntime.ConnectionFingerprint() != newRuntime.ConnectionFingerprint(), reflect.DeepEqual(before.Clients[codex.ID].RetryPolicy, observed.Clients[codex.ID].RetryPolicy))
-			if err == nil || !strings.Contains(err.Error(), "retry") {
-				t.Fatal("connection changed without explicit retry intent")
-			}
-			unchanged, snapshotErr := configStore.CaptureSnapshot()
-			if snapshotErr != nil || !reflect.DeepEqual(snapshot, unchanged) {
-				t.Fatalf("refusal changed configuration: %v", snapshotErr)
+			if !reflect.DeepEqual(before.Clients[codex.ID].RetryPolicy, observed.Clients[codex.ID].RetryPolicy) {
+				t.Fatalf("retry budgets = %#v, want %#v", observed.Clients[codex.ID].RetryPolicy, before.Clients[codex.ID].RetryPolicy)
 			}
 		})
+	}
+}
+
+// A move to another provider is a new connection, which a retry policy still
+// refuses without explicit intent, even when it keeps the protocol.
+func TestRetryConnectionTransitionRefusesAnotherProvider(t *testing.T) {
+	cfg := retryTransitionFixture(t)
+	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{OpenAIResponses: "https://two.test/v1"}}
+	cfg.Models["two"] = domain.Model{Label: "Two", Provider: "two", Family: "gpt", Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolOpenAIResponses: {}}}
+	after := cfg.Clone()
+	binding := after.Clients[codex.ID]
+	binding.Model = "two"
+	after.Clients[codex.ID] = binding
+	if err := validateRetryConnectionChange(cfg, after, codex.ID, domain.ConnectionChange{}); err == nil || !strings.Contains(err.Error(), "retry") {
+		t.Fatalf("a move to another provider kept its budgets: %v", err)
 	}
 }
 
