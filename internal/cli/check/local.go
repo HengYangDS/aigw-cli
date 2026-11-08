@@ -202,7 +202,7 @@ func (c *checker) tokenCheck(r result) localCheck {
 	switch {
 	case err != nil:
 		return failedCheck(name, label, "The credential backend cannot tell whether provider "+provider+" has a Token", backendFix, domainreadiness.Unavailable)
-	case !present:
+	case !present || secret.TokenSlotEmpty(c.deps.Secrets, provider):
 		fix, writable := secret.TokenRecovery(c.deps.Secrets, provider)
 		if writable {
 			fix = "aigw provider rotate " + provider

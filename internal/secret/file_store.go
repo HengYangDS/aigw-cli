@@ -29,13 +29,18 @@ func (store *fileStore) get(kind Kind, account string) (string, error) {
 		return "", fmt.Errorf("read Token file: %w", err)
 	}
 	defer clear(value)
+	// Windows protects a stored value, and an empty file holds nothing to
+	// unprotect, so it is reported here on every platform.
+	if len(value) == 0 {
+		return "", ErrEmpty
+	}
 	plain, err := decodeCredential(value)
 	if err != nil {
 		return "", err
 	}
 	defer clear(plain)
 	if len(plain) == 0 {
-		return "", errors.New("stored credential is empty")
+		return "", ErrEmpty
 	}
 	return string(plain), nil
 }
@@ -90,4 +95,22 @@ func (store *fileStore) exists(kind Kind, account string) (bool, error) {
 		return false, err
 	}
 	return present, nil
+}
+
+// holdsNoValue reports, from the file's size and without reading it, that a
+// present slot is empty.
+func (store *fileStore) holdsNoValue(kind Kind, account string) (bool, error) {
+	root, err := openSecureRoot(store.root, false)
+	if err != nil || root == nil {
+		return false, err
+	}
+	defer func() { _ = root.Close() }()
+	info, err := root.Lstat(slotName(kind, account))
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("inspect Token file: %w", err)
+	}
+	return info.Size() == 0, nil
 }

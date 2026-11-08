@@ -45,9 +45,13 @@ func Replace(store Store, updates map[string]string) (func() error, error) {
 	return compensate, nil
 }
 
+// replaceToken stores token for account and returns the compensation that
+// restores the previous Token. An empty previous Token is no Token: no
+// provider accepts it and Set refuses it, so the compensation removes the
+// slot, as for an absent one.
 func replaceToken(store Store, account, token string) (func() error, error) {
 	previous, err := store.Get(account)
-	if err != nil && !errors.Is(err, ErrNotFound) {
+	if err != nil && !errors.Is(err, ErrNotFound) && !errors.Is(err, ErrEmpty) {
 		return nil, err
 	}
 	hadPrevious := err == nil

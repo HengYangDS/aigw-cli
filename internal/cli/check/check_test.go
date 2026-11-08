@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/secret"
 )
 
 // A check climbs to the depth that it asks for and no further: local sends
@@ -374,4 +376,58 @@ func TestCheckRetriesATransientEndpointFailure(t *testing.T) {
 			t.Fatalf("HTTP %d = %+v", code, client)
 		}
 	}
+}
+
+// An empty stored Token is a missing one at every depth, with the fix that
+// stores a Token again: the file backend reports it absent at the local
+// depth, and a store whose metadata cannot tell reports it when the endpoint
+// depth reads it, before any request.
+func TestCheckTreatsAnEmptyTokenAsAMissingOne(t *testing.T) {
+	t.Run("file backend", func(t *testing.T) {
+		runtime, cfg, out := configuredRuntime(t)
+		enable(t, runtime, &cfg, codex.ID)
+		root := filepath.Join(t.TempDir(), "secrets")
+		files, err := secret.Select(secret.Selection{Backend: "file", GOOS: goruntime.GOOS, Root: root})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := files.Set("one", "sk-one-0001"); err != nil {
+			t.Fatal(err)
+		}
+		// The slot of provider one keeps its owner and mode with no bytes.
+		if err := os.Truncate(filepath.Join(root, "tokens", "one"), 0); err != nil {
+			t.Fatal(err)
+		}
+		runtime.Secrets = files
+		runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			t.Fatalf("an empty Token sent %s", request.URL)
+			return nil, nil
+		})
+		if err := execute(runtime, "--json"); err == nil {
+			t.Fatal("an empty Token passed")
+		}
+		client := decode(t, out).client(t, codex.ID)
+		if client.Failure == nil || client.Failure.Depth != depthLocal || client.Failure.Problem != "Provider one has no Token" || client.NextDetail != "aigw provider rotate one" {
+			t.Fatalf("an empty Token in the file backend = %+v", client)
+		}
+	})
+	t.Run("metadata that cannot tell", func(t *testing.T) {
+		runtime, cfg, out := configuredRuntime(t)
+		enable(t, runtime, &cfg, codex.ID)
+		store := secrets(t, runtime)
+		delete(store.tokens, "one")
+		store.empty = map[string]bool{"one": true}
+		runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			t.Fatalf("an empty Token sent %s", request.URL)
+			return nil, nil
+		})
+		if err := execute(runtime, "--json"); err == nil {
+			t.Fatal("an empty Token passed")
+		}
+		client := decode(t, out).client(t, codex.ID)
+		if client.Failure == nil || client.Failure.Depth != depthEndpoint || client.State != domainreadiness.Deferred ||
+			client.Failure.Problem != "Provider one has no Token" || client.NextDetail != "aigw provider rotate one" {
+			t.Fatalf("an empty Token in a store whose metadata cannot tell = %+v", client)
+		}
+	})
 }

@@ -61,7 +61,11 @@ func (r *recorder) Do(request *http.Request) (*http.Response, error) {
 // observingSecretStore records each Token read and each metadata read, by
 // provider.
 type observingSecretStore struct {
-	tokens          map[string]string
+	tokens map[string]string
+	// empty names the providers whose item holds an empty value, which Exists
+	// reports present, as a store whose metadata cannot tell does, and Get
+	// reports as ErrEmpty.
+	empty           map[string]bool
 	existsErr       error
 	getProviders    []string
 	existsProviders []string
@@ -69,6 +73,9 @@ type observingSecretStore struct {
 
 func (store *observingSecretStore) Get(provider string) (string, error) {
 	store.getProviders = append(store.getProviders, provider)
+	if store.empty[provider] {
+		return "", secret.ErrEmpty
+	}
 	if token, found := store.tokens[provider]; found {
 		return token, nil
 	}
@@ -82,7 +89,7 @@ func (*observingSecretStore) Delete(string) error { return nil }
 func (store *observingSecretStore) Exists(provider string) (bool, error) {
 	store.existsProviders = append(store.existsProviders, provider)
 	_, found := store.tokens[provider]
-	return found, store.existsErr
+	return found || store.empty[provider], store.existsErr
 }
 
 // secrets is the credential store that configuredRuntime gives runtime.

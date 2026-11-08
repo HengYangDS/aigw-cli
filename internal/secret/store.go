@@ -16,6 +16,9 @@ const Service = "AIGW_TOKEN"
 var (
 	// ErrNotFound reports that a requested credential slot is absent.
 	ErrNotFound = errors.New("secret not found")
+	// ErrEmpty reports a credential slot that holds an empty value, which no
+	// provider accepts: like an absent one, it needs a Token stored again.
+	ErrEmpty = errors.New("stored credential is empty")
 	// errReadOnly reports that the selected credential backend cannot persist mutations.
 	errReadOnly = errors.New("secret store is read-only")
 )
@@ -33,6 +36,32 @@ type credentialBackend interface {
 	set(kind Kind, account, value string) error
 	delete(kind Kind, account string) error
 	exists(kind Kind, account string) (bool, error)
+}
+
+// slotEmptiness is implemented by a backend whose metadata tells, without
+// reading the value, that a present slot holds nothing.
+type slotEmptiness interface {
+	holdsNoValue(kind Kind, account string) (bool, error)
+}
+
+// TokenSlotEmpty reports that the backend's metadata shows account's Token
+// slot present and empty, which holds no Token. It reads no value. A backend
+// whose metadata cannot tell reports false, and its Get reports ErrEmpty.
+func TokenSlotEmpty(store Store, account string) bool {
+	backend := backendStore(store)
+	if automatic, ok := backend.(*automaticStore); ok {
+		selected, err := automatic.resolve()
+		if err != nil {
+			return false
+		}
+		backend = selected
+	}
+	observer, ok := backend.(slotEmptiness)
+	if !ok {
+		return false
+	}
+	empty, err := observer.holdsNoValue(APIToken, account)
+	return err == nil && empty
 }
 
 // IsReadOnly reports whether a Store can persist credential mutations.
