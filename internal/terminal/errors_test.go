@@ -50,7 +50,7 @@ func TestRenderErrorDoesNotExposeLocalFilePath(t *testing.T) {
 			renderer := NewRenderer(&out, false)
 			RenderError(renderer, fmt.Errorf("capture current config: %w", test.cause), jsonMode)
 			if renderer.Err() != nil || strings.Contains(out.String(), privatePath) ||
-				!strings.Contains(out.String(), test.want) || !strings.Contains(out.String(), "aigw check --depth local") {
+				!strings.Contains(out.String(), test.want) || !strings.Contains(out.String(), "aigw config path") || strings.Contains(out.String(), "aigw check") {
 				t.Fatalf("json=%t local file diagnostic = %q, want %q, render error = %v", jsonMode, out.String(), test.want, renderer.Err())
 			}
 		}

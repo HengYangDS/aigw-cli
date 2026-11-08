@@ -8,6 +8,7 @@ import (
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/terminal"
 	"errors"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -33,6 +34,24 @@ func rollbackFailureImpact(err error) string {
 		return impact
 	}
 	return "Configuration or client projections may have changed; inspect current state before retrying."
+}
+
+// unavailable refuses a rollback without a recovery source. Without a
+// configuration there is nothing to roll back, and a local check would fail
+// the same way, so the fix is setup; otherwise the local check inspects the
+// configuration that stays.
+func unavailable(runtime invocation.Context, cause error) error {
+	fix := "aigw check --depth local"
+	if _, err := os.Stat(runtime.Config.Path()); errors.Is(err, os.ErrNotExist) {
+		fix = "aigw setup"
+	}
+	return terminal.ProblemError(
+		"Configuration rollback is unavailable",
+		"No valid recovery source is available for the current configuration.",
+		"The current configuration remains active and unchanged.",
+		fix,
+		cause,
+	)
 }
 
 // NewCommand constructs the command that restores the last verified AIGW configuration checkpoint.
@@ -66,17 +85,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				var backupErr error
 				restored, backupErr = runtime.Config.LoadBackup()
 				if backupErr != nil {
-					cause := backupErr
-					if checkpointErr != nil {
-						cause = errors.Join(checkpointErr, backupErr)
-					}
-					return terminal.ProblemError(
-						"Configuration rollback is unavailable",
-						"No valid recovery source is available for the current configuration.",
-						"The current configuration remains active and unchanged.",
-						"aigw check --depth local",
-						cause,
-					)
+					return unavailable(runtime, errors.Join(checkpointErr, backupErr))
 				}
 				source, sourceID = "Previous configuration", "previous_backup"
 			}

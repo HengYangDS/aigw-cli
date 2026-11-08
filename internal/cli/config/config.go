@@ -89,7 +89,7 @@ func newImportCommand(runtime invocation.Context) *cobra.Command {
 	}), RunE: func(cmd *cobra.Command, args []string) error {
 		data, err := os.ReadFile(args[0])
 		if err != nil {
-			return fmt.Errorf("Failed to read configuration manifest: %w", err)
+			return terminal.ManifestReadFailure(args[0], err)
 		}
 		incoming, err := store.Parse(data, runtime.Config.Admission())
 		if err != nil {

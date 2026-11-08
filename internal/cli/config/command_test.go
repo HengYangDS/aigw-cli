@@ -412,7 +412,7 @@ func TestImportSurfacesReadParseLoadAndMergeFailures(t *testing.T) {
 				return runtime
 			},
 			path: func(t *testing.T) string { return filepath.Join(t.TempDir(), "absent.toml") },
-			want: "Failed to read configuration manifest",
+			want: "Cannot read the team file",
 		},
 		{
 			name: "parse",

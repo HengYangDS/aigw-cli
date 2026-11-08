@@ -169,8 +169,28 @@ func configurationLoadFix(phase store.LoadPhase) string {
 	}
 }
 
+// localFileAccessFix is the fix of an operating-system error at a file that
+// the error does not name, such as AIGW's own folder or a file inside it. A
+// local check needs a configuration, which a fresh home lacks, so the fix
+// names the folder through `aigw config path`, which works in every state.
+const localFileAccessFix = "Make AIGW's folder and its files readable and writable by you; `aigw config path` prints where the folder is. Then run the same command again."
+
 func localFileAccessMessage(operation string, err error) string {
-	return fmt.Sprintf("Local file access failed (%s: %s); run `aigw check --depth local` to inspect current state", operation, fileErrorReason(err))
+	return fmt.Sprintf("Local file access failed (%s: %s)", operation, fileErrorReason(err))
+}
+
+// ManifestReadFailure presents a configuration manifest that cannot be read,
+// naming the path as the user gave it, with the step that resolves the error.
+func ManifestReadFailure(path string, err error) error {
+	reason := fileErrorReason(err)
+	fix := "Resolve " + reason + " on " + path + ", then run the same command again."
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		fix = "Name a team file that exists, then run the same command again."
+	case errors.Is(err, fs.ErrPermission):
+		fix = "Make " + path + " readable by you, then run the same command again."
+	}
+	return ProblemError("Cannot read the team file "+path+": "+reason, "", "Nothing was imported.", fix, err)
 }
 
 // fileErrorReason names an operating-system file error from a closed set, so
@@ -445,7 +465,17 @@ func errorFix(err error, message string) string {
 	if usage, ok := errors.AsType[*usageError](err); ok {
 		return usage.command + " --help"
 	}
+	if fileAccess(err) {
+		return localFileAccessFix
+	}
 	return "aigw check"
+}
+
+// fileAccess reports whether err is an operating-system error at a file.
+func fileAccess(err error) bool {
+	_, atPath := errors.AsType[*os.PathError](err)
+	_, atLink := errors.AsType[*os.LinkError](err)
+	return atPath || atLink
 }
 
 // StatesFix reports whether err states its own fix: a structured problem, a

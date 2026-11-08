@@ -48,7 +48,7 @@ func writeSetupDocument(runtime invocation.Context, result manifestSetupResult) 
 func runManifestSetup(ctx context.Context, runtime invocation.Context, request setupRequest) error {
 	data, err := os.ReadFile(request.From)
 	if err != nil {
-		return fmt.Errorf("Failed to read configuration manifest: %w", err)
+		return terminal.ManifestReadFailure(request.From, err)
 	}
 	manifest, err := store.Parse(data, runtime.Config.Admission())
 	if err != nil {

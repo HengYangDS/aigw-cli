@@ -1,5 +1,6 @@
-# rollback refuses a home without a recovery source, then restores the
-# configuration before the last change.
+# rollback refuses a home without a recovery source, naming setup, which runs
+# where there is no configuration, then restores the configuration before the
+# last change.
 exec aigw rollback --help
 cmp stdout help.txt
 
@@ -79,7 +80,7 @@ Impact
   The current configuration remains active and unchanged.
 
 Fix
-  aigw check --depth local
+  aigw setup
 -- restored.txt --
 AIGW  Rolled back safely
 ────────────────────────────────────────
