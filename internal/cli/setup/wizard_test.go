@@ -3,6 +3,10 @@ package setup
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -12,7 +16,10 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
+
+	"github.com/spf13/cobra"
 )
 
 type scriptedWizardPrompt struct {
@@ -20,6 +27,7 @@ type scriptedWizardPrompt struct {
 	textPrompts []string
 	textCalls   int
 	failTextAt  int
+	textErr     error
 	selectErr   error
 	selections  []string
 	choiceSets  [][]terminal.Choice
@@ -30,6 +38,9 @@ func (candidate *scriptedWizardPrompt) Text(message string) (string, error) {
 	candidate.textPrompts = append(candidate.textPrompts, message)
 	candidate.textCalls++
 	if candidate.failTextAt == candidate.textCalls {
+		if candidate.textErr != nil {
+			return "", candidate.textErr
+		}
 		return "", errors.New("text failed")
 	}
 	if candidate.textCalls <= len(candidate.texts) {
@@ -113,6 +124,41 @@ func TestWizardPromptFailureBranches(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if err := RunWizard(context.Background(), invocation.Context{Clients: clients.Registry(), Prompt: test.prompt}); err == nil {
 				t.Fatal("expected wizard failure")
+			}
+		})
+	}
+}
+
+// A wizard prompt that ends without an answer, cancelled or at the end of its
+// input, names the prompt, says that nothing changed and names `aigw setup`
+// again, which asks again; no configuration is written.
+func TestSetupNamesACancelledWizardPrompt(t *testing.T) {
+	cancelled := fmt.Errorf("%w: no input received", terminal.ErrInputCancelled)
+	for _, test := range []struct {
+		title  string
+		prompt *scriptedWizardPrompt
+	}{
+		{title: "The provider ID prompt was cancelled", prompt: &scriptedWizardPrompt{textErr: cancelled, failTextAt: 1}},
+		{title: "The provider name prompt was cancelled", prompt: &scriptedWizardPrompt{texts: []string{"team"}, textErr: cancelled, failTextAt: 2}},
+		{title: "The client prompt was cancelled", prompt: &scriptedWizardPrompt{texts: []string{"team", "Team"}, selectErr: cancelled}},
+		{title: "The client prompt ended without a choice", prompt: &scriptedWizardPrompt{texts: []string{"team", "Team"}, selectErr: terminal.ErrNoChoice}},
+		{title: "The endpoint prompt was cancelled", prompt: &scriptedWizardPrompt{texts: []string{"team", "Team"}, textErr: cancelled, failTextAt: 3}},
+		{title: "The model ID prompt was cancelled", prompt: &scriptedWizardPrompt{texts: []string{"team", "Team", "https://one.test/v1", "team-model"}, textErr: cancelled, failTextAt: 5}},
+	} {
+		t.Run(test.title, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "configuration.toml")
+			runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(path, clients.Admission()), Interactive: true, Prompt: test.prompt, Out: io.Discard}
+			root := &cobra.Command{Use: "aigw"}
+			command := NewCommand(runtime)
+			root.AddCommand(command)
+			root.SetArgs([]string{"setup"})
+			root.SilenceErrors, root.SilenceUsage = true, true
+			problem := terminal.ProblemFor(root.Execute())
+			if problem.Title != test.title || problem.Impact != "Nothing changed." || problem.Fix != "aigw setup" {
+				t.Fatalf("a cancelled wizard prompt = %#v", problem)
+			}
+			if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("a cancelled wizard prompt wrote the configuration: %v", err)
 			}
 		})
 	}

@@ -374,7 +374,7 @@ func collectManifestSetupCredentials(runtime invocation.Context, cfg domain.Conf
 	account := cfg.Providers[selectedAccount]
 	token, err := runtime.Prompt.Secret("Paste " + account.Label + " token: ")
 	if err != nil {
-		return nil, err
+		return nil, invocation.Prompted("The Token prompt for provider "+selectedAccount, err)
 	}
 	if token == "" {
 		return nil, fmt.Errorf("empty Token refused for Account %q", selectedAccount)

@@ -28,7 +28,7 @@ func newRenameCommand(runtime invocation.Context) *cobra.Command {
 		if finalize {
 			plan, err = runtime.Renamer().FinalizeProvider(cmd.Context(), args[0], args[1], dryRun, options)
 		} else {
-			oldID, newID, resolveErr := invocation.ResolveRenameIDs(runtime, "account", args)
+			oldID, newID, resolveErr := invocation.ResolveRenameIDs(cmd, runtime, "account", args)
 			if resolveErr != nil {
 				return resolveErr
 			}

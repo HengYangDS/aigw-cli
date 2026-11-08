@@ -139,8 +139,14 @@ func WriteRenamePlan(runtime Context, plan renaming.Plan, dryRun, jsonMode bool)
 }
 
 // ResolveRenameIDs returns the old and new resource IDs from args and asks
-// the prompt for the ones that args does not supply.
-func ResolveRenameIDs(runtime Context, resource string, args []string) (string, string, error) {
+// the prompt for the ones that args does not supply. A prompt that ends
+// without an answer, before anything changed, names cmd again as its fix.
+func ResolveRenameIDs(cmd *cobra.Command, runtime Context, resource string, args []string) (string, string, error) {
+	oldID, newID, err := resolveRenameIDs(runtime, resource, args)
+	return oldID, newID, CancelledPrompt(cmd, args, err)
+}
+
+func resolveRenameIDs(runtime Context, resource string, args []string) (string, string, error) {
 	if len(args) == 2 {
 		return args[0], args[1], nil
 	}
@@ -161,13 +167,13 @@ func ResolveRenameIDs(runtime Context, resource string, args []string) (string, 
 		}
 		selected, err := runtime.Prompt.Select("Select the "+resource+" to rename: ", choices)
 		if err != nil {
-			return "", "", fmt.Errorf("Select %s to rename: %w", resource, err)
+			return "", "", Prompted("The "+resource+" selection", fmt.Errorf("Select %s to rename: %w", resource, err))
 		}
 		oldID = selected
 	}
 	newID, err := runtime.Prompt.Text("New " + resource + " ID: ")
 	if err != nil {
-		return "", "", fmt.Errorf("Read new %s ID: %w", resource, err)
+		return "", "", Prompted("The new "+resource+" ID prompt", fmt.Errorf("Read new %s ID: %w", resource, err))
 	}
 	return oldID, strings.TrimSpace(newID), nil
 }

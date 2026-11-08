@@ -260,6 +260,41 @@ func TestTerminalPromptAccessibleSelectDefaultsToFirstChoiceOnEmptyInput(t *test
 	}
 }
 
+// Input that ends before an answer, as Ctrl-D or a script whose input runs
+// out ends it, cancels an accessible selection instead of choosing the first
+// choice: at the first answer, after an answer that named no choice, and
+// after a filter that numbered its matches again. An answer typed before the
+// end of input still counts.
+func TestTerminalPromptAccessibleSelectCancelsAtTheEndOfInput(t *testing.T) {
+	short := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
+	long := []Choice{
+		{Value: "team/team-model", Label: "Team model"}, {Value: "team/MiniMax-M3", Label: "MiniMax M3"}, {Value: "team/minimal", Label: "Minimal"},
+		{Value: "team/spare-model", Label: "Spare model"}, {Value: "team/other-model", Label: "Other model"},
+	}
+	for _, test := range []struct {
+		name, input string
+		choices     []Choice
+	}{
+		{name: "nothing typed", choices: short},
+		{name: "blanks without a line ending", input: "  ", choices: short},
+		{name: "after an answer that named no choice", input: "9\n", choices: short},
+		{name: "a long list", choices: long},
+		{name: "after a filter", input: "mini\n", choices: long},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			p := Prompt{in: strings.NewReader(test.input), out: &bytes.Buffer{}, accessible: true}
+			value, err := p.Select("Pick: ", test.choices)
+			if !errors.Is(err, ErrInputCancelled) || errors.Is(err, ErrNoChoice) || value != "" {
+				t.Fatalf("Select() = %q, %v, want a cancellation", value, err)
+			}
+		})
+	}
+	p := Prompt{in: strings.NewReader("2"), out: &bytes.Buffer{}, accessible: true}
+	if value, err := p.Select("Pick: ", short); err != nil || value != "b" {
+		t.Fatalf("Select() of an answer that the input ends = %q, %v, want b", value, err)
+	}
+}
+
 func TestTerminalPromptAccessibleSelectAcceptsChosenNumber(t *testing.T) {
 	p := Prompt{in: strings.NewReader("2\n"), out: &bytes.Buffer{}, accessible: true}
 	choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}

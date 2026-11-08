@@ -70,7 +70,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			// A JSON caller reads one document, so setup never prompts for it.
 			operation.Interactive = operation.Interactive && !request.JSON
 			if cmd.Flags().Changed("from") {
-				return runManifestSetup(cmd.Context(), operation, request)
+				return invocation.CancelledPrompt(cmd, nil, runManifestSetup(cmd.Context(), operation, request))
 			}
 			if operation.Interactive && request == (setupRequest{}) {
 				cfg, err := operation.Config.Load()
@@ -80,9 +80,9 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if err := operation.Synchronizer().AdmitSetup(cfg); err != nil {
 					return err
 				}
-				return RunWizard(cmd.Context(), operation)
+				return invocation.CancelledPrompt(cmd, nil, RunWizard(cmd.Context(), operation))
 			}
-			return runSetup(cmd.Context(), operation, request)
+			return invocation.CancelledPrompt(cmd, nil, runSetup(cmd.Context(), operation, request))
 		},
 	}
 	cmd.Flags().StringVar(&request.From, "from", "", "Set up all routes from a token-free configuration manifest")
@@ -370,6 +370,7 @@ func setupToken(runtime invocation.Context, request setupRequest) (setupCredenti
 	}
 	if request.PromptToken {
 		credential.token, err = runtime.Prompt.Secret("Paste " + request.Label + " token: ")
+		err = invocation.Prompted("The Token prompt for provider "+request.Provider, err)
 	} else {
 		credential.token, err = invocation.ReadToken(runtime, request.TokenStdin, true)
 	}
@@ -382,18 +383,20 @@ func setupToken(runtime invocation.Context, request setupRequest) (setupCredenti
 
 // RunWizard is deliberately provider-neutral. AIGW never assumes a gateway,
 // token slot, URL, or model catalog for a new user; the user may instead
-// import a secret-free configuration manifest before running this flow.
+// import a secret-free configuration manifest before running this flow. Each
+// prompt names itself when it fails, so that a caller can say which one ended
+// without an answer: all of them come before anything is written.
 func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	account, err := runtime.Prompt.Text("Account ID (for example, team-primary): ")
 	if err != nil {
-		return err
+		return invocation.Prompted("The provider ID prompt", err)
 	}
 	if !domain.ValidIdentifier(account) {
 		return fmt.Errorf("invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", account)
 	}
 	label, err := runtime.Prompt.Text("Provider display name: ")
 	if err != nil {
-		return err
+		return invocation.Prompted("The provider name prompt", err)
 	}
 	clientSpecs := runtime.Clients.Admission().Specs()
 	clientChoices := make([]terminal.Choice, 0, len(clientSpecs))
@@ -402,7 +405,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	}
 	client, err := runtime.Prompt.Select("Client for the first Route: ", clientChoices)
 	if err != nil {
-		return err
+		return invocation.Prompted("The client prompt", err)
 	}
 	spec, ok := runtime.Clients.Admission().Spec(client)
 	if !ok || len(spec.EndpointProtocols) == 0 {
@@ -416,7 +419,7 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 		}
 		selected, selectErr := runtime.Prompt.Select("Endpoint protocol: ", protocolChoices)
 		if selectErr != nil {
-			return selectErr
+			return invocation.Prompted("The protocol prompt", selectErr)
 		}
 		protocol = domain.EndpointProtocol(selected)
 		if !slices.Contains(spec.EndpointProtocols, protocol) {
@@ -438,15 +441,15 @@ func RunWizard(ctx context.Context, runtime invocation.Context) error {
 	}
 	*endpointURL, err = runtime.Prompt.Text(endpointLabel)
 	if err != nil {
-		return err
+		return invocation.Prompted("The endpoint prompt", err)
 	}
 	request.Model, err = runtime.Prompt.Text("Route ID (for example, team-model): ")
 	if err != nil {
-		return err
+		return invocation.Prompted("The model name prompt", err)
 	}
 	request.UpstreamModel, err = runtime.Prompt.Text("Upstream model ID: ")
 	if err != nil {
-		return err
+		return invocation.Prompted("The model ID prompt", err)
 	}
 	return runSetup(ctx, runtime, request)
 }

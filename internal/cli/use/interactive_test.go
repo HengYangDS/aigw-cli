@@ -8,6 +8,7 @@ import (
 
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -129,9 +130,9 @@ func TestUseInteractiveFailures(t *testing.T) {
 	}
 }
 
-// A cancelled client or model prompt, and one whose answers named no choice,
-// names that prompt, says that nothing changed, and runs the same command
-// again, which asks again.
+// A cancelled client, model or protocol prompt, and one whose answers named
+// no choice, names that prompt, says that nothing changed, and runs the same
+// command again, which asks again.
 func TestUseNamesACancelledSelectionPrompt(t *testing.T) {
 	cancelled := fmt.Errorf("%w: user aborted", terminal.ErrInputCancelled)
 	for _, test := range []struct {
@@ -142,9 +143,18 @@ func TestUseNamesACancelledSelectionPrompt(t *testing.T) {
 		{err: cancelled, title: "The client prompt was cancelled", fix: "aigw use"},
 		{args: []string{codex.ID}, err: cancelled, title: "The model prompt for Codex was cancelled", fix: "aigw use codex"},
 		{args: []string{codex.ID}, err: terminal.ErrNoChoice, title: "The model prompt for Codex ended without a choice", fix: "aigw use codex"},
+		{args: []string{hermes.ID, "gateway/shared-model"}, err: cancelled, title: "The protocol prompt for gateway/shared-model was cancelled", fix: "aigw use hermes gateway/shared-model"},
 	} {
 		t.Run(test.title, func(t *testing.T) {
-			runtime, _ := interactiveRuntime(t, &promptStub{err: test.err})
+			runtime, cfg := interactiveRuntime(t, &promptStub{err: test.err})
+			// A model on two protocols that Hermes speaks asks for the protocol.
+			cfg.Models["shared"] = domain.Model{
+				Provider: "gateway", Family: "shared-model",
+				Protocols: map[domain.EndpointProtocol][]domain.Capability{domain.ProtocolAnthropic: {}, domain.ProtocolOpenAIResponses: {}},
+			}
+			if err := runtime.Config.Save(cfg); err != nil {
+				t.Fatal(err)
+			}
 			before, err := runtime.Config.CaptureSnapshot()
 			if err != nil {
 				t.Fatal(err)

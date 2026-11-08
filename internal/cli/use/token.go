@@ -44,7 +44,7 @@ func acquireToken(cmd *cobra.Command, runtime invocation.Context, cfg domain.Con
 	}
 	token, err := runtime.Prompt.Secret("Paste the " + cfg.Providers[id].Label + " Token: ")
 	if err != nil {
-		return "", promptError{prompt: "The Token prompt for provider " + id, err: err}
+		return "", invocation.Prompted("The Token prompt for provider "+id, err)
 	}
 	if err := probe.ValidateRuntime(cmd.Context(), runtime.HTTP, runtime.Clients.Admission(), selected, token); err != nil {
 		endpointFix := func(protocol domain.EndpointProtocol) string {

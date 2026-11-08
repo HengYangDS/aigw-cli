@@ -86,9 +86,11 @@ func (p Prompt) Text(label string) (string, error) {
 
 // Select reads one choice. The list filters what the person types after "/",
 // which its visible keys say. In accessible mode it numbers the choices and
-// reads one answer at a time: a number selects that choice, nothing selects
-// the first, and for a list longer than shortList words filter the choices,
-// selecting the one that matches or numbering the matches again.
+// reads one answer at a time: a number selects that choice, Enter alone
+// selects the first, and for a list longer than shortList words filter the
+// choices, selecting the one that matches or numbering the matches again. The
+// end of input before an answer cancels the selection, so that Ctrl-D, or a
+// script whose input runs out, never chooses.
 func (p Prompt) Select(label string, choices []Choice) (string, error) {
 	if len(choices) == 0 {
 		return "", fmt.Errorf("no options are available")
@@ -233,23 +235,28 @@ func (p Prompt) hiddenInput(label string) (string, error) {
 	return value, nil
 }
 
+// plainInput writes label and reads one line. An empty line is an answer only
+// where allowEmpty admits one, and only when the person ended it with Enter:
+// input that ends before a line ending with nothing typed is a cancellation.
 func (p Prompt) plainInput(label string, allowEmpty bool) (string, error) {
 	if _, err := fmt.Fprint(p.out, label); err != nil {
 		return "", fmt.Errorf("render input prompt: %w", err)
 	}
 	line, err := readLine(p.in)
-	if err != nil && !errors.Is(err, io.EOF) {
+	ended := errors.Is(err, io.EOF)
+	if err != nil && !ended {
 		return "", fmt.Errorf("read input: %w", err)
 	}
 	value := strings.TrimSpace(line)
-	if value == "" && !allowEmpty {
+	if value == "" && (!allowEmpty || ended) {
 		return "", fmt.Errorf("%w: no input received", ErrInputCancelled)
 	}
 	return value, nil
 }
 
 // readLine reads one line from in a byte at a time, so that the next prompt
-// reads the next line: a buffered reader would keep what it read ahead.
+// reads the next line: a buffered reader would keep what it read ahead. It
+// returns io.EOF only for input that ended before a line ending.
 func readLine(in io.Reader) (string, error) {
 	var line []byte
 	next := make([]byte, 1)

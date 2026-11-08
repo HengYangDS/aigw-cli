@@ -164,7 +164,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 	chosen, err := resolve(operation, cfg, given, options.protocol)
 	if err != nil {
-		return cancelledPrompt(cmd, args, err)
+		return invocation.CancelledPrompt(cmd, args, err)
 	}
 	chosen.unlisted = options.unlisted && (chosen.adds || chosen.gains)
 	synchronizer := operation.Synchronizer()
@@ -199,7 +199,7 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, options 
 	token := ""
 	if missing {
 		if token, err = acquireToken(cmd, operation, cfg, chosen, selected, options.jsonMode); err != nil {
-			return cancelledPrompt(cmd, args, err)
+			return invocation.CancelledPrompt(cmd, args, err)
 		}
 	}
 	if (chosen.adds || chosen.gains) && !options.unlisted {

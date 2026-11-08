@@ -347,7 +347,7 @@ func NewRoot(app *App) *cobra.Command {
 		Short:         "Local AI provider configuration, routing, and diagnostics",
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := app.Config.Load()
 			if err != nil {
 				return err
@@ -355,7 +355,7 @@ func NewRoot(app *App) *cobra.Command {
 			// Setup connects the first provider; providers without models
 			// show the status, whose clients select nothing.
 			if len(cfg.Providers) == 0 && app.Interactive {
-				return setup.RunWizard(cmd.Context(), app.invocationContext())
+				return invocation.CancelledPrompt(cmd, args, setup.RunWizard(cmd.Context(), app.invocationContext()))
 			}
 			return status.RunStatus(app.invocationContext(), false)
 		},

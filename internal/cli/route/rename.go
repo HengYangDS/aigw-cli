@@ -11,7 +11,7 @@ func newRenameCommand(runtime invocation.Context) *cobra.Command {
 	var dryRun, jsonMode bool
 	cmd := &cobra.Command{Use: "rename [old] [new]", Short: "Rename a route", Args: invocation.RenameArguments(runtime, "route")}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		oldID, newID, err := invocation.ResolveRenameIDs(runtime, "route", args)
+		oldID, newID, err := invocation.ResolveRenameIDs(cmd, runtime, "route", args)
 		if err != nil {
 			return err
 		}

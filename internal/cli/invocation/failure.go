@@ -52,6 +52,43 @@ func Retry(cmd *cobra.Command, args []string) string {
 	return sameCommand
 }
 
+// promptError is the failure of one prompt, with the prompt's name.
+type promptError struct {
+	prompt string
+	err    error
+}
+
+func (e promptError) Error() string { return e.err.Error() }
+
+func (e promptError) Unwrap() error { return e.err }
+
+// Prompted names the prompt whose failure err is, which CancelledPrompt
+// names when the prompt ended without an answer. A nil err stays nil.
+func Prompted(prompt string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return promptError{prompt: prompt, err: err}
+}
+
+// CancelledPrompt explains a prompt, named by Prompted, that ended without an
+// answer before the command changed anything: cancelled, at the end of its
+// input, or with answers that named no choice. It names the prompt, says
+// that nothing changed, and names cmd again as it was given, which asks
+// again, as its fix. Every other error, a prompt that could not be shown or
+// read included, returns unchanged.
+func CancelledPrompt(cmd *cobra.Command, args []string, err error) error {
+	failed, prompted := errors.AsType[promptError](err)
+	if !prompted || !errors.Is(err, terminal.ErrInputCancelled) {
+		return err
+	}
+	title := failed.prompt + " was cancelled"
+	if errors.Is(err, terminal.ErrNoChoice) {
+		title = failed.prompt + " ended without a choice"
+	}
+	return terminal.ProblemError(title, "", "Nothing changed.", Retry(cmd, args), err)
+}
+
 // ConfigurationBusy is the problem of a command that another AIGW command kept
 // from the configuration for the whole wait: it changed nothing, and it runs
 // as given once that command finishes.
