@@ -100,6 +100,9 @@ func codexProviderForProviderIn(current, provider string) (codexProviderProjecti
 	if err != nil {
 		return codexProviderProjection{}, err
 	}
+	if err := refuseRepeatedProvider(current, ranges, provider); err != nil {
+		return codexProviderProjection{}, err
+	}
 	var source strings.Builder
 	for _, span := range ranges {
 		source.WriteString(current[span[0]:span[1]])

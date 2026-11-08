@@ -288,6 +288,9 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 		return prepareCodexRestoreTransition(target.ref, configSnapshot, stateSnapshot, catalogSnapshot, previous, replaceRootSelections)
 	}
 	block := codexManagedBlock(runtime, endpoint)
+	if err := refuseUnrecordedProvider(configSnapshot, stateSnapshot, codexRuntimeProvider(runtime), target.ref.Path, statePath); err != nil {
+		return codexPreparedTarget{}, err
+	}
 	base, state, err := codexUserConfigTransition(configSnapshot, stateSnapshot, previous, runtime.UpstreamModel, replaceRootSelections)
 	if err != nil {
 		return codexPreparedTarget{}, err
@@ -304,6 +307,9 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	catalog := codexCatalogProjection(target.ref, catalogModel, runtime.FamilyID, base, state, catalogSnapshot)
 	projection, err := projectCodex(base, block, runtime.UpstreamModel, catalog.path, provider)
 	if err != nil {
+		return codexPreparedTarget{}, err
+	}
+	if err := requireParsableCodexConfig(projection); err != nil {
 		return codexPreparedTarget{}, err
 	}
 	projected := []byte(projection)
@@ -405,6 +411,9 @@ func prepareCodexRestoreTransition(target TargetRef, configSnapshot, stateSnapsh
 	}
 	restored, err := removeCodexProjectionTransition(string(configSnapshot.Data), state, previous, "", replaceRootSelections)
 	if err != nil {
+		return codexPreparedTarget{}, err
+	}
+	if err := requireParsableCodexConfig(restored); err != nil {
 		return codexPreparedTarget{}, err
 	}
 	catalogDesired, err := codexCatalogDesiredSnapshot(codexCatalogPlan{}, catalogSnapshot, state.CatalogHash)

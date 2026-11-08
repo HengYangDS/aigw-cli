@@ -135,6 +135,10 @@ func ValidateConfig(path string, runtime domain.Runtime) error {
 	stateData, err := os.ReadFile(codexStatePath(path))
 	if err != nil {
 		if os.IsNotExist(err) {
+			// Synchronization refuses AIGW's table without its record too.
+			if refusal := refuseUnrecordedProvider(platform.FileSnapshot{Exists: true, Data: current}, platform.FileSnapshot{}, codexRuntimeProvider(runtime), path, codexStatePath(path)); refusal != nil {
+				return refusal
+			}
 			return fmt.Errorf("Codex config AIGW state is missing")
 		}
 		return fmt.Errorf("read Codex adapter state: %w", err)

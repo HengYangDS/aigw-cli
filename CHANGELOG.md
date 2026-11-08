@@ -27,6 +27,15 @@ signing, and GA status remain separate evidence.
 
 ### Fixed
 
+- `aigw sync` no longer breaks Codex's configuration when AIGW's record of it
+  is missing. Since at least 0.6.1, a deleted `config.toml.aigw-state.json`
+  made sync exit 0 and write a second `[model_providers.aigw]` table, which
+  Codex cannot read. Sync now refuses before writing and names the fix:
+  restore the record from a copy, or take AIGW's table and the lines marked
+  `# managed by AIGW` out of `config.toml`, then run `aigw sync`. A file that
+  already holds two tables is now refused by name, with the fix to keep the
+  one between AIGW's markers. Every Codex write now refuses settings that
+  would not parse as TOML.
 - `aigw verify --for hermes` no longer starts the operator's Hermes MCP
   servers or shell hooks inside the verification turn. The private
   verification home now names none and carries no hook consent, as the
