@@ -166,3 +166,27 @@ func TestCheckOfARejectedOneTimeTokenNamesTheSameCheck(t *testing.T) {
 		t.Fatalf("a rejected one-time Token's fix = %q, %q; want %q", client.NextAction, client.NextDetail, want)
 	}
 }
+
+// A model whose name needs quoting cannot appear in a command line, so the
+// fix of its rejected one-time Token says the same check in plain words and
+// nests no other sentence.
+func TestCheckOfARejectedOneTimeTokenForAQuotedModelNamesTheSameCheck(t *testing.T) {
+	fixture := namedModelRuntime(t)
+	spare := fixture.cfg.Models["spare"]
+	spare.UpstreamModel = "opus[1m]"
+	fixture.cfg.Models["spare"] = spare
+	if err := fixture.ctx.Config.Save(fixture.cfg); err != nil {
+		t.Fatal(err)
+	}
+	fixture.ctx.In = strings.NewReader("sk-once-0001\n")
+	fixture.ctx.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return status(http.StatusUnauthorized)(request)
+	})
+	if err := execute(fixture.ctx, claude.ID, "--model", "one/opus[1m]", "--token-stdin", "--depth", "endpoint", "--json"); err == nil {
+		t.Fatal("a rejected one-time Token passed")
+	}
+	client := decode(t, fixture.out).client(t, claude.ID)
+	if want := "Pipe a Token that provider one accepts into the same check."; client.NextAction != "" || client.NextDetail != want {
+		t.Fatalf("the fix = %q, %q; want %q", client.NextAction, client.NextDetail, want)
+	}
+}

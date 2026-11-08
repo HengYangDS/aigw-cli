@@ -194,6 +194,16 @@ func (c *checker) tokenReadFailure(r *result, err error) failure {
 	return failure{depth: depthEndpoint, state: domainreadiness.Unavailable, problem: "The credential backend could not return provider " + provider + "'s Token", fix: backendFix, cause: err}
 }
 
+// pipedTokenFix sends a Token that provider accepts into check, the same
+// check again. A check that needs quoting is prose already, which no sentence
+// can quote.
+func pipedTokenFix(provider, check string) string {
+	if !strings.HasPrefix(check, "aigw ") {
+		return "Pipe a Token that provider " + provider + " accepts into the same check."
+	}
+	return "Pipe a Token that provider " + provider + " accepts into `" + check + "`."
+}
+
 // rotateFix replaces provider's Token: `aigw provider rotate`, or, from the
 // read-only environment backend, the variable that holds it. rejected marks a
 // Token that the provider refused, whose variable needs another value.
@@ -224,7 +234,7 @@ func (c *checker) probeFailure(r *result, d depth, observed diagnostics.Result) 
 		if c.named.token != "" {
 			// The stored Token was never read, so replacing it fixes nothing:
 			// the same check needs a Token that the provider accepts.
-			f.fix = "Pipe a Token that provider " + provider + " accepts into `" + c.checkCommand(r.spec.ID, c.plan.requested) + "`."
+			f.fix = pipedTokenFix(provider, c.checkCommand(r.spec.ID, c.plan.requested))
 		}
 	case diagnostics.TokenDisabled:
 		f.fix = "Enable the Token in provider " + provider + "'s console."
