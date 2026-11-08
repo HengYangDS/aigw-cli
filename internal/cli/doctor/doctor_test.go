@@ -422,11 +422,11 @@ func TestCommandJSONReportsCredentialBackendInspectionFailure(t *testing.T) {
 	deps.Secrets = store
 
 	result := executeJSON(t, NewCommand(deps), out)
-	if result.CredentialBackend.Availability != "unavailable" || result.CredentialBackend.RecoveryAction != "aigw doctor" {
+	if result.CredentialBackend.Availability != "unavailable" || result.CredentialBackend.RecoveryAction != "aigw check --depth local" {
 		t.Fatalf("credential backend = %#v", result.CredentialBackend)
 	}
 	check := findCheck(t, result.Checks, "credential:backend")
-	if check.OK || check.NextAction != "aigw doctor" || check.Detail != "credential backend is unavailable" {
+	if check.OK || check.NextAction != "aigw check --depth local" || check.Detail != "credential backend is unavailable" {
 		t.Fatalf("credential backend check = %#v", check)
 	}
 }
@@ -443,7 +443,7 @@ func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
 
 	result := executeJSON(t, NewCommand(deps), out)
 	state, ok := result.Clients[claude.ID]
-	if result.OK || result.NextAction != "aigw doctor" || !ok || state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" ||
+	if result.OK || result.NextAction != "aigw check --depth local" || !ok || state.State != domainreadiness.Unavailable || state.NextAction != "aigw check --depth local" ||
 		state.Model != "claude" || state.Provider != "team" || state.Detail != "Credential metadata is unavailable" {
 		t.Fatalf("canonical clients = %#v\n%s", result.Clients, out.String())
 	}
@@ -452,7 +452,7 @@ func TestCommandPreservesCanonicalClientsWhenInspectionFails(t *testing.T) {
 	if err := executeDoctorCommand(NewCommand(deps)); err == nil {
 		t.Fatal("doctor succeeded despite an unavailable client capability")
 	}
-	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Unavailable") || !strings.Contains(out.String(), "aigw doctor") || strings.Contains(out.String(), "No problems found") {
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Unavailable") || !strings.Contains(out.String(), "aigw check --depth local") || strings.Contains(out.String(), "No problems found") {
 		t.Fatalf("human output = %s", out.String())
 	}
 }

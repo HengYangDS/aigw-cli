@@ -1,6 +1,7 @@
 package check
 
 import (
+	"errors"
 	"net/http"
 	"path/filepath"
 	"slices"
@@ -9,6 +10,7 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
+	domainreadiness "aigw-cli/internal/app/readiness"
 )
 
 // recordingDiscovery records the clients that each discovery observes, and
@@ -49,5 +51,20 @@ func TestOneClientCheckDiscoversThatClientAlone(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// With no client enabled and a credential backend that cannot say which
+// provider has a Token, the fix acts on the backend: activation's own step,
+// this check's local depth, would fail the same way.
+func TestCheckWithoutAClientNamesTheBackendItCannotObserve(t *testing.T) {
+	runtime, _, out := configuredRuntime(t)
+	secrets(t, runtime).existsErr = errors.New("locked")
+	if err := execute(runtime, "--json"); err == nil {
+		t.Fatal("a check without an enabled client passed")
+	}
+	doc := decode(t, out)
+	if doc.State != domainreadiness.Unavailable || doc.NextAction != "" || doc.NextDetail != backendFix || len(doc.Clients) != 0 {
+		t.Fatalf("a check without a client and an unobservable backend = %+v", doc)
 	}
 }

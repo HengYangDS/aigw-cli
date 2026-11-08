@@ -261,7 +261,7 @@ func reportIncompleteCleanup(runtime invocation.Context, jsonMode, rollback bool
 	if rollback {
 		title, impact = "Program restored; cleanup is incomplete", "The previous program is active and reads its credentials; client settings were not changed."
 	}
-	fix := "Run `aigw installation` and `aigw doctor` before retrying cleanup or another program transition."
+	fix := "Run `aigw installation` and `aigw check --depth local` before retrying cleanup or another program transition."
 	problem := terminal.ProblemError(title,
 		"Program replacement completed, but an owned temporary resource could not be removed.",
 		impact, fix, cause)

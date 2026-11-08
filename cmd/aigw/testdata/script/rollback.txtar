@@ -79,7 +79,7 @@ Impact
   The current configuration remains active and unchanged.
 
 Fix
-  aigw doctor
+  aigw check --depth local
 -- restored.txt --
 AIGW  Rolled back safely
 ────────────────────────────────────────
@@ -89,7 +89,7 @@ Restore source
   ✓ Client selections and projections were restored; clients were not restarted.
 
 Next
-  aigw doctor
+  aigw check --depth local
 -- routes.json --
 {
   "schema_version": 1,
@@ -116,7 +116,7 @@ Next
   "schema_version": 1,
   "ok": true,
   "source": "previous_backup",
-  "next_action": "aigw doctor"
+  "next_action": "aigw check --depth local"
 }
 -- json-refusal.json --
 {

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	clientactivation "aigw-cli/internal/app/activation"
+	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -150,6 +151,11 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, opts opt
 		return err
 	}
 	shared, backend := sharedChecks(operation.Dependencies)
+	if backend.Availability == "unavailable" {
+		// The backend's recovery is this check's local depth, so the document
+		// names what the shared check names instead.
+		backend.RecoveryAction = backendFix
+	}
 	checking := checker{deps: operation, cfg: cfg, plan: planned, shared: shared, named: model}
 	if len(planned.clients) == 0 {
 		return noClient(operation, cfg, checking.shared, backend, planned.requested, opts.jsonMode)
@@ -198,6 +204,11 @@ func noClient(runtime invocation.Context, cfg domain.Config, shared []localCheck
 	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
 	title, evidence := noClientProblem(cfg, activation)
 	next := activation.NextActionFor(nil)
+	if activation.State == domainreadiness.Unavailable {
+		// Activation names this check's local depth, which would fail the
+		// same way: the backend itself needs attention.
+		next = backendFix
+	}
 	cause := errors.New(strings.ToLower(title[:1]) + title[1:])
 	if !jsonMode {
 		return terminal.ProblemError(title, evidence, "No client was checked.", next, cause)

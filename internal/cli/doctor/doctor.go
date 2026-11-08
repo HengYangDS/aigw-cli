@@ -195,7 +195,7 @@ func observeClients(result *commandResult, deps app.Dependencies) {
 		if result.NextAction == "" {
 			result.NextAction = client.NextAction
 			if result.NextAction == "" {
-				result.NextAction = "aigw doctor --json"
+				result.NextAction = "aigw check --depth local --verbose"
 			}
 		}
 	}
@@ -372,8 +372,8 @@ func commandFix(action string) string {
 // safeFix returns a safe actionable command without exposing local paths.
 func safeFix(check checkResult) string {
 	switch check.Fix {
-	case "aigw doctor":
-		return "aigw doctor"
+	case "aigw check --depth local":
+		return "aigw check --depth local"
 	case "run `aigw setup`":
 		return "aigw setup"
 	case "run `aigw repair`":
@@ -391,7 +391,7 @@ func safeFix(check checkResult) string {
 	if check.adapterAction {
 		return check.Fix
 	}
-	return "aigw doctor --json"
+	return "aigw check --depth local --verbose"
 }
 
 // forbiddenClientTokenEnvironment returns forbidden names without their values.
@@ -434,7 +434,7 @@ func nextAction(checks []checkResult) string {
 			continue
 		}
 		action := safeFix(check)
-		if action == "" || action == "aigw doctor --json" {
+		if action == "" || action == "aigw check --depth local --verbose" {
 			return "aigw repair"
 		}
 		actions[action] = true

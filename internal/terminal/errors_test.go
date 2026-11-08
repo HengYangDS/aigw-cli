@@ -50,7 +50,7 @@ func TestRenderErrorDoesNotExposeLocalFilePath(t *testing.T) {
 			renderer := NewRenderer(&out, false)
 			RenderError(renderer, fmt.Errorf("capture current config: %w", test.cause), jsonMode)
 			if renderer.Err() != nil || strings.Contains(out.String(), privatePath) ||
-				!strings.Contains(out.String(), test.want) || !strings.Contains(out.String(), "aigw doctor") {
+				!strings.Contains(out.String(), test.want) || !strings.Contains(out.String(), "aigw check --depth local") {
 				t.Fatalf("json=%t local file diagnostic = %q, want %q, render error = %v", jsonMode, out.String(), test.want, renderer.Err())
 			}
 		}
@@ -153,9 +153,10 @@ func TestRenderProjectionFailureReportsConfigurationRecoveryWithoutPrivatePath(t
 		name     string
 		restored bool
 		want     string
+		fix      string
 	}{
-		{"restored", true, "Configuration was restored"},
-		{"incomplete", false, "Configuration restoration was incomplete"},
+		{"restored", true, "Configuration was restored", "aigw status"},
+		{"incomplete", false, "Configuration restoration was incomplete", "aigw check --depth local"},
 	} {
 		for _, jsonMode := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", tc.name, jsonMode), func(t *testing.T) {
@@ -165,7 +166,7 @@ func TestRenderProjectionFailureReportsConfigurationRecoveryWithoutPrivatePath(t
 				renderer := NewRenderer(&out, false)
 				RenderError(renderer, err, jsonMode)
 				if renderer.Err() != nil || !strings.Contains(out.String(), tc.want) ||
-					!strings.Contains(out.String(), "aigw status") || strings.Contains(out.String(), privatePath) {
+					!strings.Contains(out.String(), tc.fix) || strings.Contains(out.String(), privatePath) {
 					t.Fatalf("projection recovery result = %q, render error = %v", out.String(), renderer.Err())
 				}
 			})
@@ -208,12 +209,13 @@ func TestNativeReaderPreflightReportsRecoveryWithoutPrivateCause(t *testing.T) {
 		if renderer.Err() != nil {
 			t.Fatalf("json=%t render error: %v", jsonMode, renderer.Err())
 		}
-		for _, expected := range []string{"native Account Token access", "aigw doctor", "aigw sync"} {
+		for _, expected := range []string{"native Account Token access", "aigw check --depth local", "aigw sync"} {
 			if !strings.Contains(out.String(), expected) {
 				t.Fatalf("json=%t output lacks %q: %s", jsonMode, expected, &out)
 			}
 		}
-		if strings.Contains(out.String(), privateCause) || strings.Contains(out.String(), "aigw check") {
+		// The local checks inspect the backend; a request-sending check would not.
+		if strings.Contains(out.String(), privateCause) || strings.Contains(out.String(), "aigw check\n") || strings.Contains(out.String(), `"aigw check"`) {
 			t.Fatalf("json=%t output exposed a private cause or misleading action: %s", jsonMode, &out)
 		}
 	}

@@ -335,7 +335,7 @@ func TestPublicMutationFailureDoesNotExposePrivatePath(t *testing.T) {
 	if err := cli.Execute(app, []string{"route", "add", "two", "--account", "one", "--model", "m2", "--protocol", "anthropic"}); err == nil {
 		t.Fatal("route add accepted an unreadable backup target")
 	}
-	if strings.Contains(out.String(), privatePath) || !strings.Contains(out.String(), "aigw doctor") {
+	if strings.Contains(out.String(), privatePath) || !strings.Contains(out.String(), "aigw check --depth local") {
 		t.Fatalf("public command exposed the private failure target: %s", out.String())
 	}
 	cfg, err := app.Config.Load()

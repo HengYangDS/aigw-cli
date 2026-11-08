@@ -369,9 +369,12 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 		want          string
 		restored      bool
 		undo          string
+		fix           string
 	}{
-		{"configuration", cause, nil, "Configuration restoration was incomplete", false, ""},
-		{"projection", nil, cause, "Configuration was restored", true, "Restoring the client files failed: permission denied."},
+		// A configuration that could not be restored needs the local checks,
+		// not the same command again.
+		{"configuration", cause, nil, "Configuration restoration was incomplete", false, "", "aigw check --depth local"},
+		{"projection", nil, cause, "Configuration was restored", true, "Restoring the client files failed: permission denied.", "aigw status"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -401,7 +404,7 @@ func TestCredentialFinalizationReportsConfigurationOutcomeDespiteCompensationFai
 				var out bytes.Buffer
 				renderer := terminal.NewRenderer(&out, false)
 				terminal.RenderError(renderer, fmt.Errorf("sync: %w", err), jsonMode)
-				if renderer.Err() != nil || !strings.Contains(out.String(), tc.want) || !strings.Contains(out.String(), "aigw status") || strings.Contains(out.String(), privatePath) ||
+				if renderer.Err() != nil || !strings.Contains(out.String(), tc.want) || !strings.Contains(out.String(), tc.fix) || strings.Contains(out.String(), privatePath) ||
 					!strings.Contains(out.String(), tc.undo) {
 					t.Fatalf("json=%t finalization diagnostic=%q error=%v", jsonMode, out.String(), renderer.Err())
 				}

@@ -74,7 +74,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 						"Configuration rollback is unavailable",
 						"No valid recovery source is available for the current configuration.",
 						"The current configuration remains active and unchanged.",
-						"aigw doctor",
+						"aigw check --depth local",
 						cause,
 					)
 				}
@@ -103,19 +103,19 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					"Configuration rollback did not complete",
 					"One rollback step failed; the cause identifies the affected boundary.",
 					rollbackFailureImpact(err),
-					"aigw doctor",
+					"aigw check --depth local",
 					err,
 				)
 			}
 			if jsonMode {
-				return terminal.WriteDocument(runtime.Out, schemaVersion, true, rollbackDocument{Source: sourceID, NextAction: "aigw doctor"})
+				return terminal.WriteDocument(runtime.Out, schemaVersion, true, rollbackDocument{Source: sourceID, NextAction: "aigw check --depth local"})
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Rolled back safely")
 			r.Section("Restore source")
 			r.Rows(terminal.Field{Label: "Configuration", Value: source})
 			r.Success("Client selections and projections were restored; clients were not restarted.")
-			r.Next("aigw doctor")
+			r.Next("aigw check --depth local")
 			return nil
 		},
 	}

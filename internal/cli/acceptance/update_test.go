@@ -409,7 +409,7 @@ func TestUpdatePreservesReleaseFailureAsItsCause(t *testing.T) {
 		t.Fatalf("error = %v, want %v", err, cause)
 	}
 	if strings.Contains(out.String(), canary) || !strings.Contains(out.String(), "Fix\n  aigw update --candidate <archive> --checksums <checksums>") ||
-		strings.Contains(out.String(), "aigw doctor") {
+		strings.Contains(out.String(), "aigw check --depth local") {
 		t.Fatalf("update exposed private diagnostics or omitted recovery: %s", out.String())
 	}
 }

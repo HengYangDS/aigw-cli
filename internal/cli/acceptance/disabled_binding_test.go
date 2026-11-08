@@ -98,7 +98,7 @@ func TestDisabledBindingProviderCannotChangeReadiness(t *testing.T) {
 	if err := json.Unmarshal([]byte(denied[0]), &status); err != nil {
 		t.Fatal(err)
 	}
-	if claude := status.Clients[claudeclient.ID]; claude.State != "deferred" || claude.Detail != "The client is not installed or enabled" || status.NextAction == "aigw doctor" {
+	if claude := status.Clients[claudeclient.ID]; claude.State != "deferred" || claude.Detail != "The client is not installed or enabled" || status.NextAction == "aigw check --depth local" {
 		t.Errorf("status with an unobservable disabled binding = %+v", status)
 	}
 }

@@ -336,7 +336,7 @@ func TestSyncSurfacesCredentialObservationFailure(t *testing.T) {
 		"Synchronization prerequisites are unavailable",
 		"AIGW could not determine which selected Client Bindings can be projected with the currently available clients and credentials.",
 		"Configuration and client projections remain unchanged.",
-		"aigw doctor",
+		"aigw check --depth local",
 	} {
 		if !strings.Contains(out.String(), expected) {
 			t.Fatalf("output missing %q:\n%s", expected, out.String())

@@ -231,7 +231,7 @@ func (store *automaticStore) inspectBackend() (BackendSelection, error) {
 	if persistence == "persisted" && store.selectedBackend == "keyring" {
 		if err := probeKeyring(scopedView{store: selected}, store.selection.KeyringProbe); err != nil {
 			observed.Availability = "unavailable"
-			observed.RecoveryAction = "aigw doctor"
+			observed.RecoveryAction = "aigw check --depth local"
 			return observed, err
 		}
 	}
@@ -288,7 +288,7 @@ func unavailableBackendSelection() BackendSelection {
 		Availability:   "unavailable",
 		Mutability:     "unknown",
 		Persistence:    "unknown",
-		RecoveryAction: "aigw doctor",
+		RecoveryAction: "aigw check --depth local",
 	}
 }
 
@@ -311,7 +311,7 @@ func Inspect(store Store) (BackendSelection, error) {
 	if _, native := backend.(keyringStore); native {
 		if err := probeKeyring(store, nil); err != nil {
 			selection.Availability = "unavailable"
-			selection.RecoveryAction = "aigw doctor"
+			selection.RecoveryAction = "aigw check --depth local"
 			return selection, err
 		}
 	}

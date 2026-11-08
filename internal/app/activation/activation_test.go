@@ -291,7 +291,7 @@ func TestAssessActivationDoesNotVerifyWithoutCredentialMetadata(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			got := AssessActivation(cfg, test.store)
-			if got.State != domainreadiness.Unavailable || got.NextActionFor(nil) != "aigw doctor" || got.VerificationPrerequisite != "" {
+			if got.State != domainreadiness.Unavailable || got.NextActionFor(nil) != "aigw check --depth local" || got.VerificationPrerequisite != "" {
 				t.Fatalf("unavailable credential metadata admitted verification: %+v", got)
 			}
 		})
@@ -441,7 +441,7 @@ func TestNextActionForWithoutClientInspectionHonorsKnownPrerequisites(t *testing
 			ProjectionPrerequisites: map[string]string{claude.ID: installClaude},
 			observedCredentials:     map[string]credentialObservation{"team": {err: errors.New("metadata denied")}},
 			admission:               builtinclients.Admission(),
-		}, "aigw doctor"},
+		}, "aigw check --depth local"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if got := test.activation.NextActionFor(nil); got != test.want {

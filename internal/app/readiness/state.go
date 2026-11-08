@@ -25,7 +25,7 @@ const (
 
 // CredentialBackendRecovery is the safe public action when credential
 // metadata cannot be observed without reading a secret value.
-const CredentialBackendRecovery = "aigw doctor"
+const CredentialBackendRecovery = "aigw check --depth local"
 
 // Label returns the stable human projection of a readiness state.
 func (state State) Label() string {

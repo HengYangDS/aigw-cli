@@ -124,7 +124,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 				r.Detail("Updated the latest full verification checkpoint.")
 			}
-			r.Next("aigw doctor")
+			r.Next("aigw check --depth local")
 			return nil
 		},
 	}
@@ -182,7 +182,7 @@ func writeVerification(cmd *cobra.Command, runtime invocation.Context, cfg domai
 			}
 			document.CheckpointWritten = true
 		}
-		document.NextAction = "aigw doctor"
+		document.NextAction = "aigw check --depth local"
 	}
 	if err := terminal.WriteDocument(runtime.Out, schemaVersion, failure == nil, document); err != nil {
 		return err

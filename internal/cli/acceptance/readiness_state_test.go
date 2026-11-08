@@ -38,7 +38,7 @@ func TestStatusAndCheckHideUnreadableConfigDetails(t *testing.T) {
 					t.Fatalf("%s output lacks %q:\n%s", strings.Join(command, " "), want, text)
 				}
 			}
-			for _, forbidden := range []string{"parse config:", "validate config:", "version = [", app.Config.Path(), "aigw doctor"} {
+			for _, forbidden := range []string{"parse config:", "validate config:", "version = [", app.Config.Path(), "aigw check --depth local"} {
 				if strings.Contains(text, forbidden) {
 					t.Fatalf("%s leaked %q:\n%s", strings.Join(command, " "), forbidden, text)
 				}
@@ -397,7 +397,7 @@ func TestStatusReportsDiagnosticMetadataFailureWithOneSafeAction(t *testing.T) {
 	if len(observed.getCalls) != 0 {
 		t.Fatalf("status read diagnostic credential values %q", observed.getCalls)
 	}
-	if !strings.Contains(out.String(), "Balance credentials unknown") || strings.Count(out.String(), "aigw provider show team") != 1 || strings.Contains(out.String(), "aigw doctor") || strings.Contains(out.String(), "aigw check") {
+	if !strings.Contains(out.String(), "Balance credentials unknown") || strings.Count(out.String(), "aigw provider show team") != 1 || strings.Contains(out.String(), "aigw check --depth local") || strings.Contains(out.String(), "aigw check") {
 		t.Fatalf("status did not present one safe metadata recovery action:\n%s", out.String())
 	}
 }

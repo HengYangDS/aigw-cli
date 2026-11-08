@@ -73,7 +73,11 @@ func TestAClientFileFailureNamesEachFile(t *testing.T) {
 	if problem.Title != "Codex could not write "+outside+": it changed after AIGW read it" ||
 		problem.Evidence != outside+" keeps the change made outside AIGW." ||
 		problem.Impact != "Restoring the configuration failed too, so it may still hold the change." ||
-		problem.Fix != "Run the same command again; it reads "+outside+" as it is now." {
+		problem.Fix != "aigw check --depth local" {
+		t.Fatalf("a changed file outside home whose configuration was not restored = %#v", problem)
+	}
+	// Restored, the same change is read again by the same command.
+	if problem = ProblemFor(presentationProjectionError{restored: true, cause: failure}); problem.Fix != "Run the same command again; it reads "+outside+" as it is now." {
 		t.Fatalf("a changed file outside home = %#v", problem)
 	}
 
@@ -99,6 +103,11 @@ func TestAClientFilesFailureWithoutAFileNamesStatus(t *testing.T) {
 	problem := ProblemFor(presentationProjectionError{restored: true, cause: errors.New("entrypoint finalization failed")})
 	if problem.Title != "Updating the client files failed" || problem.Fix != "aigw status" || problem.Impact == "" {
 		t.Fatalf("ProblemFor() = %#v", problem)
+	}
+	// A configuration that could not be restored needs the local checks, not
+	// the same command again.
+	if problem := ProblemFor(presentationProjectionError{restored: false, cause: errors.New("entrypoint finalization failed")}); problem.Fix != "aigw check --depth local" {
+		t.Fatalf("an unrestored configuration = %#v", problem)
 	}
 	home := t.TempDir()
 	changed := filepath.Join(home, "x")

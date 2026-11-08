@@ -93,7 +93,7 @@ func TestRepairHumanPreviewAndDependencyFailures(t *testing.T) {
 			"Repair prerequisites are unavailable",
 			"AIGW could not inspect the current clients and configuration needed to plan a repair.",
 			"Configuration and client projections remain unchanged.",
-			"aigw doctor",
+			"aigw check --depth local",
 		} {
 			if !strings.Contains(out.String(), want) {
 				t.Fatalf("output missing %q:\n%s", want, out.String())

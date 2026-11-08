@@ -9,6 +9,12 @@ import (
 	"aigw-cli/internal/platform"
 )
 
+// restoreFailedFix is the fix of a failure whose configuration could not be
+// restored either: a local check, which inspects the configuration and the
+// client files without a request, rather than the same command again, which
+// could not tell what it left behind.
+const restoreFailedFix = "aigw check --depth local"
+
 // clientFileProblem is the problem of an application of client files that
 // failed at one file: the client, the file and why, what undoing the
 // application did to each file that it had written, whether the
@@ -35,6 +41,7 @@ func clientFileProblem(failure *adapter.ApplyError, err error) Problem {
 		problem.Impact = "The configuration was restored."
 		if !recovery.ConfigurationRestored() {
 			problem.Impact = "Restoring the configuration failed too, so it may still hold the change."
+			problem.Fix = restoreFailedFix
 		}
 	}
 	return problem
@@ -50,13 +57,14 @@ func targetProblem(failure *adapter.TargetError, err error) Problem {
 		Title:  failure.Client + " cannot use " + name + ": " + targetReason(failure.Err),
 		Impact: "Configuration and client files are unchanged.",
 	}
+	problem.Fix = targetFix(err, name)
 	if recovery, ok := errors.AsType[configurationRecovery](err); ok {
 		problem.Impact = "The configuration was restored."
 		if !recovery.ConfigurationRestored() {
 			problem.Impact = "Restoring the configuration failed too, so it may still hold the change."
+			problem.Fix = restoreFailedFix
 		}
 	}
-	problem.Fix = targetFix(err, name)
 	return problem
 }
 

@@ -28,7 +28,7 @@ func TestHumanProjectionFailsClosedForFutureChecks(t *testing.T) {
 		if got := checkDetail(clients.Admission(), check); got != want {
 			t.Fatalf("detail = %q, want %q", got, want)
 		}
-		if !check.OK && safeFix(check) != "aigw doctor --json" {
+		if !check.OK && safeFix(check) != "aigw check --depth local --verbose" {
 			t.Fatalf("fix = %q", safeFix(check))
 		}
 	}
@@ -98,9 +98,9 @@ func TestHumanFormattingBranches(t *testing.T) {
 		t.Fatalf("generic run fix = %q", got)
 	}
 	for raw, want := range map[string]string{
-		"aigw doctor":       "aigw doctor",
-		"run `aigw setup`":  "aigw setup",
-		"run `aigw repair`": "aigw repair",
+		"aigw check --depth local":                     "aigw check --depth local",
+		"run `aigw setup`":                             "aigw setup",
+		"run `aigw repair`":                            "aigw repair",
 		"remove them from the parent environment; now": "Remove the variables above from the parent environment that launched this terminal",
 		"inspect or restore /private/configuration":    "Inspect or restore the local configuration file",
 	} {
@@ -155,7 +155,7 @@ func TestResultClassifiesObservedClientStates(t *testing.T) {
 		{state: domainreadiness.Configured, enabled: true, inspection: adapter.Status{Ready: true}, ok: true},
 		{state: domainreadiness.Deferred, ok: true, next: "aigw use claude team/claude-test"},
 		{state: domainreadiness.Invalid, enabled: true, inspection: notSynchronized, next: "aigw sync"},
-		{state: domainreadiness.Unavailable, unobservable: true, next: "aigw doctor"},
+		{state: domainreadiness.Unavailable, unobservable: true, next: "aigw check --depth local"},
 	} {
 		t.Run(string(test.state), func(t *testing.T) {
 			cfg := validDoctorConfig()
@@ -205,8 +205,8 @@ func TestUnknownCheckProjectionFailsClosed(t *testing.T) {
 	if got := checkDetail(clients.Admission(), check); got != "Check failed" {
 		t.Fatalf("Detail() = %q, want Check failed", got)
 	}
-	if got := safeFix(check); got != "aigw doctor --json" {
-		t.Fatalf("Fix() = %q, want aigw doctor --json", got)
+	if got := safeFix(check); got != "aigw check --depth local --verbose" {
+		t.Fatalf("Fix() = %q, want aigw check --depth local --verbose", got)
 	}
 }
 

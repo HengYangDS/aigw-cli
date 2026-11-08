@@ -53,7 +53,7 @@ func runRepair(ctx context.Context, runtime invocation.Context, dryRun, jsonMode
 			"Repair prerequisites are unavailable",
 			"AIGW could not inspect the current clients and configuration needed to plan a repair.",
 			"Configuration and client projections remain unchanged.",
-			"aigw doctor",
+			"aigw check --depth local",
 			err,
 		)
 	}

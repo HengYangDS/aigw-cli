@@ -62,7 +62,7 @@ func (a *Activation) NextActionFor(clients []domainreadiness.Client) string {
 	}
 	for _, observation := range a.observedCredentials {
 		if observation.err != nil {
-			return "aigw doctor"
+			return "aigw check --depth local"
 		}
 	}
 	projectionAction := ""
@@ -182,7 +182,7 @@ func assessEnabledProjection(cfg domain.Config, store secret.Store, result Activ
 	}
 	if metadataUnavailable {
 		result.State = domainreadiness.Unavailable
-		result.CredentialPrerequisite = "aigw doctor"
+		result.CredentialPrerequisite = "aigw check --depth local"
 	} else if len(result.ProjectionPrerequisites) == result.EnabledClients {
 		result.State = domainreadiness.Deferred
 	} else if blocked == 0 {
@@ -221,7 +221,7 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 		return true
 	}
 	if assessment.store == nil {
-		assessment.result.ClientCredentialPrerequisites[client] = "aigw doctor"
+		assessment.result.ClientCredentialPrerequisites[client] = "aigw check --depth local"
 		assessment.backendMissing = true
 		return false
 	}
@@ -236,7 +236,7 @@ func (assessment *inactiveClientAssessment) consider(client, route string, selec
 	observation, _ := observeCredential(assessment.store, assessment.result.observedCredentials, candidate.ProviderID)
 	if observation.err != nil {
 		assessment.result.State = domainreadiness.Unavailable
-		assessment.result.CredentialPrerequisite = "aigw doctor"
+		assessment.result.CredentialPrerequisite = "aigw check --depth local"
 		return true
 	}
 	if observation.available {
@@ -268,7 +268,7 @@ func (assessment *inactiveClientAssessment) finish() Activation {
 		assessment.result.CredentialPrerequisite = prefix + strings.Join(assessment.alternatives, " or ") + continuation
 	case assessment.backendMissing:
 		assessment.result.State = domainreadiness.Unavailable
-		assessment.result.CredentialPrerequisite = "aigw doctor"
+		assessment.result.CredentialPrerequisite = "aigw check --depth local"
 	default:
 		// No client selects a model, and no recommendation offers one: the
 		// user chooses both, which the placeholders leave to them.

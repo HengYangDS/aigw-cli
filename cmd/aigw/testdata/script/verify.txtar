@@ -56,7 +56,7 @@ Native client verification
                        Native text response; tools and continuation are not probed
 
 Next
-  aigw doctor
+  aigw check --depth local
 -- codex.txt --
 AIGW  Action required
 ────────────────────────────────────────
@@ -79,7 +79,7 @@ Fix
     }
   ],
   "checkpoint_written": false,
-  "next_action": "aigw doctor"
+  "next_action": "aigw check --depth local"
 }
 -- json-refusal.json --
 {

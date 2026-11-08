@@ -170,7 +170,7 @@ func configurationLoadFix(phase store.LoadPhase) string {
 }
 
 func localFileAccessMessage(operation string, err error) string {
-	return fmt.Sprintf("Local file access failed (%s: %s); run `aigw doctor` to inspect current state", operation, fileErrorReason(err))
+	return fmt.Sprintf("Local file access failed (%s: %s); run `aigw check --depth local` to inspect current state", operation, fileErrorReason(err))
 }
 
 // fileErrorReason names an operating-system file error from a closed set, so
@@ -320,7 +320,7 @@ func problemFor(err error) Problem {
 			Title:    "Cannot verify native Account Token access for this AIGW version",
 			Evidence: "Noninteractive native-store preflight could not establish reader access.",
 			Impact:   "No new client projection was applied; no Account Token was returned.",
-			Fix:      "Run `aigw doctor` to inspect the selected backend; explicitly restage or authorize the Account Token for this AIGW version, then run `aigw sync`.",
+			Fix:      "Run `aigw check --depth local` to inspect the selected backend; explicitly restage or authorize the Account Token for this AIGW version, then run `aigw sync`.",
 		}
 	case atFile:
 		return clientFileProblem(failure, err)
@@ -328,8 +328,13 @@ func problemFor(err error) Problem {
 		return targetProblem(target, err)
 	case recovered:
 		// Without a file to name, status shows what each client needs, and it
-		// sends no probe.
-		return Problem{Title: "Updating the client files failed", Impact: impact, Fix: "aigw status"}
+		// sends no probe; a configuration that could not be restored needs the
+		// local checks, which inspect it and the client files.
+		fix := "aigw status"
+		if recovery, _ := errors.AsType[configurationRecovery](err); !recovery.ConfigurationRestored() {
+			fix = restoreFailedFix
+		}
+		return Problem{Title: "Updating the client files failed", Impact: impact, Fix: fix}
 	}
 	message := localizedErrorMessage(err)
 	return Problem{Title: message, Fix: errorFix(err, message)}

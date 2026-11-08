@@ -69,7 +69,7 @@ func TestProviderRenameContinuationFollowsEnabledClients(t *testing.T) {
 		if err := WriteRenamePlan(Context{Clients: clients.Registry(), Out: &out}, plan, false, false); err != nil {
 			t.Fatal(err)
 		}
-		if strings.Contains(out.String(), "aigw verify --for all") != enabled {
+		if strings.Contains(out.String(), "aigw check --depth client") != enabled {
 			t.Fatalf("enabled=%t, continuation=%s", enabled, &out)
 		}
 		if !strings.Contains(out.String(), "aigw account rename old new --finalize") {

@@ -237,7 +237,7 @@ func TestUpdatePreviewInTextFromACandidateAndOnFailure(t *testing.T) {
 	}
 	// A preview that cannot read release metadata can still preview a
 	// verified local archive; doctor inspects neither.
-	if !strings.Contains(out.String(), "Fix\n  aigw update --dry-run --candidate <archive> --checksums <checksums>") || strings.Contains(out.String(), "aigw doctor") {
+	if !strings.Contains(out.String(), "Fix\n  aigw update --dry-run --candidate <archive> --checksums <checksums>") || strings.Contains(out.String(), "aigw check --depth local") {
 		t.Fatalf("failed preview names another fix:\n%s", out.String())
 	}
 	// A preview of a named archive never names another archive.

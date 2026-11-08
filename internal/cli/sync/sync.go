@@ -67,7 +67,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					"Synchronization prerequisites are unavailable",
 					"AIGW could not determine which selected Client Bindings can be projected with the currently available clients and credentials.",
 					"Configuration and client projections remain unchanged.",
-					"aigw doctor",
+					"aigw check --depth local",
 					err,
 				)
 			}

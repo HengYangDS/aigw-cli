@@ -128,7 +128,7 @@ func WriteRenamePlan(runtime Context, plan renaming.Plan, dryRun, jsonMode bool)
 		if plan.Resource == renaming.ResourceProvider {
 			r.Success("Configuration and target credentials are ready; source credential slots were retained for rollback")
 			if len(plan.Config.EnabledClientIDs()) > 0 {
-				r.Next("aigw verify --for all")
+				r.Next("aigw check --depth client")
 			}
 			r.Next("aigw account rename " + plan.OldID + " " + plan.NewID + " --finalize")
 		} else {

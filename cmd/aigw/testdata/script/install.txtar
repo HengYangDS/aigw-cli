@@ -153,10 +153,10 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  Local file access failed (read: is a directory); run `aigw doctor` to inspect current state
+  Local file access failed (read: is a directory); run `aigw check --depth local` to inspect current state
 
 Fix
-  aigw doctor
+  aigw check --depth local
 -- help-windows.txt --
 AIGW  aigw install
 ────────────────────────────────────────
@@ -183,10 +183,10 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  Local file access failed <varies>; run `aigw doctor` to inspect current state
+  Local file access failed <varies>; run `aigw check --depth local` to inspect current state
 
 Fix
-  aigw doctor
+  aigw check --depth local
 -- installed.json --
 {
   "schema_version": 1,
@@ -198,8 +198,8 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "Local file access failed (read: is a directory); run `aigw doctor` to inspect current state",
-  "next_action": "aigw doctor"
+  "error": "Local file access failed (read: is a directory); run `aigw check --depth local` to inspect current state",
+  "next_action": "aigw check --depth local"
 }
 -- installed-windows.json --
 {
@@ -212,6 +212,6 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "Local file access failed <varies>; run `aigw doctor` to inspect current state",
-  "next_action": "aigw doctor"
+  "error": "Local file access failed <varies>; run `aigw check --depth local` to inspect current state",
+  "next_action": "aigw check --depth local"
 }

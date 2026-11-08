@@ -466,7 +466,7 @@ func TestStatusClassifiesCredentialObservationFailureWithoutReadingValues(t *tes
 	result := collectStatus(runtime.Dependencies, cfg)
 	for _, client := range []string{claude.ID, codex.ID} {
 		state := result.Clients[client]
-		if state.State != domainreadiness.Unavailable || state.NextAction != "aigw doctor" || !strings.Contains(strings.ToLower(state.Detail), "credential metadata") {
+		if state.State != domainreadiness.Unavailable || state.NextAction != "aigw check --depth local" || !strings.Contains(strings.ToLower(state.Detail), "credential metadata") {
 			t.Fatalf("%s state = %#v", client, state)
 		}
 	}
@@ -476,7 +476,7 @@ func TestStatusClassifiesCredentialObservationFailureWithoutReadingValues(t *tes
 	if err := RunStatus(runtime, false); err != nil {
 		t.Fatalf("RunStatus error = %v", err)
 	}
-	if !strings.Contains(buffer.String(), "Unavailable") || !strings.Contains(buffer.String(), "aigw doctor") {
+	if !strings.Contains(buffer.String(), "Unavailable") || !strings.Contains(buffer.String(), "aigw check --depth local") {
 		t.Fatalf("RunStatus output = %q", buffer.String())
 	}
 }

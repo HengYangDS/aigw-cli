@@ -48,7 +48,7 @@ func TestUpdateWritesItsTransitionAsJSON(t *testing.T) {
 				`"next_detail":"Install the earlier release with Homebrew, then run ` + "`aigw sync` and `aigw check`" + `."}`},
 		{name: "incomplete cleanup", updater: &fakeUpdater{updateResult: updated("0.2.0", "updated to v0.2.0"), updateErr: cleanup}, failed: true,
 			want: `{"schema_version":1,"ok":false,"state":"updated","version":"0.2.0","summary":"updated to v0.2.0","problem":"Program updated; cleanup is incomplete",` +
-				`"next_detail":"Run ` + "`aigw installation` and `aigw doctor`" + ` before retrying cleanup or another program transition."}`},
+				`"next_detail":"Run ` + "`aigw installation` and `aigw check --depth local`" + ` before retrying cleanup or another program transition."}`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")

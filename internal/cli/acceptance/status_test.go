@@ -78,7 +78,7 @@ func TestTerminalErrorLocalizesUnsupportedConfigVersion(t *testing.T) {
 			t.Fatalf("localized configuration error lacks %q:\n%s", want, text)
 		}
 	}
-	if strings.Contains(text, "aigw doctor") {
+	if strings.Contains(text, "aigw check --depth local") {
 		t.Fatalf("configuration error names a command that loads the configuration:\n%s", text)
 	}
 	if strings.Contains(text, "unsupported config version") {

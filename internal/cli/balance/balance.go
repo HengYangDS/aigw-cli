@@ -31,7 +31,7 @@ func diagnosticCredentialProblem(store secret.Store, accountName string, err err
 			"Cannot read provider diagnostic credential",
 			"AIGW could not read a usable provider diagnostic credential for "+accountName+"; this does not establish that it is missing.",
 			"No balance request was sent; the Account Token and diagnostic credential were not changed.",
-			cmp.Or(environment, "Run `aigw doctor` to inspect the selected credential backend; if it is available, explicitly re-enable diagnostics with `aigw account diagnostics enable "+accountName+"`."),
+			cmp.Or(environment, "Run `aigw check --depth local` to inspect the selected credential backend; if it is available, explicitly re-enable diagnostics with `aigw account diagnostics enable "+accountName+"`."),
 			err,
 		)
 	}

@@ -82,7 +82,7 @@ func TestInspectReportsNilMemoryAndUnknownStores(t *testing.T) {
 	}{
 		{
 			name:    "nil",
-			want:    BackendSelection{Kind: "unknown", Availability: "unavailable", Mutability: "unknown", Persistence: "unknown", RecoveryAction: "aigw doctor"},
+			want:    BackendSelection{Kind: "unknown", Availability: "unavailable", Mutability: "unknown", Persistence: "unknown", RecoveryAction: "aigw check --depth local"},
 			wantErr: true,
 		},
 		{
@@ -231,7 +231,7 @@ func TestInspectRechecksChangedChoiceWithoutAdoptingIt(t *testing.T) {
 			}
 			got, err := Inspect(store)
 			if test.problem != "" {
-				want = BackendSelection{Kind: "unknown", Availability: "unavailable", Mutability: "unknown", Persistence: "unknown", RecoveryAction: "aigw doctor"}
+				want = BackendSelection{Kind: "unknown", Availability: "unavailable", Mutability: "unknown", Persistence: "unknown", RecoveryAction: "aigw check --depth local"}
 				if err == nil || !strings.Contains(err.Error(), test.problem) || got != want {
 					t.Fatalf("conflicting observation = %+v, %v", got, err)
 				}
@@ -296,8 +296,8 @@ func TestInspectReportsUnavailableBackendAndOneRecoveryAction(t *testing.T) {
 	if got.Availability != "unavailable" || got.Mutability != "unknown" || got.Persistence != "unknown" || got.Kind != "unknown" {
 		t.Fatalf("Inspect() = %#v, want unavailable unresolved selection", got)
 	}
-	if got.RecoveryAction != "aigw doctor" {
-		t.Fatalf("recovery action = %q, want aigw doctor", got.RecoveryAction)
+	if got.RecoveryAction != "aigw check --depth local" {
+		t.Fatalf("recovery action = %q, want aigw check --depth local", got.RecoveryAction)
 	}
 }
 

@@ -150,7 +150,7 @@ func TestCredentialHelperNamesReaderAndStage(t *testing.T) {
 			}
 			// The diagnostic names no path or configuration content, and no
 			// doctor, which loads the same configuration and fails the same way.
-			if strings.Contains(diagnostic, filepath.Dir(path)) || strings.Contains(diagnostic, "future_capability") || strings.Contains(diagnostic, "aigw doctor") {
+			if strings.Contains(diagnostic, filepath.Dir(path)) || strings.Contains(diagnostic, "future_capability") || strings.Contains(diagnostic, "aigw check --depth local") {
 				t.Fatalf("diagnostic disclosed a path or configuration content, or named doctor:\n%s", diagnostic)
 			}
 		})
@@ -348,7 +348,7 @@ func TestCredentialHelperUsesAccountTokenLanguage(t *testing.T) {
 	var stderr bytes.Buffer
 	terminal.RenderCredentialError(terminal.NewRenderer(&stderr, false), err)
 	if err == nil || stdout.Len() != 0 || !strings.Contains(stderr.String(), "claude Account Token is not configured") ||
-		!strings.Contains(stderr.String(), "aigw doctor") || strings.Contains(stderr.String(), "gateway") {
+		!strings.Contains(stderr.String(), "aigw check --depth local") || strings.Contains(stderr.String(), "gateway") {
 		t.Fatalf("credential error = %v, output = %q", err, stderr.String())
 	}
 }
@@ -482,7 +482,7 @@ func TestCredentialHelperRejectsClientNativeBeforeSecretAccess(t *testing.T) {
 	}
 	var stderr bytes.Buffer
 	terminal.RenderError(terminal.NewRenderer(&stderr, false), err, false)
-	if !strings.Contains(stderr.String(), "aigw verify --for codex") {
+	if !strings.Contains(stderr.String(), "aigw check codex --depth client") {
 		t.Fatalf("client-owned recovery action missing: %q", stderr.String())
 	}
 	if store.getCalls != 0 || store.existsCalls != 0 {

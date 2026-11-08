@@ -42,7 +42,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return terminal.ProblemError(fmt.Sprintf("%s credential projection no longer matches an available Account and endpoint", client), "", "No Account Token was read or returned.", "Run `aigw sync` and reload the client's configuration.", err)
 			}
 			if !clientRuntime.RequiresProviderToken() {
-				return terminal.ProblemError(fmt.Sprintf("%s uses client-owned authentication", client), "", "AIGW does not supply an Account Token for this route.", fmt.Sprintf("Run `aigw verify --for %s` to verify authentication through the client.", client), nil)
+				return terminal.ProblemError(fmt.Sprintf("%s uses client-owned authentication", client), "", "AIGW does not supply an Account Token for this route.", fmt.Sprintf("Run `aigw check %s --depth client` to verify authentication through the client.", client), nil)
 			}
 			token, err := runtime.Secrets.Get(clientRuntime.ProviderID)
 			if err != nil {
@@ -53,7 +53,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 					return terminal.ProblemError(
 						fmt.Sprintf("%s Account Token is not configured", client), "",
 						"No Token was returned.",
-						"Set the selected Account Token in the configured backend; run `aigw doctor` for backend guidance.",
+						"Set the selected Account Token in the configured backend; run `aigw check --depth local` for backend guidance.",
 						err,
 					)
 				}

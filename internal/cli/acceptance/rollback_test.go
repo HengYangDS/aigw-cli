@@ -54,13 +54,13 @@ func TestRollbackReportsUnavailableRecoveryWithoutChangingCurrentConfiguration(t
 				"Configuration rollback is unavailable",
 				"No valid recovery source is available for the current configuration.",
 				"The current configuration remains active and unchanged.",
-				"aigw doctor",
+				"aigw check --depth local",
 			} {
 				if !strings.Contains(out.String(), want) {
 					t.Fatalf("output missing %q:\n%s", want, out.String())
 				}
 			}
-			if count := strings.Count(out.String(), "aigw doctor"); count != 1 {
+			if count := strings.Count(out.String(), "aigw check --depth local"); count != 1 {
 				t.Fatalf("safe next action count = %d, want 1:\n%s", count, out.String())
 			}
 			for _, internalTerm := range []string{"backup", "checkpoint", "journal"} {
@@ -162,7 +162,7 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 		"Configuration rollback did not complete",
 		"One rollback step failed; the cause identifies the affected boundary.",
 		"Configuration or client projections may have changed; inspect current state before retrying.",
-		"aigw doctor",
+		"aigw check --depth local",
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("output missing %q:\n%s", want, out.String())

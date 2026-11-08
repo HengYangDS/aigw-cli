@@ -27,7 +27,7 @@ func (s Synchronizer) ClientIDs() []string {
 func (s Synchronizer) Inspect(ctx context.Context, cfg domain.Config, clientID string, runtime domain.Runtime) adapter.Status {
 	dependencies, err := s.clientDependencies([]string{clientID}, cfg)
 	if err != nil {
-		return adapter.Status{Issue: "AIGW credential reader identity is unavailable", RepairAction: "aigw doctor"}
+		return adapter.Status{Issue: "AIGW credential reader identity is unavailable", RepairAction: "Run the installed aigw again; this program cannot read its own program file."}
 	}
 	return s.registry().Inspect(ctx, dependencies, cfg, clientID, runtime)
 }
