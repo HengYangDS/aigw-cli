@@ -130,29 +130,36 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 			Attempts:   1,
 		}
 	}
+	return classifyResponse(Result{HTTPStatus: resp.StatusCode, Scope: scope, Attempts: 1}, runtime.Protocol, body)
+}
+
+// classifyResponse classifies the HTTP answer of one request: a success by
+// whether it carries what its scope asks for, and a failure by its status
+// and the provider's own message, which no output shows.
+func classifyResponse(result Result, protocol domain.EndpointProtocol, body []byte) Result {
+	status := result.HTTPStatus
 	lower := strings.ToLower(providerErrorMessage(body))
-	result := Result{HTTPStatus: resp.StatusCode, Scope: scope, Attempts: 1}
 	switch {
-	case resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices:
-		result = classifySuccessfulResponse(result, runtime.Protocol, body)
-	case resp.StatusCode == http.StatusUnauthorized:
+	case status >= http.StatusOK && status < http.StatusMultipleChoices:
+		result = classifySuccessfulResponse(result, protocol, body)
+	case status == http.StatusUnauthorized:
 		result.Kind, result.Summary = InvalidToken, "the provider rejected the Token"
-	case isHardQuotaFailure(resp.StatusCode, lower):
+	case isHardQuotaFailure(status, lower):
 		result.Kind, result.Summary = QuotaExhausted, "the Token's quota is exhausted"
-	case resp.StatusCode == http.StatusForbidden && containsAny(lower, "disabled", "disable"):
+	case status == http.StatusForbidden && containsAny(lower, "disabled", "disable"):
 		result.Kind, result.Summary = TokenDisabled, "the provider disabled the Token"
-	case resp.StatusCode == http.StatusForbidden:
+	case status == http.StatusForbidden:
 		result.Kind, result.Summary = TokenRestricted, "the provider restricted what the Token may do"
-	case resp.StatusCode == http.StatusRequestTimeout:
+	case status == http.StatusRequestTimeout:
 		result.Kind, result.Summary, result.Retryable = Timeout, "the endpoint gave up waiting for the request", true
-	case resp.StatusCode == http.StatusTooManyRequests:
+	case status == http.StatusTooManyRequests:
 		result.Kind, result.Summary, result.Retryable = RateLimited, "the provider limited the request rate or concurrency", true
-	case resp.StatusCode == http.StatusNotFound:
+	case status == http.StatusNotFound:
 		result.Kind, result.Summary = EndpointMismatch, "the endpoint has no such path for this protocol"
-	case resp.StatusCode == http.StatusServiceUnavailable && containsAny(lower, "model", "channel", "无可用渠道") ||
-		resp.StatusCode == http.StatusBadRequest && strings.Contains(lower, "model") && strings.Contains(lower, "cannot be served at the moment"):
+	case status == http.StatusServiceUnavailable && containsAny(lower, "model", "channel", "无可用渠道") ||
+		status == http.StatusBadRequest && strings.Contains(lower, "model") && strings.Contains(lower, "cannot be served at the moment"):
 		result.Kind, result.Summary, result.Retryable = ModelUnavailable, "the provider cannot serve the model right now", true
-	case resp.StatusCode >= 500:
+	case status >= 500:
 		result.Kind, result.Summary, result.Retryable = UpstreamFailure, "the provider failed", true
 	default:
 		result.Kind, result.Summary = Unexpected, "the endpoint gave an answer that AIGW does not expect"
