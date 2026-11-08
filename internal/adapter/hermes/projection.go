@@ -148,11 +148,11 @@ func prepare(path string, desired, previous *Desired) (Plan, error) {
 func prepareObserved(path string, desired, previous *Desired, adopted bool) (Plan, error) {
 	plan := Plan{path: path, Action: "unchanged"}
 	var err error
-	plan.configBefore, err = platform.CaptureFileSnapshot(path)
+	plan.configBefore, err = adapter.CaptureTarget(path, desired != nil)
 	if err != nil {
 		return Plan{}, err
 	}
-	plan.stateBefore, err = platform.CaptureFileSnapshot(path + adapter.StateSuffix)
+	plan.stateBefore, err = adapter.CaptureTarget(path+adapter.StateSuffix, desired != nil)
 	if err != nil {
 		return Plan{}, err
 	}

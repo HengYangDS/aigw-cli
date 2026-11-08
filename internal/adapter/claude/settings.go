@@ -173,11 +173,11 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 	statePath := path + adapter.StateSuffix
 	settingsBefore, err := captureSnapshot(path)
 	if err != nil {
-		return settingsChange{}, fmt.Errorf("read Claude settings: %w", err)
+		return settingsChange{}, &adapter.TargetError{Path: path, Desired: !disabled, Err: err}
 	}
 	stateBefore, err := captureSnapshot(statePath)
 	if err != nil {
-		return settingsChange{}, fmt.Errorf("read Claude settings state: %w", err)
+		return settingsChange{}, &adapter.TargetError{Path: statePath, Desired: !disabled, Err: err}
 	}
 	document, err := decodeSettings(settingsBefore)
 	if err != nil {

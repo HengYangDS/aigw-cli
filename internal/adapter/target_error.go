@@ -1,6 +1,10 @@
 package adapter
 
-import "errors"
+import (
+	"errors"
+
+	"aigw-cli/internal/platform"
+)
 
 // TargetError is the failure of one client configuration file, and whether
 // the configuration after the change keeps that file, as opposed to one that
@@ -34,4 +38,16 @@ func namedTarget(client ClientLabel, home string, err error) error {
 		failed.Client, failed.Home = string(client), home
 	}
 	return err
+}
+
+// CaptureTarget reads a client file that an adapter is about to plan. An
+// operating-system error is the file's own, so the report names that file and
+// what resolves it there, never AIGW's folder. kept says whether the
+// configuration after the change keeps the file.
+func CaptureTarget(path string, kept bool) (platform.FileSnapshot, error) {
+	snapshot, err := platform.CaptureFileSnapshot(path)
+	if err != nil {
+		return platform.FileSnapshot{}, &TargetError{Path: path, Desired: kept, Err: err}
+	}
+	return snapshot, nil
 }

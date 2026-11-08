@@ -335,7 +335,7 @@ func (registry Registry) AdoptSelections(deps Dependencies, cfg *domain.Config) 
 	for _, id := range registry.ids {
 		routeID, err := registry.byID[id].AdoptSelection(deps, cfg)
 		if err != nil {
-			return nil, err
+			return nil, namedTarget(ClientLabel(registry.byID[id].Spec().Label), deps.Host.Home, err)
 		}
 		if routeID != "" {
 			adopted[id] = routeID

@@ -27,11 +27,11 @@ func ObserveSelection(path string, current Desired) (Selection, bool, error) {
 	if err := current.Validate(); err != nil {
 		return Selection{}, false, err
 	}
-	config, err := platform.CaptureFileSnapshot(path)
+	config, err := adapter.CaptureTarget(path, true)
 	if err != nil {
 		return Selection{}, false, err
 	}
-	stateSnapshot, err := platform.CaptureFileSnapshot(path + adapter.StateSuffix)
+	stateSnapshot, err := adapter.CaptureTarget(path+adapter.StateSuffix, true)
 	if err != nil || !stateSnapshot.Exists {
 		return Selection{}, false, err
 	}

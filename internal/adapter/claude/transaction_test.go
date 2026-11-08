@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"bytes"
@@ -21,7 +22,7 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 			func(string) (platform.FileSnapshot, error) { return platform.FileSnapshot{}, os.ErrPermission },
 			writeGuarded, removeGuarded, restoreGuarded,
 		)
-		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err == nil || !strings.Contains(err.Error(), "read Claude settings") {
+		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); !isTargetFailure(err, path) {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -38,7 +39,7 @@ func TestSettingsTransactionFailuresRollbackOrReportExactCause(t *testing.T) {
 			},
 			writeGuarded, removeGuarded, restoreGuarded,
 		)
-		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); err == nil || !strings.Contains(err.Error(), "read Claude settings state") {
+		if _, err := ReconcileSettings(path, false, runtime, testExecutable(), runtime.UpstreamModel); !isTargetFailure(err, path+adapter.StateSuffix) {
 			t.Fatalf("error=%v", err)
 		}
 	})
@@ -199,4 +200,11 @@ func withSettingsTransaction(
 	t.Cleanup(func() {
 		captureSnapshot, writeGuarded, removeGuarded, restoreGuarded = oldCapture, oldWrite, oldRemove, oldRestore
 	})
+}
+
+// isTargetFailure reports whether err is a failure of the client file at path,
+// which a report names with the step that resolves it there.
+func isTargetFailure(err error, path string) bool {
+	failed, atTarget := errors.AsType[*adapter.TargetError](err)
+	return atTarget && failed.Path == path && errors.Is(err, os.ErrPermission)
 }

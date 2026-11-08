@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/platform"
 )
 
@@ -9,11 +10,11 @@ import (
 // other drift, or a sidecar that cannot attribute the projected model, reports
 // no change, so ordinary synchronization keeps its refusal.
 func ObserveSelection(path string) (string, bool, error) {
-	config, err := platform.CaptureFileSnapshot(path)
+	config, err := adapter.CaptureTarget(path, true)
 	if err != nil || !config.Exists {
 		return "", false, err
 	}
-	stateSnapshot, err := platform.CaptureFileSnapshot(codexStatePath(path))
+	stateSnapshot, err := adapter.CaptureTarget(codexStatePath(path), true)
 	if err != nil || !stateSnapshot.Exists {
 		return "", false, err
 	}

@@ -143,7 +143,7 @@ type projectedFiles struct {
 
 // Prepare builds a guarded projection or withdrawal plan.
 func Prepare(paths Paths, desired *Desired) (Plan, error) {
-	before, err := capture(paths)
+	before, err := capture(paths, desired != nil)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -294,13 +294,13 @@ type snapshots struct {
 	metadata             platform.FileSnapshot
 }
 
-func capture(paths Paths) (snapshots, error) {
+func capture(paths Paths, kept bool) (snapshots, error) {
 	values := []*platform.FileSnapshot{}
 	result := snapshots{}
 	values = append(values, &result.standard, &result.thirdParty, &result.profile, &result.metadata, &result.state)
 	pathList := []string{paths.StandardConfig, paths.ThirdPartyConfig, paths.Profile, paths.Metadata, paths.State}
 	for index, path := range pathList {
-		snapshot, err := platform.CaptureFileSnapshot(path)
+		snapshot, err := adapter.CaptureTarget(path, kept)
 		if err != nil {
 			return snapshots{}, err
 		}
