@@ -85,7 +85,7 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 		if adapterStatus.NativeModelOverride && state.State == domainreadiness.Configured {
 			state.NativeModelOverride = true
 			state.Detail = runtime.Clients.Admission().ProductName(clientID) + " uses a native model preference; its AIGW endpoint and credential helper remain configured"
-			state.NextAction = "aigw verify --for " + clientID
+			state.NextAction = "aigw check " + clientID + " --depth client"
 		}
 		client := ClientStatus{
 			Client:             state,
@@ -102,7 +102,7 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 			if clientRuntime.CredentialCommand != "" {
 				client.Detail = "Client files ready; the external credential helper is not verified"
 			}
-			client.NextAction = "aigw verify --for " + clientID
+			client.NextAction = "aigw check " + clientID + " --depth client"
 		}
 		clients[clientID] = client
 	}

@@ -1,372 +1,359 @@
 package check
 
 import (
+	"encoding/json"
+	"errors"
+	"net/http"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
-	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
-	"aigw-cli/internal/secret"
-	"aigw-cli/internal/terminal"
-	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"net/http"
-	"os"
-	"path/filepath"
-	"reflect"
-	"strings"
-	"testing"
-
-	"github.com/spf13/cobra"
 )
 
-func TestCheckCommandDescribesItsProductBoundary(t *testing.T) {
-	command := NewCommand(invocation.Context{Clients: clients.Registry()})
-	if command.Short != "Check enabled clients; selected-model probes may use quota" {
-		t.Fatalf("check summary = %q", command.Short)
+// A check climbs to the depth that it asks for and no further: local sends
+// nothing and reads no Token, endpoint sends one request without a model, and
+// model, the default, adds one inference request, with one Token read for
+// both.
+func TestCheckClimbsToTheRequestedDepth(t *testing.T) {
+	for _, test := range []struct {
+		args     []string
+		reached  depth
+		requests []string
+		reads    int
+	}{
+		{args: []string{"--depth", "local"}, reached: depthLocal},
+		{args: []string{"--depth", "endpoint"}, reached: depthEndpoint, requests: []string{"GET codex.example.test/v1/models"}, reads: 1},
+		{reached: depthModel, requests: []string{"GET codex.example.test/v1/models", "POST codex.example.test/v1/responses"}, reads: 1},
+	} {
+		t.Run(string(test.reached), func(t *testing.T) {
+			runtime, cfg, out := configuredRuntime(t)
+			enable(t, runtime, &cfg, codex.ID)
+			provider := &recorder{respond: answer}
+			runtime.HTTP = provider
+			if err := execute(runtime, append(test.args, "--json")...); err != nil {
+				t.Fatalf("check: %v\n%s", err, out)
+			}
+			doc := decode(t, out)
+			client := doc.client(t, codex.ID)
+			if doc.SchemaVersion != 3 || !doc.OK || doc.EnabledClients != 1 || client.Depth != test.reached || client.Failure != nil || len(client.Skipped) != 0 {
+				t.Fatalf("check to %s = %+v", test.reached, doc)
+			}
+			if !slices.Equal(provider.requests, test.requests) {
+				t.Fatalf("requests = %q, want %q", provider.requests, test.requests)
+			}
+			if reads := len(secrets(t, runtime).getProviders); reads != test.reads {
+				t.Fatalf("Token reads = %d, want %d", reads, test.reads)
+			}
+		})
 	}
 }
 
-type failingOutputWriter struct{ err error }
-
-func (writer failingOutputWriter) Write([]byte) (int, error) { return 0, writer.err }
-
-type presentFailingSecretStore struct{ err error }
-
-func (store presentFailingSecretStore) Get(string) (string, error) { return "", store.err }
-
-func (presentFailingSecretStore) Set(string, string) error { return nil }
-
-func (presentFailingSecretStore) Delete(string) error { return nil }
-
-func (presentFailingSecretStore) Exists(string) (bool, error) { return true, nil }
-
-type failingProviderObservationStore struct {
-	err   error
-	reads int
-}
-
-func (store *failingProviderObservationStore) Get(string) (secret.DiagnosticCredential, error) {
-	store.reads++
-	return secret.DiagnosticCredential{}, store.err
-}
-
-func (*failingProviderObservationStore) Set(string, secret.DiagnosticCredential) error { return nil }
-
-func (*failingProviderObservationStore) Delete(string) error { return nil }
-
-func (store *failingProviderObservationStore) Exists(string) (bool, error) {
-	store.reads++
-	return false, store.err
-}
-
-func TestCheckEvaluationClientLookupDistinguishesMissingClient(t *testing.T) {
-	evaluation := checkEvaluation{clients: []evaluatedClient{{client: claude.ID}}}
-	if client, ok := evaluation.client(claude.ID); !ok || client.client != claude.ID {
-		t.Fatalf("Claude client = %#v, %v", client, ok)
+// A client stops at its first failed depth, after exactly one rejected
+// request, with the fix that acts on the cause, while the other client still
+// climbs, and the check exits 1.
+func TestCheckStopsAClientAtItsFirstFailedDepth(t *testing.T) {
+	runtime, cfg, out := configuredRuntime(t)
+	enable(t, runtime, &cfg, claude.ID, codex.ID)
+	provider := &recorder{respond: func(request *http.Request) (*http.Response, error) {
+		if request.URL.Host == "claude.example.test" {
+			return status(http.StatusUnauthorized)(request)
+		}
+		return answer(request)
+	}}
+	runtime.HTTP = provider
+	if err := execute(runtime, "--json"); err == nil {
+		t.Fatal("a check with a rejected Token passed")
 	}
-	if client, ok := evaluation.client(codex.ID); ok || client != (evaluatedClient{}) {
-		t.Fatalf("missing Codex client = %#v, %v", client, ok)
+	doc := decode(t, out)
+	rejected, passed := doc.client(t, claude.ID), doc.client(t, codex.ID)
+	if doc.OK || rejected.Failure == nil || rejected.Failure.Depth != depthEndpoint || rejected.Failure.HTTPStatus != http.StatusUnauthorized ||
+		rejected.Failure.Problem != "HTTP 401: the provider rejected the Token" || rejected.State != domainreadiness.Invalid || rejected.Depth != depthLocal {
+		t.Fatalf("the rejected client = %+v", rejected)
+	}
+	if rejected.NextDetail != "aigw provider rotate one" || doc.NextDetail != "aigw provider rotate one" {
+		t.Fatalf("the rejected client's fix = %q, %q", rejected.NextDetail, doc.NextDetail)
+	}
+	if passed.Depth != depthModel || passed.Failure != nil {
+		t.Fatalf("the other client = %+v", passed)
+	}
+	claudeRequests := slices.DeleteFunc(slices.Clone(provider.requests), func(request string) bool { return !strings.Contains(request, "claude.example.test") })
+	if len(claudeRequests) != 1 {
+		t.Fatalf("the rejected client sent %q", claudeRequests)
+	}
+	out.Reset()
+	if err := execute(runtime); err == nil {
+		t.Fatal("the human check passed")
+	}
+	for _, want := range []string{"✗ Claude", "one/claude-test · endpoint", "HTTP 401: the provider rejected the Token", "Fix: aigw provider rotate one", "✓ Codex", "one/gpt-test · model"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("the human check lacks %q:\n%s", want, out)
+		}
 	}
 }
 
-func TestCheckReadsEachEnabledModelCredentialOnce(t *testing.T) {
-	runtime, cfg, _ := configuredReadinessRuntime(t)
-	store := &observingSecretStore{value: "token"}
-	runtime.Secrets = store
-	configureClaudeExecutable(t, &runtime, &cfg)
-	synchronizeClaudeSettings(t, runtime, cfg)
-	target := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(target, nil, 0o600); err != nil {
-		t.Fatal(err)
+// A depth that a client cannot run is skipped with its reason and fails
+// nothing. A client that authenticates itself runs neither request and reads
+// no Token, and the deeper check that proves its authentication is a session.
+func TestCheckSkipsTheRequestsOfAClientWithItsOwnAuthentication(t *testing.T) {
+	runtime, cfg, out := configuredRuntime(t)
+	binding := cfg.Clients[codex.ID]
+	binding.ModelProvider, binding.Authentication = "amazon-bedrock", domain.AuthenticationClientNative
+	cfg.Clients[codex.ID] = binding
+	enable(t, runtime, &cfg, codex.ID)
+	provider := &recorder{respond: answer}
+	runtime.HTTP = provider
+	if err := execute(runtime, "--json"); err != nil {
+		t.Fatalf("check: %v\n%s", err, out)
 	}
-	cfg.SetClientActivation(codex.ID, true, "codex", []string{target})
-	clientRuntime, err := cfg.ResolveRuntime(codex.ID, "")
+	client := decode(t, out).client(t, codex.ID)
+	if client.Depth != depthLocal || len(client.Skipped) != 2 || client.Skipped[0].Depth != depthEndpoint || client.Skipped[1].Depth != depthModel ||
+		!strings.Contains(client.Skipped[0].Reason, "Codex uses its own authentication") || client.NextAction != "aigw check codex --depth client" {
+		t.Fatalf("a client with its own authentication = %+v", client)
+	}
+	store := secrets(t, runtime)
+	if len(provider.requests) != 0 || len(store.getProviders) != 0 || len(store.existsProviders) != 0 {
+		t.Fatalf("a client with its own authentication sent %q and read %q, %q", provider.requests, store.getProviders, store.existsProviders)
+	}
+}
+
+// Claude Code with its own model preference runs no inference, because AIGW
+// does not choose the model that it sends; a session proves that model.
+func TestCheckSkipsTheModelDepthOfAClientWithItsOwnModel(t *testing.T) {
+	runtime, cfg, out := configuredRuntime(t)
+	enable(t, runtime, &cfg, claude.ID)
+	preferOwnModel(t, runtime)
+	provider := &recorder{respond: answer}
+	runtime.HTTP = provider
+	if err := execute(runtime, "--json"); err != nil {
+		t.Fatalf("check: %v\n%s", err, out)
+	}
+	client := decode(t, out).client(t, claude.ID)
+	if client.Depth != depthEndpoint || !client.NativeModelPreference || len(client.Skipped) != 1 || client.Skipped[0].Depth != depthModel ||
+		client.NextAction != "aigw check claude --depth client" || !slices.Equal(provider.requests, []string{"GET claude.example.test/v1/models"}) {
+		t.Fatalf("Claude Code with its own model = %+v; requests %q", client, provider.requests)
+	}
+}
+
+// An endpoint that lists no models for Claude Code proves no Token without a
+// model, so the model depth proves it.
+func TestCheckLeavesTheTokenToTheModelDepthWithoutAModelList(t *testing.T) {
+	runtime, cfg, out := configuredRuntime(t)
+	enable(t, runtime, &cfg, claude.ID)
+	runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if request.Method == http.MethodGet {
+			return status(http.StatusNotFound)(request)
+		}
+		return answer(request)
+	})
+	if err := execute(runtime, "--depth", "endpoint", "--json"); err != nil {
+		t.Fatalf("check: %v\n%s", err, out)
+	}
+	client := decode(t, out).client(t, claude.ID)
+	if client.Depth != depthLocal || len(client.Skipped) != 1 || client.Skipped[0].Depth != depthEndpoint || client.NextAction != "aigw check claude" {
+		t.Fatalf("an endpoint without a model list = %+v", client)
+	}
+	out.Reset()
+	if err := execute(runtime, "--json"); err != nil {
+		t.Fatalf("check: %v\n%s", err, out)
+	}
+	if client := decode(t, out).client(t, claude.ID); client.Depth != depthModel || len(client.Skipped) != 1 || client.NextAction != "" {
+		t.Fatalf("the model depth did not prove the Token: %+v", client)
+	}
+}
+
+// preferOwnModel changes only the model of Claude Code's settings, as Claude
+// Code does when the person picks another model in it.
+func preferOwnModel(t *testing.T, runtime invocation.Context) {
+	t.Helper()
+	path, err := claude.SettingsPath(runtime.Host)
 	if err != nil {
 		t.Fatal(err)
 	}
-	clientRuntime.CredentialCommand = runtime.Executable
-	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, clientRuntime, clientRuntime, false); err != nil {
+	data, err := os.ReadFile(path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runtime.Config.Save(cfg); err != nil {
+	var settings map[string]json.RawMessage
+	if err := json.Unmarshal(data, &settings); err != nil {
 		t.Fatal(err)
 	}
-	runtime.HTTP = roundTripFunc(successfulReadinessResponse)
-	command := NewCommand(runtime)
-	command.SetContext(t.Context())
-	if evaluation := evaluateCheck(command, runtime, cfg); !evaluation.ok() {
-		t.Fatalf("ready clients failed evaluation: %+v", evaluation.clients)
+	settings["model"] = json.RawMessage(`"opus[1m]"`)
+	changed, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if store.existsCalls != 0 || store.getCalls != len([]string{claude.ID, codex.ID}) {
-		t.Fatalf("exists calls=%d get calls=%d", store.existsCalls, store.getCalls)
+	if err := os.WriteFile(path, append(changed, '\n'), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 
-func TestCheckDefersUnprojectedClientWithoutReadingTokenValues(t *testing.T) {
-	for _, client := range []string{claude.ID, codex.ID} {
-		for _, jsonMode := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/json=%t", client, jsonMode), func(t *testing.T) {
-				runtime, cfg, output := configuredReadinessRuntime(t)
-				runtime.Version = "1.0.0"
-				cfg.SetClientActivation(client, true, "", nil)
-				if err := runtime.Config.Save(cfg); err != nil {
+// A named disabled client is checked like an enabled one without its client
+// files, which it has none of, and a check that names no client while none is
+// enabled fails without sending anything.
+func TestCheckOfANamedDisabledClient(t *testing.T) {
+	runtime, _, out := configuredRuntime(t)
+	provider := &recorder{respond: answer}
+	runtime.HTTP = provider
+	if err := execute(runtime, "codex", "--json"); err != nil {
+		t.Fatalf("a named disabled client: %v\n%s", err, out)
+	}
+	doc := decode(t, out)
+	client := doc.client(t, codex.ID)
+	files := client.Checks[slices.IndexFunc(client.Checks, func(check localCheck) bool { return check.Name == "codex:files" })]
+	if !doc.OK || doc.EnabledClients != 0 || len(doc.Clients) != 1 || client.Enabled || client.Depth != depthModel ||
+		files.State != checkSkipped || files.Detail != "Codex is disabled, so AIGW keeps no client files for it" {
+		t.Fatalf("a named disabled client = %+v", doc)
+	}
+	if len(provider.requests) != 2 {
+		t.Fatalf("a named disabled client sent %q", provider.requests)
+	}
+	out.Reset()
+	provider.requests = nil
+	if err := execute(runtime, "--json"); err == nil {
+		t.Fatal("a check without an enabled client passed")
+	}
+	doc = decode(t, out)
+	if doc.OK || len(doc.Clients) != 0 || doc.EnabledClients != 0 || doc.State != domainreadiness.Deferred || doc.Problem != "No client is enabled" ||
+		!strings.HasPrefix(doc.NextAction, "aigw use ") || len(provider.requests) != 0 {
+		t.Fatalf("a check without an enabled client = %+v; requests %q", doc, provider.requests)
+	}
+}
+
+// A local failure stops the client before it reads a Token or sends a
+// request: a provider without a Token, a client file that no longer matches,
+// and a variable in the environment that competes with AIGW's Token, which
+// stops every client.
+func TestCheckStopsAtALocalFailureBeforeAnyRequest(t *testing.T) {
+	for _, test := range []struct {
+		name, problem, fix string
+		state              domainreadiness.State
+		prepare            func(t *testing.T, runtime invocation.Context)
+		environment        []string
+	}{
+		{name: "missing Token", problem: "Provider one has no Token", fix: "aigw provider rotate one", state: domainreadiness.Deferred,
+			prepare: func(t *testing.T, runtime invocation.Context) {
+				delete(secrets(t, runtime).tokens, "one")
+			}},
+		{name: "removed client file", problem: "Codex configuration target is unavailable", fix: "aigw client edit codex --target <file>", state: domainreadiness.Invalid,
+			prepare: func(t *testing.T, runtime invocation.Context) {
+				if err := os.Remove(filepath.Join(runtime.Host.Home, ".codex", "config.toml")); err != nil {
 					t.Fatal(err)
 				}
-				store := &observingSecretStore{value: "available-token", getErr: errors.New("secret read before projection admission")}
-				runtime.Secrets = store
-				runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
-					t.Fatal("invalid projection must not authenticate an endpoint")
-					return nil, nil
-				})
-				command := NewCommand(runtime)
-				if jsonMode {
-					command.SetArgs([]string{"--json"})
-				} else {
-					command.SetArgs([]string{})
-				}
-				err := executeCommand(command)
-				if err == nil {
-					t.Fatal("invalid projection was accepted")
-				}
-				problem := terminal.ProblemFor(err)
-				problemDetail, problemAction := problem.Evidence, problem.Fix
-				if store.getCalls != 0 || store.existsCalls != 1 {
-					t.Fatalf("deferred projection observed Token value or repeated metadata lookup: get=%d exists=%d", store.getCalls, store.existsCalls)
-				}
-				if jsonMode {
-					var result checkDocument
-					if err := json.Unmarshal(output.Bytes(), &result); err != nil {
-						t.Fatal(err)
-					}
-					// The recovery is prose, so the document gives it as next_detail.
-					problemDetail, problemAction = result.Clients[client].Detail, result.Clients[client].NextDetail
-					if state := result.Clients[client]; state.State != domainreadiness.Deferred || state.NextAction != "" || state.NextDetail != problemAction || state.Detail != problemDetail {
-						t.Fatalf("client status = %+v", state)
-					}
-				}
-				// The document gives the client's own detail; human output, check's problem.
-				detail := strings.ToLower(problemDetail)
-				if !strings.Contains(detail, "projection") && detail != "the client is not installed" || problemAction != "Install "+clients.Admission().Label(client)+" if needed, then run `aigw sync`" {
-					t.Fatalf("projection recovery was lost: detail=%q action=%q", problemDetail, problemAction)
-				}
-			})
+			}},
+		{name: "competing variable", problem: "OPENAI_API_KEY is set in the environment, which a client may send instead of the Token that AIGW gives it",
+			fix: "Remove OPENAI_API_KEY from the environment that starts your clients.", state: domainreadiness.Invalid, environment: []string{"OPENAI_API_KEY=sk-other", "HOME=/home"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runtime, cfg, out := configuredRuntime(t)
+			enable(t, runtime, &cfg, codex.ID)
+			store := secrets(t, runtime)
+			if test.prepare != nil {
+				test.prepare(t, runtime)
+			}
+			runtime.Env = test.environment
+			provider := &recorder{respond: answer}
+			runtime.HTTP = provider
+			if err := execute(runtime, "--json"); err == nil {
+				t.Fatal("a local failure passed")
+			}
+			client := decode(t, out).client(t, codex.ID)
+			if client.Failure == nil || client.Failure.Depth != depthLocal || !strings.Contains(client.Failure.Problem, test.problem) || client.State != test.state ||
+				client.NextAction+client.NextDetail != test.fix || client.Depth != "" {
+				t.Fatalf("the local failure = %+v", client)
+			}
+			if len(provider.requests) != 0 || len(store.getProviders) != 0 {
+				t.Fatalf("a local failure sent %q and read the Token of %q", provider.requests, store.getProviders)
+			}
+		})
+	}
+}
+
+// A check of named clients observes only their providers: another client's
+// provider metadata, Token and endpoint stay untouched.
+func TestCheckObservesOnlyTheCheckedClients(t *testing.T) {
+	runtime, cfg, out := configuredRuntime(t)
+	cfg.Providers["two"] = domain.Provider{Label: "Two", Endpoints: domain.Endpoints{Anthropic: "https://two.example.test"}}
+	model := cfg.Models["claude"]
+	model.Provider = "two"
+	cfg.Models["claude"] = model
+	enable(t, runtime, &cfg, claude.ID, codex.ID)
+	provider := &recorder{respond: answer}
+	runtime.HTTP = provider
+	if err := execute(runtime, "codex", "--json"); err != nil {
+		t.Fatalf("check codex: %v\n%s", err, out)
+	}
+	doc := decode(t, out)
+	store := secrets(t, runtime)
+	if len(doc.Clients) != 1 || doc.EnabledClients != 1 || !slices.Equal(store.existsProviders, []string{"one"}) || !slices.Equal(store.getProviders, []string{"one"}) ||
+		slices.ContainsFunc(provider.requests, func(request string) bool { return strings.Contains(request, "two.example.test") }) {
+		t.Fatalf("a check of Codex observed %q, read %q and sent %q: %+v", store.existsProviders, store.getProviders, provider.requests, doc)
+	}
+}
+
+// The arguments are checked before anything is read: an unknown client with
+// the closest one, a client named twice, an unknown depth and a second
+// --depth.
+func TestCheckRefusesArgumentsBeforeReadingAnything(t *testing.T) {
+	runtime, _, _ := configuredRuntime(t)
+	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) { return nil, errors.New("no request may be sent") })
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{args: []string{"codx"}, want: `unknown client "codx"; did you mean codex?`},
+		{args: []string{"codex", "codex"}, want: "codex is named more than once"},
+		{args: []string{"--depth", "inference"}, want: "--depth must be local, endpoint, model or client"},
+		{args: []string{"--depth", "local", "--depth", "model"}, want: "this flag takes one value"},
+	} {
+		if err := execute(runtime, test.args...); err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Fatalf("check %q = %v, want %q", test.args, err, test.want)
 		}
 	}
-}
-
-func TestCheckExplainsBothMissingTokenAndDeferredProjection(t *testing.T) {
-	runtime, cfg, output := configuredReadinessRuntime(t)
-	cfg.SetClientActivation(claude.ID, true, "", nil)
-	if err := runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	command := NewCommand(runtime)
-	command.SetArgs([]string{"--json"})
-	if err := executeCommand(command); err == nil {
-		t.Fatal("missing Token and projection were accepted")
-	}
-	var result checkDocument
-	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
-		t.Fatal(err)
-	}
-	if result.NextDetail != "run `aigw provider rotate one`" || result.NextAction != "" || !strings.Contains(result.Problem, "Token") || !strings.Contains(result.Problem, "projection") {
-		t.Fatalf("missing prerequisites were not explained together: %+v", result)
+	store := secrets(t, runtime)
+	if len(store.existsProviders)+len(store.getProviders) != 0 {
+		t.Fatalf("a refused check read %q, %q", store.existsProviders, store.getProviders)
 	}
 }
 
-func TestCheckReportsCredentialMetadataFailureBeforeClientProjection(t *testing.T) {
-	runtime, cfg, output := configuredReadinessRuntime(t)
-	cfg.SetClientActivation(claude.ID, true, "", nil)
-	if err := runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
+// The document carries every local check, the shared ones and each client's,
+// with or without --verbose, and the human check lists them only with it.
+func TestCheckCarriesEveryLocalCheck(t *testing.T) {
+	runtime, cfg, out := configuredRuntime(t)
+	enable(t, runtime, &cfg, codex.ID)
+	if err := execute(runtime, "--depth", "local", "--json"); err != nil {
+		t.Fatalf("check: %v\n%s", err, out)
 	}
-	store := &observingSecretStore{existsErr: errors.New("metadata denied")}
-	runtime.Secrets = store
-	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
-		t.Fatal("unavailable credential metadata must not trigger an endpoint probe")
-		return nil, nil
-	})
-	command := NewCommand(runtime)
-	command.SetArgs([]string{"--json"})
-	if err := executeCommand(command); err == nil {
-		t.Fatal("credential metadata failure was accepted")
+	doc := decode(t, out)
+	var shared, own []string
+	for _, check := range doc.Checks {
+		shared = append(shared, check.Name+"="+check.State)
 	}
-	var result checkDocument
-	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
-		t.Fatal(err)
+	client := doc.client(t, codex.ID)
+	for _, check := range client.Checks {
+		own = append(own, check.Name+"="+check.State+" "+check.Target)
 	}
-	if result.State != domainreadiness.Unavailable || result.NextAction != "aigw doctor" || result.Clients[claude.ID].State != domainreadiness.Unavailable {
-		t.Fatalf("metadata failure = %+v", result)
+	if !slices.Equal(shared, []string{"environment=passed", "configuration=passed", "credential_backend=passed"}) ||
+		!slices.Equal(own, []string{"codex:model=passed ", "codex:token=passed ", "codex:files=passed ", "codex:target-1=passed ~/.codex/config.toml"}) {
+		t.Fatalf("local checks = %q, %q", shared, own)
 	}
-	if store.getCalls != 0 || store.existsCalls != 1 {
-		t.Fatalf("metadata failure read Token or repeated observation: get=%d exists=%d", store.getCalls, store.existsCalls)
-	}
-}
-
-func TestJSONCheckSelectsTheFailedClientRecoveryAction(t *testing.T) {
-	runtime, cfg, output := configuredReadinessRuntime(t)
-	cfg.SetClientActivation(claude.ID, true, filepath.Join(t.TempDir(), "missing-claude"), nil)
-	if err := runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	command := NewCommand(runtime)
-	command.SetArgs([]string{"--json"})
-	if err := executeCommand(command); err == nil {
-		t.Fatal("missing native client was accepted")
-	}
-	var result checkDocument
-	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
-		t.Fatal(err)
-	}
-	client := result.Clients[claude.ID]
-	if client.NextAction == "" || result.NextAction != client.NextAction {
-		t.Fatalf("top-level recovery differs from the failed client: %+v", result)
-	}
-}
-
-func TestCheckHonorsClientNativeAuthenticationOwnership(t *testing.T) {
-	runtime, cfg, buffer := configuredReadinessRuntime(t)
-	runtime.Version = "1.0.0"
-	binding := cfg.Clients[codex.ID]
-	binding.ModelProvider = "amazon-bedrock"
-	binding.Authentication = domain.AuthenticationClientNative
-	delete(cfg.Clients, claude.ID)
-	target := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(target, nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	binding.Enabled = true
-	binding.Executable = "codex"
-	binding.Targets = []string{target}
-	cfg.Clients[codex.ID] = binding
-	clientRuntime, err := cfg.ResolveRuntime(codex.ID, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(target)}, clientRuntime, clientRuntime, false); err != nil {
-		t.Fatal(err)
-	}
-	if err := runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	store := &observingSecretStore{getErr: errors.New("client-native credential access")}
-	runtime.Secrets = store
-	requests := 0
-	runtime.HTTP = roundTripFunc(func(*http.Request) (*http.Response, error) {
-		requests++
-		return nil, errors.New("client-native endpoint probe")
-	})
-	command := &cobra.Command{}
-	command.SetContext(context.Background())
-
-	if err := runCheck(command, runtime); err != nil {
-		t.Fatalf("client-native check error = %v", err)
-	}
-	if store.getCalls != 0 || store.existsCalls != 0 || requests != 0 {
-		t.Fatalf("client-native check used AIGW authentication capabilities: get=%d exists=%d HTTP=%d", store.getCalls, store.existsCalls, requests)
-	}
-	human := buffer.String()
-	for _, want := range []string{"Local projection checked", "Client-owned authentication", "aigw verify --for codex", "All enabled client checks passed", "Model inference was not verified", "Real-client execution was not verified"} {
-		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
-			t.Fatalf("client-native check output = %q, want %q", human, want)
+	for _, verbose := range []bool{false, true} {
+		out.Reset()
+		args := []string{"--depth", "local"}
+		if verbose {
+			args = append(args, "--verbose")
 		}
-	}
-	for _, forbidden := range []string{"Every enabled client route is healthy", "remote authentication succeeded", "model request succeeded"} {
-		if strings.Contains(human, forbidden) {
-			t.Fatalf("client-native check output = %q, contains %q", human, forbidden)
-		}
-	}
-
-	buffer.Reset()
-	if err := runJSONCheck(command, runtime); err != nil {
-		t.Fatalf("client-native check --json error = %v", err)
-	}
-	var machine struct {
-		OK      bool                                  `json:"ok"`
-		Clients map[string]map[string]json.RawMessage `json:"clients"`
-	}
-	if err := json.Unmarshal(buffer.Bytes(), &machine); err != nil {
-		t.Fatal(err)
-	}
-	want := map[string]json.RawMessage{
-		"state":               json.RawMessage(`"configured"`),
-		"route":               json.RawMessage(`"codex"`),
-		"account":             json.RawMessage(`"one"`),
-		"detail":              json.RawMessage(`"Client files ready; the client's own authentication is not proven"`),
-		"authentication":      json.RawMessage(`"client-native"`),
-		"endpoint_configured": json.RawMessage(`true`),
-		"projection_ready":    json.RawMessage(`true`),
-		"check_passed":        json.RawMessage(`true`),
-		"next_action":         json.RawMessage(`"aigw verify --for codex"`),
-	}
-	if !machine.OK || !reflect.DeepEqual(machine.Clients[codex.ID], want) {
-		t.Fatalf("client-native JSON check = %#v", machine)
-	}
-	if store.getCalls != 0 || store.existsCalls != 0 || requests != 0 {
-		t.Fatalf("client-native JSON check used AIGW authentication capabilities: get=%d exists=%d HTTP=%d", store.getCalls, store.existsCalls, requests)
-	}
-}
-
-func TestCheckJSONReportsOutputFailure(t *testing.T) {
-	runtime, cfg, _ := configuredReadinessRuntime(t)
-	runtime.Version = "1.0.0"
-	cfg.Clients = map[string]domain.ClientBinding{}
-	if err := runtime.Config.Save(cfg); err != nil {
-		t.Fatal(err)
-	}
-	want := errors.New("output failed")
-	runtime.Out = failingOutputWriter{err: want}
-	command := NewCommand(runtime)
-	command.SetArgs([]string{"--json"})
-	if err := executeCommand(command); !errors.Is(err, want) {
-		t.Fatalf("check --json output error = %v", err)
-	}
-}
-
-func TestRunCheckCoversClientResolutionAndProjectionFailures(t *testing.T) {
-	t.Run("no enabled clients", func(t *testing.T) {
-		runtime, _, _ := configuredReadinessRuntime(t)
-		runtime.Version = "1.0.0"
-		if err := runCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "no enabled Client Bindings") {
-			t.Fatalf("runCheck() error = %v", err)
-		}
-	})
-
-	t.Run("token lookup failure", func(t *testing.T) {
-		runtime, cfg, _ := configuredReadinessRuntime(t)
-		runtime.Version = "1.0.0"
-		want := errors.New("credential backend unavailable")
-		runtime.Secrets = presentFailingSecretStore{err: want}
-		configureClaudeExecutable(t, &runtime, &cfg)
-		synchronizeClaudeSettings(t, runtime, cfg)
-		if err := runtime.Config.Save(cfg); err != nil {
+		if err := execute(runtime, args...); err != nil {
 			t.Fatal(err)
 		}
-		if err := runCheck(&cobra.Command{}, runtime); !errors.Is(err, want) {
-			t.Fatalf("runCheck() error = %v, want %v", err, want)
+		if got := strings.Contains(out.String(), "Codex configuration ~/.codex/config.toml"); got != verbose {
+			t.Fatalf("verbose=%t lists the local checks: %t\n%s", verbose, got, out)
 		}
-	})
-
-	t.Run("Codex projection drift", func(t *testing.T) {
-		runtime, cfg, _ := configuredReadinessRuntime(t)
-		runtime.Version = "1.0.0"
-		if err := runtime.Secrets.Set("one", "token"); err != nil {
-			t.Fatal(err)
-		}
-		binding := cfg.Clients[codex.ID]
-		binding.Enabled = true
-		binding.Executable = "/opt/codex"
-		binding.Targets = []string{filepath.Join(t.TempDir(), "missing.toml")}
-		cfg.Clients[codex.ID] = binding
-		if err := runtime.Config.Save(cfg); err != nil {
-			t.Fatal(err)
-		}
-		if err := runCheck(&cobra.Command{}, runtime); err == nil || !strings.Contains(errors.Unwrap(err).Error(), "projection not ready") {
-			t.Fatalf("runCheck() error = %v", err)
-		}
-	})
+	}
 }

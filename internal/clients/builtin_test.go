@@ -61,7 +61,7 @@ func TestBuiltInAdmissionIsTheProductClientContract(t *testing.T) {
 		{
 			ID: claudedesktop.ID, Label: "Claude Desktop", EndpointProtocols: []domain.EndpointProtocol{anthropic},
 			RestartAfterProjection: true, QualifiedModes: []string{"Chat", "Cowork", "Code"}, QualifiedPlatforms: []string{"macOS"},
-			OptionalTarget: "configLibrary",
+			OptionalTarget: "configLibrary", InAppAcceptance: true,
 		},
 		{
 			ID: codex.ID, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{responses},

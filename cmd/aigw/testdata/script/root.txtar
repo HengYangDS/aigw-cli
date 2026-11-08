@@ -29,7 +29,7 @@ Connect
   setup                Complete first-time setup
 
 Use every day
-  check                Check enabled clients; selected-model probes may use quota
+  check                Check that each client works, as deep as --depth asks
   rotate               Update one Account Token
   status               Show each client's model and local readiness
   use                  Point a client at a model

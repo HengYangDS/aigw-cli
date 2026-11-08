@@ -376,8 +376,6 @@ func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 
 func TestRenderClientStatusCoversCanonicalStates(t *testing.T) {
 	for _, state := range []domainreadiness.State{
-		domainreadiness.EndpointChecked,
-		domainreadiness.InferenceChecked,
 		domainreadiness.Configured,
 		domainreadiness.Deferred,
 		domainreadiness.Invalid,
@@ -439,7 +437,7 @@ func TestStatusHonorsClientNativeAuthenticationOwnership(t *testing.T) {
 	if store.existsCalls != 1 || store.getCalls != 0 {
 		t.Fatalf("status credential observations = exists %d, get %d; want only the Claude Account-Token lookup", store.existsCalls, store.getCalls)
 	}
-	for _, want := range []string{"the client's own authentication", "The client is not installed", "aigw verify --for codex"} {
+	for _, want := range []string{"the client's own authentication", "The client is not installed", "aigw check codex --depth client"} {
 		if !strings.Contains(strings.ToLower(human), strings.ToLower(want)) {
 			t.Fatalf("client-native status = %q, want %q", human, want)
 		}

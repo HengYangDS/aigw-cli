@@ -62,7 +62,7 @@ func TestSyncAndCheckTreatDirectAndLoopbackEndpointsAsOrdinaryProviderChoices(t 
 				return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody, Request: request}, nil
 			}
 			out.Reset()
-			if err := cli.Execute(app, []string{"check", "--endpoint-only"}); err != nil {
+			if err := cli.Execute(app, []string{"check", "--depth", "endpoint"}); err != nil {
 				t.Fatalf("check: %v\n%s", err, out.String())
 			}
 			if want := strings.TrimRight(test.endpoint, "/") + "/models"; requestURL != want {
@@ -158,7 +158,7 @@ func TestEndpointOnlyCheckUsesSelectedTLSOrLoopbackProvider(t *testing.T) {
 			if err := cli.Execute(app, []string{"sync"}); err != nil {
 				t.Fatal(err)
 			}
-			if err := cli.Execute(app, []string{"check", "--endpoint-only"}); err != nil {
+			if err := cli.Execute(app, []string{"check", "--depth", "endpoint"}); err != nil {
 				t.Fatal(err)
 			}
 			select {

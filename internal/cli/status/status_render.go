@@ -53,8 +53,6 @@ func renderClientStatus(r *terminal.Renderer, admission domain.Admission, result
 		message := clientStatus.Model + " · " + clientStatus.State.Label()
 		state := terminal.Info
 		switch clientStatus.State {
-		case domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
-			state = terminal.OK
 		case domainreadiness.Configured:
 			state = terminal.Info
 		case domainreadiness.Deferred:

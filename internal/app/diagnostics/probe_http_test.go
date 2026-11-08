@@ -133,7 +133,7 @@ func TestProbeClassifiesRealHTTPResponses(t *testing.T) {
 			defer server.Close()
 
 			result := diagnostics.Probe(context.Background(), server.Client(), domain.Runtime{Client: codex.ID, Protocol: domain.ProtocolOpenAIResponses, Endpoint: server.URL}, "secret", diagnostics.ScopeEndpoint)
-			if result.Kind != tt.kind || result.HTTPStatus != tt.status || result.Summary == "" || result.Fix == "" {
+			if result.Kind != tt.kind || result.HTTPStatus != tt.status || result.Summary == "" {
 				t.Fatalf("Probe() = %#v", result)
 			}
 		})
@@ -142,7 +142,7 @@ func TestProbeClassifiesRealHTTPResponses(t *testing.T) {
 
 func TestProbeRejectsEmptyEndpointBeforeHTTP(t *testing.T) {
 	result := diagnostics.Probe(context.Background(), http.DefaultClient, domain.Runtime{}, "secret", diagnostics.ScopeEndpoint)
-	if result.Kind != diagnostics.EndpointMismatch || result.HTTPStatus != 0 || result.Summary != "Invalid API URL" || result.Fix == "" {
+	if result.Kind != diagnostics.EndpointMismatch || result.HTTPStatus != 0 || result.Summary != "the provider has no endpoint for this protocol" {
 		t.Fatalf("Probe() = %#v", result)
 	}
 }
@@ -172,7 +172,7 @@ func TestProbeReportsTruncatedHTTPResponse(t *testing.T) {
 	defer server.Close()
 
 	result := diagnostics.Probe(context.Background(), server.Client(), domain.Runtime{Client: codex.ID, Protocol: domain.ProtocolOpenAIResponses, Endpoint: server.URL}, secret, diagnostics.ScopeEndpoint)
-	if result.Kind != diagnostics.NetworkFailure || result.HTTPStatus != http.StatusOK || !result.Retryable || result.Summary != "Cannot read the endpoint response" {
+	if result.Kind != diagnostics.NetworkFailure || result.HTTPStatus != http.StatusOK || !result.Retryable || result.Summary != "the endpoint's answer could not be read" {
 		t.Fatalf("Probe() = %#v", result)
 	}
 	assertDiagnosticOmits(t, result, secret, "unexpected EOF")

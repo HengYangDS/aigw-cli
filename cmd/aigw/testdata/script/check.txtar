@@ -1,22 +1,71 @@
-# check refuses an empty home, then checks the connected client with one
-# inference request, as JSON and in text, and names the stage of an unreadable
-# configuration.
+# check climbs one ladder of evidence for each checked client: local without
+# a request, endpoint with one request that names no model, model, the
+# default, with one inference request, and client with a real session. A
+# client stops at its first failed depth while the others climb, and a depth
+# that a client cannot run is skipped with the reason, which fails nothing. A
+# named disabled client is checked without client files, a check that names no
+# client while none is enabled fails without a request, --verbose prints every
+# local check, and a configuration that does not load names its stage.
 exec aigw check --help
 cmp stdout help.txt
 
+# Without configuration no client is enabled, and nothing is sent.
 exitcode 1 aigw check
 cmp stdout empty.txt
 exitcode 1 aigw check --json
 cmp stdout empty.json
 
 stdin token.txt
-exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
-exec aigw check --json
-cmp stdout checked.json
+exec aigw provider add team --label 'Team Gateway' --endpoint anthropic=$UPSTREAM --token-stdin
+exec aigw use claude team/team-model
+
+# Each depth runs the ones before it.
+exec aigw check --depth local --json
+cmp stdout local.json
+exec aigw check --depth endpoint
+cmp stdout endpoint.txt
 exec aigw check
-cmp stdout checked.txt
-exitcode 1 aigw check --for codex
-cmp stdout codex.txt
+cmp stdout model.txt
+exec aigw check --depth client
+cmp stdout client.txt
+exec aigw check --depth local --verbose
+cmp stdout verbose.txt
+
+# Claude Code that keeps its own model preference has no model depth: AIGW
+# does not choose the model that it sends. The deeper check is a session.
+jsonset $HOME/.claude/settings.json model '"opus[1m]"'
+exec aigw check --json
+cmp stdout native.json
+jsonset $HOME/.claude/settings.json model '"team-model"'
+
+# Claude Desktop needs acceptance inside the app, so its client depth is
+# skipped; the check passes. A provider that fails stops only its client.
+exec aigw use claude-desktop team/team-model
+chmod 0755 Claude
+exec aigw client edit claude-desktop --executable $WORK/Claude --target $WORK/configLibrary
+exec aigw check claude-desktop --depth client
+cmp stdout desktop.txt
+stdin token.txt
+exec aigw provider add down --label 'Down Gateway' --endpoint anthropic=$UPSTREAM --token-stdin
+exec aigw use claude-desktop down/team-model
+exec aigw provider edit down --endpoint anthropic=$UPSTREAM/unavailable
+exitcode 1 aigw check
+cmp stdout down.txt
+exitcode 1 aigw check --json
+cmp stdout down.json
+
+# A named disabled client is checked without client files, and with none
+# enabled a check without a client argument fails before any request.
+exec aigw client disable claude-desktop
+exec aigw client disable claude
+exec aigw check claude --depth client --json
+cmp stdout disabled.json
+exitcode 1 aigw check --depth local
+cmp stdout none-enabled.txt
+# Its fix runs as printed and enables the client again.
+exec aigw use claude team/team-model
+exec aigw check --depth local
+stdout '✓ Claude             team/team-model · local'
 
 [darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/config.toml
 [!darwin] cp broken.toml $HOME/aigw/config.toml
@@ -25,133 +74,470 @@ cmp stdout broken.json
 
 -- token.txt --
 sk-team-token-0001
+-- Claude --
+fixture
 -- help.txt --
 AIGW  aigw check
 ────────────────────────────────────────
-  Check every enabled client by default, or one with --for.
-  Inspect its binding, credential, and native projection.
-  For AIGW-managed Tokens, the default sends one bounded selected-model
-  inference request per eligible client and may use provider quota.
-  Use --endpoint-only for a model-free authenticated endpoint request.
-  This command does not execute a native client or change configuration;
-  use verify for real-client evidence.
+  Check the enabled clients, or the named ones, enabled or not; <client> is claude, claude-desktop, codex, or hermes.
+  Each depth runs the ones before it: local checks the configuration, the Token's presence, the
+  client files and the environment without a request; endpoint sends one authenticated request
+  that names no model; model, the default, sends one bounded inference request, which may use
+  quota; client runs a real client session, which may use more. A client stops at its first
+  failed depth, and a depth that a client cannot run is skipped with the reason.
 
 Usage
-  aigw check [flags]
+  aigw check [client...] [flags]
+
+Examples
+  aigw check
+  aigw check claude --depth client
+  aigw check --depth local --verbose
 
 Options
-      --endpoint-only   Use model-free endpoint authentication instead of inference
-      --for string      Check one enabled client: claude, claude-desktop, codex, or hermes; omit for all
-  -h, --help            help for check
-      --json            Write machine-readable JSON
+      --depth string   How far to check: local, endpoint, model or client (default model)
+  -h, --help           help for check
+      --json           Write one JSON document, which carries every local check
+      --verbose        Print every local check
 -- empty.txt --
 AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  Not configured
+  AIGW is not set up
 
 Evidence
-  No Routes have been created.
+  No provider has been added.
 
 Impact
-  Cannot check, synchronize, or repair configuration that does not exist.
+  No client was checked.
 
 Fix
   aigw setup
 -- empty.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": false,
-  "clients": {},
+  "depth": "model",
+  "clients": [],
+  "checks": [
+    {
+      "name": "environment",
+      "state": "passed",
+      "detail": "No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set"
+    },
+    {
+      "name": "configuration",
+      "state": "passed",
+      "detail": "Valid"
+    },
+    {
+      "name": "credential_backend",
+      "state": "passed",
+      "detail": "file, read and write"
+    }
+  ],
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
   "enabled_clients": 0,
   "state": "deferred",
-  "next_detail": "aigw setup",
-  "problem": "not configured"
+  "problem": "AIGW is not set up",
+  "next_detail": "aigw setup"
 }
--- checked.json --
+-- local.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
-  "clients": {
-    "claude": {
-      "state": "inference_checked",
-      "route": "team",
-      "account": "team",
-      "detail": "Inference diagnostic returned a successful response",
+  "depth": "local",
+  "clients": [
+    {
+      "id": "claude",
+      "enabled": true,
+      "model": "team/team-model",
+      "provider": "team",
+      "protocol": "anthropic",
       "authentication": "account-token",
-      "endpoint_configured": true,
       "transport": "external_loopback",
-      "projection_ready": true,
-      "check_passed": true,
-      "diagnostic_kind": "healthy",
-      "diagnostic_scope": "inference",
-      "attempts": 1
-    },
-    "claude-desktop": {
-      "state": "deferred",
-      "detail": "No model is selected",
-      "authentication": "",
-      "endpoint_configured": false,
-      "projection_ready": false,
-      "qualified_modes": [
-        "chat",
-        "cowork",
-        "code"
-      ],
-      "qualified_platforms": [
-        "macos"
+      "state": "configured",
+      "depth": "local",
+      "skipped": [],
+      "checks": [
+        {
+          "name": "claude:model",
+          "state": "passed",
+          "detail": "team/team-model on Anthropic Messages"
+        },
+        {
+          "name": "claude:token",
+          "state": "passed",
+          "detail": "Provider team has a Token"
+        },
+        {
+          "name": "claude:files",
+          "state": "passed",
+          "detail": "Match the selection"
+        }
       ]
-    },
-    "codex": {
-      "state": "deferred",
-      "detail": "No model is selected",
-      "authentication": "",
-      "endpoint_configured": false,
-      "projection_ready": false
-    },
-    "hermes": {
-      "state": "deferred",
-      "detail": "No model is selected",
-      "authentication": "",
-      "endpoint_configured": false,
-      "projection_ready": false
     }
+  ],
+  "checks": [
+    {
+      "name": "environment",
+      "state": "passed",
+      "detail": "No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set"
+    },
+    {
+      "name": "configuration",
+      "state": "passed",
+      "detail": "Valid"
+    },
+    {
+      "name": "credential_backend",
+      "state": "passed",
+      "detail": "file, read and write"
+    }
+  ],
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
   },
   "enabled_clients": 1
 }
--- checked.txt --
-AIGW  Health check
+-- endpoint.txt --
+AIGW  Check
 ────────────────────────────────────────
 
-Configuration
-  ✓ Configuration file  Healthy
-
-Client
-  ✓ Claude             Team Gateway · Inference checked
+Clients
+  ✓ Claude             team/team-model · endpoint
                        Claude uses a loopback endpoint; AIGW does not manage the endpoint runtime
-  · Claude Desktop     Disabled
-  · Codex              Disabled
-  · Hermes             Disabled
 
 Result
-  ✓ All enabled client checks passed
-    Real-client execution was not verified
--- codex.txt --
+  ✓ No checked client failed
+-- model.txt --
+AIGW  Check
+────────────────────────────────────────
+
+Clients
+  ✓ Claude             team/team-model · model
+                       Claude uses a loopback endpoint; AIGW does not manage the endpoint runtime
+
+Result
+  ✓ No checked client failed
+-- client.txt --
+AIGW  Check
+────────────────────────────────────────
+
+Clients
+  ✓ Claude             team/team-model · client
+                       Claude uses a loopback endpoint; AIGW does not manage the endpoint runtime
+                       Native text response; tools and continuation are not probed
+
+Result
+  ✓ No checked client failed
+-- verbose.txt --
+AIGW  Check
+────────────────────────────────────────
+
+Clients
+  ✓ Claude             team/team-model · local
+
+Local checks
+  ✓ Environment          No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set
+  ✓ Configuration        Valid
+  ✓ Credential backend   file, read and write
+  ✓ Claude model         team/team-model on Anthropic Messages
+  ✓ Claude Token         Provider team has a Token
+  ✓ Claude client files  Match the selection
+
+Result
+  ✓ No checked client failed
+-- native.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "depth": "model",
+  "clients": [
+    {
+      "id": "claude",
+      "enabled": true,
+      "model": "team/team-model",
+      "provider": "team",
+      "protocol": "anthropic",
+      "authentication": "account-token",
+      "transport": "external_loopback",
+      "state": "configured",
+      "depth": "endpoint",
+      "skipped": [
+        {
+          "depth": "model",
+          "reason": "Claude Code picks its own model, so AIGW does not know which model it sends"
+        }
+      ],
+      "checks": [
+        {
+          "name": "claude:model",
+          "state": "passed",
+          "detail": "team/team-model on Anthropic Messages"
+        },
+        {
+          "name": "claude:token",
+          "state": "passed",
+          "detail": "Provider team has a Token"
+        },
+        {
+          "name": "claude:files",
+          "state": "passed",
+          "detail": "Match the selection; Claude Code keeps its own model preference"
+        }
+      ],
+      "native_model_preference": true,
+      "next_action": "aigw check claude --depth client"
+    }
+  ],
+  "checks": [
+    {
+      "name": "environment",
+      "state": "passed",
+      "detail": "No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set"
+    },
+    {
+      "name": "configuration",
+      "state": "passed",
+      "detail": "Valid"
+    },
+    {
+      "name": "credential_backend",
+      "state": "passed",
+      "detail": "file, read and write"
+    }
+  ],
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "enabled_clients": 1,
+  "next_action": "aigw check claude --depth client"
+}
+-- desktop.txt --
+AIGW  Check
+────────────────────────────────────────
+
+Clients
+  ✓ Claude Desktop     team/team-model · model
+                       Claude Desktop uses a loopback endpoint; AIGW does not manage the endpoint runtime
+                       Client skipped: Claude Desktop needs acceptance inside the app
+
+Result
+  ✓ No checked client failed
+-- down.txt --
+AIGW  Check
+────────────────────────────────────────
+
+Clients
+  ✓ Claude             team/team-model · model
+                       Claude uses a loopback endpoint; AIGW does not manage the endpoint runtime
+  ✗ Claude Desktop     down/team-model · endpoint
+                       HTTP 503: the provider failed
+                       Fix: aigw check claude-desktop
+                       Claude Desktop uses a loopback endpoint; AIGW does not manage the endpoint runtime
+
+Next
+  aigw check claude-desktop
+-- down.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "depth": "model",
+  "clients": [
+    {
+      "id": "claude",
+      "enabled": true,
+      "model": "team/team-model",
+      "provider": "team",
+      "protocol": "anthropic",
+      "authentication": "account-token",
+      "transport": "external_loopback",
+      "state": "configured",
+      "depth": "model",
+      "skipped": [],
+      "checks": [
+        {
+          "name": "claude:model",
+          "state": "passed",
+          "detail": "team/team-model on Anthropic Messages"
+        },
+        {
+          "name": "claude:token",
+          "state": "passed",
+          "detail": "Provider team has a Token"
+        },
+        {
+          "name": "claude:files",
+          "state": "passed",
+          "detail": "Match the selection"
+        }
+      ]
+    },
+    {
+      "id": "claude-desktop",
+      "enabled": true,
+      "model": "down/team-model",
+      "provider": "down",
+      "protocol": "anthropic",
+      "authentication": "account-token",
+      "transport": "external_loopback",
+      "state": "degraded",
+      "depth": "local",
+      "skipped": [],
+      "checks": [
+        {
+          "name": "claude-desktop:model",
+          "state": "passed",
+          "detail": "down/team-model on Anthropic Messages"
+        },
+        {
+          "name": "claude-desktop:token",
+          "state": "passed",
+          "detail": "Provider down has a Token"
+        },
+        {
+          "name": "claude-desktop:files",
+          "state": "passed",
+          "detail": "Match the selection"
+        }
+      ],
+      "failure": {
+        "depth": "endpoint",
+        "problem": "HTTP 503: the provider failed",
+        "kind": "upstream_failure",
+        "http_status": 503,
+        "retryable": true,
+        "attempts": 1
+      },
+      "next_action": "aigw check claude-desktop"
+    }
+  ],
+  "checks": [
+    {
+      "name": "environment",
+      "state": "passed",
+      "detail": "No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set"
+    },
+    {
+      "name": "configuration",
+      "state": "passed",
+      "detail": "Valid"
+    },
+    {
+      "name": "credential_backend",
+      "state": "passed",
+      "detail": "file, read and write"
+    }
+  ],
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "enabled_clients": 2,
+  "problem": "Claude Desktop stopped at the endpoint depth",
+  "next_action": "aigw check claude-desktop"
+}
+-- disabled.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "depth": "client",
+  "clients": [
+    {
+      "id": "claude",
+      "enabled": false,
+      "model": "team/team-model",
+      "provider": "team",
+      "protocol": "anthropic",
+      "authentication": "account-token",
+      "transport": "external_loopback",
+      "state": "configured",
+      "depth": "model",
+      "skipped": [
+        {
+          "depth": "client",
+          "reason": "Claude is disabled, so AIGW keeps no client files for a session"
+        }
+      ],
+      "checks": [
+        {
+          "name": "claude:model",
+          "state": "passed",
+          "detail": "team/team-model on Anthropic Messages"
+        },
+        {
+          "name": "claude:token",
+          "state": "passed",
+          "detail": "Provider team has a Token"
+        },
+        {
+          "name": "claude:files",
+          "state": "skipped",
+          "detail": "Claude is disabled, so AIGW keeps no client files for it"
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "environment",
+      "state": "passed",
+      "detail": "No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set"
+    },
+    {
+      "name": "configuration",
+      "state": "passed",
+      "detail": "Valid"
+    },
+    {
+      "name": "credential_backend",
+      "state": "passed",
+      "detail": "file, read and write"
+    }
+  ],
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "enabled_clients": 0
+}
+-- none-enabled.txt --
 AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  Client is not enabled
+  No client is enabled
 
 Evidence
-  Codex is not enabled
+  Each client that selects a model is disabled.
 
 Impact
-  No endpoint or model was checked.
+  No client was checked.
 
 Fix
-  aigw use codex <provider/model>
+  aigw use claude team/team-model
 -- broken.toml --
 version = 7
 [accounts.team

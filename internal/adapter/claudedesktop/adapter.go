@@ -34,6 +34,7 @@ func (claudeDesktopAdapter) Spec() domain.ClientSpec {
 		QualifiedModes:         []string{"Chat", "Cowork", "Code"},
 		QualifiedPlatforms:     []string{"macOS"},
 		OptionalTarget:         "configLibrary",
+		InAppAcceptance:        true,
 	}
 }
 

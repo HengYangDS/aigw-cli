@@ -18,15 +18,10 @@ import (
 // clientSteps decodes the next steps of every client and of the whole
 // document that status or check wrote.
 type clientSteps struct {
-	OK         bool   `json:"ok"`
-	NextAction string `json:"next_action"`
-	NextDetail string `json:"next_detail"`
-	Clients    map[string]struct {
-		State      string `json:"state"`
-		Detail     string `json:"detail"`
-		NextAction string `json:"next_action"`
-		NextDetail string `json:"next_detail"`
-	} `json:"clients"`
+	OK         bool         `json:"ok"`
+	NextAction string       `json:"next_action"`
+	NextDetail string       `json:"next_detail"`
+	Clients    clientStates `json:"clients"`
 }
 
 // providerWithoutModels starts from an empty home and adds a provider, which
@@ -80,7 +75,7 @@ func TestStatusOfProvidersWithoutModels(t *testing.T) {
 func TestCheckOfProvidersWithoutModels(t *testing.T) {
 	app, out, _ := providerWithoutModels(t)
 	if err := cli.Execute(app, []string{"check"}); err == nil ||
-		!strings.Contains(out.String(), "No model is added yet, so no client can select one.") || !strings.Contains(out.String(), "aigw use <client> <provider/model>") {
+		!strings.Contains(out.String(), "No model has been added, so no client can use one.") || !strings.Contains(out.String(), "aigw use <client> <provider/model>") {
 		t.Fatalf("check = %v\n%s", err, out)
 	}
 	out.Reset()

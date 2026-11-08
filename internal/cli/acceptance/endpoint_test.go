@@ -411,21 +411,21 @@ func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 		{
 			name:       "healthy first observation",
 			statuses:   []int{http.StatusOK},
-			wantText:   []string{"Claude", "Endpoint checked", "All enabled client checks passed"},
+			wantText:   []string{"✓ Claude", "dmx/claude-test · endpoint", "No checked client failed"},
 			rejectText: []string{"transient response", "rotate"},
 		},
 		{
 			name:      "invalid token",
 			statuses:  []int{http.StatusUnauthorized},
 			wantError: true,
-			wantText:  []string{"Account Token is invalid or does not belong to the configured endpoint", "aigw provider rotate dmx"},
+			wantText:  []string{"HTTP 401: the provider rejected the Token", "Fix: aigw provider rotate dmx"},
 		},
 		{
 			name:       "unreachable endpoint",
 			statuses:   []int{0},
 			networkErr: errors.New("dial tcp: connection refused"),
 			wantError:  true,
-			wantText:   []string{"Cannot reach the endpoint", "AIGW owns this configuration, not the endpoint", "aigw use claude <provider/model>"},
+			wantText:   []string{"The endpoint did not answer", "Fix: aigw check claude --depth endpoint"},
 			rejectText: []string{"rotate"},
 		},
 	}
@@ -461,7 +461,7 @@ func TestCheckUsesOneBoundedAuthenticationProbeWithoutMutation(t *testing.T) {
 				return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(`{"message":"bounded observation"}`)), Request: req}, nil
 			}
 
-			err := cli.Execute(app, []string{"check", "--endpoint-only"})
+			err := cli.Execute(app, []string{"check", "--depth", "endpoint"})
 			if (err != nil) != tt.wantError {
 				t.Fatalf("check error = %v, wantError=%v\n%s", err, tt.wantError, out.String())
 			}

@@ -26,7 +26,7 @@ func testClientSpecs() []domain.ClientSpec {
 		{
 			ID: ClientClaudeDesktop, Label: "Claude Desktop", EndpointProtocols: []domain.EndpointProtocol{anthropic},
 			RestartAfterProjection: true, QualifiedModes: []string{"Chat", "Cowork", "Code"}, QualifiedPlatforms: []string{"macOS"},
-			OptionalTarget: "configLibrary",
+			OptionalTarget: "configLibrary", InAppAcceptance: true,
 		},
 		{
 			ID: ClientCodex, Label: "Codex", EndpointProtocols: []domain.EndpointProtocol{responses},

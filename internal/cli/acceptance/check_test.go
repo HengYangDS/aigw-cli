@@ -33,7 +33,7 @@ func TestCheckExplainsQuotaFailureWithoutGuessingBalance(t *testing.T) {
 	httpClient.status = 403
 	httpClient.body = `{"message":"token quota is insufficient; private /private/account-store"}`
 	err := cli.Execute(app, []string{"check"})
-	if err == nil || !strings.Contains(out.String()+err.Error(), "Token quota is exhausted") || !strings.Contains(out.String()+err.Error(), "Increase the Token quota for Account dmx in the provider console") {
+	if err == nil || !strings.Contains(out.String(), "HTTP 403: the Token's quota is exhausted") || !strings.Contains(out.String(), "Fix: Add quota to the Token in provider dmx's console.") {
 		t.Fatalf("output=%s error=%v", out.String(), err)
 	}
 	if strings.Contains(out.String(), "/private/account-store") {
@@ -69,23 +69,12 @@ func TestCheckJSONSeparatesHardQuotaFromRateLimit(t *testing.T) {
 			if err := cli.Execute(app, []string{"check", "--json"}); err == nil {
 				t.Fatal("check accepted a failed diagnostic")
 			}
-			var result struct {
-				OK      bool `json:"ok"`
-				Clients map[string]struct {
-					DiagnosticKind string `json:"diagnostic_kind"`
-					Retryable      bool   `json:"retryable"`
-					NextAction     string `json:"next_action"`
-					NextDetail     string `json:"next_detail"`
-				} `json:"clients"`
-			}
-			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
-				t.Fatalf("decode check JSON: %v\n%s", err, out.String())
-			}
+			result := decodeCheck(t, out)
 			if strings.Contains(out.String(), `"config_path"`) || strings.Contains(out.String(), app.Config.Path()) {
 				t.Fatalf("check exposed a private configuration path: %s", out.String())
 			}
-			client := result.Clients[claude.ID]
-			if result.OK || client.DiagnosticKind != test.kind || client.Retryable != test.retryable || client.NextAction+client.NextDetail == "" {
+			client, _ := result.client(claude.ID)
+			if result.OK || client.Failure == nil || client.Failure.Kind != test.kind || client.Failure.Retryable != test.retryable || client.NextAction+client.NextDetail == "" {
 				t.Fatalf("check JSON = %#v", result)
 			}
 			if strings.Contains(out.String(), "secret") {
@@ -132,23 +121,13 @@ func TestCheckJSONReportsOnlyActiveModels(t *testing.T) {
 	if err := cli.Execute(app, []string{"check", "--json"}); err != nil {
 		t.Fatalf("check --json failed: %v\n%s", err, out.String())
 	}
-	var result struct {
-		Clients map[string]struct {
-			Route       string `json:"route"`
-			Account     string `json:"account"`
-			CheckPassed bool   `json:"check_passed"`
-		} `json:"clients"`
-		OK bool `json:"ok"`
-	}
-	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
-		t.Fatalf("decode check --json: %v\n%s", err, out.String())
-	}
-	client, ok := result.Clients[claude.ID]
-	if !ok || !client.CheckPassed || client.Route != "claude" || client.Account != "claude-account" || !result.OK {
+	result := decodeCheck(t, out)
+	client, ok := result.client(claude.ID)
+	if !ok || client.Depth != "model" || client.Model != "claude-account/claude-test" || client.Provider != "claude-account" || !result.OK || len(result.Clients) != 1 {
 		t.Fatalf("JSON readiness = %#v", result)
 	}
-	if _, present := result.Clients["unused"]; present {
-		t.Fatalf("JSON readiness exposed an inactive route: %#v", result.Clients)
+	if strings.Contains(out.String(), "unused") {
+		t.Fatalf("JSON readiness exposed an unused model: %s", out)
 	}
 	if strings.Contains(out.String(), "claude-token") || strings.Contains(out.String(), `"routes"`) {
 		t.Fatal("check --json exposed credential material")
@@ -169,22 +148,11 @@ func TestCheckJSONMakesMissingActiveCredentialActionable(t *testing.T) {
 	if err := cli.Execute(app, []string{"check", "--json"}); err == nil {
 		t.Fatal("check --json accepted an active route without its account token")
 	}
-	var result struct {
-		Clients map[string]struct {
-			Account     string `json:"account"`
-			Detail      string `json:"detail"`
-			NextAction  string `json:"next_action"`
-			NextDetail  string `json:"next_detail"`
-			CheckPassed bool   `json:"check_passed"`
-		} `json:"clients"`
-		OK bool `json:"ok"`
-	}
-	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
-		t.Fatalf("decode check --json: %v\n%s", err, out.String())
-	}
-	client := result.Clients[claude.ID]
+	result := decodeCheck(t, out)
+	client, _ := result.client(claude.ID)
 	// Rotation asks a person for the Token, so it is a step for that person.
-	if result.OK || client.CheckPassed || client.Account != "claude-account" || client.Detail != "account token is unavailable" || client.NextAction != "" || client.NextDetail != "aigw provider rotate claude-account" {
+	if result.OK || client.Failure == nil || client.Failure.Depth != "local" || client.Provider != "claude-account" || client.Failure.Problem != "Provider claude-account has no Token" ||
+		client.NextAction != "" || client.NextDetail != "aigw provider rotate claude-account" {
 		t.Fatalf("JSON missing-token result = %#v", result)
 	}
 }
@@ -193,8 +161,8 @@ func TestCheckJSONReportsPrerequisiteFailure(t *testing.T) {
 	for _, test := range []struct {
 		name, version, problem, nextDetail string
 	}{
-		{"local build without configuration", "0.1.0-dev", "not configured", "aigw setup"},
-		{"unconfigured", "1.0.0", "not configured", "aigw setup"},
+		{"local build without configuration", "0.1.0-dev", "AIGW is not set up", "aigw setup"},
+		{"unconfigured", "1.0.0", "AIGW is not set up", "aigw setup"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			app, out, _, _, _ := testApp(t, "")
@@ -261,11 +229,11 @@ func TestCheckSurfacesMissingSelectedModelToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	err = cli.Execute(app, []string{"check"})
-	if err == nil || !strings.Contains(err.Error(), "Claude account token is unavailable") {
-		t.Fatalf("error = %v", err)
+	if err == nil || !strings.Contains(out.String(), "has no Token") || !strings.Contains(out.String(), "Fix: aigw provider rotate ") {
+		t.Fatalf("error = %v\n%s", err, out)
 	}
-	if output := out.String() + err.Error(); !strings.Contains(output, "selected endpoint") || strings.Contains(output, "selected gateway") {
-		t.Fatalf("missing-token guidance is endpoint-ambiguous: %s", output)
+	if strings.Contains(out.String(), "gateway") {
+		t.Fatalf("missing-token guidance names a gateway: %s", out)
 	}
 }
 
@@ -283,7 +251,7 @@ func TestCheckProvidesOneClearHealthSummary(t *testing.T) {
 	if err := cli.Execute(app, []string{"check"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Configuration file", "Claude", "Inference checked", "All enabled client checks passed", "Real-client execution was not verified"} {
+	for _, want := range []string{"✓ Claude", "dmx/claude-test · model", "No checked client failed"} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("check lacks %q:\n%s", want, out.String())
 		}
@@ -321,7 +289,8 @@ func TestCheckRejectsAnEnabledClientModelWithoutItsProviderToken(t *testing.T) {
 	if err == nil {
 		t.Fatal("check accepted an enabled Codex route without its account token")
 	}
-	for _, want := range []string{"Codex account token is unavailable", "codex-account", "aigw provider rotate codex-account"} {
+	// The other client still climbs.
+	for _, want := range []string{"✗ Codex", "Provider codex-account has no Token", "Fix: aigw provider rotate codex-account", "✓ Claude", "claude-account/claude-test · model"} {
 		if !strings.Contains(out.String(), want) && !strings.Contains(err.Error(), want) {
 			t.Fatalf("check output lacks %q:\n%s\nerror: %v", want, out.String(), err)
 		}
@@ -402,7 +371,7 @@ func TestCheckProbesEveryEnabledClientModelAndIgnoresUnselectedModel(t *testing.
 	if err := cli.Execute(app, []string{"check"}); err != nil {
 		t.Fatal(err)
 	}
-	if !maps.Equal(seen, map[string]int{"claude.test": 1, "codex.test": 1}) {
+	if !maps.Equal(seen, map[string]int{"claude.test": 2, "codex.test": 2}) {
 		t.Fatalf("probed endpoints = %#v", seen)
 	}
 	if !slices.Equal(tokenObservation.getCalls, []string{"claude-account", "codex-account"}) {
@@ -456,7 +425,7 @@ func TestCheckEvaluatesModelsIndependentlyOfProgramVersion(t *testing.T) {
 				if jsonMode {
 					args = append(args, "--json")
 				}
-				if err := cli.Execute(app, args); err == nil || !strings.Contains(out.String(), "token is unavailable") {
+				if err := cli.Execute(app, args); err == nil || !strings.Contains(out.String(), "Provider account has no Token") {
 					t.Fatalf("missing credential must remain actionable: error=%v output=%s", err, out.String())
 				}
 				if err := store.Set("account", "synthetic-token"); err != nil {
@@ -492,7 +461,7 @@ func TestCheckKeepsGenericHealthAvailableWhenExactDiagnosticDriverIsNotBundled(t
 	if err := cli.Execute(app, []string{"check"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Inference checked") || strings.Contains(out.String(), "aigw balance") {
+	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "future/claude-test · model") || strings.Contains(out.String(), "balance") {
 		t.Fatalf("check output = %s", out.String())
 	}
 }

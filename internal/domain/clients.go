@@ -104,6 +104,9 @@ type ClientSpec struct {
 	// ModelDiscoveryOptional marks a client that works without its endpoint's
 	// model discovery, so a missing discovery endpoint still counts as reachable.
 	ModelDiscoveryOptional bool
+	// InAppAcceptance marks a client whose session only acceptance inside its
+	// own app proves, so `aigw check` runs no session of it.
+	InAppAcceptance bool
 	// Doctor is how doctor words this client's checks.
 	Doctor DoctorWording
 }

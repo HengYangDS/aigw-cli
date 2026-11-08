@@ -256,7 +256,7 @@ func (p Prompt) plainInput(label string, allowEmpty bool) (string, error) {
 
 // readLine reads one line from in a byte at a time, so that the next prompt
 // reads the next line: a buffered reader would keep what it read ahead. It
-// returns io.EOF only for input that ended before a line ending.
+// returns [io.EOF] only for input that ended before a line ending.
 func readLine(in io.Reader) (string, error) {
 	var line []byte
 	next := make([]byte, 1)

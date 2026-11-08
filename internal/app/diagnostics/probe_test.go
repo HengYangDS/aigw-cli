@@ -59,7 +59,7 @@ func TestProbeClassifiesUsefulFailureCauses(t *testing.T) {
 		result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 			return response(tt.status, tt.body), nil
 		}), runtime(), "secret", diagnostics.ScopeEndpoint)
-		if result.Kind != tt.kind || result.Fix == "" || result.Summary == "" {
+		if result.Kind != tt.kind || result.Summary == "" {
 			t.Errorf("status %d body %s => %#v", tt.status, tt.body, result)
 		}
 	}
@@ -102,7 +102,7 @@ func TestProbeUsesModelsEndpointAndNeverReturnsCredential(t *testing.T) {
 	if result.Kind != diagnostics.Healthy || requestURL != "https://service.test/v1/models" || authorization != "Bearer "+secret {
 		t.Fatalf("result=%#v url=%q auth=%q", result, requestURL, authorization)
 	}
-	if result.Summary != "Endpoint diagnostic returned a successful response" {
+	if result.Summary != "the provider accepted the Token" {
 		t.Fatalf("summary = %q", result.Summary)
 	}
 	assertDiagnosticOmits(t, result, secret, "provider-private-marker")
@@ -117,6 +117,8 @@ func TestProbeDoesNotPublishProviderResponseContent(t *testing.T) {
 	assertDiagnosticOmits(t, result, fragment)
 }
 
+// Each failure is summarized in the product's words, naming no gateway,
+// Account or Route; the command that sent the request gives the fix.
 func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -124,64 +126,14 @@ func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
 		body        string
 		wantKind    diagnostics.Kind
 		wantSummary string
-		wantFix     string
 	}{
-		{
-			name:        "invalid token",
-			status:      http.StatusUnauthorized,
-			body:        `{}`,
-			wantKind:    diagnostics.InvalidToken,
-			wantSummary: "Account Token is invalid or does not belong to the configured endpoint",
-			wantFix:     "Run `aigw provider rotate dmx` to replace the Token, and confirm that the configured endpoint belongs to this Account",
-		},
-		{
-			name:        "quota exhausted",
-			status:      http.StatusForbidden,
-			body:        `{"message":"quota exhausted"}`,
-			wantKind:    diagnostics.QuotaExhausted,
-			wantSummary: "Token quota is exhausted",
-			wantFix:     "Increase the Token quota for Account dmx in the provider console",
-		},
-		{
-			name:        "token disabled",
-			status:      http.StatusForbidden,
-			body:        `{"message":"token disabled"}`,
-			wantKind:    diagnostics.TokenDisabled,
-			wantSummary: "Token is disabled",
-			wantFix:     "Enable the Token for Account dmx in the provider console",
-		},
-		{
-			name:        "token restricted",
-			status:      http.StatusForbidden,
-			body:        `{"message":"forbidden"}`,
-			wantKind:    diagnostics.TokenRestricted,
-			wantSummary: "Token or Account is restricted",
-			wantFix:     "Review access restrictions for Account dmx in the provider console",
-		},
-		{
-			name:        "missing protocol path",
-			status:      http.StatusNotFound,
-			body:        `{}`,
-			wantKind:    diagnostics.EndpointMismatch,
-			wantSummary: "API URL or path does not match",
-			wantFix:     "Check whether the configured protocol endpoint requires /v1 and whether its host is correct",
-		},
-		{
-			name:        "upstream failure",
-			status:      http.StatusInternalServerError,
-			body:        `{}`,
-			wantKind:    diagnostics.UpstreamFailure,
-			wantSummary: "Endpoint provider failed",
-			wantFix:     "Try again later; if it persists, contact the endpoint operator with the HTTP status code",
-		},
-		{
-			name:        "unexpected response",
-			status:      http.StatusTeapot,
-			body:        `{}`,
-			wantKind:    diagnostics.Unexpected,
-			wantSummary: "Endpoint returned unexpected HTTP status 418",
-			wantFix:     "Run `aigw doctor` for detailed status",
-		},
+		{name: "invalid token", status: http.StatusUnauthorized, body: `{}`, wantKind: diagnostics.InvalidToken, wantSummary: "the provider rejected the Token"},
+		{name: "quota exhausted", status: http.StatusForbidden, body: `{"message":"quota exhausted"}`, wantKind: diagnostics.QuotaExhausted, wantSummary: "the Token's quota is exhausted"},
+		{name: "token disabled", status: http.StatusForbidden, body: `{"message":"token disabled"}`, wantKind: diagnostics.TokenDisabled, wantSummary: "the provider disabled the Token"},
+		{name: "token restricted", status: http.StatusForbidden, body: `{"message":"forbidden"}`, wantKind: diagnostics.TokenRestricted, wantSummary: "the provider restricted what the Token may do"},
+		{name: "missing protocol path", status: http.StatusNotFound, body: `{}`, wantKind: diagnostics.EndpointMismatch, wantSummary: "the endpoint has no such path for this protocol"},
+		{name: "upstream failure", status: http.StatusInternalServerError, body: `{}`, wantKind: diagnostics.UpstreamFailure, wantSummary: "the provider failed"},
+		{name: "unexpected response", status: http.StatusTeapot, body: `{}`, wantKind: diagnostics.Unexpected, wantSummary: "the endpoint gave an answer that AIGW does not expect"},
 	}
 
 	for _, test := range tests {
@@ -189,26 +141,15 @@ func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
 			result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 				return response(test.status, test.body), nil
 			}), runtime(), "secret", diagnostics.ScopeEndpoint)
-			if result.Kind != test.wantKind || result.Summary != test.wantSummary || result.Fix != test.wantFix {
+			if result.Kind != test.wantKind || result.Summary != test.wantSummary || result.HTTPStatus != test.status {
 				t.Fatalf("Probe() = %#v", result)
 			}
-			if strings.Contains(strings.ToLower(result.Summary+result.Fix), "gateway") {
-				t.Fatalf("endpoint-neutral result mentions gateway: %#v", result)
+			for _, word := range []string{"gateway", "account", "route"} {
+				if strings.Contains(strings.ToLower(result.Summary), word) {
+					t.Fatalf("the summary names %s: %#v", word, result)
+				}
 			}
 		})
-	}
-}
-
-// Only a rejected Token takes the credential backend's replacement advice.
-func TestRejectedTokenAdviceFollowsTheCredentialBackend(t *testing.T) {
-	rejected := diagnostics.Result{Kind: diagnostics.InvalidToken, Fix: "Run `aigw provider rotate dmx` to replace the Token"}
-	want := "Set environment variable AIGW_TOKEN_DMX to replace the Token, and confirm that the configured endpoint belongs to this Account"
-	if got := rejected.WithTokenRecovery("set environment variable AIGW_TOKEN_DMX").Fix; got != want {
-		t.Fatalf("environment recovery = %q, want %q", got, want)
-	}
-	exhausted := diagnostics.Result{Kind: diagnostics.QuotaExhausted, Fix: "Increase the Token quota"}
-	if got := exhausted.WithTokenRecovery("set environment variable AIGW_TOKEN_DMX").Fix; got != exhausted.Fix {
-		t.Fatalf("quota advice took Token recovery: %q", got)
 	}
 }
 

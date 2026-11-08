@@ -1,16 +1,15 @@
-// Package check implements `aigw check`, which checks each enabled client's
-// binding, credential and projection, with one bounded inference request.
+// Package check implements `aigw check [client...]`, which climbs one ladder
+// of evidence for each checked client, local, endpoint, model and client, as
+// far as --depth asks, and says how far each client got.
 package check
 
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
-	"aigw-cli/internal/app"
 	clientactivation "aigw-cli/internal/app/activation"
-	"aigw-cli/internal/app/diagnostics"
-	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -19,510 +18,139 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// schemaVersion is the version of `aigw check`'s JSON document.
-const schemaVersion = 2
+// options are the flags of `aigw check`.
+type options struct {
+	depth    string
+	verbose  bool
+	jsonMode bool
+}
 
-// NewCommand builds the read-only health check for every enabled client.
+// NewCommand constructs the command that checks whether each client works.
 func NewCommand(runtime invocation.Context) *cobra.Command {
-	var jsonMode bool
-	var client string
+	var opts options
+	admission := runtime.Clients.Admission()
 	cmd := &cobra.Command{
-		Use:   "check",
-		Short: "Check enabled clients; selected-model probes may use quota",
-		Long: "Check every enabled client by default, or one with --for.\n" +
-			"Inspect its binding, credential, and native projection.\n" +
-			"For AIGW-managed Tokens, the default sends one bounded selected-model\n" +
-			"inference request per eligible client and may use provider quota.\n" +
-			"Use --endpoint-only for a model-free authenticated endpoint request.\n" +
-			"This command does not execute a native client or change configuration;\n" +
-			"use verify for real-client evidence.",
-		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
-			if cmd.Flags().Changed("for") && strings.TrimSpace(client) == "" {
-				return fmt.Errorf("--for requires a non-empty client; run `aigw check --help`")
-			}
-			if client != "" && !runtime.Clients.Admission().Admits(client) {
-				return fmt.Errorf("--for must be %s; run `aigw check --help`", runtime.Clients.Admission().Usage())
-			}
-			return nil
-		}),
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if jsonMode {
-				return runJSONCheck(cmd, runtime)
-			}
-			return runCheck(cmd, runtime)
+		Use:   "check [client...]",
+		Short: "Check that each client works, as deep as --depth asks",
+		Long: "Check the enabled clients, or the named ones, enabled or not; <client> is " + admission.Usage() + ".\n" +
+			"Each depth runs the ones before it: local checks the configuration, the Token's presence, the\n" +
+			"client files and the environment without a request; endpoint sends one authenticated request\n" +
+			"that names no model; model, the default, sends one bounded inference request, which may use\n" +
+			"quota; client runs a real client session, which may use more. A client stops at its first\n" +
+			"failed depth, and a depth that a client cannot run is skipped with the reason.",
+		Example: examples(admission),
+		Args: func(_ *cobra.Command, args []string) error {
+			_, err := admit(admission, args, opts)
+			return err
+		},
+		ValidArgsFunction: invocation.CompleteClients(runtime),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return run(cmd, runtime, args, opts)
 		},
 	}
-	cmd.Flags().StringVar(&client, "for", "", "Check one enabled client: "+runtime.Clients.Admission().Usage()+"; omit for all")
-	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write machine-readable JSON")
-	cmd.Flags().Bool("endpoint-only", false, "Use model-free endpoint authentication instead of inference")
+	invocation.BindText(cmd, &opts.depth, "depth", "How far to check: local, endpoint, model or client (default model)")
+	cmd.Flags().BoolVar(&opts.verbose, "verbose", false, "Print every local check")
+	cmd.Flags().BoolVar(&opts.jsonMode, "json", false, "Write one JSON document, which carries every local check")
+	_ = cmd.RegisterFlagCompletionFunc("depth", completeDepths)
 	return cmd
 }
 
-type checkJSON struct {
-	Clients        map[string]app.ClientStatus `json:"clients"`
-	EnabledClients int                         `json:"enabled_clients"`
-	OK             bool                        `json:"-"`
-	State          domainreadiness.State       `json:"state,omitempty"`
-	NextAction     string                      `json:"next_action,omitempty"`
-	NextDetail     string                      `json:"next_detail,omitempty"`
-	Problem        string                      `json:"problem,omitempty"`
-}
-
-// writeCheckDocument writes check's document, whose next steps are commands
-// that a script can run as they stand, or guidance.
-func writeCheckDocument(runtime invocation.Context, result checkJSON) error {
-	result.Clients = invocation.DocumentClients(result.Clients)
-	result.NextAction, result.NextDetail = terminal.NextSteps(result.NextAction)
-	return terminal.WriteDocument(runtime.Out, schemaVersion, result.OK, result)
-}
-
-func activationCheckIssue(activation clientactivation.Activation, hasModels bool) (problem, evidence, jsonError string, cause error) {
-	switch {
-	case activation.State == domainreadiness.Unavailable:
-		return "Credential metadata is unavailable",
-			"The selected Account credential backend cannot be observed.",
-			"Credential metadata is unavailable; no endpoint or model was checked",
-			fmt.Errorf("credential metadata unavailable")
-	case activation.EnabledClients != 0:
-		evidence = "A Client Binding is selected, but its native projection is not available."
-		jsonError = "No checked client has a native projection; no endpoint or model was checked"
-		if len(activation.ClientCredentialPrerequisites) != 0 {
-			evidence = "The selected Account Token is unavailable and its native projection is deferred."
-			jsonError = "The selected Account Token and native projection are unavailable; no endpoint or model was checked"
-		}
-		return "Client projection is deferred", evidence, jsonError,
-			fmt.Errorf("client projection is deferred")
-	case !hasModels:
-		return "No client is enabled",
-			"No model is added yet, so no client can select one.",
-			"No client is enabled; no endpoint or model was checked",
-			fmt.Errorf("no enabled Client Bindings")
-	default:
-		return "No client is enabled",
-			"The imported Routes are available, but no Client Binding is active.",
-			"No client is enabled; no endpoint or model was checked",
-			fmt.Errorf("no enabled Client Bindings")
+// examples shows a check of the enabled clients, a session of one client that
+// can run one, and every local check, with a client of the admission.
+func examples(admission domain.Admission) string {
+	lines := []string{"aigw check"}
+	if index := slices.IndexFunc(admission.Specs(), func(spec domain.ClientSpec) bool { return !spec.InAppAcceptance }); index >= 0 {
+		lines = append(lines, "aigw check "+admission.Specs()[index].ID+" --depth client")
 	}
+	return strings.Join(append(lines, "aigw check --depth local --verbose"), "\n")
 }
 
-type evaluatedClient struct {
-	client              string
-	runtime             domain.Runtime
-	resolveErr          error
-	credentialErr       error
-	credentialState     domainreadiness.State
-	fix                 string
-	checkPassed         bool
-	issue               string
-	adapter             bool
-	endpointConfigured  bool
-	nativeModelOverride bool
-	diagnostic          diagnostics.Result
-}
-
-type checkEvaluation struct {
-	clients []evaluatedClient
-}
-
-func selectedCheckScope(cmd *cobra.Command) diagnostics.Scope {
-	endpointOnly, err := cmd.Flags().GetBool("endpoint-only")
-	if err == nil && endpointOnly {
-		return diagnostics.ScopeEndpoint
+// completeDepths completes --depth from the fixed list of depths.
+func completeDepths(*cobra.Command, []string, string) ([]cobra.Completion, cobra.ShellCompDirective) {
+	completions := make([]cobra.Completion, 0, len(depths))
+	for _, d := range depths {
+		completions = append(completions, string(d))
 	}
-	return diagnostics.ScopeInference
+	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
-func selectedCheckClient(cmd *cobra.Command) string {
-	flag := cmd.Flags().Lookup("for")
-	if flag == nil {
-		return ""
-	}
-	return flag.Value.String()
-}
-
-func checkConfigurationFor(cfg domain.Config, client string) (domain.Config, string, error) {
-	if client == "" {
-		return cfg, "", nil
-	}
-	if !cfg.Clients[client].Enabled {
-		// Selecting a Route enables its binding; enablement alone needs an executable.
-		action := "aigw use " + client + " <provider/model>"
-		if model, selected := cfg.Models[cfg.SelectedModel(client)]; selected {
-			action = "aigw use " + client + " " + model.Ref().String()
-		}
-		return cfg, action, fmt.Errorf("%s is not enabled", cfg.Admission().Label(client))
-	}
-	scoped := cfg.Clone()
-	for id, binding := range scoped.Clients {
-		if id != client {
-			binding.Enabled = false
-			scoped.Clients[id] = binding
-		}
-	}
-	return scoped, "", nil
-}
-
-func evaluateCheck(cmd *cobra.Command, runtime invocation.Context, cfg domain.Config) checkEvaluation {
-	var evaluation checkEvaluation
-	for _, client := range runtime.Synchronizer().ClientIDs() {
-		if !cfg.Clients[client].Enabled {
-			continue
-		}
-		evaluation.clients = append(evaluation.clients, evaluateClient(cmd, runtime, cfg, client))
-	}
-	return evaluation
-}
-
-func evaluateClient(cmd *cobra.Command, runtime invocation.Context, cfg domain.Config, client string) evaluatedClient {
-	result := evaluatedClient{client: client}
-	clientRuntime, err := cfg.ResolveRuntime(client, "")
+// admit checks the arguments before any configuration access: each named
+// client is admitted, once, and the depth is one of the four.
+func admit(admission domain.Admission, args []string, opts options) (plan, error) {
+	requested, err := parseDepth(opts.depth)
 	if err != nil {
-		result.resolveErr = err
-		result.issue = err.Error()
-		return result
+		return plan{}, err
 	}
-	result.runtime = clientRuntime
-	result.endpointConfigured = strings.TrimSpace(clientRuntime.Endpoint) != ""
-	status := runtime.InspectClient(cmd.Context(), cfg, client, clientRuntime)
-	result.adapter = status.Ready
-	result.nativeModelOverride = status.NativeModelOverride
-	result.issue = status.Issue
-	result.fix = status.RepairAction
-	if !result.adapter {
-		return result
-	}
-	if !clientRuntime.UsesAIGWCredentialStore() {
-		result.checkPassed = true
-		result.fix = "aigw verify --for " + client
-		return result
-	}
-	token, tokenErr := runtime.Secrets.Get(clientRuntime.ProviderID)
-	if tokenErr != nil {
-		result.credentialErr = tokenErr
-		if !errors.Is(tokenErr, secret.ErrNotFound) {
-			result.credentialState = domainreadiness.Unavailable
-			result.issue = "account token could not be read"
-			result.fix = domainreadiness.CredentialBackendRecovery
-			return result
+	for index, id := range args {
+		if _, err := invocation.ResolveClient(admission, id); err != nil {
+			return plan{}, err
 		}
-		result.credentialState = domainreadiness.Deferred
-		result.issue = "account token is unavailable"
-		result.fix = "aigw provider rotate " + clientRuntime.ProviderID
-		if instruction, writable := secret.TokenRecovery(runtime.Secrets, clientRuntime.ProviderID); !writable {
-			result.fix = instruction
+		if slices.Contains(args[:index], id) {
+			return plan{}, fmt.Errorf("%s is named more than once; run `aigw check --help`", id)
 		}
-		return result
 	}
-	scope := selectedCheckScope(cmd)
-	if result.nativeModelOverride {
-		scope = diagnostics.ScopeEndpoint
+	checked := []string{}
+	for _, id := range admission.IDs() {
+		if slices.Contains(args, id) {
+			checked = append(checked, id)
+		}
 	}
-	result.diagnostic = diagnostics.ProbeBounded(cmd.Context(), runtime.HTTP, clientRuntime, token, scope)
-	instruction, _ := secret.TokenRecovery(runtime.Secrets, clientRuntime.ProviderID)
-	result.diagnostic = result.diagnostic.WithTokenRecovery(instruction)
-	if result.diagnostic.Kind != diagnostics.Healthy {
-		result.issue = result.diagnostic.Summary
-		result.fix = result.diagnostic.Fix
-	} else if result.nativeModelOverride {
-		result.fix = "aigw verify --for " + client
-	}
-	result.checkPassed = result.issue == ""
-	return result
+	return plan{requested: requested, clients: checked, named: len(args) > 0}, nil
 }
 
-func (e checkEvaluation) ok() bool {
-	if len(e.clients) == 0 {
-		return false
-	}
-	for _, client := range e.clients {
-		if !client.checkPassed {
-			return false
-		}
-	}
-	return true
-}
-
-func (e checkEvaluation) client(clientID string) (evaluatedClient, bool) {
-	for _, client := range e.clients {
-		if client.client == clientID {
-			return client, true
-		}
-	}
-	return evaluatedClient{}, false
-}
-
-func runJSONCheck(cmd *cobra.Command, runtime invocation.Context) error {
+// run checks the clients that the arguments name, or else the enabled ones,
+// and reports them. A check that names no client while none is enabled fails
+// with the step that activation names, and sends nothing.
+func run(cmd *cobra.Command, runtime invocation.Context, args []string, opts options) error {
+	// Args admitted the arguments, so they plan.
+	planned, _ := admit(runtime.Clients.Admission(), args, opts)
 	cfg, err := runtime.Config.Load()
 	if err != nil {
-		// A configuration that cannot load fails with the failure document,
-		// which names the stage, as status and sync do.
 		return err
 	}
-	if len(cfg.Providers) == 0 {
-		return writeJSONFailure(runtime, domainreadiness.Deferred, "not configured", "aigw setup", fmt.Errorf("not configured"))
+	operation := runtime
+	operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
+	if !planned.named {
+		planned.clients = cfg.EnabledClientIDs()
 	}
-	selected := selectedCheckClient(cmd)
-	cfg, action, err := checkConfigurationFor(cfg, selected)
-	if err != nil {
-		return writeJSONFailure(runtime, domainreadiness.Deferred, err.Error(), action, err)
+	shared, backend := sharedChecks(operation.Dependencies)
+	checking := checker{deps: operation, cfg: cfg, plan: planned, shared: shared}
+	if len(planned.clients) == 0 {
+		return noClient(operation, cfg, checking.shared, backend, planned.requested, opts.jsonMode)
 	}
-	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
-	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
-		_, _, issue, cause := activationCheckIssue(activation, len(cfg.Models) > 0)
-		result := checkJSON{
-			Clients:        app.InspectStatusClients(runtime.Dependencies, cfg, &activation, selected),
-			EnabledClients: activation.EnabledClients,
-			OK:             false,
-			State:          activation.State,
-			NextAction:     activation.NextActionFor(nil),
-			Problem:        issue,
-		}
-		if err := writeCheckDocument(runtime, result); err != nil {
+	result := checking.run(cmd.Context())
+	if opts.jsonMode {
+		if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.ok(), result.documented(backend)); err != nil {
 			return err
 		}
-		return terminal.Presented(cause)
-	}
-	evaluation := evaluateCheck(cmd, runtime, cfg)
-	clients := checkedClientStatuses(runtime, cfg, &activation, evaluation, selected)
-	result := checkJSON{
-		Clients:        clients,
-		EnabledClients: activation.EnabledClients,
-		OK:             evaluation.ok(),
-	}
-	var failure error
-	if !result.OK {
-		result.NextAction, _ = failedCheckContinuation(&activation, evaluation, clients)
-		failure = fmt.Errorf("one or more enabled client checks failed")
-		result.Problem = failure.Error()
-	}
-	if err := writeCheckDocument(runtime, result); err != nil {
+	} else if err := result.render(runtime, opts.verbose); err != nil {
 		return err
 	}
-	if failure != nil {
-		// JSON is a protocol, not a prelude to human error rendering. Mark the
-		// already-serialized failure as presented so the root command preserves
-		// one valid JSON document on stdout while still returning a non-zero
-		// result to callers.
-		return terminal.Presented(failure)
+	if !result.ok() {
+		// The output already said which client stopped and why.
+		return terminal.Presented(result.err())
 	}
 	return nil
 }
 
-func checkedClientStatuses(runtime invocation.Context, cfg domain.Config, activation *clientactivation.Activation, evaluation checkEvaluation, selected string) map[string]app.ClientStatus {
-	clients := app.InspectStatusClients(runtime.Dependencies, cfg, activation, selected)
-	for _, client := range evaluation.clients {
-		status := clients[client.client]
-		status.Model = client.runtime.ModelID
-		status.Provider = client.runtime.ProviderID
-		status.Authentication = client.runtime.Authentication
-		status.EndpointConfigured = client.endpointConfigured
-		status.ProjectionReady = client.adapter
-		status.CheckPassed = new(bool)
-		*status.CheckPassed = client.checkPassed
-		status.DiagnosticKind = string(client.diagnostic.Kind)
-		status.DiagnosticScope = client.diagnostic.Scope
-		status.NativeModelOverride = client.nativeModelOverride
-		status.Attempts = client.diagnostic.Attempts
-		status.Retryable = client.diagnostic.Retryable
-		if client.credentialErr != nil {
-			status.State = client.credentialState
-		}
-		if !status.ProjectionDeferred {
-			if client.issue != "" {
-				status.Detail = client.issue
-			}
-			if client.fix != "" {
-				status.NextAction = client.fix
-			}
-		}
-		if client.diagnostic.Kind != "" && status.State == domainreadiness.Configured {
-			status.Client = domainreadiness.WithProbe(status.Client, client.diagnostic)
-		}
-		if client.nativeModelOverride && client.checkPassed {
-			status.NativeModelOverride = true
-			status.NextAction = "aigw verify --for " + client.client
-		}
-		clients[client.client] = status
+// noClient reports a check that names no client while none is enabled: no
+// client is checked and nothing is sent, the activation state says what is
+// missing, and its next step is the command's fix.
+func noClient(runtime invocation.Context, cfg domain.Config, shared []localCheck, backend secret.BackendSelection, requested depth, jsonMode bool) error {
+	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
+	title, evidence := noClientProblem(cfg, activation)
+	next := activation.NextActionFor(nil)
+	cause := errors.New(strings.ToLower(title[:1]) + title[1:])
+	if !jsonMode {
+		return terminal.ProblemError(title, evidence, "No client was checked.", next, cause)
 	}
-	return clients
-}
-
-func failedCheckContinuation(activation *clientactivation.Activation, evaluation checkEvaluation, clients map[string]app.ClientStatus) (action, clientID string) {
-	failed := make([]domainreadiness.Client, 0, len(evaluation.clients))
-	ids := make([]string, 0, len(evaluation.clients))
-	for _, client := range evaluation.clients {
-		if client.checkPassed {
-			continue
-		}
-		failed = append(failed, clients[client.client].Client)
-		ids = append(ids, client.client)
+	doc := document{
+		Depth: requested, Clients: []clientDocument{}, Checks: documentedChecks(shared), CredentialBackend: backend,
+		State: activation.State, Problem: title,
 	}
-	if len(ids) == 0 {
-		return "aigw repair", ""
-	}
-	action = activation.NextActionFor(failed)
-	for index, client := range failed {
-		if client.NextAction == action {
-			return action, ids[index]
-		}
-	}
-	return action, ids[0]
-}
-
-func writeJSONFailure(runtime invocation.Context, state domainreadiness.State, message, fix string, cause error) error {
-	result := checkJSON{Clients: map[string]app.ClientStatus{}, State: state, NextAction: fix, Problem: message}
-	if err := writeCheckDocument(runtime, result); err != nil {
+	doc.NextAction, doc.NextDetail = terminal.NextSteps(next)
+	if err := terminal.WriteDocument(runtime.Out, schemaVersion, false, doc); err != nil {
 		return err
 	}
 	return terminal.Presented(cause)
-}
-
-// runCheck verifies selected client bindings, configured projections, and
-// the performed endpoint or inference scope without mutating local state.
-func runCheck(cmd *cobra.Command, runtime invocation.Context) error {
-	cfg, err := runtime.Config.Load()
-	if err != nil {
-		return err
-	}
-	if len(cfg.Providers) == 0 {
-		return terminal.ProblemError("Not configured", "No Routes have been created.", "Cannot check, synchronize, or repair configuration that does not exist.", "aigw setup", fmt.Errorf("not configured"))
-	}
-	selected := selectedCheckClient(cmd)
-	cfg, action, err := checkConfigurationFor(cfg, selected)
-	if err != nil {
-		return terminal.ProblemError("Client is not enabled", err.Error(), "No endpoint or model was checked.", action, err)
-	}
-	activation := clientactivation.AssessActivation(cfg, runtime.Secrets)
-	if activation.State == domainreadiness.Deferred || activation.State == domainreadiness.Unavailable {
-		problem, evidence, _, cause := activationCheckIssue(activation, len(cfg.Models) > 0)
-		return terminal.ProblemError(problem, evidence, "No endpoint or model was checked.", activation.NextActionFor(nil), cause)
-	}
-	evaluation := evaluateCheck(cmd, runtime, cfg)
-	if !evaluation.ok() {
-		clients := checkedClientStatuses(runtime, cfg, &activation, evaluation, selected)
-		action, clientID := failedCheckContinuation(&activation, evaluation, clients)
-		if client, found := evaluation.client(clientID); found {
-			field, _, _, err := checkedClientField(runtime, client, action)
-			if err != nil {
-				return err
-			}
-			invocation.Renderer(runtime).Rows(field)
-		}
-		return terminal.ProblemError("Enabled client check failed", "At least one enabled client did not pass its applicable check scope.", "All-client readiness was not established.", action, fmt.Errorf("enabled client check failed"))
-	}
-	rows := []terminal.Field{}
-	verificationCommands := []string{}
-	inferenceUnverified := false
-	for _, client := range runtime.Synchronizer().ClientIDs() {
-		if selected != "" && client != selected {
-			continue
-		}
-		adapter := cfg.Clients[client]
-		if !adapter.Enabled {
-			rows = append(rows, terminal.Field{State: terminal.Info, Label: runtime.Clients.Admission().Label(client), Value: "Disabled"})
-			continue
-		}
-		result, _ := evaluation.client(client)
-		field, command, unchecked, err := checkedClientField(runtime, result, "")
-		if err != nil {
-			return err
-		}
-		rows = append(rows, field)
-		if command != "" {
-			verificationCommands = append(verificationCommands, command)
-		}
-		inferenceUnverified = inferenceUnverified || unchecked
-	}
-	renderer := invocation.Renderer(runtime)
-	renderer.ProductTitle("Health check")
-	renderer.Section("Configuration")
-	renderer.Rows(terminal.Field{State: terminal.OK, Label: "Configuration file", Value: "Healthy"})
-	renderer.Section("Client")
-	renderer.Rows(rows...)
-	renderer.Section("Result")
-	// Passing this command establishes only the scopes reported per client.
-	if selected == "" {
-		renderer.Success("All enabled client checks passed")
-	} else {
-		renderer.Success("Selected client check passed")
-	}
-	if inferenceUnverified {
-		renderer.Detail("Model inference was not verified for endpoint-only or client-native checks")
-	}
-	renderer.Detail("Real-client execution was not verified")
-	for _, command := range verificationCommands {
-		renderer.Next(command)
-	}
-	return nil
-}
-
-// checkedClientField presents one enabled client's check as a row of the Client
-// group, returning its explicit verification command and whether model
-// inference remains unverified, or the Problem that stops the check.
-func checkedClientField(runtime invocation.Context, result evaluatedClient, overrideAction string) (terminal.Field, string, bool, error) {
-	client := result.client
-	recommendedAction := func(fallback string) string {
-		if overrideAction != "" {
-			return overrideAction
-		}
-		return fallback
-	}
-	if result.resolveErr != nil {
-		return terminal.Field{}, "", false, terminal.ProblemError(runtime.Clients.Admission().Label(client)+" binding cannot be resolved", result.resolveErr.Error(), runtime.Clients.Admission().Label(client)+" cannot determine which Route to use.", recommendedAction("aigw use "+client+" <provider/model>"), result.resolveErr)
-	}
-	if result.credentialErr != nil {
-		evidence := "Account " + result.runtime.ProviderID + " has no available Token."
-		if result.credentialState == domainreadiness.Unavailable {
-			evidence = "The selected credential backend could not return Account " + result.runtime.ProviderID + "'s Token; its presence cannot be inferred."
-		}
-		return terminal.Field{}, "", false, terminal.ProblemError(
-			runtime.Clients.Admission().Label(client)+" "+result.issue, evidence, runtime.Clients.Admission().Label(client)+" cannot authenticate to its selected endpoint.", recommendedAction(result.fix),
-			fmt.Errorf("%s account token unavailable: %w", client, result.credentialErr),
-		)
-	}
-	if !result.adapter {
-		impact := runtime.Clients.Admission().Label(client) + " cannot receive its AIGW Route, Token, or configuration projection."
-		return terminal.Field{}, "", false, terminal.ProblemError(runtime.Clients.Admission().Label(client)+" projection is not ready", result.issue, impact, recommendedAction(result.fix), fmt.Errorf("%s projection not ready", client))
-	}
-	if !result.runtime.UsesAIGWCredentialStore() {
-		detail := "Client-owned authentication requires an explicit live verification"
-		if result.runtime.CredentialCommand != "" {
-			detail = "External credential helper requires an explicit live verification"
-		}
-		return terminal.Field{
-			State: terminal.OK, Label: runtime.Clients.Admission().Label(client), Value: result.runtime.ModelLabel + " · Local projection checked",
-			Details: []string{detail},
-		}, result.fix, true, nil
-	}
-	diagnostic := result.diagnostic
-	if diagnostic.Kind != diagnostics.Healthy {
-		evidence := "No HTTP response was received"
-		if diagnostic.HTTPStatus != 0 {
-			evidence = fmt.Sprintf("HTTP %d", diagnostic.HTTPStatus)
-		} else if diagnostic.Attempts == 0 {
-			evidence = "No request was sent"
-		}
-		impact := runtime.Clients.Admission().Label(client) + " is unavailable."
-		if diagnostic.Kind == diagnostics.NetworkFailure {
-			// AIGW selects the endpoint; it neither runs nor restarts it.
-			impact += " AIGW owns this configuration, not the endpoint's lifecycle."
-		}
-		return terminal.Field{}, "", false, terminal.ProblemError(diagnostic.Summary, evidence, impact, recommendedAction(diagnostic.Fix), fmt.Errorf("%s diagnostic kind %s", client, diagnostic.Kind))
-	}
-	label := "Endpoint checked"
-	inferenceUnverified := true
-	if diagnostic.Scope == diagnostics.ScopeInference {
-		label = "Inference checked"
-		inferenceUnverified = false
-	}
-	field := terminal.Field{State: terminal.OK, Label: runtime.Clients.Admission().Label(client), Value: result.runtime.ModelLabel + " · " + label}
-	command := ""
-	if result.nativeModelOverride {
-		field.Details = append(field.Details, runtime.Clients.Admission().ProductName(client)+" uses a native model preference; this endpoint check does not verify that model")
-		command = "aigw verify --for " + client
-	}
-	if app.EndpointTransport(result.runtime.Endpoint) == app.EndpointTransportExternalLoopback {
-		field.Details = append(field.Details, runtime.Clients.Admission().Label(client)+" uses a loopback endpoint; AIGW does not manage the endpoint runtime")
-	}
-	return field, command, inferenceUnverified, nil
 }

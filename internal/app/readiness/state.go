@@ -7,18 +7,15 @@ import "aigw-cli/internal/app/diagnostics"
 // State is the stable classification of one operational capability.
 type State string
 
+// The depth that `aigw check` reaches, not a state, says how much a request
+// or a client session proved about a configured client.
 const (
-	// Configured identifies a valid route whose local prerequisites pass without an endpoint observation.
+	// Configured identifies a client whose local prerequisites pass, whatever
+	// a check proved beyond them.
 	Configured State = "configured"
 	// Deferred identifies an intentionally postponed credential or client projection.
 	Deferred State = "deferred"
-	// EndpointChecked identifies a configured route with a successful endpoint diagnostic.
-	// It does not prove model inference or real-client execution.
-	EndpointChecked State = "endpoint_checked"
-	// InferenceChecked identifies a successful request carrying the Route's exact wire model.
-	// It does not prove native-client behavior or future availability.
-	InferenceChecked State = "inference_checked"
-	// Degraded identifies a route that remains configured but has a recoverable operational problem.
+	// Degraded identifies a client that remains configured but has a recoverable operational problem.
 	Degraded State = "degraded"
 	// Invalid identifies configuration or owned state that cannot be safely used.
 	Invalid State = "invalid"
@@ -37,10 +34,6 @@ func (state State) Label() string {
 		return "Configured"
 	case Deferred:
 		return "Deferred"
-	case EndpointChecked:
-		return "Endpoint checked"
-	case InferenceChecked:
-		return "Inference checked"
 	case Degraded:
 		return "Degraded"
 	case Invalid:
@@ -147,41 +140,25 @@ func ClassifyClient(facts ClientFacts) Client {
 	return state
 }
 
-// WithProbe refines a configured client with a typed authenticated endpoint
-// observation. The diagnostic kind, rather than transport heuristics, owns the
-// distinction between invalid configuration and transient degradation.
-func WithProbe(state Client, result diagnostics.Result) Client {
-	if state.State != Configured {
-		return state
-	}
-	state.Detail = result.Summary
-	state.NextAction = result.Fix
-	switch result.Kind {
+// ProbeState is the state of a configured client whose authenticated
+// request failed as kind says. The diagnostic kind, rather than transport
+// heuristics, owns the distinction between invalid configuration and
+// transient degradation.
+func ProbeState(kind diagnostics.Kind) State {
+	switch kind {
 	case diagnostics.Healthy:
-		switch result.Scope {
-		case diagnostics.ScopeEndpoint:
-			state.State = EndpointChecked
-			state.NextAction = ""
-		case diagnostics.ScopeInference:
-			state.State = InferenceChecked
-			state.NextAction = ""
-		default:
-			state.State = Unavailable
-			state.Detail = "Diagnostic scope is unavailable"
-			state.NextAction = "aigw doctor"
-		}
+		return Configured
 	case diagnostics.InvalidToken, diagnostics.TokenDisabled,
 		diagnostics.TokenRestricted, diagnostics.EndpointMismatch,
 		diagnostics.ModelUnresolved:
-		state.State = Invalid
+		return Invalid
 	case diagnostics.QuotaExhausted,
 		diagnostics.RateLimited, diagnostics.ModelUnavailable,
 		diagnostics.UpstreamFailure, diagnostics.NetworkFailure:
-		state.State = Degraded
+		return Degraded
 	case diagnostics.Unexpected:
-		state.State = Unavailable
+		return Unavailable
 	default:
-		state.State = Unavailable
+		return Unavailable
 	}
-	return state
 }

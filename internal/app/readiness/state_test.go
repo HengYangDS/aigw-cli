@@ -133,8 +133,6 @@ func TestStateLabelUsesTheCanonicalVocabulary(t *testing.T) {
 	}{
 		{state: Configured, want: "Configured"},
 		{state: Deferred, want: "Deferred"},
-		{state: EndpointChecked, want: "Endpoint checked"},
-		{state: InferenceChecked, want: "Inference checked"},
 		{state: Degraded, want: "Degraded"},
 		{state: Invalid, want: "Invalid"},
 		{state: Unavailable, want: "Unavailable"},
@@ -183,72 +181,30 @@ func TestClassifyClientPutsTheTokenBeforeTheClientFiles(t *testing.T) {
 	}
 }
 
-func TestWithProbeMapsDiagnosticSemantics(t *testing.T) {
-	configured := Client{State: Configured, Model: "codex", Provider: "team"}
-	tests := []struct {
-		name string
+// A failed request's kind decides the state of the configured client that
+// sent it, and a healthy one leaves it configured: the depth that check
+// reached says what the request proved.
+func TestProbeStateMapsDiagnosticSemantics(t *testing.T) {
+	for _, test := range []struct {
 		kind diagnostics.Kind
 		want State
 	}{
-		{name: "healthy", kind: diagnostics.Healthy, want: EndpointChecked},
-		{name: "invalid token", kind: diagnostics.InvalidToken, want: Invalid},
-		{name: "disabled token", kind: diagnostics.TokenDisabled, want: Invalid},
-		{name: "restricted token", kind: diagnostics.TokenRestricted, want: Invalid},
-		{name: "endpoint mismatch", kind: diagnostics.EndpointMismatch, want: Invalid},
-		{name: "quota exhausted", kind: diagnostics.QuotaExhausted, want: Degraded},
-		{name: "rate limited", kind: diagnostics.RateLimited, want: Degraded},
-		{name: "model unavailable", kind: diagnostics.ModelUnavailable, want: Degraded},
-		{name: "model unresolved", kind: diagnostics.ModelUnresolved, want: Invalid},
-		{name: "upstream failure", kind: diagnostics.UpstreamFailure, want: Degraded},
-		{name: "network failure", kind: diagnostics.NetworkFailure, want: Degraded},
-		{name: "unknown result", kind: diagnostics.Unexpected, want: Unavailable},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got := WithProbe(configured, diagnostics.Result{
-				Kind:    test.kind,
-				Scope:   diagnostics.ScopeEndpoint,
-				Summary: "observed result",
-				Fix:     "aigw check",
-			})
-			if got.State != test.want || got.Detail != "observed result" {
-				t.Fatalf("WithProbe() = %#v, want state %q", got, test.want)
-			}
-			if test.want == EndpointChecked && got.NextAction != "" {
-				t.Fatalf("endpoint-check next action = %q", got.NextAction)
-			}
-		})
-	}
-}
-
-func TestWithProbeDoesNotOverrideDeferredState(t *testing.T) {
-	deferred := Client{State: Deferred, NextAction: "aigw sync"}
-	got := WithProbe(deferred, diagnostics.Result{Kind: diagnostics.Healthy})
-	if got != deferred {
-		t.Fatalf("WithProbe() = %#v, want %#v", got, deferred)
-	}
-}
-
-func TestWithProbeDistinguishesSuccessfulInferenceFromEndpointEvidence(t *testing.T) {
-	configured := Client{State: Configured, Model: "codex", Provider: "team"}
-
-	inference := WithProbe(configured, diagnostics.Result{
-		Kind: diagnostics.Healthy, Scope: diagnostics.ScopeInference, Summary: "Inference diagnostic returned a successful response",
-	})
-	if inference.State != InferenceChecked || inference.NextAction != "" {
-		t.Fatalf("inference result = %#v", inference)
-	}
-
-	endpoint := WithProbe(configured, diagnostics.Result{
-		Kind: diagnostics.Healthy, Scope: diagnostics.ScopeEndpoint, Summary: "Endpoint diagnostic returned a successful response",
-	})
-	if endpoint.State != EndpointChecked || endpoint.NextAction != "" {
-		t.Fatalf("endpoint result = %#v", endpoint)
-	}
-
-	unscoped := WithProbe(configured, diagnostics.Result{Kind: diagnostics.Healthy, Summary: "ambiguous success"})
-	if unscoped.State != Unavailable {
-		t.Fatalf("unscoped success = %#v, want unavailable", unscoped)
+		{kind: diagnostics.Healthy, want: Configured},
+		{kind: diagnostics.InvalidToken, want: Invalid},
+		{kind: diagnostics.TokenDisabled, want: Invalid},
+		{kind: diagnostics.TokenRestricted, want: Invalid},
+		{kind: diagnostics.EndpointMismatch, want: Invalid},
+		{kind: diagnostics.ModelUnresolved, want: Invalid},
+		{kind: diagnostics.QuotaExhausted, want: Degraded},
+		{kind: diagnostics.RateLimited, want: Degraded},
+		{kind: diagnostics.ModelUnavailable, want: Degraded},
+		{kind: diagnostics.UpstreamFailure, want: Degraded},
+		{kind: diagnostics.NetworkFailure, want: Degraded},
+		{kind: diagnostics.Unexpected, want: Unavailable},
+		{kind: diagnostics.Kind("future"), want: Unavailable},
+	} {
+		if got := ProbeState(test.kind); got != test.want {
+			t.Fatalf("ProbeState(%q) = %q, want %q", test.kind, got, test.want)
+		}
 	}
 }

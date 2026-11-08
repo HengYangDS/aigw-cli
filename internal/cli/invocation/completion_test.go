@@ -106,7 +106,6 @@ func TestCompletionReadsOnlyTheLocalConfiguration(t *testing.T) {
 		{"use's third argument", CompleteClientModels(runtime), []string{codex.ID, "both/opus"}, []string{}},
 		{"families", CompleteFamilies(runtime), nil, []string{"opus", "sol"}},
 		{"protocols", completeProtocols, nil, []string{"anthropic", "responses", "chat"}},
-		{"depths", completeDepths, nil, []string{"local", "endpoint", "model", "client"}},
 		{"capabilities", CompleteCapabilities, nil, []string{"text", "reasoning", "streaming", "tools", "structured_output", "continuation", "compaction", "multimodal_input", "tool_search"}},
 		// A new name and a free-text query offer nothing.
 		{"a new name", CompleteNothing, nil, []string{}},

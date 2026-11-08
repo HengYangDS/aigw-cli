@@ -128,13 +128,3 @@ func CompleteCapabilities(*cobra.Command, []string, string) ([]cobra.Completion,
 	}
 	return completions, cobra.ShellCompDirectiveNoFileComp
 }
-
-// depthNames are the evidence depths of `aigw check`, in the order in which
-// each runs the ones before it.
-var depthNames = []string{"local", "endpoint", "model", "client"}
-
-// completeDepths completes an evidence depth from the fixed list. Task 4.2
-// gives `aigw check` the --depth flag that uses it.
-func completeDepths(*cobra.Command, []string, string) ([]cobra.Completion, cobra.ShellCompDirective) {
-	return slices.Clone(depthNames), cobra.ShellCompDirectiveNoFileComp
-}

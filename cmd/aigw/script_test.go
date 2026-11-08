@@ -65,6 +65,7 @@ func TestScripts(t *testing.T) {
 			"apikeyhelper": apiKeyHelper,
 			"envsubst":     envsubst,
 			"exitcode":     exitCode,
+			"jsonset":      jsonSet,
 			"normalize":    normalize,
 			"snapshot":     snapshot,
 		},
@@ -79,6 +80,30 @@ func envsubst(ts *testscript.TestScript, neg bool, args []string) {
 	}
 	text := os.Expand(ts.ReadFile(args[0]), ts.Getenv)
 	if err := os.WriteFile(ts.MkAbs(args[1]), []byte(text), 0o600); err != nil {
+		ts.Fatalf("%v", err)
+	}
+}
+
+// jsonSet sets one top-level key of a JSON object file to a JSON value,
+// keeping the file's two-space indentation, as a client that edits its own
+// settings file does.
+func jsonSet(ts *testscript.TestScript, neg bool, args []string) {
+	if neg || len(args) != 3 {
+		ts.Fatalf("usage: jsonset <file> <key> <json value>")
+	}
+	var document map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(ts.ReadFile(args[0])), &document); err != nil {
+		ts.Fatalf("read %s: %v", args[0], err)
+	}
+	if !json.Valid([]byte(args[2])) {
+		ts.Fatalf("%s is not a JSON value", args[2])
+	}
+	document[args[1]] = json.RawMessage(args[2])
+	data, err := json.MarshalIndent(document, "", "  ")
+	if err != nil {
+		ts.Fatalf("%v", err)
+	}
+	if err := os.WriteFile(ts.MkAbs(args[0]), append(data, '\n'), 0o600); err != nil {
 		ts.Fatalf("%v", err)
 	}
 }

@@ -143,7 +143,7 @@ stdout '"next_detail": "aigw client edit codex --target \\u003cfile\\u003e"'
 exitcode 1 aigw doctor --json
 stdout '"next_detail": "aigw client edit codex --target \\u003cfile\\u003e"'
 ! stdout '"next_action": "aigw sync"'
-exitcode 1 aigw check --for codex --json
+exitcode 1 aigw check codex --json
 stdout '"next_detail": "aigw client edit codex --target \\u003cfile\\u003e"'
 ! stdout '"next_action"'
 exitcode 1 aigw sync --json

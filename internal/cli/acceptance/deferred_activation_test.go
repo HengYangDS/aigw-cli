@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -29,14 +30,7 @@ type deferredActivationDocument struct {
 	NextAction     string            `json:"next_action"`
 	NextDetail     string            `json:"next_detail"`
 	Selections     map[string]string `json:"selections"`
-	Clients        map[string]struct {
-		State              string `json:"state"`
-		NextAction         string `json:"next_action"`
-		NextDetail         string `json:"next_detail"`
-		ProjectionDeferred bool   `json:"projection_deferred"`
-		// FilesDeferred is how status reports ProjectionDeferred.
-		FilesDeferred bool `json:"client_files_deferred"`
-	} `json:"clients"`
+	Clients        clientStates      `json:"clients"`
 }
 
 func shippedTeamManifest(t *testing.T) string {
@@ -79,7 +73,11 @@ func assertDeferredJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer, co
 	if command == "doctor" && (!result.OK || result.OKScope != "local_diagnostics") {
 		t.Fatalf("doctor did not scope diagnostic success: %s", out)
 	}
-	if command != "sync" {
+	// Check lists only the clients that it checked, and it checked none.
+	if command == "check" && len(result.Clients) != 0 {
+		t.Fatalf("check listed clients that it did not check: %+v", result.Clients)
+	}
+	if command != "sync" && command != "check" {
 		for _, client := range clients.Admission().IDs() {
 			if result.Clients[client].State != "deferred" {
 				t.Fatalf("%s client %s = %+v", command, client, result.Clients[client])
@@ -315,6 +313,10 @@ func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T)
 		if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 			t.Fatalf("decode %s: %v\n%s", command, err, out)
 		}
+		// Check reports each checked client's state, not activation's.
+		if command == "check" {
+			result.State = result.Clients[hermes.ID].State
+		}
 		if result.EnabledClients != 1 || result.State != "deferred" || !wantNext(result.NextAction, result.NextDetail, wantAction) {
 			t.Fatalf("%s activation = %+v\n%s", command, result, out)
 		}
@@ -429,7 +431,9 @@ func TestShippedTeamManifestMixedClientProjectionHasOneContinuation(t *testing.T
 	for _, command := range []string{"sync", "status", "check", "doctor"} {
 		assertMixedClientHumanCommand(t, app, out, command, wantAction)
 	}
-	if httpClient.calls != beforeProbes+2 {
+	// Each check of the configured client sends one request without a model
+	// and one inference request; the clients that wait send none.
+	if httpClient.calls != beforeProbes+4 {
 		t.Fatalf("mixed-client check probed unavailable clients: before=%d after=%d", beforeProbes, httpClient.calls)
 	}
 	after, err := app.Config.CaptureSnapshot()
@@ -470,13 +474,26 @@ func assertTokenRemovedJSONCommand(t *testing.T, app *cli.App, out *bytes.Buffer
 		t.Fatalf("decode %s: %v\n%s", command, err, out)
 	}
 	wantCommandAction := wantAction
-	if command == "doctor" {
+	if command == "doctor" || command == "check" {
 		wantCommandAction = "aigw provider rotate ucloud"
+	}
+	if command == "check" {
+		// Check reports each checked client's state, and the client files that
+		// wait for the client, which a missing Token comes before, as a local
+		// check.
+		result.State = result.Clients[codex.ID].State
+		checked, _ := decodeCheck(t, out).client(codex.ID)
+		files := slices.IndexFunc(checked.Checks, func(check checkedLocal) bool {
+			return check.Name == "codex:files" && check.State == "failed" && strings.HasPrefix(check.Detail, "Codex is not installed")
+		})
+		if files < 0 || !wantNext(result.Clients[codex.ID].NextAction, result.Clients[codex.ID].NextDetail, wantCommandAction) {
+			t.Fatalf("check selected Codex = %+v", checked)
+		}
 	}
 	if result.State != "deferred" || !wantNext(result.NextAction, result.NextDetail, wantCommandAction) {
 		t.Fatalf("%s continuation = %+v\n%s", command, result, out)
 	}
-	if command == "sync" {
+	if command == "sync" || command == "check" {
 		return
 	}
 	selected := result.Clients[codex.ID]
@@ -496,10 +513,11 @@ func assertTokenRemovedHumanCommand(t *testing.T, app *cli.App, out *bytes.Buffe
 	if (err != nil) != (command == "check" || command == "doctor") {
 		t.Fatalf("human %s error = %v\n%s", command, err, out)
 	}
-	// Status says that AIGW has not written the clients' files; sync, check
-	// and doctor still call them their projections.
+	// Status says that AIGW has not written the clients' files; sync and
+	// doctor still call them their projections. Check stops each client at the
+	// missing Token, which comes before the client files that wait for it.
 	human := strings.ToLower(out.String())
-	if !strings.Contains(human, "aigw provider rotate ucloud") || !strings.Contains(human, "projection") && !strings.Contains(human, "has not written") {
+	if !strings.Contains(human, "aigw provider rotate ucloud") || command != "check" && !strings.Contains(human, "projection") && !strings.Contains(human, "has not written") {
 		t.Fatalf("human %s hid a prerequisite:\n%s", command, out)
 	}
 }

@@ -400,7 +400,7 @@ func TestUseActivatesClaudeInstalledAfterManifestSetup(t *testing.T) {
 	if err := cli.Execute(app, []string{"check"}); err != nil {
 		t.Fatalf("check after use: %v", err)
 	}
-	if !strings.Contains(out.String(), "Claude") || !strings.Contains(out.String(), "Inference checked") || strings.Contains(out.String(), "no clients are enabled") {
+	if !strings.Contains(out.String(), "✓ Claude") || !strings.Contains(out.String(), "dmxapi/claude-test · model") || strings.Contains(out.String(), "No client is enabled") {
 		t.Fatalf("check did not verify the activated Claude route:\n%s", out.String())
 	}
 }

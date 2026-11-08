@@ -1,11 +1,12 @@
 // Package diagnostics owns bounded, redacted endpoint and authentication
-// health observations. It does not mutate routes, credentials, or clients.
+// health observations. It classifies what one request observed and leaves the
+// fix to the command that sent it, which knows how to run it again. It does
+// not change the configuration, a credential or a client.
 package diagnostics
 
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -24,7 +25,7 @@ type Scope string
 const (
 	// ScopeEndpoint authenticates with a model-free endpoint request.
 	ScopeEndpoint Scope = "endpoint"
-	// ScopeInference sends a request carrying the selected Route's wire model.
+	// ScopeInference sends a request carrying the selected model's own ID.
 	ScopeInference Scope = "inference"
 )
 
@@ -33,7 +34,7 @@ const (
 	Healthy Kind = "healthy"
 	// InvalidToken identifies credentials rejected as invalid.
 	InvalidToken Kind = "invalid_token"
-	// QuotaExhausted identifies an otherwise valid account without available quota.
+	// QuotaExhausted identifies an otherwise valid Token without available quota.
 	QuotaExhausted Kind = "quota_exhausted"
 	// TokenDisabled identifies a credential disabled by its provider.
 	TokenDisabled Kind = "token_disabled"
@@ -43,7 +44,7 @@ const (
 	RateLimited Kind = "rate_limited"
 	// ModelUnavailable identifies a configured model that the provider cannot currently serve.
 	ModelUnavailable Kind = "model_unavailable"
-	// ModelUnresolved identifies a Route without an exact upstream model for inference.
+	// ModelUnresolved identifies a model without the provider's own ID for inference.
 	ModelUnresolved Kind = "model_unresolved"
 	// UpstreamFailure identifies a failure returned by the selected endpoint.
 	UpstreamFailure Kind = "upstream_failure"
@@ -60,12 +61,14 @@ type HTTPDoer interface {
 	Do(request *http.Request) (*http.Response, error)
 }
 
-// Result is the stable, non-secret diagnostic classification returned to commands and JSON consumers.
+// Result is the stable, non-secret diagnostic classification returned to
+// commands and JSON consumers: what kind of outcome one request had, a
+// summary of it in the product's words, and the HTTP status that it
+// received, if any.
 type Result struct {
 	Kind       Kind   `json:"kind"`
 	Scope      Scope  `json:"scope,omitempty"`
 	Summary    string `json:"summary"`
-	Fix        string `json:"fix,omitempty"`
 	HTTPStatus int    `json:"http_status,omitempty"`
 	Retryable  bool   `json:"retryable"`
 	Attempts   int    `json:"attempts,omitempty"`
@@ -87,39 +90,30 @@ func ProbeBounded(ctx context.Context, client HTTPDoer, runtime domain.Runtime, 
 	return Probe(attemptCtx, client, runtime, token, scope)
 }
 
-// unreachableEndpointFix names the checks AIGW can suggest for an endpoint it
-// configures but does not run: the endpoint itself, or another compatible Route.
-func unreachableEndpointFix(client string) string {
-	if client == "" {
-		return "Check the configured endpoint and network, then try again"
-	}
-	return "Check the configured endpoint and network, or select another model with `aigw use " + client + " <provider/model>`"
-}
-
 // Probe performs one authenticated diagnostic request using the caller's context.
 func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token string, scope Scope) Result {
 	if scope != ScopeEndpoint && scope != ScopeInference {
-		return Result{Kind: Unexpected, Scope: scope, Summary: "Unsupported diagnostic scope", Fix: "Run `aigw doctor` for detailed status"}
+		return Result{Kind: Unexpected, Scope: scope, Summary: "the request has no scope that AIGW can send"}
 	}
 	if strings.TrimSpace(runtime.Endpoint) == "" {
-		return Result{Kind: EndpointMismatch, Scope: scope, Summary: "Invalid API URL", Fix: "Check the protocol endpoint for the current route's account"}
+		return Result{Kind: EndpointMismatch, Scope: scope, Summary: "the provider has no endpoint for this protocol"}
 	}
 	var req *http.Request
 	var err error
 	if scope == ScopeInference {
 		if strings.TrimSpace(runtime.UpstreamModel) == "" {
-			return Result{Kind: ModelUnresolved, Scope: scope, Summary: "Route has no upstream model for inference", Fix: "Check the selected Route's upstream model"}
+			return Result{Kind: ModelUnresolved, Scope: scope, Summary: "the model has no provider model ID to send"}
 		}
 		req, err = domain.ModelInferenceRequest(ctx, runtime.Endpoint, runtime.Protocol, token, runtime.UpstreamModel)
 	} else {
 		req, err = domain.ModelCatalogRequest(ctx, runtime.Endpoint, runtime.Protocol, token)
 	}
 	if err != nil {
-		return Result{Kind: EndpointMismatch, Scope: scope, Summary: "Cannot construct the diagnostic request", Fix: "Check the endpoint and protocol for the active route"}
+		return Result{Kind: EndpointMismatch, Scope: scope, Summary: "the endpoint is not a URL that a request can go to"}
 	}
 	resp, err := probe.Send(client, req)
 	if err != nil {
-		return Result{Kind: NetworkFailure, Scope: scope, Summary: "Cannot reach the endpoint", Fix: unreachableEndpointFix(runtime.Client), Retryable: true, Attempts: 1}
+		return Result{Kind: NetworkFailure, Scope: scope, Summary: "the endpoint did not answer", Retryable: true, Attempts: 1}
 	}
 	defer func() { _ = resp.Body.Close() }()
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
@@ -127,8 +121,7 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 		return Result{
 			Kind:       NetworkFailure,
 			Scope:      scope,
-			Summary:    "Cannot read the endpoint response",
-			Fix:        "Check the configured endpoint and network, then try again",
+			Summary:    "the endpoint's answer could not be read",
 			HTTPStatus: resp.StatusCode,
 			Retryable:  true,
 			Attempts:   1,
@@ -140,50 +133,26 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 	case resp.StatusCode >= http.StatusOK && resp.StatusCode < http.StatusMultipleChoices:
 		result = classifySuccessfulResponse(result, runtime.Protocol, body)
 	case resp.StatusCode == http.StatusUnauthorized:
-		result.Kind, result.Summary = InvalidToken, "Account Token is invalid or does not belong to the configured endpoint"
-		result.Fix = invalidTokenFix("run `aigw provider rotate " + runtime.ProviderID + "`")
+		result.Kind, result.Summary = InvalidToken, "the provider rejected the Token"
 	case isHardQuotaFailure(resp.StatusCode, lower):
-		result.Kind, result.Summary = QuotaExhausted, "Token quota is exhausted"
-		result.Fix = "Increase the Token quota for Account " + runtime.ProviderID + " in the provider console"
+		result.Kind, result.Summary = QuotaExhausted, "the Token's quota is exhausted"
 	case resp.StatusCode == http.StatusForbidden && containsAny(lower, "disabled", "disable"):
-		result.Kind, result.Summary = TokenDisabled, "Token is disabled"
-		result.Fix = "Enable the Token for Account " + runtime.ProviderID + " in the provider console"
+		result.Kind, result.Summary = TokenDisabled, "the provider disabled the Token"
 	case resp.StatusCode == http.StatusForbidden:
-		result.Kind, result.Summary = TokenRestricted, "Token or Account is restricted"
-		result.Fix = "Review access restrictions for Account " + runtime.ProviderID + " in the provider console"
+		result.Kind, result.Summary = TokenRestricted, "the provider restricted what the Token may do"
 	case resp.StatusCode == http.StatusTooManyRequests:
-		result.Kind, result.Summary, result.Retryable = RateLimited, "Request rate or concurrency quota is exhausted", true
-		result.Fix = "Reduce concurrency and try again later; if it persists, check the provider rate-limit policy"
+		result.Kind, result.Summary, result.Retryable = RateLimited, "the provider limited the request rate or concurrency", true
 	case resp.StatusCode == http.StatusNotFound:
-		result.Kind, result.Summary = EndpointMismatch, "API URL or path does not match"
-		result.Fix = "Check whether the configured protocol endpoint requires /v1 and whether its host is correct"
+		result.Kind, result.Summary = EndpointMismatch, "the endpoint has no such path for this protocol"
 	case resp.StatusCode == http.StatusServiceUnavailable && containsAny(lower, "model", "channel", "无可用渠道") ||
 		resp.StatusCode == http.StatusBadRequest && strings.Contains(lower, "model") && strings.Contains(lower, "cannot be served at the moment"):
-		result.Kind, result.Summary, result.Retryable = ModelUnavailable, "Current model or channel is unavailable", true
-		result.Fix = "Confirm the model name and token model restrictions, or try again later"
+		result.Kind, result.Summary, result.Retryable = ModelUnavailable, "the provider cannot serve the model right now", true
 	case resp.StatusCode >= 500:
-		result.Kind, result.Summary, result.Retryable = UpstreamFailure, "Endpoint provider failed", true
-		result.Fix = "Try again later; if it persists, contact the endpoint operator with the HTTP status code"
+		result.Kind, result.Summary, result.Retryable = UpstreamFailure, "the provider failed", true
 	default:
-		result.Kind, result.Summary = Unexpected, fmt.Sprintf("Endpoint returned unexpected HTTP status %d", resp.StatusCode)
-		result.Fix = "Run `aigw doctor` for detailed status"
+		result.Kind, result.Summary = Unexpected, "the endpoint gave an answer that AIGW does not expect"
 	}
 	return result
-}
-
-// WithTokenRecovery replaces the advice for a rejected Account Token with the
-// instruction of the credential backend that holds it, such as an environment
-// variable that AIGW cannot rotate. The probe classifies HTTP responses; the
-// caller knows the backend.
-func (result Result) WithTokenRecovery(instruction string) Result {
-	if result.Kind == InvalidToken && instruction != "" {
-		result.Fix = invalidTokenFix(instruction)
-	}
-	return result
-}
-
-func invalidTokenFix(instruction string) string {
-	return strings.ToUpper(instruction[:1]) + instruction[1:] + " to replace the Token, and confirm that the configured endpoint belongs to this Account"
 }
 
 func providerErrorMessage(body []byte) string {
@@ -230,14 +199,13 @@ func isHardQuotaFailure(status int, message string) bool {
 func classifySuccessfulResponse(result Result, protocol domain.EndpointProtocol, body []byte) Result {
 	if result.Scope == ScopeInference {
 		if !hasInferenceOutput(protocol, body) {
-			result.Kind, result.Summary = Unexpected, "Inference response did not contain usable model output"
-			result.Fix = "Check the selected Route's model and protocol, then try again"
+			result.Kind, result.Summary = Unexpected, "the model's answer held no text"
 			return result
 		}
-		result.Kind, result.Summary = Healthy, "Inference diagnostic returned a successful response"
+		result.Kind, result.Summary = Healthy, "the model answered"
 		return result
 	}
-	result.Kind, result.Summary = Healthy, "Endpoint diagnostic returned a successful response"
+	result.Kind, result.Summary = Healthy, "the provider accepted the Token"
 	return result
 }
 

@@ -103,19 +103,25 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	}
 	candidate, archive, checksums := nativeReleaseCandidate(t, root, version)
 	upstream := newNativeJourneyServer(t)
-	requests := make(chan string, 1)
+	// A check at the model depth sends one request without a model and one
+	// inference request, both through the forwarding endpoint.
+	requests := make(chan string, 2)
 	forwarding := newNativeJourneyServer(t, func(request *http.Request) {
-		var body struct {
-			Model string `json:"model"`
-		}
-		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
-			t.Errorf("decode forwarded model: %v", err)
-			return
+		observed := request.Method + " " + request.URL.Path
+		if request.Method == http.MethodPost {
+			var body struct {
+				Model string `json:"model"`
+			}
+			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+				t.Errorf("decode forwarded model: %v", err)
+				return
+			}
+			observed += " " + body.Model
 		}
 		select {
-		case requests <- request.Method + " " + request.URL.Path + " " + body.Model:
+		case requests <- observed:
 		default:
-			t.Error("forwarding probe sent more than one request")
+			t.Error("forwarding probe sent more than two requests")
 		}
 	})
 	journey := newNativeJourney(t, baseline, upstream.URL+"/v1", true)
@@ -142,14 +148,14 @@ func TestNativePublishedPredecessorForwardingJourney(t *testing.T) {
 	if err != nil || cfg.Clients[codex.ID].ForwardingEndpoint != endpoint || cfg.Providers["native-system-keyring-probe"].Endpoints.OpenAIResponses != upstream.URL+"/v1" {
 		t.Fatalf("forwarding did not preserve Account ownership: %v", err)
 	}
-	journey.run("check", "--for", codex.ID)
-	var got string
-	select {
-	case got = <-requests:
-	default:
+	journey.run("check", codex.ID)
+	// The check has returned, so every request that it sent is buffered.
+	got := []string{}
+	for range len(requests) {
+		got = append(got, <-requests)
 	}
-	if got != "POST /selected/v1/responses gpt-test" {
-		t.Fatalf("forwarding request = %q, want POST /selected/v1/responses gpt-test", got)
+	if want := []string{"GET /selected/v1/models", "POST /selected/v1/responses gpt-test"}; !slices.Equal(got, want) {
+		t.Fatalf("forwarded requests = %q, want %q", got, want)
 	}
 	for _, client := range state.clients {
 		resolved, err := cfg.ResolveRuntime(client, "")

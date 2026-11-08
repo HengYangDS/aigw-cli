@@ -56,12 +56,9 @@ func TestCodexOutsideRetryEditRecoveryDoesNotLoop(t *testing.T) {
 		err := cli.Execute(app, command)
 		// The recovery is prose, so every document gives it as next_detail.
 		var result struct {
-			NextAction string `json:"next_action"`
-			NextDetail string `json:"next_detail"`
-			Clients    map[string]struct {
-				NextAction string `json:"next_action"`
-				NextDetail string `json:"next_detail"`
-			} `json:"clients"`
+			NextAction string       `json:"next_action"`
+			NextDetail string       `json:"next_detail"`
+			Clients    clientStates `json:"clients"`
 		}
 		if decodeErr := json.Unmarshal(output.Bytes(), &result); decodeErr != nil {
 			t.Fatalf("%v: %v (command error %v)\n%s", command, decodeErr, err, output)
@@ -93,14 +90,9 @@ func TestCodexOutsideRetryEditRecoveryDoesNotLoop(t *testing.T) {
 	if err := cli.Execute(app, []string{"check", "--json"}); err != nil {
 		t.Fatalf("check after the outside edit was undone: %v\n%s", err, output)
 	}
-	var checked struct {
-		Clients map[string]struct {
-			ProjectionReady bool `json:"projection_ready"`
-		} `json:"clients"`
-		OK bool `json:"ok"`
-	}
-	if err := json.Unmarshal(output.Bytes(), &checked); err != nil || !checked.OK || !checked.Clients[codex.ID].ProjectionReady {
-		t.Fatalf("check after recovery = %+v, %v\n%s", checked, err, output)
+	checked := decodeCheck(t, output)
+	if client, listed := checked.client(codex.ID); !checked.OK || !listed || client.Depth != "model" {
+		t.Fatalf("check after recovery = %+v\n%s", checked, output)
 	}
 }
 

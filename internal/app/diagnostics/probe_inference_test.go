@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
@@ -110,7 +109,7 @@ func TestInferenceScopeSuccessAndMissingModelHaveDistinctEvidence(t *testing.T) 
 	result := diagnostics.Probe(context.Background(), clientFunc(func(*http.Request) (*http.Response, error) {
 		return response(http.StatusOK, `{"status":"completed","output":[{"type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"pong"}]}]}`), nil
 	}), inferenceRuntime(), "fixture-token", diagnostics.ScopeInference)
-	if result.Kind != diagnostics.Healthy || result.Scope != diagnostics.ScopeInference || !strings.Contains(result.Summary, "Inference") {
+	if result.Kind != diagnostics.Healthy || result.Scope != diagnostics.ScopeInference || result.Summary != "the model answered" {
 		t.Fatalf("successful inference result = %#v", result)
 	}
 

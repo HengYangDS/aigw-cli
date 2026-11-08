@@ -48,10 +48,7 @@ func TestStatusAndCheckHideUnreadableConfigDetails(t *testing.T) {
 }
 
 type canonicalReadinessDocument struct {
-	Clients map[string]struct {
-		State      string `json:"state"`
-		NextAction string `json:"next_action"`
-	} `json:"clients"`
+	Clients clientStates `json:"clients"`
 }
 
 func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
@@ -88,7 +85,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 				t.Fatal(err)
 			}
 			state := result.Clients[claude.ID]
-			if state.State != "configured" || state.NextAction != "aigw verify --for claude" {
+			if state.State != "configured" || state.NextAction != "aigw check claude --depth client" {
 				t.Fatalf("external credential readiness = %#v", state)
 			}
 		}
@@ -97,7 +94,7 @@ func TestExternalCredentialPolicyDoesNotRequireAnAIGWToken(t *testing.T) {
 			if err != nil || !before.Config.Equal(after.Config) || !before.Backup.Equal(after.Backup) || !before.Verified.Equal(after.Verified) {
 				t.Fatalf("diagnosis changed external credential policy: %v", err)
 			}
-			if !strings.Contains(out.String(), "aigw verify --for claude") || strings.Contains(out.String(), "rotate") || strings.Contains(out.String(), "secret:gateway") {
+			if !strings.Contains(out.String(), "aigw check claude --depth client") || strings.Contains(out.String(), "rotate") || strings.Contains(out.String(), "secret:gateway") {
 				t.Fatalf("diagnosis confused credential retrieval with wire authentication: %s", out)
 			}
 		}
@@ -121,7 +118,7 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 		wantState string
 		wantError bool
 	}{
-		{name: "endpoint checked", status: http.StatusOK, wantState: "endpoint_checked"},
+		{name: "endpoint checked", status: http.StatusOK, wantState: "configured"},
 		{name: "invalid token", status: http.StatusUnauthorized, body: `{"message":"invalid token"}`, wantState: "invalid", wantError: true},
 		{name: "rate limited", status: http.StatusTooManyRequests, body: `{"message":"slow down"}`, wantState: "degraded", wantError: true},
 		{name: "unexpected response", status: http.StatusTeapot, body: `{"message":"unexpected"}`, wantState: "unavailable", wantError: true},
@@ -153,17 +150,18 @@ func TestCheckClassifiesAuthenticatedProbeOutcomes(t *testing.T) {
 			httpClient.status = test.status
 			httpClient.body = test.body
 
-			err := cli.Execute(app, []string{"check", "--json", "--endpoint-only"})
+			err := cli.Execute(app, []string{"check", "--json", "--depth", "endpoint"})
 			if (err != nil) != test.wantError {
 				t.Fatalf("check error = %v, want error %v\n%s", err, test.wantError, out.String())
 			}
-			var document canonicalReadinessDocument
-			if err := json.Unmarshal(out.Bytes(), &document); err != nil {
-				t.Fatalf("decode check JSON: %v\n%s", err, out.String())
+			// The depth reached, not the state, says what a request proved.
+			client, _ := decodeCheck(t, out).client(claude.ID)
+			wantDepth := "endpoint"
+			if test.wantError {
+				wantDepth = "local"
 			}
-			state := document.Clients[claude.ID].State
-			if state != test.wantState {
-				t.Fatalf("check state = %q, want %q\n%s", state, test.wantState, out.String())
+			if client.State != test.wantState || client.Depth != wantDepth {
+				t.Fatalf("check state = %q at %q, want %q at %q\n%s", client.State, client.Depth, test.wantState, wantDepth, out.String())
 			}
 		})
 	}
@@ -229,16 +227,11 @@ func TestReadinessDistinguishesConfigurationFromEndpointCheck(t *testing.T) {
 	if err := secretStore.Set("team", "token"); err != nil {
 		t.Fatal(err)
 	}
-	if err := cli.Execute(app, []string{"check", "--json", "--endpoint-only"}); err != nil {
+	if err := cli.Execute(app, []string{"check", "--json", "--depth", "endpoint"}); err != nil {
 		t.Fatalf("check failed: %v\n%s", err, out.String())
 	}
-	var document canonicalReadinessDocument
-	if err := json.Unmarshal(out.Bytes(), &document); err != nil {
-		t.Fatalf("decode check JSON: %v\n%s", err, out.String())
-	}
-	state := document.Clients[claude.ID].State
-	if state != "endpoint_checked" {
-		t.Fatalf("check state = %q, want endpoint_checked\n%s", state, out.String())
+	if client, _ := decodeCheck(t, out).client(claude.ID); client.State != "configured" || client.Depth != "endpoint" {
+		t.Fatalf("check = %+v, want configured at the endpoint depth\n%s", client, out.String())
 	}
 }
 
@@ -265,6 +258,15 @@ func TestReadOnlyCommandsShareDeferredClientState(t *testing.T) {
 
 			if err := cli.Execute(app, []string{command, "--json"}); (err != nil) != (command == "check") {
 				t.Fatalf("%s empty-scope outcome = %v\n%s", command, err, out.String())
+			}
+			if command == "check" {
+				// Check names no client while none is enabled, so it checks
+				// none and says that activation waits.
+				report := decodeCheck(t, out)
+				if report.OK || len(report.Clients) != 0 || report.State != "deferred" || report.Problem != "No client is enabled" {
+					t.Fatalf("check without an enabled client = %+v", report)
+				}
+				return
 			}
 			var document canonicalReadinessDocument
 			if err := json.Unmarshal(out.Bytes(), &document); err != nil {

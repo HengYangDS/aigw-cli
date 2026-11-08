@@ -23,7 +23,7 @@ func testClientSpecs() []ClientSpec {
 		{
 			ID: ClientClaudeDesktop, Label: "Claude Desktop", EndpointProtocols: []EndpointProtocol{ProtocolAnthropic},
 			RestartAfterProjection: true, QualifiedModes: []string{"Chat", "Cowork", "Code"}, QualifiedPlatforms: []string{"macOS"},
-			OptionalTarget: "configLibrary",
+			OptionalTarget: "configLibrary", InAppAcceptance: true,
 		},
 		{
 			ID: ClientCodex, Label: "Codex", EndpointProtocols: []EndpointProtocol{ProtocolOpenAIResponses},

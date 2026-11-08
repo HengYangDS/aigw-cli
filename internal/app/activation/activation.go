@@ -104,7 +104,7 @@ func observedClientAction(clients []domainreadiness.Client) string {
 		case domainreadiness.Degraded, domainreadiness.Invalid, domainreadiness.Unavailable:
 			priority = 3
 			attention = true
-		case domainreadiness.Configured, domainreadiness.EndpointChecked, domainreadiness.InferenceChecked:
+		case domainreadiness.Configured:
 			priority = 2
 		case domainreadiness.Deferred:
 			priority = 1

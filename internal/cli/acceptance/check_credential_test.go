@@ -34,11 +34,11 @@ func TestCheckDoesNotRecommendRotationForUnreadableToken(t *testing.T) {
 	want := fmt.Errorf("private credential detail: %w", native.ErrUnavailable)
 	app.Secrets = &recordingCredentialStore[string]{backend: secretStore, getErr: want}
 
-	err = cli.Execute(app, []string{"check", "--for", "claude"})
+	err = cli.Execute(app, []string{"check", "claude"})
 	if !errors.Is(err, native.ErrUnavailable) {
 		t.Fatalf("check error = %v, want unreadable credential", err)
 	}
-	for _, text := range []string{"Claude account token could not be read", "aigw doctor"} {
+	for _, text := range []string{"The credential backend could not return provider one's Token", "Fix: Make the credential store available to this session"} {
 		if !strings.Contains(out.String(), text) {
 			t.Fatalf("check output lacks %q: %s", text, out.String())
 		}
@@ -75,7 +75,7 @@ func TestCheckNamesTheEnvironmentTokenForARejectedToken(t *testing.T) {
 	httpClient.handler = func(req *http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusUnauthorized, Body: io.NopCloser(strings.NewReader(`{"message":"invalid token"}`)), Request: req}, nil
 	}
-	for _, args := range [][]string{{"check", "--endpoint-only"}, {"check", "--endpoint-only", "--json"}} {
+	for _, args := range [][]string{{"check", "--depth", "endpoint"}, {"check", "--depth", "endpoint", "--json"}} {
 		out.Reset()
 		_ = cli.Execute(app, args)
 		if !strings.Contains(out.String(), variable) || strings.Contains(out.String(), "rotate") || strings.Contains(out.String(), "rejected-fixture-token") {
