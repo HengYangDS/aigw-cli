@@ -98,7 +98,7 @@ func runRemove(cmd *cobra.Command, runtime invocation.Context, args []string, dr
 func refuseCaseVariant(cfg domain.Config, id string) error {
 	for _, configured := range cfg.CatalogProviderIDs() {
 		if domain.SameIdentifier(configured, id) {
-			return terminal.ProblemError(fmt.Sprintf("%q is provider %q in another case, so it holds no credentials of its own", id, configured),
+			return terminal.ProblemError(fmt.Sprintf("%q differs only in case from provider %q, so AIGW does not remove it as a leftover", id, configured),
 				"", "Nothing was deleted.", "aigw provider remove "+configured+" --dry-run", nil)
 		}
 	}
