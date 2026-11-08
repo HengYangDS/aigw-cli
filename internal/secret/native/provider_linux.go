@@ -99,24 +99,45 @@ func queryCredential(operation, service, account string, input []byte, _ Role) (
 	return nil, refuseSecretServicePrompt(credentialService.Object(secretServiceName, prompt))
 }
 
+// secretServiceListing is what listing reads from a Secret Service: the
+// collection's lock state, its items for a service, and an item's attributes.
+type secretServiceListing struct {
+	requireUnlocked func() error
+	search          func(service string) ([]dbus.ObjectPath, error)
+	attributes      func(item dbus.ObjectPath) (dbus.Variant, error)
+}
+
 // listSecretServiceAccounts names a service's accounts from each item's
-// attributes. It opens no session, so no secret can be transferred, and it
-// refuses a locked collection rather than ask to unlock it: a locked store
-// may hold only hashes of the attributes, which name no account.
+// attributes. It opens no session, so no secret can be transferred.
 func listSecretServiceAccounts(credentialService *ss.SecretService, collection dbus.BusObject, service string) ([]byte, error) {
-	items, err := credentialService.SearchItems(collection, map[string]string{"service": service})
+	return listAccounts(secretServiceListing{
+		requireUnlocked: func() error { return requireUnlockedSecretServiceObject(collection, secretCollectionInterface) },
+		search: func(service string) ([]dbus.ObjectPath, error) {
+			return credentialService.SearchItems(collection, map[string]string{"service": service})
+		},
+		attributes: func(item dbus.ObjectPath) (dbus.Variant, error) {
+			return credentialService.Object(secretServiceName, item).GetProperty(secretItemInterface + ".Attributes")
+		},
+	}, service)
+}
+
+// listAccounts refuses a locked collection before it searches, rather than
+// ask to unlock it: a locked store can return no items, which would read as
+// nothing stored when the truth is that it cannot tell.
+func listAccounts(store secretServiceListing, service string) ([]byte, error) {
+	if err := store.requireUnlocked(); err != nil {
+		return nil, err
+	}
+	items, err := store.search(service)
 	if err != nil {
 		return nil, fmt.Errorf("search Secret Service item metadata: %w", err)
 	}
 	if len(items) == 0 {
 		return nil, nil
 	}
-	if err := requireUnlockedSecretServiceObject(collection, secretCollectionInterface); err != nil {
-		return nil, err
-	}
 	names := make([]string, 0, len(items))
 	for _, item := range items {
-		property, err := credentialService.Object(secretServiceName, item).GetProperty(secretItemInterface + ".Attributes")
+		property, err := store.attributes(item)
 		if err != nil {
 			return nil, fmt.Errorf("read Secret Service item attributes: %w", err)
 		}
