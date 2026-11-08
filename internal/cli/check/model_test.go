@@ -147,3 +147,22 @@ func TestCheckOfANamedModelNamesItsRetry(t *testing.T) {
 		t.Fatalf("the deeper check = %q", got)
 	}
 }
+
+// A one-time Token that the provider rejects was never stored, so its fix is
+// not to rotate the stored Token: it pipes a Token that the provider accepts
+// into the same check, as guidance, since a script cannot run it as it stands.
+func TestCheckOfARejectedOneTimeTokenNamesTheSameCheck(t *testing.T) {
+	fixture := namedModelRuntime(t)
+	fixture.ctx.In = strings.NewReader("sk-once-0001\n")
+	fixture.ctx.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return status(http.StatusUnauthorized)(request)
+	})
+	if err := execute(fixture.ctx, claude.ID, "--model", "one/spare-test", "--token-stdin", "--depth", "endpoint", "--json"); err == nil {
+		t.Fatal("a rejected one-time Token passed")
+	}
+	client := decode(t, fixture.out).client(t, claude.ID)
+	want := "Pipe a Token that provider one accepts into `aigw check claude --model one/spare-test --token-stdin --depth endpoint`."
+	if client.NextAction != "" || client.NextDetail != want {
+		t.Fatalf("a rejected one-time Token's fix = %q, %q; want %q", client.NextAction, client.NextDetail, want)
+	}
+}

@@ -219,6 +219,11 @@ func (c *checker) probeFailure(r *result, d depth, observed diagnostics.Result) 
 	switch observed.Kind {
 	case diagnostics.InvalidToken:
 		f.fix = c.rotateFix(provider, true)
+		if c.named.token != "" {
+			// The stored Token was never read, so replacing it fixes nothing:
+			// the same check needs a Token that the provider accepts.
+			f.fix = "Pipe a Token that provider " + provider + " accepts into `" + c.checkCommand(r.spec.ID, c.plan.requested) + "`."
+		}
 	case diagnostics.TokenDisabled:
 		f.fix = "Enable the Token in provider " + provider + "'s console."
 	case diagnostics.TokenRestricted:
