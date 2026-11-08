@@ -96,6 +96,13 @@ func TestBalanceNamesTheFixOfEachFailure(t *testing.T) {
 	if item := document.Providers[0]; !strings.HasPrefix(item.Problem, "DMXAPI platform API returned HTTP 500") || item.NextAction != "aigw provider balance team" {
 		t.Fatalf("a failed probe = %+v", item)
 	}
+	f.runtime.Secrets = emptyToken{Store: f.runtime.Secrets}
+	_ = f.run("", "balance", "team", "--json")
+	var empty balanceDocument
+	f.decode(t, &empty)
+	if item := empty.Providers[0]; item.Problem != "no Token is stored" || item.NextAction != "" || item.NextDetail != "aigw provider rotate team" {
+		t.Fatalf("an empty Token = %+v", item)
+	}
 	f.runtime.Secrets = failingStore{}
 	_ = f.run("", "balance", "team", "--json")
 	f.decode(t, &document)
@@ -236,3 +243,9 @@ func TestBalanceAndRemoveReportAnOutputThatFails(t *testing.T) {
 type failingOutput struct{}
 
 func (failingOutput) Write([]byte) (int, error) { return 0, errors.New("output refused") }
+
+// emptyToken is a store whose Token slot is present and empty, as a file
+// backend reports one.
+type emptyToken struct{ secret.Store }
+
+func (emptyToken) Get(string) (string, error) { return "", secret.ErrEmpty }

@@ -177,7 +177,9 @@ func balanceCredentialProblem(store secret.Store, id string, err error) (string,
 // that failed is shown by the provider's credential report.
 func tokenProblem(store secret.Store, id string, err error) (string, string) {
 	switch {
-	case !errors.Is(err, secret.ErrNotFound):
+	// An empty Token is a missing one, as check reports it: no provider
+	// accepts it, and storing a Token again replaces it.
+	case !errors.Is(err, secret.ErrNotFound) && !errors.Is(err, secret.ErrEmpty):
 		return "the credential backend could not read the Token", "aigw provider show " + id
 	case secret.IsReadOnly(store):
 		return "no Token: " + secret.EnvironmentKey(id) + " is not set", "Set " + secret.EnvironmentKey(id) + " in aigw's environment."
