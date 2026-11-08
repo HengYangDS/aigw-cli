@@ -47,6 +47,9 @@ func runRemove(cmd *cobra.Command, runtime invocation.Context, args []string, dr
 		return err
 	}
 	if _, configured := cfg.Providers[args[0]]; !configured {
+		if err := refuseCaseVariant(cfg, args[0]); err != nil {
+			return err
+		}
 		if removed, err := removeLeftover(cmd, runtime, args, dryRun, jsonMode); removed || err != nil {
 			return err
 		}
@@ -85,6 +88,21 @@ func runRemove(cmd *cobra.Command, runtime invocation.Context, args []string, dr
 		return terminal.WriteDocument(runtime.Out, removeSchemaVersion, true, document)
 	}
 	return renderRemoval(runtime, document, next)
+}
+
+// refuseCaseVariant refuses an ID that differs only in case from a configured
+// provider, before any store access. A file system that ignores case keeps
+// both in one slot, so deleting the ID's credentials would delete the
+// provider's. The fix previews the provider's removal, which changes nothing
+// if it is run as it stands.
+func refuseCaseVariant(cfg domain.Config, id string) error {
+	for _, configured := range cfg.CatalogProviderIDs() {
+		if domain.SameIdentifier(configured, id) {
+			return terminal.ProblemError(fmt.Sprintf("%q is provider %q in another case, so it holds no credentials of its own", id, configured),
+				"", "Nothing was deleted.", "aigw provider remove "+configured+" --dry-run", nil)
+		}
+	}
+	return nil
 }
 
 // removeLeftover removes what a store holds for an ID that no provider has,

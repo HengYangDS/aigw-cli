@@ -258,3 +258,61 @@ func TestRemoveNamesTheVariableOfATokenThatNoProviderHas(t *testing.T) {
 		t.Fatalf("the removal said: %s", f.text())
 	}
 }
+
+// foldingSecrets and foldingBalance are credential stores on a file system
+// that ignores case, as APFS is by default, without relying on the host's: an
+// ID in another case reaches the same slot. They count every access.
+type foldingSecrets struct {
+	secret.Store
+	accesses *int
+}
+
+func (s foldingSecrets) Exists(id string) (bool, error) {
+	*s.accesses++
+	return s.Store.Exists(strings.ToLower(id))
+}
+
+func (s foldingSecrets) Delete(id string) error {
+	*s.accesses++
+	return s.Store.Delete(strings.ToLower(id))
+}
+
+type foldingBalance struct {
+	secret.DiagnosticCredentialStore
+	accesses *int
+}
+
+func (s foldingBalance) Exists(id string) (bool, error) {
+	*s.accesses++
+	return s.DiagnosticCredentialStore.Exists(strings.ToLower(id))
+}
+
+func (s foldingBalance) Delete(id string) error {
+	*s.accesses++
+	return s.DiagnosticCredentialStore.Delete(strings.ToLower(id))
+}
+
+// An ID that differs only in case from a configured provider is that
+// provider, never a leftover: it is refused, naming the provider, before any
+// store access, and the provider keeps its Token and balance credentials.
+func TestRemoveRefusesAnIDThatDiffersFromAProviderOnlyInCase(t *testing.T) {
+	f := newFixture(t)
+	accesses := 0
+	token, balance := f.runtime.Secrets, f.runtime.Providers
+	f.runtime.Secrets, f.runtime.Providers = foldingSecrets{Store: token, accesses: &accesses}, foldingBalance{DiagnosticCredentialStore: balance, accesses: &accesses}
+	for _, args := range [][]string{{"remove", "TEAM"}, {"remove", "TEAM", "--dry-run"}, {"remove", "Team", "--json"}} {
+		p := problem(f.run("", args...))
+		if !strings.Contains(p.Title, `provider "team"`) || p.Fix != "aigw provider remove team --dry-run" || p.Impact != "Nothing was deleted." {
+			t.Fatalf("%v = %+v", args, p)
+		}
+	}
+	if accesses != 0 {
+		t.Fatalf("the refusal reached the store %d times", accesses)
+	}
+	if present, err := token.Exists("team"); err != nil || !present {
+		t.Fatalf("the provider's Token after the refusal: %t, %v", present, err)
+	}
+	if present, err := balance.Exists("team"); err != nil || !present {
+		t.Fatalf("the provider's balance credentials after the refusal: %t, %v", present, err)
+	}
+}

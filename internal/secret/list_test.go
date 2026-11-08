@@ -143,3 +143,19 @@ func TestMemoryStoreListsItsTokens(t *testing.T) {
 		t.Fatalf("UnusedTokens() = %q, %v", unused, err)
 	}
 }
+
+// A name that differs only in case from a configured provider is that
+// provider's slot on a file system that ignores case, so it is never listed:
+// check would print the command that deletes a live Token.
+func TestUnusedTokensNeverListsACaseVariantOfAProvider(t *testing.T) {
+	store := NewMemoryStore()
+	for _, id := range []string{"TEAM", "orphan"} {
+		if err := store.Set(id, "value"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	unused, err := UnusedTokens(store, []string{"team"})
+	if err != nil || !slices.Equal(unused, []string{"orphan"}) {
+		t.Fatalf("UnusedTokens() = %q, %v", unused, err)
+	}
+}

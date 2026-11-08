@@ -43,8 +43,10 @@ type credentialBackend interface {
 }
 
 // UnusedTokens returns, sorted, the provider IDs of the stored Tokens whose
-// provider is not one of providers. It reads names only. It fails, without
-// claiming there are none, when the backend cannot name its Tokens.
+// provider is not one of providers, ignoring case, because a file system that
+// ignores case keeps both spellings in one slot. It reads names only. It
+// fails, without claiming there are none, when the backend cannot name its
+// Tokens.
 func UnusedTokens(store Store, providers []string) ([]string, error) {
 	backend := backendStore(store)
 	if backend == nil {
@@ -60,13 +62,9 @@ func UnusedTokens(store Store, providers []string) ([]string, error) {
 	if _, environment := backend.(environmentStore); environment {
 		slot = EnvironmentKey
 	}
-	used := make(map[string]bool, len(providers))
-	for _, provider := range providers {
-		used[slot(provider)] = true
-	}
 	unused := make([]string, 0, len(listed))
 	for _, id := range listed {
-		if !used[slot(id)] {
+		if !slices.ContainsFunc(providers, func(provider string) bool { return domain.SameIdentifier(slot(provider), slot(id)) }) {
 			unused = append(unused, id)
 		}
 	}
