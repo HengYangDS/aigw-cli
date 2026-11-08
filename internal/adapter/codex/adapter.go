@@ -216,9 +216,11 @@ func (codexAdapter) Withdraw(cfg *domain.Config) {
 func convergedTargets(discovered discovery.Result, current []string) []string {
 	seen := map[string]bool{}
 	targets := make([]string, 0, len(current)+len(discovered.Surfaces))
+	// One file can be spelled several ways, such as with / or \ on Windows,
+	// so a spelling of a file already listed adds nothing.
 	appendTarget := func(path string) {
-		if path != "" && !seen[path] {
-			seen[path] = true
+		if spelling := sameFileSpelling(path); path != "" && !seen[spelling] {
+			seen[spelling] = true
 			targets = append(targets, path)
 		}
 	}

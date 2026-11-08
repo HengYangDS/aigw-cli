@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
+	"strings"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/surface"
@@ -59,7 +61,7 @@ func normalizeCodexTargets(values []TargetRef, desired bool) ([]TargetRef, error
 			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: err}
 		}
 		if _, duplicate := seen[path]; duplicate {
-			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: errors.New("Codex config target is duplicated: another target names the same file")}
+			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: duplicateTargetError{}}
 		}
 		seen[path] = struct{}{}
 		folder, err := canonicalCodexTargetPath(filepath.Dir(sourcePath))
@@ -73,6 +75,31 @@ func normalizeCodexTargets(values []TargetRef, desired bool) ([]TargetRef, error
 	}
 	sort.Slice(normalized, func(left, right int) bool { return normalized[left].Path < normalized[right].Path })
 	return normalized, nil
+}
+
+// duplicateTargetError refuses two configured targets that name one file. A
+// sync converges them into one, so a refusal here came from an explicit edit,
+// whose own command line names the targets again.
+type duplicateTargetError struct{}
+
+func (duplicateTargetError) Error() string {
+	return "Codex config target is duplicated: another target names the same file"
+}
+
+// NextAction names each file once with client edit.
+func (duplicateTargetError) NextAction() string {
+	return "aigw client edit codex --target <file>, naming each Codex configuration file once"
+}
+
+// sameFileSpelling is path cleaned, with the separators and, where the file
+// system ignores case by default, the case that two spellings of one file can
+// differ by, so that they compare equal.
+func sameFileSpelling(path string) string {
+	cleaned := filepath.Clean(path)
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		return strings.ToLower(cleaned)
+	}
+	return cleaned
 }
 
 func canonicalCodexTargetPath(path string) (string, error) {
