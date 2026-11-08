@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 var writeFileAtomic = platform.WriteFileAtomic
@@ -149,7 +150,7 @@ func refuseFileAsFolder(target string) error {
 				return nil
 			}
 			if info.Mode().IsRegular() {
-				return &os.PathError{Op: "mkdir", Path: folder, Err: errNotADirectory}
+				return &os.PathError{Op: "mkdir", Path: folder, Err: syscall.ENOTDIR}
 			}
 			// A symbolic link is followed by the install itself.
 			return nil
@@ -159,10 +160,6 @@ func refuseFileAsFolder(target string) error {
 		}
 	}
 }
-
-// errNotADirectory is a file where a target needs a folder, in the same words
-// on every platform.
-var errNotADirectory = errors.New("not a directory")
 
 // TargetDirectoryError is a directory at the path of the portable program,
 // which AIGW neither replaces nor removes. The command succeeds with a path

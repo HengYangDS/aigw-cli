@@ -124,7 +124,7 @@ func TestInstallCommandNamesTheTargetThatItCannotUse(t *testing.T) {
 			t.Fatalf("%v: installing under a file passed", args)
 		}
 		problem := terminal.ProblemFor(err)
-		if !strings.Contains(problem.Title, target) || !strings.Contains(problem.Fix, target) ||
+		if !strings.Contains(problem.Title, target) || !strings.Contains(problem.Fix, target) || strings.Contains(problem.Title, "unexpected error") ||
 			!strings.HasSuffix(problem.Fix, "then run the same command again.") || strings.Contains(problem.Fix, "aigw check") {
 			t.Fatalf("%v: problem = %+v", args, problem)
 		}
