@@ -55,7 +55,10 @@ jsonset $HOME/.claude/settings.json model '"team-model"'
 # Claude Desktop needs acceptance inside the app, so its client depth is
 # skipped; the check passes. A provider that fails stops only its client.
 exec aigw use claude-desktop team/team-model
-exec aigw client edit claude-desktop --executable $BIN/claude$exe --target $WORK/configLibrary
+# Claude Desktop keeps its standard configuration two levels above its
+# library, so the library sits two levels below $WORK: every script's files
+# stay inside its own $WORK.
+exec aigw client edit claude-desktop --executable $BIN/claude$exe --target $WORK/desktop/Claude-3p/configLibrary
 exec aigw check claude-desktop --depth client
 cmp stdout desktop.txt
 

@@ -119,10 +119,13 @@ stdin desk-token.txt
 exec aigw provider add desk --endpoint anthropic=$UPSTREAM/desk --endpoint chat=$UPSTREAM/desk/v1 --token-stdin
 exec aigw model add desk/team-model --protocol anthropic --capability tool_search
 exec aigw model add desk/spare-model --protocol chat --capability text --capability tools
-mkdir $WORK/library
+# Claude Desktop keeps its standard configuration two levels above its
+# library, so the library sits two levels below $WORK: every script's files
+# stay inside its own $WORK.
+mkdir $WORK/desktop/Claude-3p/configLibrary
 chmod 0755 Claude
 exec aigw use claude-desktop desk/team-model
-exec aigw client edit claude-desktop --executable $WORK/Claude --target $WORK/library
+exec aigw client edit claude-desktop --executable $WORK/Claude --target $WORK/desktop/Claude-3p/configLibrary
 exec aigw use claude desk/spare-model --dry-run
 stdout '! Tool search +Off in Claude Desktop, because desk/spare-model declares no tool_search'
 stdout 'Other clients +Claude Desktop: their files change too; restart Claude Desktop to apply them'
