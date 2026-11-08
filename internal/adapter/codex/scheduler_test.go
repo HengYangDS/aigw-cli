@@ -307,13 +307,13 @@ func TestCodexReconciliationRecognizesOwnedState(t *testing.T) {
 	if _, err := codexStateForTarget(platform.FileSnapshot{Exists: true, Data: []byte("{")}); err == nil {
 		t.Fatal("invalid state JSON was accepted")
 	}
-	if _, err := normalizeCodexTargets([]TargetRef{{}}); err == nil {
+	if _, err := normalizeCodexTargets([]TargetRef{{}}, true); err == nil {
 		t.Fatal("incomplete target was accepted")
 	}
 	if _, err := canonicalCodexTargetPath(t.TempDir() + "/missing/config.toml"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := normalizeCodexTargets([]TargetRef{HomeTarget(config), HomeTarget(config)}); err == nil {
+	if _, err := normalizeCodexTargets([]TargetRef{HomeTarget(config), HomeTarget(config)}, true); err == nil {
 		t.Fatal("duplicate target was accepted")
 	}
 	if _, err := codexStateForTarget(platform.FileSnapshot{Exists: true, Data: []byte(`{"projection_mode":"full_selection"}`)}); err == nil {

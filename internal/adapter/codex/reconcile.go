@@ -257,7 +257,7 @@ func prepareCodexReconciliationTransition(before, after []TargetRef, previous, r
 	for _, target := range targets {
 		candidate, err := prepareCodexReconciliationTarget(target, previous, runtime, endpoint, transactionID, replaceRootSelections)
 		if err != nil {
-			return nil, &adapter.TargetError{Desired: target.desired, Err: fmt.Errorf("prepare Codex target %s: %w", target.ref.Path, err)}
+			return nil, &adapter.TargetError{Desired: target.desired, Path: target.ref.reportName(target.ref.Path), Err: err}
 		}
 		prepared = append(prepared, candidate)
 	}

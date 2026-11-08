@@ -3,6 +3,7 @@ package adapter
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 
@@ -64,5 +65,42 @@ func TestAnApplicationThatFailsAtAFileReportsEachFile(t *testing.T) {
 	_, _, err = registry.Apply(t.Context(), deps, domain.NewConfig(registry.Admission()), domain.NewConfig(registry.Admission()))
 	if _, atFile := errors.AsType[*ApplyError](err); atFile || err == nil {
 		t.Fatalf("a failure without a file = %v", err)
+	}
+}
+
+// planningAdapter is a client whose plan fails with err.
+type planningAdapter struct {
+	failingProjectionAdapter
+	err error
+}
+
+func (adapter planningAdapter) Plan(Dependencies, domain.Config, domain.Config) ([]ProjectionPlan, error) {
+	return nil, adapter.err
+}
+
+// A plan that fails at a client file names the client and the home directory
+// against which a report names the file, as an application's failure does;
+// a client that already named them keeps its own.
+func TestAPlanThatFailsAtAFileNamesItsClientAndHome(t *testing.T) {
+	failure := &TargetError{Path: "/home/a/config.toml", Desired: true, Err: errors.New("it does not exist")}
+	registry, err := NewRegistry(planningAdapter{id: "first", events: &[]string{}, err: fmt.Errorf("plan: %w", failure)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := Dependencies{}
+	deps.Host.Home = "/home"
+	cfg := domain.NewConfig(registry.Admission())
+	_, err = registry.Plan(deps, cfg, cfg)
+	if named, ok := errors.AsType[*TargetError](err); !ok || named.Client != "first" || named.Home != "/home" || named.Path != "/home/a/config.toml" ||
+		err.Error() != "plan: /home/a/config.toml: it does not exist" {
+		t.Fatalf("Plan() = %#v, %v", named, err)
+	}
+	named := &TargetError{Client: "Own", Home: "/elsewhere", Path: "/elsewhere/a.toml", Err: errors.New("broken")}
+	registry, err = NewRegistry(planningAdapter{id: "first", events: &[]string{}, err: named})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.Plan(deps, cfg, cfg); named.Client != "Own" || named.Home != "/elsewhere" || !errors.Is(err, named) {
+		t.Fatalf("Plan() renamed a named failure: %#v, %v", named, err)
 	}
 }

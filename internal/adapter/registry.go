@@ -218,7 +218,7 @@ func (registry Registry) Plan(deps Dependencies, before, after domain.Config, cl
 	for _, adapter := range adapters {
 		adapterPlans, err := adapter.Plan(deps, before, after)
 		if err != nil {
-			return nil, err
+			return nil, namedTarget(ClientLabel(adapter.Spec().Label), deps.Host.Home, err)
 		}
 		plans = append(plans, adapterPlans...)
 	}

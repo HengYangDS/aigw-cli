@@ -40,6 +40,53 @@ func clientFileProblem(failure *adapter.ApplyError, err error) Problem {
 	return problem
 }
 
+// targetProblem is the problem of a client file that a command could not use
+// while it planned the client's files: the client, the file as the operator
+// configured it and why, what became of the configuration, and the fix that
+// the failure names, or else one that acts on a file error.
+func targetProblem(failure *adapter.TargetError, err error) Problem {
+	name := fileName(failure.Path, failure.Home)
+	problem := Problem{
+		Title:  failure.Client + " cannot use " + name + ": " + targetReason(failure.Err),
+		Impact: "Configuration and client files are unchanged.",
+	}
+	if recovery, ok := errors.AsType[configurationRecovery](err); ok {
+		problem.Impact = "The configuration was restored."
+		if !recovery.ConfigurationRestored() {
+			problem.Impact = "Restoring the configuration failed too, so it may still hold the change."
+		}
+	}
+	problem.Fix = targetFix(err, name)
+	return problem
+}
+
+// targetReason says why a client file could not be used: an operating-system
+// error by its reason, which names no path, or else the failure's own text.
+func targetReason(err error) string {
+	if _, atPath := errors.AsType[*fs.PathError](err); atPath {
+		return fileErrorReason(err)
+	}
+	return err.Error()
+}
+
+// targetFix is the fix that a failure to use a client file names for itself,
+// or else, for an operating-system error, the file made readable or the error
+// resolved, and the same command again.
+func targetFix(err error, name string) string {
+	if fix, stated := statedFix(err, ""); stated {
+		return fix
+	}
+	_, atPath := errors.AsType[*fs.PathError](err)
+	switch {
+	case errors.Is(err, fs.ErrPermission):
+		return "Make " + name + " readable, then run the same command again."
+	case atPath:
+		return "Resolve " + fileErrorReason(err) + " on " + name + ", then run the same command again."
+	default:
+		return errorFix(err, err.Error())
+	}
+}
+
 // fileFix is the fix of a file that could not be written, which name names: a
 // writable file and folder for a permission error, the same command again for
 // a file that changed while AIGW wrote it, which the command then reads as it

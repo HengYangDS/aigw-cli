@@ -116,3 +116,35 @@ func TestAClientFilesFailureWithoutAFileNamesStatus(t *testing.T) {
 		t.Fatalf("a file whose place is unknown = %q", name)
 	}
 }
+
+// A client file that a plan cannot use is named as the operator configured
+// it, relative to the home directory inside it and by its full path outside
+// it, with why, that configuration and client files are unchanged or what
+// became of the configuration, and the failure's own fix, or else one that
+// acts on its file error. No path of the failure's own text reaches it.
+func TestAPlanningFailureNamesTheConfiguredFile(t *testing.T) {
+	home, elsewhere := t.TempDir(), t.TempDir()
+	inside := &adapter.TargetError{Client: "Codex", Home: home, Path: filepath.Join(home, ".codex", "config.toml"), Desired: true, Err: nextActionError{}}
+	err := fmt.Errorf("sync synchronization preflight failed; configuration and client files were unchanged: %w", inside)
+	want := Problem{
+		Title:  "Codex cannot use ~/.codex/config.toml: a directory is in the way",
+		Impact: "Configuration and client files are unchanged.",
+		Fix:    "Move the directory, then run the command again.",
+	}
+	if problem := ProblemFor(err); problem != want {
+		t.Fatalf("a planning failure inside the home directory = %#v", problem)
+	}
+	outside := filepath.Join(elsewhere, "config.toml")
+	resolved := filepath.Join(elsewhere, "resolved", "config.toml")
+	unreadable := &adapter.TargetError{Client: "Codex", Home: home, Path: outside, Err: fmt.Errorf("read Codex config: %w", &os.PathError{Op: "open", Path: resolved, Err: os.ErrPermission})}
+	problem := ProblemFor(presentationProjectionError{restored: true, cause: unreadable})
+	if problem.Title != "Codex cannot use "+outside+": permission denied" || problem.Impact != "The configuration was restored." ||
+		problem.Fix != "Make "+outside+" readable, then run the same command again." {
+		t.Fatalf("an unreadable file outside the home directory = %#v", problem)
+	}
+	var out bytes.Buffer
+	RenderError(NewRenderer(&out, false), unreadable, true)
+	if bytes.Contains(out.Bytes(), []byte("resolved")) || !bytes.Contains(out.Bytes(), []byte(`"error": "Codex cannot use `)) {
+		t.Fatalf("failure document = %s", out.String())
+	}
+}

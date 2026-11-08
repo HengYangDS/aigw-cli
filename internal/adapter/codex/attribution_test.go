@@ -287,13 +287,13 @@ func TestValidateCodexStateAttributionRejectsIncompleteOrForeignState(t *testing
 }
 
 func TestNormalizeCodexTargetsRejectsIncompleteAndDuplicateTargets(t *testing.T) {
-	_, err := normalizeCodexTargets([]TargetRef{{Path: "p"}})
+	_, err := normalizeCodexTargets([]TargetRef{{Path: "p"}}, true)
 	if err == nil {
 		t.Error("expected error for missing fields")
 	}
 
 	target := TargetRef{Path: "p", SurfaceID: "s"}
-	_, err = normalizeCodexTargets([]TargetRef{target, target})
+	_, err = normalizeCodexTargets([]TargetRef{target, target}, true)
 	if err == nil || !strings.Contains(err.Error(), "duplicated") {
 		t.Errorf("expected duplicate error, got %v", err)
 	}

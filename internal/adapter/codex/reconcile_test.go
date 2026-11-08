@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"bytes"
@@ -397,7 +398,8 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 
 	t.Run("config missing", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "missing.toml")
-		if _, err := planCodexReconciliationTransition(nil, []TargetRef{HomeTarget(path)}, atomicTestRuntime(), atomicTestRuntime(), false); err == nil || !strings.Contains(err.Error(), "config does not exist") || !strings.Contains(err.Error(), "prepare Codex target") {
+		_, err := planCodexReconciliationTransition(nil, []TargetRef{HomeTarget(path)}, atomicTestRuntime(), atomicTestRuntime(), false)
+		if failed, atTarget := errors.AsType[*adapter.TargetError](err); !atTarget || failed.Path != path || !strings.Contains(err.Error(), "config does not exist") {
 			t.Fatalf("planCodexReconciliationTransition() error = %v", err)
 		}
 	})
@@ -418,7 +420,8 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 		if err := os.Mkdir(codexStatePath(path), 0o700); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := planCodexReconciliationTransition(nil, []TargetRef{HomeTarget(path)}, atomicTestRuntime(), atomicTestRuntime(), false); err == nil || !strings.Contains(err.Error(), "prepare Codex target") {
+		_, err := planCodexReconciliationTransition(nil, []TargetRef{HomeTarget(path)}, atomicTestRuntime(), atomicTestRuntime(), false)
+		if failed, atTarget := errors.AsType[*adapter.TargetError](err); !atTarget || failed.Path != path {
 			t.Fatalf("planCodexReconciliationTransition() error = %v", err)
 		}
 	})
@@ -438,7 +441,7 @@ func TestCodexReconciliationPreflightErrors(t *testing.T) {
 		if err := os.Symlink(path, path); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := normalizeCodexTargets([]TargetRef{HomeTarget(path)}); err == nil || !strings.Contains(err.Error(), "resolve Codex target symlinks") {
+		if _, err := normalizeCodexTargets([]TargetRef{HomeTarget(path)}, true); err == nil || !strings.Contains(err.Error(), "resolve Codex target symlinks") {
 			t.Fatalf("normalizeCodexTargets() error = %v", err)
 		}
 	})
@@ -498,5 +501,36 @@ func TestReconcileConfigsNamesFailedFilesAsConfigured(t *testing.T) {
 				t.Fatalf("restored %q, want %q", restored, test.restored)
 			}
 		})
+	}
+}
+
+// A configured file that a plan cannot use is reported as the operator
+// configured it, never resolved through a linked folder, and its failure
+// names no path itself: a deleted configuration, and a second target that
+// names the same file.
+func TestPlanningFailuresNameTheConfiguredFile(t *testing.T) {
+	dir := t.TempDir()
+	folder := filepath.Join(dir, "real")
+	if err := os.Mkdir(folder, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(folder, link); err != nil {
+		t.Skipf("symbolic links are unavailable: %v", err)
+	}
+	configured := filepath.Join(link, "config.toml")
+	_, err := planCodexReconciliationTransition(nil, []TargetRef{HomeTarget(configured)}, atomicTestRuntime(), atomicTestRuntime(), false)
+	failed, atTarget := errors.AsType[*adapter.TargetError](err)
+	if !atTarget || failed.Path != configured || !failed.Desired || strings.Contains(failed.Err.Error(), dir) {
+		t.Fatalf("a deleted configuration = %#v, %v", failed, err)
+	}
+	if err := os.WriteFile(configured, []byte("model_provider = \"native\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	second := filepath.Join(folder, "config.toml")
+	_, err = normalizeCodexTargets([]TargetRef{HomeTarget(configured), HomeTarget(second)}, true)
+	if failed, atTarget := errors.AsType[*adapter.TargetError](err); !atTarget || (failed.Path != configured && failed.Path != second) ||
+		strings.Contains(failed.Err.Error(), dir) {
+		t.Fatalf("a duplicated target = %#v, %v", failed, err)
 	}
 }

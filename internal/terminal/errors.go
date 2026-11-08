@@ -310,6 +310,7 @@ func capitalized(clause string) string {
 func problemFor(err error) Problem {
 	user, structured := errors.AsType[*userError](err)
 	failure, atFile := errors.AsType[*adapter.ApplyError](err)
+	target, atTarget := errors.AsType[*adapter.TargetError](err)
 	impact, recovered := ConfigurationRecoveryImpact(err)
 	switch {
 	case structured:
@@ -323,6 +324,8 @@ func problemFor(err error) Problem {
 		}
 	case atFile:
 		return clientFileProblem(failure, err)
+	case atTarget && target.Path != "" && target.Client != "":
+		return targetProblem(target, err)
 	case recovered:
 		// Without a file to name, status shows what each client needs, and it
 		// sends no probe.

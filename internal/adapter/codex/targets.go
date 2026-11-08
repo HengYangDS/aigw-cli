@@ -1,21 +1,23 @@
 package codex
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/surface"
 )
 
 func codexTargetUnion(before, after []TargetRef) ([]codexReconciliationTarget, error) {
-	normalizedBefore, err := normalizeCodexTargets(before)
+	normalizedBefore, err := normalizeCodexTargets(before, false)
 	if err != nil {
 		return nil, err
 	}
-	normalizedAfter, err := normalizeCodexTargets(after)
+	normalizedAfter, err := normalizeCodexTargets(after, true)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +39,11 @@ func codexTargetUnion(before, after []TargetRef) ([]codexReconciliationTarget, e
 	return union, nil
 }
 
-func normalizeCodexTargets(values []TargetRef) ([]TargetRef, error) {
+// normalizeCodexTargets resolves each target's path, keeping it as
+// configured for reports. A target that cannot be resolved, or that names the
+// same file as another, fails as that target, which desired says the change
+// keeps.
+func normalizeCodexTargets(values []TargetRef, desired bool) ([]TargetRef, error) {
 	normalized := make([]TargetRef, 0, len(values))
 	seen := make(map[string]struct{}, len(values))
 	for _, target := range values {
@@ -46,19 +52,19 @@ func normalizeCodexTargets(values []TargetRef) ([]TargetRef, error) {
 		}
 		sourcePath, err := absoluteCodexTargetPath(target.Path)
 		if err != nil {
-			return nil, err
+			return nil, &adapter.TargetError{Path: target.Path, Desired: desired, Err: err}
 		}
 		path, err := canonicalCodexTargetPath(sourcePath)
 		if err != nil {
-			return nil, err
+			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: err}
 		}
 		if _, duplicate := seen[path]; duplicate {
-			return nil, fmt.Errorf("Codex config target %s is duplicated", path)
+			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: errors.New("Codex config target is duplicated: another target names the same file")}
 		}
 		seen[path] = struct{}{}
 		folder, err := canonicalCodexTargetPath(filepath.Dir(sourcePath))
 		if err != nil {
-			return nil, err
+			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: err}
 		}
 		target.Path = path
 		target.statePath = preferredCodexStatePath(sourcePath, path)
@@ -84,10 +90,10 @@ func canonicalCodexTargetPath(path string) (string, error) {
 			return filepath.Clean(resolved), nil
 		}
 		if !os.IsNotExist(err) {
-			return "", fmt.Errorf("resolve Codex target symlinks %s: %w", path, err)
+			return "", fmt.Errorf("resolve Codex target symlinks: %w", err)
 		}
 		if _, err := os.Lstat(absolute); err == nil {
-			return "", fmt.Errorf("Codex target is a broken symlink: %s", absolute)
+			return "", errors.New("Codex target is a broken symlink")
 		}
 		missing = append(missing, filepath.Base(absolute))
 		absolute = filepath.Dir(absolute)
@@ -97,7 +103,7 @@ func canonicalCodexTargetPath(path string) (string, error) {
 func absoluteCodexTargetPath(path string) (string, error) {
 	absolute, err := filepath.Abs(filepath.Clean(path))
 	if err != nil {
-		return "", fmt.Errorf("resolve Codex target %s: %w", path, err)
+		return "", fmt.Errorf("resolve Codex target: %w", err)
 	}
 	return absolute, nil
 }
