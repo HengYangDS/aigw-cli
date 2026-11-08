@@ -287,27 +287,30 @@ rejected state.
 
 ### Requirement: Client projection failure reports verified recovery state
 
-After a configuration commit, a failed native client projection or credential
-entrypoint finalization SHALL report whether AIGW configuration restoration
-succeeded. Human and JSON output SHALL
-use the same outcome and safe next action without exposing a private file path,
-credential value, or internal error. Configuration restoration SHALL NOT be
-presented as proof that every client or credential entrypoint was restored.
+After a configuration commit, a failed client projection or credential
+entrypoint finalization SHALL report whether the configuration was restored and
+what became of each client file it touched. Human and JSON output SHALL share
+that outcome and next action, naming a failed client file as `~/…` or as
+configured outside the home directory and no other path, credential or internal
+error. A restored configuration SHALL NOT be presented as proof that every
+client file or entrypoint was restored.
 
 #### Scenario: Configuration was restored after projection failure
 
 - **WHEN** a client file rejects the projection and the configuration snapshot
   is restored
-- **THEN** the error SHALL say that configuration was restored
-- **AND** SHALL direct the operator to inspect client state with
-  `aigw check --depth local --verbose` before retrying.
+- **THEN** the error SHALL say that the configuration was restored and what
+  became of each client file it touched
+- **AND** its fix SHALL act on the failed file's cause and then run the same
+  command again.
 
 #### Scenario: Configuration restoration is incomplete
 
 - **WHEN** a client projection fails and restoring the configuration fails
 - **THEN** the error SHALL report incomplete restoration rather than claim a
   successful rollback
-- **AND** SHALL not expose the underlying file path or imply retry is safe.
+- **AND** its fix SHALL be `aigw check --depth local`, which inspects the
+  configuration and client files without a request, not the same command again.
 
 #### Scenario: Credential entrypoint finalization fails after projection
 
@@ -315,7 +318,7 @@ presented as proof that every client or credential entrypoint was restored.
   finalization and compensation is attempted
 - **THEN** the error SHALL report the observed configuration restoration result
 - **AND** failed client or entrypoint compensation SHALL not conceal that result
-- **AND** public output SHALL retain safe recovery guidance without private paths.
+- **AND** public output SHALL name the failed file only as the requirement allows.
 
 ### Requirement: Claude Desktop keeps its own profile settings
 
