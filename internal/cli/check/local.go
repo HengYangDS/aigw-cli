@@ -59,7 +59,7 @@ var conflictingVariables = []string{"ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN",
 
 // backendFix makes a credential store that AIGW cannot observe available
 // before the same command runs again.
-const backendFix = "Make the credential store available to this session, such as by unlocking it, then run the same command again."
+const backendFix = secret.BackendUnavailableFix
 
 // sharedChecks are the local checks that every client shares, the
 // environment, the configuration, which loaded, and the credential backend,

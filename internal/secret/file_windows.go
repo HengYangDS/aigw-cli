@@ -60,16 +60,23 @@ func consumeLocalBlob(blob windows.DataBlob) (result []byte, err error) {
 	return slices.Clone(unsafe.Slice(blob.Data, blob.Size)), nil
 }
 
+// tokenFileRequirement and tokenDirectoryRequirement say what AIGW accepts of
+// a Token file and of the directory that holds it.
+const (
+	tokenFileRequirement      = "a regular file"
+	tokenDirectoryRequirement = "a real directory"
+)
+
 func validateOwnedFile(info os.FileInfo) error {
 	if !info.Mode().IsRegular() {
-		return errors.New("Token path must be a regular file")
+		return unsafeTokenFileError{name: info.Name(), message: "Token path must be a regular file"}
 	}
 	return nil
 }
 
 func validateSecureRoot(info os.FileInfo) error {
 	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-		return errors.New("Token directory must be a real directory")
+		return unsafeTokenDirectoryError{message: "Token directory must be a real directory"}
 	}
 	return nil
 }

@@ -1,6 +1,10 @@
 package provider
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -314,5 +318,96 @@ func TestRemoveRefusesAnIDThatDiffersFromAProviderOnlyInCase(t *testing.T) {
 	}
 	if present, err := balance.Exists("team"); err != nil || !present {
 		t.Fatalf("the provider's balance credentials after the refusal: %t, %v", present, err)
+	}
+}
+
+// unobservedToken is a store that cannot tell whether it holds a Token.
+type unobservedToken struct{ secret.Store }
+
+func (unobservedToken) Exists(string) (bool, error) {
+	return false, errors.New("the keychain at /private/home is locked")
+}
+
+// A store that cannot tell whether it holds an ID's slots refuses with why,
+// deletes nothing and never calls the ID unknown, since `aigw check` may have
+// listed it. That covers an unavailable backend, either slot, and the removal
+// run again after one that deleted the balance credentials.
+func TestRemoveRefusesAnIDWhoseSlotsTheStoreCannotObserve(t *testing.T) {
+	const available = "Make the credential store available to this session, such as by unlocking it, then run the same command again."
+	for name, prepare := range map[string]func(*fixture){
+		"an unavailable backend": func(f *fixture) { f.runtime.Secrets = failingStore{} },
+		"the balance slot":       func(f *fixture) { f.runtime.Providers = failingDiagnostics{} },
+		"the rerun after a partial removal": func(f *fixture) {
+			if err := f.runtime.Secrets.Set("orphan", "sk-orphan-0001"); err != nil {
+				t.Fatal(err)
+			}
+			f.runtime.Secrets = unobservedToken{Store: f.runtime.Secrets}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			prepare(f)
+			for _, args := range [][]string{{"remove", "orphan"}, {"remove", "orphan", "--dry-run"}} {
+				p := problem(f.run("", args...))
+				if p.Title != "the credential store could not tell whether it holds credentials for orphan" ||
+					p.Evidence != "the credential backend is unavailable" || p.Impact != "Nothing was deleted." || p.Fix != available {
+					t.Fatalf("%v = %+v", args, p)
+				}
+				if strings.Contains(p.Title+p.Evidence+p.Fix, "/private/home") {
+					t.Fatalf("%v showed a backend's own diagnostic: %+v", args, p)
+				}
+			}
+		})
+	}
+}
+
+// A listed file with another mode is refused by name with the mode that it
+// needs. Once it has that mode, the removal that check printed succeeds.
+func TestRemoveNamesTheModeThatAListedTokenFileNeeds(t *testing.T) {
+	if goruntime.GOOS == "windows" {
+		t.Skip("Windows does not represent an owner-only mode in a file's mode")
+	}
+	f := newFixture(t)
+	root := t.TempDir()
+	files, err := secret.Select(secret.Selection{Backend: "file", GOOS: goruntime.GOOS, Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	diagnostics, err := secret.NewDiagnosticCredentialStore(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.runtime.Secrets, f.runtime.Providers = files, diagnostics
+	if err := files.Set("orphan", "sk-orphan-0001"); err != nil {
+		t.Fatal(err)
+	}
+	slot := filepath.Join(root, "tokens", "orphan")
+	if err := os.Chmod(slot, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p := problem(f.run("", "remove", "orphan"))
+	if p.Evidence != "Token path must be an owner-only regular file" ||
+		p.Fix != "Make orphan in AIGW's Token directory an owner-only regular file (mode 600), then run the same command again." {
+		t.Fatalf("a file with another mode = %+v", p)
+	}
+	if err := os.Chmod(slot, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.run("", "remove", "orphan"); err != nil {
+		t.Fatalf("the removal after the fix = %v", err)
+	}
+	if _, err := os.Stat(slot); !os.IsNotExist(err) {
+		t.Fatalf("the Token file after the removal: %v", err)
+	}
+}
+
+// Only an ID that the store reports absent, or that no slot can be named, is
+// unknown.
+func TestRemoveCallsAnIDUnknownOnlyWhenTheStoreReportsItAbsent(t *testing.T) {
+	f := newFixture(t)
+	for _, id := range []string{"orphan", "a/b"} {
+		if p := problem(f.run("", "remove", id)); !strings.HasPrefix(p.Title, "unknown provider ") {
+			t.Fatalf("%s = %+v", id, p)
+		}
 	}
 }

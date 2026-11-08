@@ -109,11 +109,18 @@ func refuseCaseVariant(cfg domain.Config, id string) error {
 // the stored Tokens that `aigw check` lists as unused: there is no provider,
 // model or client file to change, so no later step can fail and need the value
 // back, and no value is read. It reports false, leaving the refusal of an
-// unknown provider to its caller, when the store holds nothing for the ID or
-// cannot tell. The read-only environment backend keeps its variables, which
-// the result names.
+// unknown provider to its caller, when no slot can have that name or the store
+// reports the slots absent. A store that cannot tell refuses, since the ID may
+// be the one that `aigw check` listed. The read-only environment backend keeps
+// its variables, which the result names.
 func removeLeftover(cmd *cobra.Command, runtime invocation.Context, args []string, dryRun, jsonMode bool) (bool, error) {
 	id := args[0]
+	if !domain.ValidIdentifier(id) {
+		return false, nil
+	}
+	if err := refuseUnobservedSlots(runtime, id); err != nil {
+		return false, err
+	}
 	document := removeDocument{
 		DryRun: dryRun, Status: removalDone, ID: id, Models: []string{},
 		Token: credentialState(runtime.Secrets.Exists, id), BalanceCredential: credentialState(runtime.Providers.Exists, id),
@@ -143,6 +150,18 @@ func removeLeftover(cmd *cobra.Command, runtime invocation.Context, args []strin
 		return true, terminal.WriteDocument(runtime.Out, removeSchemaVersion, true, document)
 	}
 	return true, renderLeftover(runtime, document, next, readOnly)
+}
+
+// refuseUnobservedSlots refuses an ID when the store cannot tell whether it
+// holds either slot, with why, and deletes nothing.
+func refuseUnobservedSlots(runtime invocation.Context, id string) error {
+	for _, exists := range []func(string) (bool, error){runtime.Secrets.Exists, runtime.Providers.Exists} {
+		if _, err := exists(id); err != nil {
+			cause, fix := secret.ObservationFailure(err)
+			return terminal.ProblemError("the credential store could not tell whether it holds credentials for "+id, cause, "Nothing was deleted.", fix, err)
+		}
+	}
+	return nil
 }
 
 // deleteLeftover deletes the slots that the document reports present, without

@@ -16,9 +16,16 @@ func decodeCredential(value []byte) ([]byte, error) {
 	return append([]byte(nil), value...), nil
 }
 
+// tokenFileRequirement and tokenDirectoryRequirement say what AIGW accepts of
+// a Token file and of the directory that holds it.
+const (
+	tokenFileRequirement      = "an owner-only regular file (mode 600)"
+	tokenDirectoryRequirement = "an owner-only directory (mode 700)"
+)
+
 func validateOwnedFile(info os.FileInfo) error {
 	if !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
-		return errors.New("Token path must be an owner-only regular file")
+		return unsafeTokenFileError{name: info.Name(), message: "Token path must be an owner-only regular file"}
 	}
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok || stat == nil || stat.Nlink != 1 {
@@ -39,7 +46,7 @@ func validateOwner(info os.FileInfo, subject string) error {
 
 func validateSecureRoot(info os.FileInfo) error {
 	if !info.IsDir() || info.Mode().Perm() != 0o700 {
-		return errors.New("Token directory must be an owner-only directory")
+		return unsafeTokenDirectoryError{message: "Token directory must be an owner-only directory"}
 	}
 	return validateOwner(info, "Token storage")
 }
