@@ -357,10 +357,11 @@ Claude Desktop and SHALL survive AIGW projections.
 - **THEN** an earlier release that reads the ownership record SHALL accept the
   profile.
 
-### Requirement: An outside edit to managed Codex settings has one recovery action
+### Requirement: An outside edit to managed client settings has one recovery action
 
-When AIGW refuses because AIGW-managed Codex settings were changed outside AIGW,
-every surface that reports the refusal, including errors, `check` and `status`,
+When AIGW refuses because AIGW-managed settings of any client were changed
+outside AIGW, every surface that reports the refusal, including errors, `check`
+and `status`,
 SHALL give the same next action: undo the outside edit, then run `aigw sync`.
 AIGW SHALL NOT advise a command that refuses on the same state, overwrite the
 edit, or relax the guard.
@@ -482,3 +483,8 @@ converges every enabled client" in this capability.
 
 **Migration**: "Codex model choices respect TOML scope and literal identity"
 in this capability keeps every scenario, one under a new name.
+
+## RENAMED Requirements
+
+- FROM: `### Requirement: An outside edit to managed Codex settings has one recovery action`
+- TO: `### Requirement: An outside edit to managed client settings has one recovery action`

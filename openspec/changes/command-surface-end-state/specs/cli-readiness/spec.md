@@ -301,8 +301,9 @@ account attributes unchanged.
 
 ### Requirement: A disabled client cannot change readiness
 
-Read-only readiness commands SHALL observe credential metadata only for the
-providers that activation selects: those of the enabled and named clients or,
+Apart from listing unused Tokens by name, read-only readiness commands SHALL
+observe credential metadata only for the providers that activation selects:
+those of the enabled and named clients or,
 when no client is enabled, of the selections that activation considers. A
 disabled client outside that scope SHALL be reported as deferred without
 observing its provider, so that provider's credential state cannot change
@@ -437,6 +438,26 @@ or invalid home directory SHALL leave the target's location unknown.
 
 - **WHEN** both paths name the same drive in different letter case
 - **THEN** local checks SHALL treat them as one volume.
+
+### Requirement: A check lists stored Tokens that no provider uses
+
+`aigw check` without a named client SHALL list, by provider ID, each stored
+Token that no provider uses, with the command that removes it. It SHALL read
+item names only, prompt for nothing and widen no access, and the listing SHALL
+change no client's state, the exit status or the next action. A store that
+cannot list without a person SHALL be reported as unable to list.
+
+#### Scenario: A Token outlives its provider
+
+- **WHEN** the store holds a Token for an ID that no provider has
+- **THEN** `aigw check` SHALL name that ID and `aigw provider remove <id>`
+- **AND** the document SHALL carry no value.
+
+#### Scenario: A check of named clients
+
+- **WHEN** `aigw check claude` runs
+- **THEN** it SHALL list nothing and SHALL observe no other provider's
+  credential metadata.
 
 ## MODIFIED Requirements
 

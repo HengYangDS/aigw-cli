@@ -318,6 +318,14 @@ its models SHALL be dropped and reported.
   backend
 - **THEN** it SHALL remove the configuration and name the variable to unset.
 
+#### Scenario: A stored Token outlives its provider
+
+- **WHEN** `aigw provider remove <id>` names an ID that no provider has, and
+  the store holds a Token or balance credentials for it
+- **THEN** it SHALL delete those items without reading them
+- **AND** an ID for which the store holds nothing SHALL be refused as unknown,
+  with the closest provider IDs.
+
 ## MODIFIED Requirements
 
 ### Requirement: Provider-neutral configuration

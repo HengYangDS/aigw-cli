@@ -162,6 +162,21 @@ in a team file SHALL remain optional.
   selected backend or arrives through `--provider <id> --token-stdin`
 - **THEN** setup completes without requesting Tokens for the other providers
 
+### Requirement: A service's Tokens can be listed by name alone
+
+AIGW SHALL list the provider IDs of a service's Tokens from item names or
+attributes alone, in the same bounded private subprocess as other native
+operations. The listing SHALL read no value, prompt for nothing and pass only
+provider IDs across the subprocess boundary. An API that returns values with
+the names, as Windows Credential Manager does, SHALL have them zeroed unread
+inside the subprocess.
+
+#### Scenario: A store needs a person to list
+
+- **WHEN** a keychain or collection is locked
+- **THEN** the listing SHALL refuse without asking for access
+- **AND** no credential or access-control state SHALL change.
+
 ## MODIFIED Requirements
 
 ### Requirement: Credential availability is observable without disclosure
