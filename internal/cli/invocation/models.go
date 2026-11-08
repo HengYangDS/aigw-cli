@@ -186,20 +186,21 @@ func ResolveClient(admission domain.Admission, id string) (domain.ClientSpec, er
 // ResolveLoneClient returns the admitted client with id, a lone argument
 // without a slash that a command taking a client or a model was given. An
 // unknown one is refused as ResolveClient refuses it, from the admission
-// alone and before any configuration access, and the refusal names the model
-// list that the argument may have meant; only that command reads the
-// configuration.
+// alone and before any configuration access. A lone word that names no
+// client is most often a model ID without its provider, so the refusal's fix
+// is the model list that it may have meant, which runs as given and reads the
+// configuration, and the clients' list stays in its text.
 func ResolveLoneClient(admission domain.Admission, id string) (domain.ClientSpec, error) {
 	spec, err := ResolveClient(admission, id)
 	failed, refused := errors.AsType[refusal](err)
 	if !refused {
 		return spec, err
 	}
-	list := Command("model", "list", id)
-	if list == "" {
-		list = "aigw model list"
+	failed.fix = Command("model", "list", id)
+	if failed.fix == "" {
+		failed.fix = "aigw model list"
 	}
-	failed.message += "; if you meant a model, run `" + list + "`"
+	failed.message += ", as `aigw client list` shows; a model is named provider/model"
 	return domain.ClientSpec{}, failed
 }
 

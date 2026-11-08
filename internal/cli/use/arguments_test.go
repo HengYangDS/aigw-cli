@@ -39,10 +39,11 @@ func TestUseRefusesArgumentsBeforeAnyChange(t *testing.T) {
 		{"a malformed model", true, []string{codex.ID, "/gpt-test"}, "has an empty provider or model ID", "aigw use --help"},
 		{"a model without a provider", false, []string{codex.ID, "gpt-test"}, `"gpt-test" names no provider; it could mean gateway/gpt-test`, "aigw model list gpt-test"},
 		{"an unknown provider", false, []string{codex.ID, "gatewy/gpt-test"}, `unknown provider "gatewy"; did you mean gateway?`, "aigw provider list"},
-		{"a lone model ID", false, []string{"gpt-test"}, `unknown client "gpt-test"; clients are claude, claude-desktop, codex, or hermes; if you meant a model, run ` +
-			"`aigw model list gpt-test`", "aigw client list"},
-		{"a lone unknown client", true, []string{"codx", "--json"}, `unknown client "codx"; did you mean codex? Clients are claude, claude-desktop, codex, or hermes; ` +
-			"if you meant a model, run `aigw model list codx`", "aigw client list"},
+		{"a lone model ID", false, []string{"gpt-test"}, `unknown client "gpt-test"; clients are claude, claude-desktop, codex, or hermes, as ` +
+			"`aigw client list` shows; a model is named provider/model", "aigw model list gpt-test"},
+		{"a lone unknown client", true, []string{"codx", "--json"}, `unknown client "codx"; did you mean codex? Clients are claude, claude-desktop, codex, or hermes, ` +
+			"as `aigw client list` shows; a model is named provider/model", "aigw model list codx"},
+		{"a lone word that needs quoting", false, []string{"gpt test"}, `unknown client "gpt test"`, "aigw model list"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime.Interactive = test.interactive
@@ -62,12 +63,12 @@ func TestUseRefusesArgumentsBeforeAnyChange(t *testing.T) {
 // not read, and the closest clients lead the refusal even when an added model
 // looks like the argument too.
 func TestUseRefusesALoneClientTypoWithoutTheConfiguration(t *testing.T) {
-	want := `unknown client "claud"; did you mean claude, claude-desktop? Clients are claude, claude-desktop, codex, or hermes; ` +
-		"if you meant a model, run `aigw model list claud`"
+	want := `unknown client "claud"; did you mean claude, claude-desktop? Clients are claude, claude-desktop, codex, or hermes, ` +
+		"as `aigw client list` shows; a model is named provider/model"
 	t.Run("fresh home", func(t *testing.T) {
 		home := t.TempDir()
 		runtime := invocation.Context{Clients: clients.Registry(), Config: store.NewStore(filepath.Join(home, "aigw", "config.toml"), clients.Admission()), Out: &bytes.Buffer{}}
-		if problem := terminal.ProblemFor(execute(runtime, "claud", "--json")); problem.Title != want || problem.Fix != "aigw client list" {
+		if problem := terminal.ProblemFor(execute(runtime, "claud", "--json")); problem.Title != want || problem.Fix != "aigw model list claud" {
 			t.Fatalf("a client typo in a fresh home = %#v", problem)
 		}
 		if entries, err := os.ReadDir(home); err != nil || len(entries) != 0 {

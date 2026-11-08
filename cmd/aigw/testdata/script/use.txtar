@@ -14,8 +14,8 @@ exec aigw use --help
 cmp stdout help.txt
 
 # A client typo is refused from the arguments alone, naming the closest
-# clients and the model list that it may have meant: in a fresh home it
-# writes nothing.
+# clients, with the model list that it may have meant as its fix: in a fresh
+# home it writes nothing.
 snapshot $HOME fresh-home.txt
 exitcode 1 aigw use claud --json
 cmp stdout typo.json
@@ -168,6 +168,9 @@ exitcode 1 aigw use claude team-model --json
 cmp stdout no-provider.json
 exitcode 1 aigw use team-model --json
 cmp stdout no-client.json
+# Its fix runs as printed and lists the models that the word could mean.
+exec aigw model list team-model
+stdout 'team/team-model'
 exitcode 1 aigw use claude team/missing-model --json
 cmp stdout unknown-model.json
 exitcode 1 aigw use claude team/team-model --protocol openai_responses
@@ -401,15 +404,15 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "unknown client \"team-model\"; clients are claude, claude-desktop, codex, or hermes; if you meant a model, run `aigw model list team-model`",
-  "next_action": "aigw client list"
+  "error": "unknown client \"team-model\"; clients are claude, claude-desktop, codex, or hermes, as `aigw client list` shows; a model is named provider/model",
+  "next_action": "aigw model list team-model"
 }
 -- typo.json --
 {
   "schema_version": 3,
   "ok": false,
-  "error": "unknown client \"claud\"; did you mean claude, claude-desktop? Clients are claude, claude-desktop, codex, or hermes; if you meant a model, run `aigw model list claud`",
-  "next_action": "aigw client list"
+  "error": "unknown client \"claud\"; did you mean claude, claude-desktop? Clients are claude, claude-desktop, codex, or hermes, as `aigw client list` shows; a model is named provider/model",
+  "next_action": "aigw model list claud"
 }
 -- unknown-model.json --
 {
