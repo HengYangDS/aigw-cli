@@ -261,11 +261,7 @@ func shippedHermesAppWith(t *testing.T, reader bool) (*cli.App, *bytes.Buffer, *
 	t.Helper()
 	app, output, credentials, _, httpClient := testApp(t, "")
 	if reader {
-		root := t.TempDir()
-		app.Executable = filepath.Join(root, "bin", executableName("aigw"))
-		app.DataDir = filepath.Join(root, "data")
-		writeFile(t, app.Executable, []byte("portable program"), 0o755)
-		app.UseExecutableIdentity(nil, executableName("aigw"))
+		bindCredentialReader(t, app)
 	}
 	for _, account := range []string{"dmxapi", "ucloud"} {
 		if err := credentials.Set(account, "fixture-token"); err != nil {

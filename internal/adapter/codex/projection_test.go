@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/platform"
 	"encoding/json"
@@ -212,7 +213,7 @@ func TestValidateConfigRejectsIncompleteOrMismatchedProjection(t *testing.T) {
 	writeCodexFixture(t, path, content)
 
 	err = ValidateConfig(path, runtime)
-	if _, conflict := errors.AsType[*ConflictError](err); !conflict || !strings.Contains(err.Error(), "provider block changed") {
+	if _, conflict := errors.AsType[*adapter.ConflictError](err); !conflict || !strings.Contains(err.Error(), "provider block changed") {
 		t.Errorf("expected an ownership conflict, got %v", err)
 	}
 }
@@ -278,7 +279,7 @@ func TestValidateConfigReachableErrors(t *testing.T) {
 		writeCodexFixture(t, path, "model_provider = \"native\"\n"+codexBegin+"\n"+block)
 		writeCodexStateFixture(t, path, validState)
 		err := ValidateConfig(path, runtime)
-		if _, conflict := errors.AsType[*ConflictError](err); !conflict || !strings.Contains(err.Error(), "model_provider selection changed") {
+		if _, conflict := errors.AsType[*adapter.ConflictError](err); !conflict || !strings.Contains(err.Error(), "model_provider selection changed") {
 			t.Fatalf("ValidateConfig() error = %v", err)
 		}
 	})

@@ -2,12 +2,14 @@ package claude_test
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/domain"
 )
@@ -49,8 +51,13 @@ func TestVerificationPlanRequiresConvergedSettings(t *testing.T) {
 				runtime.UpstreamModel = "changed-model"
 			}
 			_, err := claude.VerificationPlan("claude", settings, "AIGW_OK", nil, runtime)
-			if err == nil || !strings.Contains(err.Error(), "not synchronized") || !strings.Contains(err.Error(), "aigw sync") {
+			if err == nil || !strings.Contains(err.Error(), "not synchronized") {
 				t.Fatalf("settings error = %v", err)
+			}
+			// Synchronization repairs missing or stale settings, and refuses a
+			// file that does not parse, whose error names the correction.
+			if _, refused := errors.AsType[*adapter.ConflictError](err); refused != (state == "malformed") || strings.Contains(err.Error(), "aigw sync") == refused {
+				t.Fatalf("settings error = %v, refused by synchronization = %t", err, refused)
 			}
 		})
 	}

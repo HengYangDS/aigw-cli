@@ -57,7 +57,9 @@ func ObserveSelection(path string, current Desired) (Selection, bool, error) {
 	return Selection{Provider: field(model, "provider").Value, Model: field(model, "default").Value}, true, nil
 }
 
-var errExternalEdit = errors.New("managed Hermes settings changed outside AIGW; preserve the edit before synchronization")
+var errExternalEdit = adapter.NewConflictError(
+	"managed Hermes settings changed outside AIGW; refusing to overwrite user edits",
+	adapter.UndoOutsideEdit("Hermes"), nil)
 
 func decodeOwnership(data []byte) (ownership, error) {
 	var state ownership

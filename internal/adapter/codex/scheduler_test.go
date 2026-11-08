@@ -422,7 +422,7 @@ func TestCodexRejectsAReappearingRetiredAliasAfterProjection(t *testing.T) {
 			// The reappearing alias is an outside edit, so validation reports the
 			// same ownership conflict that makes synchronization refuse.
 			err = ValidateConfig(path, runtime)
-			if _, conflict := errors.AsType[*ConflictError](err); !conflict || !strings.Contains(err.Error(), "scheduler keys changed") {
+			if _, conflict := errors.AsType[*adapter.ConflictError](err); !conflict || !strings.Contains(err.Error(), "scheduler keys changed") {
 				t.Fatalf("validation accepted the reappearing retired alias: %v", err)
 			}
 			if codexSchedulerHashMatches(codexSchedulerHash(string(projected)), injected) {

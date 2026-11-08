@@ -22,6 +22,10 @@ type claudeInspectionCase struct {
 	settings    string
 	ready       bool
 	override    bool
+	// issue and repair are what inspection reports for settings that
+	// synchronization refuses; without them it reports drift to synchronize.
+	issue  string
+	repair string
 }
 
 func TestClaudeInspectionRequiresTheSynchronizedProjection(t *testing.T) {
@@ -30,8 +34,9 @@ func TestClaudeInspectionRequiresTheSynchronizedProjection(t *testing.T) {
 		{name: "converged", sync: true, model: "claude-model", ready: true},
 		{name: "native model preference", sync: true, model: "claude-model", nativeModel: "opus[1m]", ready: true, override: true},
 		{name: "selected model changed", sync: true, model: "another-model"},
-		{name: "malformed", sync: true, model: "claude-model", settings: "{"},
-		{name: "externally changed", sync: true, model: "claude-model", settings: `{"model":"external-model"}`},
+		{name: "malformed", sync: true, model: "claude-model", settings: "{", issue: "parse Claude settings", repair: "Correct the JSON in Claude Code's settings file, then run the same command again."},
+		{name: "externally changed", sync: true, model: "claude-model", settings: `{"model":"external-model"}`, issue: "changed outside AIGW", repair: adapter.UndoOutsideEdit("Claude Code")},
+		{name: "foreign credential before AIGW owns the file", model: "claude-model", settings: `{"apiKeyHelper":"foreign-helper"}`, issue: "credential ownership conflict", repair: "Remove the plaintext credential or foreign apiKeyHelper from Claude Code's settings, then run the same command again."},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -76,6 +81,9 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 		}
 	}
 	if test.settings != "" {
+		if err := os.MkdirAll(filepath.Dir(settings), 0o700); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.WriteFile(settings, []byte(test.settings), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -92,8 +100,12 @@ func assertClaudeInspectionCase(t *testing.T, test claudeInspectionCase) {
 	if status.Ready != test.ready || status.NativeModelOverride != test.override {
 		t.Errorf("inspection = %+v, want ready=%t override=%t", status, test.ready, test.override)
 	}
-	if !test.ready && (!strings.Contains(status.Issue, "not synchronized") || status.RepairAction != "aigw sync") {
-		t.Errorf("missing synchronization diagnosis: %+v", status)
+	issue, repair := "not synchronized", "aigw sync"
+	if test.repair != "" {
+		issue, repair = test.issue, test.repair
+	}
+	if !test.ready && (!strings.Contains(status.Issue, issue) || status.RepairAction != repair) {
+		t.Errorf("inspection diagnosis = %+v, want an issue with %q and the repair %q", status, issue, repair)
 	}
 	if strings.Contains(status.Issue, root) {
 		t.Errorf("Claude inspection exposed a private path: %+v", status)

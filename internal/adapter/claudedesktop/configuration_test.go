@@ -203,7 +203,8 @@ func TestProjectionRejectsInvalidConfigurationDocuments(t *testing.T) {
 				CredentialExecutable: filepath.Join(root, "aigw"),
 				Models:               []Model{{Name: "claude-fable-5-1"}},
 			}
-			if _, err := Prepare(paths, &desired); err == nil || !strings.Contains(err.Error(), path) {
+			name := filepath.Join(filepath.Base(filepath.Dir(path)), filepath.Base(path))
+			if _, err := Prepare(paths, &desired); err == nil || !strings.Contains(err.Error(), name) || strings.Contains(err.Error(), root) {
 				t.Fatalf("Prepare() error = %v", err)
 			}
 		})

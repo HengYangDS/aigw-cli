@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strconv"
 
+	"aigw-cli/internal/adapter"
+
 	"go.yaml.in/yaml/v3"
 )
 
@@ -61,7 +63,17 @@ func setString(node *yaml.Node, key, value string) {
 	setField(node, key, child)
 }
 
+// parse reads Hermes' configuration. AIGW refuses one that does not parse,
+// because it could not preserve what the file holds.
 func parse(data []byte) (*yaml.Node, error) {
+	root, err := parseDocument(data)
+	if err != nil {
+		return nil, adapter.NewConflictError(err.Error(), "Correct the YAML in Hermes' configuration file, then run the same command again.", err)
+	}
+	return root, nil
+}
+
+func parseDocument(data []byte) (*yaml.Node, error) {
 	decoder := yaml.NewDecoder(bytes.NewReader(data))
 	var document yaml.Node
 	err := decoder.Decode(&document)

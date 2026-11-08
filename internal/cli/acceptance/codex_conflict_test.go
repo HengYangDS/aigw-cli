@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -42,37 +43,14 @@ func TestCodexOutsideRetryEditRecoveryDoesNotLoop(t *testing.T) {
 		t.Fatalf("fixture has no AIGW-managed provider table:\n%s", projected)
 	}
 	writeFile(t, target, []byte(edited), 0o600)
-	refused := ownedFileSnapshot(t, filepath.Dir(target), app.Config.Path())
-
-	for _, command := range [][]string{
+	assertRecoveryOnEverySurface(t, app, output, codex.ID, recovery, filepath.Dir(target), [][]string{
 		{"use", "codex", "gateway/gpt-sol", "--dry-run", "--json"},
 		{"sync", "--dry-run", "--json"},
 		{"sync", "--json"},
 		{"check", "--json"},
 		{"status", "--json"},
 		{"doctor", "--json"},
-	} {
-		output.Reset()
-		err := cli.Execute(app, command)
-		// The recovery is prose, so every document gives it as next_detail.
-		var result struct {
-			NextAction string       `json:"next_action"`
-			NextDetail string       `json:"next_detail"`
-			Clients    clientStates `json:"clients"`
-		}
-		if decodeErr := json.Unmarshal(output.Bytes(), &result); decodeErr != nil {
-			t.Fatalf("%v: %v (command error %v)\n%s", command, decodeErr, err, output)
-		}
-		if result.NextDetail != recovery || result.NextAction != "" {
-			t.Errorf("%v next step = %q, %q; want the recovery from the outside edit", command, result.NextAction, result.NextDetail)
-		}
-		if client, listed := result.Clients[codex.ID]; listed && (client.NextDetail != recovery || client.NextAction != "") {
-			t.Errorf("%v Codex next step = %q, %q; want the recovery from the outside edit", command, client.NextAction, client.NextDetail)
-		}
-		if after := ownedFileSnapshot(t, filepath.Dir(target), app.Config.Path()); !equalSnapshots(after, refused) {
-			t.Fatalf("%v changed client files or owned state while refusing", command)
-		}
-	}
+	})
 	output.Reset()
 	if err := cli.Execute(app, []string{"doctor"}); err == nil {
 		t.Fatal("doctor passed with an outside edit to managed Codex settings")
@@ -93,6 +71,37 @@ func TestCodexOutsideRetryEditRecoveryDoesNotLoop(t *testing.T) {
 	checked := decodeCheck(t, output)
 	if client, listed := checked.client(codex.ID); !checked.OK || !listed || client.Depth != "model" {
 		t.Fatalf("check after recovery = %+v\n%s", checked, output)
+	}
+}
+
+// assertRecoveryOnEverySurface runs each command on a state that AIGW refuses,
+// and requires its document, and the client's entry where it lists one, to name
+// recovery as the next step and nothing else. The recovery is prose, so every
+// document gives it as next_detail. No command may change a file in directory
+// or the AIGW configuration.
+func assertRecoveryOnEverySurface(t *testing.T, app *cli.App, output *bytes.Buffer, client, recovery, directory string, commands [][]string) {
+	t.Helper()
+	refused := ownedFileSnapshot(t, directory, app.Config.Path())
+	for _, command := range commands {
+		output.Reset()
+		err := cli.Execute(app, command)
+		var result struct {
+			NextAction string       `json:"next_action"`
+			NextDetail string       `json:"next_detail"`
+			Clients    clientStates `json:"clients"`
+		}
+		if decodeErr := json.Unmarshal(output.Bytes(), &result); decodeErr != nil {
+			t.Fatalf("%v: %v (command error %v)\n%s", command, decodeErr, err, output)
+		}
+		if result.NextDetail != recovery || result.NextAction != "" {
+			t.Errorf("%v next step = %q, %q; want the recovery %q", command, result.NextAction, result.NextDetail, recovery)
+		}
+		if entry, listed := result.Clients[client]; listed && (entry.NextDetail != recovery || entry.NextAction != "") {
+			t.Errorf("%v %s next step = %q, %q; want the recovery %q", command, client, entry.NextAction, entry.NextDetail, recovery)
+		}
+		if after := ownedFileSnapshot(t, directory, app.Config.Path()); !equalSnapshots(after, refused) {
+			t.Fatalf("%v changed client files or owned state while refusing", command)
+		}
 	}
 }
 

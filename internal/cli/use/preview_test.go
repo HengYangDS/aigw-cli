@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"testing"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/cli/invocation"
@@ -68,7 +69,7 @@ func TestUsePreviewRefusesAnEditedOwnedTarget(t *testing.T) {
 	command.SilenceErrors, command.SilenceUsage = true, true
 	command.SetArgs([]string{codex.ID, "gateway/gpt-test", "--dry-run", "--json"})
 	err = command.Execute()
-	if _, conflict := errors.AsType[*codex.ConflictError](err); !conflict {
+	if _, conflict := errors.AsType[*adapter.ConflictError](err); !conflict {
 		t.Fatalf("preview did not refuse the edited target as a Codex conflict: %v, %s", err, out.String())
 	}
 	after, err := run.Config.CaptureSnapshot()

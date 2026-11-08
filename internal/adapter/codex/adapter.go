@@ -171,15 +171,17 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 	if _, err := os.Stat(target); errors.Is(err, os.ErrNotExist) {
 		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, target)
 	}
-	observed, err := retainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
-	if err != nil {
-		return issue, "Codex credential reader cannot be inspected", repair
-	}
-	err = ValidateConfig(target, observed)
-	if conflict, ok := errors.AsType[*ConflictError](err); ok {
+	observed, readerErr := retainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
+	err := ValidateConfig(target, observed)
+	if conflict, ok := errors.AsType[*adapter.ConflictError](err); ok {
 		// Synchronization refuses an outside edit, so advising it alone would
-		// send the operator back to the same refusal.
+		// send the operator back to the same refusal. A credential command
+		// that AIGW did not write also fails the reader's inspection, so this
+		// comes first.
 		return "Codex configuration conflict: ", "AIGW-managed Codex settings were changed outside AIGW", conflict.NextAction()
+	}
+	if readerErr != nil {
+		return issue, "Codex credential reader cannot be inspected", repair
 	}
 	switch {
 	case err == nil:

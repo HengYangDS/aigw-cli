@@ -200,7 +200,7 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 			return settingsChange{}, err
 		}
 		if !state.acceptModelPreference(document, previousModel) {
-			return settingsChange{}, errors.New("managed Claude settings changed outside AIGW; refusing to remove user edits")
+			return settingsChange{}, outsideEdit("managed Claude settings changed outside AIGW; refusing to remove user edits")
 		}
 		change.plan = SettingsPlan{Action: SettingsActionRestore, Target: path}
 		restoreOriginalSettings(document, state.Original)
@@ -256,7 +256,7 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 func prepareSettingsState(document settingsDocument, settingsBefore, stateBefore platform.FileSnapshot, previousModel string) (settingsState, error) {
 	if !stateBefore.Exists {
 		if hasCredentialOwnershipConflict(document) {
-			return settingsState{}, errors.New("Claude credential ownership conflict: remove the plaintext credential or foreign apiKeyHelper before enabling AIGW")
+			return settingsState{}, foreignCredential()
 		}
 		return settingsState{
 			Version:  1,
@@ -269,7 +269,7 @@ func prepareSettingsState(document settingsDocument, settingsBefore, stateBefore
 		return settingsState{}, err
 	}
 	if !state.acceptModelPreference(document, previousModel) {
-		return settingsState{}, errors.New("managed Claude settings changed outside AIGW; refusing to overwrite user edits")
+		return settingsState{}, outsideEdit("managed Claude settings changed outside AIGW; refusing to overwrite user edits")
 	}
 	return state, nil
 }
@@ -324,6 +324,14 @@ func (change settingsChange) apply() (SettingsReceipt, error) {
 }
 
 func decodeSettings(snapshot platform.FileSnapshot) (settingsDocument, error) {
+	document, err := parseSettings(snapshot)
+	if err != nil {
+		return nil, unreadableSettings(err)
+	}
+	return document, nil
+}
+
+func parseSettings(snapshot platform.FileSnapshot) (settingsDocument, error) {
 	if !snapshot.Exists || len(bytes.TrimSpace(snapshot.Data)) == 0 {
 		return settingsDocument{}, nil
 	}

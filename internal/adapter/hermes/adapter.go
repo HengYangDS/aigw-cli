@@ -357,12 +357,34 @@ func (hermesAdapter) Inspect(ctx context.Context, deps adapter.Dependencies, cfg
 	}
 	plan, err := hermesInspectionPlan(deps, cfg, selected, clientAdapter.Targets[0])
 	if err != nil {
-		return adapter.Status{Issue: "Hermes configuration projection cannot be inspected", RepairAction: "aigw sync"}
+		return uninspectable(deps, cfg, selected, clientAdapter.Targets[0], err)
 	}
 	if plan.Action != "unchanged" {
 		return adapter.Status{Issue: "Hermes configuration projection differs from the selected Route", RepairAction: "aigw sync"}
 	}
 	return adapter.Status{Ready: true}
+}
+
+// uninspectable is the status of a Hermes file that inspection refused with
+// err. A refusal that synchronization shares names the action that resolves
+// it; inspection also refuses a model chosen in Hermes itself, which
+// synchronization adopts.
+func uninspectable(deps adapter.Dependencies, cfg domain.Config, selected domain.Runtime, target string, err error) adapter.Status {
+	if status, refused := adapter.ConflictStatus(err); refused && !adoptsSelection(deps, cfg, selected, target) {
+		return status
+	}
+	return adapter.Status{Issue: "Hermes configuration projection cannot be inspected", RepairAction: "aigw sync"}
+}
+
+// adoptsSelection reports whether synchronization would adopt the model that
+// Hermes' file selects, so the file's only difference is the operator's choice.
+func adoptsSelection(deps adapter.Dependencies, cfg domain.Config, selected domain.Runtime, target string) bool {
+	desired, err := hermesDesired(deps, cfg, selected)
+	if err != nil {
+		return false
+	}
+	_, adopted, err := ObserveSelection(target, desired)
+	return err == nil && adopted
 }
 
 func hermesInspectionPlan(deps adapter.Dependencies, cfg domain.Config, selected domain.Runtime, target string) (Plan, error) {

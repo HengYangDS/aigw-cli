@@ -3,7 +3,6 @@ package claudedesktop
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -196,9 +195,14 @@ func recordOwnership(state ownershipState, projected projectedFiles, before snap
 
 func changedOutsideAIGW(settings []string) error {
 	if len(settings) == 0 {
-		return errors.New("managed Claude Desktop configuration changed outside AIGW; refusing to overwrite user edits; restore the AIGW profile in Claude Desktop, then run `aigw sync`")
+		return adapter.NewConflictError(
+			"managed Claude Desktop configuration changed outside AIGW; refusing to overwrite user edits; restore the AIGW profile in Claude Desktop, then run `aigw sync`",
+			"Restore the AIGW profile in Claude Desktop, then run `aigw sync`", nil)
 	}
-	return fmt.Errorf("managed Claude Desktop configuration changed outside AIGW (%s); refusing to overwrite user edits; restore those settings in Claude Desktop, then run `aigw sync`", strings.Join(settings, ", "))
+	names := strings.Join(settings, ", ")
+	return adapter.NewConflictError(
+		fmt.Sprintf("managed Claude Desktop configuration changed outside AIGW (%s); refusing to overwrite user edits; restore those settings in Claude Desktop, then run `aigw sync`", names),
+		"Restore AIGW's value of "+names+" in Claude Desktop, then run `aigw sync`", nil)
 }
 
 func sameJSON(left, right json.RawMessage) bool {

@@ -315,7 +315,11 @@ func decodeObject(path string, snapshot platform.FileSnapshot) (document, error)
 	}
 	var value document
 	if err := json.Unmarshal(snapshot.Data, &value); err != nil || value == nil {
-		return nil, fmt.Errorf("decode %s as a JSON object", path)
+		// Inspection reports this too, and names no private path. Two of the
+		// files share a base name, so the folder tells them apart.
+		name := filepath.Join(filepath.Base(filepath.Dir(path)), filepath.Base(path))
+		return nil, adapter.NewConflictError("decode "+name+" as a JSON object",
+			"Correct the JSON in Claude Desktop's "+name+", then run the same command again.", err)
 	}
 	return value, nil
 }

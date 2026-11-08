@@ -57,7 +57,9 @@ func InspectSettings(path string, runtime domain.Runtime, executable string) (Se
 	}
 	document, err := decodeSettings(settingsBefore)
 	if err != nil {
-		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized: %w; run `aigw sync`", err)
+		// Synchronization refuses this file too, so the error's own next
+		// action names what resolves it.
+		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized: %w", err)
 	}
 	state, err := decodeSettingsState(stateBefore.Data)
 	if err != nil {
@@ -85,7 +87,37 @@ func InspectSettings(path string, runtime domain.Runtime, executable string) (Se
 	if managedSettingsHash(previous) == expectedHash {
 		return SettingsInspection{NativeModelOverride: true}, nil
 	}
-	return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized: managed connection changed outside AIGW")
+	return SettingsInspection{}, outsideEdit("Claude settings are not synchronized: managed connection changed outside AIGW")
+}
+
+// unsynchronized is the status of settings that do not match the selection:
+// the refusal, when synchronization would refuse them, or else the issue,
+// which synchronization repairs.
+func unsynchronized(issue, path string, selected domain.Runtime) adapter.Status {
+	if status, refused := adapter.ConflictStatus(synchronizationRefusal(path, selected.UpstreamModel)); refused {
+		return status
+	}
+	return adapter.Status{Issue: issue, RepairAction: "aigw sync"}
+}
+
+// synchronizationRefusal runs synchronization's own guards on the settings at
+// path, and writes nothing. A selection or credential reader that changed is
+// drift in a file that AIGW wrote, and passes them; an outside edit does not.
+func synchronizationRefusal(path, model string) error {
+	settingsBefore, err := captureSnapshot(path)
+	if err != nil {
+		return err
+	}
+	stateBefore, err := captureSnapshot(path + adapter.StateSuffix)
+	if err != nil {
+		return err
+	}
+	document, err := decodeSettings(settingsBefore)
+	if err != nil {
+		return err
+	}
+	_, err = prepareSettingsState(document, settingsBefore, stateBefore, model)
+	return err
 }
 
 // ValidateSettings accepts a sidecar-proven native model preference while
