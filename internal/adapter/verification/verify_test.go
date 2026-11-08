@@ -25,7 +25,7 @@ func TestFailureAppliesOnlyTheCallersAdvice(t *testing.T) {
 		t.Fatalf("a failure without advice applied another client's advice: %v", err)
 	}
 	err := Failure("Client", "client", "", diagnostic, cause, advice, "must-not-leak")
-	if !strings.Contains(err.Error(), "Client minimal verification request failed: endpoint rejects the tier gate; disable it and verify again; run `aigw verify --for client`") || !errors.Is(err, cause) {
+	if !strings.Contains(err.Error(), "Client minimal verification request failed: endpoint rejects the tier gate; disable it and verify again; run `aigw check client --depth client`") || !errors.Is(err, cause) {
 		t.Fatalf("the caller's advice or cause was lost: %v", err)
 	}
 	if err := Failure("Client", "client", "", diagnostic, context.DeadlineExceeded, advice); !strings.Contains(err.Error(), "client verification timed out") {

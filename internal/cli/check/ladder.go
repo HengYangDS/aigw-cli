@@ -22,6 +22,7 @@ type checker struct {
 	cfg    domain.Config
 	plan   plan
 	shared []localCheck
+	named  named
 }
 
 // plan is what the arguments ask a check for: the depth, and the clients to
@@ -74,10 +75,13 @@ func (c *checker) remote(ctx context.Context, r *result) {
 		r.deeper = c.sessionCheck(*r)
 		return
 	}
-	token, err := c.deps.Secrets.Get(r.runtime.ProviderID)
-	if err != nil {
-		r.fail(c.tokenReadFailure(r, err))
-		return
+	token := c.named.token
+	if token == "" {
+		var err error
+		if token, err = c.deps.Secrets.Get(r.runtime.ProviderID); err != nil {
+			r.fail(c.tokenReadFailure(r, err))
+			return
+		}
 	}
 	endpoint := diagnostics.ProbeBounded(ctx, c.deps.HTTP, r.runtime, token, diagnostics.ScopeEndpoint)
 	switch {
@@ -120,7 +124,8 @@ func (c *checker) session(ctx context.Context, r *result) {
 		r.skipDepth(depthClient, r.spec.Label+" is disabled, so AIGW keeps no client files for a session")
 		return
 	}
-	verification, err := c.deps.Synchronizer().Verify(ctx, c.cfg, r.spec.ID, r.runtime, "")
+	// A named model takes its own isolated session, which its retry names.
+	verification, err := c.deps.Synchronizer().Verify(ctx, c.cfg, r.spec.ID, r.runtime, c.named.name())
 	if err != nil {
 		problem := terminal.ProblemFor(err)
 		r.fail(failure{depth: depthClient, state: domainreadiness.Degraded, problem: problem.Title, fix: problem.Fix, cause: err})
@@ -147,9 +152,30 @@ func (c *checker) deeperCheck(id string, d depth) string {
 	return c.checkCommand(id, d)
 }
 
-// checkCommand is the check of one client to d.
+// checkCommand is the check of one client to d, which keeps the model that
+// --model named, and the one-time Token at the depths that send it.
 func (c *checker) checkCommand(id string, d depth) string {
-	command := "aigw check " + id
+	return checkCommand(id, c.named, d)
+}
+
+// checkCommand is the check of client to d, which keeps the model that
+// --model named, and its one-time Token at the depths that send it, or prose
+// for a model name that would need quoting.
+func checkCommand(client string, model named, d depth) string {
+	words := []string{"check", client}
+	if name := model.name(); name != "" {
+		words = append(words, name)
+	}
+	command := invocation.Command(words...)
+	if command == "" {
+		return "Run the same check again with --depth " + string(d) + "."
+	}
+	if name := model.name(); name != "" {
+		command = strings.TrimSuffix(command, " "+name) + " --model " + name
+		if model.token != "" && (d == depthEndpoint || d == depthModel) {
+			command += " --token-stdin"
+		}
+	}
 	if d != depthModel {
 		command += " --depth " + string(d)
 	}

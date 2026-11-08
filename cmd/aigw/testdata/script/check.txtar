@@ -5,7 +5,9 @@
 # that a client cannot run is skipped with the reason, which fails nothing. A
 # named disabled client is checked without client files, a check that names no
 # client while none is enabled fails without a request, --verbose prints every
-# local check, and a configuration that does not load names its stage.
+# local check, --model tries a model without selecting it, with a one-time
+# Token through --token-stdin, and a configuration that does not load names
+# its stage.
 exec aigw check --help
 cmp stdout help.txt
 
@@ -30,6 +32,17 @@ exec aigw check --depth client
 cmp stdout client.txt
 exec aigw check --depth local --verbose
 cmp stdout verbose.txt
+
+# A named model is tried without selecting it, with a one-time Token from
+# standard input, which is neither read from nor written to the store: the
+# home is unchanged.
+exec aigw model add team/spare-model --protocol anthropic
+snapshot $HOME before-once.txt
+stdin once.txt
+exec aigw check claude --model team/spare-model --token-stdin --depth endpoint --json
+cmp stdout once.json
+snapshot $HOME after-once.txt
+cmp after-once.txt before-once.txt
 
 # Claude Code that keeps its own model preference has no model depth: AIGW
 # does not choose the model that it sends. The deeper check is a session.
@@ -74,8 +87,73 @@ cmp stdout broken.json
 
 -- token.txt --
 sk-team-token-0001
+-- once.txt --
+sk-once-token-0002
 -- Claude --
 fixture
+-- once.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "depth": "endpoint",
+  "model": "team/spare-model",
+  "clients": [
+    {
+      "id": "claude",
+      "enabled": true,
+      "model": "team/spare-model",
+      "provider": "team",
+      "protocol": "anthropic",
+      "authentication": "account-token",
+      "transport": "external_loopback",
+      "state": "configured",
+      "depth": "endpoint",
+      "skipped": [],
+      "checks": [
+        {
+          "name": "claude:model",
+          "state": "passed",
+          "detail": "team/spare-model on Anthropic Messages, named with --model"
+        },
+        {
+          "name": "claude:token",
+          "state": "skipped",
+          "detail": "The one-time Token from standard input replaces the stored Token for this check"
+        },
+        {
+          "name": "claude:files",
+          "state": "passed",
+          "detail": "Match the selection"
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "environment",
+      "state": "passed",
+      "detail": "No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set"
+    },
+    {
+      "name": "configuration",
+      "state": "passed",
+      "detail": "Valid"
+    },
+    {
+      "name": "credential_backend",
+      "state": "passed",
+      "detail": "file, read and write"
+    }
+  ],
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "enabled_clients": 1
+}
 -- help.txt --
 AIGW  aigw check
 ────────────────────────────────────────
@@ -98,6 +176,8 @@ Options
       --depth string   How far to check: local, endpoint, model or client (default model)
   -h, --help           help for check
       --json           Write one JSON document, which carries every local check
+      --model string   Try this provider/model with the one named client, without selecting it
+      --token-stdin    Read a one-time Token for --model from standard input, at the endpoint or model depth; it is neither read from nor written to the store
       --verbose        Print every local check
 -- empty.txt --
 AIGW  Action required

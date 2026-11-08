@@ -84,10 +84,14 @@ type result struct {
 	runtime  domain.Runtime
 	model    string
 	resolved bool
-	reached  depth
-	skipped  []skip
-	checks   []localCheck
-	failure  *failure
+	// tried marks a model that --model named, which the client's own
+	// selection, if any, keeps.
+	tried     bool
+	selection string
+	reached   depth
+	skipped   []skip
+	checks    []localCheck
+	failure   *failure
 	// native marks a Claude Code that keeps its own model preference, whose
 	// model AIGW does not choose.
 	native bool

@@ -7,16 +7,16 @@ import (
 	"testing"
 )
 
-// A failed request names a retry of the same invocation. An explicit Route
-// takes its own isolated path, so its retry keeps --route, and the retry of a
-// selected binding does not gain one.
+// A failed request names a retry of the same check. A model that the check
+// named takes its own isolated path, so its retry keeps --model, and the retry
+// of the client's own selection does not gain one.
 func TestFailedClaudeVerificationRetriesTheSameInvocation(t *testing.T) {
-	for _, explicitRoute := range []string{"", "explicit-route"} {
+	for _, explicitRoute := range []string{"", "team/explicit-model"} {
 		suffix := ""
 		if explicitRoute != "" {
-			suffix = " --route " + explicitRoute
+			suffix = " --model " + explicitRoute
 		}
-		t.Run("route="+explicitRoute, func(t *testing.T) {
+		t.Run("model="+explicitRoute, func(t *testing.T) {
 			claudeConfig := verificationConfig()
 			claudeRuntime, err := claudeConfig.ResolveRuntime(ID, "")
 			if err != nil {
@@ -27,7 +27,7 @@ func TestFailedClaudeVerificationRetriesTheSameInvocation(t *testing.T) {
 			if _, err := ReconcileSettings(settings, false, claudeRuntime, claudeRuntime.CredentialCommand, claudeRuntime.UpstreamModel); err != nil {
 				t.Fatal(err)
 			}
-			want := "`aigw verify --for claude" + suffix + "`"
+			want := "`aigw check claude" + suffix + " --depth client`"
 			for _, runner := range []captureRunner{
 				{output: []byte(`{"type":"result","is_error":true,"result":"rejected"}`)},
 				{output: []byte(`{"type":"system","subtype":"api_retry","error_status":403}`), err: context.DeadlineExceeded},

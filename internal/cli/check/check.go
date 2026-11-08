@@ -20,9 +20,11 @@ import (
 
 // options are the flags of `aigw check`.
 type options struct {
-	depth    string
-	verbose  bool
-	jsonMode bool
+	depth      string
+	model      string
+	tokenStdin bool
+	verbose    bool
+	jsonMode   bool
 }
 
 // NewCommand constructs the command that checks whether each client works.
@@ -49,9 +51,12 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		},
 	}
 	invocation.BindText(cmd, &opts.depth, "depth", "How far to check: local, endpoint, model or client (default model)")
+	invocation.BindText(cmd, &opts.model, "model", "Try this provider/model with the one named client, without selecting it")
+	cmd.Flags().BoolVar(&opts.tokenStdin, "token-stdin", false, "Read a one-time Token for --model from standard input, at the endpoint or model depth; it is neither read from nor written to the store")
 	cmd.Flags().BoolVar(&opts.verbose, "verbose", false, "Print every local check")
 	cmd.Flags().BoolVar(&opts.jsonMode, "json", false, "Write one JSON document, which carries every local check")
 	_ = cmd.RegisterFlagCompletionFunc("depth", completeDepths)
+	_ = cmd.RegisterFlagCompletionFunc("model", invocation.CompleteClientModel(runtime))
 	return cmd
 }
 
@@ -74,11 +79,16 @@ func completeDepths(*cobra.Command, []string, string) ([]cobra.Completion, cobra
 	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
-// admit checks the arguments before any configuration access: each named
-// client is admitted, once, and the depth is one of the four.
+// admit checks the arguments before any configuration access or input: each
+// named client is admitted, once, and the depth is one of the four; --model
+// names a provider/model for exactly one named client, and --token-stdin
+// supplies its Token at the endpoint or model depth.
 func admit(admission domain.Admission, args []string, opts options) (plan, error) {
 	requested, err := parseDepth(opts.depth)
 	if err != nil {
+		return plan{}, err
+	}
+	if err := admitModel(args, opts, requested); err != nil {
 		return plan{}, err
 	}
 	for index, id := range args {
@@ -98,9 +108,31 @@ func admit(admission domain.Admission, args []string, opts options) (plan, error
 	return plan{requested: requested, clients: checked, named: len(args) > 0}, nil
 }
 
+// admitModel refuses --model without exactly one named client, a malformed
+// provider/model, and --token-stdin without --model or at the local or
+// client depth, before standard input is read.
+func admitModel(args []string, opts options, requested depth) error {
+	switch {
+	case opts.model == "" && opts.tokenStdin:
+		return errors.New("--token-stdin needs --model, whose provider receives the Token; run `aigw check --help`")
+	case opts.model == "":
+		return nil
+	case len(args) != 1:
+		return fmt.Errorf("--model needs exactly one named client, the one that tries it, not %d; run `aigw check --help`", len(args))
+	case opts.tokenStdin && requested != depthEndpoint && requested != depthModel:
+		return fmt.Errorf("--token-stdin works at the endpoint or model depth, not at %s; run `aigw check --help`", requested)
+	}
+	if _, err := domain.ParseModelRef(opts.model); err != nil && !errors.Is(err, domain.ErrModelRefWithoutProvider) {
+		return fmt.Errorf("%w; run `aigw check --help`", err)
+	}
+	return nil
+}
+
 // run checks the clients that the arguments name, or else the enabled ones,
 // and reports them. A check that names no client while none is enabled fails
-// with the step that activation names, and sends nothing.
+// with the step that activation names, and sends nothing. A named model is
+// resolved, and the owner of a one-time Token admitted, before standard input
+// is read.
 func run(cmd *cobra.Command, runtime invocation.Context, args []string, opts options) error {
 	// Args admitted the arguments, so they plan.
 	planned, _ := admit(runtime.Clients.Admission(), args, opts)
@@ -113,14 +145,20 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, opts opt
 	if !planned.named {
 		planned.clients = cfg.EnabledClientIDs()
 	}
+	model, err := namedModel(runtime, cfg, planned, opts)
+	if err != nil {
+		return err
+	}
 	shared, backend := sharedChecks(operation.Dependencies)
-	checking := checker{deps: operation, cfg: cfg, plan: planned, shared: shared}
+	checking := checker{deps: operation, cfg: cfg, plan: planned, shared: shared, named: model}
 	if len(planned.clients) == 0 {
 		return noClient(operation, cfg, checking.shared, backend, planned.requested, opts.jsonMode)
 	}
 	result := checking.run(cmd.Context())
 	if opts.jsonMode {
-		if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.ok(), result.documented(backend)); err != nil {
+		doc := result.documented(backend)
+		doc.Model = model.name()
+		if err := terminal.WriteDocument(runtime.Out, schemaVersion, result.ok(), doc); err != nil {
 			return err
 		}
 	} else if err := result.render(runtime, opts.verbose); err != nil {
@@ -131,6 +169,23 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, opts opt
 		return terminal.Presented(result.err())
 	}
 	return nil
+}
+
+// namedModel resolves --model for the one named client and reads the
+// one-time Token of --token-stdin, once its owner is admitted.
+func namedModel(runtime invocation.Context, cfg domain.Config, planned plan, opts options) (named, error) {
+	if opts.model == "" {
+		return named{}, nil
+	}
+	model, err := resolveNamed(cfg, planned.clients[0], opts.model)
+	if err != nil || !opts.tokenStdin {
+		return model, err
+	}
+	if err := tokenOwner(cfg, planned.clients[0], model); err != nil {
+		return named{}, err
+	}
+	model.token, err = invocation.ReadToken(runtime, true, false)
+	return model, err
 }
 
 // noClient reports a check that names no client while none is enabled: no

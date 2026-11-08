@@ -104,6 +104,10 @@ func TestCompletionReadsOnlyTheLocalConfiguration(t *testing.T) {
 		{"Claude's models", CompleteClientModels(runtime), []string{claude.ID}, []string{"both/opus", "messages/opus"}},
 		{"an unknown client's models", CompleteClientModels(runtime), []string{"codx"}, []string{}},
 		{"use's third argument", CompleteClientModels(runtime), []string{codex.ID, "both/opus"}, []string{}},
+		// `check <client> --model <TAB>` completes the models that the named
+		// client can use, and every model before a client is named.
+		{"check's model for Codex", CompleteClientModel(runtime), []string{codex.ID}, []string{"both/opus", "responses/openai/gpt-sol"}},
+		{"check's model without a client", CompleteClientModel(runtime), nil, []string{"both/opus", "messages/opus", "responses/openai/gpt-sol"}},
 		{"families", CompleteFamilies(runtime), nil, []string{"opus", "sol"}},
 		{"protocols", completeProtocols, nil, []string{"anthropic", "responses", "chat"}},
 		{"capabilities", CompleteCapabilities, nil, []string{"text", "reasoning", "streaming", "tools", "structured_output", "continuation", "compaction", "multimodal_input", "tool_search"}},

@@ -337,14 +337,15 @@ func TestVerifyCodexReportsTheClientFailureAndOneRetryAction(t *testing.T) {
 	for _, want := range []string{
 		"Codex minimal verification request failed",
 		"selected model is unavailable through the client or endpoint",
-		"aigw verify --for codex",
+		"aigw check codex --depth client",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("verification output lacks %q:\n%s", want, text)
 		}
 	}
-	if strings.Contains(text, "aigw check") {
-		t.Fatalf("verification output retained the unrelated check loop:\n%s", text)
+	// The one retry is the session of the same client, which check runs.
+	if strings.Count(text, "aigw check") != 2 || strings.Contains(text, "aigw check\n") {
+		t.Fatalf("verification output named another retry:\n%s", text)
 	}
 	for _, forbidden := range []string{"must-not-leak", "/Users/operator", "secret-session", "secret-request", "https://gateway.example"} {
 		if strings.Contains(text, forbidden) {

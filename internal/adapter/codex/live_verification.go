@@ -25,7 +25,8 @@ var removeVerificationWorkspace = robustio.RemoveAll
 
 // VerifyInvocation proves a native file-reading tool and exact-session recall
 // with the selected projection in a disposable, operation-owned home.
-// explicitRoute is the invocation's --route, which its retry advice repeats.
+// explicitRoute is the provider/model that the check named, which its retry
+// advice repeats.
 func VerifyInvocation(ctx context.Context, runner process.VerificationRunner, cfg domain.Config, clientRuntime domain.Runtime, explicitRoute string) (_ ExecutableIdentity, result error) {
 	binding := cfg.Clients[ID]
 	if !binding.Enabled {

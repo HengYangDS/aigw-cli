@@ -81,16 +81,17 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if err != nil {
 					return err
 				}
+				explicitModel := modelName(cfg, routeName)
 				if !clientRuntime.RequiresProviderToken() {
 					return fmt.Errorf(
 						"route %q uses client-owned authentication; run `%s` to test it through %s",
 						clientRuntime.ModelID,
-						clientverification.Command(spec.ID, routeName),
+						clientverification.Command(spec.ID, explicitModel),
 						spec.Label,
 					)
 				}
 				if clientRuntime.CredentialCommand != "" && !tokenStdin {
-					return fmt.Errorf("route %q uses an external credential helper; run `%s` or provide an explicit test Token on stdin", clientRuntime.ModelID, clientverification.Command(spec.ID, routeName))
+					return fmt.Errorf("route %q uses an external credential helper; run `%s` or provide an explicit test Token on stdin", clientRuntime.ModelID, clientverification.Command(spec.ID, explicitModel))
 				}
 				resolved[spec.ID] = clientRuntime
 			}
@@ -128,6 +129,15 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&configPath, "config", "", "Read an absolute configuration file for a one-time stdin Token test")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write the endpoint observations as JSON")
 	return cmd
+}
+
+// modelName names the model stored under key as provider/model, which a
+// client session's check names, or "" for no model.
+func modelName(cfg domain.Config, key string) string {
+	if model, found := cfg.Models[key]; found {
+		return model.Ref().String()
+	}
+	return ""
 }
 
 // writeTestResults writes the endpoint observations as text, or as `aigw

@@ -82,6 +82,19 @@ func CompleteClientModels(runtime Context) cobra.CompletionFunc {
 	}
 }
 
+// CompleteClientModel completes the provider/model that a flag names for the
+// one client argument, such as `aigw check <client> --model`: the models that
+// the client can use once it is given, and every added model before.
+func CompleteClientModel(runtime Context) cobra.CompletionFunc {
+	return func(_ *cobra.Command, args []string, _ string) ([]cobra.Completion, cobra.ShellCompDirective) {
+		client := ""
+		if len(args) == 1 && runtime.Clients.Admission().Admits(args[0]) {
+			client = args[0]
+		}
+		return modelCompletions(runtime, client)
+	}
+}
+
 // modelCompletions offers each added model's name once, with its label, in
 // display order, and only those that client can use when client names one.
 func modelCompletions(runtime Context, client string) ([]cobra.Completion, cobra.ShellCompDirective) {

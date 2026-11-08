@@ -118,6 +118,24 @@ func configuredRuntime(t *testing.T) (invocation.Context, domain.Config, *bytes.
 	return runtime, cfg, out
 }
 
+// runtimeFixture is a configured home: the invocation, the configuration
+// that it saved, and the output.
+type runtimeFixture struct {
+	ctx invocation.Context
+	cfg domain.Config
+	out *bytes.Buffer
+}
+
+// configuration is the saved configuration's bytes.
+func (f runtimeFixture) configuration(t *testing.T) string {
+	t.Helper()
+	data, err := os.ReadFile(f.ctx.Config.Path())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
 func save(t *testing.T, runtime invocation.Context, cfg domain.Config) {
 	t.Helper()
 	if err := runtime.Config.Save(cfg); err != nil {

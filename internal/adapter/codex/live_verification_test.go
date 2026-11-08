@@ -391,7 +391,7 @@ func TestVerifyCodexRequiresSuccessfulFinalMessage(t *testing.T) {
 	for _, want := range []string{
 		"Codex minimal verification request failed",
 		"selected model is unavailable through the client or endpoint",
-		"aigw verify --for codex",
+		"aigw check codex --depth client",
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("request error lacks %q: %v", want, err)

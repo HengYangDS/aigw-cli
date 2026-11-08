@@ -115,13 +115,22 @@ func joined(words []string, conjunction string) string {
 // with it.
 func (c *checker) local(ctx context.Context, id string) result {
 	spec, _ := c.cfg.Admission().Spec(id)
-	r := result{spec: spec, enabled: c.cfg.Clients[id].Enabled}
+	r := result{spec: spec, enabled: c.cfg.Clients[id].Enabled, tried: c.named.key != ""}
 	selected, selectErr := c.cfg.ResolveRuntime(id, "")
-	r.runtime, r.resolved = selected, selectErr == nil
-	if r.resolved {
-		r.model = modelName(c.cfg, selected.ModelID)
+	if selectErr == nil {
+		r.selection = modelName(c.cfg, selected.ModelID)
 	}
-	r.checks = append(r.checks, c.modelCheck(&r, selectErr))
+	r.runtime, r.resolved = selected, selectErr == nil
+	modelErr := selectErr
+	if r.tried {
+		// The client files still match the client's own selection.
+		r.runtime, modelErr = c.cfg.ResolveRuntime(id, c.named.key)
+		r.resolved = modelErr == nil
+	}
+	if r.resolved {
+		r.model = modelName(c.cfg, r.runtime.ModelID)
+	}
+	r.checks = append(r.checks, c.modelCheck(&r, modelErr))
 	r.checks = append(r.checks, c.tokenCheck(r))
 	r.checks = append(r.checks, c.fileChecks(ctx, &r, selected, selectErr)...)
 	environment := c.shared[slices.IndexFunc(c.shared, func(check localCheck) bool { return check.Name == "environment" })]
@@ -148,7 +157,11 @@ func modelName(cfg domain.Config, key string) string {
 func (c *checker) modelCheck(r *result, selectErr error) localCheck {
 	name, label := r.spec.ID+":model", r.spec.Label+" model"
 	if selectErr == nil {
-		return passedCheck(name, label, r.model+" on "+domain.ProtocolLabel(r.runtime.Protocol))
+		detail := r.model + " on " + domain.ProtocolLabel(r.runtime.Protocol)
+		if r.tried {
+			detail += ", named with --model"
+		}
+		return passedCheck(name, label, detail)
 	}
 	if c.cfg.SelectedModel(r.spec.ID) == "" {
 		return failedCheck(name, label, "No model is selected", c.selectionFix(r.spec.ID), domainreadiness.Deferred)
@@ -176,6 +189,8 @@ func (c *checker) tokenCheck(r result) localCheck {
 	switch {
 	case !r.resolved:
 		return skippedCheck(name, label, "No model resolves, so no provider's Token applies")
+	case c.named.token != "":
+		return skippedCheck(name, label, "The one-time Token from standard input replaces the stored Token for this check")
 	case !r.runtime.RequiresProviderToken():
 		return skippedCheck(name, label, c.admission().ProductName(r.spec.ID)+" uses its own authentication, so AIGW reads no Token for it")
 	case r.runtime.CredentialCommand != "":

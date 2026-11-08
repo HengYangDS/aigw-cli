@@ -71,23 +71,24 @@ type Advice struct {
 // Failure is the verification request failure that names its retry command.
 // The client's advice explains its known diagnostics after a timeout and
 // before the shared model and authentication summaries.
-func Failure(label, client, explicitRoute string, diagnostic []byte, cause error, advice []Advice, secrets ...string) error {
+func Failure(label, client, explicitModel string, diagnostic []byte, cause error, advice []Advice, secrets ...string) error {
 	detail := verificationFailureSummary(diagnostic, cause, advice, secrets...)
 	return requestFailureError{
-		message: fmt.Sprintf("%s minimal verification request failed: %s; run `%s`", label, detail, Command(client, explicitRoute)),
+		message: fmt.Sprintf("%s minimal verification request failed: %s; run `%s`", label, detail, Command(client, explicitModel)),
 		cause:   cause,
 	}
 }
 
-// Command returns the verify invocation for one client. An explicit Route stays
-// in it: verification of an explicit Route takes its own isolated path, so a
-// retry without --route would verify another target.
-func Command(client, explicitRoute string) string {
-	command := "aigw verify --for " + client
-	if explicitRoute != "" {
-		command += " --route " + explicitRoute
+// Command returns the check that runs one client's session again. A model
+// that the check named, as provider/model, stays in it: a session of a named
+// model takes its own isolated path, so a retry without --model would check
+// another model.
+func Command(client, explicitModel string) string {
+	command := "aigw check " + client
+	if explicitModel != "" {
+		command += " --model " + explicitModel
 	}
-	return command
+	return command + " --depth client"
 }
 
 func verificationFailureSummary(diagnostic []byte, cause error, advice []Advice, secrets ...string) string {

@@ -67,6 +67,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			explicitModel := modelName(cfg, routeName)
 			clients := []string{client}
 			if client == "all" {
 				clients = cfg.EnabledClientIDs()
@@ -94,7 +95,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				}
 			}
 			if jsonMode {
-				return writeVerification(cmd, runtime, cfg, clients, clientRuntimes, routeName, client == "all")
+				return writeVerification(cmd, runtime, cfg, clients, clientRuntimes, explicitModel, client == "all")
 			}
 			r := invocation.Renderer(runtime)
 			r.ProductTitle("Live protocol verification")
@@ -102,7 +103,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			r.Text("Each selected client runs a bounded verification session and may make multiple provider requests. AIGW does not modify client configuration or restart clients.")
 			for _, target := range clients {
 				clientRuntime := clientRuntimes[target]
-				result, err := synchronizer.Verify(cmd.Context(), cfg, target, clientRuntime, routeName)
+				result, err := synchronizer.Verify(cmd.Context(), cfg, target, clientRuntime, explicitModel)
 				if err != nil {
 					return err
 				}
@@ -132,17 +133,26 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	return cmd
 }
 
+// modelName names the model stored under key as provider/model, which a
+// session's retry names, or "" for no model.
+func modelName(cfg domain.Config, key string) string {
+	if model, found := cfg.Models[key]; found {
+		return model.Ref().String()
+	}
+	return ""
+}
+
 // writeVerification runs every selected client's session and writes one
 // document when the last has ended. A failed session ends the run: its client
 // is failed, later clients are not run, no checkpoint is written, and the
 // command exits 1.
-func writeVerification(cmd *cobra.Command, runtime invocation.Context, cfg domain.Config, clients []string, runtimes map[string]domain.Runtime, routeName string, full bool) error {
+func writeVerification(cmd *cobra.Command, runtime invocation.Context, cfg domain.Config, clients []string, runtimes map[string]domain.Runtime, explicitModel string, full bool) error {
 	document := verifyDocument{Clients: make([]verifiedClient, 0, len(clients))}
 	var failure error
 	for _, target := range clients {
 		item := verifiedClient{Client: target, Model: runtimes[target].ModelID, State: "not_run"}
 		if failure == nil {
-			result, err := runtime.Synchronizer().Verify(cmd.Context(), cfg, target, runtimes[target], routeName)
+			result, err := runtime.Synchronizer().Verify(cmd.Context(), cfg, target, runtimes[target], explicitModel)
 			if err != nil {
 				failure, item.State = err, "failed"
 				problem := terminal.ProblemFor(err)

@@ -307,7 +307,7 @@ func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testi
 	command.SetArgs([]string{"--for", codex.ID})
 
 	err := executeCommand(command)
-	if err == nil || !strings.Contains(err.Error(), "aigw verify --for codex") {
+	if err == nil || !strings.Contains(err.Error(), "aigw check codex --depth client") {
 		t.Fatalf("client-native endpoint test error = %v", err)
 	}
 	if store.getCalls != 0 || store.existsCalls != 0 || requests != 0 {
@@ -315,8 +315,9 @@ func TestEndpointTestRejectsClientNativeBeforeCredentialOrNetworkAccess(t *testi
 	}
 }
 
-// When aigw test cannot probe a Route itself, it defers to aigw verify for the
-// same client and Route; dropping --route would verify the selected Route.
+// When aigw test cannot probe a Route itself, it defers to a client session of
+// the same client and model, which `aigw check --depth client` runs; dropping
+// --model would check the selected model.
 func TestEndpointTestDefersToVerifyForTheSameModel(t *testing.T) {
 	helper := filepath.Join(t.TempDir(), "credential-helper")
 	for _, test := range []struct {
@@ -329,7 +330,14 @@ func TestEndpointTestDefersToVerifyForTheSameModel(t *testing.T) {
 		}},
 		{name: "external credential helper", configure: func(binding *domain.ClientBinding) { binding.CredentialCommand = helper }},
 	} {
-		for _, args := range [][]string{{"--for", "codex"}, {"--for", "codex", "--route", "codex"}} {
+		for _, retry := range []struct {
+			args []string
+			want string
+		}{
+			{args: []string{"--for", "codex"}, want: "`aigw check codex --depth client`"},
+			{args: []string{"--for", "codex", "--route", "codex"}, want: "`aigw check codex --model one/gpt-test --depth client`"},
+		} {
+			args := retry.args
 			t.Run(test.name+" "+strings.Join(args, " "), func(t *testing.T) {
 				runtime, cfg, _ := configuredReadinessRuntime(t)
 				binding := cfg.Clients[codex.ID]
@@ -343,9 +351,8 @@ func TestEndpointTestDefersToVerifyForTheSameModel(t *testing.T) {
 				})
 				command := NewCommand(runtime)
 				command.SetArgs(args)
-				want := "`aigw verify " + strings.Join(args, " ") + "`"
-				if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), want) {
-					t.Fatalf("deferral = %v, want %s", err, want)
+				if err := executeCommand(command); err == nil || !strings.Contains(err.Error(), retry.want) {
+					t.Fatalf("deferral = %v, want %s", err, retry.want)
 				}
 			})
 		}

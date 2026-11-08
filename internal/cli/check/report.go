@@ -20,7 +20,10 @@ const schemaVersion = 3
 // client's climb with its local checks, the checks that every client shares,
 // and the next step.
 type document struct {
-	Depth             depth                   `json:"depth"`
+	Depth depth `json:"depth"`
+	// Model is the provider/model that --model named, which the one named
+	// client tried without selecting it.
+	Model             string                  `json:"model,omitempty"`
 	Clients           []clientDocument        `json:"clients"`
 	Checks            []localCheck            `json:"checks"`
 	CredentialBackend secret.BackendSelection `json:"credential_backend"`
@@ -204,6 +207,13 @@ func (r *result) row() terminal.Field {
 	}
 	if loopback && r.reached != depthLocal {
 		field.Details = append(field.Details, r.spec.Label+" uses a loopback endpoint; AIGW does not manage the endpoint runtime")
+	}
+	if r.tried {
+		kept := r.spec.Label + " selects no model"
+		if r.selection != "" {
+			kept = r.spec.Label + " still uses " + r.selection
+		}
+		field.Details = append(field.Details, "Tried with --model; "+kept)
 	}
 	for _, check := range r.checks {
 		if check.State == checkSkipped {
