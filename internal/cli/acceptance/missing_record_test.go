@@ -2,7 +2,6 @@ package cli_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -112,24 +111,6 @@ var projectedClients = map[string]func(*testing.T) projectedClient{
 	},
 }
 
-// dropClaudeDesktopEntry removes what AIGW added to the file list, as the
-// refusal of a deleted profile asks.
-func dropClaudeDesktopEntry(t *testing.T, client projectedClient) {
-	t.Helper()
-	path := filepath.Join(filepath.Dir(client.file), "_meta.json")
-	var metadata map[string]any
-	if err := json.Unmarshal(readFile(t, path), &metadata); err != nil {
-		t.Fatal(err)
-	}
-	delete(metadata, "appliedId")
-	delete(metadata, "entries")
-	data, err := json.Marshal(metadata)
-	if err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, path, data, 0o600)
-}
-
 // A client file deleted while AIGW's record of it remains is refused on every
 // surface with the one step that lets synchronization pass: the file restored,
 // or the record deleted when the file is gone for good.
@@ -138,11 +119,10 @@ func TestADeletedClientFileNamesItsRecord(t *testing.T) {
 		t.Run(id, func(t *testing.T) {
 			client := build(t)
 			fileName, recordName := filepath.Base(client.file), filepath.Base(client.record)
-			also := ""
+			recovery := "Restore " + fileName + ", or delete " + recordName + " in its folder if " + fileName + " is gone for good, then run `aigw sync`"
 			if id == claudedesktop.ID {
-				also = " and remove AIGW's entry and appliedId from _meta.json there"
+				recovery = "Restore " + fileName + ", or run `aigw client disable claude-desktop`, which restores the settings that AIGW changed from " + recordName + ", if " + fileName + " is gone for good"
 			}
-			recovery := "Restore " + fileName + ", or delete " + recordName + " in its folder" + also + " if " + fileName + " is gone for good, then run `aigw sync`"
 			projected := readFile(t, client.file)
 
 			if err := os.Remove(client.file); err != nil {
@@ -154,11 +134,22 @@ func TestADeletedClientFileNamesItsRecord(t *testing.T) {
 			if err := os.Remove(client.file); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Remove(client.record); err != nil {
-				t.Fatal(err)
-			}
 			if id == claudedesktop.ID {
-				dropClaudeDesktopEntry(t, client)
+				// The printed branch: withdrawal restores from the record, and a
+				// later enable projects again.
+				cfg, err := client.app.Config.Load()
+				if err != nil {
+					t.Fatal(err)
+				}
+				binding := cfg.Clients[id]
+				enable := append([]string{"client", "enable", id, "--executable", binding.Executable}, targetFlags(binding.Targets)...)
+				for _, command := range [][]string{{"client", "disable", id}, enable} {
+					if err := cli.Execute(client.app, command); err != nil {
+						t.Fatalf("%v: %v\n%s", command, err, client.output)
+					}
+				}
+			} else if err := os.Remove(client.record); err != nil {
+				t.Fatal(err)
 			}
 			syncAndCheckPass(t, client.app, client.output, id)
 			if _, err := os.Stat(client.record); err != nil {
@@ -185,4 +176,13 @@ func TestAnUnreadableRecordNamesItsRestoration(t *testing.T) {
 			})
 		}
 	}
+}
+
+// targetFlags names each configured target with --target.
+func targetFlags(targets []string) []string {
+	flags := make([]string, 0, 2*len(targets))
+	for _, target := range targets {
+		flags = append(flags, "--target", target)
+	}
+	return flags
 }

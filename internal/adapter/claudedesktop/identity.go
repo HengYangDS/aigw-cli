@@ -3,6 +3,7 @@ package claudedesktop
 import (
 	"encoding/json"
 	"errors"
+	"path/filepath"
 
 	"aigw-cli/internal/adapter"
 )
@@ -12,17 +13,20 @@ const (
 	profileName = "AIGW"
 )
 
-func prepareState(paths Paths, before snapshots, standard, thirdParty, metadata document) (ownershipState, error) {
+// prepareState reads AIGW's record of the profile, or starts one. withdrawing
+// says whether the plan restores the user's settings.
+func prepareState(paths Paths, before snapshots, standard, thirdParty, metadata document, withdrawing bool) (ownershipState, error) {
 	if before.state.Exists {
 		if !before.profile.Exists {
-			// The file list still names the profile, and AIGW takes an entry
-			// without a record for someone else's.
-			return ownershipState{}, adapter.MissingWithRecord("Claude Desktop", paths.Profile, paths.State, " and remove AIGW's entry and appliedId from _meta.json there")
+			return recordedWithoutProfile(paths, before.state.Data, standard, thirdParty, metadata, withdrawing)
 		}
 		return readOwnedState(paths.State, before.state.Data, standard, thirdParty, before.profile.Data, metadata)
 	}
 	if before.profile.Exists || hasProfileEntry(metadata, profileID) {
-		return ownershipState{}, errors.New("Claude Desktop AIGW profile already exists without AIGW ownership")
+		return ownershipState{}, adapter.NewConflictError(
+			"Claude Desktop AIGW profile already exists without AIGW ownership",
+			"Restore "+filepath.Base(paths.State)+" in "+filepath.Base(paths.Profile)+"'s folder from a copy of it, or delete "+filepath.Base(paths.Profile)+" there and remove AIGW's entry and appliedId from _meta.json, then run `aigw sync`",
+			nil)
 	}
 	return ownershipState{
 		Version:  1,
@@ -38,10 +42,42 @@ func prepareState(paths Paths, before snapshots, standard, thirdParty, metadata 
 	}, nil
 }
 
-func readOwnedState(record string, data []byte, standard, thirdParty document, profile []byte, metadata document) (ownershipState, error) {
+// recordedWithoutProfile reads a record whose profile file is gone. A
+// withdrawal restores from the record alone, because the record holds every
+// value that withdrawal puts back and the deleted profile holds nothing of the
+// user's, provided the shared settings still hold AIGW's values; the
+// file list keeps the user's entries, and AIGW removes only its own. A
+// projection refuses, because it would write AIGW's profile again over the
+// user's choice to delete it.
+func recordedWithoutProfile(paths Paths, data []byte, standard, thirdParty, metadata document, withdrawing bool) (ownershipState, error) {
+	state, err := decodeOwnedState(paths.State, data)
+	if err != nil {
+		return ownershipState{}, err
+	}
+	if withdrawing {
+		if changed := selectionChanges(standard, thirdParty, metadata); len(changed) > 0 {
+			return ownershipState{}, changedOutsideAIGW(changed)
+		}
+		return state, nil
+	}
+	return ownershipState{}, adapter.NewConflictError(
+		adapter.MissingWithRecord("Claude Desktop", paths.Profile, paths.State, "").Error(),
+		"Restore "+filepath.Base(paths.Profile)+", or run `aigw client disable claude-desktop`, which restores the settings that AIGW changed from "+filepath.Base(paths.State)+", if "+filepath.Base(paths.Profile)+" is gone for good",
+		nil)
+}
+
+func decodeOwnedState(record string, data []byte) (ownershipState, error) {
 	var state ownershipState
 	if err := json.Unmarshal(data, &state); err != nil || state.Version != 1 || state.WriterID != "aigw-cli" {
 		return ownershipState{}, adapter.UnreadableRecord(record, errors.New("Claude Desktop ownership state is unavailable or invalid"))
+	}
+	return state, nil
+}
+
+func readOwnedState(record string, data []byte, standard, thirdParty document, profile []byte, metadata document) (ownershipState, error) {
+	state, err := decodeOwnedState(record, data)
+	if err != nil {
+		return ownershipState{}, err
 	}
 	currentHash, err := managedHash(profileID, standard, thirdParty, profile, metadata)
 	if err != nil {
