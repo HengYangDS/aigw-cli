@@ -310,13 +310,18 @@ func (e promptError) Error() string { return e.err.Error() }
 func (e promptError) Unwrap() error { return e.err }
 
 // cancelledPrompt explains a prompt of the selection that ended without an
-// answer: it names the prompt, says that nothing changed, and names the same
-// command again, which asks again, as its fix. Every other error, a prompt
-// that could not be shown or read included, returns unchanged.
+// answer, cancelled or with answers that named no choice: it names the
+// prompt, says that nothing changed, and names the same command again, which
+// asks again, as its fix. Every other error, a prompt that could not be shown
+// or read included, returns unchanged.
 func cancelledPrompt(cmd *cobra.Command, args []string, err error) error {
 	failed, prompted := errors.AsType[promptError](err)
 	if !prompted || !errors.Is(err, terminal.ErrInputCancelled) {
 		return err
 	}
-	return terminal.ProblemError(failed.prompt+" was cancelled", "", "Nothing changed.", invocation.Retry(cmd, args), err)
+	title := failed.prompt + " was cancelled"
+	if errors.Is(err, terminal.ErrNoChoice) {
+		title = failed.prompt + " ended without a choice"
+	}
+	return terminal.ProblemError(title, "", "Nothing changed.", invocation.Retry(cmd, args), err)
 }

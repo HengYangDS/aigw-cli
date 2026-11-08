@@ -129,19 +129,22 @@ func TestUseInteractiveFailures(t *testing.T) {
 	}
 }
 
-// A cancelled client or model prompt names that prompt, says that nothing
-// changed, and runs the same command again, which asks again.
+// A cancelled client or model prompt, and one whose answers named no choice,
+// names that prompt, says that nothing changed, and runs the same command
+// again, which asks again.
 func TestUseNamesACancelledSelectionPrompt(t *testing.T) {
 	cancelled := fmt.Errorf("%w: user aborted", terminal.ErrInputCancelled)
 	for _, test := range []struct {
 		args       []string
+		err        error
 		title, fix string
 	}{
-		{title: "The client prompt was cancelled", fix: "aigw use"},
-		{args: []string{codex.ID}, title: "The model prompt for Codex was cancelled", fix: "aigw use codex"},
+		{err: cancelled, title: "The client prompt was cancelled", fix: "aigw use"},
+		{args: []string{codex.ID}, err: cancelled, title: "The model prompt for Codex was cancelled", fix: "aigw use codex"},
+		{args: []string{codex.ID}, err: terminal.ErrNoChoice, title: "The model prompt for Codex ended without a choice", fix: "aigw use codex"},
 	} {
 		t.Run(test.title, func(t *testing.T) {
-			runtime, _ := interactiveRuntime(t, &promptStub{err: cancelled})
+			runtime, _ := interactiveRuntime(t, &promptStub{err: test.err})
 			before, err := runtime.Config.CaptureSnapshot()
 			if err != nil {
 				t.Fatal(err)

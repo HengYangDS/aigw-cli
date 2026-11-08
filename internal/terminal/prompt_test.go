@@ -261,7 +261,7 @@ func TestTerminalPromptAccessibleSelectDefaultsToFirstChoiceOnEmptyInput(t *test
 }
 
 func TestTerminalPromptAccessibleSelectAcceptsChosenNumber(t *testing.T) {
-	p := Prompt{in: strings.NewReader("\n2\n"), out: &bytes.Buffer{}, accessible: true}
+	p := Prompt{in: strings.NewReader("2\n"), out: &bytes.Buffer{}, accessible: true}
 	choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
 	value, err := p.Select("Pick: ", choices)
 	if err != nil {
@@ -272,20 +272,24 @@ func TestTerminalPromptAccessibleSelectAcceptsChosenNumber(t *testing.T) {
 	}
 }
 
-// In accessible mode the prompt asks first for an optional filter: the
-// choices whose label or value contains each word of it, ignoring case, are
-// numbered, a filter that matches none is asked again, and the number picks
-// among the matches.
-func TestTerminalPromptAccessibleSelectFiltersTheChoices(t *testing.T) {
-	choices := []Choice{{Value: "team/team-model", Label: "Team model"}, {Value: "team/MiniMax-M3", Label: "MiniMax M3"}, {Value: "team/minimal", Label: "Minimal"}}
+// In accessible mode one prompt takes a number or, for a list longer than
+// four, words that filter it: a filter that leaves one choice selects it, one
+// that leaves several numbers them again for the next answer, and one that
+// matches nothing is said and asked again. The choices whose label or value
+// contains each word, ignoring case, match.
+func TestTerminalPromptAccessibleSelectFiltersALongList(t *testing.T) {
+	choices := []Choice{
+		{Value: "team/team-model", Label: "Team model"}, {Value: "team/MiniMax-M3", Label: "MiniMax M3"}, {Value: "team/minimal", Label: "Minimal"},
+		{Value: "team/spare-model", Label: "Spare model"}, {Value: "team/other-model", Label: "Other model"},
+	}
 	for _, test := range []struct {
 		name, input, want string
 		listed, unlisted  []string
 	}{
-		{name: "filter", input: "mini\n2\n", want: "team/minimal", listed: []string{"1. MiniMax M3", "2. Minimal"}, unlisted: []string{"Team model"}},
-		{name: "words", input: "MINI m3\n\n", want: "team/MiniMax-M3", listed: []string{"1. MiniMax M3"}, unlisted: []string{"Minimal", "Team model"}},
-		{name: "every choice", input: "\n3\n", want: "team/minimal", listed: []string{"1. Team model", "2. MiniMax M3", "3. Minimal"}},
-		{name: "no match", input: "opus\nteam\n\n", want: "team/team-model", listed: []string{`No choice matches "opus".`, "1. Team model"}},
+		{name: "filter", input: "mini\n2\n", want: "team/minimal", listed: []string{"5. Other model", "1. MiniMax M3\n  2. Minimal\n"}},
+		{name: "one match", input: "MINI m3\n", want: "team/MiniMax-M3", unlisted: []string{"1. MiniMax M3\n"}},
+		{name: "a number", input: "3\n", want: "team/minimal", listed: []string{"1. Team model", "3. Minimal", "5. Other model"}},
+		{name: "no match", input: "opus\nspare\n", want: "team/spare-model", listed: []string{`No choice matches "opus".`}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			out := &bytes.Buffer{}
@@ -294,33 +298,46 @@ func TestTerminalPromptAccessibleSelectFiltersTheChoices(t *testing.T) {
 			if err != nil || value != test.want {
 				t.Fatalf("Select() = %q, %v, want %q", value, err, test.want)
 			}
-			if !strings.Contains(out.String(), "Filter the 3 choices, or press Enter for all: ") {
-				t.Fatalf("Select() did not ask for a filter: %q", out.String())
+			if !strings.Contains(out.String(), "Select a number, or type words to filter [1]: ") {
+				t.Fatalf("Select() does not offer a filter: %q", out.String())
 			}
 			for _, line := range test.listed {
 				if !strings.Contains(out.String(), line) {
 					t.Fatalf("Select() output lacks %q: %q", line, out.String())
 				}
 			}
-			for _, label := range test.unlisted {
-				if strings.Contains(out.String(), label) {
-					t.Fatalf("Select() listed %q, which the filter excludes: %q", label, out.String())
+			for _, line := range test.unlisted {
+				if strings.Contains(out.String(), line) {
+					t.Fatalf("Select() output has %q: %q", line, out.String())
 				}
 			}
 		})
 	}
 }
 
+// A list of four choices or fewer is numbered and read as a number, with no
+// filter: a word, like a number out of range, is said and asked again, and
+// after three such answers the selection ends without a choice, as a
+// cancelled prompt ends.
 func TestTerminalPromptAccessibleSelectRequiresAnOfferedNumber(t *testing.T) {
-	for _, input := range []string{"nope", "9"} {
-		t.Run(input, func(t *testing.T) {
-			p := Prompt{in: strings.NewReader("\n" + input + "\n"), out: &bytes.Buffer{}, accessible: true}
-			choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
-			if _, err := p.Select("Pick: ", choices); err == nil || !strings.Contains(err.Error(), "invalid selection") {
-				t.Fatalf("Select() error = %v", err)
-			}
-		})
-	}
+	choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
+	t.Run("asked again", func(t *testing.T) {
+		out := &bytes.Buffer{}
+		p := Prompt{in: strings.NewReader("9\nbeta\n2\n"), out: out, accessible: true}
+		value, err := p.Select("Pick: ", choices)
+		if err != nil || value != "b" {
+			t.Fatalf("Select() = %q, %v, want b", value, err)
+		}
+		if strings.Count(out.String(), "Choose a number from 1 to 2.") != 2 || strings.Contains(out.String(), "filter") {
+			t.Fatalf("Select() output = %q", out.String())
+		}
+	})
+	t.Run("bounded", func(t *testing.T) {
+		p := Prompt{in: strings.NewReader("9\nnope\n0\n1\n"), out: &bytes.Buffer{}, accessible: true}
+		if _, err := p.Select("Pick: ", choices); !errors.Is(err, ErrNoChoice) || !errors.Is(err, ErrInputCancelled) {
+			t.Fatalf("Select() error = %v, want no choice", err)
+		}
+	})
 }
 
 func TestTerminalPromptAccessibleSelectSurfacesLabelWriteFailure(t *testing.T) {
@@ -348,16 +365,16 @@ func (writer *failAfterWriter) Write(data []byte) (int, error) {
 
 func TestTerminalPromptAccessibleSelectSurfacesOptionAndInputFailures(t *testing.T) {
 	choices := []Choice{{Value: "a", Label: "Alpha"}, {Value: "b", Label: "Beta"}}
-	t.Run("filter output", func(t *testing.T) {
-		writer := &failAfterWriter{allowed: 1, err: errors.New("closed pipe")}
-		prompt := Prompt{in: strings.NewReader("\n1\n"), out: writer, accessible: true}
+	t.Run("prompt output", func(t *testing.T) {
+		writer := &failAfterWriter{allowed: 3, err: errors.New("closed pipe")}
+		prompt := Prompt{in: strings.NewReader("1\n"), out: writer, accessible: true}
 		if _, err := prompt.Select("Pick: ", choices); err == nil || !strings.Contains(err.Error(), "render input prompt") {
 			t.Fatalf("Select() error = %v", err)
 		}
 	})
 	t.Run("option output", func(t *testing.T) {
-		writer := &failAfterWriter{allowed: 2, err: errors.New("closed pipe")}
-		prompt := Prompt{in: strings.NewReader("\n1\n"), out: writer, accessible: true}
+		writer := &failAfterWriter{allowed: 1, err: errors.New("closed pipe")}
+		prompt := Prompt{in: strings.NewReader("1\n"), out: writer, accessible: true}
 		if _, err := prompt.Select("Pick: ", choices); err == nil || !strings.Contains(err.Error(), "render selection option") {
 			t.Fatalf("Select() error = %v", err)
 		}

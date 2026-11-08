@@ -15,6 +15,20 @@ import (
 // cancelled it, or entered nothing where an answer is required.
 var ErrInputCancelled = errors.New("input cancelled")
 
+// ErrNoChoice marks an accessible selection that ended because its answers
+// named no choice within the answers that it reads, which ends it as a
+// cancelled prompt.
+var ErrNoChoice = fmt.Errorf("%w: no answer named a choice", ErrInputCancelled)
+
+// maximumUnmatched bounds the answers that name no choice, a number out of
+// range, a word for a short list or a filter that matches nothing, that one
+// accessible selection reads before it ends without a choice.
+const maximumUnmatched = 3
+
+// shortList is the number of choices up to which an accessible selection
+// offers no filter: the list is short enough to read.
+const shortList = 4
+
 // Choice is one stable value and human label offered by a bounded selection prompt.
 type Choice struct {
 	Value string
@@ -71,9 +85,10 @@ func (p Prompt) Text(label string) (string, error) {
 }
 
 // Select reads one choice. The list filters what the person types after "/",
-// which its visible keys say. In accessible mode it asks first for an
-// optional filter, numbers the choices that match, and reads the number of
-// one, the first by default.
+// which its visible keys say. In accessible mode it numbers the choices and
+// reads one answer at a time: a number selects that choice, nothing selects
+// the first, and for a list longer than shortList words filter the choices,
+// selecting the one that matches or numbering the matches again.
 func (p Prompt) Select(label string, choices []Choice) (string, error) {
 	if len(choices) == 0 {
 		return "", fmt.Errorf("no options are available")
@@ -101,43 +116,65 @@ func (p Prompt) selectForm(label string, choices []Choice, selected *string) *hu
 	return p.form(true, huh.NewSelect[string]().Title(label).Options(options...).Value(selected))
 }
 
-// accessibleSelect reads one choice as plain lines: an optional filter, asked
-// again while it matches no choice, and then the number of a matching
-// choice.
+// accessibleSelect reads one choice as plain lines from the numbered list.
+// An answer that names no choice, a number out of range, a word in a short
+// list or a filter that matches nothing, is said and asked again, up to
+// maximumUnmatched answers, after which the selection ends without a choice.
 func (p Prompt) accessibleSelect(label string, choices []Choice) (string, error) {
 	if _, err := fmt.Fprintln(p.out, label); err != nil {
 		return "", fmt.Errorf("render selection prompt: %w", err)
 	}
-	var matches []Choice
-	for {
-		filter, err := p.plainInput(fmt.Sprintf("Filter the %d choices, or press Enter for all: ", len(choices)), true)
+	ask := "Select [1]: "
+	if len(choices) > shortList {
+		ask = "Select a number, or type words to filter [1]: "
+	}
+	listed := choices
+	if err := p.number(listed); err != nil {
+		return "", err
+	}
+	for unmatched := 0; unmatched < maximumUnmatched; {
+		answer, err := p.plainInput(ask, true)
 		if err != nil {
 			return "", err
 		}
-		if matches = matching(choices, filter); len(matches) > 0 {
-			break
+		if answer == "" {
+			return listed[0].Value, nil
 		}
-		if _, err := fmt.Fprintf(p.out, "No choice matches %q.\n", filter); err != nil {
+		selected, numberErr := strconv.Atoi(answer)
+		matches := matching(choices, answer)
+		reply := fmt.Sprintf("Choose a number from 1 to %d.", len(listed))
+		switch {
+		case numberErr == nil && selected >= 1 && selected <= len(listed):
+			return listed[selected-1].Value, nil
+		case numberErr == nil || len(choices) <= shortList:
+		case len(matches) == 1:
+			return matches[0].Value, nil
+		case len(matches) > 1:
+			// A filter that names several choices numbers them again.
+			listed = matches
+			if err := p.number(listed); err != nil {
+				return "", err
+			}
+			continue
+		default:
+			reply = fmt.Sprintf("No choice matches %q.", answer)
+		}
+		unmatched++
+		if _, err := fmt.Fprintln(p.out, reply); err != nil {
 			return "", fmt.Errorf("render selection prompt: %w", err)
 		}
 	}
-	for index, choice := range matches {
+	return "", ErrNoChoice
+}
+
+// number writes choices as a numbered list.
+func (p Prompt) number(choices []Choice) error {
+	for index, choice := range choices {
 		if _, err := fmt.Fprintf(p.out, "  %d. %s\n", index+1, choice.Label); err != nil {
-			return "", fmt.Errorf("render selection option: %w", err)
+			return fmt.Errorf("render selection option: %w", err)
 		}
 	}
-	value, err := p.plainInput("Select [1]: ", true)
-	if err != nil {
-		return "", err
-	}
-	if value == "" {
-		return matches[0].Value, nil
-	}
-	selected, err := strconv.Atoi(value)
-	if err != nil || selected < 1 || selected > len(matches) {
-		return "", fmt.Errorf("invalid selection %q", value)
-	}
-	return matches[selected-1].Value, nil
+	return nil
 }
 
 // matching returns the choices whose label or value contains every word of
