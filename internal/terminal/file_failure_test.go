@@ -157,3 +157,29 @@ func TestAPlanningFailureNamesTheConfiguredFile(t *testing.T) {
 		t.Fatalf("failure document = %s", out.String())
 	}
 }
+
+// An operating-system error at a file that the operator named says which file
+// and why, and its fix acts on that file. A local check would inspect neither.
+func TestFileAccessFailureNamesTheFileAndTheStepThatResolvesIt(t *testing.T) {
+	const file = "/opt/tools/aigw"
+	for _, test := range []struct {
+		name         string
+		err          error
+		title, fixed string
+	}{
+		{"permission", &os.PathError{Op: "mkdir", Path: "/opt/tools", Err: os.ErrPermission}, "AIGW cannot use /opt/tools/aigw: permission denied", "Make /opt/tools/aigw and its folder writable, then run the same command again."},
+		{"other error", fmt.Errorf("read: %w", &os.PathError{Op: "open", Path: file, Err: syscall.ENOTDIR}), "AIGW cannot use /opt/tools/aigw: " + syscall.ENOTDIR.Error(), "Resolve " + syscall.ENOTDIR.Error() + " on /opt/tools/aigw, then run the same command again."},
+		{"replacing the file", &os.LinkError{Op: "rename", Old: "/opt/tools/.aigw-write-1", New: file, Err: os.ErrPermission}, "AIGW cannot use /opt/tools/aigw: permission denied", "Make /opt/tools/aigw and its folder writable, then run the same command again."},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			problem := ProblemFor(FileAccessFailure(test.err, file))
+			if problem.Title != test.title || problem.Fix != test.fixed {
+				t.Fatalf("problem = %+v", problem)
+			}
+		})
+	}
+	other := errors.New("not a file failure")
+	if err := FileAccessFailure(other, file); !errors.Is(err, other) || err.Error() != other.Error() {
+		t.Fatalf("another failure became %v", err)
+	}
+}

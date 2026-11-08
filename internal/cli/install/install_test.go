@@ -10,6 +10,7 @@ import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/program"
+	"aigw-cli/internal/terminal"
 )
 
 func TestInstallCommandUsesPlatformDefaultTarget(t *testing.T) {
@@ -83,5 +84,48 @@ func TestHomebrewSourceCannotCreatePortableInstallation(t *testing.T) {
 	}
 	if _, err := os.Stat(program.RollbackPath(target)); !os.IsNotExist(err) {
 		t.Fatalf("backup created: %v", err)
+	}
+}
+
+// Installing the running program onto its own file names another file, which
+// is the step that lets the command succeed.
+func TestInstallCommandNamesAnotherFileForItsOwnPath(t *testing.T) {
+	source := filepath.Join(t.TempDir(), "aigw")
+	if err := os.WriteFile(source, []byte("current"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: source, Out: new(bytes.Buffer)})
+	command.SilenceErrors, command.SilenceUsage = true, true
+	command.SetArgs(nil)
+	if problem := terminal.ProblemFor(command.Execute()); !strings.Contains(problem.Fix, "--path naming another file") {
+		t.Fatalf("problem = %+v", problem)
+	}
+}
+
+// A target that the command cannot use is named with the step that resolves
+// it, where a local check would inspect neither it nor its folder, and the
+// failure writes nothing.
+func TestInstallCommandNamesTheTargetThatItCannotUse(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "aigw")
+	blocked := filepath.Join(root, "blocked")
+	for _, path := range []string{source, blocked} {
+		if err := os.WriteFile(path, []byte("file"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	target := filepath.Join(blocked, "aigw")
+	for _, args := range [][]string{nil, {"--dry-run"}} {
+		command := NewCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target, Out: new(bytes.Buffer)})
+		command.SilenceErrors, command.SilenceUsage = true, true
+		command.SetArgs(args)
+		problem := terminal.ProblemFor(command.Execute())
+		if !strings.Contains(problem.Title, target) || !strings.Contains(problem.Fix, target) ||
+			!strings.HasSuffix(problem.Fix, "then run the same command again.") || strings.Contains(problem.Fix, "aigw check") {
+			t.Fatalf("%v: problem = %+v", args, problem)
+		}
+	}
+	if data, err := os.ReadFile(blocked); err != nil || string(data) != "file" {
+		t.Fatalf("the blocking file changed: %q, %v", data, err)
 	}
 }

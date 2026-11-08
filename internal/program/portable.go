@@ -39,11 +39,14 @@ func planInstall(source, target string) (InstallPlan, []byte, []byte, error) {
 	sourcePath := filepath.Clean(source)
 	targetPath := filepath.Clean(target)
 	if sourcePath == targetPath {
-		return InstallPlan{}, nil, nil, errors.New("source and target resolve to the same path")
+		return InstallPlan{}, nil, nil, samePathError{}
 	}
 	data, err := os.ReadFile(sourcePath)
 	if err != nil {
 		return InstallPlan{}, nil, nil, fmt.Errorf("read portable AIGW executable: %w", err)
+	}
+	if info, statErr := os.Stat(targetPath); statErr == nil && info.IsDir() {
+		return InstallPlan{}, nil, nil, &TargetDirectoryError{Path: target}
 	}
 	previous, err := os.ReadFile(targetPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -113,9 +116,29 @@ func PlanUninstall(target string) ([]string, error) {
 // anything changes.
 func RefuseDirectories(target string) error {
 	if info, err := os.Lstat(target); err == nil && info.IsDir() {
-		return fmt.Errorf("portable AIGW file %s is a directory; name the program file", target)
+		return &TargetDirectoryError{Path: target}
 	}
 	return refuseRollbackDirectory(RollbackPath(target))
+}
+
+// samePathError is an installation of the running program onto its own file.
+type samePathError struct{}
+
+func (samePathError) Error() string { return "source and target resolve to the same path" }
+
+// NextAction is the step after which the command succeeds.
+func (samePathError) NextAction() string {
+	return "This program is already at that path. To install it elsewhere, run the same command with --path naming another file."
+}
+
+// TargetDirectoryError is a directory at the path of the portable program,
+// which AIGW neither replaces nor removes. The command succeeds with a path
+// that names the program file.
+type TargetDirectoryError struct{ Path string }
+
+// Error names the directory and what to name instead.
+func (e *TargetDirectoryError) Error() string {
+	return fmt.Sprintf("portable AIGW file %s is a directory; name the program file", e.Path)
 }
 
 // refuseRollbackDirectory refuses a directory at the rollback copy's path,

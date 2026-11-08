@@ -35,6 +35,25 @@ type uninstallDocument struct {
 	NextDetail string `json:"next_detail,omitempty"`
 }
 
+// admitTarget refuses a program that Homebrew owns, and a directory at the
+// program's path or at its rollback copy's path, before any client is
+// withdrawn. The fix for a directory names no file: uninstalling withdraws the
+// clients even when no program is at the path, so it cannot be a guess.
+func admitTarget(target string) error {
+	if err := program.RequirePortableOwnership(target); err != nil {
+		if !errors.Is(err, program.ErrHomebrewManaged) {
+			return err
+		}
+		return terminal.ProblemError("Homebrew manages this AIGW program", "A Homebrew receipt owns the program file.",
+			"No client setting or program file changed; clients that AIGW configured still call it.", "brew uninstall --cask aigw", err)
+	}
+	err := program.RefuseDirectories(target)
+	if directory, refused := errors.AsType[*program.TargetDirectoryError](err); refused {
+		return terminal.ProblemError(err.Error(), "", "", "Run the same command with --path naming the program file inside "+directory.Path+".", err)
+	}
+	return err
+}
+
 // NewCommand constructs the command that removes only the installed portable executable and its owned backup.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	var target string
@@ -51,16 +70,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if strings.TrimSpace(target) == "" {
 				target = runtime.Executable
 			}
-			if err := program.RequirePortableOwnership(target); err != nil {
-				if !errors.Is(err, program.ErrHomebrewManaged) {
-					return err
-				}
-				return terminal.ProblemError("Homebrew manages this AIGW program", "A Homebrew receipt owns the program file.",
-					"No client setting or program file changed; clients that AIGW configured still call it.", "brew uninstall --cask aigw", err)
-			}
-			// A directory at the program's path or at its rollback copy's
-			// path is refused before any client is withdrawn.
-			if err := program.RefuseDirectories(target); err != nil {
+			if err := admitTarget(target); err != nil {
 				return err
 			}
 			_, targetErr := os.Stat(target)

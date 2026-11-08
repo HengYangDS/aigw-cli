@@ -4,6 +4,8 @@ package install
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"aigw-cli/internal/cli/invocation"
@@ -40,15 +42,15 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 		Use:   "install",
 		Short: "Install this portable AIGW executable",
 		Args:  cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(target) == "" {
 				return errors.New("portable installation target is unavailable")
 			}
 			if dryRun {
-				return previewInstall(runtime, target, jsonMode)
+				return previewInstall(cmd, runtime, target, jsonMode)
 			}
 			if err := program.Install(runtime.Executable, target); err != nil {
-				return err
+				return installFailure(cmd, runtime, target, err)
 			}
 			if jsonMode {
 				return terminal.WriteDocument(runtime.Out, schemaVersion, true, installDocument{Path: target, NextDetail: installedNext})
@@ -71,10 +73,10 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 // given, the version, and the rollback copy of a program that it would
 // replace. Only this program installs itself, while `aigw` may name another,
 // so the next step stays prose, as after an installation.
-func previewInstall(runtime invocation.Context, target string, jsonMode bool) error {
+func previewInstall(cmd *cobra.Command, runtime invocation.Context, target string, jsonMode bool) error {
 	plan, err := program.PlanInstall(runtime.Executable, target)
 	if err != nil {
-		return err
+		return installFailure(cmd, runtime, target, err)
 	}
 	next := invocation.ApplyWithThisProgram
 	if plan.Unchanged {
@@ -104,4 +106,33 @@ func previewInstall(runtime invocation.Context, target string, jsonMode bool) er
 	r.Success("Preview did not write the program, a rollback copy or a directory")
 	r.Text(next)
 	return nil
+}
+
+// installFailure gives a failed installation a fix that acts on its cause: a
+// local check inspects neither the program file nor its folder, and fails in a
+// home without a configuration. A running program that cannot read itself has
+// no target that would help, so that failure stays as it is.
+func installFailure(cmd *cobra.Command, runtime invocation.Context, target string, err error) error {
+	if directory, refused := errors.AsType[*program.TargetDirectoryError](err); refused {
+		return terminal.ProblemError(err.Error(), "", "", programFileFix(cmd, runtime, directory.Path), err)
+	}
+	if access, atFile := errors.AsType[*os.PathError](err); atFile && access.Path == filepath.Clean(runtime.Executable) {
+		return err
+	}
+	return terminal.FileAccessFailure(err, target)
+}
+
+// programFileFix is the fix of a --path that names a directory: this command
+// line with the program file inside that directory, or a sentence when no
+// command line can say so or that file is a directory too. It stays prose, as
+// after an installation, because `aigw` on PATH may be another program.
+func programFileFix(cmd *cobra.Command, runtime invocation.Context, directory string) string {
+	file := filepath.Join(directory, filepath.Base(runtime.InstallTarget))
+	if info, err := os.Stat(file); err == nil && info.IsDir() {
+		return "Run the same command with --path naming a program file; " + file + " is a directory too."
+	}
+	if line := invocation.Rerun(cmd, nil, []string{"path"}, "--path", file); line != "" && invocation.Command(file) != "" {
+		return "Run `" + line + "` with this same program; `aigw` on PATH may be another program."
+	}
+	return "Run the same command with --path naming the program file " + file + "."
 }

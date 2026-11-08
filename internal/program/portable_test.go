@@ -128,8 +128,9 @@ func TestInstallAcceptsPortableFileAndRejectsBlockedDestinations(t *testing.T) {
 	if err := Install(source, filepath.Join(blocked, "aigw")); err == nil {
 		t.Fatalf("blocked parent = %v", err)
 	}
-	if err := Install(source, root); err == nil || !strings.Contains(err.Error(), "read installed") {
-		t.Fatalf("directory target = %v", err)
+	refused, isDirectory := errors.AsType[*TargetDirectoryError](Install(source, root))
+	if !isDirectory || refused.Path != root || !strings.Contains(refused.Error(), "is a directory; name the program file") {
+		t.Fatalf("directory target = %#v", refused)
 	}
 }
 

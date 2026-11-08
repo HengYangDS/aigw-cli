@@ -38,6 +38,9 @@ cmp stdout spellings.txt
 snapshot $WORK/preview after.txt
 cmp after.txt before.txt
 
+# A directory as the target asks for the program file inside it. Uninstalling
+# withdraws the clients even when no program is at the path, so the fix names
+# no guessed file.
 exitcode 1 aigw uninstall --path $WORK
 normalize stdout refusal.out
 cmp refusal.out refusal.txt
@@ -110,7 +113,7 @@ Problem
   portable AIGW file $WORK is a directory; name the program file
 
 Fix
-  aigw check
+  Run the same command with --path naming the program file inside $WORK.
 -- removed.json --
 {
   "schema_version": 1,
@@ -132,7 +135,7 @@ Fix
   "schema_version": 3,
   "ok": false,
   "error": "portable AIGW file $WORK is a directory; name the program file",
-  "next_action": "aigw check"
+  "next_detail": "Run the same command with --path naming the program file inside $WORK."
 }
 -- removed-windows.json --
 {

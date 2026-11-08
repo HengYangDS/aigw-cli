@@ -3,6 +3,7 @@ package terminal
 import (
 	"errors"
 	"io/fs"
+	"os"
 	"strings"
 
 	"aigw-cli/internal/adapter"
@@ -66,6 +67,25 @@ func targetProblem(failure *adapter.TargetError, err error) Problem {
 		}
 	}
 	return problem
+}
+
+// FileAccessFailure presents an operating-system error at file, which the
+// operator named, with the step that resolves it and the same command again.
+// Resolving a path can report a bare error number, with no path around it.
+// Any other error returns unchanged.
+func FileAccessFailure(err error, file string) error {
+	_, atPath := errors.AsType[*fs.PathError](err)
+	_, atLink := errors.AsType[*os.LinkError](err)
+	_, known := knownFileErrorReason(err)
+	if !atPath && !atLink && !known {
+		return err
+	}
+	reason := fileErrorReason(err)
+	fix := "Resolve " + reason + " on " + file + ", then run the same command again."
+	if errors.Is(err, fs.ErrPermission) {
+		fix = "Make " + file + " and its folder writable, then run the same command again."
+	}
+	return ProblemError("AIGW cannot use "+file+": "+reason, "", "", fix, err)
 }
 
 // targetReason says why a client file could not be used: an operating-system

@@ -49,18 +49,38 @@ stdout 'Rollback copy'
 stdout 'with this same program'
 snapshot $WORK/other other-after.txt
 cmp other-after.txt other-before.txt
+# A directory as the target names the program file inside it, in prose,
+# because `aigw` on PATH may be another program. A preview stays a preview, and
+# the command that the refusal names succeeds.
 exitcode 1 aigw install --path $WORK --dry-run
+stdout 'aigw install --dry-run --path'
 
 exitcode 1 aigw install --path $WORK
-[!windows] normalize stdout refusal.out
-[windows] normalize stdout refusal.out '\([a-z]+: [^)]*\)'
+normalize stdout refusal.out
 [!windows] cmp refusal.out refusal.txt
 [windows] cmp refusal.out refusal-windows.txt
 exitcode 1 aigw install --path $WORK --json
-[!windows] normalize stdout json-refusal.out
-[windows] normalize stdout json-refusal.out '\([a-z]+: [^)]*\)'
+normalize stdout json-refusal.out
 [!windows] cmp json-refusal.out json-refusal.json
 [windows] cmp json-refusal.out json-refusal-windows.json
+exec aigw install --path $WORK${/}aigw$exe
+exists $WORK/aigw$exe
+
+# When the file that it would name is a directory too, or a word would need
+# quoting, the refusal names no command, and a target that the command cannot
+# use is named with its cause and never a local check.
+mkdir $WORK/nested/aigw$exe
+exitcode 1 aigw install --path $WORK/nested
+stdout 'naming a program file'
+! stdout 'aigw install --path'
+mkdir $WORK/with' 'space
+exitcode 1 aigw install --path $WORK/with' 'space
+stdout 'naming the program file'
+! stdout 'aigw install --path'
+cp blocker.txt $WORK/blocked
+exitcode 1 aigw install --path $WORK/blocked/aigw$exe
+stdout 'then run the same command again'
+! stdout 'aigw check'
 
 -- install-preview.json --
 {
@@ -148,15 +168,17 @@ AIGW  Portable installation
 
 Next
   aigw setup
+-- blocker.txt --
+A file where the installation needs a folder.
 -- refusal.txt --
 AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  Local file access failed (read: is a directory); run `aigw check --depth local` to inspect current state
+  portable AIGW file $WORK is a directory; name the program file
 
 Fix
-  aigw check --depth local
+  Run `aigw install --path $WORK/aigw` with this same program; `aigw` on PATH may be another program.
 -- help-windows.txt --
 AIGW  aigw install
 ────────────────────────────────────────
@@ -183,10 +205,10 @@ AIGW  Action required
 ────────────────────────────────────────
 
 Problem
-  Local file access failed <varies>; run `aigw check --depth local` to inspect current state
+  portable AIGW file $WORK is a directory; name the program file
 
 Fix
-  aigw check --depth local
+  Run `aigw install --path $WORK\aigw.exe` with this same program; `aigw` on PATH may be another program.
 -- installed.json --
 {
   "schema_version": 1,
@@ -198,8 +220,8 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "Local file access failed (read: is a directory); run `aigw check --depth local` to inspect current state",
-  "next_action": "aigw check --depth local"
+  "error": "portable AIGW file $WORK is a directory; name the program file",
+  "next_detail": "Run `aigw install --path $WORK/aigw` with this same program; `aigw` on PATH may be another program."
 }
 -- installed-windows.json --
 {
@@ -212,6 +234,6 @@ Fix
 {
   "schema_version": 3,
   "ok": false,
-  "error": "Local file access failed <varies>; run `aigw check --depth local` to inspect current state",
-  "next_action": "aigw check --depth local"
+  "error": "portable AIGW file $WORK is a directory; name the program file",
+  "next_detail": "Run `aigw install --path $WORK\\aigw.exe` with this same program; `aigw` on PATH may be another program."
 }
