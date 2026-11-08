@@ -42,11 +42,11 @@
       by default; remove deletes the provider's models and Token items unless a
       client uses one; without a terminal, add and rotate never prompt and
       refuse naming `--token-stdin`; `provider.txtar` covers each.
-- [ ] 3.4 Add `aigw client list` and `aigw client edit` with `--executable`,
+- [x] 3.4 Add `aigw client list` and `aigw client edit` with `--executable`,
       `--target`, `--via`, `--direct` and the retry flags, while
       `client enable` keeps `--executable` and `--target`; `client.txtar`
       covers each.
-- [ ] 3.5 Show each client's model as `provider/model`, with the new words, in
+- [x] 3.5 Show each client's model as `provider/model`, with the new words, in
       `aigw status` and its document; `status.txtar` covers a configured, a
       deferred and an unselected client.
 - [x] 3.6 Accept a configuration with providers and no model: `provider add`
@@ -56,7 +56,7 @@
 
 ## 4. Use, check and setup
 
-- [ ] 4.1 Rework `aigw use <client> <provider/model>`: it prompts for missing
+- [x] 4.1 Rework `aigw use <client> <provider/model>`: it prompts for missing
       arguments only in a terminal, adds an unadded model or protocol after the
       catalog check, derives the family, reports a lost tool search, clears
       forwarding when the upstream endpoint changes and retries only on a change
@@ -82,11 +82,12 @@
       without a terminal, bare `aigw setup` refuses naming `--from`;
       `setup.txtar` covers a differing endpoint kept and reported, `--prune`,
       `--provider <id> --token-stdin` and a deferred Token.
-- [ ] 4.6 Take Codex's bundled model metadata from the model's family and retire
+- [x] 4.6 Take Codex's bundled model metadata from the model's family and retire
       the Codex model catalog's suffix-derived namespace mirror; tests cover a
       variant linked by family and a model that is its own family.
 - [ ] 4.7 Run the `client_acceptance` journeys from v0.6.1 once 4.1 lands,
-      each program speaking its own commands; they pass on macOS.
+      each program speaking its own commands; they pass on macOS. Depends on
+      7.4, because a candidate whose `VERSION` equals the baseline's is refused.
 
 ## 5. Maintenance commands and the command tree
 
