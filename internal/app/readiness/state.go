@@ -153,7 +153,7 @@ func ProbeState(kind diagnostics.Kind) State {
 		diagnostics.ModelUnresolved:
 		return Invalid
 	case diagnostics.QuotaExhausted,
-		diagnostics.RateLimited, diagnostics.ModelUnavailable,
+		diagnostics.RateLimited, diagnostics.Timeout, diagnostics.ModelUnavailable,
 		diagnostics.UpstreamFailure, diagnostics.NetworkFailure:
 		return Degraded
 	case diagnostics.Unexpected:

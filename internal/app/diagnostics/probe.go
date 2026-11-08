@@ -42,6 +42,9 @@ const (
 	TokenRestricted Kind = "token_restricted"
 	// RateLimited identifies provider throttling that may succeed later.
 	RateLimited Kind = "rate_limited"
+	// Timeout identifies a request that the endpoint gave up waiting for,
+	// with HTTP 408, which may succeed later.
+	Timeout Kind = "timeout"
 	// ModelUnavailable identifies a configured model that the provider cannot currently serve.
 	ModelUnavailable Kind = "model_unavailable"
 	// ModelUnresolved identifies a model without the provider's own ID for inference.
@@ -140,6 +143,8 @@ func Probe(ctx context.Context, client HTTPDoer, runtime domain.Runtime, token s
 		result.Kind, result.Summary = TokenDisabled, "the provider disabled the Token"
 	case resp.StatusCode == http.StatusForbidden:
 		result.Kind, result.Summary = TokenRestricted, "the provider restricted what the Token may do"
+	case resp.StatusCode == http.StatusRequestTimeout:
+		result.Kind, result.Summary, result.Retryable = Timeout, "the endpoint gave up waiting for the request", true
 	case resp.StatusCode == http.StatusTooManyRequests:
 		result.Kind, result.Summary, result.Retryable = RateLimited, "the provider limited the request rate or concurrency", true
 	case resp.StatusCode == http.StatusNotFound:

@@ -133,6 +133,7 @@ func TestProbeUsesEndpointNeutralFailures(t *testing.T) {
 		{name: "token restricted", status: http.StatusForbidden, body: `{"message":"forbidden"}`, wantKind: diagnostics.TokenRestricted, wantSummary: "the provider restricted what the Token may do"},
 		{name: "missing protocol path", status: http.StatusNotFound, body: `{}`, wantKind: diagnostics.EndpointMismatch, wantSummary: "the endpoint has no such path for this protocol"},
 		{name: "upstream failure", status: http.StatusInternalServerError, body: `{}`, wantKind: diagnostics.UpstreamFailure, wantSummary: "the provider failed"},
+		{name: "request timeout", status: http.StatusRequestTimeout, body: `{}`, wantKind: diagnostics.Timeout, wantSummary: "the endpoint gave up waiting for the request"},
 		{name: "unexpected response", status: http.StatusTeapot, body: `{}`, wantKind: diagnostics.Unexpected, wantSummary: "the endpoint gave an answer that AIGW does not expect"},
 	}
 

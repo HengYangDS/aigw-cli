@@ -357,3 +357,21 @@ func TestCheckCarriesEveryLocalCheck(t *testing.T) {
 		}
 	}
 }
+
+// A request that may succeed later names the same check again: a timeout
+// (HTTP 408), a rate limit (429) and a provider failure (5xx), each one a
+// retryable failure of the endpoint depth.
+func TestCheckRetriesATransientEndpointFailure(t *testing.T) {
+	for _, code := range []int{http.StatusRequestTimeout, http.StatusTooManyRequests, http.StatusBadGateway} {
+		runtime, cfg, out := configuredRuntime(t)
+		enable(t, runtime, &cfg, codex.ID)
+		runtime.HTTP = roundTripFunc(func(request *http.Request) (*http.Response, error) { return status(code)(request) })
+		if err := execute(runtime, "--depth", "endpoint", "--json"); err == nil {
+			t.Fatalf("HTTP %d passed", code)
+		}
+		client := decode(t, out).client(t, codex.ID)
+		if client.Failure == nil || !client.Failure.Retryable || client.NextAction != "aigw check codex --depth endpoint" || client.State != domainreadiness.Degraded {
+			t.Fatalf("HTTP %d = %+v", code, client)
+		}
+	}
+}

@@ -207,8 +207,9 @@ func (c *checker) rotateFix(provider string, rejected bool) string {
 
 // probeFailure is the failure of an authenticated request at d: the HTTP
 // status and what it means, the state that it leaves the client in, and the
-// fix that acts on its cause. Only an unreachable endpoint, a rate limit and
-// a provider failure name the same check again.
+// fix that acts on its cause. Only an unreachable endpoint, a timeout (HTTP
+// 408), a rate limit (429) and a provider failure (5xx) name the same check
+// again.
 func (c *checker) probeFailure(r *result, d depth, observed diagnostics.Result) failure {
 	f := failure{depth: d, state: domainreadiness.ProbeState(observed.Kind), probe: &observed, problem: sentence(observed.Summary)}
 	if observed.HTTPStatus != 0 {
@@ -233,7 +234,7 @@ func (c *checker) probeFailure(r *result, d depth, observed diagnostics.Result) 
 		if observed.HTTPStatus >= http.StatusInternalServerError {
 			f.fix = c.checkCommand(r.spec.ID, c.plan.requested)
 		}
-	case diagnostics.RateLimited, diagnostics.UpstreamFailure, diagnostics.NetworkFailure:
+	case diagnostics.Timeout, diagnostics.RateLimited, diagnostics.UpstreamFailure, diagnostics.NetworkFailure:
 		f.fix = c.checkCommand(r.spec.ID, c.plan.requested)
 	case diagnostics.Healthy, diagnostics.Unexpected:
 		f.fix = "aigw provider show " + provider

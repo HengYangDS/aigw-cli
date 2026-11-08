@@ -197,6 +197,7 @@ func TestProbeStateMapsDiagnosticSemantics(t *testing.T) {
 		{kind: diagnostics.ModelUnresolved, want: Invalid},
 		{kind: diagnostics.QuotaExhausted, want: Degraded},
 		{kind: diagnostics.RateLimited, want: Degraded},
+		{kind: diagnostics.Timeout, want: Degraded},
 		{kind: diagnostics.ModelUnavailable, want: Degraded},
 		{kind: diagnostics.UpstreamFailure, want: Degraded},
 		{kind: diagnostics.NetworkFailure, want: Degraded},
