@@ -189,3 +189,72 @@ func TestRemoveRestoresTheCredentialsWhenTheSaveFails(t *testing.T) {
 		t.Fatal("a failed save did not restore the credentials")
 	}
 }
+
+// A stored Token that no provider has, which `aigw check` lists as unused, is
+// removed by the command that check names: a preview deletes nothing, the
+// removal deletes it and touches no provider, and an ID that the store holds
+// nothing for stays refused with the closest providers.
+func TestRemoveDeletesAStoredTokenThatNoProviderHas(t *testing.T) {
+	f := newFixture(t)
+	if err := f.runtime.Secrets.Set("orphan", "sk-orphan-0001"); err != nil {
+		t.Fatal(err)
+	}
+	before := f.configuration(t)
+	stored := f.runtime.Secrets
+	f.runtime.Secrets = valueFreeStore{Store: stored, t: t}
+	if err := f.run("", "remove", "orphan", "--dry-run"); err != nil {
+		t.Fatalf("a preview = %v", err)
+	}
+	if !strings.Contains(f.text(), "Next aigw provider remove orphan") {
+		t.Fatalf("a preview names no removal: %s", f.text())
+	}
+	if present, err := stored.Exists("orphan"); err != nil || !present {
+		t.Fatalf("a preview changed the Token: %t, %v", present, err)
+	}
+	if err := f.run("", "remove", "orphan", "--json"); err != nil {
+		t.Fatalf("the removal = %v", err)
+	}
+	f.runtime.Secrets = stored
+	var document struct {
+		Status     string `json:"status"`
+		ID         string `json:"id"`
+		Token      string `json:"token"`
+		NextAction string `json:"next_action"`
+	}
+	f.decode(t, &document)
+	if document.Status != removalDone || document.ID != "orphan" || document.Token != credentialPresent || document.NextAction != "aigw provider list" {
+		t.Fatalf("the document = %+v", document)
+	}
+	if f.token("orphan") != "" || f.configuration(t) != before || f.token("team") != teamToken {
+		t.Fatal("the removal left the Token, changed the configuration or removed another Token")
+	}
+	if p := problem(f.run("", "remove", "orphan")); p.Title != `unknown provider "orphan"` {
+		t.Fatalf("a second removal = %+v", p)
+	}
+}
+
+// valueFreeStore fails the test when a credential value is read.
+type valueFreeStore struct {
+	secret.Store
+	t *testing.T
+}
+
+func (s valueFreeStore) Get(id string) (string, error) {
+	s.t.Fatalf("the removal read the value of %s", id)
+	return "", nil
+}
+
+// The read-only environment backend keeps its variable, which the removal of
+// a Token that no provider has names, and changes nothing.
+func TestRemoveNamesTheVariableOfATokenThatNoProviderHas(t *testing.T) {
+	f := newFixture(t)
+	f.withEnvironment(map[string]string{secret.EnvironmentKey("orphan"): "sk-orphan-0001"})
+	before := f.configuration(t)
+	if err := f.run("", "remove", "orphan"); err != nil {
+		t.Fatalf("the removal = %v", err)
+	}
+	if !strings.Contains(f.text(), "Still set in the environment; unset AIGW_TOKEN_ORPHAN") || !strings.Contains(f.text(), "Nothing was deleted") ||
+		!strings.Contains(f.text(), "Next Unset AIGW_TOKEN_ORPHAN in aigw's environment.") || f.configuration(t) != before {
+		t.Fatalf("the removal said: %s", f.text())
+	}
+}

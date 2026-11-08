@@ -6,6 +6,10 @@ func observeCredentialInKeychain(string, string, string) (bool, error) {
 	return false, ErrUnavailable
 }
 
+func listAccountsInKeychain(string, string) ([]string, error) {
+	return nil, ErrUnavailable
+}
+
 func readCredentialWithMigration(string, string, string, Role) ([]byte, error) {
 	return nil, ErrUnavailable
 }

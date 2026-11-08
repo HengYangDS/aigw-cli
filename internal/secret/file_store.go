@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	"aigw-cli/internal/domain"
 )
 
 // fileStore persists every credential purpose beneath one selected backend
@@ -95,6 +97,33 @@ func (store *fileStore) exists(kind Kind, account string) (bool, error) {
 		return false, err
 	}
 	return present, nil
+}
+
+// list names the regular files of the Token directory whose names are
+// provider IDs, from the directory alone. A balance credential's slot and a
+// staging file have names of another shape.
+func (store *fileStore) list() ([]string, error) {
+	root, err := openSecureRoot(store.root, false)
+	if err != nil || root == nil {
+		return nil, err
+	}
+	defer func() { _ = root.Close() }()
+	directory, err := root.Open(".")
+	if err != nil {
+		return nil, fmt.Errorf("open Token directory: %w", err)
+	}
+	defer func() { _ = directory.Close() }()
+	entries, err := directory.ReadDir(-1)
+	if err != nil {
+		return nil, fmt.Errorf("list Token directory: %w", err)
+	}
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.Type().IsRegular() && domain.ValidIdentifier(entry.Name()) {
+			names = append(names, entry.Name())
+		}
+	}
+	return names, nil
 }
 
 // holdsNoValue reports, from the file's size and without reading it, that a

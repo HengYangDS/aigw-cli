@@ -39,6 +39,18 @@ func (s *memoryStore) delete(kind Kind, account string) error {
 	return nil
 }
 
+func (s *memoryStore) list() ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	names := make([]string, 0, len(s.values[APIToken]))
+	for name, value := range s.values[APIToken] {
+		if value != "" {
+			names = append(names, name)
+		}
+	}
+	return names, nil
+}
+
 func (s *memoryStore) exists(kind Kind, account string) (bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

@@ -5,6 +5,7 @@ package native
 import (
 	"crypto/rand"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -65,6 +66,38 @@ func TestWindowsMetadataObservationTracksOnlyItsExactSessionSlot(t *testing.T) {
 	}
 	if present, err := observeCredential(service, "invalid\x00target"); err == nil || present {
 		t.Fatal("invalid native credential identity was accepted")
+	}
+}
+
+// A listing names a service's accounts from their target names alone: another
+// service's credential is not one of them, and no blob leaves the worker.
+func TestWindowsListingNamesOnlyTheServiceTargets(t *testing.T) {
+	service, other := "AIGW_TEST_LIST_"+rand.Text(), "AIGW_TEST_LIST_OTHER_"+rand.Text()
+	const blob = "synthetic listing fixture"
+	for _, target := range []string{service + ":team", service + ":orphan", other + ":foreign"} {
+		credential := wincred.NewGenericCredential(target)
+		credential.Persist = wincred.PersistSession
+		credential.CredentialBlob = []byte(blob)
+		if err := credential.Write(); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := credential.Delete(); err != nil && !errors.Is(err, windows.ERROR_NOT_FOUND) {
+				t.Errorf("remove owned session credential: %v", err)
+			}
+		})
+	}
+	value, err := queryCredential(listCommand, service, "", nil, InstalledProgram)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := strings.Split(string(value), "\n")
+	slices.Sort(names)
+	if !slices.Equal(names, []string{"orphan", "team"}) || strings.Contains(string(value), blob) {
+		t.Fatalf("listing = %q", value)
+	}
+	if value, err := queryCredential(listCommand, "AIGW_TEST_LIST_ABSENT_"+rand.Text(), "", nil, InstalledProgram); err != nil || len(value) != 0 {
+		t.Fatalf("a service without credentials = %q, %v", value, err)
 	}
 }
 

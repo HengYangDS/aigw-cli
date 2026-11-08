@@ -31,11 +31,14 @@ type document struct {
 	EnabledClients    int                     `json:"enabled_clients"`
 	// SnapshotWritten says, for a check to the client depth, whether it wrote
 	// the verified snapshot.
-	SnapshotWritten *bool                 `json:"snapshot_written,omitempty"`
-	State           domainreadiness.State `json:"state,omitempty"`
-	Problem         string                `json:"problem,omitempty"`
-	NextAction      string                `json:"next_action,omitempty"`
-	NextDetail      string                `json:"next_detail,omitempty"`
+	SnapshotWritten *bool `json:"snapshot_written,omitempty"`
+	// UnusedTokens lists the stored Tokens that no provider uses, for a check
+	// that names no client.
+	UnusedTokens *unusedReport         `json:"unused_tokens,omitempty"`
+	State        domainreadiness.State `json:"state,omitempty"`
+	Problem      string                `json:"problem,omitempty"`
+	NextAction   string                `json:"next_action,omitempty"`
+	NextDetail   string                `json:"next_detail,omitempty"`
 }
 
 // clientDocument is one checked client's climb: its model as provider/model,
@@ -89,6 +92,7 @@ func (o outcome) documented(backend secret.BackendSelection) document {
 		doc.SnapshotWritten = new(bool)
 		*doc.SnapshotWritten = o.snapshot != nil && o.snapshot.written
 	}
+	doc.UnusedTokens = o.unused
 	doc.Problem = o.problem()
 	doc.NextAction, doc.NextDetail = terminal.NextSteps(o.next())
 	return doc
@@ -192,6 +196,7 @@ func (o outcome) render(runtime invocation.Context, verbose bool) error {
 		}
 		r.Rows(checks...)
 	}
+	o.unused.render(r)
 	o.renderResult(r)
 	r.Next(o.next())
 	return r.Err()

@@ -257,6 +257,7 @@ func NewDefault(clients adapter.Registry) (*App, error) {
 		Root:       paths.Secrets,
 		Executable: executable,
 		Getenv:     os.Getenv,
+		Environ:    os.Environ,
 	})
 	if err != nil {
 		return nil, err

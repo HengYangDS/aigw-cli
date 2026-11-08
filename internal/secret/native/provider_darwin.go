@@ -6,6 +6,10 @@ func observeCredential(service, account string) (bool, error) {
 	return observeCredentialInKeychain(service, account, "")
 }
 
+func listCredentials(service string) ([]string, error) {
+	return listAccountsInKeychain(service, "")
+}
+
 func readCredential(service, account string, role Role) (string, error) {
 	value, err := readCredentialWithMigration(service, account, "", role)
 	return string(value), err

@@ -31,10 +31,11 @@ func DecodeKeyringBase64(value string) (string, error) {
 
 // keyringStore persists credentials in the operating system's native credential service.
 type keyringStore struct {
-	observe func(service, slot string) (bool, error)
-	read    func(service, slot string) (string, error)
-	write   func(service, slot, value string) error
-	remove  func(service, slot string) error
+	observe   func(service, slot string) (bool, error)
+	read      func(service, slot string) (string, error)
+	write     func(service, slot, value string) error
+	remove    func(service, slot string) error
+	enumerate func(service string) ([]string, error)
 }
 
 // ErrNativeReaderUnverified marks a failed noninteractive access check for a
@@ -52,7 +53,8 @@ func newKeyringStore(executable string) keyringStore {
 		write: func(service, account, value string) error {
 			return native.Write(executable, service, account, value)
 		},
-		remove: func(service, account string) error { return native.Delete(executable, service, account) },
+		remove:    func(service, account string) error { return native.Delete(executable, service, account) },
+		enumerate: func(service string) ([]string, error) { return native.List(executable, service) },
 	}
 }
 
@@ -131,6 +133,14 @@ func (store keyringStore) delete(kind Kind, account string) error {
 		return fmt.Errorf("delete %s/%s from system keyring: %w", Service, slot, err)
 	}
 	return nil
+}
+
+func (store keyringStore) list() ([]string, error) {
+	names, err := store.enumerate(Service)
+	if err != nil {
+		return nil, fmt.Errorf("list %s in system keyring: %w", Service, err)
+	}
+	return names, nil
 }
 
 func (store keyringStore) exists(kind Kind, account string) (bool, error) {

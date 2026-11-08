@@ -4,11 +4,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
+
+	"aigw-cli/internal/domain"
 )
 
-// environmentStore reads typed credential slots from an explicit environment and never persists changes.
-type environmentStore struct{ getenv func(string) string }
+// environmentTokenPrefix starts the name of every API-token variable.
+const environmentTokenPrefix = "AIGW_TOKEN_"
+
+// environmentStore reads typed credential slots from an explicit environment
+// and never persists changes. environ lists that environment as [os.Environ]
+// does, of which a listing uses the names and whether each is empty; without
+// it the backend cannot name its Tokens.
+type environmentStore struct {
+	getenv  func(string) string
+	environ func() []string
+}
 
 // NewEnvironmentStore constructs a read-only environment credential backend.
 func NewEnvironmentStore(getenv func(string) string) Store {
@@ -17,7 +29,7 @@ func NewEnvironmentStore(getenv func(string) string) Store {
 
 // EnvironmentKey returns the API-token variable name for an Account.
 func EnvironmentKey(account string) string {
-	return "AIGW_TOKEN_" + environmentProviderID(account)
+	return environmentTokenPrefix + environmentProviderID(account)
 }
 
 // DiagnosticSystemTokenEnvironmentKey returns the provider-diagnostic system-token variable name for an Account.
@@ -60,6 +72,47 @@ func environmentProviderID(account string) string {
 		_, _ = fmt.Fprintf(&encoded, "_%02X", character)
 	}
 	return encoded.String()
+}
+
+// decodeEnvironmentProviderID is the inverse of environmentProviderID. A name
+// that environmentProviderID would not write decodes to nothing.
+func decodeEnvironmentProviderID(encoded string) (string, bool) {
+	var decoded strings.Builder
+	for index := 0; index < len(encoded); index++ {
+		if encoded[index] != '_' {
+			decoded.WriteString(strings.ToLower(encoded[index : index+1]))
+			continue
+		}
+		if index+2 >= len(encoded) {
+			return "", false
+		}
+		character, err := strconv.ParseUint(encoded[index+1:index+3], 16, 8)
+		if err != nil {
+			return "", false
+		}
+		decoded.WriteByte(byte(character))
+		index += 2
+	}
+	id := decoded.String()
+	return id, domain.ValidIdentifier(id) && environmentProviderID(id) == encoded
+}
+
+func (s environmentStore) list() ([]string, error) {
+	if s.environ == nil {
+		return nil, errors.New("the environment's variables are unavailable")
+	}
+	ids := []string{}
+	for _, entry := range s.environ() {
+		name, value, _ := strings.Cut(entry, "=")
+		encoded, token := strings.CutPrefix(name, environmentTokenPrefix)
+		if !token || value == "" {
+			continue
+		}
+		if id, valid := decodeEnvironmentProviderID(encoded); valid {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
 }
 
 func (s environmentStore) get(kind Kind, account string) (string, error) {

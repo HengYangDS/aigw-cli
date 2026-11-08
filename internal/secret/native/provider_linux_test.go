@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +25,16 @@ func TestProviderExistsRejectsSecretServiceConnectionFailure(t *testing.T) {
 	output, err := queryCredential(existsCommand, "aigw-test", "missing", nil, InstalledProgram)
 	if len(output) != 0 || err == nil || !strings.Contains(err.Error(), "connect to Secret Service") {
 		t.Fatalf("credential presence output length = %d, error = %v", len(output), err)
+	}
+}
+
+// A listing without a Secret Service reports the failure rather than no items.
+func TestProviderListRejectsSecretServiceConnectionFailure(t *testing.T) {
+	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path="+filepath.Join(t.TempDir(), "missing-session-bus.sock"))
+
+	output, err := queryCredential(listCommand, "aigw-test", "", nil, InstalledProgram)
+	if len(output) != 0 || err == nil || !strings.Contains(err.Error(), "connect to Secret Service") {
+		t.Fatalf("listing output length = %d, error = %v", len(output), err)
 	}
 }
 
@@ -137,6 +148,11 @@ func TestLockedSecretServiceRefusesInteractiveOperations(t *testing.T) {
 		t.Fatal(err)
 	}
 	unlockDisposableSecretService(t, true)
+	// Unlocked, a listing names the item from its attributes, before the
+	// retained item's check deletes it.
+	if names, err := List(executable, service); err != nil || !slices.Contains(names, account) {
+		t.Fatalf("an unlocked listing = %q, %v; want %s", names, err, account)
+	}
 	requireRetainedSecretServiceItem(t, credentialService, executable, service, account, label, itemAttributes)
 }
 
@@ -198,6 +214,11 @@ func requireLockedSecretServiceRefusal(t *testing.T, executable, service, accoun
 	}
 	if err := Delete(executable, service, account+"-absent"); err != nil {
 		t.Fatalf("absent native item removal must remain a no-op while locked: %v", err)
+	}
+	// A locked collection may expose only hashes of its attributes, so its
+	// listing refuses, without asking to unlock it.
+	if names, err := List(executable, service); !errors.Is(err, ErrUnavailable) || names != nil {
+		t.Fatalf("a locked listing must refuse without interaction: %q, %v", names, err)
 	}
 	for _, operation := range []struct {
 		name    string

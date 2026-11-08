@@ -126,7 +126,7 @@ func TestCheckJSONReportsOnlyActiveModels(t *testing.T) {
 	if !ok || client.Depth != "model" || client.Model != "claude-account/claude-test" || client.Provider != "claude-account" || !result.OK || len(result.Clients) != 1 {
 		t.Fatalf("JSON readiness = %#v", result)
 	}
-	if strings.Contains(out.String(), "unused") {
+	if strings.Contains(out.String(), "unused-account") || strings.Contains(out.String(), "unused-test") {
 		t.Fatalf("JSON readiness exposed an unused model: %s", out)
 	}
 	if strings.Contains(out.String(), "claude-token") || strings.Contains(out.String(), `"routes"`) {

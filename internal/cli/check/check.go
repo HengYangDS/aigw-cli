@@ -40,7 +40,8 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			"client files and the environment without a request; endpoint sends one authenticated request\n" +
 			"that names no model; model, the default, sends one bounded inference request, which may use\n" +
 			"quota; client runs a real client session, which may use more. A client stops at its first\n" +
-			"failed depth, and a depth that a client cannot run is skipped with the reason.",
+			"failed depth, and a depth that a client cannot run is skipped with the reason.\n" +
+			"Without a named client it also lists, by provider ID, the stored Tokens that no provider uses.",
 		Example: examples(admission),
 		Args: func(_ *cobra.Command, args []string) error {
 			_, err := admit(admission, args, opts)
@@ -161,6 +162,9 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, opts opt
 		return noClient(operation, cfg, checking.shared, backend, planned.requested, opts.jsonMode)
 	}
 	result := checking.run(cmd.Context())
+	if !planned.named {
+		result.unused = listUnused(operation, cfg)
+	}
 	if result.writesSnapshot() {
 		checking.saveSnapshot(cmd.Context(), &result)
 	}
@@ -210,12 +214,13 @@ func noClient(runtime invocation.Context, cfg domain.Config, shared []localCheck
 		next = backendFix
 	}
 	cause := errors.New(strings.ToLower(title[:1]) + title[1:])
+	unused := listUnused(runtime, cfg)
 	if !jsonMode {
-		return terminal.ProblemError(title, evidence, "No client was checked.", next, cause)
+		return terminal.ProblemError(title, evidence+unused.evidence(), "No client was checked.", next, cause)
 	}
 	doc := document{
 		Depth: requested, Clients: []clientDocument{}, Checks: documentedChecks(shared), CredentialBackend: backend,
-		State: activation.State, Problem: title,
+		UnusedTokens: unused, State: activation.State, Problem: title,
 	}
 	doc.NextAction, doc.NextDetail = terminal.NextSteps(next)
 	if err := terminal.WriteDocument(runtime.Out, schemaVersion, false, doc); err != nil {

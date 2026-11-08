@@ -5,6 +5,7 @@ package native
 import (
 	"fmt"
 	"runtime"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -35,9 +36,32 @@ var (
 
 func observeCredential(service, account string) (bool, error) {
 	target := service + ":" + account
-	filter, err := windows.UTF16PtrFromString(target)
+	found := false
+	err := enumerateCredentials(target, func(name string) {
+		found = found || name == target
+	})
+	return found, err
+}
+
+// listCredentials names a service's accounts from their target names.
+func listCredentials(service string) ([]string, error) {
+	prefix := service + ":"
+	accounts := []string{}
+	err := enumerateCredentials(prefix+"*", func(name string) {
+		if account, ok := strings.CutPrefix(name, prefix); ok {
+			accounts = append(accounts, account)
+		}
+	})
+	return accounts, err
+}
+
+// enumerateCredentials visits the target name of each credential that filter
+// selects. The enumeration hands this process every credential's blob; each
+// one is zeroed before CredFree and none is read, so only names leave here.
+func enumerateCredentials(pattern string, visit func(name string)) error {
+	filter, err := windows.UTF16PtrFromString(pattern)
 	if err != nil {
-		return false, fmt.Errorf("encode Windows credential target: %w", err)
+		return fmt.Errorf("encode Windows credential target: %w", err)
 	}
 
 	var count uint32
@@ -52,20 +76,25 @@ func observeCredential(service, account string) (bool, error) {
 	runtime.KeepAlive(filter)
 	if result == 0 {
 		if callErr == windows.ERROR_NOT_FOUND {
-			return false, nil
+			return nil
 		}
-		return false, fmt.Errorf("enumerate Windows credential metadata: %w", callErr)
+		return fmt.Errorf("enumerate Windows credential metadata: %w", callErr)
 	}
 	defer func() { _, _, _ = credentialFree.Call(uintptr(credentialsPointer)) }()
 
 	// #nosec G103 -- Count and array share the Win32 allocation and remain live until CredFree.
 	credentials := unsafe.Slice((**windowsCredential)(credentialsPointer), count)
 	for _, credential := range credentials {
-		if credential != nil && windows.UTF16PtrToString(credential.TargetName) == target {
-			return true, nil
+		if credential == nil {
+			continue
 		}
+		if credential.CredentialBlob != nil && credential.CredentialBlobSize > 0 {
+			// #nosec G103 -- The size and pointer come from the same Win32 allocation, which stays live until CredFree.
+			clear(unsafe.Slice(credential.CredentialBlob, credential.CredentialBlobSize))
+		}
+		visit(windows.UTF16PtrToString(credential.TargetName))
 	}
-	return false, nil
+	return nil
 }
 
 func nativeEnvironment(getenv func(string) string) []string {

@@ -6,6 +6,7 @@ package secret
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"aigw-cli/internal/domain"
 )
@@ -36,6 +37,41 @@ type credentialBackend interface {
 	set(kind Kind, account, value string) error
 	delete(kind Kind, account string) error
 	exists(kind Kind, account string) (bool, error)
+	// list names the providers that hold a stored Token. It reads no value,
+	// prompts for nothing, and fails when the store would need either.
+	list() ([]string, error)
+}
+
+// UnusedTokens returns, sorted, the provider IDs of the stored Tokens whose
+// provider is not one of providers. It reads names only. It fails, without
+// claiming there are none, when the backend cannot name its Tokens.
+func UnusedTokens(store Store, providers []string) ([]string, error) {
+	backend := backendStore(store)
+	if backend == nil {
+		return nil, errors.New("this credential store cannot name its Tokens")
+	}
+	listed, err := backend.list()
+	if err != nil {
+		return nil, fmt.Errorf("name the stored Tokens: %w", err)
+	}
+	// The environment backend's IDs decode to lower case, so the variable
+	// that an ID selects is what tells two IDs apart there.
+	slot := func(id string) string { return id }
+	if _, environment := backend.(environmentStore); environment {
+		slot = EnvironmentKey
+	}
+	used := make(map[string]bool, len(providers))
+	for _, provider := range providers {
+		used[slot(provider)] = true
+	}
+	unused := make([]string, 0, len(listed))
+	for _, id := range listed {
+		if !used[slot(id)] {
+			unused = append(unused, id)
+		}
+	}
+	slices.Sort(unused)
+	return slices.Compact(unused), nil
 }
 
 // slotEmptiness is implemented by a backend whose metadata tells, without

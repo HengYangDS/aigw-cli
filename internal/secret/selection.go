@@ -11,11 +11,14 @@ import (
 
 // Selection is the complete host snapshot used to select one Token store.
 type Selection struct {
-	Backend      string
-	GOOS         string
-	Root         string
-	Executable   string
-	Getenv       func(string) string
+	Backend    string
+	GOOS       string
+	Root       string
+	Executable string
+	Getenv     func(string) string
+	// Environ lists the environment, as [os.Environ] does, so that the
+	// environment backend can name its Tokens.
+	Environ      func() []string
 	KeyringProbe func(Store) error
 }
 
@@ -102,7 +105,7 @@ func selectBackend(selection Selection) (credentialBackend, error) {
 		}
 		return store, nil
 	case "env":
-		return environmentStore{getenv: getenv}, nil
+		return environmentStore{getenv: getenv, environ: selection.Environ}, nil
 	case "file":
 		if selection.GOOS != "darwin" && selection.GOOS != "linux" && selection.GOOS != "windows" {
 			return nil, fmt.Errorf("file secret backend is not supported on operating system %q", selection.GOOS)
@@ -153,6 +156,14 @@ func (store *automaticStore) exists(kind Kind, account string) (bool, error) {
 		return false, err
 	}
 	return selected.exists(kind, account)
+}
+
+func (store *automaticStore) list() ([]string, error) {
+	selected, err := store.resolve()
+	if err != nil {
+		return nil, err
+	}
+	return selected.list()
 }
 
 func (store *automaticStore) resolve() (credentialBackend, error) {

@@ -20,6 +20,8 @@ const (
 	writeCommand  = "__aigw-native-credential-write"
 	deleteCommand = "__aigw-native-credential-delete"
 	existsCommand = "__aigw-native-credential-exists"
+	// listCommand writes the accounts of a service's items, one per line.
+	listCommand = "__aigw-native-credential-list"
 	// restoreCommand returns a macOS item to the predecessor's reader before rollback.
 	restoreCommand = "__aigw-native-credential-restore"
 	// reclaimCommand returns such an item to AIGW when the rollback is not activated.
@@ -162,11 +164,12 @@ func dispatch(args []string, input io.Reader, out, diagnostic io.Writer, service
 		return false, 0
 	}
 	switch args[0] {
-	case readCommand, writeCommand, deleteCommand, existsCommand, restoreCommand, reclaimCommand:
+	case readCommand, writeCommand, deleteCommand, existsCommand, restoreCommand, reclaimCommand, listCommand:
 	default:
 		return false, 0
 	}
-	if len(args) != 3 || args[1] != service || args[2] == "" || strings.ContainsRune(args[2], 0) {
+	account, admitted := admittedAccount(args, service)
+	if !admitted {
 		return true, failureExit
 	}
 	var data []byte
@@ -178,8 +181,11 @@ func dispatch(args []string, input io.Reader, out, diagnostic io.Writer, service
 			return true, failureExit
 		}
 	}
-	value, err := query(args[0], service, args[2], data)
+	value, err := query(args[0], service, account, data)
 	defer clear(value)
+	if args[0] == listCommand {
+		value = joinAccounts(strings.Split(string(value), "\n"))
+	}
 	switch {
 	case errors.Is(err, ErrNotFound):
 		return true, missingExit
@@ -191,7 +197,7 @@ func dispatch(args []string, input io.Reader, out, diagnostic io.Writer, service
 		}
 		return true, failureExit
 	}
-	if args[0] == readCommand || args[0] == existsCommand {
+	if args[0] == readCommand || args[0] == existsCommand || args[0] == listCommand {
 		if n, err := out.Write(value); err != nil || n != len(value) {
 			return true, failureExit
 		}

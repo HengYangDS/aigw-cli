@@ -5,6 +5,7 @@ package native
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/godbus/dbus/v5"
 	ss "github.com/zalando/go-keyring/secret_service"
@@ -21,7 +22,7 @@ const (
 // the user's session, not the reading executable, so no item changes owner.
 func queryCredential(operation, service, account string, input []byte, _ Role) (_ []byte, resultErr error) {
 	switch operation {
-	case readCommand, writeCommand, deleteCommand, existsCommand:
+	case readCommand, writeCommand, deleteCommand, existsCommand, listCommand:
 	default:
 		return nil, ErrUnavailable
 	}
@@ -32,6 +33,9 @@ func queryCredential(operation, service, account string, input []byte, _ Role) (
 	// The library borrows the process-wide D-Bus connection; this call only owns
 	// the Secret Service session created below.
 	collection := credentialService.GetLoginCollection()
+	if operation == listCommand {
+		return listSecretServiceAccounts(credentialService, collection, service)
+	}
 	attributes := map[string]string{"service": service, "username": account}
 	items, err := credentialService.SearchItems(collection, attributes)
 	if err != nil {
@@ -93,6 +97,36 @@ func queryCredential(operation, service, account string, input []byte, _ Role) (
 		return nil, err
 	}
 	return nil, refuseSecretServicePrompt(credentialService.Object(secretServiceName, prompt))
+}
+
+// listSecretServiceAccounts names a service's accounts from each item's
+// attributes. It opens no session, so no secret can be transferred, and it
+// refuses a locked collection rather than ask to unlock it: a locked store
+// may hold only hashes of the attributes, which name no account.
+func listSecretServiceAccounts(credentialService *ss.SecretService, collection dbus.BusObject, service string) ([]byte, error) {
+	items, err := credentialService.SearchItems(collection, map[string]string{"service": service})
+	if err != nil {
+		return nil, fmt.Errorf("search Secret Service item metadata: %w", err)
+	}
+	if len(items) == 0 {
+		return nil, nil
+	}
+	if err := requireUnlockedSecretServiceObject(collection, secretCollectionInterface); err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(items))
+	for _, item := range items {
+		property, err := credentialService.Object(secretServiceName, item).GetProperty(secretItemInterface + ".Attributes")
+		if err != nil {
+			return nil, fmt.Errorf("read Secret Service item attributes: %w", err)
+		}
+		attributes, ok := property.Value().(map[string]string)
+		if !ok {
+			return nil, ErrUnavailable
+		}
+		names = append(names, attributes["username"])
+	}
+	return []byte(strings.Join(names, "\n")), nil
 }
 
 func requireUnlockedSecretServiceObject(object dbus.BusObject, interfaceName string) error {

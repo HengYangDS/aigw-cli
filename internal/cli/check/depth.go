@@ -121,6 +121,9 @@ type outcome struct {
 	// snapshot is what the check did with the verified snapshot, when it
 	// writes one.
 	snapshot *snapshot
+	// unused lists the stored Tokens that no provider uses, for a check that
+	// names no client.
+	unused *unusedReport
 }
 
 // ok is the check's exit rule: a check that covers no client, which happens

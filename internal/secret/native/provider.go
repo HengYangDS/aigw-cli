@@ -4,6 +4,7 @@ package native
 
 import (
 	"errors"
+	"strings"
 )
 
 func queryCredential(operation, service, account string, input []byte, role Role) ([]byte, error) {
@@ -27,6 +28,9 @@ func queryCredential(operation, service, account string, input []byte, role Role
 			return nil, restoreCredential(service, account)
 		}
 		return nil, reclaimCredential(service, account)
+	case listCommand:
+		names, err := listCredentials(service)
+		return []byte(strings.Join(names, "\n")), err
 	case existsCommand:
 		present, err := observeCredential(service, account)
 		if err != nil {

@@ -107,6 +107,27 @@ exec aigw use claude team/team-model
 exec aigw check --depth local
 stdout '✓ Claude             team/team-model · local'
 
+# A stored Token that no provider uses is listed by its provider's ID, never
+# by its value, with the removal that cleans it up. A check of named clients
+# observes no other provider's credentials, so it lists none.
+env AIGW_SECRET_BACKEND=env
+env AIGW_TOKEN_TEAM=sk-team-token-0001
+env AIGW_TOKEN_ORPHAN=sk-orphan-token-0004
+exec aigw check --depth local
+cmp stdout unused.txt
+exec aigw check --depth local --json
+stdout '"unused_tokens": \{\n\s+"state": "listed",\n\s+"providers": \[\n\s+\{\n\s+"provider": "orphan",\n\s+"next_action": "aigw provider remove orphan"'
+! stdout sk-orphan-token
+exec aigw check claude --depth local --json
+! stdout unused_tokens
+exec aigw provider remove orphan
+stdout 'AIGW_TOKEN_ORPHAN'
+env AIGW_TOKEN_ORPHAN=
+exec aigw check --depth local --json
+stdout '"unused_tokens": \{\n\s+"state": "listed",\n\s+"providers": \[\]'
+env AIGW_SECRET_BACKEND=file
+env AIGW_TOKEN_TEAM=
+
 [darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/config.toml
 [!darwin] cp broken.toml $HOME/aigw/config.toml
 exitcode 1 aigw check --json
@@ -188,6 +209,7 @@ AIGW  aigw check
   that names no model; model, the default, sends one bounded inference request, which may use
   quota; client runs a real client session, which may use more. A client stops at its first
   failed depth, and a depth that a client cannot run is skipped with the reason.
+  Without a named client it also lists, by provider ID, the stored Tokens that no provider uses.
 
 Usage
   aigw check [client...] [flags]
@@ -250,6 +272,10 @@ Fix
     "recovery_action": ""
   },
   "enabled_clients": 0,
+  "unused_tokens": {
+    "state": "listed",
+    "providers": []
+  },
   "state": "deferred",
   "problem": "AIGW is not set up",
   "next_detail": "aigw setup"
@@ -314,7 +340,11 @@ Fix
     "persistence": "explicit",
     "recovery_action": ""
   },
-  "enabled_clients": 1
+  "enabled_clients": 1,
+  "unused_tokens": {
+    "state": "listed",
+    "providers": []
+  }
 }
 -- endpoint.txt --
 AIGW  Check
@@ -433,6 +463,10 @@ Result
     "recovery_action": ""
   },
   "enabled_clients": 1,
+  "unused_tokens": {
+    "state": "listed",
+    "providers": []
+  },
   "next_action": "aigw check claude --depth client"
 }
 -- desktop.txt --
@@ -575,6 +609,10 @@ Next
     "recovery_action": ""
   },
   "enabled_clients": 2,
+  "unused_tokens": {
+    "state": "listed",
+    "providers": []
+  },
   "problem": "Claude Desktop stopped at the endpoint depth",
   "next_action": "aigw check claude-desktop"
 }
@@ -661,6 +699,18 @@ Impact
 
 Fix
   aigw use claude team/team-model
+-- unused.txt --
+AIGW  Check
+────────────────────────────────────────
+
+Clients
+  ✓ Claude             team/team-model · local
+
+Stored Tokens that no provider uses
+  · orphan             aigw provider remove orphan
+
+Result
+  ✓ No checked client failed
 -- broken.toml --
 version = 7
 [accounts.team
