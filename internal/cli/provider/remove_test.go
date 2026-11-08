@@ -261,6 +261,18 @@ func TestRemoveNamesTheVariableOfATokenThatNoProviderHas(t *testing.T) {
 		!strings.Contains(f.text(), "Next Unset AIGW_TOKEN_ORPHAN in aigw's environment.") || f.configuration(t) != before {
 		t.Fatalf("the removal said: %s", f.text())
 	}
+	// Nothing is deleted, so the document does not say removed, and a preview
+	// reports the same outcome and step.
+	for _, args := range [][]string{{"remove", "orphan", "--json"}, {"remove", "orphan", "--dry-run", "--json"}} {
+		if err := f.run("", args...); err != nil {
+			t.Fatalf("%v = %v", args, err)
+		}
+		var document removeDocument
+		f.decode(t, &document)
+		if document.Status != removalUnsetRequired || document.NextDetail != "Unset AIGW_TOKEN_ORPHAN in aigw's environment." || document.NextAction != "" {
+			t.Fatalf("%v = %+v", args, document)
+		}
+	}
 }
 
 // foldingSecrets and foldingBalance are credential stores on a file system

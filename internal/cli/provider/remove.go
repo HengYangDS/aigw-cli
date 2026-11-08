@@ -14,11 +14,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// The states of a removal.
+// The states of a removal. removalUnsetRequired is a leftover that only the
+// read-only environment backend supplies: AIGW deleted nothing, and the
+// variables stay until the user unsets them.
 const (
-	removalDone    = "removed"
-	removalPlanned = "planned"
-	removalBlocked = "blocked"
+	removalDone          = "removed"
+	removalPlanned       = "planned"
+	removalBlocked       = "blocked"
+	removalUnsetRequired = "unset_required"
 )
 
 func newRemoveCommand(runtime invocation.Context) *cobra.Command {
@@ -132,17 +135,16 @@ func removeLeftover(cmd *cobra.Command, runtime invocation.Context, args []strin
 	readOnly := secret.IsReadOnly(runtime.Secrets)
 	next := "aigw provider list"
 	switch {
+	case readOnly:
+		// Applying a preview would delete nothing either, so both name the
+		// variables.
+		document.Status, document.Unset = removalUnsetRequired, secret.EnvironmentVariables(runtime.Secrets, id)
+		next = "Unset " + strings.Join(document.Unset, " and ") + " in aigw's environment."
 	case dryRun:
 		document.Status, next = removalPlanned, invocation.ApplyCommand(cmd, args)
-	case !readOnly:
+	default:
 		if err := deleteLeftover(cmd, runtime, args, document); err != nil {
 			return false, err
-		}
-	}
-	if readOnly {
-		document.Unset = secret.EnvironmentVariables(runtime.Secrets, id)
-		if !dryRun {
-			next = "Unset " + strings.Join(document.Unset, " and ") + " in aigw's environment."
 		}
 	}
 	if jsonMode {
