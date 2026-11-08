@@ -371,7 +371,7 @@ func TestDisableClaudeRemovesOnlyTheAIGWAdapter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runtime.Config.SaveVerifiedCheckpoint(t.Context(), verified, []string{claude.ID}); err != nil {
+	if err := runtime.Config.SaveVerifiedCheckpoint(t.Context(), verified, sessions(claude.ID)); err != nil {
 		t.Fatal(err)
 	}
 	if err := executeAdapter(t, runtime, "disable", claude.ID); err != nil {
@@ -539,4 +539,14 @@ func TestDiscoverRendersToTheInvocationOutput(t *testing.T) {
 	if !strings.Contains(out.String(), "Client discovery") {
 		t.Fatalf("output = %q", out.String())
 	}
+}
+
+// sessions records clients, each of which completed a session, in a verified
+// snapshot.
+func sessions(clients ...string) []store.VerifiedClient {
+	verified := make([]store.VerifiedClient, 0, len(clients))
+	for _, client := range clients {
+		verified = append(verified, store.VerifiedClient{Client: client, Depth: "client"})
+	}
+	return verified
 }

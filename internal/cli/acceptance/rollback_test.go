@@ -145,7 +145,7 @@ func TestRollbackReportsUnconfirmedConfigurationWhenRestoreFails(t *testing.T) {
 	if err := app.Config.Save(verified); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), verified, []string{codex.ID}); err != nil {
+	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), verified, sessions(codex.ID)); err != nil {
 		t.Fatal(err)
 	}
 	current := verified.Clone()
@@ -184,7 +184,7 @@ func TestRollbackRestoresVerifiedCheckpointBeforeLastChangeBackup(t *testing.T) 
 	if err := app.Config.Save(verified); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), verified, []string{codex.ID}); err != nil {
+	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), verified, sessions(codex.ID)); err != nil {
 		t.Fatal(err)
 	}
 	current := verified.Clone()

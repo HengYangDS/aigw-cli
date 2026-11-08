@@ -331,7 +331,7 @@ func TestCheckProbesEveryEnabledClientModelAndIgnoresUnselectedModel(t *testing.
 	if _, err := codex.ReconcileConfigs(nil, []codex.TargetRef{codex.HomeTarget(codexTarget)}, codexRuntime, codexRuntime, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, clients.Admission().IDs()); err != nil {
+	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(clients.Admission().IDs()...)); err != nil {
 		t.Fatal(err)
 	}
 	for account, token := range map[string]string{"claude-account": "claude-token", "codex-account": "codex-token", "stale-account": "stale-token"} {

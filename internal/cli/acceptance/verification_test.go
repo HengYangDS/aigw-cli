@@ -110,7 +110,7 @@ func TestVerifyAllUsesEnabledClientScope(t *testing.T) {
 				t.Fatal(err)
 			}
 			checkpoint, err := app.Config.LoadVerifiedCheckpoint()
-			if err != nil || !slices.Equal(checkpoint.Clients, []string{client}) {
+			if err != nil || !slices.Equal(checkpoint.Clients, sessions(client)) {
 				t.Fatalf("checkpoint scope = %v: %v", checkpoint.Clients, err)
 			}
 			for _, plan := range runner.plans {
@@ -441,7 +441,7 @@ func TestVerifyAllPreservesConfigurationChangedDuringLiveRequest(t *testing.T) {
 		if err := app.Config.Save(cfg); err != nil {
 			t.Fatal(err)
 		}
-		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, clients.Admission().IDs()); err != nil {
+		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(clients.Admission().IDs()...)); err != nil {
 			t.Fatal(err)
 		}
 		newCheckpoint, err = os.ReadFile(app.Config.Path() + ".verified.json")

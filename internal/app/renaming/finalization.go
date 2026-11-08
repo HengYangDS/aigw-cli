@@ -1,6 +1,7 @@
 package renaming
 
 import (
+	"aigw-cli/internal/store"
 	"context"
 	"errors"
 	"fmt"
@@ -36,8 +37,8 @@ func planFinalize(deps Renamer, oldID, newID string, options FinalizeOptions) (P
 	}
 	sort.Strings(references)
 	for _, client := range cfg.EnabledClientIDs() {
-		if !slices.Contains(state.Checkpoint.Clients, client) {
-			return Plan{}, fmt.Errorf("verified checkpoint does not cover enabled client %q; run `aigw verify --for all`", client)
+		if !slices.ContainsFunc(state.Checkpoint.Clients, func(verified store.VerifiedClient) bool { return verified.Client == client }) {
+			return Plan{}, fmt.Errorf("verified checkpoint does not cover enabled client %q; run `aigw check --depth client`", client)
 		}
 	}
 
@@ -103,7 +104,7 @@ func planFinalToken(deps Renamer, plan *Plan, oldID, newID string, confirmed boo
 	switch {
 	case rotated && !confirmed:
 		plan.Actions.APIToken = "rotation_confirmation_required"
-		plan.ExternalTODOs = append(plan.ExternalTODOs, "Re-run `aigw verify --for all`, then pass --confirm-api-token-rotation")
+		plan.ExternalTODOs = append(plan.ExternalTODOs, "Re-run `aigw check --depth client`, then pass --confirm-api-token-rotation")
 		*blocked = append(*blocked, "API token rotation confirmation is required")
 	case secret.IsReadOnly(deps.Secrets):
 		plan.Actions.APIToken = "external_cleanup_required"

@@ -296,7 +296,7 @@ func TestRepeatedUseOfActiveModelDoesNotRewriteOwnedState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), selected, []string{claude.ID}); err != nil {
+	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), selected, sessions(claude.ID)); err != nil {
 		t.Fatal(err)
 	}
 

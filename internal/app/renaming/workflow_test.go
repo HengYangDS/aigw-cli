@@ -35,7 +35,7 @@ func TestProviderFinalizationConvergesForwardingBackupBeforeRetirement(t *testin
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, clients.Admission().IDs()); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(clients.Admission().IDs()...)); err != nil {
 		t.Fatal(err)
 	}
 	state, err := store.CaptureVerifiedBackupState()
@@ -87,7 +87,7 @@ func renameFinalizationState(t *testing.T) (store.Store, store.Snapshot) {
 	if err := configStore.Save(current); err != nil {
 		t.Fatal(err)
 	}
-	if err := configStore.SaveVerifiedCheckpoint(t.Context(), current, clients.Admission().IDs()); err != nil {
+	if err := configStore.SaveVerifiedCheckpoint(t.Context(), current, sessions(clients.Admission().IDs()...)); err != nil {
 		t.Fatal(err)
 	}
 	state, err := configStore.CaptureVerifiedBackupState()
@@ -319,7 +319,7 @@ func TestPlanProviderFinalizeRejectsIncompleteRenameState(t *testing.T) {
 			if err := configStore.Save(test.config); err != nil {
 				t.Fatal(err)
 			}
-			if err := configStore.SaveVerifiedCheckpoint(t.Context(), test.config, clients.Admission().IDs()); err != nil {
+			if err := configStore.SaveVerifiedCheckpoint(t.Context(), test.config, sessions(clients.Admission().IDs()...)); err != nil {
 				t.Fatal(err)
 			}
 			deps := Renamer{Config: configStore, Secrets: &faultTokenStore{}, Providers: &faultProbeStore{}}
@@ -450,4 +450,14 @@ func TestVerifyFinalizedBalanceProbeKeepsCredentialsAtTheirOrigin(t *testing.T) 
 	if followed.Load() != 0 || err == nil || !strings.Contains(err.Error(), "HTTP 302") {
 		t.Fatalf("finalization followed=%d, error=%v; want the origin's redirect refused", followed.Load(), err)
 	}
+}
+
+// sessions records clients, each of which completed a session, in a verified
+// snapshot.
+func sessions(clients ...string) []store.VerifiedClient {
+	verified := make([]store.VerifiedClient, 0, len(clients))
+	for _, client := range clients {
+		verified = append(verified, store.VerifiedClient{Client: client, Depth: "client"})
+	}
+	return verified
 }

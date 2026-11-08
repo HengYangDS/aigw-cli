@@ -172,7 +172,7 @@ func TestStoredCapabilitySurvivesRecovery(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientClaude}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientClaude)); err != nil {
 		t.Fatal(err)
 	}
 	if bytes.Contains(readStoreFile(t, store.Path()+".verified.json"), []byte(domain.CapabilityToolSearch)) {

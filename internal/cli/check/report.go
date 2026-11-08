@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"slices"
 
 	"aigw-cli/internal/app"
 	domainreadiness "aigw-cli/internal/app/readiness"
@@ -28,10 +29,13 @@ type document struct {
 	Checks            []localCheck            `json:"checks"`
 	CredentialBackend secret.BackendSelection `json:"credential_backend"`
 	EnabledClients    int                     `json:"enabled_clients"`
-	State             domainreadiness.State   `json:"state,omitempty"`
-	Problem           string                  `json:"problem,omitempty"`
-	NextAction        string                  `json:"next_action,omitempty"`
-	NextDetail        string                  `json:"next_detail,omitempty"`
+	// SnapshotWritten says, for a check to the client depth, whether it wrote
+	// the verified snapshot.
+	SnapshotWritten *bool                 `json:"snapshot_written,omitempty"`
+	State           domainreadiness.State `json:"state,omitempty"`
+	Problem         string                `json:"problem,omitempty"`
+	NextAction      string                `json:"next_action,omitempty"`
+	NextDetail      string                `json:"next_detail,omitempty"`
 }
 
 // clientDocument is one checked client's climb: its model as provider/model,
@@ -81,6 +85,10 @@ func (o outcome) documented(backend secret.BackendSelection) document {
 	for _, client := range o.clients {
 		doc.Clients = append(doc.Clients, client.documented())
 	}
+	if o.requested == depthClient {
+		doc.SnapshotWritten = new(bool)
+		*doc.SnapshotWritten = o.snapshot != nil && o.snapshot.written
+	}
 	doc.Problem = o.problem()
 	doc.NextAction, doc.NextDetail = terminal.NextSteps(o.next())
 	return doc
@@ -122,7 +130,8 @@ func documentedChecks(checks []localCheck) []localCheck {
 	return documented
 }
 
-// problem summarizes the clients that failed, or nothing when none did.
+// problem summarizes the clients that failed, or a refused snapshot, or
+// nothing when neither did.
 func (o outcome) problem() string {
 	var failed []result
 	for _, client := range o.clients {
@@ -132,6 +141,9 @@ func (o outcome) problem() string {
 	}
 	switch len(failed) {
 	case 0:
+		if o.snapshot != nil && !o.snapshot.written {
+			return o.snapshot.problem
+		}
 		return ""
 	case 1:
 		return failed[0].spec.Label + " stopped at the " + string(failed[0].failure.depth) + " depth"
@@ -140,13 +152,17 @@ func (o outcome) problem() string {
 	}
 }
 
-// next is the check's one next step: the first failed client's fix, or else
-// the first deeper check that a skipped depth names.
+// next is the check's one next step: the first failed client's fix, a
+// refused snapshot's, or else the first deeper check that a skipped depth
+// names.
 func (o outcome) next() string {
 	for _, client := range o.clients {
 		if client.failure != nil {
 			return client.failure.fix
 		}
+	}
+	if o.snapshot != nil && !o.snapshot.written {
+		return o.snapshot.fix
 	}
 	for _, client := range o.clients {
 		if client.deeper != "" {
@@ -176,12 +192,29 @@ func (o outcome) render(runtime invocation.Context, verbose bool) error {
 		}
 		r.Rows(checks...)
 	}
-	if o.ok() {
-		r.Section("Result")
-		r.Success("No checked client failed")
-	}
+	o.renderResult(r)
 	r.Next(o.next())
 	return r.Err()
+}
+
+// renderResult says that no checked client failed, and what became of the
+// verified snapshot of a check to the client depth.
+func (o outcome) renderResult(r *terminal.Renderer) {
+	if slices.ContainsFunc(o.clients, func(client result) bool { return client.failure != nil }) {
+		return
+	}
+	r.Section("Result")
+	if o.snapshot != nil && !o.snapshot.written {
+		r.Rows(terminal.Field{State: terminal.Fail, Label: "Verified snapshot", Value: o.snapshot.problem, Details: []string{"Fix: " + o.snapshot.fix}})
+		return
+	}
+	r.Success("No checked client failed")
+	switch {
+	case o.snapshot != nil:
+		r.Detail("Saved the verified snapshot of this configuration, with the depth that each client reached, for a rollback")
+	case o.requested == depthClient && o.named:
+		r.Detail("A check of named clients writes no verified snapshot")
+	}
 }
 
 // row is one client's line: its model and the depth that it reached, or the

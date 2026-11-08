@@ -77,13 +77,14 @@ func sharedChecks(deps app.Dependencies) ([]localCheck, secret.BackendSelection)
 	return append(checks, passedCheck("credential_backend", "Credential backend", backend.Kind+", "+access)), backend
 }
 
-// environmentCheck observes, by name only, the variables that compete with
-// AIGW's Token. A set one fails every client's local depth, as it did
-// doctor's diagnostics.
+// environmentCheck observes the variables that compete with AIGW's Token,
+// naming them and never their values. One that holds a value fails every
+// client's local depth, as it failed doctor's diagnostics; an empty one holds
+// no credential.
 func environmentCheck(environment []string) localCheck {
 	set := map[string]bool{}
 	for _, entry := range environment {
-		if name, _, found := strings.Cut(entry, "="); found && slices.Contains(conflictingVariables, name) {
+		if name, value, found := strings.Cut(entry, "="); found && value != "" && slices.Contains(conflictingVariables, name) {
 			set[name] = true
 		}
 	}

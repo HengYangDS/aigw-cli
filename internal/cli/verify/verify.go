@@ -8,6 +8,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/store"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -118,7 +119,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				r.Rows(row)
 			}
 			if client == "all" {
-				if err := runtime.Config.SaveVerifiedCheckpoint(cmd.Context(), cfg, clients); err != nil {
+				if err := runtime.Config.SaveVerifiedCheckpoint(cmd.Context(), cfg, sessions(clients)); err != nil {
 					return err
 				}
 				r.Detail("Updated the latest full verification checkpoint.")
@@ -131,6 +132,16 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	cmd.Flags().StringVar(&routeName, "route", "", "Verify this Route for the explicit client without changing its binding")
 	cmd.Flags().BoolVar(&jsonMode, "json", false, "Write each client's verification as JSON when every session has ended")
 	return cmd
+}
+
+// sessions records clients, each of which completed a session, in the
+// verified snapshot.
+func sessions(clients []string) []store.VerifiedClient {
+	verified := make([]store.VerifiedClient, 0, len(clients))
+	for _, client := range clients {
+		verified = append(verified, store.VerifiedClient{Client: client, Depth: "client"})
+	}
+	return verified
 }
 
 // modelName names the model stored under key as provider/model, which a
@@ -166,7 +177,7 @@ func writeVerification(cmd *cobra.Command, runtime invocation.Context, cfg domai
 	}
 	if failure == nil {
 		if full {
-			if err := runtime.Config.SaveVerifiedCheckpoint(cmd.Context(), cfg, clients); err != nil {
+			if err := runtime.Config.SaveVerifiedCheckpoint(cmd.Context(), cfg, sessions(clients)); err != nil {
 				return err
 			}
 			document.CheckpointWritten = true

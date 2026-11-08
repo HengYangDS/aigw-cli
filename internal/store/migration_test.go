@@ -157,7 +157,7 @@ func TestPublishedV010NoOpPreservesFormattingAndRollbackInput(t *testing.T) {
 	if backup, err := os.ReadFile(store.Path() + ".bak"); err != nil || !bytes.Equal(backup, predecessor) {
 		t.Fatalf("an unchanged migrated configuration lost its predecessor: %v", err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), migrated, []string{ClientCodex}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), migrated, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
 	verified, err := store.CaptureVerifiedBackupState()

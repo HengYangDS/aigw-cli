@@ -381,7 +381,7 @@ func configureUninstallClients(t *testing.T, app *cli.App, codexTarget string) {
 	if err := cli.Execute(app, []string{"sync"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, clients.Admission().IDs()); err != nil {
+	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(clients.Admission().IDs()...)); err != nil {
 		t.Fatal(err)
 	}
 }

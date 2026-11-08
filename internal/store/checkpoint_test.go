@@ -37,7 +37,7 @@ func TestForwardingChangedDuringVerificationRejectsCheckpoint(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err == nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err == nil {
 		t.Fatal("verification certified a changed forwarding destination")
 	}
 	after, err := store.CaptureSnapshot()
@@ -69,7 +69,7 @@ func TestForwardingChangeDuringCheckpointWritePreservesNewerState(t *testing.T) 
 		}
 		return postimage, err
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err == nil || !strings.Contains(err.Error(), "configuration changed during checkpoint commit") {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err == nil || !strings.Contains(err.Error(), "configuration changed while the verified snapshot was written") {
 		t.Fatalf("concurrent forwarding update was certified: %v", err)
 	}
 	after, err := store.CaptureSnapshot()
@@ -90,7 +90,7 @@ func TestVerifiedCheckpointRoundTripIsSecretFree(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{"claude", "codex"}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions("claude", "codex")); err != nil {
 		t.Fatal(err)
 	}
 	checkpoint, err := store.LoadVerifiedCheckpoint()
@@ -115,7 +115,7 @@ func TestVerifiedCheckpointRequiresOneCompleteDocument(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(store.Path() + ".verified.json")
@@ -141,14 +141,19 @@ func TestVerifiedCheckpointUsesOneClientScopeContract(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
 	checkpoint, err := store.LoadVerifiedCheckpoint()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, clients := range [][]string{nil, {}, {ClientCodex, ClientCodex}, {"future"}, {ClientCodex, ""}} {
+	// A client must be admitted, named once, and recorded at a depth of aigw
+	// check.
+	for _, clients := range [][]VerifiedClient{
+		nil, {}, sessions(ClientCodex, ClientCodex), sessions("future"), sessions(ClientCodex, ""),
+		{{Client: ClientCodex}}, {{Client: ClientCodex, Depth: "inference"}},
+	} {
 		t.Run(fmt.Sprint(clients), func(t *testing.T) {
 			before, err := store.CaptureSnapshot()
 			if err != nil {
@@ -181,14 +186,14 @@ func TestVerifiedCheckpointPreservesNewerConfigurationAndCheckpoint(t *testing.T
 	if err := store.Save(current); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), current, []string{ClientCodex}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), current, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
 	before, err := store.CaptureSnapshot()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), verified, []string{ClientCodex}); err == nil || !strings.Contains(err.Error(), "configuration changed") {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), verified, sessions(ClientCodex)); err == nil || !strings.Contains(err.Error(), "configuration changed") {
 		t.Fatalf("stale verification was accepted: %v", err)
 	}
 	after, err := store.CaptureSnapshot()
@@ -202,7 +207,7 @@ func TestVerifiedCheckpointPreservesNewerConfigurationAndCheckpoint(t *testing.T
 
 func TestVerifiedCheckpointRequiresExistingConfiguration(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "config.toml"), testAdmission())
-	if err := store.SaveVerifiedCheckpoint(t.Context(), convergenceConfig("missing"), []string{ClientCodex}); err == nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), convergenceConfig("missing"), sessions(ClientCodex)); err == nil {
 		t.Fatal("verification created a checkpoint without configuration")
 	}
 	if _, err := os.Stat(store.Path() + ".verified.json"); !errors.Is(err, os.ErrNotExist) {
@@ -227,7 +232,7 @@ func TestVerifiedCheckpointWaitsForMutationLockAndHonorsCancellation(t *testing.
 	})
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := store.SaveVerifiedCheckpoint(ctx, cfg, []string{ClientCodex}); !errors.Is(err, context.Canceled) {
+	if err := store.SaveVerifiedCheckpoint(ctx, cfg, sessions(ClientCodex)); !errors.Is(err, context.Canceled) {
 		t.Fatalf("checkpoint ignored mutation lock or cancellation: %v", err)
 	}
 	if _, err := os.Stat(store.Path() + ".verified.json"); !errors.Is(err, os.ErrNotExist) {
@@ -249,7 +254,7 @@ func TestVerifiedCheckpointAcceptsEquivalentConfigurationFormatting(t *testing.T
 	if err := os.WriteFile(store.Path(), data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
 	current, err := os.ReadFile(store.Path())
@@ -280,7 +285,7 @@ func TestLoadVerifiedCheckpointRejectsLegacyProfileOwnedEndpointResidue(t *testi
     },
     "routes": {"default": "gpt"}
   },
-  "clients": ["codex"],
+  "clients": [{"client": "codex", "depth": "client"}],
   "verified_at": "2026-07-11T00:00:00Z"
 }`
 	if err := os.WriteFile(path+".verified.json", []byte(checkpoint), 0o600); err != nil {
@@ -293,7 +298,7 @@ func TestLoadVerifiedCheckpointRejectsLegacyProfileOwnedEndpointResidue(t *testi
 
 func TestSaveVerifiedCheckpointRejectsInvalidConfiguration(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	if err := NewStore(path, testAdmission()).SaveVerifiedCheckpoint(t.Context(), domain.Config{}, []string{"codex"}); err == nil {
+	if err := NewStore(path, testAdmission()).SaveVerifiedCheckpoint(t.Context(), domain.Config{}, sessions("codex")); err == nil {
 		t.Fatal("SaveVerifiedCheckpoint accepted an invalid configuration")
 	}
 }
@@ -307,7 +312,7 @@ func TestSaveVerifiedCheckpointSurfacesUnwritableConfigDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := NewStore(filepath.Join(blocked, "child", " toml"), testAdmission())
-	if err := store.SaveVerifiedCheckpoint(t.Context(), convergenceConfig("current"), []string{"codex"}); err == nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), convergenceConfig("current"), sessions("codex")); err == nil {
 		t.Fatal("SaveVerifiedCheckpoint succeeded despite an unwritable config directory")
 	}
 }
@@ -338,7 +343,7 @@ func TestLoadVerifiedCheckpointRejectsNonCanonicalConfigVersion(t *testing.T) {
     "routes": {"team": {"label": "Team", "account": "team"}},
     "clients": {"codex": {"route": "team"}}
   },
-  "clients": ["codex"],
+  "clients": [{"client": "codex", "depth": "client"}],
   "verified_at": "2026-07-11T00:00:00Z"
 }`
 	if err := os.WriteFile(path+".verified.json", []byte(checkpoint), 0o600); err != nil {
@@ -359,7 +364,7 @@ func TestSaveVerifiedCheckpointSurfacesInvalidCheckpointTarget(t *testing.T) {
 	if err := os.Mkdir(path+".verified.json", 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{"codex"}); err == nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions("codex")); err == nil {
 		t.Fatal("SaveVerifiedCheckpoint succeeded despite an existing directory at the checkpoint path")
 	}
 }
@@ -393,7 +398,7 @@ func TestVerifiedCheckpointCompensatesConfigurationChangeDuringWrite(t *testing.
 				}
 				return postimage, nil
 			}
-			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err == nil || !strings.Contains(err.Error(), "configuration changed") {
+			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err == nil || !strings.Contains(err.Error(), "configuration changed") {
 				t.Fatalf("changed configuration was certified: %v", err)
 			}
 			data, err := os.ReadFile(store.Path() + ".verified.json")
@@ -410,4 +415,14 @@ func TestVerifiedCheckpointCompensatesConfigurationChangeDuringWrite(t *testing.
 			}
 		})
 	}
+}
+
+// sessions records clients, each of which completed a session, in a verified
+// snapshot.
+func sessions(clients ...string) []VerifiedClient {
+	verified := make([]VerifiedClient, 0, len(clients))
+	for _, client := range clients {
+		verified = append(verified, VerifiedClient{Client: client, Depth: "client"})
+	}
+	return verified
 }

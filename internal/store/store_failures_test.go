@@ -37,7 +37,7 @@ func TestForwardingWriteFailureCompensatesOwnedFilesAndPreservesNewerData(t *tes
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err != nil {
+			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err != nil {
 				t.Fatal(err)
 			}
 			state, err := store.CaptureSnapshot()
@@ -437,7 +437,7 @@ func TestRestoreSnapshotPreservesConflictsAndRestoresEveryOwnedFile(t *testing.T
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientClaude}); err != nil {
+			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientClaude)); err != nil {
 				t.Fatal(err)
 			}
 			before, err := store.CaptureSnapshot()
@@ -517,7 +517,7 @@ func TestRestoreSnapshotSurfacesVerifiedCheckpointPostimageMismatch(t *testing.T
 	if err := store.Save(beforeConfig); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), beforeConfig, []string{ClientCodex}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), beforeConfig, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
 	before, err := store.CaptureSnapshot()

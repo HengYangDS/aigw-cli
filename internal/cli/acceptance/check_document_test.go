@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"aigw-cli/internal/store"
 	"bytes"
 	"encoding/json"
 	"slices"
@@ -107,4 +108,14 @@ func (states *clientStates) UnmarshalJSON(data []byte) error {
 		(*states)[entry.ID] = entry
 	}
 	return nil
+}
+
+// sessions records clients, each of which completed a session, in a verified
+// snapshot.
+func sessions(clients ...string) []store.VerifiedClient {
+	verified := make([]store.VerifiedClient, 0, len(clients))
+	for _, client := range clients {
+		verified = append(verified, store.VerifiedClient{Client: client, Depth: "client"})
+	}
+	return verified
 }

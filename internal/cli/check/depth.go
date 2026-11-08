@@ -118,26 +118,34 @@ type outcome struct {
 	named   bool
 	shared  []localCheck
 	clients []result
+	// snapshot is what the check did with the verified snapshot, when it
+	// writes one.
+	snapshot *snapshot
 }
 
 // ok is the check's exit rule: a check that covers no client, which happens
 // only when it names none and none is enabled, fails, and so does one in
-// which a checked client failed. A skipped depth fails nothing.
+// which a checked client failed, or whose verified snapshot was refused. A
+// skipped depth fails nothing.
 func (o outcome) ok() bool {
-	if len(o.clients) == 0 {
+	if len(o.clients) == 0 || o.snapshot != nil && !o.snapshot.written {
 		return false
 	}
 	return !slices.ContainsFunc(o.clients, func(client result) bool { return client.failure != nil })
 }
 
 // err is the check's failure for its caller, which wraps the cause of each
-// client's failure that has one; the output already said what happened.
+// client's failure that has one, and of a refused snapshot; the output
+// already said what happened.
 func (o outcome) err() error {
 	errs := []error{errors.New(o.problem())}
 	for _, client := range o.clients {
 		if client.failure != nil && client.failure.cause != nil {
 			errs = append(errs, client.failure.cause)
 		}
+	}
+	if o.snapshot != nil && o.snapshot.cause != nil {
+		errs = append(errs, o.snapshot.cause)
 	}
 	return errors.Join(errs...)
 }

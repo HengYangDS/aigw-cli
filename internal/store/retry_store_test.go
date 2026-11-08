@@ -35,7 +35,7 @@ func TestRetryCheckpointDoesNotAdoptUnverifiedPolicy(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
 	zero := uint64(0)
@@ -64,7 +64,7 @@ func TestRetryPolicyCommitCompensatesLaterFailure(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
 	before, err := store.CaptureSnapshot()

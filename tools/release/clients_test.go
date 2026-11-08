@@ -240,7 +240,7 @@ func (p nativeClientJourneyPlan) run(t *testing.T, client string) {
 		t.Fatal("bulk verification did not invoke the enabled native client")
 	}
 	checkpoint, err := store.NewStore(journey.config, clients.Admission()).LoadVerifiedCheckpoint()
-	if err != nil || len(checkpoint.Clients) != 1 || checkpoint.Clients[0] != client {
+	if err != nil || len(checkpoint.Clients) != 1 || checkpoint.Clients[0] != (store.VerifiedClient{Client: client, Depth: "client"}) {
 		t.Fatalf("single-client checkpoint = %v: %v", checkpoint.Clients, err)
 	}
 	journey.environment = environmentWithout(journey.environment, secret.EnvironmentKey(route.Provider))

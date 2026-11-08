@@ -35,7 +35,7 @@ func TestProviderFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T)
 		if err := app.Config.Save(before); err != nil {
 			t.Fatal(err)
 		}
-		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), before, before.EnabledClientIDs()); err != nil {
+		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), before, sessions(before.EnabledClientIDs()...)); err != nil {
 			t.Fatal(err)
 		}
 		staleCheckpoint, err := os.ReadFile(app.Config.Path() + ".verified.json")
@@ -58,7 +58,7 @@ func TestProviderFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T)
 
 	t.Run("partial client coverage", func(t *testing.T) {
 		app, _, secretStore, current := prepareProviderFinalizer(t, nil)
-		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, []string{codex.ID}); err != nil {
+		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, sessions(codex.ID)); err != nil {
 			t.Fatal(err)
 		}
 		if err := secretStore.Set("zeta-new", "target-token"); err != nil {
@@ -76,7 +76,7 @@ func TestProviderFinalizeRequiresCurrentFullVerificationCheckpoint(t *testing.T)
 		if err := app.Config.Save(current); err != nil {
 			t.Fatal(err)
 		}
-		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, current.EnabledClientIDs()); err != nil {
+		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, sessions(current.EnabledClientIDs()...)); err != nil {
 			t.Fatal(err)
 		}
 		if err := secretStore.Set("zeta-new", "target-token"); err != nil {
@@ -98,7 +98,7 @@ func TestProviderFinalizeUsesEnabledClientScope(t *testing.T) {
 				t.Fatal(err)
 			}
 			if enabled != "" {
-				if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, []string{enabled}); err != nil {
+				if err := app.Config.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(enabled)); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -223,7 +223,7 @@ func TestProviderFinalizeCredentialRotationRequiresConfirmationAndLiveProbe(t *t
 	if err := app.Config.Save(current); err != nil {
 		t.Fatal(err)
 	}
-	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, current.EnabledClientIDs()); err != nil {
+	if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, sessions(current.EnabledClientIDs()...)); err != nil {
 		t.Fatal(err)
 	}
 	const oldToken = "old-api-token"
@@ -393,7 +393,7 @@ func prepareProviderFinalizer(t *testing.T, clients []string) (*cli.App, *bytes.
 		t.Fatal(err)
 	}
 	if clients != nil {
-		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, clients); err != nil {
+		if err := app.Config.SaveVerifiedCheckpoint(t.Context(), current, sessions(clients...)); err != nil {
 			t.Fatal(err)
 		}
 	}

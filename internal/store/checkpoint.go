@@ -15,19 +15,30 @@ import (
 	"aigw-cli/internal/platform"
 )
 
-// VerifiedCheckpoint is a secret-free record written only after all requested
-// client protocol verifications succeed. It is suitable for rollback, not for
-// credential recovery.
+// VerifiedCheckpoint is the secret-free verified snapshot of a configuration
+// that a check of every enabled client proved, with the depth that each
+// client reached. It is suitable for rollback, not for credential recovery.
 type VerifiedCheckpoint struct {
-	Config     domain.Config `json:"config"`
-	Clients    []string      `json:"clients"`
-	VerifiedAt time.Time     `json:"verified_at"`
+	Config     domain.Config    `json:"config"`
+	Clients    []VerifiedClient `json:"clients"`
+	VerifiedAt time.Time        `json:"verified_at"`
 }
 
-// SaveVerifiedCheckpoint records a completed verification only while its
+// VerifiedClient is one client that a verified snapshot covers and the depth
+// of `aigw check` that it reached: client for a completed session, or less
+// for a client that cannot run one, such as Claude Desktop.
+type VerifiedClient struct {
+	Client string `json:"client"`
+	Depth  string `json:"depth"`
+}
+
+// verifiedDepths are the depths of `aigw check` that a snapshot records.
+var verifiedDepths = []string{"local", "endpoint", "model", "client"}
+
+// SaveVerifiedCheckpoint records a completed check only while its
 // configuration remains current. It serializes with AIGW mutations, preserves
 // newer checkpoints, and compensates observed external configuration changes.
-func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, clients []string) (resultErr error) {
+func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, clients []VerifiedClient) (resultErr error) {
 	if err := validateCheckpointClients(s.admission, clients); err != nil {
 		return err
 	}
@@ -60,7 +71,7 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, cl
 		return err
 	}
 	if !equal {
-		return errors.New("configuration changed during verification; run `aigw verify --for all` again")
+		return errors.New("configuration changed during the check; run `aigw check --depth client` again")
 	}
 	checkpointPath := s.path + ".verified.json"
 	checkpointBefore, err := platform.CaptureFileSnapshot(checkpointPath)
@@ -69,7 +80,7 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, cl
 	}
 	checkpoint := VerifiedCheckpoint{
 		Config:     publishedCheckpointConfig(current),
-		Clients:    append([]string(nil), clients...),
+		Clients:    append([]VerifiedClient(nil), clients...),
 		VerifiedAt: time.Now().UTC(),
 	}
 	data, err := json.MarshalIndent(checkpoint, "", "  ")
@@ -88,7 +99,7 @@ func (s Store) SaveVerifiedCheckpoint(ctx context.Context, cfg domain.Config, cl
 		return nil
 	}
 	if err == nil {
-		err = errors.New("configuration changed during checkpoint commit; run `aigw verify --for all` again")
+		err = errors.New("configuration changed while the verified snapshot was written; run `aigw check --depth client` again")
 	}
 	rollbackErr := platform.RestoreFileAtomicIfPostimage(checkpointPath, checkpointBefore, checkpointAfter)
 	return errors.Join(err, rollbackErr)
@@ -161,16 +172,19 @@ func decodeVerifiedCheckpoint(data []byte, admission domain.Admission) (Verified
 	return checkpoint, nil
 }
 
-func validateCheckpointClients(admission domain.Admission, clients []string) error {
+func validateCheckpointClients(admission domain.Admission, clients []VerifiedClient) error {
 	if len(clients) == 0 {
 		return errors.New("verified checkpoint is incomplete: no clients")
 	}
 	for index, client := range clients {
-		if !admission.Admits(client) {
-			return fmt.Errorf("verified checkpoint contains unknown client %q", client)
+		if !admission.Admits(client.Client) {
+			return fmt.Errorf("verified checkpoint contains unknown client %q", client.Client)
 		}
-		if slices.Contains(clients[:index], client) {
-			return fmt.Errorf("verified checkpoint repeats client %q", client)
+		if slices.ContainsFunc(clients[:index], func(earlier VerifiedClient) bool { return earlier.Client == client.Client }) {
+			return fmt.Errorf("verified checkpoint repeats client %q", client.Client)
+		}
+		if !slices.Contains(verifiedDepths, client.Depth) {
+			return fmt.Errorf("verified checkpoint records client %q at no depth of aigw check", client.Client)
 		}
 	}
 	return nil

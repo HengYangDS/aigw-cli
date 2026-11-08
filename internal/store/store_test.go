@@ -406,7 +406,7 @@ func TestCommitInvalidatesAndRestoreSnapshotRecoversVerifiedCheckpoint(t *testin
 	if err := store.Save(beforeConfig); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), beforeConfig, []string{ClientClaude}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), beforeConfig, sessions(ClientClaude)); err != nil {
 		t.Fatal(err)
 	}
 	before, err := store.CaptureSnapshot()

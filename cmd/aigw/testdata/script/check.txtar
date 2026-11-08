@@ -6,8 +6,9 @@
 # named disabled client is checked without client files, a check that names no
 # client while none is enabled fails without a request, --verbose prints every
 # local check, --model tries a model without selecting it, with a one-time
-# Token through --token-stdin, and a configuration that does not load names
-# its stage.
+# Token through --token-stdin, a check of every enabled client to the client
+# depth writes the verified snapshot with each client's depth, and a
+# configuration that does not load names its stage.
 exec aigw check --help
 cmp stdout help.txt
 
@@ -58,6 +59,30 @@ chmod 0755 Claude
 exec aigw client edit claude-desktop --executable $WORK/Claude --target $WORK/configLibrary
 exec aigw check claude-desktop --depth client
 cmp stdout desktop.txt
+
+# A check of every enabled client to the client depth writes the verified
+# snapshot, with the depth that each client reached: Claude Code's session
+# completes, and Claude Desktop reaches the model depth. A check of named
+# clients writes none.
+exec aigw check claude claude-desktop --depth client --json
+stdout '"snapshot_written": false'
+[darwin] ! exists $HOME/Library/Application' 'Support/aigw/config.toml.verified.json
+[!darwin] ! exists $HOME/aigw/config.toml.verified.json
+exec aigw check --depth client
+cmp stdout snapshot.txt
+[darwin] cp $HOME/Library/Application' 'Support/aigw/config.toml.verified.json verified.json
+[!darwin] cp $HOME/aigw/config.toml.verified.json verified.json
+grep '"client": "claude",\n\s+"depth": "client"' verified.json
+grep '"client": "claude-desktop",\n\s+"depth": "model"' verified.json
+# A client that stops leaves the verified snapshot as it was: here a variable
+# that competes with AIGW's Token stops every client at the local depth.
+env ANTHROPIC_API_KEY=sk-other-0003
+exitcode 1 aigw check --depth client --json
+stdout '"snapshot_written": false'
+stdout '"problem": "2 of 2 checked clients stopped before the client depth"'
+[darwin] cmp $HOME/Library/Application' 'Support/aigw/config.toml.verified.json verified.json
+[!darwin] cmp $HOME/aigw/config.toml.verified.json verified.json
+env ANTHROPIC_API_KEY=
 stdin token.txt
 exec aigw provider add down --label 'Down Gateway' --endpoint anthropic=$UPSTREAM --token-stdin
 exec aigw use claude-desktop down/team-model
@@ -322,6 +347,7 @@ Clients
 
 Result
   ✓ No checked client failed
+    Saved the verified snapshot of this configuration, with the depth that each client reached, for a rollback
 -- verbose.txt --
 AIGW  Check
 ────────────────────────────────────────
@@ -420,6 +446,22 @@ Clients
 
 Result
   ✓ No checked client failed
+    A check of named clients writes no verified snapshot
+-- snapshot.txt --
+AIGW  Check
+────────────────────────────────────────
+
+Clients
+  ✓ Claude             team/team-model · client
+                       Claude uses a loopback endpoint; AIGW does not manage the endpoint runtime
+                       Native text response; tools and continuation are not probed
+  ✓ Claude Desktop     team/team-model · model
+                       Claude Desktop uses a loopback endpoint; AIGW does not manage the endpoint runtime
+                       Client skipped: Claude Desktop needs acceptance inside the app
+
+Result
+  ✓ No checked client failed
+    Saved the verified snapshot of this configuration, with the depth that each client reached, for a rollback
 -- down.txt --
 AIGW  Check
 ────────────────────────────────────────
@@ -601,7 +643,8 @@ Next
     "persistence": "explicit",
     "recovery_action": ""
   },
-  "enabled_clients": 0
+  "enabled_clients": 0,
+  "snapshot_written": false
 }
 -- none-enabled.txt --
 AIGW  Action required

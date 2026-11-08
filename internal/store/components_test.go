@@ -21,7 +21,7 @@ func TestUnreadableCapabilityComponentStopsOnlyFullReads(t *testing.T) {
 			if err := store.Save(cfg); err != nil {
 				t.Fatal(err)
 			}
-			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientClaude}); err != nil {
+			if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientClaude)); err != nil {
 				t.Fatal(err)
 			}
 			state, err := store.CaptureVerifiedBackupState()
@@ -47,7 +47,7 @@ func TestUnreadableCapabilityComponentStopsOnlyFullReads(t *testing.T) {
 			_, loadErr := store.Load()
 			_, backupErr := store.LoadBackup()
 			_, checkpointErr := store.LoadVerifiedCheckpoint()
-			saveErr := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientClaude})
+			saveErr := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientClaude))
 			current := suffix == ""
 			if (loadErr != nil) != current || (checkpointErr != nil) != current || (saveErr != nil) != current || (backupErr != nil) == current {
 				t.Fatalf("unreadable %q: load=%v checkpoint=%v save=%v backup=%v", suffix, loadErr, checkpointErr, saveErr, backupErr)
@@ -344,7 +344,7 @@ func TestVerifiedBackupConvergenceVisitsEveryFileInOrder(t *testing.T) {
 	}
 	t.Run("preimages", func(t *testing.T) {
 		store, cfg := everyComponentStore(t)
-		if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err != nil {
+		if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err != nil {
 			t.Fatal(err)
 		}
 		expected, err := store.CaptureSnapshot()
@@ -451,7 +451,7 @@ func TestComponentReadFailuresKeepTheirOrder(t *testing.T) {
 	for _, file := range components {
 		block(file)
 	}
-	assertFailure(store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}), components...)
+	assertFailure(store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)), components...)
 	for _, file := range components {
 		block(file + ".bak")
 	}

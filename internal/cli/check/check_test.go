@@ -248,7 +248,7 @@ func TestCheckStopsAtALocalFailureBeforeAnyRequest(t *testing.T) {
 				}
 			}},
 		{name: "competing variable", problem: "OPENAI_API_KEY is set in the environment, which a client may send instead of the Token that AIGW gives it",
-			fix: "Remove OPENAI_API_KEY from the environment that starts your clients.", state: domainreadiness.Invalid, environment: []string{"OPENAI_API_KEY=sk-other", "HOME=/home"}},
+			fix: "Remove OPENAI_API_KEY from the environment that starts your clients.", state: domainreadiness.Invalid, environment: []string{"OPENAI_API_KEY=sk-other", "ANTHROPIC_API_KEY=", "HOME=/home"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			runtime, cfg, out := configuredRuntime(t)

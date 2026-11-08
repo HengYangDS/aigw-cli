@@ -25,7 +25,7 @@ func TestForwardingBackupConvergencePreservesCurrentGeneration(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, []string{ClientCodex}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), cfg, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
 	state, err := store.CaptureVerifiedBackupState()
@@ -188,7 +188,7 @@ func TestCaptureVerifiedBackupStateBindsCurrentConfiguration(t *testing.T) {
 			if err := store.Save(current); err != nil {
 				t.Fatal(err)
 			}
-			if err := store.SaveVerifiedCheckpoint(t.Context(), current, testAdmission().IDs()); err != nil {
+			if err := store.SaveVerifiedCheckpoint(t.Context(), current, sessions(testAdmission().IDs()...)); err != nil {
 				t.Fatal(err)
 			}
 			if changed {
@@ -234,7 +234,7 @@ func TestConvergeVerifiedBackupCopiesExactCurrentBytes(t *testing.T) {
 	if err := store.Save(currentConfig); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(t.Context(), currentConfig, testAdmission().IDs()); err != nil {
+	if err := store.SaveVerifiedCheckpoint(t.Context(), currentConfig, sessions(testAdmission().IDs()...)); err != nil {
 		t.Fatal(err)
 	}
 	currentBytes, err := os.ReadFile(path)
@@ -304,7 +304,7 @@ func TestConvergeVerifiedBackupRejectsChangedPreimages(t *testing.T) {
 			if err := store.Save(current); err != nil {
 				t.Fatal(err)
 			}
-			if err := store.SaveVerifiedCheckpoint(t.Context(), current, testAdmission().IDs()); err != nil {
+			if err := store.SaveVerifiedCheckpoint(t.Context(), current, sessions(testAdmission().IDs()...)); err != nil {
 				t.Fatal(err)
 			}
 			state, err := store.CaptureVerifiedBackupState()

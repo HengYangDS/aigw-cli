@@ -155,6 +155,9 @@ func run(cmd *cobra.Command, runtime invocation.Context, args []string, opts opt
 		return noClient(operation, cfg, checking.shared, backend, planned.requested, opts.jsonMode)
 	}
 	result := checking.run(cmd.Context())
+	if result.writesSnapshot() {
+		checking.saveSnapshot(cmd.Context(), &result)
+	}
 	if opts.jsonMode {
 		doc := result.documented(backend)
 		doc.Model = model.name()

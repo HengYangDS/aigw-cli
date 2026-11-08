@@ -128,7 +128,7 @@ func TestForwardedCheckpointKeepsTheShapeARetainedReaderDecodes(t *testing.T) {
 	if err := store.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SaveVerifiedCheckpoint(context.Background(), cfg, []string{ClientCodex}); err != nil {
+	if err := store.SaveVerifiedCheckpoint(context.Background(), cfg, sessions(ClientCodex)); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(store.Path() + ".verified.json")
