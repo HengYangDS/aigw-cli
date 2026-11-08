@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/codex/modelcatalog"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
@@ -131,7 +132,8 @@ func validateCodexCatalogPreflight(target codexReconciliationTarget, config, sta
 		var err error
 		attribution, err = codexStateForTarget(state)
 		if err != nil {
-			return err
+			// Every plan of a recorded file passes here first.
+			return adapter.UnreadableRecord(targetCodexStatePath(target.ref), err)
 		}
 	}
 	return validateCodexCatalogReference(target.ref.Path, string(config.Data), attribution)

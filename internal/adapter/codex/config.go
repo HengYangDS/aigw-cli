@@ -139,12 +139,9 @@ func ValidateConfig(path string, runtime domain.Runtime) error {
 		}
 		return fmt.Errorf("read Codex adapter state: %w", err)
 	}
-	var state codexState
-	if err := json.Unmarshal(stateData, &state); err != nil {
-		return fmt.Errorf("parse Codex adapter state: %w", err)
-	}
-	if err := validateCodexStateAttribution(state); err != nil {
-		return err
+	state, err := codexStateForTarget(platform.FileSnapshot{Exists: true, Data: stateData})
+	if err != nil {
+		return adapter.UnreadableRecord(codexStatePath(path), err)
 	}
 	// Recorded ownership is checked before the desired projection: an outside
 	// edit is a conflict that synchronization refuses, while an owned stale

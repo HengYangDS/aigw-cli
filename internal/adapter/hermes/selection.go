@@ -42,7 +42,7 @@ func ObserveSelection(path string, current Desired) (Selection, bool, error) {
 	if err != nil {
 		return Selection{}, false, err
 	}
-	state, err := decodeOwnership(stateSnapshot.Data)
+	state, err := readOwnershipRecord(path, stateSnapshot.Data)
 	if err != nil {
 		return Selection{}, false, err
 	}
@@ -68,6 +68,15 @@ var errExternalEdit = adapter.NewConflictError(
 // deleted while AIGW's record of it remains.
 func missingWithRecord(path string) error {
 	return adapter.MissingWithRecord("Hermes", path, path+adapter.StateSuffix, "")
+}
+
+// readOwnershipRecord decodes AIGW's record of the Hermes configuration at path.
+func readOwnershipRecord(path string, data []byte) (ownership, error) {
+	state, err := decodeOwnership(data)
+	if err != nil {
+		return state, adapter.UnreadableRecord(path+adapter.StateSuffix, err)
+	}
+	return state, nil
 }
 
 func decodeOwnership(data []byte) (ownership, error) {

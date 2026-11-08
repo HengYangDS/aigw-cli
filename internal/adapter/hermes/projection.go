@@ -250,7 +250,7 @@ func (plan *Plan) readOwnership(root *yaml.Node, desired, previous *Desired) (ow
 	if !plan.stateBefore.Exists {
 		return initialOwnership(root, desired, plan.configBefore.Exists)
 	}
-	state, err := decodeOwnership(plan.stateBefore.Data)
+	state, err := readOwnershipRecord(plan.path, plan.stateBefore.Data)
 	if err != nil {
 		return state, nil, err
 	}

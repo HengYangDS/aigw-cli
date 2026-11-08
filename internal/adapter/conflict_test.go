@@ -43,3 +43,19 @@ func TestMissingWithRecordNamesTheRecordAndNoPrivateFolder(t *testing.T) {
 		t.Fatalf("the refusal shows a private folder: %q", refusal)
 	}
 }
+
+// A record that cannot be read is refused by its base name, on one line, with
+// the failure as its cause, and its fix restores the record.
+func TestUnreadableRecordNamesTheRecordToRestore(t *testing.T) {
+	cause := errors.New("invalid record\nunexpected EOF")
+	refusal := UnreadableRecord(filepath.Join("private", "home", "config.yaml"+StateSuffix), cause)
+	if want := "AIGW's record config.yaml.aigw-state.json cannot be read: invalid record: unexpected EOF"; refusal.Error() != want {
+		t.Fatalf("message = %q", refusal.Error())
+	}
+	if want := "Restore config.yaml.aigw-state.json in its folder from a copy of it, then run `aigw sync`"; refusal.NextAction() != want {
+		t.Fatalf("next action = %q", refusal.NextAction())
+	}
+	if !errors.Is(refusal, cause) || strings.Contains(refusal.Error()+refusal.NextAction(), "private") {
+		t.Fatalf("the refusal = %q", refusal)
+	}
+}

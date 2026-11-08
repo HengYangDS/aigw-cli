@@ -178,7 +178,7 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 		// send the operator back to the same refusal. A credential command
 		// that AIGW did not write also fails the reader's inspection, so this
 		// comes first.
-		return "Codex configuration conflict: ", "AIGW-managed Codex settings were changed outside AIGW", conflict.NextAction()
+		return "", conflict.Error(), conflict.NextAction()
 	}
 	if readerErr != nil {
 		return issue, "Codex credential reader cannot be inspected", repair

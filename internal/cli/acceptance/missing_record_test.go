@@ -167,3 +167,22 @@ func TestADeletedClientFileNamesItsRecord(t *testing.T) {
 		})
 	}
 }
+
+// AIGW's record of a client file holds the settings that AIGW replaced there,
+// so a record that cannot be used is refused on every surface with the one step
+// that keeps them: the record restored. Deleting it would lose them.
+func TestAnUnreadableRecordNamesItsRestoration(t *testing.T) {
+	for id, build := range projectedClients {
+		for name, content := range map[string]string{"corrupt": "{", "incomplete": "{}"} {
+			t.Run(id+"/"+name, func(t *testing.T) {
+				client := build(t)
+				recovery := "Restore " + filepath.Base(client.record) + " in its folder from a copy of it, then run `aigw sync`"
+				saved := readFile(t, client.record)
+				writeFile(t, client.record, []byte(content), 0o600)
+				commands := append(client.surfaces(), []string{"client", "disable", id, "--dry-run", "--json"})
+				assertRecoveryOnEverySurface(t, client.app, client.output, id, recovery, client.directory(), commands)
+				afterRecovery(t, client.app, client.output, id, client.record, saved)
+			})
+		}
+	}
+}

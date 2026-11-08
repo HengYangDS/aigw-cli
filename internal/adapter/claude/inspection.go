@@ -64,9 +64,10 @@ func InspectSettings(path string, runtime domain.Runtime, executable string) (Se
 		// action names what resolves it.
 		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized: %w", err)
 	}
-	state, err := decodeSettingsState(stateBefore.Data)
+	state, err := readSettingsState(path, stateBefore.Data)
 	if err != nil {
-		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized: %w; run `aigw sync`", err)
+		// Synchronization refuses this record too.
+		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized: %w", err)
 	}
 	executable, err = validateExecutable(executable)
 	if err != nil {
@@ -122,7 +123,7 @@ func synchronizationRefusal(path, model string) error {
 	if err != nil {
 		return err
 	}
-	_, err = prepareSettingsState(document, settingsBefore, stateBefore, model)
+	_, err = prepareSettingsState(path, document, settingsBefore, stateBefore, model)
 	return err
 }
 

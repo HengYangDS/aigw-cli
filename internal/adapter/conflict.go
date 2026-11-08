@@ -3,6 +3,7 @@ package adapter
 import (
 	"errors"
 	"path/filepath"
+	"strings"
 )
 
 // ConflictError reports that a client file holds something that AIGW refuses
@@ -40,6 +41,20 @@ func MissingWithRecord(product, file, record, also string) *ConflictError {
 		product+" file "+fileName+" does not exist, but AIGW's record of it, "+recordName+", remains in its folder",
 		"Restore "+fileName+", or delete "+recordName+" in its folder"+also+" if "+fileName+" is gone for good, then run `aigw sync`",
 		nil,
+	)
+}
+
+// UnreadableRecord refuses AIGW's own record of a client file that cannot be
+// used as AIGW wrote it. Only the record holds the settings that AIGW replaced
+// in that file. Without it, a synchronization refuses the file or takes AIGW's
+// own values for the operator's, and a withdrawal leaves them in place, so the
+// one step that keeps those settings is the record restored.
+func UnreadableRecord(record string, cause error) *ConflictError {
+	name := filepath.Base(record)
+	return NewConflictError(
+		"AIGW's record "+name+" cannot be read: "+strings.ReplaceAll(cause.Error(), "\n", ": "),
+		"Restore "+name+" in its folder from a copy of it, then run `aigw sync`",
+		cause,
 	)
 }
 

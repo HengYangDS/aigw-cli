@@ -19,7 +19,7 @@ func prepareState(paths Paths, before snapshots, standard, thirdParty, metadata 
 			// without a record for someone else's.
 			return ownershipState{}, adapter.MissingWithRecord("Claude Desktop", paths.Profile, paths.State, " and remove AIGW's entry and appliedId from _meta.json there")
 		}
-		return readOwnedState(before.state.Data, standard, thirdParty, before.profile.Data, metadata)
+		return readOwnedState(paths.State, before.state.Data, standard, thirdParty, before.profile.Data, metadata)
 	}
 	if before.profile.Exists || hasProfileEntry(metadata, profileID) {
 		return ownershipState{}, errors.New("Claude Desktop AIGW profile already exists without AIGW ownership")
@@ -38,10 +38,10 @@ func prepareState(paths Paths, before snapshots, standard, thirdParty, metadata 
 	}, nil
 }
 
-func readOwnedState(data []byte, standard, thirdParty document, profile []byte, metadata document) (ownershipState, error) {
+func readOwnedState(record string, data []byte, standard, thirdParty document, profile []byte, metadata document) (ownershipState, error) {
 	var state ownershipState
 	if err := json.Unmarshal(data, &state); err != nil || state.Version != 1 || state.WriterID != "aigw-cli" {
-		return ownershipState{}, errors.New("Claude Desktop ownership state is unavailable or invalid")
+		return ownershipState{}, adapter.UnreadableRecord(record, errors.New("Claude Desktop ownership state is unavailable or invalid"))
 	}
 	currentHash, err := managedHash(profileID, standard, thirdParty, profile, metadata)
 	if err != nil {

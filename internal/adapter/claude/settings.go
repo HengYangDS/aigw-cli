@@ -198,7 +198,7 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 		return change, nil
 	}
 	if disabled {
-		state, err := decodeSettingsState(stateBefore.Data)
+		state, err := readSettingsState(path, stateBefore.Data)
 		if err != nil {
 			return settingsChange{}, err
 		}
@@ -225,7 +225,7 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 		return settingsChange{}, err
 	}
 
-	state, err := prepareSettingsState(document, settingsBefore, stateBefore, previousModel)
+	state, err := prepareSettingsState(path, document, settingsBefore, stateBefore, previousModel)
 	if err != nil {
 		return settingsChange{}, err
 	}
@@ -256,7 +256,7 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 	return change, nil
 }
 
-func prepareSettingsState(document settingsDocument, settingsBefore, stateBefore platform.FileSnapshot, previousModel string) (settingsState, error) {
+func prepareSettingsState(path string, document settingsDocument, settingsBefore, stateBefore platform.FileSnapshot, previousModel string) (settingsState, error) {
 	if !stateBefore.Exists {
 		if hasCredentialOwnershipConflict(document) {
 			return settingsState{}, foreignCredential()
@@ -267,7 +267,7 @@ func prepareSettingsState(document settingsDocument, settingsBefore, stateBefore
 			Original: captureOriginalSettings(document, settingsBefore.Exists),
 		}, nil
 	}
-	state, err := decodeSettingsState(stateBefore.Data)
+	state, err := readSettingsState(path, stateBefore.Data)
 	if err != nil {
 		return settingsState{}, err
 	}

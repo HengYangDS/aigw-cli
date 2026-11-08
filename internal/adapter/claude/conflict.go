@@ -21,6 +21,15 @@ func refuseMissingSettings(path string, settings, state platform.FileSnapshot) e
 	return nil
 }
 
+// readSettingsState decodes AIGW's record of the settings at path.
+func readSettingsState(path string, data []byte) (settingsState, error) {
+	state, err := decodeSettingsState(data)
+	if err != nil {
+		return settingsState{}, adapter.UnreadableRecord(path+adapter.StateSuffix, err)
+	}
+	return state, nil
+}
+
 // foreignCredential refuses settings that hold a credential before AIGW owns
 // them.
 func foreignCredential() error {
