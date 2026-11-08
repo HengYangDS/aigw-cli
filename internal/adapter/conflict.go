@@ -1,6 +1,9 @@
 package adapter
 
-import "errors"
+import (
+	"errors"
+	"path/filepath"
+)
 
 // ConflictError reports that a client file holds something that AIGW refuses
 // to overwrite, such as settings that it manages and that were changed
@@ -23,6 +26,21 @@ func NewConflictError(message, next string, cause error) *ConflictError {
 // undone.
 func UndoOutsideEdit(product string) string {
 	return "Undo the outside edit to the AIGW-managed " + product + " settings, then run `aigw sync`"
+}
+
+// MissingWithRecord refuses a client file that does not exist while AIGW's
+// record of it remains in its folder. The record can restore what AIGW changed
+// there, so the operator decides: restoring the file lets AIGW undo its
+// changes, and deleting the record says that the file is gone for good. also
+// is a clause for anything else that must go with the record. Files are named
+// by base name, so the refusal shows no private folder.
+func MissingWithRecord(product, file, record, also string) *ConflictError {
+	fileName, recordName := filepath.Base(file), filepath.Base(record)
+	return NewConflictError(
+		product+" file "+fileName+" does not exist, but AIGW's record of it, "+recordName+", remains in its folder",
+		"Restore "+fileName+", or delete "+recordName+" in its folder"+also+" if "+fileName+" is gone for good, then run `aigw sync`",
+		nil,
+	)
 }
 
 // Error names what AIGW refused and that it kept the file.

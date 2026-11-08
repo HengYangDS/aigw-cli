@@ -194,11 +194,15 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 }
 
 // missingTargetRepair is the step for a configured Codex file that does not
-// exist: sync creates it again in Codex's default home, and anywhere else
-// Codex moves to another file, because sync does not create a Codex home.
+// exist: sync creates it again in Codex's default home, unless AIGW's record
+// of it remains, and anywhere else Codex moves to another file, because sync
+// does not create a Codex home.
 func missingTargetRepair(deps adapter.Dependencies, path string) string {
 	if discovered, err := discover(deps); err == nil {
 		if surface, ok := discovered.SurfaceForConfigPath(path); ok && surface.AutoManaged {
+			if _, statErr := os.Lstat(codexStatePath(path)); statErr == nil {
+				return adapter.MissingWithRecord("Codex", path, codexStatePath(path), "").NextAction()
+			}
 			return "aigw sync"
 		}
 	}

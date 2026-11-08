@@ -1,12 +1,24 @@
 package claude
 
-import "aigw-cli/internal/adapter"
+import (
+	"aigw-cli/internal/adapter"
+	"aigw-cli/internal/platform"
+)
 
 // outsideEdit refuses settings that AIGW manages and that were changed
 // outside it. Undoing the edit is the only way out: AIGW neither overwrites it
 // nor adopts it.
 func outsideEdit(message string) error {
 	return adapter.NewConflictError(message, adapter.UndoOutsideEdit("Claude Code"), nil)
+}
+
+// refuseMissingSettings refuses settings that were deleted while AIGW's record
+// of them remains, which an undone edit could not resolve without a copy.
+func refuseMissingSettings(path string, settings, state platform.FileSnapshot) error {
+	if state.Exists && !settings.Exists {
+		return adapter.MissingWithRecord("Claude Code", path, path+adapter.StateSuffix, "")
+	}
+	return nil
 }
 
 // foreignCredential refuses settings that hold a credential before AIGW owns

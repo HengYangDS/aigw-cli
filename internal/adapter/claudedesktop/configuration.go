@@ -162,7 +162,7 @@ func Prepare(paths Paths, desired *Desired) (Plan, error) {
 	if desired == nil && !before.state.Exists {
 		return Plan{Action: ActionUnchanged}, nil
 	}
-	state, err := prepareState(before, standard, thirdParty, metadata)
+	state, err := prepareState(paths, before, standard, thirdParty, metadata)
 	if err != nil {
 		return Plan{}, err
 	}

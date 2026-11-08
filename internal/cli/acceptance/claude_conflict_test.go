@@ -49,7 +49,7 @@ func TestClaudeOutsideEditRecoveryDoesNotLoop(t *testing.T) {
 		{"credential helper", undo, editClaudeSettings(func(document, _ map[string]any) {
 			document["apiKeyHelper"] = "foreign-helper"
 		})},
-		{"deleted file", undo, func(t *testing.T, settings string) {
+		{"deleted file", "Restore settings.json, or delete settings.json.aigw-state.json in its folder if settings.json is gone for good, then run `aigw sync`", func(t *testing.T, settings string) {
 			t.Helper()
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)

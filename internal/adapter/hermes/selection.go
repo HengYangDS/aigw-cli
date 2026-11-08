@@ -35,6 +35,9 @@ func ObserveSelection(path string, current Desired) (Selection, bool, error) {
 	if err != nil || !stateSnapshot.Exists {
 		return Selection{}, false, err
 	}
+	if !config.Exists {
+		return Selection{}, false, missingWithRecord(path)
+	}
 	root, err := parse(config.Data)
 	if err != nil {
 		return Selection{}, false, err
@@ -60,6 +63,12 @@ func ObserveSelection(path string, current Desired) (Selection, bool, error) {
 var errExternalEdit = adapter.NewConflictError(
 	"managed Hermes settings changed outside AIGW; refusing to overwrite user edits",
 	adapter.UndoOutsideEdit("Hermes"), nil)
+
+// missingWithRecord refuses a Hermes configuration file at path that was
+// deleted while AIGW's record of it remains.
+func missingWithRecord(path string) error {
+	return adapter.MissingWithRecord("Hermes", path, path+adapter.StateSuffix, "")
+}
 
 func decodeOwnership(data []byte) (ownership, error) {
 	var state ownership

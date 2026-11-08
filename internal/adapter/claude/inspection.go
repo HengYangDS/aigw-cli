@@ -55,6 +55,9 @@ func InspectSettings(path string, runtime domain.Runtime, executable string) (Se
 	if !stateBefore.Exists {
 		return SettingsInspection{}, fmt.Errorf("Claude settings are not synchronized; run `aigw sync`")
 	}
+	if err := refuseMissingSettings(path, settingsBefore, stateBefore); err != nil {
+		return SettingsInspection{}, err
+	}
 	document, err := decodeSettings(settingsBefore)
 	if err != nil {
 		// Synchronization refuses this file too, so the error's own next
@@ -110,6 +113,9 @@ func synchronizationRefusal(path, model string) error {
 	}
 	stateBefore, err := captureSnapshot(path + adapter.StateSuffix)
 	if err != nil {
+		return err
+	}
+	if err := refuseMissingSettings(path, settingsBefore, stateBefore); err != nil {
 		return err
 	}
 	document, err := decodeSettings(settingsBefore)

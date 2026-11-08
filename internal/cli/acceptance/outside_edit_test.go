@@ -36,6 +36,17 @@ func afterRecovery(t *testing.T, app *cli.App, output interface {
 ) {
 	t.Helper()
 	writeFile(t, target, projected, 0o600)
+	syncAndCheckPass(t, app, output, client)
+}
+
+// syncAndCheckPass requires synchronization and the client's local checks to
+// pass after a recovery.
+func syncAndCheckPass(t *testing.T, app *cli.App, output interface {
+	Reset()
+	String() string
+}, client string,
+) {
+	t.Helper()
 	for _, command := range [][]string{{"sync", "--json"}, {"check", client, "--depth", "local", "--json"}} {
 		output.Reset()
 		if err := cli.Execute(app, command); err != nil {

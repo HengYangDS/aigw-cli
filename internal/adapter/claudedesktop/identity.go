@@ -3,6 +3,8 @@ package claudedesktop
 import (
 	"encoding/json"
 	"errors"
+
+	"aigw-cli/internal/adapter"
 )
 
 const (
@@ -10,8 +12,13 @@ const (
 	profileName = "AIGW"
 )
 
-func prepareState(before snapshots, standard, thirdParty, metadata document) (ownershipState, error) {
+func prepareState(paths Paths, before snapshots, standard, thirdParty, metadata document) (ownershipState, error) {
 	if before.state.Exists {
+		if !before.profile.Exists {
+			// The file list still names the profile, and AIGW takes an entry
+			// without a record for someone else's.
+			return ownershipState{}, adapter.MissingWithRecord("Claude Desktop", paths.Profile, paths.State, " and remove AIGW's entry and appliedId from _meta.json there")
+		}
 		return readOwnedState(before.state.Data, standard, thirdParty, before.profile.Data, metadata)
 	}
 	if before.profile.Exists || hasProfileEntry(metadata, profileID) {

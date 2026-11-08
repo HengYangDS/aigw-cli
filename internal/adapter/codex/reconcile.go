@@ -274,8 +274,8 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	if err != nil {
 		return codexPreparedTarget{}, err
 	}
-	if !configSnapshot.Exists && (!target.desired || !target.ref.CreateIfAbsent) {
-		return missingCodexTarget(target, stateSnapshot.Exists, filepath.Base(statePath))
+	if refusesMissingTarget(target, configSnapshot, stateSnapshot) {
+		return missingCodexTarget(target, stateSnapshot.Exists, statePath)
 	}
 	catalogSnapshot, err := platform.CaptureFileSnapshot(codexCatalogPath(target.ref.Path))
 	if err != nil {
@@ -348,16 +348,27 @@ func prepareCodexReconciliationTarget(target codexReconciliationTarget, previous
 	}, nil
 }
 
+// refusesMissingTarget reports whether a configured Codex file's absence stops
+// the plan. Only a file in Codex's default home is created again, and only
+// while AIGW keeps no record of it.
+func refusesMissingTarget(target codexReconciliationTarget, config, state platform.FileSnapshot) bool {
+	return !config.Exists && (state.Exists || !target.desired || !target.ref.CreateIfAbsent)
+}
+
 // missingCodexTarget plans a configured Codex file that does not exist. A file
-// that the configuration keeps is refused, because AIGW does not create a
-// Codex home. A file that the change drops is absent, with nothing to
-// withdraw, unless AIGW's record of it remains, which is inspected first.
-func missingCodexTarget(target codexReconciliationTarget, recorded bool, record string) (codexPreparedTarget, error) {
+// that a sync would create is refused only because AIGW's record of it
+// remains. Any other file that the configuration keeps is refused, because
+// AIGW does not create a Codex home. A file that the change drops is absent,
+// with nothing to withdraw, unless AIGW's record of it remains, which is
+// inspected first.
+func missingCodexTarget(target codexReconciliationTarget, recorded bool, statePath string) (codexPreparedTarget, error) {
 	switch {
+	case target.desired && target.ref.CreateIfAbsent:
+		return codexPreparedTarget{}, adapter.MissingWithRecord("Codex", target.ref.Path, statePath, "")
 	case target.desired:
 		return codexPreparedTarget{}, missingTargetError{}
 	case recorded:
-		return codexPreparedTarget{}, recordedMissingTargetError{record: record}
+		return codexPreparedTarget{}, recordedMissingTargetError{record: filepath.Base(statePath)}
 	}
 	return codexPreparedTarget{plan: ProjectionPlan{Target: target.ref.Path, Action: ProjectionActionAbsent, SurfaceID: target.ref.SurfaceID}}, nil
 }

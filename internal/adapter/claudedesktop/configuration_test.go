@@ -273,6 +273,7 @@ func TestProjectionRejectsInvalidDesiredConfiguration(t *testing.T) {
 func TestProjectionRejectsInvalidOwnershipMetadata(t *testing.T) {
 	root := t.TempDir()
 	paths := PathsForLibrary(filepath.Join(root, "invalid-state"))
+	writeJSON(t, paths.Profile, map[string]any{"inferenceProvider": "gateway"})
 	writeJSON(t, paths.State, map[string]any{"version": 2, "writer_id": "aigw-cli"})
 	if _, err := Prepare(paths, &Desired{BaseURL: "https://gateway.example.test", CredentialExecutable: filepath.Join(root, "aigw"), Models: []Model{{Name: "model"}}}); err == nil || !strings.Contains(err.Error(), "ownership state") {
 		t.Fatalf("Prepare() error = %v", err)

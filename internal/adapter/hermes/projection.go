@@ -156,6 +156,9 @@ func prepareObserved(path string, desired, previous *Desired, adopted bool) (Pla
 	if err != nil {
 		return Plan{}, err
 	}
+	if plan.stateBefore.Exists && !plan.configBefore.Exists {
+		return Plan{}, missingWithRecord(path)
+	}
 	if desired == nil && !plan.stateBefore.Exists {
 		return plan, nil
 	}

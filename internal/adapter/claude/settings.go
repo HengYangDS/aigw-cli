@@ -183,6 +183,9 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 	if err != nil {
 		return settingsChange{}, err
 	}
+	if err := refuseMissingSettings(path, settingsBefore, stateBefore); err != nil {
+		return settingsChange{}, err
+	}
 	change := settingsChange{
 		path:           path,
 		statePath:      statePath,

@@ -93,3 +93,16 @@ func TestAMissingTargetsRepairFollowsItsHome(t *testing.T) {
 		t.Fatalf("another file = %q", got)
 	}
 }
+
+// A deleted file in Codex's default home is created again by a sync only when
+// AIGW keeps no record of it: with one, the sync refuses, and the repair names
+// the record.
+func TestAMissingTargetsRepairNamesARecordThatRemains(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "config.toml")
+	writeCodexFixture(t, codexStatePath(home), "{}")
+	deps := adapter.Dependencies{Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(HomeDefault), ConfigPath: home, AutoManaged: true}}}}}
+	want := "Restore config.toml, or delete config.toml.aigw-state.json in its folder if config.toml is gone for good, then run `aigw sync`"
+	if got := missingTargetRepair(deps, home); got != want {
+		t.Fatalf("the default home with its record = %q", got)
+	}
+}
