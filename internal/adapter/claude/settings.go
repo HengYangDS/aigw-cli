@@ -193,26 +193,8 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 		stateBefore:    stateBefore,
 	}
 
-	if disabled && !stateBefore.Exists {
-		change.plan = SettingsPlan{Action: SettingsActionAlreadyRestored, Target: path}
-		return change, nil
-	}
 	if disabled {
-		state, err := readSettingsState(path, stateBefore.Data)
-		if err != nil {
-			return settingsChange{}, err
-		}
-		if !state.acceptModelPreference(document, previousModel) {
-			return settingsChange{}, outsideEdit("managed Claude settings changed outside AIGW; refusing to remove user edits")
-		}
-		change.plan = SettingsPlan{Action: SettingsActionRestore, Target: path}
-		restoreOriginalSettings(document, state.Original)
-		if !state.Original.FileExisted && len(document) == 0 {
-			change.removeSettings = true
-			return change, nil
-		}
-		change.settingsData, _ = adapter.EncodeJSON(document)
-		return change, nil
+		return change.withdrawal(document, previousModel)
 	}
 	if runtime.Endpoint == "" {
 		return settingsChange{}, fmt.Errorf("route %q has no Claude endpoint", runtime.ModelID)
@@ -253,6 +235,34 @@ func prepareSettingsChange(path string, disabled bool, runtime domain.Runtime, e
 	state.ManagedSHA256 = projectedHash
 	change.stateData, _ = adapter.EncodeJSON(state)
 	change.plan = SettingsPlan{Action: SettingsActionProject, Target: path}
+	return change, nil
+}
+
+// withdrawal plans the removal of AIGW's settings from document, restoring
+// the values that AIGW's record holds. Without the record nothing is AIGW's to
+// remove, unless AIGW's credential helper is still there, which it refuses.
+func (change settingsChange) withdrawal(document settingsDocument, previousModel string) (settingsChange, error) {
+	if !change.stateBefore.Exists {
+		if err := refuseUnrecordedWithdrawal(change.path, document); err != nil {
+			return settingsChange{}, err
+		}
+		change.plan = SettingsPlan{Action: SettingsActionAlreadyRestored, Target: change.path}
+		return change, nil
+	}
+	state, err := readSettingsState(change.path, change.stateBefore.Data)
+	if err != nil {
+		return settingsChange{}, err
+	}
+	if !state.acceptModelPreference(document, previousModel) {
+		return settingsChange{}, outsideEdit("managed Claude settings changed outside AIGW; refusing to remove user edits")
+	}
+	change.plan = SettingsPlan{Action: SettingsActionRestore, Target: change.path}
+	restoreOriginalSettings(document, state.Original)
+	if !state.Original.FileExisted && len(document) == 0 {
+		change.removeSettings = true
+		return change, nil
+	}
+	change.settingsData, _ = adapter.EncodeJSON(document)
 	return change, nil
 }
 

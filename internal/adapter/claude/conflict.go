@@ -1,6 +1,10 @@
 package claude
 
 import (
+	"encoding/json"
+	"path/filepath"
+	"strings"
+
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/platform"
 )
@@ -28,6 +32,24 @@ func readSettingsState(path string, data []byte) (settingsState, error) {
 		return settingsState{}, adapter.UnreadableRecord(path+adapter.StateSuffix, err)
 	}
 	return state, nil
+}
+
+// refuseUnrecordedWithdrawal refuses to withdraw from settings that still hold
+// AIGW's credential helper while AIGW's record of them is gone. Only the
+// record holds the values that AIGW replaced, so without it a withdrawal would
+// leave AIGW's helper, endpoint and model in place and claim that nothing
+// remains; AIGW cannot tell its other values from the user's either.
+func refuseUnrecordedWithdrawal(path string, document settingsDocument) error {
+	var helper string
+	if json.Unmarshal(document["apiKeyHelper"], &helper) != nil || !strings.Contains(helper, " credential "+ID+" ") {
+		return nil
+	}
+	record := filepath.Base(path + adapter.StateSuffix)
+	return adapter.NewConflictError(
+		"AIGW's record "+record+" is missing, so AIGW cannot tell its settings in "+filepath.Base(path)+" from yours; its apiKeyHelper stays, with ANTHROPIC_BASE_URL and model",
+		"Restore "+record+" in its folder from a copy of it, then run the same command again; or remove apiKeyHelper, and ANTHROPIC_BASE_URL and model if AIGW set them, from "+filepath.Base(path)+" yourself",
+		nil,
+	)
 }
 
 // foreignCredential refuses settings that hold a credential before AIGW owns
