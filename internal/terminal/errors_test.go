@@ -437,3 +437,10 @@ func TestTypedErrorLocalizationRejectsTextualLookalikes(t *testing.T) {
 		}
 	}
 }
+
+// A nil error is reported as a failure without a cause, never dereferenced.
+func TestProblemForANilErrorDoesNotPanic(t *testing.T) {
+	if problem := ProblemFor(nil); problem.Title == "" || problem.Fix == "" {
+		t.Fatalf("problem = %+v", problem)
+	}
+}

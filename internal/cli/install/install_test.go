@@ -119,7 +119,11 @@ func TestInstallCommandNamesTheTargetThatItCannotUse(t *testing.T) {
 		command := NewCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target, Out: new(bytes.Buffer)})
 		command.SilenceErrors, command.SilenceUsage = true, true
 		command.SetArgs(args)
-		problem := terminal.ProblemFor(command.Execute())
+		err := command.Execute()
+		if err == nil {
+			t.Fatalf("%v: installing under a file passed", args)
+		}
+		problem := terminal.ProblemFor(err)
 		if !strings.Contains(problem.Title, target) || !strings.Contains(problem.Fix, target) ||
 			!strings.HasSuffix(problem.Fix, "then run the same command again.") || strings.Contains(problem.Fix, "aigw check") {
 			t.Fatalf("%v: problem = %+v", args, problem)

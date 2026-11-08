@@ -278,6 +278,10 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 // impact states each undo that err reports as failed, with its cause, after
 // any impact of its own. A typed problem states what its raiser reported.
 func ProblemFor(err error) Problem {
+	// A nil error is a caller's mistake; it is reported, never dereferenced.
+	if err == nil {
+		return Problem{Title: "AIGW reported a failure without a cause", Fix: "aigw check"}
+	}
 	problem := problemFor(err)
 	if _, structured := errors.AsType[*userError](err); structured {
 		return problem

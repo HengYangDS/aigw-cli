@@ -241,3 +241,27 @@ func TestBackupPathUsesWindowsExecutableSuffix(t *testing.T) {
 		t.Fatalf("backup path = %q", got)
 	}
 }
+
+// A target whose path runs through a file is refused by planning, on every
+// platform, so a preview does not pass where the write would fail. The error
+// names the file that stands where a folder is needed.
+func TestPlanInstallRefusesAPathThroughAFile(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "aigw")
+	blocked := filepath.Join(root, "blocked")
+	for _, path := range []string{source, blocked} {
+		if err := os.WriteFile(path, []byte("file"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, target := range []string{filepath.Join(blocked, "aigw"), filepath.Join(blocked, "nested", "aigw")} {
+		_, err := PlanInstall(source, target)
+		failure, atFile := errors.AsType[*os.PathError](err)
+		if !atFile || failure.Path != blocked || failure.Err.Error() != "not a directory" {
+			t.Fatalf("%s = %v", target, err)
+		}
+	}
+	if _, err := PlanInstall(source, filepath.Join(root, "missing", "aigw")); err != nil {
+		t.Fatalf("a target under a folder that does not exist yet = %v", err)
+	}
+}
