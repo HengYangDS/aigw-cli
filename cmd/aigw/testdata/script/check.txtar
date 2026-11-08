@@ -128,6 +128,35 @@ stdout '"unused_tokens": \{\n\s+"state": "listed",\n\s+"providers": \[\]'
 env AIGW_SECRET_BACKEND=file
 env AIGW_TOKEN_TEAM=
 
+# An endpoint without a model list cannot prove a Token with a request that
+# names no model, so Claude Code's endpoint depth is skipped; the model depth
+# proves it.
+exec aigw provider edit team --endpoint anthropic=$UPSTREAM/nomodels
+exec aigw check claude --depth endpoint --json
+cmp stdout no-model-list.json
+exec aigw check claude --json
+stdout '"depth": "model",\n\s+"skipped": \[\n\s+\{\n\s+"depth": "endpoint"'
+! stdout '"next_action"'
+
+# A client that authenticates itself and one whose Token an external helper
+# supplies send no Token from AIGW, so their endpoint and model depths are
+# skipped, which fails nothing, and only a session proves them. No command
+# sets either, so the script writes the configuration.
+envsubst own-authentication.toml expanded.toml
+[darwin] cp expanded.toml $HOME/Library/Application' 'Support/aigw/config.toml
+[!darwin] cp expanded.toml $HOME/aigw/config.toml
+mkdir $HOME/.codex
+cp empty-file $HOME/.codex/config.toml
+exec aigw sync
+exec aigw check codex --json
+cmp stdout own-authentication.json
+exec aigw check claude --json
+cmp stdout external-helper.json
+exec aigw check claude
+stdout 'Endpoint skipped: An external credential helper gives Claude Code its Token, which only a session of it proves'
+stdout 'Model skipped: An external credential helper gives Claude Code its Token, which only a session of it proves'
+stdout 'Deeper check: aigw check claude --depth client'
+
 [darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/config.toml
 [!darwin] cp broken.toml $HOME/aigw/config.toml
 exitcode 1 aigw check --json
@@ -699,6 +728,272 @@ Impact
 
 Fix
   aigw use claude team/team-model
+-- empty-file --
+-- no-model-list.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "depth": "endpoint",
+  "clients": [
+    {
+      "id": "claude",
+      "enabled": true,
+      "model": "team/team-model",
+      "provider": "team",
+      "protocol": "anthropic",
+      "authentication": "account-token",
+      "transport": "external_loopback",
+      "state": "configured",
+      "depth": "local",
+      "skipped": [
+        {
+          "depth": "endpoint",
+          "reason": "The endpoint lists no models, so a request without a model cannot prove the Token"
+        }
+      ],
+      "checks": [
+        {
+          "name": "claude:model",
+          "state": "passed",
+          "detail": "team/team-model on Anthropic Messages"
+        },
+        {
+          "name": "claude:token",
+          "state": "passed",
+          "detail": "Provider team has a Token"
+        },
+        {
+          "name": "claude:files",
+          "state": "passed",
+          "detail": "Match the selection"
+        }
+      ],
+      "next_action": "aigw check claude"
+    }
+  ],
+  "checks": [
+    {
+      "name": "environment",
+      "state": "passed",
+      "detail": "No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set"
+    },
+    {
+      "name": "configuration",
+      "state": "passed",
+      "detail": "Valid"
+    },
+    {
+      "name": "credential_backend",
+      "state": "passed",
+      "detail": "file, read and write"
+    }
+  ],
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "enabled_clients": 1,
+  "next_action": "aigw check claude"
+}
+-- own-authentication.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "depth": "model",
+  "clients": [
+    {
+      "id": "codex",
+      "enabled": true,
+      "model": "team/native-model",
+      "provider": "team",
+      "protocol": "responses",
+      "authentication": "client-native",
+      "transport": "external_loopback",
+      "state": "configured",
+      "depth": "local",
+      "skipped": [
+        {
+          "depth": "endpoint",
+          "reason": "Codex uses its own authentication, which only a session of it proves"
+        },
+        {
+          "depth": "model",
+          "reason": "Codex uses its own authentication, which only a session of it proves"
+        }
+      ],
+      "checks": [
+        {
+          "name": "codex:model",
+          "state": "passed",
+          "detail": "team/native-model on OpenAI Responses"
+        },
+        {
+          "name": "codex:token",
+          "state": "skipped",
+          "detail": "Codex uses its own authentication, so AIGW reads no Token for it"
+        },
+        {
+          "name": "codex:files",
+          "state": "passed",
+          "detail": "Match the selection"
+        },
+        {
+          "name": "codex:target-1",
+          "state": "passed",
+          "detail": "Matches the selection",
+          "target": "~/.codex/config.toml"
+        }
+      ],
+      "next_action": "aigw check codex --depth client"
+    }
+  ],
+  "checks": [
+    {
+      "name": "environment",
+      "state": "passed",
+      "detail": "No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set"
+    },
+    {
+      "name": "configuration",
+      "state": "passed",
+      "detail": "Valid"
+    },
+    {
+      "name": "credential_backend",
+      "state": "passed",
+      "detail": "file, read and write"
+    }
+  ],
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "enabled_clients": 1,
+  "next_action": "aigw check codex --depth client"
+}
+-- external-helper.json --
+{
+  "schema_version": 3,
+  "ok": true,
+  "depth": "model",
+  "clients": [
+    {
+      "id": "claude",
+      "enabled": true,
+      "model": "team/team-model",
+      "provider": "team",
+      "protocol": "anthropic",
+      "authentication": "account-token",
+      "transport": "external_loopback",
+      "state": "configured",
+      "depth": "local",
+      "skipped": [
+        {
+          "depth": "endpoint",
+          "reason": "An external credential helper gives Claude Code its Token, which only a session of it proves"
+        },
+        {
+          "depth": "model",
+          "reason": "An external credential helper gives Claude Code its Token, which only a session of it proves"
+        }
+      ],
+      "checks": [
+        {
+          "name": "claude:model",
+          "state": "passed",
+          "detail": "team/team-model on Anthropic Messages"
+        },
+        {
+          "name": "claude:token",
+          "state": "skipped",
+          "detail": "An external credential helper gives Claude Code its Token"
+        },
+        {
+          "name": "claude:files",
+          "state": "passed",
+          "detail": "Match the selection"
+        }
+      ],
+      "next_action": "aigw check claude --depth client"
+    }
+  ],
+  "checks": [
+    {
+      "name": "environment",
+      "state": "passed",
+      "detail": "No ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN or OPENAI_API_KEY is set"
+    },
+    {
+      "name": "configuration",
+      "state": "passed",
+      "detail": "Valid"
+    },
+    {
+      "name": "credential_backend",
+      "state": "passed",
+      "detail": "file, read and write"
+    }
+  ],
+  "credential_backend": {
+    "kind": "file",
+    "availability": "available",
+    "mutability": "read_write",
+    "persistence": "explicit",
+    "recovery_action": ""
+  },
+  "enabled_clients": 1,
+  "next_action": "aigw check claude --depth client"
+}
+-- own-authentication.toml --
+version = 6
+
+[accounts.team]
+label = 'Team Gateway'
+
+[accounts.team.endpoints]
+anthropic = '$UPSTREAM'
+openai_responses = '$UPSTREAM/v1'
+
+[models.team-model]
+label = 'Team Model'
+
+[routes.helper]
+account = 'team'
+model = 'team-model'
+upstream_model = 'team-model'
+
+[routes.helper.interfaces]
+anthropic = []
+
+[routes.native]
+account = 'team'
+model = 'team-model'
+upstream_model = 'native-model'
+
+[routes.native.interfaces]
+openai_responses = []
+
+[clients.claude]
+route = 'helper'
+enabled = true
+protocol = 'anthropic'
+executable = '$BIN/claude$exe'
+credential_command = '$BIN/aigw$exe'
+
+[clients.codex]
+route = 'native'
+enabled = true
+protocol = 'openai_responses'
+model_provider = 'amazon-bedrock'
+authentication = 'client-native'
+executable = '$BIN/claude$exe'
+targets = ['$HOME/.codex/config.toml']
 -- unused.txt --
 AIGW  Check
 ────────────────────────────────────────

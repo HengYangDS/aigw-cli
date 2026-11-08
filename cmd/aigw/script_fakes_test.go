@@ -19,15 +19,11 @@ const rejectedToken = "sk-rejected-token"
 // diagnostics and the GitHub release metadata of repository team/aigw. It
 // refuses rejectedToken with HTTP 401, answers every request below
 // /unavailable/ with HTTP 503, and an inference request that asks for AIGW_OK
-// receives it. A catalog below /fresh/ lists team-model and fresh-model.
+// receives it. A catalog below /fresh/ lists team-model and fresh-model, and
+// one below /nomodels/ does not exist, while its inference still answers.
 func upstream() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-Api-Key") == rejectedToken || r.Header.Get("Authorization") == "Bearer "+rejectedToken {
-			http.Error(w, `{"error":{"message":"invalid token"}}`, http.StatusUnauthorized)
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, "/unavailable/") {
-			http.Error(w, `{"error":{"message":"unavailable"}}`, http.StatusServiceUnavailable)
+		if refused(w, r) {
 			return
 		}
 		request, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
@@ -61,6 +57,23 @@ func upstream() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, body)
 	})
+}
+
+// refused answers a request that the scripted provider turns down, and reports
+// whether it did: a rejected Token, anything below /unavailable/, and a
+// catalog below /nomodels/.
+func refused(w http.ResponseWriter, r *http.Request) bool {
+	switch {
+	case r.Header.Get("X-Api-Key") == rejectedToken || r.Header.Get("Authorization") == "Bearer "+rejectedToken:
+		http.Error(w, `{"error":{"message":"invalid token"}}`, http.StatusUnauthorized)
+	case strings.HasPrefix(r.URL.Path, "/unavailable/"):
+		http.Error(w, `{"error":{"message":"unavailable"}}`, http.StatusServiceUnavailable)
+	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/nomodels/") && strings.HasSuffix(r.URL.Path, "/models"):
+		http.NotFound(w, r)
+	default:
+		return false
+	}
+	return true
 }
 
 // scriptedClaude stands in for Claude Code. It reports a version, and a
