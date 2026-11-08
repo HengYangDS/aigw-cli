@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -54,8 +55,15 @@ func TestAClientFileFailureNamesEachFile(t *testing.T) {
 	RenderError(NewRenderer(&out, false), err, true)
 	var document map[string]any
 	if json.Unmarshal(out.Bytes(), &document) != nil || document["error"] != want.Title || document["evidence"] != want.Evidence ||
-		document["impact"] != want.Impact || document["next_detail"] != want.Fix || bytes.Contains(out.Bytes(), []byte(filepath.Base(home))) {
+		document["impact"] != want.Impact || document["next_detail"] != want.Fix {
 		t.Fatalf("failure document = %s", out.String())
+	}
+	// No value names the home directory itself; a file outside it is named
+	// by its full path, which may share any part of the home's name.
+	for key, value := range document {
+		if text, ok := value.(string); ok && strings.Contains(text, home) {
+			t.Fatalf("failure document names the home directory in %s: %s", key, out.String())
+		}
 	}
 
 	outside := filepath.Join(elsewhere, "b.toml")
