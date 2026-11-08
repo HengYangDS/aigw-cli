@@ -174,7 +174,9 @@ inside the subprocess.
 #### Scenario: A store needs a person to list
 
 - **WHEN** a keychain or collection is locked
-- **THEN** the listing SHALL refuse without asking for access
+- **THEN** the listing SHALL name its items or refuse, and SHALL NOT ask for
+  access
+- **AND** a refusal SHALL be reported as unable to list, never as no Tokens
 - **AND** no credential or access-control state SHALL change.
 
 ## MODIFIED Requirements
