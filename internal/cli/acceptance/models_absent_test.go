@@ -111,7 +111,7 @@ func TestSyncAndTheCredentialReaderOfProvidersWithoutModels(t *testing.T) {
 	}
 }
 
-// The configuration exports a team file that an empty home imports.
+// The configuration exports a team file that setup applies to an empty home.
 func TestTeamFileOfProvidersWithoutModels(t *testing.T) {
 	app, out, _ := providerWithoutModels(t)
 	if err := cli.Execute(app, []string{"config", "export"}); err != nil {
@@ -122,8 +122,8 @@ func TestTeamFileOfProvidersWithoutModels(t *testing.T) {
 		t.Fatal(err)
 	}
 	other, otherOut, _, _, _ := testApp(t, "")
-	if err := cli.Execute(other, []string{"config", "import", manifest}); err != nil {
-		t.Fatalf("import of a team file without models: %v\n%s", err, otherOut)
+	if err := cli.Execute(other, []string{"setup", "--from", manifest}); err != nil {
+		t.Fatalf("setup from a team file without models: %v\n%s", err, otherOut)
 	}
 	if cfg, err := other.Config.Load(); err != nil || len(cfg.Providers) != 1 || len(cfg.Models) != 0 {
 		t.Fatalf("imported configuration = %+v, %v", cfg, err)

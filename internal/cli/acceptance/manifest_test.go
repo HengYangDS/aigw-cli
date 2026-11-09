@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -16,7 +17,9 @@ import (
 	"aigw-cli/internal/store"
 )
 
-func TestConfigImportRefusesProviderConflictUntilExplicitReplacementAndPreservesToken(t *testing.T) {
+// A team file never redirects an existing provider: its endpoint and Token
+// stay, its label is the file's, and the client keeps its selection.
+func TestSetupFromKeepsAnExistingProvidersEndpointAndToken(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Personal Gateway", Endpoints: domain.Endpoints{Anthropic: "https://personal.example.test"}}
@@ -49,56 +52,39 @@ interfaces = { anthropic = ["text"] }
 		t.Fatal(err)
 	}
 
-	err := cli.Execute(app, []string{"config", "import", manifestPath})
-	if err == nil || !strings.Contains(err.Error(), "--replace-account team") {
-		t.Fatalf("default import error = %v", err)
+	if err := cli.Execute(app, []string{"setup", "--from", manifestPath}); err != nil {
+		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Providers["team"].Endpoints.Anthropic != "https://personal.example.test" || got.SelectedModel(claude.ID) != "local" {
-		t.Fatalf("default import mutated local identity: %#v", got)
+	if got.Providers["team"].Endpoints.Anthropic != "https://personal.example.test" || got.Providers["team"].Label != "Team Gateway" || got.SelectedModel(claude.ID) != "local" {
+		t.Fatalf("setup redirected a local provider: %#v", got)
 	}
 	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
-		t.Fatalf("default import altered token: %q, %v", token, err)
-	}
-
-	if err := cli.Execute(app, []string{"config", "import", manifestPath, "--replace-account", "team"}); err != nil {
-		t.Fatal(err)
-	}
-	got, err = app.Config.Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Providers["team"].Endpoints.Anthropic != "https://team.example.test" || got.SelectedModel(claude.ID) != "local" {
-		t.Fatalf("explicit replacement result: %#v", got)
-	}
-	if token, err := secretStore.Get("team"); err != nil || token != "personal-token" {
-		t.Fatalf("explicit replacement altered token: %q, %v", token, err)
+		t.Fatalf("setup altered the Token: %q, %v", token, err)
 	}
 }
 
-func TestConfigImportDefersCredentialObservationToStatus(t *testing.T) {
-	app, out, _, _, _ := testApp(t, "")
-	store := &recordingCredentialStore[string]{backend: secret.NewMemoryStore(), existsErr: errors.New("unexpected credential observation")}
+// Team setup observes the presence of only the Tokens that a recommendation
+// needs, and reads none.
+func TestSetupFromObservesOnlyTheTokensThatARecommendationNeeds(t *testing.T) {
+	app, _, _, _, _ := testApp(t, "")
+	store := &recordingCredentialStore[string]{backend: secret.NewMemoryStore()}
 	app.Secrets = store
-	if err := cli.Execute(app, []string{"config", "import", writeConfigurationManifest(t, configurationManifestFixture)}); err != nil {
+	if err := cli.Execute(app, []string{"setup", "--from", writeConfigurationManifest(t, configurationManifestFixture)}); err != nil {
 		t.Fatal(err)
 	}
-	if len(store.existsCalls) != 0 || len(store.getCalls) != 0 {
-		t.Fatalf("import observed Account credentials: exists=%q get=%q", store.existsCalls, store.getCalls)
+	if len(store.getCalls) != 0 || slices.ContainsFunc(store.existsCalls, func(id string) bool { return id != "aihubmix" && id != "dmxapi" }) {
+		t.Fatalf("setup read or observed other credentials: exists=%q get=%q", store.existsCalls, store.getCalls)
 	}
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(cfg.Providers) != 2 || len(cfg.Models) != 3 {
-		t.Fatalf("imported public catalog = %#v", cfg)
-	}
-	output := out.String()
-	if !strings.Contains(output, "Configuration manifest imported") || !strings.Contains(output, "aigw status") || strings.Contains(output, "Token") || strings.Contains(output, "credential observation") {
-		t.Fatalf("import output mixed configuration and credential state: %q", output)
+		t.Fatalf("applied team file = %#v", cfg)
 	}
 }
 
@@ -130,26 +116,26 @@ func TestConfigCommandIOFailures(t *testing.T) {
 		}
 	})
 
-	t.Run("import read", func(t *testing.T) {
+	t.Run("team file read", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
-		if err := cli.Execute(app, []string{"config", "import", filepath.Join(t.TempDir(), "missing.toml")}); err == nil {
-			t.Fatal("expected manifest read failure")
+		if err := cli.Execute(app, []string{"setup", "--from", filepath.Join(t.TempDir(), "missing.toml")}); err == nil {
+			t.Fatal("expected a team file read failure")
 		}
 	})
 
-	t.Run("import parse", func(t *testing.T) {
+	t.Run("team file parse", func(t *testing.T) {
 		app, _, _, _, _ := testApp(t, "")
 		path := filepath.Join(t.TempDir(), "bad.toml")
 		if err := os.WriteFile(path, []byte("not = [valid"), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		if err := cli.Execute(app, []string{"config", "import", path}); err == nil {
-			t.Fatal("expected manifest parse failure")
+		if err := cli.Execute(app, []string{"setup", "--from", path}); err == nil {
+			t.Fatal("expected a team file parse failure")
 		}
 	})
 }
 
-func TestConfigImportAndExportAreSecretFree(t *testing.T) {
+func TestSetupFromAndExportAreSecretFree(t *testing.T) {
 	app, out, secrets, _, _ := testApp(t, "")
 	manifestPath := filepath.Join(t.TempDir(), "team.toml")
 	manifest := `version = 7
@@ -172,11 +158,11 @@ interfaces = { anthropic = ["text"] }
 	if err := os.WriteFile(manifestPath, []byte(manifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := cli.Execute(app, []string{"config", "import", manifestPath}); err != nil {
+	if err := cli.Execute(app, []string{"setup", "--from", manifestPath}); err != nil {
 		t.Fatal(err)
 	}
 	if secretExists(t, secrets, "team") {
-		t.Fatal("manifest import invented a secret")
+		t.Fatal("setup invented a Token")
 	}
 	out.Reset()
 	if err := cli.Execute(app, []string{"config", "export"}); err != nil {
@@ -187,8 +173,10 @@ interfaces = { anthropic = ["text"] }
 	}
 }
 
-func TestConfigImportRefusesModelConflictUntilExplicitReplacement(t *testing.T) {
-	app, _, _, _, _ := testApp(t, "")
+// A team file whose model would change a client's selection keeps the local
+// model, and the result says so.
+func TestSetupFromKeepsAModelWhoseChangeWouldMoveASelection(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["team"] = domain.Provider{Label: "Team Gateway", Endpoints: domain.Endpoints{OpenAIResponses: "https://team.example.test/v1"}}
 	cfg.Models["shared"] = qualifiedModel("Personal Model", "team", "personal-model", domain.ProtocolOpenAIResponses)
@@ -217,18 +205,14 @@ interfaces = { openai_responses = ["text"] }
 		t.Fatal(err)
 	}
 
-	err := cli.Execute(app, []string{"config", "import", manifestPath})
-	if err == nil || !strings.Contains(err.Error(), "--replace-route shared") {
-		t.Fatalf("default import error = %v", err)
-	}
-	if err := cli.Execute(app, []string{"config", "import", manifestPath, "--replace-route", "shared"}); err != nil {
+	if err := cli.Execute(app, []string{"setup", "--from", manifestPath, "--json"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Models["shared"].Family != "team-model" {
-		t.Fatalf("explicit route replacement = %#v", got.Models["shared"])
+	if got.Models["shared"].Family != "personal-model" || !strings.Contains(out.String(), `"kept_models"`) || !strings.Contains(out.String(), `"file": "team/team-model"`) {
+		t.Fatalf("the selected model = %#v\n%s", got.Models["shared"], out)
 	}
 }

@@ -18,7 +18,7 @@ cmp stdout add-help.txt
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 envsubst mixed.in mixed.toml
-exec aigw config import mixed.toml
+exec aigw setup --from mixed.toml
 
 exec aigw model list
 cmp stdout list.txt
@@ -119,9 +119,17 @@ fixloop stdout aigw model edit mixed/chat-only --capability tool_search --json
 exec aigw model edit mixed/chat-only --protocol chat --capability ''
 exitcode 1 aigw model edit mixed/spare-chat --protocol anthropic --json
 cmp stdout edit-recommended.json
-# fixloop does not follow this fix: it exports the team file whose
-# recommendation must change, and `aigw setup --from` refuses to apply the
-# changed file to a configured home until setup can run again.
+# Its fix exports the team file; the script changes Hermes's recommendation
+# there, and setup applies the file to this configured home, where the
+# file's recommendation wins and the rest stays.
+envsubst recommended.in recommended.toml
+exec aigw setup --from recommended.toml
+fixloop edit-recommended.json aigw model edit mixed/spare-chat --protocol anthropic --json
+# Applying the original team file again restores its model and its
+# recommendation, as the file's win.
+exec aigw setup --from mixed.toml
+exec aigw model show mixed/spare-chat --json
+stdout '"protocol": "chat"'
 stdin mixed-token.txt
 exec aigw rotate mixed --token-stdin
 exec aigw use hermes mixed/chat-only
@@ -165,7 +173,7 @@ cmp stdout list-mixed.txt
 # read on both of its protocols, lists none of its own, which are missing,
 # and two that it could add.
 envsubst search.in search.toml
-exec aigw config import search.toml
+exec aigw setup --from search.toml
 stdin fresh-token.txt
 exec aigw provider rotate fresh --token-stdin
 exec aigw model search --help
@@ -258,6 +266,11 @@ account = "broken"
 model = "broken-model"
 upstream_model = "broken-model"
 interfaces = { openai_responses = [] }
+-- recommended.in --
+version = 7
+[recommendations.hermes.primary]
+route = "mixed-chat"
+protocol = "openai_chat_completions"
 -- mixed.in --
 version = 7
 [recommendations.hermes.primary]

@@ -27,7 +27,7 @@ func TestNativeRollbackConfigurationAdmission(t *testing.T) {
 	journey.run("setup", "--from", journey.manifest)
 	original := readFile(t, journey.config)
 	journey.run("update", "--candidate", archive, "--checksums", checksums)
-	journey.run("config", "import", journey.manifest)
+	journey.run("setup", "--from", journey.manifest)
 	compatibility := exec.CommandContext(t.Context(), baseline, "config", "export")
 	compatibility.Env = journey.environment
 	_, compatibilityErr := compatibility.CombinedOutput()

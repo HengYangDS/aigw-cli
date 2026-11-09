@@ -46,7 +46,7 @@ snapshot $HOME after.txt
 cmp after.txt before.txt
 
 envsubst probe.in probe.toml
-exec aigw config import probe.toml
+exec aigw setup --from probe.toml
 stdin system.txt
 exec aigw account diagnostics enable probed --user-id 42 --system-token-stdin --json
 cmp stdout enabled.json

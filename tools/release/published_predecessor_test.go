@@ -397,7 +397,7 @@ func (j *journeyFixture) importCatalogOrder() []byte {
 	if err := os.WriteFile(j.manifest, data, 0o600); err != nil {
 		j.testing.Fatal(err)
 	}
-	j.run("config", "import", j.manifest, "--replace-account", "native-system-keyring-probe", "--replace-model", "claude-test")
+	j.run("setup", "--from", j.manifest)
 	configStore := store.NewStore(j.config, builtinclients.Admission())
 	updated := capturePublishedSnapshot(j.testing, configStore)
 	selected, err := configStore.Load()

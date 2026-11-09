@@ -14,7 +14,7 @@ cmp stdout add-help.txt
 # Anthropic and a Chat Completions endpoint, a balance probe and no Token, and
 # Hermes's recommendation names its model.
 envsubst manifest.in manifest.toml
-exec aigw config import manifest.toml
+exec aigw setup --from manifest.toml
 stdin token.txt
 exec aigw provider rotate team --token-stdin
 cmp stdout rotated.txt
@@ -112,9 +112,8 @@ exitcode 1 aigw provider edit team --json --balance-token-stdin
 fixloop -input stdout aigw provider edit team --json --balance-token-stdin
 exitcode 1 aigw provider edit spare --balance-token-stdin --balance-user-id 42
 cmp stdout edit-no-probe.txt
-# fixloop does not follow this fix: it exports the team file that would set
-# spare's balance probe, and `aigw setup --from` refuses to apply the changed
-# file to a configured home until setup can run again.
+# Its fix runs at the end of this script, in a home of its own: spare has no
+# probe below.
 stdin system.txt
 exec aigw provider edit team --balance-token-stdin --balance-user-id 42
 normalize stdout edit-balance.out
@@ -202,6 +201,25 @@ cmp stdout fresh-removed.json
 exec aigw status
 cmp stdout fresh-empty.txt
 
+
+# The balance probe refusal's fix exports the team file; the script gives
+# spare a balance probe there, and setup applies the file, which gives a
+# provider without one the file's. fixloop cannot pipe the balance token to
+# the edit after it runs the export, so the script follows the fix itself.
+mkdir $WORK/probe
+env HOME=$WORK/probe USERPROFILE=$WORK/probe XDG_CONFIG_HOME=$WORK/probe XDG_DATA_HOME=$WORK/probe APPDATA=$WORK/probe LOCALAPPDATA=$WORK/probe
+stdin spare-token.txt
+exec aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --token-stdin
+stdin system.txt
+exitcode 1 aigw provider edit spare --balance-token-stdin --balance-user-id 42 --json
+stdout '"next_action": "aigw config export"'
+exec aigw config export
+envsubst probe.in probe.toml
+exec aigw setup --from probe.toml
+stdin system.txt
+exec aigw provider edit spare --balance-token-stdin --balance-user-id 42 --json
+stdout '"balance_credential": "stored"'
+
 -- first-token.txt --
 sk-first-token-0001
 -- token.txt --
@@ -212,6 +230,15 @@ sk-spare-token-0001
 sk-rejected-token
 -- system.txt --
 dmx-system-token
+-- probe.in --
+version = 7
+[accounts.spare]
+label = "spare"
+[accounts.spare.endpoints]
+openai_responses = "$UPSTREAM/spare/v1"
+[accounts.spare.account_probe]
+kind = "dmxapi"
+base_url = "$UPSTREAM"
 -- manifest.in --
 version = 7
 [recommendations.hermes.primary]

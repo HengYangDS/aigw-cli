@@ -25,8 +25,8 @@ func TestALocalFileFailureNamesAFixThatRunsInAFreshHome(t *testing.T) {
 		fix  string
 		home func(*testing.T, *cli.App)
 	}{
-		"setup without its team file":         {[]string{"setup", "--from", missing, "--json"}, "Name a team file that exists, then run the same command again.", nil},
-		"config import without its team file": {[]string{"config", "import", missing, "--json"}, "Name a team file that exists, then run the same command again.", nil},
+		"setup without its team file":                   {[]string{"setup", "--from", missing, "--json"}, "Name a team file that exists, then run the same command again.", nil},
+		"setup with a file in the way of its team file": {[]string{"setup", "--from", filepath.Join(inTheWay(t), "team.toml"), "--json"}, "Name a team file that exists, then run the same command again.", nil},
 		// A file that stands where AIGW's folder belongs is named to move, and how
 		// the folder comes back: a permission fix acts on nothing there. The
 		// configuration lies in the command's own home, so the fix names it as
@@ -206,4 +206,14 @@ func TestAnUnreadableConfigurationFileNamesItsReadAccess(t *testing.T) {
 			}
 		})
 	}
+}
+
+// inTheWay is a regular file, which a path through it finds in the way.
+func inTheWay(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(path, []byte("not a folder"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }

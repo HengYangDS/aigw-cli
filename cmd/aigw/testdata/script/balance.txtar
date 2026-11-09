@@ -4,7 +4,7 @@ exec aigw balance --help
 cmp stdout help.txt
 
 envsubst manifest.in manifest.toml
-exec aigw config import manifest.toml
+exec aigw setup --from manifest.toml
 exitcode 1 aigw balance plain
 cmp stdout refusal.txt
 

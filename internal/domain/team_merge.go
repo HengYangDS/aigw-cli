@@ -111,7 +111,8 @@ func MergeTeamFile(cfg Config, incoming Manifest, prune bool) (Config, TeamMerge
 }
 
 // mergeProviders adds the file's new providers and gives each existing one
-// the file's label and, when it has none, the file's balance probe.
+// the file's label and display order and, when it has none, the file's
+// balance probe.
 func mergeProviders(merged *Config, incoming Manifest, report *TeamMerge) {
 	for _, id := range slices.Sorted(maps.Keys(incoming.Providers)) {
 		file := incoming.Providers[id]
@@ -132,7 +133,7 @@ func mergeProviders(merged *Config, incoming Manifest, report *TeamMerge) {
 		case file.BalanceProbe != nil && !equivalentProbe(local.BalanceProbe, file.BalanceProbe):
 			report.KeptProbes = append(report.KeptProbes, KeptProbe{Provider: id, Local: *local.BalanceProbe, File: *file.BalanceProbe})
 		}
-		local.Label = file.Label
+		local.Label, local.Order = file.Label, file.Order
 		merged.Providers[id] = local
 	}
 }

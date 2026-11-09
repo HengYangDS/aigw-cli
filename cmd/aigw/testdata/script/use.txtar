@@ -147,7 +147,7 @@ stdout '"protocol": "chat",\n\s+"capabilities": \[\n\s+"text",\n\s+"tools"\n\s+\
 # the selection is refused with the step that stores the Token from standard
 # input, which, run as named, lets the selection succeed.
 envsubst mixed.in mixed.toml
-exec aigw config import mixed.toml
+exec aigw setup --from mixed.toml
 exec aigw use claude mixed/twin --dry-run --json
 stdout '"token_missing": true'
 stdout '"next_detail": "Run `aigw use claude mixed/twin` in a terminal, which asks for the provider''s Token."'

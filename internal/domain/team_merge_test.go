@@ -14,6 +14,7 @@ func localTeamConfig(t *testing.T) Config {
 	cfg := NewConfig(testAdmission())
 	cfg.Providers["team"] = Provider{
 		Label:        "Team",
+		Order:        3,
 		Endpoints:    Endpoints{Anthropic: "http://127.0.0.1:8792/team", OpenAIResponses: "https://team.example/v1"},
 		BalanceProbe: &BalanceProbe{Kind: "dmxapi", BaseURL: "https://team.example"},
 	}
@@ -93,8 +94,8 @@ func TestMergeTeamFileTakesTheFilesDefinitionsAndKeepsLocalOnes(t *testing.T) {
 	if _, kept := merged.Families["unused"]; !kept {
 		t.Error("a local-only family was removed without pruning")
 	}
-	if got := merged.Providers["team"].Label; got != "Team Gateway" {
-		t.Errorf("the file's provider label = %q", got)
+	if got := merged.Providers["team"].Label; got != "Team Gateway" || merged.Providers["team"].Order != 0 {
+		t.Errorf("the file's provider label = %q, order %d", got, merged.Providers["team"].Order)
 	}
 	if got := merged.Clients[ClientClaude].Model; got != "solo" {
 		t.Errorf("claude's selection = %q", got)

@@ -1,6 +1,6 @@
-# config prints its path, imports a manifest as JSON, exports the merged
-# configuration as a team file without clients, rolls back the last change,
-# previews a migration, and refuses a malformed manifest.
+# config prints its path, exports a configuration that a team file set up as
+# a team file without clients, rolls back the last change, and previews a
+# migration; setup refuses a malformed team file.
 exec aigw config --help
 cmp stdout help.txt
 exec aigw config export --help
@@ -22,14 +22,19 @@ normalize stdout path.out
 [windows] cmp path.out path-windows.txt
 
 envsubst manifest.in manifest.toml
-snapshot $HOME before.txt
+exec aigw setup --from manifest.toml --json
+fixloop -input -did 'applied a team file with aigw setup --from' rollback-empty.json aigw config rollback --json
+# config import stays until the command tree's last step removes it; setup
+# --from is what applies a team file. Its preview writes nothing.
+snapshot $HOME import-before.txt
 exec aigw config import manifest.toml --dry-run --json
-cmp stdout import-preview.json
-snapshot $HOME after.txt
-cmp after.txt before.txt
+snapshot $HOME import-after.txt
+cmp import-after.txt import-before.txt
 exec aigw config import manifest.toml --json
-cmp stdout imported.json
-fixloop -input -did 'imported a team file, as setup does' rollback-empty.json aigw config rollback --json
+stdout '"ok": true'
+exitcode 1 aigw config import broken.toml --json
+stdout '"ok": false'
+
 exec aigw config export
 normalize stdout export.out
 cmp export.out export.toml
@@ -62,12 +67,12 @@ exitcode 1 aigw config rollback extra --json
 cmp stdout rollback-refusal.json
 fixloop -input stdout aigw config rollback extra --json
 
-exitcode 1 aigw config import broken.toml
+exitcode 1 aigw setup --from broken.toml
 cmp stdout refusal.txt
-exitcode 1 aigw config import broken.toml --json
+exitcode 1 aigw setup --from broken.toml --json
 cmp stdout refusal.json
 cp manifest.toml broken.toml
-fixloop -did 'corrected the document with the manifest that imported above' refusal.json aigw config import broken.toml --json
+fixloop -did 'corrected the document with the team file that setup applied above' refusal.json aigw setup --from broken.toml --json
 snapshot $HOME migrate-before.txt
 exec aigw config migrate --dry-run --json
 normalize stdout migrate.out
@@ -87,15 +92,6 @@ exitcode 1 aigw config path extra --json
 cmp stdout path-refusal.json
 fixloop -input stdout aigw config path extra --json
 
--- import-preview.json --
-{
-  "schema_version": 2,
-  "ok": true,
-  "dry_run": true,
-  "imported_accounts": 1,
-  "imported_routes": 1,
-  "next_action": "aigw config import manifest.toml"
-}
 -- manifest.in --
 version = 7
 [accounts.team]
@@ -134,14 +130,6 @@ Options
 $HOME/Library/Application Support/aigw/config.toml
 -- path-linux.txt --
 $HOME/aigw/config.toml
--- imported.json --
-{
-  "schema_version": 2,
-  "ok": true,
-  "imported_accounts": 1,
-  "imported_routes": 1,
-  "next_action": "aigw status"
-}
 -- export.toml --
 version = 7
 
