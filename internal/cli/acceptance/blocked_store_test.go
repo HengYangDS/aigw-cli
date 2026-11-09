@@ -200,20 +200,43 @@ func TestALinkThatLeadsNowhereIsNoFirstRun(t *testing.T) {
 			}
 		})
 	}
-	t.Run("the configuration file/setup", func(t *testing.T) {
+	// The configuration file itself may be a link on purpose, as dotfiles keep
+	// it, whose target is only away for now: the fix names that target inside
+	// home, and setup never replaces the link. Followed literally, the target
+	// made available again, every command runs.
+	t.Run("the configuration file", func(t *testing.T) {
 		client := newBlockedStoreClient(t)
 		config := client.app.Config.Path()
-		removeAll(t, config)
-		if err := os.Symlink(config+".nowhere", config); err != nil {
+		target := filepath.Join(client.app.Host.Home, "dotfiles", "configuration.toml")
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Rename(config, target+".away"); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(target, config); err != nil {
 			t.Skipf("symbolic links are unavailable: %v", err)
 		}
 		team := filepath.Join(t.TempDir(), "team.toml")
 		writeFile(t, team, []byte("version = 7\n"), 0o600)
-		if got, want := client.next(t, []string{"setup", "--from", team, "--json"}), "Remove the link ~/aigw/configuration.toml, then run the same command again."; got != want {
-			t.Fatalf("setup names %q, want %q", got, want)
+		want := "Make ~/dotfiles/configuration.toml, which the link ~/aigw/configuration.toml leads to, available again; otherwise remove the link and run `aigw setup`. Then run the same command again."
+		surfaces := [][]string{{"setup", "--from", team, "--json"}, {"status", "--json"}, {"check", claude.ID, "--depth", "local", "--json"}, {"sync", "--json"}, {"use", claude.ID, "gateway/claude-test", "--json"}}
+		for _, surface := range surfaces {
+			if got := client.next(t, surface); got != want {
+				t.Fatalf("%v names %q\nwant         %q", surface, got, want)
+			}
 		}
 		if info, err := os.Lstat(config); err != nil || info.Mode()&os.ModeSymlink == 0 {
 			t.Fatalf("setup replaced the link: %v, %v", info, err)
+		}
+		if err := os.Rename(target+".away", target); err != nil {
+			t.Fatal(err)
+		}
+		for _, surface := range surfaces[1:] {
+			client.output.Reset()
+			if err := cli.Execute(client.app, surface); err != nil {
+				t.Fatalf("%v after its fix: %v\n%s", surface, err, client.output)
+			}
 		}
 	})
 }

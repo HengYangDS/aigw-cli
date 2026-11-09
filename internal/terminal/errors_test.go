@@ -118,14 +118,16 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 	}
 }
 
-// A file error's reason is one per condition on every platform: the
-// platform's own text for the same condition differs, as EPERM's does here and
-// ERROR_ACCESS_DENIED's on Windows. Any other error keeps its number's text.
+// A file error's reason is one per condition on every platform, and a
+// permission error's is the operating system's error: an operation that a
+// flag forbids is not permitted, and any other is denied, as Windows'
+// ERROR_ACCESS_DENIED is. Any other error keeps its number's text.
 func TestAFileErrorReadsOneReasonPerCondition(t *testing.T) {
 	for err, want := range map[error]string{
-		&os.PathError{Op: "write", Path: "/private/x", Err: syscall.EPERM}: "permission denied",
-		&os.PathError{Op: "open", Path: "/private/x", Err: syscall.ENOENT}: "no such file or directory",
-		&os.PathError{Op: "read", Path: "/private/x", Err: syscall.EIO}:    syscall.EIO.Error(),
+		&os.PathError{Op: "write", Path: "/private/x", Err: syscall.EPERM}:  "operation not permitted",
+		&os.PathError{Op: "write", Path: "/private/x", Err: syscall.EACCES}: "permission denied",
+		&os.PathError{Op: "open", Path: "/private/x", Err: syscall.ENOENT}:  "no such file or directory",
+		&os.PathError{Op: "read", Path: "/private/x", Err: syscall.EIO}:     syscall.EIO.Error(),
 	} {
 		if got := fileErrorReason(err); got != want {
 			t.Errorf("fileErrorReason(%v) = %q, want %q", err, got, want)

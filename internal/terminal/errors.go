@@ -229,7 +229,7 @@ func knownFileErrorReason(err error) (string, bool) {
 	case errors.Is(err, platform.ErrFileAsFolder):
 		return platform.ErrFileAsFolder.Error(), true
 	case errors.Is(err, fs.ErrPermission):
-		return "permission denied", true
+		return platform.PermissionReason(err), true
 	case errors.Is(err, fs.ErrNotExist):
 		return "no such file or directory", true
 	case errors.Is(err, fs.ErrExist):

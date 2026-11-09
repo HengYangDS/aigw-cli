@@ -187,7 +187,7 @@ func (e *PathConditionError) Unwrap() error {
 func (e *PathConditionError) Reason() string {
 	switch e.Condition {
 	case PathPermission:
-		return "permission denied"
+		return PermissionReason(e.Err)
 	case PathFileInTheWay:
 		return ErrFileAsFolder.Error()
 	case PathDanglingLink:
@@ -210,6 +210,21 @@ func (e *PathConditionError) Reason() string {
 	}
 	return ""
 }
+
+// PermissionReason is the reason of a permission error, the operating
+// system's: an operation that a flag forbids, such as macOS's uchg or Linux's
+// immutable attribute, is not permitted, and any other is denied, as Windows'
+// ERROR_ACCESS_DENIED is.
+func PermissionReason(err error) string {
+	if locked(err) {
+		return "operation not permitted"
+	}
+	return "permission denied"
+}
+
+// locked reports an operation that a flag on the file forbids, whatever its
+// mode allows.
+func locked(err error) bool { return errors.Is(err, syscall.EPERM) }
 
 // Blocked reports a file in the way or a dangling link, which no operation at
 // the path gets past.

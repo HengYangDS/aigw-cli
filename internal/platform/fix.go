@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -36,6 +37,9 @@ const ConfigurationReadFix = "Restore read access to the configuration file; `ai
 func PathFix(failure *PathConditionError, at PathContext) string {
 	switch failure.Condition {
 	case PathPermission:
+		if locked(failure.Err) {
+			return "Clear the flag that locks " + at.name(failure, failure.Path, theFile) + " (such as macOS's uchg or Linux's immutable attribute), then " + at.step() + "."
+		}
 		if at.configurationFile(failure.Path) {
 			return ConfigurationReadFix
 		}
@@ -79,7 +83,17 @@ func (at PathContext) unblock(failure *PathConditionError) string {
 	if failure.Condition == PathDanglingLink {
 		lead = "Remove the " + at.name(failure, failure.Culprit, theLink)
 	}
+	// A path of AIGW's own that the fix cannot name lies in AIGW's folder,
+	// which `aigw config path` prints in every state.
+	if at.unnamed(failure, failure.Culprit) {
+		lead = "Move the file in the way in AIGW's folder, which `aigw config path` prints"
+		if failure.Condition == PathDanglingLink {
+			lead = "Remove the link in the way in AIGW's folder, which `aigw config path` prints"
+		}
+	}
 	switch {
+	case failure.Condition == PathDanglingLink && at.configurationFile(failure.Culprit):
+		return at.configurationLink(failure)
 	case at.blocksConfiguration(failure.Culprit) && at.Rollback:
 		return lead + ". If it replaced AIGW's folder, put that folder back from a copy, then run the same command again; otherwise run `aigw setup`, which leaves nothing to roll back."
 	case at.blocksConfiguration(failure.Culprit):
@@ -91,6 +105,32 @@ func (at PathContext) unblock(failure *PathConditionError) string {
 	default:
 		return lead + ", then " + at.step() + "."
 	}
+}
+
+// configurationLink is the fix of AIGW's configuration file that is a link
+// that leads nowhere, which an operator may keep on purpose, as dotfiles do,
+// and whose target may be away only for now, such as on a volume that is not
+// mounted: the target made available again, or else a new configuration in
+// its place. The target is named inside the home directory only.
+func (at PathContext) configurationLink(failure *PathConditionError) string {
+	link := "the link " + at.name(failure, failure.Culprit, theFile)
+	target := "the target of " + link
+	if at.unnamed(failure, failure.Culprit) {
+		link = "AIGW's configuration link"
+		target = "the target of AIGW's configuration link, whose path `aigw config path` prints,"
+	}
+	if destination, err := os.Readlink(failure.Culprit); err == nil {
+		if !filepath.IsAbs(destination) {
+			destination = filepath.Join(filepath.Dir(failure.Culprit), destination)
+		}
+		if named, _ := HomeTarget(destination, at.Home); named != "" {
+			target = named + ", which " + link + " leads to,"
+		}
+	}
+	if at.Rollback {
+		return "Make " + target + " available again, then run the same command again; otherwise remove the link and run `aigw setup`, which leaves nothing to roll back."
+	}
+	return "Make " + target + " available again; otherwise remove the link and run `aigw setup`. Then run the same command again."
 }
 
 // create names what the operator creates of a missing path, the file alone

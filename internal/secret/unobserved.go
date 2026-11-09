@@ -28,7 +28,11 @@ func (e unsafeTokenDirectoryError) Error() string { return e.message }
 // path and none of a backend's own diagnostics.
 func ObservationFailure(err error, at platform.PathContext) (cause, fix string) {
 	if path, blocked := platform.BlockedPath(err); blocked {
-		return "AIGW's Token folder " + at.Name(path, path.Path) + " cannot be used: " + path.Reason(), platform.PathFix(path, at)
+		folder := "AIGW's Token folder"
+		if named, _ := platform.HomeTarget(path.Path, at.Home); named != "" {
+			folder += " " + named
+		}
+		return folder + " cannot be used: " + path.Reason(), platform.PathFix(path, at)
 	}
 	if file, unsafe := errors.AsType[unsafeTokenFileError](err); unsafe {
 		return file.Error(), "Make " + file.name + " in AIGW's Token directory " + tokenFileRequirement + ", then run the same command again."

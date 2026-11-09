@@ -47,3 +47,22 @@ func TestObservationFailureNamesABlockedTokenFolder(t *testing.T) {
 		t.Fatalf("a blocked Token folder = %q, %q", cause, fix)
 	}
 }
+
+// A Token folder outside the home directory, as on Linux or Windows when
+// AIGW's folder lies elsewhere, is not named: the sentence says that AIGW's
+// Token folder cannot be used, and the fix points to `aigw config path`.
+func TestObservationFailureOfATokenFolderOutsideHome(t *testing.T) {
+	secrets := filepath.Join(t.TempDir(), "aigw", "secrets")
+	if err := os.MkdirAll(filepath.Dir(secrets), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(secrets, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := newFileStore(filepath.Join(secrets, "tokens")).Exists("team")
+	cause, fix := ObservationFailure(err, platform.PathContext{Home: t.TempDir(), Check: true})
+	if cause != "AIGW's Token folder cannot be used: not a directory" ||
+		fix != "Move the file in the way in AIGW's folder, which `aigw config path` prints. If it replaced AIGW's folder, put that folder back from a copy; otherwise store each provider's Token again with `aigw provider rotate <provider>`. Then run `aigw sync`." {
+		t.Fatalf("a Token folder outside home = %q, %q", cause, fix)
+	}
+}

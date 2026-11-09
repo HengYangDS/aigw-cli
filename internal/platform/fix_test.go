@@ -2,6 +2,7 @@ package platform
 
 import (
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -40,6 +41,8 @@ func TestPathFixFollowsTheConditionWhoCreatesAndTheStep(t *testing.T) {
 			"Make " + out("config.toml") + " and its folder readable and writable, then run the same command again."},
 		{"permission, check, outside home", failure(PathPermission, out("config.toml"), ""), true, check,
 			"Make the file outside the home directory and its folder readable and writable, then run `aigw sync`."},
+		{"a file that a flag locks", &PathConditionError{Condition: PathPermission, Path: in("work", "config.toml"), Err: syscall.EPERM, Given: true}, true, command,
+			"Clear the flag that locks ~/work/config.toml (such as macOS's uchg or Linux's immutable attribute), then run the same command again."},
 		{"permission, the configuration file", failure(PathPermission, in("aigw", "config.toml"), ""), false, configured, ConfigurationReadFix},
 		{"a file in the way, AIGW creates", failure(PathFileInTheWay, in("blocked", "aigw"), in("blocked")), false, command,
 			"Move the file ~/blocked, then run the same command again."},
@@ -76,13 +79,13 @@ func TestPathFixFollowsTheConditionWhoCreatesAndTheStep(t *testing.T) {
 		{"another error", &PathConditionError{Path: in("work", "config.toml"), Err: syscall.EIO}, false, command,
 			"Resolve " + syscall.EIO.Error() + " on ~/work/config.toml, then run the same command again."},
 		{"a run that does not know its home, a file in the way", own(PathFileInTheWay, in("blocked", "aigw"), in("blocked")), false, PathContext{},
-			"Move the file in the way, then run the same command again."},
+			"Move the file in the way in AIGW's folder, which `aigw config path` prints, then run the same command again."},
 		{"a run that does not know its home, permission", own(PathPermission, in("work", "config.toml"), ""), false, PathContext{},
 			"Make AIGW's folder and its files readable and writable; `aigw config path` prints where the folder is. Then run the same command again."},
 		{"a path of AIGW's own outside home, another error", &PathConditionError{Path: out("aigw", "x"), Err: syscall.EIO}, false, PathContext{Home: home},
 			"Resolve " + syscall.EIO.Error() + " on a file in AIGW's folder; `aigw config path` prints where the folder is. Then run the same command again."},
 		{"a path of AIGW's own outside home is not named", own(PathFileInTheWay, out("aigw", "config.toml"), out("aigw")), false, PathContext{Home: home, Configuration: out("aigw", "config.toml")},
-			"Move the file in the way, outside the home directory. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again."},
+			"Move the file in the way in AIGW's folder, which `aigw config path` prints. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again."},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			test.failure.OperatorCreates = test.operator
@@ -106,5 +109,34 @@ func TestAPathFailuresReasonReadsTheConditionOnEveryPlatform(t *testing.T) {
 	}
 	if got := (&PathConditionError{Err: syscall.EIO}).Reason(); got != syscall.EIO.Error() {
 		t.Fatalf("another error = %q", got)
+	}
+}
+
+// AIGW's configuration file that is a link that leads nowhere, which a
+// dotfiles setup keeps on purpose, names its target to make available again,
+// inside the home directory only, or else a new configuration in its place.
+func TestPathFixNamesTheConfigurationLinksTarget(t *testing.T) {
+	home := t.TempDir()
+	config := filepath.Join(home, "aigw", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(config), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	inside, outside := filepath.Join(home, "dotfiles", "config.toml"), filepath.Join(t.TempDir(), "mounted", "config.toml")
+	for destination, want := range map[string]string{
+		inside:  "Make ~/dotfiles/config.toml, which the link ~/aigw/config.toml leads to, available again; otherwise remove the link and run `aigw setup`. Then run the same command again.",
+		outside: "Make the target of the link ~/aigw/config.toml available again; otherwise remove the link and run `aigw setup`. Then run the same command again.",
+	} {
+		_ = os.Remove(config)
+		if err := os.Symlink(destination, config); err != nil {
+			t.Skipf("symbolic links are unavailable: %v", err)
+		}
+		failure := ClassifyPath(config, FileExpected, &fs.PathError{Op: "open", Path: config, Err: fs.ErrNotExist})
+		at := PathContext{Home: home, Configuration: config}
+		if got := PathFix(failure, at); got != want {
+			t.Fatalf("a link to %s = %q\nwant %q", destination, got, want)
+		}
+		if strings.Contains(PathFix(failure, at), outside) {
+			t.Fatalf("the fix names a target outside home")
+		}
 	}
 }
