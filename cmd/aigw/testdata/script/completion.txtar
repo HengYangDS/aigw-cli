@@ -14,6 +14,7 @@ stdout '^# powershell completion for aigw'
 
 exitcode 1 aigw completion tcsh
 cmp stdout refusal.txt
+# Completion writes no JSON, so fixloop cannot follow its refusals.
 exitcode 1 aigw completion zsh --json
 stdout 'unknown option --json'
 

@@ -21,6 +21,8 @@ normalize stdout preview-json.out '[0-9a-f]{64}'
 # The spelling that 0.5.0 hid is an unknown flag now, and changes nothing.
 exitcode 1 aigw setup --account team --route team-route --anthropic-url $UPSTREAM --model team-model --for claude
 cmp stdout spellings.txt
+exitcode 1 aigw setup --json --account team --route team-route --anthropic-url $UPSTREAM --model team-model --for claude
+fixloop -input stdout aigw setup --json --account team --route team-route --anthropic-url $UPSTREAM --model team-model --for claude
 snapshot $HOME after.txt
 cmp after.txt before.txt
 
@@ -46,6 +48,7 @@ cmp stdout manifest.json
 stdin token.txt
 exitcode 1 aigw setup --from manifest.toml --account spare --token-stdin --json
 cmp stdout configured.json
+fixloop -input stdout aigw setup --from manifest.toml --account spare --token-stdin --json
 
 mkdir $WORK/third
 env HOME=$WORK/third USERPROFILE=$WORK/third XDG_CONFIG_HOME=$WORK/third XDG_DATA_HOME=$WORK/third APPDATA=$WORK/third LOCALAPPDATA=$WORK/third
@@ -54,6 +57,7 @@ exec aigw setup --route json-route --account json-team --label 'JSON Gateway' --
 cmp stdout flags.json
 exitcode 1 aigw setup --json
 cmp stdout flags-refusal.json
+fixloop -input stdout aigw setup --json
 
 -- preview.json --
 {

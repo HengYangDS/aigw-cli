@@ -10,6 +10,8 @@ cmp stdout version.txt
 
 exitcode 1 aigw nothing
 cmp stdout unknown.txt
+# An unknown command reports in text even with --json, so fixloop cannot
+# follow its fix.
 
 -- help.txt --
 AIGW  Command help

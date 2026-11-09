@@ -25,6 +25,8 @@ exitcode 1 aigw config import broken.toml
 cmp stdout refusal.txt
 exitcode 1 aigw config import broken.toml --json
 cmp stdout refusal.json
+cp manifest.toml broken.toml
+fixloop -did 'corrected the document with the manifest that imported above' refusal.json aigw config import broken.toml --json
 snapshot $HOME migrate-before.txt
 exec aigw config migrate --dry-run --json
 normalize stdout migrate.out
@@ -33,6 +35,7 @@ snapshot $HOME migrate-after.txt
 cmp migrate-after.txt migrate-before.txt
 exitcode 1 aigw config migrate extra --json
 cmp stdout migrate-refusal.json
+fixloop -input stdout aigw config migrate extra --json
 
 exec aigw config path --json
 normalize stdout path-json.out
@@ -41,6 +44,7 @@ normalize stdout path-json.out
 [windows] cmp path-json.out path-windows.json
 exitcode 1 aigw config path extra --json
 cmp stdout path-refusal.json
+fixloop -input stdout aigw config path extra --json
 
 -- import-preview.json --
 {
