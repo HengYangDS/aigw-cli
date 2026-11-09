@@ -43,7 +43,7 @@ func TestCodexSyncAdoptsNativeModelChoice(t *testing.T) {
 	var result struct {
 		Adopted map[string]string `json:"adopted_selections"`
 	}
-	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.Adopted[codex.ID] != "terra" {
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil || result.Adopted[codex.ID] != "gateway/gpt-terra" {
 		t.Fatalf("adopted selections = %v, %v\n%s", result.Adopted, err, output)
 	}
 	if after, err := app.Config.Load(); err != nil || after.SelectedModel(codex.ID) != "terra" {

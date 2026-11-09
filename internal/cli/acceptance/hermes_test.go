@@ -313,7 +313,7 @@ func TestHermesSyncAdoptsNativeModelChoice(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatalf("sync result: %v\n%s", err, output)
 	}
-	if result.Adopted[hermes.ID] != "dmxapi-claude-opus-5-5" {
+	if result.Adopted[hermes.ID] != "dmxapi/claude-opus-5-5" {
 		t.Fatalf("adopted selections = %v", result.Adopted)
 	}
 	after, err := app.Config.Load()
@@ -387,7 +387,7 @@ func TestHermesSyncAdoptsAChoiceWhoseTokenReturnsLater(t *testing.T) {
 		}
 		wantAdopted := map[string]string{}
 		if step == "token-missing" {
-			wantAdopted[hermes.ID] = "ucloud-claude-opus-5-5"
+			wantAdopted[hermes.ID] = "ucloud/claude-opus-5-5"
 		}
 		if len(result.Adopted) != len(wantAdopted) || result.Adopted[hermes.ID] != wantAdopted[hermes.ID] {
 			t.Fatalf("%s adopted selections = %v, want %v", step, result.Adopted, wantAdopted)

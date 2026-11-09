@@ -32,7 +32,7 @@ func TestSyncHumanPreviewHandlesDisabledAndEnabledAdapters(t *testing.T) {
 		if err := cli.Execute(app, []string{"sync", "--dry-run"}); err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(out.String(), "No client configuration needs changing") {
+		if !strings.Contains(out.String(), "No client file needs changing") {
 			t.Fatalf("output = %q", out.String())
 		}
 	})
@@ -334,8 +334,8 @@ func TestSyncSurfacesCredentialObservationFailure(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"Synchronization prerequisites are unavailable",
-		"AIGW could not determine which selected Client Bindings can be projected with the currently available clients and credentials.",
-		"Configuration and client projections remain unchanged.",
+		"AIGW could not determine which clients' files it can write with the clients and credentials available now.",
+		"Configuration and client files are unchanged.",
 		"aigw check --depth local",
 	} {
 		if !strings.Contains(out.String(), expected) {

@@ -161,20 +161,20 @@ func TestSyncActivatesSelectedEnvironmentProviderAfterManifestSetup(t *testing.T
 	if !preview.DryRun || len(preview.Targets) != 1 || preview.Targets[0].Client != claude.ID || preview.Targets[0].Target != "~/.claude/settings.json" || preview.Targets[0].Action != "project" {
 		t.Fatalf("sync preview = %#v", preview)
 	}
-	wantRoutes := map[string]string{
-		claude.ID: "aihubmix-claude",
+	wantModels := map[string]string{
+		claude.ID: "aihubmix/claude-test",
 	}
-	if !maps.Equal(preview.Selections, wantRoutes) {
-		t.Fatalf("sync preview selections = %#v, want %#v", preview.Selections, wantRoutes)
+	if !maps.Equal(preview.Selections, wantModels) {
+		t.Fatalf("sync preview selections = %#v, want %#v", preview.Selections, wantModels)
 	}
 	out.Reset()
 	if err := cli.Execute(app, []string{"sync", "--dry-run"}); err != nil {
 		t.Fatalf("render sync preview after setting one environment Token: %v", err)
 	}
-	for client, route := range wantRoutes {
-		row := regexp.MustCompile(`(?m)^  ` + regexp.QuoteMeta(clients.Admission().Label(client)) + ` +` + regexp.QuoteMeta(route) + `$`)
+	for client, model := range wantModels {
+		row := regexp.MustCompile(`(?m)^  ` + regexp.QuoteMeta(clients.Admission().Label(client)) + ` +` + regexp.QuoteMeta(model) + `$`)
 		if !row.MatchString(out.String()) {
-			t.Fatalf("sync preview omitted %s route %s:\n%s", client, route, out.String())
+			t.Fatalf("sync preview omitted %s model %s:\n%s", client, model, out.String())
 		}
 	}
 	afterPreview, err := app.Config.Load()
@@ -198,8 +198,8 @@ func TestSyncActivatesSelectedEnvironmentProviderAfterManifestSetup(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.SelectedModel(claude.ID) != wantRoutes[claude.ID] {
-		t.Fatalf("bindings = %#v, want selections %#v", after.Clients, wantRoutes)
+	if got := after.SelectedModel(claude.ID); after.Models[got].Ref().String() != wantModels[claude.ID] {
+		t.Fatalf("bindings = %#v, want selections %#v", after.Clients, wantModels)
 	}
 	adapter := after.Clients[claude.ID]
 	if !adapter.Enabled || adapter.Executable != "/usr/local/bin/claude" {

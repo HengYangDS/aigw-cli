@@ -56,7 +56,7 @@ Recover
   install              Install this portable AIGW executable
   repair               Discover and repair client configuration
   rollback             Restore configuration and client projections, not the program
-  sync                 Resynchronize client configuration
+  sync                 Make client files match the configuration
   uninstall            Withdraw managed projections and remove a portable program
   update               Update or roll back the portable AIGW program
 

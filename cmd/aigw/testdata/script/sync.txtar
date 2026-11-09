@@ -30,10 +30,15 @@ sk-team-token-0001
 -- help.txt --
 AIGW  aigw sync
 ────────────────────────────────────────
-  Resynchronize client configuration
+  Make client files match the configuration
 
 Usage
   aigw sync [flags]
+
+Examples
+  aigw sync
+  aigw sync --dry-run
+  aigw sync --json
 
 Options
       --dry-run   Show the synchronization plan without writing configuration
@@ -47,20 +52,17 @@ Problem
   Not configured
 
 Evidence
-  No Routes have been created.
-
-Impact
-  Cannot check, synchronize, or repair configuration that does not exist.
+  No provider has been added.
 
 Fix
   aigw setup
 -- preview.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "dry_run": true,
   "selections": {
-    "claude": "team"
+    "claude": "team/team-model"
   },
   "projections": [
     {
@@ -85,17 +87,16 @@ Next
   "schema_version": 3,
   "ok": false,
   "error": "Not configured",
-  "evidence": "No Routes have been created.",
-  "impact": "Cannot check, synchronize, or repair configuration that does not exist.",
+  "evidence": "No provider has been added.",
   "next_detail": "aigw setup"
 }
 -- preview-windows.json --
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "ok": true,
   "dry_run": true,
   "selections": {
-    "claude": "team"
+    "claude": "team/team-model"
   },
   "projections": [
     {
