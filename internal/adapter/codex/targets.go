@@ -154,7 +154,7 @@ func absoluteCodexTargetPath(path string) (string, error) {
 // names, for every surface that reads or writes it. A path through a symbolic
 // link keeps the record beside the resolved file, so two targets that resolve
 // to one file share it; a record that an earlier release left beside the link
-// is used until the next write moves it.
+// is read until the next write moves it beside the resolved file.
 func codexRecordPath(path string) string {
 	sourcePath, err := absoluteCodexTargetPath(path)
 	if err != nil {

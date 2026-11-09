@@ -463,14 +463,42 @@ func codexArtifactsForDesiredState(target TargetRef, configBefore platform.FileS
 		}
 		stateDesired = platform.NewFileSnapshot(stateData, stateMode)
 	}
+	statePath := targetCodexStatePath(target)
+	if moved := movedRecordPath(target, statePath); stateDesired.Exists && moved != statePath {
+		// A record that an earlier release kept beside a symbolic link moves
+		// beside the resolved file: written there first, and removed from
+		// beside the link only after, while its bytes are still the ones read.
+		// A failed step rolls both back.
+		movedBefore, err := platform.CaptureFileSnapshot(moved)
+		if err == nil && !movedBefore.Exists {
+			artifacts = append(artifacts,
+				codexPreparedArtifact{path: moved, desired: stateDesired, name: target.reportName(moved)},
+				codexPreparedArtifact{path: statePath, before: stateBefore, name: target.reportName(statePath)})
+			return appendCatalogRemoval(artifacts, catalog, catalogChanged, catalogDesired)
+		}
+	}
 	if !stateBefore.Equal(stateDesired) {
-		statePath := targetCodexStatePath(target)
 		artifacts = append(artifacts, codexPreparedArtifact{path: statePath, before: stateBefore, desired: stateDesired, name: target.reportName(statePath)})
 	}
-	if catalogChanged && !catalogDesired.Exists {
+	return appendCatalogRemoval(artifacts, catalog, catalogChanged, catalogDesired)
+}
+
+// appendCatalogRemoval removes the catalog last, once nothing refers to it.
+func appendCatalogRemoval(artifacts []codexPreparedArtifact, catalog codexPreparedArtifact, changed bool, desired platform.FileSnapshot) []codexPreparedArtifact {
+	if changed && !desired.Exists {
 		artifacts = append(artifacts, catalog)
 	}
 	return artifacts
+}
+
+// movedRecordPath is where target's record belongs: beside the resolved file.
+// It differs from statePath only for a record that an earlier release left
+// beside a symbolic link.
+func movedRecordPath(target TargetRef, statePath string) string {
+	if target.Path == "" {
+		return statePath
+	}
+	return codexStatePath(target.Path)
 }
 
 func commitCodexArtifact(artifact codexPreparedArtifact) (platform.FileSnapshot, error) {
