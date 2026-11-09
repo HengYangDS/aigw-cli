@@ -2,6 +2,7 @@ package claude
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"runtime"
@@ -97,9 +98,15 @@ func InspectSettings(path string, runtime domain.Runtime, executable string) (Se
 // unsynchronized is the status of settings that do not match the selection:
 // the refusal, when synchronization would refuse them, or else the issue,
 // which synchronization repairs.
-func unsynchronized(issue, path string, selected domain.Runtime) adapter.Status {
-	if status, refused := adapter.ConflictStatus(synchronizationRefusal(path, selected.UpstreamModel)); refused {
+func unsynchronized(issue, path, home string, selected domain.Runtime) adapter.Status {
+	refusal := synchronizationRefusal(path, selected.UpstreamModel)
+	if status, refused := adapter.ConflictStatus(refusal); refused {
 		return status
+	}
+	if failed, atTarget := errors.AsType[*adapter.TargetError](refusal); atTarget {
+		if status, unreadable := adapter.UnreadableStatus(refusal, failed.Path, home); unreadable {
+			return status
+		}
 	}
 	return adapter.Status{Issue: issue, RepairAction: "aigw sync"}
 }
@@ -110,11 +117,11 @@ func unsynchronized(issue, path string, selected domain.Runtime) adapter.Status 
 func synchronizationRefusal(path, model string) error {
 	settingsBefore, err := captureSnapshot(path)
 	if err != nil {
-		return err
+		return &adapter.TargetError{Path: path, Desired: true, Err: err}
 	}
 	stateBefore, err := captureSnapshot(path + adapter.StateSuffix)
 	if err != nil {
-		return err
+		return &adapter.TargetError{Path: path + adapter.StateSuffix, Desired: true, Err: err}
 	}
 	if err := refuseMissingSettings(path, settingsBefore, stateBefore); err != nil {
 		return err

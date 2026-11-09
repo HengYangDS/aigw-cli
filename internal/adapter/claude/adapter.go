@@ -116,11 +116,11 @@ func (claudeAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg d
 	}
 	reader, err := retainedExecutable(settings, cfg, runtime, deps.AIGWExecutable)
 	if err != nil {
-		return unsynchronized("Claude credential reader is not synchronized with the selected Route", settings, runtime)
+		return unsynchronized("Claude credential reader is not synchronized with the selected Route", settings, deps.Host.Home, runtime)
 	}
 	inspection, err := InspectSettings(settings, runtime, reader)
 	if err != nil {
-		return unsynchronized("Claude settings are not synchronized with the selected Route", settings, runtime)
+		return unsynchronized("Claude settings are not synchronized with the selected Route", settings, deps.Host.Home, runtime)
 	}
 	return adapter.Status{Ready: true, NativeModelOverride: inspection.NativeModelOverride}
 }

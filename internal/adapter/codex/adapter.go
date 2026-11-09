@@ -171,6 +171,16 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 	if _, err := os.Stat(target); errors.Is(err, os.ErrNotExist) {
 		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, target)
 	}
+	if _, err := adapter.CaptureTarget(target, true); err != nil {
+		if status, unreadable := adapter.UnreadableStatus(err, target, deps.Host.Home); unreadable {
+			return "", status.Issue, status.RepairAction
+		}
+	}
+	if _, err := adapter.CaptureTarget(codexRecordPath(target), true); err != nil {
+		if status, unreadable := adapter.UnreadableStatus(err, codexRecordPath(target), deps.Host.Home); unreadable {
+			return "", status.Issue, status.RepairAction
+		}
+	}
 	observed, readerErr := retainedRuntime(target, cfg, runtime, deps.AIGWExecutable)
 	err := ValidateConfig(target, observed)
 	if conflict, ok := errors.AsType[*adapter.ConflictError](err); ok {

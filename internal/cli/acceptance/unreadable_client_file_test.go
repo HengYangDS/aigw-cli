@@ -44,6 +44,23 @@ func TestAnUnreadableClientFileNamesThatFile(t *testing.T) {
 				strings.Contains(failure.NextDetail, "AIGW's folder") || !strings.HasSuffix(failure.NextDetail, "then run the same command again.") {
 				t.Fatalf("the failure = %+v", failure)
 			}
+			// check and status name the same file, never a sync that fails the
+			// same way.
+			for _, command := range [][]string{{"check", id, "--depth", "local", "--json"}, {"status", "--json"}} {
+				client.output.Reset()
+				_ = cli.Execute(client.app, command)
+				var document struct {
+					NextDetail string       `json:"next_detail"`
+					Clients    clientStates `json:"clients"`
+				}
+				if err := json.Unmarshal(client.output.Bytes(), &document); err != nil {
+					t.Fatalf("%v: %v\n%s", command, err, client.output)
+				}
+				next := document.Clients[id].NextDetail
+				if !strings.Contains(next, name) || strings.Contains(next, "aigw sync") {
+					t.Fatalf("%v names %q for the unreadable file", command, next)
+				}
+			}
 			if err := os.Chmod(client.file, 0o600); err != nil {
 				t.Fatal(err)
 			}

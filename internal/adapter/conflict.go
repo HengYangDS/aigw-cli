@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"errors"
+	"io/fs"
 	"path/filepath"
 	"strings"
 )
@@ -72,6 +73,24 @@ func (e *ConflictError) ProjectionConflict() bool { return true }
 
 // NextAction returns the action that resolves the conflict.
 func (e *ConflictError) NextAction() string { return e.next }
+
+// UnreadableStatus returns the status of a client file at path that the user
+// cannot read, and whether err is that failure. Synchronization cannot read
+// it either, so the repair names the file and the same check again. home names
+// the file as ~/... where it lies under it.
+func UnreadableStatus(err error, path, home string) (Status, bool) {
+	if !errors.Is(err, fs.ErrPermission) {
+		return Status{}, false
+	}
+	name := path
+	if relative, relErr := filepath.Rel(home, path); relErr == nil && home != "" && !strings.HasPrefix(relative, "..") {
+		name = "~/" + filepath.ToSlash(relative)
+	}
+	return Status{
+		Issue:        "AIGW cannot read " + name + ": permission denied",
+		RepairAction: "Make " + name + " readable, then run the same command again.",
+	}, true
+}
 
 // ConflictStatus returns the status of a client file on which synchronization
 // refuses with err, and whether err is such a conflict. Advising

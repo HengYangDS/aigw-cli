@@ -3,6 +3,7 @@ package adapter
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -57,5 +58,18 @@ func TestUnreadableRecordNamesTheRecordToRestore(t *testing.T) {
 	}
 	if !errors.Is(refusal, cause) || strings.Contains(refusal.Error()+refusal.NextAction(), "private") {
 		t.Fatalf("the refusal = %q", refusal)
+	}
+}
+
+// A file that the user cannot read is named, under home as ~/..., with the step
+// that makes it readable; any other failure is not this status.
+func TestUnreadableStatusNamesTheFile(t *testing.T) {
+	home := filepath.Join(string(filepath.Separator)+"home", "user")
+	status, unreadable := UnreadableStatus(fmt.Errorf("read: %w", fs.ErrPermission), filepath.Join(home, ".codex", "config.toml"), home)
+	if !unreadable || status.RepairAction != "Make ~/.codex/config.toml readable, then run the same command again." {
+		t.Fatalf("status = %#v, %t", status, unreadable)
+	}
+	if _, unreadable := UnreadableStatus(fs.ErrNotExist, filepath.Join(home, "x"), home); unreadable {
+		t.Fatal("a missing file was taken for an unreadable one")
 	}
 }

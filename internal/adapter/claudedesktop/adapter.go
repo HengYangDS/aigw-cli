@@ -137,6 +137,11 @@ func (claudeDesktopAdapter) Inspect(ctx context.Context, deps adapter.Dependenci
 	if status, refused := adapter.ConflictStatus(err); refused {
 		return status
 	}
+	if failed, atTarget := errors.AsType[*adapter.TargetError](err); atTarget {
+		if status, unreadable := adapter.UnreadableStatus(err, failed.Path, deps.Host.Home); unreadable {
+			return status
+		}
+	}
 	if err != nil {
 		return adapter.Status{Issue: "Claude Desktop projection cannot be inspected", RepairAction: "aigw sync"}
 	}

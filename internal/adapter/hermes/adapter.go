@@ -373,6 +373,11 @@ func uninspectable(deps adapter.Dependencies, cfg domain.Config, selected domain
 	if status, refused := adapter.ConflictStatus(err); refused && !adoptsSelection(deps, cfg, selected, target) {
 		return status
 	}
+	if failed, atTarget := errors.AsType[*adapter.TargetError](err); atTarget {
+		if status, unreadable := adapter.UnreadableStatus(err, failed.Path, deps.Host.Home); unreadable {
+			return status
+		}
+	}
 	return adapter.Status{Issue: "Hermes configuration projection cannot be inspected", RepairAction: "aigw sync"}
 }
 
