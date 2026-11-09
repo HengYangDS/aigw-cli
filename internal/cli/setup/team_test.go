@@ -2,6 +2,7 @@ package setup
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
+	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
@@ -307,8 +309,14 @@ func TestFlagSetupRefusalsAndTextPreview(t *testing.T) {
 	} {
 		home := newGuidedHome(t)
 		home.runtime.Interactive = false
-		if err := home.run(t, &guidedPrompt{}, test.args...); err == nil || !strings.Contains(err.Error(), test.want) {
+		err := home.run(t, &guidedPrompt{}, test.args...)
+		if err == nil || !strings.Contains(err.Error(), test.want) {
 			t.Errorf("%q: %v", test.args, err)
+		}
+		// The root makes an argument refusal a usage error, whose fix is
+		// the help.
+		if _, usage := errors.AsType[*invocation.ArgumentError](err); !usage && !strings.Contains(err.Error(), "--json") {
+			t.Errorf("%q is no argument refusal: %v", test.args, err)
 		}
 	}
 	home := newGuidedHome(t, claude.ID)

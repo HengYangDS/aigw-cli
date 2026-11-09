@@ -219,9 +219,10 @@ func runSetup(ctx context.Context, runtime invocation.Context, request setupRequ
 	if err := runtime.Synchronizer().AdmitSetup(cfg); err != nil {
 		return err
 	}
+	// A flag that planning refuses is a usage error, whose fix is the help.
 	plan, err := planSetup(cfg, request)
 	if err != nil {
-		return err
+		return &invocation.ArgumentError{Err: err}
 	}
 	selected, err := plan.config.ResolveRuntime(plan.request.Client, "")
 	if err != nil {
