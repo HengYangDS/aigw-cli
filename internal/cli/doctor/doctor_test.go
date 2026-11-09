@@ -277,26 +277,6 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 		t.Fatalf("native Claude model preference check = %#v", check)
 	}
 
-	// Sync creates Codex's default home again; it does not create another
-	// file, so Codex moves to one that exists.
-	home := t.TempDir()
-	defaultHome := filepath.Join(home, ".codex", "config.toml")
-	cfg.SetClientActivation(codex.ID, true, "codex", []string{defaultHome})
-	deps, _, _ = doctorDependencies(t, cfg)
-	deps.Env = []string{"HOME=" + home}
-	deps.Discovery = surfaceDiscovery{discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: defaultHome, AutoManaged: true}}}}
-	check := findCheck(t, collectChecks(context.Background(), deps.Dependencies), "codex:target-1")
-	if check.OK || check.Detail != "Codex configuration target is unavailable" || check.Fix != "run `aigw sync`" || check.Target != "~/.codex/config.toml" {
-		t.Fatalf("projection check = %#v", check)
-	}
-	// Outside the default home, ~/.codex is missing too, so another file there
-	// would be refused the same way: the step creates the folder.
-	deps.Discovery = surfaceDiscovery{}
-	check = findCheck(t, collectChecks(context.Background(), deps.Dependencies), "codex:target-1")
-	if check.OK || check.Fix != "Create "+filepath.Dir(defaultHome)+", or choose another path, then run the same command again." {
-		t.Fatalf("projection check of another file = %#v", check)
-	}
-
 	cfg.SetClientActivation(codex.ID, true, "codex", []string{"unused"})
 	delete(cfg.Providers, "team")
 	if check := findCheck(t, adapterChecks(context.Background(), deps.Dependencies, cfg, ""), "projection:codex"); check.OK || check.Detail != "selected client route cannot be resolved" {
@@ -499,5 +479,40 @@ func TestCommandPropagatesWriterFailureWhilePresentingProblems(t *testing.T) {
 func TestCommandConstructorExposesStableName(t *testing.T) {
 	if got := NewCommand(invocation.Context{}).Name(); got != "doctor" {
 		t.Fatalf("doctor command = %q", got)
+	}
+}
+
+// Codex's default home is created again by a sync, which the check names. A
+// target elsewhere is not, and AIGW creates no Codex file either, so the check
+// names the file to create, and a file in a way is named to move.
+func TestCollectNamesTheCodexRepairItsFolderNeeds(t *testing.T) {
+	home := t.TempDir()
+	defaultHome := filepath.Join(home, ".codex", "config.toml")
+	cfg := validDoctorConfig()
+	cfg.SetClientActivation(codex.ID, true, "codex", []string{defaultHome})
+	deps, _, _ := doctorDependencies(t, cfg)
+	deps.Env = []string{"HOME=" + home}
+	deps.Host = hostAt(home)
+	deps.Discovery = surfaceDiscovery{discovery.Result{Surfaces: []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: defaultHome, AutoManaged: true}}}}
+	check := findCheck(t, collectChecks(context.Background(), deps.Dependencies), "codex:target-1")
+	if check.OK || check.Detail != "Codex configuration target is unavailable" || check.Fix != "run `aigw sync`" || check.Target != "~/.codex/config.toml" {
+		t.Fatalf("projection check = %#v", check)
+	}
+	deps.Discovery = surfaceDiscovery{}
+	check = findCheck(t, collectChecks(context.Background(), deps.Dependencies), "codex:target-1")
+	if got, want := check.Fix, "Create ~/.codex/config.toml and the folder that holds it, or choose another path, then run the same command again."; check.OK || got != want {
+		t.Fatalf("projection check of a target elsewhere = %#v", check)
+	}
+	file := filepath.Join(home, "work")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg.SetClientActivation(codex.ID, true, "codex", []string{filepath.Join(file, "config.toml")})
+	deps, _, _ = doctorDependencies(t, cfg)
+	deps.Env = []string{"HOME=" + home}
+	deps.Host = hostAt(home)
+	check = findCheck(t, collectChecks(context.Background(), deps.Dependencies), "codex:target-1")
+	if got, want := check.Fix, "Move the file ~/work, or choose another path, then run the same command again."; check.OK || got != want {
+		t.Fatalf("projection check of a file in the way = %#v", check)
 	}
 }

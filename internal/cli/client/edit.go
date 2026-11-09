@@ -51,7 +51,7 @@ func newEditCommand(runtime invocation.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return checkEdit(cmd, admission, spec, options)
+			return checkEdit(cmd, admission, spec, options, invocation.Home(runtime.Dependencies))
 		},
 		ValidArgsFunction: completeClient(runtime),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -143,7 +143,7 @@ func (*budget) Type() string { return "count" }
 // only the flags that the client accepts. --target names configuration files
 // of a client that has them, and the retry flags are for a client with native
 // retry budgets.
-func checkEdit(cmd *cobra.Command, admission domain.Admission, spec domain.ClientSpec, options *editOptions) error {
+func checkEdit(cmd *cobra.Command, admission domain.Admission, spec domain.ClientSpec, options *editOptions, home string) error {
 	path, changed := cmd.CommandPath(), cmd.Flags().Changed
 	budgets := options.request.given || options.stream.given
 	switch {
@@ -177,7 +177,7 @@ func checkEdit(cmd *cobra.Command, admission domain.Admission, spec domain.Clien
 		return err
 	}
 	// As enable does, before any validator or discovery.
-	return refuseTargetsUnderFiles(absolute)
+	return refuseTargetsUnderFiles(absolute, home)
 }
 
 // absoluteTargets returns each --target as an absolute path, so that the
@@ -284,7 +284,7 @@ func admitConnection(cmd *cobra.Command, cfg domain.Config, spec domain.ClientSp
 func checkTargets(cmd *cobra.Command, runtime invocation.Context, id string, targets []string) error {
 	// Every client that takes a file is refused one under another file, with
 	// or without a validator of its own.
-	if err := refuseTargetsUnderFiles(targets); err != nil {
+	if err := refuseTargetsUnderFiles(targets, invocation.Home(runtime.Dependencies)); err != nil {
 		return err
 	}
 	if len(targets) == 0 || !runtime.Clients.ValidatesTargets(id) {
@@ -305,10 +305,10 @@ func checkTargets(cmd *cobra.Command, runtime invocation.Context, id string, tar
 // refuseTargetsUnderFiles refuses a configuration file whose path runs through
 // another file, which no client can read and no sync can write, naming that
 // file and the fix there, before anything changes.
-func refuseTargetsUnderFiles(targets []string) error {
+func refuseTargetsUnderFiles(targets []string, home string) error {
 	for _, target := range targets {
 		if err := platform.RefuseFileAsFolder(target); err != nil {
-			return terminal.FileAccessFailure(err, target)
+			return terminal.FileAccessFailure(err, target, home)
 		}
 	}
 	return nil

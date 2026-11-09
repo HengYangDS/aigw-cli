@@ -1,7 +1,6 @@
 package codex
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/surface"
+	"aigw-cli/internal/platform"
 )
 
 func codexTargetUnion(before, after []TargetRef) ([]codexReconciliationTarget, error) {
@@ -117,6 +117,19 @@ func sameTargetFile(left, right string) bool {
 	return leftErr == nil && rightErr == nil && os.SameFile(leftInfo, rightInfo)
 }
 
+// brokenTargetLinkError refuses a Codex target whose folder, or one above it,
+// is a symbolic link that leads nowhere: AIGW neither follows it nor creates a
+// folder through it, because a create there fails with "file exists". The fix
+// names the link to remove and the folder and file to create in its place.
+type brokenTargetLinkError struct{ link, target string }
+
+func (brokenTargetLinkError) Error() string { return "Codex target is a broken symlink" }
+
+// TargetFix renders the fix against home, which names a file inside it as ~/….
+func (e brokenTargetLinkError) TargetFix(home string) string {
+	return "Remove the link " + adapter.Named(e.link, home) + ", then create " + adapter.Named(e.target, home) + " and the folder that holds it, or choose another path, then run the same command again."
+}
+
 func canonicalCodexTargetPath(path string) (string, error) {
 	absolute, err := absoluteCodexTargetPath(path)
 	if err != nil {
@@ -131,11 +144,17 @@ func canonicalCodexTargetPath(path string) (string, error) {
 			}
 			return filepath.Clean(resolved), nil
 		}
-		if !os.IsNotExist(err) {
+		// A path through a regular file resolves to nothing, and on Windows it
+		// reads as a missing path, so the file in the way is named to move
+		// rather than walked past.
+		if absent, refusal := platform.MissingAt(absolute, err); !absent {
+			if refusal != nil {
+				return "", refusal
+			}
 			return "", fmt.Errorf("resolve Codex target symlinks: %w", err)
 		}
 		if _, err := os.Lstat(absolute); err == nil {
-			return "", errors.New("Codex target is a broken symlink")
+			return "", brokenTargetLinkError{link: absolute, target: path}
 		}
 		missing = append(missing, filepath.Base(absolute))
 		absolute = filepath.Dir(absolute)

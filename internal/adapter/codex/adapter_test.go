@@ -104,13 +104,14 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		deps := adapter.Dependencies{AIGWExecutable: reader, Discovery: fixedDiscoverer{}}
+		root := t.TempDir()
+		deps := adapter.Dependencies{AIGWExecutable: reader, Discovery: fixedDiscoverer{}, Host: discovery.Host{Home: root}}
 		status := (codexAdapter{}).Inspect(context.Background(), deps, cfg, runtime)
-		// The folder went with the file, so another file there would be
-		// refused the same way: the step creates the folder.
-		folder := filepath.Dir(cfg.Clients[ID].Targets[0])
+		// The folder went with the file, and AIGW creates neither, so the step
+		// creates both. Outside this test's home it names the file by its own
+		// name, no private path.
 		if status.Ready || len(status.Checks) != 1 || status.Checks[0].Detail != "Codex configuration target is unavailable" ||
-			status.RepairAction != "Create "+folder+", or choose another path, then run the same command again." {
+			status.RepairAction != "Create config.toml and the folder that holds it, or choose another path, then run the same command again." {
 			t.Fatalf("status = %#v", status)
 		}
 	})
@@ -303,4 +304,30 @@ func codexVerificationFixture(t *testing.T) (domain.Config, domain.Runtime) {
 		t.Fatal(err)
 	}
 	return cfg, runtime
+}
+
+// A configured target whose folder is a regular file names that file to move,
+// on the checks that inspect it, and never a sync that would refuse with
+// "Resolve not a directory".
+func TestACodexAdapterInspectsAFileInTheWay(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "work", "config.toml")
+	if err := os.WriteFile(filepath.Join(root, "work"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := codexConfiguration(target)
+	configured := cfg.Clients[ID]
+	configured.ModelProvider = modelProviderAIGW
+	cfg.Clients[ID] = configured
+	runtime, err := cfg.ResolveRuntime(ID, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime.CredentialCommand = filepath.Join(t.TempDir(), "aigw")
+	deps := adapter.Dependencies{Discovery: fixedDiscoverer{}, Host: discovery.Host{Home: root}}
+	status := (codexAdapter{}).Inspect(context.Background(), deps, cfg, runtime)
+	want := "Move the file ~/work, or choose another path, then run the same command again."
+	if status.Ready || status.RepairAction != want {
+		t.Fatalf("a file in the way = %#v", status)
+	}
 }

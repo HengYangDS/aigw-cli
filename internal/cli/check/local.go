@@ -12,8 +12,8 @@ import (
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
-	"aigw-cli/internal/terminal"
 )
 
 // localCheck is one check of the local depth. A check that does not apply to
@@ -244,7 +244,7 @@ func (c *checker) fileChecks(ctx context.Context, r *result, selected domain.Run
 	checks := []localCheck{check}
 	home := invocation.Home(c.deps.Dependencies)
 	for index, observation := range status.Checks {
-		target, outside := terminal.HomeTarget(observation.Target, home)
+		target, outside := platform.HomeTarget(observation.Target, home)
 		file := localCheck{Name: observation.ID, State: checkPassed, Detail: "Matches the selection", Target: target, label: targetLabel(r.spec, target, outside, index)}
 		if !observation.Ready {
 			file.State, file.Detail, file.fix, file.failed = checkFailed, observation.Detail, observation.RepairAction, domainreadiness.Invalid

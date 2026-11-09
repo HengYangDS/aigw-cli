@@ -177,14 +177,14 @@ func TestFileAccessFailureNamesTheFileAndTheStepThatResolvesIt(t *testing.T) {
 			"AIGW cannot use " + file + ": permission denied", "Make " + file + " and its folder writable, then run the same command again."},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			problem := ProblemFor(FileAccessFailure(test.err, file))
+			problem := ProblemFor(FileAccessFailure(test.err, file, ""))
 			if problem.Title != test.title || problem.Fix != test.fixed {
 				t.Fatalf("problem = %+v", problem)
 			}
 		})
 	}
 	other := errors.New("not a file failure")
-	if err := FileAccessFailure(other, file); !errors.Is(err, other) || err.Error() != other.Error() {
+	if err := FileAccessFailure(other, file, ""); !errors.Is(err, other) || err.Error() != other.Error() {
 		t.Fatalf("another failure became %v", err)
 	}
 }
@@ -203,13 +203,37 @@ func TestFileAccessFailureNamesTheFileInTheWay(t *testing.T) {
 		"the refusal":   platform.RefuseFileAsFolder(target),
 		"a raw ENOTDIR": &os.PathError{Op: "open", Path: target, Err: syscall.ENOTDIR},
 	} {
-		problem := ProblemFor(FileAccessFailure(err, target))
+		problem := ProblemFor(FileAccessFailure(err, target, ""))
 		if problem.Title != "AIGW cannot use "+target+": not a directory" || problem.Fix != want {
 			t.Fatalf("%s = %+v", name, problem)
 		}
 	}
+	// MkdirAll names the file in the way as its own path, so a create at a
+	// regular file is refused as that file, never as a file to create.
+	problem := ProblemFor(FileAccessFailure(&os.PathError{Op: "mkdir", Path: blocking, Err: syscall.ENOTDIR}, blocking, ""))
+	if problem.Fix != "Move the file "+blocking+", or choose another path, then run the same command again." {
+		t.Fatalf("a create at the file in the way = %+v", problem)
+	}
 	missing := filepath.Join(t.TempDir(), "gone", "aigw")
-	if problem := ProblemFor(FileAccessFailure(&os.PathError{Op: "open", Path: missing, Err: syscall.ENOTDIR}, missing)); strings.Contains(problem.Fix, "Move the file") {
+	if problem := ProblemFor(FileAccessFailure(&os.PathError{Op: "open", Path: missing, Err: syscall.ENOTDIR}, missing, "")); strings.Contains(problem.Fix, "Move the file") {
 		t.Fatalf("a missing folder was named a file in the way: %+v", problem)
+	}
+}
+
+// A client file inside home is named as ~/… in a failure that the operator
+// named, so a local check exposes no absolute private path. A file outside it
+// stays as configured.
+func TestFileAccessFailureNamesAClientFileUnderHome(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	file := filepath.Join(home, "work", "config.toml")
+	err := &os.PathError{Op: "open", Path: file, Err: syscall.EIO}
+	problem := ProblemFor(FileAccessFailure(err, file, home))
+	if strings.Contains(problem.Title, home) || !strings.Contains(problem.Title, "~/work/config.toml") {
+		t.Fatalf("a file under home = %+v", problem)
+	}
+	outside := filepath.Join(t.TempDir(), "work", "config.toml")
+	problem = ProblemFor(FileAccessFailure(&os.PathError{Op: "open", Path: outside, Err: syscall.EIO}, outside, home))
+	if !strings.Contains(problem.Title, outside) {
+		t.Fatalf("a file outside home = %+v", problem)
 	}
 }

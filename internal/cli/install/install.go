@@ -133,10 +133,13 @@ func installFailure(cmd *cobra.Command, runtime invocation.Context, target strin
 	if directory, refused := errors.AsType[*program.TargetDirectoryError](err); refused {
 		return terminal.ProblemError(err.Error(), "", "", programFileFix(cmd, runtime, directory.Path), err)
 	}
+	if link, atLink := errors.AsType[*program.TargetLinkError](err); atLink {
+		return terminal.ProblemError("AIGW cannot install there: a link leads nowhere where the program's folder belongs", "", "Nothing was written.", link.NextAction(), err)
+	}
 	if access, atFile := errors.AsType[*os.PathError](err); atFile && access.Path == filepath.Clean(runtime.Executable) {
 		return err
 	}
-	return terminal.FileAccessFailure(err, target)
+	return terminal.FileAccessFailure(err, target, invocation.Home(runtime.Dependencies))
 }
 
 // programFileFix is the fix of a --path that names a directory: this command

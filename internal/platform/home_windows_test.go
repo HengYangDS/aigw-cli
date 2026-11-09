@@ -1,4 +1,4 @@
-package terminal
+package platform
 
 import "testing"
 

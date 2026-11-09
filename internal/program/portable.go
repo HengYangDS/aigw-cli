@@ -38,6 +38,12 @@ func planInstall(source, target string) (InstallPlan, []byte, []byte, error) {
 	if err := platform.RefuseFileAsFolder(target); err != nil {
 		return InstallPlan{}, nil, nil, err
 	}
+	// A link that leads nowhere holds no folder and cannot become one: creating
+	// through it fails with "file exists", so the preview refuses rather than
+	// promise a folder that the install cannot create.
+	if link, atLink := platform.DanglingLinkInPath(filepath.Dir(target)); atLink {
+		return InstallPlan{}, nil, nil, &TargetLinkError{Path: link}
+	}
 	if err := RequirePortableOwnership(target); err != nil {
 		return InstallPlan{}, nil, nil, err
 	}
@@ -124,6 +130,22 @@ func RefuseDirectories(target string) error {
 		return &TargetDirectoryError{Path: target}
 	}
 	return refuseRollbackDirectory(RollbackPath(target))
+}
+
+// TargetLinkError is a symbolic link that leads nowhere where the portable
+// program's folder belongs. An install through it fails with "file exists",
+// so the link is named to remove, by the name that every link to that folder
+// would share and never its private folder.
+type TargetLinkError struct{ Path string }
+
+// Error says what stands where the program's folder belongs, naming no path.
+func (e *TargetLinkError) Error() string {
+	return "portable AIGW folder is a symbolic link that leads nowhere"
+}
+
+// NextAction is the step after which the command succeeds.
+func (e *TargetLinkError) NextAction() string {
+	return "Remove the link " + e.Path[strings.LastIndexAny(e.Path, `/\`)+1:] + ", then run the same command again."
 }
 
 // samePathError is an installation of the running program onto its own file.

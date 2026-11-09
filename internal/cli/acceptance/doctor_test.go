@@ -199,8 +199,9 @@ func TestDoctorJSONDoesNotExposeMissingCodexTarget(t *testing.T) {
 		t.Fatalf("doctor exposed Codex target path: %s", out.String())
 	}
 	// The target lies outside Codex's default home, which sync does not create,
-	// so Codex moves to another file.
-	if !strings.Contains(out.String(), `"codex:target-1"`) || !strings.Contains(out.String(), `"next_detail": "aigw client edit codex --target \u003cfile\u003e"`) {
+	// so the step creates the file, which no edit would. A file outside the home
+	// directory is named by its own name, never by the folder that holds it.
+	if !strings.Contains(out.String(), `"codex:target-1"`) || !strings.Contains(out.String(), `"next_detail": "Create private-codex-target.toml, or choose another path, then run the same command again."`) {
 		t.Fatalf("doctor omitted the Codex recovery decision: %s", out.String())
 	}
 	// A target outside a known home directory is labeled as such, never named.

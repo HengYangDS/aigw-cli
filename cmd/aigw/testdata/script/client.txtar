@@ -128,8 +128,11 @@ stdout 'Codex +team/team-model · Enabled · Not installed'
 # Codex moves to a configuration file in its own folder, which is then
 # deleted, file and record together, leaving nothing to withdraw. AIGW does
 # not create a Codex home outside the default one, so status, doctor, check
-# and sync all name the folder to create, since another file there would be
-# refused the same way; none names sync, which would refuse. The move succeeds
+# and sync all name the file and the folder to create, since the folder alone
+# leaves the same command refused and another file there would be refused the
+# same way; none names sync, which would refuse. The target lies outside the
+# test's home directory, so its fix names the file by its own name and no
+# folder of that path. The move succeeds
 # and reports the deleted file as absent, and disabling Codex then withdraws
 # only the new file.
 mkdir $WORK/a $WORK/b
@@ -139,17 +142,17 @@ exec aigw client edit codex --target $WORK/a/config.toml
 exec aigw sync
 rm $WORK/a
 exec aigw status --json
-stdout '"next_detail": "Create .*a, or choose another path, then run the same command again."'
+stdout '"next_detail": "Create config.toml and the folder that holds it, or choose another path, then run the same command again."'
 ! stdout '"next_action": "aigw sync"'
 exitcode 1 aigw doctor --json
-stdout '"next_detail": "Create .*a, or choose another path, then run the same command again."'
+stdout '"next_detail": "Create config.toml and the folder that holds it, or choose another path, then run the same command again."'
 ! stdout '"next_action": "aigw sync"'
 exitcode 1 aigw check codex --json
-stdout '"next_detail": "Create .*a, or choose another path, then run the same command again."'
+stdout '"next_detail": "Create config.toml and the folder that holds it, or choose another path, then run the same command again."'
 ! stdout '"next_action"'
 exitcode 1 aigw sync --json
 stdout '"error": ".*Codex config does not exist, and AIGW does not create a Codex home"'
-stdout '"next_detail": "Create .*a, or choose another path, then run the same command again."'
+stdout '"next_detail": "Create config.toml and the folder that holds it, or choose another path, then run the same command again."'
 exec aigw client edit codex --target $WORK/b/config.toml --json
 stdout '"changed": true'
 stdout '"action": "absent"'

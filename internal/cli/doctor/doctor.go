@@ -13,6 +13,7 @@ import (
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
@@ -348,7 +349,7 @@ func adapterChecks(ctx context.Context, deps app.Dependencies, cfg domain.Config
 		}
 		checks = append(checks, checkResult{Name: "adapter:" + clientID, OK: adapterReady, Detail: detail, Fix: fix, adapterAction: fix != ""})
 		for _, observation := range status.Checks {
-			target, outside := terminal.HomeTarget(observation.Target, home)
+			target, outside := platform.HomeTarget(observation.Target, home)
 			checks = append(checks, checkResult{
 				Name: observation.ID, OK: observation.Ready, Detail: observation.Detail,
 				Fix: commandFix(observation.RepairAction), Target: target, outsideHome: outside,

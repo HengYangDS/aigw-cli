@@ -10,6 +10,7 @@ import (
 	"aigw-cli/internal/app"
 	"aigw-cli/internal/app/synchronization"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/terminal"
 
 	"github.com/spf13/cobra"
@@ -61,7 +62,7 @@ func projections(runtime Context, plans []adapter.ProjectionPlan) []Projection {
 	home := Home(runtime.Dependencies)
 	projections := make([]Projection, 0, len(plans))
 	for _, plan := range plans {
-		target, _ := terminal.HomeTarget(plan.Target, home)
+		target, _ := platform.HomeTarget(plan.Target, home)
 		projections = append(projections, Projection{Client: plan.Client, Surface: plan.Surface, Target: target, Action: terminal.SnakeValue(plan.Action)})
 	}
 	return projections

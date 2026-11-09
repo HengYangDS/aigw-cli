@@ -73,7 +73,7 @@ func TestAMissingTargetIsRefusedWithItsInspection(t *testing.T) {
 	kept := filepath.Join(t.TempDir(), "gone", "config.toml")
 	_, err = ReconcileConfigs([]TargetRef{HomeTarget(kept)}, []TargetRef{HomeTarget(kept)}, atomicTestRuntime(), atomicTestRuntime(), false)
 	problem = terminal.ProblemFor(err)
-	if problem.Fix != "Create "+filepath.Dir(kept)+", or choose another path, then run the same command again." {
+	if want := "Create " + kept + " and the folder that holds it, or choose another path, then run the same command again."; problem.Fix != want {
 		t.Fatalf("a kept file that is gone = %q, fix %q", problem.Title, problem.Fix)
 	}
 	if target, ok := errors.AsType[*adapter.TargetError](err); !ok || !target.Desired {
@@ -84,17 +84,21 @@ func TestAMissingTargetIsRefusedWithItsInspection(t *testing.T) {
 // Codex's default home is created again by a sync, so only a configuration
 // file elsewhere that is gone names the move to another file.
 func TestAMissingTargetsRepairFollowsItsHome(t *testing.T) {
-	home := filepath.Join(t.TempDir(), "home", "config.toml")
-	deps := adapter.Dependencies{Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(HomeDefault), ConfigPath: home, AutoManaged: true}}}}}
+	root := t.TempDir()
+	home := filepath.Join(root, "home", "config.toml")
+	deps := adapter.Dependencies{Discovery: fixedDiscoverer{result: discovery.Result{Surfaces: []discovery.Surface{{ID: string(HomeDefault), ConfigPath: home, AutoManaged: true}}}}, Host: discovery.Host{Home: root}}
 	if got := missingTargetRepair(deps, home); got != "aigw sync" {
 		t.Fatalf("the default home = %q", got)
 	}
-	if got := missingTargetRepair(deps, filepath.Join(t.TempDir(), "config.toml")); got != "aigw client edit codex --target <file>" {
-		t.Fatalf("another file = %q", got)
+	// A file elsewhere whose folder is there needs only the file: AIGW does not
+	// create a Codex file, so naming another edit would be refused the same way.
+	other := filepath.Join(t.TempDir(), "config.toml")
+	if got, want := missingTargetRepair(deps, other), "Create config.toml, or choose another path, then run the same command again."; got != want {
+		t.Fatalf("a file whose folder exists = %q, want %q", got, want)
 	}
-	gone := filepath.Join(t.TempDir(), "gone", "config.toml")
-	if got := missingTargetRepair(deps, gone); got != "Create "+filepath.Dir(gone)+", or choose another path, then run the same command again." {
-		t.Fatalf("a file in a missing folder = %q", got)
+	gone := filepath.Join(root, "gone", "config.toml")
+	if got, want := missingTargetRepair(deps, gone), "Create ~/gone/config.toml and the folder that holds it, or choose another path, then run the same command again."; got != want {
+		t.Fatalf("a file in a missing folder = %q, want %q", got, want)
 	}
 }
 
@@ -122,5 +126,28 @@ func TestAMissingTargetUnderAFileNamesTheFileToMove(t *testing.T) {
 	got := missingTargetError{path: filepath.Join(file, "config.toml")}.NextAction()
 	if want := "Move the file " + file + ", or choose another path, then run the same command again."; got != want {
 		t.Fatalf("the fix = %q, want %q", got, want)
+	}
+}
+
+// A folder that is a regular file, or a link that leads nowhere, is named to
+// move or remove before a folder to create, which no create through it can
+// satisfy.
+func TestAMissingTargetsRepairNamesTheFolderItCannotCreate(t *testing.T) {
+	root := t.TempDir()
+	deps := adapter.Dependencies{Host: discovery.Host{Home: root}}
+	file := filepath.Join(root, "work")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := missingTargetRepair(deps, filepath.Join(file, "config.toml")), "Move the file ~/work, or choose another path, then run the same command again."; got != want {
+		t.Fatalf("a file where the folder belongs = %q, want %q", got, want)
+	}
+	link := filepath.Join(root, "dlink")
+	if err := os.Symlink(filepath.Join(root, "nowhere"), link); err != nil {
+		t.Skipf("symbolic links are unavailable: %v", err)
+	}
+	got := missingTargetRepair(deps, filepath.Join(link, "config.toml"))
+	if want := "Remove the link ~/dlink, then create ~/dlink/config.toml and the folder that holds it, or choose another path, then run the same command again."; got != want {
+		t.Fatalf("a link where the folder belongs = %q, want %q", got, want)
 	}
 }

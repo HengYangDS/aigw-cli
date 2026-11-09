@@ -60,7 +60,7 @@ func targetProblem(failure *adapter.TargetError, err error) Problem {
 		Title:  failure.Client + " cannot use " + name + ": " + targetReason(failure.Err),
 		Impact: "Configuration and client files are unchanged.",
 	}
-	problem.Fix = targetFix(err, name)
+	problem.Fix = targetFix(err, failure)
 	if recovery, ok := errors.AsType[configurationRecovery](err); ok {
 		problem.Impact = "The configuration was restored."
 		if !recovery.ConfigurationRestored() {
@@ -73,29 +73,31 @@ func targetProblem(failure *adapter.TargetError, err error) Problem {
 
 // FileAccessFailure presents an operating-system error at file, which the
 // operator named, with the step that resolves it and the same command again.
-// Resolving a path can report a bare error number, with no path around it.
-// Any other error returns unchanged.
-func FileAccessFailure(err error, file string) error {
+// A file inside home is named as ~/…, and one outside it as configured, which
+// the operator chose. Resolving a path can report a bare error number, with no
+// path around it. Any other error returns unchanged.
+func FileAccessFailure(err error, file, home string) error {
 	_, atPath := errors.AsType[*fs.PathError](err)
 	_, atLink := errors.AsType[*os.LinkError](err)
 	_, known := knownFileErrorReason(err)
 	if !atPath && !atLink && !known {
 		return err
 	}
+	name := namedFile(file, home)
 	reason := fileErrorReason(err)
-	fix := "Resolve " + reason + " on " + file + ", then run the same command again."
+	fix := "Resolve " + reason + " on " + name + ", then run the same command again."
 	inTheWay, throughFile := fileInTheWay(err, file)
 	switch {
 	case errors.Is(err, fs.ErrPermission):
-		fix = "Make " + file + " and its folder writable, then run the same command again."
+		fix = "Make " + name + " and its folder writable, then run the same command again."
 	case throughFile:
 		// Before a missing path, which Windows' ENOTDIR also counts as.
 		reason = platform.ErrFileAsFolder.Error()
-		fix = "Move the file " + inTheWay + ", or choose another path, then run the same command again."
+		fix = "Move the file " + namedFile(inTheWay, home) + ", or choose another path, then run the same command again."
 	case errors.Is(err, fs.ErrNotExist):
-		fix = "Create " + filepath.Dir(file) + ", or choose another path, then run the same command again."
+		fix = "Create " + namedFile(filepath.Dir(file), home) + ", or choose another path, then run the same command again."
 	}
-	return ProblemError("AIGW cannot use "+file+": "+reason, "", "", fix, err)
+	return ProblemError("AIGW cannot use "+name+": "+reason, "", "", fix, err)
 }
 
 // fileInTheWay is the regular file that stands where a folder is needed in
@@ -115,7 +117,9 @@ func fileInTheWay(err error, file string) (string, bool) {
 	if atPath && failure.Path != "" {
 		path = failure.Path
 	}
-	if found, atFile := errors.AsType[*fs.PathError](platform.RefuseFileAsFolder(path)); atFile {
+	// The path itself is included, because an operation that creates it reports
+	// the file in the way as its path.
+	if found, atFile := errors.AsType[*fs.PathError](platform.FileInTheWay(path)); atFile {
 		return found.Path, true
 	}
 	return "", false
@@ -132,20 +136,43 @@ func targetReason(err error) string {
 
 // targetFix is the fix that a failure to use a client file names for itself,
 // or else, for an operating-system error, the file made readable or the error
-// resolved, and the same command again.
-func targetFix(err error, name string) string {
-	if fix, stated := statedFix(err, ""); stated {
+// resolved, and the same command again. A file that stands where a folder is
+// needed is named to move, and a client file that does not exist is named with
+// the folder that holds it to create, both against home, so a local check
+// names no private path.
+func targetFix(err error, target *adapter.TargetError) string {
+	if fix, stated := refusedFix(err, target.Home); stated {
 		return fix
 	}
+	name := fileName(target.Path, target.Home)
 	_, atPath := errors.AsType[*fs.PathError](err)
+	blocking, throughFile := fileInTheWay(err, target.Path)
 	switch {
 	case errors.Is(err, fs.ErrPermission):
 		return "Make " + name + " readable, then run the same command again."
+	case throughFile:
+		// Before a missing path, which Windows' ENOTDIR also counts as.
+		return "Move the file " + fileName(blocking, target.Home) + ", or choose another path, then run the same command again."
 	case atPath:
 		return "Resolve " + fileErrorReason(err) + " on " + name + ", then run the same command again."
 	default:
 		return errorFix(err, err.Error())
 	}
+}
+
+// refusedFix is the fix of a refusal that renders itself against home, then
+// any other fix that err states for itself.
+func refusedFix(err error, home string) (string, bool) {
+	if homed, ok := errors.AsType[interface {
+		error
+		TargetFix(string) string
+	}](err); ok {
+		return homed.TargetFix(home), true
+	}
+	if fix, stated := statedFix(err, ""); stated {
+		return fix, true
+	}
+	return "", false
 }
 
 // fileFix is the fix of a file that could not be written, which name names: a
@@ -191,10 +218,14 @@ func writeReason(failed *platform.FileError) string {
 	return fileErrorReason(failed)
 }
 
+// namedFile names a path as the operator names it: relative to the home
+// directory as ~/…, or else as configured.
+func namedFile(path, home string) string { return fileName(path, home) }
+
 // fileName names a file relative to the home directory, or else by its full
 // path, as the operator configured it.
 func fileName(path, home string) string {
-	target, _ := HomeTarget(path, home)
+	target, _ := platform.HomeTarget(path, home)
 	switch {
 	case target != "":
 		return target

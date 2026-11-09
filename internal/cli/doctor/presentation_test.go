@@ -6,6 +6,7 @@ import (
 	"aigw-cli/internal/adapter/codex"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/clients"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/terminal"
 	"bytes"
 	"path/filepath"
@@ -121,8 +122,8 @@ func TestCodexTargetLabelNamesOnlyFilesUnderHome(t *testing.T) {
 	home := filepath.Join(root, "home")
 	inside := filepath.Join(home, ".codex", "config.toml")
 	outside := filepath.Join(root, "work", "codex", "config.toml")
-	homeRelative, _ := terminal.HomeTarget(inside, home)
-	if _, outside := terminal.HomeTarget(outside, home); !outside {
+	homeRelative, _ := platform.HomeTarget(inside, home)
+	if _, outside := platform.HomeTarget(outside, home); !outside {
 		t.Fatal("a file outside home was not reported outside")
 	}
 	for _, test := range []struct {

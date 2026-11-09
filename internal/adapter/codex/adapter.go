@@ -13,6 +13,7 @@ import (
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/discovery"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 )
 
 // ID identifies the admitted Codex client family.
@@ -166,10 +167,13 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 // selection, with its issue and repair, or no detail when it matches.
 func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.Runtime, target string) (issue, detail, repair string) {
 	issue, repair = "Codex configuration projection drift: ", "aigw sync"
-	// A missing file is found before the credential reader that it names is
-	// read through it, which would only fail.
-	if _, err := os.Stat(target); errors.Is(err, os.ErrNotExist) {
-		return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, target)
+	// A missing file, or a path through a regular file, which Windows reports as
+	// missing, is found before the credential reader that it names is read
+	// through it, which would only fail.
+	if _, err := os.Stat(target); err != nil {
+		if absent, refusal := platform.MissingAt(target, err); absent || refusal != nil {
+			return issue, "Codex configuration target is unavailable", missingTargetRepair(deps, target)
+		}
 	}
 	if _, err := adapter.CaptureTarget(target, true); err != nil {
 		if status, unreadable := adapter.UnreadableStatus(err, target, deps.Host.Home); unreadable {
@@ -208,6 +212,11 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 // of it remains, and anywhere else Codex moves to another file, because sync
 // does not create a Codex home.
 func missingTargetRepair(deps adapter.Dependencies, path string) string {
+	// A file in the way is named before the default home, which a sync cannot
+	// create either.
+	if _, atLink := platform.DanglingLinkInPath(filepath.Dir(path)); atLink || platform.FileInTheWay(path) != nil {
+		return missingTargetError{path: path, home: deps.Host.Home}.TargetFix(deps.Host.Home)
+	}
 	if discovered, err := discover(deps); err == nil {
 		if surface, ok := discovered.SurfaceForConfigPath(path); ok && surface.AutoManaged {
 			record := codexRecordPath(path)
@@ -217,7 +226,7 @@ func missingTargetRepair(deps adapter.Dependencies, path string) string {
 			return "aigw sync"
 		}
 	}
-	return missingTargetError{path: path}.NextAction()
+	return missingTargetError{path: path, home: deps.Host.Home}.NextAction()
 }
 
 func (codexAdapter) Withdraw(cfg *domain.Config) {
