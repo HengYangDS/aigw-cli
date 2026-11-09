@@ -260,7 +260,9 @@ func pendingStep(runtime invocation.Context, cfg domain.Config, document editDoc
 // keeps its own fix.
 func targetFailure(client string, targets []string, err error) error {
 	failed, named := errors.AsType[*adapter.TargetError](err)
-	if len(targets) == 0 || !named || !failed.Desired || terminal.StatesFix(err) {
+	// The file's own fix, such as creating its missing folder, is the one
+	// that lets the same edit pass; another --target may fail the same way.
+	if len(targets) == 0 || !named || !failed.Desired || terminal.StatesFix(err) || terminal.StatesFix(failed.Err) {
 		return err
 	}
 	problem := terminal.ProblemFor(err)

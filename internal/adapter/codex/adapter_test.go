@@ -90,7 +90,7 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 	// A configured file that was deleted with its folder, while the credential
 	// reader of the real flow is configured, is found missing before the
 	// reader is read through it. Outside Codex's default home, sync does not
-	// create it, so the step moves Codex to another file.
+	// create it, so the step creates its folder or moves Codex to another file.
 	t.Run("deleted file with the credential reader", func(t *testing.T) {
 		cfg, runtime := newFixture(t, modelProviderAIGW)
 		if err := os.RemoveAll(filepath.Dir(cfg.Clients[ID].Targets[0])); err != nil {
@@ -106,8 +106,11 @@ func TestCodexAdapterReportsReadinessStates(t *testing.T) {
 		}
 		deps := adapter.Dependencies{AIGWExecutable: reader, Discovery: fixedDiscoverer{}}
 		status := (codexAdapter{}).Inspect(context.Background(), deps, cfg, runtime)
+		// The folder went with the file, so another file there would be
+		// refused the same way: the step creates the folder.
+		folder := filepath.Dir(cfg.Clients[ID].Targets[0])
 		if status.Ready || len(status.Checks) != 1 || status.Checks[0].Detail != "Codex configuration target is unavailable" ||
-			status.RepairAction != "aigw client edit codex --target <file>" {
+			status.RepairAction != "Create "+folder+", or choose another path, then run the same command again." {
 			t.Fatalf("status = %#v", status)
 		}
 	})

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -131,5 +132,34 @@ func TestInstallCommandNamesTheTargetThatItCannotUse(t *testing.T) {
 	}
 	if data, err := os.ReadFile(blocked); err != nil || string(data) != "file" {
 		t.Fatalf("the blocking file changed: %q, %v", data, err)
+	}
+}
+
+// A preview into a folder that does not exist yet says that installing
+// creates it, as the write does, and creates nothing.
+func TestInstallPreviewSaysThatItCreatesAMissingFolder(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "aigw")
+	if err := os.WriteFile(source, []byte("current"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(root, "new", "bin", "aigw")
+	for _, args := range [][]string{{"--dry-run"}, {"--dry-run", "--json"}} {
+		out := new(bytes.Buffer)
+		command := NewCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target, Out: out})
+		command.SetArgs(args)
+		if err := command.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		creates := "Creates folder"
+		if slices.Contains(args, "--json") {
+			creates = `"creates_folder": `
+		}
+		if !strings.Contains(out.String(), creates) || !strings.Contains(out.String(), filepath.Base(filepath.Dir(target))) {
+			t.Fatalf("%v names no folder that it creates:\n%s", args, out)
+		}
+	}
+	if _, err := os.Stat(filepath.Dir(target)); !os.IsNotExist(err) {
+		t.Fatalf("the preview created the folder: %v", err)
 	}
 }

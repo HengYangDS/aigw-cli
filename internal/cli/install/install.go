@@ -23,12 +23,15 @@ const schemaVersion = 1
 // names the version that it would install, the rollback copy that it would
 // keep, and whether the target already holds this program.
 type installDocument struct {
-	DryRun     bool   `json:"dry_run,omitempty"`
-	Path       string `json:"path"`
-	Version    string `json:"version,omitempty"`
-	Rollback   string `json:"rollback,omitempty"`
-	Unchanged  bool   `json:"unchanged,omitempty"`
-	NextDetail string `json:"next_detail,omitempty"`
+	DryRun    bool   `json:"dry_run,omitempty"`
+	Path      string `json:"path"`
+	Version   string `json:"version,omitempty"`
+	Rollback  string `json:"rollback,omitempty"`
+	Unchanged bool   `json:"unchanged,omitempty"`
+	// CreatesFolder is the program file's folder, which installing creates,
+	// when it does not exist yet.
+	CreatesFolder string `json:"creates_folder,omitempty"`
+	NextDetail    string `json:"next_detail,omitempty"`
 }
 
 // installedNext is the next step after an installation: PATH is unchanged.
@@ -86,8 +89,13 @@ func previewInstall(cmd *cobra.Command, runtime invocation.Context, target strin
 	if plan.Rollback != "" {
 		rollback = program.RollbackPath(target)
 	}
+	// The write creates a missing folder, so the preview says that it will.
+	creates := ""
+	if folder := filepath.Dir(target); !folderExists(folder) {
+		creates = folder
+	}
 	if jsonMode {
-		document := installDocument{DryRun: true, Path: target, Version: runtime.Version, Rollback: rollback, Unchanged: plan.Unchanged, NextDetail: next}
+		document := installDocument{DryRun: true, Path: target, Version: runtime.Version, Rollback: rollback, Unchanged: plan.Unchanged, CreatesFolder: creates, NextDetail: next}
 		return terminal.WriteDocument(runtime.Out, schemaVersion, true, document)
 	}
 	r := invocation.Renderer(runtime)
@@ -102,10 +110,19 @@ func previewInstall(cmd *cobra.Command, runtime invocation.Context, target strin
 	case rollback != "":
 		rows = append(rows, terminal.Field{Label: "Rollback copy", Value: rollback})
 	}
+	if creates != "" {
+		rows = append(rows, terminal.Field{Label: "Creates folder", Value: creates})
+	}
 	r.Rows(rows...)
 	r.Success("Preview did not write the program, a rollback copy or a directory")
 	r.Text(next)
 	return nil
+}
+
+// folderExists reports whether path names a folder.
+func folderExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 // installFailure gives a failed installation a fix that acts on its cause: a

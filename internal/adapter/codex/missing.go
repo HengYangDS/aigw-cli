@@ -1,16 +1,33 @@
 package codex
 
+import (
+	"os"
+	"path/filepath"
+)
+
 // missingTargetError refuses a Codex configuration file that the
 // configuration keeps but that does not exist. AIGW does not create a Codex
-// home, so Codex moves to a file that exists.
-type missingTargetError struct{}
+// home. When the file's folder is missing too, another target that names a
+// file in it would be refused the same way, so the fix names the folder.
+type missingTargetError struct{ path string }
 
 func (missingTargetError) Error() string {
 	return "Codex config does not exist, and AIGW does not create a Codex home"
 }
 
-// NextAction moves Codex to a configuration file that the user chooses.
-func (missingTargetError) NextAction() string { return "aigw client edit codex --target <file>" }
+// NextAction creates the missing folder, or moves Codex to a file that exists.
+func (e missingTargetError) NextAction() string {
+	if folder := filepath.Dir(e.path); e.path != "" && !folderExists(folder) {
+		return "Create " + folder + ", or choose another path, then run the same command again."
+	}
+	return "aigw client edit codex --target <file>"
+}
+
+// folderExists reports whether path names a folder.
+func folderExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
 
 // recordedMissingTargetError refuses to drop a Codex configuration file that
 // no longer exists while AIGW's record of it, which can restore what AIGW

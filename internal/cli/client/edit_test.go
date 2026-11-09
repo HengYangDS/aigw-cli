@@ -286,7 +286,7 @@ func TestEditRefusesWhatTheClientCannotUse(t *testing.T) {
 	}
 	missing := filepath.Join(t.TempDir(), "missing", "config.toml")
 	err = executeAdapter(t, runtime, "edit", codex.ID, "--target", missing)
-	if problem := terminal.ProblemFor(err); !strings.Contains(problem.Title, "does not exist") || problem.Fix != "aigw client edit "+codex.ID+" --target <file>" {
+	if problem := terminal.ProblemFor(err); !strings.Contains(problem.Title, "does not exist") || problem.Fix != "Create "+filepath.Dir(missing)+", or choose another path, then run the same command again." {
 		t.Fatalf("a missing configuration file = %q, fix %q", problem.Title, problem.Fix)
 	}
 	if after, err := runtime.Config.CaptureSnapshot(); err != nil || !reflect.DeepEqual(before, after) {

@@ -217,7 +217,7 @@ func missingTargetRepair(deps adapter.Dependencies, path string) string {
 			return "aigw sync"
 		}
 	}
-	return missingTargetError{}.NextAction()
+	return missingTargetError{path: path}.NextAction()
 }
 
 func (codexAdapter) Withdraw(cfg *domain.Config) {

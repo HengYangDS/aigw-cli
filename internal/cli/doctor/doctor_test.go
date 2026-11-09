@@ -289,9 +289,11 @@ func TestCollectExercisesClaudeExecutableAndProjectionStates(t *testing.T) {
 	if check.OK || check.Detail != "Codex configuration target is unavailable" || check.Fix != "run `aigw sync`" || check.Target != "~/.codex/config.toml" {
 		t.Fatalf("projection check = %#v", check)
 	}
+	// Outside the default home, ~/.codex is missing too, so another file there
+	// would be refused the same way: the step creates the folder.
 	deps.Discovery = surfaceDiscovery{}
 	check = findCheck(t, collectChecks(context.Background(), deps.Dependencies), "codex:target-1")
-	if check.OK || check.Fix != "run `aigw client edit codex --target <file>`" {
+	if check.OK || check.Fix != "Create "+filepath.Dir(defaultHome)+", or choose another path, then run the same command again." {
 		t.Fatalf("projection check of another file = %#v", check)
 	}
 

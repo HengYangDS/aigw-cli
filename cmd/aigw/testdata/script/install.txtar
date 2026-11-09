@@ -89,6 +89,7 @@ stdout 'then run the same command again'
   "dry_run": true,
   "path": "$WORK/preview/aigw",
   "version": "0.1.0-dev",
+  "creates_folder": "$WORK/preview",
   "next_detail": "Run the same command with this same program, without --dry-run, to apply this plan; `aigw` on PATH may be another program."
 }
 -- install-preview-windows.json --
@@ -98,6 +99,7 @@ stdout 'then run the same command again'
   "dry_run": true,
   "path": "$WORK/preview/aigw.exe",
   "version": "0.1.0-dev",
+  "creates_folder": "$WORK/preview",
   "next_detail": "Run the same command with this same program, without --dry-run, to apply this plan; `aigw` on PATH may be another program."
 }
 -- unchanged-preview.txt --

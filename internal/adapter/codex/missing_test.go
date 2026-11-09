@@ -73,7 +73,7 @@ func TestAMissingTargetIsRefusedWithItsInspection(t *testing.T) {
 	kept := filepath.Join(t.TempDir(), "gone", "config.toml")
 	_, err = ReconcileConfigs([]TargetRef{HomeTarget(kept)}, []TargetRef{HomeTarget(kept)}, atomicTestRuntime(), atomicTestRuntime(), false)
 	problem = terminal.ProblemFor(err)
-	if problem.Fix != "aigw client edit codex --target <file>" {
+	if problem.Fix != "Create "+filepath.Dir(kept)+", or choose another path, then run the same command again." {
 		t.Fatalf("a kept file that is gone = %q, fix %q", problem.Title, problem.Fix)
 	}
 	if target, ok := errors.AsType[*adapter.TargetError](err); !ok || !target.Desired {
@@ -91,6 +91,10 @@ func TestAMissingTargetsRepairFollowsItsHome(t *testing.T) {
 	}
 	if got := missingTargetRepair(deps, filepath.Join(t.TempDir(), "config.toml")); got != "aigw client edit codex --target <file>" {
 		t.Fatalf("another file = %q", got)
+	}
+	gone := filepath.Join(t.TempDir(), "gone", "config.toml")
+	if got := missingTargetRepair(deps, gone); got != "Create "+filepath.Dir(gone)+", or choose another path, then run the same command again." {
+		t.Fatalf("a file in a missing folder = %q", got)
 	}
 }
 
