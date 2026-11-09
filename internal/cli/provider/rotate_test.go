@@ -49,7 +49,7 @@ func TestRotateKeepsThePreviousTokenWhenTheProviderDoesNotAcceptTheNewOne(t *tes
 		status int
 		fix    string
 	}{
-		{"rejected", http.StatusForbidden, "aigw provider rotate team --token-stdin"},
+		{"rejected", http.StatusForbidden, "Pipe a Token that provider team accepts into `aigw provider rotate team --token-stdin`."},
 		{"rate limit", http.StatusTooManyRequests, "aigw provider rotate team --token-stdin"},
 		{"wrong endpoint", http.StatusNotFound, "aigw provider edit team --endpoint responses=<url>"},
 	} {

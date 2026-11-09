@@ -155,9 +155,10 @@ func TestRotateSurfacesInputAndDependencyFailures(t *testing.T) {
 	})
 }
 
-// A Token that rotation could not validate names the retry when the provider
-// rejected it or the endpoint did not answer, the endpoint's edit for any
-// other status, and the previous Token only when one exists.
+// A Token that rotation could not validate names the same rotation with a
+// Token that the provider accepts when the provider rejected it, the retry
+// when the endpoint did not answer, the endpoint's edit for any other status,
+// and the previous Token only when one exists.
 func TestRotateNamesTheFixOfItsValidationFailure(t *testing.T) {
 	offline := func(*http.Request) (*http.Response, error) { return nil, errors.New("offline") }
 	for _, test := range []struct {
@@ -170,9 +171,9 @@ func TestRotateNamesTheFixOfItsValidationFailure(t *testing.T) {
 		impact   string
 	}{
 		{name: "prompted Token", args: []string{"rotate", "one"}, status: http.StatusUnauthorized,
-			fix: "aigw rotate one", impact: "No Token was stored."},
+			fix: "Run `aigw rotate one` again and enter a Token that provider one accepts.", impact: "No Token was stored."},
 		{name: "piped Token", args: []string{"rotate", "one", "--token-stdin"}, status: http.StatusForbidden, previous: true,
-			fix: "aigw rotate one --token-stdin", impact: "No Token was stored; the previous Token is unchanged."},
+			fix: "Pipe a Token that provider one accepts into `aigw rotate one --token-stdin`.", impact: "No Token was stored; the previous Token is unchanged."},
 		{name: "unreachable endpoint", args: []string{"rotate", "--token-stdin"}, handler: offline,
 			fix: "aigw rotate --token-stdin", impact: "No Token was stored."},
 		{name: "another status", args: []string{"rotate", "one", "--token-stdin"}, status: http.StatusNotFound,
@@ -200,12 +201,14 @@ func TestRotateNamesTheFixOfItsValidationFailure(t *testing.T) {
 			}
 		})
 	}
-	// As JSON, the retry keeps --json, and a script can run it as it stands.
+	// As JSON, the fix keeps --json, and it is guidance, since only the
+	// operator has a Token that the provider accepts.
 	app, out, _, _, httpClient := testApp(t, "new-token\n")
 	saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "claude-test")
 	httpClient.status = http.StatusUnauthorized
 	if err := cli.Execute(app, []string{"rotate", "one", "--token-stdin", "--json"}); err == nil ||
-		!strings.Contains(out.String(), `"next_action": "aigw rotate one --json --token-stdin"`) {
+		!strings.Contains(out.String(), `"next_detail": "Pipe a Token that provider one accepts into `+"`aigw rotate one --json --token-stdin`"+`."`) ||
+		strings.Contains(out.String(), `"next_action"`) {
 		t.Fatalf("rotation failure document = %v\n%s", err, out.String())
 	}
 }

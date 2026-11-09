@@ -69,12 +69,13 @@ func TestAddPreviewReadsNoTokenAndSendsNothing(t *testing.T) {
 
 func TestAddStoresNothingThatTheProviderDoesNotAccept(t *testing.T) {
 	retry := "aigw provider add fresh --endpoint anthropic=https://fresh.test --token-stdin"
+	accepted := "Pipe a Token that provider fresh accepts into `" + retry + "`."
 	for _, test := range []struct {
 		name, title, fix string
 		status           int
 		failure          error
 	}{
-		{name: "rejected", status: http.StatusUnauthorized, title: "Token validation failed: Claude authentication was rejected (HTTP 401)", fix: retry},
+		{name: "rejected", status: http.StatusUnauthorized, title: "Token validation failed: Claude authentication was rejected (HTTP 401)", fix: accepted},
 		{name: "server error", status: http.StatusServiceUnavailable, title: "Token validation failed: Claude endpoint returned HTTP 503", fix: retry},
 		{name: "unreachable", failure: errors.New("offline"), title: "Token validation failed: Claude endpoint is unreachable: offline", fix: retry},
 		{name: "wrong endpoint", status: http.StatusNotFound, title: "Token validation failed: Claude endpoint returned HTTP 404",

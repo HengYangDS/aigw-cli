@@ -30,6 +30,7 @@ stdin rejected.txt
 exitcode 1 aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 cmp stdout refusal.txt
 
+# Its fix runs here: the same setup with a Token that the provider accepts.
 stdin token.txt
 exec aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 cmp stdout connected.txt
@@ -235,7 +236,7 @@ Problem
   Token validation failed: Claude authentication was rejected (HTTP 401)
 
 Fix
-  Run the same command again.
+  Pipe a Token that the provider accepts into the same command.
 -- connected.txt --
 AIGW  First-time setup
 ────────────────────────────────────────

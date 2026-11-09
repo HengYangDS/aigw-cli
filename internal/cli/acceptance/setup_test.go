@@ -156,13 +156,14 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 		}
 	})
 
-	// A Token that the provider rejects names the exact retry, which reads a
-	// Token again as the setup did, and keeps --json.
+	// A Token that the provider rejects names the same setup with a Token
+	// that the provider accepts, piped in as the setup read it, and keeps
+	// --json.
 	t.Run("token validation", func(t *testing.T) {
 		args := []string{"setup", "--route", "one", "--for", "claude", "--upstream-model", "m", "--anthropic-url", "https://one.test", "--token-stdin"}
 		for want, extra := range map[string][]string{
-			"Fix\n  aigw setup --anthropic-url https://one.test --for claude --route one --token-stdin --upstream-model m\n":                nil,
-			`"next_action": "aigw setup --anthropic-url https://one.test --for claude --json --route one --token-stdin --upstream-model m"`: {"--json"},
+			"Fix\n  Pipe a Token that the provider accepts into `aigw setup --anthropic-url https://one.test --for claude --route one --token-stdin --upstream-model m`.\n":                          nil,
+			`"next_detail": "Pipe a Token that the provider accepts into ` + "`aigw setup --anthropic-url https://one.test --for claude --json --route one --token-stdin --upstream-model m`" + `."`: {"--json"},
 		} {
 			app, out, _, _, httpClient := testApp(t, "token\n")
 			httpClient.status = http.StatusUnauthorized

@@ -102,33 +102,50 @@ func ConfigurationBusy(cmd *cobra.Command, args []string, err error) error {
 }
 
 // TokenRejection gives a Token that the provider rejected, with HTTP 401 or
-// 403, the exact retry of the command that sent it: the same command line,
-// which reads a Token again as it did. Any other error returns unchanged.
+// 403, the fix that runs the command that sent it again with a Token that
+// the provider accepts. Any other error returns unchanged.
 func TokenRejection(cmd *cobra.Command, err error) error {
 	if _, rejected := errors.AsType[*probe.TokenRejectedError](err); !rejected {
 		return err
 	}
-	return retryable{error: err, retry: Retry(cmd, cmd.Flags().Args())}
+	return rejectedTokenError{error: err, fix: acceptedTokenFix(cmd, cmd.Flags().Args(), "the provider")}
 }
 
-// retryable is a failure whose fix is to run its command again.
-type retryable struct {
+// rejectedTokenError is a failure whose fix is its command with another Token.
+type rejectedTokenError struct {
 	error
-	retry string
+	fix string
 }
 
-func (e retryable) Unwrap() error { return e.error }
+func (e rejectedTokenError) Unwrap() error { return e.error }
 
-// NextAction is the retry of the failed command.
-func (e retryable) NextAction() string { return e.retry }
+// NextAction is the command again with a Token that the provider accepts.
+func (e rejectedTokenError) NextAction() string { return e.fix }
+
+// acceptedTokenFix is the fix of a Token that provider rejected: the command
+// again with a Token that provider accepts, piped in when the command reads
+// its Token from standard input and entered at its prompt otherwise. Run with
+// the same Token, the command fails the same way, so a rejection, unlike an
+// endpoint that did not answer, never names the same command alone.
+func acceptedTokenFix(cmd *cobra.Command, args []string, provider string) string {
+	command := "the same command"
+	if line, isPlain := commandLine(cmd, args); isPlain {
+		command = "`" + line + "`"
+	}
+	if flag := cmd.Flags().Lookup("token-stdin"); flag != nil && flag.Changed {
+		return "Pipe a Token that " + provider + " accepts into " + command + "."
+	}
+	return "Run " + command + " again and enter a Token that " + provider + " accepts."
+}
 
 // TokenValidationProblem explains a Token that a command did not store,
 // because its provider rejected it or the request that validates it did not
-// complete. A rejected Token needs the same command again, which reads a new
-// Token, except from the read-only environment backend, whose variable must
-// change first. An endpoint that did not answer and a status that a later
-// request may not repeat need the same command again; any other status points
-// at the endpoint, which endpointFix corrects for the protocol that answered.
+// complete. A rejected Token needs the same command again with a Token that
+// the provider accepts, or, from the read-only environment backend, a new
+// value of its variable first. An endpoint that did not answer and a status
+// that a later request may not repeat need the same command again; any other
+// status points at the endpoint, which endpointFix corrects for the protocol
+// that answered.
 // The impact names the provider's previous Token only when secrets holds one.
 func TokenValidationProblem(cmd *cobra.Command, args []string, secrets secret.Store, provider string, endpointFix func(domain.EndpointProtocol) string, err error) error {
 	readOnly := secret.IsReadOnly(secrets)
@@ -150,7 +167,9 @@ func TokenValidationProblem(cmd *cobra.Command, args []string, secrets secret.St
 		if line, isPlain := commandLine(cmd, args); isPlain {
 			fix = "Set " + secret.EnvironmentKey(provider) + " to a Token that the provider accepts, then run `" + line + "`."
 		}
-	case answered, rejected, unreachable:
+	case rejected:
+		fix = acceptedTokenFix(cmd, args, "provider "+provider)
+	case answered, unreachable:
 		fix = Retry(cmd, args)
 	}
 	return terminal.ProblemError("Token validation failed: "+err.Error(), "", impact, fix, err)

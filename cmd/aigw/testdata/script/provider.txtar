@@ -71,6 +71,9 @@ exitcode 1 aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --tok
 normalize stdout add-rejected.out
 cmp add-rejected.out add-rejected.json
 stdin spare-token.txt
+fixloop -did 'piped a Token that provider spare accepts' stdout aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --token-stdin --json
+exec aigw provider remove spare
+stdin spare-token.txt
 exitcode 1 aigw provider add spare --endpoint responses=$UPSTREAM/unavailable/v1 --token-stdin
 normalize stdout add-unavailable.out
 cmp add-unavailable.out add-unavailable.txt
@@ -87,6 +90,10 @@ fixloop -input stdout aigw provider add spare --endpoint responses=$UPSTREAM/spa
 stdin rejected.txt
 exitcode 1 aigw provider rotate spare --token-stdin
 cmp stdout rotate-rejected.txt
+stdin rejected.txt
+exitcode 1 aigw provider rotate spare --token-stdin --json
+stdin spare-token.txt
+fixloop -did 'piped a Token that provider spare accepts' stdout aigw provider rotate spare --token-stdin --json
 stdin spare-token.txt
 exec aigw provider rotate spare --token-stdin --json
 cmp stdout rotated.json
@@ -455,7 +462,7 @@ Fix
   "ok": false,
   "error": "Token validation failed: Codex authentication was rejected (HTTP 401)",
   "impact": "No Token was stored.",
-  "next_action": "aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --json --token-stdin"
+  "next_detail": "Pipe a Token that provider spare accepts into `aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --json --token-stdin`."
 }
 -- added.json --
 {
@@ -507,7 +514,7 @@ Impact
   No Token was stored; the previous Token is unchanged.
 
 Fix
-  aigw provider rotate spare --token-stdin
+  Pipe a Token that provider spare accepts into `aigw provider rotate spare --token-stdin`.
 -- rotated.json --
 {
   "schema_version": 2,

@@ -14,9 +14,10 @@ import (
 )
 
 // TestTokenValidationProblemNamesAFixThatRuns shows each fix: a rejected Token
-// reruns the command, which reads a new Token, except from the environment
-// backend, whose variable must change first; a status that a later request
-// may not repeat reruns it; another status corrects the endpoint.
+// pipes a Token that the provider accepts into the same command, or enters it
+// at the command's prompt, except from the environment backend, whose
+// variable must change first; a status that a later request may not repeat
+// reruns the command; another status corrects the endpoint.
 func TestTokenValidationProblemNamesAFixThatRuns(t *testing.T) {
 	command := func(args ...string) *cobra.Command {
 		cmd := &cobra.Command{Use: "add", RunE: func(*cobra.Command, []string) error { return nil }}
@@ -44,7 +45,12 @@ func TestTokenValidationProblemNamesAFixThatRuns(t *testing.T) {
 		fix     string
 		impact  string
 	}{
-		{"rejected", command("team", "--token-stdin"), []string{"team"}, secret.NewMemoryStore(), rejected, "add team --token-stdin", "No Token was stored."},
+		{"rejected", command("team", "--token-stdin"), []string{"team"}, secret.NewMemoryStore(), rejected,
+			"Pipe a Token that provider team accepts into `add team --token-stdin`.", "No Token was stored."},
+		{"rejected at a prompt", command("team"), []string{"team"}, secret.NewMemoryStore(), rejected,
+			"Run `add team` again and enter a Token that provider team accepts.", "No Token was stored."},
+		{"rejected, needing quotes", command("two words", "--token-stdin"), []string{"two words"}, secret.NewMemoryStore(), rejected,
+			"Pipe a Token that provider team accepts into the same command.", "No Token was stored."},
 		{"rejected from the environment", command("team"), []string{"team"}, environment, rejected,
 			"Set AIGW_TOKEN_TEAM to a Token that the provider accepts, then run `add team`.", "Nothing changed."},
 		{"rejected from the environment, needing quotes", command("two words"), []string{"two words"}, environment, rejected,
