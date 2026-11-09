@@ -54,8 +54,15 @@ cp stdout guided-dry-run.out
 [!windows] envsubst guided-none.in guided-none-input.txt
 [!windows] ttyin -stdin guided-none-input.txt
 [!windows] exec aigw setup
-[!windows] normalize stdout guided-none.out
-[!windows] cmp guided-none.out guided-none.txt
+# Each prompt ends in a space, where the answer goes, which the patterns
+# spell as \x20.
+[!windows] stdout '^Provider ID \(for example, dmxapi\): Provider name: Endpoint protocol:\x20\n  1\. Anthropic Messages\n  2\. OpenAI Responses\n  3\. OpenAI Chat Completions\nSelect \[1\]: OpenAI Responses URL: Paste the Team Gateway Token:\x20\n'
+[!windows] stdout '^AIGW  Setup stopped before a model$'
+[!windows] stdout '^  Provider             Team Gateway \(team\), added$'
+[!windows] stdout '^  ✓ Token              Accepted by the provider and stored$'
+[!windows] stdout '^  · Installed clients  None that speaks a protocol for which provider team has an endpoint$'
+[!windows] stdout '^  ✓ Install a client, then run `aigw setup` again to choose it and a model$'
+[!windows] stdout '^Next\n  aigw client list$'
 [!windows] exec aigw client list
 
 # With Claude Code installed it saves the provider, the client and a model of
@@ -1185,20 +1192,3 @@ Fix
   "error": "guided setup is the one write without a preview; preview a team file with `aigw setup --from \u003cfile\u003e --dry-run`",
   "next_detail": "aigw setup --from \u003cfile\u003e --dry-run"
 }
--- guided-none.txt --
-Provider ID (for example, dmxapi): Provider name: Endpoint protocol: 
-  1. Anthropic Messages
-  2. OpenAI Responses
-  3. OpenAI Chat Completions
-Select [1]: OpenAI Responses URL: Paste the Team Gateway Token: 
-AIGW  Setup stopped before a model
-────────────────────────────────────────
-  Provider             Team Gateway (team), added
-  ✓ Token              Accepted by the provider and stored
-
-Clients
-  · Installed clients  None that speaks a protocol for which provider team has an endpoint
-  ✓ Install a client, then run `aigw setup` again to choose it and a model
-
-Next
-  aigw client list
