@@ -54,7 +54,10 @@ type temporaryFile interface {
 // file is a valid snapshot because sidecars are optional.
 func CaptureFileSnapshot(path string) (FileSnapshot, error) {
 	file, err := os.Open(path)
-	if os.IsNotExist(err) {
+	if absent, refusal := MissingAt(path, err); absent || refusal != nil {
+		if refusal != nil {
+			return FileSnapshot{}, fmt.Errorf("read %s: %w", path, refusal)
+		}
 		return FileSnapshot{}, nil
 	}
 	if err != nil {

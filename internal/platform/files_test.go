@@ -104,6 +104,20 @@ func TestCaptureFileSnapshotOfMissingFileIsEmptyNotError(t *testing.T) {
 	}
 }
 
+// A snapshot of a path that runs through a regular file is a read failure, not
+// an optional sidecar that is absent: on Windows such a path reads as missing,
+// and a caller would then plan a write over a state that is not there.
+func TestCaptureFileSnapshotRefusesAPathThroughAFile(t *testing.T) {
+	root := t.TempDir()
+	file := filepath.Join(root, "file")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := platform.CaptureFileSnapshot(filepath.Join(file, "sidecar")); err == nil || !errors.Is(err, platform.ErrFileAsFolder) {
+		t.Fatalf("a snapshot through a file = %v", err)
+	}
+}
+
 func TestCaptureFileSnapshotSurfacesReadErrors(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		dir := t.TempDir()

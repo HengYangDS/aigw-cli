@@ -383,7 +383,10 @@ func (s Store) Load() (domain.Config, error) {
 // credential reader.
 func (s Store) LoadCredentialConfig() (domain.Config, error) {
 	data, err := os.ReadFile(s.path)
-	if errors.Is(err, os.ErrNotExist) {
+	if absent, refusal := platform.MissingAt(s.path, err); absent || refusal != nil {
+		if refusal != nil {
+			return domain.Config{}, newLoadError(LoadPhaseRead, refusal)
+		}
 		forwarding, forwardingErr := platform.CaptureFileSnapshot(s.componentPath(forwardingComponent))
 		if forwardingErr != nil || forwarding.Exists {
 			return domain.Config{}, newLoadError(LoadPhaseRead, errors.Join(errors.New("client forwarding has no canonical configuration"), forwardingErr))

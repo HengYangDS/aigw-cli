@@ -4,6 +4,7 @@ package uninstall
 
 import (
 	"aigw-cli/internal/cli/invocation"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/program"
 	"aigw-cli/internal/terminal"
 	"errors"
@@ -74,12 +75,18 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return err
 			}
 			_, targetErr := os.Stat(target)
-			if targetErr != nil && !errors.Is(targetErr, os.ErrNotExist) {
+			absentTarget, refusal := platform.MissingAt(target, targetErr)
+			if refusal != nil {
+				return fmt.Errorf("inspect installed AIGW executable: %w", refusal)
+			}
+			if targetErr != nil && !absentTarget {
 				return fmt.Errorf("inspect installed AIGW executable: %w", targetErr)
 			}
 			programFound := targetErr == nil
 			_, statErr := os.Stat(runtime.Config.Path())
-			if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
+			if absent, refusal := platform.MissingAt(runtime.Config.Path(), statErr); refusal != nil {
+				return fmt.Errorf("inspect AIGW configuration: %w", refusal)
+			} else if !absent && statErr != nil {
 				return fmt.Errorf("inspect AIGW configuration: %w", statErr)
 			}
 			if dryRun {

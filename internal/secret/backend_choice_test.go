@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"aigw-cli/internal/platform"
 )
 
 func TestBackendChoiceLifecycleAndValidation(t *testing.T) {
@@ -155,5 +157,20 @@ func TestBackendChoicePreservesInvalidStorage(t *testing.T) {
 				t.Fatalf("refusal changed unowned storage contents: %v", err)
 			}
 		})
+	}
+}
+
+// A Token directory that runs through a regular file is not an absent store
+// that holds no Token: on Windows such a path reads as missing, and a write
+// would then fail on a state that is not there.
+func TestAFileStoreRootThroughAFileIsRefused(t *testing.T) {
+	root := t.TempDir()
+	file := filepath.Join(root, "file")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := newFileStore(filepath.Join(file, "secrets", "tokens"))
+	if _, err := store.Exists("team"); err == nil || !errors.Is(err, platform.ErrFileAsFolder) {
+		t.Fatalf("a Token directory through a file = %v", err)
 	}
 }

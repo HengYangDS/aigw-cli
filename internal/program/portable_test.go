@@ -7,6 +7,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"aigw-cli/internal/platform"
 )
 
 func TestInstallCopiesCurrentExecutableAndPreservesOnePredecessor(t *testing.T) {
@@ -264,5 +266,27 @@ func TestPlanInstallRefusesAPathThroughAFile(t *testing.T) {
 	}
 	if _, err := PlanInstall(source, filepath.Join(root, "missing", "aigw")); err != nil {
 		t.Fatalf("a target under a folder that does not exist yet = %v", err)
+	}
+}
+
+// A program file that runs through a regular file is refused before anything
+// is written or removed, on Windows too, where such a path reads as a missing
+// one and an uninstall would report nothing to remove.
+func TestPlanInstallRefusesAProgramThroughAFile(t *testing.T) {
+	root := t.TempDir()
+	file := filepath.Join(root, "file")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(root, "aigw")
+	if err := os.WriteFile(source, []byte("AIGW fixture"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PlanInstall(source, filepath.Join(file, "aigw")); err == nil || !errors.Is(err, platform.ErrFileAsFolder) {
+		t.Fatalf("an install through a file = %v", err)
+	}
+	_, err := PlanUninstall(filepath.Join(file, "aigw"))
+	if err == nil || !errors.Is(err, syscall.ENOTDIR) {
+		t.Fatalf("an uninstall through a file = %v", err)
 	}
 }

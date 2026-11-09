@@ -105,6 +105,9 @@ func LocalFailure(version string, err error) error {
 		return err
 	}
 	evidence, _ := ConfigurationLoadEvidence("AIGW "+version, err)
+	if fix, blocked := blockedConfigurationFix(err); blocked {
+		return ProblemError(configurationLoadTitle(failure.Phase), evidence, "", fix, err)
+	}
 	return ProblemError(configurationLoadTitle(failure.Phase), evidence, "", configurationLoadFix(failure.Phase), err)
 }
 
@@ -156,6 +159,32 @@ func ConfigurationLoadFix(err error) string {
 	return configurationLoadFix(phase)
 }
 
+// blockedConfigurationFix names, for a configuration that could not be read
+// because its folder or a folder above it is a regular file, that file to move.
+// A read permission or a parse fix acts on nothing there, and on Windows the
+// same failure reads as a missing file.
+func blockedConfigurationFix(err error) (string, bool) {
+	// The command's own home, which its environment names: no configuration
+	// loaded, so no record of it is available.
+
+	if !errors.Is(err, platform.ErrFileAsFolder) {
+		return "", false
+	}
+	failure, atPath := errors.AsType[*os.PathError](err)
+	if !atPath {
+		return "", false
+	}
+	blocking, atFile := errors.AsType[*os.PathError](platform.FileInTheWay(failure.Path))
+	if !atFile {
+		return "", false
+	}
+	name, _ := platform.HomeTarget(blocking.Path, HomeDirectory(os.Environ()))
+	if name == "" {
+		return "Move the file that stands where AIGW's folder belongs, then run the same command again.", true
+	}
+	return "Move the file " + name + ", or choose another path, then run the same command again.", true
+}
+
 func configurationLoadFix(phase store.LoadPhase) string {
 	switch phase {
 	case store.LoadPhaseRead:
@@ -189,6 +218,10 @@ func ManifestReadFailure(path string, err error) error {
 		fix = "Name a team file that exists, then run the same command again."
 	case errors.Is(err, fs.ErrPermission):
 		fix = "Make " + path + " readable by you, then run the same command again."
+	}
+	if failure, atFile := errors.AsType[*os.PathError](platform.FileInTheWay(path)); atFile {
+		reason = platform.ErrFileAsFolder.Error()
+		fix = "Move the file " + failure.Path + ", or choose another path, then run the same command again."
 	}
 	return ProblemError("Cannot read the team file "+path+": "+reason, "", "Nothing was imported.", fix, err)
 }
@@ -539,6 +572,9 @@ func typedErrorFix(err error) (string, bool) {
 		return fmt.Sprintf("aigw use %s <provider/model>", unselected.Client), true
 	}
 	if failure, ok := errors.AsType[*store.LoadError](err); ok {
+		if fix, blocked := blockedConfigurationFix(err); blocked {
+			return fix, true
+		}
 		return configurationLoadFix(failure.Phase), true
 	}
 	if _, ok := errors.AsType[*toml.DecodeError](err); ok {

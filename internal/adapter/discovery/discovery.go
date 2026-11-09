@@ -4,13 +4,14 @@
 package discovery
 
 import (
-	"errors"
 	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
+
+	"aigw-cli/internal/platform"
 )
 
 // Result contains discovered client executables and independently addressable configuration surfaces.
@@ -127,7 +128,9 @@ func executableAvailable(goos, path string) (bool, error) {
 		return false, nil
 	}
 	info, err := os.Stat(path)
-	if errors.Is(err, os.ErrNotExist) {
+	if absent, refusal := platform.MissingAt(path, err); refusal != nil {
+		return false, refusal
+	} else if absent {
 		return false, nil
 	}
 	if err != nil {

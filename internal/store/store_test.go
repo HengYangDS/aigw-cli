@@ -2,6 +2,7 @@ package store
 
 import (
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"bytes"
 	"context"
 	"errors"
@@ -472,4 +473,20 @@ func securePersistedFileMode() os.FileMode {
 		return 0o666
 	}
 	return 0o600
+}
+
+// A configuration path that runs through a regular file is a read failure and
+// never a fresh configuration: on Windows such a path reads as missing, and a
+// first run would act on a state that is not there.
+func TestLoadRefusesAConfigurationThroughAFile(t *testing.T) {
+	root := t.TempDir()
+	file := filepath.Join(root, "file")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(filepath.Join(file, "configuration.toml"), testAdmission())
+	_, err := store.LoadCredentialConfig()
+	if err == nil || !errors.Is(err, platform.ErrFileAsFolder) || !strings.Contains(err.Error(), file) {
+		t.Fatalf("a configuration through a file = %v", err)
+	}
 }

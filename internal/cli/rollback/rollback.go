@@ -6,6 +6,7 @@ package rollback
 import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/terminal"
 	"errors"
 	"os"
@@ -42,8 +43,14 @@ func rollbackFailureImpact(err error) string {
 // configuration that stays.
 func unavailable(runtime invocation.Context, cause error) error {
 	fix := "aigw check --depth local"
-	if _, err := os.Stat(runtime.Config.Path()); errors.Is(err, os.ErrNotExist) {
-		fix = "aigw setup"
+	if _, err := os.Stat(runtime.Config.Path()); err != nil {
+		absent, refusal := platform.MissingAt(runtime.Config.Path(), err)
+		switch {
+		case refusal != nil:
+			fix = "Move the file " + refusal.Error() + ", then run the same command again."
+		case absent:
+			fix = "aigw setup"
+		}
 	}
 	return terminal.ProblemError(
 		"Configuration rollback is unavailable",

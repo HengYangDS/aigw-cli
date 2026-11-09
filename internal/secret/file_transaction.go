@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"aigw-cli/internal/platform"
 )
 
 const credentialStagingPrefix = ".token-"
@@ -58,7 +60,9 @@ func openSecureRoot(path string, create bool) (*os.Root, error) {
 		}
 	}
 	before, err := os.Lstat(path)
-	if errors.Is(err, os.ErrNotExist) && !create {
+	if absent, refusal := platform.MissingAt(path, err); refusal != nil {
+		return nil, fmt.Errorf("inspect Token directory: %w", refusal)
+	} else if absent && !create {
 		return nil, nil
 	}
 	if err != nil {

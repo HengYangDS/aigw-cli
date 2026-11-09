@@ -48,6 +48,34 @@ func MissingAt(path string, err error) (absent bool, refusal error) {
 	return errors.Is(err, fs.ErrNotExist), nil
 }
 
+// FileInTheWay names the regular file that stands where a folder is needed on
+// path, reporting it as a refusal with ErrFileAsFolder, or returns nil. Unlike
+// RefuseFileAsFolder it includes path itself, because an operation that
+// creates a directory reports the blocking file as the path.
+func FileInTheWay(path string) error {
+	return fileOnPath(path, true)
+}
+
+// DanglingLinkInPath names the symbolic link on path, which is path itself or
+// one of its folders, that leads to nothing or to no folder, and reports
+// whether there is one. A create through such a link fails with "file exists"
+// on POSIX and with a missing path on Windows, so a check that only asks
+// whether the folder exists reads the link as a folder to create.
+func DanglingLinkInPath(path string) (string, bool) {
+	for folder := filepath.Clean(path); ; folder = filepath.Dir(folder) {
+		info, err := os.Lstat(folder)
+		if err == nil && info.Mode()&os.ModeSymlink != 0 {
+			target, statErr := os.Stat(folder)
+			if statErr != nil || !target.IsDir() {
+				return folder, true
+			}
+		}
+		if err == nil || filepath.Dir(folder) == folder {
+			return "", false
+		}
+	}
+}
+
 // fileOnPath finds the regular file that stands where a folder is needed on
 // path, naming it with ErrFileAsFolder, or returns nil. withPath includes path
 // itself, which an operation that creates it reports, while a path that only

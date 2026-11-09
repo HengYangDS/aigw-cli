@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"aigw-cli/internal/platform"
 )
 
 // ErrHomebrewManaged means a valid Homebrew receipt owns the executable, which
@@ -92,7 +94,9 @@ func resolveExistingParent(path string) (string, error) {
 		return path, nil
 	}
 	resolved, err := filepath.EvalSymlinks(parent)
-	if errors.Is(err, os.ErrNotExist) {
+	if absent, refusal := platform.MissingAt(parent, err); refusal != nil {
+		return "", fmt.Errorf("resolve installation parent: %w", refusal)
+	} else if absent {
 		resolved, err = resolveExistingParent(parent)
 	}
 	if err != nil {

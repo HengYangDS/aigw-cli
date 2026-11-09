@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/store"
 
@@ -129,6 +131,31 @@ func TestLocalFailureKeepsOtherErrorsUnchanged(t *testing.T) {
 
 // ConfigurationLoadFix names `aigw config path` for an error that is not a
 // load failure, without inventing a stage.
+// A configuration that could not be read because a regular file stands where
+// its folder belongs names that file to move, as ~/… inside the home
+// directory, and never a read permission to restore, which acts on nothing.
+func TestALoadFailureThroughAFileNamesTheFileToMove(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	blocking := filepath.Join(home, "Library", "Application Support", "aigw")
+	if err := os.MkdirAll(filepath.Dir(blocking), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(blocking, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config := filepath.Join(blocking, "config.toml")
+	err := &store.LoadError{Phase: store.LoadPhaseRead, Err: platform.FileInTheWay(config)}
+	problem := ProblemFor(LocalFailure("9.8.7", err))
+	if want := "Move the file ~/Library/Application Support/aigw, or choose another path, then run the same command again."; problem.Fix != want {
+		t.Fatalf("the fix = %q, want %q", problem.Fix, want)
+	}
+	if strings.Contains(problem.Fix, home) {
+		t.Fatalf("the fix names the private home: %q", problem.Fix)
+	}
+}
+
 func TestConfigurationLoadFixWithoutALoadFailure(t *testing.T) {
 	got := ConfigurationLoadFix(errors.New("configuration manifest: unreadable"))
 	if got != "Correct the configuration file, or restore it from a backup; `aigw config path` prints its location." {
