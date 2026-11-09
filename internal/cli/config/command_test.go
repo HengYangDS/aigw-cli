@@ -84,6 +84,15 @@ func TestPathPrintsTheConfiguredStorePath(t *testing.T) {
 	if got := strings.TrimSpace(out.String()); got != path {
 		t.Fatalf("path output = %q, want %q", got, path)
 	}
+	out.Reset()
+	command.SetArgs([]string{"path", "--json"})
+	var document struct {
+		SchemaVersion int    `json:"schema_version"`
+		Path          string `json:"path"`
+	}
+	if err := executeManifestCommand(command); err != nil || json.Unmarshal(out.Bytes(), &document) != nil || document.Path != path || document.SchemaVersion != pathSchemaVersion {
+		t.Fatalf("path document = %v, %s", err, out)
+	}
 }
 
 func TestPathReturnsOutputFailure(t *testing.T) {
