@@ -26,13 +26,17 @@ normalize stdout list.out
 cmp list.out list.json
 exitcode 1 aigw provider list stray --json
 cmp stdout list-refusal.json
+fixloop -input stdout aigw provider list stray --json
 exec aigw provider show team --json
 normalize stdout show.out
 cmp show.out show.json
 exitcode 1 aigw provider show tem --json
 cmp stdout show-unknown.json
+fixloop -input stdout aigw provider show tem --json
 exitcode 1 aigw provider show
 cmp stdout show-missing.txt
+exitcode 1 aigw provider show --json
+fixloop -input stdout aigw provider show --json
 
 # Previews read no Token, send no request and write nothing below the home.
 snapshot $HOME before.txt
@@ -51,8 +55,14 @@ cmp after.txt before.txt
 exitcode 1 aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1
 normalize stdout add-no-terminal.out
 cmp add-no-terminal.out add-no-terminal.txt
+exitcode 1 aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --json
+stdin spare-token.txt
+fixloop -input stdout aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --json
+exec aigw provider remove spare
 exitcode 1 aigw provider rotate team --json
 cmp stdout rotate-no-terminal.json
+stdin token.txt
+fixloop -input stdout aigw provider rotate team --json
 
 # A Token that the provider rejects, or whose check cannot complete, is not
 # stored, and the previous one stays.
@@ -64,12 +74,16 @@ stdin spare-token.txt
 exitcode 1 aigw provider add spare --endpoint responses=$UPSTREAM/unavailable/v1 --token-stdin
 normalize stdout add-unavailable.out
 cmp add-unavailable.out add-unavailable.txt
+# fixloop does not follow this fix: it retries an HTTP 503, which this
+# endpoint returns on every request.
 stdin spare-token.txt
 exec aigw provider add spare --label Spare --endpoint responses=$UPSTREAM/spare/v1 --token-stdin --json
 normalize stdout added.out
 cmp added.out added.json
 exitcode 1 aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --token-stdin
 cmp stdout add-exists.txt
+exitcode 1 aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --token-stdin --json
+fixloop -input stdout aigw provider add spare --endpoint responses=$UPSTREAM/spare/v1 --token-stdin --json
 stdin rejected.txt
 exitcode 1 aigw provider rotate spare --token-stdin
 cmp stdout rotate-rejected.txt
@@ -84,10 +98,16 @@ normalize stdout edited.out
 cmp edited.out edited.json
 exitcode 1 aigw provider edit team --json
 cmp stdout edit-nothing.json
+fixloop -input stdout aigw provider edit team --json
 exitcode 1 aigw provider edit team --balance-token-stdin
 cmp stdout edit-pair.txt
+exitcode 1 aigw provider edit team --json --balance-token-stdin
+fixloop -input stdout aigw provider edit team --json --balance-token-stdin
 exitcode 1 aigw provider edit spare --balance-token-stdin --balance-user-id 42
 cmp stdout edit-no-probe.txt
+# fixloop does not follow this fix: it exports the team file that would set
+# spare's balance probe, and `aigw setup --from` refuses to apply the changed
+# file to a configured home until setup can run again.
 stdin system.txt
 exec aigw provider edit team --balance-token-stdin --balance-user-id 42
 normalize stdout edit-balance.out
@@ -101,8 +121,13 @@ exec aigw provider balance spare --json
 cmp stdout balance-spare.json
 exitcode 1 aigw provider balance --json
 cmp stdout balance.json
+stdin system.txt
+exec aigw provider edit mixed --balance-token-stdin --balance-user-id 42
+fixloop -did 'stored the balance token of mixed for user 42' balance.json aigw provider balance --json
+exec aigw provider edit mixed --no-balance-token
 exitcode 1 aigw provider balance tem --json
 cmp stdout balance-unknown.json
+fixloop -input stdout aigw provider balance tem --json
 
 # A model that a client selects keeps its provider, even in a preview, and an
 # unused provider goes with its models and drops Hermes's recommendation.
@@ -131,10 +156,27 @@ cmp stdout removed-environment.txt
 exitcode 1 aigw provider add other --endpoint responses=$UPSTREAM/other/v1 --dry-run --token-stdin
 normalize stdout environment-stdin.out
 cmp environment-stdin.out environment-stdin.txt
+exitcode 1 aigw provider add other --endpoint responses=$UPSTREAM/other/v1 --dry-run --token-stdin --json
+cp stdout environment-stdin.json
+env AIGW_TOKEN_OTHER=sk-other-token-0001
+exec aigw provider add other --dry-run --endpoint responses=$UPSTREAM/other/v1
+fixloop -input -did 'set AIGW_TOKEN_OTHER and previewed without --token-stdin' environment-stdin.json aigw provider add other --endpoint responses=$UPSTREAM/other/v1 --dry-run --token-stdin --json
 env AIGW_TOKEN_OTHER=sk-rejected-token
 exitcode 1 aigw provider add other --endpoint responses=$UPSTREAM/other/v1 --json
 normalize stdout environment-rejected.out
 cmp environment-rejected.out environment-rejected.json
+env AIGW_TOKEN_OTHER=sk-other-token-0001
+fixloop -did 'set AIGW_TOKEN_OTHER to a Token that the provider accepts' stdout aigw provider add other --endpoint responses=$UPSTREAM/other/v1 --json
+
+# A provider whose model a client uses is removed once the client moves to
+# another provider's model, as its refusal names.
+env AIGW_SECRET_BACKEND=file
+stdin spare-token.txt
+exec aigw provider add spare --endpoint anthropic=$UPSTREAM --token-stdin
+exec aigw model add spare/team-model
+exec aigw use claude spare/team-model
+fixloop -did 'moved Claude to spare/team-model' remove-blocked.json aigw provider remove team --dry-run --json
+fixloop -did 'moved Claude to spare/team-model' remove-selected.json aigw provider remove team --json
 
 # A configuration without models is valid: in an empty home, add needs no
 # model, the clients then select nothing and name how to select one, and
