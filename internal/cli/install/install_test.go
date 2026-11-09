@@ -2,6 +2,7 @@ package install
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -137,6 +138,56 @@ func TestInstallCommandNamesTheTargetThatItCannotUse(t *testing.T) {
 
 // A preview into a folder that does not exist yet says that installing
 // creates it, as the write does, and creates nothing.
+// A preview's derived paths are written with "/" in its document, as every
+// document writes a path, while the human rows name the operator's own
+// spelling. A Windows separator in the document would break a script that reads
+// it as JSON, and the goldens cannot show it on this host.
+func TestInstallPreviewWritesDerivedPathsWithSlashes(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "aigw")
+	if err := os.WriteFile(source, []byte("current"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(root, "new", "aigw")
+	out := new(bytes.Buffer)
+	command := NewCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target, Out: out})
+	command.SetArgs([]string{"--dry-run", "--json"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		CreatesFolder string `json:"creates_folder"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &document); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if want := filepath.ToSlash(filepath.Dir(target)); document.CreatesFolder != want || strings.Contains(document.CreatesFolder, `\`) {
+		t.Fatalf("creates_folder = %q, want %q", document.CreatesFolder, want)
+	}
+	previous := filepath.Join(root, "old", "aigw")
+	if err := os.MkdirAll(filepath.Dir(previous), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(previous, []byte("previous"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	command = NewCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: previous, Out: out})
+	command.SetArgs([]string{"--dry-run", "--json"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var replaced struct {
+		Rollback string `json:"rollback"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &replaced); err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if strings.Contains(replaced.Rollback, `\`) || replaced.Rollback != filepath.ToSlash(replaced.Rollback) {
+		t.Fatalf("rollback = %q", replaced.Rollback)
+	}
+}
+
 func TestInstallPreviewSaysThatItCreatesAMissingFolder(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "aigw")

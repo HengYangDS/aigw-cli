@@ -113,9 +113,14 @@ func PlanUninstall(target string) ([]string, error) {
 	}
 	present := []string{}
 	for _, path := range []string{target, RollbackPath(target)} {
-		if _, err := os.Lstat(path); err == nil {
+		_, err := os.Lstat(path)
+		if err == nil {
 			present = append(present, path)
-		} else if !errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if absent, refusal := platform.MissingAt(path, err); refusal != nil {
+			return nil, fmt.Errorf("inspect portable AIGW file %s: %w", path, refusal)
+		} else if !absent {
 			return nil, fmt.Errorf("inspect portable AIGW file %s: %w", path, err)
 		}
 	}

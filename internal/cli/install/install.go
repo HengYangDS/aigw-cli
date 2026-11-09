@@ -85,14 +85,17 @@ func previewInstall(cmd *cobra.Command, runtime invocation.Context, target strin
 	if plan.Unchanged {
 		next = installedNext
 	}
+	// Path is the operator's own spelling. Every derived path in the document is
+	// written with "/", as every other document writes one: a Windows separator
+	// would otherwise reach a script that reads the document as JSON.
 	rollback := ""
 	if plan.Rollback != "" {
-		rollback = program.RollbackPath(target)
+		rollback = filepath.ToSlash(program.RollbackPath(target))
 	}
 	// The write creates a missing folder, so the preview says that it will.
 	creates := ""
 	if folder := filepath.Dir(target); !folderExists(folder) {
-		creates = folder
+		creates = filepath.ToSlash(folder)
 	}
 	if jsonMode {
 		document := installDocument{DryRun: true, Path: target, Version: runtime.Version, Rollback: rollback, Unchanged: plan.Unchanged, CreatesFolder: creates, NextDetail: next}
@@ -111,7 +114,7 @@ func previewInstall(cmd *cobra.Command, runtime invocation.Context, target strin
 		rows = append(rows, terminal.Field{Label: "Rollback copy", Value: rollback})
 	}
 	if creates != "" {
-		rows = append(rows, terminal.Field{Label: "Creates folder", Value: creates})
+		rows = append(rows, terminal.Field{Label: "Creates folder", Value: filepath.FromSlash(creates)})
 	}
 	r.Rows(rows...)
 	r.Success("Preview did not write the program, a rollback copy or a directory")
