@@ -205,6 +205,11 @@ func fileErrorReason(err error) string {
 // knownFileErrorReason names an operating-system file error from the closed
 // set, and reports whether err is one.
 func knownFileErrorReason(err error) (string, bool) {
+	// Before the operating system's number, whose text for this on Windows
+	// says that the path cannot be found.
+	if errors.Is(err, platform.ErrFileAsFolder) {
+		return platform.ErrFileAsFolder.Error(), true
+	}
 	if number, ok := errors.AsType[syscall.Errno](err); ok {
 		return number.Error(), true
 	}

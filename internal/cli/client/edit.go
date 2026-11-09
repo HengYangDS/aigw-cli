@@ -172,8 +172,12 @@ func checkEdit(cmd *cobra.Command, admission domain.Admission, spec domain.Clien
 	if err := checkTargetsRead(cmd, admission, spec, options.targets); err != nil {
 		return err
 	}
-	_, err := absoluteTargets(cmd, options.targets)
-	return err
+	absolute, err := absoluteTargets(cmd, options.targets)
+	if err != nil {
+		return err
+	}
+	// As enable does, before any validator or discovery.
+	return refuseTargetsUnderFiles(absolute)
 }
 
 // absoluteTargets returns each --target as an absolute path, so that the

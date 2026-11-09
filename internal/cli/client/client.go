@@ -107,8 +107,13 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 		if err := checkTargetsRead(cmd, runtime.Clients.Admission(), spec, targets); err != nil {
 			return err
 		}
-		_, err = absoluteTargets(cmd, targets)
-		return err
+		absolute, err := absoluteTargets(cmd, targets)
+		if err != nil {
+			return err
+		}
+		// A file that no client can read is refused before any validator,
+		// discovery or route check, which would report it otherwise.
+		return refuseTargetsUnderFiles(absolute)
 	}, RunE: func(cmd *cobra.Command, args []string) error {
 		client := args[0]
 		spec, _ := runtime.Clients.Admission().Spec(client)

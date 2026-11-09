@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"aigw-cli/internal/adapter"
@@ -82,10 +83,23 @@ func FileAccessFailure(err error, file string) error {
 	}
 	reason := fileErrorReason(err)
 	fix := "Resolve " + reason + " on " + file + ", then run the same command again."
-	if errors.Is(err, fs.ErrPermission) {
+	switch {
+	case errors.Is(err, fs.ErrPermission):
 		fix = "Make " + file + " and its folder writable, then run the same command again."
+	case errors.Is(err, platform.ErrFileAsFolder):
+		fix = "Move the file " + fileAsFolder(err) + ", or choose another path, then run the same command again."
+	case errors.Is(err, fs.ErrNotExist):
+		fix = "Create " + filepath.Dir(file) + ", or choose another path, then run the same command again."
 	}
 	return ProblemError("AIGW cannot use "+file+": "+reason, "", "", fix, err)
+}
+
+// fileAsFolder is the file that stands where a folder is needed in err.
+func fileAsFolder(err error) string {
+	if failure, atPath := errors.AsType[*fs.PathError](err); atPath {
+		return failure.Path
+	}
+	return "in the path"
 }
 
 // targetReason says why a client file could not be used: an operating-system
