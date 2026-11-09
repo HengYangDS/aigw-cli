@@ -21,6 +21,7 @@ exitcode 1 aigw use claud --json
 cmp stdout typo.json
 snapshot $HOME typo-home.txt
 cmp typo-home.txt fresh-home.txt
+fixloop -input stdout aigw use claud --json
 
 stdin token.txt
 exec aigw provider add team --label 'Team Gateway' --endpoint anthropic=$UPSTREAM --endpoint responses=$UPSTREAM/v1 --token-stdin
@@ -79,6 +80,7 @@ cmp stdout fresh-unlisted.json
 exec aigw use claude fresh/fresh-model
 normalize stdout fresh.out
 cmp fresh.out fresh.txt
+fixloop -input fresh-unlisted.json aigw use claude fresh/fresh-models --json
 exec aigw use claude fresh/private-model --unlisted --dry-run --json
 stdout '"next_action": "aigw use claude fresh/private-model --unlisted"'
 exec aigw use claude fresh/private-model --unlisted --json
@@ -87,7 +89,7 @@ stdout '"catalog_checked": false'
 exitcode 1 aigw use codex fresh/fresh-model --json
 cmp stdout no-endpoint.json
 exec aigw provider edit fresh --endpoint responses=$UPSTREAM/fresh/v1
-exec aigw use codex fresh/fresh-model --json
+fixloop -did 'gave provider fresh an OpenAI Responses endpoint' no-endpoint.json aigw use codex fresh/fresh-model --json
 stdout '"gained_protocol": "responses"'
 stdout '"catalog_checked": true'
 
@@ -102,11 +104,11 @@ stdout '"protocol": "responses"'
 # names the selection that moves Hermes first; run as named, it lets the edit
 # succeed.
 exec aigw use hermes team/team-model --protocol responses
+fixloop -did 'chose OpenAI Responses for Hermes' hermes-protocol.json aigw use hermes team/team-model --json
 exitcode 1 aigw model edit team/team-model --protocol anthropic --json
 stdout '"next_action": "aigw use hermes team/team-model --protocol anthropic"'
-exec aigw use hermes team/team-model --protocol anthropic
-stdout 'Model selected'
-exec aigw model edit team/team-model --protocol anthropic
+fixloop stdout aigw model edit team/team-model --protocol anthropic --json
+stdout '"ok": true'
 
 # Claude Desktop lists every model of its provider that it can use, and its
 # tool search needs each of them to declare tool_search. A model to which
@@ -157,27 +159,37 @@ exitcode 1 aigw use claude mixed/twin --json
 cmp stdout no-token.json
 stdin mixed-token.txt
 exec aigw provider rotate mixed --token-stdin
-exec aigw use claude mixed/twin
-stdout 'Model selected'
+fixloop -did 'piped the Token into aigw provider rotate mixed --token-stdin' no-token.json aigw use claude mixed/twin --json
+stdout '"model": "mixed/twin"'
 
 # Refusals name what is missing or wrong before anything is read.
 exitcode 1 aigw use claude --json
 cmp stdout missing-model.json
+fixloop -input stdout aigw use claude --json
 exitcode 1 aigw use team/team-model
 cmp stdout missing-client.txt
+exitcode 1 aigw use team/team-model --json
+fixloop -input stdout aigw use team/team-model --json
 exitcode 1 aigw use claud team/team-model --json
 cmp stdout unknown-client.json
+fixloop -input stdout aigw use claud team/team-model --json
 exitcode 1 aigw use claude team-model --json
 cmp stdout no-provider.json
+fixloop -input stdout aigw use claude team-model --json
 exitcode 1 aigw use team-model --json
 cmp stdout no-client.json
+fixloop -input stdout aigw use team-model --json
 # Its fix runs as printed and lists the models that the word could mean.
 exec aigw model list team-model
 stdout 'team/team-model'
 exitcode 1 aigw use claude team/missing-model --json
 cmp stdout unknown-model.json
+exec aigw use claude team/missing-model --unlisted
+fixloop -did 'added team/missing-model with --unlisted, as the provider serves it' unknown-model.json aigw use claude team/missing-model --json
 exitcode 1 aigw use claude team/team-model --protocol openai_responses
 cmp stdout protocol-refusal.txt
+exitcode 1 aigw use claude team/team-model --json --protocol openai_responses
+fixloop -input stdout aigw use claude team/team-model --json --protocol openai_responses
 
 -- token.txt --
 sk-team-token-0001
