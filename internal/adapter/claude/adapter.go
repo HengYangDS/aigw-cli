@@ -101,14 +101,14 @@ func (claudeAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg d
 		return adapter.Status{Issue: "Claude adapter is disabled", RepairAction: "aigw sync"}
 	}
 	if clientAdapter.Executable == "" {
-		return adapter.Status{Issue: "Claude executable is not configured", RepairAction: "aigw repair"}
+		return adapter.Status{Issue: "Claude executable is not configured", RepairAction: "aigw sync"}
 	}
 	ready, err := discovery.ExecutableAvailable(clientAdapter.Executable)
 	if err != nil {
-		return adapter.Status{Issue: "Cannot inspect Claude executable", RepairAction: "aigw repair"}
+		return adapter.Status{Issue: "Cannot inspect Claude executable", RepairAction: "aigw sync"}
 	}
 	if !ready {
-		return adapter.Status{Issue: "Claude executable is unavailable", RepairAction: "aigw repair"}
+		return adapter.Status{Issue: "Claude executable is unavailable", RepairAction: "aigw sync"}
 	}
 	settings, err := SettingsPath(deps.Host)
 	if err != nil {

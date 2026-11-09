@@ -84,7 +84,7 @@ func TestClassifyClientUsesOneLocalStateVocabulary(t *testing.T) {
 				ProjectionIssue:     "Claude executable is unavailable",
 			},
 			wantState:  Invalid,
-			wantAction: "aigw repair",
+			wantAction: "aigw sync",
 		},
 		{
 			name: "local prerequisites are configured",

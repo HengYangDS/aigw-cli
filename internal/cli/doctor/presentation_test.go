@@ -39,11 +39,11 @@ func TestNextActionFallsBackForMixedOrUnclassifiedFailures(t *testing.T) {
 	for _, checks := range [][]checkResult{
 		{
 			{Name: "codex:target-1", Fix: "run `aigw sync` to reconcile this target"},
-			{Name: "launcher:claude", Fix: "run `aigw repair`"},
+			{Name: "launcher:claude", Fix: "run `aigw sync`"},
 		},
 		{{Name: "config", Detail: "unexpected"}},
 	} {
-		if got := nextAction(checks); got != "aigw repair" {
+		if got := nextAction(checks); got != "aigw sync" {
 			t.Fatalf("next action = %q", got)
 		}
 	}
@@ -101,7 +101,7 @@ func TestHumanFormattingBranches(t *testing.T) {
 	for raw, want := range map[string]string{
 		"aigw check --depth local":                     "aigw check --depth local",
 		"run `aigw setup`":                             "aigw setup",
-		"run `aigw repair`":                            "aigw repair",
+		"run `aigw sync`":                              "aigw sync",
 		"remove them from the parent environment; now": "Remove the variables above from the parent environment that launched this terminal",
 		"inspect or restore /private/configuration":    "Inspect or restore the local configuration file",
 	} {
@@ -190,7 +190,7 @@ func TestAllOKAndNextActionBranches(t *testing.T) {
 	}{
 		{[]checkResult{{Name: "config", Detail: "not configured"}}, "aigw setup"},
 		{[]checkResult{{Name: "healthy", OK: true}, {Name: "codex:target-1", Fix: "run `aigw sync`"}}, "aigw sync"},
-		{nil, "aigw repair"},
+		{nil, "aigw sync"},
 	} {
 		if got := nextAction(test.checks); got != test.want {
 			t.Errorf("NextAction(%#v) = %q, want %q", test.checks, got, test.want)

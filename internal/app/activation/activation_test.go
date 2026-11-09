@@ -369,7 +369,7 @@ func TestNextActionForUsesOneOrderedReadinessDecision(t *testing.T) {
 		{
 			name:       "earlier credential prerequisite",
 			activation: Activation{EnabledClients: 2, CredentialPrerequisite: "set selected Account variable"},
-			clients:    []domainreadiness.Client{{State: domainreadiness.Invalid, NextAction: "aigw repair"}},
+			clients:    []domainreadiness.Client{{State: domainreadiness.Invalid, NextAction: "aigw sync"}},
 			want:       "set selected Account variable",
 		},
 		{
@@ -391,7 +391,7 @@ func TestNextActionForUsesOneOrderedReadinessDecision(t *testing.T) {
 			name:       "unclassified failure",
 			activation: Activation{EnabledClients: 1, VerificationPrerequisite: "aigw check"},
 			clients:    []domainreadiness.Client{{State: domainreadiness.Invalid}},
-			want:       "aigw repair",
+			want:       "aigw sync",
 		},
 		{
 			name:       "unclassified failure before unrelated suggestion",
@@ -400,7 +400,7 @@ func TestNextActionForUsesOneOrderedReadinessDecision(t *testing.T) {
 				{State: domainreadiness.Invalid},
 				{State: domainreadiness.Deferred, NextAction: "aigw use codex team/suggested"},
 			},
-			want: "aigw repair",
+			want: "aigw sync",
 		},
 		{
 			name:       "configured client without another action",

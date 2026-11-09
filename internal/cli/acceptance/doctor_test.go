@@ -376,7 +376,7 @@ func TestDoctorHumanOutputTranslatesCodexProjectionFailureButJSONStaysDiagnostic
 	if !strings.Contains(human, "Codex configuration "+homeRelative) || strings.Contains(human, home) || !strings.Contains(human, "Does not match the current binding") || strings.Contains(human, "Codex config AIGW state is missing") {
 		t.Fatalf("doctor human output = %s", human)
 	}
-	if !strings.Contains(human, "Next\n  aigw sync") || strings.Contains(human, "Next\n  aigw repair") {
+	if !strings.Contains(human, "Next\n  aigw sync") {
 		t.Fatalf("doctor drift next action = %s", human)
 	}
 	out.Reset()
@@ -462,7 +462,7 @@ func TestDoctorUnconfiguredPointsToSetupNotRepair(t *testing.T) {
 	if !strings.Contains(result, "aigw setup") {
 		t.Fatalf("doctor should point to setup:\n%s", result)
 	}
-	if strings.Contains(result, "aigw repair") {
+	if strings.Contains(result, "aigw sync") {
 		t.Fatalf("doctor should not suggest repair before setup:\n%s", result)
 	}
 }

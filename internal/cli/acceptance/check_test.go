@@ -99,7 +99,7 @@ func TestCheckFailsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T)
 	}
 
 	err := cli.Execute(app, []string{"check"})
-	if err == nil || !strings.Contains(out.String(), "Claude executable is unavailable") || !strings.Contains(out.String(), "aigw repair") {
+	if err == nil || !strings.Contains(out.String(), "Claude executable is unavailable") || !strings.Contains(out.String(), "aigw sync") {
 		t.Fatalf("check did not block on an unavailable Claude executable; err=%v output=%s", err, out.String())
 	}
 }

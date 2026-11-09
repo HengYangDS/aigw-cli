@@ -52,7 +52,7 @@ func TestStatusWarnsWhenEnabledClaudeAdapterExecutableIsUnavailable(t *testing.T
 		t.Fatal(err)
 	}
 	text := out.String()
-	if !strings.Contains(text, "Claude executable is unavailable") || !strings.Contains(text, "aigw repair") {
+	if !strings.Contains(text, "Claude executable is unavailable") || !strings.Contains(text, "aigw sync") {
 		t.Fatalf("status did not surface the unavailable Claude executable:\n%s", text)
 	}
 }
@@ -115,7 +115,7 @@ func TestStatusPrioritizesSelectedActivationWhileRetainingModelGuidance(t *testi
 		t.Fatal(err)
 	}
 	text := out.String()
-	if strings.Contains(text, "Claude             ·") || strings.Contains(text, "aigw repair") {
+	if strings.Contains(text, "Claude             ·") || strings.Contains(text, "aigw sync") {
 		t.Fatalf("status should not show blank Claude route or misleading repair:\n%s", text)
 	}
 	for _, want := range []string{"Claude", "No model selected", "aigw use codex dmx/gpt-5.6-sol"} {
@@ -165,7 +165,7 @@ func TestStatusWarnsWhenClaudeExecutableIsUnavailable(t *testing.T) {
 	if err := cli.Execute(app, []string{"status"}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Claude executable is unavailable") || !strings.Contains(out.String(), "aigw repair") {
+	if !strings.Contains(out.String(), "Claude executable is unavailable") || !strings.Contains(out.String(), "aigw sync") {
 		t.Fatalf("status did not surface the unavailable Claude executable:\n%s", out.String())
 	}
 }

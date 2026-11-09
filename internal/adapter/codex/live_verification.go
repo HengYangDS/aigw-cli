@@ -30,13 +30,13 @@ var removeVerificationWorkspace = robustio.RemoveAll
 func VerifyInvocation(ctx context.Context, runner process.VerificationRunner, cfg domain.Config, clientRuntime domain.Runtime, explicitRoute string) (_ ExecutableIdentity, result error) {
 	binding := cfg.Clients[ID]
 	if !binding.Enabled {
-		return ExecutableIdentity{}, fmt.Errorf("Codex adapter is disabled; run `aigw repair`")
+		return ExecutableIdentity{}, fmt.Errorf("Codex adapter is disabled; run `aigw sync`")
 	}
 	if binding.Executable == "" {
-		return ExecutableIdentity{}, fmt.Errorf("Codex executable is not configured; run `aigw repair`")
+		return ExecutableIdentity{}, fmt.Errorf("Codex executable is not configured; run `aigw sync`")
 	}
 	if len(binding.Targets) == 0 {
-		return ExecutableIdentity{}, fmt.Errorf("Codex configuration target is missing; run `aigw repair`")
+		return ExecutableIdentity{}, fmt.Errorf("Codex configuration target is missing; run `aigw sync`")
 	}
 	if clientRuntime.UpstreamModel == "" {
 		return ExecutableIdentity{}, fmt.Errorf("Route %q has no Codex model", clientRuntime.ModelID)

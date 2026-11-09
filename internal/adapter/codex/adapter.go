@@ -140,10 +140,10 @@ func (codexAdapter) Inspect(_ context.Context, deps adapter.Dependencies, cfg do
 		return adapter.Status{Issue: "Codex adapter is disabled", RepairAction: "aigw sync"}
 	}
 	if binding.Executable == "" {
-		return adapter.Status{Issue: "Codex executable is not configured", RepairAction: "aigw repair"}
+		return adapter.Status{Issue: "Codex executable is not configured", RepairAction: "aigw sync"}
 	}
 	if len(binding.Targets) == 0 {
-		return adapter.Status{Issue: "Codex configuration target is missing", RepairAction: "aigw repair"}
+		return adapter.Status{Issue: "Codex configuration target is missing", RepairAction: "aigw sync"}
 	}
 	status := adapter.Status{Ready: true, Checks: make([]adapter.Check, 0, len(binding.Targets))}
 	for index, target := range binding.Targets {

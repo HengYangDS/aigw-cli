@@ -128,10 +128,10 @@ func (claudeDesktopAdapter) Inspect(ctx context.Context, deps adapter.Dependenci
 	}
 	available, err := discovery.ExecutableAvailable(binding.Executable)
 	if err != nil || !available {
-		return adapter.Status{Issue: "Claude Desktop executable is unavailable", RepairAction: "aigw repair"}
+		return adapter.Status{Issue: "Claude Desktop executable is unavailable", RepairAction: "aigw sync"}
 	}
 	if len(binding.Targets) != 1 {
-		return adapter.Status{Issue: "Claude Desktop configuration library is missing", RepairAction: "aigw repair"}
+		return adapter.Status{Issue: "Claude Desktop configuration library is missing", RepairAction: "aigw sync"}
 	}
 	plan, err := claudeDesktopInspectionPlan(deps, cfg, selected, PathsForLibrary(binding.Targets[0]))
 	if status, refused := adapter.ConflictStatus(err); refused {

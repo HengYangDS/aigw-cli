@@ -138,7 +138,7 @@ func TestUnconfiguredCommandsPointToSetupWithoutLoops(t *testing.T) {
 		if !strings.Contains(text, "aigw setup") {
 			t.Fatalf("%v should point to setup:\n%s", command, text)
 		}
-		if strings.Contains(text, "run `aigw`") || strings.Contains(text, "aigw repair") || strings.Contains(text, "aigw check") {
+		if strings.Contains(text, "run `aigw`") || strings.Contains(text, "aigw sync") || strings.Contains(text, "aigw check") {
 			t.Fatalf("%v retained a loop or ambiguous first-use action:\n%s", command, text)
 		}
 	}

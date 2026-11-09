@@ -377,8 +377,8 @@ func safeFix(check checkResult) string {
 		return "aigw check --depth local"
 	case "run `aigw setup`":
 		return "aigw setup"
-	case "run `aigw repair`":
-		return "aigw repair"
+	case "run `aigw sync`":
+		return "aigw sync"
 	}
 	if strings.HasPrefix(check.Fix, "remove them from the parent environment") {
 		return "Remove the variables above from the parent environment that launched this terminal"
@@ -436,7 +436,7 @@ func nextAction(checks []checkResult) string {
 		}
 		action := safeFix(check)
 		if action == "" || action == "aigw check --depth local --verbose" {
-			return "aigw repair"
+			return "aigw sync"
 		}
 		actions[action] = true
 	}
@@ -445,5 +445,5 @@ func nextAction(checks []checkResult) string {
 			return action
 		}
 	}
-	return "aigw repair"
+	return "aigw sync"
 }

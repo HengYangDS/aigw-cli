@@ -120,7 +120,7 @@ func ClassifyClient(facts ClientFacts) Client {
 		state.Detail = facts.ProjectionIssue
 		state.NextAction = facts.ProjectionAction
 		if state.NextAction == "" {
-			state.NextAction = "aigw repair"
+			state.NextAction = "aigw sync"
 		}
 	case facts.ProjectionDeferred && facts.ClientInstalled:
 		state.State = Deferred

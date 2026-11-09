@@ -140,7 +140,7 @@ func TestCollectReportsConfigSecretsAndAdapterFailures(t *testing.T) {
 	cfg.SetClientActivation(codex.ID, true, "codex", nil)
 	deps, _, _ = doctorDependencies(t, cfg)
 	check := findCheck(t, collectChecks(context.Background(), deps.Dependencies), "adapter:codex")
-	if check.OK || check.Detail != "Codex configuration target is missing" || check.Fix != "run `aigw repair`" {
+	if check.OK || check.Detail != "Codex configuration target is missing" || check.Fix != "run `aigw sync`" {
 		t.Fatalf("Codex adapter check = %#v", check)
 	}
 	bad := store.NewStore(filepath.Join(t.TempDir(), "configuration.toml"), clients.Admission())

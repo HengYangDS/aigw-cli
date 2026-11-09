@@ -85,10 +85,10 @@ func TestGroupDerivesOneValueColumnFromItsLongestLabel(t *testing.T) {
 		{State: terminal.OK, Label: "Client token environment", Value: "No global client token environment variables detected"},
 		{State: terminal.OK, Label: "Local configuration", Value: "Configuration is valid"},
 		{State: terminal.OK, Label: "Account Token", Value: "dmxapi · available"},
-		{State: terminal.Fail, Label: "Codex configuration target 1", Value: "Differs from the current binding", Details: []string{"Fix: aigw repair"}},
+		{State: terminal.Fail, Label: "Codex configuration target 1", Value: "Differs from the current binding", Details: []string{"Fix: aigw sync"}},
 		{Label: "Unclassified row", Value: "Plain value"},
 	}
-	texts := []string{"No global client", "Configuration is valid", "dmxapi · available", "Differs from", "Fix: aigw repair", "Plain value"}
+	texts := []string{"No global client", "Configuration is valid", "dmxapi · available", "Differs from", "Fix: aigw sync", "Plain value"}
 	for _, width := range []int{0, 100} {
 		for _, color := range []bool{false, true} {
 			var out bytes.Buffer

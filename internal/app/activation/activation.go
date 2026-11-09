@@ -132,7 +132,7 @@ func observedClientAction(clients []domainreadiness.Client) string {
 		}
 	}
 	if attention && bestPriority < 3 {
-		return "aigw repair"
+		return "aigw sync"
 	}
 	return bestAction
 }

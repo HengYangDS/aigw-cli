@@ -303,7 +303,7 @@ func (registry Registry) ChangedClients(before, after domain.Config) []string {
 func (registry Registry) Inspect(ctx context.Context, deps Dependencies, cfg domain.Config, clientID string, runtime domain.Runtime) Status {
 	adapter, ok := registry.byID[clientID]
 	if !ok {
-		return Status{Issue: fmt.Sprintf("client %q has no admitted operational adapter", clientID), RepairAction: "aigw repair"}
+		return Status{Issue: fmt.Sprintf("client %q has no admitted operational adapter", clientID), RepairAction: "aigw sync"}
 	}
 	return adapter.Inspect(ctx, deps, cfg, runtime)
 }

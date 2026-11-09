@@ -326,7 +326,7 @@ func TestOutputLocalizationMalformedAndSpecificBranches(t *testing.T) {
 	if _, _, ok := cobraUnknownFlag("unknown flag: --two words"); ok {
 		t.Fatal("spaced flag accepted")
 	}
-	if got := mentionedAIGWCommand("run `aigw repair without terminator"); got != "" {
+	if got := mentionedAIGWCommand("run `aigw sync without terminator"); got != "" {
 		t.Fatalf("unterminated command = %q", got)
 	}
 }
@@ -352,7 +352,7 @@ func TestRenderErrorLeavesTransactionOutcomeToItsOwner(t *testing.T) {
 
 func TestRenderErrorAndFixBranches(t *testing.T) {
 	cause := errors.New("cause")
-	problem := ProblemError("Problem title", "Evidence", "Impact", "aigw repair", cause)
+	problem := ProblemError("Problem title", "Evidence", "Impact", "aigw sync", cause)
 	if problem.Error() != "Problem title" || !errors.Is(problem, cause) {
 		t.Fatalf("problem error = %v", problem)
 	}
@@ -367,8 +367,8 @@ func TestRenderErrorAndFixBranches(t *testing.T) {
 		err  error
 		want string
 	}{
-		{problem, "aigw repair"},
-		{errors.New("failed; run `aigw repair`"), "aigw repair"},
+		{problem, "aigw sync"},
+		{errors.New("failed; run `aigw sync`"), "aigw sync"},
 		// Only a usage error, which Cobra refused before the command ran,
 		// names the help of the command that refused it.
 		{Usage("aigw", unknownRoot), "aigw --help"},

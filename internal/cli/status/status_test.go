@@ -367,9 +367,9 @@ func TestStatusRendersSelectedRecoveryAction(t *testing.T) {
 		clients[client] = clientState{State: domainreadiness.Invalid}
 	}
 
-	renderStatus(runtime, cfg, statusReport{Clients: clients, NextAction: "aigw repair"})
+	renderStatus(runtime, cfg, statusReport{Clients: clients, NextAction: "aigw sync"})
 	got := out.String()
-	if !strings.Contains(got, "aigw repair") || !strings.Contains(got, "No client selects a provider") {
+	if !strings.Contains(got, "aigw sync") || !strings.Contains(got, "No client selects a provider") {
 		t.Fatalf("status fallback = %q", got)
 	}
 }
