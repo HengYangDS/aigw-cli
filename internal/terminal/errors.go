@@ -89,26 +89,41 @@ func RenderCredentialError(renderer *Renderer, err error) {
 	RenderError(renderer, err, false)
 }
 
-// LocalFailure turns a configuration load failure into a problem that names
-// its stage, the AIGW version that stopped there and `aigw config path`. Other
-// errors, including structured problems, configuration recovery outcomes and
-// an unsupported configuration version, which carries its own guidance,
-// return unchanged.
-func LocalFailure(version string, err error) error {
+// LocalFailure presents a command's failure in at, the run that failed. A
+// configuration load failure names its stage, the AIGW version that stopped
+// there and its fix, and a failure at any path names the fix that the path's
+// condition needs, with the run's home directory and AIGW's configuration
+// file, never the process's. Structured problems, configuration recovery
+// outcomes, an unsupported configuration version, which carries its own
+// guidance, and any other error return unchanged.
+func LocalFailure(version string, at PathContext, err error) error {
 	if _, structured := errors.AsType[*userError](err); structured {
 		return err
 	}
 	failure, loading := errors.AsType[*store.LoadError](err)
 	_, recovery := ConfigurationRecoveryImpact(err)
 	_, unsupported := errors.AsType[*domain.UnsupportedConfigVersionError](err)
-	if !loading || recovery || unsupported {
+	path := pathFailureIn(err)
+	switch {
+	case recovery || unsupported:
+		return err
+	case loading:
+		evidence, _ := ConfigurationLoadEvidence("AIGW "+version, err)
+		return ProblemError(configurationLoadTitle(failure.Phase), evidence, "", configurationFix(failure.Phase, path, at), err)
+	case path == nil:
 		return err
 	}
-	evidence, _ := ConfigurationLoadEvidence("AIGW "+version, err)
-	if fix, blocked := blockedFileFix(err); blocked {
-		return ProblemError(configurationLoadTitle(failure.Phase), evidence, "", fix, err)
+	problem := problemIn(err, at)
+	return ProblemError(problem.Title, problem.Evidence, problem.Impact, problem.Fix, err)
+}
+
+// configurationFix is the fix of a configuration that did not load at phase:
+// the fix of the path failure that stopped its read, or the stage's own.
+func configurationFix(phase store.LoadPhase, path *platform.PathConditionError, at PathContext) string {
+	if path != nil && path.Condition != platform.PathOther {
+		return pathFix(path, false, at)
 	}
-	return ProblemError(configurationLoadTitle(failure.Phase), evidence, "", configurationLoadFix(failure.Phase), err)
+	return configurationLoadFix(phase)
 }
 
 // ConfigurationLoadEvidence states the configuration stage at which subject
@@ -122,8 +137,8 @@ func ConfigurationLoadEvidence(subject string, err error) (string, bool) {
 	detail := ""
 	switch failure.Phase {
 	case store.LoadPhaseRead:
-		if access, ok := errors.AsType[*os.PathError](err); ok {
-			detail = fmt.Sprintf(" (%s: %s)", access.Op, fileErrorReason(access.Err))
+		if path := pathFailureIn(err); path != nil && path.Op != "" {
+			detail = fmt.Sprintf(" (%s: %s)", path.Op, pathReason(path))
 		}
 	case store.LoadPhaseParse:
 		if document, ok := errors.AsType[*toml.DecodeError](err); ok {
@@ -159,29 +174,6 @@ func ConfigurationLoadFix(err error) string {
 	return configurationLoadFix(phase)
 }
 
-// blockedFileFix names the file that stands where a folder is needed, for any
-// presentation of a file-access failure: a configuration that could not be
-// read, a command that failed at AIGW's own folder, and a fix that would
-// otherwise name a permission to restore. It classifies from the file system,
-// never from the error's number, because on Windows a path through a regular
-// file reads as a missing file, and it names a file inside home as ~/….
-func blockedFileFix(err error) (string, bool) {
-	failure, atPath := errors.AsType[*os.PathError](err)
-	if !atPath {
-		return "", false
-	}
-	blocking, atFile := errors.AsType[*os.PathError](platform.FileInTheWay(failure.Path))
-	if !atFile {
-		return "", false
-	}
-	home := HomeDirectory(os.Environ())
-	name, _ := platform.HomeTarget(blocking.Path, home)
-	if name == "" {
-		return "Move the file that stands where AIGW's folder belongs, then restore the folder and the configuration in it, then run the same command again.", true
-	}
-	return "Move the file " + name + ", then restore the folder it stands in and the configuration in it, then run the same command again.", true
-}
-
 func configurationLoadFix(phase store.LoadPhase) string {
 	switch phase {
 	case store.LoadPhaseRead:
@@ -195,14 +187,10 @@ func configurationLoadFix(phase store.LoadPhase) string {
 	}
 }
 
-// localFileAccessFix is the fix of an operating-system error at a file that
-// the error does not name, such as AIGW's own folder or a file inside it. A
-// local check needs a configuration, which a fresh home lacks, so the fix
-// names the folder through `aigw config path`, which works in every state.
-const localFileAccessFix = "Make AIGW's folder and its files readable and writable by you; `aigw config path` prints where the folder is. Then run the same command again."
-
-func localFileAccessMessage(operation string, err error) string {
-	return fmt.Sprintf("Local file access failed (%s: %s)", operation, fileErrorReason(err))
+// localFileAccessMessage is the title of a failure at a path of AIGW's own:
+// the operation and its reason, the same on every platform.
+func localFileAccessMessage(path *platform.PathConditionError) string {
+	return fmt.Sprintf("Local file access failed (%s: %s)", path.Op, pathReason(path))
 }
 
 // ManifestReadFailure presents a configuration manifest that cannot be read,
@@ -313,11 +301,18 @@ func RenderError(renderer *Renderer, err error, jsonMode bool) {
 // impact states each undo that err reports as failed, with its cause, after
 // any impact of its own. A typed problem states what its raiser reported.
 func ProblemFor(err error) Problem {
+	return problemIn(err, PathContext{})
+}
+
+// problemIn is err's problem in at, the run that presents it, whose home
+// directory and configuration file a path failure's fix names. A run that does
+// not pass its own names no path.
+func problemIn(err error, at PathContext) Problem {
 	// A nil error is a caller's mistake; it is reported, never dereferenced.
 	if err == nil {
 		return Problem{Title: "AIGW reported a failure without a cause", Fix: "aigw check"}
 	}
-	problem := problemFor(err)
+	problem := problemFor(err, at)
 	if _, structured := errors.AsType[*userError](err); structured {
 		return problem
 	}
@@ -366,7 +361,7 @@ func capitalized(clause string) string {
 	return strings.ToUpper(clause[:1]) + clause[1:]
 }
 
-func problemFor(err error) Problem {
+func problemFor(err error, at PathContext) Problem {
 	user, structured := errors.AsType[*userError](err)
 	failure, atFile := errors.AsType[*adapter.ApplyError](err)
 	target, atTarget := errors.AsType[*adapter.TargetError](err)
@@ -396,7 +391,7 @@ func problemFor(err error) Problem {
 		return Problem{Title: "Updating the client files failed", Impact: impact, Fix: fix}
 	}
 	message := localizedErrorMessage(err)
-	return Problem{Title: message, Fix: errorFix(err, message)}
+	return Problem{Title: message, Fix: errorFix(err, message, at)}
 }
 
 func localizedErrorMessage(err error) string {
@@ -435,11 +430,8 @@ func typedErrorMessage(err error) (string, bool) {
 		}
 		return message, true
 	}
-	if access, ok := errors.AsType[*os.PathError](err); ok {
-		return localFileAccessMessage(access.Op, access.Err), true
-	}
-	if link, ok := errors.AsType[*os.LinkError](err); ok {
-		return localFileAccessMessage(link.Op, link.Err), true
+	if path := pathFailureIn(err); path != nil {
+		return localFileAccessMessage(path), true
 	}
 	if document, ok := errors.AsType[*toml.DecodeError](err); ok {
 		line, column := document.Position()
@@ -494,30 +486,21 @@ func cobraUnknownFlag(message string) (string, string, bool) {
 // that AIGW recognizes by its type has a known fix, and a usage error names
 // the help of the command that refused it. Any other error names
 // `aigw check`, a diagnostic that does not fail the same way.
-func errorFix(err error, message string) string {
+func errorFix(err error, message string, at PathContext) string {
 	if fix, ok := statedFix(err, message); ok {
 		return fix
 	}
-	if fix, ok := typedErrorFix(err); ok {
+	if fix, ok := typedErrorFix(err, at); ok {
 		return fix
 	}
 	if usage, ok := errors.AsType[*usageError](err); ok {
 		return usage.command + " --help"
 	}
-	if fix, blocked := blockedFileFix(err); blocked {
-		return fix
-	}
-	if fileAccess(err) {
-		return localFileAccessFix
+	// A path of AIGW's own, which AIGW creates as it writes it.
+	if path := pathFailureIn(err); path != nil {
+		return pathFix(path, false, at)
 	}
 	return "aigw check"
-}
-
-// fileAccess reports whether err is an operating-system error at a file.
-func fileAccess(err error) bool {
-	_, atPath := errors.AsType[*os.PathError](err)
-	_, atLink := errors.AsType[*os.LinkError](err)
-	return atPath || atLink
 }
 
 // StatesFix reports whether err states its own fix: a structured problem, a
@@ -571,15 +554,12 @@ func statedFix(err error, message string) (string, bool) {
 // typedErrorFix is the fix of a failure that AIGW recognizes by its type,
 // independent of its text: a client without a selected Route, a configuration
 // that does not load, and a TOML document that does not decode.
-func typedErrorFix(err error) (string, bool) {
+func typedErrorFix(err error, at PathContext) (string, bool) {
 	if unselected, ok := errors.AsType[*domain.RuntimeBindingUnselectedError](err); ok {
 		return fmt.Sprintf("aigw use %s <provider/model>", unselected.Client), true
 	}
 	if failure, ok := errors.AsType[*store.LoadError](err); ok {
-		if fix, blocked := blockedFileFix(err); blocked {
-			return fix, true
-		}
-		return configurationLoadFix(failure.Phase), true
+		return configurationFix(failure.Phase, pathFailureIn(err), at), true
 	}
 	if _, ok := errors.AsType[*toml.DecodeError](err); ok {
 		return "Correct the value at the reported document location and rerun the command.", true

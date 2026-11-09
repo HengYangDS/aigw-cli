@@ -166,7 +166,7 @@ func targetFix(err error, target *adapter.TargetError) string {
 	case atPath:
 		return "Resolve " + fileErrorReason(err) + " on " + name + ", then run the same command again."
 	default:
-		return errorFix(err, err.Error())
+		return errorFix(err, err.Error(), PathContext{Home: target.Home})
 	}
 }
 

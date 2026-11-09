@@ -51,8 +51,10 @@ func TestRenderErrorDoesNotExposeLocalFilePath(t *testing.T) {
 			var out bytes.Buffer
 			renderer := NewRenderer(&out, false)
 			RenderError(renderer, fmt.Errorf("capture current config: %w", test.cause), jsonMode)
+			// A run that does not pass its home names no path in the fix either,
+			// and no check, whose probes would fix nothing here.
 			if renderer.Err() != nil || strings.Contains(out.String(), privatePath) ||
-				!strings.Contains(out.String(), test.want) || !strings.Contains(out.String(), "aigw config path") || strings.Contains(out.String(), "aigw check") {
+				!strings.Contains(out.String(), test.want) || strings.Contains(out.String(), "aigw check") {
 				t.Fatalf("json=%t local file diagnostic = %q, want %q, render error = %v", jsonMode, out.String(), test.want, renderer.Err())
 			}
 		}
@@ -92,7 +94,7 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/json=%t", name, jsonMode), func(t *testing.T) {
 				var out bytes.Buffer
 				renderer := NewRenderer(&out, false)
-				RenderError(renderer, LocalFailure("9.8.7", fmt.Errorf("load: %w", test.err)), jsonMode)
+				RenderError(renderer, LocalFailure("9.8.7", PathContext{Configuration: "/private/config.toml"}, fmt.Errorf("load: %w", test.err)), jsonMode)
 				rendered := out.String()
 				if renderer.Err() != nil || strings.Contains(rendered, content) || strings.Contains(rendered, "/private/config.toml") {
 					t.Fatalf("configuration diagnostic exposed private detail: %q, %v", rendered, renderer.Err())
@@ -118,44 +120,82 @@ func TestLocalFailureKeepsOtherErrorsUnchanged(t *testing.T) {
 	recovery := presentationProjectionError{restored: true, cause: &os.PathError{Op: "write", Path: "/private/x", Err: os.ErrPermission}}
 	unsupported := &store.LoadError{Phase: store.LoadPhaseValidate, Err: &domain.UnsupportedConfigVersionError{Version: 0, ExpectedVersion: domain.ConfigVersion}}
 	for _, err := range []error{nil, errors.New("plain failure"), ProblemError("Problem", "", "", "", nil), recovery, unsupported} {
-		if got := LocalFailure("1.2.3", err); !errors.Is(got, err) || !errors.Is(err, got) {
+		if got := LocalFailure("1.2.3", PathContext{}, err); !errors.Is(got, err) || !errors.Is(err, got) {
 			t.Fatalf("LocalFailure changed %#v into %#v", err, got)
 		}
 	}
 	// An unsupported version that the configuration carries keeps its own
 	// problem, and its fix is the validate stage's.
-	if got := ProblemFor(LocalFailure("1.2.3", unsupported)).Fix; got != ConfigurationLoadFix(unsupported) || !strings.Contains(got, "aigw config path") {
+	if got := ProblemFor(LocalFailure("1.2.3", PathContext{}, unsupported)).Fix; got != ConfigurationLoadFix(unsupported) || !strings.Contains(got, "aigw config path") {
 		t.Fatalf("unsupported configuration version fix = %q", got)
+	}
+}
+
+// A configuration that could not be read because a regular file stands where
+// AIGW's folder belongs names that file to move and how its folder comes back,
+// as ~/… inside the run's own home directory, and gives the reason not a
+// directory on every platform, though Windows reports the path as missing.
+func TestALoadFailureThroughAFileNamesTheFileToMove(t *testing.T) {
+	home := t.TempDir()
+	folder := filepath.Join(home, "aigw")
+	if err := os.WriteFile(folder, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	config := filepath.Join(folder, "config.toml")
+	windows := &fs.PathError{Op: "open", Path: config, Err: fs.ErrNotExist}
+	err := &store.LoadError{Phase: store.LoadPhaseRead, Err: platform.ClassifyPath(config, platform.FileExpected, windows)}
+	problem := ProblemFor(LocalFailure("9.8.7", PathContext{Home: home, Configuration: config}, err))
+	if want := "Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again."; problem.Fix != want {
+		t.Fatalf("the fix = %q, want %q", problem.Fix, want)
+	}
+	if !strings.Contains(problem.Evidence, "(open: not a directory)") || strings.Contains(problem.Fix+problem.Evidence, home) {
+		t.Fatalf("the problem = %+v", problem)
+	}
+}
+
+// The configuration file itself is never a file in the way: a file that the
+// user cannot read keeps the read-access fix, which 64528e8b had replaced with
+// a fix that moved the configuration away.
+func TestAnUnreadableConfigurationKeepsTheReadAccessFix(t *testing.T) {
+	home := t.TempDir()
+	config := filepath.Join(home, "aigw", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(config), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config, []byte("version = 7\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	err := &store.LoadError{Phase: store.LoadPhaseRead, Err: &fs.PathError{Op: "open", Path: config, Err: fs.ErrPermission}}
+	problem := ProblemFor(LocalFailure("9.8.7", PathContext{Home: home, Configuration: config}, err))
+	if problem.Fix != configurationReadFix || strings.Contains(problem.Fix, "Move") {
+		t.Fatalf("the fix = %q", problem.Fix)
+	}
+}
+
+// A failure at a path of AIGW's own names that path against the run's home,
+// never the process's environment: a command that a test runs in a home of
+// its own reads the same on every platform.
+func TestALocalFileFailureNamesItsPathAgainstTheRunsHome(t *testing.T) {
+	home := t.TempDir()
+	folder := filepath.Join(home, "aigw")
+	if err := os.WriteFile(folder, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USERPROFILE", t.TempDir())
+	err := fmt.Errorf("create config directory for lock: %w", &fs.PathError{Op: "mkdir", Path: folder, Err: syscall.ENOTDIR})
+	problem := ProblemFor(LocalFailure("9.8.7", PathContext{Home: home, Configuration: filepath.Join(folder, "config.toml")}, err))
+	want := Problem{
+		Title: "Local file access failed (mkdir: not a directory)",
+		Fix:   "Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again.",
+	}
+	if problem != want {
+		t.Fatalf("the problem = %+v\nwant %+v", problem, want)
 	}
 }
 
 // ConfigurationLoadFix names `aigw config path` for an error that is not a
 // load failure, without inventing a stage.
-// A configuration that could not be read because a regular file stands where
-// its folder belongs names that file to move, as ~/… inside the home
-// directory, and never a read permission to restore, which acts on nothing.
-func TestALoadFailureThroughAFileNamesTheFileToMove(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-	blocking := filepath.Join(home, "Library", "Application Support", "aigw")
-	if err := os.MkdirAll(filepath.Dir(blocking), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(blocking, []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	config := filepath.Join(blocking, "config.toml")
-	err := &store.LoadError{Phase: store.LoadPhaseRead, Err: platform.FileInTheWay(config)}
-	problem := ProblemFor(LocalFailure("9.8.7", err))
-	if want := "Move the file ~/Library/Application Support/aigw, then restore the folder it stands in and the configuration in it, then run the same command again."; problem.Fix != want {
-		t.Fatalf("the fix = %q, want %q", problem.Fix, want)
-	}
-	if strings.Contains(problem.Fix, home) {
-		t.Fatalf("the fix names the private home: %q", problem.Fix)
-	}
-}
-
 func TestConfigurationLoadFixWithoutALoadFailure(t *testing.T) {
 	got := ConfigurationLoadFix(errors.New("configuration manifest: unreadable"))
 	if got != "Correct the configuration file, or restore it from a backup; `aigw config path` prints its location." {

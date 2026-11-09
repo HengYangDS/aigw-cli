@@ -170,7 +170,10 @@ func Execute(app *App, args []string) error {
 		return err
 	}
 	renderer := app.Renderer()
-	terminal.RenderError(renderer, terminal.LocalFailure(Version, invocation.TokenRejection(command, err)), jsonMode)
+	// A failure names paths against the run's own home and configuration,
+	// never the process's.
+	at := terminal.PathContext{Home: invocation.Home(app.invocationContext().Dependencies), Configuration: app.Config.Path()}
+	terminal.RenderError(renderer, terminal.LocalFailure(Version, at, invocation.TokenRejection(command, err)), jsonMode)
 	return terminal.Presented(errors.Join(err, renderer.Err()))
 }
 
