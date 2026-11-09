@@ -43,7 +43,9 @@ func TestRenderErrorDoesNotExposeLocalFilePath(t *testing.T) {
 		{&os.PathError{Op: "read", Path: privatePath, Err: os.ErrPermission}, "Local file access failed (read: permission denied)"},
 		{&os.LinkError{Op: "rename", Old: privatePath, New: privatePath + ".new", Err: os.ErrPermission}, "Local file access failed (rename: permission denied)"},
 		{&os.PathError{Op: "open", Path: privatePath, Err: os.ErrNotExist}, "Local file access failed (open: no such file or directory)"},
-		{&os.PathError{Op: "stat", Path: privatePath, Err: syscall.ENOENT}, "Local file access failed (stat: " + syscall.ENOENT.Error() + ")"},
+		// One reason per condition on every platform, never the platform's
+		// own text, which on Windows says the file cannot be found.
+		{&os.PathError{Op: "stat", Path: privatePath, Err: syscall.ENOENT}, "Local file access failed (stat: no such file or directory)"},
 		{&os.PathError{Op: "mkdir", Path: privatePath, Err: fs.ErrExist}, "Local file access failed (mkdir: file exists)"},
 		{&os.PathError{Op: "mkdir", Path: privatePath, Err: errors.New(privatePath + " is a private detail")}, "Local file access failed (mkdir: unexpected error)"},
 	} {
@@ -112,6 +114,21 @@ func TestConfigurationLoadFailuresNameTheirStage(t *testing.T) {
 					}
 				}
 			})
+		}
+	}
+}
+
+// A file error's reason is one per condition on every platform: the
+// platform's own text for the same condition differs, as EPERM's does here and
+// ERROR_ACCESS_DENIED's on Windows. Any other error keeps its number's text.
+func TestAFileErrorReadsOneReasonPerCondition(t *testing.T) {
+	for err, want := range map[error]string{
+		&os.PathError{Op: "write", Path: "/private/x", Err: syscall.EPERM}: "permission denied",
+		&os.PathError{Op: "open", Path: "/private/x", Err: syscall.ENOENT}: "no such file or directory",
+		&os.PathError{Op: "read", Path: "/private/x", Err: syscall.EIO}:    syscall.EIO.Error(),
+	} {
+		if got := fileErrorReason(err); got != want {
+			t.Errorf("fileErrorReason(%v) = %q, want %q", err, got, want)
 		}
 	}
 }

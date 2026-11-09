@@ -222,24 +222,23 @@ func fileErrorReason(err error) string {
 // knownFileErrorReason names an operating-system file error from the closed
 // set, and reports whether err is one.
 func knownFileErrorReason(err error) (string, bool) {
-	// Before the operating system's number, whose text for this on Windows
-	// says that the path cannot be found.
-	if errors.Is(err, platform.ErrFileAsFolder) {
-		return platform.ErrFileAsFolder.Error(), true
-	}
-	if number, ok := errors.AsType[syscall.Errno](err); ok {
-		return number.Error(), true
-	}
+	// One reason per condition on every platform, before the operating
+	// system's number, whose own text differs: Windows says that a path
+	// through a file, or a missing one, cannot be found.
 	switch {
+	case errors.Is(err, platform.ErrFileAsFolder):
+		return platform.ErrFileAsFolder.Error(), true
 	case errors.Is(err, fs.ErrPermission):
 		return "permission denied", true
 	case errors.Is(err, fs.ErrNotExist):
 		return "no such file or directory", true
 	case errors.Is(err, fs.ErrExist):
 		return "file exists", true
-	default:
-		return "", false
 	}
+	if number, ok := errors.AsType[syscall.Errno](err); ok {
+		return number.Error(), true
+	}
+	return "", false
 }
 
 // failureSchemaVersion is the version of the failure document that a command

@@ -62,6 +62,9 @@ type PathConditionError struct {
 	Err             error
 	Given           bool
 	OperatorCreates bool
+	// toFile marks a link that leads to a regular file where a folder is
+	// needed: no broken link, but no folder either.
+	toFile bool
 }
 
 // Owned is the failure as given by the operator, who creates what is missing
@@ -97,6 +100,7 @@ func ClassifyPath(path string, kind PathKind, err error) *PathConditionError {
 	}
 	if culprit, condition, found := culpritOn(path, kind); found {
 		failure.Condition, failure.Culprit = condition, culprit
+		failure.toFile = condition == PathDanglingLink && exists(culprit)
 		return failure
 	}
 	switch {
@@ -148,6 +152,9 @@ func (e *PathConditionError) Unwrap() error {
 	case PathFileInTheWay:
 		return ErrFileAsFolder
 	case PathDanglingLink:
+		if e.toFile {
+			return ErrFileAsFolder
+		}
 		return nil
 	case PathOther, PathPermission, PathMissingFolder, PathMissingFile:
 		return e.Err
@@ -165,6 +172,10 @@ func (e *PathConditionError) Reason() string {
 	case PathFileInTheWay:
 		return ErrFileAsFolder.Error()
 	case PathDanglingLink:
+		// A link to a regular file is not broken; it leads to no folder.
+		if e.toFile {
+			return ErrFileAsFolder.Error()
+		}
 		return "broken symbolic link"
 	case PathMissingFolder, PathMissingFile:
 		return "no such file or directory"

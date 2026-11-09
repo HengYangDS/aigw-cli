@@ -130,6 +130,11 @@ func TestAPathConditionErrorReadsAsItsCondition(t *testing.T) {
 	if !f.links {
 		return
 	}
+	toFile := filepath.Join(f.toFile, "config.toml")
+	if failure := ClassifyPath(toFile, FileExpected, failed("open", toFile, syscall.ENOTDIR)); failure.Condition != PathDanglingLink ||
+		failure.Reason() != "not a directory" || !errors.Is(failure, ErrFileAsFolder) {
+		t.Fatalf("a link to a file where a folder is needed = %v, %+v", failure, failure)
+	}
 	link := filepath.Join(f.dangling, "config.toml")
 	dangling := ClassifyPath(link, FileExpected, failed("open", link, fs.ErrNotExist))
 	if errors.Is(dangling, fs.ErrNotExist) || errors.Is(dangling, fs.ErrExist) || !dangling.Blocked() || dangling.Reason() != "broken symbolic link" {
