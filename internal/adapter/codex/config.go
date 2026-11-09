@@ -132,11 +132,12 @@ func ValidateConfig(path string, runtime domain.Runtime) error {
 	}
 	text := string(current)
 	expectedBlock := codexManagedBlock(runtime, endpoint)
-	stateData, err := os.ReadFile(codexStatePath(path))
+	recordPath := codexRecordPath(path)
+	stateData, err := os.ReadFile(recordPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Synchronization refuses AIGW's table without its record too.
-			if refusal := refuseUnrecordedProvider(platform.FileSnapshot{Exists: true, Data: current}, platform.FileSnapshot{}, codexRuntimeProvider(runtime), path, codexStatePath(path)); refusal != nil {
+			if refusal := refuseUnrecordedProvider(platform.FileSnapshot{Exists: true, Data: current}, platform.FileSnapshot{}, codexRuntimeProvider(runtime), path, recordPath); refusal != nil {
 				return refusal
 			}
 			return fmt.Errorf("Codex config AIGW state is missing")
@@ -145,7 +146,7 @@ func ValidateConfig(path string, runtime domain.Runtime) error {
 	}
 	state, err := codexStateForTarget(platform.FileSnapshot{Exists: true, Data: stateData})
 	if err != nil {
-		return adapter.UnreadableRecord(codexStatePath(path), err)
+		return adapter.UnreadableRecord(recordPath, err)
 	}
 	// Recorded ownership is checked before the desired projection: an outside
 	// edit is a conflict that synchronization refuses, while an owned stale

@@ -65,6 +65,11 @@ func normalizeCodexTargets(values []TargetRef, desired bool) ([]TargetRef, error
 			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: err}
 		}
 		if slices.ContainsFunc(normalized, func(kept TargetRef) bool { return kept.Path == path || sameTargetFile(kept.configured, sourcePath) }) {
+			// A configuration from before sync converged one file's names, which
+			// the change drops, has nothing to plan twice.
+			if !desired {
+				continue
+			}
 			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: duplicateTargetError{}}
 		}
 		folder, err := canonicalCodexTargetPath(filepath.Dir(sourcePath))
@@ -143,6 +148,23 @@ func absoluteCodexTargetPath(path string) (string, error) {
 		return "", fmt.Errorf("resolve Codex target: %w", err)
 	}
 	return absolute, nil
+}
+
+// codexRecordPath is where AIGW keeps its record of the Codex file that path
+// names, for every surface that reads or writes it. A path through a symbolic
+// link keeps the record beside the resolved file, so two targets that resolve
+// to one file share it; a record that an earlier release left beside the link
+// is used until the next write moves it.
+func codexRecordPath(path string) string {
+	sourcePath, err := absoluteCodexTargetPath(path)
+	if err != nil {
+		return codexStatePath(path)
+	}
+	canonicalPath, err := canonicalCodexTargetPath(sourcePath)
+	if err != nil {
+		return codexStatePath(sourcePath)
+	}
+	return preferredCodexStatePath(sourcePath, canonicalPath)
 }
 
 func preferredCodexStatePath(sourcePath, canonicalPath string) string {

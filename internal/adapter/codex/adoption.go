@@ -14,7 +14,7 @@ func ObserveSelection(path string) (string, bool, error) {
 	if err != nil || !config.Exists {
 		return "", false, err
 	}
-	stateSnapshot, err := adapter.CaptureTarget(codexStatePath(path), true)
+	stateSnapshot, err := adapter.CaptureTarget(codexRecordPath(path), true)
 	if err != nil || !stateSnapshot.Exists {
 		return "", false, err
 	}

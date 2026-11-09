@@ -200,8 +200,9 @@ func inspectTarget(deps adapter.Dependencies, cfg domain.Config, runtime domain.
 func missingTargetRepair(deps adapter.Dependencies, path string) string {
 	if discovered, err := discover(deps); err == nil {
 		if surface, ok := discovered.SurfaceForConfigPath(path); ok && surface.AutoManaged {
-			if _, statErr := os.Lstat(codexStatePath(path)); statErr == nil {
-				return adapter.MissingWithRecord("Codex", path, codexStatePath(path), "").NextAction()
+			record := codexRecordPath(path)
+			if _, statErr := os.Lstat(record); statErr == nil {
+				return adapter.MissingWithRecord("Codex", path, record, "").NextAction()
 			}
 			return "aigw sync"
 		}
