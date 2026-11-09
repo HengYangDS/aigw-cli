@@ -62,7 +62,7 @@ func (a *Activation) NextActionFor(clients []domainreadiness.Client) string {
 	}
 	for _, observation := range a.observedCredentials {
 		if observation.err != nil {
-			return "aigw check --depth local"
+			return unobservedAction(clients)
 		}
 	}
 	projectionAction := ""
@@ -92,6 +92,18 @@ func (a *Activation) NextActionFor(clients []domainreadiness.Client) string {
 		}
 	}
 	return a.VerificationPrerequisite
+}
+
+// unobservedAction is the step of a credential store that cannot be observed:
+// the one that an unavailable client's observation named for itself, or else
+// the local check, which inspects the backend.
+func unobservedAction(clients []domainreadiness.Client) string {
+	for _, client := range clients {
+		if client.State == domainreadiness.Unavailable && client.NextAction != "" {
+			return client.NextAction
+		}
+	}
+	return domainreadiness.CredentialBackendRecovery
 }
 
 func observedClientAction(clients []domainreadiness.Client) string {

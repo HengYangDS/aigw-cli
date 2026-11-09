@@ -5,6 +5,7 @@ import (
 	"aigw-cli/internal/app/diagnostics"
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"context"
 	"net/url"
@@ -80,7 +81,7 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 			ProjectionAction:   projectionAction,
 		}
 		facts.ClientInstalled = facts.ProjectionDeferred && installed(clientID)
-		applyCredentialFacts(&facts, activation, runtime.Secrets, clientID, clientRuntime.ProviderID)
+		applyCredentialFacts(&facts, activation, runtime.Secrets, clientID, clientRuntime.ProviderID, runtime.Host.Home)
 		state := domainreadiness.ClassifyClient(facts)
 		if adapterStatus.NativeModelOverride && state.State == domainreadiness.Configured {
 			state.NativeModelOverride = true
@@ -109,7 +110,7 @@ func InspectStatusClients(runtime Dependencies, cfg domain.Config, activation *c
 	return clients
 }
 
-func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *clientactivation.Activation, store secret.Store, clientID, accountID string) {
+func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *clientactivation.Activation, store secret.Store, clientID, accountID, home string) {
 	if !facts.CredentialRequired {
 		return
 	}
@@ -126,6 +127,10 @@ func applyCredentialFacts(facts *domainreadiness.ClientFacts, activation *client
 	facts.CredentialAvailable = available
 	if observationErr != nil {
 		facts.CredentialObservationIssue = "Credential metadata is unavailable"
+		if _, blocked := platform.BlockedPath(observationErr); blocked {
+			cause, fix := secret.ObservationFailure(observationErr, platform.PathContext{Home: home, Check: true})
+			facts.CredentialObservationIssue, facts.CredentialObservationAction = cause, fix
+		}
 		return
 	}
 	if available {

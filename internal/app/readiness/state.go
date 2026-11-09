@@ -68,15 +68,18 @@ type ClientFacts struct {
 	BindingIssue               string
 	BindingAction              string
 	CredentialObservationIssue string
-	CredentialRequired         bool
-	CredentialAvailable        bool
-	CredentialAction           string
-	ProjectionEnabled          bool
-	ProjectionDeferred         bool
-	ProjectionReady            bool
-	ProjectionIssue            string
-	ProjectionAction           string
-	SuggestedModel             string
+	// CredentialObservationAction is the step that an observation that failed
+	// names for itself, such as a file in the way of the Token folder.
+	CredentialObservationAction string
+	CredentialRequired          bool
+	CredentialAvailable         bool
+	CredentialAction            string
+	ProjectionEnabled           bool
+	ProjectionDeferred          bool
+	ProjectionReady             bool
+	ProjectionIssue             string
+	ProjectionAction            string
+	SuggestedModel              string
 	// ClientInstalled marks a client whose files wait while discovery finds
 	// its executable, so that a sync writes them.
 	ClientInstalled bool
@@ -102,6 +105,9 @@ func ClassifyClient(facts ClientFacts) Client {
 		state.State = Unavailable
 		state.Detail = facts.CredentialObservationIssue
 		state.NextAction = CredentialBackendRecovery
+		if facts.CredentialObservationAction != "" {
+			state.NextAction = facts.CredentialObservationAction
+		}
 	case facts.CredentialRequired && !facts.CredentialAvailable:
 		state.State = Deferred
 		state.Detail = "The selected provider has no Token"

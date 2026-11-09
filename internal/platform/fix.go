@@ -79,6 +79,8 @@ func (at PathContext) unblock(failure *PathConditionError) string {
 	switch {
 	case at.blocksConfiguration(failure.Culprit):
 		return lead + ". If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again."
+	case failure.Restore != "":
+		return lead + ". If it replaced AIGW's folder, put that folder back from a copy; otherwise " + failure.Restore + ". Then " + at.step() + "."
 	case failure.OperatorCreates:
 		return lead + ", then create " + at.name(failure, failure.Path, theFile) + " and the folder that holds it, then " + at.step() + "."
 	default:

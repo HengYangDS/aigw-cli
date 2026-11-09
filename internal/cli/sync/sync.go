@@ -10,6 +10,7 @@ import (
 	domainreadiness "aigw-cli/internal/app/readiness"
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
@@ -62,6 +63,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				return fmt.Errorf("sync synchronization preflight failed; configuration and client files were unchanged: %w", err)
 			}
 			after, _, err := synchronizer.DesiredSyncConfiguration(adoptedConfig)
+			// A blocked Token folder states its own fix, which the command's
+			// presentation renders.
+			if _, blocked := platform.BlockedPath(err); blocked {
+				return err
+			}
 			if err != nil {
 				return terminal.ProblemError(
 					"Synchronization prerequisites are unavailable",

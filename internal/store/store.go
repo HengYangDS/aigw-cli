@@ -383,9 +383,12 @@ func (s Store) Load() (domain.Config, error) {
 // credential reader.
 func (s Store) LoadCredentialConfig() (domain.Config, error) {
 	data, err := os.ReadFile(s.path)
-	if absent, refusal := platform.MissingAt(s.path, platform.FileExpected, err); absent || refusal != nil {
-		if refusal != nil {
-			return domain.Config{}, newLoadError(LoadPhaseRead, refusal)
+	// A file in the way or a link that leads nowhere, at the configuration or
+	// at its folder, is no first run: a setup would write through it, or
+	// replace the link with a new file.
+	if failure := platform.ClassifyPath(s.path, platform.FileExpected, err); failure.Blocked() || failure.Absent() {
+		if failure.Blocked() {
+			return domain.Config{}, newLoadError(LoadPhaseRead, failure)
 		}
 		forwarding, forwardingErr := platform.CaptureFileSnapshot(s.componentPath(forwardingComponent))
 		if forwardingErr != nil || forwarding.Exists {

@@ -201,6 +201,12 @@ func (c *checker) tokenCheck(r result) localCheck {
 	present, err := c.deps.Secrets.Exists(provider)
 	switch {
 	case err != nil:
+		// A file in the way of the Token folder, or a link that leads nowhere,
+		// names that path and its one fix, as every surface does.
+		if _, blocked := platform.BlockedPath(err); blocked {
+			cause, fix := secret.ObservationFailure(err, platform.PathContext{Home: invocation.Home(c.deps.Dependencies), Check: true})
+			return failedCheck(name, label, cause, fix, domainreadiness.Unavailable)
+		}
 		return failedCheck(name, label, "The credential backend cannot tell whether provider "+provider+" has a Token", backendFix, domainreadiness.Unavailable)
 	case !present || secret.TokenSlotEmpty(c.deps.Secrets, provider):
 		fix, writable := secret.TokenRecovery(c.deps.Secrets, provider)

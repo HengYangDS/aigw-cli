@@ -1,6 +1,10 @@
 package secret
 
-import "errors"
+import (
+	"errors"
+
+	"aigw-cli/internal/platform"
+)
 
 // BackendUnavailableFix makes a credential store that AIGW cannot observe
 // available before the same command runs again.
@@ -18,9 +22,14 @@ type unsafeTokenDirectoryError struct{ message string }
 func (e unsafeTokenDirectoryError) Error() string { return e.message }
 
 // ObservationFailure says why a store could not tell whether it holds a slot,
-// and the step that addresses it. The cause comes from a closed set, so it
-// names no path and none of a backend's own diagnostics.
-func ObservationFailure(err error) (cause, fix string) {
+// and the step that addresses it in at. A file in the way of AIGW's Token
+// folder, or a link that leads nowhere, is named with the one fix of its
+// path's condition; any other cause comes from a closed set, so it names no
+// path and none of a backend's own diagnostics.
+func ObservationFailure(err error, at platform.PathContext) (cause, fix string) {
+	if path, blocked := platform.BlockedPath(err); blocked {
+		return "AIGW's Token folder " + at.Name(path, path.Path) + " cannot be used: " + path.Reason(), platform.PathFix(path, at)
+	}
 	if file, unsafe := errors.AsType[unsafeTokenFileError](err); unsafe {
 		return file.Error(), "Make " + file.name + " in AIGW's Token directory " + tokenFileRequirement + ", then run the same command again."
 	}

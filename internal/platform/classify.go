@@ -62,9 +62,21 @@ type PathConditionError struct {
 	Err             error
 	Given           bool
 	OperatorCreates bool
+	// Restore, which the owner of a folder of AIGW's own sets, is the step
+	// that brings back what the folder held when no copy of it does, such as
+	// the Tokens of AIGW's Token folder.
+	Restore string
 	// toFile marks a link that leads to a regular file where a folder is
 	// needed: no broken link, but no folder either.
 	toFile bool
+}
+
+// Restoring is the failure of a folder of AIGW's own whose contents restore
+// brings back when no copy of the folder does.
+func (e *PathConditionError) Restoring(restore string) *PathConditionError {
+	restoring := *e
+	restoring.Restore = restore
+	return &restoring
 }
 
 // Owned is the failure as given by the operator, who creates what is missing
@@ -113,6 +125,13 @@ func ClassifyPath(path string, kind PathKind, err error) *PathConditionError {
 		}
 	}
 	return failure
+}
+
+// BlockedPath is the classification that err holds of a path that a file in
+// the way or a link that leads nowhere blocks, and whether it holds one.
+func BlockedPath(err error) (*PathConditionError, bool) {
+	failure, classified := errors.AsType[*PathConditionError](err)
+	return failure, classified && failure.Blocked()
 }
 
 // RefuseBlockedFile refuses, before an operation, a file path that a file in

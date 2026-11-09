@@ -3,6 +3,7 @@ package use
 import (
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/secret/probe"
 	"aigw-cli/internal/terminal"
@@ -18,6 +19,11 @@ func tokenMissing(runtime invocation.Context, selected domain.Runtime) (bool, er
 		return false, nil
 	}
 	available, err := runtime.Secrets.Exists(selected.ProviderID)
+	// A blocked Token folder states its own fix, which the command's
+	// presentation renders.
+	if _, blocked := platform.BlockedPath(err); blocked {
+		return false, err
+	}
 	if err != nil {
 		return false, terminal.ProblemError("the Token of provider "+selected.ProviderID+" cannot be observed", "", "", "aigw provider show "+selected.ProviderID, err)
 	}

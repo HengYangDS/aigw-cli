@@ -56,13 +56,15 @@ func openSecureRoot(path string, create bool) (*os.Root, error) {
 	}
 	if create {
 		if err := os.MkdirAll(path, 0o700); err != nil {
-			return nil, fmt.Errorf("create Token directory: %w", err)
+			return nil, fmt.Errorf("create Token directory: %w", blockedTokenFolder(path, err))
 		}
 	}
 	before, err := os.Lstat(path)
-	if absent, refusal := platform.MissingAt(path, platform.FolderExpected, err); refusal != nil {
-		return nil, fmt.Errorf("inspect Token directory: %w", refusal)
-	} else if absent && !create {
+	// A file in the way or a link that leads nowhere is no store without
+	// Tokens: the Tokens that the folder held are elsewhere, or gone.
+	if failure := platform.ClassifyPath(path, platform.FolderExpected, err); failure.Blocked() {
+		return nil, fmt.Errorf("inspect Token directory: %w", blockedTokenFolder(path, err))
+	} else if failure.Absent() && !create {
 		return nil, nil
 	}
 	if err != nil {
@@ -72,6 +74,18 @@ func openSecureRoot(path string, create bool) (*os.Root, error) {
 		return nil, err
 	}
 	return openVerifiedRoot(path, before)
+}
+
+// blockedTokenFolder classifies err, the failure at AIGW's Token folder path,
+// with what brings the Tokens back when a file in the way or a link that leads
+// nowhere replaced the folder: its copy, or each Token stored again. Any other
+// error returns unchanged.
+func blockedTokenFolder(path string, err error) error {
+	failure := platform.ClassifyPath(path, platform.FolderExpected, err)
+	if !failure.Blocked() {
+		return err
+	}
+	return failure.Restoring("store each provider's Token again with `aigw provider rotate <provider>`")
 }
 
 func openVerifiedRoot(path string, before os.FileInfo) (*os.Root, error) {

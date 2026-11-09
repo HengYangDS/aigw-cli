@@ -8,6 +8,7 @@ import (
 
 	"aigw-cli/internal/cli/invocation"
 	"aigw-cli/internal/domain"
+	"aigw-cli/internal/platform"
 	"aigw-cli/internal/secret"
 	"aigw-cli/internal/terminal"
 
@@ -159,7 +160,7 @@ func removeLeftover(cmd *cobra.Command, runtime invocation.Context, args []strin
 func refuseUnobservedSlots(runtime invocation.Context, id string) error {
 	for _, exists := range []func(string) (bool, error){runtime.Secrets.Exists, runtime.Providers.Exists} {
 		if _, err := exists(id); err != nil {
-			cause, fix := secret.ObservationFailure(err)
+			cause, fix := secret.ObservationFailure(err, platform.PathContext{Home: invocation.Home(runtime.Dependencies)})
 			return terminal.ProblemError("the credential store could not tell whether it holds credentials for "+id, cause, "Nothing was deleted.", fix, err)
 		}
 	}

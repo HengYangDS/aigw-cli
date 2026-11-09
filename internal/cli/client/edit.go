@@ -333,6 +333,9 @@ func admitTargets(runtime invocation.Context, cfg domain.Config, spec domain.Cli
 	if err == nil && available {
 		return nil
 	}
+	if _, blocked := platform.BlockedPath(err); blocked {
+		return err
+	}
 	title := fmt.Sprintf("%s's configuration files cannot change while provider %s has no Token", spec.Label, selected.ProviderID)
 	fix := "aigw provider rotate " + selected.ProviderID
 	switch {
