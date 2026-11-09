@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
+	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
+	"aigw-cli/internal/domain"
 	"aigw-cli/internal/store"
 )
 
@@ -95,17 +98,28 @@ func blockAIGWsFolder(t *testing.T, app *cli.App) string {
 // problem: sync, use, rollback and an uninstall preview would otherwise name a
 // permission to restore that cannot help. The reason reads not a directory
 // on every platform, though Windows reports the path as missing, and the path
-// is named against the command's own home. Following the fix lets each run.
+// is named against the command's own home. Following the fix, the file moved
+// and the folder put back from a copy, lets each run.
 func TestAFileWhereAIGWsFolderBelongsToEveryCommand(t *testing.T) {
 	for _, args := range [][]string{
 		{"sync", "--json"},
-		{"use", "claude", "one/m", "--json"},
+		{"use", "claude", "gateway/claude-test", "--json"},
 		{"rollback", "--json"},
 		{"uninstall", "--dry-run", "--json"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
-			app, output, _, _, _ := testApp(t, "")
+			app, output, secrets, _, _ := testApp(t, "")
 			folder := blockAIGWsFolder(t, app)
+			// The folder that the file replaced, as a copy of it holds it.
+			copied := filepath.Join(t.TempDir(), "aigw")
+			cfg := anthropicConfig()
+			cfg.SetSelectedModel(claude.ID, "opus", "")
+			if err := store.NewStore(filepath.Join(copied, "configuration.toml"), clients.Admission()).Save(cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := secrets.Set("gateway", "fixture-token"); err != nil {
+				t.Fatal(err)
+			}
 			if err := cli.Execute(app, args); err == nil {
 				t.Fatalf("%v passed", args)
 			}
@@ -121,13 +135,69 @@ func TestAFileWhereAIGWsFolderBelongsToEveryCommand(t *testing.T) {
 			if failure.NextDetail != want || failure.NextAction != "" || !strings.Contains(failure.Error, "not a directory") {
 				t.Fatalf("%v names %+v", args, failure)
 			}
-			// The file moves away, and setup begins the configuration again in a
-			// folder of its own; the command that failed then runs.
+			// The file moves, and the folder comes back from its copy; the
+			// command that failed then runs.
 			if err := os.Rename(folder, folder+".moved"); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.MkdirAll(folder, 0o700); err != nil {
+			if err := os.Rename(copied, folder); err != nil {
 				t.Fatal(err)
+			}
+			output.Reset()
+			if err := cli.Execute(app, args); err != nil && args[0] != "rollback" {
+				t.Fatalf("%v after its fix: %v\n%s", args, err, output)
+			}
+			if strings.Contains(output.String(), "not a directory") {
+				t.Fatalf("%v after its fix still names the file: %s", args, output)
+			}
+		})
+	}
+}
+
+// The configuration file itself is never in its own way: a file that the user
+// cannot read names the read access to restore on every command that loads
+// it, never the file to move away, and following the fix lets each run.
+func TestAnUnreadableConfigurationFileNamesItsReadAccess(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not represent a file that its owner cannot read in a file's mode")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("the superuser reads a file of any mode")
+	}
+	for _, args := range [][]string{
+		{"status", "--json"},
+		{"check", "--depth", "local", "--json"},
+		{"sync", "--json"},
+		{"use", "claude", "one/m", "--json"},
+		{"client", "list", "--json"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			app, output, _, _, _ := testApp(t, "")
+			saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
+			if err := os.Chmod(app.Config.Path(), 0); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = os.Chmod(app.Config.Path(), 0o600) })
+			output.Reset()
+			if err := cli.Execute(app, args); err == nil {
+				t.Fatalf("%v passed", args)
+			}
+			var failure struct {
+				NextDetail string `json:"next_detail"`
+			}
+			if err := json.Unmarshal(output.Bytes(), &failure); err != nil {
+				t.Fatalf("%v: %v\n%s", args, err, output)
+			}
+			if want := "Restore read access to the configuration file; `aigw config path` prints its location."; failure.NextDetail != want {
+				t.Fatalf("%v names %q", args, failure.NextDetail)
+			}
+			if err := os.Chmod(app.Config.Path(), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			output.Reset()
+			_ = cli.Execute(app, args)
+			if strings.Contains(output.String(), "read access") {
+				t.Fatalf("%v after its fix: %s", args, output)
 			}
 		})
 	}
