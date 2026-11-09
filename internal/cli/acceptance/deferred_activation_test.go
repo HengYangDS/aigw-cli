@@ -283,7 +283,7 @@ func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T)
 		secrets:    []string{"fixture-token"},
 		texts:      []string{"team", "Team", "https://messages.test", "hermes-route", "hermes-model"},
 	}
-	if err := cli.Execute(app, nil); err != nil {
+	if err := cli.Execute(app, []string{"setup"}); err != nil {
 		t.Fatal(err)
 	}
 	if !secretExists(t, credentials, "team") {

@@ -1,0 +1,53 @@
+# version prints the line that --version prints, and as JSON the version
+# alone. It takes no argument.
+exec aigw version --help
+cmp stdout help.txt
+exec aigw --version
+cp stdout flag.txt
+exec aigw version
+cmp stdout flag.txt
+exec aigw version --json
+cmp stdout version.json
+exitcode 1 aigw version extra
+cmp stdout refusal.txt
+exitcode 1 aigw version extra --json
+cmp stdout refusal.json
+fixloop -input stdout aigw version extra --json
+
+-- help.txt --
+AIGW  aigw version
+────────────────────────────────────────
+  Show the program's version
+
+Usage
+  aigw version [flags]
+
+Examples
+  aigw version
+  aigw version --json
+
+Options
+  -h, --help   help for version
+      --json   Write the version as JSON
+-- version.json --
+{
+  "schema_version": 1,
+  "ok": true,
+  "version": "0.1.0-dev"
+}
+-- refusal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  unknown command "extra"
+
+Fix
+  aigw version --help
+-- refusal.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "next_action": "aigw version --help"
+}

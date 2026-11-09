@@ -80,7 +80,7 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 				if err := operation.Synchronizer().AdmitSetup(cfg); err != nil {
 					return err
 				}
-				return invocation.CancelledPrompt(cmd, nil, RunWizard(cmd.Context(), operation))
+				return invocation.CancelledPrompt(cmd, nil, runWizard(cmd.Context(), operation))
 			}
 			return invocation.CancelledPrompt(cmd, nil, runSetup(cmd.Context(), operation, request))
 		},
@@ -381,12 +381,12 @@ func setupToken(runtime invocation.Context, request setupRequest) (setupCredenti
 	return credential, nil
 }
 
-// RunWizard is deliberately provider-neutral. AIGW never assumes a gateway,
+// runWizard is deliberately provider-neutral. AIGW never assumes a gateway,
 // token slot, URL, or model catalog for a new user; the user may instead
 // import a secret-free configuration manifest before running this flow. Each
 // prompt names itself when it fails, so that a caller can say which one ended
 // without an answer: all of them come before anything is written.
-func RunWizard(ctx context.Context, runtime invocation.Context) error {
+func runWizard(ctx context.Context, runtime invocation.Context) error {
 	account, err := runtime.Prompt.Text("Account ID (for example, team-primary): ")
 	if err != nil {
 		return invocation.Prompted("The provider ID prompt", err)

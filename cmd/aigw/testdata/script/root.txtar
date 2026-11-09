@@ -8,6 +8,21 @@ normalize stderr help.err
 exec aigw --version
 cmp stdout version.txt
 
+# Bare aigw is aigw status: without a configuration it names aigw setup, and
+# with one it shows each client's model.
+exec aigw
+cmp stdout bare-empty.txt
+exec aigw status
+cmp stdout bare-empty.txt
+stdin token.txt
+exec aigw provider add team --endpoint anthropic=$UPSTREAM --token-stdin
+exec aigw use claude team/team-model
+exec aigw
+cp stdout bare.txt
+stdout 'Claude +team/team-model'
+exec aigw status
+cmp stdout bare.txt
+
 exitcode 1 aigw nothing
 cmp stdout unknown.txt
 # An unknown command reports in text even with --json, so fixloop cannot
@@ -60,6 +75,7 @@ Advanced
   route                Manage Routes
   test                 Probe selected endpoints without model inference
   verify               Verify a Route through a real native client (may use quota)
+  version              Show the program's version
 
 Options
   -h, --help      show help
@@ -75,3 +91,14 @@ Problem
 
 Fix
   aigw --help
+-- bare-empty.txt --
+AIGW  Not configured
+────────────────────────────────────────
+
+Get started
+  Run the guided setup once to add a provider, its Token and a first model.
+
+Next
+  aigw setup
+-- token.txt --
+sk-team-token-0001

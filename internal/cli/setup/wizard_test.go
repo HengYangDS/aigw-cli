@@ -52,7 +52,7 @@ func (candidate *scriptedWizardPrompt) Text(message string) (string, error) {
 func TestWizardUsesEndpointNeutralAccountExample(t *testing.T) {
 	prompt := &scriptedWizardPrompt{texts: []string{"team-primary"}, failTextAt: 2}
 
-	if err := RunWizard(context.Background(), invocation.Context{Clients: clients.Registry(), Prompt: prompt}); err == nil {
+	if err := runWizard(context.Background(), invocation.Context{Clients: clients.Registry(), Prompt: prompt}); err == nil {
 		t.Fatal("expected wizard failure after the account prompt")
 	}
 	if len(prompt.textPrompts) == 0 || prompt.textPrompts[0] != "Account ID (for example, team-primary): " {
@@ -82,7 +82,7 @@ func TestWizardOffersAdmittedClientsAndHermesProtocols(t *testing.T) {
 		selections: []string{hermes.ID, string(domain.ProtocolAnthropic)},
 		failTextAt: 4,
 	}
-	if err := RunWizard(context.Background(), invocation.Context{Clients: clients.Registry(), Prompt: prompt}); err == nil {
+	if err := runWizard(context.Background(), invocation.Context{Clients: clients.Registry(), Prompt: prompt}); err == nil {
 		t.Fatal("expected wizard to stop at the Route prompt")
 	}
 	if len(prompt.choiceSets) != 2 {
@@ -122,7 +122,7 @@ func TestWizardPromptFailureBranches(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if err := RunWizard(context.Background(), invocation.Context{Clients: clients.Registry(), Prompt: test.prompt}); err == nil {
+			if err := runWizard(context.Background(), invocation.Context{Clients: clients.Registry(), Prompt: test.prompt}); err == nil {
 				t.Fatal("expected wizard failure")
 			}
 		})

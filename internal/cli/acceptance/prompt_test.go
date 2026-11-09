@@ -253,7 +253,9 @@ func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 	}
 }
 
-func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
+// TestSetupAtATerminalRunsTheWizard: setup at a terminal asks for the first
+// provider, its Token and a model, and connects the chosen client.
+func TestSetupAtATerminalRunsTheWizard(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	app.Interactive = true
 	prompt := &scriptedPrompt{
@@ -286,7 +288,7 @@ func TestNoArgsRunsAutomaticFirstUseWizard(t *testing.T) {
 			AutoManaged: true,
 		}},
 	}}
-	if err := cli.Execute(app, []string{}); err != nil {
+	if err := cli.Execute(app, []string{"setup"}); err != nil {
 		t.Fatal(err)
 	}
 	if len(prompt.secretCalls) != 1 {
@@ -341,7 +343,7 @@ func TestFirstRunDefersSelectedHermesProtocolUntilClientInstallation(t *testing.
 			}
 			app.Prompt = prompt
 
-			if err := cli.Execute(app, nil); err != nil {
+			if err := cli.Execute(app, []string{"setup"}); err != nil {
 				t.Fatal(err)
 			}
 			connected := secretExists(t, secretStore, "team")
@@ -378,7 +380,7 @@ func TestFirstRunCreatesExplicitGenericProviderWithoutBundledProviderDefault(t *
 		},
 	}
 
-	if err := cli.Execute(app, []string{}); err != nil {
+	if err := cli.Execute(app, []string{"setup"}); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := app.Config.Load()
@@ -476,7 +478,7 @@ func TestWizardFailureLeavesNoModelSecretOrClientProjection(t *testing.T) {
 			AutoManaged: true,
 		}},
 	}}
-	err := cli.Execute(app, []string{})
+	err := cli.Execute(app, []string{"setup"})
 	if err == nil || !strings.Contains(err.Error(), "preflight failed") || strings.Contains(err.Error(), "configuration was rolled back") {
 		t.Fatalf("error = %v", err)
 	}
@@ -492,6 +494,16 @@ func TestWizardFailureLeavesNoModelSecretOrClientProjection(t *testing.T) {
 	data, _ := os.ReadFile(codexTarget)
 	if string(data) != original {
 		t.Fatalf("failed wizard changed Codex config:\n%s", data)
+	}
+}
+
+// TestBareAigwAtATerminalNamesSetup: bare aigw at a terminal in an empty
+// home is aigw status, which names `aigw setup` and asks nothing.
+func TestBareAigwAtATerminalNamesSetup(t *testing.T) {
+	app, out, _, _, _ := testApp(t, "")
+	app.Interactive, app.Prompt = true, &scriptedPrompt{}
+	if err := cli.Execute(app, nil); err != nil || !strings.Contains(out.String(), "Not configured") || !strings.Contains(out.String(), "aigw setup") {
+		t.Fatalf("bare aigw = %v\n%s", err, out)
 	}
 }
 

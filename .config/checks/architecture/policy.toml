@@ -107,6 +107,7 @@ used_exports_only = [
   "internal/cli/update",
   "internal/cli/use",
   "internal/cli/verify",
+  "internal/cli/version",
   "internal/domain",
   "internal/secret",
   "internal/secret/native",

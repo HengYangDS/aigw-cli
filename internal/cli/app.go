@@ -46,6 +46,7 @@ import (
 	updatecli "aigw-cli/internal/cli/update"
 	"aigw-cli/internal/cli/use"
 	"aigw-cli/internal/cli/verify"
+	versioncli "aigw-cli/internal/cli/version"
 	"aigw-cli/internal/platform"
 	"aigw-cli/internal/platform/process"
 	"aigw-cli/internal/program"
@@ -352,16 +353,9 @@ func NewRoot(app *App) *cobra.Command {
 		Short:         "Local AI provider configuration, routing, and diagnostics",
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := app.Config.Load()
-			if err != nil {
-				return err
-			}
-			// Setup connects the first provider; providers without models
-			// show the status, whose clients select nothing.
-			if len(cfg.Providers) == 0 && app.Interactive {
-				return invocation.CancelledPrompt(cmd, args, setup.RunWizard(cmd.Context(), app.invocationContext()))
-			}
+		// Bare aigw is aigw status, which names `aigw setup` without a
+		// configuration; only setup starts the guided first run.
+		RunE: func(*cobra.Command, []string) error {
 			return status.RunStatus(app.invocationContext(), false)
 		},
 	}
@@ -420,9 +414,9 @@ func NewRoot(app *App) *cobra.Command {
 			root.AddCommand(command)
 		}
 	}
-	completion := completioncli.NewCommand()
-	completion.GroupID = "advanced"
-	root.AddCommand(completion, credentialcli.NewCommand(runtime))
+	completion, version := completioncli.NewCommand(), versioncli.NewCommand(runtime)
+	completion.GroupID, version.GroupID = "advanced", "advanced"
+	root.AddCommand(completion, version, credentialcli.NewCommand(runtime))
 	// A flag error names the help of the command that refused the flag, as a
 	// flag-group failure does; a command that help does not list, such as the
 	// help command, names top-level help. An argument error is a usage error
