@@ -458,7 +458,9 @@ configuration content, credential or internal error.
 - **WHEN** a file operation fails because its path runs through a regular file
 - **THEN** the diagnostic SHALL give the reason `not a directory` on every
   platform, and its Fix SHALL name that file to move
-- **AND** the Fix for a missing folder SHALL name the folder to create.
+- **AND** the Fix for a missing folder SHALL name the folder to create, or the
+  file itself when AIGW does not create that file, so that following it lets
+  the same command run.
 
 #### Scenario: The configuration cannot be parsed
 
