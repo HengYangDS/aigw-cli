@@ -23,7 +23,7 @@
       protocols, depths, families and capabilities that read only local
       configuration; a test whose secret store and HTTP client fail on any use
       shows that they read no Token and send no request.
-- [ ] 2.5 Refuse a path that runs through a regular file as `not a directory`,
+- [x] 2.5 Refuse a path that runs through a regular file as `not a directory`,
       naming that file, at every product check that takes a missing path for
       an absent file, through one `internal/platform` function; Windows reports
       such a path as ERROR_PATH_NOT_FOUND, and tests that map an error to it
@@ -70,16 +70,16 @@
       `provider/model` completion of `use <client> <TAB>`; `use.txtar` covers
       each branch and runs the `aigw use …` fixes that the model commands
       already name.
-- [ ] 4.2 Rework `aigw check [client...] --depth local|endpoint|model|client`:
+- [x] 4.2 Rework `aigw check [client...] --depth local|endpoint|model|client`:
       each row names the depth reached, a depth that a client cannot run is
       skipped with its reason, and the command exits 1 when a checked client
       failed, or when no client is named and none is enabled, and it lists
       stored Tokens that no provider uses; `check.txtar` covers each reason
       and a named disabled client.
-- [ ] 4.3 Add `--verbose`, and `--model <provider/model>` with an optional
+- [x] 4.3 Add `--verbose`, and `--model <provider/model>` with an optional
       `--token-stdin` at depths `endpoint` and `model`, to `aigw check`; the
       one-time Token is neither read from nor written to the store.
-- [ ] 4.4 Make `aigw check --depth client` without named clients write the
+- [x] 4.4 Make `aigw check --depth client` without named clients write the
       verified snapshot when no client failed and every session-capable client
       ran one, recording each client's depth; a test with Claude Desktop
       enabled writes it.
@@ -94,6 +94,17 @@
 - [ ] 4.7 Run the `client_acceptance` journeys from v0.6.1 once 4.1 lands,
       each program speaking its own commands; they pass on macOS. Depends on
       7.4, because a candidate whose `VERSION` equals the baseline's is refused.
+- [ ] 4.8 Show a path inside home as `~/…` in the success lines of
+      `client edit` and `self install`, which print the absolute home path;
+      scripts cover both.
+- [ ] 4.9 Name every cause that blocks a write in the first fix: a file that
+      is both lock-flagged and sandbox-denied names the flag and the denial
+      together; a test covers it.
+- [ ] 4.10 Give a Token store read that a sandbox denies the generic denial
+      fix naming its `~/…` folder, in `check` and `status`; a test covers both.
+- [ ] 4.11 State in the command-line delta the reason that each path
+      condition prints on every platform, where the scenario now asks for the
+      operating-system text; strict validation passes.
 
 ## 5. Maintenance commands and the command tree
 
@@ -115,7 +126,8 @@
       that fail a leaf without examples, a positional argument or filter flag
       without completion, and any help, golden human output or JSON key that
       names an Account, Route, projection, binding, adapter, admitted or
-      candidate.
+      candidate; decide how help shows a boolean flag and take
+      `spf13/pflag` v1.1.0, whose boolean help moves every help golden.
 - [ ] 5.6 Give each instrumented `aigw` process of the acceptance scripts its
       own coverage directory, merged after the run, so that concurrent
       processes no longer race on the coverage metadata file; the Windows
