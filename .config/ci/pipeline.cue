@@ -361,12 +361,12 @@ windowsMiseJobDirectory:   "Join-Path (Split-Path -Parent $env:CI_PROJECT_DIR) \
 // native job installs the clients its host declares; a GitLab public input
 // carries the reviewed Windows supplier archive built from the same releases.
 nativeClients: {
-	codex:  "0.166.0"
-	claude: "2.1.316"
+	codex:  "0.167.0"
+	claude: "2.1.319"
 	// The Hermes release commit with its tag, and the SHA-256 of that
 	// release's scripts/install.sh.
 	hermes: {
-		commit:    "b200f5bc60e31588ba2cb60e288029c4a54ba5fa" // v0.22.7
+		commit:    "2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19" // v0.23.0
 		installer: "abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209"
 	}
 }

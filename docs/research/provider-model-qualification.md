@@ -50,7 +50,8 @@ discovery-only. Preserve this distinction and explicit local selections.
 The owner's rule: Claude 5.5 or later, GPT 6.1 or later, and each other vendor's strongest generally
 available model, judged by the vendor's own notes. `aigw catalog --json` read all eight authenticated
 surfaces; each candidate passed an isolated `read_file` turn and a tool-free resumed recall on the stock
-Hermes v0.22.7 (`b200f5bc60e3`) that CI pins. Raw results are in the canonical checkout's
+Hermes v0.22.7 (`b200f5bc60e3`) that CI pinned then; CI now pins v0.23.0 (`2bd378ed1b8d`), on which
+these turns were not run again. Raw results are in the canonical checkout's
 `build/evidence/team-model-refresh-20261107/`.
 
 | Model                      | Admitted Account / protocol                  | Vendor basis                                             |

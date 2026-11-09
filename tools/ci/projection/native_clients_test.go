@@ -30,7 +30,7 @@ func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {
 		t.Fatal(err)
 	}
 	const selection = "github.event_name == 'workflow_dispatch' && inputs.native_clients && inputs.baseline_tag != ''"
-	const hermes = " --hermes-commit b200f5bc60e31588ba2cb60e288029c4a54ba5fa --hermes-installer-sha256 abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209"
+	const hermes = " --hermes-commit 2bd378ed1b8d6bf2192cb26e0a55ff3091e6bd19 --hermes-installer-sha256 abf338605dae6dd28d101673ac6aed7995c955745db46d47676bc591a7957209"
 	for _, platform := range []string{"darwin", "linux", "windows"} {
 		job := workflow.Jobs["native-"+platform]
 		steps := job.Steps
@@ -51,7 +51,7 @@ func TestNativeClientSupplyMatchesEachHostsJourneys(t *testing.T) {
 		for _, field := range []struct{ got, want string }{
 			{supply.If, selection}, {steps[cleanupIndex].If, "always() && " + selection},
 			{supply.Env["GIT_TERMINAL_PROMPT"], "0"},
-			{supply.Run, `mise exec --locked -- go run ./tools/ci native-clients supply --root "` + prefix + `RUNNER_TEMP" --github-env "` + prefix + `GITHUB_ENV" --codex 0.166.0 --claude 2.1.316` + pins},
+			{supply.Run, `mise exec --locked -- go run ./tools/ci native-clients supply --root "` + prefix + `RUNNER_TEMP" --github-env "` + prefix + `GITHUB_ENV" --codex 0.167.0 --claude 2.1.319` + pins},
 			{steps[cleanupIndex].Run, "mise exec --locked -- go run ./tools/ci native-clients retire"},
 			{job.TimeoutMinutes, "${{ inputs.native_clients && 45 || 25 }}"},
 		} {
