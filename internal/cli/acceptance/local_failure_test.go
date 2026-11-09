@@ -132,6 +132,11 @@ func TestAFileWhereAIGWsFolderBelongsToEveryCommand(t *testing.T) {
 				t.Fatalf("%v: %v\n%s", args, err, output)
 			}
 			want := "Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again."
+			// A rollback promises no rollback after setup, which leaves nothing
+			// to roll back.
+			if args[0] == "rollback" {
+				want = "Move the file ~/aigw. If it replaced AIGW's folder, put that folder back from a copy, then run the same command again; otherwise run `aigw setup`, which leaves nothing to roll back."
+			}
 			if failure.NextDetail != want || failure.NextAction != "" || !strings.Contains(failure.Error, "not a directory") {
 				t.Fatalf("%v names %+v", args, failure)
 			}

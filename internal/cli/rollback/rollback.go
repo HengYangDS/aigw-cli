@@ -49,7 +49,7 @@ func unavailable(runtime invocation.Context, cause error) error {
 		failure := platform.ClassifyPath(runtime.Config.Path(), platform.FileExpected, err)
 		switch {
 		case failure.Blocked():
-			fix = platform.PathFix(failure, platform.PathContext{Home: invocation.Home(runtime.Dependencies), Configuration: runtime.Config.Path()})
+			fix = platform.PathFix(failure, platform.PathContext{Home: invocation.Home(runtime.Dependencies), Configuration: runtime.Config.Path(), Rollback: true})
 		case failure.Absent():
 			fix = "aigw setup"
 		}

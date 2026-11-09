@@ -20,6 +20,9 @@ type PathContext struct {
 	Home          string
 	Configuration string
 	Check         bool
+	// Rollback marks a rollback, which a configuration that setup begins
+	// again leaves nothing to roll back to.
+	Rollback bool
 }
 
 // ConfigurationReadFix is the fix of a configuration file that cannot be read.
@@ -77,6 +80,8 @@ func (at PathContext) unblock(failure *PathConditionError) string {
 		lead = "Remove the " + at.name(failure, failure.Culprit, theLink)
 	}
 	switch {
+	case at.blocksConfiguration(failure.Culprit) && at.Rollback:
+		return lead + ". If it replaced AIGW's folder, put that folder back from a copy, then run the same command again; otherwise run `aigw setup`, which leaves nothing to roll back."
 	case at.blocksConfiguration(failure.Culprit):
 		return lead + ". If it replaced AIGW's folder, put that folder back from a copy; otherwise run `aigw setup`. Then run the same command again."
 	case failure.Restore != "":
