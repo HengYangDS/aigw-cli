@@ -47,7 +47,6 @@ func TestInternalReleaseNeedsNoPublisherCredentials(t *testing.T) {
 func TestReleaseBuildBoundaryFailures(t *testing.T) {
 	valid := buildRequest{
 		Root: releaseRoot(t), Output: filepath.Join(t.TempDir(), "dist"), Version: "1.2.3", Epoch: "1784246400",
-		GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli",
 		GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli",
 		SigningKey: signingKey(t),
 	}
@@ -322,23 +321,23 @@ func TestValidateSourcesRejectsInvalidAuthoritiesAndRepositories(t *testing.T) {
 		{"empty query", "https://gitlab.example.test?", "group/project", "HTTP(S) origin"},
 		{"empty fragment", "https://gitlab.example.test#", "group/project", "HTTP(S) origin"},
 		{"repeated root slash", "https://gitlab.example.test///", "group/project", "HTTP(S) origin"},
-		{"repository edge slash", "https://gitlab.example.test", "/group/project", "namespace/project path"},
+		{"repository edge slash", "https://gitlab.example.test", "/group/project", "owner/repository"},
 		{"repository query", "https://gitlab.example.test", "group/project?x", "namespace/project path"},
-		{"repository empty segment", "https://gitlab.example.test", "group//project", "namespace/project path"},
-		{"repository missing namespace", "https://gitlab.example.test", "project", "namespace/project path"},
+		{"repository empty segment", "https://gitlab.example.test", "group//project", "owner/repository"},
+		{"repository missing namespace", "https://gitlab.example.test", "project", "owner/repository"},
 		{"repository escaped segment", "https://gitlab.example.test", "group/%2e%2e", "namespace/project path"},
 		{"repository escaped separator", "https://gitlab.example.test", "group/project%2Fother", "namespace/project path"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", tc.origin)
-			t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", tc.repository)
+			t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", tc.origin)
+			t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", tc.repository)
 			if err := ValidateSources(); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("source check error = %v, want %q", err, tc.want)
 			}
 			request := buildRequest{
 				Version: "1.2.3", Epoch: "0", SigningKey: signingKey(t),
-				GitLabOrigin: tc.origin, GitLabRepository: tc.repository,
+				GitHubOrigin: tc.origin, GitHubRepository: tc.repository,
 			}
 			calls := 0
 			unexpected := errors.New("construction reached external tool execution")

@@ -48,7 +48,6 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 	runner := releaseFixtureRunner(t, root, &calls, &fault)
 	request := buildRequest{
 		Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400",
-		GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli",
 		GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli",
 		SigningKey: key,
 	}
@@ -70,11 +69,15 @@ func TestReleaseBuildInvokesPortableToolchainWithExplicitInputs(t *testing.T) {
 			t.Fatalf("OSV arguments missing %q: %v", expected, osv.Args)
 		}
 	}
-	for _, expected := range []string{"AIGW_VERSION=1.2.3", "GORELEASER_CURRENT_TAG=v1.2.3", "AIGW_RELEASE_EPOCH=1784246400", "AIGW_GITLAB_RELEASE_ORIGIN=https://gitlab.example", "AIGW_GITHUB_RELEASE_REPOSITORY=org/aigw-cli"} {
-		goReleaser := calls[slices.IndexFunc(calls, func(call toolCall) bool { return call.Name == "goreleaser" })]
+	goReleaser := calls[slices.IndexFunc(calls, func(call toolCall) bool { return call.Name == "goreleaser" })]
+	for _, expected := range []string{"AIGW_VERSION=1.2.3", "GORELEASER_CURRENT_TAG=v1.2.3", "AIGW_RELEASE_EPOCH=1784246400", "AIGW_GITHUB_RELEASE_ORIGIN=https://github.example", "AIGW_GITHUB_RELEASE_REPOSITORY=org/aigw-cli"} {
 		if !slices.Contains(goReleaser.Env, expected) {
 			t.Fatalf("GoReleaser environment missing %q: %v", expected, goReleaser.Env)
 		}
+	}
+	// The build embeds no GitLab release source.
+	if slices.ContainsFunc(goReleaser.Env, func(entry string) bool { return strings.HasPrefix(entry, "AIGW_GITLAB_RELEASE_") }) {
+		t.Fatalf("GoReleaser received a GitLab release source: %v", goReleaser.Env)
 	}
 	if err := artifact.ValidateMatrix(output, "1.2.3"); err != nil {
 		t.Fatal(err)
@@ -215,18 +218,16 @@ func signingKey(t *testing.T) string {
 func TestReleaseBuildAcceptsLocalOrSingleForgeContext(t *testing.T) {
 	for name, request := range map[string]buildRequest{
 		"local":          {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", SigningKey: "key"},
-		"gitlab":         {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/subgroup/aigw-cli", SigningKey: "key"},
 		"github":         {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli", SigningKey: "key"},
-		"ipv6":           {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://[fd00::8]:8443/", GitLabRepository: "group_name/project.name-1", SigningKey: "key"},
-		"private GitLab": {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "http://10.0.0.8:8080", GitLabRepository: "group/project", SigningKey: "key"},
+		"ipv6":           {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitHubOrigin: "https://[fd00::8]:8443/", GitHubRepository: "group_name/project.name-1", SigningKey: "key"},
 		"private GitHub": {Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitHubOrigin: "http://[fd00::8]:8080", GitHubRepository: "org/project", SigningKey: "key"},
 	} {
 		t.Run(name, func(t *testing.T) {
+			t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
+			t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
 			if err := validateRequest(request); err != nil {
 				t.Fatal(err)
 			}
-			t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", request.GitLabOrigin)
-			t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", request.GitLabRepository)
 			t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", request.GitHubOrigin)
 			t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", request.GitHubRepository)
 			if err := ValidateSources(); err != nil {
@@ -237,11 +238,10 @@ func TestReleaseBuildAcceptsLocalOrSingleForgeContext(t *testing.T) {
 }
 
 func TestReleaseBuildRejectsInvalidOrPartialInputsBeforeLaunchingTools(t *testing.T) {
-	valid := buildRequest{Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli", SigningKey: "key"}
+	valid := buildRequest{Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli", SigningKey: "key"}
 	for name, mutate := range map[string]func(*buildRequest){
 		"version":         func(r *buildRequest) { r.Version = "../escape" },
 		"epoch":           func(r *buildRequest) { r.Epoch = "not-an-epoch" },
-		"partial GitLab":  func(r *buildRequest) { r.GitLabRepository = "" },
 		"partial GitHub":  func(r *buildRequest) { r.GitHubOrigin = "" },
 		"insecure origin": func(r *buildRequest) { r.GitHubOrigin = "http://github.example" },
 	} {
@@ -257,6 +257,29 @@ func TestReleaseBuildRejectsInvalidOrPartialInputsBeforeLaunchingTools(t *testin
 	}
 }
 
+// TestReleaseBuildRefusesAGitLabReleaseSource: no build embeds a GitLab
+// release source, so each of its variables refuses the build and the source
+// check before any tool runs, naming the variable to unset.
+func TestReleaseBuildRefusesAGitLabReleaseSource(t *testing.T) {
+	for _, name := range []string{"AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY"} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
+			t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
+			t.Setenv(name, "set")
+			want := "unset " + name
+			if err := ValidateSources(); err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("source check error = %v, want %q", err, want)
+			}
+			launched := false
+			request := buildRequest{Root: t.TempDir(), Output: t.TempDir(), Version: "1.2.3", Epoch: "1784246400", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli", SigningKey: "key"}
+			err := buildRelease(t.Context(), request, func(toolCall) error { launched = true; return nil })
+			if err == nil || !strings.Contains(err.Error(), want) || launched {
+				t.Fatalf("build error = %v, launched = %t, want %q", err, launched, want)
+			}
+		})
+	}
+}
+
 func TestReleaseBuildPropagatesToolFailureAndNeverPublishesPartialMatrix(t *testing.T) {
 	root := releaseRoot(t)
 	output := filepath.Join(root, "dist")
@@ -267,7 +290,7 @@ func TestReleaseBuildPropagatesToolFailureAndNeverPublishesPartialMatrix(t *test
 		t.Fatal(err)
 	}
 	want := errors.New("tool failed")
-	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", GitLabOrigin: "https://gitlab.example", GitLabRepository: "group/aigw-cli", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli", SigningKey: signingKey(t)}, func(call toolCall) error {
+	err := buildRelease(t.Context(), buildRequest{Root: root, Output: output, Version: "1.2.3", Epoch: "1784246400", GitHubOrigin: "https://github.example", GitHubRepository: "org/aigw-cli", SigningKey: signingKey(t)}, func(call toolCall) error {
 		if call.Name == "goreleaser" {
 			return populatePortableStage(t, call, "1.2.3", "portable_darwin_arm64_v8.0/aigw")
 		}

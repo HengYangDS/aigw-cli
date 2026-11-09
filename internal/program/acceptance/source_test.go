@@ -231,33 +231,40 @@ func TestCurrentUsesBuildTimeGitHubSource(t *testing.T) {
 	}
 }
 
-func TestCurrentUsesBuildTimeGitLabSource(t *testing.T) {
-	previousOrigin, previousRepository := program.BuildGitLabReleaseOrigin, program.BuildGitLabReleaseRepository
-	t.Cleanup(func() {
-		program.BuildGitLabReleaseOrigin, program.BuildGitLabReleaseRepository = previousOrigin, previousRepository
-	})
-	program.BuildGitLabReleaseOrigin = "https://gitlab.example.test"
-	program.BuildGitLabReleaseRepository = testReleaseProject
+// TestCurrentEmbedsNoGitLabSource: no build embeds a GitLab source, so the
+// updater names none until the environment does.
+func TestCurrentEmbedsNoGitLabSource(t *testing.T) {
 	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
 	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
 	updater := program.Current(filepath.Join(t.TempDir(), "aigw"))
-	if got := updater.GitLab; got != (program.ReleaseSource{Provider: program.ReleaseProviderGitLab, Origin: "https://gitlab.example.test", Repository: testReleaseProject}) {
+	if got := updater.GitLab; got != (program.ReleaseSource{Provider: program.ReleaseProviderGitLab}) {
 		t.Fatalf("GitLab source = %#v", got)
 	}
 }
 
-func TestExplicitReleaseSourceEnvironmentOverridesBuildMetadata(t *testing.T) {
-	previousOrigin, previousRepository := program.BuildGitLabReleaseOrigin, program.BuildGitLabReleaseRepository
+// TestUpdateReadsARunTimeGitLabPeerBesideTheEmbeddedGitHubSource: a GitLab
+// peer that the environment names at run time joins the GitHub source that
+// the build embeds, and serves the update while GitHub is unreachable.
+func TestUpdateReadsARunTimeGitLabPeerBesideTheEmbeddedGitHubSource(t *testing.T) {
+	previousOrigin, previousRepository := program.BuildGitHubReleaseOrigin, program.BuildGitHubReleaseRepository
 	t.Cleanup(func() {
-		program.BuildGitLabReleaseOrigin, program.BuildGitLabReleaseRepository = previousOrigin, previousRepository
+		program.BuildGitHubReleaseOrigin, program.BuildGitHubReleaseRepository = previousOrigin, previousRepository
 	})
-	program.BuildGitLabReleaseOrigin = "https://embedded.example.test"
-	program.BuildGitLabReleaseRepository = "embedded/project"
-	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "https://override.example.test")
+	program.BuildGitHubReleaseOrigin = "https://github.example.test"
+	program.BuildGitHubReleaseRepository = "example-owner/aigw-cli"
+	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "")
+	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "")
+	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "https://gitlab.example.test")
 	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", testReleaseProject)
 	runner := &releaseRunner{}
 	u := program.Current(filepath.Join(t.TempDir(), "aigw"))
+	if got := u.GitHub; got != (program.ReleaseSource{Provider: program.ReleaseProviderGitHub, Origin: "https://github.example.test", Repository: "example-owner/aigw-cli"}) {
+		t.Fatalf("embedded GitHub source = %#v", got)
+	}
 	u.Runner = runner
+	u.HTTPClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, fmt.Errorf("simulated GitHub outage")
+	})}
 	if _, err := u.Update(context.Background(), "0.2.0"); err != nil {
 		t.Fatal(err)
 	}
@@ -266,5 +273,5 @@ func TestExplicitReleaseSourceEnvironmentOverridesBuildMetadata(t *testing.T) {
 			return
 		}
 	}
-	t.Fatalf("release project override was not passed to glab: %v", runner.calls)
+	t.Fatalf("the run-time GitLab project was not passed to glab: %v", runner.calls)
 }

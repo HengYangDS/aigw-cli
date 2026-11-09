@@ -11,12 +11,11 @@ import (
 	"strings"
 )
 
-// BuildGitLabRelease* and BuildGitHubRelease* identify independently configured
-// release peers embedded in official artifacts. A source build leaves them
-// empty, so remote updates require explicit source configuration.
+// BuildGitHubRelease* identify the public GitHub release source, the only one
+// that official artifacts embed. A source build leaves them empty, so remote
+// updates require explicit source configuration. A GitLab peer is named only
+// at run time, by AIGW_GITLAB_RELEASE_ORIGIN and AIGW_GITLAB_RELEASE_REPOSITORY.
 var (
-	BuildGitLabReleaseOrigin     string
-	BuildGitLabReleaseRepository string
 	BuildGitHubReleaseOrigin     string
 	BuildGitHubReleaseRepository string
 )

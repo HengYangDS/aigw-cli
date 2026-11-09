@@ -119,8 +119,8 @@ func TestRunBuildCIAndTagReadinessInputBoundaries(t *testing.T) {
 }
 
 func TestRunBuildUsesPublicArgumentContract(t *testing.T) {
-	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "https://gitlab.example")
-	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "group/aigw-cli")
+	t.Setenv("AIGW_GITLAB_RELEASE_ORIGIN", "")
+	t.Setenv("AIGW_GITLAB_RELEASE_REPOSITORY", "")
 	t.Setenv("AIGW_GITHUB_RELEASE_ORIGIN", "https://github.example")
 	t.Setenv("AIGW_GITHUB_RELEASE_REPOSITORY", "org/aigw-cli")
 	root := t.TempDir()

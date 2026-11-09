@@ -203,11 +203,9 @@ func Current(executable string) Updater {
 		GOARCH:     runtime.GOARCH,
 		Executable: executable,
 		Runner:     process.Runner{},
-		GitLab: ReleaseSource{
-			Provider:   ReleaseProviderGitLab,
-			Origin:     strings.TrimSpace(BuildGitLabReleaseOrigin),
-			Repository: strings.TrimSpace(BuildGitLabReleaseRepository),
-		},
+		// No build embeds a GitLab source; the environment names one at run
+		// time.
+		GitLab: ReleaseSource{Provider: ReleaseProviderGitLab},
 		GitHub: ReleaseSource{
 			Provider:   ReleaseProviderGitHub,
 			Origin:     strings.TrimSpace(BuildGitHubReleaseOrigin),

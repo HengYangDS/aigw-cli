@@ -25,7 +25,6 @@ import (
 
 type buildRequest struct {
 	Root, Output, Version, Epoch   string
-	GitLabOrigin, GitLabRepository string
 	GitHubOrigin, GitHubRepository string
 	SigningKey                     string
 	ReleasePublicKey               string
@@ -230,8 +229,6 @@ func goReleaserEnvironment(request buildRequest) ([]string, error) {
 		"GORELEASER_CURRENT_TAG=v"+request.Version, // Keep snapshots bound to AIGW SemVer, not mirror tags.
 		"AIGW_RELEASE_EPOCH="+request.Epoch,
 		"AIGW_RELEASE_TIMESTAMP="+instant.Format(time.RFC3339),
-		"AIGW_GITLAB_RELEASE_ORIGIN="+request.GitLabOrigin,
-		"AIGW_GITLAB_RELEASE_REPOSITORY="+request.GitLabRepository,
 		"AIGW_GITHUB_RELEASE_ORIGIN="+request.GitHubOrigin,
 		"AIGW_GITHUB_RELEASE_REPOSITORY="+request.GitHubRepository,
 	), nil
@@ -284,31 +281,32 @@ func validateRequest(request buildRequest) error {
 	return request.validateSources()
 }
 
-// ValidateSources validates independently configured Forge tuples.
-// Local builds may configure neither source; either Forge may configure itself.
+// ValidateSources validates the release source that a build would embed.
+// A local build may configure none; an official one embeds only GitHub's.
 func ValidateSources() error {
 	request := buildRequest{
-		GitLabOrigin:     os.Getenv("AIGW_GITLAB_RELEASE_ORIGIN"),
-		GitLabRepository: os.Getenv("AIGW_GITLAB_RELEASE_REPOSITORY"),
 		GitHubOrigin:     os.Getenv("AIGW_GITHUB_RELEASE_ORIGIN"),
 		GitHubRepository: os.Getenv("AIGW_GITHUB_RELEASE_REPOSITORY"),
 	}
 	return request.validateSources()
 }
 
+// gitLabSourceVariables name a GitLab release source, which no build embeds:
+// the private peer's origin and project path must not be public. At run time
+// they still add a GitLab peer to an update.
+var gitLabSourceVariables = []string{"AIGW_GITLAB_RELEASE_ORIGIN", "AIGW_GITLAB_RELEASE_REPOSITORY"}
+
 func (request buildRequest) validateSources() error {
-	for _, source := range []program.ReleaseSource{
-		{Provider: program.ReleaseProviderGitLab, Origin: request.GitLabOrigin, Repository: request.GitLabRepository},
-		{Provider: program.ReleaseProviderGitHub, Origin: request.GitHubOrigin, Repository: request.GitHubRepository},
-	} {
-		if source.Origin == "" && source.Repository == "" {
-			continue
-		}
-		if err := source.Validate(); err != nil {
-			return err
+	for _, name := range gitLabSourceVariables {
+		if strings.TrimSpace(os.Getenv(name)) != "" {
+			return fmt.Errorf("a build embeds only the GitHub release source; unset %s", name)
 		}
 	}
-	return nil
+	source := program.ReleaseSource{Provider: program.ReleaseProviderGitHub, Origin: request.GitHubOrigin, Repository: request.GitHubRepository}
+	if source.Origin == "" && source.Repository == "" {
+		return nil
+	}
+	return source.Validate()
 }
 
 func copyFile(source, target string) error {
@@ -447,7 +445,6 @@ func buildRequestFromEnvironment(ctx context.Context, output string) (buildReque
 	}
 	return buildRequest{
 		Root: root, Version: version, Epoch: epoch, Output: output,
-		GitLabOrigin: os.Getenv("AIGW_GITLAB_RELEASE_ORIGIN"), GitLabRepository: os.Getenv("AIGW_GITLAB_RELEASE_REPOSITORY"),
 		GitHubOrigin: os.Getenv("AIGW_GITHUB_RELEASE_ORIGIN"), GitHubRepository: os.Getenv("AIGW_GITHUB_RELEASE_REPOSITORY"),
 		SigningKey:           os.Getenv("AIGW_RELEASE_SIGNING_KEY"),
 		MacOSSigningIdentity: os.Getenv("AIGW_MACOS_SIGNING_IDENTITY"),
@@ -484,7 +481,6 @@ func buildCI(root, workspace, output string, build releaseBuilder, epoch release
 	second := filepath.Join(workspace, "second")
 	request := buildRequest{
 		Root: root, Version: version, Epoch: releaseEpoch,
-		GitLabOrigin: os.Getenv("AIGW_GITLAB_RELEASE_ORIGIN"), GitLabRepository: os.Getenv("AIGW_GITLAB_RELEASE_REPOSITORY"),
 		GitHubOrigin: os.Getenv("AIGW_GITHUB_RELEASE_ORIGIN"), GitHubRepository: os.Getenv("AIGW_GITHUB_RELEASE_REPOSITORY"),
 		SigningKey: os.Getenv("AIGW_RELEASE_SIGNING_KEY"),
 	}

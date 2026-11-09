@@ -62,14 +62,19 @@ verify and extract the same bytes that product updates consume. Runtime code
 does not import repository tools. Both built and published inputs use that
 reader; acceptance owns scratch, never the input artifact directory.
 
-Construction owns validation of embedded release sources. The standalone
-source check and build admission use the same [release-source validator](../../internal/program/source.go)
-before running tools. Each Forge is optional; a selected source requires an
-admitted origin and complete repository path together. HTTPS is required except
-for localhost, `.test` names, and literal loopback, private, or link-local IP
-addresses, which may use HTTP. GitLab permits nested namespaces, while GitHub
-requires an owner/repository pair. Runtime endpoint overrides remain the upgrade
-owner's responsibility, not a dependency of construction.
+Construction owns validation of the embedded release source. An official build
+embeds only the public GitHub source, because the private GitLab peer's origin
+and project path must not be public: the standalone source check and build
+admission refuse an environment that sets `AIGW_GITLAB_RELEASE_ORIGIN` or
+`AIGW_GITLAB_RELEASE_REPOSITORY`, naming the variable to unset, before running
+tools. Both check the GitHub source, which is optional, with the
+[release-source validator](../../internal/program/source.go): a selected source
+requires an admitted origin and an owner/repository pair together. HTTPS is
+required except for localhost, `.test` names, and literal loopback, private, or
+link-local IP addresses, which may use HTTP. At run time the GitLab variables
+still add a peer to a program update under the same validator, which permits
+nested GitLab namespaces. Runtime endpoint overrides remain the upgrade owner's
+responsibility, not a dependency of construction.
 
 An origin contains only a scheme and nonempty hostname with an optional port
 and root slash. Native URL reconstruction rejects credentials, paths and even

@@ -24,8 +24,6 @@ builds:
       - >-
         -s -w
         -X aigw-cli/internal/cli.Version={{ .Version }}
-        -X aigw-cli/internal/program.BuildGitLabReleaseOrigin={{ .Env.AIGW_GITLAB_RELEASE_ORIGIN }}
-        -X aigw-cli/internal/program.BuildGitLabReleaseRepository={{ .Env.AIGW_GITLAB_RELEASE_REPOSITORY }}
         -X aigw-cli/internal/program.BuildGitHubReleaseOrigin={{ .Env.AIGW_GITHUB_RELEASE_ORIGIN }}
         -X aigw-cli/internal/program.BuildGitHubReleaseRepository={{ .Env.AIGW_GITHUB_RELEASE_REPOSITORY }}
         -X 'aigw-cli/internal/program/artifact.BuildReleasePublicKey={{ .Env.AIGW_RELEASE_PUBLIC_KEY }}'
