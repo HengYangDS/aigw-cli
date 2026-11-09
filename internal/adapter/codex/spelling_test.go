@@ -3,7 +3,6 @@ package codex
 import (
 	"errors"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -19,14 +18,14 @@ func TestConvergedTargetsKeepOneSpellingOfAFile(t *testing.T) {
 	home := t.TempDir()
 	defaultHome := filepath.Join(home, ".codex", "config.toml")
 	discovered := discovery.Result{Surfaces: []discovery.Surface{{ID: string(HomeDefault), ConfigPath: defaultHome, AutoManaged: true}}}
+	// None of these exists, so only their cleaned spellings can match. On
+	// Windows home + "/.codex/config.toml" holds / where the default has \.
 	spellings := []string{
 		home + "//.codex/config.toml",
 		home + "/./.codex/config.toml",
 		home + "/.codex/../.codex/config.toml",
+		home + "/.codex/config.toml",
 		filepath.ToSlash(defaultHome),
-	}
-	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
-		spellings = append(spellings, filepath.Join(home, ".CODEX", "Config.toml"))
 	}
 	for _, configured := range spellings {
 		targets := convergedTargets(discovered, []string{configured})

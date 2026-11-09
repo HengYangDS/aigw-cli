@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"sort"
-	"strings"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/adapter/surface"
@@ -23,19 +21,26 @@ func codexTargetUnion(before, after []TargetRef) ([]codexReconciliationTarget, e
 	if err != nil {
 		return nil, err
 	}
-	byPath := make(map[string]codexReconciliationTarget, len(normalizedBefore)+len(normalizedAfter))
+	union := make([]codexReconciliationTarget, 0, len(normalizedBefore)+len(normalizedAfter))
+	// A kept target replaces the dropped one that names the same file, however
+	// each is spelled, so one file is never both restored and projected.
+	merge := func(target TargetRef, desired bool) {
+		for index, existing := range union {
+			if existing.ref.Path == target.Path || sameTargetFile(existing.ref.configured, target.configured) {
+				union[index] = codexReconciliationTarget{ref: target, desired: desired}
+				return
+			}
+		}
+		union = append(union, codexReconciliationTarget{ref: target, desired: desired})
+	}
 	for _, target := range normalizedBefore {
-		byPath[target.Path] = codexReconciliationTarget{ref: target}
+		merge(target, false)
 	}
 	for _, target := range normalizedAfter {
 		if err := validateDesiredCodexTarget(target); err != nil {
 			return nil, err
 		}
-		byPath[target.Path] = codexReconciliationTarget{ref: target, desired: true}
-	}
-	union := make([]codexReconciliationTarget, 0, len(byPath))
-	for _, target := range byPath {
-		union = append(union, target)
+		merge(target, true)
 	}
 	sort.Slice(union, func(left, right int) bool { return union[left].ref.Path < union[right].ref.Path })
 	return union, nil
@@ -47,7 +52,6 @@ func codexTargetUnion(before, after []TargetRef) ([]codexReconciliationTarget, e
 // keeps.
 func normalizeCodexTargets(values []TargetRef, desired bool) ([]TargetRef, error) {
 	normalized := make([]TargetRef, 0, len(values))
-	seen := make(map[string]struct{}, len(values))
 	for _, target := range values {
 		if target.Path == "" || target.SurfaceID == "" {
 			return nil, fmt.Errorf("Codex target requires surface_id and path")
@@ -60,10 +64,9 @@ func normalizeCodexTargets(values []TargetRef, desired bool) ([]TargetRef, error
 		if err != nil {
 			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: err}
 		}
-		if _, duplicate := seen[path]; duplicate {
+		if slices.ContainsFunc(normalized, func(kept TargetRef) bool { return kept.Path == path || sameTargetFile(kept.configured, sourcePath) }) {
 			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: duplicateTargetError{}}
 		}
-		seen[path] = struct{}{}
 		folder, err := canonicalCodexTargetPath(filepath.Dir(sourcePath))
 		if err != nil {
 			return nil, &adapter.TargetError{Path: sourcePath, Desired: desired, Err: err}
@@ -91,15 +94,22 @@ func (duplicateTargetError) NextAction() string {
 	return "aigw client edit codex --target <file>, naming each Codex configuration file once"
 }
 
-// sameFileSpelling is path cleaned, with the separators and, where the file
-// system ignores case by default, the case that two spellings of one file can
-// differ by, so that they compare equal.
-func sameFileSpelling(path string) string {
-	cleaned := filepath.Clean(path)
-	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
-		return strings.ToLower(cleaned)
+// statTarget reads the identity that sameTargetFile compares. A test replaces
+// it to stand for a volume that keeps or ignores case.
+var statTarget = os.Stat
+
+// sameTargetFile reports whether two configured paths name one file. Paths
+// that both exist are one file only when the operating system says so, which
+// covers a volume that ignores case and a symbolic link, never a guess from
+// the platform. Otherwise they are one file only when their cleaned spellings
+// are equal, which makes / and \ alike on Windows and folds no case.
+func sameTargetFile(left, right string) bool {
+	if filepath.Clean(left) == filepath.Clean(right) {
+		return true
 	}
-	return cleaned
+	leftInfo, leftErr := statTarget(left)
+	rightInfo, rightErr := statTarget(right)
+	return leftErr == nil && rightErr == nil && os.SameFile(leftInfo, rightInfo)
 }
 
 func canonicalCodexTargetPath(path string) (string, error) {
