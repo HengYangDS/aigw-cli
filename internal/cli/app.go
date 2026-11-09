@@ -174,7 +174,7 @@ func Execute(app *App, args []string) error {
 	// A failure names paths against the run's own home and configuration,
 	// never the process's.
 	at := platform.PathContext{Home: invocation.Home(app.invocationContext().Dependencies), Configuration: app.Config.Path(),
-		Rollback: command.CommandPath() == command.Root().Name()+" rollback"}
+		Rollback: command.CommandPath() == command.Root().Name()+" rollback" || command.CommandPath() == command.Root().Name()+" config rollback"}
 	terminal.RenderError(renderer, terminal.LocalFailure(Version, at, invocation.TokenRejection(command, err)), jsonMode)
 	return terminal.Presented(errors.Join(err, renderer.Err()))
 }

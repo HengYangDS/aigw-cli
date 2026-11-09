@@ -1,5 +1,6 @@
-// Package config implements `aigw config`, which imports, exports and
-// migrates the secret-free configuration manifest.
+// Package config implements `aigw config`, which prints the configuration's
+// path, exports it as a secret-free team file, rolls it back, and until the
+// command tree's last step imports and migrates manifests.
 package config
 
 import (
@@ -23,8 +24,8 @@ const importSchemaVersion = 2
 // NewCommand constructs the configuration manifest command tree.
 func NewCommand(runtime invocation.Context) *cobra.Command {
 	// Like the other command groups, bare `aigw config` shows its help.
-	root := &cobra.Command{Use: "config", Short: "Import and export configuration"}
-	root.AddCommand(newPathCommand(runtime), newExportCommand(runtime), newImportCommand(runtime), newMigrateCommand(runtime))
+	root := &cobra.Command{Use: "config", Short: "Show, export and roll back the configuration"}
+	root.AddCommand(newPathCommand(runtime), newExportCommand(runtime), newRollbackCommand(runtime), newImportCommand(runtime), newMigrateCommand(runtime))
 	return root
 }
 
@@ -50,18 +51,19 @@ func newPathCommand(runtime invocation.Context) *cobra.Command {
 }
 
 func newExportCommand(runtime invocation.Context) *cobra.Command {
-	return &cobra.Command{Use: "export", Short: "Export a secret-free configuration manifest", Args: cobra.NoArgs, RunE: func(_ *cobra.Command, _ []string) error {
-		cfg, err := runtime.Config.Load()
-		if err != nil {
+	return &cobra.Command{Use: "export", Short: "Write the configuration as a secret-free team file, without clients", Args: cobra.NoArgs,
+		Example: "aigw config export\naigw config export > team.toml", RunE: func(_ *cobra.Command, _ []string) error {
+			cfg, err := runtime.Config.Load()
+			if err != nil {
+				return err
+			}
+			data, err := store.Export(cfg)
+			if err != nil {
+				return err
+			}
+			_, err = runtime.Out.Write(data)
 			return err
-		}
-		data, err := store.Export(cfg)
-		if err != nil {
-			return err
-		}
-		_, err = runtime.Out.Write(data)
-		return err
-	}}
+		}}
 }
 
 // importResult is `aigw config import`'s JSON document: what the merge

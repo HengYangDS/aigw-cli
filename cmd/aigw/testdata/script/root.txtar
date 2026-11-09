@@ -67,7 +67,7 @@ Advanced
   catalog              Discover authenticated model catalogs for each account (compact summary by default)
   client               List, enable, disable and edit clients
   completion           Generate shell completion
-  config               Import and export configuration
+  config               Show, export and roll back the configuration
   installation         Inspect the current portable program and retained predecessor
   model                List, search, show, add, edit and remove models
   models               Compare configured model IDs with provider catalogs; does not test inference

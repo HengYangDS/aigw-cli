@@ -352,7 +352,7 @@ func TestCommandGroupsShowTheirHelp(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"config"}, "Import and export configuration"},
+		{[]string{"config"}, "Show, export and roll back the configuration"},
 		{[]string{"route"}, "Manage Routes"},
 		{[]string{"account", "diagnostics"}, "aigw account diagnostics [command]"},
 		{[]string{"help", "sync"}, "aigw sync"},

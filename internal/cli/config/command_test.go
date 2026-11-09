@@ -68,7 +68,7 @@ func TestConfigurationCommandTreeMatchesItsManifestResponsibility(t *testing.T) 
 			t.Errorf("configuration operation %q lacks execution or argument admission", child.Name())
 		}
 	}
-	if want := []string{"export", "import", "migrate", "path"}; !slices.Equal(names, want) {
+	if want := []string{"export", "import", "migrate", "path", "rollback"}; !slices.Equal(names, want) {
 		t.Fatalf("configuration operations = %q, want %q", names, want)
 	}
 }

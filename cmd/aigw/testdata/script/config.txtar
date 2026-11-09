@@ -1,7 +1,19 @@
 # config prints its path, imports a manifest as JSON, exports the merged
-# configuration, previews a migration, and refuses a malformed manifest.
+# configuration as a team file without clients, rolls back the last change,
+# previews a migration, and refuses a malformed manifest.
 exec aigw config --help
 cmp stdout help.txt
+exec aigw config export --help
+cmp stdout export-help.txt
+exec aigw config rollback --help
+cmp stdout rollback-help.txt
+
+# A home without a configuration has nothing to roll back, and the fix,
+# setup, leaves nothing to roll back either.
+exitcode 1 aigw config rollback
+cmp stdout rollback-empty.txt
+exitcode 1 aigw config rollback --json
+cp stdout rollback-empty.json
 
 exec aigw config path
 normalize stdout path.out
@@ -17,9 +29,38 @@ snapshot $HOME after.txt
 cmp after.txt before.txt
 exec aigw config import manifest.toml --json
 cmp stdout imported.json
+fixloop -input -did 'imported a team file, as setup does' rollback-empty.json aigw config rollback --json
 exec aigw config export
 normalize stdout export.out
 cmp export.out export.toml
+
+# A client's selection stays local: the team file names no client.
+stdin token.txt
+exec aigw provider rotate team --token-stdin
+exec aigw use claude team/team-model
+exec aigw config export
+! stdout 'claude'
+! stdout '\[clients'
+
+# Rolling back the last change, the selection, restores the configuration
+# before it. A preview names the source and writes nothing.
+snapshot $HOME rollback-before.txt
+exec aigw config rollback --last-change --dry-run
+normalize stdout rollback-preview.out
+[!windows] cmp rollback-preview.out rollback-preview.txt
+[windows] cmp rollback-preview.out rollback-preview-windows.txt
+exec aigw config rollback --last-change --dry-run --json
+normalize stdout rollback-preview-json.out
+cmp rollback-preview-json.out rollback-preview.json
+snapshot $HOME rollback-after.txt
+cmp rollback-after.txt rollback-before.txt
+exec aigw config rollback --last-change --json
+cmp stdout rollback-restored.json
+exec aigw status --json
+stdout '"claude": \{\n\s+"state": "deferred",\n\s+"detail": "No model is selected"'
+exitcode 1 aigw config rollback extra --json
+cmp stdout rollback-refusal.json
+fixloop -input stdout aigw config rollback extra --json
 
 exitcode 1 aigw config import broken.toml
 cmp stdout refusal.txt
@@ -75,16 +116,17 @@ version = 7
 -- help.txt --
 AIGW  aigw config
 ────────────────────────────────────────
-  Import and export configuration
+  Show, export and roll back the configuration
 
 Usage
   aigw config [command]
 
 Commands
-  export               Export a secret-free configuration manifest
+  export               Write the configuration as a secret-free team file, without clients
   import               Merge a secret-free configuration manifest
   migrate              Migrate retained local configuration to or from the current schema
   path                 Print the local configuration path
+  rollback             Restore the configuration and client files, not the program
 
 Options
   -h, --help   help for config
@@ -192,3 +234,110 @@ $HOME\aigw\config.toml
   "error": "unknown command \"extra\"",
   "next_action": "aigw config migrate --help"
 }
+-- export-help.txt --
+AIGW  aigw config export
+────────────────────────────────────────
+  Write the configuration as a secret-free team file, without clients
+
+Usage
+  aigw config export [flags]
+
+Examples
+  aigw config export
+  aigw config export > team.toml
+
+Options
+  -h, --help   help for export
+-- rollback-help.txt --
+AIGW  aigw config rollback
+────────────────────────────────────────
+  Restore the configuration and the client files from the latest fully
+  verified snapshot, or else from the previous backup. --last-change
+  selects only that backup. This does not replace the AIGW program.
+
+Usage
+  aigw config rollback [flags]
+
+Examples
+  aigw config rollback --dry-run
+  aigw config rollback
+  aigw config rollback --last-change --json
+
+Options
+      --dry-run       Show the source and the client files that a rollback would restore without writing them
+  -h, --help          help for rollback
+      --json          Write the restore source as JSON
+      --last-change   Restore only the previous configuration backup
+-- rollback-empty.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  Configuration rollback is unavailable
+
+Evidence
+  No valid recovery source is available for the current configuration.
+
+Impact
+  The current configuration remains active and unchanged.
+
+Fix
+  aigw setup
+-- rollback-preview.txt --
+AIGW  Rollback preview
+────────────────────────────────────────
+
+Restore source
+  Configuration        Previous configuration
+
+Projection targets
+  $HOME/.claude/settings.json  restore
+  ✓ Preview did not write configuration, credentials or client files
+
+Next
+  aigw config rollback --last-change
+-- rollback-preview.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "dry_run": true,
+  "source": "previous_backup",
+  "projections": [
+    {
+      "client": "claude",
+      "surface": "claude-settings",
+      "target": "~/.claude/settings.json",
+      "action": "restore"
+    }
+  ],
+  "next_action": "aigw config rollback --last-change"
+}
+-- rollback-restored.json --
+{
+  "schema_version": 2,
+  "ok": true,
+  "source": "previous_backup",
+  "next_action": "aigw check --depth local"
+}
+-- rollback-refusal.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "unknown command \"extra\"",
+  "next_action": "aigw config rollback --help"
+}
+-- token.txt --
+sk-team-token-0001
+-- rollback-preview-windows.txt --
+AIGW  Rollback preview
+────────────────────────────────────────
+
+Restore source
+  Configuration        Previous configuration
+
+Projection targets
+  $HOME\.claude\settings.json  restore
+  ✓ Preview did not write configuration, credentials or client files
+
+Next
+  aigw config rollback --last-change
