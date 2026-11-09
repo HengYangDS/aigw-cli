@@ -160,16 +160,21 @@ func TestAPlanningFailureNamesTheConfiguredFile(t *testing.T) {
 
 // An operating-system error at a file that the operator named says which file
 // and why, and its fix acts on that file. A local check would inspect neither.
+// The inputs read the same on every platform.
 func TestFileAccessFailureNamesTheFileAndTheStepThatResolvesIt(t *testing.T) {
-	const file = "/opt/tools/aigw"
+	file := filepath.FromSlash("/opt/tools/aigw")
+	folder := filepath.Dir(file)
 	for _, test := range []struct {
 		name         string
 		err          error
 		title, fixed string
 	}{
-		{"permission", &os.PathError{Op: "mkdir", Path: "/opt/tools", Err: os.ErrPermission}, "AIGW cannot use /opt/tools/aigw: permission denied", "Make /opt/tools/aigw and its folder writable, then run the same command again."},
-		{"other error", fmt.Errorf("read: %w", &os.PathError{Op: "open", Path: file, Err: syscall.ENOTDIR}), "AIGW cannot use /opt/tools/aigw: " + syscall.ENOTDIR.Error(), "Resolve " + syscall.ENOTDIR.Error() + " on /opt/tools/aigw, then run the same command again."},
-		{"replacing the file", &os.LinkError{Op: "rename", Old: "/opt/tools/.aigw-write-1", New: file, Err: os.ErrPermission}, "AIGW cannot use /opt/tools/aigw: permission denied", "Make /opt/tools/aigw and its folder writable, then run the same command again."},
+		{"permission", &os.PathError{Op: "mkdir", Path: folder, Err: os.ErrPermission},
+			"AIGW cannot use " + file + ": permission denied", "Make " + file + " and its folder writable, then run the same command again."},
+		{"other error", fmt.Errorf("read: %w", &os.PathError{Op: "open", Path: file, Err: syscall.EIO}),
+			"AIGW cannot use " + file + ": " + syscall.EIO.Error(), "Resolve " + syscall.EIO.Error() + " on " + file + ", then run the same command again."},
+		{"replacing the file", &os.LinkError{Op: "rename", Old: filepath.Join(folder, ".aigw-write-1"), New: file, Err: os.ErrPermission},
+			"AIGW cannot use " + file + ": permission denied", "Make " + file + " and its folder writable, then run the same command again."},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			problem := ProblemFor(FileAccessFailure(test.err, file))
@@ -181,5 +186,30 @@ func TestFileAccessFailureNamesTheFileAndTheStepThatResolvesIt(t *testing.T) {
 	other := errors.New("not a file failure")
 	if err := FileAccessFailure(other, file); !errors.Is(err, other) || err.Error() != other.Error() {
 		t.Fatalf("another failure became %v", err)
+	}
+}
+
+// A path through a regular file names that file to move, whether the refusal
+// came from RefuseFileAsFolder or an operation reported a raw ENOTDIR, on
+// every platform. With no file in the way, ENOTDIR never names one.
+func TestFileAccessFailureNamesTheFileInTheWay(t *testing.T) {
+	blocking := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocking, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(blocking, "aigw")
+	want := "Move the file " + blocking + ", or choose another path, then run the same command again."
+	for name, err := range map[string]error{
+		"the refusal":   platform.RefuseFileAsFolder(target),
+		"a raw ENOTDIR": &os.PathError{Op: "open", Path: target, Err: syscall.ENOTDIR},
+	} {
+		problem := ProblemFor(FileAccessFailure(err, target))
+		if problem.Title != "AIGW cannot use "+target+": not a directory" || problem.Fix != want {
+			t.Fatalf("%s = %+v", name, problem)
+		}
+	}
+	missing := filepath.Join(t.TempDir(), "gone", "aigw")
+	if problem := ProblemFor(FileAccessFailure(&os.PathError{Op: "open", Path: missing, Err: syscall.ENOTDIR}, missing)); strings.Contains(problem.Fix, "Move the file") {
+		t.Fatalf("a missing folder was named a file in the way: %+v", problem)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"aigw-cli/internal/adapter"
 	"aigw-cli/internal/platform"
@@ -83,23 +84,41 @@ func FileAccessFailure(err error, file string) error {
 	}
 	reason := fileErrorReason(err)
 	fix := "Resolve " + reason + " on " + file + ", then run the same command again."
+	inTheWay, throughFile := fileInTheWay(err, file)
 	switch {
 	case errors.Is(err, fs.ErrPermission):
 		fix = "Make " + file + " and its folder writable, then run the same command again."
-	case errors.Is(err, platform.ErrFileAsFolder):
-		fix = "Move the file " + fileAsFolder(err) + ", or choose another path, then run the same command again."
+	case throughFile:
+		// Before a missing path, which Windows' ENOTDIR also counts as.
+		reason = platform.ErrFileAsFolder.Error()
+		fix = "Move the file " + inTheWay + ", or choose another path, then run the same command again."
 	case errors.Is(err, fs.ErrNotExist):
 		fix = "Create " + filepath.Dir(file) + ", or choose another path, then run the same command again."
 	}
 	return ProblemError("AIGW cannot use "+file+": "+reason, "", "", fix, err)
 }
 
-// fileAsFolder is the file that stands where a folder is needed in err.
-func fileAsFolder(err error) string {
-	if failure, atPath := errors.AsType[*fs.PathError](err); atPath {
-		return failure.Path
+// fileInTheWay is the regular file that stands where a folder is needed in
+// err, and whether there is one. RefuseFileAsFolder names it. A raw ENOTDIR
+// from an operation means the same on POSIX, but on Windows it is
+// ERROR_PATH_NOT_FOUND, which a missing folder gives too, so the file is
+// looked for on the path rather than inferred from the error.
+func fileInTheWay(err error, file string) (string, bool) {
+	failure, atPath := errors.AsType[*fs.PathError](err)
+	if errors.Is(err, platform.ErrFileAsFolder) && atPath {
+		return failure.Path, true
 	}
-	return "in the path"
+	if !errors.Is(err, syscall.ENOTDIR) {
+		return "", false
+	}
+	path := file
+	if atPath && failure.Path != "" {
+		path = failure.Path
+	}
+	if found, atFile := errors.AsType[*fs.PathError](platform.RefuseFileAsFolder(path)); atFile {
+		return found.Path, true
+	}
+	return "", false
 }
 
 // targetReason says why a client file could not be used: an operating-system
