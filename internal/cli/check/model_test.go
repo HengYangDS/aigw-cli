@@ -75,8 +75,8 @@ func TestCheckUsesAOneTimeTokenOnce(t *testing.T) {
 	token := client.Checks[slices.IndexFunc(client.Checks, func(check localCheck) bool { return check.Name == "claude:token" })]
 	store := secrets(t, fixture.ctx)
 	if client.Depth != depthEndpoint || !slices.Equal(keys, []string{"sk-once-0001"}) || token.State != checkSkipped ||
-		token.Detail != "The one-time Token from standard input replaces the stored Token for this check" || len(store.getProviders) != 0 {
-		t.Fatalf("a one-time Token = %+v; keys %q; reads %q", client, keys, store.getProviders)
+		token.Detail != "The one-time Token from standard input replaces the stored Token for this check" || len(store.getProviders) != 0 || len(store.writes) != 0 {
+		t.Fatalf("a one-time Token = %+v; keys %q; reads %q; writes %q", client, keys, store.getProviders, store.writes)
 	}
 	if strings.Contains(fixture.out.String(), "sk-once-0001") {
 		t.Fatal("the document shows the one-time Token")
@@ -165,6 +165,9 @@ func TestCheckOfARejectedOneTimeTokenNamesTheSameCheck(t *testing.T) {
 	if client.NextAction != "" || client.NextDetail != want {
 		t.Fatalf("a rejected one-time Token's fix = %q, %q; want %q", client.NextAction, client.NextDetail, want)
 	}
+	if writes := secrets(t, fixture.ctx).writes; len(writes) != 0 {
+		t.Fatalf("a rejected one-time Token wrote the store: %q", writes)
+	}
 }
 
 // A model whose name needs quoting cannot appear in a command line, so the
@@ -188,5 +191,8 @@ func TestCheckOfARejectedOneTimeTokenForAQuotedModelNamesTheSameCheck(t *testing
 	client := decode(t, fixture.out).client(t, claude.ID)
 	if want := "Pipe a Token that provider one accepts into the same check."; client.NextAction != "" || client.NextDetail != want {
 		t.Fatalf("the fix = %q, %q; want %q", client.NextAction, client.NextDetail, want)
+	}
+	if writes := secrets(t, fixture.ctx).writes; len(writes) != 0 {
+		t.Fatalf("a rejected one-time Token wrote the store: %q", writes)
 	}
 }

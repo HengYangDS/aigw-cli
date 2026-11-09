@@ -58,8 +58,9 @@ func (r *recorder) Do(request *http.Request) (*http.Response, error) {
 	return r.respond(request)
 }
 
-// observingSecretStore records each Token read and each metadata read, by
-// provider.
+// observingSecretStore records each Token read, each metadata read and each
+// write, by provider: a Set with its value and a Delete, the only writes that
+// a secret.Store has.
 type observingSecretStore struct {
 	tokens map[string]string
 	// empty names the providers whose item holds an empty value, which Exists
@@ -69,6 +70,7 @@ type observingSecretStore struct {
 	existsErr       error
 	getProviders    []string
 	existsProviders []string
+	writes          []string
 }
 
 func (store *observingSecretStore) Get(provider string) (string, error) {
@@ -82,9 +84,15 @@ func (store *observingSecretStore) Get(provider string) (string, error) {
 	return "", secret.ErrNotFound
 }
 
-func (*observingSecretStore) Set(string, string) error { return nil }
+func (store *observingSecretStore) Set(provider, value string) error {
+	store.writes = append(store.writes, "set "+provider+" "+value)
+	return nil
+}
 
-func (*observingSecretStore) Delete(string) error { return nil }
+func (store *observingSecretStore) Delete(provider string) error {
+	store.writes = append(store.writes, "delete "+provider)
+	return nil
+}
 
 func (store *observingSecretStore) Exists(provider string) (bool, error) {
 	store.existsProviders = append(store.existsProviders, provider)
