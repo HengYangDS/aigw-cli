@@ -150,10 +150,20 @@ func TestGivenFolderKeepsTheOperatorsSpelling(t *testing.T) {
 		isSeparator                func(uint8) bool
 	}{
 		{"posix", "/w/preview/aigw", "/w/preview", "/w/preview", posix},
-		{"posix, spelled with a doubled separator", "/w//preview/aigw", "/w/preview", "/w//preview", posix},
+		{"posix, relative", "preview/aigw", "preview", "preview", posix},
 		{"windows, folders named with /", `C:\w/preview/aigw.exe`, `C:\w\preview`, `C:\w/preview`, windows},
 		{"windows, native", `C:\w\preview\aigw.exe`, `C:\w\preview`, `C:\w\preview`, windows},
 		{"a prefix that names another folder", "/w/preview/aigw", "/elsewhere", "/elsewhere", posix},
+		// A prefix that is not clean names another folder once links resolve.
+		{"a doubled separator", "/w//preview/aigw", "/w/preview", "/w/preview", posix},
+		{"a dot segment", "/w/./preview/aigw", "/w/preview", "/w/preview", posix},
+		{"a link before ..", "/w/link/../preview/aigw", "/w/preview", "/w/preview", posix},
+		// A volume root is a root only with its separator; C: is the drive's
+		// current folder.
+		{"a drive root", `C:\aigw.exe`, `C:\`, `C:\`, windows},
+		{"a drive root named with /", `C:/aigw.exe`, `C:\`, `C:\`, windows},
+		{"a long-path drive root", `\\?\C:\aigw.exe`, `\\?\C:\`, `\\?\C:\`, windows},
+		{"the posix root", "/aigw", "/", "/", posix},
 	} {
 		if got := givenFolder(test.target, test.folder, test.isSeparator); got != test.want {
 			t.Errorf("%s: givenFolder(%q, %q) = %q, want %q", test.name, test.target, test.folder, got, test.want)
@@ -162,7 +172,7 @@ func TestGivenFolderKeepsTheOperatorsSpelling(t *testing.T) {
 }
 
 // The preview's document names the folder that it creates as the --path spells
-// it, on this host as well.
+// it when that spelling is clean, and as the install creates it otherwise.
 func TestInstallPreviewNamesTheFolderAsGiven(t *testing.T) {
 	root := t.TempDir()
 	source := filepath.Join(root, "aigw")
@@ -170,21 +180,25 @@ func TestInstallPreviewNamesTheFolderAsGiven(t *testing.T) {
 		t.Fatal(err)
 	}
 	separator := string(filepath.Separator)
-	target := root + separator + separator + "new" + separator + "aigw"
-	out := new(bytes.Buffer)
-	command := NewCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target, Out: out})
-	command.SetArgs([]string{"--dry-run", "--json"})
-	if err := command.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	var document struct {
-		CreatesFolder string `json:"creates_folder"`
-	}
-	if err := json.Unmarshal(out.Bytes(), &document); err != nil {
-		t.Fatalf("%v\n%s", err, out)
-	}
-	if want := root + separator + separator + "new"; document.CreatesFolder != want {
-		t.Fatalf("creates_folder = %q, want %q", document.CreatesFolder, want)
+	for target, want := range map[string]string{
+		root + separator + "new" + separator + "aigw":             root + separator + "new",
+		root + separator + separator + "new" + separator + "aigw": filepath.Join(root, "new"),
+	} {
+		out := new(bytes.Buffer)
+		command := NewCommand(invocation.Context{Clients: clients.Registry(), Executable: source, InstallTarget: target, Out: out})
+		command.SetArgs([]string{"--dry-run", "--json"})
+		if err := command.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		var document struct {
+			CreatesFolder string `json:"creates_folder"`
+		}
+		if err := json.Unmarshal(out.Bytes(), &document); err != nil {
+			t.Fatalf("%v\n%s", err, out)
+		}
+		if document.CreatesFolder != want {
+			t.Fatalf("%s: creates_folder = %q, want %q", target, document.CreatesFolder, want)
+		}
 	}
 }
 

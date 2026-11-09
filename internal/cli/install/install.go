@@ -123,27 +123,30 @@ func previewInstall(cmd *cobra.Command, runtime invocation.Context, target strin
 	return nil
 }
 
-// givenFolder spells folder, the folder of target, as the operator spelled it
-// in target: target up to its last separator, which isSeparator tells, as
-// RollbackPath keeps the operator's separators. A path that filepath derives
-// takes the host's separators instead, which on Windows differ from a --path
-// that names its folders with "/". A prefix that does not name that folder,
-// compared with every separator alike, leaves folder as it is.
+// givenFolder spells folder, the folder of target that filepath derives, as
+// the operator spelled it in target, as RollbackPath keeps the operator's
+// separators: target up to its last separator, which isSeparator tells, when
+// that prefix is already clean and names folder with every separator alike. A
+// prefix with "." or ".." segments or doubled separators names another folder
+// once a link precedes "..", and a volume root such as C:\ or \\?\C:\ is
+// only a root with its separator, while C: is the drive's current folder, so
+// both keep the derived folder.
 func givenFolder(target, folder string, isSeparator func(uint8) bool) string {
-	same := func(value string) string {
+	slashed := func(value string) string {
 		spelled := []byte(value)
 		for index := range spelled {
 			if isSeparator(spelled[index]) {
 				spelled[index] = '/'
 			}
 		}
-		return path.Clean(string(spelled))
+		return string(spelled)
 	}
 	for index := len(target) - 1; index > 0; index-- {
 		if !isSeparator(target[index]) {
 			continue
 		}
-		if given := target[:index]; same(given) == same(folder) {
+		given := target[:index]
+		if clean := slashed(given); path.Clean(clean) == clean && clean == slashed(folder) {
 			return given
 		}
 		break
