@@ -159,6 +159,11 @@ func newEnableCommand(runtime invocation.Context) *cobra.Command {
 // admitEnablement refuses to enable a client whose Account has no Token, or
 // with a configuration target that the client does not accept.
 func admitEnablement(runtime invocation.Context, cfg domain.Config, client string, targets []string) error {
+	// A file that no client can read is refused before anything else that
+	// enabling needs, such as a selected model.
+	if err := refuseTargetsUnderFiles(targets); err != nil {
+		return err
+	}
 	clientRuntime, err := cfg.ResolveRuntime(client, "")
 	if err != nil {
 		return err
@@ -185,7 +190,7 @@ func admitEnablement(runtime invocation.Context, cfg domain.Config, client strin
 			return err
 		}
 	}
-	return refuseTargetsUnderFiles(targets)
+	return nil
 }
 
 // checkTargetsRead refuses --target for a client whose adapter reads no

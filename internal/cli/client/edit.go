@@ -276,6 +276,11 @@ func admitConnection(cmd *cobra.Command, cfg domain.Config, spec domain.ClientSp
 // checkTargets refuses a file that the client's adapter does not accept as a
 // configuration file, such as an executable or another client's file.
 func checkTargets(cmd *cobra.Command, runtime invocation.Context, id string, targets []string) error {
+	// Every client that takes a file is refused one under another file, with
+	// or without a validator of its own.
+	if err := refuseTargetsUnderFiles(targets); err != nil {
+		return err
+	}
 	if len(targets) == 0 || !runtime.Clients.ValidatesTargets(id) {
 		return nil
 	}
@@ -288,7 +293,7 @@ func checkTargets(cmd *cobra.Command, runtime invocation.Context, id string, tar
 			return fmt.Errorf("--target %s: %w; run `%s --help`", target, err, cmd.CommandPath())
 		}
 	}
-	return refuseTargetsUnderFiles(targets)
+	return nil
 }
 
 // refuseTargetsUnderFiles refuses a configuration file whose path runs through
