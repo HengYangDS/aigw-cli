@@ -21,6 +21,7 @@ cmp stdout empty.json
 stdin token.txt
 exec aigw provider add team --label 'Team Gateway' --endpoint anthropic=$UPSTREAM --token-stdin
 exec aigw use claude team/team-model
+fixloop -did 'added provider team and selected team/team-model for Claude, as aigw setup does' empty.json aigw check --json
 
 # Each depth runs the ones before it.
 exec aigw check --depth local --json
@@ -82,9 +83,11 @@ env ANTHROPIC_API_KEY=sk-other-0003
 exitcode 1 aigw check --depth client --json
 stdout '"snapshot_written": false'
 stdout '"problem": "2 of 2 checked clients stopped before the client depth"'
+cp stdout competing.json
 [darwin] cmp $HOME/Library/Application' 'Support/aigw/config.toml.verified.json verified.json
 [!darwin] cmp $HOME/aigw/config.toml.verified.json verified.json
 env ANTHROPIC_API_KEY=
+fixloop -did 'unset ANTHROPIC_API_KEY' competing.json aigw check --depth client --json
 stdin token.txt
 exec aigw provider add down --label 'Down Gateway' --endpoint anthropic=$UPSTREAM --token-stdin
 exec aigw use claude-desktop down/team-model
@@ -93,6 +96,8 @@ exitcode 1 aigw check
 cmp stdout down.txt
 exitcode 1 aigw check --json
 cmp stdout down.json
+# fixloop does not follow this fix: it retries an HTTP 503, which this
+# endpoint returns on every request.
 
 # A named disabled client is checked without client files, and with none
 # enabled a check without a client argument fails before any request.
@@ -103,7 +108,8 @@ cmp stdout disabled.json
 exitcode 1 aigw check --depth local
 cmp stdout none-enabled.txt
 # Its fix runs as printed and enables the client again.
-exec aigw use claude team/team-model
+exitcode 1 aigw check --depth local --json
+fixloop stdout aigw check --depth local --json
 exec aigw check --depth local
 stdout '✓ Claude             team/team-model · local'
 
@@ -157,10 +163,15 @@ stdout 'Endpoint skipped: An external credential helper gives Claude Code its To
 stdout 'Model skipped: An external credential helper gives Claude Code its Token, which only a session of it proves'
 stdout 'Deeper check: aigw check claude --depth client'
 
+[darwin] cp $HOME/Library/Application' 'Support/aigw/config.toml good.toml
+[!darwin] cp $HOME/aigw/config.toml good.toml
 [darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/config.toml
 [!darwin] cp broken.toml $HOME/aigw/config.toml
 exitcode 1 aigw check --json
 cmp stdout broken.json
+[darwin] cp good.toml $HOME/Library/Application' 'Support/aigw/config.toml
+[!darwin] cp good.toml $HOME/aigw/config.toml
+fixloop -did 'restored the configuration file from a copy' broken.json aigw check --json
 
 -- token.txt --
 sk-team-token-0001

@@ -33,12 +33,17 @@ exec aigw sync
 exec aigw status
 cmp stdout disabled.txt
 
+[darwin] cp $HOME/Library/Application' 'Support/aigw/config.toml good.toml
+[!darwin] cp $HOME/aigw/config.toml good.toml
 [darwin] cp broken.toml $HOME/Library/Application' 'Support/aigw/config.toml
 [!darwin] cp broken.toml $HOME/aigw/config.toml
 exitcode 1 aigw status
 cmp stdout refusal.txt
 exitcode 1 aigw status --json
 cmp stdout refusal.json
+[darwin] cp good.toml $HOME/Library/Application' 'Support/aigw/config.toml
+[!darwin] cp good.toml $HOME/aigw/config.toml
+fixloop -did 'restored the configuration file from a copy' refusal.json aigw status --json
 
 # Claude Code installed after its model was selected: without claude on the
 # search path, add selects the model and writes no Claude Code file, and

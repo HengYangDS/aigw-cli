@@ -7,9 +7,13 @@ exitcode 1 aigw sync
 cmp stdout empty.txt
 exitcode 1 aigw sync --json
 cmp stdout empty.json
+exitcode 1 aigw sync --dry-run --json
+cp stdout empty-preview.json
 
 stdin token.txt
 exec aigw add team --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
+# Its fix, run as setup does, lets the same preview run.
+fixloop -did 'added team with a model for Claude, as aigw setup does' empty-preview.json aigw sync --dry-run --json
 snapshot $HOME before.txt
 exec aigw sync --dry-run --json
 normalize stdout preview.out
