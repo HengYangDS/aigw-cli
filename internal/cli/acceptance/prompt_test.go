@@ -4,7 +4,6 @@ import (
 	"aigw-cli/internal/adapter/claude"
 	"aigw-cli/internal/adapter/codex"
 	"aigw-cli/internal/adapter/discovery"
-	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
 	"aigw-cli/internal/domain"
@@ -253,77 +252,63 @@ func TestUseWithMissingTokenSurfacesSecretStoreFailure(t *testing.T) {
 	}
 }
 
-// TestSetupAtATerminalRunsTheWizard: setup at a terminal asks for the first
-// provider, its Token and a model, and connects the chosen client.
+// TestSetupAtATerminalRunsTheWizard: guided setup asks for a provider, its
+// endpoint and Token, then, with Codex the one installed client that speaks
+// the endpoint's protocol, for a model ID, which a catalog that lists none
+// leaves to the person; it saves them in one transaction and checks Codex.
 func TestSetupAtATerminalRunsTheWizard(t *testing.T) {
 	app, out, secretStore, runner, _ := testApp(t, "")
 	app.Interactive = true
 	prompt := &scriptedPrompt{
-		selections: []string{"codex"},
+		selections: []string{string(domain.ProtocolOpenAIResponses)},
 		secrets:    []string{"one-paste-token"},
-		texts: []string{
-			"team-gateway",
-			"Team Gateway",
-			"https://gateway.test/v1",
-			"gpt-5.6-terra",
-			"gpt-5.6-terra",
-		},
+		texts:      []string{"team-gateway", "Team Gateway", "https://gateway.test/v1", "gpt-5.6-terra"},
 	}
 	app.Prompt = prompt
-	shimDir := t.TempDir()
-	codexTarget := filepath.Join(t.TempDir(), "codex", "configuration.toml")
-	if err := os.MkdirAll(filepath.Dir(codexTarget), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	originalCodex := "model_provider = \"native\"\n"
-	if err := os.WriteFile(codexTarget, []byte(originalCodex), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{claude.ID: "/opt/claude-real", codex.ID: "/opt/codex-real"},
-		Surfaces: []discovery.Surface{{
-			ID:          string(codex.HomeDefault),
-			ConfigPath:  codexTarget,
-			Present:     true,
-			AutoManaged: true,
-		}},
-	}}
+	codexTarget := guidedCodexTarget(t, app)
 	if err := cli.Execute(app, []string{"setup"}); err != nil {
-		t.Fatal(err)
+		t.Fatalf("guided setup: %v\n%s", err, out)
 	}
-	if len(prompt.secretCalls) != 1 {
-		t.Fatalf("token prompts = %d, want 1", len(prompt.secretCalls))
-	}
-	if !secretExists(t, secretStore, "team-gateway") {
-		t.Fatal("generic Account Token was not stored")
+	if len(prompt.secretCalls) != 1 || prompt.selectCalls != 1 || !secretExists(t, secretStore, "team-gateway") {
+		t.Fatalf("prompts: secret %q, selections %d", prompt.secretCalls, prompt.selectCalls)
 	}
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.SelectedModel(codex.ID) != "gpt-5.6-terra" || cfg.Clients["claude"].Enabled || !cfg.Clients["codex"].Enabled {
-		t.Fatalf("configured state = %#v", cfg)
+	selected, err := cfg.ResolveRuntime(codex.ID, "")
+	if err != nil || selected.ProviderID != "team-gateway" || selected.UpstreamModel != "gpt-5.6-terra" || cfg.Clients[claude.ID].Enabled || !cfg.Clients[codex.ID].Enabled {
+		t.Fatalf("configured state = %+v, %v", selected, err)
 	}
 	if len(runner.plans) != 0 {
-		t.Fatalf("wizard invoked a client: %#v", runner.plans)
-	}
-	projection, err := cfg.ResolveRuntime(codex.ID, "")
-	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("guided setup ran a client: %#v", runner.plans)
 	}
 	projected, err := os.ReadFile(codexTarget)
-	if err != nil || !strings.Contains(string(projected), projection.CredentialProjectionFingerprint(codex.ID)) {
+	if err != nil || !strings.Contains(string(projected), selected.CredentialProjectionFingerprint(codex.ID)) {
 		t.Fatalf("credential helper projection = %s, %v", projected, err)
 	}
-	if _, err := os.Stat(filepath.Join(shimDir, "claude")); !os.IsNotExist(err) {
-		t.Fatalf("Codex-only first-run wizard mutated a Claude command path: %v", err)
-	}
-	if !strings.Contains(out.String(), "Client projection configured") || strings.Contains(out.String(), "one-paste-token") {
-		t.Fatalf("wizard output = %s", out.String())
+	if !strings.Contains(out.String(), "Setup saved") || !strings.Contains(out.String(), "No checked client failed") || strings.Contains(out.String(), "one-paste-token") {
+		t.Fatalf("guided setup output = %s", out.String())
 	}
 }
 
-func TestFirstRunDefersSelectedHermesProtocolUntilClientInstallation(t *testing.T) {
+// guidedCodexTarget installs Claude Code and Codex, whose file the returned
+// path is.
+func guidedCodexTarget(t *testing.T, app *cli.App) string {
+	t.Helper()
+	codexTarget := filepath.Join(t.TempDir(), "codex", "configuration.toml")
+	writeFile(t, codexTarget, []byte("model_provider = \"native\"\n"), 0o600)
+	app.Discovery = fakeDiscovery{result: discovery.Result{
+		Executables: map[string]string{claude.ID: "/opt/claude-real", codex.ID: "/opt/codex-real"},
+		Surfaces:    []discovery.Surface{{ID: string(codex.HomeDefault), ConfigPath: codexTarget, Present: true, AutoManaged: true}},
+	}}
+	return codexTarget
+}
+
+// With no installed client that speaks the provider's protocol, guided setup
+// adds the provider with its Token and stops before a model, naming the
+// client list.
+func TestGuidedSetupStopsBeforeAModelWithoutAnInstalledClient(t *testing.T) {
 	for _, test := range []struct {
 		protocol domain.EndpointProtocol
 		endpoint string
@@ -335,51 +320,30 @@ func TestFirstRunDefersSelectedHermesProtocolUntilClientInstallation(t *testing.
 		t.Run(string(test.protocol), func(t *testing.T) {
 			app, out, secretStore, runner, _ := testApp(t, "")
 			app.Interactive = true
-			app.Discovery = fakeDiscovery{}
-			prompt := &scriptedPrompt{
-				selections: []string{hermes.ID, string(test.protocol)},
-				secrets:    []string{"wizard-token"},
-				texts:      []string{"team", "Team", test.endpoint, "hermes-route", "hermes-model"},
-			}
-			app.Prompt = prompt
-
+			app.Prompt = &scriptedPrompt{selections: []string{string(test.protocol)}, secrets: []string{"wizard-token"}, texts: []string{"team", "Team", test.endpoint}}
 			if err := cli.Execute(app, []string{"setup"}); err != nil {
 				t.Fatal(err)
 			}
-			connected := secretExists(t, secretStore, "team")
-			if prompt.selectCalls != 2 || !connected {
-				t.Fatalf("wizard selection calls=%d, Account connected=%t", prompt.selectCalls, connected)
-			}
 			cfg, err := app.Config.Load()
-			if err != nil {
-				t.Fatal(err)
+			if err != nil || cfg.Providers["team"].Endpoints.For(test.protocol) != test.endpoint || len(cfg.Models) != 0 || !secretExists(t, secretStore, "team") {
+				t.Fatalf("stopped setup = %+v, %v", cfg, err)
 			}
-			selected, err := cfg.ResolveRuntime(hermes.ID, "")
-			if err != nil || selected.ModelID != "hermes-route" || selected.Protocol != test.protocol || selected.Endpoint != test.endpoint {
-				t.Fatalf("Hermes selection = %+v, %v", selected, err)
-			}
-			if len(runner.plans) != 0 || !strings.Contains(out.String(), "Install Hermes") || !strings.Contains(out.String(), "aigw sync") || !strings.Contains(out.String(), "Claude Desktop") || strings.Contains(out.String(), "wizard-token") {
-				t.Fatalf("deferred Hermes setup = %s; client plans=%#v", out, runner.plans)
+			if len(runner.plans) != 0 || !strings.Contains(out.String(), "aigw client list") || strings.Contains(out.String(), "wizard-token") {
+				t.Fatalf("stopped setup output = %s", out)
 			}
 		})
 	}
 }
 
+// Guided setup seeds no provider, endpoint or Token of its own.
 func TestFirstRunCreatesExplicitGenericProviderWithoutBundledProviderDefault(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{
-		selections: []string{"codex"},
+		selections: []string{string(domain.ProtocolOpenAIResponses)},
 		secrets:    []string{"one-paste-token"},
-		texts: []string{
-			"team-gateway",
-			"Team Gateway",
-			"https://gateway.test/v1",
-			"gpt-5.6-terra",
-			"gpt-5.6-terra",
-		},
+		texts:      []string{"team-gateway", "Team Gateway", "https://gateway.test/v1"},
 	}
-
 	if err := cli.Execute(app, []string{"setup"}); err != nil {
 		t.Fatal(err)
 	}
@@ -387,55 +351,47 @@ func TestFirstRunCreatesExplicitGenericProviderWithoutBundledProviderDefault(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	if secretExists(t, secretStore, "dmx") {
-		t.Fatal("first-run wizard seeded a DMX Token slot")
+	if secretExists(t, secretStore, "dmx") || !secretExists(t, secretStore, "team-gateway") {
+		t.Fatal("guided setup seeded a Token slot or did not store its own")
 	}
-	if !secretExists(t, secretStore, "team-gateway") {
-		t.Fatal("generic Account Token was not stored")
-	}
-	route, ok := cfg.Models["gpt-5.6-terra"]
-	if !ok || route.Provider != "team-gateway" || route.Family != "gpt-5.6-terra" || cfg.SelectedModel(codex.ID) != "gpt-5.6-terra" {
-		t.Fatalf("generic route = %#v", route)
-	}
-	if _, exists := cfg.Providers["dmx"]; exists {
-		t.Fatalf("first-run wizard seeded a provider Account: %#v", cfg.Providers)
+	if len(cfg.Providers) != 1 || cfg.Providers["team-gateway"].Label != "Team Gateway" {
+		t.Fatalf("guided setup providers = %#v", cfg.Providers)
 	}
 }
 
+// Guided setup on Claude Code checks it as `aigw check claude` does, after
+// saving.
 func TestSetupWithoutFlagsUsesGenericGuidedFlow(t *testing.T) {
 	app, out, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: executableFixture(t, "claude")}}}
 	app.Prompt = &scriptedPrompt{
-		selections: []string{"claude"},
+		selections: []string{string(domain.ProtocolAnthropic)},
 		secrets:    []string{"one-paste-token"},
-		texts: []string{
-			"team-gateway",
-			"Team Gateway",
-			"https://gateway.test",
-			"claude-sonnet-5-5",
-			"claude-sonnet-5-5",
-		},
+		texts:      []string{"team-gateway", "Team Gateway", "https://gateway.test", "claude-sonnet-5-5"},
 	}
-
 	if err := cli.Execute(app, []string{"setup"}); err != nil {
-		t.Fatal(err)
+		t.Fatalf("guided setup: %v\n%s", err, out)
 	}
 	cfg, err := app.Config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !secretExists(t, secretStore, "team-gateway") || cfg.SelectedModel(claude.ID) != "claude-sonnet-5-5" {
-		t.Fatalf("setup state = %#v", cfg)
+	selected, err := cfg.ResolveRuntime(claude.ID, "")
+	if !secretExists(t, secretStore, "team-gateway") || err != nil || selected.UpstreamModel != "claude-sonnet-5-5" {
+		t.Fatalf("setup state = %+v, %v", selected, err)
 	}
-	text := out.String()
-	if !strings.Contains(text, "Install Claude") || !strings.Contains(text, "aigw sync") || strings.Contains(text, "aigw check") {
+	if text := out.String(); !strings.Contains(text, "Setup saved") || !strings.Contains(text, "AIGW  Check") {
 		t.Fatalf("setup continuation = %q", text)
 	}
 }
 
-func TestSetupWithoutFlagsRefusesBeforePromptingWhenAlreadyConfigured(t *testing.T) {
-	app, _, _, _, _ := testApp(t, "")
+// Guided setup runs again on a configured home: it offers the provider, keeps
+// its stored Token, and leaves the client's selection of the same model.
+func TestGuidedSetupRunsAgainOnAConfiguredHome(t *testing.T) {
+	app, out, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
+	app.Discovery = fakeDiscovery{result: discovery.Result{Executables: map[string]string{claude.ID: executableFixture(t, "claude")}}}
 	cfg := domain.NewConfig(clients.Admission())
 	cfg.Providers["gateway"] = domain.Provider{Label: "Gateway", Endpoints: domain.Endpoints{Anthropic: "https://gateway.test"}}
 	cfg.Models["claude"] = qualifiedModel("Claude", "gateway", "claude-test", domain.ProtocolAnthropic)
@@ -443,57 +399,52 @@ func TestSetupWithoutFlagsRefusesBeforePromptingWhenAlreadyConfigured(t *testing
 	if err := app.Config.Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	err := cli.Execute(app, []string{"setup"})
-	if err == nil || !strings.Contains(err.Error(), "is already configured") {
-		t.Fatalf("setup error = %v", err)
+	if err := secretStore.Set("gateway", "stored-token"); err != nil {
+		t.Fatal(err)
+	}
+	prompt := &scriptedPrompt{selections: []string{"gateway"}, texts: []string{"claude-test"}}
+	app.Prompt = prompt
+	if err := cli.Execute(app, []string{"setup"}); err != nil {
+		t.Fatalf("guided setup again: %v\n%s", err, out)
+	}
+	values := choiceValues(prompt.choices)
+	if len(prompt.secretCalls) != 0 || len(values) == 0 || values[0] != "gateway" {
+		t.Fatalf("prompts: secret %q, provider choices %q", prompt.secretCalls, values)
+	}
+	after, err := app.Config.Load()
+	if err != nil || after.Clients[claude.ID].Model != "claude" || len(after.Models) != 1 {
+		t.Fatalf("configured home after guided setup = %+v, %v", after, err)
+	}
+	if token, err := secretStore.Get("gateway"); err != nil || token != "stored-token" {
+		t.Fatalf("the stored Token = %q, %v", token, err)
 	}
 }
 
+// A guided setup that cannot write a client's files stores no Token, writes
+// no configuration and leaves the client's file as it was.
 func TestWizardFailureLeavesNoModelSecretOrClientProjection(t *testing.T) {
 	app, _, secretStore, _, _ := testApp(t, "")
 	app.Interactive = true
 	app.Prompt = &scriptedPrompt{
-		selections: []string{"codex"},
+		selections: []string{string(domain.ProtocolOpenAIResponses)},
 		secrets:    []string{"bad-sync-token"},
-		texts: []string{
-			"team-gateway",
-			"Team Gateway",
-			"https://gateway.test/v1",
-			"gpt-5.6-terra",
-			"gpt-5.6-terra",
-		},
+		texts:      []string{"team-gateway", "Team Gateway", "https://gateway.test/v1", "gpt-5.6-terra"},
 	}
 	app.Executable = "relative-helper"
-	shimDir := t.TempDir()
-	codexTarget := filepath.Join(t.TempDir(), "configuration.toml")
-	original := "model_provider = \"native\"\n"
-	if err := os.WriteFile(codexTarget, []byte(original), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	app.Discovery = fakeDiscovery{result: discovery.Result{
-		Executables: map[string]string{claude.ID: "/opt/claude-real", codex.ID: "/opt/codex-real"}, Surfaces: []discovery.Surface{{
-			ID:          string(codex.HomeDefault),
-			ConfigPath:  codexTarget,
-			Present:     true,
-			AutoManaged: true,
-		}},
-	}}
+	codexTarget := guidedCodexTarget(t, app)
+	original := string(readFile(t, codexTarget))
 	err := cli.Execute(app, []string{"setup"})
 	if err == nil || !strings.Contains(err.Error(), "preflight failed") || strings.Contains(err.Error(), "configuration was rolled back") {
 		t.Fatalf("error = %v", err)
 	}
 	if secretExists(t, secretStore, "team-gateway") {
-		t.Fatal("failed wizard left secret")
+		t.Fatal("failed guided setup left a Token")
 	}
 	if _, err := os.Stat(app.Config.Path()); !os.IsNotExist(err) {
-		t.Fatalf("failed wizard left config: %v", err)
+		t.Fatalf("failed guided setup left configuration: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(shimDir, "claude")); !os.IsNotExist(err) {
-		t.Fatalf("failed wizard left a Claude command-path artifact: %v", err)
-	}
-	data, _ := os.ReadFile(codexTarget)
-	if string(data) != original {
-		t.Fatalf("failed wizard changed Codex config:\n%s", data)
+	if data := string(readFile(t, codexTarget)); data != original {
+		t.Fatalf("failed guided setup changed Codex's file:\n%s", data)
 	}
 }
 

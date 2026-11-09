@@ -44,10 +44,14 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	request := setupRequest{}
 	cmd := &cobra.Command{
 		Use:   "setup",
-		Short: "Complete first-time setup, or apply a team file",
-		Example: "aigw setup --from team.toml --dry-run\n" +
-			"aigw setup --from team.toml --provider dmxapi --token-stdin\n" +
-			"aigw setup --from team.toml --prune --json",
+		Short: "Set up a provider, a client and a model, or apply a team file",
+		Long: "Without --from, ask in a terminal for a provider, an installed client and a model from the\n" +
+			"provider's catalog, save them, and check the client; it can run again. With --from, apply a\n" +
+			"team file: its models, families and recommendations win, and an existing provider keeps its\n" +
+			"endpoints and Token.",
+		Example: "aigw setup\n" +
+			"aigw setup --from team.toml --dry-run\n" +
+			"aigw setup --from team.toml --provider dmxapi --token-stdin",
 		Args: cobra.MatchAll(cobra.NoArgs, func(cmd *cobra.Command, _ []string) error {
 			request.From = strings.TrimSpace(request.From)
 			request.Provider = strings.TrimSpace(request.Provider)
@@ -57,8 +61,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			if len(request.Providers) > 0 || request.Prune {
 				return fmt.Errorf("--provider and --prune apply a team file, so they need --from; run `%s --help`", cmd.CommandPath())
 			}
-			// Setup with --json never prompts, so the guided flow needs its
-			// first Route as a flag, before anything is read or created.
+			if !flagDriven(cmd) {
+				return admitGuided(runtime, request)
+			}
+			// Setup with --json never prompts, so the flags need the first
+			// Route, before anything is read or created.
 			if request.JSON && strings.TrimSpace(request.Model) == "" {
 				return fmt.Errorf("--json requires --route or --from; run `%s --help`", cmd.CommandPath())
 			}
@@ -72,18 +79,11 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 			operation.Secrets = secret.ObserveAvailability(runtime.Secrets)
 			// A JSON caller reads one document, so setup never prompts for it.
 			operation.Interactive = operation.Interactive && !request.JSON
-			if cmd.Flags().Changed("from") {
+			switch {
+			case cmd.Flags().Changed("from"):
 				return invocation.CancelledPrompt(cmd, nil, runTeamSetup(cmd, operation, request))
-			}
-			if operation.Interactive && cmd.Flags().NFlag() == 0 {
-				cfg, err := operation.Config.Load()
-				if err != nil {
-					return err
-				}
-				if err := operation.Synchronizer().AdmitSetup(cfg); err != nil {
-					return err
-				}
-				return invocation.CancelledPrompt(cmd, nil, runWizard(cmd.Context(), operation))
+			case !flagDriven(cmd):
+				return invocation.CancelledPrompt(cmd, nil, runGuided(cmd, operation))
 			}
 			return invocation.CancelledPrompt(cmd, nil, runSetup(cmd.Context(), operation, request))
 		},
@@ -108,6 +108,30 @@ func NewCommand(runtime invocation.Context) *cobra.Command {
 	}
 	invocation.CompleteFlag(cmd, "provider", cobra.NoFileCompletions)
 	return cmd
+}
+
+// flagDrivenFlags are the flags of setup from flags, which the command tree's
+// last step removes.
+var flagDrivenFlags = []string{"account", "route", "label", "openai-url", "anthropic-url", "chat-url", "for", "upstream-model", "protocol", "token-stdin"}
+
+// flagDriven reports whether cmd sets up a provider from flags.
+func flagDriven(cmd *cobra.Command) bool {
+	return slices.ContainsFunc(flagDrivenFlags, cmd.Flags().Changed)
+}
+
+// admitGuided refuses guided setup where it cannot ask: it is the one write
+// without a preview, it prompts, which --json never does, and it needs a
+// terminal. A team file needs none of them, so each refusal names it.
+func admitGuided(runtime invocation.Context, request setupRequest) error {
+	switch {
+	case request.DryRun:
+		return errors.New("guided setup is the one write without a preview; preview a team file with `aigw setup --from <file> --dry-run`")
+	case request.JSON:
+		return errors.New("guided setup asks questions, and --json never prompts; apply a team file with `aigw setup --from <file> --json`")
+	case !runtime.Interactive:
+		return errors.New("guided setup asks questions in a terminal; without one, apply a team file with `aigw setup --from <file>`")
+	}
+	return nil
 }
 
 // admitTeamRequest refuses, before the team file or standard input is read, a
@@ -449,77 +473,4 @@ func setupToken(runtime invocation.Context, request setupRequest) (setupCredenti
 	}
 	credential.write = true
 	return credential, nil
-}
-
-// runWizard is deliberately provider-neutral. AIGW never assumes a gateway,
-// token slot, URL, or model catalog for a new user; the user may instead
-// import a secret-free configuration manifest before running this flow. Each
-// prompt names itself when it fails, so that a caller can say which one ended
-// without an answer: all of them come before anything is written.
-func runWizard(ctx context.Context, runtime invocation.Context) error {
-	account, err := runtime.Prompt.Text("Account ID (for example, team-primary): ")
-	if err != nil {
-		return invocation.Prompted("The provider ID prompt", err)
-	}
-	if !domain.ValidIdentifier(account) {
-		return fmt.Errorf("invalid account ID %q; use letters, numbers, dots, hyphens, or underscores", account)
-	}
-	label, err := runtime.Prompt.Text("Provider display name: ")
-	if err != nil {
-		return invocation.Prompted("The provider name prompt", err)
-	}
-	clientSpecs := runtime.Clients.Admission().Specs()
-	clientChoices := make([]terminal.Choice, 0, len(clientSpecs))
-	for _, spec := range clientSpecs {
-		clientChoices = append(clientChoices, terminal.Choice{Value: spec.ID, Label: spec.Label})
-	}
-	client, err := runtime.Prompt.Select("Client for the first Route: ", clientChoices)
-	if err != nil {
-		return invocation.Prompted("The client prompt", err)
-	}
-	spec, ok := runtime.Clients.Admission().Spec(client)
-	if !ok || len(spec.EndpointProtocols) == 0 {
-		return fmt.Errorf("unsupported setup client %q", client)
-	}
-	protocol := spec.EndpointProtocols[0]
-	if len(spec.EndpointProtocols) > 1 {
-		protocolChoices := make([]terminal.Choice, 0, len(spec.EndpointProtocols))
-		for _, candidate := range spec.EndpointProtocols {
-			protocolChoices = append(protocolChoices, terminal.Choice{Value: string(candidate), Label: candidate.Name()})
-		}
-		selected, selectErr := runtime.Prompt.Select("Endpoint protocol: ", protocolChoices)
-		if selectErr != nil {
-			return invocation.Prompted("The protocol prompt", selectErr)
-		}
-		protocol = domain.EndpointProtocol(selected)
-		if !slices.Contains(spec.EndpointProtocols, protocol) {
-			return fmt.Errorf("unsupported %s endpoint protocol %q", spec.Label, selected)
-		}
-	}
-	request := setupRequest{Provider: account, Label: label, Client: client, Protocol: protocol, PromptToken: true}
-	var endpointLabel string
-	var endpointURL *string
-	switch protocol {
-	case domain.ProtocolAnthropic:
-		endpointLabel, endpointURL = "Anthropic Messages URL: ", &request.AnthropicURL
-	case domain.ProtocolOpenAIResponses:
-		endpointLabel, endpointURL = "OpenAI Responses URL: ", &request.OpenAIURL
-	case domain.ProtocolOpenAIChatCompletions:
-		endpointLabel, endpointURL = "OpenAI Chat Completions URL: ", &request.ChatURL
-	default:
-		return fmt.Errorf("unsupported endpoint protocol %q", protocol)
-	}
-	*endpointURL, err = runtime.Prompt.Text(endpointLabel)
-	if err != nil {
-		return invocation.Prompted("The endpoint prompt", err)
-	}
-	request.Model, err = runtime.Prompt.Text("Route ID (for example, team-model): ")
-	if err != nil {
-		return invocation.Prompted("The model name prompt", err)
-	}
-	request.UpstreamModel, err = runtime.Prompt.Text("Upstream model ID: ")
-	if err != nil {
-		return invocation.Prompted("The model ID prompt", err)
-	}
-	return runSetup(ctx, runtime, request)
 }

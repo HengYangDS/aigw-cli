@@ -37,6 +37,55 @@ stdin token.txt
 exec aigw setup --account team --route team-route --label 'Team Gateway' --anthropic-url $UPSTREAM --upstream-model team-model --for claude --token-stdin
 cmp stdout connected.txt
 
+# Guided setup asks in a terminal; without one, or with --json or --dry-run,
+# it names a team file instead.
+mkdir $WORK/guided
+env HOME=$WORK/guided USERPROFILE=$WORK/guided XDG_CONFIG_HOME=$WORK/guided XDG_DATA_HOME=$WORK/guided APPDATA=$WORK/guided LOCALAPPDATA=$WORK/guided
+exitcode 1 aigw setup
+cmp stdout guided-no-terminal.txt
+exitcode 1 aigw setup --json
+cmp stdout guided-json.json
+cp stdout guided-json.out
+exitcode 1 aigw setup --dry-run --json
+cmp stdout guided-dry-run.json
+cp stdout guided-dry-run.out
+# In a terminal it adds a provider, and with no installed client that speaks
+# its protocol it stops, naming the client list, which runs here.
+[!windows] envsubst guided-none.in guided-none-input.txt
+[!windows] ttyin -stdin guided-none-input.txt
+[!windows] exec aigw setup
+[!windows] normalize stdout guided-none.out
+[!windows] cmp guided-none.out guided-none.txt
+[!windows] exec aigw client list
+
+# With Claude Code installed it saves the provider, the client and a model of
+# the catalog, then checks the client. Claude Desktop's presence depends on
+# the host, so Enter takes the first choice of whichever prompts appear.
+mkdir $WORK/guided-client
+env HOME=$WORK/guided-client USERPROFILE=$WORK/guided-client XDG_CONFIG_HOME=$WORK/guided-client XDG_DATA_HOME=$WORK/guided-client APPDATA=$WORK/guided-client LOCALAPPDATA=$WORK/guided-client
+[!windows] envsubst guided.in guided-input.txt
+[!windows] ttyin -stdin guided-input.txt
+[!windows] exec aigw setup
+[!windows] stdout 'Setup saved'
+[!windows] stdout 'Provider +Team Gateway \(team\), added'
+[!windows] stdout 'Token +Accepted by the provider and stored'
+[!windows] stdout 'Claude +team/spare-model on Anthropic Messages'
+[!windows] stdout 'Check'
+# It runs again: it offers the provider beside a new one, and keeps its Token.
+[!windows] ttyin -stdin guided-again.txt
+[!windows] exec aigw setup
+[!windows] stdout '1\. Team Gateway \(team\)\n +2\. Add a new provider'
+[!windows] stdout 'Provider +Team Gateway \(team\), kept as it was'
+[!windows] stdout 'Token +Stored before'
+[!windows] stdout 'Claude +team/spare-model on Anthropic Messages'
+# Each refusal's fix, a team file, runs here; guided setup itself still needs
+# a terminal.
+envsubst team.in team.toml
+exec aigw setup --from team.toml --dry-run --json
+fixloop -input -did 'previewed a team file with aigw setup --from team.toml --dry-run' guided-dry-run.out aigw setup --dry-run --json
+exec aigw setup --from team.toml --json
+fixloop -input -did 'applied a team file with aigw setup --from team.toml --json' guided-json.out aigw setup --json
+
 # Team setup: a preview reads no Token and writes nothing.
 mkdir $WORK/second
 env HOME=$WORK/second USERPROFILE=$WORK/second XDG_CONFIG_HOME=$WORK/second XDG_DATA_HOME=$WORK/second APPDATA=$WORK/second LOCALAPPDATA=$WORK/second
@@ -171,9 +220,6 @@ env HOME=$WORK/third USERPROFILE=$WORK/third XDG_CONFIG_HOME=$WORK/third XDG_DAT
 stdin token.txt
 exec aigw setup --route json-route --account json-team --label 'JSON Gateway' --anthropic-url $UPSTREAM --upstream-model json-model --for claude --token-stdin --json
 cmp stdout flags.json
-exitcode 1 aigw setup --json
-cmp stdout flags-refusal.json
-fixloop -input stdout aigw setup --json
 
 -- preview.json --
 {
@@ -290,15 +336,18 @@ sk-team-token-0001
 -- help.txt --
 AIGW  aigw setup
 ────────────────────────────────────────
-  Complete first-time setup, or apply a team file
+  Without --from, ask in a terminal for a provider, an installed client and a model from the
+  provider's catalog, save them, and check the client; it can run again. With --from, apply a
+  team file: its models, families and recommendations win, and an existing provider keeps its
+  endpoints and Token.
 
 Usage
   aigw setup [flags]
 
 Examples
+  aigw setup
   aigw setup --from team.toml --dry-run
   aigw setup --from team.toml --provider dmxapi --token-stdin
-  aigw setup --from team.toml --prune --json
 
 Options
       --account string          Account ID; guided setup uses the first Route ID when omitted
@@ -367,13 +416,6 @@ Next
   ],
   "online_verification": "not_checked",
   "next_action": "aigw check"
-}
--- flags-refusal.json --
-{
-  "schema_version": 3,
-  "ok": false,
-  "error": "--json requires --route or --from; run `aigw setup --help`",
-  "next_action": "aigw setup --help"
 }
 -- team.in --
 version = 7
@@ -1100,3 +1142,61 @@ Next
   "impact": "Nothing changed.",
   "next_detail": "Name a team file that exists, then run the same command again."
 }
+-- guided-none.in --
+team
+Team Gateway
+2
+$UPSTREAM/v1
+sk-team-token-0001
+-- guided.in --
+team
+Team Gateway
+1
+$UPSTREAM
+sk-team-token-0001
+
+
+-- guided-again.txt --
+1
+
+
+-- guided-no-terminal.txt --
+AIGW  Action required
+────────────────────────────────────────
+
+Problem
+  guided setup asks questions in a terminal; without one, apply a team file with `aigw setup --from <file>`
+
+Fix
+  aigw setup --from <file>
+-- guided-json.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "guided setup asks questions, and --json never prompts; apply a team file with `aigw setup --from \u003cfile\u003e --json`",
+  "next_detail": "aigw setup --from \u003cfile\u003e --json"
+}
+-- guided-dry-run.json --
+{
+  "schema_version": 3,
+  "ok": false,
+  "error": "guided setup is the one write without a preview; preview a team file with `aigw setup --from \u003cfile\u003e --dry-run`",
+  "next_detail": "aigw setup --from \u003cfile\u003e --dry-run"
+}
+-- guided-none.txt --
+Provider ID (for example, dmxapi): Provider name: Endpoint protocol: 
+  1. Anthropic Messages
+  2. OpenAI Responses
+  3. OpenAI Chat Completions
+Select [1]: OpenAI Responses URL: Paste the Team Gateway Token: 
+AIGW  Setup stopped before a model
+────────────────────────────────────────
+  Provider             Team Gateway (team), added
+  ✓ Token              Accepted by the provider and stored
+
+Clients
+  · Installed clients  None that speaks a protocol for which provider team has an endpoint
+  ✓ Install a client, then run `aigw setup` again to choose it and a model
+
+Next
+  aigw client list

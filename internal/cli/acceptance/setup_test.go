@@ -86,8 +86,10 @@ func TestSetupRejectsInvalidFlagCombinationsAndValues(t *testing.T) {
 		want string
 	}{
 		{name: "empty from", args: []string{"setup", "--from="}, want: "--from requires"},
-		{name: "json without a route or manifest", args: []string{"setup", "--json"}, want: "--json requires --route or --from"},
-		{name: "missing route", args: []string{"setup"}, want: "--route is required"},
+		{name: "guided setup with --json", args: []string{"setup", "--json"}, want: "apply a team file with `aigw setup --from <file> --json`"},
+		{name: "guided setup with --dry-run", args: []string{"setup", "--dry-run"}, want: "guided setup is the one write without a preview"},
+		{name: "guided setup without a terminal", args: []string{"setup"}, want: "without one, apply a team file with `aigw setup --from <file>`"},
+		{name: "json without a route", args: []string{"setup", "--json", "--for", "claude"}, want: "--json requires --route or --from"},
 		{name: "invalid account", args: []string{"setup", "--route", "one", "--account", "bad id"}, want: "Invalid account ID"},
 		{name: "invalid route", args: []string{"setup", "--route", "bad id", "--account", "one"}, want: "Invalid route ID"},
 		{name: "model without client", args: []string{"setup", "--route", "one", "--upstream-model", "m"}, want: "--for is required"},
@@ -133,16 +135,6 @@ func TestSetupSurfacesStateAndDependencyFailures(t *testing.T) {
 		app.Config = store.NewStore(t.TempDir(), clients.Admission())
 		if err := cli.Execute(app, []string{"setup"}); err == nil {
 			t.Fatal("expected config load failure")
-		}
-	})
-
-	t.Run("interactive already configured", func(t *testing.T) {
-		app, _, _, _, _ := testApp(t, "")
-		app.Interactive = true
-		saveCommandModel(t, app, domain.Endpoints{Anthropic: "https://one.test"}, claude.ID, "m")
-		err := cli.Execute(app, []string{"setup"})
-		if err == nil || !strings.Contains(err.Error(), "already configured") {
-			t.Fatalf("error = %v", err)
 		}
 	})
 

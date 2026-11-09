@@ -43,7 +43,7 @@ Usage
   aigw [command]
 
 Connect
-  setup                Complete first-time setup, or apply a team file
+  setup                Set up a provider, a client and a model, or apply a team file
 
 Use every day
   check                Check that each client works, as deep as --depth asks

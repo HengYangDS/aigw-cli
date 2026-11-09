@@ -18,7 +18,6 @@ import (
 	"aigw-cli/internal/adapter/hermes"
 	"aigw-cli/internal/cli"
 	"aigw-cli/internal/clients"
-	"aigw-cli/internal/domain"
 	"aigw-cli/internal/secret"
 )
 
@@ -255,25 +254,30 @@ func TestShippedTeamManifestWithWritableStoreRequiresOneProviderChoice(t *testin
 	}
 }
 
-func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T) {
-	app, out, credentials, runner, httpClient := testApp(t, "")
-	app.Interactive = true
-	app.Discovery = fakeDiscovery{}
-	app.Prompt = &scriptedPrompt{
-		selections: []string{hermes.ID, string(domain.ProtocolAnthropic)},
-		secrets:    []string{"fixture-token"},
-		texts:      []string{"team", "Team", "https://messages.test", "hermes-route", "hermes-model"},
+// selectUninstalledHermes adds provider team with its Token and selects one
+// of its models for Hermes, which is not installed.
+func selectUninstalledHermes(t *testing.T, app *cli.App, out *bytes.Buffer, credentials secret.Store, wantAction string) {
+	t.Helper()
+	if err := cli.Execute(app, []string{"provider", "add", "team", "--endpoint", "anthropic=https://messages.test", "--token-stdin"}); err != nil {
+		t.Fatalf("provider add: %v\n%s", err, out)
 	}
-	if err := cli.Execute(app, []string{"setup"}); err != nil {
-		t.Fatal(err)
+	out.Reset()
+	if err := cli.Execute(app, []string{"use", "hermes", "team/hermes-model", "--protocol", "anthropic", "--unlisted"}); err != nil {
+		t.Fatalf("use: %v\n%s", err, out)
 	}
 	if !secretExists(t, credentials, "team") {
-		t.Fatal("guided setup did not connect the selected Account")
+		t.Fatal("provider add did not store the Token")
 	}
-	wantAction := "Install Hermes if needed, then run `aigw sync`"
 	if !strings.Contains(out.String(), wantAction) {
-		t.Fatalf("guided setup action = %q", out)
+		t.Fatalf("selection action = %q", out)
 	}
+}
+
+func TestSelectedClientWithoutExecutableHasOneDeferredContinuation(t *testing.T) {
+	app, out, credentials, runner, httpClient := testApp(t, "fixture-token\n")
+	app.Discovery = fakeDiscovery{}
+	wantAction := "Install Hermes if needed, then run `aigw sync`"
+	selectUninstalledHermes(t, app, out, credentials, wantAction)
 	before, err := app.Config.CaptureSnapshot()
 	if err != nil {
 		t.Fatal(err)
