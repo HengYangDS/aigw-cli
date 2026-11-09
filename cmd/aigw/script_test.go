@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"maps"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -65,6 +66,7 @@ func TestScripts(t *testing.T) {
 			"apikeyhelper": apiKeyHelper,
 			"envsubst":     envsubst,
 			"exitcode":     exitCode,
+			"fixloop":      fixLoop,
 			"jsonset":      jsonSet,
 			"normalize":    normalize,
 			"snapshot":     snapshot,
@@ -161,18 +163,24 @@ func normalize(ts *testscript.TestScript, neg bool, args []string) {
 	if neg || len(args) < 2 {
 		ts.Fatalf("usage: normalize stdout|stderr <target> [pattern...]")
 	}
-	text := coverageDiagnostics.ReplaceAllString(ts.ReadFile(args[0]), "")
-	for _, name := range []string{"HOME", "WORK", "BIN", "UPSTREAM"} {
-		for _, value := range spellings(ts.Getenv(name)) {
-			text = strings.ReplaceAll(text, value, "$"+name)
-		}
-	}
+	text := normalized(ts, coverageDiagnostics.ReplaceAllString(ts.ReadFile(args[0]), ""))
 	for _, pattern := range args[2:] {
 		text = regexp.MustCompile(pattern).ReplaceAllString(text, "<varies>")
 	}
 	if err := os.WriteFile(ts.MkAbs(args[1]), []byte(text), 0o600); err != nil {
 		ts.Fatalf("%v", err)
 	}
+}
+
+// normalized spells the values that differ between runs $HOME, $WORK, $BIN
+// and $UPSTREAM.
+func normalized(ts *testscript.TestScript, text string) string {
+	for _, name := range []string{"HOME", "WORK", "BIN", "UPSTREAM"} {
+		for _, value := range spellings(ts.Getenv(name)) {
+			text = strings.ReplaceAll(text, value, "$"+name)
+		}
+	}
+	return text
 }
 
 // coverageDiagnostics matches the lines that the Go runtime prints when a
@@ -231,6 +239,208 @@ func exitCode(ts *testscript.TestScript, neg bool, args []string) {
 	if got != want {
 		ts.Fatalf("%s exited with status %d, want %d", args[1], got, want)
 	}
+}
+
+// fixLoop follows the fix of a failure that a command printed as JSON and
+// runs that command again, so that a fix which does not let the command run
+// fails the script, as does a fix that names the failing command itself:
+//
+//	fixloop [-input] [-did <steps>] <document> <command> [argument...]
+//
+// <document> is the failure, with "ok": false, that <command> printed: stdout
+// or a file. Its fixes are its next_action and the next_action of each row
+// that reports a problem, an error or a failure or, like an unused Token, has
+// no state; a passed row's does not count. Each fix must differ from
+// <command>, ignoring --json, and runs exactly as written through the
+// script's aigw, never a shell, a stdin line before fixloop feeding the first;
+// each must succeed. Then <command> runs again, and none of the failure's
+// problems may recur, compared after normalize.
+//
+// A fix that is prose or names a value to choose is a next_detail: the script
+// performs it before fixloop and states what it did with -did. -input marks a
+// refusal of the input itself, such as a usage error or an unknown name, whose
+// fix is the help, a lookup or the corrected command: the fix must succeed,
+// and <command> must still be refused.
+func fixLoop(ts *testscript.TestScript, neg bool, args []string) {
+	const usage = "usage: fixloop [-input] [-did <steps>] <document> <command> [argument...]"
+	input, did, rest := false, "", args
+	for len(rest) > 0 && strings.HasPrefix(rest[0], "-") {
+		switch {
+		case rest[0] == "-input":
+			input, rest = true, rest[1:]
+		case rest[0] == "-did" && len(rest) > 1 && strings.TrimSpace(rest[1]) != "":
+			did, rest = rest[1], rest[2:]
+			ts.Logf("the script performed: %s", did)
+		default:
+			ts.Fatalf(usage)
+		}
+	}
+	if neg || len(rest) < 2 {
+		ts.Fatalf(usage)
+	}
+	command := rest[1:]
+	plan, err := planFix(ts.ReadFile(rest[0]))
+	if err == nil {
+		err = plan.admits(command, did != "")
+	}
+	ts.Check(err)
+	for _, fix := range plan.actions {
+		words := commandWords(fix)
+		if err := ts.Exec(words[0], words[1:]...); err != nil {
+			ts.Fatalf("the fix %q failed: %v", fix, err)
+		}
+	}
+	failed := ts.Exec(command[0], command[1:]...) != nil
+	again := recurring(plan.problems, ts.ReadFile("stdout"), ts.ReadFile("stderr"), func(text string) string {
+		return normalized(ts, text)
+	})
+	ts.Check(verdict(command, input, failed, again))
+}
+
+// fixPlan is what a failure document asks for: the fixes that run as written,
+// those that a script performs itself, and the problems that must not recur.
+type fixPlan struct {
+	actions, details, problems []string
+}
+
+// planFix reads a failure document.
+func planFix(text string) (fixPlan, error) {
+	var document map[string]any
+	if err := json.Unmarshal([]byte(text), &document); err != nil {
+		return fixPlan{}, fmt.Errorf("the document is not a JSON object: %w", err)
+	}
+	if ok, stated := document["ok"].(bool); !stated || ok {
+		return fixPlan{}, errors.New(`the document reports no failure; fixloop needs "ok": false`)
+	}
+	plan := collectFixes(document)
+	if len(plan.actions)+len(plan.details) == 0 {
+		return fixPlan{}, errors.New("the failure names no fix: no next_action or next_detail")
+	}
+	return plan, nil
+}
+
+// collectFixes gathers a document's own fix and problem and those of each row
+// whose fix counts.
+func collectFixes(document map[string]any) fixPlan {
+	var plan fixPlan
+	add := func(object map[string]any) {
+		for key, list := range map[string]*[]string{"next_action": &plan.actions, "next_detail": &plan.details} {
+			if text, _ := object[key].(string); text != "" && !slices.Contains(*list, text) {
+				*list = append(*list, text)
+			}
+		}
+		if problem := problemOf(object); problem != "" && !slices.Contains(plan.problems, problem) {
+			plan.problems = append(plan.problems, problem)
+		}
+	}
+	add(document)
+	var visit func(value any, row bool)
+	visit = func(value any, row bool) {
+		switch value := value.(type) {
+		case map[string]any:
+			if row && rowFixCounts(value) {
+				add(value)
+			}
+			for _, key := range slices.Sorted(maps.Keys(value)) {
+				visit(value[key], true)
+			}
+		case []any:
+			for _, item := range value {
+				visit(item, true)
+			}
+		}
+	}
+	visit(document, false)
+	return plan
+}
+
+// rowFixCounts reports whether a row's fix is one that fixloop follows: the
+// row reports a problem, an error or a failure, or it has no state, as an
+// unused Token, which is itself the finding. A passed row's fix does not
+// count.
+func rowFixCounts(row map[string]any) bool {
+	if _, stated := row["state"]; !stated {
+		return true
+	}
+	return row["state"] == "failed" || row["ok"] == false || row["failure"] != nil || problemOf(row) != ""
+}
+
+// problemOf returns the problem that an object reports, if any.
+func problemOf(object map[string]any) string {
+	for _, key := range []string{"error", "problem"} {
+		if text, _ := object[key].(string); text != "" {
+			return text
+		}
+	}
+	failure, _ := object["failure"].(map[string]any)
+	text, _ := failure["problem"].(string)
+	return text
+}
+
+// admits refuses a plan that fixloop cannot follow for command: a fix that
+// is not an aigw command or is the command itself, and a step for the script
+// that the script did not state with -did, or -did with no such step.
+func (plan fixPlan) admits(command []string, did bool) error {
+	if command[0] != "aigw" {
+		return fmt.Errorf("fixloop runs only aigw, not %s", command[0])
+	}
+	for _, fix := range plan.actions {
+		words := commandWords(fix)
+		if len(words) == 0 || words[0] != "aigw" {
+			return fmt.Errorf("the fix %q is not an aigw command", fix)
+		}
+		if slices.Equal(withoutJSON(words), withoutJSON(command)) {
+			return fmt.Errorf("the fix %q is the failing command itself", fix)
+		}
+	}
+	switch {
+	case len(plan.details) > 0 && !did:
+		return fmt.Errorf("the fix %q is a step that the script performs: perform it before fixloop and state it with -did", plan.details[0])
+	case len(plan.details) == 0 && did:
+		return errors.New("-did states a step that the script performed, but every fix runs as written")
+	}
+	return nil
+}
+
+// withoutJSON drops --json from a command's words, which chooses only how a
+// command reports.
+func withoutJSON(words []string) []string {
+	return slices.DeleteFunc(slices.Clone(words), func(word string) bool { return word == "--json" || word == "--json=true" })
+}
+
+// recurring returns the problems that a command's next run reports again: in
+// its JSON document when it printed one, otherwise anywhere in its output.
+func recurring(problems []string, stdout, stderr string, norm func(string) string) []string {
+	var reported []string
+	var document map[string]any
+	if json.Unmarshal([]byte(stdout), &document) == nil {
+		if document["ok"] == false {
+			reported = collectFixes(document).problems
+		}
+	} else {
+		reported = []string{stdout + stderr}
+	}
+	var again []string
+	for _, problem := range problems {
+		if slices.ContainsFunc(reported, func(text string) bool { return strings.Contains(norm(text), norm(problem)) }) {
+			again = append(again, problem)
+		}
+	}
+	return again
+}
+
+// verdict decides a fixloop from the command's next run: whether it failed
+// and which of the failure's problems it reported again. A refused input
+// stays refused, though its wording may follow what the fix changed.
+func verdict(command []string, input, failed bool, again []string) error {
+	line := strings.Join(command, " ")
+	switch {
+	case input && !failed:
+		return fmt.Errorf("after its fix, %s runs, so its input was not at fault: drop -input", line)
+	case !input && failed && len(again) > 0:
+		return fmt.Errorf("after its fix, %s fails again: %s", line, strings.Join(again, "; "))
+	}
+	return nil
 }
 
 // apiKeyHelper runs the credential helper that AIGW projected into a Claude
