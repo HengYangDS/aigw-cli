@@ -229,3 +229,20 @@ func TestAdmitSetupRefusesAnyProvider(t *testing.T) {
 		t.Fatalf("a provider without models = %v", err)
 	}
 }
+
+// Setup reconciles the clients that it activates and every other client whose
+// files change; a preview of an unchanged home without clients plans none.
+func TestSetupReconcilesTheActivatedAndTheChangedClients(t *testing.T) {
+	syncer := Synchronizer{Registry: builtinClients}
+	cfg := setupConfiguration()
+	if got := syncer.setupClients(cfg, cfg, nil); len(got) != 0 {
+		t.Fatalf("an unchanged home reconciles %q", got)
+	}
+	if got := syncer.setupClients(cfg, cfg, []string{claude.ID}); len(got) != 1 || got[0] != claude.ID {
+		t.Fatalf("an activated client reconciles %q", got)
+	}
+	after, projection, err := syncer.PreviewSetup(cfg, cfg.Clone(), nil)
+	if err != nil || len(projection.Targets) != 0 || after.Clients[claude.ID].Model != "claude" {
+		t.Fatalf("an unchanged preview = %+v, %+v, %v", after.Clients, projection, err)
+	}
+}

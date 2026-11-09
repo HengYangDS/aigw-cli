@@ -208,11 +208,7 @@ func ManifestReadFailure(path string, at platform.PathContext, err error) error 
 	if failure.Absent() || failure.Blocked() {
 		fix = "Name a team file that exists, then run the same command again."
 	}
-	name := at.Name(failure, path)
-	if name == "" {
-		name = "it"
-	}
-	return ProblemError("Cannot read the team file "+name+": "+reason, "", "Nothing changed.", fix, err)
+	return ProblemError("Cannot read the team file "+at.Name(failure, path)+": "+reason, "", "Nothing changed.", fix, err)
 }
 
 // fileErrorReason names an operating-system file error from a closed set, so
