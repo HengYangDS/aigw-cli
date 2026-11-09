@@ -110,3 +110,17 @@ func TestAMissingTargetsRepairNamesARecordThatRemains(t *testing.T) {
 		t.Fatalf("the default home with its record = %q", got)
 	}
 }
+
+// A missing target whose folder is a regular file names that file to move,
+// never a folder to create, which Windows reaches because it reports such a
+// path as missing.
+func TestAMissingTargetUnderAFileNamesTheFileToMove(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got := missingTargetError{path: filepath.Join(file, "config.toml")}.NextAction()
+	if want := "Move the file " + file + ", or choose another path, then run the same command again."; got != want {
+		t.Fatalf("the fix = %q, want %q", got, want)
+	}
+}

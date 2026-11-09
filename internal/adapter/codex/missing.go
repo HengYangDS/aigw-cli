@@ -1,8 +1,11 @@
 package codex
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+
+	"aigw-cli/internal/platform"
 )
 
 // missingTargetError refuses a Codex configuration file that the
@@ -16,8 +19,16 @@ func (missingTargetError) Error() string {
 }
 
 // NextAction creates the missing folder, or moves Codex to a file that exists.
+// On Windows a path through a regular file reads as a missing file, so a file
+// that stands where the folder should be is named to move, never to create.
 func (e missingTargetError) NextAction() string {
-	if folder := filepath.Dir(e.path); e.path != "" && !folderExists(folder) {
+	if e.path == "" {
+		return "aigw client edit codex --target <file>"
+	}
+	if failure, atFile := errors.AsType[*os.PathError](platform.RefuseFileAsFolder(e.path)); atFile {
+		return "Move the file " + failure.Path + ", or choose another path, then run the same command again."
+	}
+	if folder := filepath.Dir(e.path); !folderExists(folder) {
 		return "Create " + folder + ", or choose another path, then run the same command again."
 	}
 	return "aigw client edit codex --target <file>"
