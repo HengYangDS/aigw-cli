@@ -201,6 +201,8 @@ fixloop -did 'named a team file that exists' stdout aigw setup --from missing.to
 exitcode 1 aigw setup --from team.toml/team.toml --json
 normalize stdout in-the-way.out
 cmp in-the-way.out in-the-way.json
+# Its fix names another team file, so the same command still fails.
+fixloop -input -did 'named a team file that exists' stdout aigw setup --from team.toml/team.toml --json
 symlink dangling.toml -> nowhere.toml
 exitcode 1 aigw setup --from dangling.toml --json
 normalize stdout dangling.out
